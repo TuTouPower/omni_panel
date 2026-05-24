@@ -56,7 +56,7 @@ function createMockDeps() {
         refreshAll: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     };
 
-    return { configStore, runtimeStore, refreshService };
+    return { configStore, runtimeStore, refreshService, definitions: [] };
 }
 
 describe("plugin-ipc", () => {

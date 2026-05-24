@@ -22,7 +22,7 @@ describe("buildPluginCommand", () => {
 
     it("sets PYTHONPATH env to plugin directory", () => {
         const result = buildPluginCommand("/plugins/test.py", {}, "zh-Hans");
-        expect(result.env?.PYTHONPATH).toBe("/plugins");
+        expect(result.env?.["PYTHONPATH"]).toBe("/plugins");
     });
 
     it("skips empty parameter values", () => {

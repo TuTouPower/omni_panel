@@ -7,6 +7,7 @@ import type { AppConfigStore } from "../core/config/config-store";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
 import type { PluginSnapshotState } from "../core/scheduler/types";
 import type { PluginRefreshService } from "../core/scheduler/refresh-service";
+import type { PluginDefinition } from "../core/plugin/types";
 
 const stateIdSchema = z.string().min(1);
 
@@ -40,6 +41,7 @@ export interface PluginIpcDeps {
     configStore: AppConfigStore;
     runtimeStore: RuntimeStore;
     refreshService: PluginRefreshService;
+    definitions: readonly PluginDefinition[];
 }
 
 export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<PluginInfo[]>> {
@@ -47,11 +49,13 @@ export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<P
         const config = await deps.configStore.load();
         const plugins: PluginInfo[] = config.plugins.map((plugin) => {
             const snapshot = toDTO(deps.runtimeStore.getSnapshot(plugin.stateId));
+            const scriptName = plugin.executablePath.split("/").pop() ?? plugin.executablePath;
+            const def = deps.definitions.find((d) => d.scriptName === scriptName);
             return {
                 stateId: plugin.stateId,
                 name: plugin.name,
                 enabled: plugin.enabled,
-                metadata: null,
+                metadata: def?.metadata ?? null,
                 snapshot,
             };
         });

@@ -1,6 +1,12 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, screen } from "electron";
 import { join, resolve } from "node:path";
-import { getConfigPath, getDataRoot, getStatesDir } from "./core/paths";
+import {
+    getConfigPath,
+    getDataRoot,
+    getStatesDir,
+    getBundledPluginsDir,
+    getUserPluginsDir,
+} from "./core/paths";
 import { createConfigStore } from "./core/config/config-store";
 import { createCacheStore } from "./core/cache/cache-store";
 import { createRuntimeStore } from "./core/scheduler/runtime-store";
@@ -13,6 +19,9 @@ import { buildPluginCommand } from "./core/plugin/command-builder";
 import { registerPluginIpc } from "./ipc/plugin-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
+import { discoverPlugins } from "./core/plugin/discovery";
+import { findPython } from "./core/plugin/python-detect";
+import type { PluginDefinition } from "./core/plugin/types";
 
 const SECURE_WEB_PREFS = {
     contextIsolation: true,
@@ -78,26 +87,62 @@ void app.whenReady().then(async () => {
     const runtimeStore = createRuntimeStore();
     const secretsStore = createSecretsStore(join(dataRoot, "secrets.json"), crypto);
 
+    // Discover bundled + user plugins
+    const bundledDir = getBundledPluginsDir();
+    const userDir = getUserPluginsDir();
+    const bundledDefs = await discoverPlugins(bundledDir, "bundled");
+    const userDefs = await discoverPlugins(userDir, "user");
+    const allDefinitions: readonly PluginDefinition[] = [...bundledDefs, ...userDefs];
+
+    // Detect Python
+    let pythonCommand = "python3";
+    try {
+        pythonCommand = await findPython();
+    } catch {
+        // Will be reported via UI
+    }
+
+    // Build command builder with detected Python
+    const buildCommand = (
+        executablePath: string,
+        parameterValues: Record<string, string>,
+        language: "zh-Hans" | "en",
+    ) => buildPluginCommand(executablePath, parameterValues, language, pythonCommand);
+
     // Build secretParamKeys from plugin metadata
     const config = await configStore.load();
     const secretParamKeys = new Map<string, ReadonlySet<string>>();
     for (const plugin of config.plugins) {
-        // Metadata parsing will be integrated later; for now empty set
-        secretParamKeys.set(plugin.stateId, new Set());
+        const scriptName = plugin.executablePath.split("/").pop() ?? plugin.executablePath;
+        const def = allDefinitions.find((d) => d.scriptName === scriptName);
+        const secretKeys = new Set<string>();
+        if (def?.metadata?.parameters) {
+            for (const param of def.metadata.parameters) {
+                if (param.type === "secret") {
+                    secretKeys.add(param.name);
+                }
+            }
+        }
+        secretParamKeys.set(plugin.stateId, secretKeys);
     }
 
     // Wire real refresh service
     const refreshService = createRefreshService({
         runner: executePlugin,
         outputParser: parsePluginOutput,
-        commandBuilder: buildPluginCommand,
+        commandBuilder: buildCommand,
         cacheStore,
         runtimeStore,
         configStore,
     });
 
     // Register IPC handlers
-    await registerPluginIpc({ configStore, runtimeStore, refreshService });
+    await registerPluginIpc({
+        configStore,
+        runtimeStore,
+        refreshService,
+        definitions: allDefinitions,
+    });
     await registerConfigIpc({ configStore, secretsStore, secretParamKeys });
     cleanupEventIpc = registerEventIpc({ runtimeStore });
 
