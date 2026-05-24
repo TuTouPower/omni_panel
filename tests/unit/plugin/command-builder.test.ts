@@ -32,4 +32,16 @@ describe("buildPluginCommand", () => {
         const result = buildPluginCommand("/p.py", {}, "zh-Hans");
         expect(result.args).toContain("--usageboard-param=USAGEBOARD_LANGUAGE=zh-Hans");
     });
+
+    it("rejects parameter values with shell metacharacters", () => {
+        expect(() => buildPluginCommand("/p.py", { KEY: "val&rm -rf /" }, "zh-Hans")).toThrow(
+            "unsafe characters",
+        );
+    });
+
+    it("rejects parameter keys with shell metacharacters", () => {
+        expect(() => buildPluginCommand("/p.py", { "K;E;Y": "val" }, "zh-Hans")).toThrow(
+            "unsafe characters",
+        );
+    });
 });
