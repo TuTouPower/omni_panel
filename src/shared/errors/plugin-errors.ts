@@ -32,7 +32,7 @@ export class PluginExecutionError extends Error {
 
 export class PluginTimeoutError extends Error {
     constructor(public readonly timeoutMs: number) {
-        super(`Plugin execution timed out after ${timeoutMs}ms`);
+        super(`Plugin execution timed out after ${String(timeoutMs)}ms`);
         this.name = "PluginTimeoutError";
     }
 }

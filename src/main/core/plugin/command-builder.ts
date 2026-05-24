@@ -8,5 +8,8 @@ export function buildPluginCommand(
     _parameterValues: Record<string, string>,
     _language: string,
 ): PluginCommand {
+    void _executablePath;
+    void _parameterValues;
+    void _language;
     throw new Error("Not implemented");
 }

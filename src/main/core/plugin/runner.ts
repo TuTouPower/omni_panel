@@ -7,9 +7,11 @@ export interface PluginExecutionResult {
     readonly durationMs: number;
 }
 
-export async function executePlugin(
+export function executePlugin(
     _command: PluginCommand,
     _options?: { readonly timeoutMs?: number },
 ): Promise<PluginExecutionResult> {
-    throw new Error("Not implemented");
+    void _command;
+    void _options;
+    return Promise.reject(new Error("Not implemented"));
 }
