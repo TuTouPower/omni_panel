@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { pluginMetadataSchema } from "../../../src/shared/schemas/plugin-metadata";
 import {
     pluginErrorOutputSchema,
     pluginOutputSchema,
 } from "../../../src/shared/schemas/plugin-output";
 
 const fixturesDir = resolve(__dirname, "../../../fixtures/plugin-output");
+const metadataFixturesDir = resolve(__dirname, "../../../fixtures/plugin-metadata");
 
 describe("pluginOutputSchema", () => {
     it("accepts success-basic.json", () => {
@@ -59,5 +61,28 @@ describe("pluginOutputSchema", () => {
         const data: unknown = JSON.parse(raw);
         const result = pluginOutputSchema.safeParse(data);
         expect(result.success).toBe(false);
+    });
+});
+
+describe("pluginMetadataSchema", () => {
+    it("accepts basic metadata", () => {
+        const raw = readFileSync(resolve(metadataFixturesDir, "metadata-basic.py"), "utf8");
+        const lines = raw.split("\n").slice(0, 80);
+        const collected: string[] = [];
+        let collecting = false;
+        for (const line of lines) {
+            const stripped = line.replace(/^\s*#\s?/, "");
+            if (stripped.startsWith("UsageBoardPlugin:")) {
+                collecting = true;
+                const rest = stripped.replace("UsageBoardPlugin:", "").trim();
+                if (rest) collected.push(rest);
+                continue;
+            }
+            if (stripped.startsWith("/UsageBoardPlugin")) break;
+            if (collecting) collected.push(stripped);
+        }
+        const data: unknown = JSON.parse(collected.join("\n"));
+        const result = pluginMetadataSchema.safeParse(data);
+        expect(result.success).toBe(true);
     });
 });
