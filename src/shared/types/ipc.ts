@@ -1,6 +1,7 @@
 import type { UsageItem, PluginChart } from "../schemas/plugin-output";
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
+export type { AppConfiguration } from "./config";
 
 export const IPC_CHANNELS = {
     PLUGIN_LIST: "plugin:list",
