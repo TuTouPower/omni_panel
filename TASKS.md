@@ -179,7 +179,7 @@
 - [x] 参数表单由 PluginMetadata 自动生成（secret→password / choice→select / boolean→checkbox）
 - [x] 错误展示
 - [x] 空状态
-- [ ] Playwright smoke test
+- [x] Renderer smoke test (12 tests via jsdom + @testing-library/react)
 
 ---
 
