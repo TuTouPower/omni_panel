@@ -1,22 +1,10 @@
 import { describe, it, expect } from "vitest";
-import {
-    parsePluginOutput,
-    parsePluginOutputOrError,
-} from "../../src/main/core/plugin/output-parser";
 import { parsePluginMetadata } from "../../src/main/core/plugin/metadata-parser";
 import { buildPluginCommand } from "../../src/main/core/plugin/command-builder";
 import { executePlugin } from "../../src/main/core/plugin/runner";
 import { getDataRoot } from "../../src/main/core/paths";
 
 describe("smoke: modules are importable", () => {
-    it("parsePluginOutput throws Not implemented", () => {
-        expect(() => parsePluginOutput("{}")).toThrow("Not implemented");
-    });
-
-    it("parsePluginOutputOrError throws Not implemented", () => {
-        expect(() => parsePluginOutputOrError("{}")).toThrow("Not implemented");
-    });
-
     it("parsePluginMetadata throws Not implemented", () => {
         expect(() => parsePluginMetadata("")).toThrow("Not implemented");
     });
