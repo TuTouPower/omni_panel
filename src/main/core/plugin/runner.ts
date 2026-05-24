@@ -18,7 +18,9 @@ export async function executePlugin(
     const startTime = Date.now();
 
     return new Promise<PluginExecutionResult>((resolve, reject) => {
-        const child = spawn(command.command, [...command.args]);
+        const child = spawn(command.command, [...command.args], {
+            ...(command.env && { env: { ...process.env, ...command.env } }),
+        });
 
         const stdoutChunks: Buffer[] = [];
         const stderrChunks: Buffer[] = [];
