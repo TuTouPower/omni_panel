@@ -1,0 +1,126 @@
+/* eslint-disable @typescript-eslint/require-await */
+import { describe, it, expect } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { App } from "../../src/renderer/App";
+import { getMockApi } from "./setup";
+
+describe("Renderer smoke tests", () => {
+    describe("PopupView", () => {
+        it("renders OmniUsage header", async () => {
+            render(<App />);
+            await waitFor(() => {
+                expect(screen.getByText("OmniUsage")).toBeInTheDocument();
+            });
+        });
+
+        it("shows plugin cards with usage data", async () => {
+            render(<App />);
+            await waitFor(() => {
+                expect(screen.getByText("DeepSeek")).toBeInTheDocument();
+            });
+            expect(screen.getByText(/5000.*10000/)).toBeInTheDocument();
+        });
+
+        it("shows failed plugin error", async () => {
+            render(<App />);
+            await waitFor(() => {
+                expect(screen.getByText("Claude")).toBeInTheDocument();
+            });
+            expect(screen.getByText("API 超时")).toBeInTheDocument();
+        });
+
+        it("shows refresh button", async () => {
+            render(<App />);
+            await waitFor(() => {
+                expect(screen.getByLabelText("刷新")).toBeInTheDocument();
+            });
+        });
+
+        it("clicking refresh calls refreshAll", async () => {
+            const user = userEvent.setup();
+            render(<App />);
+            const btn = await screen.findByLabelText("刷新");
+            await user.click(btn);
+            const api = getMockApi();
+            expect(api.plugin.refreshAll).toHaveBeenCalled();
+        });
+    });
+
+    describe("DashboardView", () => {
+        it("renders dashboard header", async () => {
+            window.location.hash = "#dashboard";
+            render(<App />);
+            await waitFor(() => {
+                expect(screen.getByText("OmniUsage Dashboard")).toBeInTheDocument();
+            });
+        });
+
+        it("shows plugin usage data in cards", async () => {
+            window.location.hash = "#dashboard";
+            render(<App />);
+            await waitFor(() => {
+                expect(screen.getByText("DeepSeek")).toBeInTheDocument();
+            });
+            expect(screen.getByText("Tokens")).toBeInTheDocument();
+        });
+    });
+
+    describe("SettingsView", () => {
+        it("renders settings sidebar with plugin names", async () => {
+            window.location.hash = "#settings";
+            render(<App />);
+            await waitFor(() => {
+                expect(screen.getByText("设置")).toBeInTheDocument();
+            });
+            expect(screen.getAllByText("DeepSeek").length).toBeGreaterThan(0);
+            expect(screen.getAllByText("Claude").length).toBeGreaterThan(0);
+        });
+
+        it("renders settings form with parameter fields", async () => {
+            window.location.hash = "#settings";
+            render(<App />);
+            await waitFor(() => {
+                expect(screen.getByLabelText("API Key")).toBeInTheDocument();
+            });
+            expect(screen.getByLabelText("Model")).toBeInTheDocument();
+        });
+    });
+
+    describe("Empty state", () => {
+        it("shows empty state when no plugins", async () => {
+            const api = getMockApi();
+            api.plugin.list.mockResolvedValueOnce([]);
+            window.location.hash = "#popup";
+            render(<App />);
+            await waitFor(() => {
+                expect(screen.getByText("暂无数据")).toBeInTheDocument();
+            });
+        });
+    });
+
+    describe("Error state", () => {
+        it("shows error banner when plugin list fails", async () => {
+            const api = getMockApi();
+            api.plugin.list.mockRejectedValueOnce(new Error("IPC 断开"));
+            window.location.hash = "#popup";
+            render(<App />);
+            await waitFor(() => {
+                expect(screen.getByText("IPC 断开")).toBeInTheDocument();
+            });
+        });
+    });
+
+    describe("Theme", () => {
+        it("applies dark class on theme change event", async () => {
+            render(<App />);
+            const api = getMockApi();
+            const listeners = api._themeListeners;
+            expect(listeners.size).toBeGreaterThan(0);
+            for (const cb of listeners) {
+                cb(true);
+            }
+            expect(document.documentElement.classList.contains("dark")).toBe(true);
+        });
+    });
+});
