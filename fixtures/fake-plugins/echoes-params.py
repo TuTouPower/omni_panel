@@ -2,7 +2,8 @@ import json, sys
 params = {}
 for arg in sys.argv[1:]:
     if arg.startswith("--usageboard-param="):
-        k, v = arg.split("=", 1)
-        key = k.replace("--usageboard-param-", "")
-        params[key] = v
+        rest = arg[len("--usageboard-param="):]
+        if "=" in rest:
+            key, value = rest.split("=", 1)
+            params[key] = value
 print(json.dumps({"echoed": params}))
