@@ -46,6 +46,71 @@
 - [ ] 创建空模块 + failing tests
 - [ ] 输出 `docs/implementation-plan.md`
 
+### Round 3.5: 严格代码质量门禁（参考 strict_code_quality_checks.md）
+- [ ] **TypeScript 超严格 tsconfig.json**
+  - `strict: true` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`
+  - `noImplicitReturns` + `noFallthroughCasesInSwitch` + `noImplicitOverride`
+  - `noUnusedLocals` + `noUnusedParameters` + `verbatimModuleSyntax`
+  - `isolatedModules` + `forceConsistentCasingInFileNames`
+- [ ] **ESLint type-aware 规则**
+  - `typescript-eslint` strictTypeChecked + stylisticTypeChecked
+  - `eslint-plugin-react` + `eslint-plugin-react-hooks`（error 级）
+  - `eslint-plugin-jsx-a11y`（可访问性）
+  - `eslint-plugin-import-x`（import 顺序、循环依赖检测）
+  - `eslint-plugin-unicorn`（现代 JS 最佳实践）
+  - `eslint-plugin-sonarjs`（复杂度、重复逻辑、潜在 bug）
+  - `eslint-plugin-security`（安全风险模式）
+  - `eslint-plugin-promise`（Promise 误用）
+  - `eslint-plugin-n`（Node.js 规则）
+  - `eslint-plugin-perfectionist`（排序一致性）
+  - 关键规则：`no-explicit-any: error`、`no-unsafe-assignment: error`、`no-floating-promises: error`、`await-thenable: error`、`switch-exhaustiveness-check: error`、`consistent-type-imports: error`
+  - 运行 `eslint . --max-warnings=0`（warning = error）
+- [ ] **格式化检查**：Prettier / Biome，CI 中 `format:check` 必过
+- [ ] **死代码 / 依赖架构检查**
+  - `Knip`：未使用文件、导出、依赖检测
+  - `dependency-cruiser`：循环依赖禁止、层级约束（renderer 禁止 import Node API）
+- [ ] **Electron 专项安全扫描**
+  - `@electron-forge/plugin-fuses`：控制 Electron Fuses 减少攻击面
+  - Semgrep 自定义规则：nodeIntegration / contextIsolation / remote / eval / shell.openExternal
+  - 禁止 `remote` module、`eval` / `new Function`
+  - renderer 不暴露 `fs` / `path` / `child_process`
+  - IPC 校验 sender / origin / payload schema
+  - `shell.openExternal` URL allowlist
+  - 严格 CSP 配置
+- [ ] **Git 密钥泄漏防护**
+  - `Gitleaks`：pre-commit hook + CI 门禁
+  - 禁止任何 secret 进入 git 历史
+- [ ] **依赖漏洞扫描**
+  - `OSV-Scanner`：lockfile + SBOM 扫描
+  - `npm audit --audit-level=high` / `pnpm audit`
+  - CI 中 high / critical 漏洞阻止合并
+- [ ] **SAST 静态安全分析**
+  - `Semgrep`：`semgrep scan --config=auto`
+  - 覆盖 OWASP Top 10 + Electron 特有风险
+- [ ] **Husky + lint-staged pre-commit hook**
+  - 保存时：ESLint fix + Prettier write
+  - pre-commit：lint-staged（ESLint + Prettier + typecheck）
+  - pre-push：typecheck + unit tests + Gitleaks
+- [ ] **CI 合并门禁（全部必须通过）**
+  - type error → 失败
+  - lint warning → 失败
+  - format diff → 失败
+  - high / critical security → 失败
+  - secret 泄漏 → 失败
+  - 循环依赖 → 失败
+  - 未使用依赖 → 失败
+  - 构建失败 → 失败
+  - 测试失败 → 失败
+- [ ] **package.json check 脚本**
+  - `"typecheck": "tsc --noEmit"`
+  - `"lint": "eslint . --max-warnings=0"`
+  - `"format:check": "prettier --check ."`
+  - `"deadcode": "knip"`
+  - `"arch": "depcruise src --validate .dependency-cruiser.cjs"`
+  - `"security:js": "pnpm audit --audit-level=high && gitleaks detect --source ."`
+  - `"security:sast": "semgrep scan --config=auto"`
+  - `"check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch && pnpm security:js"`
+
 ### Round 4: 实现 parser
 - [ ] `src/main/core/plugin-output-parser.ts`
 - [ ] `src/main/core/plugin-metadata-parser.ts`
