@@ -1,4 +1,45 @@
-export function createSecretsStore(_path: string): never {
-    void _path;
-    throw new Error("Not implemented");
+import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
+import { dirname } from "node:path";
+
+export interface SecretsStore {
+    get(key: string): Promise<string | null>;
+    set(key: string, value: string): Promise<void>;
+    delete(key: string): Promise<void>;
+}
+
+export function createSecretsStore(filePath: string): SecretsStore {
+    async function readAll(): Promise<Record<string, string>> {
+        try {
+            const raw = await readFile(filePath, "utf8");
+            return JSON.parse(raw) as Record<string, string>;
+        } catch {
+            return {};
+        }
+    }
+
+    async function writeAll(data: Record<string, string>): Promise<void> {
+        await mkdir(dirname(filePath), { recursive: true });
+        const tmpPath = `${filePath}.tmp`;
+        await writeFile(tmpPath, JSON.stringify(data, null, 2), "utf8");
+        await rename(tmpPath, filePath);
+    }
+
+    return {
+        async get(key: string): Promise<string | null> {
+            const data = await readAll();
+            return data[key] ?? null;
+        },
+
+        async set(key: string, value: string): Promise<void> {
+            const data = await readAll();
+            data[key] = value;
+            await writeAll(data);
+        },
+
+        async delete(key: string): Promise<void> {
+            const data = await readAll();
+            const filtered = Object.fromEntries(Object.entries(data).filter(([k]) => k !== key));
+            await writeAll(filtered);
+        },
+    };
 }
