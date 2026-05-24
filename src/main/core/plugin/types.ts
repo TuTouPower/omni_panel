@@ -1,1 +1,8 @@
-// Plugin types will be populated in Round 4
+import type { PluginMetadata } from "../../../shared/schemas/plugin-metadata";
+
+export interface PluginDefinition {
+    readonly scriptName: string;
+    readonly executablePath: string;
+    readonly metadata: PluginMetadata | null;
+    readonly source: "bundled" | "user";
+}
