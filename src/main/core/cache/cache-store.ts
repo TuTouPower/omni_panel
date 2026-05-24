@@ -1,5 +1,5 @@
 import { readFile, writeFile, unlink, mkdir, rename } from "node:fs/promises";
-import { resolve, normalize } from "node:path";
+import { resolve, relative } from "node:path";
 import type { PluginCachedState } from "./types";
 
 export interface CacheStore {
@@ -18,8 +18,8 @@ export function createCacheStore(statesDir: string): CacheStore {
             throw new Error(`Invalid stateId: ${stateId}`);
         }
         const target = resolve(resolvedDir, `${stateId}.json`);
-        const normalized = normalize(target);
-        if (!normalized.startsWith(resolvedDir + "/") && normalized !== resolvedDir) {
+        const rel = relative(resolvedDir, target);
+        if (rel.startsWith("..") || resolve(resolvedDir, rel) !== target) {
             throw new Error(`Path traversal detected: ${stateId}`);
         }
         return target;
