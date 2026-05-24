@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 export const usageDisplayStyleSchema = z.enum(["percent", "ratio"]);
 export const usageStatusSchema = z.enum(["normal", "warning", "critical", "unknown"]);

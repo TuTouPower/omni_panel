@@ -16,6 +16,7 @@
         "format": "prettier --write .",
         "deadcode": "knip",
         "arch": "depcruise src --validate .dependency-cruiser.cjs",
+        "schema:export": "tsx scripts/export-schemas.ts",
         "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch",
         "test": "vitest run",
         "test:watch": "vitest",
@@ -74,6 +75,7 @@
         "knip": "^6.14.2",
         "lint-staged": "^17.0.5",
         "prettier": "^3.8.3",
+        "tsx": "^4.22.3",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.59.4",
         "vite": "^5.4.21",
@@ -81,6 +83,7 @@
     },
     "dependencies": {
         "electron-squirrel-startup": "^1.0.1",
-        "zod": "^4.4.3"
+        "zod": "^4.4.3",
+        "zod-to-json-schema": "^3.25.2"
     }
 }

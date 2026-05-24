@@ -1,81 +1,104 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "PluginOutput",
-    "description": "UsageBoard plugin stdout JSON output",
     "type": "object",
-    "oneOf": [
-        {
-            "properties": {
-                "schemaVersion": { "type": "integer", "const": 1 },
-                "updatedAt": { "type": "string", "format": "date-time" },
-                "items": {
-                    "type": "array",
-                    "items": { "$ref": "#/$defs/UsageItem" }
-                },
-                "badge": { "type": "string" },
-                "chart": { "$ref": "#/$defs/PluginChart" }
-            },
-            "required": ["schemaVersion", "updatedAt", "items"],
-            "additionalProperties": false
+    "properties": {
+        "schemaVersion": {
+            "type": "number"
         },
-        {
-            "properties": {
-                "error": { "type": "string", "minLength": 1 }
-            },
-            "required": ["error"],
-            "additionalProperties": false
-        }
-    ],
-    "$defs": {
-        "UsageItem": {
+        "updatedAt": {
+            "type": "string"
+        },
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "used": {
+                        "type": "number"
+                    },
+                    "limit": {
+                        "type": "number"
+                    },
+                    "displayStyle": {
+                        "type": "string",
+                        "enum": ["percent", "ratio"]
+                    },
+                    "resetAt": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["normal", "warning", "critical", "unknown"],
+                        "default": "unknown"
+                    },
+                    "color": {
+                        "type": "string",
+                        "enum": ["blue", "green", "yellow", "orange", "red"]
+                    }
+                },
+                "required": ["id", "name", "used", "limit", "displayStyle"],
+                "additionalProperties": false
+            }
+        },
+        "badge": {
+            "type": "string"
+        },
+        "chart": {
             "type": "object",
             "properties": {
-                "id": { "type": "string" },
-                "name": { "type": "string" },
-                "used": { "type": "number" },
-                "limit": { "type": "number" },
-                "displayStyle": { "type": "string", "enum": ["percent", "ratio"] },
-                "resetAt": { "type": "string", "format": "date-time" },
-                "status": {
+                "kind": {
+                    "type": "string"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "bucketUnit": {
                     "type": "string",
-                    "enum": ["normal", "warning", "critical", "unknown"]
+                    "enum": ["hour", "day"]
                 },
-                "color": { "type": "string", "enum": ["blue", "green", "yellow", "orange", "red"] }
-            },
-            "required": ["id", "name", "used", "limit", "displayStyle"]
-        },
-        "PluginChart": {
-            "type": "object",
-            "properties": {
-                "kind": { "type": "string" },
-                "period": { "type": "string" },
-                "bucketUnit": { "type": "string", "enum": ["hour", "day"] },
                 "buckets": {
                     "type": "array",
-                    "items": { "$ref": "#/$defs/PluginChartBucket" }
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "label": {
+                                "type": "string"
+                            },
+                            "segments": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "model": {
+                                            "type": "string"
+                                        },
+                                        "tokens": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "required": ["model", "tokens"],
+                                    "additionalProperties": false
+                                }
+                            }
+                        },
+                        "required": ["label", "segments"],
+                        "additionalProperties": false
+                    }
                 },
-                "message": { "type": "string" }
-            },
-            "required": ["kind", "period", "bucketUnit", "buckets"]
-        },
-        "PluginChartBucket": {
-            "type": "object",
-            "properties": {
-                "label": { "type": "string" },
-                "segments": {
-                    "type": "array",
-                    "items": { "$ref": "#/$defs/PluginChartSegment" }
+                "message": {
+                    "type": "string"
                 }
             },
-            "required": ["label", "segments"]
-        },
-        "PluginChartSegment": {
-            "type": "object",
-            "properties": {
-                "model": { "type": "string" },
-                "tokens": { "type": "number" }
-            },
-            "required": ["model", "tokens"]
+            "required": ["kind", "period", "bucketUnit", "buckets"],
+            "additionalProperties": false
         }
-    }
+    },
+    "required": ["schemaVersion", "updatedAt", "items"],
+    "additionalProperties": false
 }
