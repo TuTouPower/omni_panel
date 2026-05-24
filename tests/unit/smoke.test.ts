@@ -5,8 +5,8 @@ import { executePlugin } from "../../src/main/core/plugin/runner";
 import { getDataRoot } from "../../src/main/core/paths";
 
 describe("smoke: modules are importable", () => {
-    it("parsePluginMetadata throws Not implemented", () => {
-        expect(() => parsePluginMetadata("")).toThrow("Not implemented");
+    it("parsePluginMetadata returns null for empty content", () => {
+        expect(parsePluginMetadata("")).toBeNull();
     });
 
     it("buildPluginCommand throws Not implemented", () => {
