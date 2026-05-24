@@ -3,7 +3,7 @@
     "productName": "OmniUsage",
     "version": "1.0.0",
     "description": "Multi-platform AI service usage monitoring desktop app.",
-    "main": ".vite/build/main.js",
+    "main": ".vite/build/index.js",
     "private": true,
     "scripts": {
         "start": "electron-forge start",
@@ -54,6 +54,7 @@
         "@electron-forge/plugin-vite": "^7.11.2",
         "@electron-forge/shared-types": "^7.11.2",
         "@electron/fuses": "^1.8.0",
+        "@tailwindcss/postcss": "^4.3.0",
         "@tailwindcss/vite": "^4.3.0",
         "@types/electron-squirrel-startup": "^1.0.2",
         "@types/react": "^19.2.15",
