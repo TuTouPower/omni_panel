@@ -22,6 +22,7 @@ export async function executePlugin(
 
         const stdoutChunks: Buffer[] = [];
         const stderrChunks: Buffer[] = [];
+        let exited = false;
 
         child.stdout.on("data", (chunk: Buffer) => {
             stdoutChunks.push(chunk);
@@ -33,15 +34,21 @@ export async function executePlugin(
 
         const timer = setTimeout(() => {
             child.kill("SIGTERM");
-            setTimeout(() => {
-                if (!child.killed) {
+            const graceMs = 2000;
+            const killTimer = setTimeout(() => {
+                if (!exited) {
                     child.kill("SIGKILL");
                 }
-            }, 2000);
+            }, graceMs);
+            child.on("exit", () => {
+                exited = true;
+                clearTimeout(killTimer);
+            });
             reject(new PluginTimeoutError(timeoutMs));
         }, timeoutMs);
 
         child.on("close", (code) => {
+            exited = true;
             clearTimeout(timer);
             const durationMs = Date.now() - startTime;
             resolve({

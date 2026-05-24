@@ -52,4 +52,13 @@ describe("executePlugin", () => {
         expect(result.stdout).toContain("KEY");
         expect(result.stdout).toContain("value");
     });
+
+    it("kills SIGTERM-ignoring process with SIGKILL", async () => {
+        const cmd = buildPluginCommand(fakePlugin("ignores-sigterm.py"), {}, "zh-Hans");
+        const start = Date.now();
+        await expect(executePlugin(cmd, { timeoutMs: 500 })).rejects.toThrow(PluginTimeoutError);
+        const elapsed = Date.now() - start;
+        // Should finish within timeout + grace period (500ms + 2000ms + margin)
+        expect(elapsed).toBeLessThan(5000);
+    });
 });
