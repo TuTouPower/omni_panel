@@ -9,8 +9,10 @@ describe("smoke: modules are importable", () => {
         expect(parsePluginMetadata("")).toBeNull();
     });
 
-    it("buildPluginCommand throws Not implemented", () => {
-        expect(() => buildPluginCommand("/path", {}, "zh-Hans")).toThrow("Not implemented");
+    it("buildPluginCommand returns PluginCommand", () => {
+        const result = buildPluginCommand("/path", {}, "zh-Hans");
+        expect(result).toHaveProperty("command");
+        expect(result).toHaveProperty("args");
     });
 
     it("executePlugin throws Not implemented", async () => {
