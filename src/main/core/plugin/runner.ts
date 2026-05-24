@@ -1,4 +1,7 @@
+import { spawn } from "node:child_process";
 import type { PluginCommand } from "./command-builder";
+import { PluginTimeoutError } from "../../../shared/errors/plugin-errors";
+import { DEFAULT_TIMEOUT_MS } from "../../../shared/constants";
 
 export interface PluginExecutionResult {
     readonly stdout: string;
@@ -7,11 +10,53 @@ export interface PluginExecutionResult {
     readonly durationMs: number;
 }
 
-export function executePlugin(
-    _command: PluginCommand,
-    _options?: { readonly timeoutMs?: number },
+export async function executePlugin(
+    command: PluginCommand,
+    options?: { readonly timeoutMs?: number },
 ): Promise<PluginExecutionResult> {
-    void _command;
-    void _options;
-    return Promise.reject(new Error("Not implemented"));
+    const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const startTime = Date.now();
+
+    return new Promise<PluginExecutionResult>((resolve, reject) => {
+        const child = spawn(command.command, [...command.args], {
+            shell: process.platform === "win32",
+        });
+
+        const stdoutChunks: Buffer[] = [];
+        const stderrChunks: Buffer[] = [];
+
+        child.stdout.on("data", (chunk: Buffer) => {
+            stdoutChunks.push(chunk);
+        });
+
+        child.stderr.on("data", (chunk: Buffer) => {
+            stderrChunks.push(chunk);
+        });
+
+        const timer = setTimeout(() => {
+            child.kill("SIGTERM");
+            setTimeout(() => {
+                if (!child.killed) {
+                    child.kill("SIGKILL");
+                }
+            }, 2000);
+            reject(new PluginTimeoutError(timeoutMs));
+        }, timeoutMs);
+
+        child.on("close", (code) => {
+            clearTimeout(timer);
+            const durationMs = Date.now() - startTime;
+            resolve({
+                stdout: Buffer.concat(stdoutChunks).toString("utf8"),
+                stderr: Buffer.concat(stderrChunks).toString("utf8"),
+                exitCode: code ?? -1,
+                durationMs,
+            });
+        });
+
+        child.on("error", (err) => {
+            clearTimeout(timer);
+            reject(err);
+        });
+    });
 }

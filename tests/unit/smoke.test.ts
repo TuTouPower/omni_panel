@@ -15,10 +15,10 @@ describe("smoke: modules are importable", () => {
         expect(result).toHaveProperty("args");
     });
 
-    it("executePlugin throws Not implemented", async () => {
-        await expect(() => executePlugin({ command: "echo", args: [] })).rejects.toThrow(
-            "Not implemented",
-        );
+    it("executePlugin returns PluginExecutionResult", async () => {
+        const result = await executePlugin({ command: "echo", args: [] });
+        expect(result).toHaveProperty("stdout");
+        expect(result).toHaveProperty("exitCode");
     });
 
     it("getDataRoot throws Not implemented", () => {
