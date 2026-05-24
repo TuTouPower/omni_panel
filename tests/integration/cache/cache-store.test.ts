@@ -53,4 +53,16 @@ describe("cache-store", () => {
         const store = createCacheStore(tempDir);
         await store.delete("nonexistent");
     });
+
+    it("rejects stateId with path traversal", async () => {
+        const store = createCacheStore(tempDir);
+        await expect(store.load("../escape")).rejects.toThrow("Invalid stateId");
+    });
+
+    it("rejects stateId with slash", async () => {
+        const store = createCacheStore(tempDir);
+        await expect(store.save("a/b", { updatedAt: "", items: [] })).rejects.toThrow(
+            "Invalid stateId",
+        );
+    });
 });

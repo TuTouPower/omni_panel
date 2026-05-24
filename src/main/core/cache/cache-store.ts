@@ -1,5 +1,5 @@
 import { readFile, writeFile, unlink, mkdir, rename } from "node:fs/promises";
-import { join } from "node:path";
+import { resolve, normalize } from "node:path";
 import type { PluginCachedState } from "./types";
 
 export interface CacheStore {
@@ -8,15 +8,28 @@ export interface CacheStore {
     delete(stateId: string): Promise<void>;
 }
 
+const VALID_STATE_ID = /^[a-zA-Z0-9_-]+$/;
+
 export function createCacheStore(statesDir: string): CacheStore {
+    const resolvedDir = resolve(statesDir);
+
     function getPath(stateId: string): string {
-        return join(statesDir, `${stateId}.json`);
+        if (!VALID_STATE_ID.test(stateId)) {
+            throw new Error(`Invalid stateId: ${stateId}`);
+        }
+        const target = resolve(resolvedDir, `${stateId}.json`);
+        const normalized = normalize(target);
+        if (!normalized.startsWith(resolvedDir + "/") && normalized !== resolvedDir) {
+            throw new Error(`Path traversal detected: ${stateId}`);
+        }
+        return target;
     }
 
     return {
         async load(stateId: string): Promise<PluginCachedState | null> {
+            const path = getPath(stateId);
             try {
-                const raw = await readFile(getPath(stateId), "utf8");
+                const raw = await readFile(path, "utf8");
                 return JSON.parse(raw) as PluginCachedState;
             } catch {
                 return null;
@@ -25,14 +38,16 @@ export function createCacheStore(statesDir: string): CacheStore {
 
         async save(stateId: string, state: PluginCachedState): Promise<void> {
             await mkdir(statesDir, { recursive: true });
-            const tmpPath = `${getPath(stateId)}.tmp`;
+            const path = getPath(stateId);
+            const tmpPath = `${path}.tmp`;
             await writeFile(tmpPath, JSON.stringify(state, null, 2), "utf8");
-            await rename(tmpPath, getPath(stateId));
+            await rename(tmpPath, path);
         },
 
         async delete(stateId: string): Promise<void> {
+            const path = getPath(stateId);
             try {
-                await unlink(getPath(stateId));
+                await unlink(path);
             } catch {
                 // ignore if file doesn't exist
             }
