@@ -180,11 +180,19 @@ plugin:refreshAll → 调用 refreshService.refreshAll()。
 ```
 config:get        → configStore.load()，secret 字段替换为 "***"。
 
-config:save       → Zod 校验完整 AppConfiguration，
-                     configStore.save()。
+config:save       → Zod 校验完整 AppConfiguration。
+                     **安全：** main 侧遍历每个 plugin 的 parameterValues，
+                     匹配 metadata.parameters type=secret 的字段，直接丢弃（不写入）。
+                     secret 参数只能通过 config:saveSecrets 写入。
+                     即 renderer 传回的 parameterValues 中若包含 secret 字段，静默忽略。
 
-config:saveSecrets → 接收 { stateId, secrets }，
-                      遍历 secrets 调用 secretsStore.set()。
+config:saveSecrets → 接收 { stateId, secrets }。
+                      **校验链：**
+                      1. stateId 必须在 config.plugins 中存在且 enabled
+                      2. 遍历 secrets 的每个 key（paramName），必须在对应插件的
+                         metadata.parameters 中存在且 type === "secret"
+                      3. 不满足条件的 key 静默跳过（不写入，不报错）
+                      通过校验的 secret → secretsStore.set()。
                       key 格式: `${stateId}:${paramName}`。
 ```
 
@@ -203,37 +211,63 @@ event:themeChange  → nativeTheme.on('updated') 监听，
 
 ### 3.4 错误处理
 
-所有 IPC handler 统一 try-catch。Electron 的 `ipcMain.handle` 会自动序列化 Error 对象的 message 属性，但不会序列化自定义属性。因此：
+所有 IPC handler 统一返回 result envelope，不依赖 Error 自定义属性序列化：
 
 ```typescript
-// 自定义 IPC 错误，携带 code
-class IpcError extends Error {
-    constructor(
-        public readonly code: string,
-        message: string,
-    ) {
-        super(message);
-    }
+// shared/types/ipc.ts 中新增
+export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: IpcError };
+
+// main/ipc/helpers.ts
+function ok<T>(data: T): IpcResult<T> {
+    return { ok: true, data };
 }
 
-// handler 中
-try {
-    // handler logic
-} catch (error: unknown) {
-    if (error instanceof IpcError) throw error;
-    const message = error instanceof Error ? error.message : String(error);
-    throw new IpcError("INTERNAL_ERROR", message);
+function fail(code: string, message: string): IpcResult<never> {
+    return { ok: false, error: { code, message } };
 }
 
-// renderer 侧统一 catch
-try {
-    await window.usageboard.plugin.refresh(id);
-} catch (error: unknown) {
-    // error.message 包含 IPC 传回的错误信息
-}
+// handler 示例
+ipcMain.handle(
+    IPC_CHANNELS.PLUGIN_REFRESH,
+    async (_e, stateId: string): Promise<IpcResult<void>> => {
+        try {
+            const parsed = z.string().min(1).safeParse(stateId);
+            if (!parsed.success) return fail("VALIDATION_ERROR", "Invalid stateId");
+            await refreshService.refresh(parsed.data, { force: true });
+            return ok(undefined);
+        } catch (error: unknown) {
+            log.error("plugin:refresh failed", error);
+            return fail("INTERNAL_ERROR", "刷新失败");
+        }
+    },
+);
 ```
 
-Zod 校验失败 → `throw new IpcError("VALIDATION_ERROR", zodError.message)`.
+preload 层解包 result envelope，失败时 reject：
+
+```typescript
+// preload/index.ts 中的辅助函数
+async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
+    const result: IpcResult<T> = await ipcRenderer.invoke(channel, ...args);
+    if (!result.ok) throw new Error(`[${result.error.code}] ${result.error.message}`);
+    return result.data;
+}
+
+// 使用
+list: () => invoke<PluginInfo[]>(IPC_CHANNELS.PLUGIN_LIST),
+```
+
+renderer 侧统一 catch `error.message`（格式 `[CODE] message`）。
+
+### 3.5 错误信息脱敏
+
+IPC 返回给 renderer 的错误 message **禁止包含**：
+
+- 文件路径（插件可执行路径、配置路径）
+- API key / token / secret 片段
+- 插件 stderr 原始内容
+
+实现：每个 IPC handler 的 catch 块返回通用文案（如 "刷新失败"、"配置保存失败"），详细错误写入安全日志（main 侧 `log.error`），不传 renderer。
 
 ---
 
@@ -311,27 +345,40 @@ const WINDOW_CONFIG = {
         resizable: false,
         frame: false, // 无边框弹出面板
         show: false, // 托盘触发时才显示
-        route: "/popup",
+        route: "popup",
     },
     dashboard: {
         width: 800,
         height: 600,
         minWidth: 600,
         minHeight: 400,
-        route: "/dashboard",
+        route: "dashboard",
     },
     settings: {
         width: 720,
         height: 560,
         minWidth: 560,
         minHeight: 440,
-        route: "/settings",
+        route: "settings",
     },
 };
 ```
 
 每个 BrowserWindow 加载相同 URL，通过 hash 路由区分：
-`mainWindow.loadURL(`file://${__dirname}/index.html#/${route}`)`.
+`mainWindow.loadURL(\`file://\${\_\_dirname}/index.html#\${route}\`)`.
+
+所有窗口共享强制安全 webPreferences（窗口工厂函数统一设置）：
+
+```typescript
+const SECURE_WEB_PREFS = {
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    webSecurity: true,
+    allowRunningInsecureContent: false,
+    preload: path.join(__dirname, "preload.js"),
+};
+```
 
 ### 5.2 系统托盘
 
@@ -396,9 +443,10 @@ shadcn/ui 组件按需添加（Button, Card, Input, Label, Select, Switch, Skele
 ```typescript
 // renderer/hooks/use-route.ts
 export function useRoute(): string {
-    const [route, setRoute] = useState(window.location.hash.slice(2) || "popup");
+    // hash 格式 "#popup" / "#dashboard" / "#settings"，slice(1) 去掉 "#"
+    const [route, setRoute] = useState(window.location.hash.slice(1) || "popup");
     useEffect(() => {
-        const handler = () => setRoute(window.location.hash.slice(2) || "popup");
+        const handler = () => setRoute(window.location.hash.slice(1) || "popup");
         window.addEventListener("hashchange", handler);
         return () => window.removeEventListener("hashchange", handler);
     }, []);
@@ -554,25 +602,43 @@ Tailwind `darkMode: "class"` 配置。shadcn/ui CSS 变量按 shadcn 标准的 l
 export function usePlugins() {
     const [plugins, setPlugins] = useState<PluginInfo[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // 初始加载
-        window.usageboard.plugin.list().then((list) => {
-            setPlugins(list);
-            setLoading(false);
-        });
+        let cancelled = false;
+        const controller = new AbortController();
 
-        // 实时更新
+        window.usageboard.plugin
+            .list()
+            .then((list) => {
+                if (!cancelled) {
+                    setPlugins(list);
+                    setLoading(false);
+                }
+            })
+            .catch((err: unknown) => {
+                if (!cancelled) {
+                    setError(err instanceof Error ? err.message : "加载失败");
+                    setLoading(false);
+                }
+            });
+
         const unsubscribe = window.usageboard.event.onStateChange((stateId, state) => {
-            setPlugins((prev) =>
-                prev.map((p) => (p.stateId === stateId ? { ...p, snapshot: state } : p)),
-            );
+            if (!cancelled) {
+                setPlugins((prev) =>
+                    prev.map((p) => (p.stateId === stateId ? { ...p, snapshot: state } : p)),
+                );
+            }
         });
 
-        return unsubscribe;
+        return () => {
+            cancelled = true;
+            controller.abort();
+            unsubscribe();
+        };
     }, []);
 
-    return { plugins, loading };
+    return { plugins, loading, error };
 }
 ```
 
