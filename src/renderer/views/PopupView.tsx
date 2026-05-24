@@ -22,6 +22,7 @@ export function PopupView() {
                     <div className="grid grid-cols-1 gap-2">
                         <PluginCard
                             plugin={{
+                                instanceId: "_skeleton",
                                 stateId: "_skeleton",
                                 name: "",
                                 enabled: true,

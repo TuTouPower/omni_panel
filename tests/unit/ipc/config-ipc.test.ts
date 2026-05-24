@@ -8,6 +8,7 @@ function createMockDeps() {
         overviewDisplayMode: "tabs",
         plugins: [
             {
+                instanceId: "claude",
                 stateId: "claude",
                 name: "Claude",
                 enabled: true,

@@ -52,6 +52,7 @@ export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<P
             const scriptName = plugin.executablePath.split("/").pop() ?? plugin.executablePath;
             const def = deps.definitions.find((d) => d.scriptName === scriptName);
             return {
+                instanceId: plugin.instanceId,
                 stateId: plugin.stateId,
                 name: plugin.name,
                 enabled: plugin.enabled,

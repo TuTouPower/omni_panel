@@ -34,6 +34,7 @@ export function DashboardView() {
                     <div className="space-y-3">
                         <PluginCard
                             plugin={{
+                                instanceId: "_skeleton",
                                 stateId: "_skeleton",
                                 name: "",
                                 enabled: true,

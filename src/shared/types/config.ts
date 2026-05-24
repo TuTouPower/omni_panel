@@ -9,6 +9,7 @@ export interface AppConfiguration {
 }
 
 export interface PluginConfiguration {
+    readonly instanceId: string;
     readonly stateId: string;
     readonly name: string;
     readonly enabled: boolean;

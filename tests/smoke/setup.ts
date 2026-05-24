@@ -14,6 +14,7 @@ function createMockApi() {
 
     const plugins: PluginInfo[] = [
         {
+            instanceId: "deepseek",
             stateId: "deepseek",
             name: "DeepSeek",
             enabled: true,
@@ -55,6 +56,7 @@ function createMockApi() {
             },
         },
         {
+            instanceId: "claude",
             stateId: "claude",
             name: "Claude",
             enabled: true,
@@ -69,6 +71,7 @@ function createMockApi() {
         overviewDisplayMode: "tabs",
         plugins: [
             {
+                instanceId: "deepseek",
                 stateId: "deepseek",
                 name: "DeepSeek",
                 enabled: true,
@@ -77,6 +80,7 @@ function createMockApi() {
                 parameterValues: { MODEL: "chat" },
             },
             {
+                instanceId: "claude",
                 stateId: "claude",
                 name: "Claude",
                 enabled: true,

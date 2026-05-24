@@ -35,6 +35,7 @@ export type PluginSnapshotDTO =
       };
 
 export interface PluginInfo {
+    instanceId: string;
     stateId: string;
     name: string;
     enabled: boolean;

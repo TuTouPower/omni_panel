@@ -7,6 +7,7 @@ export type { AppConfiguration, PluginConfiguration } from "../../../shared/type
 export const appLanguageSchema = z.enum(["zh-Hans", "en"]) as z.ZodType<AppLanguage>;
 
 export const pluginConfigurationSchema = z.object({
+    instanceId: z.string().min(1).optional(),
     stateId: z.string().min(1),
     name: z.string().min(1),
     enabled: z.boolean(),
