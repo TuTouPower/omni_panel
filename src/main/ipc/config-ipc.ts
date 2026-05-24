@@ -85,9 +85,14 @@ export async function handleConfigSaveSecrets(
         }
         const { stateId, secrets } = payload as ConfigSaveSecretsPayload;
 
+        if (!stateId || typeof stateId !== "string") {
+            return fail("VALIDATION_ERROR", "无效的插件 ID");
+        }
+
         const config = await deps.configStore.load();
         const plugin = config.plugins.find((p: PluginConfiguration) => p.stateId === stateId);
         if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
+        if (!plugin.enabled) return fail("VALIDATION_ERROR", "插件未启用");
 
         const allowedKeys = deps.secretParamKeys.get(stateId);
         if (!allowedKeys) return ok(undefined);

@@ -107,4 +107,28 @@ describe("config-ipc", () => {
         }
         expect(deps.secretsStore.set).not.toHaveBeenCalled();
     });
+
+    it("handleConfigSaveSecrets rejects disabled plugin", async () => {
+        const deps = createMockDeps();
+        const loaded = structuredClone(await deps.configStore.load()) as AppConfiguration;
+        const claudePlugin = loaded.plugins.find((p) => p.stateId === "claude");
+        if (!claudePlugin) return;
+        const disabledConfig: AppConfiguration = {
+            ...loaded,
+            plugins: [{ ...claudePlugin, enabled: false }],
+        };
+        deps.configStore.load = vi.fn().mockResolvedValue(disabledConfig);
+        const { handleConfigSaveSecrets } = await import("../../../src/main/ipc/config-ipc");
+
+        const result = await handleConfigSaveSecrets(deps, {
+            stateId: "claude",
+            secrets: { API_KEY: "new-key" },
+        });
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe("VALIDATION_ERROR");
+        }
+        expect(deps.secretsStore.set).not.toHaveBeenCalled();
+    });
 });
