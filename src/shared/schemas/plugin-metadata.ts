@@ -15,7 +15,7 @@ export const pluginParameterOptionSchema = z
         label: z.string(),
         value: z.string(),
     })
-    .catchall(z.string());
+    .passthrough();
 
 export const pluginParameterMetadataSchema = z
     .object({
@@ -27,7 +27,7 @@ export const pluginParameterMetadataSchema = z
         defaultValue: z.string().optional(),
         options: z.array(pluginParameterOptionSchema).optional(),
     })
-    .catchall(z.string());
+    .passthrough();
 
 export const pluginMetadataSchema = z
     .object({
@@ -36,7 +36,7 @@ export const pluginMetadataSchema = z
         icon: z.string().optional(),
         parameters: z.array(pluginParameterMetadataSchema).optional(),
     })
-    .catchall(z.string());
+    .passthrough();
 
 export type PluginMetadata = z.infer<typeof pluginMetadataSchema>;
 export type PluginParameterMetadata = z.infer<typeof pluginParameterMetadataSchema>;

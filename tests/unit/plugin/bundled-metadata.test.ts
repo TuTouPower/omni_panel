@@ -1,0 +1,35 @@
+import { describe, it, expect } from "vitest";
+import { discoverPlugins } from "../../../src/main/core/plugin/discovery";
+import { resolve } from "node:path";
+
+const bundledDir = resolve(process.cwd(), "resources/plugins");
+
+describe("bundled plugin metadata verification", () => {
+    it("discovers exactly 6 plugins (not _common.py)", async () => {
+        const defs = await discoverPlugins(bundledDir);
+        expect(defs.length).toBe(6);
+    });
+
+    const expected = [
+        { scriptName: "deepseek-usage-plugin.py", name: "DeepSeek", secretParams: ["API_KEY"] },
+        { scriptName: "tavily-usage-plugin.py", name: "Tavily", secretParams: ["API_KEY"] },
+        { scriptName: "glm-usage-plugin.py", name: "智谱", secretParams: ["API_KEY"] },
+        { scriptName: "minimax-usage-plugin.py", name: "MiniMax", secretParams: ["API_KEY"] },
+        { scriptName: "codex-usage-plugin.py", name: "Codex", secretParams: [] },
+        { scriptName: "claude-usage-plugin.py", name: "Claude", secretParams: [] },
+    ];
+
+    for (const exp of expected) {
+        it(`${exp.scriptName}: name="${exp.name}", secrets=${JSON.stringify(exp.secretParams)}`, async () => {
+            const defs = await discoverPlugins(bundledDir);
+            const def = defs.find((d) => d.scriptName === exp.scriptName);
+            expect(def).toBeDefined();
+            if (!def) return;
+            expect(def.metadata?.name).toBe(exp.name);
+            const secrets =
+                def.metadata?.parameters?.filter((p) => p.type === "secret").map((p) => p.name) ??
+                [];
+            expect(secrets).toEqual(exp.secretParams);
+        });
+    }
+});
