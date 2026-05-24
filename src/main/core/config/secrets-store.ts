@@ -1,7 +1,6 @@
-// TODO: migrate to system keychain/credential manager (Electron safeStorage or keytar).
-// Current implementation writes plaintext JSON with 0600 permissions as a stopgap.
 import { readFile, writeFile, mkdir, rename, chmod } from "node:fs/promises";
 import { dirname } from "node:path";
+import type { CryptoBackend } from "./crypto-backend";
 
 export interface SecretsStore {
     get(key: string): Promise<string | null>;
@@ -9,7 +8,7 @@ export interface SecretsStore {
     delete(key: string): Promise<void>;
 }
 
-export function createSecretsStore(filePath: string): SecretsStore {
+export function createSecretsStore(filePath: string, crypto: CryptoBackend): SecretsStore {
     async function readAll(): Promise<Record<string, string>> {
         try {
             const raw = await readFile(filePath, "utf8");
@@ -30,12 +29,16 @@ export function createSecretsStore(filePath: string): SecretsStore {
     return {
         async get(key: string): Promise<string | null> {
             const data = await readAll();
-            return data[key] ?? null;
+            const encrypted = data[key];
+            if (encrypted === undefined) {
+                return null;
+            }
+            return crypto.decrypt(encrypted);
         },
 
         async set(key: string, value: string): Promise<void> {
             const data = await readAll();
-            data[key] = value;
+            data[key] = crypto.encrypt(value);
             await writeAll(data);
         },
 
