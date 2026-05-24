@@ -1,4 +1,6 @@
-import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
+// TODO: migrate to system keychain/credential manager (Electron safeStorage or keytar).
+// Current implementation writes plaintext JSON with 0600 permissions as a stopgap.
+import { readFile, writeFile, mkdir, rename, chmod } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export interface SecretsStore {
@@ -20,8 +22,9 @@ export function createSecretsStore(filePath: string): SecretsStore {
     async function writeAll(data: Record<string, string>): Promise<void> {
         await mkdir(dirname(filePath), { recursive: true });
         const tmpPath = `${filePath}.tmp`;
-        await writeFile(tmpPath, JSON.stringify(data, null, 2), "utf8");
+        await writeFile(tmpPath, JSON.stringify(data, null, 2), { mode: 0o600 });
         await rename(tmpPath, filePath);
+        await chmod(filePath, 0o600);
     }
 
     return {

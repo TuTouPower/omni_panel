@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createSecretsStore } from "../../../src/main/core/config/secrets-store";
@@ -31,5 +31,14 @@ describe("secrets-store", () => {
         await store.set("key", "val");
         await store.delete("key");
         expect(await store.get("key")).toBeNull();
+    });
+
+    it("sets file permissions to 0600", async () => {
+        const filePath = join(tempDir, "secrets.json");
+        const store = createSecretsStore(filePath);
+        await store.set("api_key", "sk-123");
+        const fileStat = await stat(filePath);
+        const mode = (fileStat.mode & 0o777).toString(8);
+        expect(mode).toBe("600");
     });
 });
