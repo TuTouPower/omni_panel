@@ -1,79 +1,90 @@
-# Specs Review
+# Phase 3 Commit Review
 
 ## 范围
 
-- `docs/superpowers/specs/2026-05-24-phase2-core-implementation-design.md`
-- `docs/superpowers/specs/2026-05-24-round3-skeleton.md`
-- `docs/superpowers/specs/2026-05-24-round3.5-quality-gates.md`
-- `docs/superpowers/specs/2026-05-24-round4-parser.md`
-- `docs/superpowers/specs/2026-05-24-round5-runner.md`
-- `docs/superpowers/specs/2026-05-24-round6-state-layer.md`
-- `docs/superpowers/specs/2026-05-24-round7-scheduler.md`
+- Commits: `6623641^..777ee5d`
+- 覆盖：IPC contract、IPC handlers、preload、Forge/Vite entry、main process、React renderer、组件、views、测试。
 
 ## 总体结论
 
-已修好上次主要问题。当前 specs 可进入 Round 3 实现。
+Request changes。当前不能进入合并。
 
-- Round 7 未闭环 TODO 已改为明确不实现项：只定义 `SystemEventBus` 接口，`powerMonitor` 绑定留 Round 8+。
-- Round 3、3.5、4、5、6、7 都已有 `验收标准` 和 `文件清单`。
-- 各 round 均无 `TODO / TBD / 待定 / FIXME` 未闭环标记。
-- 每个 round 都保留依赖、产出、测试或检查要求。
+- 自动验证：`typecheck` 通过，`lint` 通过，`test` 通过；`pnpm make` 因本机缺 `rpmbuild` 失败。
+- 主要问题不是类型或单测，而是主进程运行路径和未接入真实刷新服务。
+- 发现 3 个 HIGH，2 个 MEDIUM。
 
-## 阻塞问题
+## Findings
 
-无。
+### HIGH
 
-## 剩余建议
+#### 1. Renderer 加载路径错误，生产/开发都可能无法打开页面
 
-### 1. Phase 2 总 spec 仍偏长
+- 文件：`src/main/index.ts:51`
+- 现状：`void win.loadURL(`../renderer/${cfg.route}`);`
+- 问题：`loadURL` 需要有效 URL。这里传相对路径字符串，不是 Forge/Vite renderer dev server URL，也不是 packaged `index.html#route`。Phase 3 spec 要求共享 renderer bundle + hash route。
+- 影响：dashboard/settings/popup 窗口可能白屏或加载失败。
+- 建议：按 Electron Forge Vite 模板使用 renderer entry 常量，开发期加载 dev server，打包期加载 `index.html#${route}`。至少应改为 `loadFile(..., { hash: cfg.route })` 或 Forge 插件提供的 renderer URL。
 
-- 位置：`docs/superpowers/specs/2026-05-24-phase2-core-implementation-design.md`
-- 当前 631 行，仍包含大量模块接口细节。
-- 风险低：后续如果修改 round spec，仍可能忘记同步总 spec。
-- 建议：后续把总 spec 定位为索引和跨 round 约束，详细实现以 round spec 为准。
+#### 2. Popup 窗口创建后不会显示
 
-### 2. Round 3 smoke test 示例仍用省略号
+- 文件：`src/main/index.ts:29`, `src/main/index.ts:41-52`, `src/main/index.ts:125-135`
+- 现状：popup config 为 `show: false`，托盘点击只 `createWindowFor("popup")`，没有 `show()` / `showInactive()` / 定位逻辑。
+- 问题：点击托盘后窗口被创建但保持隐藏。
+- 影响：核心入口不可用。
+- 建议：托盘点击时定位到 tray 附近并显式 `popupWin.show()`；再次点击再隐藏/关闭。
 
-- 位置：`docs/superpowers/specs/2026-05-24-round3-skeleton.md:153`、`:162`
-- 风险低：文件清单已补全，实施者可推导。
-- 建议：实现前把 smoke test 明确列全，避免漏模块。
+#### 3. 插件刷新 IPC 已注册，但实际刷新服务为空实现
 
-### 3. Round 3.5 无测试路径，只有质量命令
+- 文件：`src/main/index.ts:75-83`
+- 现状：`refresh` / `refreshAll` 只是空 async 函数，注释写 “Will be wired”。
+- 问题：`plugin:refresh` 和 `plugin:refreshAll` 返回成功，但不会执行插件刷新，也不会更新 runtime state。
+- 影响：UI 的刷新按钮看似成功但无效果，错误被静默掩盖。
+- 建议：接入现有 `PluginRefreshService` / scheduler 真实刷新路径；未接入前不要返回成功。
 
-- 位置：`docs/superpowers/specs/2026-05-24-round3.5-quality-gates.md`
-- 这合理，因为该 round 主要交付 lint/type/dependency/knip/hook 门禁。
-- 建议：保持 `pnpm check` 为唯一权威入口。
+### MEDIUM
 
-## 逐文件状态
+#### 1. `saveSecrets` 校验不完整
 
-### `2026-05-24-phase2-core-implementation-design.md`
+- 文件：`src/main/ipc/config-ipc.ts:82-99`
+- 现状：只校验 payload 是 object 和插件存在；未校验插件是否 enabled，也未校验 `secrets` 是 plain object 且 values 为 string。
+- 问题：spec 要求只保存已启用插件的 secret；当前 disabled 插件也可写入 secret store。
+- 影响：边界行为不一致，错误输入不易诊断。
+- 建议：补 `plugin.enabled` 校验；补 `secrets` shape/value 校验。非法 `paramName` 静默跳过符合 spec，可保留。
 
-通过。作为总设计可用。低风险建议：减少与 round specs 重复。
+#### 2. `pnpm make` 在当前 Linux 环境失败
 
-### `2026-05-24-round3-skeleton.md`
+- 命令：`pnpm make`
+- 结果：失败，缺少 `rpmbuild`。
+- 原因：Forge maker-rpm 需要系统二进制。
+- 影响：不是代码逻辑失败，但当前环境无法完成打包验证。
+- 建议：CI 安装 rpm 构建依赖，或 Linux 本地验证时指定可用 maker target。
 
-通过。有验收标准和文件清单。低风险建议：把 smoke test 示例中的 `// ...` 展开。
+## Validation Results
 
-### `2026-05-24-round3.5-quality-gates.md`
+| Check                         | Result                      |
+| ----------------------------- | --------------------------- |
+| Type check (`pnpm typecheck`) | Pass                        |
+| Lint (`pnpm lint`)            | Pass                        |
+| Tests (`pnpm test`)           | Pass — 17 files / 102 tests |
+| Build/package (`pnpm make`)   | Fail — missing `rpmbuild`   |
 
-通过。质量门禁目标清楚，文件清单完整。
+## Files Reviewed
 
-### `2026-05-24-round4-parser.md`
+- `forge.config.ts` — modified
+- `package.json` / `pnpm-lock.yaml` — modified
+- `src/main/index.ts` — modified
+- `src/main/ipc/config-ipc.ts` — added
+- `src/main/ipc/event-ipc.ts` — added
+- `src/main/ipc/helpers.ts` — added
+- `src/main/ipc/plugin-ipc.ts` — added
+- `src/preload/index.ts` — added
+- `src/preload/usageboard-api.ts` — added
+- `src/renderer/**` — added
+- `src/shared/types/config.ts` — modified
+- `src/shared/types/ipc.ts` — modified
+- `tests/unit/ipc/*.test.ts` — added
+- legacy entry files removed：`src/main.ts`, `src/preload.ts`, `src/renderer.ts`, `src/index.css`
 
-通过。交付物、测试计划、不实现、验收标准、文件清单完整。
+## 最终判断
 
-### `2026-05-24-round5-runner.md`
-
-通过。runner 安全边界明确：`spawn`，不使用 `exec`。fake plugins 覆盖关键失败模式。
-
-### `2026-05-24-round6-state-layer.md`
-
-通过。config/cache/path/secret/plugin-instance 边界清楚。secret 不进日志和测试快照的要求已保留。
-
-### `2026-05-24-round7-scheduler.md`
-
-通过。TODO 已闭环为明确不实现范围。`Promise.allSettled`、min interval、cache hit、并发 refresh 行为均有验收项。
-
-## 结论
-
-可执行。建议下一步从 Round 3 开始实现，严格按 round 顺序推进。
+Request changes。先修 4 个 HIGH，再重跑 `pnpm typecheck && pnpm lint && pnpm test`，并补一次可用 target 的打包/启动验证。

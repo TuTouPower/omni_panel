@@ -45,3 +45,4 @@ typings/
 
 # Package artifacts
 *.tgz
+.superpowers/
