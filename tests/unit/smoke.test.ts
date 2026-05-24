@@ -21,7 +21,7 @@ describe("smoke: modules are importable", () => {
         expect(result).toHaveProperty("exitCode");
     });
 
-    it("getDataRoot throws Not implemented", () => {
-        expect(() => getDataRoot()).toThrow("Not implemented");
+    it("getDataRoot is importable function", () => {
+        expect(typeof getDataRoot).toBe("function");
     });
 });
