@@ -1,6 +1,6 @@
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import { dirname } from "node:path";
-import { type AppConfiguration, DEFAULT_CONFIGURATION } from "./types";
+import { type AppConfiguration, DEFAULT_CONFIGURATION, appConfigurationSchema } from "./types";
 
 export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
@@ -25,8 +25,9 @@ export function createConfigStore(configPath: string): AppConfigStore {
             try {
                 const raw = await readFile(configPath, "utf8");
                 const parsed = JSON.parse(raw) as unknown;
-                if (typeof parsed === "object" && parsed !== null && "schemaVersion" in parsed) {
-                    return parsed as AppConfiguration;
+                const result = appConfigurationSchema.safeParse(parsed);
+                if (result.success) {
+                    return result.data;
                 }
                 return { ...DEFAULT_CONFIGURATION };
             } catch {

@@ -70,4 +70,14 @@ describe("config-store", () => {
         const plugins = parsed["plugins"] as Record<string, unknown>[];
         expect(plugins[0]?.["stateId"]).toBe("abc-123");
     });
+
+    it("returns default config on schema-invalid JSON", async () => {
+        const { writeFile } = await import("node:fs/promises");
+        await writeFile(join(tempDir, "config.json"), '{"schemaVersion":1}');
+        const store = createConfigStore(join(tempDir, "config.json"));
+        const config = await store.load();
+        expect(config.schemaVersion).toBe(1);
+        expect(config.language).toBe("zh-Hans");
+        expect(config.plugins).toEqual([]);
+    });
 });
