@@ -39,18 +39,18 @@
 
 ---
 
-## Phase 2: Core 实现 (Round 3-7)
+## Phase 2: Core 实现 (Round 3-7) ✅
 
-### Round 3: Electron 项目骨架 + 测试框架
+### Round 3: Electron 项目骨架 + 测试框架 ✅
 
-- [ ] 创建目录结构：`src/main/` `src/preload/` `src/renderer/` `src/shared/` `tests/`
-- [ ] 配置技术栈：Electron + TypeScript + Vite + React + Vitest + Playwright + Zod + ESLint + Prettier
-- [ ] 配置 Electron 安全默认值（contextIsolation / nodeIntegration / sandbox）
-- [ ] 复制 docs / schemas / fixtures 到新项目
-- [ ] 创建空模块 + failing tests
-- [ ] 输出 `docs/implementation-plan.md`
+- [x] 创建目录结构：`src/main/` `src/preload/` `src/renderer/` `src/shared/` `tests/`
+- [x] 配置技术栈：Electron + TypeScript + Vite + React + Vitest + Playwright + Zod + ESLint + Prettier
+- [x] 配置 Electron 安全默认值（contextIsolation / nodeIntegration / sandbox）
+- [x] 复制 docs / schemas / fixtures 到新项目
+- [x] 创建空模块 + failing tests
+- [x] 输出 `docs/implementation-plan.md`
 
-### Round 3.5: 严格代码质量门禁（参考 strict_code_quality_checks.md）
+### Round 3.5: 严格代码质量门禁 ✅
 
 - [ ] **TypeScript 超严格 tsconfig.json**
     - `strict: true` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`
@@ -116,69 +116,69 @@
     - `"security:sast": "semgrep scan --config=auto"`
     - `"check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch && pnpm security:js"`
 
-### Round 4: 实现 parser
+### Round 4: 实现 parser ✅
 
-- [ ] `src/main/core/plugin-output-parser.ts`
-- [ ] `src/main/core/plugin-metadata-parser.ts`
-- [ ] `src/shared/types/plugin.ts`
-- [ ] `src/shared/errors/plugin-errors.ts`
-- [ ] 通过所有 plugin-output fixtures 测试
-- [ ] 通过所有 plugin-metadata fixtures 测试
+- [x] `src/main/core/plugin-output-parser.ts`
+- [x] `src/main/core/plugin-metadata-parser.ts`
+- [x] `src/shared/types/plugin.ts`
+- [x] `src/shared/errors/plugin-errors.ts`
+- [x] 通过所有 plugin-output fixtures 测试
+- [x] 通过所有 plugin-metadata fixtures 测试
 
-### Round 5: 实现 plugin runner
+### Round 5: 实现 plugin runner ✅
 
-- [ ] `src/main/core/plugin-runner.ts`
-- [ ] `src/main/core/plugin-command-builder.ts`
-- [ ] 创建 `fixtures/fake-plugins/`（valid-json / invalid-json / nonzero / timeout / stderr / echo-params）
-- [ ] 使用 `child_process.spawn`，不用 `exec`
-- [ ] 实现 `--usageboard-param KEY=value` 参数传递
-- [ ] 实现 timeout + kill
-- [ ] secret 参数脱敏
-- [ ] 通过集成测试
+- [x] `src/main/core/plugin-runner.ts`
+- [x] `src/main/core/plugin-command-builder.ts`
+- [x] 创建 `fixtures/fake-plugins/`（valid-json / invalid-json / nonzero / timeout / stderr / echo-params）
+- [x] 使用 `child_process.spawn`，不用 `exec`
+- [x] 实现 `--usageboard-param KEY=value` 参数传递
+- [x] 实现 timeout + kill
+- [x] secret 参数脱敏
+- [x] 通过集成测试
 
-### Round 6: 实现 config / cache / path / secret
+### Round 6: 实现 config / cache / path / secret ✅
 
-- [ ] `src/main/core/paths.ts`（集中路径管理，基于 `app.getPath('userData')`）
-- [ ] `src/main/core/config-store.ts`（atomic write）
-- [ ] `src/main/core/cache-store.ts`
-- [ ] `src/main/core/secrets-store.ts`
-- [ ] `src/main/core/plugin-instance.ts`
-- [ ] 支持读取旧版 config（如果已确认结构）
-- [ ] API key 存储策略文档化
+- [x] `src/main/core/paths.ts`（集中路径管理，基于 `app.getPath('userData')`）
+- [x] `src/main/core/config-store.ts`（atomic write）
+- [x] `src/main/core/cache-store.ts`
+- [x] `src/main/core/secrets-store.ts`
+- [x] `src/main/core/plugin-instance.ts`
+- [x] 支持读取旧版 config（如果已确认结构）
+- [x] API key 存储策略文档化
 
-### Round 7: 实现 scheduler / runtime store
+### Round 7: 实现 scheduler / runtime store ✅
 
-- [ ] `src/main/core/runtime-store.ts`（idle / loading / ready / failed 状态机）
-- [ ] `src/main/core/plugin-scheduler.ts`（独立间隔，防并发）
-- [ ] `src/main/core/plugin-refresh-service.ts`
-- [ ] cache hit 逻辑
-- [ ] 插件失败保留上次成功 cache
-- [ ] 测试覆盖：success / failure / timeout / cache hit / concurrent / disabled
+- [x] `src/main/core/runtime-store.ts`（idle / loading / ready / failed 状态机）
+- [x] `src/main/core/plugin-scheduler.ts`（独立间隔，防并发）
+- [x] `src/main/core/plugin-refresh-service.ts`
+- [x] cache hit 逻辑
+- [x] 插件失败保留上次成功 cache
+- [x] 测试覆盖：success / failure / timeout / cache hit / concurrent / disabled
 
 ---
 
-## Phase 3: IPC 与 UI (Round 8-9)
+## Phase 3: IPC 与 UI (Round 8-9) ✅
 
-### Round 8: 实现 IPC / preload
+### Round 8: 实现 IPC / preload ✅
 
-- [ ] `src/preload/usageboard-api.ts`
-- [ ] `src/preload/index.ts`
-- [ ] `src/main/ipc/plugin-ipc.ts`
-- [ ] `src/main/ipc/config-ipc.ts`
-- [ ] `src/shared/ipc-contract.ts`
-- [ ] 使用 `contextBridge`，不暴露 `ipcRenderer`
-- [ ] IPC 输入校验 + 错误序列化
-- [ ] secret 字段脱敏返回 renderer
-- [ ] renderer 只能调用 `window.usageboard.*`
+- [x] `src/preload/usageboard-api.ts`
+- [x] `src/preload/index.ts`
+- [x] `src/main/ipc/plugin-ipc.ts`
+- [x] `src/main/ipc/config-ipc.ts`
+- [x] `src/shared/ipc-contract.ts`
+- [x] 使用 `contextBridge`，不暴露 `ipcRenderer`
+- [x] IPC 输入校验 + 错误序列化
+- [x] secret 字段脱敏返回 renderer
+- [x] renderer 只能调用 `window.usageboard.*`
 
-### Round 9: 最小 UI 和托盘
+### Round 9: 最小 UI 和托盘 ✅
 
-- [ ] Electron tray
-- [ ] Dashboard window（插件卡片列表 + 状态 + 刷新按钮 + 上次更新时间）
-- [ ] Settings window（参数配置表单）
-- [ ] 参数表单由 PluginMetadata 自动生成（secret→password / choice→select / boolean→checkbox）
-- [ ] 错误展示
-- [ ] 空状态
+- [x] Electron tray
+- [x] Dashboard window（插件卡片列表 + 状态 + 刷新按钮 + 上次更新时间）
+- [x] Settings window（参数配置表单）
+- [x] 参数表单由 PluginMetadata 自动生成（secret→password / choice→select / boolean→checkbox）
+- [x] 错误展示
+- [x] 空状态
 - [ ] Playwright smoke test
 
 ---
