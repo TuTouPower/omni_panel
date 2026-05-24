@@ -58,10 +58,11 @@ describe("config-ipc", () => {
         // Simulate renderer sending back "***" for secret
         const originalPlugin = loaded.plugins.find((p) => p.stateId === "claude");
         expect(originalPlugin).toBeDefined();
+        if (!originalPlugin) return;
         const mutablePlugin: AppConfiguration["plugins"][number] = {
             ...originalPlugin,
             parameterValues: {
-                ...originalPlugin?.parameterValues,
+                ...originalPlugin.parameterValues,
                 API_KEY: "***",
                 MODEL: "gpt-4o",
             },
