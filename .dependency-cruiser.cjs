@@ -25,4 +25,9 @@ module.exports = {
             to: { path: "src/main" },
         },
     ],
+    options: {
+        doNotFollow: {
+            path: "node_modules",
+        },
+    },
 };

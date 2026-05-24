@@ -10,6 +10,9 @@ importers:
             electron-squirrel-startup:
                 specifier: ^1.0.1
                 version: 1.0.1
+            zod:
+                specifier: ^4.4.3
+                version: 4.4.3
         devDependencies:
             "@electron-forge/cli":
                 specifier: ^7.11.2
