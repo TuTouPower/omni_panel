@@ -177,7 +177,7 @@ describe("smoke: modules are importable", () => {
 
 ## 输出
 
-- `docs/implementation-plan.md` — 按模块拆任务的实现计划
+（无额外产出。实现计划见 `docs/superpowers/plans/2026-05-24-phase2-core-implementation.md`）
 
 ---
 
@@ -225,7 +225,6 @@ src/shared/errors/index.ts
 src/shared/constants.ts
 tests/unit/smoke.test.ts
 vitest.config.ts
-docs/implementation-plan.md
 ```
 
 ### 不允许修改

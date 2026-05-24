@@ -3,7 +3,12 @@
 > 日期：2026-05-24
 > 状态：设计通过，待实现
 > 范围：Round 3 ~ Round 7（含 Round 3.5 严格质量门禁）
-> **权威来源**：本文件为架构总览。实现细节以各 round spec 为权威，冲突时以 round spec 为准。
+> **权威来源**：本文件为跨 round 架构总览。权威优先级：
+> 1. **round spec**（`docs/superpowers/specs/2026-05-24-round*.md`）— 定义范围、验收标准、文件清单
+> 2. **plan**（`docs/superpowers/plans/2026-05-24-phase2-core-implementation.md`）— 定义执行步骤
+> 3. **本文件** — 仅保留跨 round 架构约束和决策记录
+>
+> 冲突时以 round spec 为准。本文件不再扩写实现细节。
 
 ---
 

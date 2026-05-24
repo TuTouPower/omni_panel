@@ -762,6 +762,10 @@ git commit -m "feat: setup Husky + lint-staged for pre-commit and pre-push hooks
 
 ## Round 4: Parser 实现
 
+> **输入文档**：实现前先读取以下文件，理解插件协议边界约束：
+> - `docs/plugin-contract.md` — 插件协议（metadata 注释块格式、stdout JSON 格式、退出码语义）
+> - `docs/migration-principles.md` — 迁移原则（协议兼容性为最高优先级）
+
 ### Task 7: Write Zod Schema for Plugin Output
 
 **Files:**
