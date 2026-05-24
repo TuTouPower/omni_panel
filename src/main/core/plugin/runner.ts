@@ -22,7 +22,8 @@ export async function executePlugin(
 
         const stdoutChunks: Buffer[] = [];
         const stderrChunks: Buffer[] = [];
-        let exited = false;
+        let timedOut = false;
+        let settled = false;
 
         child.stdout.on("data", (chunk: Buffer) => {
             stdoutChunks.push(chunk);
@@ -33,35 +34,38 @@ export async function executePlugin(
         });
 
         const timer = setTimeout(() => {
+            timedOut = true;
             child.kill("SIGTERM");
             const graceMs = 2000;
-            const killTimer = setTimeout(() => {
-                if (!exited) {
+            setTimeout(() => {
+                if (!settled) {
                     child.kill("SIGKILL");
                 }
             }, graceMs);
-            child.on("exit", () => {
-                exited = true;
-                clearTimeout(killTimer);
-            });
-            reject(new PluginTimeoutError(timeoutMs));
         }, timeoutMs);
 
         child.on("close", (code) => {
-            exited = true;
+            settled = true;
             clearTimeout(timer);
             const durationMs = Date.now() - startTime;
-            resolve({
-                stdout: Buffer.concat(stdoutChunks).toString("utf8"),
-                stderr: Buffer.concat(stderrChunks).toString("utf8"),
-                exitCode: code ?? -1,
-                durationMs,
-            });
+            if (timedOut) {
+                reject(new PluginTimeoutError(timeoutMs));
+            } else {
+                resolve({
+                    stdout: Buffer.concat(stdoutChunks).toString("utf8"),
+                    stderr: Buffer.concat(stderrChunks).toString("utf8"),
+                    exitCode: code ?? -1,
+                    durationMs,
+                });
+            }
         });
 
         child.on("error", (err) => {
-            clearTimeout(timer);
-            reject(err);
+            if (!settled) {
+                settled = true;
+                clearTimeout(timer);
+                reject(err);
+            }
         });
     });
 }
