@@ -15,7 +15,7 @@
         "badge": { "type": "string" },
         "chart": { "$ref": "#/$defs/PluginChart" }
       },
-      "required": ["updatedAt", "items"],
+      "required": ["schemaVersion", "updatedAt", "items"],
       "additionalProperties": false
     },
     {
@@ -37,7 +37,7 @@
         "displayStyle": { "type": "string", "enum": ["percent", "ratio"] },
         "resetAt": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["normal", "warning", "critical", "unknown"] },
-        "color": { "type": "string" }
+        "color": { "type": "string", "enum": ["blue", "green", "yellow", "orange", "red"] }
       },
       "required": ["id", "name", "used", "limit", "displayStyle"]
     },

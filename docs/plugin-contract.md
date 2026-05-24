@@ -93,7 +93,7 @@
       "displayStyle": "percent | ratio",
       "resetAt": "2026-06-01T00:00:00Z (optional)",
       "status": "normal | warning | critical | unknown",
-      "color": "blue | yellow | orange | red (optional)"
+      "color": "blue | green | yellow | orange | red (optional)"
     }
   ],
   "badge": "string (optional)",
