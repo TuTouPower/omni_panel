@@ -1,5 +1,8 @@
 import { z } from "zod/v3";
 import type { AppLanguage } from "../../../shared/types/plugin";
+import type { AppConfiguration } from "../../../shared/types/config";
+
+export type { AppConfiguration, PluginConfiguration } from "../../../shared/types/config";
 
 export const appLanguageSchema = z.enum(["zh-Hans", "en"]) as z.ZodType<AppLanguage>;
 
@@ -19,23 +22,6 @@ export const appConfigurationSchema = z.object({
     plugins: z.array(pluginConfigurationSchema),
     launchAtLogin: z.boolean(),
 });
-
-export interface AppConfiguration {
-    readonly schemaVersion: number;
-    readonly language: AppLanguage;
-    readonly overviewDisplayMode: "grouped" | "tabs";
-    readonly plugins: readonly PluginConfiguration[];
-    readonly launchAtLogin: boolean;
-}
-
-export interface PluginConfiguration {
-    readonly stateId: string;
-    readonly name: string;
-    readonly enabled: boolean;
-    readonly executablePath: string;
-    readonly refreshIntervalSeconds: number;
-    readonly parameterValues: Readonly<Record<string, string>>;
-}
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {
     schemaVersion: 1,
