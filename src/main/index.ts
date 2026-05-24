@@ -1,10 +1,15 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage } from "electron";
-import { join } from "node:path";
-import { getConfigPath, getDataRoot } from "./core/paths";
+import { app, BrowserWindow, Tray, Menu, nativeImage, screen } from "electron";
+import { join, resolve } from "node:path";
+import { getConfigPath, getDataRoot, getStatesDir } from "./core/paths";
 import { createConfigStore } from "./core/config/config-store";
+import { createCacheStore } from "./core/cache/cache-store";
 import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
 import { createSafeStorageCrypto } from "./core/config/safe-storage-crypto";
+import { createRefreshService } from "./core/scheduler/refresh-service";
+import { executePlugin } from "./core/plugin/runner";
+import { parsePluginOutput } from "./core/plugin/output-parser";
+import { buildPluginCommand } from "./core/plugin/command-builder";
 import { registerPluginIpc } from "./ipc/plugin-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
@@ -35,6 +40,14 @@ function getPreloadPath(): string {
     return join(__dirname, "preload.js");
 }
 
+function getRendererUrl(route: string): string {
+    const devServerUrl = process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"];
+    if (devServerUrl) {
+        return `${devServerUrl}#${route}`;
+    }
+    return `file://${resolve(join(__dirname, "../renderer/main_window/index.html"))}#${route}`;
+}
+
 function createWindowFor(key: string): BrowserWindow {
     const cfg = WINDOW_CONFIGS[key];
     if (!cfg) throw new Error(`Unknown window: ${key}`);
@@ -48,7 +61,7 @@ function createWindowFor(key: string): BrowserWindow {
             preload: getPreloadPath(),
         },
     });
-    void win.loadURL(`../renderer/${cfg.route}`);
+    void win.loadURL(getRendererUrl(cfg.route));
     return win;
 }
 
@@ -57,9 +70,11 @@ let cleanupEventIpc: (() => void) | null = null;
 void app.whenReady().then(async () => {
     const configPath = getConfigPath();
     const dataRoot = getDataRoot();
+    const statesDir = getStatesDir();
 
     const crypto = createSafeStorageCrypto();
     const configStore = createConfigStore(configPath);
+    const cacheStore = createCacheStore(statesDir);
     const runtimeStore = createRuntimeStore();
     const secretsStore = createSecretsStore(join(dataRoot, "secrets.json"), crypto);
 
@@ -71,15 +86,17 @@ void app.whenReady().then(async () => {
         secretParamKeys.set(plugin.stateId, new Set());
     }
 
+    // Wire real refresh service
+    const refreshService = createRefreshService({
+        runner: executePlugin,
+        outputParser: parsePluginOutput,
+        commandBuilder: buildPluginCommand,
+        cacheStore,
+        runtimeStore,
+        configStore,
+    });
+
     // Register IPC handlers
-    const refreshService = {
-        refresh: async () => {
-            // Will be wired to PluginRefreshService in integration
-        },
-        refreshAll: async () => {
-            // Will be wired to PluginRefreshService in integration
-        },
-    };
     await registerPluginIpc({ configStore, runtimeStore, refreshService });
     await registerConfigIpc({ configStore, secretsStore, secretParamKeys });
     cleanupEventIpc = registerEventIpc({ runtimeStore });
@@ -129,6 +146,27 @@ void app.whenReady().then(async () => {
             return;
         }
         popupWin = createWindowFor("popup");
+
+        // Position popup near tray icon
+        const trayBounds = tray.getBounds();
+        const display = screen.getDisplayNearestPoint({
+            x: trayBounds.x + trayBounds.width / 2,
+            y: trayBounds.y + trayBounds.height / 2,
+        });
+        const popupCfg = WINDOW_CONFIGS["popup"];
+        const popupWidth = popupCfg?.width ?? 360;
+        const popupHeight = popupCfg?.height ?? 480;
+        const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
+        const y = Math.round(trayBounds.y + trayBounds.height + 4);
+        // Ensure popup stays within display bounds
+        const clampedX = Math.max(
+            display.workArea.x,
+            Math.min(x, display.workArea.x + display.workArea.width - popupWidth),
+        );
+        const clampedY = Math.min(y, display.workArea.y + display.workArea.height - popupHeight);
+        popupWin.setBounds({ x: clampedX, y: clampedY, width: popupWidth, height: popupHeight });
+        popupWin.show();
+
         popupWin.on("closed", () => {
             popupWin = null;
         });
