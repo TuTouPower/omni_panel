@@ -1,3 +1,88 @@
+import { useConfig } from "../hooks/use-config";
+import { usePlugins } from "../hooks/use-plugins";
+import { useTheme } from "../lib/theme";
+import { SettingsForm } from "../components/SettingsForm";
+import { ErrorBanner } from "../components/ErrorBanner";
+
 export function SettingsView() {
-    return <div className="p-4">Settings</div>;
+    useTheme();
+    const { config, loading, error, save, saveSecrets } = useConfig();
+    const { plugins } = usePlugins();
+
+    if (loading) {
+        return <div className="p-6 text-[var(--muted-foreground)]">加载中...</div>;
+    }
+    if (error) {
+        return (
+            <div className="p-6">
+                <ErrorBanner message={error} />
+            </div>
+        );
+    }
+    if (!config) return null;
+
+    const metadataMap = new Map(plugins.map((p) => [p.stateId, p.metadata]));
+
+    const handleSave = async (
+        stateId: string,
+        nonSecrets: Record<string, string>,
+        secrets: Record<string, string>,
+    ) => {
+        const updated = {
+            ...config,
+            plugins: config.plugins.map((p) =>
+                p.stateId === stateId
+                    ? { ...p, parameterValues: { ...p.parameterValues, ...nonSecrets } }
+                    : p,
+            ),
+        };
+        await save(updated);
+        if (Object.keys(secrets).length > 0) {
+            await saveSecrets(stateId, secrets);
+        }
+    };
+
+    return (
+        <div className="flex h-screen">
+            <nav className="w-48 border-r border-[var(--border)] p-4">
+                <h2 className="mb-4 text-sm font-semibold">设置</h2>
+                <ul className="space-y-1 text-sm">
+                    <li className="cursor-default rounded-[var(--radius)] px-2 py-1 text-[var(--muted-foreground)]">
+                        一般
+                    </li>
+                    {config.plugins.map((p) => (
+                        <li
+                            key={p.stateId}
+                            className="cursor-default rounded-[var(--radius)] px-2 py-1"
+                        >
+                            {p.name}
+                        </li>
+                    ))}
+                </ul>
+            </nav>
+
+            <main className="flex-1 overflow-auto p-6">
+                {config.plugins.map((p) => {
+                    const params = metadataMap.get(p.stateId)?.parameters;
+                    if (!params?.length) {
+                        return (
+                            <div key={p.stateId} className="text-sm text-[var(--muted-foreground)]">
+                                {p.name} — 无可配置参数
+                            </div>
+                        );
+                    }
+                    return (
+                        <SettingsForm
+                            key={p.stateId}
+                            stateId={p.stateId}
+                            name={p.name}
+                            parameters={params}
+                            values={{ ...p.parameterValues }}
+                            onSave={handleSave}
+                        />
+                    );
+                })}
+            </main>
+        </div>
+    );
 }
