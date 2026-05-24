@@ -1,16 +1,16 @@
 {
-  "schemaVersion": 1,
-  "updatedAt": "2026-05-24T12:00:00Z",
-  "items": [
-    {
-      "id": "usage-pct",
-      "name": "用量",
-      "used": 90.0,
-      "limit": 100.0,
-      "displayStyle": "percent",
-      "status": "critical",
-      "color": "red"
-    }
-  ],
-  "badge": "90%"
+    "schemaVersion": 1,
+    "updatedAt": "2026-05-24T12:00:00Z",
+    "items": [
+        {
+            "id": "usage-pct",
+            "name": "用量",
+            "used": 90.0,
+            "limit": 100.0,
+            "displayStyle": "percent",
+            "status": "critical",
+            "color": "red"
+        }
+    ],
+    "badge": "90%"
 }

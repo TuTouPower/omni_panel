@@ -37,35 +37,35 @@
 
 ```json
 {
-  "name": "string (optional)",
-  "name@zh-Hans": "string (optional)",
-  "name@en": "string (optional)",
-  "description": "string (optional)",
-  "description@zh-Hans": "string (optional)",
-  "description@en": "string (optional)",
-  "icon": "string URL (optional)",
-  "parameters": [
-    {
-      "name": "string (required)",
-      "label": "string (required)",
-      "label@zh-Hans": "string (optional)",
-      "label@en": "string (optional)",
-      "type": "string | secret | integer | boolean | choice | directory | file",
-      "required": "boolean (required)",
-      "placeholder": "string (optional)",
-      "placeholder@zh-Hans": "string (optional)",
-      "placeholder@en": "string (optional)",
-      "defaultValue": "string (optional)",
-      "options": [
+    "name": "string (optional)",
+    "name@zh-Hans": "string (optional)",
+    "name@en": "string (optional)",
+    "description": "string (optional)",
+    "description@zh-Hans": "string (optional)",
+    "description@en": "string (optional)",
+    "icon": "string URL (optional)",
+    "parameters": [
         {
-          "label": "string (required)",
-          "label@zh-Hans": "string (optional)",
-          "label@en": "string (optional)",
-          "value": "string (required)"
+            "name": "string (required)",
+            "label": "string (required)",
+            "label@zh-Hans": "string (optional)",
+            "label@en": "string (optional)",
+            "type": "string | secret | integer | boolean | choice | directory | file",
+            "required": "boolean (required)",
+            "placeholder": "string (optional)",
+            "placeholder@zh-Hans": "string (optional)",
+            "placeholder@en": "string (optional)",
+            "defaultValue": "string (optional)",
+            "options": [
+                {
+                    "label": "string (required)",
+                    "label@zh-Hans": "string (optional)",
+                    "label@en": "string (optional)",
+                    "value": "string (required)"
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }
 ```
 
@@ -82,38 +82,38 @@
 
 ```json
 {
-  "schemaVersion": 1,
-  "updatedAt": "2026-05-24T12:00:00Z",
-  "items": [
-    {
-      "id": "string",
-      "name": "string",
-      "used": 50.0,
-      "limit": 100.0,
-      "displayStyle": "percent | ratio",
-      "resetAt": "2026-06-01T00:00:00Z (optional)",
-      "status": "normal | warning | critical | unknown",
-      "color": "blue | green | yellow | orange | red (optional)"
-    }
-  ],
-  "badge": "string (optional)",
-  "chart": {
-    "kind": "string",
-    "period": "string",
-    "bucketUnit": "hour | day",
-    "buckets": [
-      {
-        "label": "string",
-        "segments": [
-          {
-            "model": "string",
-            "tokens": 123.0
-          }
-        ]
-      }
+    "schemaVersion": 1,
+    "updatedAt": "2026-05-24T12:00:00Z",
+    "items": [
+        {
+            "id": "string",
+            "name": "string",
+            "used": 50.0,
+            "limit": 100.0,
+            "displayStyle": "percent | ratio",
+            "resetAt": "2026-06-01T00:00:00Z (optional)",
+            "status": "normal | warning | critical | unknown",
+            "color": "blue | green | yellow | orange | red (optional)"
+        }
     ],
-    "message": "string (optional)"
-  }
+    "badge": "string (optional)",
+    "chart": {
+        "kind": "string",
+        "period": "string",
+        "bucketUnit": "hour | day",
+        "buckets": [
+            {
+                "label": "string",
+                "segments": [
+                    {
+                        "model": "string",
+                        "tokens": 123.0
+                    }
+                ]
+            }
+        ],
+        "message": "string (optional)"
+    }
 }
 ```
 
@@ -121,7 +121,7 @@
 
 ```json
 {
-  "error": "error message string"
+    "error": "error message string"
 }
 ```
 
@@ -135,10 +135,10 @@
 
 ## exit code 处理
 
-| exit code | 处理 |
-|-----------|------|
-| 0 | 解析 stdout JSON |
-| 非零 | 错误。优先用 stderr 内容作为消息，stderr 为空则通用 exit code 消息 |
+| exit code | 处理                                                               |
+| --------- | ------------------------------------------------------------------ |
+| 0         | 解析 stdout JSON                                                   |
+| 非零      | 错误。优先用 stderr 内容作为消息，stderr 为空则通用 exit code 消息 |
 
 ## timeout
 

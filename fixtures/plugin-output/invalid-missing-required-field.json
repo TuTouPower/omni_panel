@@ -1,9 +1,9 @@
 {
-  "schemaVersion": 1,
-  "updatedAt": "2026-05-24T12:00:00Z",
-  "items": [
-    {
-      "name": "用量"
-    }
-  ]
+    "schemaVersion": 1,
+    "updatedAt": "2026-05-24T12:00:00Z",
+    "items": [
+        {
+            "name": "用量"
+        }
+    ]
 }

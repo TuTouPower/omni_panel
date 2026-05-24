@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { parsePluginOutput, parsePluginOutputOrError } from "../../src/main/core/plugin/output-parser";
+import {
+    parsePluginOutput,
+    parsePluginOutputOrError,
+} from "../../src/main/core/plugin/output-parser";
 import { parsePluginMetadata } from "../../src/main/core/plugin/metadata-parser";
 import { buildPluginCommand } from "../../src/main/core/plugin/command-builder";
 import { executePlugin } from "../../src/main/core/plugin/runner";
@@ -23,7 +26,9 @@ describe("smoke: modules are importable", () => {
     });
 
     it("executePlugin throws Not implemented", async () => {
-        await expect(() => executePlugin({ command: "echo", args: [] })).rejects.toThrow("Not implemented");
+        await expect(() => executePlugin({ command: "echo", args: [] })).rejects.toThrow(
+            "Not implemented",
+        );
     });
 
     it("getDataRoot throws Not implemented", () => {

@@ -14,16 +14,16 @@
 
 ## 技术栈
 
-| 工具 | 版本/配置 |
-|------|----------|
-| Electron | latest stable |
-| Electron Forge | 脚手架 + 打包 |
-| @electron-forge/plugin-vite | Vite 集成 |
-| TypeScript | latest, strict 超集 |
-| Vite | latest |
-| React | 18+ |
-| Vitest | 单元/集成测试 |
-| Zod | schema 校验 |
+| 工具                        | 版本/配置           |
+| --------------------------- | ------------------- |
+| Electron                    | latest stable       |
+| Electron Forge              | 脚手架 + 打包       |
+| @electron-forge/plugin-vite | Vite 集成           |
+| TypeScript                  | latest, strict 超集 |
+| Vite                        | latest              |
+| React                       | 18+                 |
+| Vitest                      | 单元/集成测试       |
+| Zod                         | schema 校验         |
 
 ---
 
@@ -81,15 +81,15 @@ src/
 ```typescript
 // src/main/core/plugin/output-parser.ts
 export function parsePluginOutput(_stdout: string): never {
-  throw new Error("Not implemented");
+    throw new Error("Not implemented");
 }
 ```
 
 ```typescript
 // src/main/core/plugin/types.ts
 export interface PluginCommand {
-  command: string;
-  args: string[];
+    command: string;
+    args: string[];
 }
 // 其他类型留空，Round 4 填充
 ```
@@ -102,12 +102,12 @@ export interface PluginCommand {
 
 ```typescript
 const mainWindow = new BrowserWindow({
-  webPreferences: {
-    contextIsolation: true,
-    nodeIntegration: false,
-    sandbox: true,
-    webSecurity: true,
-  },
+    webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        webSecurity: true,
+    },
 });
 ```
 
@@ -118,6 +118,7 @@ const mainWindow = new BrowserWindow({
 ### tsconfig.json
 
 完整严格配置（见架构 spec 第 4.2 节）。关键标志：
+
 - `strict: true`
 - `noUncheckedIndexedAccess: true`
 - `exactOptionalPropertyTypes: true`
@@ -131,10 +132,10 @@ const mainWindow = new BrowserWindow({
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: {
-    include: ["tests/**/*.test.ts"],
-    globals: true,
-  },
+    test: {
+        include: ["tests/**/*.test.ts"],
+        globals: true,
+    },
 });
 ```
 
@@ -153,13 +154,13 @@ import { buildPluginCommand, executePlugin } from "../../src/main/core/plugin/ru
 // ... 所有核心模块
 
 describe("smoke: modules are importable", () => {
-  it("parsePluginOutput throws Not implemented", () => {
-    expect(() => parsePluginOutput("{}")).toThrow("Not implemented");
-  });
-  it("parsePluginMetadata throws Not implemented", () => {
-    expect(() => parsePluginMetadata("")).toThrow("Not implemented");
-  });
-  // ... 每个核心模块一个 smoke test
+    it("parsePluginOutput throws Not implemented", () => {
+        expect(() => parsePluginOutput("{}")).toThrow("Not implemented");
+    });
+    it("parsePluginMetadata throws Not implemented", () => {
+        expect(() => parsePluginMetadata("")).toThrow("Not implemented");
+    });
+    // ... 每个核心模块一个 smoke test
 });
 ```
 

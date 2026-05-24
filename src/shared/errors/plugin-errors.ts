@@ -1,12 +1,18 @@
 export class PluginOutputParseError extends Error {
-    constructor(message: string, public readonly raw: string) {
+    constructor(
+        message: string,
+        public readonly raw: string,
+    ) {
         super(message);
         this.name = "PluginOutputParseError";
     }
 }
 
 export class PluginSchemaError extends Error {
-    constructor(message: string, public readonly issues: readonly unknown[]) {
+    constructor(
+        message: string,
+        public readonly issues: readonly unknown[],
+    ) {
         super(message);
         this.name = "PluginSchemaError";
     }

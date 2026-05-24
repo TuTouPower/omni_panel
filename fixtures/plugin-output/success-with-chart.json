@@ -1,42 +1,40 @@
 {
-  "schemaVersion": 1,
-  "updatedAt": "2026-05-24T12:00:00Z",
-  "items": [
-    {
-      "id": "token-usage",
-      "name": "Token 用量",
-      "used": 50000.0,
-      "limit": 100000.0,
-      "displayStyle": "percent",
-      "status": "normal",
-      "color": "blue"
+    "schemaVersion": 1,
+    "updatedAt": "2026-05-24T12:00:00Z",
+    "items": [
+        {
+            "id": "token-usage",
+            "name": "Token 用量",
+            "used": 50000.0,
+            "limit": 100000.0,
+            "displayStyle": "percent",
+            "status": "normal",
+            "color": "blue"
+        }
+    ],
+    "chart": {
+        "kind": "token_usage",
+        "period": "7d",
+        "bucketUnit": "day",
+        "buckets": [
+            {
+                "label": "05-18",
+                "segments": [
+                    { "model": "claude-sonnet", "tokens": 5000.0 },
+                    { "model": "claude-opus", "tokens": 2000.0 }
+                ]
+            },
+            {
+                "label": "05-19",
+                "segments": [{ "model": "claude-sonnet", "tokens": 8000.0 }]
+            },
+            {
+                "label": "05-20",
+                "segments": [
+                    { "model": "claude-sonnet", "tokens": 6000.0 },
+                    { "model": "claude-opus", "tokens": 3000.0 }
+                ]
+            }
+        ]
     }
-  ],
-  "chart": {
-    "kind": "token_usage",
-    "period": "7d",
-    "bucketUnit": "day",
-    "buckets": [
-      {
-        "label": "05-18",
-        "segments": [
-          { "model": "claude-sonnet", "tokens": 5000.0 },
-          { "model": "claude-opus", "tokens": 2000.0 }
-        ]
-      },
-      {
-        "label": "05-19",
-        "segments": [
-          { "model": "claude-sonnet", "tokens": 8000.0 }
-        ]
-      },
-      {
-        "label": "05-20",
-        "segments": [
-          { "model": "claude-sonnet", "tokens": 6000.0 },
-          { "model": "claude-opus", "tokens": 3000.0 }
-        ]
-      }
-    ]
-  }
 }

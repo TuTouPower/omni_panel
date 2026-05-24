@@ -18,26 +18,28 @@
 
 ```typescript
 export interface PluginCommand {
-  command: string;
-  args: string[];
+    command: string;
+    args: string[];
 }
 
 export function buildPluginCommand(
-  executablePath: string,
-  parameterValues: Record<string, string>,
-  language: AppLanguage,
+    executablePath: string,
+    parameterValues: Record<string, string>,
+    language: AppLanguage,
 ): PluginCommand;
 ```
 
 实现逻辑：
+
 1. 构建参数数组：`["--usageboard-param", "KEY=value"]` 格式
 2. 仅传递 `parameterValues` 中值非空的条目
 3. 追加 `--usageboard-param USAGEBOARD_LANGUAGE=zh-Hans`（或 `en`）
 4. 判断文件扩展名：
-   - `.py` → `{ command: "python3", args: [executablePath, ...paramArgs] }`
-   - 非 `.py` → `{ command: executablePath, args: [...paramArgs] }`
+    - `.py` → `{ command: "python3", args: [executablePath, ...paramArgs] }`
+    - 非 `.py` → `{ command: executablePath, args: [...paramArgs] }`
 
 跨平台 Python 查找（Windows）：
+
 - `.py` 文件优先 `python3`，fallback `python`，再 fallback `py`
 - 用 `child_process.spawn` 测试命令是否存在，或用 `which` / `where`
 - 此逻辑可放入独立函数 `resolvePythonCommand(): string`
@@ -46,36 +48,38 @@ export function buildPluginCommand(
 
 ```typescript
 export interface PluginExecutionResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  durationMs: number;
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    durationMs: number;
 }
 
 export interface PluginRunnerOptions {
-  timeoutMs?: number; // 默认 15000
+    timeoutMs?: number; // 默认 15000
 }
 
 export async function executePlugin(
-  command: PluginCommand,
-  options?: PluginRunnerOptions,
+    command: PluginCommand,
+    options?: PluginRunnerOptions,
 ): Promise<PluginExecutionResult>;
 ```
 
 实现逻辑：
+
 1. `child_process.spawn(command.command, command.args, { shell: isWindows })`
-   - Windows 需要 `shell: true` 才能找到 python/py
-   - macOS/Linux 不需要
+    - Windows 需要 `shell: true` 才能找到 python/py
+    - macOS/Linux 不需要
 2. 用 `Buffer` 收集 stdout 和 stderr
 3. 监听 `close` 事件获取 exitCode
 4. 记录 `durationMs`（`Date.now()` 差值）
 5. timeout 处理：
-   - `setTimeout` 后调用 `child.kill("SIGTERM")`
-   - 等待 2s 后如果还没退出，`kill("SIGKILL")`
-   - 抛出 `PluginTimeoutError`
+    - `setTimeout` 后调用 `child.kill("SIGTERM")`
+    - 等待 2s 后如果还没退出，`kill("SIGKILL")`
+    - 抛出 `PluginTimeoutError`
 6. 正常退出后返回 `{ stdout, stderr, exitCode, durationMs }`
 
 安全约束：
+
 - `command` 和 `args` 来自 `buildPluginCommand`，不直接接受用户输入
 - secret 参数不进入日志/错误消息
 - 不使用 `exec`（shell 注入风险），只用 `spawn`
@@ -149,38 +153,38 @@ print(json.dumps({"echoed": params}))
 
 ### tests/integration/plugin/runner.test.ts
 
-| 测试用例 | fake plugin | 预期 |
-|---------|------------|------|
-| 正常执行并解析 JSON | prints-valid-json.py | exitCode=0, stdout 可 parse |
-| 无效 JSON 输出 | prints-invalid-json.py | exitCode=0, parsePluginOutput 抛异常 |
-| 非零退出码 | exits-nonzero.py | exitCode=1, stderr 有内容 |
-| 超时 | sleeps-timeout.py | 抛 PluginTimeoutError, 进程被 kill |
-| stderr 输出但成功 | prints-to-stderr.py | exitCode=0, stderr 有内容, stdout 可 parse |
-| 参数传递 | echoes-params.py | stdout 中 echo 的参数与输入一致 |
+| 测试用例            | fake plugin            | 预期                                       |
+| ------------------- | ---------------------- | ------------------------------------------ |
+| 正常执行并解析 JSON | prints-valid-json.py   | exitCode=0, stdout 可 parse                |
+| 无效 JSON 输出      | prints-invalid-json.py | exitCode=0, parsePluginOutput 抛异常       |
+| 非零退出码          | exits-nonzero.py       | exitCode=1, stderr 有内容                  |
+| 超时                | sleeps-timeout.py      | 抛 PluginTimeoutError, 进程被 kill         |
+| stderr 输出但成功   | prints-to-stderr.py    | exitCode=0, stderr 有内容, stdout 可 parse |
+| 参数传递            | echoes-params.py       | stdout 中 echo 的参数与输入一致            |
 
 ### tests/unit/plugin/command-builder.test.ts
 
-| 测试用例 | 预期 |
-|---------|------|
-| .py 文件用 python3 执行 | command="python3" |
-| 非 .py 文件直接执行 | command=executablePath |
-| 参数格式正确 | args 包含 `--usageboard-param KEY=value` |
-| 空参数不传递 | parameterValues 为空时无 --usageboard-param |
-| USAGEBOARD_LANGUAGE 始终传递 | args 末尾包含 language 参数 |
-| secret 参数值正确传递 | 值不变，但不出现在日志 |
+| 测试用例                     | 预期                                        |
+| ---------------------------- | ------------------------------------------- |
+| .py 文件用 python3 执行      | command="python3"                           |
+| 非 .py 文件直接执行          | command=executablePath                      |
+| 参数格式正确                 | args 包含 `--usageboard-param KEY=value`    |
+| 空参数不传递                 | parameterValues 为空时无 --usageboard-param |
+| USAGEBOARD_LANGUAGE 始终传递 | args 末尾包含 language 参数                 |
+| secret 参数值正确传递        | 值不变，但不出现在日志                      |
 
 ---
 
 ## 精确行为约束
 
-| 场景 | 行为 |
-|------|------|
-| exit code 0 + JSON | 正常返回 PluginExecutionResult |
-| exit code 0 + 非 JSON | 返回结果（parsePluginOutput 由调用方处理） |
-| exit code != 0 | 返回结果（exitCode != 0），调用方决定是否转为错误 |
-| timeout | 抛 PluginTimeoutError，进程被 kill |
-| stderr 有内容 | 正常返回，stderr 作为字符串附带（不等于失败） |
-| 进程被 signal 终止 | exitCode 为 null 时用 -1 代替 |
+| 场景                  | 行为                                              |
+| --------------------- | ------------------------------------------------- |
+| exit code 0 + JSON    | 正常返回 PluginExecutionResult                    |
+| exit code 0 + 非 JSON | 返回结果（parsePluginOutput 由调用方处理）        |
+| exit code != 0        | 返回结果（exitCode != 0），调用方决定是否转为错误 |
+| timeout               | 抛 PluginTimeoutError，进程被 kill                |
+| stderr 有内容         | 正常返回，stderr 作为字符串附带（不等于失败）     |
+| 进程被 signal 终止    | exitCode 为 null 时用 -1 代替                     |
 
 ---
 

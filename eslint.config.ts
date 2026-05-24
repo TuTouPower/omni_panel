@@ -46,6 +46,6 @@ export default defineConfig(
         },
     },
     {
-        ignores: ["dist/", "out/", ".vite/", "node_modules/"],
+        ignores: ["dist/", "out/", ".vite/", "node_modules/", ".dependency-cruiser.cjs"],
     },
 );

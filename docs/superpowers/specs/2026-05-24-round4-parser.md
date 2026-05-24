@@ -33,6 +33,7 @@ export type PluginErrorOutput = z.infer<typeof pluginErrorOutputSchema>;
 ```
 
 关键细节：
+
 - `status` 字段 `.default("unknown")` 匹配旧项目默认值
 - `displayStyle` 枚举：`"percent" | "ratio"`
 - `color` 枚举：`"blue" | "green" | "yellow" | "orange" | "red"`（optional）
@@ -45,25 +46,30 @@ export type PluginErrorOutput = z.infer<typeof pluginErrorOutputSchema>;
 处理 `@lang` 动态 key 的挑战。使用 `.catchall(z.string())` 允许额外翻译 key。
 
 ```typescript
-export const pluginParameterMetadataSchema = z.object({
-  name: z.string(),
-  label: z.string(),
-  type: pluginParameterTypeSchema,
-  required: z.boolean(),
-  placeholder: z.string().optional(),
-  defaultValue: z.string().optional(),
-  options: z.array(pluginParameterOptionWithTranslationsSchema).optional(),
-}).catchall(z.string());
+export const pluginParameterMetadataSchema = z
+    .object({
+        name: z.string(),
+        label: z.string(),
+        type: pluginParameterTypeSchema,
+        required: z.boolean(),
+        placeholder: z.string().optional(),
+        defaultValue: z.string().optional(),
+        options: z.array(pluginParameterOptionWithTranslationsSchema).optional(),
+    })
+    .catchall(z.string());
 
-export const pluginMetadataSchema = z.object({
-  name: z.string().optional(),
-  description: z.string().optional(),
-  icon: z.string().optional(),
-  parameters: z.array(pluginParameterMetadataSchema).optional(),
-}).catchall(z.string());
+export const pluginMetadataSchema = z
+    .object({
+        name: z.string().optional(),
+        description: z.string().optional(),
+        icon: z.string().optional(),
+        parameters: z.array(pluginParameterMetadataSchema).optional(),
+    })
+    .catchall(z.string());
 ```
 
 关键细节：
+
 - `catchall(z.string())` 允许 `name@zh-Hans`、`description@en` 等动态 key
 - 解析后需要从动态 key 提取翻译到 `translations` 字典（由 parser 处理）
 - `PluginParameterType` 枚举：`"string" | "secret" | "integer" | "boolean" | "choice" | "directory" | "file"`
@@ -94,11 +100,12 @@ export function parsePluginMetadata(content: string): PluginMetadata | null;
 ```
 
 实现逻辑：
+
 1. 取 content 按 `\n` 分割，取前 80 行
 2. 遍历找 `UsageBoardPlugin:` 开始标记
-   - 去除行首空白
-   - 去除 `#` 前缀和紧随空格
-   - 检查是否以 `UsageBoardPlugin:` 开头
+    - 去除行首空白
+    - 去除 `#` 前缀和紧随空格
+    - 检查是否以 `UsageBoardPlugin:` 开头
 3. 开始标记同行如有额外内容，也收集
 4. 继续收集直到 `/UsageBoardPlugin` 结束标记
 5. 每行 `stripCommentPrefix`：去除 `#` 和紧随空格
@@ -107,6 +114,7 @@ export function parsePluginMetadata(content: string): PluginMetadata | null;
 8. 提取动态翻译 key（`name@zh-Hans` 等）到结构化数据
 
 返回值：
+
 - `null`：无 marker / JSON 解析失败 / schema 校验失败（静默）
 - `PluginMetadata`：成功
 
@@ -121,6 +129,7 @@ export function parsePluginOutputOrError(stdout: string): PluginOutput | PluginE
 ```
 
 实现逻辑：
+
 1. `stdout.trim()`
 2. `JSON.parse()` — 失败抛 `PluginOutputParseError`
 3. `pluginErrorOutputSchema.safeParse()` — 匹配返回 `PluginErrorOutput`
@@ -138,12 +147,12 @@ import { pluginMetadataSchema } from "../src/shared/schemas/plugin-metadata";
 import fs from "node:fs";
 
 fs.writeFileSync(
-  "schemas/plugin-output.schema.json",
-  JSON.stringify(zodToJsonSchema(pluginOutputSchema), null, 2),
+    "schemas/plugin-output.schema.json",
+    JSON.stringify(zodToJsonSchema(pluginOutputSchema), null, 2),
 );
 fs.writeFileSync(
-  "schemas/plugin-metadata.schema.json",
-  JSON.stringify(zodToJsonSchema(pluginMetadataSchema), null, 2),
+    "schemas/plugin-metadata.schema.json",
+    JSON.stringify(zodToJsonSchema(pluginMetadataSchema), null, 2),
 );
 ```
 
@@ -153,27 +162,27 @@ fs.writeFileSync(
 
 ### tests/unit/plugin/output-parser.test.ts
 
-| 测试用例 | 输入 fixture | 预期 |
-|---------|-------------|------|
-| 成功解析基础输出 | `success-basic.json` | PluginOutput, items.length > 0 |
-| 解析带 badge | `success-with-badge.json` | badge 字段存在 |
-| 解析带 chart | `success-with-chart.json` | chart.buckets.length > 0 |
-| 解析空 items | `success-empty-items.json` | items.length === 0 |
-| 解析 error JSON | `error-json-field.json` | PluginErrorOutput, error 非空 |
-| 非 JSON 输入 | `invalid-json.txt` | 抛 PluginOutputParseError |
-| 缺少必填字段 | `invalid-missing-required-field.json` | 抛 PluginSchemaError |
-| 类型错误 | `invalid-wrong-type.json` | 抛 PluginSchemaError |
+| 测试用例         | 输入 fixture                          | 预期                           |
+| ---------------- | ------------------------------------- | ------------------------------ |
+| 成功解析基础输出 | `success-basic.json`                  | PluginOutput, items.length > 0 |
+| 解析带 badge     | `success-with-badge.json`             | badge 字段存在                 |
+| 解析带 chart     | `success-with-chart.json`             | chart.buckets.length > 0       |
+| 解析空 items     | `success-empty-items.json`            | items.length === 0             |
+| 解析 error JSON  | `error-json-field.json`               | PluginErrorOutput, error 非空  |
+| 非 JSON 输入     | `invalid-json.txt`                    | 抛 PluginOutputParseError      |
+| 缺少必填字段     | `invalid-missing-required-field.json` | 抛 PluginSchemaError           |
+| 类型错误         | `invalid-wrong-type.json`             | 抛 PluginSchemaError           |
 
 ### tests/unit/plugin/metadata-parser.test.ts
 
-| 测试用例 | 输入 fixture | 预期 |
-|---------|-------------|------|
-| 基础 metadata | `metadata-basic.py` | PluginMetadata, parameters.length > 0 |
-| secret 参数 | `metadata-with-secret.py` | 参数 type === "secret" |
-| choice 参数 | `metadata-with-choice.py` | 参数 options.length > 0 |
-| 缺少结束标记 | `metadata-missing-end-marker.py` | null |
-| JSON 解析失败 | `metadata-invalid-json.py` | null |
-| 超过 80 行 | `metadata-after-line-80.py` | null（80 行限制） |
+| 测试用例      | 输入 fixture                     | 预期                                  |
+| ------------- | -------------------------------- | ------------------------------------- |
+| 基础 metadata | `metadata-basic.py`              | PluginMetadata, parameters.length > 0 |
+| secret 参数   | `metadata-with-secret.py`        | 参数 type === "secret"                |
+| choice 参数   | `metadata-with-choice.py`        | 参数 options.length > 0               |
+| 缺少结束标记  | `metadata-missing-end-marker.py` | null                                  |
+| JSON 解析失败 | `metadata-invalid-json.py`       | null                                  |
+| 超过 80 行    | `metadata-after-line-80.py`      | null（80 行限制）                     |
 
 ### tests/unit/shared/schemas.test.ts
 
@@ -183,13 +192,13 @@ fs.writeFileSync(
 
 ## 精确行为约束（来自 unconfirmed.md 全保守策略）
 
-| 场景 | 行为 |
-|------|------|
-| stdout 有非 JSON 文本 | trim 后整体解析，失败报错（不做行级容错） |
-| schemaVersion 字段 | Zod 接受任何 number，不强制为 1 |
-| 80 行限制 | 严格执行，超 80 行的 metadata 返回 null |
-| JSON 解析失败 | 返回 null（静默），不抛异常 |
-| marker 存在但 JSON 错误 | 返回 null（静默） |
+| 场景                    | 行为                                      |
+| ----------------------- | ----------------------------------------- |
+| stdout 有非 JSON 文本   | trim 后整体解析，失败报错（不做行级容错） |
+| schemaVersion 字段      | Zod 接受任何 number，不强制为 1           |
+| 80 行限制               | 严格执行，超 80 行的 metadata 返回 null   |
+| JSON 解析失败           | 返回 null（静默），不抛异常               |
+| marker 存在但 JSON 错误 | 返回 null（静默）                         |
 
 ---
 

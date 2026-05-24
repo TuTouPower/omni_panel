@@ -1,47 +1,55 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "PluginMetadata",
-  "description": "UsageBoard plugin metadata from script header comment block",
-  "type": "object",
-  "properties": {
-    "name": { "type": "string" },
-    "description": { "type": "string" },
-    "icon": { "type": "string", "format": "uri" },
-    "parameters": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/PluginParameterMetadata" }
-    }
-  },
-  "additionalProperties": true,
-  "$defs": {
-    "PluginParameterMetadata": {
-      "type": "object",
-      "properties": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PluginMetadata",
+    "description": "UsageBoard plugin metadata from script header comment block",
+    "type": "object",
+    "properties": {
         "name": { "type": "string" },
-        "label": { "type": "string" },
-        "type": {
-          "type": "string",
-          "enum": ["string", "secret", "integer", "boolean", "choice", "directory", "file"]
-        },
-        "required": { "type": "boolean" },
-        "placeholder": { "type": "string" },
-        "defaultValue": { "type": "string" },
-        "options": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/PluginParameterOption" }
+        "description": { "type": "string" },
+        "icon": { "type": "string", "format": "uri" },
+        "parameters": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/PluginParameterMetadata" }
         }
-      },
-      "required": ["name", "label", "type", "required"],
-      "additionalProperties": true
     },
-    "PluginParameterOption": {
-      "type": "object",
-      "properties": {
-        "label": { "type": "string" },
-        "value": { "type": "string" }
-      },
-      "required": ["label", "value"],
-      "additionalProperties": true
+    "additionalProperties": true,
+    "$defs": {
+        "PluginParameterMetadata": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "label": { "type": "string" },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "string",
+                        "secret",
+                        "integer",
+                        "boolean",
+                        "choice",
+                        "directory",
+                        "file"
+                    ]
+                },
+                "required": { "type": "boolean" },
+                "placeholder": { "type": "string" },
+                "defaultValue": { "type": "string" },
+                "options": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/PluginParameterOption" }
+                }
+            },
+            "required": ["name", "label", "type", "required"],
+            "additionalProperties": true
+        },
+        "PluginParameterOption": {
+            "type": "object",
+            "properties": {
+                "label": { "type": "string" },
+                "value": { "type": "string" }
+            },
+            "required": ["label", "value"],
+            "additionalProperties": true
+        }
     }
-  }
 }

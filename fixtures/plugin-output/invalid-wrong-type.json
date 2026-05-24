@@ -1,13 +1,13 @@
 {
-  "schemaVersion": 1,
-  "updatedAt": "2026-05-24T12:00:00Z",
-  "items": [
-    {
-      "id": "usage",
-      "name": "用量",
-      "used": "not-a-number",
-      "limit": 100.0,
-      "displayStyle": "percent"
-    }
-  ]
+    "schemaVersion": 1,
+    "updatedAt": "2026-05-24T12:00:00Z",
+    "items": [
+        {
+            "id": "usage",
+            "name": "用量",
+            "used": "not-a-number",
+            "limit": 100.0,
+            "displayStyle": "percent"
+        }
+    ]
 }

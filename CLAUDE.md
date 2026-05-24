@@ -17,14 +17,14 @@
 
 ## 架构对标
 
-| UsageBoard (原版) | OmniUsage (本版) |
-|---|---|
-| Swift 6 + SwiftUI + AppKit | Electron |
-| 菜单栏 NSPopover | 系统托盘 + 独立窗口 |
-| Python 子进程插件 | 同样支持插件化（语言待定） |
-| 插件元数据自描述（注释块 JSON） | 复用该设计模式 |
-| macOS Keychain 凭证存储 | 系统原生 keychain / credential manager |
-| PluginSnapshot 数据模型 | 复用核心数据模型 |
+| UsageBoard (原版)               | OmniUsage (本版)                       |
+| ------------------------------- | -------------------------------------- |
+| Swift 6 + SwiftUI + AppKit      | Electron                               |
+| 菜单栏 NSPopover                | 系统托盘 + 独立窗口                    |
+| Python 子进程插件               | 同样支持插件化（语言待定）             |
+| 插件元数据自描述（注释块 JSON） | 复用该设计模式                         |
+| macOS Keychain 凭证存储         | 系统原生 keychain / credential manager |
+| PluginSnapshot 数据模型         | 复用核心数据模型                       |
 
 ## 关键设计保留
 

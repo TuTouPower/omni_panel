@@ -1,0 +1,26 @@
+{
+    "entry": [
+        "src/main/index.ts",
+        "src/main.ts",
+        "src/preload.ts",
+        "src/main/core/**/*.ts",
+        "src/shared/**/*.ts",
+        "forge.config.ts",
+        "vite.*.config.ts"
+    ],
+    "project": ["src/**/*.ts", "*.config.ts"],
+    "ignoreDependencies": [
+        "@electron-forge/plugin-auto-unpack-natives",
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser",
+        "eslint-plugin-import",
+        "eslint-plugin-jsx-a11y",
+        "eslint-plugin-n",
+        "eslint-plugin-perfectionist",
+        "eslint-plugin-promise",
+        "eslint-plugin-react",
+        "eslint-plugin-security",
+        "eslint-plugin-sonarjs",
+        "eslint-plugin-unicorn"
+    ]
+}

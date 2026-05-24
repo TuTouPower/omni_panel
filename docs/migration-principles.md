@@ -21,12 +21,12 @@ parser → runner → config/cache → scheduler → IPC → UI
 
 ## 跨平台要求
 
-| 项目 | macOS | Windows | Linux |
-|------|-------|---------|-------|
-| 数据目录 | `~/Library/Application Support/OmniUsage` | `%APPDATA%/OmniUsage` | `~/.config/OmniUsage` |
-| Python 查找 | `python3` | `python3` → `python` → `py` | `python3` → `python` |
-| 凭证存储 | Keychain | Credential Manager | libsecret / 明文降级 |
-| 托盘 | NSStatusItem 等效 | Windows 托盘 | 系统托盘 |
+| 项目        | macOS                                     | Windows                     | Linux                 |
+| ----------- | ----------------------------------------- | --------------------------- | --------------------- |
+| 数据目录    | `~/Library/Application Support/OmniUsage` | `%APPDATA%/OmniUsage`       | `~/.config/OmniUsage` |
+| Python 查找 | `python3`                                 | `python3` → `python` → `py` | `python3` → `python`  |
+| 凭证存储    | Keychain                                  | Credential Manager          | libsecret / 明文降级  |
+| 托盘        | NSStatusItem 等效                         | Windows 托盘                | 系统托盘              |
 
 ## UNCONFIRMED 标记
 

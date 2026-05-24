@@ -45,9 +45,9 @@
 
 - 非零 exit code：优先用 stderr 文本作为错误消息，stderr 为空则用通用 exit code 消息
 - 零 exit code：
-  1. 先尝试 `JSONDecoder` 解析为 `PluginOutput`
-  2. 解析失败再尝试解析为 `PluginOutputError`（`{"error": "..."}` 格式）
-  3. 都失败则返回 jsonParseFailed 错误
+    1. 先尝试 `JSONDecoder` 解析为 `PluginOutput`
+    2. 解析失败再尝试解析为 `PluginOutputError`（`{"error": "..."}` 格式）
+    3. 都失败则返回 jsonParseFailed 错误
 - stdout 先 `trimmingCharacters(in: .whitespacesAndNewlines)` 再解码
 
 ## 缓存读写
