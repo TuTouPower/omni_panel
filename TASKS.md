@@ -219,28 +219,120 @@
 
 ---
 
-## 通用约束（每轮适用）
+## Phase 6: 阻塞 MVP 的核心功能补齐 (Round 14)
 
-1. 不实现本轮范围外的功能
-2. 不重构无关文件
-3. 不修改插件协议来适配实现
-4. 无法确认的旧行为写入 `docs/unconfirmed.md`
-5. 每个新模块必须有测试
-6. 运行测试并报告结果
-7. secret 不进日志/错误消息/测试快照
-8. renderer 不直接访问 Node API
-9. 每轮输出修改文件列表
-10. 每轮输出下一轮建议但不提前实现
+> 当前状态：Round 0-12 的基础设施已实现，但 **MVP 不可用**。
+> 用户首次打开应用只能看到空界面 — 没有插件实例、密钥无法回注、定时刷新未启动。
+> 对标旧项目 UsageBoard 的功能差距逐项列出如下。
 
-## 每轮完成验证
+### Round 14.1: 首次启动自动创建默认插件实例
 
-1. 本轮改了哪些文件？
-2. 哪些测试证明它工作？
-3. 哪些行为还是 UNCONFIRMED？
+**现状**：`config.plugins` 默认 `[]`。`discoverPlugins()` 发现了 6 个内置插件脚本，但从未将它们转化为配置实例。用户打开设置只能看到"一般"，无任何可操作项。
+
+**对标**：旧项目 `BundledPluginInstaller.swift` 在启动时扫描内置插件目录，为每个 `.py` 文件（不以 `_` 开头）自动创建配置实例。用户首次打开即可看到所有插件。
+
+- [ ] **逻辑层**：在 `main/index.ts` 的 `app.whenReady()` 中，加载 config 后，检查 `config.plugins` 是否为空
+- [ ] 若为空，遍历 `allDefinitions`（bundled + user），为每个 discovered plugin 创建默认 `PluginConfiguration`：
+    - `instanceId`: 基于 `scriptName` + 时间戳或 UUID
+    - `stateId`: UUID
+    - `name`: 取 `metadata.name` 或 `metadata.name@zh-Hans`，fallback 到脚本文件名
+    - `enabled`: `true`
+    - `executablePath`: 插件脚本完整路径
+    - `refreshIntervalSeconds`: 默认 `300`（5 分钟，与旧项目一致）
+    - `parameterValues`: `{}`（空，等用户填写）
+- [ ] 保存更新后的 config
+- [ ] **去重保护**：后续启动不重复创建。判断依据：已有实例的 `executablePath` 是否匹配
+- [ ] **测试**：
+    - 空 config → 自动创建 N 个实例（N = bundled plugin 数量）
+    - 非空 config → 不重复创建
+    - 同一脚本不创建重复实例
+    - instanceId 唯一
+
+### Round 14.2: 密钥回注 — 执行插件前合并 secrets
+
+**现状**：`config-ipc.ts` 的 `handleConfigSaveSecrets()` 正确地将 API key 写入 `secrets.json`（通过 `secretsStore.set()`）。但 `refresh-service.ts:67` 构建命令时只用 `plugin.parameterValues`，从未从 `secretsStore` 读取密钥。DeepSeek / Tavily / GLM / MiniMax 四个 API key 插件全部无法获得真实 key。
+
+**对标**：旧项目在 `PluginExecutor.swift` 构建参数时，直接从 `parameterValues` 字典取值（旧项目 secret 存 Keychain，读取后注入同一字典）。
+
+- [ ] **`refresh-service.ts` 改造**：在 `refresh()` 函数中，构建命令前，从 `secretsStore` 读取当前实例的所有密钥
+- [ ] 将密钥合并到 `parameterValues` 副本中（不修改原始 config）
+- [ ] 将合并后的 `parameterValues` 传给 `commandBuilder`
+- [ ] **`secretsStore` 接口补充**：`refresh-service.ts` 需要依赖 `SecretsStore`，在 `RefreshServiceDeps` 中添加 `secretsStore` 字段
+- [ ] **密钥格式**：`secretsStore.get()` 的 key 格式为 `${instanceId}:${paramName}`，与 `config-ipc.ts:102` 写入格式一致
+- [ ] **`secretParamKeys` 映射**：需要知道哪些参数是 secret 类型，才能只读取对应的 key。从 plugin metadata 的 `parameters` 中 `type === "secret"` 获取
+- [ ] **测试**：
+    - 有 secret 的插件 → 命令行参数包含真实密钥值
+    - 无 secret 的插件 → 行为不变
+    - secret 不存在 → parameterValues 中该字段不传（符合旧项目"仅传递非空参数"规则）
+    - secret 值不进入日志
+
+### Round 14.3: 启动时启用定时刷新调度器
+
+**现状**：`plugin-scheduler.ts` 实现完整（`start / stop / stopAll / refreshNow / isRunning`），但 `main/index.ts` 从未实例化 `createPluginScheduler()`。
+
+**对标**：旧项目 `UsageBoardStore.swift` 在启动时为每个 enabled plugin 创建独立 `Task` + `Task.sleep` 调度。首次刷新：有缓存则等 `interval - 已过时间`，无缓存则立即。
+
+- [ ] **`main/index.ts` 改造**：在 `app.whenReady()` 中，创建 `PluginScheduler` 实例
+- [ ] 依赖注入：`refresh` 函数使用 `refreshService.refresh(instanceId)`
+- [ ] 启动调度：遍历 `config.plugins`，对每个 `enabled === true` 的插件调用 `scheduler.start(instanceId, refreshIntervalSeconds)`
+- [ ] **config 变更时重建调度**：当用户通过 Settings 修改 `refreshIntervalSeconds` 或 `enabled` 状态后，需 stop + restart 对应实例的调度
+- [ ] **IPC 扩展**（可选）：`config:save` handler 中检测插件配置变更，触发调度重建
+- [ ] **测试**：
+    - app ready 后 scheduler 对每个 enabled plugin 调用 `start()`
+    - disabled plugin 不被调度
+    - config 变更后调度间隔更新
+
+### Round 14.4: 系统休眠 / 唤醒处理
+
+**现状**：没有任何 sleep/wake 处理。电脑休眠后定时刷新会积压，唤醒后可能瞬间触发大量插件执行。
+
+**对标**：旧项目监听 `NSWorkspace.willSleepNotification` / `NSWorkspace.didWakeNotification`。睡眠时取消所有调度 task，唤醒后重建调度。安全网：如果 wake 通知丢失，4 小时后自动恢复。
+
+- [ ] **Electron 适配**：使用 `powerMonitor` 模块（Electron 内置）
+    - `powerMonitor.on('suspend', ...)` → 调用 `scheduler.stopAll()`
+    - `powerMonitor.on('resume', ...)` → 遍历 enabled plugins 重新 `scheduler.start()`
+- [ ] **安全网**：resume 事件可能丢失（与旧项目一致），设置 4 小时定时器，超时自动恢复所有调度
+- [ ] **测试**：
+    - suspend 事件触发 `stopAll()`
+    - resume 事件触发重新 `start()`
+    - 安全网定时器触发恢复
+
+### Round 14.5: 插件显示名去重
+
+**现状**：多个插件实例同名时 UI 显示相同名称，无法区分。
+
+**对标**：旧项目 `PluginDisplayNames.swift`：同名插件自动加序号（"Claude" → "Claude", "Claude 2"）。优先用 metadata 的 `localizedName`，其次配置的 `name`，最后 "未命名"。
+
+- [ ] **逻辑层**：实现 `getDisplayName(config: PluginConfiguration, metadata?: PluginMetadata, allNames: string[]): string`
+- [ ] 优先级：`metadata.name@{language}` → `metadata.name` → `config.name` → "未命名"
+- [ ] 同名去重：遍历所有实例名，重复的加序号 " 2", " 3"...
+- [ ] **调用点**：`plugin-ipc.ts` 的 `handlePluginList()` 中，为每个 plugin 计算 `displayName`
+- [ ] **PluginInfo DTO 扩展**：添加 `displayName` 字段
+- [ ] **UI 更新**：Dashboard / Popup 的 `PluginCard` 使用 `displayName` 替代 `name`
+- [ ] **测试**：
+    - 不同名插件 → 原样显示
+    - 两个同名 → 第二个加 " 2"
+    - 三个同名 → " 2", " 3"
+    - metadata name 优先级高于 config name
+
+### Round 14.6: 配置写入防抖
+
+**现状**：每次 `config:save` 直接调用 `configStore.save()` 原子写入。用户在 Settings 中快速修改多个字段会产生多次磁盘写入。
+
+**对标**：旧项目 `UsageBoardStore.scheduleConfigurationWrite()` 用 generation counter 合并短时间多次写入。写入后重建 snapshots、重启 schedulers、刷新插件。
+
+- [ ] **ConfigStore 扩展**：添加 `scheduleSave(config: AppConfiguration, delayMs?: number): void` 方法
+- [ ] 使用 generation counter 或 `setTimeout` + `clearTimeout` 实现防抖
+- [ ] 默认延迟：建议 500ms（旧项目未确认具体值，UNCONFIRMED #6）
+- [ ] **调用点改造**：`config-ipc.ts` 的 `handleConfigSave()` 改用 `scheduleSave()` 替代 `save()`
+- [ ] **测试**：
+    - 短时间内多次调用 `scheduleSave()` → 只写入最后一次
+    - 延迟后正确写入
+    - 不同 config 不会合并错误
 
 ---
 
-## Phase 6: 测试基础设施补齐 (Round 13)
+## Phase 7: 补齐测试基础设施 (Round 13)
 
 > 当前状态：单元/集成测试有一定覆盖，但 **没有用户端到端测试**（Playwright + 真实 Electron），
 > renderer smoke 测试全部使用 mock IPC，**不验证真实 Electron 环境**。
@@ -250,41 +342,71 @@
 ### Round 13.1: 修复现有测试失败
 
 - [ ] `tests/integration/plugin/runner.test.ts` — 7 个测试全部失败，exitCode 9009（Windows 找不到 Python）
-    - 需要排查 fake plugin Python 脚本路径或 Python 检测逻辑
+    - 排查 fake plugin Python 脚本路径或 Python 检测逻辑
+    - 确认 Windows 上 `python3` 命令可用性
+    - 必要时使用 `py` launcher 或跳过特定平台测试
 - [ ] `tests/integration/config/secrets-store.test.ts` — 1 个失败（Windows chmod 不支持 0600）
-    - Windows 平台需要等价的安全检查或跳过此测试
-- [ ] 跑通 `pnpm test`，全绿
+    - Windows 平台跳过 chmod 测试或使用等价安全检查
+- [ ] 跑通 `pnpm test`，全绿（或已记录已知失败并标记 skip）
 
-### Round 13.2: 引入 Playwright + Electron E2E 基础设施
+### Round 13.2: Playwright + Electron E2E 基础设施
 
-- [ ] 安装 `@playwright/test`
-- [ ] 创建 `playwright.config.ts`
-- [ ] 创建 `tests/user_e2e/fixtures/electron_app.ts`（启动/停止真实 Electron 实例）
-- [ ] 创建 `tests/user_e2e/fixtures/app_fixture.ts`（封装窗口、E2E HTTP 端点、配置读写）
-- [ ] 创建 `tests/user_e2e/fixtures/test.ts`（Playwright fixture 定义）
-- [ ] 创建 `tests/user_e2e/global_setup.ts`（每次 E2E 前 `electron-forge package`）
-- [ ] 创建 Page Object：`pages/popup_page.ts`、`pages/dashboard_page.ts`、`pages/settings_page.ts`
+- [ ] 确认 `@playwright/test` 已安装
+- [ ] 确认 `playwright.config.ts` 配置正确
+- [ ] 确认 `tests/user_e2e/fixtures/electron_app.ts` 能启动 / 停止真实 Electron 实例
+- [ ] 确认 `tests/user_e2e/fixtures/app_fixture.ts` 封装窗口操作
+- [ ] 确认 `tests/user_e2e/fixtures/test.ts` fixture 定义完整
+- [ ] 确认 `tests/user_e2e/global_setup.ts` 每次 E2E 前执行 `electron-forge package`
+- [ ] Page Objects 完整：
+    - `pages/popup_page.ts`
+    - `pages/dashboard_page.ts`
+    - `pages/settings_page.ts`
 
-### Round 13.3: UI 代码埋 data-testid
+### Round 13.3: UI 埋 data-testid
 
-- [ ] Popup 窗口：刷新按钮、插件卡片、错误信息、空状态
-- [ ] Dashboard 窗口：面板标题、插件卡片列表、状态标签、刷新按钮
-- [ ] Settings 窗口：侧栏导航、插件列表、参数表单、保存按钮
+- [ ] Popup 窗口：
+    - `[data-testid="popup-refresh-btn"]` — 刷新按钮
+    - `[data-testid="popup-plugin-card"]` — 插件卡片（带 instanceId）
+    - `[data-testid="popup-error"]` — 错误信息
+    - `[data-testid="popup-empty"]` — 空状态
+- [ ] Dashboard 窗口：
+    - `[data-testid="dashboard-title"]` — 面板标题
+    - `[data-testid="dashboard-plugin-list"]` — 插件卡片列表
+    - `[data-testid="dashboard-plugin-card-{instanceId}"]` — 单个插件卡片
+    - `[data-testid="dashboard-status-{instanceId}"]` — 状态标签
+    - `[data-testid="dashboard-refresh-btn"]` — 刷新按钮
+    - `[data-testid="dashboard-empty"]` — 空状态
+- [ ] Settings 窗口：
+    - `[data-testid="settings-sidebar"]` — 侧栏导航
+    - `[data-testid="settings-plugin-nav-{instanceId}"]` — 插件导航项
+    - `[data-testid="settings-add-plugin-btn"]` — 添加插件按钮（Round 14.1 完成后）
+    - `[data-testid="settings-form-{instanceId}"]` — 参数表单
+    - `[data-testid="settings-save-btn-{instanceId}"]` — 保存按钮
+    - `[data-testid="settings-duplicate-btn-{instanceId}"]` — 复制按钮
 
-### Round 13.4: E2E spec 编写（P0 关键路径）
+### Round 13.4: E2E spec 编写
 
-- [ ] `app_lifecycle.spec.ts` — 启动、托盘、Popup 窗口显隐、退出
+- [ ] `app_lifecycle.spec.ts` — 启动、托盘出现、Popup 窗口显隐、退出
 - [ ] `popup_view.spec.ts` — 插件卡片渲染、使用量数据展示、刷新按钮功能、错误状态
 - [ ] `dashboard_view.spec.ts` — 仪表盘标题、插件卡片列表、状态展示
 - [ ] `settings_view.spec.ts` — 设置侧栏、插件选择、参数表单填写和保存
-- [ ] `plugin_config.spec.ts` — 添加/删除/复制插件实例、API Key 填写
+- [ ] `plugin_config.spec.ts` — 首次启动自动创建实例、API Key 填写、密钥保存、手动刷新
+- [ ] `scheduler.spec.ts` — 定时刷新触发、休眠恢复（如可模拟）
 
 ### Round 13.5: 打包 smoke 流程标准化
 
-- [ ] 每次打包后执行：启动 exe → 确认渲染进程无白屏 → 确认托盘出现 → 确认插件加载
-- [ ] 将 smoke 验证步骤写入 CI 或文档化 checklist
+- [ ] 每次打包后执行 checklist：
+    1. 启动 exe
+    2. 确认渲染进程无白屏
+    3. 确认托盘图标出现
+    4. 确认点击托盘弹出 Popup 窗口
+    5. 确认插件自动加载（Round 14.1 完成后）
+    6. 确认 Dashboard 显示插件卡片
+    7. 确认 Settings 显示插件列表
+- [ ] 将 smoke 步骤写入 `scripts/smoke-check.md` 或自动化脚本
+- [ ] 每次 `pnpm package` 后必须执行
 
-### Round 13.6: CI 门禁（可选，后续）
+### Round 13.6: CI 门禁（可选，后续实施）
 
 - [ ] PR 门禁：`pnpm check`（typecheck + lint + format + deadcode + arch）
 - [ ] PR 门禁：`pnpm test`（单元 + 集成）
@@ -292,8 +414,6 @@
 - [ ] Nightly：全量 E2E + 外部服务连通性
 
 ### Round 13.7: 详细日志系统
-
-> 开发阶段日志级别设为 debug，记录用户打开软件后的每一步操作，确保通过日志能定位问题。
 
 - [ ] **选型**：评估 `electron-log` vs 自建 logger，确定方案
 - [ ] **Main 进程日志**：
@@ -317,3 +437,122 @@
     - secret / API key 值绝不进入日志（参数名可记录，值替换为 `***`）
     - 日志文件权限限制为用户只读
 - [ ] **与现有 console.log 的关系**：逐步替换现有 console.log 为结构化日志
+
+---
+
+## Phase 8: 补齐代码质量门禁 (Round 3.5)
+
+> Round 3.5 在 TASKS.md 中全部标记为 `[ ]`，以下逐项展开为可执行任务。
+
+### Round 3.5.1: TypeScript 严格模式
+
+- [ ] 更新 `tsconfig.json`：
+    - `strict: true`
+    - `noUncheckedIndexedAccess: true`
+    - `exactOptionalPropertyTypes: true`
+    - `noImplicitReturns: true`
+    - `noFallthroughCasesInSwitch: true`
+    - `noImplicitOverride: true`
+    - `noUnusedLocals: true`
+    - `noUnusedParameters: true`
+    - `verbatimModuleSyntax: true`
+    - `isolatedModules: true`
+    - `forceConsistentCasingInFileNames: true`
+- [ ] 修复所有新增的 type error
+- [ ] `pnpm typecheck` 通过
+
+### Round 3.5.2: ESLint type-aware 规则
+
+- [ ] 安装依赖：
+    - `typescript-eslint`（strictTypeChecked + stylisticTypeChecked）
+    - `eslint-plugin-react` + `eslint-plugin-react-hooks`（error 级）
+    - `eslint-plugin-jsx-a11y`（可访问性）
+    - `eslint-plugin-import-x`（import 顺序、循环依赖检测）
+    - `eslint-plugin-unicorn`（现代 JS 最佳实践）
+    - `eslint-plugin-sonarjs`（复杂度、重复逻辑）
+    - `eslint-plugin-security`（安全风险模式）
+    - `eslint-plugin-promise`（Promise 误用）
+    - `eslint-plugin-n`（Node.js 规则）
+    - `eslint-plugin-perfectionist`（排序一致性）
+- [ ] 配置 `.eslintrc.cjs` 或 `eslint.config.*`：
+    - `no-explicit-any: error`
+    - `no-unsafe-assignment: error`
+    - `no-floating-promises: error`
+    - `await-thenable: error`
+    - `switch-exhaustiveness-check: error`
+    - `consistent-type-imports: error`
+- [ ] `pnpm lint` 通过，`--max-warnings=0`（warning = error）
+
+### Round 3.5.3: 格式化检查
+
+- [ ] 配置 Prettier 或 Biome
+- [ ] `pnpm format:check` 通过
+- [ ] 全项目格式化一次
+
+### Round 3.5.4: 死代码 / 依赖架构检查
+
+- [ ] 配置 `Knip`：检测未使用文件、导出、依赖
+- [ ] 配置 `dependency-cruiser`：
+    - 禁止循环依赖
+    - renderer 不得 import Node API（`node:fs`, `node:child_process` 等）
+- [ ] `pnpm deadcode` 通过
+- [ ] `pnpm arch` 通过
+
+### Round 3.5.5: Electron 安全扫描
+
+- [ ] 配置 `@electron-forge/plugin-fuses`（减少攻击面）
+- [ ] Semgrep 自定义规则：
+    - `nodeIntegration: true` → error
+    - `contextIsolation: false` → error
+    - 使用 `remote` module → error
+    - `eval` / `new Function` → error
+    - `shell.openExternal` 无 URL 校验 → error
+- [ ] `pnpm security:sast` 通过
+
+### Round 3.5.6: Git 密钥泄漏防护
+
+- [ ] 安装 `Gitleaks`
+- [ ] 配置 pre-commit hook
+- [ ] 确认无 secret 在 git 历史中
+
+### Round 3.5.7: 依赖漏洞扫描
+
+- [ ] `pnpm audit --audit-level=high`
+- [ ] 修复 high / critical 漏洞
+- [ ] 配置 `OSV-Scanner`（可选）
+
+### Round 3.5.8: Husky + lint-staged
+
+- [ ] 安装 `husky` + `lint-staged`
+- [ ] pre-commit：ESLint fix + Prettier write + typecheck
+- [ ] pre-push：typecheck + unit tests + Gitleaks
+
+### Round 3.5.9: package.json check 脚本汇总
+
+- [ ] `"typecheck": "tsc --noEmit"`
+- [ ] `"lint": "eslint . --max-warnings=0"`
+- [ ] `"format:check": "prettier --check ."`
+- [ ] `"deadcode": "knip"`
+- [ ] `"arch": "depcruise src --validate .dependency-cruiser.cjs"`
+- [ ] `"security:js": "pnpm audit --audit-level=high && gitleaks detect --source ."`
+- [ ] `"security:sast": "semgrep scan --config=auto"`
+- [ ] `"check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch && pnpm security:js"`
+
+## 通用约束（每轮适用）
+
+1. 不实现本轮范围外的功能
+2. 不重构无关文件
+3. 不修改插件协议来适配实现
+4. 无法确认的旧行为写入 `docs/unconfirmed.md`
+5. 每个新模块必须有测试
+6. 运行测试并报告结果
+7. secret 不进日志/错误消息/测试快照
+8. renderer 不直接访问 Node API
+9. 每轮输出修改文件列表
+10. 每轮输出下一轮建议但不提前实现
+
+## 每轮完成验证
+
+1. 本轮改了哪些文件？
+2. 哪些测试证明它工作？
+3. 哪些行为还是 UNCONFIRMED？
