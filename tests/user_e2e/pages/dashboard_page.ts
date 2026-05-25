@@ -16,7 +16,7 @@ export class DashboardPage {
     }
 
     async clickSettings() {
-        await this.page.getByText("设置").click();
+        await this.page.getByRole("button", { name: "设置" }).click();
     }
 
     async hasPluginCard(name: string) {

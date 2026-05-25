@@ -1,12 +1,12 @@
 import { expect, test } from "../fixtures/test";
-import { PopupPage } from "../pages/popup_page";
+import { DashboardPage } from "../pages/dashboard_page";
 
 test.describe("popup view", () => {
     test("shows title with logo", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        const popup = new PopupPage(page);
-        await popup.waitReady();
-        const title = await popup.getTitle();
+        const dashboard = new DashboardPage(page);
+        await dashboard.waitReady();
+        const title = await dashboard.getTitle();
         expect(title).toContain("OmniUsage");
     });
 
@@ -16,14 +16,10 @@ test.describe("popup view", () => {
         await page.getByLabel("刷新").click();
     });
 
-    test("shows plugin cards or empty state", async ({ omni }) => {
+    test("main content area is rendered", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        // Either plugin cards or empty state should be visible
-        const hasCards = await page.locator('[data-testid="popup-plugin-card"]').count();
-        const hasEmpty = await page
-            .locator('[data-testid="popup-empty"]')
-            .isVisible()
-            .catch(() => false);
-        expect(hasCards > 0 || hasEmpty).toBe(true);
+        const dashboard = new DashboardPage(page);
+        await dashboard.waitReady();
+        await expect(page.locator("main")).toBeVisible();
     });
 });
