@@ -49,6 +49,11 @@ const api: UsageboardApi = {
                 IPC_CHANNELS.CONFIG_SAVE_SECRETS,
                 payload,
             ),
+        duplicate: (instanceId) =>
+            invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["duplicate"]>>>(
+                IPC_CHANNELS.CONFIG_DUPLICATE,
+                instanceId,
+            ),
     },
     event: {
         onStateChange: (callback) => {

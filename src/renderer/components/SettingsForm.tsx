@@ -10,9 +10,17 @@ interface SettingsFormProps {
         nonSecrets: Record<string, string>,
         secrets: Record<string, string>,
     ) => Promise<void>;
+    onDuplicate?: (instanceId: string) => void;
 }
 
-export function SettingsForm({ instanceId, name, parameters, values, onSave }: SettingsFormProps) {
+export function SettingsForm({
+    instanceId,
+    name,
+    parameters,
+    values,
+    onSave,
+    onDuplicate,
+}: SettingsFormProps) {
     const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -69,12 +77,25 @@ export function SettingsForm({ instanceId, name, parameters, values, onSave }: S
                     )}
                 </label>
             ))}
-            <button
-                type="submit"
-                className="rounded-[var(--radius)] bg-[var(--primary)] px-4 py-1.5 text-sm text-[var(--primary-foreground)]"
-            >
-                保存
-            </button>
+            <div className="flex gap-2">
+                <button
+                    type="submit"
+                    className="rounded-[var(--radius)] bg-[var(--primary)] px-4 py-1.5 text-sm text-[var(--primary-foreground)]"
+                >
+                    保存
+                </button>
+                {onDuplicate && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            onDuplicate(instanceId);
+                        }}
+                        className="rounded-[var(--radius)] border border-[var(--border)] px-4 py-1.5 text-sm"
+                    >
+                        复制
+                    </button>
+                )}
+            </div>
         </form>
     );
 }

@@ -7,6 +7,7 @@ interface UseConfigResult {
     error: string | null;
     save: (newConfig: AppConfiguration) => Promise<void>;
     saveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
+    duplicate: (instanceId: string) => Promise<void>;
 }
 
 export function useConfig(): UseConfigResult {
@@ -44,5 +45,9 @@ export function useConfig(): UseConfigResult {
         await window.usageboard.config.saveSecrets({ instanceId, secrets });
     }, []);
 
-    return { config, loading, error, save, saveSecrets };
+    const duplicate = useCallback(async (instanceId: string) => {
+        await window.usageboard.config.duplicate(instanceId);
+    }, []);
+
+    return { config, loading, error, save, saveSecrets, duplicate };
 }

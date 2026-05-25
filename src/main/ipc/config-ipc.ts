@@ -108,6 +108,44 @@ export async function handleConfigSaveSecrets(
     }
 }
 
+export async function handleConfigDuplicate(
+    deps: ConfigIpcDeps,
+    payload: unknown,
+): Promise<IpcResult<void>> {
+    try {
+        if (typeof payload !== "string" || !payload) {
+            return fail("VALIDATION_ERROR", "无效的插件 ID");
+        }
+        const sourceInstanceId = payload;
+
+        const config = await deps.configStore.load();
+        const source = config.plugins.find(
+            (p: PluginConfiguration) => p.instanceId === sourceInstanceId,
+        );
+        if (!source) return fail("VALIDATION_ERROR", "源插件不存在");
+
+        const suffix = String(Date.now());
+        const newInstance: PluginConfiguration = {
+            instanceId: `${source.instanceId}-${suffix}`,
+            stateId: `${source.stateId}-${suffix}`,
+            name: `${source.name} (副本)`,
+            enabled: false,
+            executablePath: source.executablePath,
+            refreshIntervalSeconds: source.refreshIntervalSeconds,
+            parameterValues: {},
+        };
+
+        const updated: AppConfiguration = {
+            ...config,
+            plugins: [...config.plugins, newInstance],
+        };
+        await deps.configStore.save(updated);
+        return ok(undefined);
+    } catch {
+        return fail("INTERNAL_ERROR", "复制插件失败");
+    }
+}
+
 export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     const { ipcMain } = await import("electron");
     ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () => handleConfigGet(deps));
@@ -116,5 +154,8 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (_e, payload: unknown) =>
         handleConfigSaveSecrets(deps, payload),
+    );
+    ipcMain.handle(IPC_CHANNELS.CONFIG_DUPLICATE, (_e, instanceId: string) =>
+        handleConfigDuplicate(deps, instanceId),
     );
 }

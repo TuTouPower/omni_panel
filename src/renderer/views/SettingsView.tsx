@@ -6,7 +6,7 @@ import { ErrorBanner } from "../components/ErrorBanner";
 
 export function SettingsView() {
     useTheme();
-    const { config, loading, error, save, saveSecrets } = useConfig();
+    const { config, loading, error, save, saveSecrets, duplicate } = useConfig();
     const { plugins } = usePlugins();
 
     if (loading) {
@@ -82,6 +82,7 @@ export function SettingsView() {
                             parameters={params}
                             values={{ ...p.parameterValues }}
                             onSave={handleSave}
+                            onDuplicate={(id) => void duplicate(id)}
                         />
                     );
                 })}

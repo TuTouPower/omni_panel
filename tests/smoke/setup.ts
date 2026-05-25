@@ -103,6 +103,7 @@ function createMockApi() {
             get: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue(config),
             save: vi.fn().mockResolvedValue(undefined),
             saveSecrets: vi.fn().mockResolvedValue(undefined),
+            duplicate: vi.fn().mockResolvedValue(undefined),
         },
         event: {
             onStateChange(cb: StateChangeCallback) {

@@ -12,6 +12,7 @@ export const IPC_CHANNELS = {
     CONFIG_GET: "config:get",
     CONFIG_SAVE: "config:save",
     CONFIG_SAVE_SECRETS: "config:saveSecrets",
+    CONFIG_DUPLICATE: "config:duplicate",
 
     EVENT_STATE_CHANGE: "event:stateChange",
     EVENT_THEME_CHANGE: "event:themeChange",
@@ -66,6 +67,7 @@ export interface UsageboardApi {
         get(): Promise<AppConfiguration>;
         save(config: AppConfiguration): Promise<void>;
         saveSecrets(payload: ConfigSaveSecretsPayload): Promise<void>;
+        duplicate(instanceId: string): Promise<void>;
     };
     event: {
         onStateChange(callback: (instanceId: string, state: PluginSnapshotDTO) => void): () => void;
