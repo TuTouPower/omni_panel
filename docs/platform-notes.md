@@ -4,7 +4,7 @@
 
 - 需要 Python 3.8+
 - 自动检测顺序: `python3` → `python` → `py`
-- 未检测到时 Dashboard 显示错误提示
+- 未检测到时 Popup 显示错误提示
 - Windows 用户需手动安装 Python 并加入 PATH
 
 ## 插件路径
@@ -34,4 +34,4 @@
 
 - Windows 需用户自行安装 Python
 - 系统托盘图标为空（需后续替换为实际图标资源）
-- 打包格式: Squirrel (Windows), ZIP (macOS), DEB/RPM (Linux)
+- 打包格式: Electron Forge（Windows / macOS / Linux）

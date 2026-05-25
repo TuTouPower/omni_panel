@@ -128,7 +128,7 @@
 ### 规则
 
 - stdout 必须 trim 后可解析为 JSON
-- `schemaVersion` 由 `_common.py` 输出，Swift 端忽略此字段
+- `schemaVersion` 由 `_common.py` 输出，Electron 端忽略此字段
 - `updatedAt` ISO8601 格式（支持 fractional seconds）
 - `items` 可为空数组
 - `badge` 和 `chart` 为 optional
