@@ -4,7 +4,6 @@ import type {
     IpcResult,
     UsageboardApi,
     PluginSnapshotDTO,
-    AppConfiguration,
     PythonStatus,
     RendererLogPayload,
 } from "../shared/types/ipc";
@@ -40,7 +39,10 @@ const api: UsageboardApi = {
             ),
     },
     config: {
-        get: () => invoke<AppConfiguration>(IPC_CHANNELS.CONFIG_GET),
+        get: () =>
+            invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["get"]>>>(
+                IPC_CHANNELS.CONFIG_GET,
+            ),
         save: (config) =>
             invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["save"]>>>(
                 IPC_CHANNELS.CONFIG_SAVE,

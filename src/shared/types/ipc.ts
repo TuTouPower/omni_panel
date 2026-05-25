@@ -82,7 +82,10 @@ export interface UsageboardApi {
         refreshAll(): Promise<void>;
     };
     config: {
-        get(): Promise<AppConfiguration>;
+        get(): Promise<{
+            config: AppConfiguration;
+            hasSecrets: Record<string, Record<string, boolean>>;
+        }>;
         save(config: AppConfiguration): Promise<void>;
         saveSecrets(payload: ConfigSaveSecretsPayload): Promise<void>;
         duplicate(instanceId: string): Promise<void>;
