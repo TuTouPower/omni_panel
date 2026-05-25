@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import type { PluginParameterMetadata } from "../../shared/schemas/plugin-metadata";
 
 interface SettingsFormProps {
@@ -5,6 +6,7 @@ interface SettingsFormProps {
     name: string;
     parameters: PluginParameterMetadata[];
     values: Record<string, string>;
+    hasSecrets?: Record<string, boolean>;
     onSave: (
         instanceId: string,
         nonSecrets: Record<string, string>,
@@ -18,29 +20,53 @@ export function SettingsForm({
     name,
     parameters,
     values,
+    hasSecrets,
     onSave,
     onDuplicate,
 }: SettingsFormProps) {
-    const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const nonSecrets: Record<string, string> = {};
-        const secrets: Record<string, string> = {};
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
 
-        for (const param of parameters) {
-            const val = formData.get(param.name) as string | null;
-            if (val === null) continue;
-            if (param.type === "secret") {
-                if (val !== "***" && val !== "") {
-                    secrets[param.name] = val;
+    const handleSubmit = useCallback(
+        (e: React.SyntheticEvent<HTMLFormElement>) => {
+            e.preventDefault();
+            if (saving) return;
+            const formData = new FormData(e.currentTarget);
+            const nonSecrets: Record<string, string> = {};
+            const secrets: Record<string, string> = {};
+
+            for (const param of parameters) {
+                if (param.type === "boolean") {
+                    const checked = formData.get(param.name) === "on";
+                    nonSecrets[param.name] = checked ? "true" : "false";
+                } else {
+                    const val = formData.get(param.name) as string | null;
+                    if (val === null) continue;
+                    if (param.type === "secret") {
+                        if (val !== "***" && val !== "") {
+                            secrets[param.name] = val;
+                        }
+                    } else {
+                        nonSecrets[param.name] = val;
+                    }
                 }
-            } else {
-                nonSecrets[param.name] = val;
             }
-        }
 
-        void onSave(instanceId, nonSecrets, secrets);
-    };
+            setSaving(true);
+            setSaved(false);
+            void onSave(instanceId, nonSecrets, secrets)
+                .then(() => {
+                    setSaved(true);
+                    setTimeout(() => {
+                        setSaved(false);
+                    }, 1500);
+                })
+                .finally(() => {
+                    setSaving(false);
+                });
+        },
+        [instanceId, onSave, parameters, saving],
+    );
 
     return (
         <form
@@ -59,6 +85,19 @@ export function SettingsForm({
                             defaultChecked={values[param.name] === "true"}
                             className="h-4 w-4"
                         />
+                    ) : param.type === "choice" ? (
+                        <select
+                            name={param.name}
+                            defaultValue={values[param.name] ?? param.defaultValue ?? ""}
+                            required={param.required}
+                            className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                        >
+                            {param.options?.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
                     ) : (
                         <input
                             type={
@@ -71,7 +110,9 @@ export function SettingsForm({
                             name={param.name}
                             defaultValue={
                                 param.type === "secret"
-                                    ? "***"
+                                    ? hasSecrets?.[param.name]
+                                        ? "***"
+                                        : ""
                                     : (values[param.name] ?? param.defaultValue ?? "")
                             }
                             placeholder={param.placeholder}
@@ -79,15 +120,25 @@ export function SettingsForm({
                             className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
                         />
                     )}
+                    {typeof param["description"] === "string" && (
+                        <p className="text-xs text-[var(--muted-foreground)]">
+                            {param["description"]}
+                        </p>
+                    )}
                 </label>
             ))}
             <div className="flex gap-2">
                 <button
                     type="submit"
+                    disabled={saving}
                     data-testid={`settings-save-btn-${instanceId}`}
-                    className="rounded-[var(--radius)] bg-[var(--primary)] px-4 py-1.5 text-sm text-[var(--primary-foreground)]"
+                    className={`rounded-[var(--radius)] px-4 py-1.5 text-sm ${
+                        saved
+                            ? "bg-green-600 text-white"
+                            : "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                    }`}
                 >
-                    保存
+                    {saving ? "保存中..." : saved ? "已保存" : "保存"}
                 </button>
                 {onDuplicate && (
                     <button
