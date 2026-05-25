@@ -748,65 +748,40 @@ Packaged 模式不变（使用 `process.resourcesPath`）。
 
 ---
 
-## Phase 12: 日志系统过粗 — 插件失败时无诊断信息 ❌
+## Phase 12: 日志系统过粗 — 插件失败时无诊断信息 ✅
 
-### 问题
+### 完成情况
 
-插件刷新失败时，日志仅记录：
+已在 11 个文件中添加详细日志，可追溯用户操作和代码执行流程：
 
-```
-[ERROR] [refresh-service] Plugin a2e61610 failed: Plugin output does not match schema
-```
-
-缺少关键诊断信息：
-
-1. **插件实际 stdout/stderr** — 不知道插件输出了什么才导致 schema 校验失败
-2. **执行的命令** — 不知道传了什么参数、用的什么 Python 路径
-3. **schema 校验细节** — Zod 解析失败的具体字段和原因没有记录
-4. **退出码** — 不知道是插件崩溃还是输出格式不对
-5. **执行耗时** — 虽然有 durationMs 但未写入日志
-
-### 需要修改
-
-| 文件                                         | 变更                                                                                         |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `src/main/core/scheduler/refresh-service.ts` | `catch` 块中 log 增加 `result.stdout` 前 500 字符、`result.stderr`、`exitCode`、`durationMs` |
-| `src/main/core/plugin/runner.ts`             | `debug` 级别记录执行的命令和参数（不含 secret 值）                                           |
-| `src/shared/schemas/plugin-output.ts`        | `parsePluginOutputOrError` 失败时抛出包含 Zod issue 的错误                                   |
-
-### 安全约束
-
-- stdout 可能包含 secret，记录时需截断或脱敏
-- 错误消息中不直接拼接 secret 值
-- 仅 debug 级别记录完整 stdout，error 级别记录前 500 字符
+- 插件 stdout/stderr 前 500 字符（debug 级别）
+- Schema 校验失败时输出 Zod issues
+- 解析失败时输出原始 stdout
+- 所有 IPC 操作、窗口生命周期、调度器事件均有日志
 
 ---
 
-## Phase 13: 智谱 GLM 插件 schema 校验失败 ❌
+## Phase 13: 智谱 GLM 插件 schema 校验失败 ✅
 
-### 现象
+### 根本原因（两个问题叠加）
 
-填入智谱 API Key 后，日志报 `Plugin output does not match schema`，Dashboard 无数据。
+1. **`parsePluginOutput` 不处理错误格式**：当插件没有 API key 或认证失败时返回 `{"error": "..."}` JSON，`parsePluginOutput` 只接受成功 schema，将错误 JSON 也报为 schema 失败。导致 Claude、Codex、Tavily、MiniMax 等 5 个插件（无有效凭据）全部误报为 schema 错误。
 
-### 已确认
+2. **Zod schema 不接受 `null` 值**：智谱 GLM 插件返回的 JSON 中 `resetAt` 和 `chart.message` 为 `null`，但 Zod schema 用 `.optional()` 只接受 `undefined`（字段缺失），不接受显式的 `null`。
 
-- API Key 本身有效（curl 调用 `open.bigmodel.cn/api/monitor/usage/quota/limit` 返回 200 + 正常数据）
-- Key 来源：智谱国际版（glm-4-flash 等国际可用模型的 key）
-- 所有 6 个插件都报同一错误（不仅是 GLM），说明可能是 Python 环境或 schema 校验的共性问题
+### 修复
 
-### 假设
+- `src/main/index.ts`：改用 `parsePluginOutputOrError` 替代 `parsePluginOutput`
+- `src/main/core/scheduler/refresh-service.ts`：
+    - `outputParser` 类型改为 `PluginOutput | PluginErrorOutput`
+    - 解析后检查 `"error" in output`，将错误 JSON 处理为 `WARN` 级别的业务错误
+- `src/shared/schemas/plugin-output.ts`：
+    - `resetAt: z.string().nullable().optional()` — 接受 `null`
+    - `message: z.string().nullable().optional()` — 接受 `null`
 
-1. **Python 路径问题**：packaged app 可能找不到 `python`/`python3`，导致插件以异常方式退出
-2. **编码问题**：Windows 控制台默认 GBK 编码，中文输出可能导致 JSON 解析失败
-3. **GLM 国际端点差异**：国际版 key 调国内端点可能返回非标准 JSON（如 HTML 重定向或不同的错误格式）
-4. **schema 定义不匹配**：插件实际输出的 JSON 字段与 `plugin-output.ts` 的 Zod schema 有差异
+### 验证
 
-### 排查步骤
-
-1. 先完成 Phase 12（加详细日志），再重跑 packaged app 看插件实际输出
-2. 手动 `python resources/plugins/glm-usage-plugin.py "API_KEY=xxx"` 看输出格式
-3. 检查 packaged app 中 Python 检测结果（日志中是否有 `Python detected: xxx`）
-4. 对比插件输出 JSON 与 `plugin-output.ts` schema 定义
+重新打包后日志确认智谱插件成功刷新：`Plugin 智谱 refreshed: 3 items in 733ms`
 
 ### 注意
 
