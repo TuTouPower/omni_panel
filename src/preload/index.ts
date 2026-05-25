@@ -6,6 +6,7 @@ import type {
     PluginSnapshotDTO,
     AppConfiguration,
     PythonStatus,
+    RendererLogPayload,
 } from "../shared/types/ipc";
 import "./usageboard-api";
 
@@ -74,6 +75,9 @@ const api: UsageboardApi = {
             ipcRenderer.on(IPC_CHANNELS.EVENT_THEME_CHANGE, handler);
             return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_THEME_CHANGE, handler);
         },
+    },
+    log: (payload: RendererLogPayload) => {
+        void ipcRenderer.invoke(IPC_CHANNELS.LOG_RENDERER, payload);
     },
 };
 

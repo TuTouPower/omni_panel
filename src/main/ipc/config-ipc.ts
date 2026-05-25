@@ -6,6 +6,7 @@ import type { AppConfigStore } from "../core/config/config-store";
 import type { SecretsStore } from "../core/config/secrets-store";
 import type { AppConfiguration, PluginConfiguration } from "../../shared/types/config";
 import { appConfigurationSchema } from "../core/config/types";
+import { createLogger } from "../../shared/lib/logger";
 
 const MASK = "***";
 
@@ -147,14 +148,34 @@ export async function handleConfigDuplicate(
 
 export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     const { ipcMain } = await import("electron");
-    ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () => handleConfigGet(deps));
+    const log = createLogger("ipc:config");
+
+    async function logged<T>(
+        channel: string,
+        fn: () => Promise<IpcResult<T>>,
+    ): Promise<IpcResult<T>> {
+        const start = Date.now();
+        log.debug(`${channel} called`);
+        const result = await fn();
+        const elapsed = Date.now() - start;
+        if (!result.ok) {
+            log.warn(`${channel} failed: ${result.error.code} (${String(elapsed)}ms)`);
+        } else {
+            log.debug(`${channel} ok (${String(elapsed)}ms)`);
+        }
+        return result;
+    }
+
+    ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () =>
+        logged(IPC_CHANNELS.CONFIG_GET, () => handleConfigGet(deps)),
+    );
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE, (_e, config: unknown) =>
-        handleConfigSave(deps, config),
+        logged(IPC_CHANNELS.CONFIG_SAVE, () => Promise.resolve(handleConfigSave(deps, config))),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (_e, payload: unknown) =>
-        handleConfigSaveSecrets(deps, payload),
+        logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, () => handleConfigSaveSecrets(deps, payload)),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_DUPLICATE, (_e, instanceId: string) =>
-        handleConfigDuplicate(deps, instanceId),
+        logged(IPC_CHANNELS.CONFIG_DUPLICATE, () => handleConfigDuplicate(deps, instanceId)),
     );
 }

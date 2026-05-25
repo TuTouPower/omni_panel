@@ -24,6 +24,7 @@ import { buildPluginCommand } from "./core/plugin/command-builder";
 import { registerPluginIpc } from "./ipc/plugin-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
+import { registerLogIpc } from "./ipc/log-ipc";
 import { registerSystemIpc } from "./ipc/system-ipc";
 import { discoverPlugins } from "./core/plugin/discovery";
 import { findPython } from "./core/plugin/python-detect";
@@ -196,6 +197,7 @@ void app.whenReady().then(async () => {
         secretParamKeys,
         onConfigSaved: (updatedConfig) => {
             // Rebuild scheduling for all enabled plugins
+            log.info("Config saved — rebuilding scheduler");
             scheduler.stopAll();
             for (const plugin of updatedConfig.plugins) {
                 if (plugin.enabled) {
@@ -207,6 +209,7 @@ void app.whenReady().then(async () => {
     await registerSystemIpc({
         pythonStatus: { available: pythonAvailable, command: pythonCommand },
     });
+    await registerLogIpc();
     cleanupEventIpc = registerEventIpc({ runtimeStore });
 
     // Start periodic refresh scheduler for enabled plugins
@@ -241,12 +244,14 @@ void app.whenReady().then(async () => {
     }
 
     powerMonitor.on("suspend", () => {
+        log.info("System suspending — stopping all schedulers");
         scheduler.stopAll();
         // Safety net: resume if wake event is missed
         safetyNetTimer = setTimeout(resumeScheduling, FOUR_HOURS_MS);
     });
 
     powerMonitor.on("resume", () => {
+        log.info("System resumed — restarting schedulers");
         resumeScheduling();
     });
 

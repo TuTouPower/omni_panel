@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import type { PluginInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
 
+const MODULE = "use-plugins";
+
 interface UsePluginsResult {
     plugins: PluginInfo[];
     loading: boolean;
@@ -16,17 +18,29 @@ export function usePlugins(): UsePluginsResult {
 
     useEffect(() => {
         let cancelled = false;
+        window.usageboard.log({ level: "debug", module: MODULE, message: "Loading plugin list" });
         window.usageboard.plugin
             .list()
             .then((list) => {
                 if (!cancelled) {
+                    window.usageboard.log({
+                        level: "info",
+                        module: MODULE,
+                        message: `Loaded ${String(list.length)} plugins`,
+                    });
                     setPlugins(list);
                     setLoading(false);
                 }
             })
             .catch((err: unknown) => {
                 if (!cancelled) {
-                    setError(err instanceof Error ? err.message : "加载插件失败");
+                    const message = err instanceof Error ? err.message : "加载插件失败";
+                    window.usageboard.log({
+                        level: "error",
+                        module: MODULE,
+                        message: `Failed to load plugins: ${message}`,
+                    });
+                    setError(message);
                     setLoading(false);
                 }
             });
@@ -47,10 +61,20 @@ export function usePlugins(): UsePluginsResult {
     }, []);
 
     const refresh = useCallback(async (instanceId: string) => {
+        window.usageboard.log({
+            level: "debug",
+            module: MODULE,
+            message: `Refreshing plugin ${instanceId}`,
+        });
         await window.usageboard.plugin.refresh(instanceId);
     }, []);
 
     const refreshAllFn = useCallback(async () => {
+        window.usageboard.log({
+            level: "debug",
+            module: MODULE,
+            message: "Refreshing all plugins",
+        });
         await window.usageboard.plugin.refreshAll();
     }, []);
 

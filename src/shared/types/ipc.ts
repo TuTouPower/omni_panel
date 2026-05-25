@@ -23,6 +23,8 @@ export const IPC_CHANNELS = {
     EVENT_THEME_CHANGE: "event:themeChange",
 
     SYSTEM_PYTHON_STATUS: "system:pythonStatus",
+
+    LOG_RENDERER: "log:renderer",
 } as const;
 
 export type PluginSnapshotDTO =
@@ -62,6 +64,14 @@ export interface IpcError {
     message: string;
 }
 
+export type RendererLogLevel = "debug" | "info" | "warn" | "error";
+
+export interface RendererLogPayload {
+    level: RendererLogLevel;
+    module: string;
+    message: string;
+}
+
 export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: IpcError };
 
 export interface UsageboardApi {
@@ -84,4 +94,5 @@ export interface UsageboardApi {
         onStateChange(callback: (instanceId: string, state: PluginSnapshotDTO) => void): () => void;
         onThemeChange(callback: (isDark: boolean) => void): () => void;
     };
+    log(payload: RendererLogPayload): void;
 }

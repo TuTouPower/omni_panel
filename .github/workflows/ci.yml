@@ -1,0 +1,64 @@
+name: CI
+
+on:
+    pull_request:
+        branches: [master]
+    push:
+        branches: [master]
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    check:
+        name: Quality checks
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm check
+            - name: Install gitleaks
+              uses: gitleaks/gitleaks-action@v2
+              with:
+                  args: detect --source .
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    test:
+        name: Unit & integration tests
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm test
+
+    e2e:
+        name: E2E tests
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - name: Install Playwright browsers
+              run: npx playwright install --with-deps chromium
+            - name: Start Xvfb
+              run: Xvfb :99 -screen 0 1024x768x24 &
+            - name: Run E2E tests
+              run: pnpm test:e2e
+              env:
+                  DISPLAY: ":99"

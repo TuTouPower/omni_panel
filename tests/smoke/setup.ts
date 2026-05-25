@@ -127,6 +127,7 @@ function createMockApi() {
                 };
             },
         },
+        log: vi.fn(),
         _stateListeners: stateListeners,
         _themeListeners: themeListeners,
         _plugins: plugins,

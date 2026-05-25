@@ -7,6 +7,7 @@ import type { PluginCommand } from "../plugin/command-builder";
 import type { PluginOutput } from "../../../shared/schemas/plugin-output";
 import type { AppLanguage } from "../../../shared/types/plugin";
 import type { SecretsStore } from "../config/secrets-store";
+import { createLogger } from "../../../shared/lib/logger";
 
 export interface RefreshServiceDeps {
     runner: (
@@ -38,6 +39,7 @@ function isCacheExpired(updatedAt: string, intervalSeconds: number): boolean {
 }
 
 export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshService {
+    const log = createLogger("refresh-service");
     const locks = new Set<string>();
 
     async function mergeSecrets(
@@ -72,6 +74,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             if (!options?.force) {
                 const cached = await deps.cacheStore.load(instanceId);
                 if (cached && !isCacheExpired(cached.updatedAt, plugin.refreshIntervalSeconds)) {
+                    log.debug(`Cache hit for ${instanceId}, skipping refresh`);
                     deps.runtimeStore.updateState(instanceId, {
                         status: "ready",
                         items: cached.items,
@@ -93,8 +96,10 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             );
 
             try {
+                log.debug(`Executing plugin ${instanceId}`);
                 const result = await deps.runner(command, { timeoutMs: 15_000 });
                 const output = deps.outputParser(result.stdout);
+                log.info(`Plugin ${instanceId} refreshed: ${String(output.items.length)} items`);
 
                 await deps.cacheStore.save(instanceId, {
                     updatedAt: output.updatedAt,
@@ -112,6 +117,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 });
             } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : String(error);
+                log.error(`Plugin ${instanceId} failed: ${message}`);
                 const lastSuccess = await deps.cacheStore.load(instanceId);
                 deps.runtimeStore.updateState(instanceId, {
                     status: "failed",

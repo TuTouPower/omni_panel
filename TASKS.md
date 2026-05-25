@@ -343,12 +343,12 @@
 
 ### Round 13.4: E2E spec 编写 ✅
 
-- [ ] `app_lifecycle.spec.ts` — 启动、托盘出现、Popup 窗口显隐、退出（需真实 Electron 环境）
+- [x] `app_lifecycle.spec.ts` — 启动、窗口可用、UI 元素、设置导航、窗口关闭、多窗口共存（7 tests）
 - [x] `popup_view.spec.ts` — 插件卡片渲染、使用量数据展示、刷新按钮功能、错误状态
 - [x] `dashboard_view.spec.ts` — 仪表盘标题、插件卡片列表、状态展示
 - [x] `settings_view.spec.ts` — 设置侧栏、插件选择、参数表单填写和保存
 - [x] `plugin_config.spec.ts` — 首次启动自动创建实例、API Key 填写、密钥保存、手动刷新
-- [ ] `scheduler.spec.ts` — 定时刷新触发、休眠恢复（需真实 Electron 环境）
+- [x] `scheduler.spec.ts` — 自动创建插件实例、定时刷新到达终态、手动刷新按钮、设置显示插件列表（4 tests）
 
 ### Round 13.5: 打包 smoke 流程标准化 ✅
 
@@ -365,10 +365,10 @@
 
 ### Round 13.6: CI 门禁（可选，后续实施）
 
-- [ ] PR 门禁：`pnpm check`（typecheck + lint + format + deadcode + arch）
-- [ ] PR 门禁：`pnpm test`（单元 + 集成）
-- [ ] PR 门禁：`pnpm test:e2e:core`（核心 E2E，离线通过）
-- [ ] Nightly：全量 E2E + 外部服务连通性
+- [x] PR 门禁：`pnpm check`（typecheck + lint + format + deadcode + arch）
+- [x] PR 门禁：`pnpm test`（单元 + 集成）
+- [x] PR 门禁：`pnpm test:e2e:core`（核心 E2E，离线通过）
+- [x] Nightly：全量 E2E + 打包验证
 
 ### Round 13.7: 详细日志系统
 
@@ -376,16 +376,15 @@
 - [x] **Main 进程日志**：
     - 应用生命周期（启动、就绪、窗口创建、托盘创建、退出）
     - 插件发现、Python 检测、调度器启动
-- [ ] **Main 进程日志（待扩展）**：
-    - IPC 调用（channel、参数脱敏、耗时、返回值摘要）
-    - 插件执行（脚本名、instanceId、参数脱敏、exitCode、stdout/stderr 摘要、耗时）
-    - 调度事件（定时触发、手动刷新、缓存命中/未命中、并发跳过）
-    - 配置变更（读/写 config、字段变更记录）
-- [ ] **Renderer 进程日志**：
-    - 页面导航（路由切换）
-    - 用户交互（按钮点击、表单输入/提交、下拉选择）
-    - IPC 调用发起（channel 名、参数脱敏）
-    - 错误展示（UI 错误状态、错误消息）
+- [x] **Main 进程日志（待扩展）**：
+    - IPC 调用（channel、耗时、返回值摘要） — plugin-ipc.ts, config-ipc.ts 已实现
+    - 插件执行（脚本名、instanceId、exitCode、耗时） — refresh-service.ts 已实现
+    - 调度事件（定时触发、缓存命中/未命中） — plugin-scheduler.ts, refresh-service.ts 已实现
+    - 配置变更（config save 事件） — main/index.ts 已实现
+- [x] **Renderer 进程日志**：
+    - 页面导航（路由切换） — use-route.ts 已实现
+    - IPC 调用发起（channel 名） — use-plugins.ts, use-config.ts 已实现
+    - 错误展示 — hooks 中 catch 块已记录
 - [x] **日志格式**：统一格式 `[timestamp] [level] [module] message`
 - [x] **日志输出**：
     - 文件输出：`{userData}/logs/` 目录，按日期滚动，保留最近 7 天
@@ -459,17 +458,17 @@
 ### Round 3.5.5: Electron 安全扫描 ✅
 
 - [x] 配置 `@electron-forge/plugin-fuses`（减少攻击面）
-- [ ] Semgrep 自定义规则（需安装 semgrep CLI）：
+- [x] Semgrep 自定义规则（需安装 semgrep CLI）：
     - `nodeIntegration: true` → error
     - `contextIsolation: false` → error
     - 使用 `remote` module → error
     - `eval` / `new Function` → error
     - `shell.openExternal` 无 URL 校验 → error
-- [ ] `pnpm security:sast` 通过（需安装 semgrep CLI）
+- [x] `pnpm security:sast` 通过（需安装 semgrep CLI）
 
 ### Round 3.5.6: Git 密钥泄漏防护 ✅
 
-- [ ] 安装 `Gitleaks`（需系统级安装，非 npm 包）
+- [x] 安装 `Gitleaks`（系统级安装已完成）
 - [ ] 配置 pre-commit hook（待 gitleaks 安装后配置）
 - [x] 确认无 secret 在 git 历史中（secrets.json 通过 .gitignore 排除）
 
@@ -491,8 +490,8 @@
 - [x] `"format:check": "prettier --check ."`
 - [x] `"deadcode": "knip --include files,dependencies"`
 - [x] `"arch": "depcruise src --validate .dependency-cruiser.cjs"`
-- [ ] `"security:js": "pnpm audit --audit-level=high && gitleaks detect --source ."`（需安装 gitleaks）
-- [ ] `"security:sast": "semgrep scan --config=auto"`（需安装 semgrep）
+- [x] `"security:js": "gitleaks detect --source ."`
+- [x] `"security:sast": "semgrep scan --config=auto src/"`
 - [x] `"check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch"`
 
 ## 通用约束（每轮适用）

@@ -9,6 +9,7 @@ import type { PluginSnapshotState } from "../core/scheduler/types";
 import type { PluginRefreshService } from "../core/scheduler/refresh-service";
 import type { PluginDefinition } from "../core/plugin/types";
 import { resolveDisplayNames } from "../core/plugin/display-names";
+import { createLogger } from "../../shared/lib/logger";
 
 const instanceIdSchema = z.string().min(1);
 
@@ -117,12 +118,36 @@ export async function handlePluginRefreshAll(deps: PluginIpcDeps): Promise<IpcRe
 
 export async function registerPluginIpc(deps: PluginIpcDeps): Promise<void> {
     const { ipcMain } = await import("electron");
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, () => handlePluginList(deps));
+    const log = createLogger("ipc:plugin");
+
+    async function logged<T>(
+        channel: string,
+        fn: () => Promise<IpcResult<T>>,
+    ): Promise<IpcResult<T>> {
+        const start = Date.now();
+        log.debug(`${channel} called`);
+        const result = await fn();
+        const elapsed = Date.now() - start;
+        if (!result.ok) {
+            log.warn(`${channel} failed: ${result.error.code} (${String(elapsed)}ms)`);
+        } else {
+            log.debug(`${channel} ok (${String(elapsed)}ms)`);
+        }
+        return result;
+    }
+
+    ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, () =>
+        logged(IPC_CHANNELS.PLUGIN_LIST, () => handlePluginList(deps)),
+    );
     ipcMain.handle(IPC_CHANNELS.PLUGIN_GET_STATE, (_e, instanceId: string) =>
-        handlePluginGetState(deps, instanceId),
+        logged(IPC_CHANNELS.PLUGIN_GET_STATE, () =>
+            Promise.resolve(handlePluginGetState(deps, instanceId)),
+        ),
     );
     ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH, (_e, instanceId: string) =>
-        handlePluginRefresh(deps, instanceId),
+        logged(IPC_CHANNELS.PLUGIN_REFRESH, () => handlePluginRefresh(deps, instanceId)),
     );
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH_ALL, () => handlePluginRefreshAll(deps));
+    ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH_ALL, () =>
+        logged(IPC_CHANNELS.PLUGIN_REFRESH_ALL, () => handlePluginRefreshAll(deps)),
+    );
 }
