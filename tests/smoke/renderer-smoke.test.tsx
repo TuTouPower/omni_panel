@@ -71,7 +71,7 @@ describe("Renderer smoke tests", () => {
             window.location.hash = "#settings";
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByText("设置")).toBeInTheDocument();
+                expect(screen.getByText("OmniUsage")).toBeInTheDocument();
             });
             expect(screen.getAllByText("DeepSeek").length).toBeGreaterThan(0);
             expect(screen.getAllByText("Claude").length).toBeGreaterThan(0);
