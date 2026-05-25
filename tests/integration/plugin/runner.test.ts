@@ -103,4 +103,18 @@ describe("executePlugin", () => {
         // Should finish within timeout + grace period (500ms + 2000ms + margin)
         expect(elapsed).toBeLessThan(5000);
     });
+
+    it("correctly decodes Chinese characters (PYTHONIOENCODING=utf-8)", async () => {
+        const cmd = buildPluginCommand(
+            fakePlugin("prints-chinese-json.py"),
+            {},
+            "zh-Hans",
+            pythonCommand,
+        );
+        const result = await executePlugin(cmd);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("中文测试：5小时用量");
+        const output = parsePluginOutput(result.stdout);
+        expect(output.items[0]?.name).toBe("中文测试：5小时用量");
+    });
 });

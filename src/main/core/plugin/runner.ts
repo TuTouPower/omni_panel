@@ -30,7 +30,7 @@ export async function executePlugin(
     return new Promise<PluginExecutionResult>((resolve, reject) => {
         const child = spawn(command.command, [...command.args], {
             // nosemgrep: detect-child-process
-            ...(command.env && { env: { ...process.env, ...command.env } }),
+            env: { ...process.env, PYTHONIOENCODING: "utf-8", ...command.env },
         });
 
         const stdoutChunks: Buffer[] = [];
