@@ -6,6 +6,7 @@ import {
     getStatesDir,
     getBundledPluginsDir,
     getUserPluginsDir,
+    get_tray_icon_path,
 } from "./core/paths";
 import { createConfigStore } from "./core/config/config-store";
 import { createCacheStore } from "./core/cache/cache-store";
@@ -160,7 +161,9 @@ void app.whenReady().then(async () => {
 
     // System tray — skip in E2E mode (tray may crash in headless/CI)
     if (process.env["E2E"] !== "1") {
-        const trayIcon = nativeImage.createEmpty();
+        const trayIcon = nativeImage
+            .createFromPath(get_tray_icon_path())
+            .resize({ width: 16, height: 16 });
         const tray = new Tray(trayIcon);
         tray.setToolTip("OmniUsage");
 
