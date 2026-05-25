@@ -23,6 +23,7 @@ function createMockDeps() {
             launchAtLogin: false,
         }),
         save: vi.fn(),
+        scheduleSave: vi.fn(),
     };
 
     const readyState: PluginSnapshotDTO = {
@@ -71,6 +72,7 @@ describe("plugin-ipc", () => {
         expect(result.data).toHaveLength(1);
         const item = result.data[0];
         expect(item?.stateId).toBe("claude");
+        expect(item?.displayName).toBe("Claude");
         expect(item?.snapshot.status).toBe("ready");
     });
 

@@ -54,7 +54,17 @@ function createDeps(overrides: Record<string, unknown> = {}) {
                 launchAtLogin: false,
             }),
             save: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+            scheduleSave: vi.fn(),
         },
+        secretsStore: {
+            get: vi.fn<() => Promise<string | null>>().mockResolvedValue(null),
+            set: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+            delete: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+        },
+        secretParamKeys: new Map<string, ReadonlySet<string>>() as ReadonlyMap<
+            string,
+            ReadonlySet<string>
+        >,
         ...overrides,
     };
 }
@@ -151,10 +161,42 @@ describe("refresh-service", () => {
                     launchAtLogin: false,
                 }),
                 save: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+                scheduleSave: vi.fn(),
             },
         });
         const service = createRefreshService(deps);
         await service.refreshAll();
         expect(deps.runner).toHaveBeenCalledTimes(2);
+    });
+
+    it("merges secrets into parameterValues before execution", async () => {
+        const secretKeys = new Map<string, ReadonlySet<string>>([
+            ["state-1", new Set(["API_KEY"])],
+        ]);
+        const deps = createDeps({
+            secretParamKeys: secretKeys,
+        });
+        (deps.secretsStore.get as ReturnType<typeof vi.fn>).mockImplementation((key: string) =>
+            key === "state-1:API_KEY" ? Promise.resolve("real-secret") : Promise.resolve(null),
+        );
+        const service = createRefreshService(deps);
+        await service.refresh("state-1");
+        expect(deps.commandBuilder).toHaveBeenCalledWith(
+            "/path/plugin.py",
+            expect.objectContaining({ API_KEY: "real-secret" }),
+            "zh-Hans",
+        );
+    });
+
+    it("does not leak secrets when secretParamKeys is empty", async () => {
+        const deps = createDeps();
+        const service = createRefreshService(deps);
+        await service.refresh("state-1");
+        expect(deps.commandBuilder).toHaveBeenCalledWith(
+            "/path/plugin.py",
+            expect.objectContaining({ API_KEY: "key123" }),
+            "zh-Hans",
+        );
+        expect(deps.secretsStore.get).not.toHaveBeenCalled();
     });
 });

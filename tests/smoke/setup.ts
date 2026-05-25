@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
+/// <reference types="vitest/globals" />
 
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
@@ -17,6 +17,7 @@ function createMockApi() {
             instanceId: "deepseek",
             stateId: "deepseek",
             name: "DeepSeek",
+            displayName: "DeepSeek",
             enabled: true,
             metadata: {
                 name: "DeepSeek",
@@ -59,6 +60,7 @@ function createMockApi() {
             instanceId: "claude",
             stateId: "claude",
             name: "Claude",
+            displayName: "Claude",
             enabled: true,
             metadata: null,
             snapshot: { status: "failed", error: "API 超时" },
