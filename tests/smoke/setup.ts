@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
-import type { PluginInfo, PluginSnapshotDTO } from "../../src/shared/types/ipc";
+import type { PluginInfo, PluginSnapshotDTO, PythonStatus } from "../../src/shared/types/ipc";
 import type { AppConfiguration } from "../../src/shared/types/config";
 
 type StateChangeCallback = (instanceId: string, state: PluginSnapshotDTO) => void;
@@ -104,6 +104,12 @@ function createMockApi() {
             save: vi.fn().mockResolvedValue(undefined),
             saveSecrets: vi.fn().mockResolvedValue(undefined),
             duplicate: vi.fn().mockResolvedValue(undefined),
+        },
+        system: {
+            getPythonStatus: vi.fn<() => Promise<PythonStatus>>().mockResolvedValue({
+                available: true,
+                command: "python3",
+            }),
         },
         event: {
             onStateChange(cb: StateChangeCallback) {

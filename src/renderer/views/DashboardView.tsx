@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { usePlugins } from "../hooks/use-plugins";
 import { useTheme } from "../lib/theme";
 import { PluginCard } from "../components/PluginCard";
@@ -5,10 +6,19 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { EmptyState } from "../components/EmptyState";
 import { RefreshButton } from "../components/RefreshButton";
 import { Button } from "../components/Button";
+import type { PythonStatus } from "../../shared/types/ipc";
 
 export function DashboardView() {
     useTheme();
     const { plugins, loading, error, refreshAll } = usePlugins();
+    const [pythonStatus, setPythonStatus] = useState<PythonStatus | null>(null);
+
+    useEffect(() => {
+        window.usageboard.system
+            .getPythonStatus()
+            .then(setPythonStatus)
+            .catch(() => undefined);
+    }, []);
 
     return (
         <div className="flex h-screen flex-col">
@@ -29,6 +39,9 @@ export function DashboardView() {
             </header>
 
             <main className="flex-1 overflow-auto p-6">
+                {pythonStatus && !pythonStatus.available && (
+                    <ErrorBanner message="未检测到 Python 3.8+，插件功能不可用。请安装 Python。" />
+                )}
                 {error && <ErrorBanner message={error} />}
                 {loading && plugins.length === 0 && (
                     <div className="space-y-3">

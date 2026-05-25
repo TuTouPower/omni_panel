@@ -19,6 +19,7 @@ import { buildPluginCommand } from "./core/plugin/command-builder";
 import { registerPluginIpc } from "./ipc/plugin-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
+import { registerSystemIpc } from "./ipc/system-ipc";
 import { discoverPlugins } from "./core/plugin/discovery";
 import { findPython } from "./core/plugin/python-detect";
 import type { PluginDefinition } from "./core/plugin/types";
@@ -96,10 +97,11 @@ void app.whenReady().then(async () => {
 
     // Detect Python
     let pythonCommand = "python3";
+    let pythonAvailable = true;
     try {
         pythonCommand = await findPython();
     } catch {
-        // Will be reported via UI
+        pythonAvailable = false;
     }
 
     // Build command builder with detected Python
@@ -144,6 +146,9 @@ void app.whenReady().then(async () => {
         definitions: allDefinitions,
     });
     await registerConfigIpc({ configStore, secretsStore, secretParamKeys });
+    await registerSystemIpc({
+        pythonStatus: { available: pythonAvailable, command: pythonCommand },
+    });
     cleanupEventIpc = registerEventIpc({ runtimeStore });
 
     // System tray
