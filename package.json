@@ -8,6 +8,7 @@
     "scripts": {
         "start": "electron-forge start",
         "package": "env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-forge package",
+        "package:run": "tsx scripts/package-and-run.ts",
         "make": "env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-forge make",
         "publish": "electron-forge publish",
         "lint": "eslint . --max-warnings=0",
