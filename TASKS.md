@@ -183,40 +183,39 @@
 
 ---
 
-## Phase 4: 插件与多实例 (Round 10-11)
+## Phase 4: 插件与多实例 (Round 10-11) ✅
 
-### Round 10: 集成真实 bundled plugins
+### Round 10: 集成真实 bundled plugins ✅
 
-- [ ] 复制旧项目 `Resources/BundledPlugins` → `resources/plugins`
-- [ ] `_common.py` 可被插件 import
-- [ ] 实现 bundled plugin discovery
-- [ ] 实现 user plugin discovery
-- [ ] 按顺序集成：DeepSeek → Tavily → GLM → MiniMax → Codex → Claude
-- [ ] 每个插件输出 metadata 解析 / 参数 / 依赖 / 跨平台风险
+- [x] 复制旧项目 `Resources/BundledPlugins` → `resources/plugins`
+- [x] `_common.py` 可被插件 import
+- [x] 实现 bundled plugin discovery
+- [x] 实现 user plugin discovery
+- [x] 按顺序集成：DeepSeek → Tavily → GLM → MiniMax → Codex → Claude
+- [x] 每个插件输出 metadata 解析 / 参数 / 依赖 / 跨平台风险
+- [x] GLM 缓存路径 Linux 兼容（XDG 规范）
 
-### Round 11: 多实例 / 多账号
+### Round 11: 多实例 / 多账号 ✅
 
-- [ ] 区分 `PluginDefinition`（脚本）和 `PluginInstance`（配置实例）
-- [ ] 同一脚本可创建多个实例，各自独立参数/缓存/刷新间隔
-- [ ] cache key 基于 instanceId
-- [ ] Settings UI 支持 Duplicate Plugin
-- [ ] Dashboard 按实例显示
-- [ ] 测试：同脚本多实例 / 独立缓存 / 删除实例
+- [x] 区分 `PluginDefinition`（脚本）和 `PluginConfiguration`（配置实例）
+- [x] 同一脚本可创建多个实例，各自独立参数/缓存/刷新间隔
+- [x] cache / runtime / locks 基于 instanceId
+- [x] Settings UI 支持 Duplicate Plugin（"复制"按钮）
+- [x] Dashboard 按实例显示
+- [x] `instanceId` 字段迁移（旧配置自动用 stateId 兜底）
 
 ---
 
-## Phase 5: 打包发布 (Round 12)
+## Phase 5: 打包发布 (Round 12) ✅
 
-### Round 12: 打包和平台兼容
+### Round 12: 打包和平台兼容 ✅
 
-- [ ] 配置 electron-builder 或 Electron Forge
-- [ ] macOS dmg/zip
-- [ ] Windows nsis
-- [ ] Linux AppImage 或 deb
-- [ ] `resources/plugins` 打进安装包，生产环境路径正确
-- [ ] Python 可用性检测（python3 / python / py launcher）
-- [ ] 找不到 Python 时 UI 给出明确错误
-- [ ] 输出 `docs/platform-notes.md`
+- [x] 配置 Electron Forge（Squirrel / ZIP / DEB / RPM makers）
+- [x] `extraResource: ["resources/plugins"]` 打进安装包
+- [x] `getBundledPluginsDir()` 区分 packaged/dev 路径
+- [x] Python 3.8+ 可用性检测（python3 / python / py launcher）
+- [x] 找不到 Python 时 Dashboard 显示错误 banner
+- [x] 输出 `docs/platform-notes.md`
 
 ---
 
