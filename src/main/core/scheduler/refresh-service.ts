@@ -8,7 +8,11 @@ import type { PluginOutput, PluginErrorOutput } from "../../../shared/schemas/pl
 import type { AppLanguage } from "../../../shared/types/plugin";
 import type { SecretsStore } from "../config/secrets-store";
 import { createLogger } from "../../../shared/lib/logger";
-import { PluginOutputParseError, PluginSchemaError } from "../../../shared/errors/plugin-errors";
+import {
+    PluginOutputParseError,
+    PluginSchemaError,
+    PluginExecutionError,
+} from "../../../shared/errors/plugin-errors";
 
 export interface RefreshServiceDeps {
     runner: (
@@ -107,12 +111,21 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             try {
                 log.debug(`Executing plugin ${instanceId} (${plugin.name})`);
                 const result = await deps.runner(command, { timeoutMs: 15_000 });
+
+                if (result.exitCode !== 0) {
+                    throw new PluginExecutionError(
+                        `Plugin exited with code ${String(result.exitCode)}`,
+                        result.exitCode,
+                        result.stderr,
+                    );
+                }
+
                 log.debug(
-                    `Plugin ${instanceId} (${plugin.name}) stdout [${String(result.stdout.length)}B]: ${result.stdout.slice(0, 500)}`,
+                    `Plugin ${instanceId} (${plugin.name}) stdout [${String(result.stdout.length)}B]`,
                 );
                 if (result.stderr.length > 0) {
                     log.debug(
-                        `Plugin ${instanceId} (${plugin.name}) stderr [${String(result.stderr.length)}B]: ${result.stderr.slice(0, 500)}`,
+                        `Plugin ${instanceId} (${plugin.name}) stderr [${String(result.stderr.length)}B]`,
                     );
                 }
                 const output = deps.outputParser(result.stdout);
@@ -145,17 +158,24 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                     ...(output.chart !== undefined && { chart: output.chart }),
                 });
             } catch (error: unknown) {
-                const message = error instanceof Error ? error.message : String(error);
-                if (error instanceof PluginSchemaError) {
-                    log.error(`Plugin ${instanceId} (${plugin.name}) schema mismatch: ${message}`, {
-                        issues: error.issues,
-                    });
-                } else if (error instanceof PluginOutputParseError) {
-                    log.error(`Plugin ${instanceId} (${plugin.name}) parse error: ${message}`, {
-                        raw: error.raw.slice(0, 1000),
-                    });
+                let message: string;
+                if (error instanceof PluginExecutionError) {
+                    message = error.stderr.trim() || error.message;
+                    log.error(
+                        `Plugin ${instanceId} (${plugin.name}) failed (exit ${String(error.exitCode)}): ${message}`,
+                    );
                 } else {
-                    log.error(`Plugin ${instanceId} (${plugin.name}) failed: ${message}`);
+                    message = error instanceof Error ? error.message : String(error);
+                    if (error instanceof PluginSchemaError) {
+                        log.error(
+                            `Plugin ${instanceId} (${plugin.name}) schema mismatch: ${message}`,
+                            { issues: error.issues },
+                        );
+                    } else if (error instanceof PluginOutputParseError) {
+                        log.error(`Plugin ${instanceId} (${plugin.name}) parse error: ${message}`);
+                    } else {
+                        log.error(`Plugin ${instanceId} (${plugin.name}) failed: ${message}`);
+                    }
                 }
                 const lastSuccess = await deps.cacheStore.load(instanceId);
                 deps.runtimeStore.updateState(instanceId, {

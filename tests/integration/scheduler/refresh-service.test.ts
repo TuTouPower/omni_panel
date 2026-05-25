@@ -55,6 +55,7 @@ function createDeps(overrides: Record<string, unknown> = {}) {
             }),
             save: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
             scheduleSave: vi.fn(),
+            flushPendingSave: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
         },
         secretsStore: {
             get: vi.fn<() => Promise<string | null>>().mockResolvedValue(null),
@@ -115,6 +116,26 @@ describe("refresh-service", () => {
         expect(state.status).toBe("failed");
     });
 
+    it("sets runtime to failed when exit code is non-zero", async () => {
+        const deps = createDeps();
+        (deps.runner as ReturnType<typeof vi.fn>).mockResolvedValue({
+            stdout: JSON.stringify({
+                schemaVersion: 1,
+                updatedAt: "2026-05-24T12:00:00Z",
+                items: [],
+            }),
+            stderr: "API key invalid",
+            exitCode: 1,
+            durationMs: 50,
+        });
+        const service = createRefreshService(deps);
+        await service.refresh("state-1");
+        const state = deps.runtimeStore.getSnapshot("state-1");
+        expect(state.status).toBe("failed");
+        expect(state.status === "failed" && state.error).toContain("API key invalid");
+        expect(deps.cacheStore.save).not.toHaveBeenCalled();
+    });
+
     it("prevents concurrent refresh for same instance", async () => {
         const deps = createDeps();
         let resolveRunner!: () => void;
@@ -162,6 +183,7 @@ describe("refresh-service", () => {
                 }),
                 save: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
                 scheduleSave: vi.fn(),
+                flushPendingSave: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
             },
         });
         const service = createRefreshService(deps);

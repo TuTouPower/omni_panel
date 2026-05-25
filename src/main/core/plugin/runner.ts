@@ -20,11 +20,19 @@ export async function executePlugin(
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const startTime = Date.now();
 
-    // Log command without exposing secret values
-    const safeArgs = command.args.map((a) => {
-        if (a.startsWith("--usageboard-param")) return a;
-        return a;
-    });
+    // Redact secret values from command args before logging
+    const safeArgs: string[] = [];
+    for (let i = 0; i < command.args.length; i++) {
+        const arg = command.args[i] ?? "";
+        if (arg === "--usageboard-param" && i + 1 < command.args.length) {
+            const next = command.args[i + 1] ?? "";
+            const eqIdx = next.indexOf("=");
+            safeArgs.push(arg, eqIdx > 0 ? next.substring(0, eqIdx + 1) + "***" : next);
+            i++; // skip the value arg, already handled
+        } else {
+            safeArgs.push(arg);
+        }
+    }
     log.debug(`spawn: ${command.command} ${safeArgs.join(" ")}`);
 
     return new Promise<PluginExecutionResult>((resolve, reject) => {
