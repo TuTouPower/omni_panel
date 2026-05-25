@@ -11,7 +11,10 @@ const { getDataRoot, getConfigPath, getStatesDir, getUserPluginsDir, getLogsDir 
 
 describe("paths", () => {
     it("getDataRoot returns userData path", () => {
-        expect(getDataRoot()).toBe("/mock/userData");
+        const root = getDataRoot();
+        expect(root).toBe("/mock/userData");
+        expect(typeof root).toBe("string");
+        expect(root.length).toBeGreaterThan(0);
     });
 
     it("getConfigPath ends with config.json", () => {

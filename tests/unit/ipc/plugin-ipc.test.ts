@@ -114,4 +114,70 @@ describe("plugin-ipc", () => {
         expect(result.ok).toBe(true);
         expect(deps.refreshService.refreshAll).toHaveBeenCalled();
     });
+
+    it("handlePluginList resolves metadata on Windows backslash paths", async () => {
+        const { handlePluginList } = await import("../../../src/main/ipc/plugin-ipc");
+        const configStore = {
+            load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
+                schemaVersion: 1,
+                language: "zh-Hans" as const,
+                overviewDisplayMode: "tabs" as const,
+                plugins: [
+                    {
+                        instanceId: "deepseek-1",
+                        stateId: "deepseek-1",
+                        name: "DeepSeek",
+                        enabled: true,
+                        executablePath: "resources\\plugins\\deepseek-usage-plugin.py",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                    },
+                ],
+                launchAtLogin: false,
+            }),
+            save: vi.fn(),
+            scheduleSave: vi.fn(),
+        };
+        const runtimeStore: RuntimeStore = {
+            getSnapshot: vi.fn().mockReturnValue({ status: "idle" }),
+            updateState: vi.fn(),
+            getAll: vi.fn().mockReturnValue(new Map()),
+            subscribe: vi.fn().mockReturnValue(() => undefined),
+            removeInstance: vi.fn(),
+        };
+        const refreshService = {
+            refresh: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+            refreshAll: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+        };
+        const definitions = [
+            {
+                scriptName: "deepseek-usage-plugin.py",
+                executablePath: "resources\\plugins\\deepseek-usage-plugin.py",
+                metadata: {
+                    schemaVersion: 1,
+                    name: "DeepSeek",
+                    parameters: [
+                        {
+                            name: "API_KEY",
+                            label: "Api Key",
+                            type: "secret" as const,
+                            required: true,
+                        },
+                    ],
+                },
+                source: "bundled" as const,
+            },
+        ];
+        const deps = { configStore, runtimeStore, refreshService, definitions };
+        const result = await handlePluginList(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data).toHaveLength(1);
+        const plugin = result.data[0];
+        expect(plugin?.metadata).not.toBeNull();
+        const params = plugin?.metadata?.parameters;
+        expect(params).toHaveLength(1);
+        expect(params?.[0]?.name).toBe("API_KEY");
+    });
 });

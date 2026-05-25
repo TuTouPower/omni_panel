@@ -61,10 +61,19 @@ describe("parsePluginOutputOrError", () => {
     it("returns PluginErrorOutput for error-json-field.json", () => {
         const result = parsePluginOutputOrError(loadFixture("error-json-field.json"));
         expect("error" in result).toBe(true);
+        if ("error" in result) {
+            expect(result.error).toBeTruthy();
+            expect(typeof result.error).toBe("string");
+        }
     });
 
     it("returns PluginOutput for success-basic.json", () => {
         const result = parsePluginOutputOrError(loadFixture("success-basic.json"));
         expect("items" in result).toBe(true);
+        if ("items" in result) {
+            expect(Array.isArray(result.items)).toBe(true);
+            expect(result.items.length).toBeGreaterThan(0);
+            expect(result.items[0]?.id).toBeDefined();
+        }
     });
 });

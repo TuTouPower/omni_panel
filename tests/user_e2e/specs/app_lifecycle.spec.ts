@@ -43,17 +43,19 @@ test.describe("app lifecycle", () => {
 
     test("window can be closed without crashing", async ({ omni }) => {
         const page = await omni.app.firstWindow();
+        // Verify page is functional before closing
+        await expect(page.locator("main")).toBeVisible();
         await page.close();
-        // App should stay alive (tray keeps it alive in production)
-        // In E2E mode, process may still be running
+        // App process should still be running after closing one window
+        expect(omni.app.process().connected).toBe(true);
     });
 
-    test("multiple windows can coexist", async ({ omni }) => {
+    test("settings view renders from dashboard navigation", async ({ omni }) => {
         const page1 = await omni.app.firstWindow();
         const dashboard = new DashboardPage(page1);
         await dashboard.waitReady();
 
-        // Open settings via hash navigation on same window
+        // Navigate to settings via hash
         await page1.evaluate(() => {
             window.location.hash = "#settings";
         });
@@ -61,5 +63,9 @@ test.describe("app lifecycle", () => {
             timeout: 5000,
         });
         await expect(page1.locator('[data-testid="settings-sidebar"]')).toBeVisible();
+        // Verify at least one plugin nav item is shown
+        const navItems = page1.locator('[data-testid^="settings-plugin-nav-"]');
+        const count = await navItems.count();
+        expect(count).toBeGreaterThan(0);
     });
 });

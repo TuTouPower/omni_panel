@@ -10,7 +10,7 @@ test.describe("scheduler", () => {
         // After auto-seeding, there should be plugin cards in the dashboard
         const pluginCards = page.locator('[data-testid^="dashboard-plugin-card-"]');
         const count = await pluginCards.count();
-        expect(count).toBeGreaterThanOrEqual(0);
+        expect(count).toBeGreaterThan(0);
     });
 
     test("plugins reach a terminal state after startup refresh", async ({ omni }) => {
@@ -59,9 +59,9 @@ test.describe("scheduler", () => {
         // Settings sidebar should be visible
         await expect(page.locator('[data-testid="settings-sidebar"]')).toBeVisible();
 
-        // Plugin navigation items should exist (from auto-seeding)
+        // Plugin navigation items must exist (6 bundled plugins should be seeded)
         const pluginNavItems = page.locator('[data-testid^="settings-plugin-nav-"]');
         const count = await pluginNavItems.count();
-        expect(count).toBeGreaterThanOrEqual(0);
+        expect(count).toBeGreaterThan(0);
     });
 });

@@ -1,16 +1,24 @@
 import { expect, test } from "../fixtures/test";
+import { DashboardPage } from "../pages/dashboard_page";
 
 test.describe("plugin configuration", () => {
     test("auto-creates plugin instances on first launch", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        // After auto-seeding, the app should have plugins
-        // Check either dashboard shows plugin cards or settings shows plugin nav
-        await page.waitForTimeout(1000); // Allow seeding to complete
+        const dashboard = new DashboardPage(page);
+        await dashboard.waitReady();
 
-        const hasPluginNav = await page.locator('[data-testid^="settings-plugin-nav-"]').count();
-        const hasPluginCard = await page.locator('[data-testid^="dashboard-plugin-card-"]').count();
-        // At least one should be present if plugins were discovered
-        expect(hasPluginNav + hasPluginCard).toBeGreaterThanOrEqual(0);
+        // After auto-seeding, navigate to settings to verify plugin instances exist
+        await page.evaluate(() => {
+            window.location.hash = "#settings";
+        });
+        await page.waitForFunction(() => window.location.hash === "#settings", undefined, {
+            timeout: 5000,
+        });
+
+        // There must be plugin nav items (6 bundled plugins should be seeded)
+        const pluginNavItems = page.locator('[data-testid^="settings-plugin-nav-"]');
+        const count = await pluginNavItems.count();
+        expect(count).toBeGreaterThan(0);
     });
 
     test("settings form can be filled and saved", async ({ omni }) => {
@@ -19,24 +27,25 @@ test.describe("plugin configuration", () => {
         await page.goto(baseUrl + "#settings");
         await page.waitForTimeout(500);
 
-        // Look for any settings form
+        // At least one form must exist (DeepSeek, Tavily, GLM, MiniMax have parameters)
         const forms = page.locator('[data-testid^="settings-form-"]');
         const formCount = await forms.count();
-        if (formCount > 0) {
-            // Fill first text input in first form
-            const firstInput = forms
-                .first()
-                .locator('input[type="text"], input[type="password"]')
-                .first();
-            if (await firstInput.isVisible().catch(() => false)) {
-                await firstInput.fill("test-value");
-            }
+        expect(formCount).toBeGreaterThan(0);
 
-            // Click save button
-            const saveBtn = page.locator('[data-testid^="settings-save-btn-"]').first();
-            if (await saveBtn.isVisible().catch(() => false)) {
-                await saveBtn.click();
-            }
-        }
+        // Fill first text/password input in first form
+        const firstInput = forms
+            .first()
+            .locator('input[type="text"], input[type="password"]')
+            .first();
+        await expect(firstInput).toBeVisible();
+        await firstInput.fill("test-api-key");
+
+        // Click save button
+        const saveBtn = page.locator('[data-testid^="settings-save-btn-"]').first();
+        await expect(saveBtn).toBeVisible();
+        await saveBtn.click();
+
+        // After save, the form should still be visible (no crash, no redirect)
+        await expect(forms.first()).toBeVisible();
     });
 });

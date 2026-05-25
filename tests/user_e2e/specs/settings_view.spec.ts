@@ -32,4 +32,23 @@ test.describe("settings view", () => {
         const sidebar = page.locator('[data-testid="settings-sidebar"]');
         await expect(sidebar).toBeVisible();
     });
+
+    test("plugins with parameters show config forms, not '无可配置参数'", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        await page.waitForSelector("h1", { timeout: 10_000 });
+        await navigateToSettings(page);
+        const settings = new SettingsPage(page);
+        await settings.waitReady();
+
+        // At least some plugins (DeepSeek, Tavily, GLM, MiniMax) have parameters
+        const forms = page.locator('[data-testid^="settings-form-"]');
+        const formCount = await forms.count();
+        expect(formCount).toBeGreaterThan(0);
+
+        // There should be no more "无可配置参数" messages than plugins without parameters
+        const noParamsMessages = page.locator("text=无可配置参数");
+        const noParamsCount = await noParamsMessages.count();
+        // Claude and Codex have no parameters, so at most 2 "无可配置参数"
+        expect(noParamsCount).toBeLessThanOrEqual(2);
+    });
 });
