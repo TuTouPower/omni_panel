@@ -237,3 +237,56 @@
 1. 本轮改了哪些文件？
 2. 哪些测试证明它工作？
 3. 哪些行为还是 UNCONFIRMED？
+
+---
+
+## Phase 6: 测试基础设施补齐 (Round 13)
+
+> 当前状态：单元/集成测试有一定覆盖，但 **没有用户端到端测试**（Playwright + 真实 Electron），
+> renderer smoke 测试全部使用 mock IPC，**不验证真实 Electron 环境**。
+> 打包产物可用性依赖人工检查，缺乏自动化门禁。
+> 规范文档已创建（`docs/test.md`），基础设施待实施。
+
+### Round 13.1: 修复现有测试失败
+
+- [ ] `tests/integration/plugin/runner.test.ts` — 7 个测试全部失败，exitCode 9009（Windows 找不到 Python）
+    - 需要排查 fake plugin Python 脚本路径或 Python 检测逻辑
+- [ ] `tests/integration/config/secrets-store.test.ts` — 1 个失败（Windows chmod 不支持 0600）
+    - Windows 平台需要等价的安全检查或跳过此测试
+- [ ] 跑通 `pnpm test`，全绿
+
+### Round 13.2: 引入 Playwright + Electron E2E 基础设施
+
+- [ ] 安装 `@playwright/test`
+- [ ] 创建 `playwright.config.ts`
+- [ ] 创建 `tests/user_e2e/fixtures/electron_app.ts`（启动/停止真实 Electron 实例）
+- [ ] 创建 `tests/user_e2e/fixtures/app_fixture.ts`（封装窗口、E2E HTTP 端点、配置读写）
+- [ ] 创建 `tests/user_e2e/fixtures/test.ts`（Playwright fixture 定义）
+- [ ] 创建 `tests/user_e2e/global_setup.ts`（每次 E2E 前 `electron-forge package`）
+- [ ] 创建 Page Object：`pages/popup_page.ts`、`pages/dashboard_page.ts`、`pages/settings_page.ts`
+
+### Round 13.3: UI 代码埋 data-testid
+
+- [ ] Popup 窗口：刷新按钮、插件卡片、错误信息、空状态
+- [ ] Dashboard 窗口：面板标题、插件卡片列表、状态标签、刷新按钮
+- [ ] Settings 窗口：侧栏导航、插件列表、参数表单、保存按钮
+
+### Round 13.4: E2E spec 编写（P0 关键路径）
+
+- [ ] `app_lifecycle.spec.ts` — 启动、托盘、Popup 窗口显隐、退出
+- [ ] `popup_view.spec.ts` — 插件卡片渲染、使用量数据展示、刷新按钮功能、错误状态
+- [ ] `dashboard_view.spec.ts` — 仪表盘标题、插件卡片列表、状态展示
+- [ ] `settings_view.spec.ts` — 设置侧栏、插件选择、参数表单填写和保存
+- [ ] `plugin_config.spec.ts` — 添加/删除/复制插件实例、API Key 填写
+
+### Round 13.5: 打包 smoke 流程标准化
+
+- [ ] 每次打包后执行：启动 exe → 确认渲染进程无白屏 → 确认托盘出现 → 确认插件加载
+- [ ] 将 smoke 验证步骤写入 CI 或文档化 checklist
+
+### Round 13.6: CI 门禁（可选，后续）
+
+- [ ] PR 门禁：`pnpm check`（typecheck + lint + format + deadcode + arch）
+- [ ] PR 门禁：`pnpm test`（单元 + 集成）
+- [ ] PR 门禁：`pnpm test:e2e:core`（核心 E2E，离线通过）
+- [ ] Nightly：全量 E2E + 外部服务连通性
