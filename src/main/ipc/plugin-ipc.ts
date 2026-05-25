@@ -1,4 +1,5 @@
 import { z } from "zod/v3";
+import { basename } from "node:path";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { PluginInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
@@ -50,7 +51,7 @@ export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<P
     try {
         const config = await deps.configStore.load();
         const pluginEntries = config.plugins.map((plugin) => {
-            const scriptName = plugin.executablePath.split("/").pop() ?? plugin.executablePath;
+            const scriptName = basename(plugin.executablePath);
             const def = deps.definitions.find((d) => d.scriptName === scriptName);
             return {
                 config: plugin,

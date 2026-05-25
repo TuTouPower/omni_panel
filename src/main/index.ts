@@ -1,5 +1,5 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerMonitor } from "electron";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import {
     getConfigPath,
@@ -159,7 +159,7 @@ void app.whenReady().then(async () => {
 
     const secretParamKeys = new Map<string, ReadonlySet<string>>();
     for (const plugin of currentConfig.plugins) {
-        const scriptName = plugin.executablePath.split("/").pop() ?? plugin.executablePath;
+        const scriptName = basename(plugin.executablePath);
         const def = allDefinitions.find((d) => d.scriptName === scriptName);
         const secretKeys = new Set<string>();
         if (def?.metadata?.parameters) {
