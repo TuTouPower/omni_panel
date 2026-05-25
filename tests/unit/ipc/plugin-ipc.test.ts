@@ -24,6 +24,7 @@ function createMockDeps() {
         }),
         save: vi.fn(),
         scheduleSave: vi.fn(),
+        flushPendingSave: vi.fn().mockResolvedValue(undefined),
     };
 
     const readyState: PluginSnapshotDTO = {
@@ -137,6 +138,7 @@ describe("plugin-ipc", () => {
             }),
             save: vi.fn(),
             scheduleSave: vi.fn(),
+            flushPendingSave: vi.fn().mockResolvedValue(undefined),
         };
         const runtimeStore: RuntimeStore = {
             getSnapshot: vi.fn().mockReturnValue({ status: "idle" }),

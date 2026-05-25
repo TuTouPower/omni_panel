@@ -1,5 +1,4 @@
 import { z } from "zod/v3";
-import { basename } from "node:path";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { PluginInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
@@ -51,8 +50,7 @@ export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<P
     try {
         const config = await deps.configStore.load();
         const pluginEntries = config.plugins.map((plugin) => {
-            const scriptName = basename(plugin.executablePath);
-            const def = deps.definitions.find((d) => d.scriptName === scriptName);
+            const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
             return {
                 config: plugin,
                 metadata: def?.metadata ?? null,
@@ -101,6 +99,10 @@ export async function handlePluginRefresh(
     try {
         const parsed = instanceIdSchema.safeParse(instanceId);
         if (!parsed.success) return fail("VALIDATION_ERROR", "无效的插件 ID");
+        const config = await deps.configStore.load();
+        const plugin = config.plugins.find((p) => p.instanceId === parsed.data);
+        if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
+        if (!plugin.enabled) return fail("VALIDATION_ERROR", "插件未启用");
         await deps.refreshService.refresh(parsed.data, { force: true });
         return ok(undefined);
     } catch {

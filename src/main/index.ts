@@ -1,5 +1,5 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerMonitor } from "electron";
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import {
     getConfigPath,
@@ -28,6 +28,7 @@ import { registerLogIpc } from "./ipc/log-ipc";
 import { registerSystemIpc } from "./ipc/system-ipc";
 import { discoverPlugins } from "./core/plugin/discovery";
 import { findPython } from "./core/plugin/python-detect";
+import type { PluginConfiguration } from "../shared/types/config";
 import type { PluginDefinition } from "./core/plugin/types";
 
 const SECURE_WEB_PREFS = {
@@ -136,10 +137,12 @@ void app.whenReady().then(async () => {
     // Build secretParamKeys from plugin metadata
     const config = await configStore.load();
 
-    // Auto-seed: create default plugin instances on first launch
-    if (config.plugins.length === 0 && allDefinitions.length > 0) {
-        log.info("First launch: auto-seeding plugin instances");
-        const seededPlugins = allDefinitions.map((def) => {
+    // Auto-seed: create default plugin instances for missing definitions
+    const existingPaths = new Set(config.plugins.map((p) => p.executablePath));
+    const missingDefs = allDefinitions.filter((d) => !existingPaths.has(d.executablePath));
+    if (missingDefs.length > 0) {
+        log.info(`Auto-seeding ${String(missingDefs.length)} missing plugin instances`);
+        const seededPlugins = missingDefs.map((def) => {
             const meta = def.metadata;
             const zhName = meta ? (meta as Record<string, unknown>)["name@zh-Hans"] : undefined;
             const name =
@@ -156,7 +159,7 @@ void app.whenReady().then(async () => {
                 parameterValues: {},
             };
         });
-        await configStore.save({ ...config, plugins: seededPlugins });
+        await configStore.save({ ...config, plugins: [...config.plugins, ...seededPlugins] });
         log.info(
             `Auto-seeded ${String(seededPlugins.length)} plugins: ${seededPlugins.map((p) => p.name).join(", ")}`,
         );
@@ -165,20 +168,26 @@ void app.whenReady().then(async () => {
     // Reload config after potential seeding
     const currentConfig = await configStore.load();
 
-    const secretParamKeys = new Map<string, ReadonlySet<string>>();
-    for (const plugin of currentConfig.plugins) {
-        const scriptName = basename(plugin.executablePath);
-        const def = allDefinitions.find((d) => d.scriptName === scriptName);
-        const secretKeys = new Set<string>();
-        if (def?.metadata?.parameters) {
-            for (const param of def.metadata.parameters) {
-                if (param.type === "secret") {
-                    secretKeys.add(param.name);
+    function buildSecretParamKeys(cfg: {
+        plugins: readonly PluginConfiguration[];
+    }): Map<string, ReadonlySet<string>> {
+        const map = new Map<string, ReadonlySet<string>>();
+        for (const plugin of cfg.plugins) {
+            const def = allDefinitions.find((d) => d.executablePath === plugin.executablePath);
+            const secretKeys = new Set<string>();
+            if (def?.metadata?.parameters) {
+                for (const param of def.metadata.parameters) {
+                    if (param.type === "secret") {
+                        secretKeys.add(param.name);
+                    }
                 }
             }
+            map.set(plugin.instanceId, secretKeys);
         }
-        secretParamKeys.set(plugin.instanceId, secretKeys);
+        return map;
     }
+
+    const secretParamKeys = buildSecretParamKeys(currentConfig);
 
     // Wire real refresh service
     const refreshService = createRefreshService({
@@ -204,8 +213,13 @@ void app.whenReady().then(async () => {
         secretsStore,
         secretParamKeys,
         onConfigSaved: (updatedConfig) => {
-            // Rebuild scheduling for all enabled plugins
-            log.info("Config saved — rebuilding scheduler");
+            // Rebuild secret keys and scheduling
+            log.info("Config saved — rebuilding scheduler and secret keys");
+            const newKeys = buildSecretParamKeys(updatedConfig);
+            secretParamKeys.clear();
+            for (const [k, v] of newKeys) {
+                secretParamKeys.set(k, v);
+            }
             scheduler.stopAll();
             for (const plugin of updatedConfig.plugins) {
                 if (plugin.enabled) {
@@ -357,6 +371,7 @@ void app.whenReady().then(async () => {
             clearTimeout(safetyNetTimer);
             safetyNetTimer = null;
         }
+        void configStore.flushPendingSave();
         scheduler.stopAll();
         cleanupEventIpc?.();
         cleanupEventIpc = null;
