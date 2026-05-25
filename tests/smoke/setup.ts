@@ -102,7 +102,20 @@ function createMockApi() {
             refreshAll: vi.fn().mockResolvedValue(undefined),
         },
         config: {
-            get: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue(config),
+            get: vi
+                .fn<
+                    () => Promise<{
+                        config: AppConfiguration;
+                        hasSecrets: Record<string, Record<string, boolean>>;
+                    }>
+                >()
+                .mockResolvedValue({
+                    config,
+                    hasSecrets: {
+                        deepseek: { API_KEY: false },
+                        claude: {},
+                    },
+                }),
             save: vi.fn().mockResolvedValue(undefined),
             saveSecrets: vi.fn().mockResolvedValue(undefined),
             duplicate: vi.fn().mockResolvedValue(undefined),

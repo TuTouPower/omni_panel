@@ -7,7 +7,7 @@ import logo from "../assets/logo.png";
 
 export function SettingsView() {
     useTheme();
-    const { config, loading, error, save, saveSecrets, duplicate } = useConfig();
+    const { config, hasSecrets, loading, error, save, saveSecrets, duplicate } = useConfig();
     const { plugins } = usePlugins();
 
     if (loading) {
@@ -89,6 +89,7 @@ export function SettingsView() {
                             name={p.name}
                             parameters={params}
                             values={{ ...p.parameterValues }}
+                            hasSecrets={hasSecrets[p.instanceId] ?? {}}
                             onSave={handleSave}
                             onDuplicate={(id) => void duplicate(id)}
                         />

@@ -5,6 +5,7 @@ const MODULE = "use-config";
 
 interface UseConfigResult {
     config: AppConfiguration | null;
+    hasSecrets: Record<string, Record<string, boolean>>;
     loading: boolean;
     error: string | null;
     save: (newConfig: AppConfiguration) => Promise<void>;
@@ -14,6 +15,7 @@ interface UseConfigResult {
 
 export function useConfig(): UseConfigResult {
     const [config, setConfig] = useState<AppConfiguration | null>(null);
+    const [hasSecrets, setHasSecrets] = useState<Record<string, Record<string, boolean>>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -22,14 +24,15 @@ export function useConfig(): UseConfigResult {
         window.usageboard.log({ level: "debug", module: MODULE, message: "Loading config" });
         window.usageboard.config
             .get()
-            .then((c) => {
+            .then((result) => {
                 if (!cancelled) {
                     window.usageboard.log({
                         level: "info",
                         module: MODULE,
-                        message: `Config loaded: ${String(c.plugins.length)} plugins`,
+                        message: `Config loaded: ${String(result.config.plugins.length)} plugins`,
                     });
-                    setConfig(c);
+                    setConfig(result.config);
+                    setHasSecrets(result.hasSecrets);
                     setLoading(false);
                 }
             })
@@ -63,6 +66,14 @@ export function useConfig(): UseConfigResult {
             message: `Saving secrets for ${instanceId}`,
         });
         await window.usageboard.config.saveSecrets({ instanceId, secrets });
+        // Update hasSecrets for saved keys
+        setHasSecrets((prev) => ({
+            ...prev,
+            [instanceId]: {
+                ...(prev[instanceId] ?? {}),
+                ...Object.fromEntries(Object.keys(secrets).map((k) => [k, true])),
+            },
+        }));
     }, []);
 
     const duplicate = useCallback(async (instanceId: string) => {
@@ -72,7 +83,11 @@ export function useConfig(): UseConfigResult {
             message: `Duplicating plugin ${instanceId}`,
         });
         await window.usageboard.config.duplicate(instanceId);
+        // Reload config to reflect the new duplicate
+        const result = await window.usageboard.config.get();
+        setConfig(result.config);
+        setHasSecrets(result.hasSecrets);
     }, []);
 
-    return { config, loading, error, save, saveSecrets, duplicate };
+    return { config, hasSecrets, loading, error, save, saveSecrets, duplicate };
 }
