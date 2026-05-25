@@ -1,6 +1,7 @@
 import { execSync, spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { platform } from "node:os";
+import { existsSync, rmSync } from "node:fs";
 
 const ROOT = process.cwd();
 
@@ -20,6 +21,21 @@ function kill_omni(): void {
         log("killed existing OmniUsage process");
     } catch {
         log("no existing OmniUsage process found");
+    }
+}
+
+function clear_plugin_cache(): void {
+    const is_win = platform() === "win32";
+    const app_data = is_win
+        ? process.env["APPDATA"]
+        : process.env["HOME"]
+          ? resolve(process.env["HOME"], ".config")
+          : undefined;
+    if (!app_data) return;
+    const cache_dir = resolve(app_data, "OmniUsage", "states");
+    if (existsSync(cache_dir)) {
+        rmSync(cache_dir, { recursive: true, force: true });
+        log(`cleared plugin cache: ${cache_dir}`);
     }
 }
 
@@ -52,13 +68,16 @@ async function main(): Promise<void> {
     // Step 2: wait a moment for the process to exit
     await new Promise((r) => setTimeout(r, 500));
 
-    // Step 2: package (skip if --no-build)
+    // Step 3: clear plugin cache (avoids stale garbled data after encoding changes)
+    clear_plugin_cache();
+
+    // Step 4: package (skip if --no-build)
     if (!no_build) {
         log("running pnpm package:build...");
         execSync("pnpm run package:build", { cwd: ROOT, stdio: "inherit" });
     }
 
-    // Step 3: run
+    // Step 5: run
     run_packaged();
 }
 
