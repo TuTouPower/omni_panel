@@ -16,7 +16,7 @@ test.describe("app lifecycle", () => {
 
         const title = await dashboard.getTitle();
         expect(title).toContain("OmniUsage Dashboard");
-        await expect(page.getByText("设置")).toBeVisible();
+        await expect(page.getByRole("button", { name: "设置" })).toBeVisible();
     });
 
     test("refresh button is visible", async ({ omni }) => {
