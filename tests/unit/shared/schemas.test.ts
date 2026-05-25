@@ -39,6 +39,35 @@ describe("pluginOutputSchema", () => {
         expect(result.success).toBe(true);
     });
 
+    it("accepts success-with-nulls.json (resetAt null, chart.message null)", () => {
+        const raw = readFileSync(resolve(fixturesDir, "success-with-nulls.json"), "utf8");
+        const data: unknown = JSON.parse(raw);
+        const result = pluginOutputSchema.safeParse(data);
+        expect(result.success).toBe(true);
+    });
+
+    it("accepts inline data with nullable fields", () => {
+        const data = {
+            schemaVersion: 1,
+            updatedAt: "2026-05-24T12:00:00Z",
+            resetAt: null,
+            items: [
+                {
+                    id: "test",
+                    name: "Test",
+                    used: 10,
+                    limit: 100,
+                    displayStyle: "percent",
+                    status: "normal",
+                    color: "red",
+                    resetAt: null,
+                },
+            ],
+        };
+        const result = pluginOutputSchema.safeParse(data);
+        expect(result.success).toBe(true);
+    });
+
     it("accepts error-json-field.json", () => {
         const raw = readFileSync(resolve(fixturesDir, "error-json-field.json"), "utf8");
         const data: unknown = JSON.parse(raw);

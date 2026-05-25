@@ -38,6 +38,12 @@ describe("parsePluginOutput", () => {
         expect(result.items).toHaveLength(0);
     });
 
+    it("parses success-with-nulls.json (resetAt null, chart.message null)", () => {
+        const result = parsePluginOutput(loadFixture("success-with-nulls.json"));
+        expect(result.items.length).toBeGreaterThan(0);
+        expect(result.chart).toBeDefined();
+    });
+
     it("throws PluginOutputParseError for invalid JSON", () => {
         expect(() => parsePluginOutput(loadFixture("invalid-json.txt"))).toThrow(
             PluginOutputParseError,
