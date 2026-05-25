@@ -84,7 +84,7 @@ describe("config-ipc", () => {
         const { handleConfigSaveSecrets } = await import("../../../src/main/ipc/config-ipc");
 
         const result = await handleConfigSaveSecrets(deps, {
-            stateId: "claude",
+            instanceId: "claude",
             secrets: { API_KEY: "new-key", INVALID_PARAM: "value" },
         });
 
@@ -98,7 +98,7 @@ describe("config-ipc", () => {
         const { handleConfigSaveSecrets } = await import("../../../src/main/ipc/config-ipc");
 
         const result = await handleConfigSaveSecrets(deps, {
-            stateId: "nonexistent",
+            instanceId: "nonexistent",
             secrets: { API_KEY: "new-key" },
         });
 
@@ -122,7 +122,7 @@ describe("config-ipc", () => {
         const { handleConfigSaveSecrets } = await import("../../../src/main/ipc/config-ipc");
 
         const result = await handleConfigSaveSecrets(deps, {
-            stateId: "claude",
+            instanceId: "claude",
             secrets: { API_KEY: "new-key" },
         });
 

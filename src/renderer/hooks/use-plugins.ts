@@ -5,7 +5,7 @@ interface UsePluginsResult {
     plugins: PluginInfo[];
     loading: boolean;
     error: string | null;
-    refresh: (stateId: string) => Promise<void>;
+    refresh: (instanceId: string) => Promise<void>;
     refreshAll: () => Promise<void>;
 }
 
@@ -37,17 +37,17 @@ export function usePlugins(): UsePluginsResult {
 
     useEffect(() => {
         const unsub = window.usageboard.event.onStateChange(
-            (stateId: string, state: PluginSnapshotDTO) => {
+            (instanceId: string, state: PluginSnapshotDTO) => {
                 setPlugins((prev) =>
-                    prev.map((p) => (p.stateId === stateId ? { ...p, snapshot: state } : p)),
+                    prev.map((p) => (p.instanceId === instanceId ? { ...p, snapshot: state } : p)),
                 );
             },
         );
         return unsub;
     }, []);
 
-    const refresh = useCallback(async (stateId: string) => {
-        await window.usageboard.plugin.refresh(stateId);
+    const refresh = useCallback(async (instanceId: string) => {
+        await window.usageboard.plugin.refresh(instanceId);
     }, []);
 
     const refreshAllFn = useCallback(async () => {

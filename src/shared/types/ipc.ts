@@ -44,7 +44,7 @@ export interface PluginInfo {
 }
 
 export interface ConfigSaveSecretsPayload {
-    stateId: string;
+    instanceId: string;
     secrets: Record<string, string>;
 }
 
@@ -58,8 +58,8 @@ export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: IpcError 
 export interface UsageboardApi {
     plugin: {
         list(): Promise<PluginInfo[]>;
-        getState(stateId: string): Promise<PluginSnapshotDTO>;
-        refresh(stateId: string): Promise<void>;
+        getState(instanceId: string): Promise<PluginSnapshotDTO>;
+        refresh(instanceId: string): Promise<void>;
         refreshAll(): Promise<void>;
     };
     config: {
@@ -68,7 +68,7 @@ export interface UsageboardApi {
         saveSecrets(payload: ConfigSaveSecretsPayload): Promise<void>;
     };
     event: {
-        onStateChange(callback: (stateId: string, state: PluginSnapshotDTO) => void): () => void;
+        onStateChange(callback: (instanceId: string, state: PluginSnapshotDTO) => void): () => void;
         onThemeChange(callback: (isDark: boolean) => void): () => void;
     };
 }

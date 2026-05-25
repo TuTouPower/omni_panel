@@ -35,7 +35,7 @@ export function PopupView() {
                 {!loading && plugins.length === 0 && <EmptyState />}
                 <div className="grid grid-cols-1 gap-2">
                     {plugins.map((p) => (
-                        <PluginCard key={p.stateId} plugin={p} />
+                        <PluginCard key={p.instanceId} plugin={p} />
                     ))}
                 </div>
             </main>

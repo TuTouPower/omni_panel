@@ -21,24 +21,24 @@ export function SettingsView() {
     }
     if (!config) return null;
 
-    const metadataMap = new Map(plugins.map((p) => [p.stateId, p.metadata]));
+    const metadataMap = new Map(plugins.map((p) => [p.instanceId, p.metadata]));
 
     const handleSave = async (
-        stateId: string,
+        instanceId: string,
         nonSecrets: Record<string, string>,
         secrets: Record<string, string>,
     ) => {
         const updated = {
             ...config,
             plugins: config.plugins.map((p) =>
-                p.stateId === stateId
+                p.instanceId === instanceId
                     ? { ...p, parameterValues: { ...p.parameterValues, ...nonSecrets } }
                     : p,
             ),
         };
         await save(updated);
         if (Object.keys(secrets).length > 0) {
-            await saveSecrets(stateId, secrets);
+            await saveSecrets(instanceId, secrets);
         }
     };
 
@@ -52,7 +52,7 @@ export function SettingsView() {
                     </li>
                     {config.plugins.map((p) => (
                         <li
-                            key={p.stateId}
+                            key={p.instanceId}
                             className="cursor-default rounded-[var(--radius)] px-2 py-1"
                         >
                             {p.name}
@@ -63,18 +63,21 @@ export function SettingsView() {
 
             <main className="flex-1 overflow-auto p-6">
                 {config.plugins.map((p) => {
-                    const params = metadataMap.get(p.stateId)?.parameters;
+                    const params = metadataMap.get(p.instanceId)?.parameters;
                     if (!params?.length) {
                         return (
-                            <div key={p.stateId} className="text-sm text-[var(--muted-foreground)]">
+                            <div
+                                key={p.instanceId}
+                                className="text-sm text-[var(--muted-foreground)]"
+                            >
                                 {p.name} — 无可配置参数
                             </div>
                         );
                     }
                     return (
                         <SettingsForm
-                            key={p.stateId}
-                            stateId={p.stateId}
+                            key={p.instanceId}
+                            instanceId={p.instanceId}
                             name={p.name}
                             parameters={params}
                             values={{ ...p.parameterValues }}

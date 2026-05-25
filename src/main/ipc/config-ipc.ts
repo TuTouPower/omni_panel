@@ -22,7 +22,7 @@ function maskSecrets(
     return {
         ...config,
         plugins: config.plugins.map((plugin) => {
-            const keys = secretKeys.get(plugin.stateId);
+            const keys = secretKeys.get(plugin.instanceId);
             if (!keys) return plugin;
             const masked = { ...plugin.parameterValues };
             for (const key of keys) {
@@ -40,7 +40,7 @@ function stripSecrets(
     return {
         ...config,
         plugins: config.plugins.map((plugin) => {
-            const keys = secretKeys.get(plugin.stateId);
+            const keys = secretKeys.get(plugin.instanceId);
             if (!keys) return plugin;
             const entries = Object.entries(plugin.parameterValues).filter(
                 ([key]) => !keys.has(key),
@@ -67,7 +67,7 @@ export async function handleConfigSave(
         const parsed = appConfigurationSchema.safeParse(config);
         if (!parsed.success) return fail("VALIDATION_ERROR", "配置格式无效");
 
-        const stripped = stripSecrets(parsed.data, deps.secretParamKeys);
+        const stripped = stripSecrets(parsed.data as AppConfiguration, deps.secretParamKeys);
         await deps.configStore.save(stripped);
         return ok(undefined);
     } catch {
@@ -83,23 +83,23 @@ export async function handleConfigSaveSecrets(
         if (!payload || typeof payload !== "object") {
             return fail("VALIDATION_ERROR", "无效的请求数据");
         }
-        const { stateId, secrets } = payload as ConfigSaveSecretsPayload;
+        const { instanceId, secrets } = payload as ConfigSaveSecretsPayload;
 
-        if (!stateId || typeof stateId !== "string") {
+        if (!instanceId || typeof instanceId !== "string") {
             return fail("VALIDATION_ERROR", "无效的插件 ID");
         }
 
         const config = await deps.configStore.load();
-        const plugin = config.plugins.find((p: PluginConfiguration) => p.stateId === stateId);
+        const plugin = config.plugins.find((p: PluginConfiguration) => p.instanceId === instanceId);
         if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
         if (!plugin.enabled) return fail("VALIDATION_ERROR", "插件未启用");
 
-        const allowedKeys = deps.secretParamKeys.get(stateId);
+        const allowedKeys = deps.secretParamKeys.get(instanceId);
         if (!allowedKeys) return ok(undefined);
 
         for (const [paramName, value] of Object.entries(secrets)) {
             if (allowedKeys.has(paramName)) {
-                await deps.secretsStore.set(`${stateId}:${paramName}`, value);
+                await deps.secretsStore.set(`${instanceId}:${paramName}`, value);
             }
         }
         return ok(undefined);

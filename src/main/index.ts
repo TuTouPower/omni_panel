@@ -123,7 +123,7 @@ void app.whenReady().then(async () => {
                 }
             }
         }
-        secretParamKeys.set(plugin.stateId, secretKeys);
+        secretParamKeys.set(plugin.instanceId, secretKeys);
     }
 
     // Wire real refresh service

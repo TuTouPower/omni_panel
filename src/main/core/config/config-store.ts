@@ -1,11 +1,6 @@
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import { dirname } from "node:path";
-import {
-    type AppConfiguration,
-    type PluginConfiguration,
-    DEFAULT_CONFIGURATION,
-    appConfigurationSchema,
-} from "./types";
+import { type AppConfiguration, DEFAULT_CONFIGURATION, appConfigurationSchema } from "./types";
 
 export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
@@ -34,11 +29,11 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 if (result.success) {
                     const migrated = {
                         ...result.data,
-                        plugins: result.data.plugins.map((p: PluginConfiguration) => ({
+                        plugins: result.data.plugins.map((p) => ({
                             ...p,
-                            instanceId: p.instanceId || p.stateId,
+                            instanceId: p.instanceId ?? p.stateId,
                         })),
-                    };
+                    } as AppConfiguration;
                     return migrated;
                 }
                 return { ...DEFAULT_CONFIGURATION };

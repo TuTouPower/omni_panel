@@ -6,7 +6,7 @@ interface UseConfigResult {
     loading: boolean;
     error: string | null;
     save: (newConfig: AppConfiguration) => Promise<void>;
-    saveSecrets: (stateId: string, secrets: Record<string, string>) => Promise<void>;
+    saveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
 }
 
 export function useConfig(): UseConfigResult {
@@ -40,8 +40,8 @@ export function useConfig(): UseConfigResult {
         setConfig(newConfig);
     }, []);
 
-    const saveSecrets = useCallback(async (stateId: string, secrets: Record<string, string>) => {
-        await window.usageboard.config.saveSecrets({ stateId, secrets });
+    const saveSecrets = useCallback(async (instanceId: string, secrets: Record<string, string>) => {
+        await window.usageboard.config.saveSecrets({ instanceId, secrets });
     }, []);
 
     return { config, loading, error, save, saveSecrets };

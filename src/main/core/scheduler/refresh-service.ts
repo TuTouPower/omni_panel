@@ -24,7 +24,7 @@ export interface RefreshServiceDeps {
 }
 
 export interface PluginRefreshService {
-    refresh(stateId: string, options?: { force?: boolean }): Promise<void>;
+    refresh(instanceId: string, options?: { force?: boolean }): Promise<void>;
     refreshAll(): Promise<void>;
 }
 
@@ -37,19 +37,21 @@ function isCacheExpired(updatedAt: string, intervalSeconds: number): boolean {
 export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshService {
     const locks = new Set<string>();
 
-    async function refresh(stateId: string, options?: { force?: boolean }): Promise<void> {
-        if (locks.has(stateId)) return;
-        locks.add(stateId);
+    async function refresh(instanceId: string, options?: { force?: boolean }): Promise<void> {
+        if (locks.has(instanceId)) return;
+        locks.add(instanceId);
 
         try {
             const config = await deps.configStore.load();
-            const plugin = config.plugins.find((p: PluginConfiguration) => p.stateId === stateId);
+            const plugin = config.plugins.find(
+                (p: PluginConfiguration) => p.instanceId === instanceId,
+            );
             if (!plugin) return;
 
             if (!options?.force) {
-                const cached = await deps.cacheStore.load(stateId);
+                const cached = await deps.cacheStore.load(instanceId);
                 if (cached && !isCacheExpired(cached.updatedAt, plugin.refreshIntervalSeconds)) {
-                    deps.runtimeStore.updateState(stateId, {
+                    deps.runtimeStore.updateState(instanceId, {
                         status: "ready",
                         items: cached.items,
                         updatedAt: new Date(cached.updatedAt),
@@ -60,7 +62,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 }
             }
 
-            deps.runtimeStore.updateState(stateId, { status: "loading" });
+            deps.runtimeStore.updateState(instanceId, { status: "loading" });
 
             const command = deps.commandBuilder(
                 plugin.executablePath,
@@ -72,14 +74,14 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 const result = await deps.runner(command, { timeoutMs: 15_000 });
                 const output = deps.outputParser(result.stdout);
 
-                await deps.cacheStore.save(stateId, {
+                await deps.cacheStore.save(instanceId, {
                     updatedAt: output.updatedAt,
                     items: output.items,
                     ...(output.badge !== undefined && { badge: output.badge }),
                     ...(output.chart !== undefined && { chart: output.chart }),
                 });
 
-                deps.runtimeStore.updateState(stateId, {
+                deps.runtimeStore.updateState(instanceId, {
                     status: "ready",
                     items: output.items,
                     updatedAt: new Date(output.updatedAt),
@@ -88,15 +90,15 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 });
             } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : String(error);
-                const lastSuccess = await deps.cacheStore.load(stateId);
-                deps.runtimeStore.updateState(stateId, {
+                const lastSuccess = await deps.cacheStore.load(instanceId);
+                deps.runtimeStore.updateState(instanceId, {
                     status: "failed",
                     error: message,
                     ...(lastSuccess !== null && { lastSuccess }),
                 });
             }
         } finally {
-            locks.delete(stateId);
+            locks.delete(instanceId);
         }
     }
 
@@ -104,7 +106,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
         const config = await deps.configStore.load();
         const enabledPlugins = config.plugins.filter((p: PluginConfiguration) => p.enabled);
         await Promise.allSettled(
-            enabledPlugins.map((p: PluginConfiguration) => refresh(p.stateId)),
+            enabledPlugins.map((p: PluginConfiguration) => refresh(p.instanceId)),
         );
     }
 

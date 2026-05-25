@@ -49,7 +49,7 @@ export function DashboardView() {
                 )}
                 <div className="space-y-3">
                     {plugins.map((p) => (
-                        <PluginCard key={p.stateId} plugin={p} />
+                        <PluginCard key={p.instanceId} plugin={p} />
                     ))}
                 </div>
             </main>

@@ -54,6 +54,7 @@ describe("config-store", () => {
             overviewDisplayMode: "tabs",
             plugins: [
                 {
+                    instanceId: "abc-123",
                     stateId: "abc-123",
                     name: "test",
                     enabled: true,

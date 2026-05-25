@@ -25,11 +25,12 @@ const api: UsageboardApi = {
             invoke<UnwrapPromise<ReturnType<UsageboardApi["plugin"]["list"]>>>(
                 IPC_CHANNELS.PLUGIN_LIST,
             ),
-        getState: (stateId) => invoke<PluginSnapshotDTO>(IPC_CHANNELS.PLUGIN_GET_STATE, stateId),
-        refresh: (stateId) =>
+        getState: (instanceId) =>
+            invoke<PluginSnapshotDTO>(IPC_CHANNELS.PLUGIN_GET_STATE, instanceId),
+        refresh: (instanceId) =>
             invoke<UnwrapPromise<ReturnType<UsageboardApi["plugin"]["refresh"]>>>(
                 IPC_CHANNELS.PLUGIN_REFRESH,
-                stateId,
+                instanceId,
             ),
         refreshAll: () =>
             invoke<UnwrapPromise<ReturnType<UsageboardApi["plugin"]["refreshAll"]>>>(
@@ -51,8 +52,8 @@ const api: UsageboardApi = {
     },
     event: {
         onStateChange: (callback) => {
-            const handler = (_e: unknown, stateId: string, state: PluginSnapshotDTO) => {
-                callback(stateId, state);
+            const handler = (_e: unknown, instanceId: string, state: PluginSnapshotDTO) => {
+                callback(instanceId, state);
             };
             ipcRenderer.on(IPC_CHANNELS.EVENT_STATE_CHANGE, handler);
             return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_STATE_CHANGE, handler);

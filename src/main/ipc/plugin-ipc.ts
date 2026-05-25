@@ -9,7 +9,7 @@ import type { PluginSnapshotState } from "../core/scheduler/types";
 import type { PluginRefreshService } from "../core/scheduler/refresh-service";
 import type { PluginDefinition } from "../core/plugin/types";
 
-const stateIdSchema = z.string().min(1);
+const instanceIdSchema = z.string().min(1);
 
 function toDTO(state: PluginSnapshotState): PluginSnapshotDTO {
     switch (state.status) {
@@ -48,7 +48,7 @@ export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<P
     try {
         const config = await deps.configStore.load();
         const plugins: PluginInfo[] = config.plugins.map((plugin) => {
-            const snapshot = toDTO(deps.runtimeStore.getSnapshot(plugin.stateId));
+            const snapshot = toDTO(deps.runtimeStore.getSnapshot(plugin.instanceId));
             const scriptName = plugin.executablePath.split("/").pop() ?? plugin.executablePath;
             const def = deps.definitions.find((d) => d.scriptName === scriptName);
             return {
@@ -68,10 +68,10 @@ export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<P
 
 export function handlePluginGetState(
     deps: PluginIpcDeps,
-    stateId: string,
+    instanceId: string,
 ): IpcResult<PluginSnapshotDTO> {
     try {
-        const parsed = stateIdSchema.safeParse(stateId);
+        const parsed = instanceIdSchema.safeParse(instanceId);
         if (!parsed.success) return fail("VALIDATION_ERROR", "无效的插件 ID");
         const state = deps.runtimeStore.getSnapshot(parsed.data);
         return ok(toDTO(state));
@@ -82,10 +82,10 @@ export function handlePluginGetState(
 
 export async function handlePluginRefresh(
     deps: PluginIpcDeps,
-    stateId: string,
+    instanceId: string,
 ): Promise<IpcResult<void>> {
     try {
-        const parsed = stateIdSchema.safeParse(stateId);
+        const parsed = instanceIdSchema.safeParse(instanceId);
         if (!parsed.success) return fail("VALIDATION_ERROR", "无效的插件 ID");
         await deps.refreshService.refresh(parsed.data, { force: true });
         return ok(undefined);
@@ -106,11 +106,11 @@ export async function handlePluginRefreshAll(deps: PluginIpcDeps): Promise<IpcRe
 export async function registerPluginIpc(deps: PluginIpcDeps): Promise<void> {
     const { ipcMain } = await import("electron");
     ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, () => handlePluginList(deps));
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_GET_STATE, (_e, stateId: string) =>
-        handlePluginGetState(deps, stateId),
+    ipcMain.handle(IPC_CHANNELS.PLUGIN_GET_STATE, (_e, instanceId: string) =>
+        handlePluginGetState(deps, instanceId),
     );
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH, (_e, stateId: string) =>
-        handlePluginRefresh(deps, stateId),
+    ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH, (_e, instanceId: string) =>
+        handlePluginRefresh(deps, instanceId),
     );
     ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH_ALL, () => handlePluginRefreshAll(deps));
 }

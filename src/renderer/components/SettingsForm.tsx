@@ -1,18 +1,18 @@
 import type { PluginParameterMetadata } from "../../shared/schemas/plugin-metadata";
 
 interface SettingsFormProps {
-    stateId: string;
+    instanceId: string;
     name: string;
     parameters: PluginParameterMetadata[];
     values: Record<string, string>;
     onSave: (
-        stateId: string,
+        instanceId: string,
         nonSecrets: Record<string, string>,
         secrets: Record<string, string>,
     ) => Promise<void>;
 }
 
-export function SettingsForm({ stateId, name, parameters, values, onSave }: SettingsFormProps) {
+export function SettingsForm({ instanceId, name, parameters, values, onSave }: SettingsFormProps) {
     const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -31,7 +31,7 @@ export function SettingsForm({ stateId, name, parameters, values, onSave }: Sett
             }
         }
 
-        void onSave(stateId, nonSecrets, secrets);
+        void onSave(instanceId, nonSecrets, secrets);
     };
 
     return (

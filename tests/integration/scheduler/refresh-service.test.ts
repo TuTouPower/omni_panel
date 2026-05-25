@@ -4,6 +4,7 @@ import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-sto
 import type { AppConfiguration, PluginConfiguration } from "../../../src/main/core/config/types";
 
 const mockConfig: PluginConfiguration = {
+    instanceId: "state-1",
     stateId: "state-1",
     name: "test-plugin",
     enabled: true,
@@ -143,9 +144,9 @@ describe("refresh-service", () => {
                     language: "zh-Hans",
                     overviewDisplayMode: "tabs",
                     plugins: [
-                        { ...mockConfig, stateId: "s1", enabled: true },
-                        { ...mockConfig, stateId: "s2", enabled: true },
-                        { ...mockConfig, stateId: "s3", enabled: false },
+                        { ...mockConfig, instanceId: "s1", stateId: "s1", enabled: true },
+                        { ...mockConfig, instanceId: "s2", stateId: "s2", enabled: true },
+                        { ...mockConfig, instanceId: "s3", stateId: "s3", enabled: false },
                     ],
                     launchAtLogin: false,
                 }),
