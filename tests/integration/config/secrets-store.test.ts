@@ -44,6 +44,10 @@ describe("secrets-store", () => {
     });
 
     it("sets file permissions to 0600", async () => {
+        // chmod 0600 is a Unix concept, skipped on Windows
+        if (process.platform === "win32") {
+            return;
+        }
         const filePath = join(tempDir, "secrets.json");
         const store = createSecretsStore(filePath, testCrypto);
         await store.set("api_key", "sk-123");

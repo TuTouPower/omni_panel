@@ -1,19 +1,31 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { resolve } from "node:path";
 import { executePlugin } from "../../../src/main/core/plugin/runner";
 import { buildPluginCommand } from "../../../src/main/core/plugin/command-builder";
 import { PluginTimeoutError } from "../../../src/shared/errors/plugin-errors";
 import { parsePluginOutput } from "../../../src/main/core/plugin/output-parser";
+import { findPython } from "../../../src/main/core/plugin/python-detect";
 
 const fakePluginsDir = resolve(__dirname, "../../../fixtures/fake-plugins");
+
+let pythonCommand = "python3";
 
 function fakePlugin(name: string): string {
     return resolve(fakePluginsDir, name);
 }
 
 describe("executePlugin", () => {
+    beforeAll(async () => {
+        pythonCommand = await findPython();
+    });
+
     it("executes valid JSON plugin and captures stdout", async () => {
-        const cmd = buildPluginCommand(fakePlugin("prints-valid-json.py"), {}, "zh-Hans");
+        const cmd = buildPluginCommand(
+            fakePlugin("prints-valid-json.py"),
+            {},
+            "zh-Hans",
+            pythonCommand,
+        );
         const result = await executePlugin(cmd);
         expect(result.exitCode).toBe(0);
         const output = parsePluginOutput(result.stdout);
@@ -21,32 +33,57 @@ describe("executePlugin", () => {
     });
 
     it("captures stderr on invalid JSON but exits 0", async () => {
-        const cmd = buildPluginCommand(fakePlugin("prints-invalid-json.py"), {}, "zh-Hans");
+        const cmd = buildPluginCommand(
+            fakePlugin("prints-invalid-json.py"),
+            {},
+            "zh-Hans",
+            pythonCommand,
+        );
         const result = await executePlugin(cmd);
         expect(result.exitCode).toBe(0);
     });
 
     it("captures non-zero exit code and stderr", async () => {
-        const cmd = buildPluginCommand(fakePlugin("exits-nonzero.py"), {}, "zh-Hans");
+        const cmd = buildPluginCommand(
+            fakePlugin("exits-nonzero.py"),
+            {},
+            "zh-Hans",
+            pythonCommand,
+        );
         const result = await executePlugin(cmd);
         expect(result.exitCode).toBe(1);
         expect(result.stderr).toContain("error occurred");
     });
 
     it("throws PluginTimeoutError on timeout", async () => {
-        const cmd = buildPluginCommand(fakePlugin("sleeps-timeout.py"), {}, "zh-Hans");
+        const cmd = buildPluginCommand(
+            fakePlugin("sleeps-timeout.py"),
+            {},
+            "zh-Hans",
+            pythonCommand,
+        );
         await expect(executePlugin(cmd, { timeoutMs: 1000 })).rejects.toThrow(PluginTimeoutError);
     });
 
     it("captures stderr without failing", async () => {
-        const cmd = buildPluginCommand(fakePlugin("prints-to-stderr.py"), {}, "zh-Hans");
+        const cmd = buildPluginCommand(
+            fakePlugin("prints-to-stderr.py"),
+            {},
+            "zh-Hans",
+            pythonCommand,
+        );
         const result = await executePlugin(cmd);
         expect(result.exitCode).toBe(0);
         expect(result.stderr).toContain("debug info");
     });
 
     it("passes parameters correctly", async () => {
-        const cmd = buildPluginCommand(fakePlugin("echoes-params.py"), { KEY: "value" }, "zh-Hans");
+        const cmd = buildPluginCommand(
+            fakePlugin("echoes-params.py"),
+            { KEY: "value" },
+            "zh-Hans",
+            pythonCommand,
+        );
         const result = await executePlugin(cmd);
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain("KEY");
@@ -54,7 +91,12 @@ describe("executePlugin", () => {
     });
 
     it("kills SIGTERM-ignoring process with SIGKILL", async () => {
-        const cmd = buildPluginCommand(fakePlugin("ignores-sigterm.py"), {}, "zh-Hans");
+        const cmd = buildPluginCommand(
+            fakePlugin("ignores-sigterm.py"),
+            {},
+            "zh-Hans",
+            pythonCommand,
+        );
         const start = Date.now();
         await expect(executePlugin(cmd, { timeoutMs: 500 })).rejects.toThrow(PluginTimeoutError);
         const elapsed = Date.now() - start;
