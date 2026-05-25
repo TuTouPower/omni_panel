@@ -44,15 +44,19 @@ function run_packaged(): void {
 }
 
 async function main(): Promise<void> {
+    const no_build = process.argv.includes("--no-build");
+
     // Step 1: kill existing process
     kill_omni();
 
     // Step 2: wait a moment for the process to exit
     await new Promise((r) => setTimeout(r, 500));
 
-    // Step 2: package
-    log("running pnpm package:build...");
-    execSync("pnpm run package:build", { cwd: ROOT, stdio: "inherit" });
+    // Step 2: package (skip if --no-build)
+    if (!no_build) {
+        log("running pnpm package:build...");
+        execSync("pnpm run package:build", { cwd: ROOT, stdio: "inherit" });
+    }
 
     // Step 3: run
     run_packaged();
