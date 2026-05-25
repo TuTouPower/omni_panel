@@ -1,29 +1,29 @@
 import { expect, test } from "../fixtures/test";
-import { DashboardPage } from "../pages/dashboard_page";
+import { PopupPage } from "../pages/popup_page";
 
 test.describe("scheduler", () => {
     test("auto-creates plugin instances on startup", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        const dashboard = new DashboardPage(page);
-        await dashboard.waitReady();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
 
-        // After auto-seeding, there should be plugin cards in the dashboard
-        const pluginCards = page.locator('[data-testid^="dashboard-plugin-card-"]');
+        // After auto-seeding, there should be plugin cards in the popup
+        const pluginCards = page.locator('[data-testid^="popup-plugin-card-"]');
         const count = await pluginCards.count();
         expect(count).toBeGreaterThan(0);
     });
 
     test("plugins reach a terminal state after startup refresh", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        const dashboard = new DashboardPage(page);
-        await dashboard.waitReady();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
 
         // Wait for scheduler to complete initial refreshes (up to 30s for all plugins)
         // Each plugin gets a fresh refresh on scheduler.start()
         await page.waitForTimeout(5000);
 
         // Check that plugin cards exist and have some state
-        const pluginCards = page.locator('[data-testid^="dashboard-plugin-card-"]');
+        const pluginCards = page.locator('[data-testid^="popup-plugin-card-"]');
         const count = await pluginCards.count();
         if (count > 0) {
             // At least one card should exist with some content
@@ -34,11 +34,11 @@ test.describe("scheduler", () => {
 
     test("manual refresh button triggers refresh", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        const dashboard = new DashboardPage(page);
-        await dashboard.waitReady();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
 
         // Click refresh button
-        await dashboard.clickRefresh();
+        await popup.clickRefresh();
 
         // Wait a moment for the refresh to start
         await page.waitForTimeout(1000);

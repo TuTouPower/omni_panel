@@ -47,25 +47,6 @@ describe("Renderer smoke tests", () => {
         });
     });
 
-    describe("DashboardView", () => {
-        it("renders dashboard header", async () => {
-            window.location.hash = "#dashboard";
-            render(<App />);
-            await waitFor(() => {
-                expect(screen.getByText("OmniUsage Dashboard")).toBeInTheDocument();
-            });
-        });
-
-        it("shows plugin usage data in cards", async () => {
-            window.location.hash = "#dashboard";
-            render(<App />);
-            await waitFor(() => {
-                expect(screen.getByText("DeepSeek")).toBeInTheDocument();
-            });
-            expect(screen.getByText("Tokens")).toBeInTheDocument();
-        });
-    });
-
     describe("SettingsView", () => {
         it("renders settings sidebar with plugin names", async () => {
             window.location.hash = "#settings";
@@ -94,7 +75,7 @@ describe("Renderer smoke tests", () => {
             window.location.hash = "#popup";
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByText("暂无数据")).toBeInTheDocument();
+                expect(screen.getByText("暂无插件，请在设置中配置")).toBeInTheDocument();
             });
         });
     });

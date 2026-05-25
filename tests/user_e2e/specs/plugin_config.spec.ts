@@ -1,11 +1,11 @@
 import { expect, test } from "../fixtures/test";
-import { DashboardPage } from "../pages/dashboard_page";
+import { PopupPage } from "../pages/popup_page";
 
 test.describe("plugin configuration", () => {
     test("auto-creates plugin instances on first launch", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        const dashboard = new DashboardPage(page);
-        await dashboard.waitReady();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
 
         // After auto-seeding, navigate to settings to verify plugin instances exist
         await page.evaluate(() => {

@@ -15,6 +15,10 @@ export class PopupPage {
         await this.page.getByLabel("刷新").click();
     }
 
+    async clickSettings() {
+        await this.page.getByRole("button", { name: "设置" }).click();
+    }
+
     pluginCard(name: string) {
         return this.page.locator(`text=${name}`).first();
     }
@@ -29,6 +33,13 @@ export class PopupPage {
 
     async hasError() {
         return await this.errorBanner()
+            .isVisible()
+            .catch(() => false);
+    }
+
+    async hasPythonWarning() {
+        return this.page
+            .getByText("未检测到 Python")
             .isVisible()
             .catch(() => false);
     }

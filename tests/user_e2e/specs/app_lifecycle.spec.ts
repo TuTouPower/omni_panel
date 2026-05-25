@@ -1,5 +1,5 @@
 import { expect, test } from "../fixtures/test";
-import { DashboardPage } from "../pages/dashboard_page";
+import { PopupPage } from "../pages/popup_page";
 
 test.describe("app lifecycle", () => {
     test("app starts and first window is available", async ({ omni }) => {
@@ -9,13 +9,13 @@ test.describe("app lifecycle", () => {
         expect(page).toBeDefined();
     });
 
-    test("dashboard window shows header and UI elements", async ({ omni }) => {
+    test("popup window shows header and UI elements", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        const dashboard = new DashboardPage(page);
-        await dashboard.waitReady();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
 
-        const title = await dashboard.getTitle();
-        expect(title).toContain("OmniUsage Dashboard");
+        const title = await popup.getTitle();
+        expect(title).toContain("OmniUsage");
         await expect(page.getByRole("button", { name: "设置" })).toBeVisible();
     });
 
@@ -24,18 +24,18 @@ test.describe("app lifecycle", () => {
         await expect(page.getByLabel("刷新")).toBeVisible();
     });
 
-    test("dashboard main content renders", async ({ omni }) => {
+    test("popup main content renders", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        const dashboard = new DashboardPage(page);
-        await dashboard.waitReady();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
         await expect(page.locator("main")).toBeVisible();
     });
 
-    test("settings navigation works from dashboard", async ({ omni }) => {
+    test("settings navigation works from popup", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        const dashboard = new DashboardPage(page);
-        await dashboard.waitReady();
-        await dashboard.clickSettings();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
+        await popup.clickSettings();
         await page.waitForFunction(() => window.location.hash === "#settings", undefined, {
             timeout: 5000,
         });
@@ -49,10 +49,10 @@ test.describe("app lifecycle", () => {
         await page.close();
     });
 
-    test("settings view renders from dashboard navigation", async ({ omni }) => {
+    test("settings view renders from popup navigation", async ({ omni }) => {
         const page1 = await omni.app.firstWindow();
-        const dashboard = new DashboardPage(page1);
-        await dashboard.waitReady();
+        const popup = new PopupPage(page1);
+        await popup.waitReady();
 
         // Navigate to settings via hash
         await page1.evaluate(() => {
