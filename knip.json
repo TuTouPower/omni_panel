@@ -1,14 +1,12 @@
 {
     "entry": [
         "src/main/index.ts",
-        "src/main.ts",
-        "src/preload.ts",
-        "src/main/core/**/*.ts",
-        "src/shared/**/*.ts",
+        "src/preload/index.ts",
+        "src/renderer/index.tsx",
         "forge.config.ts",
         "vite.*.config.ts"
     ],
-    "project": ["src/**/*.ts", "*.config.ts"],
+    "project": ["src/**/*.ts", "src/**/*.tsx", "*.config.ts"],
     "ignoreDependencies": [
         "@electron-forge/plugin-auto-unpack-natives",
         "@typescript-eslint/eslint-plugin",
@@ -21,6 +19,7 @@
         "eslint-plugin-react",
         "eslint-plugin-security",
         "eslint-plugin-sonarjs",
-        "eslint-plugin-unicorn"
+        "eslint-plugin-unicorn",
+        "tailwindcss"
     ]
 }
