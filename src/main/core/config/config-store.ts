@@ -5,6 +5,7 @@ import { type AppConfiguration, DEFAULT_CONFIGURATION, appConfigurationSchema } 
 export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
     save(config: AppConfiguration): Promise<void>;
+    scheduleSave(config: AppConfiguration, delayMs?: number): void;
 }
 
 function sortKeys(obj: unknown): unknown {
@@ -20,6 +21,8 @@ function sortKeys(obj: unknown): unknown {
 }
 
 export function createConfigStore(configPath: string): AppConfigStore {
+    let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+
     return {
         async load(): Promise<AppConfiguration> {
             try {
@@ -49,6 +52,16 @@ export function createConfigStore(configPath: string): AppConfigStore {
             const tmpPath = `${configPath}.tmp`;
             await writeFile(tmpPath, json, "utf8");
             await rename(tmpPath, configPath);
+        },
+
+        scheduleSave(config: AppConfiguration, delayMs = 500): void {
+            if (pendingTimer) {
+                clearTimeout(pendingTimer);
+            }
+            pendingTimer = setTimeout(() => {
+                pendingTimer = null;
+                void this.save(config);
+            }, delayMs);
         },
     };
 }

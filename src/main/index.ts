@@ -1,5 +1,6 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, screen } from "electron";
+import { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerMonitor } from "electron";
 import { join, resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 import {
     getConfigPath,
     getDataRoot,
@@ -8,12 +9,15 @@ import {
     getUserPluginsDir,
     get_tray_icon_path,
 } from "./core/paths";
+import { initLogging } from "./core/logging";
+import { createLogger } from "../shared/lib/logger";
 import { createConfigStore } from "./core/config/config-store";
 import { createCacheStore } from "./core/cache/cache-store";
 import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
 import { createSafeStorageCrypto } from "./core/config/safe-storage-crypto";
 import { createRefreshService } from "./core/scheduler/refresh-service";
+import { createPluginScheduler } from "./core/scheduler/plugin-scheduler";
 import { executePlugin } from "./core/plugin/runner";
 import { parsePluginOutput } from "./core/plugin/output-parser";
 import { buildPluginCommand } from "./core/plugin/command-builder";
@@ -81,8 +85,12 @@ function createWindowFor(key: string): BrowserWindow {
 let cleanupEventIpc: (() => void) | null = null;
 
 void app.whenReady().then(async () => {
-    const configPath = getConfigPath();
     const dataRoot = getDataRoot();
+    await initLogging(dataRoot);
+    const log = createLogger("main");
+
+    log.info("Application starting");
+    const configPath = getConfigPath();
     const statesDir = getStatesDir();
 
     const crypto = createSafeStorageCrypto();
@@ -97,14 +105,19 @@ void app.whenReady().then(async () => {
     const bundledDefs = await discoverPlugins(bundledDir, "bundled");
     const userDefs = await discoverPlugins(userDir, "user");
     const allDefinitions: readonly PluginDefinition[] = [...bundledDefs, ...userDefs];
+    log.info(
+        `Discovered ${String(allDefinitions.length)} plugins (${String(bundledDefs.length)} bundled, ${String(userDefs.length)} user)`,
+    );
 
     // Detect Python
     let pythonCommand = "python3";
     let pythonAvailable = true;
     try {
         pythonCommand = await findPython();
+        log.info(`Python detected: ${pythonCommand}`);
     } catch {
         pythonAvailable = false;
+        log.warn("Python 3.8+ not detected, plugin functionality unavailable");
     }
 
     // Build command builder with detected Python
@@ -116,8 +129,35 @@ void app.whenReady().then(async () => {
 
     // Build secretParamKeys from plugin metadata
     const config = await configStore.load();
+
+    // Auto-seed: create default plugin instances on first launch
+    if (config.plugins.length === 0 && allDefinitions.length > 0) {
+        log.info("First launch: auto-seeding plugin instances");
+        const seededPlugins = allDefinitions.map((def) => {
+            const meta = def.metadata;
+            const zhName = meta ? (meta as Record<string, unknown>)["name@zh-Hans"] : undefined;
+            const name =
+                (typeof zhName === "string" ? zhName : undefined) ??
+                meta?.name ??
+                def.scriptName.replace(/\.py$/, "");
+            return {
+                instanceId: randomUUID(),
+                stateId: randomUUID(),
+                name,
+                enabled: true,
+                executablePath: def.executablePath,
+                refreshIntervalSeconds: 300,
+                parameterValues: {},
+            };
+        });
+        await configStore.save({ ...config, plugins: seededPlugins });
+    }
+
+    // Reload config after potential seeding
+    const currentConfig = await configStore.load();
+
     const secretParamKeys = new Map<string, ReadonlySet<string>>();
-    for (const plugin of config.plugins) {
+    for (const plugin of currentConfig.plugins) {
         const scriptName = plugin.executablePath.split("/").pop() ?? plugin.executablePath;
         const def = allDefinitions.find((d) => d.scriptName === scriptName);
         const secretKeys = new Set<string>();
@@ -139,6 +179,8 @@ void app.whenReady().then(async () => {
         cacheStore,
         runtimeStore,
         configStore,
+        secretsStore,
+        secretParamKeys,
     });
 
     // Register IPC handlers
@@ -148,11 +190,65 @@ void app.whenReady().then(async () => {
         refreshService,
         definitions: allDefinitions,
     });
-    await registerConfigIpc({ configStore, secretsStore, secretParamKeys });
+    await registerConfigIpc({
+        configStore,
+        secretsStore,
+        secretParamKeys,
+        onConfigSaved: (updatedConfig) => {
+            // Rebuild scheduling for all enabled plugins
+            scheduler.stopAll();
+            for (const plugin of updatedConfig.plugins) {
+                if (plugin.enabled) {
+                    scheduler.start(plugin.instanceId, plugin.refreshIntervalSeconds);
+                }
+            }
+        },
+    });
     await registerSystemIpc({
         pythonStatus: { available: pythonAvailable, command: pythonCommand },
     });
     cleanupEventIpc = registerEventIpc({ runtimeStore });
+
+    // Start periodic refresh scheduler for enabled plugins
+    const scheduler = createPluginScheduler({
+        refresh: (instanceId: string) => refreshService.refresh(instanceId),
+    });
+    let scheduledCount = 0;
+    for (const plugin of currentConfig.plugins) {
+        if (plugin.enabled) {
+            scheduler.start(plugin.instanceId, plugin.refreshIntervalSeconds);
+            scheduledCount++;
+        }
+    }
+    log.info(`Scheduler started for ${String(scheduledCount)} plugins`);
+
+    // Sleep/wake handling — pause scheduling during sleep, resume on wake
+    const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+    let safetyNetTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function resumeScheduling(): void {
+        if (safetyNetTimer) {
+            clearTimeout(safetyNetTimer);
+            safetyNetTimer = null;
+        }
+        void configStore.load().then((latestConfig) => {
+            for (const plugin of latestConfig.plugins) {
+                if (plugin.enabled) {
+                    scheduler.start(plugin.instanceId, plugin.refreshIntervalSeconds);
+                }
+            }
+        });
+    }
+
+    powerMonitor.on("suspend", () => {
+        scheduler.stopAll();
+        // Safety net: resume if wake event is missed
+        safetyNetTimer = setTimeout(resumeScheduling, FOUR_HOURS_MS);
+    });
+
+    powerMonitor.on("resume", () => {
+        resumeScheduling();
+    });
 
     // Window references — shared between tray and E2E mode
     let popupWin: BrowserWindow | null = null;
@@ -239,6 +335,11 @@ void app.whenReady().then(async () => {
     } // end of E2E !== "1" tray block
 
     app.on("before-quit", () => {
+        if (safetyNetTimer) {
+            clearTimeout(safetyNetTimer);
+            safetyNetTimer = null;
+        }
+        scheduler.stopAll();
         cleanupEventIpc?.();
         cleanupEventIpc = null;
     });

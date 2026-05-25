@@ -17,11 +17,15 @@ export function PopupView() {
                     <img src={logo} alt="OmniUsage" className="h-4 w-4" />
                     OmniUsage
                 </h1>
-                <RefreshButton onClick={refreshAll} />
+                <RefreshButton onClick={refreshAll} data-testid="popup-refresh-btn" />
             </header>
 
             <main className="flex-1 overflow-auto p-3">
-                {error && <ErrorBanner message={error} />}
+                {error && (
+                    <div data-testid="popup-error">
+                        <ErrorBanner message={error} />
+                    </div>
+                )}
                 {loading && plugins.length === 0 && (
                     <div className="grid grid-cols-1 gap-2">
                         <PluginCard
@@ -29,6 +33,7 @@ export function PopupView() {
                                 instanceId: "_skeleton",
                                 stateId: "_skeleton",
                                 name: "",
+                                displayName: "",
                                 enabled: true,
                                 metadata: null,
                                 snapshot: { status: "loading" },
@@ -36,10 +41,12 @@ export function PopupView() {
                         />
                     </div>
                 )}
-                {!loading && plugins.length === 0 && <EmptyState />}
+                {!loading && plugins.length === 0 && <EmptyState data-testid="popup-empty" />}
                 <div className="grid grid-cols-1 gap-2">
                     {plugins.map((p) => (
-                        <PluginCard key={p.instanceId} plugin={p} />
+                        <div key={p.instanceId} data-testid="popup-plugin-card">
+                            <PluginCard plugin={p} />
+                        </div>
                     ))}
                 </div>
             </main>

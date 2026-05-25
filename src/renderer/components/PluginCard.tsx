@@ -23,7 +23,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
     if (snapshot.status === "failed") {
         return (
             <Card>
-                <p className="text-sm font-medium">{plugin.name}</p>
+                <p className="text-sm font-medium">{plugin.displayName}</p>
                 <p className="mt-1 text-xs text-[var(--destructive)]">{snapshot.error}</p>
             </Card>
         );
@@ -31,7 +31,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
 
     return (
         <Card>
-            <p className="text-sm font-medium">{plugin.name}</p>
+            <p className="text-sm font-medium">{plugin.displayName}</p>
             <div className="mt-2 space-y-1">
                 {snapshot.items.map((item) => (
                     <div key={item.id}>

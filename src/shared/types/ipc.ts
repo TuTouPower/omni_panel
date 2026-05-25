@@ -46,6 +46,7 @@ export interface PluginInfo {
     instanceId: string;
     stateId: string;
     name: string;
+    displayName: string;
     enabled: boolean;
     metadata: PluginMetadata | null;
     snapshot: PluginSnapshotDTO;

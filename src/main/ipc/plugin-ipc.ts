@@ -8,6 +8,7 @@ import type { RuntimeStore } from "../core/scheduler/runtime-store";
 import type { PluginSnapshotState } from "../core/scheduler/types";
 import type { PluginRefreshService } from "../core/scheduler/refresh-service";
 import type { PluginDefinition } from "../core/plugin/types";
+import { resolveDisplayNames } from "../core/plugin/display-names";
 
 const instanceIdSchema = z.string().min(1);
 
@@ -47,16 +48,27 @@ export interface PluginIpcDeps {
 export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<PluginInfo[]>> {
     try {
         const config = await deps.configStore.load();
-        const plugins: PluginInfo[] = config.plugins.map((plugin) => {
-            const snapshot = toDTO(deps.runtimeStore.getSnapshot(plugin.instanceId));
+        const pluginEntries = config.plugins.map((plugin) => {
             const scriptName = plugin.executablePath.split("/").pop() ?? plugin.executablePath;
             const def = deps.definitions.find((d) => d.scriptName === scriptName);
+            return {
+                config: plugin,
+                metadata: def?.metadata ?? null,
+            };
+        });
+        const displayNames = resolveDisplayNames(pluginEntries);
+
+        const plugins: PluginInfo[] = config.plugins.map((plugin) => {
+            const snapshot = toDTO(deps.runtimeStore.getSnapshot(plugin.instanceId));
             return {
                 instanceId: plugin.instanceId,
                 stateId: plugin.stateId,
                 name: plugin.name,
+                displayName: displayNames.get(plugin.instanceId) ?? plugin.name,
                 enabled: plugin.enabled,
-                metadata: def?.metadata ?? null,
+                metadata:
+                    pluginEntries.find((e) => e.config.instanceId === plugin.instanceId)
+                        ?.metadata ?? null,
                 snapshot,
             };
         });

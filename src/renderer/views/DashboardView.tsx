@@ -24,12 +24,15 @@ export function DashboardView() {
     return (
         <div className="flex h-screen flex-col">
             <header className="flex items-center justify-between border-b border-[var(--border)] px-6 py-3">
-                <h1 className="text-lg font-semibold flex items-center gap-2">
+                <h1
+                    className="text-lg font-semibold flex items-center gap-2"
+                    data-testid="dashboard-title"
+                >
                     <img src={logo} alt="OmniUsage" className="h-6 w-6" />
                     OmniUsage Dashboard
                 </h1>
                 <div className="flex items-center gap-2">
-                    <RefreshButton onClick={refreshAll} />
+                    <RefreshButton onClick={refreshAll} data-testid="dashboard-refresh-btn" />
                     <Button
                         variant="ghost"
                         size="sm"
@@ -54,6 +57,7 @@ export function DashboardView() {
                                 instanceId: "_skeleton",
                                 stateId: "_skeleton",
                                 name: "",
+                                displayName: "",
                                 enabled: true,
                                 metadata: null,
                                 snapshot: { status: "loading" },
@@ -62,11 +66,16 @@ export function DashboardView() {
                     </div>
                 )}
                 {!loading && plugins.length === 0 && (
-                    <EmptyState message="暂无插件，请在设置中配置" />
+                    <EmptyState message="暂无插件，请在设置中配置" data-testid="dashboard-empty" />
                 )}
-                <div className="space-y-3">
+                <div className="space-y-3" data-testid="dashboard-plugin-list">
                     {plugins.map((p) => (
-                        <PluginCard key={p.instanceId} plugin={p} />
+                        <div
+                            key={p.instanceId}
+                            data-testid={`dashboard-plugin-card-${p.instanceId}`}
+                        >
+                            <PluginCard plugin={p} />
+                        </div>
                     ))}
                 </div>
             </main>

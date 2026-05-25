@@ -6,6 +6,7 @@ import type { PluginExecutionResult } from "../plugin/runner";
 import type { PluginCommand } from "../plugin/command-builder";
 import type { PluginOutput } from "../../../shared/schemas/plugin-output";
 import type { AppLanguage } from "../../../shared/types/plugin";
+import type { SecretsStore } from "../config/secrets-store";
 
 export interface RefreshServiceDeps {
     runner: (
@@ -21,6 +22,8 @@ export interface RefreshServiceDeps {
     cacheStore: CacheStore;
     runtimeStore: RuntimeStore;
     configStore: AppConfigStore;
+    secretsStore: SecretsStore;
+    secretParamKeys: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
 export interface PluginRefreshService {
@@ -36,6 +39,24 @@ function isCacheExpired(updatedAt: string, intervalSeconds: number): boolean {
 
 export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshService {
     const locks = new Set<string>();
+
+    async function mergeSecrets(
+        instanceId: string,
+        parameterValues: Readonly<Record<string, string>>,
+    ): Promise<Record<string, string>> {
+        const secretKeys = deps.secretParamKeys.get(instanceId);
+        if (!secretKeys || secretKeys.size === 0) {
+            return { ...parameterValues };
+        }
+        const merged = { ...parameterValues };
+        for (const key of secretKeys) {
+            const value = await deps.secretsStore.get(`${instanceId}:${key}`);
+            if (value !== null) {
+                merged[key] = value;
+            }
+        }
+        return merged;
+    }
 
     async function refresh(instanceId: string, options?: { force?: boolean }): Promise<void> {
         if (locks.has(instanceId)) return;
@@ -64,9 +85,10 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
 
             deps.runtimeStore.updateState(instanceId, { status: "loading" });
 
+            const mergedParams = await mergeSecrets(instanceId, plugin.parameterValues);
             const command = deps.commandBuilder(
                 plugin.executablePath,
-                plugin.parameterValues,
+                mergedParams,
                 config.language,
             );
 

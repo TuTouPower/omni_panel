@@ -13,6 +13,7 @@ export interface ConfigIpcDeps {
     configStore: AppConfigStore;
     secretsStore: SecretsStore;
     secretParamKeys: ReadonlyMap<string, ReadonlySet<string>>;
+    onConfigSaved?: (config: AppConfiguration) => void;
 }
 
 function maskSecrets(
@@ -59,16 +60,14 @@ export async function handleConfigGet(deps: ConfigIpcDeps): Promise<IpcResult<Ap
     }
 }
 
-export async function handleConfigSave(
-    deps: ConfigIpcDeps,
-    config: unknown,
-): Promise<IpcResult<void>> {
+export function handleConfigSave(deps: ConfigIpcDeps, config: unknown): IpcResult<void> {
     try {
         const parsed = appConfigurationSchema.safeParse(config);
         if (!parsed.success) return fail("VALIDATION_ERROR", "配置格式无效");
 
         const stripped = stripSecrets(parsed.data as AppConfiguration, deps.secretParamKeys);
-        await deps.configStore.save(stripped);
+        deps.configStore.scheduleSave(stripped);
+        deps.onConfigSaved?.(stripped);
         return ok(undefined);
     } catch {
         return fail("INTERNAL_ERROR", "保存配置失败");

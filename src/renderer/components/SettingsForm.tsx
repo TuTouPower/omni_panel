@@ -43,7 +43,11 @@ export function SettingsForm({
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+            onSubmit={handleSubmit}
+            className="space-y-4"
+            data-testid={`settings-form-${instanceId}`}
+        >
             <h3 className="text-sm font-semibold">{name}</h3>
             {parameters.map((param) => (
                 <label key={param.name} className="block space-y-1">
@@ -80,6 +84,7 @@ export function SettingsForm({
             <div className="flex gap-2">
                 <button
                     type="submit"
+                    data-testid={`settings-save-btn-${instanceId}`}
                     className="rounded-[var(--radius)] bg-[var(--primary)] px-4 py-1.5 text-sm text-[var(--primary-foreground)]"
                 >
                     保存
@@ -87,6 +92,7 @@ export function SettingsForm({
                 {onDuplicate && (
                     <button
                         type="button"
+                        data-testid={`settings-duplicate-btn-${instanceId}`}
                         onClick={() => {
                             onDuplicate(instanceId);
                         }}

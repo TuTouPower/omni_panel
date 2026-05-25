@@ -45,7 +45,10 @@ export function SettingsView() {
 
     return (
         <div className="flex h-screen">
-            <nav className="w-48 border-r border-[var(--border)] p-4">
+            <nav
+                className="w-48 border-r border-[var(--border)] p-4"
+                data-testid="settings-sidebar"
+            >
                 <h2 className="mb-4 text-sm font-semibold flex items-center gap-1.5">
                     <img src={logo} alt="OmniUsage" className="h-4 w-4" />
                     OmniUsage
@@ -58,6 +61,7 @@ export function SettingsView() {
                         <li
                             key={p.instanceId}
                             className="cursor-default rounded-[var(--radius)] px-2 py-1"
+                            data-testid={`settings-plugin-nav-${p.instanceId}`}
                         >
                             {p.name}
                         </li>
