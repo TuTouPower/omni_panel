@@ -4,12 +4,15 @@
 
 ---
 
-## Phase 17: 添加 CPA 插件 — 通过 CPA-Manager 获取 Claude/Codex/Gemini 额度数据 ❌
+## Phase 17: 添加 CPA 插件 — 通过 CPA-Manager 获取多平台 AI 服务额度数据 ❌
 
 ### 背景
 
 `ai_monitor` 项目已实现 CPA（Claude Platform API）额度采集，通过 CPA-Manager 代理服务统一管理 OAuth token。
 本项目需将其移植为 omni_usage 的标准插件（Python 子进程 + JSON 协议），复用现有插件调度/缓存/UI 基础设施。
+
+支持的 provider：Claude、Codex、Gemini CLI、Antigravity、Kimi。
+（Vertex AI 未实现配额获取，暂不支持。）
 
 参考文档：`docs/cpa-quota-guide.md`
 
@@ -28,7 +31,7 @@ CPA-Manager (CPA_MGMT_URL)
     │
     │  用存储的 OAuth token 代发
     ▼
-上游 API (Anthropic / OpenAI / Google)
+上游 API (Anthropic / OpenAI / Google / Moonshot)
 ```
 
 ### 实现步骤
@@ -44,11 +47,13 @@ CPA-Manager (CPA_MGMT_URL)
         - `monitor_codex` (boolean, 默认 `true`)
         - `monitor_claude` (boolean, 默认 `true`)
         - `monitor_gemini` (boolean, 默认 `true`)
+        - `monitor_antigravity` (boolean, 默认 `true`)
+        - `monitor_kimi` (boolean, 默认 `true`)
 - [ ] `--usageboard-param` 支持运行时传入覆盖默认值
 - [ ] 依赖：`httpx`（`pip install httpx`），Python 3.8+ 兼容
 - [ ] 核心逻辑：
     1. 调用 `GET /v0/management/auth-files` 获取 auth 文件列表
-    2. 按 provider 分发：`claude` / `codex` / `gemini-cli`
+    2. 按 provider 分发：`claude` / `codex` / `gemini-cli` / `antigravity` / `kimi`
     3. 跳过 `disabled` 的 auth 文件
     4. 每个 auth 文件通过 `POST /v0/management/api-call` 代理请求上游
     5. 解析三个 provider 的不同响应格式
@@ -69,7 +74,7 @@ CPA-Manager (CPA_MGMT_URL)
 - [ ] 错误处理：单个账号失败不阻塞其他，失败项输出 warning，全部失败输出 error JSON
 - [ ] 启动时打印 `_PLUGIN_READY` 和 `_PLUGIN_DONE`
 
-#### 17.2: 实现三个 provider 的响应解析
+#### 17.2: 实现五个 provider 的响应解析
 
 - [ ] **Claude**: `GET https://api.anthropic.com/api/oauth/usage`
     - Header: `Authorization: Bearer $TOKEN$`, `anthropic-beta: oauth-2025-04-20`
@@ -82,6 +87,15 @@ CPA-Manager (CPA_MGMT_URL)
 - [ ] **Gemini**: 两步 POST
     - Step 1: `loadCodeAssist` → 获取 `cloudaicompanionProject`
     - Step 2: `retrieveUserQuota` → 获取 `buckets[].remainingFraction`
+- [ ] **Antigravity**: `POST .../v1internal:fetchAvailableModels`（三 URL 回退）
+    - Header: `Authorization: Bearer $TOKEN$`, `User-Agent: antigravity/1.11.5 windows/amd64`
+    - Body: `{"project": "{project_id}"}` 或 `{}`
+    - 响应：`models.{modelId}.quotaInfo.remainingFraction`（0~1），`quotaInfo.resetTime` (ISO)
+    - 每个模型独立配额，一个账号输出多条 item
+- [ ] **Kimi**: `GET https://api.kimi.com/coding/v1/usages`
+    - Header: `Authorization: Bearer $TOKEN$`
+    - 响应：`limits[]` 数组，每项含 `used`、`limit`、`reset_at` (ISO)、`duration`、`timeUnit`
+    - `used_percent = (used / limit) * 100`
 
 #### 17.3: 集成到插件系统
 
@@ -102,6 +116,8 @@ CPA-Manager (CPA_MGMT_URL)
     - `cpa_parse_claude_quota()` — 正常响应、空响应、HTTP 错误
     - `cpa_parse_codex_quota()` — primary_window / secondary_window 解析
     - `cpa_parse_gemini_quota()` — 两步请求、bucket 解析
+    - `cpa_parse_antigravity_quota()` — 多模型 quotaInfo 解析
+    - `cpa_parse_kimi_quota()` — limits 数组解析
     - auth 文件过滤（disabled 跳过、provider 分发）
 - [ ] **集成测试**：
     - mock CPA-Manager 响应，验证完整 JSON 输出
@@ -132,7 +148,7 @@ CPA-Manager (CPA_MGMT_URL)
 1. `pnpm check` 全部通过
 2. `pnpm test` 全部通过（含新增 CPA 测试）
 3. 打包后 Settings 显示 CPA 插件参数表单
-4. 填入 CPA-Manager 密钥后触发刷新，Popup 显示 Claude/Codex/Gemini 额度数据
+4. 填入 CPA-Manager 密钥后触发刷新，Popup 显示 Claude/Codex/Gemini/Antigravity/Kimi 额度数据
 5. 单个 provider 无数据时不阻塞其他 provider 的展示
 
 ### 注意事项
@@ -141,6 +157,9 @@ CPA-Manager (CPA_MGMT_URL)
 - CPA-Manager 地址和密钥作为插件参数（而非硬编码），方便用户自建 CPA-Manager
 - `httpx` 依赖需在插件脚本中检测，不可用时输出友好错误
 - 代理请求中 header 的 `$TOKEN$` 是占位符，CPA-Manager 会自动替换为真实 token
+- Antigravity 有三个回退 URL，按优先级尝试；`project` 需先通过 `loadCodeAssist` 获取
+- Kimi OAuth token 由 CPA-Manager 自动刷新，客户端无需处理
+- Vertex AI 暂不支持（配额系统走 Google Cloud Service Usage API）
 
 ---
 

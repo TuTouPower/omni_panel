@@ -258,17 +258,145 @@ body = {
 - `plan_type`：用 `modelId` 或 `tokenType` 作为标识
 - 一个账号可能有多个 bucket（不同模型/不同类型 tokens）
 
+### Antigravity (Gemini 内部版 / Google 内部 AI Studio)
+
+Antigravity 是 Google 内部使用的 Gemini 客户端，配额信息嵌入在 `fetchAvailableModels` 响应中。
+
+```
+上游 URL (按优先级回退):
+  POST https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels
+  POST https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels
+  POST https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels
+方法:     POST
+必要 Header:
+  Authorization: Bearer $TOKEN$
+  Content-Type:  application/json
+  User-Agent:    antigravity/1.11.5 windows/amd64
+```
+
+**请求体**：
+
+```json
+{
+    "project": "{project_id}" // 如 "bamboo-precept-lgxtn"，可为空对象 {}
+}
+```
+
+`project` 需要先通过 `loadCodeAssist` 获取（与 Gemini CLI 相同），获取失败时发 `{}`。
+
+**响应解析**：
+
+```json
+{
+    "models": {
+        "gemini-3.1-pro-high": {
+            "displayName": "Gemini 3.1 Pro (High)",
+            "supportsThinking": true,
+            "maxTokens": 1048576,
+            "maxOutputTokens": 65535,
+            "quotaInfo": {
+                "remainingFraction": 1, // 剩余比例 (0~1)
+                "resetTime": "2026-05-09T15:50:29Z"
+            }
+        },
+        "gemini-2.5-pro": {
+            "displayName": "Gemini 2.5 Pro",
+            "quotaInfo": {
+                "remainingFraction": 0.769,
+                "resetTime": "2026-05-09T15:50:29Z"
+            }
+        }
+    }
+}
+```
+
+- `models` 对象的每个 key 是模型 ID，每个 value 里可选包含 `quotaInfo`
+- `remainingFraction`：值 ≤ 1 时 ×100；`used_percent = 100 - remaining_percent`
+- `resetTime`：ISO 8601 格式，转 Unix ms
+- 一个账号会返回多个模型，每个模型独立配额
+- `quotaInfo` 和 `quota_info` 都可接受（camelCase / snake_case 兼容）
+- `resetTime` 和 `reset_time` 都可接受
+
+### Kimi (Moonshot AI 编程助手)
+
+```
+上游 URL: GET https://api.kimi.com/coding/v1/usages
+方法:     GET
+必要 Header:
+  Authorization: Bearer $TOKEN$
+```
+
+无需请求体。
+
+**响应解析**：
+
+```json
+{
+    "usage": {
+        "used": 123,
+        "limit": 1000,
+        "remaining": 877,
+        "reset_at": "2026-05-27T00:00:00Z",
+        "reset_in": 3600,
+        "ttl": 3600
+    },
+    "limits": [
+        {
+            "name": "weekly",
+            "title": "Weekly limit",
+            "scope": "coding",
+            "used": 123,
+            "limit": 1000,
+            "remaining": 877,
+            "reset_at": "2026-05-27T00:00:00Z",
+            "reset_in": 3600,
+            "ttl": 3600,
+            "duration": 7,
+            "timeUnit": "DAYS",
+            "detail": {
+                "used": 123,
+                "limit": 1000,
+                "remaining": 877,
+                "resetAt": "2026-05-27T00:00:00Z"
+            },
+            "window": {
+                "duration": 7,
+                "timeUnit": "DAYS"
+            }
+        }
+    ]
+}
+```
+
+- `usage` 是汇总信息，`limits` 是各周期明细
+- `used_percent = (used / limit) × 100`
+- `reset_at` / `resetAt`：ISO 8601 格式，转 Unix ms
+- `reset_in`：剩余秒数（备用计算方式）
+- `duration` + `timeUnit`：周期窗口描述（如 7 DAYS = 每周）
+- Kimi OAuth token 由 CPA-Manager 自动刷新（`refreshKimiOAuthAccessToken`），客户端无需处理
+
+### Vertex (Google Cloud Vertex AI)
+
+**当前状态：未实现配额获取。**
+
+Vertex AI（`https://aiplatform.googleapis.com`）在 CPA-Manager / CliRelay 中只实现了推理（`generateContent`、`streamGenerateContent`、`countTokens`）功能，没有配额查询端点。Google Cloud 的配额系统走的是 Cloud Console / Service Usage API，与 OAuth token 体系不同，暂时不支持通过 CPA 代理获取。
+
 ---
 
 ## 上游 API 速查表
 
-| Provider           | API URL                                                            | 方法 | Auth 方式      |
-| ------------------ | ------------------------------------------------------------------ | ---- | -------------- |
-| Claude             | `https://api.anthropic.com/api/oauth/usage`                        | GET  | Bearer $TOKEN$ |
-| Claude Profile     | `https://api.anthropic.com/api/oauth/profile`                      | GET  | Bearer $TOKEN$ |
-| Codex              | `https://chatgpt.com/backend-api/wham/usage`                       | GET  | Bearer $TOKEN$ |
-| Gemini Code Assist | `https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist`    | POST | Bearer $TOKEN$ |
-| Gemini Quota       | `https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota` | POST | Bearer $TOKEN$ |
+| Provider              | API URL                                                                             | 方法 | Auth 方式      |
+| --------------------- | ----------------------------------------------------------------------------------- | ---- | -------------- |
+| Claude                | `https://api.anthropic.com/api/oauth/usage`                                         | GET  | Bearer $TOKEN$ |
+| Claude Profile        | `https://api.anthropic.com/api/oauth/profile`                                       | GET  | Bearer $TOKEN$ |
+| Codex                 | `https://chatgpt.com/backend-api/wham/usage`                                        | GET  | Bearer $TOKEN$ |
+| Gemini Code Assist    | `https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist`                     | POST | Bearer $TOKEN$ |
+| Gemini Quota          | `https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota`                  | POST | Bearer $TOKEN$ |
+| Antigravity           | `https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels`               | POST | Bearer $TOKEN$ |
+| Antigravity (daily)   | `https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels`         | POST | Bearer $TOKEN$ |
+| Antigravity (sandbox) | `https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels` | POST | Bearer $TOKEN$ |
+| Kimi                  | `https://api.kimi.com/coding/v1/usages`                                             | GET  | Bearer $TOKEN$ |
+| Vertex                | 未实现 — Google Cloud 配额走 Service Usage API                                      | —    | —              |
 
 ---
 
