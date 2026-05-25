@@ -2,6 +2,22 @@ import type { PluginInfo } from "../../shared/types/ipc";
 import { Card } from "./Card";
 import { Skeleton } from "./Skeleton";
 
+function usagePercent(used: number, limit: number): number {
+    return Math.round((used / limit) * 100);
+}
+
+function percentColor(pct: number): string {
+    if (pct >= 90) return "text-[var(--destructive)]";
+    if (pct >= 75) return "text-yellow-500";
+    return "";
+}
+
+function barColor(pct: number): string {
+    if (pct >= 90) return "bg-[var(--destructive)]";
+    if (pct >= 75) return "bg-yellow-500";
+    return "bg-[var(--primary)]";
+}
+
 interface PluginCardProps {
     plugin: PluginInfo;
 }
@@ -25,6 +41,40 @@ export function PluginCard({ plugin }: PluginCardProps) {
             <Card>
                 <p className="text-sm font-medium">{plugin.displayName}</p>
                 <p className="mt-1 text-xs text-[var(--destructive)]">{snapshot.error}</p>
+                {snapshot.items && snapshot.items.length > 0 && (
+                    <div className="mt-2 space-y-1 opacity-60">
+                        {snapshot.items.map((item) => {
+                            const pct = usagePercent(item.used, item.limit);
+                            return (
+                                <div key={item.id}>
+                                    <div className="flex justify-between text-xs">
+                                        <span>{item.name}</span>
+                                        <span>
+                                            {String(item.used)} / {String(item.limit)} (
+                                            {String(pct)}%)
+                                        </span>
+                                    </div>
+                                    <div className="mt-0.5 h-1.5 rounded-full bg-[var(--muted)]">
+                                        <div
+                                            className={`h-full rounded-full transition-all ${barColor(pct)}`}
+                                            style={{ width: `${String(Math.min(pct, 100))}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {snapshot.updatedAt && (
+                            <p className="text-xs text-[var(--muted-foreground)]">
+                                最后成功: {new Date(snapshot.updatedAt).toLocaleString()}
+                            </p>
+                        )}
+                    </div>
+                )}
+                <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                    {snapshot.error.includes("key") || snapshot.error.includes("Key")
+                        ? "请前往设置配置密钥"
+                        : "点击刷新按钮重试"}
+                </p>
             </Card>
         );
     }
@@ -33,25 +83,29 @@ export function PluginCard({ plugin }: PluginCardProps) {
         <Card>
             <p className="text-sm font-medium">{plugin.displayName}</p>
             <div className="mt-2 space-y-1">
-                {snapshot.items.map((item) => (
-                    <div key={item.id}>
-                        <div className="flex justify-between text-xs">
-                            <span>{item.name}</span>
-                            <span>
-                                {String(item.used)} / {String(item.limit)}
-                            </span>
+                {snapshot.items.map((item) => {
+                    const pct = usagePercent(item.used, item.limit);
+                    return (
+                        <div key={item.id}>
+                            <div className="flex justify-between text-xs">
+                                <span>{item.name}</span>
+                                <span className={percentColor(pct)}>
+                                    {String(item.used)} / {String(item.limit)} ({String(pct)}%)
+                                </span>
+                            </div>
+                            <div className="mt-0.5 h-1.5 rounded-full bg-[var(--muted)]">
+                                <div
+                                    className={`h-full rounded-full transition-all ${barColor(pct)}`}
+                                    style={{ width: `${String(Math.min(pct, 100))}%` }}
+                                />
+                            </div>
                         </div>
-                        <div className="mt-0.5 h-1.5 rounded-full bg-[var(--muted)]">
-                            <div
-                                className="h-full rounded-full bg-[var(--primary)] transition-all"
-                                style={{
-                                    width: `${String(Math.min((item.used / item.limit) * 100, 100))}%`,
-                                }}
-                            />
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
+            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                更新于: {new Date(snapshot.updatedAt).toLocaleString()}
+            </p>
         </Card>
     );
 }
