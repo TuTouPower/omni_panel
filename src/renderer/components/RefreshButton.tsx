@@ -10,16 +10,34 @@ export function RefreshButton({
     "data-testid"?: string;
 }) {
     const [spinning, setSpinning] = useState(false);
+    const [failed, setFailed] = useState(false);
 
     const handleClick = useCallback(() => {
+        if (spinning) return;
         setSpinning(true);
-        void onClick().finally(() => {
-            setSpinning(false);
-        });
-    }, [onClick]);
+        setFailed(false);
+        void onClick()
+            .catch(() => {
+                setFailed(true);
+                setTimeout(() => {
+                    setFailed(false);
+                }, 3000);
+            })
+            .finally(() => {
+                setSpinning(false);
+            });
+    }, [onClick, spinning]);
 
     return (
-        <Button variant="ghost" size="icon" onClick={handleClick} aria-label="刷新" {...rest}>
+        <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClick}
+            aria-label="刷新"
+            disabled={spinning}
+            className={failed ? "text-[var(--destructive)]" : ""}
+            {...rest}
+        >
             <RefreshCw className={`h-4 w-4 ${spinning ? "animate-spin" : ""}`} />
         </Button>
     );
