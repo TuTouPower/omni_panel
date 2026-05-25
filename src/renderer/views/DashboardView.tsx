@@ -7,6 +7,7 @@ import { EmptyState } from "../components/EmptyState";
 import { RefreshButton } from "../components/RefreshButton";
 import { Button } from "../components/Button";
 import type { PythonStatus } from "../../shared/types/ipc";
+import logo from "../assets/logo.png";
 
 export function DashboardView() {
     useTheme();
@@ -23,7 +24,10 @@ export function DashboardView() {
     return (
         <div className="flex h-screen flex-col">
             <header className="flex items-center justify-between border-b border-[var(--border)] px-6 py-3">
-                <h1 className="text-lg font-semibold">OmniUsage Dashboard</h1>
+                <h1 className="text-lg font-semibold flex items-center gap-2">
+                    <img src={logo} alt="OmniUsage" className="h-6 w-6" />
+                    OmniUsage Dashboard
+                </h1>
                 <div className="flex items-center gap-2">
                     <RefreshButton onClick={refreshAll} />
                     <Button

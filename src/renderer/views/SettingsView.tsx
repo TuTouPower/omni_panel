@@ -3,6 +3,7 @@ import { usePlugins } from "../hooks/use-plugins";
 import { useTheme } from "../lib/theme";
 import { SettingsForm } from "../components/SettingsForm";
 import { ErrorBanner } from "../components/ErrorBanner";
+import logo from "../assets/logo.png";
 
 export function SettingsView() {
     useTheme();
@@ -45,7 +46,10 @@ export function SettingsView() {
     return (
         <div className="flex h-screen">
             <nav className="w-48 border-r border-[var(--border)] p-4">
-                <h2 className="mb-4 text-sm font-semibold">设置</h2>
+                <h2 className="mb-4 text-sm font-semibold flex items-center gap-1.5">
+                    <img src={logo} alt="OmniUsage" className="h-4 w-4" />
+                    OmniUsage
+                </h2>
                 <ul className="space-y-1 text-sm">
                     <li className="cursor-default rounded-[var(--radius)] px-2 py-1 text-[var(--muted-foreground)]">
                         一般

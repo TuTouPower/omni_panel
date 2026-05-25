@@ -4,6 +4,7 @@ import { PluginCard } from "../components/PluginCard";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { EmptyState } from "../components/EmptyState";
 import { RefreshButton } from "../components/RefreshButton";
+import logo from "../assets/logo.png";
 
 export function PopupView() {
     useTheme();
@@ -12,7 +13,10 @@ export function PopupView() {
     return (
         <div className="flex h-screen flex-col">
             <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2">
-                <h1 className="text-sm font-semibold">OmniUsage</h1>
+                <h1 className="text-sm font-semibold flex items-center gap-1.5">
+                    <img src={logo} alt="OmniUsage" className="h-4 w-4" />
+                    OmniUsage
+                </h1>
                 <RefreshButton onClick={refreshAll} />
             </header>
 
