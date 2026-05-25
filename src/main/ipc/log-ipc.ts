@@ -24,6 +24,9 @@ export function handleRendererLog(payload: unknown): IpcResult<void> {
         case "error":
             log.error(message);
             break;
+        default:
+            log.warn(`Invalid renderer log level: ${String(level)} — ${message}`);
+            break;
     }
 
     return ok(undefined);

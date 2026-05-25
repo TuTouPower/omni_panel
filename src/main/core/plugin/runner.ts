@@ -2,6 +2,9 @@ import { spawn } from "node:child_process";
 import type { PluginCommand } from "./command-builder";
 import { PluginTimeoutError } from "../../../shared/errors/plugin-errors";
 import { DEFAULT_TIMEOUT_MS } from "../../../shared/constants";
+import { createLogger } from "../../../shared/lib/logger";
+
+const log = createLogger("runner");
 
 export interface PluginExecutionResult {
     readonly stdout: string;
@@ -16,6 +19,13 @@ export async function executePlugin(
 ): Promise<PluginExecutionResult> {
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const startTime = Date.now();
+
+    // Log command without exposing secret values
+    const safeArgs = command.args.map((a) => {
+        if (a.startsWith("--usageboard-param")) return a;
+        return a;
+    });
+    log.debug(`spawn: ${command.command} ${safeArgs.join(" ")}`);
 
     return new Promise<PluginExecutionResult>((resolve, reject) => {
         const child = spawn(command.command, [...command.args], {
@@ -38,10 +48,16 @@ export async function executePlugin(
 
         const timer = setTimeout(() => {
             timedOut = true;
+            log.warn(
+                `Process ${command.command} timed out after ${String(timeoutMs)}ms, sending SIGTERM`,
+            );
             child.kill("SIGTERM");
             const graceMs = 2000;
             setTimeout(() => {
                 if (!settled) {
+                    log.error(
+                        `Process ${command.command} did not exit after SIGTERM, sending SIGKILL`,
+                    );
                     child.kill("SIGKILL");
                 }
             }, graceMs);
@@ -51,12 +67,21 @@ export async function executePlugin(
             settled = true;
             clearTimeout(timer);
             const durationMs = Date.now() - startTime;
+            const stdout = Buffer.concat(stdoutChunks).toString("utf8");
+            const stderr = Buffer.concat(stderrChunks).toString("utf8");
+
             if (timedOut) {
                 reject(new PluginTimeoutError(timeoutMs));
             } else {
+                log.debug(
+                    `exit ${String(code)} in ${String(durationMs)}ms, stdout=${String(stdout.length)}B stderr=${String(stderr.length)}B`,
+                );
+                if (stderr.length > 0) {
+                    log.warn(`stderr: ${stderr.slice(0, 500)}`);
+                }
                 resolve({
-                    stdout: Buffer.concat(stdoutChunks).toString("utf8"),
-                    stderr: Buffer.concat(stderrChunks).toString("utf8"),
+                    stdout,
+                    stderr,
                     exitCode: code ?? -1,
                     durationMs,
                 });
@@ -67,6 +92,7 @@ export async function executePlugin(
             if (!settled) {
                 settled = true;
                 clearTimeout(timer);
+                log.error(`spawn error: ${command.command}`, err);
                 reject(err);
             }
         });

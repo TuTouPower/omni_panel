@@ -2,7 +2,9 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parsePluginMetadata } from "./metadata-parser";
 import type { PluginDefinition } from "./types";
+import { createLogger } from "../../../shared/lib/logger";
 
+const log = createLogger("discovery");
 const PLUGIN_EXT = ".py";
 const COMMON_PREFIX = "_common";
 
@@ -13,7 +15,12 @@ export async function discoverPlugins(
     let entries: readonly string[];
     try {
         entries = await readdir(dir);
-    } catch {
+    } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+            log.warn(`Cannot read ${source} plugins dir ${dir}: ${String(err)}`);
+        } else {
+            log.debug(`${source} plugins dir not found: ${dir}`);
+        }
         return [];
     }
 
@@ -30,7 +37,8 @@ export async function discoverPlugins(
             const content = await readFile(filePath, "utf8");
             const metadata = parsePluginMetadata(content);
             definitions.push({ scriptName, executablePath: filePath, metadata, source });
-        } catch {
+        } catch (err: unknown) {
+            log.warn(`Failed to parse metadata for ${filePath}: ${String(err)}`);
             definitions.push({ scriptName, executablePath: filePath, metadata: null, source });
         }
     }

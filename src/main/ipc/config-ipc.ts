@@ -170,12 +170,28 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
         logged(IPC_CHANNELS.CONFIG_GET, () => handleConfigGet(deps)),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE, (_e, config: unknown) =>
-        logged(IPC_CHANNELS.CONFIG_SAVE, () => Promise.resolve(handleConfigSave(deps, config))),
+        logged(IPC_CHANNELS.CONFIG_SAVE, () => {
+            const result = handleConfigSave(deps, config);
+            if (result.ok) {
+                const cfg = config as { plugins?: unknown[] };
+                log.info(`Config saved: ${String(cfg.plugins?.length ?? "?")} plugins`);
+            }
+            return Promise.resolve(result);
+        }),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (_e, payload: unknown) =>
-        logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, () => handleConfigSaveSecrets(deps, payload)),
+        logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, () => {
+            const p = payload as { instanceId?: string; secrets?: Record<string, unknown> };
+            log.info(
+                `Saving secrets for instanceId=${p.instanceId ?? "?"}, keys=[${Object.keys(p.secrets ?? {}).join(", ")}]`,
+            );
+            return handleConfigSaveSecrets(deps, payload);
+        }),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_DUPLICATE, (_e, instanceId: string) =>
-        logged(IPC_CHANNELS.CONFIG_DUPLICATE, () => handleConfigDuplicate(deps, instanceId)),
+        logged(IPC_CHANNELS.CONFIG_DUPLICATE, () => {
+            log.info(`Duplicating plugin ${instanceId}`);
+            return handleConfigDuplicate(deps, instanceId);
+        }),
     );
 }

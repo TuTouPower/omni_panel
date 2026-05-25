@@ -4,17 +4,18 @@ import type { CacheStore } from "../cache/cache-store";
 import type { RuntimeStore } from "./runtime-store";
 import type { PluginExecutionResult } from "../plugin/runner";
 import type { PluginCommand } from "../plugin/command-builder";
-import type { PluginOutput } from "../../../shared/schemas/plugin-output";
+import type { PluginOutput, PluginErrorOutput } from "../../../shared/schemas/plugin-output";
 import type { AppLanguage } from "../../../shared/types/plugin";
 import type { SecretsStore } from "../config/secrets-store";
 import { createLogger } from "../../../shared/lib/logger";
+import { PluginOutputParseError, PluginSchemaError } from "../../../shared/errors/plugin-errors";
 
 export interface RefreshServiceDeps {
     runner: (
         command: PluginCommand,
         options?: { timeoutMs?: number },
     ) => Promise<PluginExecutionResult>;
-    outputParser: (stdout: string) => PluginOutput;
+    outputParser: (stdout: string) => PluginOutput | PluginErrorOutput;
     commandBuilder: (
         executablePath: string,
         parameterValues: Record<string, string>,
@@ -55,13 +56,18 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             const value = await deps.secretsStore.get(`${instanceId}:${key}`);
             if (value !== null) {
                 merged[key] = value;
+            } else {
+                log.debug(`Secret not found: ${instanceId}:${key}`);
             }
         }
         return merged;
     }
 
     async function refresh(instanceId: string, options?: { force?: boolean }): Promise<void> {
-        if (locks.has(instanceId)) return;
+        if (locks.has(instanceId)) {
+            log.debug(`Refresh skipped for ${instanceId} (already in progress)`);
+            return;
+        }
         locks.add(instanceId);
 
         try {
@@ -69,12 +75,15 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             const plugin = config.plugins.find(
                 (p: PluginConfiguration) => p.instanceId === instanceId,
             );
-            if (!plugin) return;
+            if (!plugin) {
+                log.warn(`Refresh requested for unknown instanceId: ${instanceId}`);
+                return;
+            }
 
             if (!options?.force) {
                 const cached = await deps.cacheStore.load(instanceId);
                 if (cached && !isCacheExpired(cached.updatedAt, plugin.refreshIntervalSeconds)) {
-                    log.debug(`Cache hit for ${instanceId}, skipping refresh`);
+                    log.debug(`Cache hit for ${instanceId} (${plugin.name}), skipping refresh`);
                     deps.runtimeStore.updateState(instanceId, {
                         status: "ready",
                         items: cached.items,
@@ -96,10 +105,30 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             );
 
             try {
-                log.debug(`Executing plugin ${instanceId}`);
+                log.debug(`Executing plugin ${instanceId} (${plugin.name})`);
                 const result = await deps.runner(command, { timeoutMs: 15_000 });
+                log.debug(
+                    `Plugin ${instanceId} (${plugin.name}) stdout [${String(result.stdout.length)}B]: ${result.stdout.slice(0, 500)}`,
+                );
+                if (result.stderr.length > 0) {
+                    log.debug(
+                        `Plugin ${instanceId} (${plugin.name}) stderr [${String(result.stderr.length)}B]: ${result.stderr.slice(0, 500)}`,
+                    );
+                }
                 const output = deps.outputParser(result.stdout);
-                log.info(`Plugin ${instanceId} refreshed: ${String(output.items.length)} items`);
+                if ("error" in output) {
+                    log.warn(
+                        `Plugin ${instanceId} (${plugin.name}) reported error: ${output.error}`,
+                    );
+                    deps.runtimeStore.updateState(instanceId, {
+                        status: "failed",
+                        error: output.error,
+                    });
+                    return;
+                }
+                log.info(
+                    `Plugin ${instanceId} (${plugin.name}) refreshed: ${String(output.items.length)} items in ${String(result.durationMs)}ms`,
+                );
 
                 await deps.cacheStore.save(instanceId, {
                     updatedAt: output.updatedAt,
@@ -117,7 +146,17 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 });
             } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : String(error);
-                log.error(`Plugin ${instanceId} failed: ${message}`);
+                if (error instanceof PluginSchemaError) {
+                    log.error(`Plugin ${instanceId} (${plugin.name}) schema mismatch: ${message}`, {
+                        issues: error.issues,
+                    });
+                } else if (error instanceof PluginOutputParseError) {
+                    log.error(`Plugin ${instanceId} (${plugin.name}) parse error: ${message}`, {
+                        raw: error.raw.slice(0, 1000),
+                    });
+                } else {
+                    log.error(`Plugin ${instanceId} (${plugin.name}) failed: ${message}`);
+                }
                 const lastSuccess = await deps.cacheStore.load(instanceId);
                 deps.runtimeStore.updateState(instanceId, {
                     status: "failed",
@@ -133,9 +172,16 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
     async function refreshAll(): Promise<void> {
         const config = await deps.configStore.load();
         const enabledPlugins = config.plugins.filter((p: PluginConfiguration) => p.enabled);
-        await Promise.allSettled(
+        log.info(`Refreshing all ${String(enabledPlugins.length)} enabled plugins`);
+        const results = await Promise.allSettled(
             enabledPlugins.map((p: PluginConfiguration) => refresh(p.instanceId)),
         );
+        const failed = results.filter((r) => r.status === "rejected").length;
+        if (failed > 0) {
+            log.warn(
+                `RefreshAll complete: ${String(enabledPlugins.length - failed)}/${String(enabledPlugins.length)} succeeded, ${String(failed)} rejected`,
+            );
+        }
     }
 
     return { refresh, refreshAll };

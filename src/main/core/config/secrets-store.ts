@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir, rename, chmod } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { CryptoBackend } from "./crypto-backend";
+import { createLogger } from "../../../shared/lib/logger";
 
 export interface SecretsStore {
     get(key: string): Promise<string | null>;
@@ -9,11 +10,16 @@ export interface SecretsStore {
 }
 
 export function createSecretsStore(filePath: string, crypto: CryptoBackend): SecretsStore {
+    const log = createLogger("secrets-store");
+
     async function readAll(): Promise<Record<string, string>> {
         try {
             const raw = await readFile(filePath, "utf8");
             return JSON.parse(raw) as Record<string, string>;
-        } catch {
+        } catch (err: unknown) {
+            if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+                log.error(`Failed to read secrets file (${filePath}): ${String(err)}`);
+            }
             return {};
         }
     }
@@ -38,14 +44,23 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
 
         async set(key: string, value: string): Promise<void> {
             const data = await readAll();
+            const isNew = !(key in data);
             data[key] = crypto.encrypt(value);
             await writeAll(data);
+            if (isNew) {
+                log.info(`Secret stored: ${key.split(":")[0] ?? key}:***`);
+            }
         },
 
         async delete(key: string): Promise<void> {
             const data = await readAll();
+            if (!(key in data)) {
+                log.debug(`Secret delete requested but not found: ${key}`);
+                return;
+            }
             const filtered = Object.fromEntries(Object.entries(data).filter(([k]) => k !== key));
             await writeAll(filtered);
+            log.info(`Secret deleted: ${key}`);
         },
     };
 }

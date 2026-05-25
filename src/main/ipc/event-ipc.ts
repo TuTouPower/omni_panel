@@ -3,6 +3,7 @@ import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { PluginSnapshotDTO } from "../../shared/types/ipc";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
 import type { PluginSnapshotState } from "../core/scheduler/types";
+import { createLogger } from "../../shared/lib/logger";
 
 function toDTO(state: PluginSnapshotState): PluginSnapshotDTO {
     switch (state.status) {
@@ -35,9 +36,15 @@ export interface EventIpcDeps {
 }
 
 export function registerEventIpc(deps: EventIpcDeps): () => void {
+    const log = createLogger("ipc:event");
+
     const unsubState = deps.runtimeStore.subscribe({
         onStateChange(instanceId: string, state: PluginSnapshotState) {
             const dto = toDTO(state);
+            const winCount = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).length;
+            log.debug(
+                `State change: ${instanceId} → ${dto.status} (broadcast to ${String(winCount)} windows)`,
+            );
             for (const win of BrowserWindow.getAllWindows()) {
                 if (!win.isDestroyed()) {
                     win.webContents.send(IPC_CHANNELS.EVENT_STATE_CHANGE, instanceId, dto);
@@ -48,6 +55,7 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
 
     const themeHandler = () => {
         const isDark = nativeTheme.shouldUseDarkColors;
+        log.debug(`Theme changed: ${isDark ? "dark" : "light"}`);
         for (const win of BrowserWindow.getAllWindows()) {
             if (!win.isDestroyed()) {
                 win.webContents.send(IPC_CHANNELS.EVENT_THEME_CHANGE, isDark);

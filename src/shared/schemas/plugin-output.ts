@@ -10,7 +10,7 @@ export const usageItemSchema = z.object({
     used: z.number(),
     limit: z.number(),
     displayStyle: usageDisplayStyleSchema,
-    resetAt: z.string().optional(),
+    resetAt: z.string().nullable().optional(),
     status: usageStatusSchema.default("unknown"),
     color: usageColorSchema.optional(),
 });
@@ -30,7 +30,7 @@ export const pluginChartSchema = z.object({
     period: z.string(),
     bucketUnit: z.enum(["hour", "day"]),
     buckets: z.array(pluginChartBucketSchema),
-    message: z.string().optional(),
+    message: z.string().nullable().optional(),
 });
 
 export const pluginOutputSchema = z.object({

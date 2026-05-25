@@ -19,7 +19,7 @@ import { createSafeStorageCrypto } from "./core/config/safe-storage-crypto";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createPluginScheduler } from "./core/scheduler/plugin-scheduler";
 import { executePlugin } from "./core/plugin/runner";
-import { parsePluginOutput } from "./core/plugin/output-parser";
+import { parsePluginOutputOrError } from "./core/plugin/output-parser";
 import { buildPluginCommand } from "./core/plugin/command-builder";
 import { registerPluginIpc } from "./ipc/plugin-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
@@ -69,6 +69,8 @@ function getRendererUrl(route: string): string {
 function createWindowFor(key: string): BrowserWindow {
     const cfg = WINDOW_CONFIGS[key];
     if (!cfg) throw new Error(`Unknown window: ${key}`);
+    const log = createLogger("main");
+    log.info(`Creating window: ${key} (${String(cfg.width)}x${String(cfg.height)})`);
     const win = new BrowserWindow({
         width: cfg.width,
         height: cfg.height,
@@ -80,6 +82,9 @@ function createWindowFor(key: string): BrowserWindow {
         },
     });
     void win.loadURL(getRendererUrl(cfg.route));
+    win.on("closed", () => {
+        log.info(`Window closed: ${key}`);
+    });
     return win;
 }
 
@@ -152,6 +157,9 @@ void app.whenReady().then(async () => {
             };
         });
         await configStore.save({ ...config, plugins: seededPlugins });
+        log.info(
+            `Auto-seeded ${String(seededPlugins.length)} plugins: ${seededPlugins.map((p) => p.name).join(", ")}`,
+        );
     }
 
     // Reload config after potential seeding
@@ -175,7 +183,7 @@ void app.whenReady().then(async () => {
     // Wire real refresh service
     const refreshService = createRefreshService({
         runner: executePlugin,
-        outputParser: parsePluginOutput,
+        outputParser: parsePluginOutputOrError,
         commandBuilder: buildCommand,
         cacheStore,
         runtimeStore,
@@ -265,8 +273,12 @@ void app.whenReady().then(async () => {
         const trayIcon = nativeImage
             .createFromPath(get_tray_icon_path())
             .resize({ width: 16, height: 16 });
+        if (trayIcon.isEmpty()) {
+            log.warn("Tray icon loaded as empty image");
+        }
         const tray = new Tray(trayIcon);
         tray.setToolTip("OmniUsage");
+        log.info("System tray created");
 
         const contextMenu = Menu.buildFromTemplate([
             {
@@ -340,6 +352,7 @@ void app.whenReady().then(async () => {
     } // end of E2E !== "1" tray block
 
     app.on("before-quit", () => {
+        log.info("Application shutting down");
         if (safetyNetTimer) {
             clearTimeout(safetyNetTimer);
             safetyNetTimer = null;
@@ -351,6 +364,7 @@ void app.whenReady().then(async () => {
 
     // In E2E mode, auto-open dashboard so tests don't need tray interaction
     if (process.env["E2E"] === "1") {
+        log.info("E2E mode: auto-opening dashboard");
         dashboardWin = createWindowFor("dashboard");
     }
 });

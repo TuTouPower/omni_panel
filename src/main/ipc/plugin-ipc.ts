@@ -146,9 +146,15 @@ export async function registerPluginIpc(deps: PluginIpcDeps): Promise<void> {
         ),
     );
     ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH, (_e, instanceId: string) =>
-        logged(IPC_CHANNELS.PLUGIN_REFRESH, () => handlePluginRefresh(deps, instanceId)),
+        logged(IPC_CHANNELS.PLUGIN_REFRESH, () => {
+            log.info(`User requested refresh for ${instanceId}`);
+            return handlePluginRefresh(deps, instanceId);
+        }),
     );
     ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH_ALL, () =>
-        logged(IPC_CHANNELS.PLUGIN_REFRESH_ALL, () => handlePluginRefreshAll(deps)),
+        logged(IPC_CHANNELS.PLUGIN_REFRESH_ALL, () => {
+            log.info("User requested refresh all plugins");
+            return handlePluginRefreshAll(deps);
+        }),
     );
 }

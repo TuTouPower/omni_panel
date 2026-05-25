@@ -37,10 +37,21 @@ function emit(level: LogLevel, module: string, message: string, meta?: unknown):
     }
 }
 
+function formatMeta(meta: unknown): string {
+    if (meta === undefined) return "";
+    if (meta instanceof Error) return ` | ${meta.stack ?? meta.message}`;
+    if (typeof meta === "string") return ` | ${meta}`;
+    try {
+        return ` | ${JSON.stringify(meta)}`;
+    } catch {
+        return ` | [unserializable]`;
+    }
+}
+
 export function createConsoleTransport(): LogTransport {
     return {
-        write(level, module, message) {
-            const line = `[${formatTimestamp()}] [${level.toUpperCase()}] [${module}] ${message}`;
+        write(level, module, message, meta) {
+            const line = `[${formatTimestamp()}] [${level.toUpperCase()}] [${module}] ${message}${formatMeta(meta)}`;
             if (level === "error") {
                 console.error(line);
             } else if (level === "warn") {
@@ -54,8 +65,8 @@ export function createConsoleTransport(): LogTransport {
 
 export function createFileTransport(writeLine: (line: string) => void): LogTransport {
     return {
-        write(level, module, message) {
-            const line = `[${formatTimestamp()}] [${level.toUpperCase()}] [${module}] ${message}`;
+        write(level, module, message, meta) {
+            const line = `[${formatTimestamp()}] [${level.toUpperCase()}] [${module}] ${message}${formatMeta(meta)}`;
             writeLine(line);
         },
     };
