@@ -55,7 +55,9 @@ function getRendererUrl(route: string): string {
     if (devServerUrl) {
         return `${devServerUrl}#${route}`;
     }
-    return `file://${resolve(join(__dirname, "../renderer/main_window/index.html"))}#${route}`;
+    // Vite build output mirrors the source directory structure,
+    // so src/renderer/index.html ends up at ../renderer/main_window/src/renderer/index.html
+    return `file://${resolve(join(__dirname, "../renderer/main_window/src/renderer/index.html"))}#${route}`;
 }
 
 function createWindowFor(key: string): BrowserWindow {
@@ -151,81 +153,97 @@ void app.whenReady().then(async () => {
     });
     cleanupEventIpc = registerEventIpc({ runtimeStore });
 
-    // System tray
-    const trayIcon = nativeImage.createEmpty();
-    const tray = new Tray(trayIcon);
-    tray.setToolTip("OmniUsage");
-
+    // Window references — shared between tray and E2E mode
     let popupWin: BrowserWindow | null = null;
     let dashboardWin: BrowserWindow | null = null;
     let settingsWin: BrowserWindow | null = null;
 
-    const contextMenu = Menu.buildFromTemplate([
-        {
-            label: "打开仪表板",
-            click: () => {
-                if (!dashboardWin || dashboardWin.isDestroyed()) {
-                    dashboardWin = createWindowFor("dashboard");
-                }
-                dashboardWin.focus();
-            },
-        },
-        {
-            label: "设置",
-            click: () => {
-                if (!settingsWin || settingsWin.isDestroyed()) {
-                    settingsWin = createWindowFor("settings");
-                }
-                settingsWin.focus();
-            },
-        },
-        { type: "separator" },
-        {
-            label: "退出",
-            click: () => {
-                app.quit();
-            },
-        },
-    ]);
-    tray.setContextMenu(contextMenu);
+    // System tray — skip in E2E mode (tray may crash in headless/CI)
+    if (process.env["E2E"] !== "1") {
+        const trayIcon = nativeImage.createEmpty();
+        const tray = new Tray(trayIcon);
+        tray.setToolTip("OmniUsage");
 
-    tray.on("click", () => {
-        if (popupWin && !popupWin.isDestroyed()) {
-            popupWin.close();
-            popupWin = null;
-            return;
-        }
-        popupWin = createWindowFor("popup");
+        const contextMenu = Menu.buildFromTemplate([
+            {
+                label: "打开仪表板",
+                click: () => {
+                    if (!dashboardWin || dashboardWin.isDestroyed()) {
+                        dashboardWin = createWindowFor("dashboard");
+                    }
+                    dashboardWin.focus();
+                },
+            },
+            {
+                label: "设置",
+                click: () => {
+                    if (!settingsWin || settingsWin.isDestroyed()) {
+                        settingsWin = createWindowFor("settings");
+                    }
+                    settingsWin.focus();
+                },
+            },
+            { type: "separator" },
+            {
+                label: "退出",
+                click: () => {
+                    app.quit();
+                },
+            },
+        ]);
+        tray.setContextMenu(contextMenu);
 
-        // Position popup near tray icon
-        const trayBounds = tray.getBounds();
-        const display = screen.getDisplayNearestPoint({
-            x: trayBounds.x + trayBounds.width / 2,
-            y: trayBounds.y + trayBounds.height / 2,
+        tray.on("click", () => {
+            if (popupWin && !popupWin.isDestroyed()) {
+                popupWin.close();
+                popupWin = null;
+                return;
+            }
+            popupWin = createWindowFor("popup");
+
+            // Position popup near tray icon
+            const trayBounds = tray.getBounds();
+            const display = screen.getDisplayNearestPoint({
+                x: trayBounds.x + trayBounds.width / 2,
+                y: trayBounds.y + trayBounds.height / 2,
+            });
+            const popupCfg = WINDOW_CONFIGS["popup"];
+            const popupWidth = popupCfg?.width ?? 360;
+            const popupHeight = popupCfg?.height ?? 480;
+            const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
+            const y = Math.round(trayBounds.y + trayBounds.height + 4);
+            // Ensure popup stays within display bounds
+            const clampedX = Math.max(
+                display.workArea.x,
+                Math.min(x, display.workArea.x + display.workArea.width - popupWidth),
+            );
+            const clampedY = Math.min(
+                y,
+                display.workArea.y + display.workArea.height - popupHeight,
+            );
+            popupWin.setBounds({
+                x: clampedX,
+                y: clampedY,
+                width: popupWidth,
+                height: popupHeight,
+            });
+            popupWin.show();
+
+            popupWin.on("closed", () => {
+                popupWin = null;
+            });
         });
-        const popupCfg = WINDOW_CONFIGS["popup"];
-        const popupWidth = popupCfg?.width ?? 360;
-        const popupHeight = popupCfg?.height ?? 480;
-        const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
-        const y = Math.round(trayBounds.y + trayBounds.height + 4);
-        // Ensure popup stays within display bounds
-        const clampedX = Math.max(
-            display.workArea.x,
-            Math.min(x, display.workArea.x + display.workArea.width - popupWidth),
-        );
-        const clampedY = Math.min(y, display.workArea.y + display.workArea.height - popupHeight);
-        popupWin.setBounds({ x: clampedX, y: clampedY, width: popupWidth, height: popupHeight });
-        popupWin.show();
-
-        popupWin.on("closed", () => {
-            popupWin = null;
-        });
-    });
+    } // end of E2E !== "1" tray block
 
     app.on("before-quit", () => {
         cleanupEventIpc?.();
         cleanupEventIpc = null;
     });
+
+    // In E2E mode, auto-open dashboard so tests don't need tray interaction
+    if (process.env["E2E"] === "1") {
+        dashboardWin = createWindowFor("dashboard");
+    }
 });
 
 app.on("window-all-closed", () => {
