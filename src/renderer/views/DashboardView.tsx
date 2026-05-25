@@ -21,6 +21,52 @@ export function DashboardView() {
             .catch(() => undefined);
     }, []);
 
+    const goToSettings = () => {
+        window.location.hash = "#settings";
+    };
+
+    const emptyState = (() => {
+        if (loading || plugins.length > 0) return null;
+
+        if (pythonStatus && !pythonStatus.available) {
+            return (
+                <EmptyState
+                    message="未检测到 Python 3.8+，插件功能不可用"
+                    action="了解更多"
+                    onAction={() => {
+                        /* could open docs */
+                    }}
+                    data-testid="dashboard-empty"
+                />
+            );
+        }
+
+        const hasFailedKey = plugins.some(
+            (p) =>
+                p.snapshot.status === "failed" &&
+                (p.snapshot.error.includes("key") || p.snapshot.error.includes("Key")),
+        );
+        if (hasFailedKey) {
+            return (
+                <EmptyState
+                    message="部分插件缺少密钥配置"
+                    action="前往设置"
+                    onAction={goToSettings}
+                    data-testid="dashboard-empty"
+                />
+            );
+        }
+
+        return (
+            <EmptyState
+                message="暂无插件，请在设置中配置"
+                action="前往设置"
+                onAction={goToSettings}
+                data-testid="dashboard-empty"
+            />
+        );
+    })();
+
     return (
         <div className="flex h-screen flex-col">
             <header className="flex items-center justify-between border-b border-[var(--border)] px-6 py-3">
@@ -33,13 +79,7 @@ export function DashboardView() {
                 </h1>
                 <div className="flex items-center gap-2">
                     <RefreshButton onClick={refreshAll} data-testid="dashboard-refresh-btn" />
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            window.location.hash = "#settings";
-                        }}
-                    >
+                    <Button variant="ghost" size="sm" onClick={goToSettings}>
                         设置
                     </Button>
                 </div>
@@ -65,9 +105,7 @@ export function DashboardView() {
                         />
                     </div>
                 )}
-                {!loading && plugins.length === 0 && (
-                    <EmptyState message="暂无插件，请在设置中配置" data-testid="dashboard-empty" />
-                )}
+                {emptyState}
                 <div className="space-y-3" data-testid="dashboard-plugin-list">
                     {plugins.map((p) => (
                         <div
