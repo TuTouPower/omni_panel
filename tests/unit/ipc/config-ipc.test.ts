@@ -24,6 +24,7 @@ function createMockDeps() {
         load: vi.fn().mockResolvedValue(structuredClone(config)),
         save: vi.fn().mockResolvedValue(undefined),
         scheduleSave: vi.fn(),
+        flushPendingSave: vi.fn().mockResolvedValue(undefined),
     };
 
     const secretsStore = {
@@ -47,9 +48,19 @@ describe("config-ipc", () => {
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
-        const plugin = result.data.plugins[0];
+        const plugin = result.data.config.plugins[0];
         expect(plugin?.parameterValues["API_KEY"]).toBe("***");
         expect(plugin?.parameterValues["MODEL"]).toBe("gpt-4");
+    });
+
+    it("handleConfigGet returns hasSecrets map", async () => {
+        const deps = createMockDeps();
+        const { handleConfigGet } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigGet(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data.hasSecrets["claude"]).toEqual({ API_KEY: true });
     });
 
     it("handleConfigSave strips secret fields from parameterValues", async () => {
@@ -71,13 +82,58 @@ describe("config-ipc", () => {
         };
         const modified: AppConfiguration = { ...loaded, plugins: [mutablePlugin] };
 
-        const result = handleConfigSave(deps, modified);
+        const result = await handleConfigSave(deps, modified);
         expect(result.ok).toBe(true);
         const savedArgs = deps.configStore.scheduleSave.mock.calls as [AppConfiguration][];
         expect(savedArgs.length).toBeGreaterThan(0);
         const savedPlugin = savedArgs[0]?.[0]?.plugins.find((p) => p.stateId === "claude");
         expect(savedPlugin?.parameterValues["API_KEY"]).toBeUndefined();
         expect(savedPlugin?.parameterValues["MODEL"]).toBe("gpt-4o");
+    });
+
+    it("handleConfigSave rejects unknown instanceId", async () => {
+        const deps = createMockDeps();
+        const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
+
+        const loaded = structuredClone(await deps.configStore.load()) as AppConfiguration;
+        const fakePlugin: AppConfiguration["plugins"][number] = {
+            instanceId: "unknown-id",
+            stateId: "unknown-id",
+            name: "Fake",
+            enabled: true,
+            executablePath: "/plugins/fake.py",
+            refreshIntervalSeconds: 300,
+            parameterValues: {},
+        };
+        const modified: AppConfiguration = { ...loaded, plugins: [...loaded.plugins, fakePlugin] };
+
+        const result = await handleConfigSave(deps, modified);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe("VALIDATION_ERROR");
+        }
+        expect(deps.configStore.scheduleSave).not.toHaveBeenCalled();
+    });
+
+    it("handleConfigSave rejects executablePath modification", async () => {
+        const deps = createMockDeps();
+        const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
+
+        const loaded = structuredClone(await deps.configStore.load()) as AppConfiguration;
+        const modified: AppConfiguration = {
+            ...loaded,
+            plugins: loaded.plugins.map((p) => ({
+                ...p,
+                executablePath: "/plugins/different.py",
+            })),
+        };
+
+        const result = await handleConfigSave(deps, modified);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe("VALIDATION_ERROR");
+        }
+        expect(deps.configStore.scheduleSave).not.toHaveBeenCalled();
     });
 
     it("handleConfigSaveSecrets validates paramName against metadata", async () => {

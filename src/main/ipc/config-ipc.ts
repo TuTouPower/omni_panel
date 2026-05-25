@@ -52,21 +52,55 @@ function stripSecrets(
     };
 }
 
-export async function handleConfigGet(deps: ConfigIpcDeps): Promise<IpcResult<AppConfiguration>> {
+export async function handleConfigGet(
+    deps: ConfigIpcDeps,
+): Promise<
+    IpcResult<{ config: AppConfiguration; hasSecrets: Record<string, Record<string, boolean>> }>
+> {
     try {
         const config = await deps.configStore.load();
-        return ok(maskSecrets(config, deps.secretParamKeys));
+        const masked = maskSecrets(config, deps.secretParamKeys);
+        const hasSecrets: Record<string, Record<string, boolean>> = {};
+        for (const plugin of config.plugins) {
+            const secretKeys = deps.secretParamKeys.get(plugin.instanceId);
+            if (!secretKeys || secretKeys.size === 0) continue;
+            const pluginSecrets: Record<string, boolean> = {};
+            for (const key of secretKeys) {
+                const value = await deps.secretsStore.get(`${plugin.instanceId}:${key}`);
+                pluginSecrets[key] = value !== null;
+            }
+            hasSecrets[plugin.instanceId] = pluginSecrets;
+        }
+        return ok({ config: masked, hasSecrets });
     } catch {
         return fail("INTERNAL_ERROR", "获取配置失败");
     }
 }
 
-export function handleConfigSave(deps: ConfigIpcDeps, config: unknown): IpcResult<void> {
+export async function handleConfigSave(
+    deps: ConfigIpcDeps,
+    config: unknown,
+): Promise<IpcResult<void>> {
     try {
         const parsed = appConfigurationSchema.safeParse(config);
         if (!parsed.success) return fail("VALIDATION_ERROR", "配置格式无效");
 
-        const stripped = stripSecrets(parsed.data as AppConfiguration, deps.secretParamKeys);
+        const current = await deps.configStore.load();
+        const incoming = parsed.data as AppConfiguration;
+
+        // Validate: every incoming plugin instanceId must already exist
+        const currentByInstanceId = new Map(current.plugins.map((p) => [p.instanceId, p]));
+        for (const plugin of incoming.plugins) {
+            const existing = currentByInstanceId.get(plugin.instanceId);
+            if (!existing) {
+                return fail("VALIDATION_ERROR", `未知的插件实例: ${plugin.instanceId}`);
+            }
+            if (existing.executablePath !== plugin.executablePath) {
+                return fail("VALIDATION_ERROR", `不允许修改插件的可执行路径: ${plugin.name}`);
+            }
+        }
+
+        const stripped = stripSecrets(incoming, deps.secretParamKeys);
         deps.configStore.scheduleSave(stripped);
         deps.onConfigSaved?.(stripped);
         return ok(undefined);
@@ -140,6 +174,7 @@ export async function handleConfigDuplicate(
             plugins: [...config.plugins, newInstance],
         };
         await deps.configStore.save(updated);
+        deps.onConfigSaved?.(updated);
         return ok(undefined);
     } catch {
         return fail("INTERNAL_ERROR", "复制插件失败");
@@ -170,13 +205,13 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
         logged(IPC_CHANNELS.CONFIG_GET, () => handleConfigGet(deps)),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE, (_e, config: unknown) =>
-        logged(IPC_CHANNELS.CONFIG_SAVE, () => {
-            const result = handleConfigSave(deps, config);
+        logged(IPC_CHANNELS.CONFIG_SAVE, async () => {
+            const result = await handleConfigSave(deps, config);
             if (result.ok) {
                 const cfg = config as { plugins?: unknown[] };
                 log.info(`Config saved: ${String(cfg.plugins?.length ?? "?")} plugins`);
             }
-            return Promise.resolve(result);
+            return result;
         }),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (_e, payload: unknown) =>

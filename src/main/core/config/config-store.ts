@@ -7,6 +7,7 @@ export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
     save(config: AppConfiguration): Promise<void>;
     scheduleSave(config: AppConfiguration, delayMs?: number): void;
+    flushPendingSave(): Promise<void>;
 }
 
 const log = createLogger("config-store");
@@ -25,6 +26,7 @@ function sortKeys(obj: unknown): unknown {
 
 export function createConfigStore(configPath: string): AppConfigStore {
     let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingConfig: AppConfiguration | null = null;
 
     return {
         async load(): Promise<AppConfiguration> {
@@ -69,12 +71,26 @@ export function createConfigStore(configPath: string): AppConfigStore {
             if (pendingTimer) {
                 clearTimeout(pendingTimer);
             }
+            pendingConfig = config;
             pendingTimer = setTimeout(() => {
                 pendingTimer = null;
+                pendingConfig = null;
                 void this.save(config).catch((err: unknown) => {
                     log.error("Debounced config save failed", err);
                 });
             }, delayMs);
+        },
+
+        async flushPendingSave(): Promise<void> {
+            if (pendingTimer) {
+                clearTimeout(pendingTimer);
+                pendingTimer = null;
+            }
+            if (pendingConfig) {
+                const cfg = pendingConfig;
+                pendingConfig = null;
+                await this.save(cfg);
+            }
         },
     };
 }
