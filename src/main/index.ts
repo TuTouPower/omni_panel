@@ -18,6 +18,7 @@ import { createSecretsStore } from "./core/config/secrets-store";
 import { createSafeStorageCrypto } from "./core/config/safe-storage-crypto";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createPluginScheduler } from "./core/scheduler/plugin-scheduler";
+import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestrator";
 import { executePlugin } from "./core/plugin/runner";
 import { parsePluginOutputOrError } from "./core/plugin/output-parser";
 import { buildPluginCommand } from "./core/plugin/command-builder";
@@ -49,7 +50,6 @@ interface WindowConfig {
 
 const WINDOW_CONFIGS: Record<string, WindowConfig> = {
     popup: { route: "popup", width: 360, height: 480, frame: false, show: false },
-    dashboard: { route: "dashboard", width: 800, height: 600 },
     settings: { route: "settings", width: 640, height: 520 },
 };
 
@@ -201,6 +201,12 @@ void app.whenReady().then(async () => {
         secretParamKeys,
     });
 
+    // Scheduler orchestrator — centralises scheduling, suspend/resume, shutdown
+    const scheduler = createPluginScheduler({
+        refresh: (instanceId: string) => refreshService.refresh(instanceId),
+    });
+    const orchestrator = createSchedulerOrchestrator({ scheduler, configStore });
+
     // Register IPC handlers
     await registerPluginIpc({
         configStore,
@@ -213,19 +219,13 @@ void app.whenReady().then(async () => {
         secretsStore,
         secretParamKeys,
         onConfigSaved: (updatedConfig) => {
-            // Rebuild secret keys and scheduling
             log.info("Config saved — rebuilding scheduler and secret keys");
             const newKeys = buildSecretParamKeys(updatedConfig);
             secretParamKeys.clear();
             for (const [k, v] of newKeys) {
                 secretParamKeys.set(k, v);
             }
-            scheduler.stopAll();
-            for (const plugin of updatedConfig.plugins) {
-                if (plugin.enabled) {
-                    scheduler.start(plugin.instanceId, plugin.refreshIntervalSeconds);
-                }
-            }
+            orchestrator.rebuild(updatedConfig);
         },
     });
     await registerSystemIpc({
@@ -234,52 +234,22 @@ void app.whenReady().then(async () => {
     await registerLogIpc();
     cleanupEventIpc = registerEventIpc({ runtimeStore });
 
-    // Start periodic refresh scheduler for enabled plugins
-    const scheduler = createPluginScheduler({
-        refresh: (instanceId: string) => refreshService.refresh(instanceId),
-    });
-    let scheduledCount = 0;
-    for (const plugin of currentConfig.plugins) {
-        if (plugin.enabled) {
-            scheduler.start(plugin.instanceId, plugin.refreshIntervalSeconds);
-            scheduledCount++;
-        }
-    }
-    log.info(`Scheduler started for ${String(scheduledCount)} plugins`);
+    // Start periodic refresh for enabled plugins
+    orchestrator.startAll(currentConfig);
 
-    // Sleep/wake handling — pause scheduling during sleep, resume on wake
-    const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
-    let safetyNetTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function resumeScheduling(): void {
-        if (safetyNetTimer) {
-            clearTimeout(safetyNetTimer);
-            safetyNetTimer = null;
-        }
-        void configStore.load().then((latestConfig) => {
-            for (const plugin of latestConfig.plugins) {
-                if (plugin.enabled) {
-                    scheduler.start(plugin.instanceId, plugin.refreshIntervalSeconds);
-                }
-            }
-        });
-    }
-
+    // Sleep/wake handling
     powerMonitor.on("suspend", () => {
         log.info("System suspending — stopping all schedulers");
-        scheduler.stopAll();
-        // Safety net: resume if wake event is missed
-        safetyNetTimer = setTimeout(resumeScheduling, FOUR_HOURS_MS);
+        orchestrator.suspend();
     });
 
     powerMonitor.on("resume", () => {
         log.info("System resumed — restarting schedulers");
-        resumeScheduling();
+        orchestrator.resume();
     });
 
     // Window references — shared between tray and E2E mode
     let popupWin: BrowserWindow | null = null;
-    let dashboardWin: BrowserWindow | null = null;
     let settingsWin: BrowserWindow | null = null;
 
     // System tray — skip in E2E mode (tray may crash in headless/CI)
@@ -295,15 +265,6 @@ void app.whenReady().then(async () => {
         log.info("System tray created");
 
         const contextMenu = Menu.buildFromTemplate([
-            {
-                label: "打开仪表板",
-                click: () => {
-                    if (!dashboardWin || dashboardWin.isDestroyed()) {
-                        dashboardWin = createWindowFor("dashboard");
-                    }
-                    dashboardWin.focus();
-                },
-            },
             {
                 label: "设置",
                 click: () => {
@@ -367,20 +328,16 @@ void app.whenReady().then(async () => {
 
     app.on("before-quit", () => {
         log.info("Application shutting down");
-        if (safetyNetTimer) {
-            clearTimeout(safetyNetTimer);
-            safetyNetTimer = null;
-        }
         void configStore.flushPendingSave();
-        scheduler.stopAll();
+        orchestrator.shutdown();
         cleanupEventIpc?.();
         cleanupEventIpc = null;
     });
 
-    // In E2E mode, auto-open dashboard so tests don't need tray interaction
+    // In E2E mode, auto-open popup so tests don't need tray interaction
     if (process.env["E2E"] === "1") {
-        log.info("E2E mode: auto-opening dashboard");
-        dashboardWin = createWindowFor("dashboard");
+        log.info("E2E mode: auto-opening popup");
+        popupWin = createWindowFor("popup");
     }
 });
 
