@@ -1,5 +1,11 @@
 import { app } from "electron";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+
+// In dev mode, main entry is at .vite/build/index.js.
+// __dirname here resolves to .vite/build, so ../.. reaches project root.
+// app.getAppPath() also returns .vite/build in dev, but using __dirname
+// is more explicit and doesn't depend on Electron's getAppPath semantics.
+const PROJECT_ROOT = resolve(__dirname, "..", "..");
 
 export function getDataRoot(): string {
     return app.getPath("userData");
@@ -17,7 +23,7 @@ export function getBundledPluginsDir(): string {
     if (app.isPackaged) {
         return join(process.resourcesPath, "plugins");
     }
-    return join(app.getAppPath(), "resources", "plugins");
+    return join(PROJECT_ROOT, "resources", "plugins");
 }
 
 export function getUserPluginsDir(): string {
@@ -32,5 +38,5 @@ export function get_tray_icon_path(): string {
     if (app.isPackaged) {
         return join(process.resourcesPath, "tray-icon.png");
     }
-    return join(app.getAppPath(), "resources", "tray-icon.png");
+    return join(PROJECT_ROOT, "resources", "tray-icon.png");
 }

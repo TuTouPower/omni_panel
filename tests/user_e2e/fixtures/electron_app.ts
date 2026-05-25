@@ -1,8 +1,13 @@
 import { _electron as electron, type ElectronApplication } from "@playwright/test";
-import { resolve } from "node:path";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const ROOT = process.cwd();
 const MAIN_ENTRY = resolve(ROOT, ".vite/build/index.js");
+
+// Isolated userData per test run — avoids config pollution from packaged runs
+const E2E_USER_DATA = mkdtempSync(join(tmpdir(), "omniusage-e2e-"));
 
 function getElectronPath(): string {
     if (process.platform === "win32") {
@@ -19,9 +24,10 @@ export async function launchApp(): Promise<LaunchedApp> {
     const electronPath = getElectronPath();
     console.log("[E2E] electron path:", electronPath);
     console.log("[E2E] main entry:", MAIN_ENTRY);
+    console.log("[E2E] userData:", E2E_USER_DATA);
 
     const app = await electron.launch({
-        args: [MAIN_ENTRY],
+        args: [MAIN_ENTRY, `--user-data-dir=${E2E_USER_DATA}`],
         executablePath: electronPath,
         cwd: ROOT,
         env: {

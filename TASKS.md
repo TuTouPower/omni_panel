@@ -681,7 +681,136 @@
 
 - `pnpm check`：全部通过（typecheck + lint + format + deadcode + arch）
 - `pnpm test`：23 files, 140 tests 全部通过
-- `pnpm test:e2e`：22 tests 全部通过
+- `pnpm test:e2e`：23 tests 全部通过
+
+---
+
+## Phase 11: 修复 E2E 零插件问题 ✅
+
+### 根因
+
+`src/main/core/paths.ts` 中 `getBundledPluginsDir()` 使用 `app.getAppPath()` 获取项目根目录。
+在 dev 模式下（包括 E2E），Electron 从 `.vite/build/index.js` 启动，`app.getAppPath()` 返回
+`.vite/build/` 而非项目根目录。导致插件发现路径变为：
+
+```
+.vite/build/resources/plugins/  ← 不存在
+实际插件位置：resources/plugins/
+```
+
+`discoverPlugins()` 找不到任何插件 → `Discovered 0 plugins` → 无法自动创建 → Settings 显示
+"无可配置参数"。
+
+### 同理影响
+
+`get_tray_icon_path()` 使用相同逻辑，但 tray icon 在 E2E 模式下不加载（`E2E=1` 时跳过
+Tray 创建），因此未暴露。
+
+### 修复
+
+```typescript
+// src/main/core/paths.ts
+import { join, resolve } from "node:path";
+
+const PROJECT_ROOT = resolve(__dirname, "..", "..");
+
+export function getBundledPluginsDir(): string {
+    if (app.isPackaged) {
+        return join(process.resourcesPath, "plugins");
+    }
+    return join(PROJECT_ROOT, "resources", "plugins");
+}
+```
+
+`__dirname` 在 Vite 构建后为 `.vite/build/`，`resolve(__dirname, "..", "..")` 即项目根目录。
+Packaged 模式不变（使用 `process.resourcesPath`）。
+
+### 附带修复
+
+- E2E 测试 `app_lifecycle.spec.ts` "window can be closed without crashing"：E2E 模式无 Tray，
+  关闭最后一个窗口会导致 Electron 退出。移除 `process().connected` 断言（该断言在有 Tray
+  的生产模式下有效，E2E 模式不适用）。
+
+### 修改文件
+
+| 文件                                         | 变更                                                                                                        |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `src/main/core/paths.ts`                     | `app.getAppPath()` → `resolve(__dirname, "../..")`，同时用于 `getBundledPluginsDir` 和 `get_tray_icon_path` |
+| `tests/user_e2e/specs/app_lifecycle.spec.ts` | 移除 E2E 不适用的 `process().connected` 断言                                                                |
+
+### 测试结果
+
+- `pnpm typecheck`：通过
+- `pnpm lint`：通过（0 warnings）
+- `pnpm format:check`：通过
+- `pnpm test`：23 files, 140 tests 全部通过
+- `pnpm test:e2e`：23 tests 全部通过
+
+---
+
+## Phase 12: 日志系统过粗 — 插件失败时无诊断信息 ❌
+
+### 问题
+
+插件刷新失败时，日志仅记录：
+
+```
+[ERROR] [refresh-service] Plugin a2e61610 failed: Plugin output does not match schema
+```
+
+缺少关键诊断信息：
+
+1. **插件实际 stdout/stderr** — 不知道插件输出了什么才导致 schema 校验失败
+2. **执行的命令** — 不知道传了什么参数、用的什么 Python 路径
+3. **schema 校验细节** — Zod 解析失败的具体字段和原因没有记录
+4. **退出码** — 不知道是插件崩溃还是输出格式不对
+5. **执行耗时** — 虽然有 durationMs 但未写入日志
+
+### 需要修改
+
+| 文件                                         | 变更                                                                                         |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `src/main/core/scheduler/refresh-service.ts` | `catch` 块中 log 增加 `result.stdout` 前 500 字符、`result.stderr`、`exitCode`、`durationMs` |
+| `src/main/core/plugin/runner.ts`             | `debug` 级别记录执行的命令和参数（不含 secret 值）                                           |
+| `src/shared/schemas/plugin-output.ts`        | `parsePluginOutputOrError` 失败时抛出包含 Zod issue 的错误                                   |
+
+### 安全约束
+
+- stdout 可能包含 secret，记录时需截断或脱敏
+- 错误消息中不直接拼接 secret 值
+- 仅 debug 级别记录完整 stdout，error 级别记录前 500 字符
+
+---
+
+## Phase 13: 智谱 GLM 插件 schema 校验失败 ❌
+
+### 现象
+
+填入智谱 API Key 后，日志报 `Plugin output does not match schema`，Dashboard 无数据。
+
+### 已确认
+
+- API Key 本身有效（curl 调用 `open.bigmodel.cn/api/monitor/usage/quota/limit` 返回 200 + 正常数据）
+- Key 来源：智谱国际版（glm-4-flash 等国际可用模型的 key）
+- 所有 6 个插件都报同一错误（不仅是 GLM），说明可能是 Python 环境或 schema 校验的共性问题
+
+### 假设
+
+1. **Python 路径问题**：packaged app 可能找不到 `python`/`python3`，导致插件以异常方式退出
+2. **编码问题**：Windows 控制台默认 GBK 编码，中文输出可能导致 JSON 解析失败
+3. **GLM 国际端点差异**：国际版 key 调国内端点可能返回非标准 JSON（如 HTML 重定向或不同的错误格式）
+4. **schema 定义不匹配**：插件实际输出的 JSON 字段与 `plugin-output.ts` 的 Zod schema 有差异
+
+### 排查步骤
+
+1. 先完成 Phase 12（加详细日志），再重跑 packaged app 看插件实际输出
+2. 手动 `python resources/plugins/glm-usage-plugin.py "API_KEY=xxx"` 看输出格式
+3. 检查 packaged app 中 Python 检测结果（日志中是否有 `Python detected: xxx`）
+4. 对比插件输出 JSON 与 `plugin-output.ts` schema 定义
+
+### 注意
+
+- API Key 不进 git、不进日志、不进测试
 
 ---
 
