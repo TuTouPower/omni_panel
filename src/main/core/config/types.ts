@@ -12,7 +12,7 @@ export const pluginConfigurationSchema = z.object({
     name: z.string().min(1),
     enabled: z.boolean(),
     executablePath: z.string().min(1),
-    refreshIntervalSeconds: z.number().int().min(1),
+    refreshIntervalSeconds: z.number().int().min(60).max(3600),
     parameterValues: z.record(z.string()),
 });
 

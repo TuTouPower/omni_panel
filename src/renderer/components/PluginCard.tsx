@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import type { PluginInfo } from "../../shared/types/ipc";
 import { Card } from "./Card";
 import { Skeleton } from "./Skeleton";
+import { relativeTime } from "../lib/utils";
 
 function usagePercent(used: number, limit: number): number {
     return Math.round((used / limit) * 100);
@@ -22,8 +24,31 @@ interface PluginCardProps {
     plugin: PluginInfo;
 }
 
+function useRelativeTime(isoDate: string | undefined): string {
+    const [text, setText] = useState(() => (isoDate ? relativeTime(isoDate) : ""));
+    useEffect(() => {
+        if (!isoDate) return;
+        const tick = () => {
+            setText(relativeTime(isoDate));
+        };
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => {
+            clearInterval(id);
+        };
+    }, [isoDate]);
+    return text;
+}
+
 export function PluginCard({ plugin }: PluginCardProps) {
     const { snapshot } = plugin;
+    const updatedAt =
+        snapshot.status === "ready"
+            ? snapshot.updatedAt
+            : snapshot.status === "failed"
+              ? snapshot.updatedAt
+              : undefined;
+    const timeAgo = useRelativeTime(updatedAt);
 
     if (snapshot.status === "idle" || snapshot.status === "loading") {
         return (
@@ -65,7 +90,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
                         })}
                         {snapshot.updatedAt && (
                             <p className="text-xs text-[var(--muted-foreground)]">
-                                最后成功: {new Date(snapshot.updatedAt).toLocaleString()}
+                                最后成功: {timeAgo}
                             </p>
                         )}
                     </div>
@@ -103,9 +128,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
                     );
                 })}
             </div>
-            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-                更新于: {new Date(snapshot.updatedAt).toLocaleString()}
-            </p>
+            <p className="mt-2 text-xs text-[var(--muted-foreground)]">{timeAgo}</p>
         </Card>
     );
 }

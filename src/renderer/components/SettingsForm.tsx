@@ -7,10 +7,12 @@ interface SettingsFormProps {
     parameters: PluginParameterMetadata[];
     values: Record<string, string>;
     hasSecrets?: Record<string, boolean>;
+    refreshIntervalSeconds: number;
     onSave: (
         instanceId: string,
         nonSecrets: Record<string, string>,
         secrets: Record<string, string>,
+        refreshIntervalSeconds: number,
     ) => Promise<void>;
     onDuplicate?: (instanceId: string) => void;
 }
@@ -21,6 +23,7 @@ export function SettingsForm({
     parameters,
     values,
     hasSecrets,
+    refreshIntervalSeconds,
     onSave,
     onDuplicate,
 }: SettingsFormProps) {
@@ -52,9 +55,12 @@ export function SettingsForm({
                 }
             }
 
+            const intervalMinutes = Number(formData.get("refreshIntervalMinutes"));
+            const intervalSeconds = Math.max(60, Math.min(3600, Math.round(intervalMinutes) * 60));
+
             setSaving(true);
             setSaved(false);
-            void onSave(instanceId, nonSecrets, secrets)
+            void onSave(instanceId, nonSecrets, secrets, intervalSeconds)
                 .then(() => {
                     setSaved(true);
                     setTimeout(() => {
@@ -127,6 +133,19 @@ export function SettingsForm({
                     )}
                 </label>
             ))}
+            <label className="block space-y-1">
+                <span className="text-xs text-[var(--muted-foreground)]">刷新间隔（分钟）</span>
+                <input
+                    type="number"
+                    name="refreshIntervalMinutes"
+                    min={1}
+                    max={60}
+                    defaultValue={Math.round(refreshIntervalSeconds / 60)}
+                    data-testid={`settings-refresh-interval-${instanceId}`}
+                    className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                />
+                <p className="text-xs text-[var(--muted-foreground)]">范围 1–60 分钟</p>
+            </label>
             <div className="flex gap-2">
                 <button
                     type="submit"

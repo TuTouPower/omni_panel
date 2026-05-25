@@ -28,12 +28,17 @@ export function SettingsView() {
         instanceId: string,
         nonSecrets: Record<string, string>,
         secrets: Record<string, string>,
+        refreshIntervalSeconds: number,
     ) => {
         const updated = {
             ...config,
             plugins: config.plugins.map((p) =>
                 p.instanceId === instanceId
-                    ? { ...p, parameterValues: { ...p.parameterValues, ...nonSecrets } }
+                    ? {
+                          ...p,
+                          refreshIntervalSeconds,
+                          parameterValues: { ...p.parameterValues, ...nonSecrets },
+                      }
                     : p,
             ),
         };
@@ -90,6 +95,7 @@ export function SettingsView() {
                             parameters={params}
                             values={{ ...p.parameterValues }}
                             hasSecrets={hasSecrets[p.instanceId] ?? {}}
+                            refreshIntervalSeconds={p.refreshIntervalSeconds}
                             onSave={handleSave}
                             onDuplicate={(id) => void duplicate(id)}
                         />

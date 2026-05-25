@@ -250,7 +250,6 @@ void app.whenReady().then(async () => {
 
     // Window references — shared between tray and E2E mode
     let popupWin: BrowserWindow | null = null;
-    let settingsWin: BrowserWindow | null = null;
 
     // System tray — skip in E2E mode (tray may crash in headless/CI)
     if (process.env["E2E"] !== "1") {
@@ -265,16 +264,6 @@ void app.whenReady().then(async () => {
         log.info("System tray created");
 
         const contextMenu = Menu.buildFromTemplate([
-            {
-                label: "设置",
-                click: () => {
-                    if (!settingsWin || settingsWin.isDestroyed()) {
-                        settingsWin = createWindowFor("settings");
-                    }
-                    settingsWin.focus();
-                },
-            },
-            { type: "separator" },
             {
                 label: "退出",
                 click: () => {
