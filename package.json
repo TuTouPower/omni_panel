@@ -7,8 +7,8 @@
     "private": true,
     "scripts": {
         "start": "electron-forge start",
-        "package": "env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-forge package",
-        "package:run": "tsx scripts/package-and-run.ts",
+        "package": "tsx scripts/package-and-run.ts",
+        "package:build": "env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-forge package",
         "make": "env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-forge make",
         "publish": "electron-forge publish",
         "lint": "eslint . --max-warnings=0",

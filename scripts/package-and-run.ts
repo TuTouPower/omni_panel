@@ -51,8 +51,8 @@ async function main(): Promise<void> {
     await new Promise((r) => setTimeout(r, 500));
 
     // Step 2: package
-    log("running pnpm package...");
-    execSync("pnpm package", { cwd: ROOT, stdio: "inherit" });
+    log("running pnpm package:build...");
+    execSync("pnpm run package:build", { cwd: ROOT, stdio: "inherit" });
 
     // Step 3: run
     run_packaged();
