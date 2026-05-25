@@ -54,6 +54,8 @@ jobs:
                   node-version: 22
                   cache: pnpm
             - run: pnpm install --frozen-lockfile
+            - name: Package app
+              run: pnpm package
             - name: Install Playwright browsers
               run: npx playwright install --with-deps chromium
             - name: Start Xvfb
