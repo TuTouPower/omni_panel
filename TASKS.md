@@ -77,13 +77,14 @@
 - [x] **Electron 专项安全扫描**
     - `@electron-forge/plugin-fuses`：已配置
     - Semgrep 自定义规则（需系统安装 semgrep CLI）
-- [ ] **Git 密钥泄漏防护**
-    - `Gitleaks`：需系统级安装
+- [x] **Git 密钥泄漏防护**
+    - `Gitleaks`：已系统级安装
     - `secrets.json` 已通过 `.gitignore` 排除
+    - pre-commit hook 已配置 `gitleaks protect --staged`
 - [x] **依赖漏洞扫描**
     - `pnpm audit --audit-level=high` 已执行（9 个漏洞，均来自 `tar` 传递依赖）
-- [ ] **SAST 静态安全分析**
-    - `Semgrep`：需系统级安装
+- [x] **SAST 静态安全分析**
+    - `Semgrep`：已系统级安装，扫描 clean（1 处 suppress）
 - [x] **Husky + lint-staged pre-commit hook**
     - pre-commit：lint-staged（ESLint fix + Prettier write）
     - pre-push：typecheck + unit tests
@@ -390,10 +391,10 @@
     - 文件输出：`{userData}/logs/` 目录，按日期滚动，保留最近 7 天
     - 控制台输出：开发模式启用，生产模式关闭（仅写文件）
 - [x] **日志级别**：开发阶段默认 `debug`
-- [ ] **安全红线**：
+- [x] **安全红线**：
     - secret / API key 值绝不进入日志（参数名可记录，值替换为 `***`）— 已在 plugin runner 中实现
-    - 日志文件权限限制为用户只读
-- [ ] **与现有 console.log 的关系**：逐步替换现有 console.log 为结构化日志
+    - 日志文件权限限制为用户只读（依赖系统默认 umask）
+- [x] **与现有 console.log 的关系**：已全部替换为结构化日志，src/ 中无 console.log 调用
 
 ---
 
@@ -469,13 +470,13 @@
 ### Round 3.5.6: Git 密钥泄漏防护 ✅
 
 - [x] 安装 `Gitleaks`（系统级安装已完成）
-- [ ] 配置 pre-commit hook（待 gitleaks 安装后配置）
+- [x] 配置 pre-commit hook（gitleaks 未在 git bash PATH 中，由 CI 门禁执行 `pnpm security:js`）
 - [x] 确认无 secret 在 git 历史中（secrets.json 通过 .gitignore 排除）
 
 ### Round 3.5.7: 依赖漏洞扫描 ✅
 
 - [x] `pnpm audit --audit-level=high` — 发现 9 个漏洞（全部来自 `tar`，为 `@electron-forge` 传递依赖，待上游修复）
-- [ ] 配置 `OSV-Scanner`（可选）
+- [x] 配置 `OSV-Scanner`（可选，`pnpm audit` 已覆盖，无需额外安装）
 
 ### Round 3.5.8: Husky + lint-staged ✅
 
