@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerMonitor } from "electron";
+import { app, BrowserWindow, Tray, nativeImage, screen, powerMonitor } from "electron";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import {
@@ -250,6 +250,7 @@ void app.whenReady().then(async () => {
 
     // Window references — shared between tray and E2E mode
     let popupWin: BrowserWindow | null = null;
+    let settingsWin: BrowserWindow | null = null;
 
     // System tray — skip in E2E mode (tray may crash in headless/CI)
     if (process.env["E2E"] !== "1") {
@@ -263,16 +264,7 @@ void app.whenReady().then(async () => {
         tray.setToolTip("OmniUsage");
         log.info("System tray created");
 
-        const contextMenu = Menu.buildFromTemplate([
-            {
-                label: "退出",
-                click: () => {
-                    app.quit();
-                },
-            },
-        ]);
-        tray.setContextMenu(contextMenu);
-
+        // Left-click → toggle popup (usage view)
         tray.on("click", () => {
             if (popupWin && !popupWin.isDestroyed()) {
                 popupWin.close();
@@ -292,7 +284,6 @@ void app.whenReady().then(async () => {
             const popupHeight = popupCfg?.height ?? 480;
             const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
             const y = Math.round(trayBounds.y + trayBounds.height + 4);
-            // Ensure popup stays within display bounds
             const clampedX = Math.max(
                 display.workArea.x,
                 Math.min(x, display.workArea.x + display.workArea.width - popupWidth),
@@ -311,6 +302,18 @@ void app.whenReady().then(async () => {
 
             popupWin.on("closed", () => {
                 popupWin = null;
+            });
+        });
+
+        // Right-click → open settings directly
+        tray.on("right-click", () => {
+            if (settingsWin && !settingsWin.isDestroyed()) {
+                settingsWin.focus();
+                return;
+            }
+            settingsWin = createWindowFor("settings");
+            settingsWin.on("closed", () => {
+                settingsWin = null;
             });
         });
     } // end of E2E !== "1" tray block
