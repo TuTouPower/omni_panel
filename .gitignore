@@ -43,7 +43,9 @@ typings/
 # Environment
 .env
 .env.test
+.env.local
 
 # Package artifacts
 *.tgz
 .superpowers/
+.pytest_cache
