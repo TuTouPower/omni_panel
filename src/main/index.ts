@@ -147,12 +147,49 @@ void app.whenReady().then(async () => {
     // Build secretParamKeys from plugin metadata
     const config = await configStore.load();
 
-    // Auto-seed: create default plugin instances for missing definitions
-    const existingPaths = new Set(config.plugins.map((p) => p.executablePath));
-    const missingDefs = allDefinitions.filter((d) => !existingPaths.has(d.executablePath));
-    if (missingDefs.length > 0) {
-        log.info(`Auto-seeding ${String(missingDefs.length)} missing plugin instances`);
-        const seededPlugins = missingDefs.map((def) => {
+    // Auto-seed: create default plugin instances for missing definitions.
+    // Match by script base name (without extension) to handle renames (e.g. .py → .ts).
+    const existingByName = new Map<string, (typeof config.plugins)[number]>();
+    for (const p of config.plugins) {
+        const baseName =
+            p.executablePath
+                .replace(/\.[^.]+$/, "")
+                .split(/[/\\]/)
+                .pop() ?? "";
+        existingByName.set(baseName, p);
+    }
+
+    const { newDefs, renamedPlugins } = (() => {
+        const newDefs: PluginDefinition[] = [];
+        const renamedPlugins: { oldPath: string; newPath: string }[] = [];
+        for (const def of allDefinitions) {
+            const baseName = def.scriptName.replace(/\.[^.]+$/, "");
+            const existing = existingByName.get(baseName);
+            if (existing) {
+                if (existing.executablePath !== def.executablePath) {
+                    renamedPlugins.push({
+                        oldPath: existing.executablePath,
+                        newPath: def.executablePath,
+                    });
+                    existing.executablePath = def.executablePath;
+                }
+            } else {
+                newDefs.push(def);
+            }
+        }
+        return { newDefs, renamedPlugins };
+    })();
+
+    if (renamedPlugins.length > 0) {
+        log.info(
+            `Updated ${String(renamedPlugins.length)} plugin paths: ${renamedPlugins.map((r) => r.oldPath.split(/[/\\]/).pop()).join(", ")}`,
+        );
+        await configStore.save(config);
+    }
+
+    if (newDefs.length > 0) {
+        log.info(`Auto-seeding ${String(newDefs.length)} missing plugin instances`);
+        const seededPlugins = newDefs.map((def) => {
             const meta = def.metadata;
             const zhName = meta ? (meta as Record<string, unknown>)["name@zh-Hans"] : undefined;
             const name =
