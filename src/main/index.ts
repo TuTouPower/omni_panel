@@ -7,6 +7,8 @@ import {
     getStatesDir,
     getBundledPluginsDir,
     getUserPluginsDir,
+    getPluginCacheDir,
+    getSdkDir,
     get_tray_icon_path,
 } from "./core/paths";
 import { initLogging } from "./core/logging";
@@ -20,15 +22,14 @@ import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createPluginScheduler } from "./core/scheduler/plugin-scheduler";
 import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestrator";
 import { executePlugin } from "./core/plugin/runner";
-import { parsePluginOutputOrError } from "./core/plugin/output-parser";
+import { parsePluginResult } from "./core/plugin/output-parser";
 import { buildPluginCommand } from "./core/plugin/command-builder";
 import { registerPluginIpc } from "./ipc/plugin-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
 import { registerLogIpc } from "./ipc/log-ipc";
-import { registerSystemIpc } from "./ipc/system-ipc";
 import { discoverPlugins } from "./core/plugin/discovery";
-import { findPython } from "./core/plugin/python-detect";
+import { compilePlugin } from "./core/plugin/compiler";
 import type { PluginConfiguration } from "../shared/types/config";
 import type { PluginDefinition } from "./core/plugin/types";
 
@@ -116,23 +117,32 @@ void app.whenReady().then(async () => {
         `Discovered ${String(allDefinitions.length)} plugins (${String(bundledDefs.length)} bundled, ${String(userDefs.length)} user)`,
     );
 
-    // Detect Python
-    let pythonCommand = "python3";
-    let pythonAvailable = true;
-    try {
-        pythonCommand = await findPython();
-        log.info(`Python detected: ${pythonCommand}`);
-    } catch {
-        pythonAvailable = false;
-        log.warn("Python 3.8+ not detected, plugin functionality unavailable");
+    // Compile TS plugins to JS
+    const cacheDir = getPluginCacheDir();
+    const sdkDir = getSdkDir();
+    const compiledPaths = new Map<string, string>();
+
+    for (const def of allDefinitions) {
+        const result = await compilePlugin(def, cacheDir, sdkDir);
+        if (result.executablePath) {
+            compiledPaths.set(def.executablePath, result.executablePath);
+            if (result.status === "stale_cache") {
+                log.warn(`Plugin ${def.scriptName} using stale cache: ${result.error}`);
+            }
+        } else if (result.status === "compile_error") {
+            log.warn(`Plugin ${def.scriptName} failed to compile: ${result.error}`);
+        }
     }
 
-    // Build command builder with detected Python
+    // Build command builder using Electron's Node runtime
     const buildCommand = (
         executablePath: string,
         parameterValues: Record<string, string>,
         language: "zh-Hans" | "en",
-    ) => buildPluginCommand(executablePath, parameterValues, language, pythonCommand);
+    ) => {
+        const compiledPath = compiledPaths.get(executablePath) ?? executablePath;
+        return buildPluginCommand(compiledPath, parameterValues, language, process.execPath);
+    };
 
     // Build secretParamKeys from plugin metadata
     const config = await configStore.load();
@@ -148,7 +158,7 @@ void app.whenReady().then(async () => {
             const name =
                 (typeof zhName === "string" ? zhName : undefined) ??
                 meta?.name ??
-                def.scriptName.replace(/\.py$/, "");
+                def.scriptName.replace(/\.ts$/, "");
             return {
                 instanceId: randomUUID(),
                 stateId: randomUUID(),
@@ -192,7 +202,7 @@ void app.whenReady().then(async () => {
     // Wire real refresh service
     const refreshService = createRefreshService({
         runner: executePlugin,
-        outputParser: parsePluginOutputOrError,
+        outputParser: parsePluginResult,
         commandBuilder: buildCommand,
         cacheStore,
         runtimeStore,
@@ -227,9 +237,6 @@ void app.whenReady().then(async () => {
             }
             orchestrator.rebuild(updatedConfig);
         },
-    });
-    await registerSystemIpc({
-        pythonStatus: { available: pythonAvailable, command: pythonCommand },
     });
     await registerLogIpc();
     cleanupEventIpc = registerEventIpc({ runtimeStore });

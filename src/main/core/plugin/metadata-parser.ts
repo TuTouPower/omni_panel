@@ -2,13 +2,11 @@ import { METADATA_MAX_LINES } from "../../../shared/constants";
 import { pluginMetadataSchema, type PluginMetadata } from "../../../shared/schemas/plugin-metadata";
 
 function stripCommentPrefix(line: string): string {
-    const hashIndex = line.indexOf("#");
-    if (hashIndex === -1) return line;
-
-    const afterHash = line.slice(hashIndex + 1);
-    if (afterHash.startsWith(" ")) return afterHash.slice(1);
-
-    return afterHash;
+    const slashIndex = line.indexOf("//");
+    if (slashIndex === -1) return line;
+    const afterSlash = line.slice(slashIndex + 2);
+    if (afterSlash.startsWith(" ")) return afterSlash.slice(1);
+    return afterSlash;
 }
 
 export function parsePluginMetadata(content: string): PluginMetadata | null {

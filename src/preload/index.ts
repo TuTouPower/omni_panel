@@ -4,7 +4,6 @@ import type {
     IpcResult,
     UsageboardApi,
     PluginSnapshotDTO,
-    PythonStatus,
     RendererLogPayload,
 } from "../shared/types/ipc";
 import "./usageboard-api";
@@ -58,9 +57,6 @@ const api: UsageboardApi = {
                 IPC_CHANNELS.CONFIG_DUPLICATE,
                 instanceId,
             ),
-    },
-    system: {
-        getPythonStatus: () => invoke<PythonStatus>(IPC_CHANNELS.SYSTEM_PYTHON_STATUS),
     },
     event: {
         onStateChange: (callback) => {

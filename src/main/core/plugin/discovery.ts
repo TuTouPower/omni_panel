@@ -5,8 +5,7 @@ import type { PluginDefinition } from "./types";
 import { createLogger } from "../../../shared/lib/logger";
 
 const log = createLogger("discovery");
-const PLUGIN_EXT = ".py";
-const COMMON_PREFIX = "_common";
+const PLUGIN_EXT = ".ts";
 
 export async function discoverPlugins(
     dir: string,
@@ -25,8 +24,7 @@ export async function discoverPlugins(
     }
 
     const pluginFiles = entries.filter(
-        (name) =>
-            name.endsWith(PLUGIN_EXT) && !name.startsWith(COMMON_PREFIX) && !name.startsWith("."),
+        (name) => name.endsWith(PLUGIN_EXT) && !name.startsWith("."),
     );
 
     const definitions: PluginDefinition[] = [];

@@ -4,7 +4,7 @@ import type { CacheStore } from "../cache/cache-store";
 import type { RuntimeStore } from "./runtime-store";
 import type { PluginExecutionResult } from "../plugin/runner";
 import type { PluginCommand } from "../plugin/command-builder";
-import type { PluginOutput, PluginErrorOutput } from "../../../shared/schemas/plugin-output";
+import type { PluginResult } from "../../../shared/schemas/plugin-output";
 import type { AppLanguage } from "../../../shared/types/plugin";
 import type { SecretsStore } from "../config/secrets-store";
 import { createLogger } from "../../../shared/lib/logger";
@@ -19,7 +19,7 @@ export interface RefreshServiceDeps {
         command: PluginCommand,
         options?: { timeoutMs?: number },
     ) => Promise<PluginExecutionResult>;
-    outputParser: (stdout: string) => PluginOutput | PluginErrorOutput;
+    outputParser: (stdout: string) => PluginResult;
     commandBuilder: (
         executablePath: string,
         parameterValues: Record<string, string>,
@@ -129,13 +129,13 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                     );
                 }
                 const output = deps.outputParser(result.stdout);
-                if ("error" in output) {
+                if (!output.success) {
                     log.warn(
-                        `Plugin ${instanceId} (${plugin.name}) reported error: ${output.error}`,
+                        `Plugin ${instanceId} (${plugin.name}) reported error: ${output.error.code} - ${output.error.message}`,
                     );
                     deps.runtimeStore.updateState(instanceId, {
                         status: "failed",
-                        error: output.error,
+                        error: output.error.message,
                     });
                     return;
                 }

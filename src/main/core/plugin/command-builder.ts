@@ -1,5 +1,4 @@
 import type { AppLanguage } from "../../../shared/types/plugin";
-import { dirname } from "node:path";
 
 export interface PluginCommand {
     readonly command: string;
@@ -11,7 +10,7 @@ export function buildPluginCommand(
     executablePath: string,
     parameterValues: Record<string, string>,
     language: AppLanguage,
-    pythonCommand = "python3",
+    nodePath: string,
 ): PluginCommand {
     const paramArgs: string[] = [];
 
@@ -23,16 +22,8 @@ export function buildPluginCommand(
 
     paramArgs.push("--usageboard-param", `USAGEBOARD_LANGUAGE=${language}`);
 
-    if (executablePath.endsWith(".py")) {
-        return {
-            command: pythonCommand,
-            args: [executablePath, ...paramArgs],
-            env: { PYTHONPATH: dirname(executablePath) },
-        };
-    }
-
     return {
-        command: executablePath,
-        args: paramArgs,
+        command: nodePath,
+        args: [executablePath, ...paramArgs],
     };
 }

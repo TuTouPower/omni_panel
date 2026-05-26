@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { usePlugins } from "../hooks/use-plugins";
 import { useTheme } from "../lib/theme";
 import { PluginCard } from "../components/PluginCard";
@@ -6,20 +5,11 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { EmptyState } from "../components/EmptyState";
 import { RefreshButton } from "../components/RefreshButton";
 import { Button } from "../components/Button";
-import type { PythonStatus } from "../../shared/types/ipc";
 import logo from "../assets/logo.png";
 
 export function PopupView() {
     useTheme();
     const { plugins, loading, error, refreshAll } = usePlugins();
-    const [pythonStatus, setPythonStatus] = useState<PythonStatus | null>(null);
-
-    useEffect(() => {
-        window.usageboard.system
-            .getPythonStatus()
-            .then(setPythonStatus)
-            .catch(() => undefined);
-    }, []);
 
     const goToSettings = () => {
         window.location.hash = "#settings";
@@ -27,19 +17,6 @@ export function PopupView() {
 
     const emptyState = (() => {
         if (loading || plugins.length > 0) return null;
-
-        if (pythonStatus && !pythonStatus.available) {
-            return (
-                <EmptyState
-                    message="未检测到 Python 3.8+，插件功能不可用"
-                    action="了解更多"
-                    onAction={() => {
-                        /* could open docs */
-                    }}
-                    data-testid="popup-empty"
-                />
-            );
-        }
 
         const hasFailedKey = plugins.some(
             (p) =>
@@ -86,9 +63,6 @@ export function PopupView() {
             </header>
 
             <main className="flex-1 overflow-auto p-3">
-                {pythonStatus && !pythonStatus.available && (
-                    <ErrorBanner message="未检测到 Python 3.8+，插件功能不可用。请安装 Python。" />
-                )}
                 {error && (
                     <div data-testid="popup-error">
                         <ErrorBanner message={error} />

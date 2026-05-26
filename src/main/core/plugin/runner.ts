@@ -13,6 +13,18 @@ export interface PluginExecutionResult {
     readonly durationMs: number;
 }
 
+const minimalEnv: Record<string, string> = {
+    PATH: process.env["PATH"] ?? "",
+    HOME: process.env["HOME"] ?? "",
+    USERPROFILE: process.env["USERPROFILE"] ?? "",
+    APPDATA: process.env["APPDATA"] ?? "",
+    LOCALAPPDATA: process.env["LOCALAPPDATA"] ?? "",
+    TEMP: process.env["TEMP"] ?? "",
+    TMP: process.env["TMP"] ?? "",
+    SYSTEMROOT: process.env["SYSTEMROOT"] ?? "",
+    COMSPEC: process.env["COMSPEC"] ?? "",
+};
+
 export async function executePlugin(
     command: PluginCommand,
     options?: { readonly timeoutMs?: number },
@@ -38,20 +50,32 @@ export async function executePlugin(
     return new Promise<PluginExecutionResult>((resolve, reject) => {
         const child = spawn(command.command, [...command.args], {
             // nosemgrep: detect-child-process
-            env: { ...process.env, PYTHONIOENCODING: "utf-8", ...command.env },
+            env: { ...minimalEnv, ...command.env },
         });
 
         const stdoutChunks: Buffer[] = [];
         const stderrChunks: Buffer[] = [];
+        let stdoutBytes = 0;
+        let stderrBytes = 0;
         let timedOut = false;
         let settled = false;
 
         child.stdout.on("data", (chunk: Buffer) => {
             stdoutChunks.push(chunk);
+            stdoutBytes += chunk.length;
+            if (stdoutBytes > 1024 * 1024) {
+                log.warn("Plugin stdout exceeded 1MB, killing");
+                child.kill("SIGTERM");
+            }
         });
 
         child.stderr.on("data", (chunk: Buffer) => {
             stderrChunks.push(chunk);
+            stderrBytes += chunk.length;
+            if (stderrBytes > 256 * 1024) {
+                log.warn("Plugin stderr exceeded 256KB, killing");
+                child.kill("SIGTERM");
+            }
         });
 
         const timer = setTimeout(() => {
