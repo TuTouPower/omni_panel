@@ -7,8 +7,6 @@ export interface PluginCommand {
     readonly env?: Readonly<Record<string, string>>;
 }
 
-const SHELL_META = /[&|`$<>!#;]/;
-
 export function buildPluginCommand(
     executablePath: string,
     parameterValues: Record<string, string>,
@@ -19,9 +17,6 @@ export function buildPluginCommand(
 
     for (const [key, value] of Object.entries(parameterValues)) {
         if (value !== "") {
-            if (SHELL_META.test(key) || SHELL_META.test(value)) {
-                throw new Error(`Parameter key or value contains unsafe characters: ${key}`);
-            }
             paramArgs.push("--usageboard-param", `${key}=${value}`);
         }
     }

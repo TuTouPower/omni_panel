@@ -43,15 +43,9 @@ describe("buildPluginCommand", () => {
         expect(langIdx).toBeGreaterThan(-1);
     });
 
-    it("rejects parameter values with shell metacharacters", () => {
-        expect(() => buildPluginCommand("/p.py", { KEY: "val&rm -rf /" }, "zh-Hans")).toThrow(
-            "unsafe characters",
-        );
-    });
-
-    it("rejects parameter keys with shell metacharacters", () => {
-        expect(() => buildPluginCommand("/p.py", { "K;E;Y": "val" }, "zh-Hans")).toThrow(
-            "unsafe characters",
-        );
+    it("accepts parameter values with special characters (spawn uses array args)", () => {
+        const result = buildPluginCommand("/p.py", { KEY: "val&rm -rf /" }, "zh-Hans");
+        const idx = result.args.indexOf("KEY=val&rm -rf /");
+        expect(idx).toBeGreaterThan(-1);
     });
 });
