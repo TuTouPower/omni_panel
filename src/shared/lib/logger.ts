@@ -52,12 +52,16 @@ export function createConsoleTransport(): LogTransport {
     return {
         write(level, module, message, meta) {
             const line = `[${formatTimestamp()}] [${level.toUpperCase()}] [${module}] ${message}${formatMeta(meta)}`;
-            if (level === "error") {
-                console.error(line);
-            } else if (level === "warn") {
-                console.warn(line);
-            } else {
-                console.log(line);
+            try {
+                if (level === "error") {
+                    console.error(line);
+                } else if (level === "warn") {
+                    console.warn(line);
+                } else {
+                    console.log(line);
+                }
+            } catch {
+                // Ignore EPIPE when stdout pipe is closed (e.g. in packaged app)
             }
         },
     };

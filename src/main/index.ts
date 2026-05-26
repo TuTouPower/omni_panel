@@ -1,6 +1,16 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerMonitor } from "electron";
+import {
+    app,
+    BrowserWindow,
+    Tray,
+    Menu,
+    nativeImage,
+    screen,
+    powerMonitor,
+    session,
+} from "electron";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import {
     getConfigPath,
     getDataRoot,
@@ -33,6 +43,18 @@ import { compilePlugin } from "./core/plugin/compiler";
 import type { PluginConfiguration } from "../shared/types/config";
 import type { PluginDefinition } from "./core/plugin/types";
 
+// Suppress EPIPE when stdout pipe is closed (e.g. launched from script with broken pipe)
+process.on("uncaughtException", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EPIPE") return;
+    throw err;
+});
+
+// Single-instance lock — prevent duplicate app instances
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+    app.quit();
+}
+
 const SECURE_WEB_PREFS = {
     contextIsolation: true,
     nodeIntegration: false,
@@ -40,6 +62,26 @@ const SECURE_WEB_PREFS = {
     webSecurity: true,
     allowRunningInsecureContent: false,
 } as const;
+
+/**
+ * Find the system Node.js binary. Plugins must run under a real Node runtime,
+ * not under Electron (ELECTRON_RUN_AS_NODE is unreliable in packaged apps).
+ */
+function findSystemNode(): string {
+    const isWin = process.platform === "win32";
+    const nodeCmd = isWin ? "node.exe" : "node";
+
+    // Search PATH for node
+    const pathDirs = (process.env["PATH"] ?? "").split(isWin ? ";" : ":");
+    for (const dir of pathDirs) {
+        const candidate = join(dir, nodeCmd);
+        if (existsSync(candidate)) return candidate;
+    }
+    // Fallback: use process.execPath (Electron) — may fail in packaged mode
+    return process.execPath;
+}
+
+const SYSTEM_NODE = findSystemNode();
 
 interface WindowConfig {
     route: string;
@@ -93,11 +135,34 @@ function createWindowFor(key: string): BrowserWindow {
 let cleanupEventIpc: (() => void) | null = null;
 
 void app.whenReady().then(async () => {
+    // When ELECTRON_RUN_AS_NODE=1, Electron loads this entry but is used as a
+    // Node runtime for plugin scripts.  Skip all GUI initialization so each
+    // plugin spawn doesn't create its own window/tray.
+    if (process.env["ELECTRON_RUN_AS_NODE"] === "1") {
+        return;
+    }
+
     const dataRoot = getDataRoot();
     await initLogging(dataRoot);
     const log = createLogger("main");
 
     log.info("Application starting");
+
+    // Set CSP programmatically — allows Vite dev server in dev mode
+    const devServerUrl = process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"];
+    const devOrigin = devServerUrl ? new URL(devServerUrl).origin : null;
+    const cspScriptSrc = devOrigin ? `'self' ${devOrigin} 'unsafe-eval'` : "'self'";
+    const cspConnectSrc = devOrigin ? `'self' ${devOrigin} ws:` : "'self'";
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+            responseHeaders: {
+                ...details.responseHeaders,
+                "Content-Security-Policy": [
+                    `default-src 'self'; script-src ${cspScriptSrc}; style-src 'self' 'unsafe-inline'; connect-src ${cspConnectSrc};`,
+                ],
+            },
+        });
+    });
     const configPath = getConfigPath();
     const statesDir = getStatesDir();
 
@@ -134,14 +199,14 @@ void app.whenReady().then(async () => {
         }
     }
 
-    // Build command builder using Electron's Node runtime
+    // Build command using system Node (not Electron)
     const buildCommand = (
         executablePath: string,
         parameterValues: Record<string, string>,
         language: "zh-Hans" | "en",
     ) => {
         const compiledPath = compiledPaths.get(executablePath) ?? executablePath;
-        return buildPluginCommand(compiledPath, parameterValues, language, process.execPath);
+        return buildPluginCommand(compiledPath, parameterValues, language, SYSTEM_NODE);
     };
 
     // Build secretParamKeys from plugin metadata
@@ -171,7 +236,7 @@ void app.whenReady().then(async () => {
                         oldPath: existing.executablePath,
                         newPath: def.executablePath,
                     });
-                    existing.executablePath = def.executablePath;
+                    (existing as { executablePath: string }).executablePath = def.executablePath;
                 }
             } else {
                 newDefs.push(def);
