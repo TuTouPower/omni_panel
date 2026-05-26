@@ -1,8 +1,12 @@
 # OmniUsage 项目规范
 
 > 最终状态规范。Phase 1–16 已完成，本文档描述当前系统全貌。
+> https://github.com/qixing-jk/all-api-hub
+> https://github.com/juliantanx/aiusage
+> https://github.com/mm7894215/TokenTracker
+> https://github.com/marsmay/UsageBoard
 
----
+## 对标项目以后做
 
 ## 1. 项目概述
 
@@ -159,14 +163,15 @@ python3 <plugin.py> --usageboard-param KEY1=value1 --usageboard-param KEY2=value
 
 ### 3.6 内置插件
 
-| 插件     | 脚本                       | 需要 API Key | 说明                      |
-| -------- | -------------------------- | ------------ | ------------------------- |
-| Claude   | `claude-usage-plugin.py`   | 否（读本地） | 读取 `~/.claude` 用量文件 |
-| Codex    | `codex-usage-plugin.py`    | 否（读本地） | 读取 `~/.codex` 用量文件  |
-| DeepSeek | `deepseek-usage-plugin.py` | 是           | 调用 DeepSeek API         |
-| 智谱     | `glm-usage-plugin.py`      | 是           | 调用智谱 GLM API          |
-| MiniMax  | `minimax-usage-plugin.py`  | 是           | 调用 MiniMax API          |
-| Tavily   | `tavily-usage-plugin.py`   | 是           | 调用 Tavily API           |
+| 插件     | 脚本                       | 需要 API Key | 说明                                                            |
+| -------- | -------------------------- | ------------ | --------------------------------------------------------------- |
+| Claude   | `claude-usage-plugin.py`   | 否（读本地） | 读取 `~/.claude` 用量文件                                       |
+| Codex    | `codex-usage-plugin.py`    | 否（读本地） | 读取 `~/.codex` 用量文件                                        |
+| DeepSeek | `deepseek-usage-plugin.py` | 是           | 调用 DeepSeek API                                               |
+| 智谱     | `glm-usage-plugin.py`      | 是           | 调用智谱 GLM API                                                |
+| MiniMax  | `minimax-usage-plugin.py`  | 是           | 调用 MiniMax API                                                |
+| Tavily   | `tavily-usage-plugin.py`   | 是           | 调用 Tavily API                                                 |
+| CPA      | `cpa-usage-plugin.py`      | 是           | 通过 CPA-Manager 获取 Claude/Codex/Gemini/Antigravity/Kimi 额度 |
 
 ---
 
@@ -273,8 +278,9 @@ refresh(instanceId)
 ### 6.1 系统托盘
 
 - **左键点击**：toggle Popup 窗口（用量面板）
-- **右键点击**：直接打开 Settings 窗口
-- 无 context menu
+- **右键点击**：弹出上下文菜单
+    - **设置**：打开 Settings 窗口（独立窗口）
+    - **退出**：退出应用
 - E2E 模式（`E2E=1`）跳过 Tray，自动打开 Popup
 
 ### 6.2 窗口配置

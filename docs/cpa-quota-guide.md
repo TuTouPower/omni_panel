@@ -25,16 +25,16 @@ ai_monitor **不直接持有 OAuth token**。所有 token 由 CPA-Manager 统一
 
 ## CPA-Manager 连接信息
 
-| 项目     | 值                            |
-| -------- | ----------------------------- |
-| 地址     | `CPA_MGMT_URL` |
-| 管理密钥 | `<your-management-key>`            |
-| 超时     | 30 秒                         |
+| 项目     | 值                         |
+| -------- | -------------------------- |
+| 地址     | `http://<your-host>:20224` |
+| 管理密钥 | `<your-management-key>`    |
+| 超时     | 30 秒                      |
 
 配置在 `src/api.py` 第 725-728 行：
 
 ```python
-_CPA_MGMT_URL = "CPA_MGMT_URL"
+_CPA_MGMT_URL = "http://<your-host>:20224"
 _CPA_MGMT_KEY = "<your-management-key>"
 _CPA_MGMT_TIMEOUT = 30
 ```

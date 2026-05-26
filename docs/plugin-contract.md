@@ -151,3 +151,17 @@
 - 正常执行（exit 0）：stderr 内容不展示给用户，仅调试
 - 异常执行（exit != 0）：stderr 用作错误消息 fallback
 - stderr 不等于失败
+
+## 内置插件
+
+### CPA 插件 (`cpa-usage-plugin.py`)
+
+通过 CPA-Manager 代理服务获取 5 个 provider 的配额数据：Claude、Codex、Gemini、Antigravity、Kimi。
+
+- **外部依赖**：`httpx`（`pip install httpx`），Python 3.8+
+- **参数**：`cpa_mgmt_url`（string）、`cpa_mgmt_key`（secret）、5 个 `monitor_*`（boolean）开关
+- **多 item 输出**：每个账号的每个配额周期输出一个 item（如 `claude:user@example.com:5小时`）
+- **容错**：单个账号失败不阻塞其他账号，全部失败才输出 error JSON
+- **Antigravity**：三个 URL 回退机制，自动尝试不同端点
+- **Gemini**：两步请求（`loadCodeAssist` → `retrieveUserQuota`）
+- 详细 API 规范见 `docs/cpa-quota-guide.md`

@@ -880,7 +880,7 @@ CPA 插件 (Python 子进程)
     │
     │  HTTP 请求 (httpx)
     ▼
-CPA-Manager (CPA_MGMT_URL)
+CPA-Manager (http://<your-host>:20224)
     │
     │  用存储的 OAuth token 代发
     ▼
@@ -895,7 +895,7 @@ CPA-Manager (CPA_MGMT_URL)
     - `name`: `"CPA"`
     - `refreshInterval`: `1800`（30 分钟）
     - `parameters`:
-        - `cpa_mgmt_url` (string, 默认 `"CPA_MGMT_URL"`)
+        - `cpa_mgmt_url` (string, 默认 `"http://localhost:20224"`)
         - `cpa_mgmt_key` (secret)
         - `monitor_codex` (boolean, 默认 `true`)
         - `monitor_claude` (boolean, 默认 `true`)

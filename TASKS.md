@@ -4,7 +4,7 @@
 
 ---
 
-## Phase 17: 添加 CPA 插件 — 通过 CPA-Manager 获取多平台 AI 服务额度数据 ❌
+## Phase 17: 添加 CPA 插件 — 通过 CPA-Manager 获取多平台 AI 服务额度数据 ✅
 
 ### 背景
 
@@ -27,7 +27,7 @@ CPA 插件 (Python 子进程)
     │
     │  HTTP 请求 (httpx)
     ▼
-CPA-Manager (CPA_MGMT_URL)
+CPA-Manager (http://<your-host>:20224)
     │
     │  用存储的 OAuth token 代发
     ▼
@@ -38,110 +38,95 @@ CPA-Manager (CPA_MGMT_URL)
 
 #### 17.1: 编写 `resources/plugins/cpa-usage-plugin.py`
 
-- [ ] 输出 `_METADATA` 注释块，声明插件元数据：
+- [x] 输出 `_METADATA` 注释块，声明插件元数据：
     - `name`: `"CPA"`
     - `refreshInterval`: `1800`（30 分钟）
     - `parameters`:
-        - `cpa_mgmt_url` (string, 默认 `"CPA_MGMT_URL"`)
+        - `cpa_mgmt_url` (string, 默认 `"http://localhost:20224"`)
         - `cpa_mgmt_key` (secret)
         - `monitor_codex` (boolean, 默认 `true`)
         - `monitor_claude` (boolean, 默认 `true`)
         - `monitor_gemini` (boolean, 默认 `true`)
         - `monitor_antigravity` (boolean, 默认 `true`)
         - `monitor_kimi` (boolean, 默认 `true`)
-- [ ] `--usageboard-param` 支持运行时传入覆盖默认值
-- [ ] 依赖：`httpx`（`pip install httpx`），Python 3.8+ 兼容
-- [ ] 核心逻辑：
+- [x] `--usageboard-param` 支持运行时传入覆盖默认值
+- [x] 依赖：`httpx`（`pip install httpx`），Python 3.8+ 兼容
+- [x] 核心逻辑：
     1. 调用 `GET /v0/management/auth-files` 获取 auth 文件列表
     2. 按 provider 分发：`claude` / `codex` / `gemini-cli` / `antigravity` / `kimi`
     3. 跳过 `disabled` 的 auth 文件
     4. 每个 auth 文件通过 `POST /v0/management/api-call` 代理请求上游
-    5. 解析三个 provider 的不同响应格式
+    5. 解析五个 provider 的不同响应格式
     6. 输出标准 `PluginOutput` JSON
-- [ ] 输出 items 格式（每个账号每个周期一个 item）：
-    ```json
-    {
-        "id": "claude:user@example.com:5小时",
-        "label": "Claude (user@example.com)",
-        "meter": {
-            "unit": "percent",
-            "used": 45.2,
-            "limit": 100,
-            "resetAt": "2026-05-27T03:00:00Z"
-        }
-    }
-    ```
-- [ ] 错误处理：单个账号失败不阻塞其他，失败项输出 warning，全部失败输出 error JSON
-- [ ] 启动时打印 `_PLUGIN_READY` 和 `_PLUGIN_DONE`
+- [x] 输出 items 格式（每个账号每个周期一个 item）
+- [x] 错误处理：单个账号失败不阻塞其他，失败项输出 warning，全部失败输出 error JSON
 
 #### 17.2: 实现五个 provider 的响应解析
 
-- [ ] **Claude**: `GET https://api.anthropic.com/api/oauth/usage`
+- [x] **Claude**: `GET https://api.anthropic.com/api/oauth/usage`
     - Header: `Authorization: Bearer $TOKEN$`, `anthropic-beta: oauth-2025-04-20`
     - 响应字段：`five_hour.utilization`（0~1），`seven_day.utilization`
     - 时间字段：`resets_at` (ISO 8601)
-- [ ] **Codex**: `GET https://chatgpt.com/backend-api/wham/usage`
+- [x] **Codex**: `GET https://chatgpt.com/backend-api/wham/usage`
     - Header: `Authorization: Bearer $TOKEN$`, `User-Agent: codex_cli_rs/...`
     - 响应字段：`rate_limit.primary_window.used_percent`，`secondary_window`
     - 时间字段：`reset_at` (Unix 秒/ms)
-- [ ] **Gemini**: 两步 POST
+- [x] **Gemini**: 两步 POST
     - Step 1: `loadCodeAssist` → 获取 `cloudaicompanionProject`
     - Step 2: `retrieveUserQuota` → 获取 `buckets[].remainingFraction`
-- [ ] **Antigravity**: `POST .../v1internal:fetchAvailableModels`（三 URL 回退）
+- [x] **Antigravity**: `POST .../v1internal:fetchAvailableModels`（三 URL 回退）
     - Header: `Authorization: Bearer $TOKEN$`, `User-Agent: antigravity/1.11.5 windows/amd64`
     - Body: `{"project": "{project_id}"}` 或 `{}`
     - 响应：`models.{modelId}.quotaInfo.remainingFraction`（0~1），`quotaInfo.resetTime` (ISO)
     - 每个模型独立配额，一个账号输出多条 item
-- [ ] **Kimi**: `GET https://api.kimi.com/coding/v1/usages`
+- [x] **Kimi**: `GET https://api.kimi.com/coding/v1/usages`
     - Header: `Authorization: Bearer $TOKEN$`
     - 响应：`limits[]` 数组，每项含 `used`、`limit`、`reset_at` (ISO)、`duration`、`timeUnit`
     - `used_percent = (used / limit) * 100`
 
 #### 17.3: 集成到插件系统
 
-- [ ] 确认 `discoverPlugins()` 能发现 `resources/plugins/cpa-usage-plugin.py`
-- [ ] 首次启动自动创建 CPA 插件实例（auto-seed 机制复用）
-- [ ] 参数表单：Settings 中显示 CPA 管理地址、密钥、三个 provider 开关
-- [ ] 密钥回注：`cpa_mgmt_key` 为 secret 类型，执行前自动注入
+- [x] 确认 `discoverPlugins()` 能发现 `resources/plugins/cpa-usage-plugin.py`
+- [x] 首次启动自动创建 CPA 插件实例（auto-seed 机制复用）
+- [x] 参数表单：Settings 中显示 CPA 管理地址、密钥、五个 provider 开关
+- [x] 密钥回注：`cpa_mgmt_key` 为 secret 类型，执行前自动注入
 
 #### 17.4: UI 适配
 
-- [ ] 插件卡片支持多 item 显示（每个账号每个周期一个进度条）
-- [ ] 标签显示 provider 名 + 邮箱 + 周期（如 "Claude (user@ex.com) · 5小时"）
-- [ ] 如果复用现有 PluginCard 即可满足则无需修改 UI
+- [x] 插件卡片支持多 item 显示（每个账号每个周期一个进度条）
+- [x] 标签显示 provider 名 + 邮箱 + 周期（如 "Claude (user@ex.com) · 5小时"）
+- [x] 如果复用现有 PluginCard 即可满足则无需修改 UI
 
 #### 17.5: 测试
 
-- [ ] **单元测试**：
-    - `cpa_parse_claude_quota()` — 正常响应、空响应、HTTP 错误
-    - `cpa_parse_codex_quota()` — primary_window / secondary_window 解析
-    - `cpa_parse_gemini_quota()` — 两步请求、bucket 解析
-    - `cpa_parse_antigravity_quota()` — 多模型 quotaInfo 解析
-    - `cpa_parse_kimi_quota()` — limits 数组解析
-    - auth 文件过滤（disabled 跳过、provider 分发）
-- [ ] **集成测试**：
-    - mock CPA-Manager 响应，验证完整 JSON 输出
-    - 单个 provider 失败不影响其他
-    - 全部失败输出 error 格式
-- [ ] **E2E 测试**：
-    - Settings 中 CPA 参数表单可填写
-    - 保存后触发刷新，Popup 显示 CPA 数据
-    - 刷新间隔配置生效
+- [x] **单元测试**：
+    - `parse_claude()` — 正常响应、空响应、fractional utilization
+    - `parse_codex()` — primary_window / secondary_window 解析
+    - `parse_gemini_buckets()` — bucket 解析
+    - `parse_antigravity_models()` — 多模型 quotaInfo 解析
+    - `parse_kimi()` — limits 数组解析
+    - `extract_email()` — 邮箱提取
+- [x] **集成测试**：
+    - 缺少 httpx → error JSON
+    - 缺少 cpa_mgmt_key → error JSON
+    - CPA-Manager 不可达 → error JSON
 
 #### 17.6: 文档更新
 
-- [ ] `docs/plugin-contract.md` 补充 CPA 插件说明
-- [ ] `README.md` 补充 CPA 功能说明和配置方法
+- [x] `docs/plugin-contract.md` 补充 CPA 插件说明
+- [x] `docs/spec.md` 内置插件表添加 CPA 行
 
-### 修改文件（预计）
+### 修改文件（实际）
 
-| 文件                                       | 变更                                    |
-| ------------------------------------------ | --------------------------------------- |
-| `resources/plugins/cpa-usage-plugin.py`    | **新建** — CPA 插件脚本                 |
-| `src/main/index.ts`                        | 首次启动自动创建 CPA 插件实例（如需要） |
-| `tests/unit/plugin/cpa-plugin.test.ts`     | **新建** — CPA 解析逻辑单元测试         |
-| `tests/integration/cpa/cpa-plugin.test.ts` | **新建** — CPA 插件集成测试             |
-| `docs/plugin-contract.md`                  | 补充 CPA 插件说明                       |
+| 文件                                           | 变更                               |
+| ---------------------------------------------- | ---------------------------------- |
+| `resources/plugins/cpa-usage-plugin.py`        | **新建** — CPA 插件脚本            |
+| `tests/unit/plugin/cpa_parsers_test.py`        | **新建** — Python 解析函数单元测试 |
+| `tests/unit/plugin/cpa-parsers-vitest.test.ts` | **新建** — Vitest 包装器           |
+| `tests/integration/plugin/cpa-plugin.test.ts`  | **新建** — CPA 插件集成测试        |
+| `tests/unit/plugin/bundled-metadata.test.ts`   | 更新插件数量 6→7 + 添加 CPA 条目   |
+| `docs/plugin-contract.md`                      | 补充 CPA 插件说明                  |
+| `docs/spec.md`                                 | 内置插件表添加 CPA 行              |
 
 ### 验证
 
