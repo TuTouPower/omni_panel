@@ -40,3 +40,14 @@ export function get_tray_icon_path(): string {
     }
     return join(PROJECT_ROOT, "resources", "tray-icon.png");
 }
+
+export function getPluginCacheDir(): string {
+    return join(getDataRoot(), "plugin-cache");
+}
+
+export function getSdkDir(): string {
+    if (app.isPackaged) {
+        return join(process.resourcesPath, "sdk");
+    }
+    return join(PROJECT_ROOT, "src", "plugins", "sdk");
+}
