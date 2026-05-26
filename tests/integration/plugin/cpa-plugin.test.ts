@@ -1,57 +1,59 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import { resolve } from "node:path";
+import { execSync } from "node:child_process";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { executePlugin } from "../../../src/main/core/plugin/runner";
 import { buildPluginCommand } from "../../../src/main/core/plugin/command-builder";
-import { findPython } from "../../../src/main/core/plugin/python-detect";
-import { parsePluginOutputOrError } from "../../../src/main/core/plugin/output-parser";
-import type { PluginErrorOutput } from "../../../src/shared/schemas/plugin-output";
+import { parsePluginResult } from "../../../src/main/core/plugin/output-parser";
+import { getSdkDir } from "../../../src/main/core/paths";
 
-const pluginPath = resolve(__dirname, "../../../resources/plugins/cpa-usage-plugin.py");
+const pluginSource = resolve(__dirname, "../../../resources/plugins/cpa-usage-plugin.ts");
+const cacheDir = resolve(__dirname, "../../../.cache/cpa-test");
+const nodePath = process.execPath;
 
-let pythonCommand = "python3";
-
-function isError(output: unknown): output is PluginErrorOutput {
-    return typeof output === "object" && output !== null && "error" in output;
+function compileCpaPlugin(): string {
+    const outPath = resolve(cacheDir, "cpa-usage-plugin.js");
+    if (existsSync(outPath)) return outPath;
+    mkdirSync(cacheDir, { recursive: true });
+    const sdkDir = getSdkDir();
+    execSync(
+        `npx esbuild "${pluginSource}" --bundle --platform=node --format=cjs ` +
+            `--alias:@omni-usage/plugin-sdk="${sdkDir}" ` +
+            `--outfile="${outPath}"`,
+        { stdio: "pipe" },
+    );
+    return outPath;
 }
 
 describe("CPA plugin subprocess", () => {
-    beforeAll(async () => {
-        pythonCommand = await findPython();
-    });
+    let compiledPath: string;
 
-    it("outputs error JSON when httpx is not available", async () => {
-        const cmd = buildPluginCommand(
-            pluginPath,
-            { cpa_mgmt_key: "test-key", cpa_mgmt_url: "http://127.0.0.1:1" },
-            "zh-Hans",
-            pythonCommand,
-        );
-        const isolatedCmd = {
-            ...cmd,
-            env: { PYTHONPATH: resolve(__dirname, "../../../fixtures/empty-dir") },
-        };
-        const result = await executePlugin(isolatedCmd);
-        expect(result.exitCode).toBe(0);
-        const output = parsePluginOutputOrError(result.stdout);
-        expect(isError(output)).toBe(true);
-        if (isError(output)) {
-            expect(output.error).toContain("httpx");
-        }
-    });
+    try {
+        compiledPath = compileCpaPlugin();
+    } catch {
+        it.skip("skips — esbuild not available in test environment");
+        return;
+    }
 
     it("outputs error JSON when CPA-Manager is unreachable", async () => {
         const cmd = buildPluginCommand(
-            pluginPath,
+            compiledPath,
             {
                 cpa_mgmt_url: "http://127.0.0.1:1",
                 cpa_mgmt_key: "test-key",
             },
             "zh-Hans",
-            pythonCommand,
+            nodePath,
         );
         const result = await executePlugin(cmd);
         expect(result.exitCode).toBe(0);
-        const output = parsePluginOutputOrError(result.stdout);
-        expect(isError(output)).toBe(true);
+        const output = parsePluginResult(result.stdout);
+        expect(output.success).toBe(false);
+    });
+
+    afterAll(() => {
+        if (existsSync(cacheDir)) {
+            rmSync(cacheDir, { recursive: true, force: true });
+        }
     });
 });

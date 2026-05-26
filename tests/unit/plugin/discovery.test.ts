@@ -9,40 +9,38 @@ describe("discoverPlugins", () => {
         expect(result).toEqual([]);
     });
 
-    it("discovers .py plugins with metadata", async () => {
+    it("discovers .ts plugins with metadata", async () => {
         const tmpDir = join(process.cwd(), ".test-plugins-disc");
         await mkdir(tmpDir, { recursive: true });
 
         const pluginContent = [
-            "#!/usr/bin/env python3",
-            "# UsageBoardPlugin:",
-            "# {",
-            '#   "name": "TestPlugin",',
-            '#   "parameters": [{"name": "KEY", "label": "Key", "type": "secret", "required": true}]',
-            "# }",
-            "# /UsageBoardPlugin",
+            "// UsageBoardPlugin:",
+            "// {",
+            '//   "name": "TestPlugin",',
+            '//   "parameters": [{"name": "KEY", "label": "Key", "type": "secret", "required": true}]',
+            "// }",
+            "// /UsageBoardPlugin",
             "",
-            'print("hello")',
+            'console.log("hello");',
         ].join("\n");
 
-        await writeFile(join(tmpDir, "test-plugin.py"), pluginContent, "utf8");
-        await writeFile(join(tmpDir, "_common.py"), "# shared\n", "utf8");
+        await writeFile(join(tmpDir, "test-plugin.ts"), pluginContent, "utf8");
 
         const result = await discoverPlugins(tmpDir);
 
         expect(result.length).toBe(1);
-        expect(result[0]?.scriptName).toBe("test-plugin.py");
+        expect(result[0]?.scriptName).toBe("test-plugin.ts");
         expect(result[0]?.metadata?.name).toBe("TestPlugin");
         expect(result[0]?.source).toBe("bundled");
 
         await rm(tmpDir, { recursive: true });
     });
 
-    it("skips _common.py and non-.py files", async () => {
+    it("skips non-.ts files", async () => {
         const tmpDir = join(process.cwd(), ".test-plugins-skip");
         await mkdir(tmpDir, { recursive: true });
-        await writeFile(join(tmpDir, "_common.py"), "# shared\n", "utf8");
         await writeFile(join(tmpDir, "readme.md"), "docs\n", "utf8");
+        await writeFile(join(tmpDir, ".dotfile.ts"), "// hidden\n", "utf8");
 
         const result = await discoverPlugins(tmpDir);
         expect(result).toEqual([]);
@@ -53,7 +51,11 @@ describe("discoverPlugins", () => {
     it("includes plugins with unparseable metadata as null", async () => {
         const tmpDir = join(process.cwd(), ".test-plugins-bad");
         await mkdir(tmpDir, { recursive: true });
-        await writeFile(join(tmpDir, "broken.py"), "# no metadata block\nprint(1)\n", "utf8");
+        await writeFile(
+            join(tmpDir, "broken.ts"),
+            "// no metadata block\nconsole.log(1);\n",
+            "utf8",
+        );
 
         const result = await discoverPlugins(tmpDir);
         expect(result.length).toBe(1);

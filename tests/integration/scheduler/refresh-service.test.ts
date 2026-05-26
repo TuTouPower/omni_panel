@@ -27,6 +27,7 @@ function createDeps(overrides: Record<string, unknown> = {}) {
             >()
             .mockResolvedValue({
                 stdout: JSON.stringify({
+                    success: true,
                     schemaVersion: 1,
                     updatedAt: "2026-05-24T12:00:00Z",
                     items: [],
@@ -35,10 +36,15 @@ function createDeps(overrides: Record<string, unknown> = {}) {
                 exitCode: 0,
                 durationMs: 100,
             }),
-        outputParser: vi
+        outputParser: vi.fn().mockReturnValue({
+            success: true,
+            schemaVersion: 1,
+            updatedAt: "2026-05-24T12:00:00Z",
+            items: [],
+        }),
+        commandBuilder: vi
             .fn()
-            .mockReturnValue({ schemaVersion: 1, updatedAt: "2026-05-24T12:00:00Z", items: [] }),
-        commandBuilder: vi.fn().mockReturnValue({ command: "python3", args: ["/path/plugin.py"] }),
+            .mockReturnValue({ command: process.execPath, args: ["/path/plugin.js"] }),
         cacheStore: {
             load: vi.fn<() => Promise<null>>().mockResolvedValue(null),
             save: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),

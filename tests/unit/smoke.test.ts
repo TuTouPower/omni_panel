@@ -10,7 +10,7 @@ describe("smoke: modules are importable", () => {
     });
 
     it("buildPluginCommand returns PluginCommand", () => {
-        const result = buildPluginCommand("/path", {}, "zh-Hans");
+        const result = buildPluginCommand("/path", {}, "zh-Hans", "/path/to/node");
         expect(result).toHaveProperty("command");
         expect(result).toHaveProperty("args");
     });

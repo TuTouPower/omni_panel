@@ -5,19 +5,19 @@ import { resolve } from "node:path";
 const bundledDir = resolve(process.cwd(), "resources/plugins");
 
 describe("bundled plugin metadata verification", () => {
-    it("discovers exactly 7 plugins (not _common.py)", async () => {
+    it("discovers exactly 7 plugins", async () => {
         const defs = await discoverPlugins(bundledDir);
         expect(defs.length).toBe(7);
     });
 
     const expected = [
-        { scriptName: "deepseek-usage-plugin.py", name: "DeepSeek", secretParams: ["API_KEY"] },
-        { scriptName: "tavily-usage-plugin.py", name: "Tavily", secretParams: ["API_KEY"] },
-        { scriptName: "glm-usage-plugin.py", name: "智谱", secretParams: ["API_KEY"] },
-        { scriptName: "minimax-usage-plugin.py", name: "MiniMax", secretParams: ["API_KEY"] },
-        { scriptName: "codex-usage-plugin.py", name: "Codex", secretParams: [] },
-        { scriptName: "claude-usage-plugin.py", name: "Claude", secretParams: [] },
-        { scriptName: "cpa-usage-plugin.py", name: "CPA", secretParams: ["cpa_mgmt_key"] },
+        { scriptName: "deepseek-usage-plugin.ts", name: "DeepSeek", secretParams: ["API_KEY"] },
+        { scriptName: "tavily-usage-plugin.ts", name: "Tavily", secretParams: ["API_KEY"] },
+        { scriptName: "glm-usage-plugin.ts", name: "智谱", secretParams: ["API_KEY"] },
+        { scriptName: "minimax-usage-plugin.ts", name: "MiniMax", secretParams: ["API_KEY"] },
+        { scriptName: "codex-usage-plugin.ts", name: "Codex", secretParams: [] },
+        { scriptName: "claude-usage-plugin.ts", name: "Claude", secretParams: [] },
+        { scriptName: "cpa-usage-plugin.ts", name: "CPA", secretParams: ["cpa_mgmt_key"] },
     ];
 
     for (const exp of expected) {
