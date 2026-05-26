@@ -50,7 +50,11 @@ export async function executePlugin(
     return new Promise<PluginExecutionResult>((resolve, reject) => {
         const child = spawn(command.command, [...command.args], {
             // nosemgrep: detect-child-process
-            env: { ...minimalEnv, ...command.env },
+            env: {
+                ...minimalEnv,
+                ...command.env,
+                ELECTRON_RUN_AS_NODE: "1",
+            },
         });
 
         const stdoutChunks: Buffer[] = [];
