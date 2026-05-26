@@ -1,5 +1,17 @@
+import type { Page } from "@playwright/test";
+
 import { expect, test } from "../fixtures/test";
 import { PopupPage } from "../pages/popup_page";
+
+async function openSettings(page: Page) {
+    const baseUrl = page.url().split("#")[0] ?? "";
+    await page.goto(baseUrl + "#settings");
+    await page.waitForSelector('[data-testid="settings-sidebar"]', { timeout: 10_000 });
+}
+
+function cpaForm(page: Page) {
+    return page.locator('[data-testid^="settings-form-"]').filter({ hasText: "CPA" }).first();
+}
 
 test.describe("plugin configuration", () => {
     test("auto-creates plugin instances on first launch", async ({ omni }) => {
@@ -23,9 +35,7 @@ test.describe("plugin configuration", () => {
 
     test("settings form can be filled and saved", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        const baseUrl = page.url().split("#")[0] ?? "";
-        await page.goto(baseUrl + "#settings");
-        await page.waitForTimeout(500);
+        await openSettings(page);
 
         // At least one form must exist (DeepSeek, Tavily, GLM, MiniMax have parameters)
         const forms = page.locator('[data-testid^="settings-form-"]');
@@ -47,5 +57,34 @@ test.describe("plugin configuration", () => {
 
         // After save, the form should still be visible (no crash, no redirect)
         await expect(forms.first()).toBeVisible();
+    });
+
+    test("CPA settings persist after app restart without exposing the secret", async ({ omni }) => {
+        let page = await omni.app.firstWindow();
+        await openSettings(page);
+
+        let form = cpaForm(page);
+        await expect(form).toBeVisible();
+        await form.locator('input[name="cpa_mgmt_url"]').fill("http://127.0.0.1:20224");
+        await form.locator('input[name="cpa_mgmt_key"]').fill("secret-management-key");
+        await form.locator('input[name="refreshIntervalMinutes"]').fill("7");
+        await form.locator('button[type="submit"]').click();
+        await expect(form.locator('button[type="submit"]')).toHaveText("已保存");
+
+        await omni.stop();
+        await omni.start();
+
+        page = await omni.app.firstWindow();
+        await openSettings(page);
+        form = cpaForm(page);
+        await expect(form).toBeVisible();
+        await expect(form.locator('input[name="cpa_mgmt_url"]')).toHaveValue(
+            "http://127.0.0.1:20224",
+        );
+        await expect(form.locator('input[name="cpa_mgmt_key"]')).toHaveValue("***");
+        await expect(form.locator('input[name="cpa_mgmt_key"]')).not.toHaveValue(
+            "secret-management-key",
+        );
+        await expect(form.locator('input[name="refreshIntervalMinutes"]')).toHaveValue("7");
     });
 });

@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/require-await */
 import { describe, it, expect } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../../src/renderer/App";
 import { getMockApi } from "./setup";
@@ -95,12 +94,15 @@ describe("Renderer smoke tests", () => {
     describe("Theme", () => {
         it("applies dark class on theme change event", async () => {
             render(<App />);
+            await screen.findByText("DeepSeek");
             const api = getMockApi();
             const listeners = api._themeListeners;
             expect(listeners.size).toBeGreaterThan(0);
-            for (const cb of listeners) {
-                cb(true);
-            }
+            act(() => {
+                for (const cb of listeners) {
+                    cb(true);
+                }
+            });
             expect(document.documentElement.classList.contains("dark")).toBe(true);
         });
     });
