@@ -114,6 +114,9 @@ const ANTIGRAVITY_URLS = [
 
 function extractEmail(name: string): string {
     const base = (name.split("/").pop() ?? name).replace(/\.json$/, "");
+    const normalized = base.replace(/^auth-/, "").replace(/^[0-9a-f]{8,10}-/, "");
+    const emailMatch = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(normalized);
+    if (emailMatch?.[0]) return emailMatch[0].replace(/-(?:plus|pro|team[0-9a-f]*|free)$/, "");
     const parts = base.split("-", 2);
     if (parts.length < 2) return base;
     let email = parts[1] ?? "";
@@ -475,7 +478,7 @@ definePlugin(async ({ params }) => {
         },
     });
 
-    const mgmtUrl = (params.cpa_mgmt_url ?? "").trim();
+    const mgmtUrl = (params.cpa_mgmt_url ?? "").trim().replace(/\/+$/, "");
     if (!mgmtUrl) {
         return fail("MISSING_CONFIG", translate(language, "missing_mgmt_url"));
     }
