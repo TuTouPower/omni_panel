@@ -36,5 +36,5 @@ renderer → window.omniUsage.* → preload → ipcMain → main process
 
 ## 参考资源
 
-- 旧项目源码：`<参考仓库路径>/`
-- 分析报告：`~/testuser_ubuntu/my_skills/analyze-repo/report/UsageBoard_analysis_2026-05-24.md`
+- 旧项目源码：`<参考仓库路径>`
+- 分析报告：`<分析报告路径>/UsageBoard_analysis_2026-05-24.md`

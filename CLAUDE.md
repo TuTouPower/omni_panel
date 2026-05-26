@@ -5,7 +5,7 @@
 ## 对标项目
 
 - **参考仓库**：`<参考仓库路径>`（macOS 原生版，Swift + SwiftUI）
-- **分析报告**：`~/testuser_ubuntu/my_skills/analyze-repo/report/UsageBoard_analysis_2026-05-24.md`
+- **分析报告**：`<分析报告路径>/UsageBoard_analysis_2026-05-24.md`
 
 ## 项目目标
 
