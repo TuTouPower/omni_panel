@@ -148,6 +148,97 @@ CPA-Manager (http://<your-host>:20224)
 
 ---
 
+## Phase 18: 补齐测试覆盖与真实验收缺口
+
+### 背景
+
+`docs/spec.md` 与 `docs/test.md` 要求测试覆盖单元、集成、用户端到端和打包 smoke 四层。
+当前单元/集成测试已有基础，但用户端到端测试多数只验证“可见 / 可点击 / 不崩溃”，还没有充分验证真实用户行为产生的状态变化；打包产物与系统托盘行为也主要依赖人工验证，缺少明确验收记录。
+
+目标：把测试从“存在”补到“能防回归”，尤其覆盖此前暴露过的托盘重复、设置保存后异常、CPA 数据获取失败等问题。
+
+### 18.1: 补齐 E2E 刷新行为验证
+
+- [ ] 用户在 Popup 点击“刷新”后，断言至少一个插件卡片进入 `loading` / Skeleton 状态
+- [ ] 刷新完成后，断言插件卡片进入 `ready` 或 `failed` 终态，而不是只验证页面未崩溃
+- [ ] 成功路径需断言 DOM 中的用量数据发生更新
+- [ ] 失败路径需断言错误信息显示在对应 PluginCard 上
+- [ ] 验证 stale data：已有成功数据后刷新失败，卡片同时显示旧数据和新错误
+- [ ] 避免固定 `waitForTimeout` 作为主要同步方式，改用明确 DOM 状态等待
+
+### 18.2: 补齐设置保存与持久化 E2E
+
+- [ ] 在 Settings 中填写普通参数并保存，断言出现“已保存”反馈
+- [ ] 填写 secret 参数并保存，断言输入框不明文回显 secret
+- [ ] 保存后重新进入 Settings，断言普通参数仍保留
+- [ ] 保存后重启 Electron E2E 实例，断言配置从磁盘恢复
+- [ ] secret 保存后重启，断言 `hasSecrets` 状态正确，且不暴露明文
+- [ ] 修改刷新间隔并保存，断言配置值持久化
+- [ ] 保存设置后断言应用仍只有一个有效窗口/实例，不触发重复初始化副作用
+
+### 18.3: 补齐 Popup / Settings / 插件 UI 状态覆盖
+
+- [ ] Popup 空状态：无插件时显示“暂无插件”类提示
+- [ ] Popup 缺 key 状态：需要配置 API Key 的插件未配置时提示去设置
+- [ ] Popup Python 不可用状态：显示 Python 警告，且插件功能不可用
+- [ ] PluginCard `idle` / `loading` / `ready` / `failed` 四种状态都有真实 DOM 断言
+- [ ] PluginCard 多 item 展示：CPA 多 provider / 多账号 / 多周期 item 均可见
+- [ ] 进度条颜色阈值：>=75% 黄色，>=90% 红色
+- [ ] 相对时间显示：刚刚 / X 分钟前，并随时间更新
+- [ ] Settings 参数类型：`secret`、`choice`、`boolean`、`string`、`integer` 都有渲染和交互测试
+- [ ] duplicate 按钮复制插件实例后，Settings 侧栏显示去重编号
+
+### 18.4: 补齐 CPA 插件成功路径测试
+
+- [ ] 用本地 HTTP stub 模拟 CPA-Manager `GET /v0/management/auth-files`
+- [ ] 用本地 HTTP stub 模拟 `POST /v0/management/api-call`
+- [ ] 覆盖 Claude / Codex / Gemini CLI / Antigravity / Kimi 的成功响应
+- [ ] 覆盖单个 provider 失败但其他 provider 成功时输出 warning item
+- [ ] 覆盖全部 provider 失败时输出 error JSON
+- [ ] 覆盖 `monitor_* = false` 时对应 provider 不发请求
+- [ ] 覆盖 `cpa_mgmt_url` 末尾有无 `/` 都能正确拼接 URL
+- [ ] 验证 `cpa_mgmt_key` 不出现在 stdout、stderr、日志、错误消息中
+- [ ] 增加一条 E2E：填写 CPA URL/key 后刷新，Popup 显示 CPA item
+
+### 18.5: 补齐系统托盘与打包 smoke 验收
+
+- [ ] 打包后真实启动 `out/OmniUsage-win32-x64/OmniUsage.exe`
+- [ ] 验证渲染进程不白屏，Popup 能正常显示
+- [ ] 验证系统托盘只出现一个 OmniUsage 图标
+- [ ] 左键托盘图标能打开/隐藏 Popup
+- [ ] 右键托盘图标能打开菜单，并能进入 Settings
+- [ ] 保存 Settings 后再次检查托盘图标仍然只有一个
+- [ ] 退出应用后托盘图标消失，无残留进程
+- [ ] 验证打包产物能加载 `extraResource` 中 bundled plugins
+- [ ] 每次涉及打包/托盘/资源路径的修复，都在完成报告中记录“自动化测试结果 + 打包 smoke 结果”
+
+### 18.6: 增加覆盖率报告与门槛
+
+- [ ] 为 Vitest 增加 coverage 配置和脚本，例如 `pnpm test:coverage`
+- [ ] 先生成当前覆盖率基线，不立即用不现实阈值阻塞开发
+- [ ] 按文件列出低于 80% 的模块
+- [ ] 优先补 parser、schema、config、cache、scheduler、runner、IPC handler 的分支覆盖
+- [ ] 覆盖率稳定后设置全局或分目录阈值
+- [ ] 在 `docs/test.md` 记录覆盖率命令和当前门槛
+
+### 18.7: 修正文档与测试现状不一致
+
+- [ ] `docs/test.md` 中 `pnpm test:e2e` 仍写“待实现”，但项目已有 Playwright E2E，需要更新描述
+- [ ] 明确区分 renderer smoke（mock IPC）与 user E2E（真实 Electron）不能相互替代
+- [ ] `docs/spec.md` 的测试策略与 `docs/test.md` 保持一致
+- [ ] 若新增 coverage 命令，同步更新 `docs/test.md` 和 `package.json` 脚本说明
+
+### Phase 18 验收标准
+
+1. `pnpm test` 通过
+2. `pnpm test:e2e` 通过
+3. `pnpm test:coverage` 可生成覆盖率报告
+4. 关键 UI 行为不再只有“可见/不崩”断言，而是验证用户操作后的状态变化
+5. CPA 插件有成功路径和部分失败路径测试
+6. 打包 smoke 有明确人工验证记录：启动、渲染、托盘唯一、保存设置后托盘不重复
+
+---
+
 ## 通用约束（每轮适用）
 
 1. 不实现本轮范围外的功能
