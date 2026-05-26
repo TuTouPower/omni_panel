@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, nativeImage, screen, powerMonitor } from "electron";
+import { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerMonitor } from "electron";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import {
@@ -305,17 +305,36 @@ void app.whenReady().then(async () => {
             });
         });
 
-        // Right-click → open settings directly
-        tray.on("right-click", () => {
-            if (settingsWin && !settingsWin.isDestroyed()) {
-                settingsWin.focus();
-                return;
-            }
-            settingsWin = createWindowFor("settings");
-            settingsWin.on("closed", () => {
-                settingsWin = null;
-            });
-        });
+        // Right-click → context menu
+        const language = currentConfig.language;
+        const labels =
+            language === "zh-Hans"
+                ? { settings: "设置", quit: "退出" }
+                : { settings: "Settings", quit: "Quit" };
+        tray.setContextMenu(
+            Menu.buildFromTemplate([
+                {
+                    label: labels.settings,
+                    click: () => {
+                        if (settingsWin && !settingsWin.isDestroyed()) {
+                            settingsWin.focus();
+                            return;
+                        }
+                        settingsWin = createWindowFor("settings");
+                        settingsWin.on("closed", () => {
+                            settingsWin = null;
+                        });
+                    },
+                },
+                { type: "separator" },
+                {
+                    label: labels.quit,
+                    click: () => {
+                        app.quit();
+                    },
+                },
+            ]),
+        );
     } // end of E2E !== "1" tray block
 
     app.on("before-quit", () => {
