@@ -21,6 +21,7 @@ export const pluginChartSegmentSchema = z.object({
 });
 
 export const pluginChartBucketSchema = z.object({
+    id: z.string().optional(),
     label: z.string(),
     segments: z.array(pluginChartSegmentSchema),
 });
@@ -33,7 +34,10 @@ export const pluginChartSchema = z.object({
     message: z.string().nullable().optional(),
 });
 
-export const pluginOutputSchema = z.object({
+// --- Discriminated union schema ---
+
+export const pluginSuccessOutputSchema = z.object({
+    success: z.literal(true),
     schemaVersion: z.number(),
     updatedAt: z.string(),
     items: z.array(usageItemSchema),
@@ -41,11 +45,23 @@ export const pluginOutputSchema = z.object({
     chart: pluginChartSchema.optional(),
 });
 
-export const pluginErrorOutputSchema = z.object({
-    error: z.string(),
+export const pluginFailureOutputSchema = z.object({
+    success: z.literal(false),
+    error: z.object({
+        code: z.string(),
+        message: z.string(),
+    }),
 });
 
+export const pluginResultSchema = z.discriminatedUnion("success", [
+    pluginSuccessOutputSchema,
+    pluginFailureOutputSchema,
+]);
+
+// --- Types ---
+
 export type UsageItem = z.infer<typeof usageItemSchema>;
-export type PluginOutput = z.infer<typeof pluginOutputSchema>;
 export type PluginChart = z.infer<typeof pluginChartSchema>;
-export type PluginErrorOutput = z.infer<typeof pluginErrorOutputSchema>;
+export type PluginSuccessOutput = z.infer<typeof pluginSuccessOutputSchema>;
+export type PluginFailureOutput = z.infer<typeof pluginFailureOutputSchema>;
+export type PluginResult = z.infer<typeof pluginResultSchema>;

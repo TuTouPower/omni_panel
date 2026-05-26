@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
-    parsePluginOutput,
-    parsePluginOutputOrError,
+    parsePluginResult,
+    parsePluginSuccessOutput,
 } from "../../../src/main/core/plugin/output-parser";
 import {
     PluginOutputParseError,
@@ -16,70 +16,81 @@ function loadFixture(name: string): string {
     return readFileSync(resolve(fixturesDir, name), "utf8");
 }
 
-describe("parsePluginOutput", () => {
+describe("parsePluginResult", () => {
     it("parses success-basic.json", () => {
-        const result = parsePluginOutput(loadFixture("success-basic.json"));
-        expect(result.items.length).toBeGreaterThan(0);
+        const result = parsePluginResult(loadFixture("success-basic.json"));
+        expect(result.success).toBe(true);
+        if (result.success) expect(result.items.length).toBeGreaterThan(0);
     });
 
     it("parses success-with-badge.json", () => {
-        const result = parsePluginOutput(loadFixture("success-with-badge.json"));
-        expect(result.badge).toBeDefined();
+        const result = parsePluginResult(loadFixture("success-with-badge.json"));
+        expect(result.success).toBe(true);
+        if (result.success) expect(result.badge).toBeDefined();
     });
 
     it("parses success-with-chart.json", () => {
-        const result = parsePluginOutput(loadFixture("success-with-chart.json"));
-        expect(result.chart).toBeDefined();
-        expect(result.chart?.buckets.length).toBeGreaterThan(0);
+        const result = parsePluginResult(loadFixture("success-with-chart.json"));
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.chart).toBeDefined();
+            expect(result.chart?.buckets.length).toBeGreaterThan(0);
+        }
     });
 
     it("parses success-empty-items.json", () => {
-        const result = parsePluginOutput(loadFixture("success-empty-items.json"));
-        expect(result.items).toHaveLength(0);
+        const result = parsePluginResult(loadFixture("success-empty-items.json"));
+        expect(result.success).toBe(true);
+        if (result.success) expect(result.items).toHaveLength(0);
     });
 
-    it("parses success-with-nulls.json (resetAt null, chart.message null)", () => {
-        const result = parsePluginOutput(loadFixture("success-with-nulls.json"));
-        expect(result.items.length).toBeGreaterThan(0);
-        expect(result.chart).toBeDefined();
+    it("parses success-with-nulls.json", () => {
+        const result = parsePluginResult(loadFixture("success-with-nulls.json"));
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.items.length).toBeGreaterThan(0);
+            expect(result.chart).toBeDefined();
+        }
+    });
+
+    it("parses error-json-field.json as failure", () => {
+        const result = parsePluginResult(loadFixture("error-json-field.json"));
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            expect(result.error.code).toBe("AUTH_FAILED");
+            expect(result.error.message).toBeTruthy();
+        }
     });
 
     it("throws PluginOutputParseError for invalid JSON", () => {
-        expect(() => parsePluginOutput(loadFixture("invalid-json.txt"))).toThrow(
+        expect(() => parsePluginResult(loadFixture("invalid-json.txt"))).toThrow(
             PluginOutputParseError,
         );
     });
 
     it("throws PluginSchemaError for missing required field", () => {
-        expect(() => parsePluginOutput(loadFixture("invalid-missing-required-field.json"))).toThrow(
+        expect(() => parsePluginResult(loadFixture("invalid-missing-required-field.json"))).toThrow(
             PluginSchemaError,
         );
     });
 
     it("throws PluginSchemaError for wrong type", () => {
-        expect(() => parsePluginOutput(loadFixture("invalid-wrong-type.json"))).toThrow(
+        expect(() => parsePluginResult(loadFixture("invalid-wrong-type.json"))).toThrow(
             PluginSchemaError,
         );
     });
 });
 
-describe("parsePluginOutputOrError", () => {
-    it("returns PluginErrorOutput for error-json-field.json", () => {
-        const result = parsePluginOutputOrError(loadFixture("error-json-field.json"));
-        expect("error" in result).toBe(true);
-        if ("error" in result) {
-            expect(result.error).toBeTruthy();
-            expect(typeof result.error).toBe("string");
-        }
+describe("parsePluginSuccessOutput", () => {
+    it("parses success-basic.json", () => {
+        const result = parsePluginSuccessOutput(loadFixture("success-basic.json"));
+        expect(result.success).toBe(true);
+        expect(result.items.length).toBeGreaterThan(0);
     });
 
-    it("returns PluginOutput for success-basic.json", () => {
-        const result = parsePluginOutputOrError(loadFixture("success-basic.json"));
-        expect("items" in result).toBe(true);
-        if ("items" in result) {
-            expect(Array.isArray(result.items)).toBe(true);
-            expect(result.items.length).toBeGreaterThan(0);
-            expect(result.items[0]?.id).toBeDefined();
-        }
+    it("throws for error output", () => {
+        expect(() => parsePluginSuccessOutput(loadFixture("error-json-field.json"))).toThrow(
+            PluginSchemaError,
+        );
     });
 });

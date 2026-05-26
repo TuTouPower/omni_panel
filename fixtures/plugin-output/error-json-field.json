@@ -1,3 +1,7 @@
 {
-    "error": "API Key 无效，请检查设置"
+    "success": false,
+    "error": {
+        "code": "AUTH_FAILED",
+        "message": "API Key 无效，请检查设置"
+    }
 }

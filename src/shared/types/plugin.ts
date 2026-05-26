@@ -2,7 +2,8 @@ export type AppLanguage = "zh-Hans" | "en";
 
 export type {
     PluginChart,
-    PluginErrorOutput,
-    PluginOutput,
+    PluginSuccessOutput,
+    PluginFailureOutput,
+    PluginResult,
     UsageItem,
 } from "../schemas/plugin-output";

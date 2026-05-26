@@ -3,54 +3,55 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pluginMetadataSchema } from "../../../src/shared/schemas/plugin-metadata";
 import {
-    pluginErrorOutputSchema,
-    pluginOutputSchema,
+    pluginSuccessOutputSchema,
+    pluginFailureOutputSchema,
+    pluginResultSchema,
 } from "../../../src/shared/schemas/plugin-output";
 
 const fixturesDir = resolve(__dirname, "../../../fixtures/plugin-output");
 const metadataFixturesDir = resolve(__dirname, "../../../fixtures/plugin-metadata");
 
-describe("pluginOutputSchema", () => {
+describe("pluginResultSchema (discriminated union)", () => {
     it("accepts success-basic.json", () => {
         const raw = readFileSync(resolve(fixturesDir, "success-basic.json"), "utf8");
         const data: unknown = JSON.parse(raw);
-        const result = pluginOutputSchema.safeParse(data);
+        const result = pluginResultSchema.safeParse(data);
         expect(result.success).toBe(true);
     });
 
     it("accepts success-with-badge.json", () => {
         const raw = readFileSync(resolve(fixturesDir, "success-with-badge.json"), "utf8");
         const data: unknown = JSON.parse(raw);
-        const result = pluginOutputSchema.safeParse(data);
+        const result = pluginResultSchema.safeParse(data);
         expect(result.success).toBe(true);
     });
 
     it("accepts success-with-chart.json", () => {
         const raw = readFileSync(resolve(fixturesDir, "success-with-chart.json"), "utf8");
         const data: unknown = JSON.parse(raw);
-        const result = pluginOutputSchema.safeParse(data);
+        const result = pluginResultSchema.safeParse(data);
         expect(result.success).toBe(true);
     });
 
     it("accepts success-empty-items.json", () => {
         const raw = readFileSync(resolve(fixturesDir, "success-empty-items.json"), "utf8");
         const data: unknown = JSON.parse(raw);
-        const result = pluginOutputSchema.safeParse(data);
+        const result = pluginResultSchema.safeParse(data);
         expect(result.success).toBe(true);
     });
 
-    it("accepts success-with-nulls.json (resetAt null, chart.message null)", () => {
+    it("accepts success-with-nulls.json", () => {
         const raw = readFileSync(resolve(fixturesDir, "success-with-nulls.json"), "utf8");
         const data: unknown = JSON.parse(raw);
-        const result = pluginOutputSchema.safeParse(data);
+        const result = pluginResultSchema.safeParse(data);
         expect(result.success).toBe(true);
     });
 
-    it("accepts inline data with nullable fields", () => {
+    it("accepts inline success data with nullable fields", () => {
         const data = {
+            success: true,
             schemaVersion: 1,
             updatedAt: "2026-05-24T12:00:00Z",
-            resetAt: null,
             items: [
                 {
                     id: "test",
@@ -64,14 +65,14 @@ describe("pluginOutputSchema", () => {
                 },
             ],
         };
-        const result = pluginOutputSchema.safeParse(data);
+        const result = pluginSuccessOutputSchema.safeParse(data);
         expect(result.success).toBe(true);
     });
 
-    it("accepts error-json-field.json", () => {
+    it("accepts error-json-field.json as failure", () => {
         const raw = readFileSync(resolve(fixturesDir, "error-json-field.json"), "utf8");
         const data: unknown = JSON.parse(raw);
-        const result = pluginErrorOutputSchema.safeParse(data);
+        const result = pluginFailureOutputSchema.safeParse(data);
         expect(result.success).toBe(true);
     });
 
@@ -81,34 +82,37 @@ describe("pluginOutputSchema", () => {
             "utf8",
         );
         const data: unknown = JSON.parse(raw);
-        const result = pluginOutputSchema.safeParse(data);
+        const result = pluginSuccessOutputSchema.safeParse(data);
         expect(result.success).toBe(false);
     });
 
     it("rejects wrong-type.json", () => {
         const raw = readFileSync(resolve(fixturesDir, "invalid-wrong-type.json"), "utf8");
         const data: unknown = JSON.parse(raw);
-        const result = pluginOutputSchema.safeParse(data);
+        const result = pluginSuccessOutputSchema.safeParse(data);
         expect(result.success).toBe(false);
     });
 });
 
 describe("pluginMetadataSchema", () => {
     it("accepts basic metadata", () => {
-        const raw = readFileSync(resolve(metadataFixturesDir, "metadata-basic.py"), "utf8");
+        const raw = readFileSync(resolve(metadataFixturesDir, "metadata-basic.ts"), "utf8");
         const lines = raw.split("\n").slice(0, 80);
         const collected: string[] = [];
         let collecting = false;
         for (const line of lines) {
-            const stripped = line.replace(/^\s*#\s?/, "");
-            if (stripped.startsWith("UsageBoardPlugin:")) {
+            const slashIndex = line.indexOf("//");
+            if (slashIndex === -1) continue;
+            const stripped = line.slice(slashIndex + 2);
+            const trimmed = stripped.startsWith(" ") ? stripped.slice(1) : stripped;
+            if (trimmed.startsWith("UsageBoardPlugin:")) {
                 collecting = true;
-                const rest = stripped.replace("UsageBoardPlugin:", "").trim();
+                const rest = trimmed.replace("UsageBoardPlugin:", "").trim();
                 if (rest) collected.push(rest);
                 continue;
             }
-            if (stripped.startsWith("/UsageBoardPlugin")) break;
-            if (collecting) collected.push(stripped);
+            if (trimmed.startsWith("/UsageBoardPlugin")) break;
+            if (collecting) collected.push(trimmed);
         }
         const data: unknown = JSON.parse(collected.join("\n"));
         const result = pluginMetadataSchema.safeParse(data);

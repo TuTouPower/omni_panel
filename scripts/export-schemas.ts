@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 import { pluginMetadataSchema } from "../src/shared/schemas/plugin-metadata";
-import { pluginOutputSchema } from "../src/shared/schemas/plugin-output";
+import { pluginResultSchema } from "../src/shared/schemas/plugin-output";
 
 type JsonObject = Record<string, unknown>;
 
@@ -19,7 +19,7 @@ const stringifyJsonSchema = (schema: JsonObject): string => {
 
 writeFileSync(
     "schemas/plugin-output.schema.json",
-    stringifyJsonSchema(zodToJsonSchema(pluginOutputSchema)),
+    stringifyJsonSchema(zodToJsonSchema(pluginResultSchema)),
 );
 
 writeFileSync(
