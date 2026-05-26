@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "node",
+        "strict": true,
+        "noEmit": true,
+        "noImplicitAny": true,
+        "strictNullChecks": true,
+        "noUncheckedIndexedAccess": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "baseUrl": "..",
+        "paths": {
+            "@omni-usage/plugin-sdk": ["../src/plugins/sdk/index.ts"]
+        }
+    },
+    "include": ["./*.ts"],
+    "exclude": ["node_modules"]
+}
