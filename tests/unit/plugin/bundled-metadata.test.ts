@@ -5,9 +5,9 @@ import { resolve } from "node:path";
 const bundledDir = resolve(process.cwd(), "resources/plugins");
 
 describe("bundled plugin metadata verification", () => {
-    it("discovers exactly 6 plugins (not _common.py)", async () => {
+    it("discovers exactly 7 plugins (not _common.py)", async () => {
         const defs = await discoverPlugins(bundledDir);
-        expect(defs.length).toBe(6);
+        expect(defs.length).toBe(7);
     });
 
     const expected = [
@@ -17,6 +17,7 @@ describe("bundled plugin metadata verification", () => {
         { scriptName: "minimax-usage-plugin.py", name: "MiniMax", secretParams: ["API_KEY"] },
         { scriptName: "codex-usage-plugin.py", name: "Codex", secretParams: [] },
         { scriptName: "claude-usage-plugin.py", name: "Claude", secretParams: [] },
+        { scriptName: "cpa-usage-plugin.py", name: "CPA", secretParams: ["cpa_mgmt_key"] },
     ];
 
     for (const exp of expected) {
