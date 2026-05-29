@@ -20,6 +20,7 @@ import {
     getPluginCacheDir,
     getSdkDir,
     get_tray_icon_path,
+    get_app_icon_path,
 } from "./core/paths";
 import { initLogging } from "./core/logging";
 import { createLogger } from "../shared/lib/logger";
@@ -120,6 +121,7 @@ function createWindowFor(key: string): BrowserWindow {
         height: cfg.height,
         frame: cfg.frame ?? true,
         show: cfg.show ?? true,
+        icon: get_app_icon_path(),
         webPreferences: {
             ...SECURE_WEB_PREFS,
             preload: getPreloadPath(),
