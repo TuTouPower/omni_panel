@@ -1,10 +1,11 @@
 # OmniUsage 项目规范
 
-> 最终状态规范。Phase 1–16 已完成，本文档描述当前系统全貌。
+> 以下是对标项目。
 > https://github.com/qixing-jk/all-api-hub
 > https://github.com/juliantanx/aiusage
 > https://github.com/mm7894215/TokenTracker
 > https://github.com/marsmay/UsageBoard
+> https://github.com/steipete/codexbar
 
 ## 对标项目以后做
 
