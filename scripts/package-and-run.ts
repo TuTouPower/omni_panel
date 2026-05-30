@@ -73,8 +73,15 @@ async function main(): Promise<void> {
 
     // Step 4: package (skip if --no-build)
     if (!no_build) {
-        log("running pnpm package:build...");
-        execSync("pnpm run package:build", { cwd: ROOT, stdio: "inherit" });
+        log("running electron-forge package...");
+        execSync("electron-forge package", {
+            cwd: ROOT,
+            stdio: "inherit",
+            env: {
+                ...process.env,
+                ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/",
+            },
+        });
     }
 
     // Step 5: run

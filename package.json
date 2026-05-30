@@ -8,7 +8,7 @@
     "scripts": {
         "start": "electron-forge start",
         "package": "tsx scripts/package-and-run.ts",
-        "package:build": "env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-forge package",
+        "package:build": "tsx scripts/package-and-run.ts",
         "reload": "tsx scripts/package-and-run.ts --no-build",
         "make": "env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-forge make",
         "publish": "electron-forge publish",
