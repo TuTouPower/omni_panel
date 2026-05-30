@@ -77,7 +77,7 @@ export function SettingsView() {
 
                 <div className="settings-body">
                     {/* left nav */}
-                    <div className="set-nav">
+                    <div className="set-nav" data-testid="settings-sidebar">
                         {NAV_ITEMS.map((n) => (
                             <button
                                 key={n.id}
@@ -85,6 +85,7 @@ export function SettingsView() {
                                 onClick={() => {
                                     setSection(n.id);
                                 }}
+                                data-testid={`settings-plugin-nav-${n.id}`}
                             >
                                 <span className="sn-ic">
                                     <Icon name={n.icon} size={16} strokeWidth={1.7} />

@@ -50,6 +50,9 @@ process.on("uncaughtException", (err: NodeJS.ErrnoException) => {
     throw err;
 });
 
+// Prevent white screen on systems where GPU process crashes
+app.disableHardwareAcceleration();
+
 // Single-instance lock — prevent duplicate app instances
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {

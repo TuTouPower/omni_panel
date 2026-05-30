@@ -15,8 +15,7 @@ test.describe("settings view", () => {
 
     test("shows sidebar navigation", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        // Wait for any content to render first
-        await page.waitForSelector("h1", { timeout: 10_000 });
+        await page.waitForSelector(".app-title", { timeout: 10_000 });
         await navigateToSettings(page);
         const settings = new SettingsPage(page);
         await settings.waitReady();
@@ -25,7 +24,7 @@ test.describe("settings view", () => {
 
     test("shows plugin navigation items", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector("h1", { timeout: 10_000 });
+        await page.waitForSelector(".app-title", { timeout: 10_000 });
         await navigateToSettings(page);
         const settings = new SettingsPage(page);
         await settings.waitReady();
@@ -35,7 +34,7 @@ test.describe("settings view", () => {
 
     test("plugins with parameters show config forms, not '无可配置参数'", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector("h1", { timeout: 10_000 });
+        await page.waitForSelector(".app-title", { timeout: 10_000 });
         await navigateToSettings(page);
         const settings = new SettingsPage(page);
         await settings.waitReady();

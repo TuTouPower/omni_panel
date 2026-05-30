@@ -4,15 +4,15 @@ export class PopupPage {
     constructor(private page: Page) {}
 
     async waitReady() {
-        await this.page.waitForSelector("text=OmniUsage", { timeout: 10_000 });
+        await this.page.waitForSelector(".app-title", { timeout: 10_000 });
     }
 
     async getTitle() {
-        return this.page.locator("h1").first().textContent();
+        return this.page.locator(".app-title").first().textContent();
     }
 
     async clickRefresh() {
-        await this.page.getByLabel("刷新").click();
+        await this.page.getByTitle("刷新全部").click();
     }
 
     async clickSettings() {
@@ -28,7 +28,7 @@ export class PopupPage {
     }
 
     errorBanner() {
-        return this.page.locator('[class*="ErrorBanner"]');
+        return this.page.locator(".net-banner");
     }
 
     async hasError() {
