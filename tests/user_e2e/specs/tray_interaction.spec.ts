@@ -6,10 +6,15 @@ const { test, expect } = createTestWithSetup({
 });
 
 async function triggerTrayClick(page: Page): Promise<void> {
-    await page.evaluate(() => {
-        const w = window as unknown as Record<string, { trayClick: () => Promise<void> }>;
-        return w["__test__"]?.trayClick();
-    });
+    // Fire-and-forget: trayClick closes the popup window, which destroys the
+    // renderer context before page.evaluate can resolve. Don't await the inner
+    // promise; swallow the inevitable "context closed" error.
+    await page
+        .evaluate(() => {
+            const w = window as unknown as Record<string, { trayClick: () => void }>;
+            w["__test__"]?.trayClick();
+        })
+        .catch(() => undefined);
 }
 
 test.describe("tray interaction", () => {

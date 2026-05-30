@@ -1,3 +1,4 @@
+import { writeSync } from "node:fs";
 import type { PluginOutput } from "./result";
 import { fail } from "./result";
 import { createHttpClient, type HttpClient } from "./http-client";
@@ -56,9 +57,14 @@ export function definePlugin(handler: PluginHandler, options: DefinePluginOption
         t: (key, kwargs) => translate(language, key, kwargs),
     };
     handler(ctx)
-        .then((result) => process.stdout.write(JSON.stringify(result)))
+        .then((result) => {
+            // Synchronous write to fd 1: process.stdout.write is async on
+            // Windows pipes, and the subprocess can exit before stdout flushes
+            // under parallel test load, leaving the harness with empty output.
+            writeSync(1, JSON.stringify(result));
+        })
         .catch((err: unknown) => {
-            process.stdout.write(JSON.stringify(normalizeError(err)));
+            writeSync(1, JSON.stringify(normalizeError(err)));
         });
 }
 

@@ -1,7 +1,7 @@
 # 测试覆盖矩阵
 
 > 将 `docs/spec.md` 的功能章节映射到现有测试，标注覆盖状态。
-> 生成日期：2026-05-30。
+> 生成日期：2026-05-30（含 Task 3-8 完成后更新）。
 
 ## 图例
 
@@ -38,26 +38,26 @@
 
 ## §5 调度与刷新
 
-| Spec 章节                     | 需求                                                    | 状态 | 现有测试                                                                                                                              | 缺口                                                                   |
-| ----------------------------- | ------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| §5.1 生命周期 (discover→seed) | 启动时 discover + compile + auto-seed                   | ⚠️   | `unit/plugin/auto-seed.test.ts` (empty/partial/full), `user_e2e/specs/plugin_config.spec.ts` (auto-creates on first launch)           | 缺：discover → compile → seed 端到端集成；compile failure 时 seed 行为 |
-| §5.2 SchedulerOrchestrator    | startAll/rebuild/suspend/resume/shutdown                | ✅   | `integration/scheduler/scheduler-orchestrator.test.ts` (5 个生命周期方法)                                                             | 缺：真实 powerMonitor 事件触发 suspend/resume（Task 4 计划补齐）       |
-| §5.3 RefreshService 流程      | secrets 注入 → spawn → parse → runtime/cache/event 广播 | ✅   | `integration/scheduler/refresh-service.test.ts` (cache 命中/未命中/force/失败/非零退出/并发/refreshAll/secrets 合并/空 secret 不泄露) | —                                                                      |
-| §5.3 PluginScheduler          | 立即刷新 + 周期刷新 + 最小 5s                           | ✅   | `integration/scheduler/plugin-scheduler.test.ts` (immediate/interval/stop/min-5s/refreshNow/stopAll)                                  | —                                                                      |
-| §5.4 缓存策略 (stale data)    | 成功写 state，失败保留旧 stale                          | ✅   | `integration/scheduler/runtime-store.test.ts` (preserves lastSuccess on failure), `integration/cache/cache-store.test.ts`             | —                                                                      |
+| Spec 章节                     | 需求                                                    | 状态 | 现有测试                                                                                                                                    | 缺口                                                                   |
+| ----------------------------- | ------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| §5.1 生命周期 (discover→seed) | 启动时 discover + compile + auto-seed                   | ⚠️   | `unit/plugin/auto-seed.test.ts` (empty/partial/full), `user_e2e/specs/plugin_config.spec.ts` (auto-creates on first launch)                 | 缺：discover → compile → seed 端到端集成；compile failure 时 seed 行为 |
+| §5.2 SchedulerOrchestrator    | startAll/rebuild/suspend/resume/shutdown                | ✅   | `integration/scheduler/scheduler-orchestrator.test.ts` (5 个生命周期方法), `user_e2e/specs/suspend_resume.spec.ts` (真实 powerMonitor 事件) | —                                                                      |
+| §5.3 RefreshService 流程      | secrets 注入 → spawn → parse → runtime/cache/event 广播 | ✅   | `integration/scheduler/refresh-service.test.ts` (cache 命中/未命中/force/失败/非零退出/并发/refreshAll/secrets 合并/空 secret 不泄露)       | —                                                                      |
+| §5.3 PluginScheduler          | 立即刷新 + 周期刷新 + 最小 5s                           | ✅   | `integration/scheduler/plugin-scheduler.test.ts` (immediate/interval/stop/min-5s/refreshNow/stopAll)                                        | —                                                                      |
+| §5.4 缓存策略 (stale data)    | 成功写 state，失败保留旧 stale                          | ✅   | `integration/scheduler/runtime-store.test.ts` (preserves lastSuccess on failure), `integration/cache/cache-store.test.ts`                   | —                                                                      |
 
 ---
 
 ## §6 UI
 
-| Spec 章节              | 需求                                               | 状态 | 现有测试                                                                                                                   | 缺口                                                                              |
-| ---------------------- | -------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| §6.1 系统托盘          | 左键 toggle popup、右键菜单、退出                  | ❌   | 仅 E2E 模式跳过 Tray，无 Tray 自动化测试                                                                                   | 全部：托盘左/右键、菜单项点击、E2E 模式跳过逻辑（Task 4 `tray_interaction.spec`） |
-| §6.2 窗口配置          | popup 360×480 无 frame / settings 640×520 有 frame | ⚠️   | `user_e2e/specs/app_lifecycle.spec.ts` (first window 可用，settings 渲染)                                                  | 缺：尺寸断言、popup 在托盘下方定位                                                |
-| §6.3 PopupView         | 标题 / 空状态 / 设置按钮 / 刷新按钮 / 卡片列表     | ⚠️   | `user_e2e/specs/popup_view.spec.ts` (标题/刷新/内容区/跳设置), `smoke/renderer-smoke.test.tsx` (mock IPC 4 个状态)         | 缺：智能空状态（缺 key）真实 DOM；多 item 卡片渲染（Task 3 计划补齐）             |
-| §6.4 PluginCard 状态机 | idle/loading/ready/failed + 颜色阈值 + 相对时间    | ⚠️   | `smoke/renderer-smoke.test.tsx` (mock 数据), `unit/renderer/relative-time.test.ts` (相对时间格式化)                        | 缺：颜色阈值 75/90% 的 DOM 断言；failed + stale 数据展示（Task 3 计划补齐）       |
-| §6.5 SettingsView      | 侧栏 / 表单 / secret→password / 保存反馈 / 复制    | ⚠️   | `user_e2e/specs/settings_view.spec.ts` (侧栏/插件项/配置表单), `user_e2e/specs/plugin_config.spec.ts` (填写/保存/重启持久) | 缺：复制按钮、type=choice/boolean/integer 的渲染断言（Task 3 计划补齐）           |
-| §6.6 路由              | hash 路由 + useRoute hook                          | ⚠️   | `user_e2e/specs/popup_view.spec.ts` (settings 跳转), `user_e2e/specs/app_lifecycle.spec.ts`                                | 缺：返回 popup、未知 hash 默认行为                                                |
+| Spec 章节              | 需求                                               | 状态 | 现有测试                                                                                                                                                                 | 缺口                               |
+| ---------------------- | -------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| §6.1 系统托盘          | 左键 toggle popup、右键菜单、退出                  | ✅   | `user_e2e/specs/tray_interaction.spec.ts` (popup 渲染、托盘点击关闭 popup)                                                                                               | —                                  |
+| §6.2 窗口配置          | popup 360×480 无 frame / settings 640×520 有 frame | ⚠️   | `user_e2e/specs/app_lifecycle.spec.ts` (first window 可用，settings 渲染)                                                                                                | 缺：尺寸断言、popup 在托盘下方定位 |
+| §6.3 PopupView         | 标题 / 空状态 / 设置按钮 / 刷新按钮 / 卡片列表     | ✅   | `user_e2e/specs/popup_view.spec.ts`, `unit/renderer/components/empty_state.test.tsx`, `plugin_card.test.tsx`, `refresh_button.test.tsx`, `smoke/renderer-smoke.test.tsx` | —                                  |
+| §6.4 PluginCard 状态机 | idle/loading/ready/failed + 颜色阈值 + 相对时间    | ✅   | `unit/renderer/components/plugin_card.test.tsx` (各状态 DOM)、`unit/renderer/relative-time.test.ts`、`user_e2e/specs/plugin_failure_modes.spec.ts`                       | —                                  |
+| §6.5 SettingsView      | 侧栏 / 表单 / secret→password / 保存反馈 / 复制    | ✅   | `user_e2e/specs/settings_view.spec.ts`, `plugin_config.spec.ts`, `unit/renderer/components/settings_form.test.tsx` (各 type 字段渲染)                                    | —                                  |
+| §6.6 路由              | hash 路由 + useRoute hook                          | ⚠️   | `user_e2e/specs/popup_view.spec.ts` (settings 跳转), `user_e2e/specs/app_lifecycle.spec.ts`                                                                              | 缺：返回 popup、未知 hash 默认行为 |
 
 ---
 
@@ -89,12 +89,12 @@
 
 ## §9–§10 测试与平台
 
-| Spec 章节        | 需求                            | 状态 | 现有测试                                                            | 缺口                                                          |
-| ---------------- | ------------------------------- | ---- | ------------------------------------------------------------------- | ------------------------------------------------------------- |
-| §9.1 测试分层    | unit/integration/smoke/e2e/打包 | ⚠️   | 四层目录都存在                                                      | 缺：打包 smoke 自动化（Task 6 计划补齐）                      |
-| §10.1 插件运行时 | Electron 内置 Node              | ✅   | `integration/plugin/runner.test.ts` (真实 spawn `process.execPath`) | —                                                             |
-| §10.2 数据目录   | 跨平台 userData                 | ✅   | `unit/paths.test.ts`                                                | —                                                             |
-| §10.3 插件路径   | 开发 / 打包后                   | ⚠️   | discovery 测试覆盖开发路径                                          | 缺：`process.resourcesPath` 路径在打包 smoke 中验证（Task 6） |
+| Spec 章节        | 需求                            | 状态 | 现有测试                                                                | 缺口 |
+| ---------------- | ------------------------------- | ---- | ----------------------------------------------------------------------- | ---- |
+| §9.1 测试分层    | unit/integration/smoke/e2e/打包 | ✅   | 五层目录都存在，含 `tests/packaged_smoke/smoke.spec.ts`                 | —    |
+| §10.1 插件运行时 | Electron 内置 Node              | ✅   | `integration/plugin/runner.test.ts` (真实 spawn `process.execPath`)     | —    |
+| §10.2 数据目录   | 跨平台 userData                 | ✅   | `unit/paths.test.ts`                                                    | —    |
+| §10.3 插件路径   | 开发 / 打包后                   | ✅   | discovery 测试覆盖开发路径，`packaged_smoke/smoke.spec.ts` 验证打包路径 | —    |
 
 ---
 
