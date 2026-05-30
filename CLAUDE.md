@@ -21,14 +21,14 @@
 | ------------------------------- | -------------------------------------- |
 | Swift 6 + SwiftUI + AppKit      | Electron                               |
 | 菜单栏 NSPopover                | 系统托盘（左键=用量面板，右键=设置）   |
-| Python 子进程插件               | Python 子进程插件                      |
+| Python 子进程插件               | TypeScript 插件（编译后 Node 子进程）  |
 | 插件元数据自描述（注释块 JSON） | 复用该设计模式                         |
 | macOS Keychain 凭证存储         | 系统原生 keychain / credential manager |
 | PluginSnapshot 数据模型         | 复用核心数据模型                       |
 
 ## 关键设计保留
 
-- **插件系统**：子进程隔离 + JSON 协议 + 元数据自描述
+- **插件系统**：TS 源文件 → esbuild 编译为单文件 JS → Electron 内置 Node 子进程执行（`ELECTRON_RUN_AS_NODE=1`），CLI 参数输入、stdout JSON 输出、元数据自描述
 - **独立刷新调度**：每个插件独立周期刷新，缓存感知
 - **双层架构**：Core 逻辑层与 UI 层分离
 

@@ -12,15 +12,17 @@ function log(msg: string) {
 function kill_omni(): void {
     const is_win = platform() === "win32";
 
-    try {
-        if (is_win) {
-            execSync("taskkill /f /im OmniUsage.exe 2>nul", { stdio: "pipe" });
-        } else {
-            execSync("pkill -f OmniUsage", { stdio: "pipe" });
+    for (const proc of ["OmniUsage.exe", "electron.exe"]) {
+        try {
+            if (is_win) {
+                execSync(`taskkill /f /im ${proc} 2>nul`, { stdio: "pipe" });
+            } else {
+                execSync(`pkill -f ${proc}`, { stdio: "pipe" });
+            }
+            log(`killed existing ${proc} process`);
+        } catch {
+            // process not running
         }
-        log("killed existing OmniUsage process");
-    } catch {
-        log("no existing OmniUsage process found");
     }
 }
 
