@@ -30,6 +30,12 @@ const UI_ICONS: Record<string, string> = {
     grid_nav:
         '<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="2.5"/>',
+    eye_off:
+        '<path d="M9.9 4.2A9.5 9.5 0 0 1 12 4c6.5 0 10 7 10 7s-.7 1.4-2 3"/><path d="M6.2 6.2C4 8.2 2.5 10.6 2 12c0 0 3.5 7 10 7 1.8 0 3.5-.4 5-1.2"/><line x1="2" y1="2" x2="22" y2="22"/>',
+    chevron: '<path d="M8 4l8 8-8 8"/>',
+    external_link:
+        '<path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
 };
 
 interface IconProps {
