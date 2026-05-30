@@ -94,11 +94,12 @@ interface WindowConfig {
     height: number;
     frame?: boolean;
     show?: boolean;
+    autoHideMenuBar?: boolean;
 }
 
 const WINDOW_CONFIGS: Record<string, WindowConfig> = {
     popup: { route: "popup", width: 360, height: 480, frame: false, show: false },
-    settings: { route: "settings", width: 640, height: 520 },
+    settings: { route: "settings", width: 640, height: 520, autoHideMenuBar: true },
 };
 
 function getPreloadPath(): string {
@@ -125,12 +126,16 @@ function createWindowFor(key: string): BrowserWindow {
         height: cfg.height,
         frame: cfg.frame ?? true,
         show: cfg.show ?? true,
+        autoHideMenuBar: cfg.autoHideMenuBar ?? false,
         icon: get_app_icon_path(),
         webPreferences: {
             ...SECURE_WEB_PREFS,
             preload: getPreloadPath(),
         },
     });
+    if (cfg.autoHideMenuBar) {
+        win.setMenuBarVisibility(false);
+    }
     void win.loadURL(getRendererUrl(cfg.route));
     win.on("closed", () => {
         log.info(`Window closed: ${key}`);
@@ -386,7 +391,7 @@ void app.whenReady().then(async () => {
             log.warn("Tray icon loaded as empty image");
         }
         const tray = new Tray(trayIcon);
-        tray.setToolTip("OmniUsage");
+        tray.setToolTip("OmniUsage — AI 用量监控");
         log.info("System tray created");
         if (process.env["E2E"] === "1") {
             // Expose tray click for E2E tests via IPC
@@ -400,10 +405,7 @@ void app.whenReady().then(async () => {
         // Left-click → toggle popup (usage view)
         tray.on("click", () => {
             log.info(
-                "[tray] click handler fired, popupWin exists:",
-                !!popupWin,
-                "destroyed:",
-                popupWin?.isDestroyed(),
+                `[tray] click handler fired, popupWin exists: ${popupWin ? "true" : "false"}, destroyed: ${String(popupWin?.isDestroyed())}`,
             );
             if (popupWin && !popupWin.isDestroyed()) {
                 popupWin.close();
@@ -447,12 +449,82 @@ void app.whenReady().then(async () => {
 
         // Right-click → context menu
         const language = currentConfig.language;
-        const labels =
-            language === "zh-Hans"
-                ? { settings: "设置", quit: "退出" }
-                : { settings: "Settings", quit: "Quit" };
+        const isZh = language === "zh-Hans";
+        const labels = isZh
+            ? {
+                  open: "打开主面板",
+                  refresh: "立即刷新全部",
+                  pauseOn: "暂停自动刷新",
+                  pauseOff: "恢复自动刷新",
+                  autostart: "开机自启",
+                  settings: "设置…",
+                  checkUpdate: "检查更新",
+                  quit: "退出 OmniUsage",
+              }
+            : {
+                  open: "Open Panel",
+                  refresh: "Refresh All",
+                  pauseOn: "Pause Auto-Refresh",
+                  pauseOff: "Resume Auto-Refresh",
+                  autostart: "Launch at Login",
+                  settings: "Settings…",
+                  checkUpdate: "Check for Updates",
+                  quit: "Quit OmniUsage",
+              };
+        const isPaused = { value: false };
+        // app.setLoginItemSettings may not exist on all platforms
+        const hasLoginItemApi = typeof app.setLoginItemSettings === "function";
+        const setAutoLaunch = hasLoginItemApi
+            ? (enable: boolean) => {
+                  app.setLoginItemSettings({ openAtLogin: enable });
+              }
+            : undefined;
+
         tray.setContextMenu(
             Menu.buildFromTemplate([
+                {
+                    label: labels.open,
+                    click: () => {
+                        tray.emit("click");
+                    },
+                },
+                {
+                    label: labels.refresh,
+                    click: () => {
+                        for (const p of currentConfig.plugins) {
+                            if (p.enabled) void refreshService.refresh(p.instanceId);
+                        }
+                    },
+                },
+                { type: "separator" },
+                {
+                    label: isPaused.value ? labels.pauseOff : labels.pauseOn,
+                    type: "checkbox",
+                    checked: isPaused.value,
+                    click: (menuItem) => {
+                        isPaused.value = menuItem.checked;
+                        if (menuItem.checked) {
+                            orchestrator.suspend();
+                        } else {
+                            orchestrator.resume();
+                            orchestrator.rebuild(currentConfig);
+                            orchestrator.startAll(currentConfig);
+                        }
+                    },
+                },
+                ...(setAutoLaunch
+                    ? [
+                          {
+                              label: labels.autostart,
+                              type: "checkbox" as const,
+                              checked: app.getLoginItemSettings().openAtLogin,
+                              click: (menuItem: Electron.MenuItem) => {
+                                  setAutoLaunch(menuItem.checked);
+                              },
+                          },
+                      ]
+                    : []),
+                { type: "separator" },
                 {
                     label: labels.settings,
                     click: () => {
@@ -464,6 +536,12 @@ void app.whenReady().then(async () => {
                         settingsWin.on("closed", () => {
                             settingsWin = null;
                         });
+                    },
+                },
+                {
+                    label: labels.checkUpdate,
+                    click: () => {
+                        log.info("Check for updates requested (not yet implemented)");
                     },
                 },
                 { type: "separator" },
