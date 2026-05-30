@@ -57,6 +57,7 @@ describe("auto-seed logic", () => {
                     executablePath: firstDef.executablePath,
                     refreshIntervalSeconds: 300,
                     parameterValues: {},
+                    endpointOverrides: {},
                 },
             ],
             launchAtLogin: false,
@@ -79,6 +80,7 @@ describe("auto-seed logic", () => {
                 executablePath: def.executablePath,
                 refreshIntervalSeconds: 300,
                 parameterValues: {},
+                endpointOverrides: {},
             })),
             launchAtLogin: false,
         };

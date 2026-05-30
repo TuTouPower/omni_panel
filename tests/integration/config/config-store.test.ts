@@ -61,6 +61,7 @@ describe("config-store", () => {
                     executablePath: "/path",
                     refreshIntervalSeconds: 300,
                     parameterValues: {},
+                    endpointOverrides: {},
                 },
             ],
             launchAtLogin: false,

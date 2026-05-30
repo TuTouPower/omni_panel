@@ -102,7 +102,8 @@ interface VendorMarkProps {
 }
 
 export function VendorMark({ id, size = 28 }: VendorMarkProps) {
-    const render = VENDOR_MARKS[id] ?? VENDOR_MARKS.overview;
+    const render = VENDOR_MARKS[id] ?? VENDOR_MARKS["overview"];
+    if (!render) return null;
     return (
         <span
             className="vicon"

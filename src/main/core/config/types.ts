@@ -14,6 +14,12 @@ export const pluginConfigurationSchema = z.object({
     executablePath: z.string().min(1),
     refreshIntervalSeconds: z.number().int().min(60).max(3600),
     parameterValues: z.record(z.string()),
+    endpointOverrides: z.record(z.string()).default({}),
+});
+
+export const proxyConfigurationSchema = z.object({
+    url: z.string().min(1),
+    noProxy: z.array(z.string()).optional(),
 });
 
 export const appConfigurationSchema = z.object({
@@ -22,6 +28,7 @@ export const appConfigurationSchema = z.object({
     overviewDisplayMode: z.enum(["grouped", "tabs"]),
     plugins: z.array(pluginConfigurationSchema),
     launchAtLogin: z.boolean(),
+    proxy: proxyConfigurationSchema.optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {

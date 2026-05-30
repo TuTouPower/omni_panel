@@ -274,6 +274,7 @@ void app.whenReady().then(async () => {
                 executablePath: def.executablePath,
                 refreshIntervalSeconds: 300,
                 parameterValues: {},
+                endpointOverrides: {},
             };
         });
         await configStore.save({ ...config, plugins: [...config.plugins, ...seededPlugins] });

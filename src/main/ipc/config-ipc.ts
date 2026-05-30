@@ -167,6 +167,7 @@ export async function handleConfigDuplicate(
             executablePath: source.executablePath,
             refreshIntervalSeconds: source.refreshIntervalSeconds,
             parameterValues: {},
+            endpointOverrides: {},
         };
 
         const updated: AppConfiguration = {

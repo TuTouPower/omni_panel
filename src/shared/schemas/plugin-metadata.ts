@@ -29,12 +29,15 @@ export const pluginParameterMetadataSchema = z
     })
     .passthrough();
 
+export const pluginEndpointsSchema = z.record(z.string().url().nullable());
+
 export const pluginMetadataSchema = z
     .object({
         name: z.string().optional(),
         description: z.string().optional(),
         icon: z.string().optional(),
         parameters: z.array(pluginParameterMetadataSchema).optional(),
+        endpoints: pluginEndpointsSchema.optional(),
     })
     .passthrough();
 

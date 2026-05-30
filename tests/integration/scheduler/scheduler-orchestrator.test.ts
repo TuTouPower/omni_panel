@@ -43,6 +43,7 @@ function createMockConfigStore(config: AppConfiguration): AppConfigStore & { cal
             calls.push("flushPendingSave");
             return Promise.resolve();
         },
+        hasPendingSave: () => false,
     };
 }
 
@@ -65,6 +66,7 @@ describe("scheduler-orchestrator", () => {
                 executablePath: "/a",
                 refreshIntervalSeconds: 300,
                 parameterValues: {},
+                endpointOverrides: {},
             },
             {
                 instanceId: "b",
@@ -74,6 +76,7 @@ describe("scheduler-orchestrator", () => {
                 executablePath: "/b",
                 refreshIntervalSeconds: 600,
                 parameterValues: {},
+                endpointOverrides: {},
             },
             {
                 instanceId: "c",
@@ -83,6 +86,7 @@ describe("scheduler-orchestrator", () => {
                 executablePath: "/c",
                 refreshIntervalSeconds: 120,
                 parameterValues: {},
+                endpointOverrides: {},
             },
         ],
     };

@@ -80,6 +80,7 @@ function createMockApi() {
                 executablePath: "/plugins/deepseek-usage-plugin.ts",
                 refreshIntervalSeconds: 300,
                 parameterValues: { MODEL: "chat" },
+                endpointOverrides: {},
             },
             {
                 instanceId: "claude",
@@ -89,6 +90,7 @@ function createMockApi() {
                 executablePath: "/plugins/claude-usage-plugin.ts",
                 refreshIntervalSeconds: 300,
                 parameterValues: {},
+                endpointOverrides: {},
             },
         ],
         launchAtLogin: false,

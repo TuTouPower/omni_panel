@@ -16,6 +16,7 @@ function makeConfig(
         executablePath,
         refreshIntervalSeconds: 300,
         parameterValues: {},
+        endpointOverrides: {},
     };
 }
 

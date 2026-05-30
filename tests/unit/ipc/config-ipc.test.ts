@@ -15,6 +15,7 @@ function createMockDeps() {
                 executablePath: "/plugins/claude.py",
                 refreshIntervalSeconds: 300,
                 parameterValues: { API_KEY: "sk-real", MODEL: "gpt-4" },
+                endpointOverrides: {},
             },
         ],
         launchAtLogin: false,
@@ -105,6 +106,7 @@ describe("config-ipc", () => {
             executablePath: "/plugins/fake.py",
             refreshIntervalSeconds: 300,
             parameterValues: {},
+            endpointOverrides: {},
         };
         const modified: AppConfiguration = { ...loaded, plugins: [...loaded.plugins, fakePlugin] };
 

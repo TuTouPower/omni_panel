@@ -18,6 +18,7 @@ function createMockDeps() {
                     executablePath: "/plugins/claude.py",
                     refreshIntervalSeconds: 300,
                     parameterValues: { API_KEY: "sk-real-key", MODEL: "gpt-4" },
+                    endpointOverrides: {},
                 },
             ],
             launchAtLogin: false,
@@ -25,6 +26,7 @@ function createMockDeps() {
         save: vi.fn(),
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn().mockResolvedValue(undefined),
+        hasPendingSave: vi.fn().mockReturnValue(false),
     };
 
     const readyState: PluginSnapshotDTO = {
@@ -132,6 +134,7 @@ describe("plugin-ipc", () => {
                         executablePath: "resources\\plugins\\deepseek-usage-plugin.py",
                         refreshIntervalSeconds: 300,
                         parameterValues: {},
+                        endpointOverrides: {},
                     },
                 ],
                 launchAtLogin: false,
@@ -139,6 +142,7 @@ describe("plugin-ipc", () => {
             save: vi.fn(),
             scheduleSave: vi.fn(),
             flushPendingSave: vi.fn().mockResolvedValue(undefined),
+            hasPendingSave: vi.fn().mockReturnValue(false),
         };
         const runtimeStore: RuntimeStore = {
             getSnapshot: vi.fn().mockReturnValue({ status: "idle" }),

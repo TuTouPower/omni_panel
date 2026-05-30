@@ -1,11 +1,17 @@
 import type { AppLanguage } from "./plugin";
 
+export interface ProxyConfiguration {
+    readonly url: string;
+    readonly noProxy?: readonly string[];
+}
+
 export interface AppConfiguration {
     readonly schemaVersion: number;
     readonly language: AppLanguage;
     readonly overviewDisplayMode: "grouped" | "tabs";
     readonly plugins: readonly PluginConfiguration[];
     readonly launchAtLogin: boolean;
+    readonly proxy?: ProxyConfiguration;
 }
 
 export interface PluginConfiguration {
@@ -16,4 +22,5 @@ export interface PluginConfiguration {
     readonly executablePath: string;
     readonly refreshIntervalSeconds: number;
     readonly parameterValues: Readonly<Record<string, string>>;
+    readonly endpointOverrides: Readonly<Record<string, string>>;
 }

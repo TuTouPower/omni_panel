@@ -11,6 +11,7 @@ const mockConfig: PluginConfiguration = {
     executablePath: "/path/plugin.py",
     refreshIntervalSeconds: 300,
     parameterValues: { API_KEY: "key123" },
+    endpointOverrides: {},
 };
 
 function createDeps(overrides: Record<string, unknown> = {}) {
@@ -62,6 +63,7 @@ function createDeps(overrides: Record<string, unknown> = {}) {
             save: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
             scheduleSave: vi.fn(),
             flushPendingSave: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+            hasPendingSave: vi.fn<() => boolean>().mockReturnValue(false),
         },
         secretsStore: {
             get: vi.fn<() => Promise<string | null>>().mockResolvedValue(null),
