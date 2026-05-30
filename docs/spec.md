@@ -201,7 +201,8 @@
     language: "zh-Hans" | "en",
     overviewDisplayMode: "grouped" | "tabs",
     launchAtLogin: boolean,
-    plugins: PluginConfiguration[]
+    plugins: PluginConfiguration[],
+    proxy?: { url: string, noProxy?: string[] }  // HTTP 代理，通过 OMNI_PLUGIN_PROXY 注入子进程
 }
 ```
 
@@ -215,7 +216,8 @@
     enabled: boolean,
     executablePath: string,  // 插件脚本完整路径
     refreshIntervalSeconds: number,  // 60–3600 秒（1–60 分钟）
-    parameterValues: Record<string, string>
+    parameterValues: Record<string, string>,
+    endpointOverrides: Record<string, string>  // 覆盖插件 metadata 中的 endpoints 默认 URL
 }
 ```
 
@@ -259,7 +261,8 @@ refresh(instanceId)
   → 从 configStore 查找 PluginConfiguration
   → 从 secretsStore 读取 secret 参数并注入 parameterValues 副本
   → commandBuilder(executablePath, parameterValues, language, nodePath) → 构建命令
-  → executePlugin(command, timeout=15s) → spawn Node 子进程（ELECTRON_RUN_AS_NODE=1）
+  → resolveRuntimeEnv(metadataEndpoints, pluginConfig, appConfig) → OMNI_PLUGIN_ENDPOINTS + OMNI_PLUGIN_PROXY
+  → executePlugin(command + env, timeout=15s) → spawn Node 子进程（ELECTRON_RUN_AS_NODE=1）
   → parsePluginOutputOrError(stdout)
   → 写入 runtimeStore（ready / failed）
   → 写入 cacheStore（成功时）

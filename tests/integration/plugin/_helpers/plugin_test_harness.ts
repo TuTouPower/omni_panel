@@ -37,6 +37,17 @@ function compile_plugin(pluginFile: string): string {
     return out_path;
 }
 
+function safe_parse(stdout: string): PluginResult {
+    try {
+        return parsePluginResult(stdout);
+    } catch {
+        return {
+            success: false,
+            error: { code: "PARSE_ERROR", message: `stdout: ${stdout.slice(0, 200)}` },
+        };
+    }
+}
+
 export async function runBundledPlugin(opts: PluginRunOptions): Promise<PluginRunResult> {
     const compiled_path = compile_plugin(opts.pluginFile);
     const command = buildPluginCommand(
@@ -53,6 +64,6 @@ export async function runBundledPlugin(opts: PluginRunOptions): Promise<PluginRu
         { ...command, env: command_env },
         { timeoutMs: opts.timeoutMs ?? 15000 },
     );
-    const parsed = parsePluginResult(exec.stdout);
+    const parsed = safe_parse(exec.stdout);
     return { exec, parsed };
 }

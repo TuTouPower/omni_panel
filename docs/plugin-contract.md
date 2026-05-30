@@ -64,9 +64,64 @@
                 }
             ]
         }
-    ]
+    ],
+    "endpoints": {
+        "<key>": "https://default-url.example.com | null"
+    }
 }
 ```
+
+### Endpoints 字段
+
+- `endpoints` 是可选的 `Record<string, string | null>`，声明插件依赖的 HTTP 端点
+- `string` 值 = 官方默认 URL（MVP 阶段自动使用）
+- `null` 值 = 必填无默认（如 CPA），用户必须在 `endpointOverrides` 中提供
+- 省略 `endpoints` = 插件不依赖外部 HTTP（如 Claude/Codex 读本地文件）
+
+## 端点注入
+
+插件运行在子进程中，通过 `OMNI_PLUGIN_ENDPOINTS` 环境变量接收解析后的端点 URL：
+
+```json
+// OMNI_PLUGIN_ENDPOINTS 的值
+{ "default": "https://api.example.com", "model_usage": "https://other.example.com" }
+```
+
+### 解析优先级
+
+1. **环境变量** `OMNI_PLUGIN_ENDPOINTS`（测试桩 / 运行时注入）
+2. **用户覆盖** `endpointOverrides`（配置中每个插件独立设置）
+3. **Metadata 默认**（插件源码中声明的 `endpoints`）
+
+运行时 RefreshService 将优先级 2 和 3 合并后写入 `OMNI_PLUGIN_ENDPOINTS`，SDK 只看环境变量和 metadata 兜底。
+
+### 代理
+
+`OMNI_PLUGIN_PROXY` 环境变量（JSON `{ "url": "http://host:port" }`）通过 undici `ProxyAgent` 接管所有 HTTP 请求。
+
+## SDK HttpClient
+
+插件通过 `ctx.http` 发起 HTTP 请求，无需手动 `fetch`：
+
+```ts
+import { definePlugin, ok, failFromHttp } from "@omni-usage/plugin-sdk";
+
+definePlugin(
+    async (ctx) => {
+        const result = await ctx.http.getJson<MyResponse>("default", "/api/path", {
+            headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!result.ok) return failFromHttp(result.error, "my-plugin");
+        return ok({ items: [...] });
+    },
+    { metadata: { endpoints: { default: "https://api.example.com" } }, translations },
+);
+```
+
+- `ctx.http.getJson<T>(endpointKey, path, opts?)` — GET 请求
+- `ctx.http.postJson<T>(endpointKey, path, opts?)` — POST 请求
+- 返回 `Result<T, HttpError>`，`ok: true` 时有 `value`，`ok: false` 时有 `error`
+- `failFromHttp(error, contextLabel)` 将 `HttpError` 转为插件错误输出
 
 ## 参数传递
 
@@ -157,8 +212,10 @@
 
 通过 CPA-Manager 代理服务获取 5 个 provider 的配额数据：Claude、Codex、Gemini、Antigravity、Kimi。
 
-- **依赖**：仅 Node stdlib（`fetch` 内置），无需任何第三方包
-- **参数**：`cpa_mgmt_url`（string）、`cpa_mgmt_key`（secret）、5 个 `monitor_*`（boolean）开关
+- **依赖**：`@omni-usage/plugin-sdk`（typed HTTP client）
+- **端点**：`{ "default": null }` — 必填无默认，用户必须在 `endpointOverrides.default` 中提供 CPA-Manager URL
+- **参数**：`cpa_mgmt_key`（secret）、5 个 `monitor_*`（boolean）开关
+- **HTTP 调用**：`ctx.http.getJson("default", "/v0/management/auth-files")` 和 `ctx.http.postJson("default", "/v0/management/api-call")`
 - **多 item 输出**：每个账号的每个配额周期输出一个 item（如 `claude:user@example.com:5小时`）
 - **容错**：单个账号失败不阻塞其他账号，全部失败才输出 error JSON
 - **Antigravity**：三个 URL 回退机制，自动尝试不同端点

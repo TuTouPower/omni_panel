@@ -20,7 +20,7 @@
 | §3.3 参数传递                     | `--usageboard-param KEY=VALUE`，非空才传，注入 LANGUAGE | ✅   | `unit/plugin/command-builder.test.ts` (nodePath, 参数格式, 跳过空值, LANGUAGE 注入, 中文/特殊字符)                          | —                                                                                   |
 | §3.4 stdout 输出 schema           | 成功/错误 JSON 结构，items/badge/chart 可选             | ✅   | `unit/shared/schemas.test.ts` (basic/badge/chart/empty/nulls/error/missing/wrong-type), `unit/plugin/output-parser.test.ts` | —                                                                                   |
 | §3.5 exit code / timeout / stderr | 0 解析、非零取 stderr、15s timeout、stderr 不等于失败   | ✅   | `integration/plugin/runner.test.ts` (stdout/stderr/exit/timeout/SIGKILL/中文)                                               | —                                                                                   |
-| §3.6 内置插件清单（7 个）         | 7 个 bundled 插件，元数据正确，secret 参数声明正确      | ⚠️   | `unit/plugin/bundled-metadata.test.ts` (计数 + 元数据快照)                                                                  | 缺：**每个插件以 stub 注入凭据后的完整流程测试**（Task 2 计划补齐）                 |
+| §3.6 内置插件清单（7 个）         | 7 个 bundled 插件，元数据正确，secret 参数声明正确      | ✅   | `unit/plugin/bundled-metadata.test.ts` (计数 + 元数据快照), 7 个 stub 集成测试（成功/缺参/401/429/500/超时）                | —                                                                                   |
 
 ---
 
@@ -100,15 +100,15 @@
 
 ## 内置插件 (§3.6) 单项详情
 
-| 插件     | 真实 metadata 验证  | stub 集成测试 | 端到端账号场景 | 计划补齐                                                |
-| -------- | ------------------- | ------------- | -------------- | ------------------------------------------------------- |
-| Claude   | ✅ bundled-metadata | ❌            | ❌             | Task 2 `claude-plugin.test.ts`（mock 本地 `~/.claude`） |
-| Codex    | ✅                  | ❌            | ❌             | Task 2 `codex-plugin.test.ts`                           |
-| DeepSeek | ✅                  | ❌            | ❌             | Task 2 + Task 7 contract                                |
-| GLM      | ✅                  | ❌            | ❌             | Task 2 + Task 7 contract                                |
-| MiniMax  | ✅                  | ❌            | ❌             | Task 2 + Task 7 contract                                |
-| Tavily   | ✅                  | ❌            | ❌             | Task 2 + Task 7 contract                                |
-| CPA      | ✅                  | ⚠️ 已有 3 个  | ❌             | Task 2 扩展（多 provider/Antigravity 回退）+ Task 7     |
+| 插件     | 真实 metadata 验证  | stub 集成测试 | 端到端账号场景 | 测试文件                                     |
+| -------- | ------------------- | ------------- | -------------- | -------------------------------------------- |
+| Claude   | ✅ bundled-metadata | ✅ 4 case     | ❌             | `integration/plugin/claude-plugin.test.ts`   |
+| Codex    | ✅                  | ✅ 3 case     | ❌             | `integration/plugin/codex-plugin.test.ts`    |
+| DeepSeek | ✅                  | ✅ 6 case     | ❌             | `integration/plugin/deepseek-plugin.test.ts` |
+| GLM      | ✅                  | ✅ 6 case     | ❌             | `integration/plugin/glm-plugin.test.ts`      |
+| MiniMax  | ✅                  | ✅ 6 case     | ❌             | `integration/plugin/minimax-plugin.test.ts`  |
+| Tavily   | ✅                  | ✅ 6 case     | ❌             | `integration/plugin/tavily-plugin.test.ts`   |
+| CPA      | ✅                  | ✅ 6 case     | ❌             | `integration/plugin/cpa-plugin.test.ts`      |
 
 ---
 
@@ -118,6 +118,6 @@
 - 前端 UI (§6) 主要靠 mock IPC 的 smoke + 少量 E2E，**真实交互场景大量缺失**。
 - 安全 (§8) 缺少 renderer 沙箱与 IPC 白名单断言。
 - 打包 smoke (§9.1 末行) 完全缺失。
-- 内置插件 (§3.6) 仅 CPA 有真实子进程测试，其余 6 个仅有元数据快照。
+- 内置插件 (§3.6) 7 个全部有 stub 集成测试（真实子进程 + HTTP 桩），共 37 case。
 
 后续 Task 2–7 按本矩阵补齐 ❌ / ⚠️ 项。
