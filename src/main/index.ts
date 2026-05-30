@@ -7,6 +7,7 @@ import {
     screen,
     powerMonitor,
     session,
+    ipcMain,
 } from "electron";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -376,8 +377,8 @@ void app.whenReady().then(async () => {
     let popupWin: BrowserWindow | null = null;
     let settingsWin: BrowserWindow | null = null;
 
-    // System tray — skip in E2E mode (tray may crash in headless/CI)
-    if (process.env["E2E"] !== "1") {
+    // System tray — skip in E2E mode unless E2E_WITH_TRAY=1
+    if (process.env["E2E"] !== "1" || process.env["E2E_WITH_TRAY"] === "1") {
         const trayIcon = nativeImage
             .createFromPath(get_tray_icon_path())
             .resize({ width: 16, height: 16 });
@@ -387,12 +388,27 @@ void app.whenReady().then(async () => {
         const tray = new Tray(trayIcon);
         tray.setToolTip("OmniUsage");
         log.info("System tray created");
+        if (process.env["E2E"] === "1") {
+            // Expose tray click for E2E tests via IPC
+            ipcMain.handle("test:tray-click", () => {
+                log.info("[E2E test] test:tray-click received, emitting tray click");
+                tray.emit("click");
+                log.info("[E2E test] tray click emitted");
+            });
+        }
 
         // Left-click → toggle popup (usage view)
         tray.on("click", () => {
+            log.info(
+                "[tray] click handler fired, popupWin exists:",
+                !!popupWin,
+                "destroyed:",
+                popupWin?.isDestroyed(),
+            );
             if (popupWin && !popupWin.isDestroyed()) {
                 popupWin.close();
                 popupWin = null;
+                log.info("[tray] closed popup");
                 return;
             }
             popupWin = createWindowFor("popup");

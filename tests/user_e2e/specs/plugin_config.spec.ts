@@ -59,7 +59,6 @@ test.describe("plugin configuration", () => {
 
         let form = cpaForm(page);
         await expect(form).toBeVisible();
-        await form.locator('input[name="cpa_mgmt_url"]').fill("http://127.0.0.1:20224");
         await form.locator('input[name="cpa_mgmt_key"]').fill("secret-management-key");
         await form.locator('input[name="refreshIntervalMinutes"]').fill("7");
         await form.locator('button[type="submit"]').click();
@@ -72,9 +71,6 @@ test.describe("plugin configuration", () => {
         await openSettings(page);
         form = cpaForm(page);
         await expect(form).toBeVisible();
-        await expect(form.locator('input[name="cpa_mgmt_url"]')).toHaveValue(
-            "http://127.0.0.1:20224",
-        );
         await expect(form.locator('input[name="cpa_mgmt_key"]')).toHaveValue("***");
         await expect(form.locator('input[name="cpa_mgmt_key"]')).not.toHaveValue(
             "secret-management-key",

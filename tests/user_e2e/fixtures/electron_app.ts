@@ -32,6 +32,8 @@ export interface LaunchAppOptions {
     onReady?: (userDataDir: string) => void;
     /** Reuse a specific userData dir (for restart tests). If omitted, a dir is created automatically. */
     userDataDir?: string;
+    /** Enable system tray in E2E mode (normally skipped). */
+    enableTray?: boolean;
 }
 
 export async function launchApp(options?: LaunchAppOptions): Promise<LaunchedApp> {
@@ -57,6 +59,7 @@ export async function launchApp(options?: LaunchAppOptions): Promise<LaunchedApp
         env: {
             ...process.env,
             E2E: "1",
+            ...(options?.enableTray ? { E2E_WITH_TRAY: "1" } : {}),
         },
     });
 

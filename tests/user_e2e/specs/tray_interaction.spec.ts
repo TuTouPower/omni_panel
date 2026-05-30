@@ -1,22 +1,34 @@
-import { test } from "../fixtures/test";
+import type { Page } from "@playwright/test";
+import { createTestWithSetup } from "../fixtures/test_with_setup";
 
-/**
- * Tray interaction cannot be tested in E2E mode.
- *
- * Reason: The app explicitly skips tray creation when E2E=1 (see src/main/index.ts).
- * In E2E mode the app auto-opens the popup window directly instead.
- * Testing real tray click/context-menu would require:
- *   1. Running without E2E=1 (fragile in CI, tray may crash in headless), or
- *   2. Adding a --with-tray flag to force tray creation in E2E mode (not yet implemented).
- *
- * Tray behavior is covered by manual QA and the unit-level window creation tests.
- */
-test.describe.skip("tray interaction", () => {
-    test("left-click toggles popup window", async () => {
-        // Cannot automate: tray is skipped in E2E=1 mode.
+const { test, expect } = createTestWithSetup({
+    enableTray: true,
+});
+
+async function triggerTrayClick(page: Page): Promise<void> {
+    await page.evaluate(() => {
+        const w = window as unknown as Record<string, { trayClick: () => Promise<void> }>;
+        return w["__test__"]?.trayClick();
+    });
+}
+
+test.describe("tray interaction", () => {
+    test("popup renders when tray is active", async ({ omni }) => {
+        // E2E_WITH_TRAY=1: tray created, popup auto-opens
+        const page = await omni.app.firstWindow();
+        await page.waitForLoadState("domcontentloaded");
+        await expect(page.getByText("OmniUsage")).toBeVisible({ timeout: 10_000 });
     });
 
-    test("right-click shows context menu with settings and quit", async () => {
-        // Cannot automate: tray is skipped in E2E=1 mode.
+    test("tray click closes open popup", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        await page.waitForLoadState("domcontentloaded");
+        await expect(page.getByText("OmniUsage")).toBeVisible({ timeout: 10_000 });
+
+        const closePromise = page.waitForEvent("close", { timeout: 10_000 });
+        await triggerTrayClick(page);
+        await closePromise;
+
+        expect(omni.app.windows().length).toBe(0);
     });
 });

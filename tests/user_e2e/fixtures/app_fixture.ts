@@ -4,6 +4,8 @@ import { launchApp, closeApp, type LaunchedApp } from "./electron_app";
 export interface AppFixtureOptions {
     /** Called before Electron launches — seed plugins, config, etc. Only called on first start. */
     setupPlugins?: (userDataDir: string) => void;
+    /** Enable system tray in E2E mode. */
+    enableTray?: boolean;
 }
 
 export class AppFixture {
@@ -24,14 +26,17 @@ export class AppFixture {
     async start(): Promise<ElectronApplication> {
         // Only call setupPlugins on the first start to avoid re-creating tmp dirs.
         // Subsequent starts (e.g. restart tests) reuse the same userData dir.
-        const launchOptions =
+        const baseOptions =
             !this.seeded && this.options.setupPlugins
                 ? { onReady: this.options.setupPlugins }
                 : this.savedUserDataDir
                   ? { userDataDir: this.savedUserDataDir }
-                  : undefined;
+                  : {};
 
-        this.launched = await launchApp(launchOptions);
+        this.launched = await launchApp({
+            ...baseOptions,
+            enableTray: this.options.enableTray,
+        });
         if (!this.seeded) {
             this.savedUserDataDir = this.launched.userDataDir;
             this.seeded = true;

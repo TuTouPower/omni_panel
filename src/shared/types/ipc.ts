@@ -18,6 +18,9 @@ export const IPC_CHANNELS = {
     EVENT_THEME_CHANGE: "event:themeChange",
 
     LOG_RENDERER: "log:renderer",
+
+    /** E2E only — triggers the system tray click handler programmatically. */
+    TEST_TRAY_CLICK: "test:tray-click",
 } as const;
 
 export type PluginSnapshotDTO =
