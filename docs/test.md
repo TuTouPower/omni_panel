@@ -87,7 +87,41 @@ pnpm lint
 
 ---
 
-## 5. 任务完成验证清单
+## 5. 覆盖率
+
+```bash
+# 运行测试并生成覆盖率报告
+pnpm test:coverage
+```
+
+### 查看 HTML 报告
+
+```bash
+# Windows
+start coverage/index.html
+
+# macOS
+open coverage/index.html
+
+# Linux
+xdg-open coverage/index.html
+```
+
+### 当前阈值
+
+| 指标       | 阈值 |
+| ---------- | ---- |
+| Statements | 1%   |
+| Branches   | 22%  |
+| Functions  | 20%  |
+| Lines      | 1%   |
+
+> 基线日期：2026-05-30。阈值 = 基线 - 5%。
+> 详细基线数据见 `docs/coverage-baseline.md`。
+
+---
+
+## 6. 任务完成验证清单
 
 每个任务完成前必须通过：
 
