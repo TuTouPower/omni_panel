@@ -453,10 +453,18 @@ void app.whenReady().then(async () => {
 
     app.on("before-quit", () => {
         log.info("Application shutting down");
-        void configStore.flushPendingSave();
         orchestrator.shutdown();
         cleanupEventIpc?.();
         cleanupEventIpc = null;
+    });
+
+    app.on("will-quit", (e) => {
+        if (configStore.hasPendingSave()) {
+            e.preventDefault();
+            void configStore.flushPendingSave().finally(() => {
+                app.quit();
+            });
+        }
     });
 
     // In E2E mode, auto-open popup so tests don't need tray interaction

@@ -25,6 +25,7 @@ function createMockDeps() {
         save: vi.fn().mockResolvedValue(undefined),
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn().mockResolvedValue(undefined),
+        hasPendingSave: vi.fn().mockReturnValue(false),
     };
 
     const secretsStore = {
@@ -84,7 +85,7 @@ describe("config-ipc", () => {
 
         const result = await handleConfigSave(deps, modified);
         expect(result.ok).toBe(true);
-        const savedArgs = deps.configStore.scheduleSave.mock.calls as [AppConfiguration][];
+        const savedArgs = deps.configStore.save.mock.calls as [AppConfiguration][];
         expect(savedArgs.length).toBeGreaterThan(0);
         const savedPlugin = savedArgs[0]?.[0]?.plugins.find((p) => p.stateId === "claude");
         expect(savedPlugin?.parameterValues["API_KEY"]).toBeUndefined();

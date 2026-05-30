@@ -101,7 +101,7 @@ export async function handleConfigSave(
         }
 
         const stripped = stripSecrets(incoming, deps.secretParamKeys);
-        deps.configStore.scheduleSave(stripped);
+        await deps.configStore.save(stripped);
         deps.onConfigSaved?.(stripped);
         return ok(undefined);
     } catch {

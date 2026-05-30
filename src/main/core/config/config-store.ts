@@ -8,6 +8,7 @@ export interface AppConfigStore {
     save(config: AppConfiguration): Promise<void>;
     scheduleSave(config: AppConfiguration, delayMs?: number): void;
     flushPendingSave(): Promise<void>;
+    hasPendingSave(): boolean;
 }
 
 const log = createLogger("config-store");
@@ -91,6 +92,10 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 pendingConfig = null;
                 await this.save(cfg);
             }
+        },
+
+        hasPendingSave(): boolean {
+            return pendingTimer !== null;
         },
     };
 }
