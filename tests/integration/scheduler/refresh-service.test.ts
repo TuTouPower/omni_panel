@@ -74,6 +74,7 @@ function createDeps(overrides: Record<string, unknown> = {}) {
             string,
             ReadonlySet<string>
         >,
+        getMetadataEndpoints: vi.fn().mockReturnValue(undefined),
         ...overrides,
     };
 }

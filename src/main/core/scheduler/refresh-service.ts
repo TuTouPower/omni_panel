@@ -8,6 +8,7 @@ import type { PluginResult } from "../../../shared/schemas/plugin-output";
 import type { AppLanguage } from "../../../shared/types/plugin";
 import type { SecretsStore } from "../config/secrets-store";
 import { createLogger } from "../../../shared/lib/logger";
+import { resolveRuntimeEnv } from "./endpoint-resolver";
 import {
     PluginOutputParseError,
     PluginSchemaError,
@@ -30,6 +31,7 @@ export interface RefreshServiceDeps {
     configStore: AppConfigStore;
     secretsStore: SecretsStore;
     secretParamKeys: ReadonlyMap<string, ReadonlySet<string>>;
+    getMetadataEndpoints: (instanceId: string) => Record<string, string | null> | undefined;
 }
 
 export interface PluginRefreshService {
@@ -108,9 +110,22 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 config.language,
             );
 
+            const metadataEndpoints = deps.getMetadataEndpoints(instanceId);
+            const runtimeEnv = resolveRuntimeEnv(metadataEndpoints, plugin, config);
+            const commandWithEnv: PluginCommand = {
+                ...command,
+                env: {
+                    ...(command.env ?? {}),
+                    ...(runtimeEnv.endpoints
+                        ? { OMNI_PLUGIN_ENDPOINTS: runtimeEnv.endpoints }
+                        : {}),
+                    ...(runtimeEnv.proxy ? { OMNI_PLUGIN_PROXY: runtimeEnv.proxy } : {}),
+                },
+            };
+
             try {
                 log.debug(`Executing plugin ${instanceId} (${plugin.name})`);
-                const result = await deps.runner(command, { timeoutMs: 15_000 });
+                const result = await deps.runner(commandWithEnv, { timeoutMs: 15_000 });
 
                 if (result.exitCode !== 0) {
                     throw new PluginExecutionError(

@@ -307,6 +307,14 @@ void app.whenReady().then(async () => {
 
     const secretParamKeys = buildSecretParamKeys(currentConfig);
 
+    // Build metadataEndpoints map from plugin definitions
+    function getMetadataEndpoints(instanceId: string): Record<string, string | null> | undefined {
+        const plugin = currentConfig.plugins.find((p) => p.instanceId === instanceId);
+        if (!plugin) return undefined;
+        const def = allDefinitions.find((d) => d.executablePath === plugin.executablePath);
+        return def?.metadata?.endpoints;
+    }
+
     // Wire real refresh service
     const refreshService = createRefreshService({
         runner: executePlugin,
@@ -317,6 +325,7 @@ void app.whenReady().then(async () => {
         configStore,
         secretsStore,
         secretParamKeys,
+        getMetadataEndpoints,
     });
 
     // Scheduler orchestrator — centralises scheduling, suspend/resume, shutdown
