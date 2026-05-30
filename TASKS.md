@@ -148,98 +148,118 @@ CPA-Manager (http://<your-host>:20224)
 
 ---
 
-## Phase 18: 补齐测试覆盖与真实验收缺口
+## Phase 18: 补齐测试覆盖与真实验收缺口 ✅
 
-> **执行入口已合并到** `docs/superpowers/plans/2026-05-30-test-coverage-improvement.md`（8 个 Task）。
-> 18.1-18.5 被 Task 2-6 覆盖；18.6 = Task 8（覆盖率）；18.7 文档同步分散到各 Task 的 docs commit。
-> 本节保留作为需求来源参考，**实际执行看上述计划文件**。
+> 已完成。执行入口:`docs/superpowers/plans/2026-05-30-test-coverage-improvement.md`(8 个 Task 全部交付)。
+> 覆盖现状见 `docs/test-coverage-matrix.md`。
+> 关键提交:`b84e8e7` 覆盖率门禁、`108fa79` playwright 多 project + coverage 脚本、`9c14faf` 真实 API 契约、`d3882d5` 插件测试稳定性修复。
+>
+> 剩余可选项(未做):nightly-contract GitHub Actions(`.github/workflows/`),手工跑 `pnpm test:full` 等效。
+
+---
+
+## Phase 19: UI 与设计 demo 对齐 + 窗口/托盘修复
 
 ### 背景
 
-`docs/spec.md` 与 `docs/test.md` 要求测试覆盖单元、集成、用户端到端和打包 smoke 四层。
-当前单元/集成测试已有基础，但用户端到端测试多数只验证“可见 / 可点击 / 不崩溃”，还没有充分验证真实用户行为产生的状态变化；打包产物与系统托盘行为也主要依赖人工验证，缺少明确验收记录。
+打包产物实际运行后发现两类问题:
 
-目标：把测试从“存在”补到“能防回归”，尤其覆盖此前暴露过的托盘重复、设置保存后异常、CPA 数据获取失败等问题。
+1. **窗口装饰**:Settings 窗口 `frame: true` 且未禁用应用菜单,Electron 默认菜单栏(File/Edit/View/Window/Help)仍显示;Popup 窗口虽 `frame: false`,但缺少自绘标题栏拖拽区。
+2. **托盘图标**:`src/main/core/paths.ts:37` 的 `get_tray_icon_path()` 返回 `resources/icon.png`(应用大图),未使用已存在的 `resources/tray-icon.png`,导致系统托盘渲染异常(过大/糊/不显示)。
+3. **UI 与 `docs/design/omni-usage/` 设计 demo 严重不对齐**:demo 包含 AreaChart(多系列趋势图)、TokenGrid(token 用量网格)、UsageRow(带 tone/invert 进度条)、多账号 tab 切换、Tweaks 面板、托盘菜单自绘窗口等;当前 `PluginCard` 仅渲染简化 `BarRow`,缺图表/token grid/多账号视图。
+4. **样式量级差距**:设计三份 CSS 共 2869 行,当前 `globals.css` 1100 行。
 
-### 18.1: 补齐 E2E 刷新行为验证
+### 19.1 窗口装饰修复
 
-- [ ] 用户在 Popup 点击“刷新”后，断言至少一个插件卡片进入 `loading` / Skeleton 状态
-- [ ] 刷新完成后，断言插件卡片进入 `ready` 或 `failed` 终态，而不是只验证页面未崩溃
-- [ ] 成功路径需断言 DOM 中的用量数据发生更新
-- [ ] 失败路径需断言错误信息显示在对应 PluginCard 上
-- [ ] 验证 stale data：已有成功数据后刷新失败，卡片同时显示旧数据和新错误
-- [ ] 避免固定 `waitForTimeout` 作为主要同步方式，改用明确 DOM 状态等待
+- [x] **19.1.1 Settings 窗口去掉默认菜单栏**
+    - 文件:`src/main/index.ts` WINDOW_CONFIGS.settings 与 createWindowFor
+    - 改动:`autoHideMenuBar: true` + 创建后 `win.setMenuBarVisibility(false)`;或全局 `Menu.setApplicationMenu(null)`(注意 macOS 上需保留最小菜单以避免快捷键失效)
+    - 验收:打包产物启动 Settings 窗口顶部无 File/Edit/...菜单
 
-### 18.2: 补齐设置保存与持久化 E2E
+- [x] **19.1.2 Popup 自绘标题栏拖拽区**
+    - 文件:`src/renderer/views/PopupView.tsx` + `globals.css`
+    - 当前 `.titlebar` 节点应加 `-webkit-app-region: drag`,子按钮加 `no-drag`
+    - 验收:鼠标拖标题栏可移动窗口;点击刷新/设置按钮不触发拖拽
 
-- [ ] 在 Settings 中填写普通参数并保存，断言出现“已保存”反馈
-- [ ] 填写 secret 参数并保存，断言输入框不明文回显 secret
-- [ ] 保存后重新进入 Settings，断言普通参数仍保留
-- [ ] 保存后重启 Electron E2E 实例，断言配置从磁盘恢复
-- [ ] secret 保存后重启，断言 `hasSecrets` 状态正确，且不暴露明文
-- [ ] 修改刷新间隔并保存，断言配置值持久化
-- [ ] 保存设置后断言应用仍只有一个有效窗口/实例，不触发重复初始化副作用
+- [x] **19.1.3 验证 popup 在托盘下方定位**
+    - 文件:`src/main/index.ts` Tray click handler
+    - 当前 spec 要求 popup 紧贴托盘弹出,需读取 `tray.getBounds()` 计算坐标
+    - 验收:左键托盘,popup 出现在托盘正下方(Win)/正上方(Mac dock)
 
-### 18.3: 补齐 Popup / Settings / 插件 UI 状态覆盖
+### 19.2 托盘图标修复
 
-- [ ] Popup 空状态：无插件时显示“暂无插件”类提示
-- [ ] Popup 缺 key 状态：需要配置 API Key 的插件未配置时提示去设置
-- [ ] Popup Python 不可用状态：显示 Python 警告，且插件功能不可用
-- [ ] PluginCard `idle` / `loading` / `ready` / `failed` 四种状态都有真实 DOM 断言
-- [ ] PluginCard 多 item 展示：CPA 多 provider / 多账号 / 多周期 item 均可见
-- [ ] 进度条颜色阈值：>=75% 黄色，>=90% 红色
-- [ ] 相对时间显示：刚刚 / X 分钟前，并随时间更新
-- [ ] Settings 参数类型：`secret`、`choice`、`boolean`、`string`、`integer` 都有渲染和交互测试
-- [ ] duplicate 按钮复制插件实例后，Settings 侧栏显示去重编号
+- [x] **19.2.1 `get_tray_icon_path()` 改用专用资源**
+    - 文件:`src/main/core/paths.ts:37`
+    - 改动:返回 `resources/tray-icon.png`(已存在);打包路径同步 `process.resourcesPath/tray-icon.png`
+    - `forge.config.ts` 的 `extraResource` 须包含 `tray-icon.png`
+    - 验收:Win 托盘显示 16x16 清晰图标,无空白/默认 Electron 图标
 
-### 18.4: 补齐 CPA 插件成功路径测试
+- [x] **19.2.2 多尺寸/HiDPI 支持**
+    - 提供 `tray-icon@2x.png` 32x32,或改用 ICO 多帧
+    - macOS 加 `tray-iconTemplate.png` 单色模板,自动适配深浅菜单栏
 
-- [ ] 用本地 HTTP stub 模拟 CPA-Manager `GET /v0/management/auth-files`
-- [ ] 用本地 HTTP stub 模拟 `POST /v0/management/api-call`
-- [ ] 覆盖 Claude / Codex / Gemini CLI / Antigravity / Kimi 的成功响应
-- [ ] 覆盖单个 provider 失败但其他 provider 成功时输出 warning item
-- [ ] 覆盖全部 provider 失败时输出 error JSON
-- [ ] 覆盖 `monitor_* = false` 时对应 provider 不发请求
-- [ ] 覆盖 `cpa_mgmt_url` 末尾有无 `/` 都能正确拼接 URL
-- [ ] 验证 `cpa_mgmt_key` 不出现在 stdout、stderr、日志、错误消息中
-- [ ] 增加一条 E2E：填写 CPA URL/key 后刷新，Popup 显示 CPA item
+- [x] **19.2.3 托盘 tooltip + 右键菜单贴近设计**
+    - 文件:`src/main/index.ts` + 参考 `docs/design/omni-usage/project/tray.jsx`
+    - 当前右键菜单缺:暂停自动刷新、开机自启、检查更新等
+    - 验收:右键菜单 7 项符合 demo
 
-### 18.5: 补齐系统托盘与打包 smoke 验收
+### 19.3 渲染层对齐设计 demo
 
-- [ ] 打包后真实启动 `out/OmniUsage-win32-x64/OmniUsage.exe`
-- [ ] 验证渲染进程不白屏，Popup 能正常显示
-- [ ] 验证系统托盘只出现一个 OmniUsage 图标
-- [ ] 左键托盘图标能打开/隐藏 Popup
-- [ ] 右键托盘图标能打开菜单，并能进入 Settings
-- [ ] 保存 Settings 后再次检查托盘图标仍然只有一个
-- [ ] 退出应用后托盘图标消失，无残留进程
-- [ ] 验证打包产物能加载 `extraResource` 中 bundled plugins
-- [ ] 每次涉及打包/托盘/资源路径的修复，都在完成报告中记录“自动化测试结果 + 打包 smoke 结果”
+- [x] **19.3.1 实现 AreaChart 组件**
+    - 来源:`docs/design/omni-usage/project/usageboard.jsx` `function AreaChart`
+    - 新建:`src/renderer/components/AreaChart.tsx`
+    - 接入:`PluginCard` 在 snapshot.chart 存在时渲染
+    - 验收:渲染多系列 SVG 趋势图,y/x 轴 label 与 demo 一致
 
-### 18.6: 增加覆盖率报告与门槛
+- [x] **19.3.2 实现 TokenGrid 组件**
+    - 来源:`usageboard.jsx` `function TokenGrid`
+    - 新建:`src/renderer/components/TokenGrid.tsx`
+    - 接入:展示 `snapshot.tokens`(若 schema 缺,先补 `plugin-output.ts` 可选字段)
+    - 验收:点状颜色 + 数值 + 单位渲染
 
-- [ ] 为 Vitest 增加 coverage 配置和脚本，例如 `pnpm test:coverage`
-- [ ] 先生成当前覆盖率基线，不立即用不现实阈值阻塞开发
-- [ ] 按文件列出低于 80% 的模块
-- [ ] 优先补 parser、schema、config、cache、scheduler、runner、IPC handler 的分支覆盖
-- [ ] 覆盖率稳定后设置全局或分目录阈值
-- [ ] 在 `docs/test.md` 记录覆盖率命令和当前门槛
+- [x] **19.3.3 UsageRow tone/invert**
+    - 来源:`usageboard.jsx` `function UsageRow`
+    - 现有 `BarRow` 改造:支持 `tone="danger|warn"`,`fillPct >= 65` 时 `data-invert` 反色文本
+    - 验收:高占用条文字白色压在填充上,清晰可读
 
-### 18.7: 修正文档与测试现状不一致
+- [x] **19.3.4 多账号 Tab 横向滚动条**
+    - 来源:`docs/design/omni-usage/project/multi-account.jsx`
+    - 文件:`PopupView.tsx` 当前 tabs-wrap 只有单 "总览" tab,缺多账号 tab 与 active 切换
+    - 验收:多个 CPA 子账号或多插件实例显示为可切换 tab,active tab 自动 scrollIntoView
 
-- [ ] `docs/test.md` 中 `pnpm test:e2e` 仍写“待实现”，但项目已有 Playwright E2E，需要更新描述
-- [ ] 明确区分 renderer smoke（mock IPC）与 user E2E（真实 Electron）不能相互替代
-- [ ] `docs/spec.md` 的测试策略与 `docs/test.md` 保持一致
-- [ ] 若新增 coverage 命令，同步更新 `docs/test.md` 和 `package.json` 脚本说明
+- [x] **19.3.5 Tweaks Panel(设置侧栏外观/行为)**
+    - 来源:`tweaks-panel.jsx` 540 行
+    - 文件:新建 `src/renderer/views/TweaksView.tsx` 或并入 SettingsView 的"外观"section
+    - 验收:主题色、刷新间隔、显示模式可视化调节
 
-### Phase 18 验收标准
+### 19.4 样式对齐
 
-1. `pnpm test` 通过
-2. `pnpm test:e2e` 通过
-3. `pnpm test:coverage` 可生成覆盖率报告
-4. 关键 UI 行为不再只有“可见/不崩”断言，而是验证用户操作后的状态变化
-5. CPA 插件有成功路径和部分失败路径测试
-6. 打包 smoke 有明确人工验证记录：启动、渲染、托盘唯一、保存设置后托盘不重复
+- [x] **19.4.1 抽取设计 CSS 变量**
+    - 来源:`omniusage.css` / `usageboard.css` / `settings.css` 顶部 `:root { --... }`
+    - 文件:`src/renderer/styles/globals.css` 顶部
+    - 验收:色板/间距/圆角 token 全量同步
+
+- [x] **19.4.2 逐组件 CSS 补齐**
+    - 对照 `.ub-row` / `.ub-bar` / `.ub-tokens` / `.ub-tok-*` 等 demo 类名,补齐当前 globals.css 缺失规则
+    - 注意:不直接 import demo CSS(demo 是 prototype,见 design README),按需移植规则
+
+- [x] **19.4.3 深色模式校对**
+    - demo 有 `data-theme="dark"` 切换,逐 token 校对深浅两套色
+
+### 19.5 验收
+
+- [ ] `pnpm package` 后启动,Settings 窗口无默认菜单栏
+- [ ] 托盘图标清晰显示(Win/Mac/Linux 任一平台至少 Win 通过)
+- [ ] Popup 标题栏可拖拽,按钮不触发拖拽
+- [ ] PluginCard 渲染 AreaChart + TokenGrid + 多 UsageRow
+- [ ] 多账号 tab 可切换
+- [ ] 视觉对照 `docs/design/omni-usage/project/screenshots/01-overview.png`,核心布局/色彩一致
+- [ ] `pnpm test:visual` 基线更新后通过
+
+### 19.6 不在范围
+
+- 设计 demo 里的"添加服务向导对话框"(`01-add-dialog.png`)— 留 Phase 20
+- 跨平台菜单栏深度适配(macOS native menu)— 仅做最小适配
 
 ---
 
