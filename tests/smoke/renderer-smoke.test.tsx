@@ -62,13 +62,13 @@ describe("Renderer smoke tests", () => {
             expect(screen.getByText("账号")).toBeInTheDocument();
         });
 
-        it("renders settings form with parameter fields", async () => {
+        it("renders general settings with global options", async () => {
             window.location.hash = "#settings";
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByLabelText("API Key")).toBeInTheDocument();
+                expect(screen.getByText("开机时自动启动")).toBeInTheDocument();
             });
-            expect(screen.getByLabelText("Model")).toBeInTheDocument();
+            expect(screen.getByText("自动刷新间隔")).toBeInTheDocument();
         });
     });
 
