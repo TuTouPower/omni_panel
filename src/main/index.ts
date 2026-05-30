@@ -439,6 +439,7 @@ void app.whenReady().then(async () => {
                 height: popupHeight,
             });
             popupWin.show();
+            popupWin.focus();
 
             popupWin.on("closed", () => {
                 popupWin = null;
