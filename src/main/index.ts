@@ -384,9 +384,7 @@ void app.whenReady().then(async () => {
 
     // System tray — skip in E2E mode unless E2E_WITH_TRAY=1
     if (process.env["E2E"] !== "1" || process.env["E2E_WITH_TRAY"] === "1") {
-        const trayIcon = nativeImage
-            .createFromPath(get_tray_icon_path())
-            .resize({ width: 16, height: 16 });
+        const trayIcon = nativeImage.createFromPath(get_tray_icon_path());
         if (trayIcon.isEmpty()) {
             log.warn("Tray icon loaded as empty image");
         }
