@@ -90,7 +90,7 @@ body {
 
 /* ── popup window ── */
 .window {
-    width: 460px;
+    width: 100%;
     height: min(816px, calc(100vh - 80px));
     background: var(--win-bg);
     border: 0.5px solid var(--win-border);
@@ -994,6 +994,10 @@ body {
     color: var(--text-3);
     margin-top: 3px;
 }
+.about-links {
+    display: flex;
+    flex-direction: column;
+}
 
 /* @keyframes for menu animations */
 @keyframes ctxIn {
@@ -1007,7 +1011,13 @@ body {
     }
 }
 
-/* account management cards */
+/* account management — grouped cards */
+.acct-intro {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-3);
+    margin: 0 2px 16px;
+}
 .acct-group {
     border: 0.5px solid var(--card-border);
     border-radius: 14px;
@@ -1015,9 +1025,13 @@ body {
     box-shadow: var(--card-shadow);
     overflow: hidden;
     margin-bottom: 14px;
+    transition: opacity 0.18s;
 }
 .acct-group:last-child {
     margin-bottom: 0;
+}
+.acct-group.off {
+    opacity: 0.62;
 }
 .acct-group-head {
     display: flex;
@@ -1031,12 +1045,24 @@ body {
     font-weight: 650;
     color: var(--text);
     letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+.acct-group-head .agh-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    white-space: nowrap;
+    flex-shrink: 0;
+    background: var(--chip-bg);
+    padding: 2px 8px;
+    border-radius: 99px;
 }
 .acct-group-head .agh-add {
     margin-left: auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
     border: 0;
     background: var(--chip-bg);
     font-family: inherit;
@@ -1051,6 +1077,12 @@ body {
 }
 .acct-group-head .agh-add:hover {
     background: color-mix(in srgb, var(--blue) 15%, transparent);
+}
+.acct-group-head .agh-add:active {
+    transform: scale(0.92);
+}
+.acct-group.off .agh-add {
+    opacity: 0.5;
 }
 .acct-rows {
     display: flex;
@@ -1099,6 +1131,32 @@ body {
     display: flex;
     align-items: center;
     gap: 3px;
+}
+.acct-row .ar-ic {
+    width: 28px;
+    height: 28px;
+    color: var(--text-3);
+}
+.acct-row .ar-ic:hover {
+    background: var(--iconbtn-hov);
+    color: var(--text-2);
+}
+.acct-row .ar-actions .sw {
+    margin-left: 5px;
+}
+.sw:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+.link-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--blue);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 2px;
+    cursor: default;
 }
 
 /* ============ USAGEBOARD DESIGN DEMO ALIGNMENT ============ */
@@ -1209,4 +1267,281 @@ body {
 /* Area chart */
 .ub-chart {
     padding: 12px 2px 14px;
+}
+
+/* ============ ADD / EDIT ACCOUNT DIALOG ============ */
+.acct-dialog-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 22px;
+    background: color-mix(in srgb, var(--text) 26%, transparent);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    animation: scrimIn 0.14s ease;
+}
+@keyframes scrimIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+.acct-dialog {
+    width: 100%;
+    max-width: 372px;
+    background: var(--win-bg);
+    border: 0.5px solid var(--win-border);
+    border-radius: 16px;
+    box-shadow: var(--win-shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: dialogIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+@keyframes dialogIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+.ad-head {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 16px 16px 14px;
+    border-bottom: 0.5px solid var(--hairline);
+}
+.ad-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    flex-shrink: 0;
+    background: var(--field-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ad-htext {
+    min-width: 0;
+}
+.ad-title {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+.ad-sub {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ad-close {
+    margin-left: auto;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border: 0;
+    cursor: default;
+    background: transparent;
+    border-radius: 8px;
+    color: var(--text-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ad-close:hover {
+    background: var(--iconbtn-hov);
+    color: var(--text-2);
+}
+.ad-body {
+    padding: 16px;
+}
+.ad-field {
+    margin-bottom: 15px;
+}
+.ad-field:last-child {
+    margin-bottom: 0;
+}
+.ad-label {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: 7px;
+}
+.ad-opt {
+    margin-left: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-3);
+    background: var(--chip-bg);
+    padding: 1px 6px;
+    border-radius: 5px;
+}
+.ad-input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--text);
+    background: var(--field-bg);
+    border: 0.5px solid var(--field-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    outline: none;
+    transition:
+        border-color 0.14s,
+        box-shadow 0.14s,
+        background 0.14s;
+}
+.ad-input::placeholder {
+    color: var(--text-3);
+}
+.ad-input:focus {
+    background: var(--win-bg);
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 16%, transparent);
+}
+.ad-input.mono {
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.01em;
+}
+.ad-select {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text);
+    background: var(--field-bg);
+    border: 0.5px solid var(--field-border);
+    border-radius: 10px;
+    padding: 10px 34px 10px 12px;
+    outline: none;
+    appearance: none;
+    cursor: default;
+    transition:
+        border-color 0.14s,
+        box-shadow 0.14s,
+        background 0.14s;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%239aa2b2' d='M0 0h10L5 6z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+}
+.ad-select:focus {
+    background-color: var(--win-bg);
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 16%, transparent);
+}
+.ad-key {
+    position: relative;
+}
+.ad-key .ad-input {
+    padding-right: 40px;
+}
+.ad-eye {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border: 0;
+    background: transparent;
+    cursor: default;
+    border-radius: 7px;
+    color: var(--text-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ad-eye:hover {
+    background: var(--iconbtn-hov);
+    color: var(--text-2);
+}
+.ad-hint {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 7px;
+    font-size: 11px;
+    color: var(--text-3);
+    line-height: 1.4;
+}
+.ad-hint svg {
+    flex-shrink: 0;
+}
+.ad-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 0.5px solid var(--hairline);
+}
+.ad-foot-r {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+.ad-test {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-2);
+    padding: 7px 8px;
+    border-radius: 8px;
+    cursor: default;
+}
+.ad-test:hover {
+    background: var(--iconbtn-hov);
+    color: var(--text);
+}
+.ad-btn {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: default;
+    padding: 8px 16px;
+    border-radius: 9px;
+    border: 0.5px solid transparent;
+}
+.ad-btn.ghost {
+    background: var(--field-bg);
+    border-color: var(--field-border);
+    color: var(--text-2);
+}
+.ad-btn.ghost:hover {
+    background: var(--chip-bg);
+    color: var(--text);
+}
+.ad-btn.primary {
+    background: var(--blue);
+    color: #fff;
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--blue) 32%, transparent);
+}
+.ad-btn.primary:hover {
+    background: color-mix(in srgb, var(--blue) 88%, #000);
+}
+.ad-btn.primary.disabled {
+    background: var(--chip-bg);
+    color: var(--text-3);
+    box-shadow: none;
+    cursor: default;
 }
