@@ -1,12 +1,26 @@
 import type { PluginOutput } from "./result";
 import { fail } from "./result";
-import { PluginHttpError } from "./http";
+import { createHttpClient, type HttpClient } from "./http-client";
+import type { HttpError } from "./errors";
+import { appLanguage, makeTranslator, type AppLanguage } from "./helpers";
+
+export type CtxTranslateFn = (key: string, kwargs?: Record<string, string | number>) => string;
 
 export interface PluginContext {
-    params: Record<string, string>;
+    readonly params: Record<string, string>;
+    readonly http: HttpClient;
+    readonly language: AppLanguage;
+    readonly t: CtxTranslateFn;
 }
 
 export type PluginHandler = (ctx: PluginContext) => Promise<PluginOutput>;
+
+export interface DefinePluginOptions {
+    readonly metadata?: {
+        readonly endpoints?: Record<string, string | null>;
+    };
+    readonly translations?: Record<string, Record<string, string>>;
+}
 
 export function parseArgs(argv = process.argv.slice(2)): Record<string, string> {
     const params: Record<string, string> = {};
@@ -31,22 +45,24 @@ export function requireParam(params: Record<string, string>, key: string): strin
     return value;
 }
 
-export function definePlugin(handler: PluginHandler): void {
+export function definePlugin(handler: PluginHandler, options: DefinePluginOptions = {}): void {
     const params = parseArgs();
-    handler({ params })
-        .then((result) => {
-            process.stdout.write(JSON.stringify(result));
-        })
+    const language = appLanguage(params);
+    const translate = makeTranslator(options.translations ?? {});
+    const ctx: PluginContext = {
+        params,
+        http: createHttpClient(options.metadata?.endpoints),
+        language,
+        t: (key, kwargs) => translate(language, key, kwargs),
+    };
+    handler(ctx)
+        .then((result) => process.stdout.write(JSON.stringify(result)))
         .catch((err: unknown) => {
-            const result = normalizeError(err);
-            process.stdout.write(JSON.stringify(result));
+            process.stdout.write(JSON.stringify(normalizeError(err)));
         });
 }
 
 function normalizeError(err: unknown): PluginOutput {
-    if (err instanceof PluginHttpError) {
-        return fail(`HTTP_${String(err.statusCode)}`, err.message);
-    }
     if (err instanceof Error) {
         if (err.message.startsWith("MISSING_PARAM:")) {
             const key = err.message.slice("MISSING_PARAM:".length);
@@ -55,4 +71,20 @@ function normalizeError(err: unknown): PluginOutput {
         return fail("PLUGIN_ERROR", err.message);
     }
     return fail("PLUGIN_ERROR", String(err));
+}
+
+export function failFromHttp(err: HttpError, contextLabel?: string): PluginOutput {
+    const prefix = contextLabel ? `${contextLabel}: ` : "";
+    switch (err.kind) {
+        case "network":
+            return fail("NETWORK_ERROR", `${prefix}${err.message}`);
+        case "timeout":
+            return fail("TIMEOUT", `${prefix}request exceeded ${String(err.timeoutMs)}ms`);
+        case "http":
+            return fail(`HTTP_${String(err.status)}`, `${prefix}HTTP ${String(err.status)}`);
+        case "invalid_json":
+            return fail("INVALID_RESPONSE", `${prefix}invalid JSON (status ${String(err.status)})`);
+        case "missing_endpoint":
+            return fail("MISSING_ENDPOINT", `${prefix}endpoint "${err.key}" not configured`);
+    }
 }
