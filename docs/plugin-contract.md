@@ -4,10 +4,9 @@
 
 ## 插件文件格式
 
-- 文本文件，UTF-8 编码
-- `.py` 扩展名：宿主使用 `python3 <path>` 执行
-- 非 `.py`：宿主直接执行（必须可执行）
-- `_` 开头的文件名不作为插件（如 `_common.py`）
+- TypeScript 源文件（`.ts`），UTF-8 编码
+- 宿主用 esbuild 编译为单文件 JS（缓存按 source SHA-256 失效），再用 Electron 内置 Node 子进程执行（`process.execPath` + `ELECTRON_RUN_AS_NODE=1`）
+- `_` 开头的文件名不作为插件（如 `_common.ts`）
 
 ## 元数据注释块
 
@@ -128,7 +127,7 @@
 ### 规则
 
 - stdout 必须 trim 后可解析为 JSON
-- `schemaVersion` 由 `_common.py` 输出，Electron 端忽略此字段
+- `schemaVersion` 由 SDK helpers 输出，Electron 端忽略此字段
 - `updatedAt` ISO8601 格式（支持 fractional seconds）
 - `items` 可为空数组
 - `badge` 和 `chart` 为 optional
@@ -154,11 +153,11 @@
 
 ## 内置插件
 
-### CPA 插件 (`cpa-usage-plugin.py`)
+### CPA 插件 (`cpa-usage-plugin.ts`)
 
 通过 CPA-Manager 代理服务获取 5 个 provider 的配额数据：Claude、Codex、Gemini、Antigravity、Kimi。
 
-- **外部依赖**：`httpx`（`pip install httpx`），Python 3.8+
+- **依赖**：仅 Node stdlib（`fetch` 内置），无需任何第三方包
 - **参数**：`cpa_mgmt_url`（string）、`cpa_mgmt_key`（secret）、5 个 `monitor_*`（boolean）开关
 - **多 item 输出**：每个账号的每个配额周期输出一个 item（如 `claude:user@example.com:5小时`）
 - **容错**：单个账号失败不阻塞其他账号，全部失败才输出 error JSON

@@ -66,10 +66,10 @@
 
 ### 3.1 插件文件
 
-- 文本文件，UTF-8 编码
-- `.py` 扩展名：宿主用 `python3 <path>` 执行
-- 非 `.py`：宿主直接执行（必须可执行）
-- `_` 开头的文件名跳过（如 `_common.py`）
+- **源文件**：TypeScript（`.ts`），UTF-8 编码，存于 `resources/plugins/`（开发）或 `process.resourcesPath/plugins/`（打包后）
+- **编译产物**：`compiler.ts` 用 esbuild 将插件 + SDK 编译为单文件 JavaScript，缓存于 user data 目录（按 source SHA-256 失效）
+- **执行方式**：宿主用 Electron 内置 Node 执行编译后的 JS，`spawn(process.execPath, [pluginJs, ...args], { env: { ELECTRON_RUN_AS_NODE: "1" } })`
+- `_` 开头的文件名跳过（如 `_common.ts`）
 
 ### 3.2 元数据注释块
 
@@ -100,7 +100,7 @@
 ### 3.3 参数传递
 
 ```
-python3 <plugin.py> --usageboard-param KEY1=value1 --usageboard-param KEY2=value2 --usageboard-param USAGEBOARD_LANGUAGE=zh-Hans
+<electron-node> <plugin.js> --usageboard-param KEY1=value1 --usageboard-param KEY2=value2 --usageboard-param USAGEBOARD_LANGUAGE=zh-Hans
 ```
 
 - 仅传非空参数值
@@ -166,13 +166,13 @@ python3 <plugin.py> --usageboard-param KEY1=value1 --usageboard-param KEY2=value
 
 | 插件     | 脚本                       | 需要 API Key | 说明                                                            |
 | -------- | -------------------------- | ------------ | --------------------------------------------------------------- |
-| Claude   | `claude-usage-plugin.py`   | 否（读本地） | 读取 `~/.claude` 用量文件                                       |
-| Codex    | `codex-usage-plugin.py`    | 否（读本地） | 读取 `~/.codex` 用量文件                                        |
-| DeepSeek | `deepseek-usage-plugin.py` | 是           | 调用 DeepSeek API                                               |
-| 智谱     | `glm-usage-plugin.py`      | 是           | 调用智谱 GLM API                                                |
-| MiniMax  | `minimax-usage-plugin.py`  | 是           | 调用 MiniMax API                                                |
-| Tavily   | `tavily-usage-plugin.py`   | 是           | 调用 Tavily API                                                 |
-| CPA      | `cpa-usage-plugin.py`      | 是           | 通过 CPA-Manager 获取 Claude/Codex/Gemini/Antigravity/Kimi 额度 |
+| Claude   | `claude-usage-plugin.ts`   | 否（读本地） | 读取 `~/.claude` 用量文件                                       |
+| Codex    | `codex-usage-plugin.ts`    | 否（读本地） | 读取 `~/.codex` 用量文件                                        |
+| DeepSeek | `deepseek-usage-plugin.ts` | 是           | 调用 DeepSeek API                                               |
+| 智谱     | `glm-usage-plugin.ts`      | 是           | 调用智谱 GLM API                                                |
+| MiniMax  | `minimax-usage-plugin.ts`  | 是           | 调用 MiniMax API                                                |
+| Tavily   | `tavily-usage-plugin.ts`   | 是           | 调用 Tavily API                                                 |
+| CPA      | `cpa-usage-plugin.ts`      | 是           | 通过 CPA-Manager 获取 Claude/Codex/Gemini/Antigravity/Kimi 额度 |
 
 ---
 
@@ -236,8 +236,8 @@ python3 <plugin.py> --usageboard-param KEY1=value1 --usageboard-param KEY2=value
 ```
 app.whenReady()
   → discoverPlugins(bundledDir) + discoverPlugins(userDir)
+  → compilePlugin(...) (esbuild → cached JS per source SHA-256)
   → auto-seed: 为新发现的插件创建默认 PluginConfiguration
-  → findPython()
   → createRefreshService(...)
   → createPluginScheduler(...)
   → createSchedulerOrchestrator(...)
@@ -258,8 +258,8 @@ app.whenReady()
 refresh(instanceId)
   → 从 configStore 查找 PluginConfiguration
   → 从 secretsStore 读取 secret 参数并注入 parameterValues 副本
-  → commandBuilder(executablePath, parameterValues, language) → 构建命令
-  → executePlugin(command, timeout=15s) → spawn 子进程
+  → commandBuilder(executablePath, parameterValues, language, nodePath) → 构建命令
+  → executePlugin(command, timeout=15s) → spawn Node 子进程（ELECTRON_RUN_AS_NODE=1）
   → parsePluginOutputOrError(stdout)
   → 写入 runtimeStore（ready / failed）
   → 写入 cacheStore（成功时）
@@ -294,8 +294,7 @@ refresh(instanceId)
 ### 6.3 PopupView
 
 - 标题 "OmniUsage"
-- Python 状态检测：未安装时显示警告
-- 智能空状态：无插件 / 缺 key / Python 不可用
+- 智能空状态：无插件 / 缺 key
 - "设置"按钮 → 跳转 `#settings`
 - "刷新"按钮 → 触发所有 enabled 插件刷新
 - PluginCard 列表（支持多 item 进度条）
@@ -355,11 +354,7 @@ refresh(instanceId)
 
 Main → Renderer 广播，当插件状态变更时推送 `instanceId + snapshot`。
 
-### 7.6 system:pythonStatus
-
-返回 `{ available: boolean, command: string }`。
-
-### 7.7 log:level / log:entries
+### 7.6 log:level / log:entries
 
 日志级别控制和日志读取。
 
@@ -415,15 +410,9 @@ pnpm package        # 打包并启动
 
 ## 10. 平台差异
 
-### 10.1 Python 检测
+### 10.1 插件运行时
 
-| 平台    | 检测顺序                    |
-| ------- | --------------------------- |
-| macOS   | `python3`                   |
-| Windows | `python3` → `python` → `py` |
-| Linux   | `python3` → `python`        |
-
-未检测到时 Popup 显示警告，插件功能不可用。
+无外部依赖。Electron 内置 Node 即为插件运行时（`process.execPath` + `ELECTRON_RUN_AS_NODE=1`），三平台一致，用户不需要安装任何额外运行时。
 
 ### 10.2 数据目录
 
@@ -442,6 +431,5 @@ pnpm package        # 打包并启动
 
 ### 10.4 已知限制
 
-- Windows 需用户自行安装 Python
 - 系统托盘图标为占位（需替换实际图标）
 - 打包格式：Electron Forge（Windows Squirrel / macOS ZIP / Linux DEB+RPM）
