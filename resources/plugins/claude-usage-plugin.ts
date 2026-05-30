@@ -73,21 +73,15 @@
 // }
 // /UsageBoardPlugin
 
-import {
-    definePlugin,
-    ok,
-    fail,
-    makeTranslator,
-    appLanguage,
-    statusFor,
-    colorForPct,
-} from "@omni-usage/plugin-sdk";
-import type { TranslateFn, AppLanguage } from "@omni-usage/plugin-sdk";
+import { definePlugin, ok, failFromHttp, statusFor, colorForPct } from "@omni-usage/plugin-sdk";
+import type { HttpClient } from "@omni-usage/plugin-sdk";
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { execSync } from "node:child_process";
+
+const METADATA_ENDPOINTS = { anthropic: "https://api.anthropic.com" };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -195,27 +189,19 @@ function loadOAuthToken(): string | null {
 }
 
 async function fetchOAuthUsage(
+    http: HttpClient,
     token: string,
-): Promise<[Record<string, unknown> | null, string | number | null]> {
-    try {
-        const resp = await fetch("https://api.anthropic.com/api/oauth/usage", {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-                "anthropic-beta": "oauth-2025-04-20",
-            },
-            signal: AbortSignal.timeout(10_000),
-        });
-        const text = await resp.text();
-        if (!resp.ok) return [null, resp.status];
-        try {
-            return [JSON.parse(text), null];
-        } catch {
-            return [null, "parse_error"];
-        }
-    } catch {
-        return [null, null];
-    }
+): Promise<Record<string, unknown> | null> {
+    const result = await http.getJson<Record<string, unknown>>("anthropic", "/api/oauth/usage", {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "anthropic-beta": "oauth-2025-04-20",
+        },
+        timeoutMs: 10_000,
+    });
+    if (!result.ok) return null;
+    return result.value;
 }
 
 interface OAuthUsageItem {
@@ -231,8 +217,7 @@ interface OAuthUsageItem {
 
 function buildItemsFromOAuth(
     data: Record<string, unknown>,
-    lang: AppLanguage,
-    translate: TranslateFn,
+    t: (key: string) => string,
 ): OAuthUsageItem[] {
     const fh = (data.five_hour ?? {}) as Record<string, unknown>;
     const sd = (data.seven_day ?? {}) as Record<string, unknown>;
@@ -244,7 +229,7 @@ function buildItemsFromOAuth(
     const items: OAuthUsageItem[] = [
         {
             id: "claude-five-hour",
-            name: translate(lang, "five_hour"),
+            name: t("five_hour"),
             displayStyle: "percent",
             used: Math.round(Math.min(fhPct, 100) * 10) / 10,
             limit: 100,
@@ -254,7 +239,7 @@ function buildItemsFromOAuth(
         },
         {
             id: "claude-seven-day",
-            name: translate(lang, "weekly"),
+            name: t("weekly"),
             displayStyle: "percent",
             used: Math.round(Math.min(sdPct, 100) * 10) / 10,
             limit: 100,
@@ -268,7 +253,7 @@ function buildItemsFromOAuth(
         const designPct = Number(designWeek.utilization ?? 0);
         items.push({
             id: "claude-design-seven-day",
-            name: translate(lang, "design_weekly"),
+            name: t("design_weekly"),
             displayStyle: "percent",
             used: Math.round(Math.min(designPct, 100) * 10) / 10,
             limit: 100,
@@ -499,8 +484,7 @@ function maintainCache(dataDir: string): DailyData {
 function buildChart(
     params: Record<string, string>,
     daily: DailyData,
-    lang: AppLanguage,
-    translate: TranslateFn,
+    t: (key: string) => string,
     mode: string,
 ) {
     const statPeriod = params.STAT_PERIOD ?? "7d";
@@ -526,9 +510,7 @@ function buildChart(
         return { id: date, label: date.slice(5), segments };
     });
 
-    const message = buckets.some((b) => b.segments.length > 0)
-        ? null
-        : translate(lang, "no_stats_data");
+    const message = buckets.some((b) => b.segments.length > 0) ? null : t("no_stats_data");
 
     return {
         kind: "line" as const,
@@ -541,46 +523,42 @@ function buildChart(
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
-definePlugin(async ({ params }) => {
-    const lang = appLanguage(params);
-    const translate = makeTranslator(translations);
-    const dataDir = path.resolve(expandHome(params.DATA_DIR ?? "~/.claude"));
-    const plan = (params.PLAN ?? "pro").toLowerCase();
+definePlugin(
+    async (ctx) => {
+        const dataDir = path.resolve(expandHome(ctx.params.DATA_DIR ?? "~/.claude"));
+        const plan = (ctx.params.PLAN ?? "pro").toLowerCase();
 
-    if (!fs.existsSync(dataDir) || !fs.statSync(dataDir).isDirectory()) {
-        return fail("NO_DATA_DIR", translate(lang, "no_data_dir"));
-    }
-
-    const mode = params.CALC_MODE ?? "billable";
-    const daily = maintainCache(dataDir);
-    const chart = buildChart(params, daily, lang, translate, mode);
-
-    if (plan === "none") {
-        return ok({ items: [], chart });
-    }
-
-    const token = loadOAuthToken();
-    if (!token) {
-        return fail("NO_CREDENTIALS", translate(lang, "login_hint"));
-    }
-
-    const [oauthData, httpCode] = await fetchOAuthUsage(token);
-    if (!oauthData) {
-        if (httpCode === 401) return fail("AUTH_EXPIRED", translate(lang, "api_401"));
-        if (httpCode === "parse_error")
-            return fail("PARSE_ERROR", translate(lang, "usage_parse_failed"));
-        if (typeof httpCode === "number" && httpCode >= 500) {
-            return fail("SERVER_ERROR", translate(lang, "api_5xx", { code: httpCode }));
+        if (!fs.existsSync(dataDir) || !fs.statSync(dataDir).isDirectory()) {
+            return failFromHttp({ kind: "network", message: ctx.t("no_data_dir") }, "claude");
         }
-        return fail("API_ERROR", translate(lang, "api_error"));
-    }
 
-    try {
-        const items = buildItemsFromOAuth(oauthData, lang, translate);
-        const rawBadge = (oauthData.plan_type as string | undefined) ?? params.PLAN ?? "pro";
-        const badge = rawBadge.charAt(0).toUpperCase() + rawBadge.slice(1).toLowerCase();
-        return ok({ items, chart, badge });
-    } catch {
-        return fail("PARSE_ERROR", translate(lang, "usage_parse_failed"));
-    }
-});
+        const mode = ctx.params.CALC_MODE ?? "billable";
+        const daily = maintainCache(dataDir);
+        const chart = buildChart(ctx.params, daily, ctx.t, mode);
+
+        if (plan === "none") {
+            return ok({ items: [], chart });
+        }
+
+        const token = loadOAuthToken();
+        if (!token) {
+            return failFromHttp({ kind: "network", message: ctx.t("login_hint") }, "claude");
+        }
+
+        const oauthData = await fetchOAuthUsage(ctx.http, token);
+        if (!oauthData) {
+            return failFromHttp({ kind: "http", status: 401, body: null }, "claude");
+        }
+
+        try {
+            const items = buildItemsFromOAuth(oauthData, ctx.t);
+            const rawBadge =
+                (oauthData.plan_type as string | undefined) ?? ctx.params.PLAN ?? "pro";
+            const badge = rawBadge.charAt(0).toUpperCase() + rawBadge.slice(1).toLowerCase();
+            return ok({ items, chart, badge });
+        } catch {
+            return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "claude");
+        }
+    },
+    { metadata: { endpoints: METADATA_ENDPOINTS }, translations },
+);

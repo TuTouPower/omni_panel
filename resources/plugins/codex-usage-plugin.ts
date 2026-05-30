@@ -56,17 +56,8 @@
 // }
 // /UsageBoardPlugin
 
-import {
-    definePlugin,
-    fetchJson,
-    ok,
-    fail,
-    makeTranslator,
-    appLanguage,
-    colorForPct,
-    PluginHttpError,
-} from "@omni-usage/plugin-sdk";
-import type { AppLanguage, PluginChart } from "@omni-usage/plugin-sdk";
+import { definePlugin, ok, failFromHttp, colorForPct } from "@omni-usage/plugin-sdk";
+import type { PluginChart } from "@omni-usage/plugin-sdk";
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { join, basename, resolve } from "node:path";
@@ -76,7 +67,7 @@ import { homedir } from "node:os";
 // Constants
 // ---------------------------------------------------------------------------
 
-const ENDPOINT = "https://chatgpt.com/backend-api/wham/usage";
+const METADATA_ENDPOINTS = { default: "https://chatgpt.com" };
 const CACHE_VERSION = 1;
 const CACHE_FILENAME = ".usageboard-chart-cache.json";
 const FILENAME_DATE = /rollout-(\d{4}-\d{2}-\d{2})T/;
@@ -263,8 +254,7 @@ function getResetAt(window: Record<string, unknown>): string | null {
 
 function buildItems(
     payload: Record<string, unknown>,
-    language: AppLanguage,
-    translate: (lang: AppLanguage, key: string, kwargs?: Record<string, string>) => string,
+    translate: (key: string, kwargs?: Record<string, string>) => string,
 ): { items: Record<string, unknown>[]; badge: string | null } {
     const rateLimits = getWindow(payload, "rate_limit", "rate_limits");
     if (!rateLimits) return { items: [], badge: null };
@@ -291,7 +281,7 @@ function buildItems(
             const used = Math.round((100 - pct) * 10) / 10;
             items.push({
                 id: "codex-five-hour",
-                name: translate(language, "five_hour_usage"),
+                name: translate("five_hour_usage"),
                 used,
                 limit: 100,
                 displayStyle: "percent",
@@ -308,7 +298,7 @@ function buildItems(
             const used = Math.round((100 - pct) * 10) / 10;
             items.push({
                 id: "codex-weekly",
-                name: translate(language, "weekly_usage"),
+                name: translate("weekly_usage"),
                 used,
                 limit: 100,
                 displayStyle: "percent",
@@ -347,8 +337,7 @@ function parseSessionsForChart(
     files: string[],
     dateList: string[],
     period: string,
-    language: AppLanguage,
-    translate: (lang: AppLanguage, key: string) => string,
+    translate: (key: string) => string,
 ): PluginChart {
     const bucketKeys: Record<string, Record<string, number>> = {};
     for (const d of dateList) bucketKeys[d] = {};
@@ -442,7 +431,7 @@ function parseSessionsForChart(
 
     const message = buckets.some((b) => b.segments.length > 0)
         ? undefined
-        : translate(language, "no_stats_data");
+        : translate("no_stats_data");
 
     return { kind: "line", period, bucketUnit: "day", buckets, message };
 }
@@ -477,8 +466,7 @@ function saveChartCache(dataDir: string, cacheData: Record<string, unknown>): vo
 
 function maintainChartCache(
     dataDir: string,
-    language: AppLanguage,
-    translate: (lang: AppLanguage, key: string) => string,
+    translate: (key: string) => string,
 ): Record<string, Record<string, number>> {
     const today = todayStr();
     const cutoff = addDays(today, -29);
@@ -488,7 +476,7 @@ function maintainChartCache(
     function fullScanAndSave(): Record<string, Record<string, number>> {
         const dateList = dateRange(cutoff, today);
         const files = collectSessionFiles(dataDir, cutoff, today);
-        const result = parseSessionsForChart(files, dateList, "30d", language, translate);
+        const result = parseSessionsForChart(files, dateList, "30d", translate);
         const days: Record<string, Record<string, number>> = {};
         for (const b of result.buckets) {
             if (b.segments.length > 0 && b.id != null) {
@@ -513,7 +501,7 @@ function maintainChartCache(
     for (let i = 0; i < dayCount; i++) scanDates.push(addDays(scanStart, i));
 
     const files = collectSessionFiles(dataDir, scanStart, today);
-    const result = parseSessionsForChart(files, scanDates, "30d", language, translate);
+    const result = parseSessionsForChart(files, scanDates, "30d", translate);
     const newDays: Record<string, Record<string, number>> = {};
     for (const b of result.buckets) {
         if (b.segments.length > 0 && b.id != null) {
@@ -540,8 +528,7 @@ function maintainChartCache(
 function buildChartFromCache(
     daily: Record<string, Record<string, number>>,
     period: string,
-    language: AppLanguage,
-    translate: (lang: AppLanguage, key: string) => string,
+    translate: (key: string) => string,
 ): PluginChart {
     const dayCount = ({ "7d": 7, "15d": 15, "30d": 30 } as Record<string, number>)[period] ?? 7;
     const today = todayStr();
@@ -572,7 +559,7 @@ function buildChartFromCache(
 
     const message = buckets.some((b) => b.segments.length > 0)
         ? undefined
-        : translate(language, "no_stats_data");
+        : translate("no_stats_data");
 
     return { kind: "line", period, bucketUnit: "day", buckets, message };
 }
@@ -597,81 +584,82 @@ function statRangeDates(period: string): string[] {
 // Main
 // ---------------------------------------------------------------------------
 
-definePlugin(async ({ params }) => {
-    const language = appLanguage(params);
-    const translate = makeTranslator(translations);
-    const authFile = params.AUTH_FILE ?? "~/.codex/auth.json";
-    const dataDir = resolve(expandHome(params.DATA_DIR ?? "~/.codex"));
-    const enableStats = (params.ENABLE_STATS ?? "true").toLowerCase() !== "false";
-    let period = (params.STAT_PERIOD ?? "7d").toLowerCase();
-    if (period !== "7d" && period !== "15d" && period !== "30d") period = "7d";
+definePlugin(
+    async (ctx) => {
+        const authFile = ctx.params.AUTH_FILE ?? "~/.codex/auth.json";
+        const dataDir = resolve(expandHome(ctx.params.DATA_DIR ?? "~/.codex"));
+        const enableStats = (ctx.params.ENABLE_STATS ?? "true").toLowerCase() !== "false";
+        let period = (ctx.params.STAT_PERIOD ?? "7d").toLowerCase();
+        if (period !== "7d" && period !== "15d" && period !== "30d") period = "7d";
 
-    // --- Auth ---
-    const auth = loadAuth(authFile);
-    if (!auth) {
-        return fail(
-            "AUTH_FILE_NOT_FOUND",
-            translate(language, "auth_file_not_found", { path: expandHome(authFile) }),
-        );
-    }
+        // --- Auth ---
+        const auth = loadAuth(authFile);
+        if (!auth) {
+            return failFromHttp(
+                {
+                    kind: "network",
+                    message: ctx.t("auth_file_not_found", { path: expandHome(authFile) }),
+                },
+                "codex",
+            );
+        }
 
-    const [accessToken, accountId] = extractAuthCredentials(auth);
-    if (!accessToken || !accountId) {
-        return fail("AUTH_TOKEN_MISSING", translate(language, "auth_token_missing"));
-    }
+        const [accessToken, accountId] = extractAuthCredentials(auth);
+        if (!accessToken || !accountId) {
+            return failFromHttp({ kind: "network", message: ctx.t("auth_token_missing") }, "codex");
+        }
 
-    // --- Fetch usage ---
-    let payload: Record<string, unknown>;
-    try {
-        payload = await fetchJson<Record<string, unknown>>(ENDPOINT, {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                Accept: "application/json",
-                "ChatGPT-Account-Id": accountId,
-                Origin: "https://chatgpt.com",
-                Referer: "https://chatgpt.com/",
-                "User-Agent": "Mozilla/5.0",
+        // --- Fetch usage ---
+        const fetchResult = await ctx.http.getJson<Record<string, unknown>>(
+            "default",
+            "/backend-api/wham/usage",
+            {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Accept: "application/json",
+                    "ChatGPT-Account-Id": accountId,
+                    Origin: "https://chatgpt.com",
+                    Referer: "https://chatgpt.com/",
+                    "User-Agent": "Mozilla/5.0",
+                },
             },
-        });
-    } catch (err) {
-        if (err instanceof PluginHttpError) {
-            if (err.statusCode === 401)
-                return fail("TOKEN_EXPIRED", translate(language, "token_expired"));
-            if (err.statusCode === 403)
-                return fail("UNAUTHORIZED", translate(language, "unauthorized"));
-            if (err.statusCode === 0)
-                return fail("NETWORK_ERROR", translate(language, "network_error"));
-            return fail(`HTTP_${String(err.statusCode)}`, err.message);
-        }
-        return fail("NETWORK_ERROR", translate(language, "network_error"));
-    }
+        );
+        if (!fetchResult.ok) return failFromHttp(fetchResult.error, "codex");
 
-    // --- Build items ---
-    let items: Record<string, unknown>[];
-    let badge: string | null;
-    try {
-        const result = buildItems(payload, language, translate);
-        items = result.items;
-        badge = result.badge;
-    } catch {
-        return fail("USAGE_PARSE_FAILED", translate(language, "usage_parse_failed"));
-    }
+        const payload = fetchResult.value;
 
-    // --- Chart ---
-    let chart: PluginChart | undefined;
-    if (enableStats) {
+        // --- Build items ---
+        let items: Record<string, unknown>[];
+        let badge: string | null;
         try {
-            const daily = maintainChartCache(dataDir, language, translate);
-            chart = buildChartFromCache(daily, period, language, translate);
+            const result = buildItems(payload, ctx.t);
+            items = result.items;
+            badge = result.badge;
         } catch {
-            const dateList = statRangeDates(period);
-            chart = chartMessage(translate(language, "stats_parse_failed"), period, dateList);
+            return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "codex");
         }
-    }
 
-    if (items.length === 0) {
-        return fail("NO_QUOTA_DATA", translate(language, "no_quota_data"));
-    }
+        // --- Chart ---
+        let chart: PluginChart | undefined;
+        if (enableStats) {
+            try {
+                const daily = maintainChartCache(dataDir, ctx.t);
+                chart = buildChartFromCache(daily, period, ctx.t);
+            } catch {
+                const dateList = statRangeDates(period);
+                chart = chartMessage(ctx.t("stats_parse_failed"), period, dateList);
+            }
+        }
 
-    return ok({ items, ...(badge !== null && { badge }), ...(chart !== undefined && { chart }) });
-});
+        if (items.length === 0) {
+            return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "codex");
+        }
+
+        return ok({
+            items,
+            ...(badge !== null && { badge }),
+            ...(chart !== undefined && { chart }),
+        });
+    },
+    { metadata: { endpoints: METADATA_ENDPOINTS }, translations },
+);

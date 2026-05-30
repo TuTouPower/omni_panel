@@ -41,23 +41,24 @@ import crypto from "node:crypto";
 import {
     definePlugin,
     requireParam,
-    fetchJson,
     ok,
-    fail,
-    makeTranslator,
-    appLanguage,
+    failFromHttp,
     numeric,
     statusFor,
     colorForPct,
 } from "@omni-usage/plugin-sdk";
-import type { AppLanguage, TranslateFn, UsageItem, PluginChart } from "@omni-usage/plugin-sdk";
+import type {
+    HttpClient,
+    HttpError,
+    CtxTranslateFn,
+    UsageItem,
+    PluginChart,
+} from "@omni-usage/plugin-sdk";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const QUOTA_ENDPOINT = "https://open.bigmodel.cn/api/monitor/usage/quota/limit";
-const MODEL_USAGE_ENDPOINT = "https://bigmodel.cn/api/monitor/usage/model-usage";
+const METADATA_ENDPOINTS = {
+    default: "https://open.bigmodel.cn",
+    model_usage: "https://bigmodel.cn",
+};
 const CACHE_VERSION = 1;
 const CACHE_FILENAME_PREFIX = "glm-usage-chart-cache";
 
@@ -172,13 +173,16 @@ function formatQueryTime(value: Date): string {
 // API fetches
 // ---------------------------------------------------------------------------
 
-async function fetchLimits(apiKey: string): Promise<QuotaPayload> {
-    return fetchJson<QuotaPayload>(QUOTA_ENDPOINT, {
+async function fetchLimits(http: HttpClient, apiKey: string): Promise<QuotaPayload> {
+    const result = await http.getJson<QuotaPayload>("default", "/api/monitor/usage/quota/limit", {
         headers: { Authorization: apiKey, "Content-Type": "application/json" },
     });
+    if (!result.ok) throw Object.assign(new Error("http"), result.error);
+    return result.value;
 }
 
 async function fetchModelUsage(
+    http: HttpClient,
     apiKey: string,
     startTime: Date,
     endTime: Date,
@@ -187,9 +191,15 @@ async function fetchModelUsage(
         startTime: formatQueryTime(startTime),
         endTime: formatQueryTime(endTime),
     }).toString();
-    return fetchJson<QuotaPayload>(`${MODEL_USAGE_ENDPOINT}?${query}`, {
-        headers: { Authorization: apiKey, "Content-Type": "application/json" },
-    });
+    const result = await http.getJson<QuotaPayload>(
+        "model_usage",
+        `/api/monitor/usage/model-usage?${query}`,
+        {
+            headers: { Authorization: apiKey, "Content-Type": "application/json" },
+        },
+    );
+    if (!result.ok) throw Object.assign(new Error("http"), result.error);
+    return result.value;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,16 +226,12 @@ function resetAtIso(limit: QuotaLimit): string | null {
 
 type PeriodId = "5h" | "week" | "month";
 
-function periodFor(
-    limit: QuotaLimit,
-    language: AppLanguage,
-    translate: TranslateFn,
-): [PeriodId, string] | null {
+function periodFor(limit: QuotaLimit, translate: CtxTranslateFn): [PeriodId, string] | null {
     const unit = limit.unit;
     const number = limit.number;
-    if (unit === 3 && number === 5) return ["5h", translate(language, "period_5h")];
-    if (unit === 6 && number === 1) return ["week", translate(language, "period_week")];
-    if (unit === 5 && number === 1) return ["month", translate(language, "period_month")];
+    if (unit === 3 && number === 5) return ["5h", translate("period_5h")];
+    if (unit === 6 && number === 1) return ["week", translate("period_week")];
+    if (unit === 5 && number === 1) return ["month", translate("period_month")];
     return null;
 }
 
@@ -253,22 +259,16 @@ function quotaKindText(limit: QuotaLimit): string {
         .toLowerCase();
 }
 
-function quotaKind(
-    limit: QuotaLimit,
-    language: AppLanguage,
-    translate: TranslateFn,
-): ["tool" | "text", string] {
+function quotaKind(limit: QuotaLimit, translate: CtxTranslateFn): ["tool" | "text", string] {
     if ("currentValue" in limit || "usage" in limit) {
-        return ["tool", translate(language, "tool_calls")];
+        return ["tool", translate("tool_calls")];
     }
     const text = quotaKindText(limit);
     const toolMarkers = ["tool", "工具", "function", "mcp"];
     const textMarkers = ["token", "text", "文本"];
-    if (toolMarkers.some((m) => text.includes(m)))
-        return ["tool", translate(language, "tool_calls")];
-    if (textMarkers.some((m) => text.includes(m)))
-        return ["text", translate(language, "text_generation")];
-    return ["text", translate(language, "text_generation")];
+    if (toolMarkers.some((m) => text.includes(m))) return ["tool", translate("tool_calls")];
+    if (textMarkers.some((m) => text.includes(m))) return ["text", translate("text_generation")];
+    return ["text", translate("text_generation")];
 }
 
 function usageFromPercentage(limit: QuotaLimit): [number, number] {
@@ -298,8 +298,7 @@ function usageFor(limit: QuotaLimit, kind: "tool" | "text"): [number, number, "r
 
 function buildItems(
     payload: QuotaPayload,
-    language: AppLanguage,
-    translate: TranslateFn,
+    translate: CtxTranslateFn,
 ): { items: UsageItem[]; badge: string | null } {
     const data = payload.data ?? {};
     const limits = data.limits;
@@ -313,11 +312,11 @@ function buildItems(
     for (const limit of limits) {
         if (typeof limit !== "object") continue;
 
-        const period = periodFor(limit, language, translate);
+        const period = periodFor(limit, translate);
         if (!period) continue;
 
         const [periodId, periodLabel] = period;
-        const [kindId, kindLabel] = quotaKind(limit, language, translate);
+        const [kindId, kindLabel] = quotaKind(limit, translate);
         const [used, total, displayStyle] = usageFor(limit, kindId);
         if (total <= 0) continue;
 
@@ -337,9 +336,9 @@ function buildItems(
     }
 
     const displayNames: Record<string, string> = {
-        "glm-text-5h": translate(language, "five_hour_usage"),
-        "glm-text-week": translate(language, "weekly_usage"),
-        "glm-tool-month": translate(language, "mcp_month_usage"),
+        "glm-text-5h": translate("five_hour_usage"),
+        "glm-text-week": translate("weekly_usage"),
+        "glm-tool-month": translate("mcp_month_usage"),
     };
     const order: Record<string, number> = {
         "glm-text-5h": 0,
@@ -626,8 +625,7 @@ function buildChart(
     period: string,
     buckets: Date[],
     bucketUnit: "hour" | "day",
-    language: AppLanguage,
-    translate: TranslateFn,
+    translate: CtxTranslateFn,
 ): PluginChart {
     const bucketValues: Record<string, Record<string, number>> = {};
     for (const b of buckets) {
@@ -661,7 +659,7 @@ function buildChart(
     }
 
     const message = !chartBuckets.some((bk) => bk.segments.length > 0)
-        ? translate(language, "no_stats_data")
+        ? translate("no_stats_data")
         : null;
 
     return { kind: "line", period, bucketUnit, buckets: chartBuckets, message };
@@ -718,11 +716,10 @@ function chartPayloadToDaily(
     payload: QuotaPayload,
     startDate: Date,
     endDate: Date,
-    language: AppLanguage,
-    translate: TranslateFn,
+    translate: CtxTranslateFn,
 ): DailyMap {
     const { buckets } = dayWindow(startDate, endDate);
-    const chart = buildChart(payload, "30d", buckets, "day", language, translate);
+    const chart = buildChart(payload, "30d", buckets, "day", translate);
     const daily: DailyMap = {};
     for (const bucket of chart.buckets) {
         const values: Record<string, number> = {};
@@ -738,9 +735,9 @@ function chartPayloadToDaily(
 }
 
 async function maintainChartCache(
+    http: HttpClient,
     apiKey: string,
-    language: AppLanguage,
-    translate: TranslateFn,
+    translate: CtxTranslateFn,
 ): Promise<DailyMap> {
     const today = todayLocal();
     const cutoff = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000);
@@ -749,8 +746,8 @@ async function maintainChartCache(
 
     const fetchRange = async (start: Date, end: Date): Promise<DailyMap> => {
         const { start: s, end: e } = dayWindow(start, end);
-        const payload = await fetchModelUsage(apiKey, s, e);
-        return chartPayloadToDaily(payload, start, end, language, translate);
+        const payload = await fetchModelUsage(http, apiKey, s, e);
+        return chartPayloadToDaily(payload, start, end, translate);
     };
 
     const fullFetchAndSave = async (): Promise<DailyMap> => {
@@ -810,8 +807,7 @@ async function maintainChartCache(
 function buildChartFromCache(
     daily: DailyMap,
     period: string,
-    language: AppLanguage,
-    translate: TranslateFn,
+    translate: CtxTranslateFn,
 ): PluginChart {
     const dayCount: Record<string, number> = { "7d": 7, "15d": 15, "30d": 30 };
     const count = dayCount[period] ?? 7;
@@ -837,7 +833,7 @@ function buildChartFromCache(
     }
 
     const message = !buckets.some((bk) => bk.segments.length > 0)
-        ? translate(language, "no_stats_data")
+        ? translate("no_stats_data")
         : null;
 
     return { kind: "line", period, bucketUnit: "day", buckets, message };
@@ -879,52 +875,43 @@ function chartMessage(
 // Plugin entry point
 // ---------------------------------------------------------------------------
 
-definePlugin(async ({ params }) => {
-    const apiKey = requireParam(params, "API_KEY");
-    let period = (params.STAT_PERIOD ?? "7d").toLowerCase();
-    if (period !== "7d" && period !== "15d" && period !== "30d") period = "7d";
-    const language = appLanguage(params);
-    const translate = makeTranslator(translations);
+definePlugin(
+    async (ctx) => {
+        const apiKey = requireParam(ctx.params, "API_KEY");
+        let period = (ctx.params.STAT_PERIOD ?? "7d").toLowerCase();
+        if (period !== "7d" && period !== "15d" && period !== "30d") period = "7d";
 
-    let payload: QuotaPayload;
-    try {
-        payload = await fetchLimits(apiKey);
-    } catch (err) {
-        if (err instanceof Error && "statusCode" in err) {
-            const s = (err as { statusCode: number }).statusCode;
-            if (s === 401) return fail("AUTH_FAILED", translate(language, "missing_api_key"));
-            if (s === 429) return fail("RATE_LIMITED", "Rate limited. Try again later.");
-            if (s >= 500) return fail("SERVER_ERROR", `Service unavailable (HTTP ${String(s)})`);
-            return fail("HTTP_ERROR", `HTTP ${String(s)} from ${QUOTA_ENDPOINT}`);
+        let payload: QuotaPayload;
+        try {
+            payload = await fetchLimits(ctx.http, apiKey);
+        } catch (err) {
+            if (typeof err === "object" && err !== null && "kind" in err) {
+                return failFromHttp(err as HttpError, "glm");
+            }
+            return failFromHttp({ kind: "network", message: String(err) }, "glm");
         }
-        return fail("NETWORK_ERROR", translate(language, "network_error"));
-    }
 
-    let items: UsageItem[];
-    let badge: string | null;
-    try {
-        const result = buildItems(payload, language, translate);
-        items = result.items;
-        badge = result.badge;
-    } catch {
-        return fail("PARSE_ERROR", translate(language, "usage_parse_failed"));
-    }
+        try {
+            const result = buildItems(payload, ctx.t);
+            const items = result.items;
+            const badge = result.badge;
 
-    if (!items.length) return fail("NO_DATA", translate(language, "no_quota_items"));
+            if (!items.length)
+                return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "glm");
 
-    const { buckets, bucketUnit } = statRange(period);
-    let chart: PluginChart;
-    try {
-        const daily = await maintainChartCache(apiKey, language, translate);
-        chart = buildChartFromCache(daily, period, language, translate);
-    } catch {
-        chart = chartMessage(
-            translate(language, "stats_query_failed"),
-            period,
-            buckets,
-            bucketUnit,
-        );
-    }
+            const { buckets, bucketUnit } = statRange(period);
+            let chart: PluginChart;
+            try {
+                const daily = await maintainChartCache(ctx.http, apiKey, ctx.t);
+                chart = buildChartFromCache(daily, period, ctx.t);
+            } catch {
+                chart = chartMessage(ctx.t("stats_query_failed"), period, buckets, bucketUnit);
+            }
 
-    return ok({ items, badge: badge ?? undefined, chart });
-});
+            return ok({ items, badge: badge ?? undefined, chart });
+        } catch {
+            return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "glm");
+        }
+    },
+    { metadata: { endpoints: METADATA_ENDPOINTS }, translations },
+);

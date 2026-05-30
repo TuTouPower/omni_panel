@@ -7,17 +7,10 @@
 //   "description": "Get quota from Claude/Codex/Gemini/Antigravity/Kimi via CPA-Manager",
 //   "description@zh-Hans": "通过 CPA-Manager 获取 Claude/Codex/Gemini/Antigravity/Kimi 额度",
 //   "description@en": "Get quota from Claude/Codex/Gemini/Antigravity/Kimi via CPA-Manager",
+//   "endpoints": {
+//     "default": null
+//   },
 //   "parameters": [
-//     {
-//       "name": "cpa_mgmt_url",
-//       "label": "CPA-Manager URL",
-//       "label@zh-Hans": "CPA-Manager 地址",
-//       "label@en": "CPA-Manager URL",
-//       "type": "string",
-//       "required": false,
-//       "defaultValue": "",
-//       "placeholder": "http://host:port"
-//     },
 //     {
 //       "name": "cpa_mgmt_key",
 //       "label": "Management Key",
@@ -76,17 +69,8 @@
 // }
 // /UsageBoardPlugin
 
-import {
-    definePlugin,
-    fetchJson,
-    ok,
-    fail,
-    makeTranslator,
-    appLanguage,
-    statusFor,
-    colorForPct,
-} from "@omni-usage/plugin-sdk";
-import type { UsageItem } from "@omni-usage/plugin-sdk";
+import { definePlugin, ok, failFromHttp, statusFor, colorForPct } from "@omni-usage/plugin-sdk";
+import type { HttpClient, HttpError, UsageItem } from "@omni-usage/plugin-sdk";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -128,7 +112,7 @@ function extractEmail(name: string): string {
 // ─── CPA-Manager HTTP helpers ──────────────────────────
 
 async function cpaApiCall(
-    baseUrl: string,
+    http: HttpClient,
     mgmtKey: string,
     method: string,
     url: string,
@@ -145,30 +129,36 @@ async function cpaApiCall(
     if (reqBody !== undefined) {
         payload.data = JSON.stringify(reqBody);
     }
-    return fetchJson<ApiCallResult>(`${baseUrl}/v0/management/api-call`, {
-        method: "POST",
+    const result = await http.postJson<ApiCallResult>("default", "/v0/management/api-call", {
         headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${mgmtKey}`,
         },
-        body: JSON.stringify(payload),
+        body: payload,
     });
+    if (!result.ok) throw Object.assign(new Error("http"), result.error);
+    return result.value;
 }
 
-async function cpaGetAuthFiles(baseUrl: string, mgmtKey: string): Promise<AuthFile[]> {
-    const data = await fetchJson<{ files?: AuthFile[] }>(`${baseUrl}/v0/management/auth-files`, {
-        headers: { Authorization: `Bearer ${mgmtKey}` },
-    });
-    return data.files ?? [];
+async function cpaGetAuthFiles(http: HttpClient, mgmtKey: string): Promise<AuthFile[]> {
+    const result = await http.getJson<{ files?: AuthFile[] }>(
+        "default",
+        "/v0/management/auth-files",
+        {
+            headers: { Authorization: `Bearer ${mgmtKey}` },
+        },
+    );
+    if (!result.ok) throw Object.assign(new Error("http"), result.error);
+    return result.value.files ?? [];
 }
 
 async function loadCodeAssistProject(
-    baseUrl: string,
+    http: HttpClient,
     mgmtKey: string,
     authIndex: string,
 ): Promise<string> {
     const result = await cpaApiCall(
-        baseUrl,
+        http,
         mgmtKey,
         "POST",
         "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
@@ -351,9 +341,9 @@ function parseKimi(body: Record<string, unknown>, email: string): UsageItem[] {
 
 // ─── Provider fetchers ─────────────────────────────────
 
-async function fetchClaudeQuota(baseUrl: string, mgmtKey: string, authIndex: string) {
+async function fetchClaudeQuota(http: HttpClient, mgmtKey: string, authIndex: string) {
     const result = await cpaApiCall(
-        baseUrl,
+        http,
         mgmtKey,
         "GET",
         "https://api.anthropic.com/api/oauth/usage",
@@ -367,9 +357,9 @@ async function fetchClaudeQuota(baseUrl: string, mgmtKey: string, authIndex: str
     return parseApiResult(result);
 }
 
-async function fetchCodexQuota(baseUrl: string, mgmtKey: string, authIndex: string) {
+async function fetchCodexQuota(http: HttpClient, mgmtKey: string, authIndex: string) {
     const result = await cpaApiCall(
-        baseUrl,
+        http,
         mgmtKey,
         "GET",
         "https://chatgpt.com/backend-api/wham/usage",
@@ -383,12 +373,12 @@ async function fetchCodexQuota(baseUrl: string, mgmtKey: string, authIndex: stri
     return parseApiResult(result);
 }
 
-async function fetchGeminiQuota(baseUrl: string, mgmtKey: string, authIndex: string) {
-    const project = await loadCodeAssistProject(baseUrl, mgmtKey, authIndex);
+async function fetchGeminiQuota(http: HttpClient, mgmtKey: string, authIndex: string) {
+    const project = await loadCodeAssistProject(http, mgmtKey, authIndex);
     const bodyPayload: Record<string, unknown> = {};
     if (project) bodyPayload.project = project;
     const result = await cpaApiCall(
-        baseUrl,
+        http,
         mgmtKey,
         "POST",
         "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
@@ -399,8 +389,8 @@ async function fetchGeminiQuota(baseUrl: string, mgmtKey: string, authIndex: str
     return parseApiResult(result);
 }
 
-async function fetchAntigravityQuota(baseUrl: string, mgmtKey: string, authIndex: string) {
-    const project = await loadCodeAssistProject(baseUrl, mgmtKey, authIndex);
+async function fetchAntigravityQuota(http: HttpClient, mgmtKey: string, authIndex: string) {
+    const project = await loadCodeAssistProject(http, mgmtKey, authIndex);
     const bodyPayload: Record<string, unknown> = {};
     if (project) bodyPayload.project = project;
 
@@ -408,7 +398,7 @@ async function fetchAntigravityQuota(baseUrl: string, mgmtKey: string, authIndex
     for (const url of ANTIGRAVITY_URLS) {
         try {
             const result = await cpaApiCall(
-                baseUrl,
+                http,
                 mgmtKey,
                 "POST",
                 url,
@@ -428,9 +418,9 @@ async function fetchAntigravityQuota(baseUrl: string, mgmtKey: string, authIndex
     throw lastError ?? new Error("All Antigravity URLs failed");
 }
 
-async function fetchKimiQuota(baseUrl: string, mgmtKey: string, authIndex: string) {
+async function fetchKimiQuota(http: HttpClient, mgmtKey: string, authIndex: string) {
     const result = await cpaApiCall(
-        baseUrl,
+        http,
         mgmtKey,
         "GET",
         "https://api.kimi.com/coding/v1/usages",
@@ -444,7 +434,7 @@ async function fetchKimiQuota(baseUrl: string, mgmtKey: string, authIndex: strin
 
 interface ProviderEntry {
     fetch: (
-        baseUrl: string,
+        http: HttpClient,
         mgmtKey: string,
         authIndex: string,
     ) => Promise<Record<string, unknown>>;
@@ -461,70 +451,56 @@ const PROVIDER_REGISTRY: Record<string, ProviderEntry> = {
 
 // ─── Main ──────────────────────────────────────────────
 
-definePlugin(async ({ params }) => {
-    const language = appLanguage(params);
-    const translate = makeTranslator({
-        missing_mgmt_url: {
-            "zh-Hans": "请在插件设置中配置 CPA-Manager 地址",
-            en: "Please configure CPA-Manager URL in plugin settings",
-        },
-        auth_files_failed: {
-            "zh-Hans": "获取账号列表失败",
-            en: "Failed to fetch auth file list",
-        },
-        all_accounts_failed: {
-            "zh-Hans": "所有账号获取失败",
-            en: "All accounts failed",
-        },
-    });
-
-    const mgmtUrl = (params.cpa_mgmt_url ?? "").trim().replace(/\/+$/, "");
-    if (!mgmtUrl) {
-        return fail("MISSING_CONFIG", translate(language, "missing_mgmt_url"));
-    }
-    const mgmtKey = (params.cpa_mgmt_key ?? "").trim();
-    if (!mgmtKey) {
-        return fail("MISSING_API_KEY", translate(language, "missing_api_key"));
-    }
-
-    const monitorFlags: Record<string, boolean> = {
-        claude: (params.monitor_claude ?? "true").toLowerCase() === "true",
-        codex: (params.monitor_codex ?? "true").toLowerCase() === "true",
-        "gemini-cli": (params.monitor_gemini ?? "true").toLowerCase() === "true",
-        antigravity: (params.monitor_antigravity ?? "true").toLowerCase() === "true",
-        kimi: (params.monitor_kimi ?? "true").toLowerCase() === "true",
-    };
-
-    let authFiles: AuthFile[];
-    try {
-        authFiles = await cpaGetAuthFiles(mgmtUrl, mgmtKey);
-    } catch {
-        return fail("AUTH_FILES_FAILED", translate(language, "auth_files_failed"));
-    }
-
-    const activeAuthFiles = authFiles.filter((af) => !af.disabled && monitorFlags[af.provider]);
-
-    const tasks = activeAuthFiles.map(async (af) => {
-        const email = extractEmail(af.name);
-        const provider = PROVIDER_REGISTRY[af.provider];
-        if (!provider) return [];
-        const body = await provider.fetch(mgmtUrl, mgmtKey, af.auth_index);
-        return provider.parse(body, email);
-    });
-
-    const results = await Promise.allSettled(tasks);
-    const items: UsageItem[] = [];
-    const warnings: string[] = [];
-
-    for (const result of results) {
-        if (result.status === "fulfilled") {
-            items.push(...result.value);
-        } else {
-            warnings.push(String(result.reason));
+definePlugin(
+    async (ctx) => {
+        const mgmtKey = (ctx.params.cpa_mgmt_key ?? "").trim();
+        if (!mgmtKey) {
+            return failFromHttp({ kind: "missing_endpoint", key: "cpa_mgmt_key" }, "cpa");
         }
-    }
 
-    if (items.length > 0) return ok({ items });
-    if (warnings.length > 0) return fail("ALL_FAILED", warnings.join("; "));
-    return ok({ items });
-});
+        const monitorFlags: Record<string, boolean> = {
+            claude: (ctx.params.monitor_claude ?? "true").toLowerCase() === "true",
+            codex: (ctx.params.monitor_codex ?? "true").toLowerCase() === "true",
+            "gemini-cli": (ctx.params.monitor_gemini ?? "true").toLowerCase() === "true",
+            antigravity: (ctx.params.monitor_antigravity ?? "true").toLowerCase() === "true",
+            kimi: (ctx.params.monitor_kimi ?? "true").toLowerCase() === "true",
+        };
+
+        let authFiles: AuthFile[];
+        try {
+            authFiles = await cpaGetAuthFiles(ctx.http, mgmtKey);
+        } catch (err) {
+            if (typeof err === "object" && err !== null && "kind" in err)
+                return failFromHttp(err as HttpError, "cpa");
+            return failFromHttp({ kind: "network", message: String(err) }, "cpa");
+        }
+
+        const activeAuthFiles = authFiles.filter((af) => !af.disabled && monitorFlags[af.provider]);
+
+        const tasks = activeAuthFiles.map(async (af) => {
+            const email = extractEmail(af.name);
+            const provider = PROVIDER_REGISTRY[af.provider];
+            if (!provider) return [];
+            const body = await provider.fetch(ctx.http, mgmtKey, af.auth_index);
+            return provider.parse(body, email);
+        });
+
+        const results = await Promise.allSettled(tasks);
+        const items: UsageItem[] = [];
+        const warnings: string[] = [];
+
+        for (const result of results) {
+            if (result.status === "fulfilled") {
+                items.push(...result.value);
+            } else {
+                warnings.push(String(result.reason));
+            }
+        }
+
+        if (items.length > 0) return ok({ items });
+        if (warnings.length > 0)
+            return failFromHttp({ kind: "network", message: warnings.join("; ") }, "cpa");
+        return ok({ items });
+    },
+    { metadata: { endpoints: { default: null } }, translations: {} },
+);

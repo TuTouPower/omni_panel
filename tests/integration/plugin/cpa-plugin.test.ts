@@ -147,13 +147,17 @@ describe("CPA plugin subprocess", () => {
         const cmd = buildPluginCommand(
             compiledPath,
             {
-                cpa_mgmt_url: "http://127.0.0.1:1",
                 cpa_mgmt_key: "test-key",
             },
             "zh-Hans",
             nodePath,
         );
-        const result = await executePlugin(cmd);
+        // Use an unreachable endpoint
+        const cmdWithEnv = {
+            ...cmd,
+            env: { OMNI_PLUGIN_ENDPOINTS: JSON.stringify({ default: "http://127.0.0.1:1" }) },
+        };
+        const result = await executePlugin(cmdWithEnv);
         expect(result.exitCode).toBe(0);
         const output = parsePluginResult(result.stdout);
         expect(output.success).toBe(false);
@@ -164,15 +168,19 @@ describe("CPA plugin subprocess", () => {
             const cmd = buildPluginCommand(
                 compiledPath,
                 {
-                    cpa_mgmt_url: `${baseUrl}/`,
                     cpa_mgmt_key: "secret-management-key",
                     monitor_claude: "true",
                 },
                 "zh-Hans",
                 nodePath,
             );
+            // Inject mock server URL as the "default" endpoint via env
+            const cmdWithEnv = {
+                ...cmd,
+                env: { OMNI_PLUGIN_ENDPOINTS: JSON.stringify({ default: baseUrl }) },
+            };
 
-            const result = await executePlugin(cmd);
+            const result = await executePlugin(cmdWithEnv);
             expect(result.exitCode).toBe(0);
             expect(result.stdout).not.toContain("secret-management-key");
             expect(result.stderr).not.toContain("secret-management-key");
@@ -217,15 +225,18 @@ describe("CPA plugin subprocess", () => {
             const cmd = buildPluginCommand(
                 compiledPath,
                 {
-                    cpa_mgmt_url: baseUrl,
                     cpa_mgmt_key: "secret-management-key",
                     monitor_claude: "false",
                 },
                 "zh-Hans",
                 nodePath,
             );
+            const cmdWithEnv = {
+                ...cmd,
+                env: { OMNI_PLUGIN_ENDPOINTS: JSON.stringify({ default: baseUrl }) },
+            };
 
-            const result = await executePlugin(cmd);
+            const result = await executePlugin(cmdWithEnv);
             expect(result.exitCode).toBe(0);
             const output = parsePluginResult(result.stdout);
             expect(output.success).toBe(true);

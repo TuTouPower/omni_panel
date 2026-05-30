@@ -25,17 +25,14 @@
 import {
     definePlugin,
     requireParam,
-    fetchJson,
     ok,
-    fail,
-    makeTranslator,
-    appLanguage,
+    failFromHttp,
     numeric,
     statusFor,
     colorFor,
 } from "@omni-usage/plugin-sdk";
 
-const ENDPOINT = "https://www.minimaxi.com/v1/token_plan/remains";
+const METADATA_ENDPOINTS = { default: "https://www.minimaxi.com" };
 
 const MODEL_SORT_ORDER: Record<string, number> = {
     model_text_generation: 0,
@@ -178,8 +175,7 @@ function isWeeklyRedundant(model: BaseModel, intervalTotal: number, weeklyTotal:
 
 function buildItems(
     payload: RemainsResponse,
-    language: string,
-    translate: ReturnType<typeof makeTranslator>,
+    translate: (key: string) => string,
 ): { items: SortableItem[]; badge: string | null } {
     const models = payload.model_remains;
     if (!Array.isArray(models)) return { items: [], badge: null };
@@ -190,7 +186,7 @@ function buildItems(
     for (const model of models) {
         const rawName = model.model_name ?? "unknown";
         const modelKey = modelDisplayKey(rawName);
-        const name = modelKey ? translate(language, modelKey) : rawName;
+        const name = modelKey ? translate(modelKey) : rawName;
         const slug = rawName.replace(/ /g, "-").replace(/\//g, "-").toLowerCase();
 
         const intervalTotal = numeric(model.current_interval_total_count);
@@ -208,7 +204,7 @@ function buildItems(
             const periodKey = intervalLabelKey(model);
             const entry = buildItem(
                 `minimax-${slug}-interval`,
-                `${name} (${translate(language, periodKey)})`,
+                `${name} (${translate(periodKey)})`,
                 intervalUsed,
                 intervalTotal,
                 resetAtFromRemainingMs(model.remains_time),
@@ -222,7 +218,7 @@ function buildItems(
             const periodKey = "period_week";
             const entry = buildItem(
                 `minimax-${slug}-week`,
-                `${name} (${translate(language, periodKey)})`,
+                `${name} (${translate(periodKey)})`,
                 weeklyUsed,
                 weeklyTotal,
                 resetAtFromRemainingMs(model.weekly_remains_time),
@@ -254,45 +250,49 @@ function buildItems(
     return { items: output, badge };
 }
 
-definePlugin(async ({ params }) => {
-    const apiKey = requireParam(params, "API_KEY");
-    const language = appLanguage(params);
-    const translate = makeTranslator(translations);
+definePlugin(
+    async (ctx) => {
+        const apiKey = requireParam(ctx.params, "API_KEY");
 
-    let payload: RemainsResponse;
-    try {
-        payload = await fetchJson<RemainsResponse>(ENDPOINT, {
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
+        const result = await ctx.http.getJson<RemainsResponse>(
+            "default",
+            "/v1/token_plan/remains",
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${apiKey}`,
+                },
             },
-        });
-    } catch (err) {
-        if (err instanceof Error && "statusCode" in err) {
-            const s = (err as { statusCode: number }).statusCode;
-            if (s === 401) return fail("AUTH_FAILED", translate(language, "invalid_api_key"));
-            if (s === 429) return fail("RATE_LIMITED", "Rate limited. Try again later.");
-            if (s >= 500) return fail("SERVER_ERROR", `Service unavailable (HTTP ${String(s)})`);
-            return fail("HTTP_ERROR", `HTTP ${String(s)} from ${ENDPOINT}`);
-        }
-        return fail("NETWORK_ERROR", translate(language, "network_error"));
-    }
+        );
+        if (!result.ok) return failFromHttp(result.error, "minimax");
 
-    try {
-        const statusCode = payload.base_resp.status_code ?? 0;
-        if (statusCode !== 0) {
-            if (statusCode === 2049)
-                return fail("AUTH_FAILED", translate(language, "invalid_api_key"));
-            const statusMsg = payload.base_resp.status_msg ?? "";
-            return fail(
-                "API_ERROR",
-                statusMsg ? `${statusMsg} (${String(statusCode)})` : String(statusCode),
-            );
+        try {
+            const statusCode = result.value.base_resp?.status_code ?? 0;
+            if (statusCode !== 0) {
+                if (statusCode === 2049)
+                    return failFromHttp(
+                        { kind: "http", status: 401, body: result.value },
+                        "minimax",
+                    );
+                const statusMsg = result.value.base_resp?.status_msg ?? "";
+                return failFromHttp(
+                    {
+                        kind: "http",
+                        status: 200,
+                        body: statusMsg
+                            ? `${statusMsg} (${String(statusCode)})`
+                            : String(statusCode),
+                    },
+                    "minimax",
+                );
+            }
+            const { items, badge } = buildItems(result.value, ctx.t);
+            if (items.length === 0)
+                return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "minimax");
+            return ok({ items, ...(badge !== null && { badge }) });
+        } catch {
+            return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "minimax");
         }
-        const { items, badge } = buildItems(payload, language, translate);
-        if (items.length === 0) return fail("NO_DATA", translate(language, "no_quota_items"));
-        return ok({ items }, badge ?? undefined);
-    } catch {
-        return fail("PARSE_ERROR", translate(language, "usage_parse_failed"));
-    }
-});
+    },
+    { metadata: { endpoints: METADATA_ENDPOINTS }, translations },
+);

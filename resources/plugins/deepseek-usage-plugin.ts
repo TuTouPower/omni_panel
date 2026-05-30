@@ -32,19 +32,14 @@
 // }
 // /UsageBoardPlugin
 
-import {
-    definePlugin,
-    requireParam,
-    fetchJson,
-    ok,
-    fail,
-    makeTranslator,
-    appLanguage,
-    numeric,
-} from "@omni-usage/plugin-sdk";
+import { definePlugin, requireParam, ok, failFromHttp, numeric } from "@omni-usage/plugin-sdk";
 
-const ENDPOINT = "https://api.deepseek.com/user/balance";
+const METADATA_ENDPOINTS = { default: "https://api.deepseek.com" };
 const DEFAULT_LIMIT = 100;
+
+const translations = {
+    balance: { "zh-Hans": "余额", en: "Balance" },
+};
 
 function parseLimit(raw: string): number {
     const value = Number(raw);
@@ -63,10 +58,6 @@ function colorForBalance(
     return "blue";
 }
 
-const translations = {
-    balance: { "zh-Hans": "余额", en: "Balance" },
-};
-
 interface BalanceInfo {
     currency: string;
     total_balance: string;
@@ -75,46 +66,36 @@ interface BalanceResponse {
     balance_infos: BalanceInfo[];
 }
 
-definePlugin(async ({ params }) => {
-    const apiKey = requireParam(params, "API_KEY");
-    const language = appLanguage(params);
-    const translate = makeTranslator(translations);
-    const limitAmount = parseLimit(params.LIMIT ?? "");
+definePlugin(
+    async (ctx) => {
+        const apiKey = requireParam(ctx.params, "API_KEY");
+        const limitAmount = parseLimit(ctx.params.LIMIT ?? "");
 
-    let data: BalanceResponse;
-    try {
-        data = await fetchJson<BalanceResponse>(ENDPOINT, {
+        const result = await ctx.http.getJson<BalanceResponse>("default", "/user/balance", {
             headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
         });
-    } catch (err) {
-        if (err instanceof Error && "statusCode" in err) {
-            const s = (err as { statusCode: number }).statusCode;
-            if (s === 401) return fail("AUTH_FAILED", translate(language, "missing_api_key"));
-            if (s === 429) return fail("RATE_LIMITED", "Rate limited. Try again later.");
-            if (s >= 500) return fail("SERVER_ERROR", `Service unavailable (HTTP ${String(s)})`);
-            return fail("HTTP_ERROR", `HTTP ${String(s)} from ${ENDPOINT}`);
+        if (!result.ok) return failFromHttp(result.error, "deepseek");
+
+        try {
+            const items = result.value.balance_infos.map((info) => {
+                const currency = info.currency;
+                const totalBalance = numeric(info.total_balance);
+                const suffix = currency !== "CNY" ? ` (${currency})` : "";
+                return {
+                    id: `balance-${currency}`,
+                    name: `${ctx.t("balance")}${suffix}`,
+                    used: Math.round(totalBalance * 100) / 100,
+                    limit: Math.round(limitAmount * 100) / 100,
+                    displayStyle: "ratio" as const,
+                    status: "normal" as const,
+                    color: colorForBalance(totalBalance, limitAmount),
+                };
+            });
+
+            return ok({ items });
+        } catch {
+            return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "deepseek");
         }
-        return fail("NETWORK_ERROR", translate(language, "network_error"));
-    }
-
-    try {
-        const items = data.balance_infos.map((info) => {
-            const currency = info.currency;
-            const totalBalance = numeric(info.total_balance);
-            const suffix = currency !== "CNY" ? ` (${currency})` : "";
-            return {
-                id: `balance-${currency}`,
-                name: `${translate(language, "balance")}${suffix}`,
-                used: Math.round(totalBalance * 100) / 100,
-                limit: Math.round(limitAmount * 100) / 100,
-                displayStyle: "ratio" as const,
-                status: "normal" as const,
-                color: colorForBalance(totalBalance, limitAmount),
-            };
-        });
-
-        return ok({ items });
-    } catch {
-        return fail("PARSE_ERROR", translate(language, "usage_parse_failed"));
-    }
-});
+    },
+    { metadata: { endpoints: METADATA_ENDPOINTS }, translations },
+);

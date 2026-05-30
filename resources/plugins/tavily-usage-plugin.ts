@@ -25,17 +25,14 @@
 import {
     definePlugin,
     requireParam,
-    fetchJson,
     ok,
-    fail,
-    makeTranslator,
-    appLanguage,
+    failFromHttp,
     numeric,
     statusFor,
     colorFor,
 } from "@omni-usage/plugin-sdk";
 
-const ENDPOINT = "https://api.tavily.com/usage";
+const METADATA_ENDPOINTS = { default: "https://api.tavily.com" };
 
 function nextMonthStartIso(): string {
     const now = new Date();
@@ -68,77 +65,65 @@ interface UsagePayload {
     account?: AccountPayload;
 }
 
-definePlugin(async ({ params }) => {
-    const apiKey = requireParam(params, "API_KEY");
-    const language = appLanguage(params);
-    const translate = makeTranslator(translations);
+definePlugin(
+    async (ctx) => {
+        const apiKey = requireParam(ctx.params, "API_KEY");
 
-    let payload: UsagePayload;
-    try {
-        payload = await fetchJson<UsagePayload>(ENDPOINT, {
+        const result = await ctx.http.getJson<UsagePayload>("default", "/usage", {
             headers: { Authorization: `Bearer ${apiKey}` },
         });
-    } catch (err) {
-        if (err instanceof Error && "statusCode" in err) {
-            const s = (err as { statusCode: number }).statusCode;
-            if (s === 401) return fail("AUTH_FAILED", translate(language, "missing_api_key"));
-            if (s === 429) return fail("RATE_LIMITED", "Rate limited. Try again later.");
-            if (s >= 500) return fail("SERVER_ERROR", `Service unavailable (HTTP ${String(s)})`);
-            return fail("HTTP_ERROR", `HTTP ${String(s)} from ${ENDPOINT}`);
-        }
-        return fail("NETWORK_ERROR", translate(language, "network_error"));
-    }
+        if (!result.ok) return failFromHttp(result.error, "tavily");
 
-    try {
-        const account = payload.account;
-        if (typeof account !== "object") {
-            return fail("PARSE_ERROR", translate(language, "usage_parse_failed"));
-        }
-        const planLimit = numeric(account.plan_limit);
-        if (planLimit <= 0) {
-            return fail("NO_DATA", translate(language, "no_quota_items"));
-        }
-        const planUsage = numeric(account.plan_usage);
-        const resetAt = nextMonthStartIso();
+        try {
+            const account = result.value.account;
+            if (typeof account !== "object")
+                return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "tavily");
+            const planLimit = numeric(account.plan_limit);
+            if (planLimit <= 0)
+                return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "tavily");
+            const planUsage = numeric(account.plan_usage);
+            const resetAt = nextMonthStartIso();
 
-        const items = [
-            {
-                id: "tavily-total-month",
-                name: translate(language, "total_usage"),
-                used: Math.max(planUsage, 0),
-                limit: Math.max(planLimit, 0),
-                displayStyle: "ratio" as const,
-                resetAt,
-                status: statusFor(planUsage, planLimit),
-                color: colorFor(planUsage, planLimit),
-            },
-        ];
-
-        const details: [string, string, keyof AccountPayload][] = [
-            ["tavily-search", "search", "search_usage"],
-            ["tavily-crawl", "crawl", "crawl_usage"],
-            ["tavily-extract", "extract", "extract_usage"],
-            ["tavily-map", "map", "map_usage"],
-            ["tavily-research", "research", "research_usage"],
-        ];
-
-        for (const [itemId, nameKey, usageKey] of details) {
-            const used = numeric(account[usageKey]);
-            if (used > 0) {
-                items.push({
-                    id: itemId,
-                    name: translate(language, nameKey),
-                    used: Math.max(used, 0),
-                    limit: Math.max(planUsage, 0),
+            const items = [
+                {
+                    id: "tavily-total-month",
+                    name: ctx.t("total_usage"),
+                    used: Math.max(planUsage, 0),
+                    limit: Math.max(planLimit, 0),
                     displayStyle: "ratio" as const,
-                    status: statusFor(used, planUsage),
-                    color: colorFor(used, planUsage),
-                });
-            }
-        }
+                    resetAt,
+                    status: statusFor(planUsage, planLimit),
+                    color: colorFor(planUsage, planLimit),
+                },
+            ];
 
-        return ok({ items });
-    } catch {
-        return fail("PARSE_ERROR", translate(language, "usage_parse_failed"));
-    }
-});
+            const details: [string, string, keyof AccountPayload][] = [
+                ["tavily-search", "search", "search_usage"],
+                ["tavily-crawl", "crawl", "crawl_usage"],
+                ["tavily-extract", "extract", "extract_usage"],
+                ["tavily-map", "map", "map_usage"],
+                ["tavily-research", "research", "research_usage"],
+            ];
+
+            for (const [itemId, nameKey, usageKey] of details) {
+                const used = numeric(account[usageKey]);
+                if (used > 0) {
+                    items.push({
+                        id: itemId,
+                        name: ctx.t(nameKey),
+                        used: Math.max(used, 0),
+                        limit: Math.max(planUsage, 0),
+                        displayStyle: "ratio" as const,
+                        status: statusFor(used, planUsage),
+                        color: colorFor(used, planUsage),
+                    });
+                }
+            }
+
+            return ok({ items });
+        } catch {
+            return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "tavily");
+        }
+    },
+    { metadata: { endpoints: METADATA_ENDPOINTS }, translations },
+);
