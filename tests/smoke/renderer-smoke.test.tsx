@@ -16,7 +16,7 @@ describe("Renderer smoke tests", () => {
         it("shows plugin cards with usage data", async () => {
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByText("DeepSeek")).toBeInTheDocument();
+                expect(screen.getAllByText("DeepSeek").length).toBeGreaterThanOrEqual(1);
             });
             // ratio display: shows "5000 / 10000 (50%)"
             expect(screen.getByText(/5000.*10000.*50%/)).toBeInTheDocument();
@@ -25,7 +25,7 @@ describe("Renderer smoke tests", () => {
         it("shows failed plugin error", async () => {
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByText("Claude")).toBeInTheDocument();
+                expect(screen.getAllByText("Claude").length).toBeGreaterThanOrEqual(1);
             });
             expect(screen.getByText("API 超时")).toBeInTheDocument();
         });
@@ -99,7 +99,7 @@ describe("Renderer smoke tests", () => {
     describe("Theme", () => {
         it("applies dark class on theme change event", async () => {
             render(<App />);
-            await screen.findByText("DeepSeek");
+            await screen.findAllByText("DeepSeek");
             const api = getMockApi();
             const listeners = api._themeListeners;
             expect(listeners.size).toBeGreaterThan(0);

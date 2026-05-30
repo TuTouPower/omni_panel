@@ -77,7 +77,7 @@ test.describe("multi-account display", () => {
         }
 
         // Should have 3 bar-row elements for 3 items
-        const bars = multiCard.locator(".bar-row");
+        const bars = multiCard.locator(".ub-row");
         await expect(bars).toHaveCount(3, { timeout: 10_000 });
     });
 });

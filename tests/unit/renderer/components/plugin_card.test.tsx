@@ -66,7 +66,7 @@ describe("PluginCard", () => {
                 })}
             />,
         );
-        expect(screen.getByText("Tokens")).toBeInTheDocument();
+        expect(screen.getAllByText("Tokens").length).toBeGreaterThanOrEqual(1);
         expect(screen.getByText("3000 / 10000 (30%)")).toBeInTheDocument();
     });
 
@@ -119,10 +119,8 @@ describe("PluginCard", () => {
                 })}
             />,
         );
-        const fill = container.querySelector(".fill");
-        expect(fill?.className).toContain("danger");
-        const pct = container.querySelector(".bar-pct");
-        expect(pct?.className).toContain("danger");
+        const bar = container.querySelector(".ub-bar");
+        expect(bar?.getAttribute("data-tone")).toBe("danger");
     });
 
     it("does NOT apply danger class when usage < 85%", () => {
@@ -135,7 +133,7 @@ describe("PluginCard", () => {
                             {
                                 id: "tokens",
                                 name: "Tokens",
-                                used: 84,
+                                used: 50,
                                 limit: 100,
                                 displayStyle: "ratio",
                                 status: "normal",
@@ -146,8 +144,33 @@ describe("PluginCard", () => {
                 })}
             />,
         );
-        const fill = container.querySelector(".fill");
-        expect(fill?.className).not.toContain("danger");
+        const bar = container.querySelector(".ub-bar");
+        expect(bar?.getAttribute("data-tone")).toBeNull();
+    });
+
+    it("applies warn tone when usage is 65-84%", () => {
+        const { container } = render(
+            <PluginCard
+                plugin={makePlugin({
+                    snapshot: {
+                        status: "ready",
+                        items: [
+                            {
+                                id: "tokens",
+                                name: "Tokens",
+                                used: 70,
+                                limit: 100,
+                                displayStyle: "ratio",
+                                status: "normal",
+                            },
+                        ],
+                        updatedAt: "2026-05-30T00:00:00Z",
+                    },
+                })}
+            />,
+        );
+        const bar = container.querySelector(".ub-bar");
+        expect(bar?.getAttribute("data-tone")).toBe("warn");
     });
 
     it("applies danger at exactly 85%", () => {
@@ -171,8 +194,8 @@ describe("PluginCard", () => {
                 })}
             />,
         );
-        const fill = container.querySelector(".fill");
-        expect(fill?.className).toContain("danger");
+        const bar = container.querySelector(".ub-bar");
+        expect(bar?.getAttribute("data-tone")).toBe("danger");
     });
 
     // --- disabled state ---
