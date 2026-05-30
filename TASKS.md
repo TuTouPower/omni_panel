@@ -150,6 +150,10 @@ CPA-Manager (http://<your-host>:20224)
 
 ## Phase 18: 补齐测试覆盖与真实验收缺口
 
+> **执行入口已合并到** `docs/superpowers/plans/2026-05-30-test-coverage-improvement.md`（8 个 Task）。
+> 18.1-18.5 被 Task 2-6 覆盖；18.6 = Task 8（覆盖率）；18.7 文档同步分散到各 Task 的 docs commit。
+> 本节保留作为需求来源参考，**实际执行看上述计划文件**。
+
 ### 背景
 
 `docs/spec.md` 与 `docs/test.md` 要求测试覆盖单元、集成、用户端到端和打包 smoke 四层。

@@ -169,233 +169,734 @@ git commit -m "docs: add test coverage matrix mapping spec to tests"
 
 ---
 
-## Task 2: 7 个 bundled 插件 stub 集成测试
+## Task 2: HTTP 层重构 + 7 个 bundled 插件 stub 集成测试
 
-**Files:**
+> **背景**：原计划只想给每个插件写 stub 测试，但 6 个外部插件把 URL 硬编码在源里、SDK 用全局 `fetch`、插件运行在 spawn 子进程里 → 父进程没法 monkeypatch URL，测试桩根本注入不进去。
+>
+> 用户裁决：**允许改业务代码**，按"最健壮 + 最可维护 + 为未来代理/自定义 baseURL 留口"重新设计；MVP 阶段无存量用户，**迁移策略 A：直接删旧配置，不写兼容代码**。
+>
+> 新架构核心：
+>
+> 1. **endpoint 注册表**：插件 metadata 声明 `endpoints: { default: "https://..." }`，URL 不再硬编码在业务代码
+> 2. **三级解析优先级**：测试 env (`OMNI_PLUGIN_ENDPOINTS`) > 用户 override (`endpointOverrides`) > metadata 默认
+> 3. **typed http client**：SDK 注入 `ctx.http`，返回 `Result<T, HttpError>` 判别联合，业务代码不再 try/catch + 看 `statusCode`
+> 4. **代理支持**：`AppConfiguration.proxy` 通过 `OMNI_PLUGIN_PROXY` env 注入子进程，undici `ProxyAgent` 接管
+> 5. **测试可注入**：harness 用 env 把桩 URL 灌进去，spawn 真子进程，不动业务代码
+>
+> CPA 特殊处理：`endpoints.default = null` 表示"必填无默认"，用户必须填 — 不需要特殊代码路径。
 
-- Create: `tests/integration/plugin/_helpers/plugin_test_harness.ts`
-- Create: `tests/integration/plugin/_helpers/http_stub.ts`
-- Create: `tests/integration/plugin/claude-plugin.test.ts`
-- Create: `tests/integration/plugin/codex-plugin.test.ts`
-- Create: `tests/integration/plugin/deepseek-plugin.test.ts`
-- Create: `tests/integration/plugin/glm-plugin.test.ts`
-- Create: `tests/integration/plugin/minimax-plugin.test.ts`
-- Create: `tests/integration/plugin/tavily-plugin.test.ts`
-- Modify: `tests/integration/plugin/cpa-plugin.test.ts`（迁到新 harness）
+**Files (按 Phase 列出)：**
 
-**全部用 stub**（本地 http server），不打真实外部 API。spawn / compile / output-parser 不 mock。覆盖：成功路径、缺 key、HTTP 5xx、超时、非法 JSON、exit 非零。
+- **Phase A (schema)**：Modify `src/shared/schemas/plugin-metadata.ts`、`src/shared/types/config.ts`、`src/shared/schemas/configuration.ts`(如有)
+- **Phase B (SDK)**：Create `src/plugins/sdk/http-client.ts`、`src/plugins/sdk/errors.ts`、`src/plugins/sdk/endpoints.ts`; Modify `src/plugins/sdk/define-plugin.ts`、`src/plugins/sdk/index.ts`; Delete `src/plugins/sdk/http.ts`（旧 fetchJson）
+- **Phase C (plugins)**：Modify `resources/plugins/{claude,codex,deepseek,glm,minimax,tavily,cpa}-usage-plugin.ts` 7 个
+- **Phase D (runtime)**：Modify `src/main/core/scheduler/refresh-service.ts`、`src/main/core/plugin/command-builder.ts`（如需）、`src/main/core/plugin/runner.ts`（env 透传）
+- **Phase E (harness)**：Create `tests/integration/plugin/_helpers/{plugin_test_harness,http_stub,with_stub_backend}.ts`
+- **Phase F (tests)**：Create `tests/integration/plugin/{claude,codex,deepseek,glm,minimax,tavily}-plugin.test.ts`; Modify `tests/integration/plugin/cpa-plugin.test.ts`
+- **Phase G (docs)**：Modify `docs/spec.md` §3.2/§4.3、`docs/plugin-contract.md`（endpoints 字段）、`docs/test-coverage-matrix.md`（标 ✅）
+
+**全部用 stub**（本地 http server），不打真实外部 API。spawn / compile / output-parser 不 mock。覆盖：成功路径、缺 key、HTTP 401/429/5xx、超时、非法 JSON、exit 非零。
 
 > 真实 API 握手在 Task 7 处理，本 Task 范围内禁止任何 `fetch("https://api.deepseek.com/...")` 之类的真请求。
 
-- [ ] **Step 1: 抽 `plugin_test_harness.ts`**
+---
+
+### Phase A：Schema 改动
+
+- [ ] **A.1 plugin-metadata.ts 加 `endpoints` 字段**
 
 ```ts
-// tests/integration/plugin/_helpers/plugin_test_harness.ts
-import { resolve } from "node:path";
-import { mkdirSync, rmSync, existsSync } from "node:fs";
-import { compilePlugin } from "../../../../src/main/core/plugin/compiler";
-import { buildPluginCommand } from "../../../../src/main/core/plugin/command-builder";
-import { executePlugin } from "../../../../src/main/core/plugin/runner";
-import { parsePluginResult } from "../../../../src/main/core/plugin/output-parser";
-import { parsePluginMetadata } from "../../../../src/main/core/plugin/metadata-parser";
-import { readFileSync } from "node:fs";
+// src/shared/schemas/plugin-metadata.ts
+export const pluginMetadataSchema = z
+    .object({
+        name: z.string().optional(),
+        description: z.string().optional(),
+        icon: z.string().optional(),
+        parameters: z.array(pluginParameterMetadataSchema).optional(),
+        // null = 必填无默认（如 CPA cpa_mgmt_url）；string = 官方默认 URL
+        endpoints: z.record(z.string().url().nullable()).optional(),
+    })
+    .passthrough();
+```
 
-export interface PluginRunOptions {
-    readonly pluginFile: string; // e.g. "claude-usage-plugin.ts"
+- [ ] **A.2 PluginConfiguration 加 `endpointOverrides`**
+
+```ts
+// src/shared/types/config.ts
+export interface PluginConfiguration {
+    readonly instanceId: string;
+    readonly stateId: string;
+    readonly name: string;
+    readonly enabled: boolean;
+    readonly executablePath: string;
+    readonly refreshIntervalSeconds: number;
+    readonly parameterValues: Readonly<Record<string, string>>;
+    readonly endpointOverrides: Readonly<Record<string, string>>; // 空对象 = 用 metadata 默认
+}
+
+export interface AppConfiguration {
+    readonly schemaVersion: number;
+    readonly language: AppLanguage;
+    readonly overviewDisplayMode: "grouped" | "tabs";
+    readonly plugins: readonly PluginConfiguration[];
+    readonly launchAtLogin: boolean;
+    readonly proxy?: {
+        readonly url: string; // http://host:port or http://user:pass@host:port
+        readonly noProxy?: readonly string[];
+    };
+}
+```
+
+- [ ] **A.3 同步 Zod 配置 schema**
+
+如有 `src/shared/schemas/configuration.ts`（或同级 zod schema），同步加 `endpointOverrides`（默认 `{}`）和可选 `proxy`。auto-seed 时所有插件填 `endpointOverrides: {}`。
+
+- [ ] **A.4 跑 typecheck**
+
+```bash
+pnpm typecheck
+```
+
+预期：会有大量 `endpointOverrides` 缺失错误（auto-seed、config-store、IPC handler），先全部加默认 `{}` 让 typecheck 通过。**不要**在此 step 改业务逻辑，只补字段。
+
+- [ ] **A.5 提交**
+
+```bash
+git add src/shared/
+git commit -m "feat(schema): add endpoints metadata, endpointOverrides config, proxy config"
+```
+
+---
+
+### Phase B：SDK 重构
+
+- [ ] **B.1 写 `errors.ts` — typed HttpError union**
+
+```ts
+// src/plugins/sdk/errors.ts
+export type HttpError =
+    | { readonly kind: "network"; readonly message: string }
+    | { readonly kind: "timeout"; readonly timeoutMs: number }
+    | { readonly kind: "http"; readonly status: number; readonly body: unknown }
+    | { readonly kind: "invalid_json"; readonly status: number; readonly raw: string }
+    | { readonly kind: "missing_endpoint"; readonly key: string };
+
+export type Result<T, E = HttpError> =
+    | { readonly ok: true; readonly value: T }
+    | { readonly ok: false; readonly error: E };
+```
+
+- [ ] **B.2 写 `endpoints.ts` — 三级解析**
+
+```ts
+// src/plugins/sdk/endpoints.ts
+// 子进程启动时一次性读 env。OMNI_PLUGIN_ENDPOINTS 形如 {"default":"http://127.0.0.1:1234"}
+export function resolveEndpoint(key: string, fallbackFromMetadata?: string | null): string | null {
+    const envRaw = process.env["OMNI_PLUGIN_ENDPOINTS"];
+    if (envRaw) {
+        try {
+            const map = JSON.parse(envRaw) as Record<string, string>;
+            if (typeof map[key] === "string") return map[key];
+        } catch {
+            // 静默 — 测试环境注入错就忽略，回落到默认
+        }
+    }
+    return fallbackFromMetadata ?? null;
+}
+```
+
+> RefreshService 已经把 "用户 override overlay 在 metadata 默认上" 的结果整体写进 env（见 Phase D），所以 SDK 这里只看两层：env > metadata 兜底。
+
+- [ ] **B.3 写 `http-client.ts` — typed client + 代理**
+
+```ts
+// src/plugins/sdk/http-client.ts
+import { request, type Dispatcher, ProxyAgent } from "undici";
+import type { HttpError, Result } from "./errors";
+import { resolveEndpoint } from "./endpoints";
+
+export interface HttpRequestOptions {
+    readonly method?: "GET" | "POST" | "PUT" | "DELETE";
+    readonly headers?: Record<string, string>;
+    readonly body?: unknown; // JSON.stringify if object
+    readonly timeoutMs?: number; // default 10000
+    readonly query?: Record<string, string | number | boolean | undefined>;
+}
+
+export interface HttpClient {
+    getJson<T>(endpointKey: string, path: string, opts?: HttpRequestOptions): Promise<Result<T>>;
+    postJson<T>(endpointKey: string, path: string, opts?: HttpRequestOptions): Promise<Result<T>>;
+    request<T>(endpointKey: string, path: string, opts?: HttpRequestOptions): Promise<Result<T>>;
+}
+
+export function createHttpClient(metadataEndpoints?: Record<string, string | null>): HttpClient {
+    const dispatcher: Dispatcher | undefined = buildProxyDispatcher();
+
+    async function call<T>(
+        endpointKey: string,
+        path: string,
+        opts: HttpRequestOptions = {},
+    ): Promise<Result<T>> {
+        const base = resolveEndpoint(endpointKey, metadataEndpoints?.[endpointKey] ?? null);
+        if (!base) {
+            return { ok: false, error: { kind: "missing_endpoint", key: endpointKey } };
+        }
+        const url = buildUrl(base, path, opts.query);
+        const timeoutMs = opts.timeoutMs ?? 10_000;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await request(url, {
+                method: opts.method ?? "GET",
+                headers: opts.headers,
+                body: opts.body == null ? undefined : JSON.stringify(opts.body),
+                signal: controller.signal,
+                dispatcher,
+            });
+            const text = await res.body.text();
+            let data: unknown = null;
+            if (text) {
+                try {
+                    data = JSON.parse(text);
+                } catch {
+                    return {
+                        ok: false,
+                        error: { kind: "invalid_json", status: res.statusCode, raw: text },
+                    };
+                }
+            }
+            if (res.statusCode >= 400) {
+                return { ok: false, error: { kind: "http", status: res.statusCode, body: data } };
+            }
+            return { ok: true, value: data as T };
+        } catch (err) {
+            if ((err as { name?: string }).name === "AbortError") {
+                return { ok: false, error: { kind: "timeout", timeoutMs } };
+            }
+            return {
+                ok: false,
+                error: {
+                    kind: "network",
+                    message: err instanceof Error ? err.message : String(err),
+                },
+            };
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    return {
+        getJson: (k, p, o) => call(k, p, { ...o, method: "GET" }),
+        postJson: (k, p, o) => call(k, p, { ...o, method: "POST" }),
+        request: (k, p, o) => call(k, p, o),
+    };
+}
+
+function buildUrl(base: string, path: string, query?: HttpRequestOptions["query"]): string {
+    const baseTrimmed = base.endsWith("/") ? base.slice(0, -1) : base;
+    const pathNorm = path.startsWith("/") ? path : `/${path}`;
+    const url = new URL(baseTrimmed + pathNorm);
+    if (query) {
+        for (const [k, v] of Object.entries(query)) {
+            if (v != null) url.searchParams.set(k, String(v));
+        }
+    }
+    return url.toString();
+}
+
+function buildProxyDispatcher(): Dispatcher | undefined {
+    const raw = process.env["OMNI_PLUGIN_PROXY"];
+    if (!raw) return undefined;
+    try {
+        const parsed = JSON.parse(raw) as { url?: string };
+        if (parsed.url) return new ProxyAgent(parsed.url);
+    } catch {
+        // 忽略 — 用户配置错就走直连
+    }
+    return undefined;
+}
+```
+
+- [ ] **B.4 改 `define-plugin.ts` — 注入 `http`/`language`/`t` 到 ctx**
+
+```ts
+// src/plugins/sdk/define-plugin.ts (新版)
+import type { PluginOutput } from "./result";
+import { fail } from "./result";
+import { createHttpClient, type HttpClient } from "./http-client";
+import type { HttpError } from "./errors";
+import { appLanguage, makeTranslator, type AppLanguage, type TranslateFn } from "./helpers";
+
+export interface PluginContext {
     readonly params: Record<string, string>;
+    readonly http: HttpClient;
+    readonly language: AppLanguage;
+    readonly t: TranslateFn;
+}
+
+export type PluginHandler = (ctx: PluginContext) => Promise<PluginOutput>;
+
+export interface DefinePluginOptions {
+    readonly metadata?: {
+        readonly endpoints?: Record<string, string | null>;
+    };
+}
+
+export function parseArgs(argv = process.argv.slice(2)): Record<string, string> {
+    /* 不变 */
+}
+export function requireParam(params: Record<string, string>, key: string): string {
+    /* 不变 */
+}
+
+export function definePlugin(handler: PluginHandler, options: DefinePluginOptions = {}): void {
+    const params = parseArgs();
+    const language = appLanguage(params);
+    const ctx: PluginContext = {
+        params,
+        http: createHttpClient(options.metadata?.endpoints),
+        language,
+        t: makeTranslator(language),
+    };
+    handler(ctx)
+        .then((result) => process.stdout.write(JSON.stringify(result)))
+        .catch((err: unknown) => {
+            process.stdout.write(JSON.stringify(normalizeError(err)));
+        });
+}
+
+function normalizeError(err: unknown): PluginOutput {
+    if (err instanceof Error) {
+        if (err.message.startsWith("MISSING_PARAM:")) {
+            const key = err.message.slice("MISSING_PARAM:".length);
+            return fail("MISSING_PARAM", `Missing required parameter: ${key}`);
+        }
+        return fail("PLUGIN_ERROR", err.message);
+    }
+    return fail("PLUGIN_ERROR", String(err));
+}
+
+// 给业务代码用的便捷工具：HttpError → PluginFailureOutput
+export function failFromHttp(err: HttpError, contextLabel?: string): PluginOutput {
+    const prefix = contextLabel ? `${contextLabel}: ` : "";
+    switch (err.kind) {
+        case "network":
+            return fail("NETWORK_ERROR", `${prefix}${err.message}`);
+        case "timeout":
+            return fail("TIMEOUT", `${prefix}request exceeded ${String(err.timeoutMs)}ms`);
+        case "http":
+            return fail(`HTTP_${String(err.status)}`, `${prefix}HTTP ${String(err.status)}`);
+        case "invalid_json":
+            return fail("INVALID_RESPONSE", `${prefix}invalid JSON (status ${String(err.status)})`);
+        case "missing_endpoint":
+            return fail("MISSING_ENDPOINT", `${prefix}endpoint "${err.key}" not configured`);
+    }
+}
+```
+
+- [ ] **B.5 改 `index.ts` 公共出口**
+
+```ts
+// src/plugins/sdk/index.ts
+export { definePlugin, parseArgs, requireParam, failFromHttp } from "./define-plugin";
+export type { PluginContext, PluginHandler, DefinePluginOptions } from "./define-plugin";
+export { ok, fail } from "./result";
+export type {
+    PluginOutput,
+    PluginSuccessOutput,
+    PluginFailureOutput,
+    UsageItem,
+    PluginChart,
+} from "./result";
+export type { HttpClient, HttpRequestOptions } from "./http-client";
+export type { HttpError, Result } from "./errors";
+export { statusFor, colorFor, colorForPct, makeTranslator, appLanguage, numeric } from "./helpers";
+export type { TranslateFn, AppLanguage } from "./helpers";
+// 不再 export: fetchJson, PluginHttpError
+```
+
+- [ ] **B.6 删 `src/plugins/sdk/http.ts`**
+
+```bash
+git rm src/plugins/sdk/http.ts
+```
+
+- [ ] **B.7 装 undici（如未在依赖）+ typecheck**
+
+```bash
+pnpm add undici
+pnpm typecheck
+```
+
+预期：所有插件源（`resources/plugins/*.ts`）报错 `fetchJson / PluginHttpError` 找不到 — 留给 Phase C 修。
+
+- [ ] **B.8 提交**
+
+```bash
+git add src/plugins/sdk/ package.json pnpm-lock.yaml
+git commit -m "feat(sdk): typed http client with endpoint registry and proxy support"
+```
+
+---
+
+### Phase C：7 个插件重写
+
+每个插件按统一模式重写：① metadata 加 `endpoints`；② 业务代码用 `ctx.http.getJson("default", "/path", { headers })`；③ 错误用 `failFromHttp(result.error, "label")`。
+
+- [ ] **C.1 重写 DeepSeek 作为参考实现**
+
+```ts
+// resources/plugins/deepseek-usage-plugin.ts (节选)
+// UsageBoardPlugin:
+// {
+//   "name@en": "DeepSeek",
+//   "name@zh-Hans": "DeepSeek",
+//   "parameters": [
+//     { "name": "api_key", "label": "API Key", "type": "secret", "required": true }
+//   ],
+//   "endpoints": {
+//     "default": "https://api.deepseek.com"
+//   }
+// }
+// /UsageBoardPlugin
+
+import { definePlugin, ok, fail, failFromHttp, requireParam } from "../../src/plugins/sdk";
+
+const METADATA_ENDPOINTS = { default: "https://api.deepseek.com" };
+
+definePlugin(
+    async (ctx) => {
+        const apiKey = requireParam(ctx.params, "api_key");
+        const result = await ctx.http.getJson<DeepSeekBalanceResp>("default", "/user/balance", {
+            headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!result.ok) return failFromHttp(result.error, "deepseek");
+        // ...构造 items
+        return ok({
+            items: [
+                /* ... */
+            ],
+        });
+    },
+    { metadata: { endpoints: METADATA_ENDPOINTS } },
+);
+
+interface DeepSeekBalanceResp {
+    /* ... */
+}
+```
+
+- [ ] **C.2 跑 typecheck + 编译该插件**
+
+```bash
+pnpm typecheck
+npx esbuild resources/plugins/deepseek-usage-plugin.ts --bundle --platform=node --format=cjs --outfile=.cache/deepseek.test.cjs
+```
+
+预期：通过。
+
+- [ ] **C.3 重写其余 5 个外部插件**
+
+按 C.1 模式改 `glm / minimax / tavily / claude / codex`。Claude / Codex 读本地文件，**不声明 endpoint**（`endpoints` 字段省略），保留原逻辑（fs + JSON）。
+
+- [ ] **C.4 重写 CPA**
+
+- metadata：`"endpoints": { "default": null }` — 表示必填无默认
+- 删除 `cpa_mgmt_url` 这个 parameter（迁移策略 A，直接删）
+- 业务代码 `ctx.http.getJson("default", "/v0/management/auth-files", { headers: { "X-Mgmt-Key": key } })`
+- UI 上"CPA URL"成为 `endpointOverrides.default` 输入框（Settings 渲染由 Task 3 处理）
+
+- [ ] **C.5 跑现有 CPA 集成测试**
+
+```bash
+npx vitest run tests/integration/plugin/cpa-plugin.test.ts
+```
+
+预期：会挂（参数名变 + URL 来源变），先记下来；Phase F 重写。
+
+- [ ] **C.6 提交**
+
+```bash
+git add resources/plugins/
+git commit -m "refactor(plugins): all 7 bundled plugins use typed http client and endpoint registry"
+```
+
+---
+
+### Phase D：RefreshService 注入 env
+
+- [ ] **D.1 添加 endpoint 解析工具**
+
+```ts
+// src/main/core/scheduler/endpoint-resolver.ts (新文件)
+import type { PluginMetadata } from "../../../shared/schemas/plugin-metadata";
+import type { PluginConfiguration, AppConfiguration } from "../../../shared/types/config";
+
+export interface ResolvedRuntimeEnv {
+    readonly endpoints?: string; // JSON serialized
+    readonly proxy?: string; // JSON serialized
+}
+
+export function resolveRuntimeEnv(
+    metadata: PluginMetadata,
+    pluginConfig: PluginConfiguration,
+    appConfig: AppConfiguration,
+): ResolvedRuntimeEnv {
+    const merged: Record<string, string> = {};
+    const defaults = metadata.endpoints ?? {};
+    for (const [k, v] of Object.entries(defaults)) {
+        if (typeof v === "string") merged[k] = v;
+    }
+    for (const [k, v] of Object.entries(pluginConfig.endpointOverrides)) {
+        if (v && v.trim()) merged[k] = v.trim();
+    }
+    const out: ResolvedRuntimeEnv = {};
+    if (Object.keys(merged).length > 0) out.endpoints = JSON.stringify(merged);
+    if (appConfig.proxy?.url) out.proxy = JSON.stringify(appConfig.proxy);
+    return out;
+}
+```
+
+- [ ] **D.2 RefreshService 调用 → 通过 command.env 传**
+
+`command-builder` 已经返回 `PluginCommand`；扩展其 `env` 字段，把 `OMNI_PLUGIN_ENDPOINTS` / `OMNI_PLUGIN_PROXY` 塞进去。如 `PluginCommand` 没有 `env` 字段，加上。`runner.ts` 已经 `...command.env` 展开，无需改。
+
+```ts
+// refresh-service.ts 内构造 command 处
+const runtimeEnv = resolveRuntimeEnv(metadata, pluginConfig, appConfig);
+const command = commandBuilder(executablePath, parameterValues, language);
+const commandWithEnv = {
+    ...command,
+    env: {
+        ...(command.env ?? {}),
+        ...(runtimeEnv.endpoints ? { OMNI_PLUGIN_ENDPOINTS: runtimeEnv.endpoints } : {}),
+        ...(runtimeEnv.proxy ? { OMNI_PLUGIN_PROXY: runtimeEnv.proxy } : {}),
+    },
+};
+```
+
+- [ ] **D.3 单元测试 `endpoint-resolver`**
+
+```ts
+// tests/unit/scheduler/endpoint-resolver.test.ts
+// 覆盖：① 仅 metadata 默认；② override 覆盖默认；③ 空 override 不覆盖；④ null default + override 给值 = OK；⑤ null default + 无 override = key 不出现；⑥ proxy 出现/不出现
+```
+
+- [ ] **D.4 跑 + 提交**
+
+```bash
+pnpm typecheck && npx vitest run tests/unit/scheduler/endpoint-resolver.test.ts
+```
+
+```bash
+git add src/main/core/scheduler/ tests/unit/scheduler/
+git commit -m "feat(scheduler): inject endpoint registry and proxy into plugin subprocess env"
+```
+
+---
+
+### Phase E：测试 harness
+
+- [ ] **E.1 `plugin_test_harness.ts`**
+
+跟原计划同款，但额外接收 `env` 参数并透传到 `executePlugin`：
+
+```ts
+export interface PluginRunOptions {
+    readonly pluginFile: string;
+    readonly params: Record<string, string>;
+    readonly env?: Record<string, string>; // OMNI_PLUGIN_ENDPOINTS / OMNI_PLUGIN_PROXY
     readonly timeoutMs?: number;
     readonly language?: "zh-Hans" | "en";
 }
 
 export async function runBundledPlugin(opts: PluginRunOptions) {
-    const sourcePath = resolve(__dirname, "../../../../resources/plugins", opts.pluginFile);
-    const cacheDir = resolve(__dirname, "../../../../.cache/plugin-test", opts.pluginFile);
-    const sdkDir = resolve(__dirname, "../../../../src/plugins/sdk");
-    if (existsSync(cacheDir)) rmSync(cacheDir, { recursive: true, force: true });
-    mkdirSync(cacheDir, { recursive: true });
-
-    const source = readFileSync(sourcePath, "utf8");
-    const metadata = parsePluginMetadata(source);
-    if (!metadata) throw new Error(`failed to parse metadata for ${opts.pluginFile}`);
-
-    const compileResult = await compilePlugin(
-        { executablePath: sourcePath, metadata } as any,
-        cacheDir,
-        sdkDir,
-    );
-    if (compileResult.status === "compile_error") {
-        throw new Error(`compile failed: ${compileResult.error}`);
-    }
-
+    // ...compile（同原计划）
     const command = buildPluginCommand(
         compileResult.executablePath,
         opts.params,
         opts.language ?? "zh-Hans",
         process.execPath,
     );
-
-    const exec = await executePlugin(command, { timeoutMs: opts.timeoutMs ?? 15000 });
+    const commandWithEnv = { ...command, env: { ...(command.env ?? {}), ...(opts.env ?? {}) } };
+    const exec = await executePlugin(commandWithEnv, { timeoutMs: opts.timeoutMs ?? 15000 });
     const parsed = parsePluginResult(exec.stdout, exec.stderr, exec.exitCode);
     return { exec, parsed };
 }
 ```
 
-- [ ] **Step 2: 抽 `http_stub.ts`**
+- [ ] **E.2 `http_stub.ts`**
+
+同原计划（本地 `http.createServer`，路由匹配，返回 `{ baseUrl, calls }`）。
+
+- [ ] **E.3 `with_stub_backend.ts` — 高层封装**
 
 ```ts
-// tests/integration/plugin/_helpers/http_stub.ts
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import type { AddressInfo } from "node:net";
+// tests/integration/plugin/_helpers/with_stub_backend.ts
+import { withHttpStub, type HttpStubRoute } from "./http_stub";
+import { runBundledPlugin, type PluginRunOptions } from "./plugin_test_harness";
 
-export interface HttpStubRoute {
-    readonly path: string | RegExp;
-    readonly method?: string;
-    readonly status?: number;
-    readonly body: unknown | ((req: IncomingMessage) => unknown);
-    readonly delayMs?: number;
+export interface StubBackendOptions extends Omit<PluginRunOptions, "env"> {
+    readonly endpointKey?: string; // 默认 "default"
+    readonly routes: HttpStubRoute[];
 }
 
-export async function withHttpStub<T>(
-    routes: HttpStubRoute[],
-    handler: (baseUrl: string, calls: { url: string; method: string }[]) => Promise<T>,
-): Promise<T> {
-    const calls: { url: string; method: string }[] = [];
-    const server = createServer((req, res) => {
-        calls.push({ url: req.url ?? "", method: req.method ?? "GET" });
-        const route = routes.find((r) => {
-            if (r.method && r.method !== req.method) return false;
-            return typeof r.path === "string" ? req.url === r.path : r.path.test(req.url ?? "");
-        });
-        const respond = () => {
-            if (!route) {
-                res.writeHead(404).end();
-                return;
-            }
-            const body = typeof route.body === "function" ? route.body(req) : route.body;
-            res.writeHead(route.status ?? 200, { "Content-Type": "application/json" });
-            res.end(typeof body === "string" ? body : JSON.stringify(body));
+export async function runWithStubBackend(opts: StubBackendOptions) {
+    return withHttpStub(opts.routes, async (baseUrl, calls) => {
+        const env = {
+            OMNI_PLUGIN_ENDPOINTS: JSON.stringify({ [opts.endpointKey ?? "default"]: baseUrl }),
         };
-        if (route?.delayMs) setTimeout(respond, route.delayMs);
-        else respond();
+        const result = await runBundledPlugin({ ...opts, env });
+        return { ...result, baseUrl, calls };
     });
-    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-    const port = (server.address() as AddressInfo).port;
-    try {
-        return await handler(`http://127.0.0.1:${port}`, calls);
-    } finally {
-        await new Promise<void>((r) => server.close(() => r()));
-    }
 }
 ```
 
-- [ ] **Step 3: 为 DeepSeek 写示例 spec**
+业务测试只需调 `runWithStubBackend({ pluginFile, params, routes })`，URL 注入自动完成。
+
+- [ ] **E.4 提交**
+
+```bash
+git add tests/integration/plugin/_helpers/
+git commit -m "test(harness): plugin subprocess harness with stub backend env injection"
+```
+
+---
+
+### Phase F：7 个插件测试
+
+每个插件文件覆盖 **6 个 case**：① 成功；② 缺必填参数；③ HTTP 401（auth fail）；④ HTTP 429（rate limit）；⑤ HTTP 500；⑥ 超时。
+
+- [ ] **F.1 DeepSeek 示例**
 
 ```ts
 // tests/integration/plugin/deepseek-plugin.test.ts
 import { describe, it, expect } from "vitest";
+import { runWithStubBackend } from "./_helpers/with_stub_backend";
 import { runBundledPlugin } from "./_helpers/plugin_test_harness";
-import { withHttpStub } from "./_helpers/http_stub";
 
 describe("deepseek-usage-plugin", () => {
     it("成功返回 balance items", async () => {
-        await withHttpStub(
-            [
+        const { parsed } = await runWithStubBackend({
+            pluginFile: "deepseek-usage-plugin.ts",
+            params: { api_key: "sk-test" },
+            routes: [
                 {
                     path: /\/user\/balance/,
                     body: {
                         is_available: true,
                         balance_infos: [
-                            {
-                                currency: "CNY",
-                                total_balance: "100.00",
-                                granted_balance: "10.00",
-                                topped_up_balance: "90.00",
-                            },
+                            /* ... */
                         ],
                     },
                 },
             ],
-            async (baseUrl) => {
-                const { parsed } = await runBundledPlugin({
-                    pluginFile: "deepseek-usage-plugin.ts",
-                    params: { api_key: "sk-test", api_base: baseUrl },
-                });
-                expect(parsed.kind).toBe("snapshot");
-                if (parsed.kind === "snapshot") {
-                    expect(parsed.snapshot.items.length).toBeGreaterThan(0);
-                }
-            },
-        );
+        });
+        expect(parsed.success).toBe(true);
+        if (parsed.success) expect(parsed.items.length).toBeGreaterThan(0);
     });
 
-    it("缺 api_key 返回 error JSON", async () => {
+    it("缺 api_key 返回 MISSING_PARAM", async () => {
         const { parsed } = await runBundledPlugin({
             pluginFile: "deepseek-usage-plugin.ts",
             params: {},
         });
-        expect(parsed.kind).toBe("error");
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) expect(parsed.errorCode).toBe("MISSING_PARAM");
     });
 
-    it("HTTP 500 报错且不崩溃", async () => {
-        await withHttpStub(
-            [{ path: /\/user\/balance/, status: 500, body: { error: "server error" } }],
-            async (baseUrl) => {
-                const { parsed } = await runBundledPlugin({
-                    pluginFile: "deepseek-usage-plugin.ts",
-                    params: { api_key: "sk-test", api_base: baseUrl },
-                });
-                expect(parsed.kind).toBe("error");
-            },
-        );
+    it("HTTP 401 → HTTP_401", async () => {
+        const { parsed } = await runWithStubBackend({
+            pluginFile: "deepseek-usage-plugin.ts",
+            params: { api_key: "bad" },
+            routes: [{ path: /\/user\/balance/, status: 401, body: { error: "unauthorized" } }],
+        });
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) expect(parsed.errorCode).toBe("HTTP_401");
     });
 
-    it("超时被 kill", async () => {
-        await withHttpStub(
-            [{ path: /\/user\/balance/, delayMs: 5000, body: {} }],
-            async (baseUrl) => {
-                const { exec, parsed } = await runBundledPlugin({
-                    pluginFile: "deepseek-usage-plugin.ts",
-                    params: { api_key: "sk-test", api_base: baseUrl },
-                    timeoutMs: 500,
-                });
-                // executePlugin throws PluginTimeoutError；harness 让它冒泡或捕获后断言
-                expect(exec.exitCode).not.toBe(0);
-                expect(parsed.kind).toBe("error");
-            },
-        );
+    it("HTTP 429 → HTTP_429", async () => {
+        /* ... */
+    });
+    it("HTTP 500 → HTTP_500", async () => {
+        /* ... */
+    });
+
+    it("超时 → TIMEOUT", async () => {
+        const { parsed } = await runWithStubBackend({
+            pluginFile: "deepseek-usage-plugin.ts",
+            params: { api_key: "sk-test" },
+            timeoutMs: 2000,
+            routes: [{ path: /\/user\/balance/, delayMs: 5000, body: {} }],
+        });
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) expect(parsed.errorCode).toMatch(/TIMEOUT|HTTP_/);
     });
 });
 ```
 
-> 如果当前插件不接受 `api_base` 参数，需要在插件 metadata 加入对应隐藏参数，或改用 `NODE_TLS_REJECT_UNAUTHORIZED=0` + `http_proxy` 注入。**不要为了测试改插件业务代码**，优先用环境变量或 DNS hosts 注入；找不到方案时记录 gap 到 `docs/test-coverage-matrix.md`。
+> 注：`parsePluginResult` 返回 `PluginResult`，其 `success` 是 boolean 字段（不是 `kind`），见 `src/main/core/plugin/output-parser.ts`。
 
-- [ ] **Step 4: 跑示例 spec**
+- [ ] **F.2 跑示例验证**
 
 ```bash
 npx vitest run tests/integration/plugin/deepseek-plugin.test.ts
 ```
 
-Expected: 4 个 case PASS（或 1 个标 known-gap 记录在矩阵）。
+Expected: 6 PASS。
 
-- [ ] **Step 5: 复制套路写其余 5 个**
+- [ ] **F.3 复制套路写 GLM / MiniMax / Tavily**
 
-为 Claude / Codex（本地文件读取，用 `os.tmpdir()` 注入 `HOME`）、GLM / MiniMax / Tavily（HTTP）各写 1 个 spec 文件，覆盖：成功、缺 key、HTTP 错误、超时。每写一个跑一次 vitest。
+按 F.1 模板，每个 6 case。
 
-- [ ] **Step 6: 把 CPA 迁到新 harness**
+- [ ] **F.4 Claude / Codex — 文件桩**
 
-`tests/integration/plugin/cpa-plugin.test.ts` 现有的本地 `withCpaServer` 逻辑替换为 `withHttpStub` + `runBundledPlugin`，确保去重。
+不走 HTTP，用 `mkdtempSync` 造 `~/.claude/...` 假目录，通过 `env.HOME` / `env.USERPROFILE` 注入：
 
-- [ ] **Step 7: 全量跑 + 提交**
+```ts
+const fakeHome = mkdtempSync(join(tmpdir(), "claude-test-"));
+// 写入假 config / token 文件
+const { parsed } = await runBundledPlugin({
+    pluginFile: "claude-usage-plugin.ts",
+    params: {},
+    env: { HOME: fakeHome, USERPROFILE: fakeHome },
+});
+```
+
+每插件至少 4 case：成功、缺文件、文件损坏、字段缺失。
+
+- [ ] **F.5 CPA 迁到新 harness**
+
+把现有 `tests/integration/plugin/cpa-plugin.test.ts` 的 `withCpaServer` 全部换成 `runWithStubBackend`，参数 `cpa_mgmt_url` 删除（URL 由 env 注入），加 `cpa_mgmt_key` 即可。原有 case 数（≥3 个）全部保留并补齐到 6 case。
+
+- [ ] **F.6 全量跑**
 
 ```bash
 pnpm test
 ```
 
-Expected: 新增 ~24 case 全 PASS（6 插件 × 4 场景）。
+Expected: 新增 ~36 case 全 PASS（6 HTTP 插件 × 6 + 2 文件插件 × 4 + CPA ≥ 6）。
+
+- [ ] **F.7 提交**
 
 ```bash
 git add tests/integration/plugin/
-git commit -m "test: real subprocess contract tests for all bundled plugins"
+git commit -m "test: stub integration tests for all 7 bundled plugins (real subprocess)"
+```
+
+---
+
+### Phase G：文档同步
+
+- [ ] **G.1 `docs/plugin-contract.md`** — 加 `endpoints` 字段、env 注入规则、`HttpClient` API
+- [ ] **G.2 `docs/spec.md`** §3.2 (metadata 新字段)、§4.3 (PluginConfiguration `endpointOverrides`)、§4 顶层 (AppConfiguration `proxy`)
+- [ ] **G.3 `docs/test-coverage-matrix.md`** — §3.6 7 个 bundled 插件全部从 ⚠️/❌ 改 ✅
+- [ ] **G.4 `CLAUDE.md`** — 如有 "插件不能改业务代码" 类约束，更新为新 SDK API 示例
+- [ ] **G.5 提交**
+
+```bash
+git add docs/ CLAUDE.md
+git commit -m "docs: sync plugin contract, spec, coverage matrix with new http architecture"
 ```
 
 ---
@@ -989,6 +1490,75 @@ git commit -m "test: live contract handshake for external plugin APIs (full-run 
 
 ---
 
+## Task 8: 覆盖率报告与门槛
+
+**Files:**
+
+- Modify: `vitest.config.ts`（加 `coverage` 配置，provider v8）
+- Modify: `package.json`（加 `test:coverage` script）
+- Modify: `docs/test.md`（写命令、当前基线、阈值策略）
+- Create: `docs/coverage-baseline.md`（首次基线快照，列 <80% 模块）
+
+来源：原 `TASKS.md` Phase 18.6。其余 18.1-18.5 已被 Task 2-6 覆盖；18.7 文档同步分散到各 Task 的 docs commit。
+
+- [ ] **Step 1: vitest coverage 配置**
+
+```ts
+// vitest.config.ts
+test: {
+    coverage: {
+        provider: "v8",
+        reporter: ["text", "html", "json-summary"],
+        include: ["src/**/*.{ts,tsx}"],
+        exclude: ["src/**/*.d.ts", "src/renderer/main.tsx", "src/preload/**", "**/*.test.{ts,tsx}"],
+        thresholds: {
+            // 首次跑后填实际基线，避免开发阻塞
+        },
+    },
+},
+```
+
+- [ ] **Step 2: 装 provider + 加 script**
+
+```bash
+pnpm add -D @vitest/coverage-v8
+```
+
+`package.json`：
+
+```json
+"test:coverage": "vitest run --coverage"
+```
+
+- [ ] **Step 3: 跑基线**
+
+```bash
+pnpm test:coverage
+```
+
+预期：生成 `coverage/` 目录 + 终端汇总表。
+
+- [ ] **Step 4: 写 `docs/coverage-baseline.md`**
+
+按 `coverage/coverage-summary.json` 输出，按目录分组列出当前覆盖率。标记 <80% 的模块为"补测试候选"。
+
+- [ ] **Step 5: 设阈值**
+
+按基线取个不阻塞当前的下限（如基线 75% 就设 70%），写到 `vitest.config.ts` `thresholds.lines / functions / branches / statements`。**不要**直接设 80% 让 CI 红。
+
+- [ ] **Step 6: 更新 `docs/test.md`**
+
+加一节 "覆盖率"，记录命令、当前阈值、查看 HTML 报告的方式（`open coverage/index.html`）。
+
+- [ ] **Step 7: 提交**
+
+```bash
+git add vitest.config.ts package.json pnpm-lock.yaml docs/test.md docs/coverage-baseline.md
+git commit -m "test: vitest coverage baseline and threshold gate"
+```
+
+---
+
 ## 完成判定
 
 - `pnpm test` 全 PASS（stub 全覆盖，**不打真服务**），case 数 ≥ 现有 + ~50
@@ -996,6 +1566,7 @@ git commit -m "test: live contract handshake for external plugin APIs (full-run 
 - `pnpm test:visual` 全 PASS（本地基线）
 - `pnpm test:packaged` 全 PASS
 - `pnpm test:contract:live` 在有 key 环境下全 PASS / 无 key 全 skip（不报错）
+- `pnpm test:coverage` 出基线 + 阈值不阻塞 CI
 - `pnpm test:full` 在 nightly CI 跑通
 - `docs/test-coverage-matrix.md` 每个 spec 章节都标了状态，无 `—` 占位
 - 任何后续 PR 改 spec / 加功能时，矩阵必须同步更新（建议加 pre-commit grep gate）
