@@ -1,97 +1,167 @@
+import { useState, useRef, useEffect } from "react";
 import { usePlugins } from "../hooks/use-plugins";
 import { useTheme } from "../lib/theme";
 import { PluginCard } from "../components/PluginCard";
-import { ErrorBanner } from "../components/ErrorBanner";
-import { EmptyState } from "../components/EmptyState";
-import { RefreshButton } from "../components/RefreshButton";
-import { Button } from "../components/Button";
+import { Icon, VendorMark } from "../components/Icon";
 import logo from "../assets/logo.png";
 
 export function PopupView() {
     useTheme();
     const { plugins, loading, error, refreshAll } = usePlugins();
+    const [refreshing, setRefreshing] = useState(false);
+    const [collapsedSet, setCollapsedSet] = useState<Set<string>>(() => new Set());
+    const tabsRef = useRef<HTMLDivElement>(null);
 
     const goToSettings = () => {
         window.location.hash = "#settings";
     };
 
-    const emptyState = (() => {
-        if (loading || plugins.length > 0) return null;
+    const handleRefreshAll = () => {
+        if (refreshing) return;
+        setRefreshing(true);
+        void refreshAll().finally(() => {
+            setTimeout(() => {
+                setRefreshing(false);
+            }, 800);
+        });
+    };
 
-        const hasFailedKey = plugins.some(
-            (p) =>
-                p.snapshot.status === "failed" &&
-                (p.snapshot.error.includes("key") || p.snapshot.error.includes("Key")),
-        );
-        if (hasFailedKey) {
-            return (
-                <EmptyState
-                    message="部分插件缺少密钥配置"
-                    action="前往设置"
-                    onAction={goToSettings}
-                    data-testid="popup-empty"
-                />
-            );
+    const toggleCollapse = (id: string) => {
+        setCollapsedSet((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    // auto-scroll active tab into view
+    useEffect(() => {
+        const el = tabsRef.current?.querySelector(".tab.active");
+        if (el && "scrollIntoView" in el) {
+            (el as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center" });
         }
+    }, []);
 
-        return (
-            <EmptyState
-                message="暂无插件，请在设置中配置"
-                action="前往设置"
-                onAction={goToSettings}
-                data-testid="popup-empty"
-            />
-        );
-    })();
+    const hasError = plugins.some((p) => p.snapshot.status === "failed");
+    const statusDot = error || hasError ? "red" : "green";
+    const statusLabel = error || hasError ? "刷新异常" : plugins.length > 0 ? "运行中" : "尚未配置";
+    const lastUpdated = plugins
+        .filter((p) => p.snapshot.status === "ready" || p.snapshot.status === "failed")
+        .map((p) =>
+            (p.snapshot.status === "ready" || p.snapshot.status === "failed") &&
+            p.snapshot.updatedAt
+                ? p.snapshot.updatedAt
+                : "",
+        )
+        .filter(Boolean)
+        .sort()
+        .pop();
+    const footerTime = lastUpdated ? "刚刚更新" : "";
 
     return (
-        <div className="flex h-screen flex-col">
-            <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2">
-                <h1
-                    className="text-sm font-semibold flex items-center gap-1.5"
-                    data-testid="popup-title"
-                >
-                    <img src={logo} alt="OmniUsage" className="h-4 w-4" />
-                    OmniUsage
-                </h1>
-                <div className="flex items-center gap-2">
-                    <RefreshButton onClick={refreshAll} data-testid="popup-refresh-btn" />
-                    <Button variant="ghost" size="sm" onClick={goToSettings}>
-                        设置
-                    </Button>
+        <div className="window">
+            {/* title bar */}
+            <div className="titlebar">
+                <img
+                    src={logo}
+                    alt="OmniUsage"
+                    className="app-logo"
+                    width="30"
+                    height="30"
+                    style={{ borderRadius: 9 }}
+                />
+                <span className="app-title">OmniUsage</span>
+                <div className="tb-actions">
+                    <button
+                        className={"icon-btn" + (refreshing ? " spinning" : "")}
+                        title="刷新全部"
+                        aria-label="刷新"
+                        onClick={handleRefreshAll}
+                    >
+                        <Icon name="refresh" size={18} />
+                    </button>
+                    <button className="icon-btn" title="设置" onClick={goToSettings}>
+                        <Icon name="gear" size={18} />
+                    </button>
                 </div>
-            </header>
+            </div>
 
-            <main className="flex-1 overflow-auto p-3">
+            {/* tab strip — single overview tab for now */}
+            <div className="tabs-wrap" ref={tabsRef}>
+                <button className="tab active">
+                    <span className="tab-ic">
+                        <VendorMark id="overview" size={22} />
+                    </span>
+                    <span className="tab-lbl">总览</span>
+                </button>
+            </div>
+            <div className="titlebar-divider" />
+
+            {/* scroll body */}
+            <div className="scroll">
                 {error && (
-                    <div data-testid="popup-error">
-                        <ErrorBanner message={error} />
+                    <div className="net-banner">
+                        <Icon name="cloud_off" size={18} />
+                        <span>{error}</span>
+                        <span className="nb-action" onClick={handleRefreshAll}>
+                            重新连接
+                        </span>
                     </div>
                 )}
+
                 {loading && plugins.length === 0 && (
-                    <div className="grid grid-cols-1 gap-2">
-                        <PluginCard
-                            plugin={{
-                                instanceId: "_skeleton",
-                                stateId: "_skeleton",
-                                name: "",
-                                displayName: "",
-                                enabled: true,
-                                metadata: null,
-                                snapshot: { status: "loading" },
-                            }}
-                        />
+                    <PluginCard
+                        plugin={{
+                            instanceId: "_skeleton",
+                            stateId: "_skeleton",
+                            name: "",
+                            displayName: "",
+                            enabled: true,
+                            metadata: null,
+                            snapshot: { status: "loading" },
+                        }}
+                    />
+                )}
+
+                {!loading && plugins.length === 0 && !error && (
+                    <div className="empty">
+                        <div className="empty-ic">
+                            <Icon name="inbox" size={30} strokeWidth={1.6} />
+                        </div>
+                        <div className="empty-title">还没有添加任何服务</div>
+                        <div className="empty-sub">
+                            添加你的第一个 AI 服务账号，即可在这里实时查看用量限制与 Token 趋势。
+                        </div>
+                        <button className="btn-primary" onClick={goToSettings}>
+                            <Icon name="plus" size={15} color="#fff" />
+                            添加服务
+                        </button>
                     </div>
                 )}
-                {emptyState}
-                <div className="grid grid-cols-1 gap-2" data-testid="popup-plugin-list">
-                    {plugins.map((p) => (
-                        <div key={p.instanceId} data-testid={`popup-plugin-card-${p.instanceId}`}>
-                            <PluginCard plugin={p} />
-                        </div>
-                    ))}
+
+                {plugins.map((p) => (
+                    <PluginCard
+                        key={p.instanceId}
+                        plugin={p}
+                        collapsed={collapsedSet.has(p.instanceId)}
+                        onToggleCollapse={() => {
+                            toggleCollapse(p.instanceId);
+                        }}
+                    />
+                ))}
+            </div>
+
+            {/* status bar */}
+            <div className="statusbar">
+                <div className="sb-left">
+                    <span className={`dot ${statusDot}`} />
+                    <span>{statusLabel}</span>
                 </div>
-            </main>
+                <div className="sb-right">
+                    <span>{footerTime}</span>
+                </div>
+            </div>
         </div>
     );
 }

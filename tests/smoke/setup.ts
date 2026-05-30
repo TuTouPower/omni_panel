@@ -49,7 +49,7 @@ function createMockApi() {
                         name: "Tokens",
                         used: 5000,
                         limit: 10000,
-                        displayStyle: "percent" as const,
+                        displayStyle: "ratio" as const,
                         status: "normal" as const,
                     },
                 ],

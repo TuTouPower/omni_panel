@@ -18,7 +18,8 @@ describe("Renderer smoke tests", () => {
             await waitFor(() => {
                 expect(screen.getByText("DeepSeek")).toBeInTheDocument();
             });
-            expect(screen.getByText(/5000.*10000/)).toBeInTheDocument();
+            // ratio display: shows "5000 / 10000 (50%)"
+            expect(screen.getByText(/5000.*10000.*50%/)).toBeInTheDocument();
         });
 
         it("shows failed plugin error", async () => {
@@ -32,14 +33,17 @@ describe("Renderer smoke tests", () => {
         it("shows refresh button", async () => {
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByLabelText("刷新")).toBeInTheDocument();
+                expect(screen.getByTitle("刷新全部")).toBeInTheDocument();
             });
         });
 
         it("clicking refresh calls refreshAll", async () => {
             const user = userEvent.setup();
             render(<App />);
-            const btn = await screen.findByLabelText("刷新");
+            await waitFor(() => {
+                expect(screen.getByTitle("刷新全部")).toBeInTheDocument();
+            });
+            const btn = screen.getByTitle("刷新全部");
             await user.click(btn);
             const api = getMockApi();
             expect(api.plugin.refreshAll).toHaveBeenCalled();
@@ -51,10 +55,11 @@ describe("Renderer smoke tests", () => {
             window.location.hash = "#settings";
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByText("OmniUsage")).toBeInTheDocument();
+                expect(screen.getByText("设置")).toBeInTheDocument();
             });
-            expect(screen.getAllByText("DeepSeek").length).toBeGreaterThan(0);
-            expect(screen.getAllByText("Claude").length).toBeGreaterThan(0);
+            // nav items present
+            expect(screen.getByText("常规")).toBeInTheDocument();
+            expect(screen.getByText("账号")).toBeInTheDocument();
         });
 
         it("renders settings form with parameter fields", async () => {
@@ -74,7 +79,7 @@ describe("Renderer smoke tests", () => {
             window.location.hash = "#popup";
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByText("暂无插件，请在设置中配置")).toBeInTheDocument();
+                expect(screen.getByText("还没有添加任何服务")).toBeInTheDocument();
             });
         });
     });
