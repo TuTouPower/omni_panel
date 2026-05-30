@@ -49,3 +49,5 @@ typings/
 *.tgz
 .superpowers/
 .pytest_cache
+
+.reasonix
