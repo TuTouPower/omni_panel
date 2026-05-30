@@ -11,9 +11,27 @@ export default defineConfig({
     },
     test: {
         include: ["tests/**/*.test.{ts,tsx}"],
+        exclude: ["**/contract_live/**"],
         globals: true,
         environment: "jsdom",
         setupFiles: ["./tests/smoke/setup.ts"],
         css: false,
+        coverage: {
+            provider: "v8",
+            reporter: ["text", "html", "json-summary"],
+            include: ["src/**/*.{ts,tsx}"],
+            exclude: [
+                "src/**/*.d.ts",
+                "src/renderer/main.tsx",
+                "src/preload/**",
+                "**/*.test.{ts,tsx}",
+            ],
+            thresholds: {
+                statements: 1,
+                branches: 22,
+                functions: 20,
+                lines: 1,
+            },
+        },
     },
 });
