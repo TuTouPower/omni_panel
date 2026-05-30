@@ -10,7 +10,10 @@ export function PopupView() {
     const { plugins, loading, error, refreshAll } = usePlugins();
     const [refreshing, setRefreshing] = useState(false);
     const [collapsedSet, setCollapsedSet] = useState<Set<string>>(() => new Set());
+    const [activeTab, setActiveTab] = useState<string>("overview");
     const tabsRef = useRef<HTMLDivElement>(null);
+
+    const enabledPlugins = plugins.filter((p) => p.enabled);
 
     const goToSettings = () => {
         window.location.hash = "#settings";
@@ -37,11 +40,11 @@ export function PopupView() {
 
     // auto-scroll active tab into view
     useEffect(() => {
-        const el = tabsRef.current?.querySelector(".tab.active");
+        const el = tabsRef.current?.querySelector(`[data-tab="${activeTab}"]`);
         if (el && "scrollIntoView" in el) {
             (el as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center" });
         }
-    }, []);
+    }, [activeTab]);
 
     const hasError = plugins.some((p) => p.snapshot.status === "failed");
     const statusDot = error || hasError ? "red" : "green";
@@ -58,6 +61,9 @@ export function PopupView() {
         .sort()
         .pop();
     const footerTime = lastUpdated ? "刚刚更新" : "";
+
+    const visiblePlugins =
+        activeTab === "overview" ? plugins : plugins.filter((p) => p.instanceId === activeTab);
 
     return (
         <div className="window">
@@ -87,14 +93,35 @@ export function PopupView() {
                 </div>
             </div>
 
-            {/* tab strip — single overview tab for now */}
+            {/* tab strip */}
             <div className="tabs-wrap" ref={tabsRef}>
-                <button className="tab active">
+                <button
+                    className={"tab" + (activeTab === "overview" ? " active" : "")}
+                    data-tab="overview"
+                    onClick={() => {
+                        setActiveTab("overview");
+                    }}
+                >
                     <span className="tab-ic">
                         <VendorMark id="overview" size={22} />
                     </span>
                     <span className="tab-lbl">总览</span>
                 </button>
+                {enabledPlugins.map((p) => (
+                    <button
+                        key={p.instanceId}
+                        className={"tab" + (activeTab === p.instanceId ? " active" : "")}
+                        data-tab={p.instanceId}
+                        onClick={() => {
+                            setActiveTab(p.instanceId);
+                        }}
+                    >
+                        <span className="tab-ic">
+                            <VendorMark id={p.name.toLowerCase()} size={22} />
+                        </span>
+                        <span className="tab-lbl">{p.displayName}</span>
+                    </button>
+                ))}
             </div>
             <div className="titlebar-divider" />
 
@@ -140,7 +167,7 @@ export function PopupView() {
                     </div>
                 )}
 
-                {plugins.map((p) => (
+                {visiblePlugins.map((p) => (
                     <PluginCard
                         key={p.instanceId}
                         plugin={p}

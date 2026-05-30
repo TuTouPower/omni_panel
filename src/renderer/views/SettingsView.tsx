@@ -209,7 +209,59 @@ export function SettingsView() {
                                             ].map(([k, lb]) => (
                                                 <button
                                                     key={k}
-                                                    className={k === "light" ? "on" : ""}
+                                                    className={
+                                                        (k === "light" &&
+                                                            !document.documentElement.classList.contains(
+                                                                "dark",
+                                                            )) ||
+                                                        (k === "dark" &&
+                                                            document.documentElement.classList.contains(
+                                                                "dark",
+                                                            ))
+                                                            ? "on"
+                                                            : ""
+                                                    }
+                                                    onClick={() => {
+                                                        document.documentElement.classList.toggle(
+                                                            "dark",
+                                                            k === "dark",
+                                                        );
+                                                    }}
+                                                >
+                                                    {lb}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="set-group-label">显示</div>
+                                <div className="set-row">
+                                    <div>
+                                        <div className="sr-title">总览布局</div>
+                                        <div className="sr-sub">
+                                            分组：所有插件卡片堆叠显示；标签页：每次只显示一个插件
+                                        </div>
+                                    </div>
+                                    <div className="sr-ctrl">
+                                        <div className="set-seg">
+                                            {[
+                                                ["grouped", "分组"],
+                                                ["tabs", "标签页"],
+                                            ].map(([k, lb]) => (
+                                                <button
+                                                    key={k}
+                                                    className={
+                                                        config.overviewDisplayMode === k ? "on" : ""
+                                                    }
+                                                    onClick={() => {
+                                                        void save({
+                                                            ...config,
+                                                            overviewDisplayMode: k as
+                                                                | "grouped"
+                                                                | "tabs",
+                                                        });
+                                                    }}
                                                 >
                                                     {lb}
                                                 </button>

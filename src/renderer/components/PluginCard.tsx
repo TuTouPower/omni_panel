@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import type { PluginInfo } from "../../shared/types/ipc";
 import type { UsageItem } from "../../shared/schemas/plugin-output";
 import { Icon, VendorMark } from "./Icon";
+import { AreaChart } from "./AreaChart";
+import { TokenGrid } from "./TokenGrid";
 import { relativeTime } from "../lib/utils";
 
 function usagePercent(used: number, limit: number): number {
@@ -40,25 +42,28 @@ function SkeletonBars() {
     );
 }
 
-function BarRow({ item, kind }: { item: UsageItem; kind: string }) {
+function BarRow({ item }: { item: UsageItem }) {
     const pct = usagePercent(item.used, item.limit);
     const danger = pct >= 85;
+    const warn = !danger && pct >= 65;
     const showRatio = item.displayStyle === "ratio";
     const valueText = showRatio
         ? `${String(item.used)} / ${String(item.limit)} (${String(pct)}%)`
         : `${String(pct)}%`;
+    const invert = danger || warn || pct >= 65;
 
     return (
-        <div className="bar-row">
-            <span className="bar-lbl">{item.name}</span>
-            <div className="track">
-                <div
-                    className={"fill " + (danger ? "danger" : kind)}
-                    style={{ width: `${String(Math.min(100, pct))}%` }}
-                />
+        <div className="ub-row">
+            <div className="ub-row-label">{item.name}</div>
+            <div
+                className="ub-bar"
+                data-tone={danger ? "danger" : warn ? "warn" : undefined}
+                data-invert={invert || undefined}
+            >
+                <div className="ub-bar-fill" style={{ width: `${String(Math.min(100, pct))}%` }} />
+                <div className="ub-bar-text">{valueText}</div>
             </div>
-            <span className={"bar-pct" + (danger ? " danger" : "")}>{valueText}</span>
-            <span className="bar-reset">{item.resetAt ?? ""}</span>
+            <div className="ub-row-time">{item.resetAt ?? ""}</div>
         </div>
     );
 }
@@ -175,10 +180,16 @@ export function PluginCard({ plugin, vendorId, collapsed, onToggleCollapse }: Pl
                     <span className="cs-action">重试</span>
                 </div>
             ) : hasItems ? (
-                <div className="bars">
-                    {snapshot.items.map((item, idx) => (
-                        <BarRow key={item.id} item={item} kind={idx === 0 ? "blue" : "purple"} />
+                <div className="ub-rows">
+                    {snapshot.items.map((item) => (
+                        <BarRow key={item.id} item={item} />
                     ))}
+                    <TokenGrid items={snapshot.items} />
+                    {snapshot.chart && (
+                        <div className="ub-chart">
+                            <AreaChart chart={snapshot.chart} />
+                        </div>
+                    )}
                 </div>
             ) : null}
         </div>

@@ -112,6 +112,7 @@ body {
     gap: 10px;
     padding: 14px 16px 12px;
     flex-shrink: 0;
+    -webkit-app-region: drag;
 }
 .app-badge {
     width: 30px;
@@ -142,6 +143,7 @@ body {
     display: flex;
     align-items: center;
     gap: 2px;
+    -webkit-app-region: no-drag;
 }
 
 /* ── icon button ── */
@@ -1097,4 +1099,114 @@ body {
     display: flex;
     align-items: center;
     gap: 3px;
+}
+
+/* ============ USAGEBOARD DESIGN DEMO ALIGNMENT ============ */
+
+/* Usage rows — design demo style */
+.ub-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 11px;
+}
+.ub-row {
+    display: grid;
+    grid-template-columns: 100px 1fr auto;
+    align-items: center;
+    gap: 11px;
+}
+.ub-row-label {
+    font-size: 14px;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ub-bar {
+    position: relative;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--track);
+    overflow: hidden;
+}
+.ub-bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #5a6eea 0%, var(--blue) 100%);
+    transition: width 0.5s cubic-bezier(0.3, 0.8, 0.4, 1);
+}
+.ub-bar[data-tone="danger"] .ub-bar-fill {
+    background: linear-gradient(180deg, #ed6750 0%, var(--red) 100%);
+}
+.ub-bar[data-tone="warn"] .ub-bar-fill {
+    background: linear-gradient(180deg, #edaf52 0%, var(--amber) 100%);
+}
+.ub-bar-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+}
+.ub-bar[data-invert="true"] .ub-bar-text {
+    color: #fff;
+}
+.ub-row-time {
+    font-size: 13px;
+    color: var(--text-3);
+    white-space: nowrap;
+    text-align: right;
+    min-width: 60px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Token grid */
+.ub-tokens {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px 18px;
+    padding: 18px 2px 6px;
+}
+.ub-tok-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 4px;
+}
+.ub-tok-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.ub-tok-name {
+    font-size: 14px;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ub-tok-val {
+    font-size: 25px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+}
+.ub-tok-unit {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-3);
+    margin-left: 3px;
+}
+
+/* Area chart */
+.ub-chart {
+    padding: 12px 2px 14px;
 }
