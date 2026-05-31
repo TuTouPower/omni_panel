@@ -1,6 +1,6 @@
 {
     "success": true,
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "updatedAt": "2026-05-24T12:00:00Z",
     "items": [
         {
@@ -10,7 +10,12 @@
             "limit": 100.0,
             "displayStyle": "percent",
             "status": "normal",
-            "color": "blue"
+            "color": "blue",
+            "provider": "claude",
+            "source": "api_key",
+            "sourceInstanceId": "fixture-claude",
+            "accountId": "fixture-claude",
+            "accountLabel": "Claude Fixture"
         }
     ]
 }

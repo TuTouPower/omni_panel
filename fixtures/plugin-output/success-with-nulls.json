@@ -1,6 +1,6 @@
 {
     "success": true,
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "updatedAt": "2026-05-24T12:00:00Z",
     "resetAt": null,
     "items": [
@@ -12,7 +12,12 @@
             "displayStyle": "percent",
             "status": "normal",
             "color": "blue",
-            "resetAt": null
+            "resetAt": null,
+            "provider": "claude",
+            "source": "api_key",
+            "sourceInstanceId": "fixture-claude",
+            "accountId": "fixture-claude",
+            "accountLabel": "Claude Fixture"
         }
     ],
     "chart": {
@@ -23,7 +28,12 @@
         "buckets": [
             {
                 "label": "05-18",
-                "segments": [{ "model": "claude-sonnet", "tokens": 5000.0 }]
+                "segments": [
+                    {
+                        "model": "claude-sonnet",
+                        "tokens": 5000.0
+                    }
+                ]
             }
         ]
     }

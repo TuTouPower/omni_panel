@@ -13,7 +13,7 @@
 
 ## 核心功能
 
-集中展示多种 AI 服务的用量和费用：Claude、OpenAI Codex、智谱 GLM、MiniMax、DeepSeek、Tavily。
+集中展示多种 AI 服务的用量和费用：Claude、OpenAI Codex、Gemini、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily。
 
 ## 架构对标
 

@@ -55,7 +55,6 @@ describe("scheduler-orchestrator", () => {
     const config: AppConfiguration = {
         schemaVersion: 1,
         language: "en",
-        overviewDisplayMode: "tabs",
         launchAtLogin: false,
         plugins: [
             {

@@ -28,6 +28,11 @@ describe("cache-store", () => {
             items: [
                 {
                     id: "a",
+                    provider: "claude" as const,
+                    source: "api_key" as const,
+                    sourceInstanceId: "test-id",
+                    accountId: "test-id",
+                    accountLabel: "Claude",
                     name: "A",
                     used: 10,
                     limit: 100,

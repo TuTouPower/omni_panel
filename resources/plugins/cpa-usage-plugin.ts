@@ -2,6 +2,8 @@
 // {
 //   "schemaVersion": 1,
 //   "name": "CPA",
+//   "supportedProviders": ["claude", "codex", "gemini", "antigravity", "kimi"],
+//   "defaultSource": "cpa",
 //   "name@zh-Hans": "CPA 额度",
 //   "name@en": "CPA Quota",
 //   "description": "Get quota from Claude/Codex/Gemini/Antigravity/Kimi via CPA-Manager",
@@ -78,12 +80,23 @@ interface AuthFile {
     name: string;
     provider: string;
     auth_index: string;
+    email?: string;
+    remark?: string;
+    identifier?: string;
+    masked_identifier?: string;
     disabled?: boolean;
 }
 
 interface ApiCallResult {
     status_code: number;
     body: unknown;
+}
+
+type UsageProvider = UsageItem["provider"];
+
+interface CpaAccount {
+    accountId: string;
+    accountLabel: string;
 }
 
 // ─── Constants ──────────────────────────────────────────
@@ -93,6 +106,17 @@ const ANTIGRAVITY_URLS = [
     "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
     "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
 ];
+const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-source";
+
+function itemContext(provider: UsageProvider, account: CpaAccount) {
+    return {
+        provider,
+        source: "cpa" as const,
+        sourceInstanceId: SOURCE_INSTANCE_ID,
+        accountId: account.accountId,
+        accountLabel: account.accountLabel,
+    };
+}
 
 // ─── Email extraction ──────────────────────────────────
 
@@ -107,6 +131,16 @@ function extractEmail(name: string): string {
     email = email.replace(/^[0-9a-f]{8,10}-/, "");
     email = email.replace(/-(?:plus|pro|team[0-9a-f]*|free)$/, "");
     return email;
+}
+
+function accountFromAuthFile(authFile: AuthFile): CpaAccount {
+    const extractedEmail = extractEmail(authFile.name);
+    const label =
+        authFile.email ??
+        authFile.remark ??
+        authFile.masked_identifier ??
+        (extractedEmail.includes("@") ? extractedEmail : `Account ${authFile.auth_index}`);
+    return { accountId: authFile.auth_index, accountLabel: label };
 }
 
 // ─── CPA-Manager HTTP helpers ──────────────────────────
@@ -186,7 +220,7 @@ function parseApiResult(result: ApiCallResult): Record<string, unknown> {
 
 // ─── Provider parsers ─────────────────────────────────
 
-function parseClaude(body: Record<string, unknown>, email: string): UsageItem[] {
+function parseClaude(body: Record<string, unknown>, account: CpaAccount): UsageItem[] {
     const items: UsageItem[] = [];
     const periods: [string, string][] = [
         ["five_hour", "5小时"],
@@ -204,8 +238,9 @@ function parseClaude(body: Record<string, unknown>, email: string): UsageItem[] 
             period.resetTime ??
             null) as string | null;
         items.push({
-            id: `claude:${email}:${label}`,
-            name: `Claude (${email}) · ${label}`,
+            id: `claude:${account.accountId}:${label}`,
+            ...itemContext("claude", account),
+            name: `Claude (${account.accountLabel}) · ${label}`,
             used: Math.round(pct * 10) / 10,
             limit: 100.0,
             displayStyle: "percent",
@@ -217,7 +252,7 @@ function parseClaude(body: Record<string, unknown>, email: string): UsageItem[] 
     return items;
 }
 
-function parseCodex(body: Record<string, unknown>, email: string): UsageItem[] {
+function parseCodex(body: Record<string, unknown>, account: CpaAccount): UsageItem[] {
     const items: UsageItem[] = [];
     const rateLimit = (body.rate_limit ?? body.rateLimit ?? {}) as Record<string, unknown>;
     const windows: [string, string][] = [
@@ -243,8 +278,9 @@ function parseCodex(body: Record<string, unknown>, email: string): UsageItem[] {
                 .replace(/\.\d{3}Z$/, "Z");
         }
         items.push({
-            id: `codex:${email}:${label}`,
-            name: `Codex (${email}) · ${label}`,
+            id: `codex:${account.accountId}:${label}`,
+            ...itemContext("codex", account),
+            name: `Codex (${account.accountLabel}) · ${label}`,
             used: Math.round(pct * 10) / 10,
             limit: 100.0,
             displayStyle: "percent",
@@ -256,7 +292,7 @@ function parseCodex(body: Record<string, unknown>, email: string): UsageItem[] {
     return items;
 }
 
-function parseGeminiBuckets(body: Record<string, unknown>, email: string): UsageItem[] {
+function parseGeminiBuckets(body: Record<string, unknown>, account: CpaAccount): UsageItem[] {
     const items: UsageItem[] = [];
     const buckets = (body.buckets ?? []) as Record<string, unknown>[];
     for (const bucket of buckets) {
@@ -268,8 +304,9 @@ function parseGeminiBuckets(body: Record<string, unknown>, email: string): Usage
         const resetAt = (bucket.resetTime ?? bucket.reset_time ?? null) as string | null;
         const label: string = tokenType ? `${modelId} ${tokenType}` : modelId;
         items.push({
-            id: `gemini:${email}:${label}`,
-            name: `Gemini (${email}) · ${label}`,
+            id: `gemini:${account.accountId}:${label}`,
+            ...itemContext("gemini", account),
+            name: `Gemini (${account.accountLabel}) · ${label}`,
             used: Math.round(usedPct * 10) / 10,
             limit: 100.0,
             displayStyle: "percent",
@@ -281,7 +318,7 @@ function parseGeminiBuckets(body: Record<string, unknown>, email: string): Usage
     return items;
 }
 
-function parseAntigravityModels(body: Record<string, unknown>, email: string): UsageItem[] {
+function parseAntigravityModels(body: Record<string, unknown>, account: CpaAccount): UsageItem[] {
     const items: UsageItem[] = [];
     const models = (body.models ?? {}) as Record<string, Record<string, unknown>>;
     for (const [modelId, modelInfo] of Object.entries(models)) {
@@ -295,8 +332,9 @@ function parseAntigravityModels(body: Record<string, unknown>, email: string): U
         const resetAt = (quotaInfo.resetTime ?? quotaInfo.reset_time ?? null) as string | null;
         const displayName: string = (modelInfo.displayName as string | undefined) ?? modelId;
         items.push({
-            id: `antigravity:${email}:${modelId}`,
-            name: `Antigravity (${email}) · ${displayName}`,
+            id: `antigravity:${account.accountId}:${modelId}`,
+            ...itemContext("antigravity", account),
+            name: `Antigravity (${account.accountLabel}) · ${displayName}`,
             used: Math.round(usedPct * 10) / 10,
             limit: 100.0,
             displayStyle: "percent",
@@ -308,7 +346,7 @@ function parseAntigravityModels(body: Record<string, unknown>, email: string): U
     return items;
 }
 
-function parseKimi(body: Record<string, unknown>, email: string): UsageItem[] {
+function parseKimi(body: Record<string, unknown>, account: CpaAccount): UsageItem[] {
     const items: UsageItem[] = [];
     const limits = (body.limits ?? []) as Record<string, unknown>[];
     for (const limitEntry of limits) {
@@ -326,8 +364,9 @@ function parseKimi(body: Record<string, unknown>, email: string): UsageItem[] {
             (limitEntry.detail as Record<string, unknown> | undefined)?.resetAt ??
             null) as string | null;
         items.push({
-            id: `kimi:${email}:${periodLabel}`,
-            name: `Kimi (${email}) · ${periodLabel}`,
+            id: `kimi:${account.accountId}:${periodLabel}`,
+            ...itemContext("kimi", account),
+            name: `Kimi (${account.accountLabel}) · ${periodLabel}`,
             used: Math.round(pct * 10) / 10,
             limit: 100.0,
             displayStyle: "percent",
@@ -433,20 +472,25 @@ async function fetchKimiQuota(http: HttpClient, mgmtKey: string, authIndex: stri
 // ─── Provider registry ─────────────────────────────────
 
 interface ProviderEntry {
+    usageProvider: UsageProvider;
     fetch: (
         http: HttpClient,
         mgmtKey: string,
         authIndex: string,
     ) => Promise<Record<string, unknown>>;
-    parse: (body: Record<string, unknown>, email: string) => UsageItem[];
+    parse: (body: Record<string, unknown>, account: CpaAccount) => UsageItem[];
 }
 
 const PROVIDER_REGISTRY: Record<string, ProviderEntry> = {
-    claude: { fetch: fetchClaudeQuota, parse: parseClaude },
-    codex: { fetch: fetchCodexQuota, parse: parseCodex },
-    "gemini-cli": { fetch: fetchGeminiQuota, parse: parseGeminiBuckets },
-    antigravity: { fetch: fetchAntigravityQuota, parse: parseAntigravityModels },
-    kimi: { fetch: fetchKimiQuota, parse: parseKimi },
+    claude: { usageProvider: "claude", fetch: fetchClaudeQuota, parse: parseClaude },
+    codex: { usageProvider: "codex", fetch: fetchCodexQuota, parse: parseCodex },
+    "gemini-cli": { usageProvider: "gemini", fetch: fetchGeminiQuota, parse: parseGeminiBuckets },
+    antigravity: {
+        usageProvider: "antigravity",
+        fetch: fetchAntigravityQuota,
+        parse: parseAntigravityModels,
+    },
+    kimi: { usageProvider: "kimi", fetch: fetchKimiQuota, parse: parseKimi },
 };
 
 // ─── Main ──────────────────────────────────────────────
@@ -478,11 +522,11 @@ definePlugin(
         const activeAuthFiles = authFiles.filter((af) => !af.disabled && monitorFlags[af.provider]);
 
         const tasks = activeAuthFiles.map(async (af) => {
-            const email = extractEmail(af.name);
             const provider = PROVIDER_REGISTRY[af.provider];
             if (!provider) return [];
+            const account = accountFromAuthFile(af);
             const body = await provider.fetch(ctx.http, mgmtKey, af.auth_index);
-            return provider.parse(body, email);
+            return provider.parse(body, account);
         });
 
         const results = await Promise.allSettled(tasks);

@@ -2,6 +2,8 @@
 // {
 //   "schemaVersion": 1,
 //   "name": "智谱",
+//   "supportedProviders": ["glm"],
+//   "defaultSource": "api_key",
 //   "name@zh-Hans": "智谱",
 //   "name@en": "Zhipu",
 //   "icon": "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/zhipu-color.png",
@@ -58,6 +60,15 @@ import type {
 const METADATA_ENDPOINTS = {
     default: "https://open.bigmodel.cn",
     model_usage: "https://bigmodel.cn",
+};
+const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-source";
+
+const itemContext = {
+    provider: "glm" as const,
+    source: "api_key" as const,
+    sourceInstanceId: SOURCE_INSTANCE_ID,
+    accountId: SOURCE_INSTANCE_ID,
+    accountLabel: "GLM",
 };
 const CACHE_VERSION = 1;
 const CACHE_FILENAME_PREFIX = "glm-usage-chart-cache";
@@ -325,6 +336,7 @@ function buildItems(
 
         output.push({
             id,
+            ...itemContext,
             name: `${kindLabel} (${periodLabel})`,
             used,
             limit: total,

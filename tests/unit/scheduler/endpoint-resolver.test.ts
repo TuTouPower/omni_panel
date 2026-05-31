@@ -19,7 +19,6 @@ function make_config(proxy?: { url: string; noProxy?: string[] }): AppConfigurat
     return {
         schemaVersion: 1,
         language: "zh-Hans",
-        overviewDisplayMode: "tabs",
         plugins: [],
         launchAtLogin: false,
         ...(proxy ? { proxy } : {}),

@@ -8,7 +8,6 @@ vi.mock("node:fs/promises");
 const mockConfig: AppConfiguration = {
     schemaVersion: 1,
     language: "zh-Hans",
-    overviewDisplayMode: "tabs",
     plugins: [],
     launchAtLogin: false,
 };

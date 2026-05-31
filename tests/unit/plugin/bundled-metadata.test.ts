@@ -20,6 +20,26 @@ describe("bundled plugin metadata verification", () => {
         { scriptName: "cpa-usage-plugin.ts", name: "CPA", secretParams: ["cpa_mgmt_key"] },
     ];
 
+    const expectedProvidersByPlugin: Record<string, string[]> = {
+        "claude-usage-plugin.ts": ["claude"],
+        "codex-usage-plugin.ts": ["codex"],
+        "cpa-usage-plugin.ts": ["claude", "codex", "gemini", "antigravity", "kimi"],
+        "deepseek-usage-plugin.ts": ["deepseek"],
+        "glm-usage-plugin.ts": ["glm"],
+        "minimax-usage-plugin.ts": ["minimax"],
+        "tavily-usage-plugin.ts": ["tavily"],
+    };
+
+    const expectedSourceByPlugin: Record<string, string> = {
+        "claude-usage-plugin.ts": "local",
+        "codex-usage-plugin.ts": "oauth",
+        "cpa-usage-plugin.ts": "cpa",
+        "deepseek-usage-plugin.ts": "api_key",
+        "glm-usage-plugin.ts": "api_key",
+        "minimax-usage-plugin.ts": "api_key",
+        "tavily-usage-plugin.ts": "api_key",
+    };
+
     for (const exp of expected) {
         it(`${exp.scriptName}: name="${exp.name}", secrets=${JSON.stringify(exp.secretParams)}`, async () => {
             const defs = await discoverPlugins(bundledDir);
@@ -27,6 +47,10 @@ describe("bundled plugin metadata verification", () => {
             expect(def).toBeDefined();
             if (!def) return;
             expect(def.metadata?.name).toBe(exp.name);
+            expect(def.metadata?.supportedProviders).toEqual(
+                expectedProvidersByPlugin[exp.scriptName],
+            );
+            expect(def.metadata?.defaultSource).toBe(expectedSourceByPlugin[exp.scriptName]);
             const secrets =
                 def.metadata?.parameters?.filter((p) => p.type === "secret").map((p) => p.name) ??
                 [];

@@ -2,6 +2,8 @@
 // {
 //   "schemaVersion": 1,
 //   "name": "MiniMax",
+//   "supportedProviders": ["minimax"],
+//   "defaultSource": "api_key",
 //   "name@zh-Hans": "MiniMax",
 //   "name@en": "MiniMax",
 //   "icon": "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/minimax-color.png",
@@ -33,6 +35,15 @@ import {
 } from "@omni-usage/plugin-sdk";
 
 const METADATA_ENDPOINTS = { default: "https://www.minimaxi.com" };
+const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-source";
+
+const itemContext = {
+    provider: "minimax" as const,
+    source: "api_key" as const,
+    sourceInstanceId: SOURCE_INSTANCE_ID,
+    accountId: SOURCE_INSTANCE_ID,
+    accountLabel: "MiniMax",
+};
 
 const MODEL_SORT_ORDER: Record<string, number> = {
     model_text_generation: 0,
@@ -105,6 +116,11 @@ interface RemainsResponse {
 
 interface SortableItem {
     id: string;
+    provider: "minimax";
+    source: "api_key";
+    sourceInstanceId: string;
+    accountId: string;
+    accountLabel: string;
     name: string;
     used: number;
     limit: number;
@@ -155,6 +171,7 @@ function buildItem(
 ): SortableItem {
     return {
         id: itemId,
+        ...itemContext,
         name,
         used: Math.max(used, 0),
         limit: Math.max(total, 0),

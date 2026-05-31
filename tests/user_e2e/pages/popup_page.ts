@@ -19,14 +19,6 @@ export class PopupPage {
         await this.page.getByRole("button", { name: "设置" }).click();
     }
 
-    pluginCard(name: string) {
-        return this.page.locator(`text=${name}`).first();
-    }
-
-    async hasPluginCard(name: string) {
-        return await this.pluginCard(name).isVisible();
-    }
-
     errorBanner() {
         return this.page.locator(".net-banner");
     }

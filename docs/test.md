@@ -42,8 +42,9 @@
 - 按钮点击是否触发实际行为（刷新 → 加载中 → 数据更新）。
 - 配置读写持久化。
 - Dashboard / Settings / Popup 三个视图的渲染和切换。
-- 插件卡片显示、状态展示、错误信息。
+- provider card 显示、状态展示、错误信息。
 - 空状态、加载态、错误态的 DOM 状态。
+- CPA UI 回归：主 UI 不显示 CPA provider tab；CPA 数据进入对应 provider；CPA 配置只出现在设置 / 数据源页。
 
 ### 3.2 必须真实打包 smoke
 

@@ -5,7 +5,7 @@ describe("ok", () => {
     it("returns success output with auto-generated updatedAt", () => {
         const result = ok({ items: [] });
         expect(result.success).toBe(true);
-        expect(result.schemaVersion).toBe(1);
+        expect(result.schemaVersion).toBe(2);
         expect(result.updatedAt).toBeTruthy();
         expect(result.items).toEqual([]);
     });

@@ -49,7 +49,13 @@ test.describe("popup view", () => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
+        const providerNav = page.locator(".tabs-wrap");
+        await expect(page.locator(".window")).toBeVisible();
         await expect(page.locator(".scroll")).toBeVisible();
+        await expect(providerNav.getByRole("button", { name: /总览/ })).toBeVisible();
+        await expect(providerNav.getByRole("button", { name: /^Claude$/ })).toBeVisible();
+        await expect(providerNav.getByRole("button", { name: /^DeepSeek$/ })).toBeVisible();
+        await expect(providerNav.getByRole("button", { name: /^CPA$/ })).toHaveCount(0);
     });
 
     test("settings button navigates to settings", async ({ omni }) => {

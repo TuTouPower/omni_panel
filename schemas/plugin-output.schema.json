@@ -1,104 +1,178 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "type": "object",
-    "properties": {
-        "schemaVersion": {
-            "type": "number"
-        },
-        "updatedAt": {
-            "type": "string"
-        },
-        "items": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "used": {
-                        "type": "number"
-                    },
-                    "limit": {
-                        "type": "number"
-                    },
-                    "displayStyle": {
-                        "type": "string",
-                        "enum": ["percent", "ratio"]
-                    },
-                    "resetAt": {
-                        "type": "string"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["normal", "warning", "critical", "unknown"],
-                        "default": "unknown"
-                    },
-                    "color": {
-                        "type": "string",
-                        "enum": ["blue", "green", "yellow", "orange", "red"]
-                    }
-                },
-                "required": ["id", "name", "used", "limit", "displayStyle"],
-                "additionalProperties": false
-            }
-        },
-        "badge": {
-            "type": "string"
-        },
-        "chart": {
+    "anyOf": [
+        {
             "type": "object",
             "properties": {
-                "kind": {
+                "success": {
+                    "type": "boolean",
+                    "const": true
+                },
+                "schemaVersion": {
+                    "type": "number",
+                    "const": 2
+                },
+                "updatedAt": {
                     "type": "string"
                 },
-                "period": {
-                    "type": "string"
-                },
-                "bucketUnit": {
-                    "type": "string",
-                    "enum": ["hour", "day"]
-                },
-                "buckets": {
+                "items": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "label": {
+                            "id": {
                                 "type": "string"
                             },
-                            "segments": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "model": {
-                                            "type": "string"
-                                        },
-                                        "tokens": {
-                                            "type": "number"
-                                        }
-                                    },
-                                    "required": ["model", "tokens"],
-                                    "additionalProperties": false
-                                }
+                            "provider": {
+                                "type": "string",
+                                "enum": [
+                                    "claude",
+                                    "codex",
+                                    "gemini",
+                                    "antigravity",
+                                    "kimi",
+                                    "glm",
+                                    "minimax",
+                                    "deepseek",
+                                    "tavily"
+                                ]
+                            },
+                            "source": {
+                                "type": "string",
+                                "enum": ["cpa", "direct", "local", "api_key", "oauth"]
+                            },
+                            "sourceInstanceId": {
+                                "type": "string"
+                            },
+                            "accountId": {
+                                "type": "string"
+                            },
+                            "accountLabel": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "used": {
+                                "type": "number"
+                            },
+                            "limit": {
+                                "type": "number"
+                            },
+                            "displayStyle": {
+                                "type": "string",
+                                "enum": ["percent", "ratio"]
+                            },
+                            "resetAt": {
+                                "type": ["string", "null"]
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["normal", "warning", "critical", "unknown"],
+                                "default": "unknown"
+                            },
+                            "color": {
+                                "type": "string",
+                                "enum": ["blue", "green", "yellow", "orange", "red"]
                             }
                         },
-                        "required": ["label", "segments"],
+                        "required": [
+                            "id",
+                            "provider",
+                            "source",
+                            "sourceInstanceId",
+                            "accountId",
+                            "accountLabel",
+                            "name",
+                            "used",
+                            "limit",
+                            "displayStyle"
+                        ],
                         "additionalProperties": false
                     }
                 },
-                "message": {
+                "badge": {
                     "type": "string"
+                },
+                "chart": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {
+                            "type": "string"
+                        },
+                        "period": {
+                            "type": "string"
+                        },
+                        "bucketUnit": {
+                            "type": "string",
+                            "enum": ["hour", "day"]
+                        },
+                        "buckets": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "segments": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "model": {
+                                                    "type": "string"
+                                                },
+                                                "tokens": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": ["model", "tokens"],
+                                            "additionalProperties": false
+                                        }
+                                    }
+                                },
+                                "required": ["label", "segments"],
+                                "additionalProperties": false
+                            }
+                        },
+                        "message": {
+                            "type": ["string", "null"]
+                        }
+                    },
+                    "required": ["kind", "period", "bucketUnit", "buckets"],
+                    "additionalProperties": false
                 }
             },
-            "required": ["kind", "period", "bucketUnit", "buckets"],
+            "required": ["success", "schemaVersion", "updatedAt", "items"],
+            "additionalProperties": false
+        },
+        {
+            "type": "object",
+            "properties": {
+                "success": {
+                    "type": "boolean",
+                    "const": false
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["code", "message"],
+                    "additionalProperties": false
+                }
+            },
+            "required": ["success", "error"],
             "additionalProperties": false
         }
-    },
-    "required": ["schemaVersion", "updatedAt", "items"],
-    "additionalProperties": false
+    ]
 }

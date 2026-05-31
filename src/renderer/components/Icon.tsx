@@ -83,6 +83,17 @@ const VENDOR_MARKS: Record<string, (s: number) => string> = {
         `<path d="M12 2.6l8 4.4v9.9l-8 4.5-8-4.5V7z" fill="#eef1ff" stroke="#6172f3" stroke-width="1.4"/>` +
         `<path d="M12 12.4l8-4.6M12 12.4v9.1M12 12.4L4 7.8" stroke="#6172f3" stroke-width="1.4" stroke-linejoin="round"/>` +
         `<path d="M12 2.6l8 4.4-8 5.4-8-5.4z" fill="#8b9bff"/></svg>`,
+    gemini: (s) =>
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none">` +
+        `<path d="M12 3c1.2 4.8 4.2 7.8 9 9-4.8 1.2-7.8 4.2-9 9-1.2-4.8-4.2-7.8-9-9 4.8-1.2 7.8-4.2 9-9z" fill="#7c8cff"/></svg>`,
+    antigravity: (s) =>
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="#7b5cf6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">` +
+        `<circle cx="12" cy="12" r="3" fill="#7b5cf6"/><path d="M4 12c2-5 14-5 16 0M4 12c2 5 14 5 16 0"/>` +
+        `<path d="M12 4c5 2 5 14 0 16M12 4c-5 2-5 14 0 16"/></svg>`,
+    kimi: (s) =>
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none">` +
+        `<rect x="4" y="4" width="16" height="16" rx="5" fill="#111827"/>` +
+        `<path d="M8 16V8h2v3l3-3h2.5l-3.4 3.6L16 16h-2.7l-2.6-3.2-.7.7V16z" fill="#fff"/></svg>`,
     glm: (s) =>
         `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="#3d7afd">` +
         `<circle cx="12" cy="4" r="1.5"/><circle cx="12" cy="20" r="1.5"/>` +

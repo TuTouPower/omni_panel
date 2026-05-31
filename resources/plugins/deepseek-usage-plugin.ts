@@ -2,6 +2,8 @@
 // {
 //   "schemaVersion": 1,
 //   "name": "DeepSeek",
+//   "supportedProviders": ["deepseek"],
+//   "defaultSource": "api_key",
 //   "name@zh-Hans": "DeepSeek",
 //   "name@en": "DeepSeek",
 //   "icon": "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/deepseek-color.png",
@@ -35,6 +37,15 @@
 import { definePlugin, requireParam, ok, failFromHttp, numeric } from "@omni-usage/plugin-sdk";
 
 const METADATA_ENDPOINTS = { default: "https://api.deepseek.com" };
+const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-source";
+
+const itemContext = {
+    provider: "deepseek" as const,
+    source: "api_key" as const,
+    sourceInstanceId: SOURCE_INSTANCE_ID,
+    accountId: SOURCE_INSTANCE_ID,
+    accountLabel: "DeepSeek",
+};
 const DEFAULT_LIMIT = 100;
 
 const translations = {
@@ -83,6 +94,7 @@ definePlugin(
                 const suffix = currency !== "CNY" ? ` (${currency})` : "";
                 return {
                     id: `balance-${currency}`,
+                    ...itemContext,
                     name: `${ctx.t("balance")}${suffix}`,
                     used: Math.round(totalBalance * 100) / 100,
                     limit: Math.round(limitAmount * 100) / 100,

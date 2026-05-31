@@ -50,11 +50,16 @@ describe("pluginResultSchema (discriminated union)", () => {
     it("accepts inline success data with nullable fields", () => {
         const data = {
             success: true,
-            schemaVersion: 1,
+            schemaVersion: 2,
             updatedAt: "2026-05-24T12:00:00Z",
             items: [
                 {
                     id: "test",
+                    provider: "claude",
+                    source: "api_key",
+                    sourceInstanceId: "fixture-claude",
+                    accountId: "fixture-claude",
+                    accountLabel: "Claude Fixture",
                     name: "Test",
                     used: 10,
                     limit: 100,

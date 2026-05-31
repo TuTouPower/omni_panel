@@ -1,19 +1,33 @@
 import { useState, useRef, useEffect } from "react";
+import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { usePlugins } from "../hooks/use-plugins";
 import { useTheme } from "../lib/theme";
-import { PluginCard } from "../components/PluginCard";
-import { Icon, VendorMark } from "../components/Icon";
+import { Icon } from "../components/Icon";
+import { ProviderAccountList } from "../components/ProviderAccountList";
+import { ProviderNav } from "../components/ProviderNav";
+import { ProviderOverview } from "../components/ProviderOverview";
+import { buildProviderUsageGroups, getVisibleProviders } from "../lib/provider-usage";
 import logo from "../assets/logo.png";
+
+const MODULE = "PopupView";
+
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
 
 export function PopupView() {
     useTheme();
     const { plugins, loading, error, refreshAll } = usePlugins();
     const [refreshing, setRefreshing] = useState(false);
-    const [collapsedSet, setCollapsedSet] = useState<Set<string>>(() => new Set());
-    const [activeTab, setActiveTab] = useState<string>("overview");
+    const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
     const tabsRef = useRef<HTMLDivElement>(null);
 
-    const enabledPlugins = plugins.filter((p) => p.enabled);
+    const providerGroups = buildProviderUsageGroups(plugins);
+    const visibleProviders = getVisibleProviders(plugins);
+    const activeGroup =
+        activeTab === "overview"
+            ? undefined
+            : providerGroups.find((group) => group.provider === activeTab);
 
     const goToSettings = () => {
         window.location.hash = "#settings";
@@ -22,19 +36,35 @@ export function PopupView() {
     const handleRefreshAll = () => {
         if (refreshing) return;
         setRefreshing(true);
-        void refreshAll().finally(() => {
-            setTimeout(() => {
-                setRefreshing(false);
-            }, 800);
-        });
+        void refreshAll()
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: MODULE,
+                    message: `刷新全部失败: ${errorMessage(err)}`,
+                });
+            })
+            .finally(() => {
+                setTimeout(() => {
+                    setRefreshing(false);
+                }, 800);
+            });
     };
 
-    const toggleCollapse = (id: string) => {
-        setCollapsedSet((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
+    const refreshProvider = (provider: UsageProvider) => {
+        const connectors = plugins.filter(
+            (connector) => connector.enabled && connector.activeProviders.includes(provider),
+        );
+        void Promise.all(
+            connectors.map((connector) =>
+                window.usageboard.plugin.refresh(connector.sourceInstanceId),
+            ),
+        ).catch((err: unknown) => {
+            window.usageboard.log({
+                level: "error",
+                module: MODULE,
+                message: `刷新 ${provider} 失败: ${errorMessage(err)}`,
+            });
         });
     };
 
@@ -61,9 +91,6 @@ export function PopupView() {
         .sort()
         .pop();
     const footerTime = lastUpdated ? "刚刚更新" : "";
-
-    const visiblePlugins =
-        activeTab === "overview" ? plugins : plugins.filter((p) => p.instanceId === activeTab);
 
     return (
         <div className="window">
@@ -95,33 +122,11 @@ export function PopupView() {
 
             {/* tab strip */}
             <div className="tabs-wrap" ref={tabsRef}>
-                <button
-                    className={"tab" + (activeTab === "overview" ? " active" : "")}
-                    data-tab="overview"
-                    onClick={() => {
-                        setActiveTab("overview");
-                    }}
-                >
-                    <span className="tab-ic">
-                        <VendorMark id="overview" size={22} />
-                    </span>
-                    <span className="tab-lbl">总览</span>
-                </button>
-                {enabledPlugins.map((p) => (
-                    <button
-                        key={p.instanceId}
-                        className={"tab" + (activeTab === p.instanceId ? " active" : "")}
-                        data-tab={p.instanceId}
-                        onClick={() => {
-                            setActiveTab(p.instanceId);
-                        }}
-                    >
-                        <span className="tab-ic">
-                            <VendorMark id={p.name.toLowerCase()} size={22} />
-                        </span>
-                        <span className="tab-lbl">{p.displayName}</span>
-                    </button>
-                ))}
+                <ProviderNav
+                    activeTab={activeTab}
+                    visibleProviders={visibleProviders}
+                    onChange={setActiveTab}
+                />
             </div>
             <div className="titlebar-divider" />
 
@@ -138,17 +143,21 @@ export function PopupView() {
                 )}
 
                 {loading && plugins.length === 0 && (
-                    <PluginCard
-                        plugin={{
-                            instanceId: "_skeleton",
-                            stateId: "_skeleton",
-                            name: "",
-                            displayName: "",
-                            enabled: true,
-                            metadata: null,
-                            snapshot: { status: "loading" },
-                        }}
-                    />
+                    <div className="card">
+                        <div className="card-head">
+                            <div className="skel lbl" />
+                        </div>
+                        <div className="skeleton-bars">
+                            <div className="skel-row">
+                                <div className="skel lbl" />
+                                <div className="skel" />
+                            </div>
+                            <div className="skel-row">
+                                <div className="skel lbl" />
+                                <div className="skel" />
+                            </div>
+                        </div>
+                    </div>
                 )}
 
                 {!loading && plugins.length === 0 && !error && (
@@ -167,16 +176,24 @@ export function PopupView() {
                     </div>
                 )}
 
-                {visiblePlugins.map((p) => (
-                    <PluginCard
-                        key={p.instanceId}
-                        plugin={p}
-                        collapsed={collapsedSet.has(p.instanceId)}
-                        onToggleCollapse={() => {
-                            toggleCollapse(p.instanceId);
-                        }}
+                {!loading && plugins.length > 0 && activeTab === "overview" && (
+                    <ProviderOverview
+                        groups={providerGroups}
+                        visibleProviders={visibleProviders}
+                        onSelectProvider={setActiveTab}
+                        onRefreshProvider={refreshProvider}
                     />
-                ))}
+                )}
+
+                {!loading && plugins.length > 0 && activeTab !== "overview" && activeGroup && (
+                    <ProviderAccountList group={activeGroup} />
+                )}
+
+                {!loading && plugins.length > 0 && activeTab !== "overview" && !activeGroup && (
+                    <div className="empty">
+                        <div className="empty-title">该服务暂无账号。请到设置添加数据来源。</div>
+                    </div>
+                )}
             </div>
 
             {/* status bar */}

@@ -43,7 +43,6 @@ const { test: testWithConfig, expect: expectWithConfig } = createTestWithSetup({
         const config = {
             schemaVersion: 1,
             language: "zh-Hans",
-            overviewDisplayMode: "tabs",
             plugins: [
                 {
                     stateId: "test-state-id",

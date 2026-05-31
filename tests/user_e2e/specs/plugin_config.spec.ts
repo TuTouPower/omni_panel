@@ -49,6 +49,19 @@ test.describe("plugin configuration", () => {
         await expect(page.locator('[role="dialog"]')).toBeHidden();
     });
 
+    test("CPA is configured as a data source not a main provider", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        await openSettings(page);
+
+        await page.locator('[data-testid="settings-plugin-nav-accounts"]').click();
+        const group = page.locator(".acct-group").filter({ hasText: "CPA 额度连接器" }).first();
+        await expect(group).toBeVisible();
+        await group.locator('button[title="编辑"]').click();
+
+        await expect(page.getByLabel("CPA-Manager URL")).toBeVisible();
+        await expect(page.getByRole("button", { name: "测试连接" })).toBeVisible();
+    });
+
     test("CPA settings persist after app restart without exposing the secret", async ({ omni }) => {
         let page = await omni.app.firstWindow();
         await openSettings(page);

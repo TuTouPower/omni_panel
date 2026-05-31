@@ -1,6 +1,6 @@
 {
     "success": true,
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "updatedAt": "2026-05-24T12:00:00Z",
     "items": [
         {
@@ -10,7 +10,12 @@
             "limit": 100000.0,
             "displayStyle": "percent",
             "status": "normal",
-            "color": "blue"
+            "color": "blue",
+            "provider": "claude",
+            "source": "api_key",
+            "sourceInstanceId": "fixture-claude",
+            "accountId": "fixture-claude",
+            "accountLabel": "Claude Fixture"
         }
     ],
     "chart": {
@@ -21,19 +26,36 @@
             {
                 "label": "05-18",
                 "segments": [
-                    { "model": "claude-sonnet", "tokens": 5000.0 },
-                    { "model": "claude-opus", "tokens": 2000.0 }
+                    {
+                        "model": "claude-sonnet",
+                        "tokens": 5000.0
+                    },
+                    {
+                        "model": "claude-opus",
+                        "tokens": 2000.0
+                    }
                 ]
             },
             {
                 "label": "05-19",
-                "segments": [{ "model": "claude-sonnet", "tokens": 8000.0 }]
+                "segments": [
+                    {
+                        "model": "claude-sonnet",
+                        "tokens": 8000.0
+                    }
+                ]
             },
             {
                 "label": "05-20",
                 "segments": [
-                    { "model": "claude-sonnet", "tokens": 6000.0 },
-                    { "model": "claude-opus", "tokens": 3000.0 }
+                    {
+                        "model": "claude-sonnet",
+                        "tokens": 6000.0
+                    },
+                    {
+                        "model": "claude-opus",
+                        "tokens": 3000.0
+                    }
                 ]
             }
         ]

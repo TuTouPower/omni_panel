@@ -19,13 +19,24 @@ describe("tavily-usage-plugin", () => {
         const { parsed, requests } = await runWithStubBackend({
             pluginFile: "tavily-usage-plugin.ts",
             params: { API_KEY: "tvly-test-key" },
+            env: { OMNI_SOURCE_INSTANCE_ID: "tavily-api-test" },
             routes: [{ path: "/usage", body: success_body }],
         });
         expect(parsed.success).toBe(true);
         if (parsed.success) {
+            expect(parsed.schemaVersion).toBe(2);
             expect(parsed.items.length).toBeGreaterThan(0);
-            expect(parsed.items[0]?.used).toBe(500);
-            expect(parsed.items[0]?.limit).toBe(1000);
+            expect(parsed.items[0]).toEqual(
+                expect.objectContaining({
+                    provider: "tavily",
+                    source: "api_key",
+                    sourceInstanceId: "tavily-api-test",
+                    accountId: "tavily-api-test",
+                    accountLabel: "Tavily",
+                    used: 500,
+                    limit: 1000,
+                }),
+            );
         }
         expect(requests.length).toBe(1);
         expect(requests[0]?.headers["authorization"]).toContain("tvly-test-key");

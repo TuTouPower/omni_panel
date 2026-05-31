@@ -37,6 +37,7 @@ function run_glm(
 ) {
     return withHttpStub(routes, async (handle) => {
         const env = {
+            OMNI_SOURCE_INSTANCE_ID: "glm-api-test",
             OMNI_PLUGIN_ENDPOINTS: JSON.stringify({
                 default: handle.baseUrl,
                 model_usage: handle.baseUrl,
@@ -63,8 +64,18 @@ describe("GLM plugin subprocess", () => {
         expect(parsed.success).toBe(true);
         if (!parsed.success) return;
 
+        expect(parsed.schemaVersion).toBe(2);
         expect(parsed.items.length).toBeGreaterThan(0);
         expect(parsed.items.every((item) => item.id.startsWith("glm-"))).toBe(true);
+        expect(parsed.items[0]).toEqual(
+            expect.objectContaining({
+                provider: "glm",
+                source: "api_key",
+                sourceInstanceId: "glm-api-test",
+                accountId: "glm-api-test",
+                accountLabel: "GLM",
+            }),
+        );
         expect(parsed.chart).toBeDefined();
     });
 

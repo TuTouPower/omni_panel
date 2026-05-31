@@ -1,4 +1,5 @@
 import { z } from "zod/v3";
+import { usageProviderSchema, usageSourceSchema } from "./plugin-output";
 
 export const pluginParameterTypeSchema = z.enum([
     "string",
@@ -38,6 +39,8 @@ export const pluginMetadataSchema = z
         icon: z.string().optional(),
         parameters: z.array(pluginParameterMetadataSchema).optional(),
         endpoints: pluginEndpointsSchema.optional(),
+        supportedProviders: z.array(usageProviderSchema).optional(),
+        defaultSource: usageSourceSchema.optional(),
     })
     .passthrough();
 

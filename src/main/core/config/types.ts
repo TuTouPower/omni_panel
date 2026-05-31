@@ -25,7 +25,6 @@ export const proxyConfigurationSchema = z.object({
 export const appConfigurationSchema = z.object({
     schemaVersion: z.number().int(),
     language: appLanguageSchema,
-    overviewDisplayMode: z.enum(["grouped", "tabs"]),
     plugins: z.array(pluginConfigurationSchema),
     launchAtLogin: z.boolean(),
     proxy: proxyConfigurationSchema.optional(),
@@ -34,7 +33,6 @@ export const appConfigurationSchema = z.object({
 export const DEFAULT_CONFIGURATION: AppConfiguration = {
     schemaVersion: 1,
     language: "zh-Hans",
-    overviewDisplayMode: "tabs",
     plugins: [],
     launchAtLogin: false,
 };

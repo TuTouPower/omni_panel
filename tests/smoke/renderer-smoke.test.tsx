@@ -13,21 +13,24 @@ describe("Renderer smoke tests", () => {
             });
         });
 
-        it("shows plugin cards with usage data", async () => {
+        it("shows provider cards with usage data", async () => {
+            const user = userEvent.setup();
             render(<App />);
             await waitFor(() => {
                 expect(screen.getAllByText("DeepSeek").length).toBeGreaterThanOrEqual(1);
             });
-            // ratio display: shows "5000 / 10000 (50%)"
-            expect(screen.getByText(/5000.*10000.*50%/)).toBeInTheDocument();
+            await user.click(screen.getByRole("button", { name: "查看 DeepSeek" }));
+            expect(screen.getByText(/5,000.*10,000/)).toBeInTheDocument();
         });
 
-        it("shows failed plugin error", async () => {
+        it("shows failed provider source as an empty provider page", async () => {
+            const user = userEvent.setup();
             render(<App />);
             await waitFor(() => {
                 expect(screen.getAllByText("Claude").length).toBeGreaterThanOrEqual(1);
             });
-            expect(screen.getByText("API 超时")).toBeInTheDocument();
+            await user.click(screen.getByRole("button", { name: "Claude" }));
+            expect(screen.getByText("该服务暂无账号。请到设置添加数据来源。")).toBeInTheDocument();
         });
 
         it("shows refresh button", async () => {

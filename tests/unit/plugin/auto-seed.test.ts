@@ -31,7 +31,6 @@ describe("auto-seed logic", () => {
         const config: AppConfiguration = {
             schemaVersion: 1,
             language: "zh-Hans",
-            overviewDisplayMode: "tabs",
             plugins: [],
             launchAtLogin: false,
         };
@@ -47,7 +46,6 @@ describe("auto-seed logic", () => {
         const config: AppConfiguration = {
             schemaVersion: 1,
             language: "zh-Hans",
-            overviewDisplayMode: "tabs",
             plugins: [
                 {
                     instanceId: "existing-1",
@@ -71,7 +69,6 @@ describe("auto-seed logic", () => {
         const config: AppConfiguration = {
             schemaVersion: 1,
             language: "zh-Hans",
-            overviewDisplayMode: "tabs",
             plugins: allDefinitions.map((def, i) => ({
                 instanceId: `instance-${String(i)}`,
                 stateId: `state-${String(i)}`,

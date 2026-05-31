@@ -30,7 +30,6 @@ const { test, expect } = createTestWithSetup({
         const config = {
             schemaVersion: 1,
             language: "zh-Hans",
-            overviewDisplayMode: "tabs",
             plugins: [
                 {
                     instanceId: INSTANCE_ID,

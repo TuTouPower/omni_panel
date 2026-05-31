@@ -7,6 +7,7 @@ describe("deepseek-usage-plugin", () => {
         const { parsed, requests } = await runWithStubBackend({
             pluginFile: "deepseek-usage-plugin.ts",
             params: { API_KEY: "sk-test" },
+            env: { OMNI_SOURCE_INSTANCE_ID: "deepseek-api-test" },
             routes: [
                 {
                     path: "/user/balance",
@@ -16,8 +17,18 @@ describe("deepseek-usage-plugin", () => {
         });
         expect(parsed.success).toBe(true);
         if (parsed.success) {
+            expect(parsed.schemaVersion).toBe(2);
             expect(parsed.items.length).toBeGreaterThan(0);
-            expect(parsed.items[0]?.used).toBe(50);
+            expect(parsed.items[0]).toEqual(
+                expect.objectContaining({
+                    provider: "deepseek",
+                    source: "api_key",
+                    sourceInstanceId: "deepseek-api-test",
+                    accountId: "deepseek-api-test",
+                    accountLabel: "DeepSeek",
+                    used: 50,
+                }),
+            );
         }
         expect(requests.length).toBe(1);
         expect(requests[0]?.headers["authorization"]).toContain("sk-test");

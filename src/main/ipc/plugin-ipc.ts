@@ -4,10 +4,13 @@ import type { PluginInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
+import type { PluginConfiguration } from "../../shared/types/config";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
 import type { PluginSnapshotState } from "../core/scheduler/types";
 import type { PluginRefreshService } from "../core/scheduler/refresh-service";
 import type { PluginDefinition } from "../core/plugin/types";
+import type { PluginMetadata } from "../../shared/schemas/plugin-metadata";
+import type { UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
 import { resolveDisplayNames } from "../core/plugin/display-names";
 import { createLogger } from "../../shared/lib/logger";
 
@@ -39,6 +42,23 @@ function toDTO(state: PluginSnapshotState): PluginSnapshotDTO {
     }
 }
 
+function sourceFromMetadata(metadata: PluginMetadata | null): UsageSource {
+    return metadata?.defaultSource ?? "direct";
+}
+
+function activeProvidersForConnector(
+    plugin: PluginConfiguration,
+    metadata: PluginMetadata | null,
+): readonly UsageProvider[] {
+    const supportedProviders = metadata?.supportedProviders ?? [];
+    if (metadata?.defaultSource !== "cpa") return supportedProviders;
+    return supportedProviders.filter((provider) => {
+        const key = `monitor_${provider}`;
+        const metadataDefault = metadata.parameters?.find((p) => p.name === key)?.defaultValue;
+        return (plugin.parameterValues[key] ?? metadataDefault ?? "").toLowerCase() === "true";
+    });
+}
+
 export interface PluginIpcDeps {
     configStore: AppConfigStore;
     runtimeStore: RuntimeStore;
@@ -60,15 +80,21 @@ export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<P
 
         const plugins: PluginInfo[] = config.plugins.map((plugin) => {
             const snapshot = toDTO(deps.runtimeStore.getSnapshot(plugin.instanceId));
+            const metadata =
+                pluginEntries.find((e) => e.config.instanceId === plugin.instanceId)?.metadata ??
+                null;
+            const supportedProviders = metadata?.supportedProviders ?? [];
             return {
                 instanceId: plugin.instanceId,
+                sourceInstanceId: plugin.instanceId,
                 stateId: plugin.stateId,
                 name: plugin.name,
                 displayName: displayNames.get(plugin.instanceId) ?? plugin.name,
                 enabled: plugin.enabled,
-                metadata:
-                    pluginEntries.find((e) => e.config.instanceId === plugin.instanceId)
-                        ?.metadata ?? null,
+                source: sourceFromMetadata(metadata),
+                supportedProviders,
+                activeProviders: activeProvidersForConnector(plugin, metadata),
+                metadata,
                 snapshot,
             };
         });

@@ -34,7 +34,6 @@ function createMockDeps() {
     const config: AppConfiguration = {
         schemaVersion: 1,
         language: "zh-Hans",
-        overviewDisplayMode: "tabs",
         plugins: [
             {
                 instanceId: "claude",
@@ -277,7 +276,6 @@ describe("config-ipc", () => {
             config: {
                 schemaVersion: 1,
                 language: "zh-Hans",
-                overviewDisplayMode: "tabs" as const,
                 plugins: [],
                 launchAtLogin: false,
             },

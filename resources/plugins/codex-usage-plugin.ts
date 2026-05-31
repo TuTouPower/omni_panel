@@ -2,6 +2,8 @@
 // {
 //   "schemaVersion": 1,
 //   "name": "Codex",
+//   "supportedProviders": ["codex"],
+//   "defaultSource": "oauth",
 //   "name@zh-Hans": "Codex",
 //   "name@en": "Codex",
 //   "icon": "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/codex-color.png",
@@ -68,6 +70,15 @@ import { homedir } from "node:os";
 // ---------------------------------------------------------------------------
 
 const METADATA_ENDPOINTS = { default: "https://chatgpt.com" };
+const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-source";
+
+const itemContext = {
+    provider: "codex" as const,
+    source: "oauth" as const,
+    sourceInstanceId: SOURCE_INSTANCE_ID,
+    accountId: SOURCE_INSTANCE_ID,
+    accountLabel: "Codex",
+};
 const CACHE_VERSION = 1;
 const CACHE_FILENAME = ".usageboard-chart-cache.json";
 const FILENAME_DATE = /rollout-(\d{4}-\d{2}-\d{2})T/;
@@ -633,7 +644,7 @@ definePlugin(
         let badge: string | null;
         try {
             const result = buildItems(payload, ctx.t);
-            items = result.items;
+            items = result.items.map((item) => ({ ...itemContext, ...item }));
             badge = result.badge;
         } catch {
             return failFromHttp({ kind: "invalid_json", status: 200, raw: "" }, "codex");

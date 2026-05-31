@@ -8,7 +8,6 @@ export interface ProxyConfiguration {
 export interface AppConfiguration {
     readonly schemaVersion: number;
     readonly language: AppLanguage;
-    readonly overviewDisplayMode: "grouped" | "tabs";
     readonly plugins: readonly PluginConfiguration[];
     readonly launchAtLogin: boolean;
     readonly proxy?: ProxyConfiguration;

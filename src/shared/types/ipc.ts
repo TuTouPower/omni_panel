@@ -1,4 +1,4 @@
-import type { UsageItem, PluginChart } from "../schemas/plugin-output";
+import type { UsageItem, PluginChart, UsageProvider, UsageSource } from "../schemas/plugin-output";
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
 export type { AppConfiguration } from "./config";
@@ -42,15 +42,24 @@ export type PluginSnapshotDTO =
           items?: readonly UsageItem[];
       };
 
-export interface PluginInfo {
+export type ConnectorSnapshotDTO = PluginSnapshotDTO;
+
+export interface ConnectorInfo {
     instanceId: string;
+    sourceInstanceId: string;
     stateId: string;
     name: string;
     displayName: string;
     enabled: boolean;
+    source: UsageSource;
+    supportedProviders: readonly UsageProvider[];
+    activeProviders: readonly UsageProvider[];
     metadata: PluginMetadata | null;
-    snapshot: PluginSnapshotDTO;
+    snapshot: ConnectorSnapshotDTO;
 }
+
+// Historical IPC channel names still say plugin, but renderer treats these as connectors.
+export type PluginInfo = ConnectorInfo;
 
 export interface ConfigSaveSecretsPayload {
     instanceId: string;

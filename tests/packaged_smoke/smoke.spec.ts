@@ -117,16 +117,18 @@ test.describe("packaged binary smoke", () => {
         }
     });
 
-    test("bundled plugins are discovered", async ({}, testInfo) => {
+    test("provider overview is available without CPA provider tab", async ({}, testInfo) => {
         test.skip(skipIfNoExe.skip, skipIfNoExe.reason);
 
         const app = await launchPackagedApp(47001 + testInfo.workerIndex * 10);
         try {
-            await app.page.waitForFunction(
-                () => document.querySelectorAll(".card-name").length > 0,
-                undefined,
-                { timeout: 15_000 },
-            );
+            const providerNav = app.page.locator(".tabs-wrap");
+            await expect(providerNav.getByRole("button", { name: /总览/ })).toBeVisible({
+                timeout: 15_000,
+            });
+            await expect(providerNav.getByRole("button", { name: /^Claude$/ })).toBeVisible();
+            await expect(providerNav.getByRole("button", { name: /^DeepSeek$/ })).toBeVisible();
+            await expect(providerNav.getByRole("button", { name: /^CPA$/ })).toHaveCount(0);
         } finally {
             await closePackagedApp(app);
         }

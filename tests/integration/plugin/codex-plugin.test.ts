@@ -113,6 +113,7 @@ describe("Codex plugin subprocess", () => {
             const env = {
                 HOME: home_dir,
                 USERPROFILE: home_dir,
+                OMNI_SOURCE_INSTANCE_ID: "codex-oauth-test",
                 OMNI_PLUGIN_ENDPOINTS: JSON.stringify({
                     default: handle.baseUrl,
                 }),
@@ -131,8 +132,18 @@ describe("Codex plugin subprocess", () => {
         expect(parsed.success).toBe(true);
         if (!parsed.success) return;
 
+        expect(parsed.schemaVersion).toBe(2);
         expect(parsed.items.length).toBeGreaterThanOrEqual(2);
-        expect(parsed.items.some((item) => item.id === "codex-five-hour")).toBe(true);
+        expect(parsed.items).toContainEqual(
+            expect.objectContaining({
+                id: "codex-five-hour",
+                provider: "codex",
+                source: "oauth",
+                sourceInstanceId: "codex-oauth-test",
+                accountId: "codex-oauth-test",
+                accountLabel: "Codex",
+            }),
+        );
         expect(parsed.items.some((item) => item.id === "codex-weekly")).toBe(true);
     });
 });

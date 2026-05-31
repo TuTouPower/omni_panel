@@ -2,6 +2,8 @@
 // {
 //   "schemaVersion": 1,
 //   "name": "Tavily",
+//   "supportedProviders": ["tavily"],
+//   "defaultSource": "api_key",
 //   "name@zh-Hans": "Tavily",
 //   "name@en": "Tavily",
 //   "icon": "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/tavily-color.png",
@@ -33,6 +35,15 @@ import {
 } from "@omni-usage/plugin-sdk";
 
 const METADATA_ENDPOINTS = { default: "https://api.tavily.com" };
+const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-source";
+
+const itemContext = {
+    provider: "tavily" as const,
+    source: "api_key" as const,
+    sourceInstanceId: SOURCE_INSTANCE_ID,
+    accountId: SOURCE_INSTANCE_ID,
+    accountLabel: "Tavily",
+};
 
 function nextMonthStartIso(): string {
     const now = new Date();
@@ -87,6 +98,7 @@ definePlugin(
             const items = [
                 {
                     id: "tavily-total-month",
+                    ...itemContext,
                     name: ctx.t("total_usage"),
                     used: Math.max(planUsage, 0),
                     limit: Math.max(planLimit, 0),
@@ -110,6 +122,7 @@ definePlugin(
                 if (used > 0) {
                     items.push({
                         id: itemId,
+                        ...itemContext,
                         name: ctx.t(nameKey),
                         used: Math.max(used, 0),
                         limit: Math.max(planUsage, 0),

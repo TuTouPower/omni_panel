@@ -13,7 +13,7 @@
 
 多平台 AI 服务用量监控桌面应用（Electron），对标 macOS 原生版 UsageBoard。
 
-**目标**：集中展示 Claude、Codex、DeepSeek、智谱 GLM、MiniMax、Tavily 等 AI 服务的用量数据。
+**目标**：集中展示 Claude、OpenAI Codex、Gemini、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily 等 AI 服务的用量数据。
 
 **技术栈**：Electron + TypeScript + Vite + React + Vitest + Playwright + Zod + ESLint + Prettier
 
@@ -47,7 +47,7 @@
 │                   Renderer Process                       │
 │  ┌──────────────┐  ┌──────────────┐                     │
 │  │  PopupView    │  │ SettingsView │                     │
-│  │  └ PluginCard │  │ └ SettingsForm│                    │
+│  │  └ ProviderCard │  │ └ SettingsForm│                    │
 │  └──────────────┘  └──────────────┘                     │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -113,11 +113,17 @@
 
 ```json
 {
-    "schemaVersion": 1,
+    "success": true,
+    "schemaVersion": 2,
     "updatedAt": "2026-05-24T12:00:00Z",
     "items": [
         {
             "id": "string",
+            "provider": "claude",
+            "source": "cpa",
+            "sourceInstanceId": "string",
+            "accountId": "string",
+            "accountLabel": "string",
             "name": "string",
             "used": 50.0,
             "limit": 100.0,
@@ -135,21 +141,29 @@
 **错误**：
 
 ```json
-{ "error": "请在插件设置中配置 API Key" }
+{
+    "success": false,
+    "error": { "code": "missing_config", "message": "请在插件设置中配置 API Key" }
+}
 ```
 
 **字段说明**：
 
-| 字段           | 类型    | 说明                                                   |
-| -------------- | ------- | ------------------------------------------------------ |
-| `id`           | string  | 唯一标识（推荐包含插件名+指标名）                      |
-| `name`         | string  | 显示名称                                               |
-| `used`         | number  | 已用量                                                 |
-| `limit`        | number  | 总额度                                                 |
-| `displayStyle` | string  | `percent` 或 `ratio`                                   |
-| `resetAt`      | string? | 额度重置时间（ISO 8601，可为 null）                    |
-| `status`       | string  | `normal` / `warning` / `critical` / `unknown`          |
-| `color`        | string? | `blue` / `green` / `yellow` / `orange` / `red`（可选） |
+| 字段               | 类型    | 说明                                                   |
+| ------------------ | ------- | ------------------------------------------------------ |
+| `provider`         | string  | 归属 provider，用于主 UI 聚合                          |
+| `source`           | string  | 数据来源插件 / connector                               |
+| `sourceInstanceId` | string  | 来源实例 ID                                            |
+| `accountId`        | string  | 账号稳定 ID                                            |
+| `accountLabel`     | string  | 账号显示名，不得包含 secret                            |
+| `id`               | string  | 唯一标识（推荐包含插件名+指标名）                      |
+| `name`             | string  | 显示名称                                               |
+| `used`             | number  | 已用量                                                 |
+| `limit`            | number  | 总额度                                                 |
+| `displayStyle`     | string  | `percent` 或 `ratio`                                   |
+| `resetAt`          | string? | 额度重置时间（ISO 8601，可为 null）                    |
+| `status`           | string  | `normal` / `warning` / `critical` / `unknown`          |
+| `color`            | string? | `blue` / `green` / `yellow` / `orange` / `red`（可选） |
 
 ### 3.5 执行规则
 
@@ -202,12 +216,13 @@
 {
     schemaVersion: 1,
     language: "zh-Hans" | "en",
-    overviewDisplayMode: "grouped" | "tabs",
     launchAtLogin: boolean,
     plugins: PluginConfiguration[],
     proxy?: { url: string, noProxy?: string[] }  // HTTP 代理，通过 OMNI_PLUGIN_PROXY 注入子进程
 }
 ```
+
+旧配置中的 `overviewDisplayMode` 会在 load/save 迁移时移除。
 
 ### 4.3 PluginConfiguration schema
 
@@ -276,7 +291,7 @@ refresh(instanceId)
 
 - 成功结果写入 `states/{stateId}.json`
 - 下次刷新如果失败，保留上次成功的数据（stale data）
-- failed 状态的 PluginCard 展示 stale 数据 + 错误信息
+- failed 状态的 provider card 展示 stale 数据 + 错误信息
 
 ---
 
@@ -299,22 +314,27 @@ refresh(instanceId)
 
 ### 6.3 PopupView
 
+- 主用量 UI 按 provider 展示，不按插件 / connector 展示。
+- provider 页聚合来自多个 source 的同类账号数据。
+- CPA 仅是聚合 connector，只出现在 Settings / 数据源配置中；主 UI 不显示 CPA provider tab。
+- CPA 采集的 Claude / Codex / Gemini / Antigravity / Kimi 账号合并到对应 provider 页面。
 - 标题 "OmniUsage"
 - 智能空状态：无插件 / 缺 key
 - "设置"按钮 → 跳转 `#settings`
 - "刷新"按钮 → 触发所有 enabled 插件刷新
-- PluginCard 列表（支持多 item 进度条）
+- ProviderCard 列表（支持多账号、多 item 进度条）
 
-### 6.4 PluginCard
+### 6.4 ProviderCard
 
 - `idle` / `loading`：显示 Skeleton 占位
-- `ready`：显示插件名 + 使用量进度条 + 百分比 + 相对时间（"刚刚" / "X 分钟前"，每秒更新）
+- `ready`：显示 provider 名 + 账号分组 + 使用量进度条 + 百分比 + 相对时间（"刚刚" / "X 分钟前"，每秒更新）
 - `failed`：显示错误信息 + stale 数据（如有）+ 相对时间
 - 颜色阈值：>=75% 黄色，>=90% 红色
 
 ### 6.5 SettingsView
 
 - 侧栏：插件列表（按 displayName，同名去重加序号）
+- CPA connector 配置只在 Settings / 数据源页展示，包含 CPA-Manager URL、管理密钥、provider 采集开关。
 - 选中后显示参数表单（由 PluginMetadata 自动生成）
 - 参数类型映射：`secret` → password input，`choice` → select，`boolean` → checkbox
 - 刷新间隔输入框（number，1–60 分钟）

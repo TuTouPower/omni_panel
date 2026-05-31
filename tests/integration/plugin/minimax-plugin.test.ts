@@ -21,13 +21,24 @@ describe("minimax-usage-plugin", () => {
         const { parsed, requests } = await runWithStubBackend({
             pluginFile: "minimax-usage-plugin.ts",
             params: { API_KEY: "mm-test-key" },
+            env: { OMNI_SOURCE_INSTANCE_ID: "minimax-api-test" },
             routes: [{ path: "/v1/token_plan/remains", body: success_body }],
         });
         expect(parsed.success).toBe(true);
         if (parsed.success) {
+            expect(parsed.schemaVersion).toBe(2);
             expect(parsed.items.length).toBeGreaterThan(0);
-            expect(parsed.items[0]?.used).toBe(30);
-            expect(parsed.items[0]?.limit).toBe(100);
+            expect(parsed.items[0]).toEqual(
+                expect.objectContaining({
+                    provider: "minimax",
+                    source: "api_key",
+                    sourceInstanceId: "minimax-api-test",
+                    accountId: "minimax-api-test",
+                    accountLabel: "MiniMax",
+                    used: 30,
+                    limit: 100,
+                }),
+            );
             expect(parsed.badge).toBeDefined();
         }
         expect(requests.length).toBe(1);

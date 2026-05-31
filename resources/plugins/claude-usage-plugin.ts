@@ -1,6 +1,8 @@
 // UsageBoardPlugin:
 // {
 //   "name": "Claude",
+//   "supportedProviders": ["claude"],
+//   "defaultSource": "local",
 //   "name@zh-Hans": "Claude",
 //   "name@en": "Claude",
 //   "icon": "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/claude-color.png",
@@ -82,6 +84,15 @@ import * as os from "node:os";
 import { execSync } from "node:child_process";
 
 const METADATA_ENDPOINTS = { anthropic: "https://api.anthropic.com" };
+const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-source";
+
+const itemContext = {
+    provider: "claude" as const,
+    source: "local" as const,
+    sourceInstanceId: SOURCE_INSTANCE_ID,
+    accountId: SOURCE_INSTANCE_ID,
+    accountLabel: "Claude",
+};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -206,6 +217,11 @@ async function fetchOAuthUsage(
 
 interface OAuthUsageItem {
     id: string;
+    provider: "claude";
+    source: "local";
+    sourceInstanceId: string;
+    accountId: string;
+    accountLabel: string;
     name: string;
     displayStyle: "percent";
     used: number;
@@ -229,6 +245,7 @@ function buildItemsFromOAuth(
     const items: OAuthUsageItem[] = [
         {
             id: "claude-five-hour",
+            ...itemContext,
             name: t("five_hour"),
             displayStyle: "percent",
             used: Math.round(Math.min(fhPct, 100) * 10) / 10,
@@ -239,6 +256,7 @@ function buildItemsFromOAuth(
         },
         {
             id: "claude-seven-day",
+            ...itemContext,
             name: t("weekly"),
             displayStyle: "percent",
             used: Math.round(Math.min(sdPct, 100) * 10) / 10,
@@ -253,6 +271,7 @@ function buildItemsFromOAuth(
         const designPct = Number(designWeek.utilization ?? 0);
         items.push({
             id: "claude-design-seven-day",
+            ...itemContext,
             name: t("design_weekly"),
             displayStyle: "percent",
             used: Math.round(Math.min(designPct, 100) * 10) / 10,

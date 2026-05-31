@@ -15,10 +15,14 @@ function createMockApi() {
     const plugins: PluginInfo[] = [
         {
             instanceId: "deepseek",
+            sourceInstanceId: "deepseek",
             stateId: "deepseek",
             name: "DeepSeek",
             displayName: "DeepSeek",
             enabled: true,
+            source: "api_key",
+            supportedProviders: ["deepseek"],
+            activeProviders: ["deepseek"],
             metadata: {
                 name: "DeepSeek",
                 description: "DeepSeek usage tracker",
@@ -46,6 +50,11 @@ function createMockApi() {
                 items: [
                     {
                         id: "tokens",
+                        provider: "deepseek" as const,
+                        source: "api_key" as const,
+                        sourceInstanceId: "deepseek",
+                        accountId: "deepseek",
+                        accountLabel: "DeepSeek",
                         name: "Tokens",
                         used: 5000,
                         limit: 10000,
@@ -58,10 +67,14 @@ function createMockApi() {
         },
         {
             instanceId: "claude",
+            sourceInstanceId: "claude",
             stateId: "claude",
             name: "Claude",
             displayName: "Claude",
             enabled: true,
+            source: "direct",
+            supportedProviders: ["claude"],
+            activeProviders: ["claude"],
             metadata: null,
             snapshot: { status: "failed", error: "API 超时" },
         },
@@ -70,7 +83,6 @@ function createMockApi() {
     const config: AppConfiguration = {
         schemaVersion: 1,
         language: "zh-Hans",
-        overviewDisplayMode: "tabs",
         plugins: [
             {
                 instanceId: "deepseek",

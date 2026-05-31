@@ -99,6 +99,10 @@
 
 `OMNI_PLUGIN_PROXY` 环境变量（JSON `{ "url": "http://host:port" }`）通过 undici `ProxyAgent` 接管所有 HTTP 请求。
 
+### 来源实例 ID
+
+宿主通过 `OMNI_SOURCE_INSTANCE_ID` 环境变量传入当前插件配置的 `instanceId`。当插件实例对应单一账号且上游没有账号 ID 时，插件应将该值写入输出项的 `sourceInstanceId` 和 `accountId`。
+
 ## SDK HttpClient
 
 插件通过 `ctx.http` 发起 HTTP 请求，无需手动 `fetch`：
@@ -132,15 +136,21 @@ definePlugin(
 
 ## 插件 stdout JSON
 
-### 成功输出
+### Schema v2 成功输出
 
 ```json
 {
-    "schemaVersion": 1,
+    "success": true,
+    "schemaVersion": 2,
     "updatedAt": "2026-05-24T12:00:00Z",
     "items": [
         {
             "id": "string",
+            "provider": "claude | codex | gemini | antigravity | kimi | glm | minimax | deepseek | tavily",
+            "source": "string",
+            "sourceInstanceId": "string",
+            "accountId": "string",
+            "accountLabel": "string",
             "name": "string",
             "used": 50.0,
             "limit": 100.0,
@@ -175,14 +185,21 @@ definePlugin(
 
 ```json
 {
-    "error": "error message string"
+    "success": false,
+    "error": {
+        "code": "missing_config",
+        "message": "error message string"
+    }
 }
 ```
 
 ### 规则
 
 - stdout 必须 trim 后可解析为 JSON
-- `schemaVersion` 由 SDK helpers 输出，Electron 端忽略此字段
+- 成功输出必须使用 `schemaVersion: 2`
+- 每个 item 必须包含 `provider`、`source`、`sourceInstanceId`、`accountId`、`accountLabel`
+- `accountLabel` 不得包含 token、API Key、cookie 等 secret
+- v1 输出不再兼容；bundled plugins 均输出 v2
 - `updatedAt` ISO8601 格式（支持 fractional seconds）
 - `items` 可为空数组
 - `badge` 和 `chart` 为 optional

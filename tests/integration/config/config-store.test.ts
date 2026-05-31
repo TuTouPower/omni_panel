@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createConfigStore } from "../../../src/main/core/config/config-store";
@@ -29,7 +29,6 @@ describe("config-store", () => {
         const config: AppConfiguration = {
             schemaVersion: 1,
             language: "en",
-            overviewDisplayMode: "tabs",
             plugins: [],
             launchAtLogin: false,
         };
@@ -38,8 +37,29 @@ describe("config-store", () => {
         expect(loaded.language).toBe("en");
     });
 
+    it("loads old config with overviewDisplayMode and saves without it", async () => {
+        const configPath = join(tempDir, "config.json");
+        await writeFile(
+            configPath,
+            JSON.stringify({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                overviewDisplayMode: "tabs",
+                plugins: [],
+                launchAtLogin: false,
+            }),
+            "utf8",
+        );
+        const store = createConfigStore(configPath);
+        const config = await store.load();
+        expect("overviewDisplayMode" in config).toBe(false);
+
+        await store.save(config);
+        const raw = JSON.parse(await readFile(configPath, "utf8")) as Record<string, unknown>;
+        expect(raw).not.toHaveProperty("overviewDisplayMode");
+    });
+
     it("returns default config on corrupt JSON", async () => {
-        const { writeFile } = await import("node:fs/promises");
         await writeFile(join(tempDir, "config.json"), "not json!!!");
         const store = createConfigStore(join(tempDir, "config.json"));
         const config = await store.load();
@@ -51,7 +71,6 @@ describe("config-store", () => {
         const config: AppConfiguration = {
             schemaVersion: 1,
             language: "zh-Hans",
-            overviewDisplayMode: "tabs",
             plugins: [
                 {
                     instanceId: "abc-123",
@@ -74,7 +93,6 @@ describe("config-store", () => {
     });
 
     it("returns default config on schema-invalid JSON", async () => {
-        const { writeFile } = await import("node:fs/promises");
         await writeFile(join(tempDir, "config.json"), '{"schemaVersion":1}');
         const store = createConfigStore(join(tempDir, "config.json"));
         const config = await store.load();

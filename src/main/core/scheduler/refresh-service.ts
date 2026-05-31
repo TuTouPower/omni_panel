@@ -137,6 +137,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 ...command,
                 env: {
                     ...(command.env ?? {}),
+                    OMNI_SOURCE_INSTANCE_ID: plugin.instanceId,
                     ...(runtimeEnv.endpoints
                         ? { OMNI_PLUGIN_ENDPOINTS: runtimeEnv.endpoints }
                         : {}),

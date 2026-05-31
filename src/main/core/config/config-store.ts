@@ -25,6 +25,12 @@ function sortKeys(obj: unknown): unknown {
     return obj;
 }
 
+function stripRemovedConfigFields(config: Record<string, unknown>): Record<string, unknown> {
+    const { overviewDisplayMode: _overviewDisplayMode, ...rest } = config;
+    void _overviewDisplayMode;
+    return rest;
+}
+
 export function createConfigStore(configPath: string): AppConfigStore {
     let pendingTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingConfig: AppConfiguration | null = null;
@@ -34,7 +40,11 @@ export function createConfigStore(configPath: string): AppConfigStore {
             try {
                 const raw = await readFile(configPath, "utf8");
                 const parsed = JSON.parse(raw) as unknown;
-                const result = appConfigurationSchema.safeParse(parsed);
+                const normalized =
+                    parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+                        ? stripRemovedConfigFields(parsed as Record<string, unknown>)
+                        : parsed;
+                const result = appConfigurationSchema.safeParse(normalized);
                 if (result.success) {
                     const migrated = {
                         ...result.data,

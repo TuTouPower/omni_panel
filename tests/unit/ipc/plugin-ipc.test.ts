@@ -8,7 +8,6 @@ function createMockDeps() {
         load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
             schemaVersion: 1,
             language: "zh-Hans" as const,
-            overviewDisplayMode: "tabs" as const,
             plugins: [
                 {
                     instanceId: "claude",
@@ -34,6 +33,11 @@ function createMockDeps() {
         items: [
             {
                 id: "tokens",
+                provider: "claude",
+                source: "api_key",
+                sourceInstanceId: "claude",
+                accountId: "claude",
+                accountLabel: "Claude",
                 name: "Tokens",
                 used: 2340,
                 limit: 10000,
@@ -124,7 +128,6 @@ describe("plugin-ipc", () => {
             load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
                 schemaVersion: 1,
                 language: "zh-Hans" as const,
-                overviewDisplayMode: "tabs" as const,
                 plugins: [
                     {
                         instanceId: "deepseek-1",
@@ -162,6 +165,8 @@ describe("plugin-ipc", () => {
                 metadata: {
                     schemaVersion: 1,
                     name: "DeepSeek",
+                    defaultSource: "api_key" as const,
+                    supportedProviders: ["deepseek" as const],
                     parameters: [
                         {
                             name: "API_KEY",
@@ -182,8 +187,138 @@ describe("plugin-ipc", () => {
         expect(result.data).toHaveLength(1);
         const plugin = result.data[0];
         expect(plugin?.metadata).not.toBeNull();
+        expect(plugin?.sourceInstanceId).toBe("deepseek-1");
+        expect(plugin?.source).toBe("api_key");
+        expect(plugin?.supportedProviders).toEqual(["deepseek"]);
+        expect(plugin?.activeProviders).toEqual(["deepseek"]);
         const params = plugin?.metadata?.parameters;
         expect(params).toHaveLength(1);
         expect(params?.[0]?.name).toBe("API_KEY");
+    });
+
+    it("handlePluginList exposes CPA connector provider switches", async () => {
+        const { handlePluginList } = await import("../../../src/main/ipc/plugin-ipc");
+        const configStore = {
+            load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
+                schemaVersion: 1,
+                language: "zh-Hans" as const,
+                plugins: [
+                    {
+                        instanceId: "cpa-1",
+                        stateId: "cpa-1",
+                        name: "CPA",
+                        enabled: true,
+                        executablePath: "/plugins/cpa-connector.js",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {
+                            monitor_claude: "true",
+                            monitor_codex: "true",
+                            monitor_gemini: "false",
+                        },
+                        endpointOverrides: {},
+                    },
+                    {
+                        instanceId: "cpa-2",
+                        stateId: "cpa-2",
+                        name: "CPA",
+                        enabled: true,
+                        executablePath: "/plugins/cpa-connector.js",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+                launchAtLogin: false,
+            }),
+            save: vi.fn(),
+            scheduleSave: vi.fn(),
+            flushPendingSave: vi.fn().mockResolvedValue(undefined),
+            hasPendingSave: vi.fn().mockReturnValue(false),
+        };
+        const runtimeStore: RuntimeStore = {
+            getSnapshot: vi.fn().mockReturnValue({ status: "idle" }),
+            updateState: vi.fn(),
+            getAll: vi.fn().mockReturnValue(new Map()),
+            subscribe: vi.fn().mockReturnValue(() => undefined),
+            removeInstance: vi.fn(),
+        };
+        const refreshService = {
+            refresh: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+            refreshAll: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+        };
+        const definitions = [
+            {
+                scriptName: "cpa-connector.js",
+                executablePath: "/plugins/cpa-connector.js",
+                metadata: {
+                    schemaVersion: 1,
+                    name: "CPA",
+                    defaultSource: "cpa" as const,
+                    supportedProviders: [
+                        "claude" as const,
+                        "codex" as const,
+                        "gemini" as const,
+                        "antigravity" as const,
+                        "kimi" as const,
+                    ],
+                    parameters: [
+                        {
+                            name: "monitor_claude",
+                            label: "Claude",
+                            type: "boolean" as const,
+                            required: false,
+                            defaultValue: "TRUE",
+                        },
+                        {
+                            name: "monitor_codex",
+                            label: "Codex",
+                            type: "boolean" as const,
+                            required: false,
+                            defaultValue: "true",
+                        },
+                        {
+                            name: "monitor_gemini",
+                            label: "Gemini",
+                            type: "boolean" as const,
+                            required: false,
+                            defaultValue: "true",
+                        },
+                        {
+                            name: "monitor_antigravity",
+                            label: "Antigravity",
+                            type: "boolean" as const,
+                            required: false,
+                            defaultValue: "false",
+                        },
+                        {
+                            name: "monitor_kimi",
+                            label: "Kimi",
+                            type: "boolean" as const,
+                            required: false,
+                            defaultValue: "false",
+                        },
+                    ],
+                },
+                source: "bundled" as const,
+            },
+        ];
+        const deps = { configStore, runtimeStore, refreshService, definitions };
+        const result = await handlePluginList(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data).toHaveLength(2);
+        const connector = result.data.find((item) => item.instanceId === "cpa-1");
+        expect(connector?.source).toBe("cpa");
+        expect(connector?.supportedProviders).toEqual([
+            "claude",
+            "codex",
+            "gemini",
+            "antigravity",
+            "kimi",
+        ]);
+        expect(connector?.activeProviders).toEqual(["claude", "codex"]);
+        const defaultConnector = result.data.find((item) => item.instanceId === "cpa-2");
+        expect(defaultConnector?.activeProviders).toEqual(["claude", "codex", "gemini"]);
     });
 });

@@ -3,9 +3,26 @@ import { z } from "zod/v3";
 export const usageDisplayStyleSchema = z.enum(["percent", "ratio"]);
 export const usageStatusSchema = z.enum(["normal", "warning", "critical", "unknown"]);
 export const usageColorSchema = z.enum(["blue", "green", "yellow", "orange", "red"]);
+export const usageProviderSchema = z.enum([
+    "claude",
+    "codex",
+    "gemini",
+    "antigravity",
+    "kimi",
+    "glm",
+    "minimax",
+    "deepseek",
+    "tavily",
+]);
+export const usageSourceSchema = z.enum(["cpa", "direct", "local", "api_key", "oauth"]);
 
 export const usageItemSchema = z.object({
     id: z.string(),
+    provider: usageProviderSchema,
+    source: usageSourceSchema,
+    sourceInstanceId: z.string(),
+    accountId: z.string(),
+    accountLabel: z.string(),
     name: z.string(),
     used: z.number(),
     limit: z.number(),
@@ -38,7 +55,7 @@ export const pluginChartSchema = z.object({
 
 export const pluginSuccessOutputSchema = z.object({
     success: z.literal(true),
-    schemaVersion: z.number(),
+    schemaVersion: z.literal(2),
     updatedAt: z.string(),
     items: z.array(usageItemSchema),
     badge: z.string().optional(),
@@ -60,6 +77,8 @@ export const pluginResultSchema = z.discriminatedUnion("success", [
 
 // --- Types ---
 
+export type UsageProvider = z.infer<typeof usageProviderSchema>;
+export type UsageSource = z.infer<typeof usageSourceSchema>;
 export type UsageItem = z.infer<typeof usageItemSchema>;
 export type PluginChart = z.infer<typeof pluginChartSchema>;
 export type PluginSuccessOutput = z.infer<typeof pluginSuccessOutputSchema>;

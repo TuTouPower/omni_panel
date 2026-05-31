@@ -1,8 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { createRefreshService } from "../../../src/main/core/scheduler/refresh-service";
 import type { RefreshServiceDeps } from "../../../src/main/core/scheduler/refresh-service";
 import { addTransport, setLogLevel } from "../../../src/shared/lib/logger";
 import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
+import { buildPluginCommand } from "../../../src/main/core/plugin/command-builder";
+import { executePlugin } from "../../../src/main/core/plugin/runner";
+import { parsePluginResult } from "../../../src/main/core/plugin/output-parser";
 import type { AppConfiguration, PluginConfiguration } from "../../../src/main/core/config/types";
 
 const mockConfig: PluginConfiguration = {
@@ -49,7 +55,6 @@ function createDeps(overrides: Record<string, unknown> = {}) {
             load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
                 schemaVersion: 1,
                 language: "zh-Hans",
-                overviewDisplayMode: "tabs",
                 plugins: [mockConfig],
                 launchAtLogin: false,
             }),
@@ -98,6 +103,73 @@ describe("refresh-service", () => {
         const service = createRefreshService(deps);
         await service.refresh("state-1");
         expect(deps.cacheStore.save).toHaveBeenCalledTimes(1);
+    });
+
+    it("passes plugin instance id as source instance id", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "source-instance-id-test-"));
+        const script = join(tempDir, "deepseek-plugin.js");
+        const plugin = {
+            ...mockConfig,
+            instanceId: "deepseek-1",
+            stateId: "deepseek-state",
+            name: "DeepSeek",
+            executablePath: script,
+        };
+        await writeFile(
+            script,
+            `console.log(JSON.stringify({
+                success: true,
+                schemaVersion: 2,
+                updatedAt: "2026-05-31T00:00:00Z",
+                items: [{
+                    id: "deepseek-1:default",
+                    provider: "deepseek",
+                    source: "api_key",
+                    sourceInstanceId: process.env.OMNI_SOURCE_INSTANCE_ID,
+                    accountId: process.env.OMNI_SOURCE_INSTANCE_ID,
+                    accountLabel: "DeepSeek",
+                    name: "DeepSeek",
+                    used: 1,
+                    limit: 100,
+                    displayStyle: "percent",
+                    status: "normal"
+                }]
+            }));`,
+        );
+        const deps = createDeps({
+            runner: executePlugin,
+            outputParser: parsePluginResult,
+            commandBuilder: (
+                executablePath: string,
+                parameterValues: Record<string, string>,
+                language: AppConfiguration["language"],
+            ) => buildPluginCommand(executablePath, parameterValues, language, process.execPath),
+            configStore: {
+                load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [plugin],
+                    launchAtLogin: false,
+                }),
+                save: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+                scheduleSave: vi.fn(),
+                flushPendingSave: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+                hasPendingSave: vi.fn<() => boolean>().mockReturnValue(false),
+            },
+        });
+        const service = createRefreshService(deps);
+
+        try {
+            await service.refresh(plugin.instanceId, { force: true });
+            const snapshot = deps.runtimeStore.getSnapshot(plugin.instanceId);
+
+            expect(snapshot.status).toBe("ready");
+            if (snapshot.status !== "ready") return;
+            expect(snapshot.items[0]?.sourceInstanceId).toBe("deepseek-1");
+            expect(snapshot.items[0]?.accountId).toBe("deepseek-1");
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
     });
 
     it("force=true skips cache check", async () => {
@@ -177,7 +249,6 @@ describe("refresh-service", () => {
                 load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
                     schemaVersion: 1,
                     language: "zh-Hans",
-                    overviewDisplayMode: "tabs",
                     plugins: [
                         { ...mockConfig, instanceId: "s1", stateId: "s1", enabled: true },
                         { ...mockConfig, instanceId: "s2", stateId: "s2", enabled: true },
@@ -220,7 +291,6 @@ describe("refresh-service", () => {
                 load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
                     schemaVersion: 1,
                     language: "zh-Hans",
-                    overviewDisplayMode: "tabs",
                     plugins: [
                         {
                             ...mockConfig,

@@ -1,7 +1,21 @@
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2 as const;
 
 export interface UsageItem {
     id: string;
+    provider:
+        | "claude"
+        | "codex"
+        | "gemini"
+        | "antigravity"
+        | "kimi"
+        | "glm"
+        | "minimax"
+        | "deepseek"
+        | "tavily";
+    source: "cpa" | "direct" | "local" | "api_key" | "oauth";
+    sourceInstanceId: string;
+    accountId: string;
+    accountLabel: string;
     name: string;
     used: number;
     limit: number;
@@ -25,7 +39,7 @@ export interface PluginChart {
 
 export interface PluginSuccessOutput {
     success: true;
-    schemaVersion: number;
+    schemaVersion: typeof SCHEMA_VERSION;
     updatedAt: string;
     items: UsageItem[];
     badge?: string;

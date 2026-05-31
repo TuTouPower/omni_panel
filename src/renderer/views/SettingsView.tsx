@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useConfig } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { SettingsForm } from "../components/SettingsForm";
+import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { Icon, VendorMark } from "../components/Icon";
 import type { PluginInfo } from "../../shared/types/ipc";
 import type { PluginConfiguration } from "../../shared/types/config";
@@ -103,6 +104,8 @@ function AccountDialog({
     pluginConfig,
     hasSecrets,
     onSave,
+    onSaveSecrets,
+    onRefresh,
     onClose,
 }: {
     mode: "add" | "edit";
@@ -118,6 +121,8 @@ function AccountDialog({
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
     ) => Promise<void>;
+    onSaveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
+    onRefresh: (instanceId: string) => Promise<void>;
     onClose: () => void;
 }) {
     const isEdit = mode === "edit";
@@ -159,20 +164,52 @@ function AccountDialog({
 
                 <div className="ad-body">
                     {instanceId && pluginInfo && pluginConfig ? (
-                        <SettingsForm
-                            instanceId={instanceId}
-                            name={pluginName ?? pluginInfo.displayName}
-                            parameters={pluginInfo.metadata?.parameters ?? []}
-                            values={pluginConfig.parameterValues}
-                            hasSecrets={hasSecrets ?? {}}
-                            endpoints={pluginInfo.metadata?.endpoints ?? {}}
-                            endpointValues={pluginConfig.endpointOverrides}
-                            refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
-                            onSave={async (...args) => {
-                                await onSave(...args);
-                                onClose();
-                            }}
-                        />
+                        pluginInfo.source === "cpa" ? (
+                            <CpaConnectorSettings
+                                connector={pluginInfo}
+                                config={{
+                                    endpointOverrides: pluginConfig.endpointOverrides,
+                                    parameterValues: pluginConfig.parameterValues,
+                                    refreshIntervalSeconds: pluginConfig.refreshIntervalSeconds,
+                                }}
+                                hasSecrets={hasSecrets ?? {}}
+                                onSave={async (
+                                    nonSecrets,
+                                    endpointOverrides,
+                                    refreshIntervalSeconds,
+                                ) => {
+                                    await onSave(
+                                        instanceId,
+                                        nonSecrets,
+                                        {},
+                                        endpointOverrides,
+                                        refreshIntervalSeconds,
+                                    );
+                                    onClose();
+                                }}
+                                onSaveSecrets={async (secrets) => {
+                                    await onSaveSecrets(instanceId, secrets);
+                                }}
+                                onRefresh={async () => {
+                                    await onRefresh(instanceId);
+                                }}
+                            />
+                        ) : (
+                            <SettingsForm
+                                instanceId={instanceId}
+                                name={pluginName ?? pluginInfo.displayName}
+                                parameters={pluginInfo.metadata?.parameters ?? []}
+                                values={pluginConfig.parameterValues}
+                                hasSecrets={hasSecrets ?? {}}
+                                endpoints={pluginInfo.metadata?.endpoints ?? {}}
+                                endpointValues={pluginConfig.endpointOverrides}
+                                refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
+                                onSave={async (...args) => {
+                                    await onSave(...args);
+                                    onClose();
+                                }}
+                            />
+                        )
                     ) : (
                         <div className="text-sm text-[var(--text-3)]">暂不支持在此添加新账号</div>
                     )}
@@ -280,6 +317,19 @@ export function SettingsView() {
         },
         [config, save, saveSecrets],
     );
+
+    const savePluginSecrets = useCallback(
+        async (instanceId: string, secrets: Record<string, string>) => {
+            if (Object.keys(secrets).length > 0) {
+                await saveSecrets(instanceId, secrets);
+            }
+        },
+        [saveSecrets],
+    );
+
+    const refreshPlugin = useCallback(async (instanceId: string) => {
+        await window.usageboard.plugin.refresh(instanceId);
+    }, []);
 
     const goBack = () => {
         window.location.hash = "#popup";
@@ -434,6 +484,13 @@ export function SettingsView() {
                                     </div>
                                 ) : (
                                     config.plugins.map((p) => {
+                                        const pluginInfo = pluginInfos.find(
+                                            (info) => info.instanceId === p.instanceId,
+                                        );
+                                        const displayName =
+                                            pluginInfo?.source === "cpa"
+                                                ? "CPA 额度连接器"
+                                                : p.name;
                                         const isEnabled = p.enabled;
                                         const groupOff = !isEnabled;
                                         return (
@@ -443,15 +500,15 @@ export function SettingsView() {
                                             >
                                                 <div className="acct-group-head">
                                                     <VendorMark id="overview" size={22} />
-                                                    <span className="agh-name">{p.name}</span>
+                                                    <span className="agh-name">{displayName}</span>
                                                     <button
                                                         className="agh-add"
-                                                        title={`添加 ${p.name} 账号`}
+                                                        title={`添加 ${displayName} 账号`}
                                                         onClick={() => {
                                                             setDialog({
                                                                 mode: "add",
                                                                 instanceId: undefined,
-                                                                pluginName: p.name,
+                                                                pluginName: displayName,
                                                             });
                                                         }}
                                                         type="button"
@@ -486,7 +543,9 @@ export function SettingsView() {
                                                         <span
                                                             className={`ar-dot${groupOff ? " off" : ""}`}
                                                         />
-                                                        <span className="ar-name">{p.name}</span>
+                                                        <span className="ar-name">
+                                                            {displayName}
+                                                        </span>
                                                         {groupOff && (
                                                             <span className="ar-off">已关闭</span>
                                                         )}
@@ -498,7 +557,7 @@ export function SettingsView() {
                                                                     setDialog({
                                                                         mode: "edit",
                                                                         instanceId: p.instanceId,
-                                                                        pluginName: p.name,
+                                                                        pluginName: displayName,
                                                                     });
                                                                 }}
                                                                 type="button"
@@ -606,37 +665,6 @@ export function SettingsView() {
                                                 }}
                                                 type="button"
                                             />
-                                        ))}
-                                    </div>
-                                </SetRow>
-
-                                <div className="set-group-label">显示</div>
-                                <SetRow
-                                    title="总览布局"
-                                    sub="分组：所有插件卡片堆叠显示；标签页：每次只显示一个插件"
-                                >
-                                    <div className="set-seg">
-                                        {(
-                                            [
-                                                ["grouped", "分组"],
-                                                ["tabs", "标签页"],
-                                            ] as const
-                                        ).map(([k, lb]) => (
-                                            <button
-                                                key={k}
-                                                className={
-                                                    config.overviewDisplayMode === k ? "on" : ""
-                                                }
-                                                onClick={() => {
-                                                    void save({
-                                                        ...config,
-                                                        overviewDisplayMode: k,
-                                                    });
-                                                }}
-                                                type="button"
-                                            >
-                                                {lb}
-                                            </button>
                                         ))}
                                     </div>
                                 </SetRow>
@@ -828,6 +856,8 @@ export function SettingsView() {
                         )}
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
+                        onSaveSecrets={savePluginSecrets}
+                        onRefresh={refreshPlugin}
                         onClose={() => {
                             setDialog(null);
                         }}

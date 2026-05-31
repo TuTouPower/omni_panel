@@ -89,6 +89,7 @@ describe("Claude plugin subprocess", () => {
             const env = {
                 HOME: home_dir,
                 USERPROFILE: home_dir,
+                OMNI_SOURCE_INSTANCE_ID: "claude-local-test",
                 OMNI_PLUGIN_ENDPOINTS: JSON.stringify({
                     anthropic: handle.baseUrl,
                 }),
@@ -106,8 +107,18 @@ describe("Claude plugin subprocess", () => {
         expect(parsed.success).toBe(true);
         if (!parsed.success) return;
 
+        expect(parsed.schemaVersion).toBe(2);
         expect(parsed.items.length).toBeGreaterThanOrEqual(2);
-        expect(parsed.items.some((item) => item.id === "claude-five-hour")).toBe(true);
+        expect(parsed.items).toContainEqual(
+            expect.objectContaining({
+                id: "claude-five-hour",
+                provider: "claude",
+                source: "local",
+                sourceInstanceId: "claude-local-test",
+                accountId: "claude-local-test",
+                accountLabel: "Claude",
+            }),
+        );
         expect(parsed.items.some((item) => item.id === "claude-seven-day")).toBe(true);
     });
 

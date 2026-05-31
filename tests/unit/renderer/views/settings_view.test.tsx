@@ -11,7 +11,6 @@ const duplicate = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 const config: AppConfiguration = {
     schemaVersion: 1,
     language: "zh-Hans",
-    overviewDisplayMode: "tabs",
     launchAtLogin: false,
     plugins: [
         {
@@ -24,13 +23,23 @@ const config: AppConfiguration = {
             parameterValues: {},
             endpointOverrides: {},
         },
+        {
+            instanceId: "cpa-1",
+            stateId: "cpa-1",
+            name: "CPA",
+            enabled: true,
+            executablePath: "plugins/cpa.ts",
+            refreshIntervalSeconds: 300,
+            parameterValues: { monitor_claude: "true" },
+            endpointOverrides: { default: "http://cpa.example" },
+        },
     ],
 };
 
 vi.mock("../../../../src/renderer/hooks/use-config", () => ({
     useConfig: () => ({
         config,
-        hasSecrets: {},
+        hasSecrets: { "cpa-1": { cpa_mgmt_key: true } },
         loading: false,
         error: null,
         save,
@@ -51,10 +60,14 @@ describe("SettingsView", () => {
                 list: vi.fn().mockResolvedValue([
                     {
                         instanceId: "deepseek-1",
+                        sourceInstanceId: "deepseek-1",
                         stateId: "deepseek-1",
                         name: "DeepSeek",
                         displayName: "DeepSeek",
                         enabled: true,
+                        source: "api_key",
+                        supportedProviders: ["deepseek"],
+                        activeProviders: ["deepseek"],
                         metadata: {
                             parameters: [
                                 {
@@ -69,6 +82,84 @@ describe("SettingsView", () => {
                             },
                         },
                         snapshot: { status: "idle" },
+                    },
+                    {
+                        instanceId: "cpa-1",
+                        sourceInstanceId: "cpa-1",
+                        stateId: "cpa-1",
+                        name: "CPA",
+                        displayName: "CPA",
+                        enabled: true,
+                        source: "cpa",
+                        supportedProviders: ["claude", "codex", "gemini", "antigravity", "kimi"],
+                        activeProviders: ["claude"],
+                        metadata: {
+                            parameters: [
+                                {
+                                    name: "cpa_mgmt_key",
+                                    label: "管理密钥",
+                                    type: "secret",
+                                    required: true,
+                                },
+                                {
+                                    name: "monitor_claude",
+                                    label: "Claude",
+                                    type: "boolean",
+                                    required: false,
+                                    defaultValue: "true",
+                                },
+                                {
+                                    name: "monitor_codex",
+                                    label: "Codex",
+                                    type: "boolean",
+                                    required: false,
+                                    defaultValue: "false",
+                                },
+                                {
+                                    name: "monitor_gemini",
+                                    label: "Gemini",
+                                    type: "boolean",
+                                    required: false,
+                                    defaultValue: "false",
+                                },
+                                {
+                                    name: "monitor_antigravity",
+                                    label: "Antigravity",
+                                    type: "boolean",
+                                    required: false,
+                                    defaultValue: "false",
+                                },
+                                {
+                                    name: "monitor_kimi",
+                                    label: "Kimi",
+                                    type: "boolean",
+                                    required: false,
+                                    defaultValue: "false",
+                                },
+                            ],
+                            endpoints: {
+                                default: "http://localhost:8080",
+                            },
+                        },
+                        snapshot: {
+                            status: "ready",
+                            updatedAt: "2026-05-31T00:00:00.000Z",
+                            items: [
+                                {
+                                    id: "claude-main",
+                                    provider: "claude",
+                                    source: "cpa",
+                                    sourceInstanceId: "cpa-1",
+                                    accountId: "claude-main",
+                                    accountLabel: "Claude Account",
+                                    name: "Claude 额度",
+                                    used: 10,
+                                    limit: 100,
+                                    displayStyle: "percent",
+                                    status: "normal",
+                                },
+                            ],
+                        },
                     },
                 ]),
                 getState: vi.fn(),
@@ -96,7 +187,10 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
-        await user.click(screen.getByTitle("编辑"));
+        const editButtons = screen.getAllByTitle("编辑");
+        const deepseekEditButton = editButtons[0];
+        if (!deepseekEditButton) throw new Error("missing DeepSeek edit button");
+        await user.click(deepseekEditButton);
         await waitFor(() => expect(screen.getByLabelText("API 密钥")).toBeInTheDocument());
 
         await user.type(screen.getByLabelText("API 密钥"), "sk-test");
@@ -114,7 +208,31 @@ describe("SettingsView", () => {
                     parameterValues: {},
                     endpointOverrides: { default: "https://api.deepseek.example" },
                 },
+                config.plugins[1],
             ],
         });
+    });
+
+    it("renders CPA connector settings page from accounts", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        await waitFor(() => {
+            expect(screen.getAllByText("CPA 额度连接器").length).toBeGreaterThan(0);
+        });
+        const editButtons = screen.getAllByTitle("编辑");
+        const cpaEditButton = editButtons[1];
+        if (!cpaEditButton) throw new Error("missing CPA edit button");
+        await user.click(cpaEditButton);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("cpa-connector-settings")).toBeInTheDocument();
+        });
+        expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
+        expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
+        expect(screen.getByLabelText("监控 Claude")).toBeChecked();
+        expect(screen.getByText("Claude 1")).toBeInTheDocument();
+        expect(screen.getByText("Claude Account")).toBeInTheDocument();
     });
 });

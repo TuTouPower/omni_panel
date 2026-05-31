@@ -56,20 +56,49 @@
                                 }
                             },
                             "required": ["label", "value"],
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "additionalProperties": true
                         }
                     }
                 },
                 "required": ["name", "label", "type", "required"],
-                "additionalProperties": {
-                    "type": "string"
-                }
+                "additionalProperties": true
             }
+        },
+        "endpoints": {
+            "type": "object",
+            "additionalProperties": {
+                "anyOf": [
+                    {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    {
+                        "type": "null"
+                    }
+                ]
+            }
+        },
+        "supportedProviders": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": [
+                    "claude",
+                    "codex",
+                    "gemini",
+                    "antigravity",
+                    "kimi",
+                    "glm",
+                    "minimax",
+                    "deepseek",
+                    "tavily"
+                ]
+            }
+        },
+        "defaultSource": {
+            "type": "string",
+            "enum": ["cpa", "direct", "local", "api_key", "oauth"]
         }
     },
-    "additionalProperties": {
-        "type": "string"
-    }
+    "additionalProperties": true
 }
