@@ -32,22 +32,25 @@ test.describe("settings view", () => {
         await expect(sidebar).toBeVisible();
     });
 
-    test("plugins with parameters show config forms, not '无可配置参数'", async ({ omni }) => {
+    test("plugins with parameters show config forms in account edit dialog", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });
         await navigateToSettings(page);
         const settings = new SettingsPage(page);
         await settings.waitReady();
 
-        // At least some plugins (DeepSeek, Tavily, GLM, MiniMax) have parameters
-        const forms = page.locator('[data-testid^="settings-form-"]');
-        const formCount = await forms.count();
-        expect(formCount).toBeGreaterThan(0);
+        await page.locator('[data-testid="settings-plugin-nav-accounts"]').click();
+        const cpaGroup = page.locator(".acct-group").filter({ hasText: "CPA" }).first();
+        await expect(cpaGroup).toBeVisible();
+        await cpaGroup.locator('button[title="编辑"]').click();
 
-        // There should be no more "无可配置参数" messages than plugins without parameters
-        const noParamsMessages = page.locator("text=无可配置参数");
-        const noParamsCount = await noParamsMessages.count();
-        // Claude and Codex have no parameters, so at most 2 "无可配置参数"
-        expect(noParamsCount).toBeLessThanOrEqual(2);
+        const form = page
+            .locator('[data-testid^="settings-form-"]')
+            .filter({ hasText: "CPA" })
+            .first();
+        await expect(form).toBeVisible();
+        await expect(form.locator('input[name="cpa_mgmt_key"]')).toBeVisible();
+        await expect(form.locator('input[name="endpoint:default"]')).toBeVisible();
+        await expect(page.locator("text=无可配置参数")).toHaveCount(0);
     });
 });

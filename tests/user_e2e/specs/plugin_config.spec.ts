@@ -9,8 +9,14 @@ async function openSettings(page: Page) {
     await page.waitForSelector('[data-testid="settings-sidebar"]', { timeout: 10_000 });
 }
 
-function cpaForm(page: Page) {
-    return page.locator('[data-testid^="settings-form-"]').filter({ hasText: "CPA" }).first();
+async function openAccountForm(page: Page, name: string) {
+    await page.locator('[data-testid="settings-plugin-nav-accounts"]').click();
+    const group = page.locator(".acct-group").filter({ hasText: name }).first();
+    await expect(group).toBeVisible();
+    await group.locator('button[title="编辑"]').click();
+    const form = page.locator('[data-testid^="settings-form-"]').filter({ hasText: name }).first();
+    await expect(form).toBeVisible();
+    return form;
 }
 
 test.describe("plugin configuration", () => {
@@ -35,42 +41,34 @@ test.describe("plugin configuration", () => {
         const page = await omni.app.firstWindow();
         await openSettings(page);
 
-        const forms = page.locator('[data-testid^="settings-form-"]');
-        const formCount = await forms.count();
-        expect(formCount).toBeGreaterThan(0);
+        const form = await openAccountForm(page, "CPA");
+        await form.locator('input[name="endpoint:default"]').fill("https://cpa.example.test");
+        await form.locator('input[name="cpa_mgmt_key"]').fill("test-api-key");
 
-        const firstInput = forms
-            .first()
-            .locator('input[type="text"], input[type="password"]')
-            .first();
-        await expect(firstInput).toBeVisible();
-        await firstInput.fill("test-api-key");
-
-        const saveBtn = page.locator('[data-testid^="settings-save-btn-"]').first();
-        await expect(saveBtn).toBeVisible();
-        await saveBtn.click();
-
-        await expect(forms.first()).toBeVisible();
+        await form.locator('button[type="submit"]').click();
+        await expect(page.locator('[role="dialog"]')).toBeHidden();
     });
 
     test("CPA settings persist after app restart without exposing the secret", async ({ omni }) => {
         let page = await omni.app.firstWindow();
         await openSettings(page);
 
-        let form = cpaForm(page);
-        await expect(form).toBeVisible();
+        let form = await openAccountForm(page, "CPA");
+        await form.locator('input[name="endpoint:default"]').fill("https://cpa.example.test");
         await form.locator('input[name="cpa_mgmt_key"]').fill("secret-management-key");
         await form.locator('input[name="refreshIntervalMinutes"]').fill("7");
         await form.locator('button[type="submit"]').click();
-        await expect(form.locator('button[type="submit"]')).toHaveText("已保存");
+        await expect(page.locator('[role="dialog"]')).toBeHidden();
 
         await omni.stop();
         await omni.start();
 
         page = await omni.app.firstWindow();
         await openSettings(page);
-        form = cpaForm(page);
-        await expect(form).toBeVisible();
+        form = await openAccountForm(page, "CPA");
+        await expect(form.locator('input[name="endpoint:default"]')).toHaveValue(
+            "https://cpa.example.test",
+        );
         await expect(form.locator('input[name="cpa_mgmt_key"]')).toHaveValue("***");
         await expect(form.locator('input[name="cpa_mgmt_key"]')).not.toHaveValue(
             "secret-management-key",

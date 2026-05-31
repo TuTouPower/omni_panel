@@ -83,7 +83,9 @@ testWithConfig.describe("auto-seed with existing config", () => {
         await page.waitForTimeout(500);
 
         // "My Claude" must still exist (not replaced by "Claude" or "Claude 2")
-        await expectWithConfig(page.getByText("My Claude")).toBeVisible();
+        await expectWithConfig(
+            page.locator(".acct-group").filter({ hasText: "My Claude" }).first(),
+        ).toBeVisible();
 
         // Total plugin count should be 7 (1 existing + 6 auto-seeded)
         const acctGroups = page.locator(".acct-group");

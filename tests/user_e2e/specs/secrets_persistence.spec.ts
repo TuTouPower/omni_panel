@@ -52,39 +52,46 @@ const { test, expect } = createTestWithSetup({
 });
 
 async function openSettings(page: Page) {
-    const baseUrl = page.url().split("#")[0] ?? "";
-    await page.goto(baseUrl + "#settings");
+    await page.evaluate(() => {
+        window.location.hash = "#settings";
+    });
+    await page.waitForFunction(() => window.location.hash === "#settings", undefined, {
+        timeout: 5_000,
+    });
     await page.waitForSelector('[data-testid="settings-sidebar"]', { timeout: 10_000 });
+}
+
+async function openSecretForm(page: Page) {
+    await page.locator('[data-testid="settings-plugin-nav-accounts"]').click();
+    const group = page.locator(".acct-group").filter({ hasText: "SecretTest" }).first();
+    await expect(group).toBeVisible();
+    await group.locator('button[title="编辑"]').click();
+    const form = page.locator(`[data-testid="settings-form-${INSTANCE_ID}"]`);
+    await expect(form).toBeVisible();
+    return form;
 }
 
 test.describe("secrets persistence", () => {
     test("secret survives app restart", async ({ omni }) => {
-        // First launch — fill and save the secret
         let page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });
         await openSettings(page);
 
-        const secretInput = page.locator('input[name="api_secret"][type="password"]');
-        await expect(secretInput).toBeVisible({ timeout: 5_000 });
+        let form = await openSecretForm(page);
+        const secretInput = form.locator('input[name="api_secret"][type="password"]');
         await secretInput.fill("my-secret-token-123");
+        await form.locator('button[type="submit"]').click();
+        await expect(page.locator('[role="dialog"]')).toBeHidden();
 
-        const saveBtn = page.locator('button[type="submit"]').first();
-        await saveBtn.click();
-        // Wait for save confirmation
-        await expect(saveBtn).toHaveText("已保存", { timeout: 5_000 });
-
-        // Restart the app (same userData dir, same instanceId)
         await omni.stop();
         await omni.start();
 
-        // Second launch — verify secret persisted
         page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });
         await openSettings(page);
 
-        const secretInputAfter = page.locator('input[name="api_secret"][type="password"]');
-        await expect(secretInputAfter).toBeVisible({ timeout: 5_000 });
-        // The value should be masked
+        form = await openSecretForm(page);
+        const secretInputAfter = form.locator('input[name="api_secret"][type="password"]');
         await expect(secretInputAfter).toHaveValue("***");
     });
 
@@ -93,26 +100,14 @@ test.describe("secrets persistence", () => {
         await page.waitForSelector(".app-title", { timeout: 10_000 });
         await openSettings(page);
 
-        const secretInput = page.locator('input[name="api_secret"][type="password"]');
-        await expect(secretInput).toBeVisible({ timeout: 5_000 });
-
-        // Save a secret value
+        let form = await openSecretForm(page);
+        const secretInput = form.locator('input[name="api_secret"][type="password"]');
         await secretInput.fill("super-secret-value");
+        await form.locator('button[type="submit"]').click();
+        await expect(page.locator('[role="dialog"]')).toBeHidden();
 
-        const saveBtn = page.locator('button[type="submit"]').first();
-        await saveBtn.click();
-        await expect(saveBtn).toHaveText("已保存", { timeout: 5_000 });
-
-        // Switch sections to force the form to re-mount and re-read config
-        const aboutNav = page.locator('[data-testid="settings-plugin-nav-about"]');
-        const generalNav = page.locator('[data-testid="settings-plugin-nav-general"]');
-        await aboutNav.click();
-        await page.waitForTimeout(500);
-        await generalNav.click();
-        await page.waitForTimeout(1000);
-
-        const secretInputReloaded = page.locator('input[name="api_secret"][type="password"]');
-        await expect(secretInputReloaded).toBeVisible({ timeout: 5_000 });
+        form = await openSecretForm(page);
+        const secretInputReloaded = form.locator('input[name="api_secret"][type="password"]');
         await expect(secretInputReloaded).toHaveValue("***");
         await expect(secretInputReloaded).not.toHaveValue("super-secret-value");
     });
