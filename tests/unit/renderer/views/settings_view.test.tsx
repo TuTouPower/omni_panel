@@ -80,6 +80,8 @@ describe("SettingsView", () => {
                 save: vi.fn(),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
+                export: vi.fn(),
+                import: vi.fn(),
             },
             event: {
                 onStateChange: vi.fn(),
@@ -101,9 +103,9 @@ describe("SettingsView", () => {
         await user.type(screen.getByLabelText("接口地址"), "https://api.deepseek.example ");
         await user.click(screen.getByTestId("settings-save-btn-deepseek-1"));
 
-        await waitFor(() =>
-            expect(saveSecrets).toHaveBeenCalledWith("deepseek-1", { API_KEY: "sk-test" }),
-        );
+        await waitFor(() => {
+            expect(saveSecrets).toHaveBeenCalledWith("deepseek-1", { API_KEY: "sk-test" });
+        });
         expect(save).toHaveBeenCalledWith({
             ...config,
             plugins: [

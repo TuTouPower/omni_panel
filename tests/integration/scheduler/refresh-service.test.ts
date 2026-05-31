@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createRefreshService } from "../../../src/main/core/scheduler/refresh-service";
+import type { RefreshServiceDeps } from "../../../src/main/core/scheduler/refresh-service";
 import { addTransport, setLogLevel } from "../../../src/shared/lib/logger";
 import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
 import type { AppConfiguration, PluginConfiguration } from "../../../src/main/core/config/types";
@@ -18,26 +19,17 @@ const mockConfig: PluginConfiguration = {
 function createDeps(overrides: Record<string, unknown> = {}) {
     const runtimeStore = createRuntimeStore();
     return {
-        runner: vi
-            .fn<
-                () => Promise<{
-                    stdout: string;
-                    stderr: string;
-                    exitCode: number;
-                    durationMs: number;
-                }>
-            >()
-            .mockResolvedValue({
-                stdout: JSON.stringify({
-                    success: true,
-                    schemaVersion: 1,
-                    updatedAt: "2026-05-24T12:00:00Z",
-                    items: [],
-                }),
-                stderr: "",
-                exitCode: 0,
-                durationMs: 100,
+        runner: vi.fn<RefreshServiceDeps["runner"]>().mockResolvedValue({
+            stdout: JSON.stringify({
+                success: true,
+                schemaVersion: 1,
+                updatedAt: "2026-05-24T12:00:00Z",
+                items: [],
             }),
+            stderr: "",
+            exitCode: 0,
+            durationMs: 100,
+        }),
         outputParser: vi.fn().mockReturnValue({
             success: true,
             schemaVersion: 1,
@@ -70,6 +62,8 @@ function createDeps(overrides: Record<string, unknown> = {}) {
             get: vi.fn<() => Promise<string | null>>().mockResolvedValue(null),
             set: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
             delete: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+            exportAll: vi.fn<() => Promise<Record<string, string>>>().mockResolvedValue({}),
+            importAll: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
         },
         secretParamKeys: new Map<string, ReadonlySet<string>>() as ReadonlyMap<
             string,
@@ -246,16 +240,15 @@ describe("refresh-service", () => {
 
         await service.refresh("state-1");
 
-        expect(deps.runner).toHaveBeenCalledWith(
-            expect.objectContaining({
-                env: expect.objectContaining({
-                    OMNI_PLUGIN_ENDPOINTS: JSON.stringify({
-                        default: "https://cpa-manager.example",
-                    }),
-                }),
+        const runnerArgs = deps.runner.mock.calls[0]?.[0] as
+            | { env?: Record<string, string> }
+            | undefined;
+        expect(runnerArgs?.env?.["OMNI_PLUGIN_ENDPOINTS"]).toBe(
+            JSON.stringify({
+                default: "https://cpa-manager.example",
             }),
-            { timeoutMs: 15_000 },
         );
+        expect(deps.runner).toHaveBeenCalledWith(expect.anything(), { timeoutMs: 15_000 });
     });
 
     it("logs refresh boundaries without leaking secret values", async () => {

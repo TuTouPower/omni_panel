@@ -18,8 +18,8 @@ export async function runWithStubBackend(opts: StubBackendOptions) {
             pluginFile: opts.pluginFile,
             params: opts.params,
             env: { ...env, ...(opts.env ?? {}) },
-            timeoutMs: opts.timeoutMs,
-            language: opts.language,
+            ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
+            ...(opts.language === undefined ? {} : { language: opts.language }),
         });
         return { ...result, baseUrl: handle.baseUrl, requests: handle.requests };
     });

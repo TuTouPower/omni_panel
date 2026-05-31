@@ -24,11 +24,11 @@ describe("tavily-usage-plugin", () => {
         expect(parsed.success).toBe(true);
         if (parsed.success) {
             expect(parsed.items.length).toBeGreaterThan(0);
-            expect(parsed.items[0].used).toBe(500);
-            expect(parsed.items[0].limit).toBe(1000);
+            expect(parsed.items[0]?.used).toBe(500);
+            expect(parsed.items[0]?.limit).toBe(1000);
         }
         expect(requests.length).toBe(1);
-        expect(requests[0].headers["authorization"]).toContain("tvly-test-key");
+        expect(requests[0]?.headers["authorization"]).toContain("tvly-test-key");
     });
 
     it("returns MISSING_PARAM when API_KEY is missing", async () => {

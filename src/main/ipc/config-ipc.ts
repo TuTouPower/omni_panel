@@ -226,27 +226,28 @@ export async function handleConfigImport(
             properties: ["openFile"],
         });
 
-        if (canceled || filePaths.length === 0) return ok({ imported: false });
+        const filePath = filePaths[0];
+        if (canceled || !filePath) return ok({ imported: false });
 
-        const raw: unknown = JSON.parse(await readFile(filePaths[0], "utf8"));
+        const raw: unknown = JSON.parse(await readFile(filePath, "utf8"));
         if (!raw || typeof raw !== "object") {
             return fail("VALIDATION_ERROR", "导入文件格式无效");
         }
 
         const obj = raw as Record<string, unknown>;
-        if (obj.formatVersion !== 1) {
+        if (obj["formatVersion"] !== 1) {
             return fail("VALIDATION_ERROR", "不支持的导入文件版本");
         }
-        if (!obj.config || typeof obj.config !== "object") {
+        if (!obj["config"] || typeof obj["config"] !== "object") {
             return fail("VALIDATION_ERROR", "导入文件缺少配置数据");
         }
 
-        const parsed = appConfigurationSchema.safeParse(obj.config);
+        const parsed = appConfigurationSchema.safeParse(obj["config"]);
         if (!parsed.success) return fail("VALIDATION_ERROR", "导入的配置格式无效");
 
         const secrets =
-            obj.secrets && typeof obj.secrets === "object"
-                ? (obj.secrets as Record<string, string>)
+            obj["secrets"] && typeof obj["secrets"] === "object"
+                ? (obj["secrets"] as Record<string, string>)
                 : {};
 
         await deps.configStore.save(parsed.data as AppConfiguration);

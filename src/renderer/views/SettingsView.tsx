@@ -32,7 +32,7 @@ function Toggle({
     disabled,
 }: {
     on: boolean;
-    onClick: () => void;
+    onClick?: () => void;
     disabled?: boolean;
 }) {
     return (
@@ -163,11 +163,11 @@ function AccountDialog({
                             instanceId={instanceId}
                             name={pluginName ?? pluginInfo.displayName}
                             parameters={pluginInfo.metadata?.parameters ?? []}
-                            values={pluginConfig.parameterValues ?? {}}
+                            values={pluginConfig.parameterValues}
                             hasSecrets={hasSecrets ?? {}}
                             endpoints={pluginInfo.metadata?.endpoints ?? {}}
-                            endpointValues={pluginConfig.endpointOverrides ?? {}}
-                            refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds ?? 300}
+                            endpointValues={pluginConfig.endpointOverrides}
+                            refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
                             onSave={async (...args) => {
                                 await onSave(...args);
                                 onClose();
@@ -747,7 +747,7 @@ export function SettingsView() {
                                     title="匿名使用统计"
                                     sub="帮助改进 OmniUsage，不含任何用量内容"
                                 >
-                                    <Toggle on={false} disabled onClick={() => {}} />
+                                    <Toggle on={false} disabled />
                                 </SetRow>
                                 <div className="set-group-label" style={{ color: "var(--red)" }}>
                                     危险区域

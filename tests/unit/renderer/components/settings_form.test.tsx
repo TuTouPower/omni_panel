@@ -4,6 +4,14 @@ import userEvent from "@testing-library/user-event";
 import { SettingsForm } from "../../../../src/renderer/components/SettingsForm";
 import type { PluginParameterMetadata } from "../../../../src/shared/schemas/plugin-metadata";
 
+type SaveHandler = (
+    instanceId: string,
+    nonSecrets: Record<string, string>,
+    secrets: Record<string, string>,
+    endpointOverrides: Record<string, string>,
+    refreshIntervalSeconds: number,
+) => Promise<void>;
+
 const baseParams: PluginParameterMetadata[] = [
     {
         name: "API_KEY",
@@ -31,7 +39,7 @@ function renderForm(overrides: Record<string, unknown> = {}) {
         values: { MODEL: "chat" },
         hasSecrets: { API_KEY: true },
         refreshIntervalSeconds: 300,
-        onSave: vi.fn().mockResolvedValue(undefined),
+        onSave: vi.fn<SaveHandler>().mockResolvedValue(undefined),
         ...overrides,
     };
     return { ...render(<SettingsForm {...defaults} />), onSave: defaults.onSave };
@@ -79,7 +87,7 @@ describe("SettingsForm", () => {
     });
 
     it("submits form and calls onSave with correct arguments", async () => {
-        const onSave = vi.fn().mockResolvedValue(undefined);
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const user = userEvent.setup();
         renderForm({
             onSave,
@@ -99,14 +107,15 @@ describe("SettingsForm", () => {
         expect(onSave).toHaveBeenCalledTimes(1);
         const call = onSave.mock.calls[0];
         expect(call).toBeDefined();
-        const [instanceId, nonSecrets, , , interval] = call!;
+        if (!call) return;
+        const [instanceId, nonSecrets, , , interval] = call;
         expect(instanceId).toBe("deepseek");
         expect(nonSecrets).toHaveProperty("endpoint");
         expect(interval).toBeGreaterThanOrEqual(60);
     });
 
     it("submits endpoint overrides separately from parameter values", async () => {
-        const onSave = vi.fn().mockResolvedValue(undefined);
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const user = userEvent.setup();
         renderForm({
             onSave,
@@ -124,14 +133,15 @@ describe("SettingsForm", () => {
 
         const call = onSave.mock.calls[0];
         expect(call).toBeDefined();
-        const [, nonSecrets, , endpointOverrides] = call!;
+        if (!call) return;
+        const [, nonSecrets, , endpointOverrides] = call;
         expect(nonSecrets).not.toHaveProperty("default");
         expect(endpointOverrides).toEqual({ default: "https://new.example" });
     });
 
     it("shows saving text while save is pending", async () => {
         let resolvePromise: () => void;
-        const onSave = vi.fn().mockImplementation(
+        const onSave = vi.fn<SaveHandler>().mockImplementation(
             () =>
                 new Promise<void>((r) => {
                     resolvePromise = r;
@@ -153,7 +163,7 @@ describe("SettingsForm", () => {
     });
 
     it("shows saved text after successful save", async () => {
-        const onSave = vi.fn().mockResolvedValue(undefined);
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const user = userEvent.setup();
         renderForm({
             onSave,
@@ -169,7 +179,7 @@ describe("SettingsForm", () => {
     });
 
     it("skips secret parameter value when it equals placeholder ***", async () => {
-        const onSave = vi.fn().mockResolvedValue(undefined);
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const user = userEvent.setup();
         renderForm({
             onSave,
@@ -187,7 +197,8 @@ describe("SettingsForm", () => {
         await user.click(screen.getByTestId("settings-save-btn-deepseek"));
         const call = onSave.mock.calls[0];
         expect(call).toBeDefined();
-        const [, , secrets] = call!;
+        if (!call) return;
+        const [, , secrets] = call;
         expect(secrets).not.toHaveProperty("API_KEY");
     });
 });

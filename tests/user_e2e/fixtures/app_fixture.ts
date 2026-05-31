@@ -33,10 +33,14 @@ export class AppFixture {
                   ? { userDataDir: this.savedUserDataDir }
                   : {};
 
-        this.launched = await launchApp({
+        const launchOptions = {
             ...baseOptions,
-            enableTray: this.options.enableTray,
-        });
+            ...(this.options.enableTray === undefined
+                ? {}
+                : { enableTray: this.options.enableTray }),
+        };
+
+        this.launched = await launchApp(launchOptions);
         if (!this.seeded) {
             this.savedUserDataDir = this.launched.userDataDir;
             this.seeded = true;

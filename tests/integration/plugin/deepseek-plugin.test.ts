@@ -17,10 +17,10 @@ describe("deepseek-usage-plugin", () => {
         expect(parsed.success).toBe(true);
         if (parsed.success) {
             expect(parsed.items.length).toBeGreaterThan(0);
-            expect(parsed.items[0].used).toBe(50);
+            expect(parsed.items[0]?.used).toBe(50);
         }
         expect(requests.length).toBe(1);
-        expect(requests[0].headers["authorization"]).toContain("sk-test");
+        expect(requests[0]?.headers["authorization"]).toContain("sk-test");
     });
 
     it("returns MISSING_PARAM when API_KEY is missing", async () => {

@@ -95,7 +95,7 @@ describe("CPA plugin subprocess", () => {
             "/v0/management/api-call",
         ]);
         expect(
-            requests.every((r) => r.headers.authorization === "Bearer secret-management-key"),
+            requests.every((r) => r.headers["authorization"] === "Bearer secret-management-key"),
         ).toBe(true);
     });
 
