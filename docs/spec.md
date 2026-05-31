@@ -384,13 +384,13 @@ Main → Renderer 广播，当插件状态变更时推送 `instanceId + snapshot
 
 ### 9.1 分层
 
-| 层级       | 目录                 | 框架       | 职责                                        |
-| ---------- | -------------------- | ---------- | ------------------------------------------- |
-| 单元测试   | `tests/unit/`        | Vitest     | 纯函数、schema 校验、parser                 |
-| 集成测试   | `tests/integration/` | Vitest     | 主进程模块（config/cache/scheduler/runner） |
-| 烟雾测试   | `tests/smoke/`       | Vitest     | Renderer 组件（mock IPC，jsdom）            |
-| 端到端测试 | `tests/user_e2e/`    | Playwright | 真实 Electron 实例，模拟用户操作            |
-| 打包 smoke | 手动                 | —          | 验证打包产物可启动、渲染正常、托盘出现      |
+| 层级       | 目录                    | 框架             | 职责                                                             |
+| ---------- | ----------------------- | ---------------- | ---------------------------------------------------------------- |
+| 单元测试   | `tests/unit/`           | Vitest           | 纯函数、schema 校验、parser                                      |
+| 集成测试   | `tests/integration/`    | Vitest           | 主进程模块（config/cache/scheduler/runner）                      |
+| 烟雾测试   | `tests/smoke/`          | Vitest           | Renderer 组件（mock IPC，jsdom）                                 |
+| 端到端测试 | `tests/user_e2e/`       | Playwright       | 真实 Electron 实例，模拟用户操作                                 |
+| 打包 smoke | `tests/packaged_smoke/` | Playwright + CDP | 验证打包产物可启动、渲染正常、内置插件可发现；托盘显示需人工验收 |
 
 ### 9.2 运行命令
 
