@@ -50,4 +50,7 @@ typings/
 .superpowers/
 .pytest_cache
 
+# Local Claude state
+.claude/
+
 .reasonix
