@@ -1,5 +1,6 @@
 import { chromium, test, expect, type Browser, type Page } from "@playwright/test";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawn, type ChildProcessByStdio } from "node:child_process";
+import type { Readable } from "node:stream";
 import { resolve, join } from "node:path";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,7 +24,7 @@ const skipIfNoExe = {
 interface PackagedAppHandle {
     browser: Browser;
     page: Page;
-    process: ChildProcessWithoutNullStreams;
+    process: ChildProcessByStdio<null, Readable, Readable>;
 }
 
 function wait(ms: number): Promise<void> {
@@ -126,6 +127,46 @@ test.describe("packaged binary smoke", () => {
                 undefined,
                 { timeout: 15_000 },
             );
+        } finally {
+            await closePackagedApp(app);
+        }
+    });
+
+    test("popup root fills the packaged window height", async ({}, testInfo) => {
+        test.skip(skipIfNoExe.skip, skipIfNoExe.reason);
+
+        const app = await launchPackagedApp(47002 + testInfo.workerIndex * 10);
+        try {
+            await expect(app.page.locator(".app-title")).toContainText("OmniUsage", {
+                timeout: 15_000,
+            });
+
+            const layout = await app.page.evaluate(() => {
+                const root = document.querySelector(".window");
+                const scroll = document.querySelector(".scroll");
+                const statusbar = document.querySelector(".statusbar");
+                if (!(root instanceof HTMLElement)) throw new Error("Popup root not found");
+                if (!(scroll instanceof HTMLElement))
+                    throw new Error("Popup scroll area not found");
+                if (!(statusbar instanceof HTMLElement))
+                    throw new Error("Popup statusbar not found");
+                const root_rect = root.getBoundingClientRect();
+                const scroll_rect = scroll.getBoundingClientRect();
+                const statusbar_rect = statusbar.getBoundingClientRect();
+                return {
+                    root_height: root_rect.height,
+                    scroll_bottom: scroll_rect.bottom,
+                    statusbar_bottom: statusbar_rect.bottom,
+                    statusbar_top: statusbar_rect.top,
+                    viewport_height: window.innerHeight,
+                };
+            });
+
+            expect(Math.abs(layout.root_height - layout.viewport_height)).toBeLessThanOrEqual(1);
+            expect(Math.abs(layout.statusbar_bottom - layout.viewport_height)).toBeLessThanOrEqual(
+                1,
+            );
+            expect(layout.scroll_bottom).toBeLessThanOrEqual(layout.statusbar_top + 1);
         } finally {
             await closePackagedApp(app);
         }

@@ -50,14 +50,14 @@
 
 ## §6 UI
 
-| Spec 章节              | 需求                                               | 状态 | 现有测试                                                                                                                                                                 | 缺口                               |
-| ---------------------- | -------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
-| §6.1 系统托盘          | 左键 toggle popup、右键菜单、退出                  | ✅   | `user_e2e/specs/tray_interaction.spec.ts` (popup 渲染、托盘点击关闭 popup)                                                                                               | —                                  |
-| §6.2 窗口配置          | popup 360×480 无 frame / settings 640×520 有 frame | ⚠️   | `user_e2e/specs/app_lifecycle.spec.ts` (first window 可用，settings 渲染)                                                                                                | 缺：尺寸断言、popup 在托盘下方定位 |
-| §6.3 PopupView         | 标题 / 空状态 / 设置按钮 / 刷新按钮 / 卡片列表     | ✅   | `user_e2e/specs/popup_view.spec.ts`, `unit/renderer/components/empty_state.test.tsx`, `plugin_card.test.tsx`, `refresh_button.test.tsx`, `smoke/renderer-smoke.test.tsx` | —                                  |
-| §6.4 PluginCard 状态机 | idle/loading/ready/failed + 颜色阈值 + 相对时间    | ✅   | `unit/renderer/components/plugin_card.test.tsx` (各状态 DOM)、`unit/renderer/relative-time.test.ts`、`user_e2e/specs/plugin_failure_modes.spec.ts`                       | —                                  |
-| §6.5 SettingsView      | 侧栏 / 表单 / secret→password / 保存反馈 / 复制    | ✅   | `user_e2e/specs/settings_view.spec.ts`, `plugin_config.spec.ts`, `unit/renderer/components/settings_form.test.tsx` (各 type 字段渲染)                                    | —                                  |
-| §6.6 路由              | hash 路由 + useRoute hook                          | ⚠️   | `user_e2e/specs/popup_view.spec.ts` (settings 跳转), `user_e2e/specs/app_lifecycle.spec.ts`                                                                              | 缺：返回 popup、未知 hash 默认行为 |
+| Spec 章节              | 需求                                               | 状态 | 现有测试                                                                                                                                                                   | 缺口                                       |
+| ---------------------- | -------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| §6.1 系统托盘          | 左键 toggle popup、右键菜单、退出                  | ✅   | `user_e2e/specs/tray_interaction.spec.ts` (popup 渲染、托盘点击关闭 popup)                                                                                                 | —                                          |
+| §6.2 窗口配置          | popup 360×480 无 frame / settings 640×520 有 frame | ⚠️   | `user_e2e/specs/app_lifecycle.spec.ts` (first window 可用，settings 渲染), `user_e2e/specs/popup_view.spec.ts` + `packaged_smoke/smoke.spec.ts` (popup 根容器填满视口高度) | 缺：窗口外框尺寸断言、popup 在托盘下方定位 |
+| §6.3 PopupView         | 标题 / 空状态 / 设置按钮 / 刷新按钮 / 卡片列表     | ✅   | `user_e2e/specs/popup_view.spec.ts`, `unit/renderer/components/empty_state.test.tsx`, `plugin_card.test.tsx`, `refresh_button.test.tsx`, `smoke/renderer-smoke.test.tsx`   | —                                          |
+| §6.4 PluginCard 状态机 | idle/loading/ready/failed + 颜色阈值 + 相对时间    | ✅   | `unit/renderer/components/plugin_card.test.tsx` (各状态 DOM)、`unit/renderer/relative-time.test.ts`、`user_e2e/specs/plugin_failure_modes.spec.ts`                         | —                                          |
+| §6.5 SettingsView      | 侧栏 / 表单 / secret→password / 保存反馈 / 复制    | ✅   | `user_e2e/specs/settings_view.spec.ts`, `plugin_config.spec.ts`, `unit/renderer/components/settings_form.test.tsx` (各 type 字段渲染)                                      | —                                          |
+| §6.6 路由              | hash 路由 + useRoute hook                          | ⚠️   | `user_e2e/specs/popup_view.spec.ts` (settings 跳转), `user_e2e/specs/app_lifecycle.spec.ts`                                                                                | 缺：返回 popup、未知 hash 默认行为         |
 
 ---
 

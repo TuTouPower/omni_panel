@@ -6,12 +6,12 @@
 
 ## 1. 测试分层
 
-| 层级           | 目录                    | 框架             | 职责                                                                        |
-| -------------- | ----------------------- | ---------------- | --------------------------------------------------------------------------- |
-| 单元测试       | `tests/unit/`           | Vitest           | 纯函数、工具类、schema 校验、parser 逻辑                                    |
-| 集成测试       | `tests/integration/`    | Vitest           | 能在 Node 环境真实运行的主进程模块（config/cache/scheduler/runner）         |
-| 用户端到端测试 | `tests/user_e2e/`       | Playwright       | 真实 Electron 实例，**模拟真实用户操作**                                    |
-| 打包 smoke     | `tests/packaged_smoke/` | Playwright + CDP | 验证 `out/OmniUsage-win32-x64/OmniUsage.exe` 能正常启动、渲染并发现内置插件 |
+| 层级           | 目录                    | 框架             | 职责                                                                                                 |
+| -------------- | ----------------------- | ---------------- | ---------------------------------------------------------------------------------------------------- |
+| 单元测试       | `tests/unit/`           | Vitest           | 纯函数、工具类、schema 校验、parser 逻辑                                                             |
+| 集成测试       | `tests/integration/`    | Vitest           | 能在 Node 环境真实运行的主进程模块（config/cache/scheduler/runner）                                  |
+| 用户端到端测试 | `tests/user_e2e/`       | Playwright       | 真实 Electron 实例，**模拟真实用户操作**                                                             |
+| 打包 smoke     | `tests/packaged_smoke/` | Playwright + CDP | 验证 `out/OmniUsage-win32-x64/OmniUsage.exe` 能正常启动、渲染、发现内置插件并覆盖 popup 窗口高度回归 |
 
 三层职责不重叠：
 
@@ -51,6 +51,7 @@
 
 - `out/OmniUsage-win32-x64/OmniUsage.exe` 首次启动。
 - 系统托盘真实显示效果、popup 窗口位置。
+- Popup 根容器必须填满窗口高度，防止底部 body 背景空白。
 - 渲染进程是否正常加载（白屏即失败）。
 - `extraResource` 中的 bundled plugins 是否正确加载。
 - ASAR 包内资源路径是否可访问。
