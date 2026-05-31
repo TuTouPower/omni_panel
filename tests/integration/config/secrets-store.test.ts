@@ -81,4 +81,47 @@ describe("secrets-store", () => {
         await store.set("token", "my-secret-token");
         expect(encryptCalls).toEqual(["my-secret-token"]);
     });
+
+    it("exportAll returns all secrets decrypted", async () => {
+        const store = createSecretsStore(join(tempDir, "secrets.json"), testCrypto);
+        await store.set("key1", "val1");
+        await store.set("key2", "val2");
+
+        const exported = await store.exportAll();
+        expect(exported).toEqual({ key1: "val1", key2: "val2" });
+    });
+
+    it("exportAll returns empty object when no secrets", async () => {
+        const store = createSecretsStore(join(tempDir, "secrets.json"), testCrypto);
+        expect(await store.exportAll()).toEqual({});
+    });
+
+    it("importAll replaces all secrets with encrypted values", async () => {
+        const filePath = join(tempDir, "secrets.json");
+        const store = createSecretsStore(filePath, testCrypto);
+        await store.set("old-key", "old-val");
+
+        await store.importAll({ newKey1: "newVal1", newKey2: "newVal2" });
+
+        expect(await store.get("old-key")).toBeNull();
+        expect(await store.get("newKey1")).toBe("newVal1");
+        expect(await store.get("newKey2")).toBe("newVal2");
+
+        const diskContent = await readFile(filePath, "utf8");
+        expect(diskContent).not.toContain("newVal1");
+    });
+
+    it("exportAll → importAll roundtrip preserves data", async () => {
+        const store = createSecretsStore(join(tempDir, "secrets.json"), testCrypto);
+        await store.set("a:b", "secret-a");
+        await store.set("c:d", "secret-b");
+
+        const exported = await store.exportAll();
+
+        const store2 = createSecretsStore(join(tempDir, "secrets2.json"), testCrypto);
+        await store2.importAll(exported);
+
+        expect(await store2.get("a:b")).toBe("secret-a");
+        expect(await store2.get("c:d")).toBe("secret-b");
+    });
 });

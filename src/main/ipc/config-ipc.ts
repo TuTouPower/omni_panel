@@ -1,5 +1,6 @@
+import { readFile, writeFile } from "node:fs/promises";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
-import type { ConfigSaveSecretsPayload } from "../../shared/types/ipc";
+import type { ConfigSaveSecretsPayload, ConfigExportData } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
@@ -182,6 +183,81 @@ export async function handleConfigDuplicate(
     }
 }
 
+export async function handleConfigExport(
+    deps: ConfigIpcDeps,
+): Promise<IpcResult<{ saved: boolean }>> {
+    try {
+        const { dialog, app } = await import("electron");
+        const config = await deps.configStore.load();
+        const secrets = await deps.secretsStore.exportAll();
+
+        const data: ConfigExportData = {
+            formatVersion: 1,
+            exportedAt: new Date().toISOString(),
+            appVersion: app.getVersion(),
+            config,
+            secrets,
+        };
+
+        const { filePath, canceled } = await dialog.showSaveDialog({
+            title: "导出设置",
+            defaultPath: `omni-usage-settings-${new Date().toISOString().slice(0, 10)}.json`,
+            filters: [{ name: "JSON", extensions: ["json"] }],
+        });
+
+        if (canceled || !filePath) return ok({ saved: false });
+
+        await writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
+        return ok({ saved: true });
+    } catch {
+        return fail("INTERNAL_ERROR", "导出设置失败");
+    }
+}
+
+export async function handleConfigImport(
+    deps: ConfigIpcDeps,
+): Promise<IpcResult<{ imported: boolean }>> {
+    try {
+        const { dialog } = await import("electron");
+
+        const { filePaths, canceled } = await dialog.showOpenDialog({
+            title: "导入设置",
+            filters: [{ name: "JSON", extensions: ["json"] }],
+            properties: ["openFile"],
+        });
+
+        if (canceled || filePaths.length === 0) return ok({ imported: false });
+
+        const raw: unknown = JSON.parse(await readFile(filePaths[0], "utf8"));
+        if (!raw || typeof raw !== "object") {
+            return fail("VALIDATION_ERROR", "导入文件格式无效");
+        }
+
+        const obj = raw as Record<string, unknown>;
+        if (obj.formatVersion !== 1) {
+            return fail("VALIDATION_ERROR", "不支持的导入文件版本");
+        }
+        if (!obj.config || typeof obj.config !== "object") {
+            return fail("VALIDATION_ERROR", "导入文件缺少配置数据");
+        }
+
+        const parsed = appConfigurationSchema.safeParse(obj.config);
+        if (!parsed.success) return fail("VALIDATION_ERROR", "导入的配置格式无效");
+
+        const secrets =
+            obj.secrets && typeof obj.secrets === "object"
+                ? (obj.secrets as Record<string, string>)
+                : {};
+
+        await deps.configStore.save(parsed.data as AppConfiguration);
+        await deps.secretsStore.importAll(secrets);
+        deps.onConfigSaved?.(parsed.data as AppConfiguration);
+        return ok({ imported: true });
+    } catch {
+        return fail("INTERNAL_ERROR", "导入设置失败");
+    }
+}
+
 export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     const { ipcMain } = await import("electron");
     const log = createLogger("ipc:config");
@@ -229,5 +305,11 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
             log.info(`Duplicating plugin ${instanceId}`);
             return handleConfigDuplicate(deps, instanceId);
         }),
+    );
+    ipcMain.handle(IPC_CHANNELS.CONFIG_EXPORT, () =>
+        logged(IPC_CHANNELS.CONFIG_EXPORT, () => handleConfigExport(deps)),
+    );
+    ipcMain.handle(IPC_CHANNELS.CONFIG_IMPORT, () =>
+        logged(IPC_CHANNELS.CONFIG_IMPORT, () => handleConfigImport(deps)),
     );
 }

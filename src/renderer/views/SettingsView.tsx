@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useConfig } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
+import { SettingsForm } from "../components/SettingsForm";
 import { Icon, VendorMark } from "../components/Icon";
+import type { PluginInfo } from "../../shared/types/ipc";
+import type { PluginConfiguration } from "../../shared/types/config";
 
 /* ── types ── */
 interface DialogState {
@@ -23,7 +26,15 @@ const NAV_ITEMS = [
 const ACCENTS = ["#3d7afd", "#6f5cf6", "#0ea5a3", "#f5772f", "#e23744"];
 
 /* ── helpers ── */
-function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
+function Toggle({
+    on,
+    onClick,
+    disabled,
+}: {
+    on: boolean;
+    onClick: () => void;
+    disabled?: boolean;
+}) {
     return (
         <button
             className="sw"
@@ -67,7 +78,13 @@ function Select({
     options: string[];
 }) {
     return (
-        <select className="set-select" value={value} onChange={(e) => { onChange(e.target.value); }}>
+        <select
+            className="set-select"
+            value={value}
+            onChange={(e) => {
+                onChange(e.target.value);
+            }}
+        >
             {options.map((o) => (
                 <option key={o} value={o}>
                     {o}
@@ -80,31 +97,50 @@ function Select({
 /* ── Add / Edit Account Dialog ── */
 function AccountDialog({
     mode,
+    instanceId,
     pluginName,
+    pluginInfo,
+    pluginConfig,
+    hasSecrets,
+    onSave,
     onClose,
 }: {
     mode: "add" | "edit";
     instanceId: string | undefined;
     pluginName: string | undefined;
+    pluginInfo: PluginInfo | undefined;
+    pluginConfig: PluginConfiguration | undefined;
+    hasSecrets: Record<string, boolean> | undefined;
+    onSave: (
+        instanceId: string,
+        nonSecrets: Record<string, string>,
+        secrets: Record<string, string>,
+        endpointOverrides: Record<string, string>,
+        refreshIntervalSeconds: number,
+    ) => Promise<void>;
     onClose: () => void;
 }) {
     const isEdit = mode === "edit";
-    const [name, setName] = useState(pluginName ?? "");
-    const [showKey, setShowKey] = useState(false);
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();
         };
         window.addEventListener("keydown", h);
-        return () => { window.removeEventListener("keydown", h); };
+        return () => {
+            window.removeEventListener("keydown", h);
+        };
     }, [onClose]);
-
-    const canSave = name.trim().length > 0;
 
     return (
         <div className="acct-dialog-scrim" onMouseDown={onClose}>
-            <div className="acct-dialog" onMouseDown={(e) => { e.stopPropagation(); }} role="dialog">
+            <div
+                className="acct-dialog"
+                onMouseDown={(e) => {
+                    e.stopPropagation();
+                }}
+                role="dialog"
+            >
                 <div className="ad-head">
                     <span className="ad-mark">
                         <VendorMark id="overview" size={24} />
@@ -122,87 +158,24 @@ function AccountDialog({
                 </div>
 
                 <div className="ad-body">
-                    <div className="ad-field">
-                        <label className="ad-label">账号名称</label>
-                        <input
-                            className="ad-input"
-                            value={name}
-                            autoFocus
-                            onChange={(e) => { setName(e.target.value); }}
-                            placeholder="例如：工作账号"
+                    {instanceId && pluginInfo && pluginConfig ? (
+                        <SettingsForm
+                            instanceId={instanceId}
+                            name={pluginName ?? pluginInfo.displayName}
+                            parameters={pluginInfo.metadata?.parameters ?? []}
+                            values={pluginConfig.parameterValues ?? {}}
+                            hasSecrets={hasSecrets ?? {}}
+                            endpoints={pluginInfo.metadata?.endpoints ?? {}}
+                            endpointValues={pluginConfig.endpointOverrides ?? {}}
+                            refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds ?? 300}
+                            onSave={async (...args) => {
+                                await onSave(...args);
+                                onClose();
+                            }}
                         />
-                    </div>
-
-                    <div className="ad-field">
-                        <label className="ad-label">API 密钥</label>
-                        <div className="ad-key">
-                            <input
-                                className="ad-input mono"
-                                type={showKey ? "text" : "password"}
-                                placeholder="sk-..."
-                            />
-                            <button
-                                className="ad-eye"
-                                onClick={() => { setShowKey((v) => !v); }}
-                                title={showKey ? "隐藏" : "显示"}
-                                type="button"
-                            >
-                                <Icon name={showKey ? "eye_off" : "eye"} size={16} />
-                            </button>
-                        </div>
-                        <div className="ad-hint">
-                            <Icon name="lock" size={12} strokeWidth={1.8} />
-                            密钥仅加密保存在本地，用于读取用量数据
-                        </div>
-                    </div>
-
-                    <div className="ad-field">
-                        <label className="ad-label">
-                            刷新频率
-                        </label>
-                        <select className="ad-select" defaultValue="跟随全局设置">
-                            {["跟随全局设置", "1 分钟", "5 分钟", "15 分钟", "30 分钟", "仅手动"].map(
-                                (o) => (
-                                    <option key={o} value={o}>
-                                        {o}
-                                    </option>
-                                ),
-                            )}
-                        </select>
-                        <div className="ad-hint">
-                            <Icon name="clock" size={12} strokeWidth={1.8} />
-                            单独设置该账号的后台轮询间隔，覆盖全局设置
-                        </div>
-                    </div>
-
-                    <div className="ad-field">
-                        <label className="ad-label">
-                            接口地址<span className="ad-opt">可选</span>
-                        </label>
-                        <input
-                            className="ad-input mono"
-                            placeholder="默认（官方接口）"
-                        />
-                    </div>
-                </div>
-
-                <div className="ad-foot">
-                    <button className="ad-test" type="button">
-                        <Icon name="refresh" size={14} strokeWidth={1.9} />
-                        测试连接
-                    </button>
-                    <div className="ad-foot-r">
-                        <button className="ad-btn ghost" onClick={onClose} type="button">
-                            取消
-                        </button>
-                        <button
-                            className={`ad-btn primary${canSave ? "" : " disabled"}`}
-                            onClick={canSave ? onClose : undefined}
-                            type="button"
-                        >
-                            {isEdit ? "保存" : "添加账号"}
-                        </button>
-                    </div>
+                    ) : (
+                        <div className="text-sm text-[var(--text-3)]">暂不支持在此添加新账号</div>
+                    )}
                 </div>
             </div>
         </div>
@@ -212,7 +185,8 @@ function AccountDialog({
 /* ── Main View ── */
 export function SettingsView() {
     useTheme();
-    const { config, loading, error, save } = useConfig();
+    const { config, hasSecrets, loading, error, save, saveSecrets } = useConfig();
+    const [pluginInfos, setPluginInfos] = useState<PluginInfo[]>([]);
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);
 
@@ -231,10 +205,81 @@ export function SettingsView() {
         notifyWay: "系统通知",
     });
     const [accent, setAccent] = useState("#3d7afd");
+    const [dataMsg, setDataMsg] = useState<string | null>(null);
 
     const up = useCallback((k: string, v: unknown) => {
         setLocalState((p) => ({ ...p, [k]: v }));
     }, []);
+
+    const handleExport = useCallback(async () => {
+        try {
+            const { saved } = await window.usageboard.config.export();
+            setDataMsg(saved ? "设置已导出" : null);
+        } catch {
+            setDataMsg("导出失败");
+        }
+        setTimeout(() => {
+            setDataMsg(null);
+        }, 2000);
+    }, []);
+
+    const handleImport = useCallback(async () => {
+        if (!window.confirm("导入将覆盖当前所有设置，确定继续？")) return;
+        try {
+            const { imported } = await window.usageboard.config.import();
+            if (imported) {
+                setDataMsg("导入成功，正在刷新...");
+                window.location.reload();
+            } else {
+                setDataMsg(null);
+            }
+        } catch {
+            setDataMsg("导入失败");
+            setTimeout(() => {
+                setDataMsg(null);
+            }, 2000);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!config) return;
+        let cancelled = false;
+        void window.usageboard.plugin.list().then((plugins) => {
+            if (!cancelled) setPluginInfos(plugins);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [config]);
+
+    const savePluginSettings = useCallback(
+        async (
+            instanceId: string,
+            nonSecrets: Record<string, string>,
+            secrets: Record<string, string>,
+            endpointOverrides: Record<string, string>,
+            refreshIntervalSeconds: number,
+        ) => {
+            if (!config) return;
+            if (Object.keys(secrets).length > 0) {
+                await saveSecrets(instanceId, secrets);
+            }
+            await save({
+                ...config,
+                plugins: config.plugins.map((plugin) =>
+                    plugin.instanceId === instanceId
+                        ? {
+                              ...plugin,
+                              parameterValues: nonSecrets,
+                              endpointOverrides,
+                              refreshIntervalSeconds,
+                          }
+                        : plugin,
+                ),
+            });
+        },
+        [config, save, saveSecrets],
+    );
 
     const goBack = () => {
         window.location.hash = "#popup";
@@ -282,7 +327,9 @@ export function SettingsView() {
                             <button
                                 key={n.id}
                                 className={`set-nav-item${section === n.id ? " on" : ""}`}
-                                onClick={() => { setSection(n.id); }}
+                                onClick={() => {
+                                    setSection(n.id);
+                                }}
                                 data-testid={`settings-plugin-nav-${n.id}`}
                                 type="button"
                             >
@@ -300,21 +347,23 @@ export function SettingsView() {
                         {section === "general" && (
                             <>
                                 <div className="set-group-label">启动</div>
-                                <SetRow
-                                    title="开机时自动启动"
-                                    sub="登录系统后在后台运行并驻留托盘"
-                                >
+                                <SetRow title="开机时自动启动" sub="登录系统后在后台运行并驻留托盘">
                                     <Toggle
                                         on={config.launchAtLogin}
                                         onClick={() => {
-                                            void save({ ...config, launchAtLogin: !config.launchAtLogin });
+                                            void save({
+                                                ...config,
+                                                launchAtLogin: !config.launchAtLogin,
+                                            });
                                         }}
                                     />
                                 </SetRow>
                                 <SetRow title="启动后最小化到托盘">
                                     <Toggle
                                         on={localState.minToTray}
-                                        onClick={() => { up("minToTray", !localState.minToTray); }}
+                                        onClick={() => {
+                                            up("minToTray", !localState.minToTray);
+                                        }}
                                     />
                                 </SetRow>
 
@@ -322,7 +371,9 @@ export function SettingsView() {
                                 <SetRow title="自动刷新间隔" sub="后台轮询各服务用量的频率">
                                     <Select
                                         value={localState.interval}
-                                        onChange={(v) => { up("interval", v); }}
+                                        onChange={(v) => {
+                                            up("interval", v);
+                                        }}
                                         options={[
                                             "1 分钟",
                                             "5 分钟",
@@ -335,7 +386,9 @@ export function SettingsView() {
                                 <SetRow title="暂停自动刷新" sub="临时停止后台轮询">
                                     <Toggle
                                         on={localState.pauseRefresh}
-                                        onClick={() => { up("pauseRefresh", !localState.pauseRefresh); }}
+                                        onClick={() => {
+                                            up("pauseRefresh", !localState.pauseRefresh);
+                                        }}
                                     />
                                 </SetRow>
 
@@ -343,20 +396,26 @@ export function SettingsView() {
                                 <SetRow title="窗口始终置顶">
                                     <Toggle
                                         on={localState.pin}
-                                        onClick={() => { up("pin", !localState.pin); }}
+                                        onClick={() => {
+                                            up("pin", !localState.pin);
+                                        }}
                                     />
                                 </SetRow>
                                 <SetRow title="点击托盘图标">
                                     <Select
                                         value={localState.trayClick}
-                                        onChange={(v) => { up("trayClick", v); }}
+                                        onChange={(v) => {
+                                            up("trayClick", v);
+                                        }}
                                         options={["打开主面板", "打开菜单"]}
                                     />
                                 </SetRow>
                                 <SetRow title="界面语言">
                                     <Select
                                         value={localState.lang}
-                                        onChange={(v) => { up("lang", v); }}
+                                        onChange={(v) => {
+                                            up("lang", v);
+                                        }}
                                         options={["简体中文", "English", "跟随系统"]}
                                     />
                                 </SetRow>
@@ -388,13 +447,13 @@ export function SettingsView() {
                                                     <button
                                                         className="agh-add"
                                                         title={`添加 ${p.name} 账号`}
-                                                        onClick={() =>
-                                                            { setDialog({
+                                                        onClick={() => {
+                                                            setDialog({
                                                                 mode: "add",
                                                                 instanceId: undefined,
                                                                 pluginName: p.name,
-                                                            }); }
-                                                        }
+                                                            });
+                                                        }}
                                                         type="button"
                                                     >
                                                         <Icon
@@ -408,16 +467,13 @@ export function SettingsView() {
                                                         onClick={() => {
                                                             void save({
                                                                 ...config,
-                                                                plugins: config.plugins.map(
-                                                                    (pl) =>
-                                                                        pl.instanceId ===
-                                                                        p.instanceId
-                                                                            ? {
-                                                                                  ...pl,
-                                                                                  enabled:
-                                                                                      !pl.enabled,
-                                                                              }
-                                                                            : pl,
+                                                                plugins: config.plugins.map((pl) =>
+                                                                    pl.instanceId === p.instanceId
+                                                                        ? {
+                                                                              ...pl,
+                                                                              enabled: !pl.enabled,
+                                                                          }
+                                                                        : pl,
                                                                 ),
                                                             });
                                                         }}
@@ -438,13 +494,13 @@ export function SettingsView() {
                                                             <button
                                                                 className="icon-btn ar-ic"
                                                                 title="编辑"
-                                                                onClick={() =>
-                                                                    { setDialog({
+                                                                onClick={() => {
+                                                                    setDialog({
                                                                         mode: "edit",
                                                                         instanceId: p.instanceId,
                                                                         pluginName: p.name,
-                                                                    }); }
-                                                                }
+                                                                    });
+                                                                }}
                                                                 type="button"
                                                             >
                                                                 <Icon name="edit" size={15} />
@@ -502,14 +558,16 @@ export function SettingsView() {
                                             <button
                                                 key={k}
                                                 className={
-                                                    (k === "system"
-                                                        ? themeMode ===
-                                                          (window.matchMedia(
-                                                              "(prefers-color-scheme: dark)",
-                                                          ).matches
-                                                              ? "dark"
-                                                              : "light")
-                                                        : themeMode === k)
+                                                    (
+                                                        k === "system"
+                                                            ? themeMode ===
+                                                              (window.matchMedia(
+                                                                  "(prefers-color-scheme: dark)",
+                                                              ).matches
+                                                                  ? "dark"
+                                                                  : "light")
+                                                            : themeMode === k
+                                                    )
                                                         ? "on"
                                                         : ""
                                                 }
@@ -543,7 +601,9 @@ export function SettingsView() {
                                                 key={c}
                                                 className={`accent-sw${accent === c ? " on" : ""}`}
                                                 style={{ background: c, color: c }}
-                                                onClick={() => { setAccent(c); }}
+                                                onClick={() => {
+                                                    setAccent(c);
+                                                }}
                                                 type="button"
                                             />
                                         ))}
@@ -590,26 +650,34 @@ export function SettingsView() {
                                 <SetRow title="接近限制时提醒" sub="任一周期用量达到 80% 时">
                                     <Toggle
                                         on={localState.notifyNear}
-                                        onClick={() => { up("notifyNear", !localState.notifyNear); }}
+                                        onClick={() => {
+                                            up("notifyNear", !localState.notifyNear);
+                                        }}
                                     />
                                 </SetRow>
                                 <SetRow title="达到限制时提醒" sub="任一周期用量达到 100% 时">
                                     <Toggle
                                         on={localState.notifyLimit}
-                                        onClick={() => { up("notifyLimit", !localState.notifyLimit); }}
+                                        onClick={() => {
+                                            up("notifyLimit", !localState.notifyLimit);
+                                        }}
                                     />
                                 </SetRow>
                                 <SetRow title="刷新失败时提醒" sub="连续刷新失败或凭证失效时">
                                     <Toggle
                                         on={localState.notifyFail}
-                                        onClick={() => { up("notifyFail", !localState.notifyFail); }}
+                                        onClick={() => {
+                                            up("notifyFail", !localState.notifyFail);
+                                        }}
                                     />
                                 </SetRow>
                                 <div className="set-group-label">方式</div>
                                 <SetRow title="提醒方式">
                                     <Select
                                         value={localState.notifyWay}
-                                        onChange={(v) => { up("notifyWay", v); }}
+                                        onChange={(v) => {
+                                            up("notifyWay", v);
+                                        }}
                                         options={["系统通知", "托盘图标角标", "仅应用内", "关闭"]}
                                     />
                                 </SetRow>
@@ -626,14 +694,10 @@ export function SettingsView() {
                                 >
                                     <Select
                                         value={localState.cacheMax}
-                                        onChange={(v) => { up("cacheMax", v); }}
-                                        options={[
-                                            "50 MB",
-                                            "100 MB",
-                                            "200 MB",
-                                            "500 MB",
-                                            "不限制",
-                                        ]}
+                                        onChange={(v) => {
+                                            up("cacheMax", v);
+                                        }}
+                                        options={["50 MB", "100 MB", "200 MB", "500 MB", "不限制"]}
                                     />
                                 </SetRow>
                                 <SetRow title="本地用量缓存" sub="历史趋势数据 · 占用 4.2 MB">
@@ -646,6 +710,30 @@ export function SettingsView() {
                                     </button>
                                 </SetRow>
                                 <div className="set-group-label">数据</div>
+                                <SetRow title="导出设置" sub="导出全部配置与账号密钥到 JSON 文件">
+                                    <button
+                                        className="set-select"
+                                        style={{ background: "var(--field-bg)" }}
+                                        type="button"
+                                        onClick={() => {
+                                            void handleExport();
+                                        }}
+                                    >
+                                        {dataMsg === "设置已导出" ? "已导出" : "导出"}
+                                    </button>
+                                </SetRow>
+                                <SetRow title="导入设置" sub="从 JSON 文件恢复配置与账号密钥">
+                                    <button
+                                        className="set-select"
+                                        style={{ background: "var(--field-bg)" }}
+                                        type="button"
+                                        onClick={() => {
+                                            void handleImport();
+                                        }}
+                                    >
+                                        {dataMsg === "导入失败" ? "失败" : "导入"}
+                                    </button>
+                                </SetRow>
                                 <SetRow title="导出用量数据" sub="导出为 CSV / JSON">
                                     <button
                                         className="set-select"
@@ -655,13 +743,13 @@ export function SettingsView() {
                                         导出
                                     </button>
                                 </SetRow>
-                                <SetRow title="匿名使用统计" sub="帮助改进 OmniUsage，不含任何用量内容">
-                                    <Toggle on={false} onClick={undefined} />
-                                </SetRow>
-                                <div
-                                    className="set-group-label"
-                                    style={{ color: "var(--red)" }}
+                                <SetRow
+                                    title="匿名使用统计"
+                                    sub="帮助改进 OmniUsage，不含任何用量内容"
                                 >
+                                    <Toggle on={false} disabled onClick={() => {}} />
+                                </SetRow>
+                                <div className="set-group-label" style={{ color: "var(--red)" }}>
                                     危险区域
                                 </div>
                                 <SetRow title="重置应用" sub="清除全部账号、设置与缓存">
@@ -734,7 +822,15 @@ export function SettingsView() {
                         mode={dialog.mode}
                         instanceId={dialog.instanceId ?? undefined}
                         pluginName={dialog.pluginName}
-                        onClose={() => { setDialog(null); }}
+                        pluginInfo={pluginInfos.find((p) => p.instanceId === dialog.instanceId)}
+                        pluginConfig={config.plugins.find(
+                            (p) => p.instanceId === dialog.instanceId,
+                        )}
+                        hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
+                        onSave={savePluginSettings}
+                        onClose={() => {
+                            setDialog(null);
+                        }}
                     />
                 )}
             </div>

@@ -18,8 +18,14 @@ export function setLogLevel(level: LogLevel): void {
     globalLevel = level;
 }
 
-export function addTransport(transport: LogTransport): void {
+export function addTransport(transport: LogTransport): () => void {
     transports.push(transport);
+    return () => {
+        const index = transports.indexOf(transport);
+        if (index >= 0) {
+            transports.splice(index, 1);
+        }
+    };
 }
 
 function formatTimestamp(): string {
@@ -30,10 +36,45 @@ function shouldLog(level: LogLevel): boolean {
     return LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[globalLevel];
 }
 
+const SENSITIVE_KEY = /authorization|password|passwd|secret|token|api[_-]?key|apikey|credential/i;
+
+function redact_message(message: string): string {
+    return message
+        .replace(
+            /\b(authorization|password|passwd|secret|token|api[_-]?key|apikey|credential)\s*[:=]\s*([^\s,;]+)/gi,
+            "$1=***",
+        )
+        .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer ***");
+}
+
+function redact_meta(meta: unknown): unknown {
+    if (meta === undefined || meta === null) return meta;
+    if (typeof meta === "string") return redact_message(meta);
+    if (typeof meta !== "object") return meta;
+    if (meta instanceof Error) {
+        const redacted = new Error(redact_message(meta.message));
+        if (meta.stack) {
+            redacted.stack = redact_message(meta.stack);
+        }
+        return redacted;
+    }
+    if (Array.isArray(meta)) return meta.map((item) => redact_meta(item));
+    if (Object.getPrototypeOf(meta) !== Object.prototype) return meta;
+
+    return Object.fromEntries(
+        Object.entries(meta as Record<string, unknown>).map(([key, value]) => [
+            key,
+            SENSITIVE_KEY.test(key) ? "***" : redact_meta(value),
+        ]),
+    );
+}
+
 function emit(level: LogLevel, module: string, message: string, meta?: unknown): void {
     if (!shouldLog(level)) return;
+    const safe_message = redact_message(message);
+    const safe_meta = redact_meta(meta);
     for (const t of transports) {
-        t.write(level, module, message, meta);
+        t.write(level, module, safe_message, safe_meta);
     }
 }
 

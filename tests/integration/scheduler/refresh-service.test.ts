@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createRefreshService } from "../../../src/main/core/scheduler/refresh-service";
+import { addTransport, setLogLevel } from "../../../src/shared/lib/logger";
 import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
 import type { AppConfiguration, PluginConfiguration } from "../../../src/main/core/config/types";
 
@@ -217,6 +218,80 @@ describe("refresh-service", () => {
             expect.objectContaining({ API_KEY: "real-secret" }),
             "zh-Hans",
         );
+    });
+
+    it("passes endpoint overrides to runner env", async () => {
+        const deps = createDeps({
+            configStore: {
+                load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    overviewDisplayMode: "tabs",
+                    plugins: [
+                        {
+                            ...mockConfig,
+                            endpointOverrides: { default: "https://cpa-manager.example" },
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+                save: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+                scheduleSave: vi.fn(),
+                flushPendingSave: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+                hasPendingSave: vi.fn<() => boolean>().mockReturnValue(false),
+            },
+            getMetadataEndpoints: vi.fn().mockReturnValue({ default: null }),
+        });
+        const service = createRefreshService(deps);
+
+        await service.refresh("state-1");
+
+        expect(deps.runner).toHaveBeenCalledWith(
+            expect.objectContaining({
+                env: expect.objectContaining({
+                    OMNI_PLUGIN_ENDPOINTS: JSON.stringify({
+                        default: "https://cpa-manager.example",
+                    }),
+                }),
+            }),
+            { timeoutMs: 15_000 },
+        );
+    });
+
+    it("logs refresh boundaries without leaking secret values", async () => {
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message) {
+                if (module === "refresh-service") {
+                    lines.push(`${level}:${message}`);
+                }
+            },
+        });
+        setLogLevel("debug");
+
+        const secretKeys = new Map<string, ReadonlySet<string>>([
+            ["state-1", new Set(["API_KEY"])],
+        ]);
+        const deps = createDeps({
+            secretParamKeys: secretKeys,
+        });
+        (deps.secretsStore.get as ReturnType<typeof vi.fn>).mockResolvedValue("real-secret");
+        const service = createRefreshService(deps);
+
+        try {
+            await service.refresh("state-1", { force: true });
+
+            const output = lines.join("\n");
+            expect(output).toContain("Refresh start: state-1 (force=true)");
+            expect(output).toContain("Config loaded for state-1: 1 plugins");
+            expect(output).toContain("Secret merge for state-1: found=API_KEY missing=none");
+            expect(output).toContain("Parsing plugin output for state-1");
+            expect(output).toContain("Saving cache for state-1");
+            expect(output).toContain("Runtime state ready for state-1");
+            expect(output).not.toContain("real-secret");
+        } finally {
+            remove_transport();
+        }
     });
 
     it("does not leak secrets when secretParamKeys is empty", async () => {

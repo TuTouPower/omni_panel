@@ -97,10 +97,36 @@ describe("SettingsForm", () => {
         });
         await user.click(screen.getByTestId("settings-save-btn-deepseek"));
         expect(onSave).toHaveBeenCalledTimes(1);
-        const [instanceId, nonSecrets, , interval] = onSave.mock.calls[0];
+        const call = onSave.mock.calls[0];
+        expect(call).toBeDefined();
+        const [instanceId, nonSecrets, , , interval] = call!;
         expect(instanceId).toBe("deepseek");
         expect(nonSecrets).toHaveProperty("endpoint");
         expect(interval).toBeGreaterThanOrEqual(60);
+    });
+
+    it("submits endpoint overrides separately from parameter values", async () => {
+        const onSave = vi.fn().mockResolvedValue(undefined);
+        const user = userEvent.setup();
+        renderForm({
+            onSave,
+            parameters: [],
+            values: {},
+            hasSecrets: {},
+            endpoints: { default: null },
+            endpointValues: { default: "https://old.example" },
+        });
+
+        const endpoint = screen.getByLabelText("接口地址");
+        await user.clear(endpoint);
+        await user.type(endpoint, "https://new.example ");
+        await user.click(screen.getByTestId("settings-save-btn-deepseek"));
+
+        const call = onSave.mock.calls[0];
+        expect(call).toBeDefined();
+        const [, nonSecrets, , endpointOverrides] = call!;
+        expect(nonSecrets).not.toHaveProperty("default");
+        expect(endpointOverrides).toEqual({ default: "https://new.example" });
     });
 
     it("shows saving text while save is pending", async () => {
@@ -159,8 +185,9 @@ describe("SettingsForm", () => {
             hasSecrets: { API_KEY: true },
         });
         await user.click(screen.getByTestId("settings-save-btn-deepseek"));
-        const [, , secrets] = onSave.mock.calls[0];
-        // secret with placeholder "***" should not be included
+        const call = onSave.mock.calls[0];
+        expect(call).toBeDefined();
+        const [, , secrets] = call!;
         expect(secrets).not.toHaveProperty("API_KEY");
     });
 });

@@ -860,12 +860,17 @@ Packaged 模式不变（使用 `process.resourcesPath`）。
 
 ---
 
-## Phase 17: 添加 CPA 插件 — 通过 CPA-Manager 获取 Claude/Codex/Gemini 额度数据 ❌
+---
+
+## Phase 17: 添加 CPA 插件 — 通过 CPA-Manager 获取多平台 AI 服务额度数据 ✅
 
 ### 背景
 
 `ai_monitor` 项目已实现 CPA（Claude Platform API）额度采集，通过 CPA-Manager 代理服务统一管理 OAuth token。
 本项目需将其移植为 omni_usage 的标准插件（Python 子进程 + JSON 协议），复用现有插件调度/缓存/UI 基础设施。
+
+支持的 provider：Claude、Codex、Gemini CLI、Antigravity、Kimi。
+（Vertex AI 未实现配额获取，暂不支持。）
 
 参考文档：`docs/cpa-quota-guide.md`
 
@@ -884,14 +889,14 @@ CPA-Manager (http://<your-host>:20224)
     │
     │  用存储的 OAuth token 代发
     ▼
-上游 API (Anthropic / OpenAI / Google)
+上游 API (Anthropic / OpenAI / Google / Moonshot)
 ```
 
 ### 实现步骤
 
 #### 17.1: 编写 `resources/plugins/cpa-usage-plugin.py`
 
-- [ ] 输出 `_METADATA` 注释块，声明插件元数据：
+- [x] 输出 `_METADATA` 注释块，声明插件元数据：
     - `name`: `"CPA"`
     - `refreshInterval`: `1800`（30 分钟）
     - `parameters`:
@@ -900,95 +905,93 @@ CPA-Manager (http://<your-host>:20224)
         - `monitor_codex` (boolean, 默认 `true`)
         - `monitor_claude` (boolean, 默认 `true`)
         - `monitor_gemini` (boolean, 默认 `true`)
-- [ ] `--usageboard-param` 支持运行时传入覆盖默认值
-- [ ] 依赖：`httpx`（`pip install httpx`），Python 3.8+ 兼容
-- [ ] 核心逻辑：
+        - `monitor_antigravity` (boolean, 默认 `true`)
+        - `monitor_kimi` (boolean, 默认 `true`)
+- [x] `--usageboard-param` 支持运行时传入覆盖默认值
+- [x] 依赖：`httpx`（`pip install httpx`），Python 3.8+ 兼容
+- [x] 核心逻辑：
     1. 调用 `GET /v0/management/auth-files` 获取 auth 文件列表
-    2. 按 provider 分发：`claude` / `codex` / `gemini-cli`
+    2. 按 provider 分发：`claude` / `codex` / `gemini-cli` / `antigravity` / `kimi`
     3. 跳过 `disabled` 的 auth 文件
     4. 每个 auth 文件通过 `POST /v0/management/api-call` 代理请求上游
-    5. 解析三个 provider 的不同响应格式
+    5. 解析五个 provider 的不同响应格式
     6. 输出标准 `PluginOutput` JSON
-- [ ] 输出 items 格式（每个账号每个周期一个 item）：
-    ```json
-    {
-        "id": "claude:user@example.com:5小时",
-        "label": "Claude (user@example.com)",
-        "meter": {
-            "unit": "percent",
-            "used": 45.2,
-            "limit": 100,
-            "resetAt": "2026-05-27T03:00:00Z"
-        }
-    }
-    ```
-- [ ] 错误处理：单个账号失败不阻塞其他，失败项输出 warning，全部失败输出 error JSON
-- [ ] 启动时打印 `_PLUGIN_READY` 和 `_PLUGIN_DONE`
+- [x] 输出 items 格式（每个账号每个周期一个 item）
+- [x] 错误处理：单个账号失败不阻塞其他，失败项输出 warning，全部失败输出 error JSON
 
-#### 17.2: 实现三个 provider 的响应解析
+#### 17.2: 实现五个 provider 的响应解析
 
-- [ ] **Claude**: `GET https://api.anthropic.com/api/oauth/usage`
+- [x] **Claude**: `GET https://api.anthropic.com/api/oauth/usage`
     - Header: `Authorization: Bearer $TOKEN$`, `anthropic-beta: oauth-2025-04-20`
     - 响应字段：`five_hour.utilization`（0~1），`seven_day.utilization`
     - 时间字段：`resets_at` (ISO 8601)
-- [ ] **Codex**: `GET https://chatgpt.com/backend-api/wham/usage`
+- [x] **Codex**: `GET https://chatgpt.com/backend-api/wham/usage`
     - Header: `Authorization: Bearer $TOKEN$`, `User-Agent: codex_cli_rs/...`
     - 响应字段：`rate_limit.primary_window.used_percent`，`secondary_window`
     - 时间字段：`reset_at` (Unix 秒/ms)
-- [ ] **Gemini**: 两步 POST
+- [x] **Gemini**: 两步 POST
     - Step 1: `loadCodeAssist` → 获取 `cloudaicompanionProject`
     - Step 2: `retrieveUserQuota` → 获取 `buckets[].remainingFraction`
+- [x] **Antigravity**: `POST .../v1internal:fetchAvailableModels`（三 URL 回退）
+    - Header: `Authorization: Bearer $TOKEN$`, `User-Agent: antigravity/1.11.5 windows/amd64`
+    - Body: `{"project": "{project_id}"}` 或 `{}`
+    - 响应：`models.{modelId}.quotaInfo.remainingFraction`（0~1），`quotaInfo.resetTime` (ISO)
+    - 每个模型独立配额，一个账号输出多条 item
+- [x] **Kimi**: `GET https://api.kimi.com/coding/v1/usages`
+    - Header: `Authorization: Bearer $TOKEN$`
+    - 响应：`limits[]` 数组，每项含 `used`、`limit`、`reset_at` (ISO)、`duration`、`timeUnit`
+    - `used_percent = (used / limit) * 100`
 
 #### 17.3: 集成到插件系统
 
-- [ ] 确认 `discoverPlugins()` 能发现 `resources/plugins/cpa-usage-plugin.py`
-- [ ] 首次启动自动创建 CPA 插件实例（Phase 14.1 机制复用）
-- [ ] 参数表单：Settings 中显示 CPA 管理地址、密钥、三个 provider 开关
-- [ ] 密钥回注：`cpa_mgmt_key` 为 secret 类型，执行前自动注入
+- [x] 确认 `discoverPlugins()` 能发现 `resources/plugins/cpa-usage-plugin.py`
+- [x] 首次启动自动创建 CPA 插件实例（auto-seed 机制复用）
+- [x] 参数表单：Settings 中显示 CPA 管理地址、密钥、五个 provider 开关
+- [x] 密钥回注：`cpa_mgmt_key` 为 secret 类型，执行前自动注入
 
 #### 17.4: UI 适配
 
-- [ ] 插件卡片支持多 item 显示（每个账号每个周期一个进度条）
-- [ ] 标签显示 provider 名 + 邮箱 + 周期（如 "Claude (user@ex.com) · 5小时"）
-- [ ] 如果复用现有 PluginCard 即可满足则无需修改 UI
+- [x] 插件卡片支持多 item 显示（每个账号每个周期一个进度条）
+- [x] 标签显示 provider 名 + 邮箱 + 周期（如 "Claude (user@ex.com) · 5小时"）
+- [x] 如果复用现有 PluginCard 即可满足则无需修改 UI
 
 #### 17.5: 测试
 
-- [ ] **单元测试**：
-    - `cpa_parse_claude_quota()` — 正常响应、空响应、HTTP 错误
-    - `cpa_parse_codex_quota()` — primary_window / secondary_window 解析
-    - `cpa_parse_gemini_quota()` — 两步请求、bucket 解析
-    - auth 文件过滤（disabled 跳过、provider 分发）
-- [ ] **集成测试**：
-    - mock CPA-Manager 响应，验证完整 JSON 输出
-    - 单个 provider 失败不影响其他
-    - 全部失败输出 error 格式
-- [ ] **E2E 测试**：
-    - Settings 中 CPA 参数表单可填写
-    - 保存后触发刷新，Dashboard 显示 CPA 数据
-    - 刷新间隔配置生效
+- [x] **单元测试**：
+    - `parse_claude()` — 正常响应、空响应、fractional utilization
+    - `parse_codex()` — primary_window / secondary_window 解析
+    - `parse_gemini_buckets()` — bucket 解析
+    - `parse_antigravity_models()` — 多模型 quotaInfo 解析
+    - `parse_kimi()` — limits 数组解析
+    - `extract_email()` — 邮箱提取
+- [x] **集成测试**：
+    - 缺少 httpx → error JSON
+    - 缺少 cpa_mgmt_key → error JSON
+    - CPA-Manager 不可达 → error JSON
 
 #### 17.6: 文档更新
 
-- [ ] `docs/plugin-contract.md` 补充 CPA 插件说明
-- [ ] `README.md` 补充 CPA 功能说明和配置方法
+- [x] `docs/plugin-contract.md` 补充 CPA 插件说明
+- [x] `docs/spec.md` 内置插件表添加 CPA 行
 
-### 修改文件（预计）
+### 修改文件（实际）
 
-| 文件                                       | 变更                                    |
-| ------------------------------------------ | --------------------------------------- |
-| `resources/plugins/cpa-usage-plugin.py`    | **新建** — CPA 插件脚本                 |
-| `src/main/index.ts`                        | 首次启动自动创建 CPA 插件实例（如需要） |
-| `tests/unit/plugin/cpa-plugin.test.ts`     | **新建** — CPA 解析逻辑单元测试         |
-| `tests/integration/cpa/cpa-plugin.test.ts` | **新建** — CPA 插件集成测试             |
-| `docs/plugin-contract.md`                  | 补充 CPA 插件说明                       |
+| 文件                                           | 变更                               |
+| ---------------------------------------------- | ---------------------------------- |
+| `resources/plugins/cpa-usage-plugin.py`        | **新建** — CPA 插件脚本            |
+| `tests/unit/plugin/cpa_parsers_test.py`        | **新建** — Python 解析函数单元测试 |
+| `tests/unit/plugin/cpa-parsers-vitest.test.ts` | **新建** — Vitest 包装器           |
+| `tests/integration/plugin/cpa-plugin.test.ts`  | **新建** — CPA 插件集成测试        |
+| `tests/unit/plugin/bundled-metadata.test.ts`   | 更新插件数量 6→7 + 添加 CPA 条目   |
+| `docs/plugin-contract.md`                      | 补充 CPA 插件说明                  |
+| `docs/spec.md`                                 | 内置插件表添加 CPA 行              |
 
 ### 验证
 
 1. `pnpm check` 全部通过
 2. `pnpm test` 全部通过（含新增 CPA 测试）
 3. 打包后 Settings 显示 CPA 插件参数表单
-4. 填入 CPA-Manager 密钥后触发刷新，Dashboard 显示 Claude/Codex/Gemini 额度数据
+4. 填入 CPA-Manager 密钥后触发刷新，Popup 显示 Claude/Codex/Gemini/Antigravity/Kimi 额度数据
 5. 单个 provider 无数据时不阻塞其他 provider 的展示
 
 ### 注意事项
@@ -997,5 +1000,100 @@ CPA-Manager (http://<your-host>:20224)
 - CPA-Manager 地址和密钥作为插件参数（而非硬编码），方便用户自建 CPA-Manager
 - `httpx` 依赖需在插件脚本中检测，不可用时输出友好错误
 - 代理请求中 header 的 `$TOKEN$` 是占位符，CPA-Manager 会自动替换为真实 token
+- Antigravity 有三个回退 URL，按优先级尝试；`project` 需先通过 `loadCodeAssist` 获取
+- Kimi OAuth token 由 CPA-Manager 自动刷新，客户端无需处理
+- Vertex AI 暂不支持（配额系统走 Google Cloud Service Usage API）
 
 ---
+
+## Phase 18: 补齐测试覆盖与真实验收缺口 ✅
+
+> 已完成。执行入口:`docs/superpowers/plans/2026-05-30-test-coverage-improvement.md`(8 个 Task 全部交付)。
+> 覆盖现状见 `docs/test-coverage-matrix.md`。
+> 关键提交:`b84e8e7` 覆盖率门禁、`108fa79` playwright 多 project + coverage 脚本、`9c14faf` 真实 API 契约、`d3882d5` 插件测试稳定性修复。
+>
+> 剩余可选项(未做):nightly-contract GitHub Actions(`.github/workflows/`),手工跑 `pnpm test:full` 等效。
+
+---
+
+---
+
+## Phase 19: UI 与设计 demo 对齐 + 窗口/托盘修复（已完成子项）
+
+### 19.1 窗口装饰修复
+
+- [x] **19.1.1 Settings 窗口去掉默认菜单栏**
+    - 文件:`src/main/index.ts` WINDOW_CONFIGS.settings 与 createWindowFor
+    - 改动:`autoHideMenuBar: true` + 创建后 `win.setMenuBarVisibility(false)`;或全局 `Menu.setApplicationMenu(null)`(注意 macOS 上需保留最小菜单以避免快捷键失效)
+    - 验收:打包产物启动 Settings 窗口顶部无 File/Edit/...菜单
+
+- [x] **19.1.2 Popup 自绘标题栏拖拽区**
+    - 文件:`src/renderer/views/PopupView.tsx` + `globals.css`
+    - 当前 `.titlebar` 节点应加 `-webkit-app-region: drag`,子按钮加 `no-drag`
+    - 验收:鼠标拖标题栏可移动窗口;点击刷新/设置按钮不触发拖拽
+
+- [x] **19.1.3 验证 popup 在托盘下方定位**
+    - 文件:`src/main/index.ts` Tray click handler
+    - 当前 spec 要求 popup 紧贴托盘弹出,需读取 `tray.getBounds()` 计算坐标
+    - 验收:左键托盘,popup 出现在托盘正下方(Win)/正上方(Mac dock)
+
+### 19.2 托盘图标修复
+
+- [x] **19.2.1 `get_tray_icon_path()` 改用专用资源**
+    - 文件:`src/main/core/paths.ts:37`
+    - 改动:返回 `resources/tray-icon.png`(已存在);打包路径同步 `process.resourcesPath/tray-icon.png`
+    - `forge.config.ts` 的 `extraResource` 须包含 `tray-icon.png`
+    - 验收:Win 托盘显示 16x16 清晰图标,无空白/默认 Electron 图标
+
+- [x] **19.2.2 多尺寸/HiDPI 支持**
+    - 提供 `tray-icon@2x.png` 32x32,或改用 ICO 多帧
+    - macOS 加 `tray-iconTemplate.png` 单色模板,自动适配深浅菜单栏
+
+- [x] **19.2.3 托盘 tooltip + 右键菜单贴近设计**
+    - 文件:`src/main/index.ts` + 参考 `docs/design/omni-usage/project/tray.jsx`
+    - 当前右键菜单缺:暂停自动刷新、开机自启、检查更新等
+    - 验收:右键菜单 7 项符合 demo
+
+### 19.3 渲染层对齐设计 demo
+
+- [x] **19.3.1 实现 AreaChart 组件**
+    - 来源:`docs/design/omni-usage/project/usageboard.jsx` `function AreaChart`
+    - 新建:`src/renderer/components/AreaChart.tsx`
+    - 接入:`PluginCard` 在 snapshot.chart 存在时渲染
+    - 验收:渲染多系列 SVG 趋势图,y/x 轴 label 与 demo 一致
+
+- [x] **19.3.2 实现 TokenGrid 组件**
+    - 来源:`usageboard.jsx` `function TokenGrid`
+    - 新建:`src/renderer/components/TokenGrid.tsx`
+    - 接入:展示 `snapshot.tokens`(若 schema 缺,先补 `plugin-output.ts` 可选字段)
+    - 验收:点状颜色 + 数值 + 单位渲染
+
+- [x] **19.3.3 UsageRow tone/invert**
+    - 来源:`usageboard.jsx` `function UsageRow`
+    - 现有 `BarRow` 改造:支持 `tone="danger|warn"`,`fillPct >= 65` 时 `data-invert` 反色文本
+    - 验收:高占用条文字白色压在填充上,清晰可读
+
+- [x] **19.3.4 多账号 Tab 横向滚动条**
+    - 来源:`docs/design/omni-usage/project/multi-account.jsx`
+    - 文件:`PopupView.tsx` 当前 tabs-wrap 只有单 "总览" tab,缺多账号 tab 与 active 切换
+    - 验收:多个 CPA 子账号或多插件实例显示为可切换 tab,active tab 自动 scrollIntoView
+
+- [x] **19.3.5 Tweaks Panel(设置侧栏外观/行为)**
+    - 来源:`tweaks-panel.jsx` 540 行
+    - 文件:新建 `src/renderer/views/TweaksView.tsx` 或并入 SettingsView 的"外观"section
+    - 验收:主题色、刷新间隔、显示模式可视化调节
+
+### 19.4 样式对齐
+
+- [x] **19.4.1 抽取设计 CSS 变量**
+    - 来源:`omniusage.css` / `usageboard.css` / `settings.css` 顶部 `:root { --... }`
+    - 文件:`src/renderer/styles/globals.css` 顶部
+    - 验收:色板/间距/圆角 token 全量同步
+
+- [x] **19.4.2 逐组件 CSS 补齐**
+    - 对照 `.ub-row` / `.ub-bar` / `.ub-tokens` / `.ub-tok-*` 等 demo 类名,补齐当前 globals.css 缺失规则
+    - 注意:不直接 import demo CSS(demo 是 prototype,见 design README),按需移植规则
+
+- [x] **19.4.3 深色模式校对**
+    - demo 有 `data-theme="dark"` 切换,逐 token 校对深浅两套色
+

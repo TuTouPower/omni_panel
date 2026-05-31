@@ -57,6 +57,14 @@ const api: UsageboardApi = {
                 IPC_CHANNELS.CONFIG_DUPLICATE,
                 instanceId,
             ),
+        export: () =>
+            invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["export"]>>>(
+                IPC_CHANNELS.CONFIG_EXPORT,
+            ),
+        import: () =>
+            invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["import"]>>>(
+                IPC_CHANNELS.CONFIG_IMPORT,
+            ),
     },
     event: {
         onStateChange: (callback) => {

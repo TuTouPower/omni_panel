@@ -1,5 +1,26 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { AppConfiguration } from "../../../src/shared/types/config";
+
+vi.mock("electron", () => ({
+    app: { getVersion: () => "1.0.0-test" },
+    dialog: {
+        showSaveDialog: vi.fn(),
+        showOpenDialog: vi.fn(),
+    },
+}));
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>();
+    return {
+        ...actual,
+        readFile: vi.fn(),
+        writeFile: vi.fn().mockResolvedValue(undefined),
+    };
+});
+
+beforeEach(() => {
+    vi.clearAllMocks();
+});
 
 function createMockDeps() {
     const config: AppConfiguration = {
@@ -33,6 +54,8 @@ function createMockDeps() {
         get: vi.fn().mockResolvedValue("sk-real"),
         set: vi.fn().mockResolvedValue(undefined),
         delete: vi.fn().mockResolvedValue(undefined),
+        exportAll: vi.fn().mockResolvedValue({ "claude:API_KEY": "sk-real" }),
+        importAll: vi.fn().mockResolvedValue(undefined),
     };
 
     const secretParamKeys = new Map<string, ReadonlySet<string>>([
@@ -191,5 +214,114 @@ describe("config-ipc", () => {
             expect(result.error.code).toBe("VALIDATION_ERROR");
         }
         expect(deps.secretsStore.set).not.toHaveBeenCalled();
+    });
+
+    it("handleConfigExport writes JSON file via dialog", async () => {
+        const { dialog } = await import("electron");
+        const { writeFile } = await import("node:fs/promises");
+        vi.mocked(dialog.showSaveDialog).mockResolvedValue({
+            canceled: false,
+            filePath: "C:/test/export.json",
+        });
+        vi.mocked(writeFile).mockResolvedValue(undefined);
+
+        const deps = createMockDeps();
+        const { handleConfigExport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigExport(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data.saved).toBe(true);
+        expect(deps.secretsStore.exportAll).toHaveBeenCalled();
+        expect(writeFile).toHaveBeenCalledTimes(1);
+        const written = vi.mocked(writeFile).mock.calls[0];
+        expect(written?.[0]).toBe("C:/test/export.json");
+        const parsed = JSON.parse(written?.[1] as string);
+        expect(parsed.formatVersion).toBe(1);
+        expect(parsed.config).toBeDefined();
+        expect(parsed.secrets).toEqual({ "claude:API_KEY": "sk-real" });
+    });
+
+    it("handleConfigExport returns saved=false when dialog canceled", async () => {
+        const { dialog } = await import("electron");
+        vi.mocked(dialog.showSaveDialog).mockResolvedValue({
+            canceled: true,
+            filePath: undefined,
+        });
+
+        const deps = createMockDeps();
+        const { handleConfigExport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigExport(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data.saved).toBe(false);
+    });
+
+    it("handleConfigImport reads and applies config + secrets", async () => {
+        const { dialog } = await import("electron");
+        const { readFile } = await import("node:fs/promises");
+        vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+            canceled: false,
+            filePaths: ["C:/test/import.json"],
+        });
+
+        const importData = {
+            formatVersion: 1,
+            exportedAt: "2026-05-31T00:00:00Z",
+            appVersion: "1.0.0",
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                overviewDisplayMode: "tabs" as const,
+                plugins: [],
+                launchAtLogin: false,
+            },
+            secrets: { "new:key": "new-val" },
+        };
+        vi.mocked(readFile).mockResolvedValue(JSON.stringify(importData));
+
+        const deps = createMockDeps();
+        const { handleConfigImport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigImport(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data.imported).toBe(true);
+        expect(deps.configStore.save).toHaveBeenCalled();
+        expect(deps.secretsStore.importAll).toHaveBeenCalledWith({ "new:key": "new-val" });
+    });
+
+    it("handleConfigImport rejects invalid formatVersion", async () => {
+        const { dialog } = await import("electron");
+        const { readFile } = await import("node:fs/promises");
+        vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+            canceled: false,
+            filePaths: ["C:/test/bad.json"],
+        });
+        vi.mocked(readFile).mockResolvedValue(JSON.stringify({ formatVersion: 99 }));
+
+        const deps = createMockDeps();
+        const { handleConfigImport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigImport(deps);
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("handleConfigImport returns imported=false when dialog canceled", async () => {
+        const { dialog } = await import("electron");
+        vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+            canceled: true,
+            filePaths: [],
+        });
+
+        const deps = createMockDeps();
+        const { handleConfigImport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigImport(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data.imported).toBe(false);
     });
 });

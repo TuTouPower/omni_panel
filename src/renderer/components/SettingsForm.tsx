@@ -7,11 +7,14 @@ interface SettingsFormProps {
     parameters: PluginParameterMetadata[];
     values: Record<string, string>;
     hasSecrets?: Record<string, boolean>;
+    endpoints?: Record<string, string | null>;
+    endpointValues?: Record<string, string>;
     refreshIntervalSeconds: number;
     onSave: (
         instanceId: string,
         nonSecrets: Record<string, string>,
         secrets: Record<string, string>,
+        endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
     ) => Promise<void>;
     onDuplicate?: (instanceId: string) => void;
@@ -23,6 +26,8 @@ export function SettingsForm({
     parameters,
     values,
     hasSecrets,
+    endpoints,
+    endpointValues,
     refreshIntervalSeconds,
     onSave,
     onDuplicate,
@@ -37,6 +42,7 @@ export function SettingsForm({
             const formData = new FormData(e.currentTarget);
             const nonSecrets: Record<string, string> = {};
             const secrets: Record<string, string> = {};
+            const endpointOverrides: Record<string, string> = {};
 
             for (const param of parameters) {
                 if (param.type === "boolean") {
@@ -55,12 +61,19 @@ export function SettingsForm({
                 }
             }
 
+            for (const endpointName of Object.keys(endpoints ?? {})) {
+                const val = formData.get(`endpoint:${endpointName}`) as string | null;
+                if (val !== null && val.trim() !== "") {
+                    endpointOverrides[endpointName] = val.trim();
+                }
+            }
+
             const intervalMinutes = Number(formData.get("refreshIntervalMinutes"));
             const intervalSeconds = Math.max(60, Math.min(3600, Math.round(intervalMinutes) * 60));
 
             setSaving(true);
             setSaved(false);
-            void onSave(instanceId, nonSecrets, secrets, intervalSeconds)
+            void onSave(instanceId, nonSecrets, secrets, endpointOverrides, intervalSeconds)
                 .then(() => {
                     setSaved(true);
                     setTimeout(() => {
@@ -71,7 +84,7 @@ export function SettingsForm({
                     setSaving(false);
                 });
         },
-        [instanceId, onSave, parameters, saving],
+        [endpoints, instanceId, onSave, parameters, saving],
     );
 
     return (
@@ -131,6 +144,28 @@ export function SettingsForm({
                             {param["description"]}
                         </p>
                     )}
+                </label>
+            ))}
+            {Object.keys(endpoints ?? {}).map((endpointName) => (
+                <label key={endpointName} className="block space-y-1">
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                        {endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`}
+                    </span>
+                    <input
+                        type="url"
+                        name={`endpoint:${endpointName}`}
+                        defaultValue={
+                            endpointValues?.[endpointName] ?? endpoints?.[endpointName] ?? ""
+                        }
+                        placeholder={
+                            endpointName === "default" ? "https://api.example.com" : undefined
+                        }
+                        required={endpoints?.[endpointName] === null}
+                        aria-label={
+                            endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`
+                        }
+                        className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    />
                 </label>
             ))}
             <label className="block space-y-1">

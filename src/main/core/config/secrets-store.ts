@@ -7,6 +7,8 @@ export interface SecretsStore {
     get(key: string): Promise<string | null>;
     set(key: string, value: string): Promise<void>;
     delete(key: string): Promise<void>;
+    exportAll(): Promise<Record<string, string>>;
+    importAll(decrypted: Record<string, string>): Promise<void>;
 }
 
 export function createSecretsStore(filePath: string, crypto: CryptoBackend): SecretsStore {
@@ -61,6 +63,28 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
             const filtered = Object.fromEntries(Object.entries(data).filter(([k]) => k !== key));
             await writeAll(filtered);
             log.info(`Secret deleted: ${key}`);
+        },
+
+        async exportAll(): Promise<Record<string, string>> {
+            const data = await readAll();
+            const result: Record<string, string> = {};
+            for (const [key, encrypted] of Object.entries(data)) {
+                try {
+                    result[key] = crypto.decrypt(encrypted);
+                } catch {
+                    log.warn(`Failed to decrypt secret ${key.split(":")[0] ?? key}:***, skipping`);
+                }
+            }
+            return result;
+        },
+
+        async importAll(decrypted: Record<string, string>): Promise<void> {
+            const data: Record<string, string> = {};
+            for (const [key, value] of Object.entries(decrypted)) {
+                data[key] = crypto.encrypt(value);
+            }
+            await writeAll(data);
+            log.info(`Imported ${String(Object.keys(data).length)} secrets`);
         },
     };
 }

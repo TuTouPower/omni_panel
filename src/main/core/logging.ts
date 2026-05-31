@@ -1,6 +1,11 @@
 import { appendFile, mkdir, readdir, stat, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { addTransport, createFileTransport, setLogLevel } from "../../shared/lib/logger";
+import {
+    addTransport,
+    createFileTransport,
+    createLogger,
+    setLogLevel,
+} from "../../shared/lib/logger";
 
 const MAX_LOG_AGE_DAYS = 7;
 
@@ -30,7 +35,7 @@ async function cleanupOldLogs(logDir: string): Promise<void> {
     }
 }
 
-export async function initLogging(userDataPath: string): Promise<void> {
+export async function initLogging(userDataPath: string): Promise<() => void> {
     const logDir = getLogDir(userDataPath);
     await mkdir(logDir, { recursive: true });
 
@@ -38,17 +43,24 @@ export async function initLogging(userDataPath: string): Promise<void> {
 
     setLogLevel("debug");
 
-    addTransport(
+    const removeFileTransport = addTransport(
         createFileTransport((line) => {
             void appendFile(logFile, line + "\n", "utf8").catch(() => undefined);
         }),
     );
 
+    let removeConsoleTransport: (() => void) | undefined;
     if (process.env["NODE_ENV"] !== "production") {
         const { createConsoleTransport } = await import("../../shared/lib/logger");
-        addTransport(createConsoleTransport());
+        removeConsoleTransport = addTransport(createConsoleTransport());
     }
 
-    // Cleanup old logs (fire and forget)
+    createLogger("logging").info(`Logging initialized: ${logFile}`);
+
     void cleanupOldLogs(logDir);
+
+    return () => {
+        removeFileTransport();
+        removeConsoleTransport?.();
+    };
 }

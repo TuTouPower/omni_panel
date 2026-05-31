@@ -193,6 +193,9 @@
 - macOS: `~/Library/Application Support/OmniUsage`
 - Linux: `~/.config/OmniUsage`
 
+启动后日志第一行会写入实际日志文件路径：`Logging initialized: .../logs/app-YYYY-MM-DD.log`。
+刷新排查优先看 `refresh-service`、`runner`、`compiler`、`ipc:*` 模块；secret-like 字段统一脱敏为 `***`。
+
 ### 4.2 AppConfiguration schema
 
 ```typescript

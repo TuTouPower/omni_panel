@@ -58,18 +58,26 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             return { ...parameterValues };
         }
         const merged = { ...parameterValues };
+        const foundKeys: string[] = [];
+        const missingKeys: string[] = [];
         for (const key of secretKeys) {
             const value = await deps.secretsStore.get(`${instanceId}:${key}`);
             if (value !== null) {
+                foundKeys.push(key);
                 merged[key] = value;
             } else {
+                missingKeys.push(key);
                 log.debug(`Secret not found: ${instanceId}:${key}`);
             }
         }
+        log.debug(
+            `Secret merge for ${instanceId}: found=${foundKeys.join(",") || "none"} missing=${missingKeys.join(",") || "none"}`,
+        );
         return merged;
     }
 
     async function refresh(instanceId: string, options?: { force?: boolean }): Promise<void> {
+        log.debug(`Refresh start: ${instanceId} (force=${String(options?.force === true)})`);
         if (locks.has(instanceId)) {
             log.debug(`Refresh skipped for ${instanceId} (already in progress)`);
             return;
@@ -78,6 +86,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
 
         try {
             const config = await deps.configStore.load();
+            log.debug(`Config loaded for ${instanceId}: ${String(config.plugins.length)} plugins`);
             const plugin = config.plugins.find(
                 (p: PluginConfiguration) => p.instanceId === instanceId,
             );
@@ -88,20 +97,32 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
 
             if (!options?.force) {
                 const cached = await deps.cacheStore.load(instanceId);
-                if (cached && !isCacheExpired(cached.updatedAt, plugin.refreshIntervalSeconds)) {
-                    log.debug(`Cache hit for ${instanceId} (${plugin.name}), skipping refresh`);
-                    deps.runtimeStore.updateState(instanceId, {
-                        status: "ready",
-                        items: cached.items,
-                        updatedAt: new Date(cached.updatedAt),
-                        ...(cached.badge !== undefined && { badge: cached.badge }),
-                        ...(cached.chart !== undefined && { chart: cached.chart }),
-                    });
-                    return;
+                if (cached) {
+                    const expired = isCacheExpired(cached.updatedAt, plugin.refreshIntervalSeconds);
+                    log.debug(
+                        `Cache check for ${instanceId}: updatedAt=${cached.updatedAt} interval=${String(plugin.refreshIntervalSeconds)}s expired=${String(expired)}`,
+                    );
+                    if (!expired) {
+                        log.debug(`Cache hit for ${instanceId} (${plugin.name}), skipping refresh`);
+                        deps.runtimeStore.updateState(instanceId, {
+                            status: "ready",
+                            items: cached.items,
+                            updatedAt: new Date(cached.updatedAt),
+                            ...(cached.badge !== undefined && { badge: cached.badge }),
+                            ...(cached.chart !== undefined && { chart: cached.chart }),
+                        });
+                        log.debug(`Runtime state ready for ${instanceId} from cache`);
+                        return;
+                    }
+                } else {
+                    log.debug(`Cache miss for ${instanceId}`);
                 }
+            } else {
+                log.debug(`Cache skipped for ${instanceId}: force refresh`);
             }
 
             deps.runtimeStore.updateState(instanceId, { status: "loading" });
+            log.debug(`Runtime state loading for ${instanceId}`);
 
             const mergedParams = await mergeSecrets(instanceId, plugin.parameterValues);
             const command = deps.commandBuilder(
@@ -122,6 +143,9 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                     ...(runtimeEnv.proxy ? { OMNI_PLUGIN_PROXY: runtimeEnv.proxy } : {}),
                 },
             };
+            log.debug(
+                `Command built for ${instanceId}: args=${String(commandWithEnv.args.length)} env=${String(Object.keys(commandWithEnv.env ?? {}).length)}`,
+            );
 
             try {
                 log.debug(`Executing plugin ${instanceId} (${plugin.name})`);
@@ -143,6 +167,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                         `Plugin ${instanceId} (${plugin.name}) stderr [${String(result.stderr.length)}B]`,
                     );
                 }
+                log.debug(`Parsing plugin output for ${instanceId}`);
                 const output = deps.outputParser(result.stdout);
                 if (!output.success) {
                     log.warn(
@@ -152,18 +177,21 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                         status: "failed",
                         error: output.error.message,
                     });
+                    log.debug(`Runtime state failed for ${instanceId}`);
                     return;
                 }
                 log.info(
                     `Plugin ${instanceId} (${plugin.name}) refreshed: ${String(output.items.length)} items in ${String(result.durationMs)}ms`,
                 );
 
+                log.debug(`Saving cache for ${instanceId}`);
                 await deps.cacheStore.save(instanceId, {
                     updatedAt: output.updatedAt,
                     items: output.items,
                     ...(output.badge !== undefined && { badge: output.badge }),
                     ...(output.chart !== undefined && { chart: output.chart }),
                 });
+                log.debug(`Cache saved for ${instanceId}`);
 
                 deps.runtimeStore.updateState(instanceId, {
                     status: "ready",
@@ -172,6 +200,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                     ...(output.badge !== undefined && { badge: output.badge }),
                     ...(output.chart !== undefined && { chart: output.chart }),
                 });
+                log.debug(`Runtime state ready for ${instanceId}`);
             } catch (error: unknown) {
                 let message: string;
                 if (error instanceof PluginExecutionError) {
@@ -198,6 +227,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                     error: message,
                     ...(lastSuccess !== null && { lastSuccess }),
                 });
+                log.debug(`Runtime state failed for ${instanceId}`);
             }
         } finally {
             locks.delete(instanceId);
