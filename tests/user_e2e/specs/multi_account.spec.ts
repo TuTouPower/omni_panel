@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { writeFileSync } from "node:fs";
 import { createTestWithSetup } from "../fixtures/test_with_setup";
 import { seed_fake_plugin } from "../fixtures/seeded_plugin";
 import { PopupPage } from "../pages/popup_page";
@@ -30,6 +31,32 @@ const { test, expect } = createTestWithSetup({
                 { id: "m3", name: "Cost", used: 5, limit: 50 },
             ],
         });
+
+        // Disable CPA monitoring of kimi/antigravity so the bundled CPA
+        // connector doesn't override card labels with its displayName.
+        writeFileSync(
+            join(userDataDir, "config.json"),
+            JSON.stringify({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [
+                    {
+                        instanceId: "cpa-test-id",
+                        stateId: "cpa-test-state",
+                        name: "CPA",
+                        enabled: true,
+                        executablePath: "resources/plugins/cpa-usage-plugin.ts",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {
+                            monitor_kimi: "false",
+                            monitor_antigravity: "false",
+                        },
+                        endpointOverrides: {},
+                    },
+                ],
+            }),
+        );
     },
 });
 

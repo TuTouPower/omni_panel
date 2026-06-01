@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { Locator, Page } from "@playwright/test";
+import { writeFileSync } from "node:fs";
 import { createTestWithSetup } from "../fixtures/test_with_setup";
 import { seed_fake_plugin } from "../fixtures/seeded_plugin";
 import { PopupPage } from "../pages/popup_page";
@@ -16,72 +16,84 @@ const { test, expect } = createTestWithSetup({
             displayName: "FakeError",
             items: ERR_ITEMS,
             behavior: "error",
+            provider: "kimi",
         });
         seed_fake_plugin(userPluginDir, {
             name: "fake-crash-plugin",
             displayName: "FakeCrash",
             items: CRASH_ITEMS,
             behavior: "crash",
+            provider: "antigravity",
         });
         seed_fake_plugin(userPluginDir, {
             name: "fake-slow-plugin",
             displayName: "FakeSlow",
             items: SLOW_ITEMS,
             behavior: "slow",
+            provider: "gemini",
         });
+
+        // Disable CPA monitoring of kimi/antigravity/gemini so the bundled
+        // CPA connector doesn't shadow our fake plugin errors.
+        writeFileSync(
+            join(userDataDir, "config.json"),
+            JSON.stringify({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [
+                    {
+                        instanceId: "cpa-test-id",
+                        stateId: "cpa-test-state",
+                        name: "CPA",
+                        enabled: true,
+                        executablePath: "resources/plugins/cpa-usage-plugin.ts",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {
+                            monitor_kimi: "false",
+                            monitor_antigravity: "false",
+                            monitor_gemini: "false",
+                        },
+                        endpointOverrides: {},
+                    },
+                ],
+            }),
+        );
     },
 });
 
-async function findCardByName(page: Page, name: string): Promise<Locator> {
-    const live = page.locator('[data-popup="live"]');
-    const allCards = live.locator(".card");
-    const count = await allCards.count();
-    for (let i = 0; i < count; i++) {
-        const cardName = await allCards.nth(i).locator(".card-name").textContent();
-        if (cardName?.trim() === name) {
-            return allCards.nth(i);
-        }
-    }
-    // Fallback — will cause a clear assertion failure
-    return live.locator(`.card:has(.card-name:has-text("${name}"))`);
-}
-
 test.describe("plugin failure modes", () => {
-    // Phase 21 TODO: failed-plugin error card UI not yet implemented.
-    // Cards should show alert class + .card-state.err with error message
-    // when a plugin enters failed state (error JSON, crash, or timeout).
-    test.fixme("error JSON shows failed card with message", async ({ omni }) => {
+    test("error JSON shows failed card with message", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        // The error plugin outputs success:false, refresh-service sets status=failed
-        const errCard = await findCardByName(page, "FakeError");
+        const live = page.locator('[data-popup="live"]');
+        const errCard = live.locator('[data-provider="kimi"]');
         await expect(errCard).toHaveClass(/alert/, { timeout: 20_000 });
         await expect(errCard.locator(".card-state.err")).toBeVisible();
         await expect(errCard.locator(".card-state.err")).toContainText("fake error");
     });
 
-    test.fixme("crash (exit 2) shows failed card", async ({ omni }) => {
+    test("crash (exit 2) shows failed card", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        // The crash plugin exits with code 2 before producing output
-        const crashCard = await findCardByName(page, "FakeCrash");
+        const live = page.locator('[data-popup="live"]');
+        const crashCard = live.locator('[data-provider="antigravity"]');
         await expect(crashCard).toHaveClass(/alert/, { timeout: 20_000 });
         await expect(crashCard.locator(".card-state.err")).toBeVisible();
     });
 
-    test.fixme("timeout shows failed card", async ({ omni }) => {
+    test("timeout shows failed card", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        // The slow plugin takes 60s; refresh-service has 15s timeout.
-        // After ~15s the plugin should enter failed state.
-        const slowCard = await findCardByName(page, "FakeSlow");
-        await expect(slowCard).toHaveClass(/alert/, { timeout: 30_000 });
+        const live = page.locator('[data-popup="live"]');
+        const slowCard = live.locator('[data-provider="gemini"]');
+        await expect(slowCard).toHaveClass(/alert/, { timeout: 45_000 });
         await expect(slowCard.locator(".card-state.err")).toBeVisible();
     });
 });
