@@ -119,15 +119,16 @@ describe("apply_locked_size", () => {
         expect(out.height).toBe(600);
     });
 
-    it("snaps to tray on Windows when user has not moved the window", () => {
+    it("preserves current y on Windows when user has not moved window, x still tray-centred", () => {
         const tray: BoundsLike = { x: 1700, y: 1040, width: 32, height: 24 };
         const out = apply_locked_size(current, 500, display_1080, "win32", {
             tray_bounds: tray,
             user_moved: false,
         });
-        // y would be 1068 but clamped so window fits: workArea bottom = 1080, height 500 → y <= 580
-        expect(out.y).toBeLessThanOrEqual(1080 - 500);
+        // x is centred on the tray icon horizontally
         expect(out.x).toBe(1536);
+        // y is preserved from the current bounds (initial tray-click position), not re-derived from tray
+        expect(out.y).toBe(100);
     });
 
     it("falls back to work-area bottom-right on Linux when tray bounds are missing", () => {

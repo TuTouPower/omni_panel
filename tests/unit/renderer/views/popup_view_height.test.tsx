@@ -269,4 +269,50 @@ describe("PopupView collapse + height report", () => {
         expect(latest?.content_height).toBe(500);
         expect(latest?.collapsed_min_height).toBe(120);
     });
+
+    it("overview provider card expands in place showing account rows", async () => {
+        render(<PopupView />);
+
+        // In overview, find the expand toggle for Claude
+        await waitFor(() => {
+            const expand_btns = screen.getAllByRole("button", { name: /展开/ });
+            expect(expand_btns.length).toBeGreaterThan(0);
+        });
+
+        // Click the live expand toggle
+        const expand_btn = find_live_button(/展开/);
+        fireEvent.click(expand_btn);
+
+        // After expanding, the account rows should be visible
+        await waitFor(() => {
+            const collapse_btns = screen.getAllByRole("button", { name: /折叠/ });
+            expect(collapse_btns.length).toBeGreaterThan(0);
+        });
+    });
+
+    it("resets overview expand state when structure changes via tab switch", async () => {
+        render(<PopupView />);
+
+        // Expand Claude in overview
+        await waitFor(() => {
+            expect(screen.getAllByRole("button", { name: /展开/ }).length).toBeGreaterThan(0);
+        });
+        const expand_btn = find_live_button(/展开/);
+        fireEvent.click(expand_btn);
+
+        await waitFor(() => {
+            expect(find_live_button(/折叠/)).toBeInTheDocument();
+        });
+
+        // Switch to Claude tab and back — structure signature changes, collapse resets
+        const claude_tab = find_live_button(/^Claude$/);
+        fireEvent.click(claude_tab);
+        const overview_tab = find_live_button(/总览/);
+        fireEvent.click(overview_tab);
+
+        await waitFor(() => {
+            const expand_btns = screen.getAllByRole("button", { name: /展开/ });
+            expect(expand_btns.length).toBeGreaterThan(0);
+        });
+    });
 });

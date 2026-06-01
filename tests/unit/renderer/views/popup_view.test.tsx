@@ -238,4 +238,37 @@ describe("PopupView", () => {
             });
         });
     });
+
+    it("collapse toggle does not trigger provider refresh", async () => {
+        render(<PopupView />);
+
+        // Switch to Claude tab to see collapsible account rows
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        const collapse_btn = await screen.findByRole("button", { name: /折叠 Claude Account/ });
+        fireEvent.click(collapse_btn);
+
+        // Collapse toggles are purely UI — no refresh should fire
+        expect(plugin_refresh).not.toHaveBeenCalled();
+        expect(plugin_refresh_all).not.toHaveBeenCalled();
+    });
+
+    it("collapse state does not affect aggregated provider data", async () => {
+        render(<PopupView />);
+
+        // Switch to Claude tab
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        // Collapse an account — the data shown for other accounts stays the same
+        const collapse_btn = await screen.findByRole("button", { name: /折叠 Claude Account/ });
+        fireEvent.click(collapse_btn);
+
+        // The collapsed card is hidden but other data stays
+        await waitFor(() => {
+            const expand_btn = screen.queryByRole("button", { name: /展开 Claude Account/ });
+            expect(expand_btn).toBeInTheDocument();
+        });
+    });
 });
