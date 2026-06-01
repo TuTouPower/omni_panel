@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
@@ -5,6 +6,7 @@ import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { ProviderAccountRow } from "./ProviderAccountRow";
+import { CardMenu, type CardMenuItem } from "./CardMenu";
 
 interface ProviderCardProps {
     provider: UsageProvider;
@@ -12,9 +14,7 @@ interface ProviderCardProps {
     connectorError?: ProviderError | undefined;
     onSelect?: (provider: UsageProvider) => void;
     onRefresh?: (provider: UsageProvider) => void;
-    /** When true, the card is expanded in-place showing account rows. */
     expanded?: boolean;
-    /** Called when the chevron toggle is clicked. */
     onToggleExpand?: (provider: UsageProvider) => void;
 }
 
@@ -40,6 +40,34 @@ export function ProviderCard({
     const label = connectorError?.displayName ?? group?.label ?? PROVIDER_LABELS[provider];
     const isFailed = connectorError !== undefined && !hasUsage;
     const hasAccounts = group !== undefined && group.accounts.length > 0;
+
+    const [menu_open, set_menu_open] = useState(false);
+    const [menu_pos, set_menu_pos] = useState({ x: 0, y: 0 });
+
+    const open_menu = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        set_menu_pos({ x: e.clientX - 220, y: e.clientY });
+        set_menu_open(true);
+    };
+
+    const menu_items: CardMenuItem[] = [
+        {
+            label: "编辑",
+            icon: <Icon name="gear" size={15} />,
+            onClick: () => {
+                window.location.hash = "#settings";
+            },
+        },
+        { label: "关闭监控", icon: <Icon name="power" size={15} />, onClick: () => undefined },
+        {
+            label: "删除",
+            icon: <Icon name="trash" size={15} />,
+            danger: true,
+            onClick: () => {
+                window.location.hash = "#settings";
+            },
+        },
+    ];
 
     const header = (
         <>
@@ -81,14 +109,17 @@ export function ProviderCard({
                     ›
                 </button>
             )}
+            <button className="icon-btn" aria-label="更多操作" title="更多操作" onClick={open_menu}>
+                <Icon name="more" size={16} />
+            </button>
         </>
     );
 
     const card_class = group?.status === "critical" || isFailed ? "alert" : undefined;
 
-    if (onToggleExpand === undefined || !hasAccounts) {
-        // Non-expandable card (e.g. no accounts, or not in overview mode)
-        return (
+    const card_content =
+        onToggleExpand === undefined || !hasAccounts ? (
+            // Non-expandable card
             <div data-provider={provider} className={"card" + (card_class ? ` ${card_class}` : "")}>
                 <div className="card-head">
                     {header}
@@ -99,23 +130,34 @@ export function ProviderCard({
                     <div className="card-state off">暂无账号。请到设置添加数据来源。</div>
                 )}
             </div>
+        ) : (
+            // Expandable card in overview mode
+            <CollapsibleCard
+                header={header}
+                tools={tools}
+                collapsed={!expanded}
+                onToggle={() => {
+                    onToggleExpand(provider);
+                }}
+                className={card_class}
+            >
+                {group.accounts.map((account) => (
+                    <ProviderAccountRow key={account.id} account={account} />
+                ))}
+            </CollapsibleCard>
         );
-    }
 
-    // Expandable card in overview mode
     return (
-        <CollapsibleCard
-            header={header}
-            tools={tools}
-            collapsed={!expanded}
-            onToggle={() => {
-                onToggleExpand(provider);
-            }}
-            className={card_class}
-        >
-            {group.accounts.map((account) => (
-                <ProviderAccountRow key={account.id} account={account} />
-            ))}
-        </CollapsibleCard>
+        <>
+            {card_content}
+            <CardMenu
+                items={menu_items}
+                open={menu_open}
+                position={menu_pos}
+                onClose={() => {
+                    set_menu_open(false);
+                }}
+            />
+        </>
     );
 }
