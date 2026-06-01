@@ -100,6 +100,7 @@ describe("PopupView", () => {
             }),
         ]);
         window.usageboard = {
+            platform: "win32",
             plugin: {
                 list: plugin_list,
                 getState: vi.fn(),
@@ -117,6 +118,9 @@ describe("PopupView", () => {
             event: {
                 onStateChange: vi.fn(() => vi.fn()),
                 onThemeChange: vi.fn(),
+            },
+            popup: {
+                report_content_height: vi.fn(),
             },
             log: usage_log,
         };

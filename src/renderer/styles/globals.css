@@ -115,6 +115,10 @@ body {
     flex-shrink: 0;
     -webkit-app-region: drag;
 }
+/* Phase 20.5: macOS popup is anchored to the tray, must not be draggable. */
+.titlebar.titlebar-no-drag {
+    -webkit-app-region: no-drag;
+}
 .app-badge {
     width: 30px;
     height: 30px;

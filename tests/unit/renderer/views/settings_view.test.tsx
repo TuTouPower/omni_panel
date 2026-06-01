@@ -56,6 +56,7 @@ describe("SettingsView", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         window.usageboard = {
+            platform: "win32",
             plugin: {
                 list: vi.fn().mockResolvedValue([
                     {
@@ -177,6 +178,9 @@ describe("SettingsView", () => {
             event: {
                 onStateChange: vi.fn(),
                 onThemeChange: vi.fn(),
+            },
+            popup: {
+                report_content_height: vi.fn(),
             },
             log: vi.fn(),
         };

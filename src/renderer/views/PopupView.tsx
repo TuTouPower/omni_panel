@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, type CSSProperties } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { usePlugins } from "../hooks/use-plugins";
+import { usePopupHeightReport } from "../hooks/use-popup-height-report";
 import { useTheme } from "../lib/theme";
 import { Icon } from "../components/Icon";
 import { ProviderAccountList } from "../components/ProviderAccountList";
@@ -15,19 +16,49 @@ function errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
+function structural_signature(
+    activeTab: UsageProvider | "overview",
+    groups: ReturnType<typeof buildProviderUsageGroups>,
+): string {
+    if (activeTab === "overview") {
+        return "overview:" + groups.map((g) => g.provider).join(",");
+    }
+    const group = groups.find((g) => g.provider === activeTab);
+    if (!group) return `tab:${activeTab}:none`;
+    return `tab:${activeTab}:` + group.accounts.map((a) => a.id).join(",");
+}
+
 export function PopupView() {
     useTheme();
     const { plugins, loading, error, refreshAll } = usePlugins();
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
+    const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const tabsRef = useRef<HTMLDivElement>(null);
+    const live_root_ref = useRef<HTMLDivElement | null>(null);
+    const content_mirror_ref = useRef<HTMLDivElement | null>(null);
+    const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
 
-    const providerGroups = buildProviderUsageGroups(plugins);
-    const visibleProviders = getVisibleProviders(plugins);
+    const providerGroups = useMemo(() => buildProviderUsageGroups(plugins), [plugins]);
+    const visibleProviders = useMemo(() => getVisibleProviders(plugins), [plugins]);
     const activeGroup =
         activeTab === "overview"
             ? undefined
             : providerGroups.find((group) => group.provider === activeTab);
+
+    // Phase 20.6: reset collapse state when provider/account structure changes
+    // or when the active tab switches. Refreshes that preserve the structure
+    // (same provider set, same account IDs) keep the user's collapse choices.
+    const signature = structural_signature(activeTab, providerGroups);
+    const last_signature_ref = useRef<string>(signature);
+    useEffect(() => {
+        if (last_signature_ref.current !== signature) {
+            last_signature_ref.current = signature;
+            set_collapsed_accounts({});
+        }
+    }, [signature]);
+
+    usePopupHeightReport(content_mirror_ref, collapsed_mirror_ref);
 
     const goToSettings = () => {
         window.location.hash = "#settings";
@@ -68,6 +99,10 @@ export function PopupView() {
         });
     };
 
+    const toggle_account = (id: string) => {
+        set_collapsed_accounts((prev) => ({ ...prev, [id]: !(prev[id] ?? false) }));
+    };
+
     // auto-scroll active tab into view
     useEffect(() => {
         const el = tabsRef.current?.querySelector(`[data-tab="${activeTab}"]`);
@@ -92,120 +127,207 @@ export function PopupView() {
         .pop();
     const footerTime = lastUpdated ? "刚刚更新" : "";
 
-    return (
-        <div className="window">
-            {/* title bar */}
-            <div className="titlebar">
-                <img
-                    src={logo}
-                    alt="OmniUsage"
-                    className="app-logo"
-                    width="30"
-                    height="30"
-                    style={{ borderRadius: 9 }}
-                />
-                <span className="app-title">OmniUsage</span>
-                <div className="tb-actions">
-                    <button
-                        className={"icon-btn" + (refreshing ? " spinning" : "")}
-                        title="刷新全部"
-                        aria-label="刷新"
-                        onClick={handleRefreshAll}
-                    >
-                        <Icon name="refresh" size={18} />
-                    </button>
-                    <button className="icon-btn" title="设置" onClick={goToSettings}>
-                        <Icon name="gear" size={18} />
-                    </button>
-                </div>
-            </div>
+    // Phase 20.5: titlebar drag is platform-dependent.
+    // macOS popups are anchored to the tray icon and must not be user-draggable.
+    // Win/Linux popups stay draggable via the existing CSS rule.
+    const platform = window.usageboard.platform;
+    const titlebar_class = "titlebar" + (platform === "darwin" ? " titlebar-no-drag" : "");
 
-            {/* tab strip */}
-            <div className="tabs-wrap" ref={tabsRef}>
-                <ProviderNav
-                    activeTab={activeTab}
-                    visibleProviders={visibleProviders}
-                    onChange={setActiveTab}
-                />
-            </div>
-            <div className="titlebar-divider" />
-
-            {/* scroll body */}
-            <div className="scroll">
-                {error && (
-                    <div className="net-banner">
-                        <Icon name="cloud_off" size={18} />
-                        <span>{error}</span>
-                        <span className="nb-action" onClick={handleRefreshAll}>
-                            重新连接
-                        </span>
-                    </div>
-                )}
-
-                {loading && plugins.length === 0 && (
-                    <div className="card">
-                        <div className="card-head">
-                            <div className="skel lbl" />
-                        </div>
-                        <div className="skeleton-bars">
-                            <div className="skel-row">
-                                <div className="skel lbl" />
-                                <div className="skel" />
-                            </div>
-                            <div className="skel-row">
-                                <div className="skel lbl" />
-                                <div className="skel" />
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {!loading && plugins.length === 0 && !error && (
-                    <div className="empty">
-                        <div className="empty-ic">
-                            <Icon name="inbox" size={30} strokeWidth={1.6} />
-                        </div>
-                        <div className="empty-title">还没有添加任何服务</div>
-                        <div className="empty-sub">
-                            添加你的第一个 AI 服务账号，即可在这里实时查看用量限制与 Token 趋势。
-                        </div>
-                        <button className="btn-primary" onClick={goToSettings}>
-                            <Icon name="plus" size={15} color="#fff" />
-                            添加服务
+    // Render is shared between the live tree and the offscreen mirrors used
+    // for height measurement. Only the live tree binds refs and interactive
+    // handlers; mirrors render purely structural DOM. The `collapsed` mirror
+    // additionally forces every collapsible card into the collapsed state.
+    const render_body = (is_live: boolean, force_collapse: boolean) => {
+        const collapsed_map = force_collapse
+            ? new Proxy<Record<string, boolean>>({}, { get: () => true })
+            : collapsed_accounts;
+        const toggle_handler = is_live ? toggle_account : () => undefined;
+        return (
+            <>
+                {/* title bar */}
+                <div className={titlebar_class}>
+                    <img
+                        src={logo}
+                        alt="OmniUsage"
+                        className="app-logo"
+                        width="30"
+                        height="30"
+                        style={{ borderRadius: 9 }}
+                    />
+                    <span className="app-title">OmniUsage</span>
+                    <div className="tb-actions">
+                        <button
+                            className={"icon-btn" + (refreshing ? " spinning" : "")}
+                            title="刷新全部"
+                            aria-label="刷新"
+                            onClick={is_live ? handleRefreshAll : undefined}
+                        >
+                            <Icon name="refresh" size={18} />
+                        </button>
+                        <button
+                            className="icon-btn"
+                            title="设置"
+                            onClick={is_live ? goToSettings : undefined}
+                        >
+                            <Icon name="gear" size={18} />
                         </button>
                     </div>
-                )}
+                </div>
 
-                {!loading && plugins.length > 0 && activeTab === "overview" && (
-                    <ProviderOverview
-                        groups={providerGroups}
+                {/* tab strip */}
+                <div
+                    className={"tabs-wrap" + (is_live ? "" : " tabs-wrap-mirror")}
+                    ref={is_live ? tabsRef : undefined}
+                >
+                    <ProviderNav
+                        activeTab={activeTab}
                         visibleProviders={visibleProviders}
-                        onSelectProvider={setActiveTab}
-                        onRefreshProvider={refreshProvider}
+                        onChange={is_live ? setActiveTab : () => undefined}
                     />
-                )}
+                </div>
+                <div className="titlebar-divider" />
 
-                {!loading && plugins.length > 0 && activeTab !== "overview" && activeGroup && (
-                    <ProviderAccountList group={activeGroup} />
-                )}
+                {/* scroll body */}
+                <div className="scroll">
+                    {error && (
+                        <div className="net-banner">
+                            <Icon name="cloud_off" size={18} />
+                            <span>{error}</span>
+                            <span
+                                className="nb-action"
+                                onClick={is_live ? handleRefreshAll : undefined}
+                            >
+                                重新连接
+                            </span>
+                        </div>
+                    )}
 
-                {!loading && plugins.length > 0 && activeTab !== "overview" && !activeGroup && (
-                    <div className="empty">
-                        <div className="empty-title">该服务暂无账号。请到设置添加数据来源。</div>
+                    {loading && plugins.length === 0 && (
+                        <div className="card">
+                            <div className="card-head">
+                                <div className="skel lbl" />
+                            </div>
+                            <div className="skeleton-bars">
+                                <div className="skel-row">
+                                    <div className="skel lbl" />
+                                    <div className="skel" />
+                                </div>
+                                <div className="skel-row">
+                                    <div className="skel lbl" />
+                                    <div className="skel" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {!loading && plugins.length === 0 && !error && (
+                        <div className="empty">
+                            <div className="empty-ic">
+                                <Icon name="inbox" size={30} strokeWidth={1.6} />
+                            </div>
+                            <div className="empty-title">还没有添加任何服务</div>
+                            <div className="empty-sub">
+                                添加你的第一个 AI 服务账号，即可在这里实时查看用量限制与 Token
+                                趋势。
+                            </div>
+                            <button
+                                className="btn-primary"
+                                onClick={is_live ? goToSettings : undefined}
+                            >
+                                <Icon name="plus" size={15} color="#fff" />
+                                添加服务
+                            </button>
+                        </div>
+                    )}
+
+                    {!loading && plugins.length > 0 && activeTab === "overview" && (
+                        <ProviderOverview
+                            groups={providerGroups}
+                            visibleProviders={visibleProviders}
+                            onSelectProvider={is_live ? setActiveTab : () => undefined}
+                            onRefreshProvider={is_live ? refreshProvider : () => undefined}
+                        />
+                    )}
+
+                    {!loading && plugins.length > 0 && activeTab !== "overview" && activeGroup && (
+                        <ProviderAccountList
+                            group={activeGroup}
+                            collapsedAccounts={collapsed_map}
+                            onToggleAccount={toggle_handler}
+                        />
+                    )}
+
+                    {!loading && plugins.length > 0 && activeTab !== "overview" && !activeGroup && (
+                        <div className="empty">
+                            <div className="empty-title">
+                                该服务暂无账号。请到设置添加数据来源。
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* status bar */}
+                <div className="statusbar">
+                    <div className="sb-left">
+                        <span className={`dot ${statusDot}`} />
+                        <span>{statusLabel}</span>
                     </div>
-                )}
-            </div>
+                    <div className="sb-right">
+                        <span>{footerTime}</span>
+                    </div>
+                </div>
+            </>
+        );
+    };
 
-            {/* status bar */}
-            <div className="statusbar">
-                <div className="sb-left">
-                    <span className={`dot ${statusDot}`} />
-                    <span>{statusLabel}</span>
-                </div>
-                <div className="sb-right">
-                    <span>{footerTime}</span>
-                </div>
+    // Mirrors are only useful for live height measurement; skip them in
+    // environments without ResizeObserver (jsdom in vitest by default) so the
+    // duplicate DOM does not confuse `screen.getByText` queries in tests.
+    const should_render_mirrors = typeof ResizeObserver !== "undefined";
+
+    return (
+        <>
+            <div className="window" ref={live_root_ref}>
+                {render_body(true, false)}
             </div>
-        </div>
+            {should_render_mirrors && (
+                <>
+                    {/* Offscreen mirrors used to measure popup heights for the
+                        main process. Two trees: one with the user's current
+                        collapse state (for `content_height`), one with every
+                        collapsible card forced collapsed (for
+                        `collapsed_min_height`). Both use `height: auto` so they
+                        report the desired height, not the clamped viewport.
+                        Mirrors must not bind live refs or interactive handlers. */}
+                    <div
+                        ref={content_mirror_ref}
+                        className="window popup-mirror"
+                        aria-hidden="true"
+                        style={popup_mirror_style}
+                    >
+                        {render_body(false, false)}
+                    </div>
+                    <div
+                        ref={collapsed_mirror_ref}
+                        className="window popup-mirror"
+                        aria-hidden="true"
+                        style={popup_mirror_style}
+                    >
+                        {render_body(false, true)}
+                    </div>
+                </>
+            )}
+        </>
     );
 }
+
+const popup_mirror_style: CSSProperties = {
+    position: "fixed",
+    top: 0,
+    left: -99999,
+    width: "100%",
+    height: "auto",
+    maxHeight: "none",
+    pointerEvents: "none",
+    visibility: "hidden",
+};

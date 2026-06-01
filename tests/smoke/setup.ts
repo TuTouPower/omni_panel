@@ -109,6 +109,7 @@ function createMockApi() {
     };
 
     return {
+        platform: "win32" as const,
         plugin: {
             list: vi.fn<() => Promise<PluginInfo[]>>().mockResolvedValue(plugins),
             getState: vi.fn().mockResolvedValue({ status: "idle" } satisfies PluginSnapshotDTO),
@@ -149,6 +150,9 @@ function createMockApi() {
             },
         },
         log: vi.fn(),
+        popup: {
+            report_content_height: vi.fn(),
+        },
         _stateListeners: stateListeners,
         _themeListeners: themeListeners,
         _plugins: plugins,
