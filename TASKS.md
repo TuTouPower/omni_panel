@@ -147,7 +147,7 @@ function compute_target_height(report, display) {
 
 #### 20.8 测试改动清单
 
-- [ ] 新增主进程单元测试：`tests/unit/main/popup_height_controller.test.ts`
+- [x] 新增主进程单元测试：`tests/unit/main/popup_height_controller.test.ts`
     - 覆盖 `compute_target_height()`：
         - `content_height` 小于 `collapsed_min_height` 时返回 `collapsed_min_height`。
         - `content_height` 在 min/max 之间时返回 `content_height`。
@@ -163,7 +163,7 @@ function compute_target_height(report, display) {
         - 应用高度时保持托盘锚点方向正确，不让窗口随高度变化漂移到错误位置。
         - 当 min/max clamp 到同一高度时，后续相同目标高度不重复 `setBounds`。
 
-- [ ] 新增 renderer 单元测试：`tests/unit/renderer/views/popup_view_height.test.tsx`
+- [x] 新增 renderer 单元测试：`tests/unit/renderer/views/popup_view_height.test.tsx`
     - 默认渲染时 provider/账号卡片处于展开态。
     - 点击折叠按钮后，详情内容从 DOM 可见区域移除或隐藏，高度上报变小。
     - 点击展开按钮后，详情内容恢复，高度上报变大。
@@ -172,55 +172,55 @@ function compute_target_height(report, display) {
     - 刷新返回新的 provider/account 结构后，旧折叠状态被清空。
     - 高度测量只来自 popup 内容容器，不读取 Node API。
 
-- [ ] 新增用户端到端测试：`tests/user_e2e/specs/popup_window_constraints.spec.ts`
+- [x] 新增用户端到端测试：`tests/user_e2e/specs/popup_window_constraints.spec.ts`
     - 覆盖最大高度：构造多 provider/多账号内容，打开托盘主面板，断言窗口高度 `<= 当前屏幕 work area * 0.85`。
     - 覆盖内部滚动：内容超过最大高度时，窗口不继续增高，主面板滚动区域可滚动到底。
     - 覆盖全折叠最小高度：折叠所有可折叠卡片后，窗口高度缩小到全折叠高度附近，并且不会继续缩小。
     - 覆盖底部空白回归：全折叠后 statusbar 贴近窗口底部，无旧的大片空白。
 
-- [ ] 新增用户端到端测试：`tests/user_e2e/specs/popup_card_collapse_height.spec.ts`
+- [x] 新增用户端到端测试：`tests/user_e2e/specs/popup_card_collapse_height.spec.ts`
     - 折叠单张卡片缩小窗口高度：默认展开 → 记录窗口高度 → 折叠一张 provider/账号卡片 → 断言窗口高度下降。
     - 展开单张卡片恢复窗口高度：折叠后展开 → 断言窗口高度恢复到接近折叠前高度。
     - 折叠全部卡片回到最小高度：全部折叠 → 断言窗口高度 `<=` 全展开高度，且约等于全折叠测量高度。
     - 多 provider 场景：两个 provider 都有展开内容 → 只折叠一个 → 断言窗口高度介于“全展开高度”和“全折叠高度”之间。
     - 新数据重置折叠：第一轮折叠 → 触发刷新并返回不同 provider/account 结构 → 断言卡片重新展开，窗口高度大于折叠时高度。
 
-- [ ] 新增用户端到端测试：`tests/user_e2e/specs/popup_platform_behavior.spec.ts`
+- [x] 新增用户端到端测试：`tests/user_e2e/specs/popup_platform_behavior.spec.ts`
     - macOS：模拟或在 macOS 环境验证点击托盘后窗口锚定菜单栏图标；拖动标题栏不移动窗口；高度变化后仍贴住托盘锚点。
     - Windows：点击托盘后窗口出现；拖动标题栏后窗口位置改变；折叠/展开触发高度变化时保留用户移动后的位置。
     - Linux：点击托盘后窗口出现；tray bounds 可用时贴近托盘；tray bounds 不可用时使用当前 display 右下角兜底；窗口可拖动；高度变化不重置用户位置。
     - 该测试允许按平台条件跳过不适用断言，但每个平台至少要覆盖自身策略。
 
-- [ ] 新增用户端到端测试：`tests/user_e2e/specs/popup_height_debounce.spec.ts`
+- [x] 新增用户端到端测试：`tests/user_e2e/specs/popup_height_debounce.spec.ts`
     - 快速连续展开/折叠多张卡片，断言 BrowserWindow 不出现高度循环 resize（监听 `bounds-changed` 事件计数）。
     - 验证小数像素变化（< 1px）不触发 resize。
     - 验证 ResizeObserver 在隐藏窗口期间不上报。
 
-- [ ] 新增本机用户端到端测试：`tests/user_e2e/specs/popup_multi_display.spec.ts`
+- [x] 新增本机用户端到端测试：`tests/user_e2e/specs/popup_multi_display.spec.ts`
     - 主显示器/副显示器分辨率不同，跨屏拖动 popup 后再次打开，断言最大高度按当前所在 display 的 work area 重算，而非旧 display。
     - 副显示器 work area 高度低于主显示器时，超高内容场景窗口高度按副显示器 85% 约束。
     - 该测试依赖真实多显示器环境；CI 可按环境变量跳过，但本机验收必须执行并记录结果。
 
-- [ ] 新增用户端到端测试：`tests/user_e2e/specs/popup_refresh_state_reset.spec.ts`
+- [x] 新增用户端到端测试：`tests/user_e2e/specs/popup_refresh_state_reset.spec.ts`
     - 折叠多张卡片 → 触发数据源新增/删除 provider → 断言新结构默认展开。
     - 折叠 → 触发刷新但 provider 结构未变化 → 断言折叠状态保留（仅结构变化才重置）。
 
-- [ ] 更新现有 packaged smoke：`tests/packaged_smoke/smoke.spec.ts`
+- [x] 更新现有 packaged smoke：`tests/packaged_smoke/smoke.spec.ts`
     - 保留已存在的 packaged app 启动、托盘、provider overview、无 CPA tab、popup 底部空白断言。
     - 增加轻量高度 smoke：打开主面板后，记录窗口高度；折叠一个可折叠卡片后，高度下降；重新展开后，高度上升。
     - packaged smoke 只做关键路径，不覆盖所有边界；完整边界放在 `tests/user_e2e/specs/popup_*`。
 
-- [ ] 更新 renderer smoke：`tests/smoke/renderer-smoke.test.tsx`
+- [x] 更新 renderer smoke：`tests/smoke/renderer-smoke.test.tsx`
     - 确认 popup 根容器仍填满 BrowserWindow 视口。
     - 确认内容超高时滚动区域存在，底部 statusbar 不被裁切。
     - 确认折叠态下无底部大空白回归。
 
-- [ ] 更新现有 renderer 测试：`tests/unit/renderer/views/popup_view.test.tsx`
+- [x] 更新现有 renderer 测试：`tests/unit/renderer/views/popup_view.test.tsx`
     - 保留 provider tabs、总览、单 provider 刷新、无 CPA tab 的断言。
     - 增加折叠按钮不会触发 provider refresh 的断言。
     - 增加折叠状态只影响当前可见 provider/card，不改变聚合数据的断言。
 
-- [ ] 更新 provider 聚合测试：`tests/unit/renderer/provider-usage.test.ts`
+- [x] 更新 provider 聚合测试：`tests/unit/renderer/provider-usage.test.ts`
     - 不改变聚合语义。
     - 增加断言：折叠状态不进入 `buildProviderUsageGroups()`，高度/折叠只属于 UI 状态。
 
@@ -228,9 +228,9 @@ function compute_target_height(report, display) {
 
 > **前置审阅**：实现前按需检索 `docs/` 下受影响文档，列出需同步清单。重点排查：`spec.md`（窗口/托盘行为）、`test.md`（验收步骤）、`test-coverage-matrix.md`（覆盖项）、`plugin-contract.md`（确认 popup 高度 IPC 不进协议）、`handoff-2026-05-30.md`（如提及窗口尺寸需同步）、`cpa-quota-guide.md`（不应涉及，复核确认）、`coverage-baseline.md`（覆盖率基线同步）。审阅产物列入 PR 描述。
 
-- [ ] **按需检索 `docs/` 受影响文档**，列出与 Phase 20 冲突或需同步的章节清单，作为本轮 PR 描述的一部分。
+- [x] **按需检索 `docs/` 受影响文档**，列出与 Phase 20 冲突或需同步的章节清单，作为本轮 PR 描述的一部分。
 
-- [ ] 更新 `docs/spec.md`
+- [x] 更新 `docs/spec.md`
     - 在 Popup/主面板章节说明：窗口高度由内容自适应决定，不是固定高度。
     - 明确默认展开、折叠后缩小、展开后增大。
     - 明确最小高度为“所有卡片折叠后的高度”。
@@ -240,13 +240,13 @@ function compute_target_height(report, display) {
     - 明确 Windows/Linux 用户移动窗口后，高度自适应不能重新吸回托盘。
     - 明确 Linux tray bounds 不可靠时的兜底定位策略。
 
-- [ ] 更新 `docs/test.md`
+- [x] 更新 `docs/test.md`
     - 增加真实打包验收步骤：打开托盘主面板、折叠全部卡片、展开卡片、验证高度变化。
     - 增加最大高度验收：内容很多时窗口不得超过屏幕可用高度 `85%`。
     - 增加最小高度验收：全部折叠后高度不得继续缩小，也不得出现底部大空白。
     - 增加平台验收：macOS 窗口不可拖动且保持托盘锚定；Windows/Linux 窗口可拖动且 resize 不重置用户位置。
 
-- [ ] 更新 `docs/test-coverage-matrix.md`
+- [x] 更新 `docs/test-coverage-matrix.md`
     - 增加覆盖项：popup 内容高度测量。
     - 增加覆盖项：折叠状态驱动窗口缩放。
     - 增加覆盖项：全折叠高度作为最小高度。
@@ -256,7 +256,7 @@ function compute_target_height(report, display) {
     - 增加覆盖项：Windows/Linux 可移动浮动窗口且高度变化保留用户位置。
     - 标明对应测试文件：`popup_height_controller.test.ts`、`popup_view_height.test.tsx`、`popup_window_constraints.spec.ts`、`popup_card_collapse_height.spec.ts`、`popup_platform_behavior.spec.ts`。
 
-- [ ] 如新增 IPC channel，更新 `docs/plugin-contract.md` 以外的相关架构文档；不得把 popup 高度控制写入插件协议文档，因为它不是插件协议。
+- [x] 如新增 IPC channel，更新 `docs/plugin-contract.md` 以外的相关架构文档；不得把 popup 高度控制写入插件协议文档，因为它不是插件协议。
 
 ### 验收标准
 
@@ -432,26 +432,26 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
 
 主要修改：
 
-- [ ] `src/renderer/views/PopupView.tsx`
-- [ ] `src/renderer/views/SettingsView.tsx`
-- [ ] `src/renderer/components/ProviderNav.tsx`
-- [ ] `src/renderer/components/ProviderOverview.tsx`
-- [ ] `src/renderer/components/ProviderCard.tsx`
-- [ ] `src/renderer/components/ProviderAccountList.tsx`
-- [ ] `src/renderer/components/ProviderAccountRow.tsx`
-- [ ] `src/renderer/lib/provider-usage.ts`
-- [ ] `src/renderer/styles/globals.css`
+- [x] `src/renderer/views/PopupView.tsx`
+- [x] `src/renderer/views/SettingsView.tsx`
+- [x] `src/renderer/components/ProviderNav.tsx`
+- [x] `src/renderer/components/ProviderOverview.tsx`
+- [x] `src/renderer/components/ProviderCard.tsx`
+- [x] `src/renderer/components/ProviderAccountList.tsx`
+- [x] `src/renderer/components/ProviderAccountRow.tsx`
+- [x] `src/renderer/lib/provider-usage.ts`
+- [x] `src/renderer/styles/globals.css`
 
 可能新增：
 
-- [ ] `src/renderer/components/UsageCard.tsx`
-- [ ] `src/renderer/components/TokenPanel.tsx`
-- [ ] `src/renderer/components/CardMenu.tsx`
-- [ ] `src/renderer/components/UsageBarRow.tsx`
+- [x] `src/renderer/components/UsageCard.tsx`
+- [x] `src/renderer/components/TokenPanel.tsx`
+- [x] `src/renderer/components/CardMenu.tsx`
+- [x] `src/renderer/components/UsageBarRow.tsx`
 
 禁止修改：
 
-- [ ] `docs/design/omni-usage/**`
+- [x] `docs/design/omni-usage/**`
 
 ### 实现步骤
 
@@ -487,9 +487,9 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
 - [x] 展示 5 小时用量条。
 - [x] 展示一周用量条。
 - [x] 展示 reset 时间。
-- [ ] 无对应窗口数据时显示 demo 风格空/关闭/未知状态。
-- [ ] 多账号时：总览显示 provider 汇总，单 provider tab 显示账号列表。
-- [ ] 保留 CPA 作为数据来源标签，不把 CPA 做成 provider tab。
+- [x] 无对应窗口数据时显示 demo 风格空/关闭/未知状态。
+- [x] 多账号时：总览显示 provider 汇总，单 provider tab 显示账号列表。
+- [x] 保留 CPA 作为数据来源标签，不把 CPA 做成 provider tab。
 
 #### 21.4 Token 面板
 
@@ -551,14 +551,14 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
 
 #### 21.8 测试改动清单
 
-- [ ] 新增/更新 renderer 单元测试：`tests/unit/renderer/views/popup_view.test.tsx`
+- [x] 新增/更新 renderer 单元测试：`tests/unit/renderer/views/popup_view.test.tsx`
     - 固定 provider tabs 全量显示。
     - 无数据 provider 显示空状态。
     - 总览显示 provider 卡片。
     - 单 provider tab 显示账号卡片。
     - CPA 不作为 provider tab。
 
-- [ ] 新增 renderer 单元测试：`tests/unit/renderer/components/usage_card.test.tsx`
+- [x] 新增 renderer 单元测试：`tests/unit/renderer/components/usage_card.test.tsx`
     - 展示名称、更新时间、5 小时条、一周条、reset 时间。
     - 关闭状态灰化并显示启用入口。
     - 错误状态显示重试入口。
@@ -567,19 +567,19 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
     - 更多菜单展示编辑、关闭/启用、删除。
     - 折叠/展开状态正确切换。
 
-- [ ] 新增 renderer 单元测试：`tests/unit/renderer/components/token_panel.test.tsx`
+- [x] 新增 renderer 单元测试：`tests/unit/renderer/components/token_panel.test.tsx`
     - 展示 `Total Tokens`。
     - 时间范围切换今天/最近一周/最近一月。
     - 有真实 token 数据时展示聚合值。
     - 无历史数据时显示空状态，不渲染假趋势。
 
-- [ ] 新增 renderer 单元测试：`tests/unit/renderer/views/settings_provider_accounts.test.tsx`
+- [x] 新增 renderer 单元测试：`tests/unit/renderer/views/settings_provider_accounts.test.tsx`
     - 账号页按 provider 分组。
     - CPA connector 账号拆入对应 provider 组。
     - 非 CPA 插件归入对应 provider 或 connector 组。
     - 添加、编辑、删除、开关入口按真实能力显示启用/禁用。
 
-- [ ] 新增/更新主进程或集成测试：`tests/unit/main/tray_menu.test.ts`
+- [x] 新增/更新主进程或集成测试：`tests/unit/main/tray_menu.test.ts`
     - 右键菜单包含打开主面板、立即刷新全部、暂停自动刷新、开机自启、设置、检查更新、退出 OmniUsage。
     - 不断言 CSS 视觉，因为 Electron 原生菜单不可 CSS 化。
 
@@ -638,20 +638,20 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
 
 > **前置审阅**：实现前按需检索 `docs/` 下受影响文档，列出需同步清单。重点排查：`spec.md`（主面板结构 / provider tab / 卡片状态 / TokenPanel / 托盘菜单）、`test.md`（手工验收 + 打包验收）、`test-coverage-matrix.md`（覆盖项与测试文件映射）、`plugin-contract.md`（UsageItem / ConnectorInfo 字段是否被 21.2 / 21.3 / 21.4 引用，确认不改协议）、`cpa-quota-guide.md`（CPA 多 provider 拆分入设置页的描述是否需同步）、`handoff-2026-05-30.md`（如提及 UI 布局需同步）。审阅产物列入 PR 描述。
 
-- [ ] **按需检索 `docs/` 受影响文档**，列出与 Phase 21 冲突或需同步的章节清单，作为本轮 PR 描述的一部分。
+- [x] **按需检索 `docs/` 受影响文档**，列出与 Phase 21 冲突或需同步的章节清单，作为本轮 PR 描述的一部分。
 
-- [ ] 更新 `docs/spec.md`
+- [x] 更新 `docs/spec.md`
     - 记录 demo 对齐后的主面板结构。
     - 记录全量 provider tab 策略：即使无数据也显示空状态。
     - 记录卡片状态：正常、关闭、错误、认证失效、限制接近。
     - 记录 Token 面板的数据限制：无真实历史时显示空状态，不伪造。
     - 记录托盘菜单限制：原生菜单功能对齐，自绘菜单另算能力。
 
-- [ ] 更新 `docs/test.md`
+- [x] 更新 `docs/test.md`
     - 增加 demo 对齐手工验收：总览、单服务 tab、刷新全部、单卡刷新、折叠/展开、更多菜单、关闭/启用、设置页账号管理、添加/编辑入口、明暗主题。
     - 增加打包验证：`pnpm package` 后启动 `out/OmniUsage-win32-x64/OmniUsage.exe`，确认窗口加载、托盘出现、主路径可用。
 
-- [ ] 更新 `docs/test-coverage-matrix.md`
+- [x] 更新 `docs/test-coverage-matrix.md`
     - 增加覆盖项：全量 provider tabs。
     - 增加覆盖项：UsageCard 状态与操作。
     - 增加覆盖项：TokenPanel 有/无真实数据。
