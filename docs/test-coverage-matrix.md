@@ -126,4 +126,32 @@
 - 打包 smoke (§9.1 末行) 已有 `tests/packaged_smoke/smoke.spec.ts` 覆盖启动、白屏和内置插件发现；托盘真实显示仍需人工验收。
 - 内置插件 (§3.6) 7 个全部有 stub 集成测试（真实子进程 + HTTP 桩），共 37 case。
 
+---
+
+## Phase 20 新增覆盖项（2026-06-02 更新）
+
+| 覆盖项                   | 状态 | 测试文件                                                                                         |
+| ------------------------ | ---- | ------------------------------------------------------------------------------------------------ |
+| popup 内容高度测量       | ✅   | `unit/main/popup_height_controller.test.ts`, `unit/renderer/views/popup_view_height.test.tsx`    |
+| 折叠状态驱动窗口缩放     | ✅   | `unit/renderer/views/popup_view_height.test.tsx` (collapse/expand toggle, overview expand)       |
+| 全折叠高度作为最小高度   | ✅   | `unit/main/popup_height_controller.test.ts` (compute_target_height min clamp)                    |
+| 85% work area 最大约束   | ✅   | `unit/main/popup_height_controller.test.ts` (max ratio, tiny display)                            |
+| 1px debounce 防抖        | ✅   | `unit/main/popup_height_controller.test.ts` (should_apply_report, controller duplicate suppress) |
+| macOS 托盘锚定不可移动   | ✅   | `unit/main/popup_height_controller.test.ts` (apply_locked_size darwin path)                      |
+| Win/Linux 可移动保留位置 | ✅   | `unit/main/popup_height_controller.test.ts` (Path B y-preservation fix, user_moved paths)        |
+| Path B 顶部下跳修复      | ✅   | `unit/main/popup_height_controller.test.ts` (win32 non-moved y preserved)                        |
+| 总览就地展开             | ✅   | `unit/renderer/views/popup_view_height.test.tsx` (overview expand, tab reset)                    |
+
+## Phase 21 新增覆盖项（2026-06-02）
+
+| 覆盖项                 | 状态 | 测试文件                                                                                      |
+| ---------------------- | ---- | --------------------------------------------------------------------------------------------- |
+| CardMenu 组件          | ✅   | `unit/renderer/components/card_menu.test.tsx` (open/close/onClick/danger/checked/meta/Escape) |
+| TokenPanel 组件        | ✅   | `unit/renderer/components/token_panel.test.tsx` (title/no-data/real data/range switch)        |
+| UsageBarRow 组件       | ⚠️   | 无专用测试；在 ProviderAccountRow 中间接使用                                                  |
+| ProviderCard 状态机    | ⚠️   | `popup_view.test.tsx` (collapse no refresh), 缺 auth/error/retry/danger 独立组件测试          |
+| Settings provider 分组 | ⚠️   | `unit/renderer/views/settings_view.test.tsx` (CPA connector from accounts), 缺分组结构断言    |
+| 托盘右键菜单 7 项      | ❌   | 无自动化测试                                                                                  |
+| Phase 21 E2E           | ❌   | 9 个 spec 文件未创建（需 Playwright + 运行中 Electron）                                       |
+
 后续 Task 2–7 按本矩阵补齐 ❌ / ⚠️ 项。
