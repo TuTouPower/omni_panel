@@ -54,3 +54,4 @@ typings/
 .claude/
 
 .reasonix
+.playwright-mcp/
