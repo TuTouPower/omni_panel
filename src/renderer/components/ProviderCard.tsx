@@ -25,6 +25,19 @@ function statusLabel(status: ProviderUsageGroup["status"] | undefined): string {
     return "正常";
 }
 
+function is_auth_error(error: string): boolean {
+    const lower = error.toLowerCase();
+    return (
+        lower.includes("token") ||
+        lower.includes("credential") ||
+        lower.includes("unauthorized") ||
+        lower.includes("auth") ||
+        lower.includes("凭证") ||
+        lower.includes("登录") ||
+        lower.includes("密钥")
+    );
+}
+
 export function ProviderCard({
     provider,
     group,
@@ -39,7 +52,56 @@ export function ProviderCard({
     const hasUsage = windowCount > 0;
     const label = connectorError?.displayName ?? group?.label ?? PROVIDER_LABELS[provider];
     const isFailed = connectorError !== undefined && !hasUsage;
+    const is_auth = connectorError !== undefined && is_auth_error(connectorError.error);
     const hasAccounts = group !== undefined && group.accounts.length > 0;
+    const is_danger = group?.status === "critical";
+    const card_class = is_danger ? "alert" : undefined;
+
+    const render_state = () => {
+        if (isFailed) {
+            if (is_auth) {
+                return (
+                    <div className="card-state auth">
+                        <span className="cs-ic">
+                            <Icon name="lock" size={15} />
+                        </span>
+                        <span>凭证失效</span>
+                        <span
+                            className="cs-action"
+                            onClick={() => {
+                                window.location.hash = "#settings";
+                            }}
+                        >
+                            重新配置
+                        </span>
+                    </div>
+                );
+            }
+            return (
+                <div className="card-state err">
+                    <span className="cs-ic">
+                        <Icon name="cloud_off" size={15} />
+                    </span>
+                    <span>{connectorError.error}</span>
+                    {onRefresh && (
+                        <span
+                            className="cs-action"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRefresh(provider);
+                            }}
+                        >
+                            重试
+                        </span>
+                    )}
+                </div>
+            );
+        }
+        if (!hasUsage) {
+            return <div className="card-state off">暂无账号。请到设置添加数据来源。</div>;
+        }
+        return null;
+    };
 
     const [menu_open, set_menu_open] = useState(false);
     const [menu_pos, set_menu_pos] = useState({ x: 0, y: 0 });
@@ -115,8 +177,6 @@ export function ProviderCard({
         </>
     );
 
-    const card_class = group?.status === "critical" || isFailed ? "alert" : undefined;
-
     const card_content =
         onToggleExpand === undefined || !hasAccounts ? (
             // Non-expandable card
@@ -125,10 +185,7 @@ export function ProviderCard({
                     {header}
                     {tools}
                 </div>
-                {isFailed && <div className="card-state err">{connectorError.error}</div>}
-                {!isFailed && !hasUsage && (
-                    <div className="card-state off">暂无账号。请到设置添加数据来源。</div>
-                )}
+                {render_state()}
             </div>
         ) : (
             // Expandable card in overview mode
