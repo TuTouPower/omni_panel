@@ -223,12 +223,16 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         await waitFor(() => {
-            expect(screen.getAllByText("CPA 额度连接器").length).toBeGreaterThan(0);
+            expect(screen.getAllByText("Claude").length).toBeGreaterThan(0);
         });
-        const editButtons = screen.getAllByTitle("编辑");
-        const cpaEditButton = editButtons[1];
-        if (!cpaEditButton) throw new Error("missing CPA edit button");
-        await user.click(cpaEditButton);
+        // Find the CPA connector's edit button (first CPA plugin row)
+        const edit_buttons = screen.getAllByTitle("编辑");
+        const cpa_edit = edit_buttons.find((b) => {
+            const row_text = b.closest(".acct-row")?.textContent ?? "";
+            return row_text.includes("CPA");
+        });
+        if (!cpa_edit) throw new Error("missing CPA edit button");
+        await user.click(cpa_edit);
 
         await waitFor(() => {
             expect(screen.getByTestId("cpa-connector-settings")).toBeInTheDocument();

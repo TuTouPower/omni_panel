@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useConfig } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { SettingsForm } from "../components/SettingsForm";
@@ -6,6 +6,8 @@ import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { Icon, VendorMark } from "../components/Icon";
 import type { PluginInfo } from "../../shared/types/ipc";
 import type { PluginConfiguration } from "../../shared/types/config";
+import type { UsageProvider } from "../../shared/schemas/plugin-output";
+import { PROVIDER_LABELS } from "../lib/provider-usage";
 import logo from "../assets/logo.png";
 
 /* ── types ── */
@@ -227,6 +229,49 @@ export function SettingsView() {
     const [pluginInfos, setPluginInfos] = useState<PluginInfo[]>([]);
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);
+
+    // Phase 21.5: group plugins by provider for the accounts page
+    interface ProviderAccountGroup {
+        provider: UsageProvider | "connector";
+        label: string;
+        plugins: (PluginConfiguration & { pluginInfo?: PluginInfo })[];
+    }
+    const account_groups = useMemo<ProviderAccountGroup[]>(() => {
+        if (!config) return [];
+        const map = new Map<string, ProviderAccountGroup>();
+        for (const p of config.plugins) {
+            const info = pluginInfos.find((pi) => pi.instanceId === p.instanceId);
+            if (info?.source === "cpa") {
+                for (const prov of info.activeProviders) {
+                    const key = `provider:${prov}`;
+                    let entry = map.get(key);
+                    if (!entry) {
+                        entry = {
+                            provider: prov,
+                            label: PROVIDER_LABELS[prov],
+                            plugins: [],
+                        };
+                        map.set(key, entry);
+                    }
+                    entry.plugins.push({ ...p, pluginInfo: info });
+                }
+            } else {
+                const prov = info?.activeProviders[0];
+                const key = prov ? `provider:${prov}` : `connector:${p.instanceId}`;
+                let entry = map.get(key);
+                if (!entry) {
+                    entry = {
+                        provider: prov ?? "connector",
+                        label: prov ? PROVIDER_LABELS[prov] : p.name,
+                        plugins: [],
+                    };
+                    map.set(key, entry);
+                }
+                entry.plugins.push({ ...p, pluginInfo: info });
+            }
+        }
+        return Array.from(map.values());
+    }, [config, pluginInfos]);
 
     // Local UI state for settings not yet backed by config
     const [localState, setLocalState] = useState({
@@ -484,116 +529,107 @@ export function SettingsView() {
                                         暂无已配置的服务
                                     </div>
                                 ) : (
-                                    config.plugins.map((p) => {
-                                        const pluginInfo = pluginInfos.find(
-                                            (info) => info.instanceId === p.instanceId,
-                                        );
-                                        const displayName =
-                                            pluginInfo?.source === "cpa"
-                                                ? "CPA 额度连接器"
-                                                : p.name;
-                                        const isEnabled = p.enabled;
-                                        const groupOff = !isEnabled;
+                                    account_groups.map((group) => {
+                                        const all_disabled = group.plugins.every((p) => !p.enabled);
                                         return (
                                             <div
-                                                className={`acct-group${groupOff ? " off" : ""}`}
-                                                key={p.instanceId}
+                                                className={`acct-group${all_disabled ? " off" : ""}`}
+                                                key={group.label + group.provider}
                                             >
                                                 <div className="acct-group-head">
-                                                    <VendorMark id="overview" size={22} />
-                                                    <span className="agh-name">{displayName}</span>
-                                                    <button
-                                                        className="agh-add"
-                                                        title={`添加 ${displayName} 账号`}
-                                                        onClick={() => {
-                                                            setDialog({
-                                                                mode: "add",
-                                                                instanceId: undefined,
-                                                                pluginName: displayName,
-                                                            });
-                                                        }}
-                                                        type="button"
-                                                    >
-                                                        <Icon
-                                                            name="plus"
-                                                            size={16}
-                                                            strokeWidth={2.2}
-                                                        />
-                                                    </button>
-                                                    <Toggle
-                                                        on={isEnabled}
-                                                        onClick={() => {
-                                                            void save({
-                                                                ...config,
-                                                                plugins: config.plugins.map((pl) =>
-                                                                    pl.instanceId === p.instanceId
-                                                                        ? {
-                                                                              ...pl,
-                                                                              enabled: !pl.enabled,
-                                                                          }
-                                                                        : pl,
-                                                                ),
-                                                            });
-                                                        }}
+                                                    <VendorMark
+                                                        id={
+                                                            group.provider === "connector"
+                                                                ? "overview"
+                                                                : group.provider
+                                                        }
+                                                        size={22}
                                                     />
+                                                    <span className="agh-name">{group.label}</span>
+                                                    <span className="count-badge">
+                                                        {group.plugins.length}
+                                                    </span>
                                                 </div>
                                                 <div className="acct-rows">
-                                                    <div
-                                                        className={`acct-row${groupOff ? " off" : ""}`}
-                                                    >
-                                                        <span
-                                                            className={`ar-dot${groupOff ? " off" : ""}`}
-                                                        />
-                                                        <span className="ar-name">
-                                                            {displayName}
-                                                        </span>
-                                                        {groupOff && (
-                                                            <span className="ar-off">已关闭</span>
-                                                        )}
-                                                        <div className="ar-actions">
-                                                            <button
-                                                                className="icon-btn ar-ic"
-                                                                title="编辑"
-                                                                onClick={() => {
-                                                                    setDialog({
-                                                                        mode: "edit",
-                                                                        instanceId: p.instanceId,
-                                                                        pluginName: displayName,
-                                                                    });
-                                                                }}
-                                                                type="button"
+                                                    {group.plugins.map((p) => {
+                                                        const is_enabled = p.enabled;
+                                                        const row_off = !is_enabled;
+                                                        const info = p.pluginInfo;
+                                                        const display_name =
+                                                            info?.source === "cpa"
+                                                                ? `CPA · ${group.label}`
+                                                                : p.name;
+                                                        return (
+                                                            <div
+                                                                className={`acct-row${row_off ? " off" : ""}`}
+                                                                key={p.instanceId}
                                                             >
-                                                                <Icon name="edit" size={15} />
-                                                            </button>
-                                                            <button
-                                                                className="icon-btn ar-ic"
-                                                                title="删除"
-                                                                type="button"
-                                                            >
-                                                                <Icon name="trash" size={15} />
-                                                            </button>
-                                                            <Toggle
-                                                                on={isEnabled}
-                                                                disabled={groupOff}
-                                                                onClick={() => {
-                                                                    void save({
-                                                                        ...config,
-                                                                        plugins: config.plugins.map(
-                                                                            (pl) =>
-                                                                                pl.instanceId ===
-                                                                                p.instanceId
-                                                                                    ? {
-                                                                                          ...pl,
-                                                                                          enabled:
-                                                                                              !pl.enabled,
-                                                                                      }
-                                                                                    : pl,
-                                                                        ),
-                                                                    });
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                                <span
+                                                                    className={`ar-dot${row_off ? " off" : ""}`}
+                                                                />
+                                                                <span className="ar-name">
+                                                                    {display_name}
+                                                                </span>
+                                                                {row_off && (
+                                                                    <span className="ar-off">
+                                                                        已关闭
+                                                                    </span>
+                                                                )}
+                                                                <div className="ar-actions">
+                                                                    <button
+                                                                        className="icon-btn ar-ic"
+                                                                        title="编辑"
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setDialog({
+                                                                                mode: "edit",
+                                                                                instanceId:
+                                                                                    p.instanceId,
+                                                                                pluginName:
+                                                                                    display_name,
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <Icon
+                                                                            name="edit"
+                                                                            size={15}
+                                                                        />
+                                                                    </button>
+                                                                    <button
+                                                                        className="icon-btn ar-ic"
+                                                                        title="删除"
+                                                                        type="button"
+                                                                    >
+                                                                        <Icon
+                                                                            name="trash"
+                                                                            size={15}
+                                                                        />
+                                                                    </button>
+                                                                    <Toggle
+                                                                        on={is_enabled}
+                                                                        disabled={row_off}
+                                                                        onClick={() => {
+                                                                            void save({
+                                                                                ...config,
+                                                                                plugins:
+                                                                                    config.plugins.map(
+                                                                                        (pl) =>
+                                                                                            pl.instanceId ===
+                                                                                            p.instanceId
+                                                                                                ? {
+                                                                                                      ...pl,
+                                                                                                      enabled:
+                                                                                                          !pl.enabled,
+                                                                                                  }
+                                                                                                : pl,
+                                                                                    ),
+                                                                            });
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         );
