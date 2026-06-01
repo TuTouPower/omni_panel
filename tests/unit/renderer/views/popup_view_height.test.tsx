@@ -119,7 +119,7 @@ describe("PopupView collapse + height report", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         FakeResizeObserver.reset();
-        (globalThis as Record<string, unknown>).ResizeObserver = FakeResizeObserver;
+        (globalThis as Record<string, unknown>)["ResizeObserver"] = FakeResizeObserver;
         plugin_list.mockResolvedValue([claude_with_accounts]);
         window.usageboard = {
             platform: "win32",

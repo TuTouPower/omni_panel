@@ -10,9 +10,7 @@ vi.mock("../../../../src/renderer/lib/theme", () => ({
 
 class FakeResizeObserver {
     private static instances: FakeResizeObserver[] = [];
-    private cb: ResizeObserverCallback;
-    constructor(cb: ResizeObserverCallback) {
-        this.cb = cb;
+    constructor() {
         FakeResizeObserver.instances.push(this);
     }
     observe() {
@@ -52,7 +50,7 @@ function connector(): ConnectorInfo {
 describe("PopupView mirror isolation", () => {
     beforeEach(() => {
         FakeResizeObserver.reset();
-        (globalThis as Record<string, unknown>).ResizeObserver = FakeResizeObserver;
+        (globalThis as Record<string, unknown>)["ResizeObserver"] = FakeResizeObserver;
         const plugin_list = vi
             .fn<() => Promise<ConnectorInfo[]>>()
             .mockResolvedValue([connector()]);

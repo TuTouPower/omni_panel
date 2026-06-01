@@ -287,7 +287,7 @@ export function PopupView() {
 
     return (
         <>
-            <div className="window" ref={live_root_ref}>
+            <div className="window" data-popup="live" ref={live_root_ref}>
                 {render_body(true, false)}
             </div>
             {should_render_mirrors && (
@@ -303,6 +303,7 @@ export function PopupView() {
                         ref={content_mirror_ref}
                         className="window popup-mirror"
                         aria-hidden="true"
+                        inert
                         style={popup_mirror_style}
                     >
                         {render_body(false, false)}
@@ -311,6 +312,7 @@ export function PopupView() {
                         ref={collapsed_mirror_ref}
                         className="window popup-mirror"
                         aria-hidden="true"
+                        inert
                         style={popup_mirror_style}
                     >
                         {render_body(false, true)}
