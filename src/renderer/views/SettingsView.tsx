@@ -6,6 +6,7 @@ import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { Icon, VendorMark } from "../components/Icon";
 import type { PluginInfo } from "../../shared/types/ipc";
 import type { PluginConfiguration } from "../../shared/types/config";
+import logo from "../assets/logo.png";
 
 /* ── types ── */
 interface DialogState {
@@ -800,9 +801,14 @@ export function SettingsView() {
                         {section === "about" && (
                             <>
                                 <div className="about-app">
-                                    <div className="aa-badge">
-                                        <Icon name="grid_nav" size={28} color="#fff" />
-                                    </div>
+                                    <img
+                                        src={logo}
+                                        alt="OmniUsage"
+                                        className="aa-logo"
+                                        width="64"
+                                        height="64"
+                                        style={{ borderRadius: 14 }}
+                                    />
                                     <div className="aa-name">OmniUsage</div>
                                     <div className="aa-ver">版本 1.0.0 · 已是最新版本</div>
                                     <button className="btn-primary" type="button">
