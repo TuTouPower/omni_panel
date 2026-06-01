@@ -307,10 +307,10 @@ refresh(instanceId)
 
 ### 6.2 窗口配置
 
-| 窗口     | 路由        | 尺寸    | frame | 特殊行为                                   |
-| -------- | ----------- | ------- | ----- | ------------------------------------------ |
-| Popup    | `#popup`    | 360×480 | 无    | 点击托盘时定位到图标下方，内容填满窗口高度 |
-| Settings | `#settings` | 640×520 | 有    |                                            |
+| 窗口     | 路由        | 尺寸                             | frame | 特殊行为                                                                  |
+| -------- | ----------- | -------------------------------- | ----- | ------------------------------------------------------------------------- |
+| Popup    | `#popup`    | 360 × (初始 480，按内容动态调整) | 无    | 点击托盘时定位到图标下方，内容填满窗口高度，高度自动跟随内容（详见 §6.7） |
+| Settings | `#settings` | 640×520                          | 有    |                                                                           |
 
 ### 6.3 PopupView
 
@@ -345,6 +345,18 @@ refresh(instanceId)
 
 - 基于 `window.location.hash`：`#popup`、`#settings`
 - `useRoute()` hook 监听 `hashchange` 事件
+
+### 6.7 Popup 动态高度（Phase 20）
+
+Popup 窗口的高度跟随渲染内容自动调整，避免出现底部空白或滚动条以外的留白。
+
+- **测量**：渲染层在 `.window` 容器上挂一对离屏 `.popup-mirror`（一份展开、一份全部折叠），通过 `ResizeObserver` 上报两个值：
+    - `content_height`：当前可见状态下的真实高度。
+    - `collapsed_min_height`：若所有可折叠卡片都折叠后的最小高度。
+- **IPC**：渲染进程通过 `popup:reportContentHeight` 频道发送 `PopupContentHeightReport`（`window.usageboard.popup.report_content_height`）。该频道是单向的 popup 专用通道，**不属于插件协议**，不会写入 `plugin-contract.md`。
+- **主进程裁剪**：`src/main/core/popup/popup-height-controller.ts` 把目标高度限制在 `[collapsed_min_height, floor(workArea.height * 0.85)]`，并对差值 ≤ 1px 的上报做去抖。
+- **窗口锚定**：调整高度时保持宽度（360）不变。macOS 在托盘下方居中；Windows 若用户移动过窗口则保留原位置，未移动则贴托盘；Linux 在托盘 bounds 缺失时回落到工作区右下角。每次都做工作区裁剪，避免窗口越出屏幕。
+- **重置语义**：`reset()` 在 popup 重新打开后被调用，使下一次上报必定触发一次 `setBounds`。
 
 ---
 

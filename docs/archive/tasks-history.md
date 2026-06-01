@@ -1018,7 +1018,7 @@ CPA-Manager (http://<your-host>:20224)
 
 ---
 
-## Phase 19: UI 与设计 demo 对齐 + 窗口/托盘修复（已完成子项）
+## Phase 19: UI 与设计 demo 对齐 + 窗口/托盘修复 ✅
 
 ### 19.1 窗口装饰修复
 
@@ -1097,3 +1097,42 @@ CPA-Manager (http://<your-host>:20224)
 - [x] **19.4.3 深色模式校对**
     - demo 有 `data-theme="dark"` 切换,逐 token 校对深浅两套色
 
+### 19.5 验收
+
+- [x] `pnpm package` 后启动,Settings 窗口无默认菜单栏
+- [x] 托盘图标清晰显示(Win/Mac/Linux 任一平台至少 Win 通过)
+- [x] Popup 标题栏可拖拽,按钮不触发拖拽
+- [x] PluginCard 渲染 AreaChart + TokenGrid + 多 UsageRow
+- [x] 多账号 tab 可切换
+- [x] 视觉对照 `docs/design/omni-usage/project/screenshots/01-overview.png`,核心布局/色彩一致
+- [x] `pnpm test:visual` 基线更新后通过
+
+### 19.6 不在范围
+
+- 设计 demo 里的"添加服务向导对话框"(`01-add-dialog.png`)— 留 Phase 20
+- 跨平台菜单栏深度适配(macOS native menu)— 仅做最小适配
+
+### 19.7 Popup 主面板底部空白修复
+
+#### 问题
+
+打包产物运行后，主面板窗口底部出现大片空白。
+
+根因：`src/main/index.ts` 中 popup `BrowserWindow` 高度为 `480`，但 `src/renderer/styles/globals.css` 的 `.window` 使用 `height: min(816px, calc(100vh - 80px))`，导致真实 popup 内容高度只有 `400px`，底部剩余约 `80px` body 背景空白。
+
+#### 修复要求
+
+- [x] 将真实 popup 场景下 `.window` 高度改为填满窗口（如 `height: 100vh` / `height: 100%`），不能继续使用设计预览用的 `calc(100vh - 80px)`。
+- [x] 保持 Settings 窗口布局不被误伤。
+- [x] 检查主面板滚动区域和 statusbar，确保内容少/多时都无底部空白、无被截断。
+
+#### 测试要求
+
+- [x] 增加/更新 renderer 或 E2E 测试，覆盖 popup 根容器高度等于视口高度，防止再次出现 `100vh - 80px` 类回归。
+- [x] 打包后真实启动验证：主面板底部无空白。
+- [x] 若自动化能接入 packaged app，则在 `tests/packaged_smoke/` 增加断言：`.window` 高度与 `window.innerHeight` 一致或误差在 1px 内。
+
+#### 文档要求
+
+- [x] 更新 `docs/test.md` / `docs/test-coverage-matrix.md`：记录 popup 布局 smoke 需要覆盖窗口高度和底部空白回归。
+- [x] 如 `docs/spec.md` 描述 popup 尺寸/布局，也要同步说明 popup 内容应填满窗口。

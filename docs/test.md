@@ -53,6 +53,7 @@
 - `out/OmniUsage-win32-x64/OmniUsage.exe` 首次启动。
 - 系统托盘真实显示效果、popup 窗口位置。
 - Popup 根容器必须填满窗口高度，防止底部 body 背景空白。
+- Popup 动态高度（Phase 20）：折叠/展开卡片后窗口实际跟随 `popup:reportContentHeight` 调整大小、不超过 85% 工作区、不出现额外底部留白。自动化只能覆盖控制器纯函数与 ResizeObserver 上报逻辑，真实多显示器/不同 DPI 下的 `setBounds` 行为只能人工验收。
 - 渲染进程是否正常加载（白屏即失败）。
 - `extraResource` 中的 bundled plugins 是否正确加载。
 - ASAR 包内资源路径是否可访问。
