@@ -80,70 +80,70 @@ function compute_target_height(report, display) {
 
 #### 20.1 Renderer 内容高度测量
 
-- [ ] 在 Popup 主面板根内容容器上接入 `ResizeObserver`。
-- [ ] 测量当前可见内容高度，包括标题栏、tabs、provider card、账号列表、底部状态栏。
-- [ ] 不把设计预览用高度写死到真实 popup。
-- [ ] 高度变化超过 `1px` 才上报，避免字体渲染/小数像素引发 resize 抖动。
+- [x] 在 Popup 主面板根内容容器上接入 `ResizeObserver`。
+- [x] 测量当前可见内容高度，包括标题栏、tabs、provider card、账号列表、底部状态栏。
+- [x] 不把设计预览用高度写死到真实 popup。
+- [x] 高度变化超过 `1px` 才上报，避免字体渲染/小数像素引发 resize 抖动。
 
 #### 20.2 折叠状态模型
 
-- [ ] 为 provider 卡片/账号分组增加显式 `collapsed` 状态。
-- [ ] 默认状态为展开。
-- [ ] 用户点击折叠后，只隐藏卡片详情内容，保留卡片标题、摘要、状态、刷新入口。
-- [ ] 展开/折叠后依赖 `ResizeObserver` 自动触发高度上报，不在点击 handler 中直接改窗口尺寸。
+- [x] 为 provider 卡片/账号分组增加显式 `collapsed` 状态。
+- [x] 默认状态为展开。
+- [x] 用户点击折叠后，只隐藏卡片详情内容，保留卡片标题、摘要、状态、刷新入口。
+- [x] 展开/折叠后依赖 `ResizeObserver` 自动触发高度上报，不在点击 handler 中直接改窗口尺寸。
 
 #### 20.3 最小高度测量
 
-- [ ] 实现“全卡片折叠高度”测量。
-- [ ] 最小高度必须包含：标题栏、provider tabs、所有折叠态卡片 header、底部状态栏、必要 padding/border。
-- [ ] 当当前内容高度低于全折叠高度时，主进程仍使用全折叠高度作为窗口高度。
-- [ ] 不使用固定 `160px` 作为主面板最小高度；`160px` 只能作为极端兜底，不能覆盖全折叠高度规则。
+- [x] 实现“全卡片折叠高度”测量。
+- [x] 最小高度必须包含：标题栏、provider tabs、所有折叠态卡片 header、底部状态栏、必要 padding/border。
+- [x] 当当前内容高度低于全折叠高度时，主进程仍使用全折叠高度作为窗口高度。
+- [x] 不使用固定 `160px` 作为主面板最小高度；`160px` 只能作为极端兜底，不能覆盖全折叠高度规则。
 
 #### 20.4 主进程高度控制器
 
-- [ ] 新增或复用 popup 高度控制器。
-- [ ] 接收 renderer 上报的 `content_height` 与 `collapsed_min_height`。
-- [ ] 根据当前 popup 所在 display 的 `workArea.height * 0.85` 计算最大高度。
-- [ ] 使用 `clamp(content_height, collapsed_min_height, max_height)` 计算目标高度。
-- [ ] 应用窗口尺寸时保持托盘锚点位置正确，避免高度变化后 popup 漂移。
+- [x] 新增或复用 popup 高度控制器。
+- [x] 接收 renderer 上报的 `content_height` 与 `collapsed_min_height`。
+- [x] 根据当前 popup 所在 display 的 `workArea.height * 0.85` 计算最大高度。
+- [x] 使用 `clamp(content_height, collapsed_min_height, max_height)` 计算目标高度。
+- [x] 应用窗口尺寸时保持托盘锚点位置正确，避免高度变化后 popup 漂移。
 
 #### 20.5 平台化窗口定位与移动策略
 
 > 注意：本节会**回退 Phase 19.1.2 的全局自绘拖拽**实现。19.1.2 当前为所有平台 `.titlebar` 设置了 `-webkit-app-region: drag`；本节要求按平台分发：macOS 关闭 drag、Win/Linux 保留。改造时通过 platform 判断条件渲染 className 或 inline style，不要直接删除 19.1.2 的 CSS 规则导致 Win/Linux 回归。
 
-- [ ] 新增平台策略函数，例如 `get_popup_window_behavior(platform)`。
-- [ ] macOS：
-    - [ ] popup 初始位置锚定系统托盘/菜单栏图标。
-    - [ ] 高度变化时，以托盘锚点重新计算窗口位置，保持 popover 贴住图标。
-    - [ ] 禁止 renderer 自绘标题栏拖动区；`.titlebar` 不应设置 `-webkit-app-region: drag`（推翻 Phase 19.1.2 的全局 drag 行为）。
-    - [ ] 窗口不可由用户自由拖动；如果 Electron frame/traffic light 导致可移动，需要改为无 frame popover 行为。
-- [ ] Windows：
-    - [ ] popup 初次打开由托盘图标触发，默认贴近 tray bounds。
-    - [ ] 保留自绘标题栏拖动区，允许用户移动窗口。
-    - [ ] 记录用户是否移动过窗口；移动后高度自适应只改高度，不重新锚定到托盘。
-    - [ ] 关闭后再次从托盘打开，可重新按 tray bounds 定位。
-- [ ] Linux：
-    - [ ] 行为与 Windows 一致：托盘触发、浮动窗口、可移动。
-    - [ ] tray bounds 可用时初始贴近 tray bounds。
-    - [ ] tray bounds 不可靠或为空时，使用当前鼠标所在 display 的 work area 右下角兜底定位。
-    - [ ] 高度自适应不破坏用户移动后的位置。
-- [ ] 平台策略必须与高度控制器集成：
+- [x] 新增平台策略函数，例如 `get_popup_window_behavior(platform)`。
+- [x] macOS：
+    - [x] popup 初始位置锚定系统托盘/菜单栏图标。
+    - [x] 高度变化时，以托盘锚点重新计算窗口位置，保持 popover 贴住图标。
+    - [x] 禁止 renderer 自绘标题栏拖动区；`.titlebar` 不应设置 `-webkit-app-region: drag`（推翻 Phase 19.1.2 的全局 drag 行为）。
+    - [x] 窗口不可由用户自由拖动；如果 Electron frame/traffic light 导致可移动，需要改为无 frame popover 行为。
+- [x] Windows：
+    - [x] popup 初次打开由托盘图标触发，默认贴近 tray bounds。
+    - [x] 保留自绘标题栏拖动区，允许用户移动窗口。
+    - [x] 记录用户是否移动过窗口；移动后高度自适应只改高度，不重新锚定到托盘。
+    - [x] 关闭后再次从托盘打开，可重新按 tray bounds 定位。
+- [x] Linux：
+    - [x] 行为与 Windows 一致：托盘触发、浮动窗口、可移动。
+    - [x] tray bounds 可用时初始贴近 tray bounds。
+    - [x] tray bounds 不可靠或为空时，使用当前鼠标所在 display 的 work area 右下角兜底定位。
+    - [x] 高度自适应不破坏用户移动后的位置。
+- [x] 平台策略必须与高度控制器集成：
     - macOS resize 时保持托盘锚点。
     - Windows/Linux resize 时保持当前窗口左上角或用户移动后的位置。
 
 #### 20.6 新内容重置折叠
 
-- [ ] 当刷新返回新的 provider/account 结构时，清空旧折叠状态。
-- [ ] 当切换 provider tab 时，默认展开当前 provider 内容。
-- [ ] 原因：折叠状态是用户对旧内容的临时视图选择，不应隐藏新一轮数据。
-- [ ] 验收：刷新后新内容默认展开，窗口按新内容高度重新计算。
+- [x] 当刷新返回新的 provider/account 结构时，清空旧折叠状态。
+- [x] 当切换 provider tab 时，默认展开当前 provider 内容。
+- [x] 原因：折叠状态是用户对旧内容的临时视图选择，不应隐藏新一轮数据。
+- [x] 验收：刷新后新内容默认展开，窗口按新内容高度重新计算。
 
 #### 20.7 滚动与最大高度
 
-- [ ] 当内容高度超过 `85% work area` 时，窗口高度停在最大值。
-- [ ] 超出内容由主面板内部滚动，不继续增大窗口。
-- [ ] 折叠部分卡片后，如果内容高度低于最大值，窗口应同步缩小。
-- [ ] 全部折叠后，窗口应缩到全折叠高度，不再继续缩小。
+- [x] 当内容高度超过 `85% work area` 时，窗口高度停在最大值。
+- [x] 超出内容由主面板内部滚动，不继续增大窗口。
+- [x] 折叠部分卡片后，如果内容高度低于最大值，窗口应同步缩小。
+- [x] 全部折叠后，窗口应缩到全折叠高度，不再继续缩小。
 
 #### 20.8 测试改动清单
 
@@ -274,7 +274,7 @@ function compute_target_height(report, display) {
 
 **发现时间**：2026-06-01 打包验收  
 **严重程度**：高（影响 Windows/Linux 未拖动窗口的所有折叠/展开操作）  
-**状态**：未修复
+**状态**：已修复（2026-06-02）
 
 #### 现象
 
@@ -342,7 +342,7 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
 
 **发现时间**：2026-06-01 打包验收  
 **严重程度**：中（功能缺失，影响总览页交互体验）  
-**状态**：未修复
+**状态**：已修复（2026-06-02）
 
 #### 现象
 
