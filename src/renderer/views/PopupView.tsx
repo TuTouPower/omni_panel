@@ -7,6 +7,8 @@ import { Icon } from "../components/Icon";
 import { ProviderAccountList } from "../components/ProviderAccountList";
 import { ProviderNav } from "../components/ProviderNav";
 import { ProviderOverview } from "../components/ProviderOverview";
+import { TokenPanel } from "../components/TokenPanel";
+import { CollapsibleCard } from "../components/CollapsibleCard";
 import { buildProviderUsageGroups, getVisibleProviders } from "../lib/provider-usage";
 import logo from "../assets/logo.png";
 
@@ -35,6 +37,7 @@ export function PopupView() {
     const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
+    const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
     const tabsRef = useRef<HTMLDivElement>(null);
     const live_root_ref = useRef<HTMLDivElement | null>(null);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
@@ -283,6 +286,25 @@ export function PopupView() {
                                 该服务暂无账号。请到设置添加数据来源。
                             </div>
                         </div>
+                    )}
+
+                    {!loading && plugins.length > 0 && (
+                        <CollapsibleCard
+                            header={<span className="card-name">Total Tokens</span>}
+                            collapsed={token_panel_collapsed}
+                            onToggle={
+                                is_live
+                                    ? () => {
+                                          set_token_panel_collapsed((v) => !v);
+                                      }
+                                    : () => undefined
+                            }
+                            toggleLabel={
+                                token_panel_collapsed ? "展开 Token 面板" : "折叠 Token 面板"
+                            }
+                        >
+                            <TokenPanel has_real_data={false} />
+                        </CollapsibleCard>
                     )}
                 </div>
 

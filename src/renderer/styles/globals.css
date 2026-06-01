@@ -629,6 +629,23 @@ body {
     font-weight: 600;
     box-shadow: 0 1px 3px rgba(20, 30, 60, 0.1);
 }
+.token-metric {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+.token-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+.token-na {
+    font-size: 14px;
+    font-weight: 450;
+    color: var(--text-3);
+}
 .chart {
     width: 100%;
     height: 168px;
@@ -1563,4 +1580,166 @@ body {
     color: var(--text-3);
     box-shadow: none;
     cursor: default;
+}
+
+/* ============ Phase 21: tab / card / context-menu additions ============ */
+
+.tab.pinned {
+    flex: 0 0 auto;
+}
+
+.tabs-pin-divider {
+    width: 0.5px;
+    align-self: stretch;
+    background: var(--hairline);
+    margin: 8px 2px 6px;
+    flex-shrink: 0;
+}
+
+.tabs-fade {
+    position: absolute;
+    top: 2px;
+    bottom: 0;
+    width: 26px;
+    pointer-events: none;
+}
+.tabs-fade.right {
+    right: 0;
+    background: linear-gradient(90deg, transparent, var(--win-bg) 70%);
+}
+
+.tabs-chevron {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-3);
+    pointer-events: none;
+    display: flex;
+}
+
+.count-badge {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--blue);
+    background: color-mix(in srgb, var(--blue) 12%, transparent);
+    padding: 1px 8px;
+    border-radius: 7px;
+    line-height: 1.5;
+}
+
+/* drag states */
+.card.dragging {
+    opacity: 0.45;
+}
+.card.drag-over {
+    box-shadow:
+        0 0 0 2px var(--blue),
+        var(--card-shadow);
+}
+
+/* ---------- context menu ---------- */
+.ctx-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+}
+.ctx-menu {
+    position: absolute;
+    min-width: 232px;
+    background: var(--menu-bg);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    backdrop-filter: blur(28px) saturate(170%);
+    border: 0.5px solid var(--menu-border);
+    border-radius: 12px;
+    box-shadow: var(--menu-shadow);
+    padding: 6px;
+    color: var(--text);
+}
+.ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 8px 11px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    cursor: default;
+    color: var(--text);
+    position: relative;
+}
+.ctx-item .ci-ic {
+    width: 17px;
+    display: flex;
+    justify-content: center;
+    color: var(--text-2);
+    flex-shrink: 0;
+}
+.ctx-item:hover {
+    background: var(--blue);
+    color: #fff;
+}
+.ctx-item:hover .ci-ic {
+    color: #fff;
+}
+.ctx-item:hover .ci-meta,
+.ctx-item:hover .ci-check {
+    color: rgba(255, 255, 255, 0.85);
+}
+.ctx-item .ci-meta {
+    margin-left: 10px;
+    font-size: 12px;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+}
+.ctx-item .ci-check {
+    margin-left: 8px;
+    color: var(--blue);
+    display: flex;
+}
+.ctx-item.danger {
+    color: var(--red);
+}
+.ctx-item.danger .ci-ic {
+    color: var(--red);
+}
+.ctx-item.danger:hover {
+    background: var(--red);
+    color: #fff;
+}
+.ctx-item.danger:hover .ci-ic {
+    color: #fff;
+}
+.ctx-sep {
+    height: 0.5px;
+    background: var(--menu-border);
+    margin: 5px 8px;
+}
+.ctx-sub {
+    padding: 7px 11px 3px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-3);
+}
+.ctx-status {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 11px;
+}
+.ctx-status .cs-mini {
+    display: grid;
+    grid-template-columns: 14px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    font-size: 12px;
+    color: var(--text-2);
+}
+.ctx-status .cs-track {
+    height: 4px;
+    background: var(--track);
+    border-radius: 99px;
+    overflow: hidden;
 }
