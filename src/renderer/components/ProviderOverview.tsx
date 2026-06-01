@@ -13,6 +13,10 @@ interface ProviderOverviewProps {
     providerErrors: Map<UsageProvider, ProviderError>;
     onSelectProvider: (provider: UsageProvider) => void;
     onRefreshProvider: (provider: UsageProvider) => void;
+    /** Currently expanded providers in the overview (in-place expand). */
+    expandedProviders?: Record<string, boolean>;
+    /** Called when a provider card chevron is toggled. */
+    onToggleExpandProvider?: (provider: UsageProvider) => void;
 }
 
 export function ProviderOverview({
@@ -21,6 +25,8 @@ export function ProviderOverview({
     providerErrors,
     onSelectProvider,
     onRefreshProvider,
+    expandedProviders,
+    onToggleExpandProvider,
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
 
@@ -34,6 +40,10 @@ export function ProviderOverview({
                     connectorError={providerErrors.get(provider)}
                     onSelect={onSelectProvider}
                     onRefresh={onRefreshProvider}
+                    expanded={
+                        expandedProviders ? (expandedProviders[provider] ?? false) : undefined
+                    }
+                    onToggleExpand={onToggleExpandProvider}
                 />
             ))}
         </>

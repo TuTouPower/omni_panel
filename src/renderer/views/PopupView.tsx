@@ -34,6 +34,7 @@ export function PopupView() {
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
+    const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
     const tabsRef = useRef<HTMLDivElement>(null);
     const live_root_ref = useRef<HTMLDivElement | null>(null);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
@@ -57,7 +58,7 @@ export function PopupView() {
             ? undefined
             : providerGroups.find((group) => group.provider === activeTab);
 
-    // Phase 20.6: reset collapse state when provider/account structure changes
+    // Phase 20.6: reset collapse/expand state when provider/account structure changes
     // or when the active tab switches. Refreshes that preserve the structure
     // (same provider set, same account IDs) keep the user's collapse choices.
     const signature = structural_signature(activeTab, providerGroups);
@@ -66,6 +67,7 @@ export function PopupView() {
         if (last_signature_ref.current !== signature) {
             last_signature_ref.current = signature;
             set_collapsed_accounts({});
+            set_expanded_providers({});
         }
     }, [signature]);
 
@@ -112,6 +114,10 @@ export function PopupView() {
 
     const toggle_account = (id: string) => {
         set_collapsed_accounts((prev) => ({ ...prev, [id]: !(prev[id] ?? false) }));
+    };
+
+    const toggle_expand_provider = (provider: UsageProvider) => {
+        set_expanded_providers((prev) => ({ ...prev, [provider]: !(prev[provider] ?? false) }));
     };
 
     // auto-scroll active tab into view
@@ -258,6 +264,8 @@ export function PopupView() {
                             providerErrors={providerErrors}
                             onSelectProvider={is_live ? setActiveTab : () => undefined}
                             onRefreshProvider={is_live ? refreshProvider : () => undefined}
+                            expandedProviders={is_live ? expanded_providers : undefined}
+                            onToggleExpandProvider={is_live ? toggle_expand_provider : undefined}
                         />
                     )}
 

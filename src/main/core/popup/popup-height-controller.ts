@@ -133,13 +133,17 @@ export function apply_locked_size(
         };
     }
 
+    // Even when user_moved is false on Windows/Linux, we must NOT
+    // recompute y from the tray on every resize. The initial position
+    // is set by the tray-click handler in index.ts; subsequent height
+    // changes should preserve current.y so the window top stays fixed
+    // and only the bottom edge moves (see Phase 20 Path B bug).
     const tray = anchor.tray_bounds;
     if (tray && tray.width > 0 && tray.height > 0) {
         const x = Math.round(tray.x + tray.width / 2 - width / 2);
-        const y = Math.round(tray.y + tray.height + 4);
         return {
             x: clamp(x, work.x, work.x + work.width - width),
-            y: clamp(y, work.y, work.y + work.height - new_height),
+            y: clamp(current.y, work.y, work.y + work.height - new_height),
             width,
             height: new_height,
         };

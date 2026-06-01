@@ -19,7 +19,7 @@ describe("Renderer smoke tests", () => {
             await waitFor(() => {
                 expect(screen.getAllByText("DeepSeek").length).toBeGreaterThanOrEqual(1);
             });
-            await user.click(screen.getByRole("button", { name: "查看 DeepSeek" }));
+            await user.click(screen.getByRole("button", { name: "查看 DeepSeek 详情" }));
             expect(screen.getByText(/5,000.*10,000/)).toBeInTheDocument();
         });
 
