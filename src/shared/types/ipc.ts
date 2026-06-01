@@ -21,9 +21,19 @@ export const IPC_CHANNELS = {
 
     LOG_RENDERER: "log:renderer",
 
+    /** Popup renderer reports measured content height for window auto-sizing. */
+    POPUP_REPORT_CONTENT_HEIGHT: "popup:reportContentHeight",
+
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
 } as const;
+
+export interface PopupContentHeightReport {
+    /** Measured visible content height in CSS pixels. */
+    content_height: number;
+    /** Measured height when all collapsible cards are collapsed. */
+    collapsed_min_height: number;
+}
 
 export type PluginSnapshotDTO =
     | { status: "idle" }
@@ -89,7 +99,11 @@ export interface RendererLogPayload {
 
 export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: IpcError };
 
+export type RendererPlatform = "darwin" | "win32" | "linux";
+
 export interface UsageboardApi {
+    /** Host platform exposed to the renderer for platform-aware UI (e.g. titlebar drag). */
+    platform: RendererPlatform;
     plugin: {
         list(): Promise<PluginInfo[]>;
         getState(instanceId: string): Promise<PluginSnapshotDTO>;
@@ -110,6 +124,13 @@ export interface UsageboardApi {
     event: {
         onStateChange(callback: (instanceId: string, state: PluginSnapshotDTO) => void): () => void;
         onThemeChange(callback: (isDark: boolean) => void): () => void;
+    };
+    popup: {
+        /**
+         * Renderer reports the measured content height (and the all-collapsed
+         * minimum height) so the main process can lock the BrowserWindow size.
+         */
+        report_content_height(report: PopupContentHeightReport): void;
     };
     log(payload: RendererLogPayload): void;
 }

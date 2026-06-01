@@ -5,6 +5,7 @@ import type {
     UsageboardApi,
     PluginSnapshotDTO,
     RendererLogPayload,
+    RendererPlatform,
 } from "../shared/types/ipc";
 import "./usageboard-api";
 
@@ -19,7 +20,11 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
 
 type UnwrapPromise<T> = T extends Promise<infer U> ? U : never;
 
+const renderer_platform: RendererPlatform =
+    process.platform === "darwin" ? "darwin" : process.platform === "win32" ? "win32" : "linux";
+
 const api: UsageboardApi = {
+    platform: renderer_platform,
     plugin: {
         list: () =>
             invoke<UnwrapPromise<ReturnType<UsageboardApi["plugin"]["list"]>>>(
@@ -80,6 +85,11 @@ const api: UsageboardApi = {
             };
             ipcRenderer.on(IPC_CHANNELS.EVENT_THEME_CHANGE, handler);
             return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_THEME_CHANGE, handler);
+        },
+    },
+    popup: {
+        report_content_height: (report) => {
+            void ipcRenderer.invoke(IPC_CHANNELS.POPUP_REPORT_CONTENT_HEIGHT, report);
         },
     },
     log: (payload: RendererLogPayload) => {
