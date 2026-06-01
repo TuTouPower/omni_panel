@@ -41,6 +41,17 @@ export function PopupView() {
 
     const providerGroups = useMemo(() => buildProviderUsageGroups(plugins), [plugins]);
     const visibleProviders = useMemo(() => getVisibleProviders(plugins), [plugins]);
+    const providerErrors = useMemo(() => {
+        const map = new Map<UsageProvider, { displayName: string; error: string }>();
+        for (const c of plugins) {
+            if (c.snapshot.status !== "failed") continue;
+            for (const p of c.activeProviders) {
+                if (!map.has(p))
+                    map.set(p, { displayName: c.displayName, error: c.snapshot.error });
+            }
+        }
+        return map;
+    }, [plugins]);
     const activeGroup =
         activeTab === "overview"
             ? undefined
@@ -244,6 +255,7 @@ export function PopupView() {
                         <ProviderOverview
                             groups={providerGroups}
                             visibleProviders={visibleProviders}
+                            providerErrors={providerErrors}
                             onSelectProvider={is_live ? setActiveTab : () => undefined}
                             onRefreshProvider={is_live ? refreshProvider : () => undefined}
                         />

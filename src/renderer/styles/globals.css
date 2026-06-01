@@ -516,6 +516,9 @@ body {
     display: flex;
     flex-shrink: 0;
 }
+.card-state.err {
+    color: var(--red);
+}
 .card-state.err .cs-ic {
     color: var(--red);
 }

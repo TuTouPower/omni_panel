@@ -1,11 +1,13 @@
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
+import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 
 interface ProviderCardProps {
     provider: UsageProvider;
     group?: ProviderUsageGroup | undefined;
+    connectorError?: ProviderError | undefined;
     onSelect?: (provider: UsageProvider) => void;
     onRefresh?: (provider: UsageProvider) => void;
 }
@@ -17,14 +19,24 @@ function statusLabel(status: ProviderUsageGroup["status"] | undefined): string {
     return "正常";
 }
 
-export function ProviderCard({ provider, group, onSelect, onRefresh }: ProviderCardProps) {
+export function ProviderCard({
+    provider,
+    group,
+    connectorError,
+    onSelect,
+    onRefresh,
+}: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const windowCount = group?.windows.length ?? 0;
     const hasUsage = windowCount > 0;
-    const label = group?.label ?? PROVIDER_LABELS[provider];
+    const label = connectorError?.displayName ?? group?.label ?? PROVIDER_LABELS[provider];
+    const isFailed = connectorError !== undefined && !hasUsage;
 
     return (
-        <div className={"card" + (group?.status === "critical" ? " alert" : "")}>
+        <div
+            data-provider={provider}
+            className={"card" + (group?.status === "critical" || isFailed ? " alert" : "")}
+        >
             <div className="card-head">
                 <VendorMark id={provider} size={28} />
                 <div>
@@ -61,7 +73,10 @@ export function ProviderCard({ provider, group, onSelect, onRefresh }: ProviderC
                     </div>
                 )}
             </div>
-            {!hasUsage && <div className="card-state off">暂无账号。请到设置添加数据来源。</div>}
+            {isFailed && <div className="card-state err">{connectorError.error}</div>}
+            {!isFailed && !hasUsage && (
+                <div className="card-state off">暂无账号。请到设置添加数据来源。</div>
+            )}
         </div>
     );
 }

@@ -2,9 +2,15 @@ import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
 import { ProviderCard } from "./ProviderCard";
 
+export interface ProviderError {
+    displayName: string;
+    error: string;
+}
+
 interface ProviderOverviewProps {
     groups: ProviderUsageGroup[];
     visibleProviders: UsageProvider[];
+    providerErrors: Map<UsageProvider, ProviderError>;
     onSelectProvider: (provider: UsageProvider) => void;
     onRefreshProvider: (provider: UsageProvider) => void;
 }
@@ -12,6 +18,7 @@ interface ProviderOverviewProps {
 export function ProviderOverview({
     groups,
     visibleProviders,
+    providerErrors,
     onSelectProvider,
     onRefreshProvider,
 }: ProviderOverviewProps) {
@@ -24,6 +31,7 @@ export function ProviderOverview({
                     key={provider}
                     provider={provider}
                     group={groupsByProvider.get(provider)}
+                    connectorError={providerErrors.get(provider)}
                     onSelect={onSelectProvider}
                     onRefresh={onRefreshProvider}
                 />
