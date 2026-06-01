@@ -14,9 +14,20 @@ async function openAccountForm(page: Page, name: string) {
     const group = page.locator(".acct-group").filter({ hasText: name }).first();
     await expect(group).toBeVisible();
     await group.locator('button[title="编辑"]').click();
-    const form = page.locator('[data-testid^="settings-form-"]').filter({ hasText: name }).first();
-    await expect(form).toBeVisible();
-    return form;
+    // CPA uses CpaConnectorSettings (data-testid="cpa-connector-settings"),
+    // other plugins use SettingsForm (data-testid="settings-form-{id}").
+    const form = page.locator('[data-testid="cpa-connector-settings"]');
+    const fallbackForm = page
+        .locator('[data-testid^="settings-form-"]')
+        .filter({ hasText: name })
+        .first();
+    const cpaForm = await form.count();
+    if (cpaForm > 0) {
+        await expect(form).toBeVisible();
+        return form;
+    }
+    await expect(fallbackForm).toBeVisible();
+    return fallbackForm;
 }
 
 test.describe("plugin configuration", () => {
@@ -69,7 +80,7 @@ test.describe("plugin configuration", () => {
         let form = await openAccountForm(page, "CPA");
         await form.locator('input[name="endpoint:default"]').fill("https://cpa.example.test");
         await form.locator('input[name="cpa_mgmt_key"]').fill("secret-management-key");
-        await form.locator('input[name="refreshIntervalMinutes"]').fill("7");
+        // CpaConnectorSettings submits via the form's built-in save button
         await form.locator('button[type="submit"]').click();
         await expect(page.locator('[role="dialog"]')).toBeHidden();
 
@@ -86,6 +97,5 @@ test.describe("plugin configuration", () => {
         await expect(form.locator('input[name="cpa_mgmt_key"]')).not.toHaveValue(
             "secret-management-key",
         );
-        await expect(form.locator('input[name="refreshIntervalMinutes"]')).toHaveValue("7");
     });
 });

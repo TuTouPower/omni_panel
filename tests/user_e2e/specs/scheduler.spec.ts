@@ -8,7 +8,7 @@ test.describe("scheduler", () => {
         await popup.waitReady();
 
         // After auto-seeding, there should be plugin cards in the popup
-        const pluginCards = page.locator(".card");
+        const pluginCards = popup.root().locator(".card");
         const count = await pluginCards.count();
         expect(count).toBeGreaterThan(0);
     });
@@ -22,7 +22,7 @@ test.describe("scheduler", () => {
         await page.waitForTimeout(5000);
 
         // Check that plugin cards exist and have some state
-        const pluginCards = page.locator(".card");
+        const pluginCards = popup.root().locator(".card");
         const count = await pluginCards.count();
         if (count > 0) {
             const firstCard = pluginCards.first();
@@ -40,7 +40,7 @@ test.describe("scheduler", () => {
         await page.waitForTimeout(1000);
 
         // The page should still be functional (no crash)
-        await expect(page.locator(".scroll")).toBeVisible();
+        await expect(popup.root().locator(".scroll")).toBeVisible();
     });
 
     test("settings shows plugin list with enabled state", async ({ omni }) => {

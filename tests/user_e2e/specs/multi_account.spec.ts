@@ -6,21 +6,24 @@ import { PopupPage } from "../pages/popup_page";
 const { test, expect } = createTestWithSetup({
     setupPlugins: (userDataDir: string) => {
         const userPluginDir = join(userDataDir, "plugins");
-        // Two plugins with same metadata name -> triggers deduplication
+        // Two plugins with same provider -> triggers deduplication ("Kimi" / "Kimi 2")
         seed_fake_plugin(userPluginDir, {
             name: "dup-svc-plugin",
             displayName: "DupSvc",
+            provider: "kimi",
             items: [{ id: "a1", name: "Account A", used: 30, limit: 100 }],
         });
         seed_fake_plugin(userPluginDir, {
             name: "dup-svc-plugin-2",
             displayName: "DupSvc",
+            provider: "kimi",
             items: [{ id: "b1", name: "Account B", used: 70, limit: 100 }],
         });
-        // Multi-item plugin
+        // Multi-item plugin with unique provider
         seed_fake_plugin(userPluginDir, {
             name: "multi-item-plugin",
             displayName: "MultiItem",
+            provider: "antigravity",
             items: [
                 { id: "m1", name: "Tokens", used: 500, limit: 1000 },
                 { id: "m2", name: "Requests", used: 20, limit: 100 },
@@ -31,7 +34,7 @@ const { test, expect } = createTestWithSetup({
 });
 
 test.describe("multi-account display", () => {
-    test("duplicate plugin names get deduplicated displayName", async ({ omni }) => {
+    test("two plugins with same provider merge into one card", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
@@ -39,8 +42,9 @@ test.describe("multi-account display", () => {
         // Wait for seeded plugins to refresh and render
         await page.waitForTimeout(5000);
 
-        // display-names.ts: first instance keeps raw name, second gets " 2"
-        const cardNames = page.locator(".card .card-name");
+        // Two plugins with provider "kimi" → one "Kimi" card with items from both
+        const live = popup.root();
+        const cardNames = live.locator(".card .card-name");
         const names: string[] = [];
         const count = await cardNames.count();
         for (let i = 0; i < count; i++) {
@@ -48,15 +52,12 @@ test.describe("multi-account display", () => {
             if (text) names.push(text.trim());
         }
 
-        const dupe = names.filter((n) => n === "DupSvc");
-        const dupe2 = names.filter((n) => n === "DupSvc 2");
-
-        // Both variants should appear
-        expect(dupe.length).toBeGreaterThanOrEqual(1);
-        expect(dupe2.length).toBeGreaterThanOrEqual(1);
+        // Should have exactly one "Kimi" card (not duplicated)
+        const kimi = names.filter((n) => n === "Kimi");
+        expect(kimi.length).toBe(1);
     });
 
-    test("multi-item card renders multiple progress bars", async ({ omni }) => {
+    test("multi-item provider tab renders multiple progress bars", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
@@ -64,20 +65,14 @@ test.describe("multi-account display", () => {
         // Wait for the multi-item plugin to refresh
         await page.waitForTimeout(5000);
 
-        // Find the card named "MultiItem" (the plugin with 3 items)
-        const allCards = page.locator(".card");
-        const cardCount = await allCards.count();
-        let multiCard = page.locator(".card").first(); // fallback
-        for (let i = 0; i < cardCount; i++) {
-            const name = await allCards.nth(i).locator(".card-name").textContent();
-            if (name?.trim() === "MultiItem") {
-                multiCard = allCards.nth(i);
-                break;
-            }
-        }
+        // Navigate to the Antigravity provider tab (items use provider "antigravity")
+        const live = popup.root();
+        const nav = live.locator(".tabs-wrap");
+        await nav.getByRole("button", { name: /Antigravity/ }).click();
+        await page.waitForTimeout(500);
 
         // Should have 3 bar-row elements for 3 items
-        const bars = multiCard.locator(".ub-row");
+        const bars = live.locator(".ub-row");
         await expect(bars).toHaveCount(3, { timeout: 10_000 });
     });
 });

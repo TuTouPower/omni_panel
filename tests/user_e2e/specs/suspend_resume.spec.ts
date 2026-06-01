@@ -13,7 +13,7 @@ test.describe("suspend and resume", () => {
         });
 
         // App should still be responsive (no crash)
-        await expect(page.locator(".scroll")).toBeVisible({ timeout: 5_000 });
+        await expect(popup.root().locator(".scroll")).toBeVisible({ timeout: 5_000 });
         const title = await popup.getTitle();
         expect(title).toContain("OmniUsage");
     });
@@ -34,11 +34,11 @@ test.describe("suspend and resume", () => {
         });
 
         // App should remain functional after resume
-        await expect(page.locator(".scroll")).toBeVisible({ timeout: 5_000 });
-        await expect(page.getByTitle("刷新全部")).toBeVisible();
+        await expect(popup.root().locator(".scroll")).toBeVisible({ timeout: 5_000 });
+        await expect(popup.root().getByTitle("刷新全部")).toBeVisible();
 
         // Wait briefly for scheduler to restart and verify no crash
         await page.waitForTimeout(2000);
-        await expect(page.locator(".scroll")).toBeVisible();
+        await expect(popup.root().locator(".scroll")).toBeVisible();
     });
 });

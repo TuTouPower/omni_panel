@@ -22,13 +22,17 @@ test.describe("tray interaction", () => {
         // E2E_WITH_TRAY=1: tray created, popup auto-opens
         const page = await omni.app.firstWindow();
         await page.waitForLoadState("domcontentloaded");
-        await expect(page.getByText("OmniUsage")).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator('[data-popup="live"]').getByText("OmniUsage")).toBeVisible({
+            timeout: 10_000,
+        });
     });
 
     test("tray click closes open popup", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         await page.waitForLoadState("domcontentloaded");
-        await expect(page.getByText("OmniUsage")).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator('[data-popup="live"]').getByText("OmniUsage")).toBeVisible({
+            timeout: 10_000,
+        });
 
         const closePromise = page.waitForEvent("close", { timeout: 10_000 });
         await triggerTrayClick(page);

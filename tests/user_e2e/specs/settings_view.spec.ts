@@ -44,10 +44,8 @@ test.describe("settings view", () => {
         await expect(cpaGroup).toBeVisible();
         await cpaGroup.locator('button[title="编辑"]').click();
 
-        const form = page
-            .locator('[data-testid^="settings-form-"]')
-            .filter({ hasText: "CPA" })
-            .first();
+        // CPA uses CpaConnectorSettings (data-testid="cpa-connector-settings")
+        const form = page.locator('[data-testid="cpa-connector-settings"]');
         await expect(form).toBeVisible();
         await expect(form.locator('input[name="cpa_mgmt_key"]')).toBeVisible();
         await expect(form.locator('input[name="endpoint:default"]')).toBeVisible();

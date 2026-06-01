@@ -12,8 +12,10 @@ test.describe("popup view", () => {
 
     test("refresh button is visible and clickable", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await expect(page.getByTitle("刷新全部")).toBeVisible();
-        await page.getByTitle("刷新全部").click();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
+        await expect(popup.root().getByTitle("刷新全部")).toBeVisible();
+        await popup.clickRefresh();
     });
 
     test("popup root fills the viewport height", async ({ omni }) => {
@@ -49,9 +51,10 @@ test.describe("popup view", () => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
-        const providerNav = page.locator(".tabs-wrap");
-        await expect(page.locator(".window")).toBeVisible();
-        await expect(page.locator(".scroll")).toBeVisible();
+        const live = page.locator('[data-popup="live"]');
+        const providerNav = live.locator(".tabs-wrap");
+        await expect(live).toBeVisible();
+        await expect(live.locator(".scroll")).toBeVisible();
         await expect(providerNav.getByRole("button", { name: /总览/ })).toBeVisible();
         await expect(providerNav.getByRole("button", { name: /^Claude$/ })).toBeVisible();
         await expect(providerNav.getByRole("button", { name: /^DeepSeek$/ })).toBeVisible();

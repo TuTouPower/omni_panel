@@ -16,19 +16,21 @@ test.describe("app lifecycle", () => {
 
         const title = await popup.getTitle();
         expect(title).toContain("OmniUsage");
-        await expect(page.getByRole("button", { name: "设置" })).toBeVisible();
+        await expect(popup.root().getByRole("button", { name: "设置" })).toBeVisible();
     });
 
     test("refresh button is visible", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await expect(page.getByTitle("刷新全部")).toBeVisible();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
+        await expect(popup.root().getByTitle("刷新全部")).toBeVisible();
     });
 
     test("popup main content renders", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
-        await expect(page.locator(".scroll")).toBeVisible();
+        await expect(popup.root().locator(".scroll")).toBeVisible();
     });
 
     test("settings navigation works from popup", async ({ omni }) => {
@@ -43,7 +45,7 @@ test.describe("app lifecycle", () => {
 
     test("window can be closed without crashing", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await expect(page.locator(".scroll")).toBeVisible();
+        await expect(page.locator('[data-popup="live"] .scroll')).toBeVisible();
         await page.close();
     });
 
