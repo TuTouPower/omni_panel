@@ -583,7 +583,7 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
     - 右键菜单包含打开主面板、立即刷新全部、暂停自动刷新、开机自启、设置、检查更新、退出 OmniUsage。
     - 不断言 CSS 视觉，因为 Electron 原生菜单不可 CSS 化。
 
-- [ ] 更新 E2E：`tests/user_e2e/specs/popup_demo_alignment.spec.ts`
+- [x] 更新 E2E：`tests/user_e2e/specs/popup_demo_alignment.spec.ts`
     - 验证顶部栏、全量 tab、总览卡片、单 provider 账号列表、底部状态栏。
     - 验证空状态、错误状态、刷新中 skeleton。
     - 验证更多菜单、关闭/启用、单卡刷新。
@@ -603,7 +603,7 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
     - 时间范围切换（今天/最近一周/最近一月）UI 可点击；无历史数据时切换不报错。
     - 折叠 TokenPanel 后窗口高度下降（与 Phase 20 高度链路联动）。
 
-- [ ] 新增 E2E：`tests/user_e2e/specs/popup_drag_handle.spec.ts`
+- [x] 新增 E2E：`tests/user_e2e/specs/popup_drag_handle.spec.ts`
     - 拖拽手柄可视化存在；拖拽交互产生 `card.dragging` / `card.drag-over` className 切换。
     - 本轮不要求卡片重排持久化；若要保存顺序，另开 Phase 实现排序模型和持久化。
 
@@ -611,13 +611,13 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
     - 切换深浅主题，断言 `data-theme="dark"` 切换正确。
     - 深色模式下 danger 红色、空状态文字、tabs-fade 色板可读。
 
-- [ ] 更新 E2E：`tests/user_e2e/specs/settings_provider_accounts.spec.ts`
+- [x] 更新 E2E：`tests/user_e2e/specs/settings_provider_accounts.spec.ts`
     - 验证设置页账号管理按 provider 分组。
     - 验证 CPA 多 provider 账号拆分展示。
     - 验证版本文案和真实 logo。
     - 验证添加/编辑/删除/开关入口按真实能力显示启用/禁用，无后端能力时禁用且 tooltip 解释。
 
-- [ ] 新增 E2E：`tests/user_e2e/specs/tray_menu_actions.spec.ts`
+- [x] 新增 E2E：`tests/user_e2e/specs/tray_menu_actions.spec.ts`
     - 在 test mode/mock 下触发右键托盘 7 项菜单，逐项断言行为：
         - 打开主面板：popup 显示。
         - 立即刷新全部：所有插件触发 refresh。
@@ -627,7 +627,7 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
         - 检查更新：有 updater 时触发更新检查 API；无 updater 能力时菜单项禁用或显示未配置提示。
         - 退出 OmniUsage：应用退出（packaged smoke 可单独覆盖）。
 
-- [ ] 更新 packaged smoke：`tests/packaged_smoke/smoke.spec.ts`
+- [x] 更新 packaged smoke：`tests/packaged_smoke/smoke.spec.ts`
     - 打包启动后验证窗口加载、托盘出现、主面板可打开。
     - 验证全量 provider tab 存在。
     - 验证折叠/展开、更多菜单、单卡刷新关键路径。
