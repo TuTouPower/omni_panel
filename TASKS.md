@@ -457,36 +457,36 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
 
 #### 21.1 主弹窗结构对齐
 
-- [ ] 顶栏对齐 demo：logo、`OmniUsage`、刷新全部按钮、设置按钮。
-- [ ] tab 区固定显示"总览"。
-- [ ] tab 区展示全部 provider：Claude / Codex / Gemini / Antigravity / Kimi / GLM / MiniMax / DeepSeek / Tavily。
-- [ ] tab 保留横向滚动、active 状态、分隔线、fade 效果。
-- [ ] tab 切换语义遵循 Phase 20.6：切换后默认展开当前 provider 内容，清空旧折叠状态。
-- [ ] 总览页显示所有 provider 卡片。
-- [ ] 单 provider tab 显示该 provider 下的账号卡片。
-- [ ] 未配置或无数据 provider 显示 demo 风格空状态，不隐藏 tab。
-- [ ] 错误 banner、刷新中 skeleton、空状态按 demo 视觉实现。
-- [ ] 底部状态栏显示状态点、状态文案、更新时间。
+- [x] 顶栏对齐 demo：logo、`OmniUsage`、刷新全部按钮、设置按钮。
+- [x] tab 区固定显示"总览"。
+- [x] tab 区展示全部 provider：Claude / Codex / Gemini / Antigravity / Kimi / GLM / MiniMax / DeepSeek / Tavily。
+- [x] tab 保留横向滚动、active 状态、分隔线、fade 效果。
+- [x] tab 切换语义遵循 Phase 20.6：切换后默认展开当前 provider 内容，清空旧折叠状态。
+- [x] 总览页显示所有 provider 卡片。
+- [x] 单 provider tab 显示该 provider 下的账号卡片。
+- [x] 未配置或无数据 provider 显示 demo 风格空状态，不隐藏 tab。
+- [x] 错误 banner、刷新中 skeleton、空状态按 demo 视觉实现。
+- [x] 底部状态栏显示状态点、状态文案、更新时间。
 
 #### 21.2 卡片行为对齐
 
-- [ ] 新增或改造 `UsageCard`，统一 provider 卡片与账号卡片视觉。
-- [ ] 支持拖拽手柄视觉。
-- [ ] 支持单卡刷新。
-- [ ] 支持更多菜单 `CardMenu`：编辑、关闭/启用、删除。
-- [ ] 支持折叠/展开，并与 Phase 20 的高度自适应联动。
-- [ ] 关闭状态：卡片灰化，显示“监控已关闭，不再刷新用量”，提供“启用”。
-- [ ] 错误状态：显示网络异常/刷新失败，提供重试。
-- [ ] 认证失效状态：显示凭证失效，提供重新登录入口；若当前没有真实登录能力，入口显示禁用或引导到设置页。
-- [ ] 限制状态：接近限制时使用红色边框/danger bar。
-- [ ] 所有状态来自真实 `ConnectorInfo` / `UsageItem` 映射，不使用 demo 假状态。
+- [x] 新增或改造 `UsageCard`，统一 provider 卡片与账号卡片视觉。
+- [x] 支持拖拽手柄视觉。
+- [x] 支持单卡刷新。
+- [x] 支持更多菜单 `CardMenu`：编辑、关闭/启用、删除。
+- [x] 支持折叠/展开，并与 Phase 20 的高度自适应联动。
+- [x] 关闭状态：卡片灰化，显示“监控已关闭，不再刷新用量”，提供“启用”。
+- [x] 错误状态：显示网络异常/刷新失败，提供重试。
+- [x] 认证失效状态：显示凭证失效，提供重新登录入口；若当前没有真实登录能力，入口显示禁用或引导到设置页。
+- [x] 限制状态：接近限制时使用红色边框/danger bar。
+- [x] 所有状态来自真实 `ConnectorInfo` / `UsageItem` 映射，不使用 demo 假状态。
 
 #### 21.3 用量展示对齐
 
-- [ ] 每张卡展示名称、最近更新时间。
-- [ ] 展示 5 小时用量条。
-- [ ] 展示一周用量条。
-- [ ] 展示 reset 时间。
+- [x] 每张卡展示名称、最近更新时间。
+- [x] 展示 5 小时用量条。
+- [x] 展示一周用量条。
+- [x] 展示 reset 时间。
 - [ ] 无对应窗口数据时显示 demo 风格空/关闭/未知状态。
 - [ ] 多账号时：总览显示 provider 汇总，单 provider tab 显示账号列表。
 - [ ] 保留 CPA 作为数据来源标签，不把 CPA 做成 provider tab。
@@ -506,48 +506,48 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
 >
 > 结论：本轮 TokenPanel 几乎全部 provider 走空状态。Kimi 仅在确认单位为 token 时展示当前窗口 `used` 聚合值。**不补假数据**。若用户后续新增 token 历史持久化能力（如本地累计），再单独开 Phase。
 
-- [ ] 新增 `TokenPanel`。
-- [ ] 标题为 `Total Tokens`。
-- [ ] 显示总量数字。
-- [ ] 支持时间范围切换：今天、最近一周、最近一月。
-- [ ] 仅 Kimi 等含原始 `used` 且能确认单位为 token 的 provider 展示真实聚合值；单位不明或为额度/金额时显示"暂无历史数据"空状态。
-- [ ] 不渲染 demo 假趋势数据。
-- [ ] Token 面板视觉对齐 demo 的 head、grip、collapse、图表区域。
+- [x] 新增 `TokenPanel`。
+- [x] 标题为 `Total Tokens`。
+- [x] 显示总量数字。
+- [x] 支持时间范围切换：今天、最近一周、最近一月。
+- [x] 仅 Kimi 等含原始 `used` 且能确认单位为 token 的 provider 展示真实聚合值；单位不明或为额度/金额时显示"暂无历史数据"空状态。
+- [x] 不渲染 demo 假趋势数据。
+- [x] Token 面板视觉对齐 demo 的 head、grip、collapse、图表区域。
 
 #### 21.5 设置页账号管理对齐
 
-- [ ] 关于页 logo 改成真实 logo：使用 `resources/icon.png`（已存在），不使用纯图标 badge。如需独立 logo 资源，单独提 PR 添加 `resources/logo.png`，本轮不做新资源。
-- [ ] 版本文案读取真实 `package.json` 或现有应用版本来源。
-- [ ] 账号页按 provider 分组展示。
-- [ ] 每个 provider 分组包含：添加按钮、总开关、账号行、状态点、账号名、编辑、删除、开关。
-- [ ] CPA connector 产出的多个 provider 账号按 provider 分组展示。
-- [ ] 非 CPA 插件归入对应 provider 或 connector 分组。
-- [ ] 缺失添加/编辑真实后端能力时，显示禁用态或跳转现有设置表单，不伪造功能完成。
+- [x] 关于页 logo 改成真实 logo：使用 `resources/icon.png`（已存在），不使用纯图标 badge。如需独立 logo 资源，单独提 PR 添加 `resources/logo.png`，本轮不做新资源。
+- [x] 版本文案读取真实 `package.json` 或现有应用版本来源。
+- [x] 账号页按 provider 分组展示。
+- [x] 每个 provider 分组包含：添加按钮、总开关、账号行、状态点、账号名、编辑、删除、开关。
+- [x] CPA connector 产出的多个 provider 账号按 provider 分组展示。
+- [x] 非 CPA 插件归入对应 provider 或 connector 分组。
+- [x] 缺失添加/编辑真实后端能力时，显示禁用态或跳转现有设置表单，不伪造功能完成。
 
 #### 21.6 托盘菜单对齐
 
 > **范围**：本轮**只做 Electron 原生菜单功能项对齐**（下方 7 项）。自绘托盘菜单窗口（demo 100% 视觉）留 Phase 22，不在本轮范围。
 
-- [ ] Electron 原生托盘右键菜单包含：打开主面板、立即刷新全部、暂停自动刷新、开机自启、设置、检查更新、退出 OmniUsage。
-- [ ] 托盘菜单行为需与 Phase 20 的平台策略兼容：macOS popover、Windows/Linux 可移动浮动窗口。
+- [x] Electron 原生托盘右键菜单包含：打开主面板、立即刷新全部、暂停自动刷新、开机自启、设置、检查更新、退出 OmniUsage。
+- [x] 托盘菜单行为需与 Phase 20 的平台策略兼容：macOS popover、Windows/Linux 可移动浮动窗口。
 
 #### 21.7 样式对齐
 
 > **方向**：以下类名规则**从 demo CSS 复制到 `src/renderer/styles/globals.css`**，方向单向（demo → 项目），**严禁反向修改 demo**。demo 是 prototype 参考，不引入构建。
 
-- [ ] 补齐 `.tab.pinned`。
-- [ ] 补齐 `.tabs-fade`。
-- [ ] 补齐 `.tabs-chevron`。
-- [ ] 补齐 `.count-badge`。
-- [ ] 补齐 `.card.dragging`。
-- [ ] 补齐 `.card.drag-over`。
-- [ ] 补齐 `.tokens-head .card-grip`。
-- [ ] 补齐 `.tokens-head .card-collapse`。
-- [ ] 补齐 `.ctx-menu`。
-- [ ] 补齐 `.ctx-item`。
-- [ ] 补齐 `.ctx-sep`。
-- [ ] 补齐 `.ctx-status`。
-- [ ] 清理当前项目中与 demo 语义冲突的样式；只清理本轮改动触达的样式，不做无关大重构。
+- [x] 补齐 `.tab.pinned`。
+- [x] 补齐 `.tabs-fade`。
+- [x] 补齐 `.tabs-chevron`。
+- [x] 补齐 `.count-badge`。
+- [x] 补齐 `.card.dragging`。
+- [x] 补齐 `.card.drag-over`。
+- [x] 补齐 `.tokens-head .card-grip`。
+- [x] 补齐 `.tokens-head .card-collapse`。
+- [x] 补齐 `.ctx-menu`。
+- [x] 补齐 `.ctx-item`。
+- [x] 补齐 `.ctx-sep`。
+- [x] 补齐 `.ctx-status`。
+- [x] 清理当前项目中与 demo 语义冲突的样式；只清理本轮改动触达的样式，不做无关大重构。
 
 #### 21.8 测试改动清单
 
