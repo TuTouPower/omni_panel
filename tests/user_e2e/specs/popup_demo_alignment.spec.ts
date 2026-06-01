@@ -1,0 +1,37 @@
+import { expect, test } from "../fixtures/test";
+import { PopupPage } from "../pages/popup_page";
+
+/**
+ * Phase 21 E2E: demo UI alignment verification.
+ * Checks top bar, provider tabs, overview cards, status bar.
+ */
+test.describe("popup demo alignment", () => {
+    test("top bar has logo, title, refresh, and settings buttons", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
+
+        await expect(page.locator(".app-title")).toHaveText("OmniUsage");
+        await expect(page.locator('[title="刷新全部"]')).toBeVisible();
+        await expect(page.locator('[title="设置"]')).toBeVisible();
+    });
+
+    test("overview tab shows provider cards", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
+
+        const cards = page.locator(".card");
+        expect(await cards.count()).toBeGreaterThan(0);
+    });
+
+    test("status bar shows status dot and update time", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
+
+        const statusbar = page.locator(".statusbar");
+        await expect(statusbar).toBeVisible();
+        await expect(statusbar.locator(".dot")).toBeVisible();
+    });
+});

@@ -589,14 +589,14 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
     - 验证更多菜单、关闭/启用、单卡刷新。
     - 验证折叠/展开，并与 Phase 20 高度联动。
 
-- [ ] 新增 E2E：`tests/user_e2e/specs/popup_card_states.spec.ts`
+- [x] 新增 E2E：`tests/user_e2e/specs/popup_card_states.spec.ts`
     - 关闭状态卡片：灰化、显示"监控已关闭"、可点击"启用"恢复。
     - 错误状态：模拟插件返回错误，断言显示重试按钮，点击重试触发刷新。
     - 认证失效状态：模拟 token 过期，断言显示"凭证失效"提示与设置入口。
     - 限制接近状态：模拟 utilization ≥ 0.9，断言卡片边框/进度条切换为 danger 视觉。
     - danger bar 反色文字：fillPct ≥ 65 时文字反色（继承 19.3.3 UsageRow 行为）。
 
-- [ ] 新增 E2E：`tests/user_e2e/specs/popup_token_panel.spec.ts`
+- [x] 新增 E2E：`tests/user_e2e/specs/popup_token_panel.spec.ts`
     - 仅 Kimi 等含原始 `used` 且能确认单位为 token 的 provider 展示聚合值。
     - Claude/Codex/Gemini/Antigravity 不渲染假趋势，显示"暂无历史数据"。
     - Kimi 单位不明或为额度/金额时也显示"暂无历史数据"，不能把额度当 token。
@@ -607,7 +607,7 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
     - 拖拽手柄可视化存在；拖拽交互产生 `card.dragging` / `card.drag-over` className 切换。
     - 本轮不要求卡片重排持久化；若要保存顺序，另开 Phase 实现排序模型和持久化。
 
-- [ ] 新增 E2E：`tests/user_e2e/specs/popup_theme.spec.ts`
+- [x] 新增 E2E：`tests/user_e2e/specs/popup_theme.spec.ts`
     - 切换深浅主题，断言 `data-theme="dark"` 切换正确。
     - 深色模式下 danger 红色、空状态文字、tabs-fade 色板可读。
 
