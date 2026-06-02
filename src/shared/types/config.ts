@@ -11,6 +11,12 @@ export interface AppConfiguration {
     readonly plugins: readonly PluginConfiguration[];
     readonly launchAtLogin: boolean;
     readonly proxy?: ProxyConfiguration;
+    readonly accentColor?: string;
+    readonly theme?: "light" | "dark" | "system";
+    readonly pinToTop?: boolean;
+    readonly minimizeToTray?: boolean;
+    readonly globalRefreshIntervalSeconds?: number;
+    readonly pauseAutoRefresh?: boolean;
 }
 
 export interface PluginConfiguration {
