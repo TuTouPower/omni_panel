@@ -179,7 +179,7 @@ describe("ProviderCard", () => {
                 onRefresh={onRefresh}
             />,
         );
-        expect(screen.getByText("刷新失败 · 网络异常")).toBeInTheDocument();
+        expect(screen.getByText("网络超时")).toBeInTheDocument();
         fireEvent.click(screen.getByText("重试"));
         expect(onRefresh).toHaveBeenCalledWith("deepseek");
     });
