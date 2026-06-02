@@ -15,7 +15,7 @@ test.describe("tray menu actions", () => {
         await popup.waitReady();
 
         // The popup should be visible (opened by test harness or tray click)
-        const title = page.locator(".app-title");
+        const title = page.locator(".app-title").first();
         await expect(title).toBeVisible();
     });
 
@@ -38,7 +38,7 @@ test.describe("tray menu actions", () => {
         await popup.waitReady();
 
         // Click refresh all button (simulates tray "立即刷新全部")
-        const refresh_btn = page.locator('[title="刷新全部"]');
+        const refresh_btn = page.locator('[title="刷新全部"]').first();
         await refresh_btn.click();
 
         // The button should exist and be clickable (no crash = pass)

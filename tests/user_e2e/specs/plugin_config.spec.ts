@@ -13,7 +13,7 @@ async function openAccountForm(page: Page, name: string) {
     await page.locator('[data-testid="settings-plugin-nav-accounts"]').click();
     const group = page.locator(".acct-group").filter({ hasText: name }).first();
     await expect(group).toBeVisible();
-    await group.locator('button[title="编辑"]').click();
+    await group.locator('button[title="编辑"]').first().click();
     // CPA uses CpaConnectorSettings (data-testid="cpa-connector-settings"),
     // other plugins use SettingsForm (data-testid="settings-form-{id}").
     const form = page.locator('[data-testid="cpa-connector-settings"]');
@@ -67,7 +67,7 @@ test.describe("plugin configuration", () => {
         await page.locator('[data-testid="settings-plugin-nav-accounts"]').click();
         const group = page.locator(".acct-group").filter({ hasText: "CPA 额度连接器" }).first();
         await expect(group).toBeVisible();
-        await group.locator('button[title="编辑"]').click();
+        await group.locator('button[title="编辑"]').first().click();
 
         await expect(page.getByLabel("CPA-Manager URL")).toBeVisible();
         await expect(page.getByRole("button", { name: "测试连接" })).toBeVisible();

@@ -63,7 +63,7 @@ test.describe("popup card collapse height", () => {
         }
 
         // Statusbar should still be visible and near the bottom
-        const statusbar = page.locator(".statusbar");
+        const statusbar = page.locator(".statusbar").first();
         await expect(statusbar).toBeVisible();
 
         // No large bottom whitespace

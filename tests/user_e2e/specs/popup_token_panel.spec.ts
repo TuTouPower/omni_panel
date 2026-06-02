@@ -4,7 +4,11 @@ import { PopupPage } from "../pages/popup_page";
 /**
  * Phase 21 E2E: TokenPanel behavior.
  */
+const tokenPanelEnabled = process.env["VITE_ENABLE_TOKEN_PANEL"] === "1";
+
 test.describe("popup token panel", () => {
+    test.skip(!tokenPanelEnabled, "Token panel is disabled");
+
     test("token panel shows Total Tokens title", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);

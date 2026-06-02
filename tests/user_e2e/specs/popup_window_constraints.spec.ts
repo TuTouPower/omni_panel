@@ -28,7 +28,7 @@ test.describe("popup window constraints", () => {
         await popup.waitReady();
 
         // The scroll area should always exist in the popup layout
-        const scroll_el = page.locator(".scroll");
+        const scroll_el = page.locator(".scroll").first();
         await expect(scroll_el).toBeVisible();
     });
 

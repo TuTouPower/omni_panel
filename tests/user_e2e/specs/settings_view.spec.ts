@@ -42,7 +42,7 @@ test.describe("settings view", () => {
         await page.locator('[data-testid="settings-plugin-nav-accounts"]').click();
         const cpaGroup = page.locator(".acct-group").filter({ hasText: "CPA" }).first();
         await expect(cpaGroup).toBeVisible();
-        await cpaGroup.locator('button[title="编辑"]').click();
+        await cpaGroup.locator('button[title="编辑"]').first().click();
 
         // CPA uses CpaConnectorSettings (data-testid="cpa-connector-settings")
         const form = page.locator('[data-testid="cpa-connector-settings"]');

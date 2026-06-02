@@ -64,7 +64,7 @@ async function openSecretForm(page: Page) {
     await page.locator('[data-testid="settings-plugin-nav-accounts"]').click();
     const group = page.locator(".acct-group").filter({ hasText: "SecretTest" }).first();
     await expect(group).toBeVisible();
-    await group.locator('button[title="编辑"]').click();
+    await group.locator('button[title="编辑"]').first().click();
     const form = page.locator(`[data-testid="settings-form-${INSTANCE_ID}"]`);
     await expect(form).toBeVisible();
     return form;

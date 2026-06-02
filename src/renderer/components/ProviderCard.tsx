@@ -62,7 +62,7 @@ export function ProviderCard({
     const hasAccounts = group !== undefined && group.accounts.length > 0;
     const is_danger = group?.status === "critical";
     const card_class =
-        (is_danger ? "alert" : "") +
+        (is_danger || isFailed ? "alert" : "") +
         (disabled ? " disabled" : "") +
         (dragging ? " dragging" : "") +
         (dragOver ? " drag-over" : "");
@@ -128,7 +128,7 @@ export function ProviderCard({
                     <span className="cs-ic">
                         <Icon name="cloud_off" size={15} />
                     </span>
-                    <span>刷新失败 · 网络异常</span>
+                    <span>{connectorError.error}</span>
                     {onRefresh && (
                         <span
                             className="cs-action"

@@ -11,9 +11,9 @@ test.describe("popup demo alignment", () => {
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        await expect(page.locator(".app-title")).toHaveText("OmniUsage");
-        await expect(page.locator('[title="刷新全部"]')).toBeVisible();
-        await expect(page.locator('[title="设置"]')).toBeVisible();
+        await expect(page.locator(".app-title").first()).toHaveText("OmniUsage");
+        await expect(page.locator('[title="刷新全部"]').first()).toBeVisible();
+        await expect(page.locator('[title="设置"]').first()).toBeVisible();
     });
 
     test("overview tab shows provider cards", async ({ omni }) => {
@@ -30,7 +30,7 @@ test.describe("popup demo alignment", () => {
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        const statusbar = page.locator(".statusbar");
+        const statusbar = page.locator(".statusbar").first();
         await expect(statusbar).toBeVisible();
         await expect(statusbar.locator(".dot")).toBeVisible();
     });
