@@ -14,7 +14,7 @@ import {
  */
 describe("popup setBounds suppress-move wiring", () => {
     const display: DisplayLike = { workArea: { x: 0, y: 0, width: 1920, height: 1080 } };
-    const initial: BoundsLike = { x: 100, y: 100, width: 360, height: 480 };
+    const initial: BoundsLike = { x: 100, y: 100, width: 460, height: 480 };
 
     function build_wired_window() {
         const state = {

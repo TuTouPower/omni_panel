@@ -88,14 +88,14 @@ describe("should_apply_report", () => {
 });
 
 describe("apply_locked_size", () => {
-    const current: BoundsLike = { x: 100, y: 100, width: 360, height: 480 };
+    const current: BoundsLike = { x: 100, y: 100, width: 460, height: 480 };
 
     it("preserves width when resizing", () => {
         const out = apply_locked_size(current, 600, display_1080, "win32", {
             tray_bounds: null,
             user_moved: true,
         });
-        expect(out.width).toBe(360);
+        expect(out.width).toBe(460);
         expect(out.height).toBe(600);
     });
 
@@ -104,8 +104,8 @@ describe("apply_locked_size", () => {
         const out = apply_locked_size(current, 500, display_1080, "darwin", {
             tray_bounds: tray,
         });
-        // x centered on tray midpoint (1716) minus half width (180) => 1536
-        expect(out.x).toBe(1536);
+        // x centered on tray midpoint (1716) minus half width (230) => 1486, but clamped to work area (1920-460=1460)
+        expect(out.x).toBe(1460);
         expect(out.y).toBe(28);
     });
 
@@ -125,8 +125,8 @@ describe("apply_locked_size", () => {
             tray_bounds: tray,
             user_moved: false,
         });
-        // x is centred on the tray icon horizontally
-        expect(out.x).toBe(1536);
+        // x is centred on the tray icon horizontally, clamped to work area (1920-460=1460)
+        expect(out.x).toBe(1460);
         // y is preserved from the current bounds (initial tray-click position), not re-derived from tray
         expect(out.y).toBe(100);
     });
@@ -136,7 +136,7 @@ describe("apply_locked_size", () => {
             tray_bounds: null,
             user_moved: false,
         });
-        expect(out.x).toBe(1920 - 360);
+        expect(out.x).toBe(1920 - 460);
         expect(out.y).toBe(1080 - 500);
     });
 });
@@ -165,7 +165,7 @@ describe("create_popup_height_controller", () => {
     function build(
         overrides: Partial<PopupHeightControllerOptions> = {},
         anchor: PopupAnchorContext = { tray_bounds: null, user_moved: true },
-        initial: BoundsLike = { x: 100, y: 100, width: 360, height: 480 },
+        initial: BoundsLike = { x: 100, y: 100, width: 460, height: 480 },
     ) {
         const win = make_window(initial);
         const controller = create_popup_height_controller({
@@ -188,7 +188,7 @@ describe("create_popup_height_controller", () => {
         expect(win.setBounds).toHaveBeenCalledTimes(1);
         const bounds = win.setBounds.mock.calls[0]?.[0] as { width: number; height: number };
         expect(bounds.height).toBe(600);
-        expect(bounds.width).toBe(360);
+        expect(bounds.width).toBe(460);
     });
 
     it("suppresses resize when the report differs by <= 1px from the last report", () => {
@@ -223,7 +223,7 @@ describe("create_popup_height_controller", () => {
         const { controller, win } = build({
             get_window: () => ({
                 isDestroyed: () => true,
-                getBounds: () => ({ x: 0, y: 0, width: 360, height: 480 }),
+                getBounds: () => ({ x: 0, y: 0, width: 460, height: 480 }),
                 setBounds: vi.fn(),
             }),
         });

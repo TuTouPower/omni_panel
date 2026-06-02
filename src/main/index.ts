@@ -106,8 +106,7 @@ interface WindowConfig {
 }
 
 const WINDOW_CONFIGS: Record<string, WindowConfig> = {
-    popup: { route: "popup", width: 360, height: 480, frame: false, show: false },
-    settings: { route: "settings", width: 640, height: 520, autoHideMenuBar: true },
+    popup: { route: "popup", width: 460, height: 480, frame: false, show: false },
 };
 
 function getPreloadPath(): string {
@@ -375,7 +374,6 @@ void app.whenReady().then(async () => {
 
     // Window references — shared between tray and E2E mode
     let popupWin: BrowserWindow | null = null;
-    let settingsWin: BrowserWindow | null = null;
 
     // Popup height controller (Phase 20). Renderer reports content height;
     // controller applies clamped, debounced resizes to the BrowserWindow.
@@ -487,7 +485,7 @@ void app.whenReady().then(async () => {
                 y: trayBounds.y + trayBounds.height / 2,
             });
             const popupCfg = WINDOW_CONFIGS["popup"];
-            const popupWidth = popupCfg?.width ?? 360;
+            const popupWidth = popupCfg?.width ?? 460;
             const popupHeight = popupCfg?.height ?? 480;
             const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
             const y = Math.round(trayBounds.y + trayBounds.height + 4);
@@ -540,7 +538,7 @@ void app.whenReady().then(async () => {
                   pauseOff: "恢复自动刷新",
                   autostart: "开机自启",
                   settings: "设置…",
-                  checkUpdate: "检查更新",
+                  checkUpdate: `检查更新 v${app.getVersion()}`,
                   quit: "退出 OmniUsage",
               }
             : {
@@ -550,7 +548,7 @@ void app.whenReady().then(async () => {
                   pauseOff: "Resume Auto-Refresh",
                   autostart: "Launch at Login",
                   settings: "Settings…",
-                  checkUpdate: "Check for Updates",
+                  checkUpdate: `Check for Updates v${app.getVersion()}`,
                   quit: "Quit OmniUsage",
               };
         const isPaused = { value: false };
@@ -610,13 +608,67 @@ void app.whenReady().then(async () => {
                 {
                     label: labels.settings,
                     click: () => {
-                        if (settingsWin && !settingsWin.isDestroyed()) {
-                            settingsWin.focus();
+                        if (popupWin && !popupWin.isDestroyed()) {
+                            popupWin.show();
+                            popupWin.focus();
+                            popupWin.webContents
+                                .executeJavaScript('window.location.hash="#settings"')
+                                // eslint-disable-next-line @typescript-eslint/no-empty-function
+                                .catch(() => {});
                             return;
                         }
-                        settingsWin = createWindowFor("settings");
-                        settingsWin.on("closed", () => {
-                            settingsWin = null;
+                        // Create popup pre-set to settings view
+                        popupWin = createWindowFor("popup");
+                        popupWin.webContents.on("did-finish-load", () => {
+                            popupWin?.webContents
+                                .executeJavaScript('window.location.hash="#settings"')
+                                // eslint-disable-next-line @typescript-eslint/no-empty-function
+                                .catch(() => {});
+                        });
+
+                        const trayBounds = tray.getBounds();
+                        const display = screen.getDisplayNearestPoint({
+                            x: trayBounds.x + trayBounds.width / 2,
+                            y: trayBounds.y + trayBounds.height / 2,
+                        });
+                        const popupCfg = WINDOW_CONFIGS["popup"];
+                        const popupWidth = popupCfg?.width ?? 460;
+                        const popupHeight = popupCfg?.height ?? 480;
+                        const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
+                        const y = Math.round(trayBounds.y + trayBounds.height + 4);
+                        const clampedX = Math.max(
+                            display.workArea.x,
+                            Math.min(x, display.workArea.x + display.workArea.width - popupWidth),
+                        );
+                        const clampedY = Math.min(
+                            y,
+                            display.workArea.y + display.workArea.height - popupHeight,
+                        );
+                        popupWin.setBounds({
+                            x: clampedX,
+                            y: clampedY,
+                            width: popupWidth,
+                            height: popupHeight,
+                        });
+                        popupWin.show();
+                        popupWin.focus();
+
+                        popup_anchor_state.tray_bounds =
+                            trayBounds.width > 0 && trayBounds.height > 0 ? trayBounds : null;
+                        popup_anchor_state.user_moved = false;
+                        popup_controller = build_popup_controller(popupWin);
+
+                        popupWin.on("move", () => {
+                            if (popup_anchor_state.suppress_move) return;
+                            popup_anchor_state.user_moved = true;
+                        });
+
+                        popupWin.on("closed", () => {
+                            popupWin = null;
+                            popup_controller = null;
+                            popup_anchor_state.tray_bounds = null;
+                            popup_anchor_state.user_moved = false;
+                            popup_anchor_state.suppress_move = false;
                         });
                     },
                 },
