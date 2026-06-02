@@ -121,9 +121,9 @@
 ## 汇总
 
 - 后端/逻辑层 (§3–§5, §7) 覆盖较完整。
-- 前端 UI (§6) 主要靠 mock IPC 的 smoke + 少量 E2E，**真实交互场景大量缺失**。
+- 前端 UI (§6) 已有 12 个组件单元测试 + 24 个 E2E spec，覆盖主路径。剩余 ⚠️ 项见 Phase 22。
 - 安全 (§8) 缺少 renderer 沙箱与 IPC 白名单断言。
-- 打包 smoke (§9.1 末行) 已有 `tests/packaged_smoke/smoke.spec.ts` 覆盖启动、白屏和内置插件发现；托盘真实显示仍需人工验收。
+- 打包 smoke 已覆盖启动、白屏、内置插件发现。
 - 内置插件 (§3.6) 7 个全部有 stub 集成测试（真实子进程 + HTTP 桩），共 37 case。
 
 ---
@@ -142,16 +142,21 @@
 | Path B 顶部下跳修复      | ✅   | `unit/main/popup_height_controller.test.ts` (win32 non-moved y preserved)                        |
 | 总览就地展开             | ✅   | `unit/renderer/views/popup_view_height.test.tsx` (overview expand, tab reset)                    |
 
-## Phase 21 新增覆盖项（2026-06-02）
+## Phase 21 新增覆盖项（2026-06-03 更新）
 
-| 覆盖项                 | 状态 | 测试文件                                                                                      |
-| ---------------------- | ---- | --------------------------------------------------------------------------------------------- |
-| CardMenu 组件          | ✅   | `unit/renderer/components/card_menu.test.tsx` (open/close/onClick/danger/checked/meta/Escape) |
-| TokenPanel 组件        | ✅   | `unit/renderer/components/token_panel.test.tsx` (title/no-data/real data/range switch)        |
-| UsageBarRow 组件       | ⚠️   | 无专用测试；在 ProviderAccountRow 中间接使用                                                  |
-| ProviderCard 状态机    | ⚠️   | `popup_view.test.tsx` (collapse no refresh), 缺 auth/error/retry/danger 独立组件测试          |
-| Settings provider 分组 | ⚠️   | `unit/renderer/views/settings_view.test.tsx` (CPA connector from accounts), 缺分组结构断言    |
-| 托盘右键菜单 7 项      | ❌   | 无自动化测试                                                                                  |
-| Phase 21 E2E           | ❌   | 9 个 spec 文件未创建（需 Playwright + 运行中 Electron）                                       |
+| 覆盖项                  | 状态 | 测试文件                                                                                      |
+| ----------------------- | ---- | --------------------------------------------------------------------------------------------- |
+| CardMenu 组件           | ✅   | `unit/renderer/components/card_menu.test.tsx` (open/close/onClick/danger/checked/meta/Escape) |
+| TokenPanel 组件         | ✅   | `unit/renderer/components/token_panel.test.tsx` (title/no-data/real data/range switch)        |
+| ProviderCard 状态机     | ✅   | `unit/renderer/components/provider_card.test.tsx`                                             |
+| Settings provider 分组  | ✅   | `unit/renderer/views/settings_view.test.tsx`                                                  |
+| UsageBarRow 组件        | ⚠️   | 无专用测试；在 ProviderAccountRow 中间接使用                                                  |
+| 托盘右键菜单 7 项       | ✅   | `user_e2e/specs/tray_menu_actions.spec.ts`                                                    |
+| popup_demo_alignment    | ✅   | `user_e2e/specs/popup_demo_alignment.spec.ts`                                                 |
+| popup_card_states       | ✅   | `user_e2e/specs/popup_card_states.spec.ts`                                                    |
+| popup_token_panel       | ✅   | `user_e2e/specs/popup_token_panel.spec.ts`                                                    |
+| popup_drag_handle       | ✅   | `user_e2e/specs/popup_drag_handle.spec.ts`                                                    |
+| popup_theme             | ✅   | `user_e2e/specs/popup_theme.spec.ts`                                                          |
+| settings_provider_accts | ✅   | `user_e2e/specs/settings_provider_accounts.spec.ts`                                           |
 
-后续 Task 2–7 按本矩阵补齐 ❌ / ⚠️ 项。
+后续 Phase 22 按本矩阵补齐 ⚠️ 项。
