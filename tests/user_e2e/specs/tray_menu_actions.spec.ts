@@ -30,8 +30,8 @@ test.describe("tray menu actions", () => {
         // Settings window should render independently
         await expect(sPage.locator('[data-testid="settings-sidebar"]')).toBeVisible();
 
-        // Popup should still be open
-        await expect(page.locator(".app-title")).toBeVisible();
+        // Popup should still be open (scoped to popup's live container)
+        await expect(page.locator('[data-popup="live"] .app-title')).toBeVisible();
     });
 
     test("refresh triggers connector refresh", async ({ omni }) => {
