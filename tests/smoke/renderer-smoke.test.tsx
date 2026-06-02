@@ -19,7 +19,11 @@ describe("Renderer smoke tests", () => {
             await waitFor(() => {
                 expect(screen.getAllByText("DeepSeek").length).toBeGreaterThanOrEqual(1);
             });
-            await user.click(screen.getByRole("button", { name: "查看 DeepSeek 详情" }));
+            // Click DeepSeek provider tab to switch to provider detail view
+            const deepseekTabs = screen.getAllByRole("button", { name: "DeepSeek" });
+            const target = deepseekTabs[deepseekTabs.length - 1];
+            if (!target) throw new Error("DeepSeek tab not found");
+            await user.click(target);
             expect(screen.getByText(/5,000.*10,000/)).toBeInTheDocument();
         });
 
@@ -94,7 +98,7 @@ describe("Renderer smoke tests", () => {
             window.location.hash = "#popup";
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByText("IPC 断开")).toBeInTheDocument();
+                expect(screen.getByText("网络连接异常，部分数据可能不是最新")).toBeInTheDocument();
             });
         });
     });

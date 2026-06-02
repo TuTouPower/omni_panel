@@ -1,28 +1,23 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
+import { relativeTime } from "../lib/utils";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { ProviderAccountRow } from "./ProviderAccountRow";
-import { CardMenu, type CardMenuItem } from "./CardMenu";
 
 interface ProviderCardProps {
     provider: UsageProvider;
     group?: ProviderUsageGroup | undefined;
     connectorError?: ProviderError | undefined;
-    onSelect?: (provider: UsageProvider) => void;
     onRefresh?: (provider: UsageProvider) => void;
     expanded?: boolean;
     onToggleExpand?: (provider: UsageProvider) => void;
-}
-
-function statusLabel(status: ProviderUsageGroup["status"] | undefined): string {
-    if (status === "critical") return "紧急";
-    if (status === "warning") return "预警";
-    if (status === "unknown") return "未知";
-    return "正常";
+    disabled?: boolean;
+    onToggleDisable?: (provider: UsageProvider) => void;
+    onDelete?: (provider: UsageProvider) => void;
 }
 
 function is_auth_error(error: string): boolean {
@@ -42,10 +37,12 @@ export function ProviderCard({
     provider,
     group,
     connectorError,
-    onSelect,
     onRefresh,
     expanded,
     onToggleExpand,
+    disabled = false,
+    onToggleDisable,
+    onDelete,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.windows.length ?? 0) > 0;
@@ -54,9 +51,29 @@ export function ProviderCard({
     const is_auth = connectorError !== undefined && is_auth_error(connectorError.error);
     const hasAccounts = group !== undefined && group.accounts.length > 0;
     const is_danger = group?.status === "critical";
-    const card_class = is_danger ? "alert" : undefined;
+    const card_class = (is_danger ? "alert" : "") + (disabled ? " disabled" : "");
 
     const render_state = () => {
+        if (disabled) {
+            return (
+                <div className="card-state off">
+                    <span className="cs-ic">
+                        <Icon name="power" size={16} />
+                    </span>
+                    <span>监控已关闭，不再刷新用量</span>
+                    {onToggleDisable && (
+                        <span
+                            className="cs-action"
+                            onClick={() => {
+                                onToggleDisable(provider);
+                            }}
+                        >
+                            启用
+                        </span>
+                    )}
+                </div>
+            );
+        }
         if (isFailed) {
             if (is_auth) {
                 return (
@@ -64,14 +81,14 @@ export function ProviderCard({
                         <span className="cs-ic">
                             <Icon name="lock" size={15} />
                         </span>
-                        <span>凭证失效</span>
+                        <span>凭证失效，请重新登录</span>
                         <span
                             className="cs-action"
                             onClick={() => {
                                 window.location.hash = "#settings";
                             }}
                         >
-                            重新配置
+                            重新登录
                         </span>
                     </div>
                 );
@@ -81,7 +98,7 @@ export function ProviderCard({
                     <span className="cs-ic">
                         <Icon name="cloud_off" size={15} />
                     </span>
-                    <span>{connectorError.error}</span>
+                    <span>刷新失败 · 网络异常</span>
                     {onRefresh && (
                         <span
                             className="cs-action"
@@ -103,51 +120,78 @@ export function ProviderCard({
     };
 
     const [menu_open, set_menu_open] = useState(false);
-    const [menu_pos, set_menu_pos] = useState({ x: 0, y: 0 });
+    const [l2open, set_l2open] = useState(false);
+    const menu_wrap_ref = useRef<HTMLDivElement>(null);
+    const menu_ref = useRef<HTMLDivElement>(null);
 
-    const open_menu = (e: React.MouseEvent) => {
+    const toggle_menu = (e: React.MouseEvent) => {
         e.stopPropagation();
-        set_menu_pos({ x: e.clientX - 220, y: e.clientY });
-        set_menu_open(true);
+        set_menu_open((v) => !v);
     };
 
-    const menu_items: CardMenuItem[] = [
-        {
-            label: "编辑",
-            icon: <Icon name="gear" size={15} />,
-            onClick: () => {
-                window.location.hash = "#settings";
-            },
-        },
-        { label: "关闭监控", icon: <Icon name="power" size={15} />, onClick: () => undefined },
-        {
-            label: "删除",
-            icon: <Icon name="trash" size={15} />,
-            danger: true,
-            onClick: () => {
-                window.location.hash = "#settings";
-            },
-        },
-    ];
+    const close_menu = useCallback(() => {
+        set_menu_open(false);
+    }, []);
+
+    useEffect(() => {
+        if (!menu_open) return;
+        const on_click_outside = (e: MouseEvent) => {
+            if (menu_ref.current && !menu_ref.current.contains(e.target as Node)) {
+                close_menu();
+            }
+        };
+        const on_escape = (e: KeyboardEvent) => {
+            if (e.key === "Escape") close_menu();
+        };
+        document.addEventListener("mousedown", on_click_outside);
+        document.addEventListener("keydown", on_escape);
+        return () => {
+            document.removeEventListener("mousedown", on_click_outside);
+            document.removeEventListener("keydown", on_escape);
+        };
+    }, [menu_open, close_menu]);
+
+    const updated_text = group?.updatedAt ? relativeTime(group.updatedAt) : "";
 
     const header = (
         <>
-            <VendorMark id={provider} size={28} />
-            <div>
-                <div className="card-name">{label}</div>
-                {hasUsage && (
-                    <div className="rel-time">
-                        {accountCount > 1 && <>{accountCount} 个账号 · </>}
-                        {statusLabel(group?.status)}
-                    </div>
-                )}
-            </div>
+            <VendorMark id={provider} size={26} />
+            <span className="card-name">{label}</span>
+            {accountCount > 1 && (expanded === false || disabled) && (
+                <span className="count-badge">{String(accountCount)}账号</span>
+            )}
+            {accountCount > 1 && expanded !== false && !disabled && (
+                <span className="l2seg" role="tablist">
+                    <button
+                        className={l2open ? "" : "on"}
+                        title="平均用量"
+                        type="button"
+                        onClick={() => {
+                            if (l2open) set_l2open(false);
+                        }}
+                    >
+                        平均
+                    </button>
+                    <button
+                        className={l2open ? "on" : ""}
+                        title="账号明细"
+                        type="button"
+                        onClick={() => {
+                            if (!l2open) set_l2open(true);
+                        }}
+                    >
+                        {String(accountCount)}账号
+                    </button>
+                </span>
+            )}
+            {disabled && <span className="off-badge">已关闭</span>}
+            {!disabled && hasUsage && <span className="rel-time">{updated_text}</span>}
         </>
     );
 
     const tools = (
         <>
-            {onRefresh !== undefined && (
+            {onRefresh !== undefined && !disabled && (
                 <button
                     className="icon-btn"
                     title={`刷新 ${label}`}
@@ -160,37 +204,145 @@ export function ProviderCard({
                     <Icon name="refresh" size={16} />
                 </button>
             )}
-            {onSelect !== undefined && (
+            <div className="card-menu-wrap" ref={menu_wrap_ref}>
                 <button
                     className="icon-btn"
-                    aria-label={`查看 ${label} 详情`}
-                    title={`查看 ${label} 详情`}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onSelect(provider);
-                    }}
+                    aria-label="更多操作"
+                    title="更多操作"
+                    onClick={toggle_menu}
                 >
-                    ›
+                    <Icon name="more" size={16} />
                 </button>
-            )}
-            <button className="icon-btn" aria-label="更多操作" title="更多操作" onClick={open_menu}>
-                <Icon name="more" size={16} />
-            </button>
+                {menu_open && (
+                    <>
+                        <div className="card-menu-overlay" onClick={close_menu} />
+                        <div
+                            className="card-menu"
+                            ref={menu_ref}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
+                            <div
+                                className="cm-item"
+                                onClick={() => {
+                                    window.location.hash = "#settings";
+                                    close_menu();
+                                }}
+                            >
+                                <span className="cm-ic">
+                                    <Icon name="edit" size={15} />
+                                </span>
+                                编辑
+                            </div>
+                            {onToggleDisable && (
+                                <div
+                                    className="cm-item"
+                                    onClick={() => {
+                                        onToggleDisable(provider);
+                                        close_menu();
+                                    }}
+                                >
+                                    <span className="cm-ic">
+                                        <Icon name="power" size={15} />
+                                    </span>
+                                    {disabled ? "启用" : "关闭"}
+                                </div>
+                            )}
+                            {onDelete && (
+                                <div
+                                    className="cm-item danger"
+                                    onClick={() => {
+                                        onDelete(provider);
+                                        close_menu();
+                                    }}
+                                >
+                                    <span className="cm-ic">
+                                        <Icon name="trash" size={15} />
+                                    </span>
+                                    删除
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
         </>
     );
 
+    const is_multi = accountCount > 1;
+
+    const render_account_detail = () => {
+        if (!group) return null;
+        return (
+            <div className="acct-detail">
+                {group.accounts.map((account) => (
+                    <div className="acct-item" key={account.id}>
+                        <div className="ai-head">
+                            <span className="ai-dot" />
+                            <span className="ai-name">{account.accountLabel}</span>
+                            <span className="ai-key">{account.accountId}</span>
+                            <span className="ai-time">
+                                {account.updatedAt ? relativeTime(account.updatedAt) : ""}
+                            </span>
+                        </div>
+                        <div className="ai-bars">
+                            {account.windows.map((window) => {
+                                const windowPercent =
+                                    window.limit > 0
+                                        ? Math.min(
+                                              100,
+                                              Math.round((window.used / window.limit) * 100),
+                                          )
+                                        : 0;
+                                const windowDanger = windowPercent >= 85;
+                                return (
+                                    <div className="ub-row" key={window.id}>
+                                        <div className="ub-row-label">{window.name}</div>
+                                        <div
+                                            className="ub-bar"
+                                            data-tone={
+                                                window.status === "critical"
+                                                    ? "danger"
+                                                    : window.status === "warning"
+                                                      ? "warn"
+                                                      : undefined
+                                            }
+                                            data-invert={windowPercent >= 52 ? "true" : undefined}
+                                        >
+                                            <div
+                                                className="ub-bar-fill"
+                                                style={{ width: `${String(windowPercent)}%` }}
+                                            />
+                                            <div className="ub-bar-text">
+                                                {window.displayStyle === "percent"
+                                                    ? `${String(windowPercent)}%`
+                                                    : `${window.used.toLocaleString()} / ${window.limit.toLocaleString()}`}
+                                            </div>
+                                        </div>
+                                        <div className="ub-row-time">
+                                            {windowDanger ? "⚠" : window.resetAt ? "待重置" : "--"}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     const card_content =
         onToggleExpand === undefined || !hasAccounts ? (
-            // Non-expandable card
             <div data-provider={provider} className={"card" + (card_class ? ` ${card_class}` : "")}>
                 <div className="card-head">
                     {header}
-                    {tools}
+                    <div className="card-tools">{tools}</div>
                 </div>
                 {render_state()}
             </div>
         ) : (
-            // Expandable card in overview mode
             <CollapsibleCard
                 header={header}
                 tools={tools}
@@ -198,25 +350,15 @@ export function ProviderCard({
                 onToggle={() => {
                     onToggleExpand(provider);
                 }}
-                className={card_class}
+                className={card_class || undefined}
             >
-                {group.accounts.map((account) => (
-                    <ProviderAccountRow key={account.id} account={account} />
-                ))}
+                {is_multi && l2open
+                    ? render_account_detail()
+                    : group.accounts.map((account) => (
+                          <ProviderAccountRow key={account.id} account={account} />
+                      ))}
             </CollapsibleCard>
         );
 
-    return (
-        <>
-            {card_content}
-            <CardMenu
-                items={menu_items}
-                open={menu_open}
-                position={menu_pos}
-                onClose={() => {
-                    set_menu_open(false);
-                }}
-            />
-        </>
-    );
+    return card_content;
 }

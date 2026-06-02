@@ -38,6 +38,7 @@ export function PopupView() {
     const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
+    const [disabled_providers, set_disabled_providers] = useState<Set<string>>(() => new Set());
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
     const tabsRef = useRef<HTMLDivElement>(null);
     const live_root_ref = useRef<HTMLDivElement | null>(null);
@@ -122,6 +123,27 @@ export function PopupView() {
 
     const toggle_expand_provider = (provider: UsageProvider) => {
         set_expanded_providers((prev) => ({ ...prev, [provider]: !(prev[provider] ?? false) }));
+    };
+
+    const toggle_disable_provider = (provider: UsageProvider) => {
+        set_disabled_providers((prev) => {
+            const next = new Set(prev);
+            if (next.has(provider)) {
+                next.delete(provider);
+            } else {
+                next.add(provider);
+            }
+            return next;
+        });
+    };
+
+    const delete_provider = (provider: UsageProvider) => {
+        // TODO: wire to real backend deletion when available
+        window.usageboard.log({
+            level: "warn",
+            module: MODULE,
+            message: `Delete provider ${provider} not yet implemented`,
+        });
     };
 
     // auto-scroll active tab into view
@@ -213,7 +235,7 @@ export function PopupView() {
                     {error && (
                         <div className="net-banner">
                             <Icon name="cloud_off" size={18} />
-                            <span>{error}</span>
+                            <span>网络连接异常，部分数据可能不是最新</span>
                             <span
                                 className="nb-action"
                                 onClick={is_live ? handleRefreshAll : undefined}
@@ -266,10 +288,12 @@ export function PopupView() {
                             groups={providerGroups}
                             visibleProviders={visibleProviders}
                             providerErrors={providerErrors}
-                            onSelectProvider={is_live ? setActiveTab : () => undefined}
                             onRefreshProvider={is_live ? refreshProvider : () => undefined}
                             expandedProviders={is_live ? expanded_providers : undefined}
                             onToggleExpandProvider={is_live ? toggle_expand_provider : undefined}
+                            disabledProviders={is_live ? disabled_providers : undefined}
+                            onToggleDisableProvider={is_live ? toggle_disable_provider : undefined}
+                            onDeleteProvider={is_live ? delete_provider : undefined}
                         />
                     )}
 
