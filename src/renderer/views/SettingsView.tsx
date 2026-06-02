@@ -5,9 +5,10 @@ import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { Icon, VendorMark } from "../components/Icon";
 import type { PluginInfo } from "../../shared/types/ipc";
-import type { PluginConfiguration } from "../../shared/types/config";
+import type { PluginConfiguration, AppConfiguration } from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
+import { relativeTime } from "../lib/utils";
 import logo from "../assets/logo.png";
 
 /* ── types ── */
@@ -21,6 +22,7 @@ interface DialogState {
 const NAV_ITEMS = [
     { id: "general", label: "常规", icon: "gear" },
     { id: "accounts", label: "账号", icon: "inbox" },
+    { id: "datasource", label: "数据源", icon: "globe", cpaOnly: true },
     { id: "appearance", label: "外观", icon: "palette" },
     { id: "notify", label: "通知", icon: "bell" },
     { id: "data", label: "数据与隐私", icon: "shield" },
@@ -222,6 +224,189 @@ function AccountDialog({
     );
 }
 
+/* ── Data Source List Page ── */
+function DataSourceList({
+    pluginInfos,
+    config,
+    onOpenDetail,
+    onAdd,
+}: {
+    pluginInfos: PluginInfo[];
+    config: AppConfiguration;
+    onOpenDetail: () => void;
+    onAdd: () => void;
+}) {
+    const cpaPlugin = pluginInfos.find((p) => p.source === "cpa");
+    const cpaConfig = cpaPlugin
+        ? config.plugins.find((p) => p.instanceId === cpaPlugin.instanceId)
+        : undefined;
+    const url = cpaConfig?.endpointOverrides["default"] ?? "";
+    const snapshot = cpaPlugin?.snapshot;
+    const accountsCount = snapshot?.status === "ready" ? snapshot.items.length : 0;
+    const providers = cpaPlugin?.activeProviders ?? [];
+    const lastSync =
+        snapshot?.status === "ready"
+            ? relativeTime(snapshot.updatedAt)
+            : snapshot?.status === "failed" && snapshot.updatedAt
+              ? relativeTime(snapshot.updatedAt)
+              : "未同步";
+
+    return (
+        <>
+            <div className="sp-head">
+                <span className="sp-title">数据源</span>
+                <button className="sp-action" onClick={onAdd} type="button">
+                    <Icon name="plus" size={15} strokeWidth={2} />
+                    添加数据源
+                </button>
+            </div>
+            <div className="ds-list">
+                {cpaPlugin ? (
+                    <div className="ds-card" onClick={onOpenDetail} role="button" tabIndex={0}>
+                        <div className="ds-top">
+                            <span className="ds-icon">
+                                <VendorMark id="cpa" size={26} />
+                            </span>
+                            <div className="ds-head-text">
+                                <div className="ds-title">CPA Manager</div>
+                                <div className="ds-status">
+                                    <span className="dsd" />
+                                    状态：
+                                    {snapshot?.status === "ready"
+                                        ? "正常"
+                                        : snapshot?.status === "failed"
+                                          ? "异常"
+                                          : "未连接"}
+                                </div>
+                            </div>
+                            <div className="ds-actions">
+                                <button
+                                    className="ds-btn"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        void window.usageboard.plugin.refresh(cpaPlugin.instanceId);
+                                    }}
+                                    type="button"
+                                >
+                                    同步
+                                </button>
+                                <button
+                                    className="ds-btn"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onOpenDetail();
+                                    }}
+                                    type="button"
+                                >
+                                    编辑
+                                </button>
+                            </div>
+                        </div>
+                        <div className="ds-meta">
+                            {url && <div className="dm-line mono">{url}</div>}
+                            <div className="dm-line">
+                                发现 <b>{String(accountsCount)}</b> 个账号，覆盖{" "}
+                                <b>{String(providers.length)}</b> 个服务商
+                            </div>
+                            <div className="dm-line dm-faint">上次同步：{lastSync}</div>
+                        </div>
+                        {providers.length > 0 && (
+                            <div className="ds-covers">
+                                <span className="dc-label">覆盖服务商</span>
+                                <span className="dc-icons">
+                                    {providers.map((id) => (
+                                        <VendorMark key={id} id={id} size={16} />
+                                    ))}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-sm text-[var(--text-3)] py-4">
+                        暂无数据源。点击上方按钮添加 CPA Manager。
+                    </div>
+                )}
+            </div>
+        </>
+    );
+}
+
+/* ── CPA Detail Page (dual-pane) ── */
+function CpaDetailPage({
+    pluginInfos,
+    config,
+    hasSecrets,
+    onBack,
+    onSave,
+    onSaveSecrets,
+    onRefresh,
+}: {
+    pluginInfos: PluginInfo[];
+    config: AppConfiguration;
+    hasSecrets: Record<string, Record<string, boolean>>;
+    onBack: () => void;
+    onSave: (
+        instanceId: string,
+        nonSecrets: Record<string, string>,
+        secrets: Record<string, string>,
+        endpointOverrides: Record<string, string>,
+        refreshIntervalSeconds: number,
+    ) => Promise<void>;
+    onSaveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
+    onRefresh: (instanceId: string) => Promise<void>;
+}) {
+    const cpaPlugin = pluginInfos.find((p) => p.source === "cpa");
+    const cpaConfig = cpaPlugin
+        ? config.plugins.find((p) => p.instanceId === cpaPlugin.instanceId)
+        : undefined;
+
+    if (!cpaPlugin || !cpaConfig) {
+        return <div className="text-sm text-[var(--text-3)] py-4">未找到 CPA Manager 配置。</div>;
+    }
+
+    return (
+        <>
+            <div className="sp-head">
+                <div className="sp-crumb">
+                    <span className="sp-crumb-link" onClick={onBack} role="button" tabIndex={0}>
+                        数据源
+                    </span>
+                    <span className="cc-sep">
+                        <Icon name="chevron" size={15} />
+                    </span>
+                    <span className="cc-cur">CPA Manager</span>
+                </div>
+            </div>
+            <div className="set-content" style={{ paddingRight: 0 }}>
+                <CpaConnectorSettings
+                    connector={cpaPlugin}
+                    config={{
+                        endpointOverrides: cpaConfig.endpointOverrides,
+                        parameterValues: cpaConfig.parameterValues,
+                        refreshIntervalSeconds: cpaConfig.refreshIntervalSeconds,
+                    }}
+                    hasSecrets={hasSecrets[cpaPlugin.instanceId] ?? {}}
+                    onSave={async (nonSecrets, endpointOverrides, refreshIntervalSeconds) => {
+                        await onSave(
+                            cpaPlugin.instanceId,
+                            nonSecrets,
+                            {},
+                            endpointOverrides,
+                            refreshIntervalSeconds,
+                        );
+                    }}
+                    onSaveSecrets={async (secrets) => {
+                        await onSaveSecrets(cpaPlugin.instanceId, secrets);
+                    }}
+                    onRefresh={async () => {
+                        await onRefresh(cpaPlugin.instanceId);
+                    }}
+                />
+            </div>
+        </>
+    );
+}
+
 /* ── Main View ── */
 export function SettingsView() {
     useTheme();
@@ -229,6 +414,15 @@ export function SettingsView() {
     const [pluginInfos, setPluginInfos] = useState<PluginInfo[]>([]);
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);
+    const [dsView, setDsView] = useState<"list" | "detail">("list");
+
+    // CPA detection: show 数据源 nav only when CPA connector exists
+    const hasCpa = pluginInfos.some((p) => p.source === "cpa");
+
+    // Reset data source view when leaving datasource section
+    useEffect(() => {
+        if (section !== "datasource") setDsView("list");
+    }, [section]);
 
     // Phase 21.5: group plugins by provider for the accounts page
     interface ProviderAccountGroup {
@@ -427,7 +621,7 @@ export function SettingsView() {
                 <div className="settings-body">
                     {/* left nav */}
                     <div className="set-nav" data-testid="settings-sidebar">
-                        {NAV_ITEMS.map((n) => (
+                        {NAV_ITEMS.filter((n) => !("cpaOnly" in n) || hasCpa).map((n) => (
                             <button
                                 key={n.id}
                                 className={`set-nav-item${section === n.id ? " on" : ""}`}
@@ -709,6 +903,41 @@ export function SettingsView() {
                                             </div>
                                         );
                                     })
+                                )}
+                            </>
+                        )}
+
+                        {/* ── Data Source (CPA Manager) ── */}
+                        {section === "datasource" && (
+                            <>
+                                {dsView === "list" && (
+                                    <DataSourceList
+                                        pluginInfos={pluginInfos}
+                                        config={config}
+                                        onOpenDetail={() => {
+                                            setDsView("detail");
+                                        }}
+                                        onAdd={() => {
+                                            setDialog({
+                                                mode: "add",
+                                                instanceId: undefined,
+                                                pluginName: undefined,
+                                            });
+                                        }}
+                                    />
+                                )}
+                                {dsView === "detail" && (
+                                    <CpaDetailPage
+                                        pluginInfos={pluginInfos}
+                                        config={config}
+                                        hasSecrets={hasSecrets}
+                                        onBack={() => {
+                                            setDsView("list");
+                                        }}
+                                        onSave={savePluginSettings}
+                                        onSaveSecrets={savePluginSecrets}
+                                        onRefresh={refreshPlugin}
+                                    />
                                 )}
                             </>
                         )}

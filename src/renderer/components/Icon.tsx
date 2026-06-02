@@ -36,6 +36,7 @@ const UI_ICONS: Record<string, string> = {
     chevron: '<path d="M8 4l8 8-8 8"/>',
     external_link:
         '<path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 4 9 15 15 0 0 1-4 9 15 15 0 0 1-4-9A15 15 0 0 1 12 3z"/>',
 };
 
 interface IconProps {
