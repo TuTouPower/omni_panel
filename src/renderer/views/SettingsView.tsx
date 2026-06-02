@@ -215,11 +215,59 @@ function AccountDialog({
                                 }}
                             />
                         )
+                    ) : mode === "add" && !instanceId ? (
+                        <AddAccountPicker />
                     ) : (
                         <div className="text-sm text-[var(--text-3)]">暂不支持在此添加新账号</div>
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
+    { id: "claude", label: "Claude" },
+    { id: "codex", label: "Codex" },
+    { id: "gemini", label: "Gemini" },
+    { id: "kimi", label: "Kimi" },
+    { id: "deepseek", label: "DeepSeek" },
+    { id: "tavily", label: "Tavily" },
+];
+
+/* ── Add Account Picker ── */
+function AddAccountPicker() {
+    return (
+        <div className="pick-body">
+            <div className="set-group-label" style={{ marginTop: 0 }}>
+                常用服务
+            </div>
+            <div className="pick-grid">
+                {ADD_COMMON_SERVICES.map((s) => (
+                    <button className="pick-card" key={s.id} type="button">
+                        <span className="pc-mark">
+                            <VendorMark id={s.id} size={30} />
+                        </span>
+                        <span className="pc-name">{s.label}</span>
+                    </button>
+                ))}
+            </div>
+            <div className="set-group-label">高级方式</div>
+            <button className="pick-adv" type="button">
+                <span className="pa-icon">
+                    <VendorMark id="cpa" size={24} />
+                </span>
+                <span className="pa-text">
+                    <span className="pa-title-row">
+                        <span className="pa-title">CPA Manager</span>
+                        <span className="pa-badge">多服务商</span>
+                    </span>
+                    <span className="pa-desc">通过 CPA 批量获取多个 AI 服务商账号</span>
+                </span>
+                <span className="pa-chev">
+                    <Icon name="chevron" size={18} />
+                </span>
+            </button>
         </div>
     );
 }
@@ -827,6 +875,11 @@ export function SettingsView() {
                                                                         已关闭
                                                                     </span>
                                                                 )}
+                                                                {info?.source === "cpa" && (
+                                                                    <span className="ar-badge cpa">
+                                                                        来自 CPA Manager
+                                                                    </span>
+                                                                )}
                                                                 <div className="ar-actions">
                                                                     <button
                                                                         className="icon-btn ar-ic"
@@ -847,34 +900,63 @@ export function SettingsView() {
                                                                             size={15}
                                                                         />
                                                                     </button>
-                                                                    <button
-                                                                        className="icon-btn ar-ic"
-                                                                        title="删除"
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            if (
-                                                                                !window.confirm(
-                                                                                    `确定删除 "${display_name}"？此操作不可撤销。`,
-                                                                                )
-                                                                            ) {
-                                                                                return;
-                                                                            }
-                                                                            void save({
-                                                                                ...config,
-                                                                                plugins:
-                                                                                    config.plugins.filter(
-                                                                                        (pl) =>
-                                                                                            pl.instanceId !==
-                                                                                            p.instanceId,
-                                                                                    ),
-                                                                            });
-                                                                        }}
-                                                                    >
-                                                                        <Icon
-                                                                            name="trash"
-                                                                            size={15}
-                                                                        />
-                                                                    </button>
+                                                                    {info?.source === "cpa" ? (
+                                                                        <button
+                                                                            className="icon-btn ar-ic"
+                                                                            title="隐藏"
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                void save({
+                                                                                    ...config,
+                                                                                    plugins:
+                                                                                        config.plugins.map(
+                                                                                            (pl) =>
+                                                                                                pl.instanceId ===
+                                                                                                p.instanceId
+                                                                                                    ? {
+                                                                                                          ...pl,
+                                                                                                          enabled: false,
+                                                                                                      }
+                                                                                                    : pl,
+                                                                                        ),
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            <Icon
+                                                                                name="eye_off"
+                                                                                size={15}
+                                                                            />
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button
+                                                                            className="icon-btn ar-ic"
+                                                                            title="删除"
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                if (
+                                                                                    !window.confirm(
+                                                                                        `确定删除 "${display_name}"？此操作不可撤销。`,
+                                                                                    )
+                                                                                ) {
+                                                                                    return;
+                                                                                }
+                                                                                void save({
+                                                                                    ...config,
+                                                                                    plugins:
+                                                                                        config.plugins.filter(
+                                                                                            (pl) =>
+                                                                                                pl.instanceId !==
+                                                                                                p.instanceId,
+                                                                                        ),
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            <Icon
+                                                                                name="trash"
+                                                                                size={15}
+                                                                            />
+                                                                        </button>
+                                                                    )}
                                                                     <Toggle
                                                                         on={is_enabled}
                                                                         onClick={() => {

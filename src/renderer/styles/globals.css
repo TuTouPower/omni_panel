@@ -1051,6 +1051,96 @@ body {
     border-radius: 6px;
     background: var(--field-bg);
 }
+/* ── add account picker ── */
+.pick-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.pick-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.pick-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 10px;
+    border: 0.5px solid var(--field-border);
+    border-radius: 12px;
+    background: var(--win-bg);
+    cursor: pointer;
+    transition:
+        border-color 0.14s,
+        background 0.14s,
+        transform 0.1s;
+}
+.pick-card:hover {
+    border-color: color-mix(in srgb, var(--blue) 40%, transparent);
+    background: var(--field-bg);
+}
+.pick-card:active {
+    transform: scale(0.97);
+}
+.pc-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+.pick-adv {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    width: 100%;
+    text-align: left;
+    padding: 14px;
+    border: 0.5px solid var(--field-border);
+    border-radius: 12px;
+    background: var(--win-bg);
+    cursor: pointer;
+    font-family: inherit;
+    transition:
+        border-color 0.14s,
+        background 0.14s;
+}
+.pick-adv:hover {
+    border-color: color-mix(in srgb, var(--blue) 40%, transparent);
+    background: var(--field-bg);
+}
+.pa-text {
+    flex: 1;
+    min-width: 0;
+}
+.pa-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pa-title {
+    font-size: 14px;
+    font-weight: 650;
+    color: var(--text);
+}
+.pa-badge {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--blue);
+    background: color-mix(in srgb, var(--blue) 12%, transparent);
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+.pa-desc {
+    display: block;
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 3px;
+}
+.pa-chev {
+    color: var(--text-3);
+    flex-shrink: 0;
+}
 .set-group-label {
     font-size: 11px;
     font-weight: 600;
@@ -1342,6 +1432,16 @@ body {
     background: var(--chip-bg);
     padding: 1px 7px;
     border-radius: 6px;
+}
+.acct-row .ar-badge {
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 6px;
+}
+.acct-row .ar-badge.cpa {
+    color: var(--blue);
+    background: color-mix(in srgb, var(--blue) 12%, transparent);
 }
 .acct-row .ar-actions {
     margin-left: auto;
