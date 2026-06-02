@@ -1,4 +1,5 @@
 import type { ProviderUsageAccount } from "../lib/provider-usage";
+import { formatResetTime } from "../lib/utils";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { Icon } from "./Icon";
 
@@ -88,7 +89,9 @@ export function ProviderAccountRow({
                                     : usageText(window.used, window.limit)}
                             </div>
                         </div>
-                        <div className="ub-row-time">{window.resetAt ? "待重置" : "--"}</div>
+                        <div className="ub-row-time">
+                            {window.resetAt ? formatResetTime(window.resetAt) : "--"}
+                        </div>
                     </div>
                 );
             })}

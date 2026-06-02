@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
-import { relativeTime } from "../lib/utils";
+import { relativeTime, formatResetTime } from "../lib/utils";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { CollapsibleCard } from "./CollapsibleCard";
@@ -352,7 +352,11 @@ export function ProviderCard({
                                             </div>
                                         </div>
                                         <div className="ub-row-time">
-                                            {windowDanger ? "⚠" : window.resetAt ? "待重置" : "--"}
+                                            {windowDanger
+                                                ? "⚠"
+                                                : window.resetAt
+                                                  ? formatResetTime(window.resetAt)
+                                                  : "--"}
                                         </div>
                                     </div>
                                 );

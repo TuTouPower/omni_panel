@@ -7,7 +7,7 @@
  * Electron.
  */
 
-export const MAX_HEIGHT_RATIO = 0.85;
+export const MAX_HEIGHT_RATIO = 0.75;
 export const HEIGHT_REPORT_DEBOUNCE_PX = 1;
 
 export interface ContentHeightReport {

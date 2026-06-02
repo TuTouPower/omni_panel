@@ -15,7 +15,7 @@ import {
 const display_1080: DisplayLike = {
     workArea: { x: 0, y: 0, width: 1920, height: 1080 },
 };
-// floor(1080 * 0.85) = 918
+// floor(1080 * 0.75) = 810
 const MAX_1080 = Math.floor(1080 * MAX_HEIGHT_RATIO);
 
 describe("compute_target_height", () => {
@@ -35,7 +35,7 @@ describe("compute_target_height", () => {
         expect(out).toBe(500);
     });
 
-    it("returns the max height when content exceeds 85% of work area", () => {
+    it("returns the max height when content exceeds 75% of work area", () => {
         const out = compute_target_height(
             { content_height: 2000, collapsed_min_height: 200 },
             display_1080,
@@ -51,8 +51,8 @@ describe("compute_target_height", () => {
         expect(out).toBe(501);
     });
 
-    it("rounds the max height down to honour the 85% constraint", () => {
-        // 0.85 * 1080 = 918.0; with 0.85 * 1081 = 918.85 -> floor=918, ensures no >85%
+    it("rounds the max height down to honour the 75% constraint", () => {
+        // 0.75 * 1081 = 810.75 -> floor=810, ensures no >75%
         const display = { workArea: { x: 0, y: 0, width: 1920, height: 1081 } };
         const out = compute_target_height(
             { content_height: 5000, collapsed_min_height: 100 },
@@ -64,9 +64,9 @@ describe("compute_target_height", () => {
 
     it("honours the max when min > max on tiny displays", () => {
         const tiny = { workArea: { x: 0, y: 0, width: 800, height: 200 } };
-        // max = floor(200*0.85) = 170
+        // max = floor(200*0.75) = 150
         const out = compute_target_height({ content_height: 500, collapsed_min_height: 400 }, tiny);
-        expect(out).toBe(170);
+        expect(out).toBe(150);
     });
 });
 

@@ -37,8 +37,8 @@ test.describe("popup multi display", () => {
 
         const height1 = await page.evaluate(() => window.outerHeight);
 
-        // After reopen, height should still obey 85% rule
+        // After reopen, height should still obey 75% rule
         expect(height1).toBeGreaterThan(0);
-        expect(height1).toBeLessThanOrEqual(Math.floor(screen.availHeight * 0.85) + 10);
+        expect(height1).toBeLessThanOrEqual(Math.floor(screen.availHeight * 0.75) + 10);
     });
 });

@@ -2,11 +2,11 @@ import { expect, test } from "../fixtures/test";
 import { PopupPage } from "../pages/popup_page";
 
 /**
- * Phase 20 E2E: window height constraints — max 85%, internal scroll,
+ * Phase 20 E2E: window height constraints — max 75%, internal scroll,
  * collapsed min height, no bottom whitespace regression.
  */
 test.describe("popup window constraints", () => {
-    test("window height does not exceed 85% of screen work area", async ({ omni }) => {
+    test("window height does not exceed 75% of screen work area", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
@@ -18,7 +18,7 @@ test.describe("popup window constraints", () => {
             };
         });
 
-        const max_allowed = Math.floor(work_area_height * 0.85);
+        const max_allowed = Math.floor(work_area_height * 0.75);
         // Allow 15px tolerance for OS window decorations and rounding
         expect(window_height).toBeLessThanOrEqual(max_allowed + 15);
     });

@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
-import { VendorMark, Icon } from "./Icon";
+import { VendorMark } from "./Icon";
 
 interface ProviderNavProps {
     activeTab: UsageProvider | "overview";
@@ -45,9 +45,6 @@ export function ProviderNav({ activeTab, visibleProviders, onChange }: ProviderN
                 ))}
             </div>
             <div className="tabs-fade right" />
-            <div className="tabs-chevron">
-                <Icon name="chevron" size={14} color="var(--text-3)" />
-            </div>
         </>
     );
 }

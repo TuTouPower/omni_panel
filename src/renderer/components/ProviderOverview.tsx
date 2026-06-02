@@ -44,30 +44,32 @@ export function ProviderOverview({
 
     return (
         <>
-            {visibleProviders.map((provider) => {
-                const is_disabled = disabledProviders?.has(provider) ?? false;
-                return (
-                    <ProviderCard
-                        key={provider}
-                        provider={provider}
-                        group={groupsByProvider.get(provider)}
-                        connectorError={providerErrors.get(provider)}
-                        onRefresh={onRefreshProvider}
-                        expanded={
-                            expandedProviders ? (expandedProviders[provider] ?? false) : undefined
-                        }
-                        onToggleExpand={onToggleExpandProvider}
-                        disabled={is_disabled}
-                        onToggleDisable={onToggleDisableProvider}
-                        onDelete={onDeleteProvider}
-                        dragging={draggingProvider === provider}
-                        dragOver={overProvider === provider && draggingProvider !== provider}
-                        onDragStart={onDragStart}
-                        onDragEnter={onDragEnter}
-                        onDragEnd={onDragEnd}
-                    />
-                );
-            })}
+            {visibleProviders
+                .filter((provider) => !(disabledProviders?.has(provider) ?? false))
+                .map((provider) => {
+                    return (
+                        <ProviderCard
+                            key={provider}
+                            provider={provider}
+                            group={groupsByProvider.get(provider)}
+                            connectorError={providerErrors.get(provider)}
+                            onRefresh={onRefreshProvider}
+                            expanded={
+                                expandedProviders
+                                    ? (expandedProviders[provider] ?? false)
+                                    : undefined
+                            }
+                            onToggleExpand={onToggleExpandProvider}
+                            onToggleDisable={onToggleDisableProvider}
+                            onDelete={onDeleteProvider}
+                            dragging={draggingProvider === provider}
+                            dragOver={overProvider === provider && draggingProvider !== provider}
+                            onDragStart={onDragStart}
+                            onDragEnter={onDragEnter}
+                            onDragEnd={onDragEnd}
+                        />
+                    );
+                })}
         </>
     );
 }

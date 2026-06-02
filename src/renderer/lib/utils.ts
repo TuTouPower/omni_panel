@@ -18,3 +18,20 @@ export function relativeTime(isoDate: string): string {
     const days = Math.floor(hours / 24);
     return `${String(days)} 天前`;
 }
+
+/** Format resetAt ISO string as "今天 13:10" or "5/18 21:00". */
+export function formatResetTime(isoDate: string): string {
+    const d = new Date(isoDate);
+    const now = new Date();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const time = `${hh}:${mm}`;
+    if (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+    ) {
+        return `今天 ${time}`;
+    }
+    return `${String(d.getMonth() + 1)}/${String(d.getDate())} ${time}`;
+}
