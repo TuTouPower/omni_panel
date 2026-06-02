@@ -21,6 +21,13 @@ function limitTransform(items, i) {
   return items;
 }
 
+/* average of a vendor's accounts — shown as the multi-account 「平均」 row */
+function vendorAvg(v) {
+  const n = v.accounts.length;
+  const avg = (k) => Math.round(v.accounts.reduce((s, a) => s + a[k], 0) / n);
+  return { h5: avg('h5'), week: avg('week'), r5: v.accounts[0].r5, rw: v.accounts[0].rw };
+}
+
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const demo = t.demoState;
@@ -43,6 +50,7 @@ function App() {
   const [menuKey, setMenuKey] = React.useState(null);
   const [order, setOrder] = React.useState({});           // scope -> [ids]
   const [tokCollapsed, setTokCollapsed] = React.useState(false);
+  const [l2set, setL2set] = React.useState(() => new Set());   // overview: vendors with account detail open
   const [armed, setArmed] = React.useState(null);         // id armed for drag (current scope)
   const [dragId, setDragId] = React.useState(null);
   const [overId, setOverId] = React.useState(null);
@@ -76,6 +84,51 @@ function App() {
 
   const currentVendor = tab === 'overview' ? null : VENDORS.find((v) => v.id === tab);
 
+  /* ---- content-driven window height ----
+     Mirrors the desktop mechanism: a ResizeObserver watches the body's
+     real content box, we measure inside requestAnimationFrame, clamp to
+     [MIN_H, 75% of the screen work-area] and lock the window to that exact
+     height. Collapsing a card removes its DOM (see UsageCard) → the content
+     box shrinks → observer fires → the window shrinks. Expanding reverses it. */
+  const winRef = React.useRef(null);
+  const scrollRef = React.useRef(null);
+  const innerRef = React.useRef(null);
+  const lastH = React.useRef(-1);
+  const MIN_H = 160;
+
+  React.useLayoutEffect(() => {
+    const win = winRef.current;
+    if (!win || !winOpen) return;
+
+    // Settings is a stable two-column screen — give it a fixed comfortable height.
+    if (view === 'settings') {
+      lastH.current = -1;
+      win.style.height = Math.min(704, Math.round(window.innerHeight * 0.86)) + 'px';
+      return;
+    }
+
+    const scroll = scrollRef.current, inner = innerRef.current;
+    if (!scroll || !inner) return;
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const winTop = win.getBoundingClientRect().top;
+      const chrome = scroll.getBoundingClientRect().top - winTop;   // titlebar + tabs + dividers + top border
+      const content = scroll.scrollHeight;                           // body padding + cards/chart (gap, no margin-collapse)
+      const maxH = Math.round(window.innerHeight * 0.75);            // 75% screen cap — never swallow the screen
+      const target = Math.max(MIN_H, Math.min(Math.round(chrome + content + 1), maxH));
+      if (Math.abs(target - lastH.current) < 1) return;              // 1px debounce, no time delay → instant feel
+      lastH.current = target;
+      win.style.height = target + 'px';
+    };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(measure); };
+    const ro = new ResizeObserver(schedule);
+    ro.observe(inner);
+    window.addEventListener('resize', schedule);
+    schedule();
+    return () => { ro.disconnect(); window.removeEventListener('resize', schedule); if (raf) cancelAnimationFrame(raf); };
+  }, [view, winOpen, tab]);
+
   const visibleKeys = () => tab === 'overview'
     ? VENDORS.map((v) => 'v:' + v.id)
     : currentVendor.accounts.map((a) => 'a:' + currentVendor.id + ':' + a.key);
@@ -83,6 +136,8 @@ function App() {
   const refreshAll = () => {
     setGlobalSpin(true);
     setTimeout(() => setGlobalSpin(false), 1200);
+    setCollapsed(new Set());   // new operation → clear manual collapses so fresh results show (window re-expands)
+    setTokCollapsed(false);
     refreshKeys(visibleKeys(), () => setFooterUpdated('刚刚'));
   };
 
@@ -164,9 +219,13 @@ function App() {
         const i = VENDORS.indexOf(v);
         const key = 'v:' + v.id;
         if (disabledSet.has(key)) return;   // closed cards live only in settings
-        const d = demo === 'limit' ? limitTransform(v, i) : v;
-        items.push(<UsageCard key={key} vendorId={v.id} name={v.name} badge={v.accounts.length}
-          updated={getUpdated(key, v.updated)} h5={d.h5} week={d.week} r5={v.r5} rw={v.rw}
+        const multi = v.accounts.length > 1;
+        const base = multi ? vendorAvg(v) : v.accounts[0];
+        const d = demo === 'limit' ? limitTransform(base, i) : base;
+        items.push(<UsageCard key={key} vendorId={v.id} name={v.name}
+          accounts={v.accounts}
+          l2open={l2set.has(v.id)} onToggleL2={() => toggleSet(setL2set, v.id)}
+          updated={getUpdated(key, v.updated)} h5={d.h5} week={d.week} r5={d.r5} rw={d.rw}
           state={demo === 'error' ? 'error' : demo === 'auth' ? 'auth' : 'normal'}
           refreshing={refreshing.has(key) || demo === 'refreshing'}
           limitMode={demo === 'limit'}
@@ -214,7 +273,7 @@ function App() {
     <div className="desktop">
       {/* window */}
       {winOpen && (
-          <div className="window">
+          <div className="window" ref={winRef}>
             {view === 'settings' ? (
               <Settings onBack={() => setView('monitor')}
                 theme={t.theme} onTheme={(v) => setTweak('theme', v)}
@@ -253,11 +312,13 @@ function App() {
                 </div>
                 <div className="titlebar-divider" />
 
-                <div className="scroll">
-                  {renderCards()}
-                  {showChart && <TokenPanel chartData={chartData} totals={totals}
-                    collapsed={tokCollapsed} onToggleCollapse={() => setTokCollapsed((v) => !v)}
-                    onHandleDown={() => {}} />}
+                <div className="scroll" ref={scrollRef}>
+                  <div className="scroll-inner" ref={innerRef}>
+                    {renderCards()}
+                    {showChart && <TokenPanel chartData={chartData} totals={totals}
+                      collapsed={tokCollapsed} onToggleCollapse={() => setTokCollapsed((v) => !v)}
+                      onHandleDown={() => {}} />}
+                  </div>
                 </div>
               </>
             )}

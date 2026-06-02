@@ -57,11 +57,14 @@ function CardMenu({ disabled, onEdit, onDelete, onToggle, onClose }) {
 }
 
 function UsageCard({ vendorId, name, badge, updated, h5, week, r5, rw,
+                     accounts, l2open, onToggleL2,
                      state = 'normal', refreshing, onRefresh, limitMode,
                      collapsed, onToggleCollapse, disabled, onEnable,
                      menuOpen, onToggleMenu, onCloseMenu, onEdit, onDelete, onToggleDisable,
                      canDrag, onDragStart, onDragEnter, onDragEnd, onHandleDown, dragging, dragOver }) {
   const isAcct = !vendorId;
+  const accts = accounts || [];
+  const multi = accts.length > 1;
   const dH5 = limitMode && h5 >= 90, dWk = limitMode && week >= 90;
   const alert = !disabled && state === 'normal' && (dH5 || dWk);
   return (
@@ -78,6 +81,15 @@ function UsageCard({ vendorId, name, badge, updated, h5, week, r5, rw,
         </button>
         {vendorId && <VendorMark id={vendorId} size={26} />}
         <span className="card-name">{name}</span>
+        {multi && (collapsed || disabled) && <span className="count-badge">{accts.length}账号</span>}
+        {multi && !collapsed && !disabled && (
+          <span className="l2seg" role="tablist">
+            <button className={l2open ? '' : 'on'} title="平均用量"
+              onClick={() => { if (l2open) onToggleL2(); }}>平均</button>
+            <button className={l2open ? 'on' : ''} title="账号明细"
+              onClick={() => { if (!l2open) onToggleL2(); }}>{accts.length}账号</button>
+          </span>
+        )}
         {disabled && <span className="off-badge">已关闭</span>}
         {!collapsed && !disabled && <span className="rel-time">{refreshing ? '刷新中…' : updated}</span>}
         <div className="card-tools">
@@ -124,6 +136,26 @@ function UsageCard({ vendorId, name, badge, updated, h5, week, r5, rw,
            <span className="cs-ic"><Icon name="lock" size={16} /></span>
            <span>凭证失效，请重新登录</span>
            <span className="cs-action">重新登录</span>
+         </div>
+       ) : (multi && l2open) ? (
+         <div className="acct-detail">
+           {accts.map((a) => {
+             const adH5 = limitMode && a.h5 >= 90, adWk = limitMode && a.week >= 90;
+             return (
+               <div className="acct-item" key={a.key}>
+                 <div className="ai-head">
+                   <span className="ai-dot" />
+                   <span className="ai-name">{a.name}</span>
+                   <span className="ai-key">{a.key}</span>
+                   <span className="ai-time">{a.updated}</span>
+                 </div>
+                 <div className="ai-bars">
+                   <BarRow label="5小时" value={a.h5} kind="blue" reset={a.r5} danger={adH5} />
+                   <BarRow label="一周"  value={a.week} kind="purple" reset={a.rw} danger={adWk} />
+                 </div>
+               </div>
+             );
+           })}
          </div>
        ) : (
          <div className="bars">

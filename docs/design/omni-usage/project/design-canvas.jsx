@@ -1,3 +1,4 @@
+// @ds-adherence-ignore -- omelette starter scaffold (raw elements/hex/px by design)
 
 /* BEGIN USAGE */
 // DesignCanvas.jsx — Figma-ish design canvas wrapper
