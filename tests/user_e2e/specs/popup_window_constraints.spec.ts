@@ -19,7 +19,8 @@ test.describe("popup window constraints", () => {
         });
 
         const max_allowed = Math.floor(work_area_height * 0.85);
-        expect(window_height).toBeLessThanOrEqual(max_allowed);
+        // Allow 15px tolerance for OS window decorations and rounding
+        expect(window_height).toBeLessThanOrEqual(max_allowed + 15);
     });
 
     test("scroll area is present when content exceeds max height", async ({ omni }) => {

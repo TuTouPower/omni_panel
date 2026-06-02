@@ -30,9 +30,13 @@ test.describe("settings view", () => {
         const sPage = settings.page;
 
         await sPage.locator('[data-testid="settings-plugin-nav-accounts"]').click();
-        const cpaGroup = sPage.locator(".acct-group").filter({ hasText: "CPA" }).first();
-        await expect(cpaGroup).toBeVisible();
-        await cpaGroup.locator('button[title="编辑"]').first().click();
+        // Find the CPA connector row (e.g. "CPA · Claude"), not the provider group
+        const cpaRow = sPage.locator(".acct-row").filter({ hasText: "CPA" }).first();
+        await expect(cpaRow).toBeVisible();
+        await cpaRow.locator('button[title="编辑"]').first().click();
+
+        // Wait for the dialog to appear
+        await expect(sPage.locator('[role="dialog"]')).toBeVisible({ timeout: 10_000 });
 
         // CPA uses CpaConnectorSettings (data-testid="cpa-connector-settings")
         const form = sPage.locator('[data-testid="cpa-connector-settings"]');

@@ -15,9 +15,13 @@ async function openSettings(app: ElectronApplication, page: Page): Promise<Page>
 
 async function openAccountForm(sPage: Page, name: string) {
     await sPage.locator('[data-testid="settings-plugin-nav-accounts"]').click();
-    const group = sPage.locator(".acct-group").filter({ hasText: name }).first();
-    await expect(group).toBeVisible();
-    await group.locator('button[title="编辑"]').first().click();
+    // Find the specific account row matching the name (e.g. "CPA · Claude"),
+    // not just any group containing the text (which could match provider groups).
+    const row = sPage.locator(".acct-row").filter({ hasText: name }).first();
+    await expect(row).toBeVisible();
+    await row.locator('button[title="编辑"]').first().click();
+    // Wait for the dialog to appear
+    await expect(sPage.locator('[role="dialog"]')).toBeVisible({ timeout: 10_000 });
     // CPA uses CpaConnectorSettings (data-testid="cpa-connector-settings"),
     // other plugins use SettingsForm (data-testid="settings-form-{id}").
     const form = sPage.locator('[data-testid="cpa-connector-settings"]');
@@ -64,9 +68,13 @@ test.describe("plugin configuration", () => {
         const sPage = await openSettings(omni.app, page);
 
         await sPage.locator('[data-testid="settings-plugin-nav-accounts"]').click();
-        const group = sPage.locator(".acct-group").filter({ hasText: "CPA 额度连接器" }).first();
-        await expect(group).toBeVisible();
-        await group.locator('button[title="编辑"]').first().click();
+        // CPA plugin is grouped by its active providers (e.g. "Claude"),
+        // not in a standalone "CPA 额度连接器" group.
+        // Find any account row containing CPA and click its edit button.
+        const cpaRow = sPage.locator(".acct-row").filter({ hasText: "CPA" }).first();
+        await expect(cpaRow).toBeVisible();
+        await cpaRow.locator('button[title="编辑"]').first().click();
+        await expect(sPage.locator('[role="dialog"]')).toBeVisible({ timeout: 10_000 });
 
         await expect(sPage.getByLabel("CPA-Manager URL")).toBeVisible();
         await expect(sPage.getByRole("button", { name: "测试连接" })).toBeVisible();

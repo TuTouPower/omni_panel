@@ -552,6 +552,10 @@ export function SettingsView() {
                                     <div className="text-sm text-[var(--text-3)] py-4">
                                         暂无已配置的服务
                                     </div>
+                                ) : pluginInfos.length === 0 ? (
+                                    <div className="text-sm text-[var(--text-3)] py-4">
+                                        加载中...
+                                    </div>
                                 ) : (
                                     account_groups.map((group) => {
                                         const all_disabled = group.plugins.every((p) => !p.enabled);
