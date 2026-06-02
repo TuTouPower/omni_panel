@@ -1,5 +1,16 @@
+import type { ElectronApplication, Page } from "@playwright/test";
 import { expect, test } from "../fixtures/test";
 import { PopupPage } from "../pages/popup_page";
+
+async function openSettings(app: ElectronApplication, page: Page): Promise<Page> {
+    await page.evaluate(() => {
+        window.usageboard.settings.open();
+    });
+    const settingsWindow = await app.waitForEvent("window", { timeout: 10_000 });
+    await settingsWindow.waitForLoadState("domcontentloaded");
+    await settingsWindow.waitForSelector('[data-testid="settings-sidebar"]', { timeout: 10_000 });
+    return settingsWindow;
+}
 
 test.describe("scheduler", () => {
     test("auto-creates plugin instances on startup", async ({ omni }) => {
@@ -45,16 +56,11 @@ test.describe("scheduler", () => {
 
     test("settings shows plugin list with enabled state", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.evaluate(() => {
-            window.location.hash = "#settings";
-        });
-        await page.waitForFunction(() => window.location.hash === "#settings", undefined, {
-            timeout: 5000,
-        });
+        const sPage = await openSettings(omni.app, page);
 
-        await expect(page.locator('[data-testid="settings-sidebar"]')).toBeVisible();
+        await expect(sPage.locator('[data-testid="settings-sidebar"]')).toBeVisible();
 
-        const pluginNavItems = page.locator('[data-testid^="settings-plugin-nav-"]');
+        const pluginNavItems = sPage.locator('[data-testid^="settings-plugin-nav-"]');
         const count = await pluginNavItems.count();
         expect(count).toBeGreaterThan(0);
     });

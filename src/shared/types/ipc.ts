@@ -24,6 +24,8 @@ export const IPC_CHANNELS = {
     /** Popup renderer reports measured content height for window auto-sizing. */
     POPUP_REPORT_CONTENT_HEIGHT: "popup:reportContentHeight",
 
+    SETTINGS_OPEN: "settings:open",
+
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
 } as const;
@@ -131,6 +133,10 @@ export interface UsageboardApi {
          * minimum height) so the main process can lock the BrowserWindow size.
          */
         report_content_height(report: PopupContentHeightReport): void;
+    };
+    settings: {
+        /** Open or focus the settings window. */
+        open(): void;
     };
     log(payload: RendererLogPayload): void;
 }

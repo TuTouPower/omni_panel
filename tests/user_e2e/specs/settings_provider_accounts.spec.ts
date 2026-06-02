@@ -1,4 +1,5 @@
 import { expect, test } from "../fixtures/test";
+import { SettingsPage } from "../pages/settings_page";
 
 /**
  * Phase 21 E2E: settings provider accounts verification.
@@ -8,57 +9,48 @@ import { expect, test } from "../fixtures/test";
 test.describe("settings provider accounts", () => {
     test("accounts page shows provider groups", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        // Navigate to settings > accounts
-        await page.evaluate(() => {
-            window.location.hash = "#settings";
-        });
-        await page.waitForTimeout(500);
+        const settings = await SettingsPage.openViaIpc(omni.app, page);
+        const sPage = settings.page;
 
         // Click accounts nav
-        const accounts_nav = page.locator("text=账号");
+        const accounts_nav = sPage.locator("text=账号");
         if ((await accounts_nav.count()) > 0) {
             await accounts_nav.click();
-            await page.waitForTimeout(300);
+            await sPage.waitForTimeout(300);
 
             // Should show provider group headings
-            const groups = page.locator(".acct-group");
+            const groups = sPage.locator(".acct-group");
             expect(await groups.count()).toBeGreaterThanOrEqual(0);
         }
     });
 
     test("about page shows real logo", async ({ omni }) => {
         const page = await omni.app.firstWindow();
+        const settings = await SettingsPage.openViaIpc(omni.app, page);
+        const sPage = settings.page;
 
-        await page.evaluate(() => {
-            window.location.hash = "#settings";
-        });
-        await page.waitForTimeout(500);
-
-        const about_nav = page.locator("text=关于");
+        const about_nav = sPage.locator("text=关于");
         if ((await about_nav.count()) > 0) {
             await about_nav.click();
-            await page.waitForTimeout(300);
+            await sPage.waitForTimeout(300);
 
             // Logo image should be present
-            const logo = page.locator(".aa-logo");
+            const logo = sPage.locator(".aa-logo");
             expect(await logo.count()).toBeGreaterThanOrEqual(1);
         }
     });
 
     test("about page shows version text", async ({ omni }) => {
         const page = await omni.app.firstWindow();
+        const settings = await SettingsPage.openViaIpc(omni.app, page);
+        const sPage = settings.page;
 
-        await page.evaluate(() => {
-            window.location.hash = "#settings";
-        });
-        await page.waitForTimeout(500);
-
-        const about_nav = page.locator("text=关于");
+        const about_nav = sPage.locator("text=关于");
         if ((await about_nav.count()) > 0) {
             await about_nav.click();
-            await page.waitForTimeout(300);
+            await sPage.waitForTimeout(300);
 
-            const version = page.locator(".aa-ver");
+            const version = sPage.locator(".aa-ver");
             await expect(version).toBeVisible();
         }
     });

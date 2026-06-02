@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { ElectronApplication, Page } from "@playwright/test";
 
 export class SettingsPage {
     constructor(private page: Page) {}
@@ -9,5 +9,17 @@ export class SettingsPage {
 
     async hasPlugin(name: string) {
         return this.page.locator(`text=${name}`).first().isVisible();
+    }
+
+    /** Open settings window via IPC from any existing page. */
+    static async openViaIpc(app: ElectronApplication, fromPage: Page): Promise<SettingsPage> {
+        await fromPage.evaluate(() => {
+            window.usageboard.settings.open();
+        });
+        const settingsWindow = await app.waitForEvent("window", { timeout: 10_000 });
+        await settingsWindow.waitForLoadState("domcontentloaded");
+        const page = new SettingsPage(settingsWindow);
+        await page.waitReady();
+        return page;
     }
 }

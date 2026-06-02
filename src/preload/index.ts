@@ -92,6 +92,11 @@ const api: UsageboardApi = {
             void ipcRenderer.invoke(IPC_CHANNELS.POPUP_REPORT_CONTENT_HEIGHT, report);
         },
     },
+    settings: {
+        open: () => {
+            void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_OPEN);
+        },
+    },
     log: (payload: RendererLogPayload) => {
         void ipcRenderer.invoke(IPC_CHANNELS.LOG_RENDERER, payload);
     },

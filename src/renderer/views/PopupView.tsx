@@ -125,7 +125,7 @@ export function PopupView() {
     usePopupHeightReport(content_mirror_ref, collapsed_mirror_ref);
 
     const goToSettings = () => {
-        window.location.hash = "#settings";
+        window.usageboard.settings.open();
     };
 
     const handleRefreshAll = () => {

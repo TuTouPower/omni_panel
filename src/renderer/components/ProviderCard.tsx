@@ -115,7 +115,7 @@ export function ProviderCard({
                         <span
                             className="cs-action"
                             onClick={() => {
-                                window.location.hash = "#settings";
+                                window.usageboard.settings.open();
                             }}
                         >
                             重新登录
@@ -257,7 +257,7 @@ export function ProviderCard({
                             <div
                                 className="cm-item"
                                 onClick={() => {
-                                    window.location.hash = "#settings";
+                                    window.usageboard.settings.open();
                                     close_menu();
                                 }}
                             >

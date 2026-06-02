@@ -182,6 +182,9 @@ describe("SettingsView", () => {
             popup: {
                 report_content_height: vi.fn(),
             },
+            settings: {
+                open: vi.fn(),
+            },
             log: vi.fn(),
         };
     });
@@ -242,5 +245,16 @@ describe("SettingsView", () => {
         expect(screen.getByLabelText("监控 Claude")).toBeChecked();
         expect(screen.getByText("Claude 1")).toBeInTheDocument();
         expect(screen.getByText("Claude Account")).toBeInTheDocument();
+    });
+
+    it("calls window.close when back button is clicked", async () => {
+        const closeSpy = vi.spyOn(window, "close").mockImplementation(() => undefined);
+        const user = userEvent.setup();
+        render(<SettingsView />);
+        const backBtn = document.querySelector<HTMLButtonElement>(".back-btn");
+        if (!backBtn) throw new Error("back button not found");
+        await user.click(backBtn);
+        expect(closeSpy).toHaveBeenCalled();
+        closeSpy.mockRestore();
     });
 });

@@ -61,13 +61,15 @@ test.describe("popup view", () => {
         await expect(providerNav.getByRole("button", { name: /^CPA$/ })).toHaveCount(0);
     });
 
-    test("settings button navigates to settings", async ({ omni }) => {
+    test("settings button opens independent window", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
         await popup.clickSettings();
-        await page.waitForFunction(() => window.location.hash === "#settings", undefined, {
-            timeout: 5000,
-        });
+
+        // Settings opens as a new BrowserWindow
+        const settingsWindow = await omni.app.waitForEvent("window", { timeout: 10_000 });
+        await settingsWindow.waitForLoadState("domcontentloaded");
+        await expect(settingsWindow.locator('[data-testid="settings-sidebar"]')).toBeVisible();
     });
 });

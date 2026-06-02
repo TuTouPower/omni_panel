@@ -41,6 +41,7 @@ import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
+import { IPC_CHANNELS } from "../shared/types/ipc";
 import {
     create_popup_height_controller,
     type PopupHeightController,
@@ -107,6 +108,7 @@ interface WindowConfig {
 
 const WINDOW_CONFIGS: Record<string, WindowConfig> = {
     popup: { route: "popup", width: 460, height: 480, frame: false, show: false },
+    settings: { route: "settings", width: 820, height: 660, frame: true, show: true },
 };
 
 function getPreloadPath(): string {
@@ -375,6 +377,27 @@ void app.whenReady().then(async () => {
     // Window references — shared between tray and E2E mode
     let popupWin: BrowserWindow | null = null;
 
+    // Settings window singleton
+    let settingsWin: BrowserWindow | null = null;
+
+    function createOrFocusSettings(): void {
+        if (settingsWin && !settingsWin.isDestroyed()) {
+            settingsWin.show();
+            settingsWin.focus();
+            return;
+        }
+        settingsWin = createWindowFor("settings");
+        settingsWin.center();
+        settingsWin.on("closed", () => {
+            settingsWin = null;
+        });
+    }
+
+    // Register IPC handler for opening settings from renderer
+    ipcMain.handle(IPC_CHANNELS.SETTINGS_OPEN, () => {
+        createOrFocusSettings();
+    });
+
     // Popup height controller (Phase 20). Renderer reports content height;
     // controller applies clamped, debounced resizes to the BrowserWindow.
     let popup_controller: PopupHeightController | null = null;
@@ -608,68 +631,7 @@ void app.whenReady().then(async () => {
                 {
                     label: labels.settings,
                     click: () => {
-                        if (popupWin && !popupWin.isDestroyed()) {
-                            popupWin.show();
-                            popupWin.focus();
-                            popupWin.webContents
-                                .executeJavaScript('window.location.hash="#settings"')
-                                // eslint-disable-next-line @typescript-eslint/no-empty-function
-                                .catch(() => {});
-                            return;
-                        }
-                        // Create popup pre-set to settings view
-                        popupWin = createWindowFor("popup");
-                        popupWin.webContents.on("did-finish-load", () => {
-                            popupWin?.webContents
-                                .executeJavaScript('window.location.hash="#settings"')
-                                // eslint-disable-next-line @typescript-eslint/no-empty-function
-                                .catch(() => {});
-                        });
-
-                        const trayBounds = tray.getBounds();
-                        const display = screen.getDisplayNearestPoint({
-                            x: trayBounds.x + trayBounds.width / 2,
-                            y: trayBounds.y + trayBounds.height / 2,
-                        });
-                        const popupCfg = WINDOW_CONFIGS["popup"];
-                        const popupWidth = popupCfg?.width ?? 460;
-                        const popupHeight = popupCfg?.height ?? 480;
-                        const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
-                        const y = Math.round(trayBounds.y + trayBounds.height + 4);
-                        const clampedX = Math.max(
-                            display.workArea.x,
-                            Math.min(x, display.workArea.x + display.workArea.width - popupWidth),
-                        );
-                        const clampedY = Math.min(
-                            y,
-                            display.workArea.y + display.workArea.height - popupHeight,
-                        );
-                        popupWin.setBounds({
-                            x: clampedX,
-                            y: clampedY,
-                            width: popupWidth,
-                            height: popupHeight,
-                        });
-                        popupWin.show();
-                        popupWin.focus();
-
-                        popup_anchor_state.tray_bounds =
-                            trayBounds.width > 0 && trayBounds.height > 0 ? trayBounds : null;
-                        popup_anchor_state.user_moved = false;
-                        popup_controller = build_popup_controller(popupWin);
-
-                        popupWin.on("move", () => {
-                            if (popup_anchor_state.suppress_move) return;
-                            popup_anchor_state.user_moved = true;
-                        });
-
-                        popupWin.on("closed", () => {
-                            popupWin = null;
-                            popup_controller = null;
-                            popup_anchor_state.tray_bounds = null;
-                            popup_anchor_state.user_moved = false;
-                            popup_anchor_state.suppress_move = false;
-                        });
+                        createOrFocusSettings();
                     },
                 },
                 {
@@ -691,6 +653,10 @@ void app.whenReady().then(async () => {
 
     app.on("before-quit", () => {
         log.info("Application shutting down");
+        if (settingsWin && !settingsWin.isDestroyed()) {
+            settingsWin.destroy();
+            settingsWin = null;
+        }
         orchestrator.shutdown();
         cleanupEventIpc?.();
         cleanupEventIpc = null;

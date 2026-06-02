@@ -33,14 +33,16 @@ test.describe("app lifecycle", () => {
         await expect(popup.root().locator(".scroll")).toBeVisible();
     });
 
-    test("settings navigation works from popup", async ({ omni }) => {
+    test("settings opens as independent window from popup", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
         await popup.clickSettings();
-        await page.waitForFunction(() => window.location.hash === "#settings", undefined, {
-            timeout: 5000,
-        });
+
+        // Settings should open as a new BrowserWindow
+        const settingsWindow = await omni.app.waitForEvent("window", { timeout: 10_000 });
+        await settingsWindow.waitForLoadState("domcontentloaded");
+        await expect(settingsWindow.locator('[data-testid="settings-sidebar"]')).toBeVisible();
     });
 
     test("window can be closed without crashing", async ({ omni }) => {
@@ -49,19 +51,19 @@ test.describe("app lifecycle", () => {
         await page.close();
     });
 
-    test("settings view renders from popup navigation", async ({ omni }) => {
+    test("settings view renders as independent window", async ({ omni }) => {
         const page1 = await omni.app.firstWindow();
         const popup = new PopupPage(page1);
         await popup.waitReady();
 
         await page1.evaluate(() => {
-            window.location.hash = "#settings";
+            window.usageboard.settings.open();
         });
-        await page1.waitForFunction(() => window.location.hash === "#settings", undefined, {
-            timeout: 5000,
-        });
-        await expect(page1.locator('[data-testid="settings-sidebar"]')).toBeVisible();
-        const navItems = page1.locator('[data-testid^="settings-plugin-nav-"]');
+
+        const settingsWindow = await omni.app.waitForEvent("window", { timeout: 10_000 });
+        await settingsWindow.waitForLoadState("domcontentloaded");
+        await expect(settingsWindow.locator('[data-testid="settings-sidebar"]')).toBeVisible();
+        const navItems = settingsWindow.locator('[data-testid^="settings-plugin-nav-"]');
         const count = await navItems.count();
         expect(count).toBeGreaterThan(0);
     });

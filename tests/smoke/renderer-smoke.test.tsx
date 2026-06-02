@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../../src/renderer/App";
+import { SettingsView } from "../../src/renderer/views/SettingsView";
 import { getMockApi } from "./setup";
 
 describe("Renderer smoke tests", () => {
@@ -59,8 +60,7 @@ describe("Renderer smoke tests", () => {
 
     describe("SettingsView", () => {
         it("renders settings sidebar with plugin names", async () => {
-            window.location.hash = "#settings";
-            render(<App />);
+            render(<SettingsView />);
             await waitFor(() => {
                 expect(screen.getByText("设置")).toBeInTheDocument();
             });
@@ -70,8 +70,7 @@ describe("Renderer smoke tests", () => {
         });
 
         it("renders general settings with global options", async () => {
-            window.location.hash = "#settings";
-            render(<App />);
+            render(<SettingsView />);
             await waitFor(() => {
                 expect(screen.getByText("开机时自动启动")).toBeInTheDocument();
             });

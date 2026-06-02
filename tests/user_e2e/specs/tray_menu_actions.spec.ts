@@ -1,5 +1,6 @@
 import { expect, test } from "../fixtures/test";
 import { PopupPage } from "../pages/popup_page";
+import { SettingsPage } from "../pages/settings_page";
 
 /**
  * Phase 21 E2E: tray right-click menu actions verification.
@@ -19,17 +20,18 @@ test.describe("tray menu actions", () => {
         await expect(title).toBeVisible();
     });
 
-    test("settings window can be opened via hash navigation", async ({ omni }) => {
+    test("settings opens as independent window via IPC", async ({ omni }) => {
         const page = await omni.app.firstWindow();
+        await page.waitForSelector(".app-title", { timeout: 10_000 });
 
-        await page.evaluate(() => {
-            window.location.hash = "#settings";
-        });
-        await page.waitForTimeout(500);
+        const settings = await SettingsPage.openViaIpc(omni.app, page);
+        const sPage = settings.page;
 
-        // Settings page should render
-        const settings_text = page.locator("text=设置");
-        await expect(settings_text.first()).toBeVisible();
+        // Settings window should render independently
+        await expect(sPage.locator('[data-testid="settings-sidebar"]')).toBeVisible();
+
+        // Popup should still be open
+        await expect(page.locator(".app-title")).toBeVisible();
     });
 
     test("refresh triggers connector refresh", async ({ omni }) => {

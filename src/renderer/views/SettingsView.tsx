@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useConfig } from "../hooks/use-config";
-import { useSettingsHeightReport } from "../hooks/use-settings-height-report";
 import { useTheme } from "../lib/theme";
 import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
@@ -226,7 +225,6 @@ function AccountDialog({
 /* ── Main View ── */
 export function SettingsView() {
     useTheme();
-    useSettingsHeightReport();
     const { config, hasSecrets, loading, error, save, saveSecrets } = useConfig();
     const [pluginInfos, setPluginInfos] = useState<PluginInfo[]>([]);
     const [section, setSection] = useState("general");
@@ -391,19 +389,19 @@ export function SettingsView() {
     }, []);
 
     const goBack = () => {
-        window.location.hash = "#popup";
+        window.close();
     };
 
     if (loading) {
         return (
-            <div className="window">
+            <div className="window" data-window="settings">
                 <div className="p-6 text-[var(--text-3)]">加载中...</div>
             </div>
         );
     }
     if (error) {
         return (
-            <div className="window">
+            <div className="window" data-window="settings">
                 <div className="p-6">
                     <div className="net-banner">
                         <Icon name="cloud_off" size={18} />
@@ -416,7 +414,7 @@ export function SettingsView() {
     if (!config) return null;
 
     return (
-        <div className="window">
+        <div className="window" data-window="settings">
             <div className="settings">
                 {/* header */}
                 <div className="settings-head">

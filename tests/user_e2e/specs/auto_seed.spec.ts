@@ -1,5 +1,6 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import type { ElectronApplication, Page } from "@playwright/test";
 import { expect, test } from "../fixtures/test";
 import { createTestWithSetup } from "../fixtures/test_with_setup";
 import { PopupPage } from "../pages/popup_page";
@@ -30,6 +31,16 @@ test.describe("auto-seed", () => {
         expect(count).toBeGreaterThanOrEqual(BUNDLED_PLUGIN_NAMES.length);
     });
 });
+
+async function openSettings(app: ElectronApplication, page: Page): Promise<Page> {
+    await page.evaluate(() => {
+        window.usageboard.settings.open();
+    });
+    const settingsWindow = await app.waitForEvent("window", { timeout: 10_000 });
+    await settingsWindow.waitForLoadState("domcontentloaded");
+    await settingsWindow.waitForSelector('[data-testid="settings-sidebar"]', { timeout: 10_000 });
+    return settingsWindow;
+}
 
 // Separate describe block with custom setup for the "existing config" test
 const { test: testWithConfig, expect: expectWithConfig } = createTestWithSetup({
@@ -73,21 +84,19 @@ testWithConfig.describe("auto-seed with existing config", () => {
         await page.waitForTimeout(5000);
 
         // Navigate to settings -> accounts to see plugin names
-        const baseUrl = page.url().split("#")[0] ?? "";
-        await page.goto(baseUrl + "#settings");
-        await page.waitForSelector('[data-testid="settings-sidebar"]', { timeout: 10_000 });
+        const sPage = await openSettings(omni.app, page);
 
-        const accountsNav = page.locator('[data-testid="settings-plugin-nav-accounts"]');
+        const accountsNav = sPage.locator('[data-testid="settings-plugin-nav-accounts"]');
         await accountsNav.click();
-        await page.waitForTimeout(500);
+        await sPage.waitForTimeout(500);
 
         // "My Claude" must still exist (not replaced by "Claude" or "Claude 2")
         await expectWithConfig(
-            page.locator(".acct-group").filter({ hasText: "My Claude" }).first(),
+            sPage.locator(".acct-group").filter({ hasText: "My Claude" }).first(),
         ).toBeVisible();
 
         // Total plugin count should be 7 (1 existing + 6 auto-seeded)
-        const acctGroups = page.locator(".acct-group");
+        const acctGroups = sPage.locator(".acct-group");
         const count = await acctGroups.count();
         expectWithConfig(count).toBe(BUNDLED_PLUGIN_NAMES.length);
     });

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { writeFileSync, mkdirSync } from "node:fs";
-import type { Page } from "@playwright/test";
+import type { ElectronApplication, Page } from "@playwright/test";
 import { createTestWithSetup } from "../fixtures/test_with_setup";
 import { seed_fake_plugin } from "../fixtures/seeded_plugin";
 
@@ -50,22 +50,22 @@ const { test, expect } = createTestWithSetup({
     },
 });
 
-async function openSettings(page: Page) {
+async function openSettings(app: ElectronApplication, page: Page): Promise<Page> {
     await page.evaluate(() => {
-        window.location.hash = "#settings";
+        window.usageboard.settings.open();
     });
-    await page.waitForFunction(() => window.location.hash === "#settings", undefined, {
-        timeout: 5_000,
-    });
-    await page.waitForSelector('[data-testid="settings-sidebar"]', { timeout: 10_000 });
+    const settingsWindow = await app.waitForEvent("window", { timeout: 10_000 });
+    await settingsWindow.waitForLoadState("domcontentloaded");
+    await settingsWindow.waitForSelector('[data-testid="settings-sidebar"]', { timeout: 10_000 });
+    return settingsWindow;
 }
 
-async function openSecretForm(page: Page) {
-    await page.locator('[data-testid="settings-plugin-nav-accounts"]').click();
-    const group = page.locator(".acct-group").filter({ hasText: "SecretTest" }).first();
+async function openSecretForm(sPage: Page) {
+    await sPage.locator('[data-testid="settings-plugin-nav-accounts"]').click();
+    const group = sPage.locator(".acct-group").filter({ hasText: "SecretTest" }).first();
     await expect(group).toBeVisible();
     await group.locator('button[title="编辑"]').first().click();
-    const form = page.locator(`[data-testid="settings-form-${INSTANCE_ID}"]`);
+    const form = sPage.locator(`[data-testid="settings-form-${INSTANCE_ID}"]`);
     await expect(form).toBeVisible();
     return form;
 }
@@ -74,22 +74,22 @@ test.describe("secrets persistence", () => {
     test("secret survives app restart", async ({ omni }) => {
         let page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });
-        await openSettings(page);
+        let sPage = await openSettings(omni.app, page);
 
-        let form = await openSecretForm(page);
+        let form = await openSecretForm(sPage);
         const secretInput = form.locator('input[name="api_secret"][type="password"]');
         await secretInput.fill("my-secret-token-123");
         await form.locator('button[type="submit"]').click();
-        await expect(page.locator('[role="dialog"]')).toBeHidden();
+        await expect(sPage.locator('[role="dialog"]')).toBeHidden();
 
         await omni.stop();
         await omni.start();
 
         page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });
-        await openSettings(page);
+        sPage = await openSettings(omni.app, page);
 
-        form = await openSecretForm(page);
+        form = await openSecretForm(sPage);
         const secretInputAfter = form.locator('input[name="api_secret"][type="password"]');
         await expect(secretInputAfter).toHaveValue("***");
     });
@@ -97,15 +97,15 @@ test.describe("secrets persistence", () => {
     test("secret value is masked in UI, not shown in plain text", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });
-        await openSettings(page);
+        const sPage = await openSettings(omni.app, page);
 
-        let form = await openSecretForm(page);
+        let form = await openSecretForm(sPage);
         const secretInput = form.locator('input[name="api_secret"][type="password"]');
         await secretInput.fill("super-secret-value");
         await form.locator('button[type="submit"]').click();
-        await expect(page.locator('[role="dialog"]')).toBeHidden();
+        await expect(sPage.locator('[role="dialog"]')).toBeHidden();
 
-        form = await openSecretForm(page);
+        form = await openSecretForm(sPage);
         const secretInputReloaded = form.locator('input[name="api_secret"][type="password"]');
         await expect(secretInputReloaded).toHaveValue("***");
         await expect(secretInputReloaded).not.toHaveValue("super-secret-value");
