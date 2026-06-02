@@ -38,7 +38,6 @@ export function PopupView() {
     const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
-    const [disabled_providers, set_disabled_providers] = useState<Set<string>>(() => new Set());
     const [provider_order, set_provider_order] = useState<UsageProvider[]>([]);
     const [drag_id, set_drag_id] = useState<UsageProvider | null>(null);
     const [over_id, set_over_id] = useState<UsageProvider | null>(null);
@@ -104,6 +103,26 @@ export function PopupView() {
         }
         return map;
     }, [plugins]);
+
+    // Derive disabled providers from plugin enabled state (config-backed).
+    // A provider is disabled only when ALL its plugins are disabled.
+    const disabled_providers = useMemo(() => {
+        const set = new Set<string>();
+        const providerPlugins = new Map<string, { total: number; disabled: number }>();
+        for (const p of plugins) {
+            for (const prov of p.activeProviders) {
+                const entry = providerPlugins.get(prov) ?? { total: 0, disabled: 0 };
+                entry.total++;
+                if (!p.enabled) entry.disabled++;
+                providerPlugins.set(prov, entry);
+            }
+        }
+        for (const [prov, entry] of providerPlugins) {
+            if (entry.disabled === entry.total) set.add(prov);
+        }
+        return set;
+    }, [plugins]);
+
     const activeGroup =
         activeTab === "overview"
             ? undefined
@@ -172,23 +191,43 @@ export function PopupView() {
     };
 
     const toggle_disable_provider = (provider: UsageProvider) => {
-        set_disabled_providers((prev) => {
-            const next = new Set(prev);
-            if (next.has(provider)) {
-                next.delete(provider);
-            } else {
-                next.add(provider);
-            }
-            return next;
+        void window.usageboard.config.get().then((result) => {
+            const plugin = result.config.plugins.find((p) =>
+                p.enabled
+                    ? p.name === provider ||
+                      (plugins
+                          .find((pi) => pi.instanceId === p.instanceId)
+                          ?.activeProviders.includes(provider) ??
+                          false)
+                    : false,
+            );
+            const disabledPlugin = result.config.plugins.find((p) => {
+                if (p.enabled) return false;
+                const info = plugins.find((pi) => pi.instanceId === p.instanceId);
+                return info?.activeProviders.includes(provider) ?? false;
+            });
+            const target = plugin ?? disabledPlugin;
+            if (!target) return;
+            void window.usageboard.config.save({
+                ...result.config,
+                plugins: result.config.plugins.map((p) =>
+                    p.instanceId === target.instanceId ? { ...p, enabled: !p.enabled } : p,
+                ),
+            });
         });
     };
 
     const delete_provider = (provider: UsageProvider) => {
-        // TODO: wire to real backend deletion when available
-        window.usageboard.log({
-            level: "warn",
-            module: MODULE,
-            message: `Delete provider ${provider} not yet implemented`,
+        void window.usageboard.config.get().then((result) => {
+            const target = result.config.plugins.find((p) => {
+                const info = plugins.find((pi) => pi.instanceId === p.instanceId);
+                return info?.activeProviders.includes(provider) ?? false;
+            });
+            if (!target) return;
+            void window.usageboard.config.save({
+                ...result.config,
+                plugins: result.config.plugins.filter((p) => p.instanceId !== target.instanceId),
+            });
         });
     };
 
