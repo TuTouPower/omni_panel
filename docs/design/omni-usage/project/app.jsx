@@ -32,9 +32,15 @@ function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const demo = t.demoState;
 
-  const [view, setView] = React.useState('monitor');     // monitor | settings
   const [tab, setTab] = React.useState('overview');       // overview | vendorId
   const [winOpen, setWinOpen] = React.useState(true);
+
+  /* settings lives in its own window — open OmniUsage Settings.html as a popup */
+  const openSettings = () => {
+    window.open('OmniUsage Settings.html', 'omniusage-settings',
+      'width=900,height=760,menubar=no,toolbar=no,location=no,status=no');
+  };
+
   const [autostart, setAutostart] = React.useState(true);
   const [pauseRefresh, setPauseRefresh] = React.useState(false);
 
@@ -100,13 +106,6 @@ function App() {
     const win = winRef.current;
     if (!win || !winOpen) return;
 
-    // Settings is a stable two-column screen — give it a fixed comfortable height.
-    if (view === 'settings') {
-      lastH.current = -1;
-      win.style.height = Math.min(704, Math.round(window.innerHeight * 0.86)) + 'px';
-      return;
-    }
-
     const scroll = scrollRef.current, inner = innerRef.current;
     if (!scroll || !inner) return;
     let raf = 0;
@@ -127,7 +126,7 @@ function App() {
     window.addEventListener('resize', schedule);
     schedule();
     return () => { ro.disconnect(); window.removeEventListener('resize', schedule); if (raf) cancelAnimationFrame(raf); };
-  }, [view, winOpen, tab]);
+  }, [winOpen, tab]);
 
   const visibleKeys = () => tab === 'overview'
     ? VENDORS.map((v) => 'v:' + v.id)
@@ -198,7 +197,7 @@ function App() {
           <div className="empty-ic"><Icon name="inbox" size={30} strokeWidth={1.6} /></div>
           <div className="empty-title">还没有添加任何服务</div>
           <div className="empty-sub">添加你的第一个 AI 服务账号，即可在这里实时查看用量限制与 Token 趋势。</div>
-          <button className="btn-primary" onClick={() => setView('settings')}>
+          <button className="btn-primary" onClick={openSettings}>
             <Icon name="plus" size={15} color="#fff" />添加服务
           </button>
         </div>
@@ -271,17 +270,9 @@ function App() {
 
   return (
     <div className="desktop">
-      {/* window */}
+      {/* main monitor window */}
       {winOpen && (
           <div className="window" ref={winRef}>
-            {view === 'settings' ? (
-              <Settings onBack={() => setView('monitor')}
-                theme={t.theme} onTheme={(v) => setTweak('theme', v)}
-                accent={t.accent} onAccent={(v) => setTweak('accent', v)}
-                autostart={autostart} onAutostart={setAutostart}
-                pauseRefresh={pauseRefresh} onPauseRefresh={setPauseRefresh}
-                disabledSet={disabledSet} onToggleDisabled={(key) => toggleSet(setDisabledSet, key)} />
-            ) : (
               <>
                 <div className="titlebar" onContextMenu={openCtx}>
                   <img className="app-logo" src="logo.png" alt="OmniUsage" width="30" height="30" />
@@ -290,7 +281,7 @@ function App() {
                     <button className={'icon-btn' + (globalSpin ? ' spinning' : '')} title="刷新全部" onClick={refreshAll}>
                       <Icon name="refresh" size={18} />
                     </button>
-                    <button className="icon-btn" title="设置" onClick={() => setView('settings')}>
+                    <button className="icon-btn" title="设置" onClick={openSettings}>
                       <Icon name="gear" size={18} />
                     </button>
                   </div>
@@ -321,15 +312,14 @@ function App() {
                   </div>
                 </div>
               </>
-            )}
           </div>
       )}
 
       {/* tray — its own independent window, shown alongside the main panel */}
       <TrayWindow
-        onOpenPanel={() => { setWinOpen(true); setView('monitor'); }}
+        onOpenPanel={() => { setWinOpen(true); }}
         onRefreshAll={() => { setWinOpen(true); refreshAll(); }}
-        onSettings={() => { setWinOpen(true); setView('settings'); }}
+        onSettings={() => { setWinOpen(true); openSettings(); }}
         autostart={autostart} onAutostart={setAutostart}
         pauseRefresh={pauseRefresh} onPauseRefresh={setPauseRefresh}
         onQuit={() => setWinOpen(false)} />
@@ -340,7 +330,7 @@ function App() {
           <img className="app-logo" src="logo.png" alt="" style={{ width: 52, height: 52, marginBottom: 4 }} />
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>OmniUsage 已退出</div>
           <div style={{ fontSize: 13, color: 'var(--text-3)' }}>后台监控已停止</div>
-          <button className="btn-primary" onClick={() => { setWinOpen(true); setView('monitor'); }}>
+          <button className="btn-primary" onClick={() => { setWinOpen(true); }}>
             <Icon name="open" size={15} color="#fff" />重新打开
           </button>
         </div>

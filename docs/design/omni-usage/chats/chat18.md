@@ -91,3 +91,23 @@ The verifier is confirming the before/after heights in the background — I'll f
 Verifier agent check completed
 
 ## Assistant
+
+## User
+
+做完了吗
+
+## Assistant
+
+做完了。总结一下这次改动：
+
+**删除**：`OmniUsage 多账号展开.html` 已删除。
+
+**主面板高度自适应**：
+
+- 窗口不再固定高度，改为内容驱动 —— `ResizeObserver` 监听内容真实高度，在 `requestAnimationFrame` 中测量，钳制到 `[160px, 屏幕 75%]` 后锁定窗口高度，并带平滑高度过渡。
+- 折叠卡片 = 移除 DOM → 内容收缩 → 窗口收缩；展开则反向变高。
+- 内容区改用 flex + `gap`(去掉了 margin)，避免边距合并导致测量少几像素。
+- 「刷新全部」会清空手动折叠状态，让新结果展示出来、窗口重新展开。
+- 只有内容超过屏幕 75% 时才出现内部滚动，否则窗口刚好贴合内容。
+
+页面加载无报错，后台验证也已通过。需要我再调整最小/最大高度阈值或过渡动画节奏吗？

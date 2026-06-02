@@ -57,6 +57,14 @@ const VENDOR_ICONS = {
   deepseek: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none"><path d="M3 13c2.5 0 4-1.2 5-3 .8 2.4 3 4 6 4 2.2 0 4-.7 5.5-2-.3 4-3.8 6.8-8 6.8-3.7 0-6.8-2.4-8.5-5.8z" fill="#4d6bfe"/><circle cx="15.5" cy="10.5" r="1.1" fill="#fff"/></svg>`,
   minimax: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#e23744" stroke-width="2" stroke-linecap="round"><path d="M3 12c1.5 0 1.5-5 3-5s1.5 11 3 11 1.5-13 3-13 1.5 9 3 9 1.5-3 3-3"/></svg>`,
   tavily: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V8" stroke="#3d7afd"/><path d="M12 8l-4 4M12 8l4 4" stroke="#3d7afd"/><path d="M12 3l5 4" stroke="#f5a524"/><path d="M5 9l5-2.5" stroke="#22c55e"/></svg>`,
+  /* four-point sparkle */
+  gemini: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><path d="M12 2.2c.5 4.6 2.6 7.2 7.6 7.8-5 .6-7.1 3.2-7.6 7.8-.5-4.6-2.6-7.2-7.6-7.8 5-.6 7.1-3.2 7.6-7.8z" transform="translate(0 2)" fill="#3a72f0"/></svg>`,
+  /* dark rounded square w/ crescent — Kimi placeholder */
+  kimi: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="#17181d"/><path d="M15 8.2A4.6 4.6 0 1 0 15 15.8 5.8 5.8 0 0 1 15 8.2z" fill="#fff"/></svg>`,
+  /* blue upward arc — Antigravity placeholder */
+  antigravity: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.3" fill="#2f6df0"/><path d="M8 8v3.4a4 4 0 0 0 8 0V8" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><path d="M12 16.4v2.2" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg>`,
+  /* segmented donut — CPA Manager data source */
+  cpa: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke-width="4.2"><path d="M12 5A7 7 0 0 1 19 12" stroke="#3d7afd"/><path d="M19 12A7 7 0 0 1 12 19" stroke="#22c55e"/><path d="M12 19A7 7 0 0 1 5 12" stroke="#f5a524"/><path d="M5 12A7 7 0 0 1 12 5" stroke="#d97757"/></svg>`,
 };
 
 function VendorMark({ id, size = 28 }) {
