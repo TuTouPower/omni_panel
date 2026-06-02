@@ -48,8 +48,7 @@ export function ProviderCard({
     onToggleExpand,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
-    const windowCount = group?.windows.length ?? 0;
-    const hasUsage = windowCount > 0;
+    const hasUsage = (group?.windows.length ?? 0) > 0;
     const label = connectorError?.displayName ?? group?.label ?? PROVIDER_LABELS[provider];
     const isFailed = connectorError !== undefined && !hasUsage;
     const is_auth = connectorError !== undefined && is_auth_error(connectorError.error);
@@ -136,9 +135,12 @@ export function ProviderCard({
             <VendorMark id={provider} size={28} />
             <div>
                 <div className="card-name">{label}</div>
-                <div className="rel-time">
-                    {accountCount} 个账号 · {windowCount} 个窗口 · {statusLabel(group?.status)}
-                </div>
+                {hasUsage && (
+                    <div className="rel-time">
+                        {accountCount > 1 && <>{accountCount} 个账号 · </>}
+                        {statusLabel(group?.status)}
+                    </div>
+                )}
             </div>
         </>
     );

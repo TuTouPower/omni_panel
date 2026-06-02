@@ -13,6 +13,7 @@ import { buildProviderUsageGroups, getVisibleProviders } from "../lib/provider-u
 import logo from "../assets/logo.png";
 
 const MODULE = "PopupView";
+const token_panel_enabled = import.meta.env["VITE_ENABLE_TOKEN_PANEL"] === "1";
 
 function errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
@@ -288,7 +289,8 @@ export function PopupView() {
                         </div>
                     )}
 
-                    {!loading && plugins.length > 0 && (
+                    {/* Token panel — disabled until backend token persistence is ready */}
+                    {token_panel_enabled && !loading && plugins.length > 0 && (
                         <CollapsibleCard
                             header={<span className="card-name">Total Tokens</span>}
                             collapsed={token_panel_collapsed}
