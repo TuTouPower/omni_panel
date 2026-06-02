@@ -1,6 +1,7 @@
+import { useRef } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
-import { VendorMark } from "./Icon";
+import { VendorMark, Icon } from "./Icon";
 
 interface ProviderNavProps {
     activeTab: UsageProvider | "overview";
@@ -9,10 +10,12 @@ interface ProviderNavProps {
 }
 
 export function ProviderNav({ activeTab, visibleProviders, onChange }: ProviderNavProps) {
+    const scrollRef = useRef<HTMLDivElement>(null);
+
     return (
         <>
             <button
-                className={"tab" + (activeTab === "overview" ? " active" : "")}
+                className={"tab pinned" + (activeTab === "overview" ? " active" : "")}
                 data-tab="overview"
                 onClick={() => {
                     onChange("overview");
@@ -23,21 +26,28 @@ export function ProviderNav({ activeTab, visibleProviders, onChange }: ProviderN
                 </span>
                 <span className="tab-lbl">总览</span>
             </button>
-            {visibleProviders.map((provider) => (
-                <button
-                    key={provider}
-                    className={"tab" + (activeTab === provider ? " active" : "")}
-                    data-tab={provider}
-                    onClick={() => {
-                        onChange(provider);
-                    }}
-                >
-                    <span className="tab-ic">
-                        <VendorMark id={provider} size={22} />
-                    </span>
-                    <span className="tab-lbl">{PROVIDER_LABELS[provider]}</span>
-                </button>
-            ))}
+            <div className="tabs-pin-divider" />
+            <div className="tabs" ref={scrollRef}>
+                {visibleProviders.map((provider) => (
+                    <button
+                        key={provider}
+                        className={"tab" + (activeTab === provider ? " active" : "")}
+                        data-tab={provider}
+                        onClick={() => {
+                            onChange(provider);
+                        }}
+                    >
+                        <span className="tab-ic">
+                            <VendorMark id={provider} size={22} />
+                        </span>
+                        <span className="tab-lbl">{PROVIDER_LABELS[provider]}</span>
+                    </button>
+                ))}
+            </div>
+            <div className="tabs-fade right" />
+            <div className="tabs-chevron">
+                <Icon name="chevron" size={14} color="var(--text-3)" />
+            </div>
         </>
     );
 }
