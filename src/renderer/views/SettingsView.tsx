@@ -945,16 +945,16 @@ export function SettingsView() {
                                     </button>
                                 </div>
                                 <div className="about-links">
-                                    <SetRow title="更新日志">
+                                    <SetRow title="更新日志" sub="即将推出">
                                         <Icon name="chevron" size={16} color="var(--text-3)" />
                                     </SetRow>
-                                    <SetRow title="开源许可">
+                                    <SetRow title="开源许可" sub="即将推出">
                                         <Icon name="chevron" size={16} color="var(--text-3)" />
                                     </SetRow>
-                                    <SetRow title="反馈问题">
+                                    <SetRow title="反馈问题" sub="即将推出">
                                         <Icon name="chevron" size={16} color="var(--text-3)" />
                                     </SetRow>
-                                    <SetRow title="访问官网">
+                                    <SetRow title="访问官网" sub="即将推出">
                                         <Icon
                                             name="external_link"
                                             size={15}

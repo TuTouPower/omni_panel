@@ -42,6 +42,9 @@ export function PopupView() {
     const [provider_order, set_provider_order] = useState<UsageProvider[]>([]);
     const [drag_id, set_drag_id] = useState<UsageProvider | null>(null);
     const [over_id, set_over_id] = useState<UsageProvider | null>(null);
+    const [account_drag_id, set_account_drag_id] = useState<string | null>(null);
+    const [account_over_id, set_account_over_id] = useState<string | null>(null);
+    const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
 
     // Load persisted provider order from config
@@ -218,6 +221,53 @@ export function PopupView() {
         set_over_id(null);
     };
 
+    // Account drag handlers for single-provider tab view
+    const handle_account_drag_start = (accountId: string) => {
+        set_account_drag_id(accountId);
+    };
+
+    const handle_account_drag_enter = (accountId: string) => {
+        if (!account_drag_id || account_drag_id === accountId) return;
+        set_account_over_id(accountId);
+        if (!activeGroup) return;
+        const tabKey = activeTab as string;
+        set_account_orders((prev) => {
+            const baseIds = (prev[tabKey] ?? activeGroup.accounts.map((a) => a.id)).filter((id) =>
+                activeGroup.accounts.some((a) => a.id === id),
+            );
+            const from = baseIds.indexOf(account_drag_id);
+            const to = baseIds.indexOf(accountId);
+            if (from < 0 || to < 0) return prev;
+            const next = [...baseIds];
+            next.splice(from, 1);
+            next.splice(to, 0, account_drag_id);
+            return { ...prev, [tabKey]: next };
+        });
+    };
+
+    const handle_account_drag_end = () => {
+        set_account_drag_id(null);
+        set_account_over_id(null);
+    };
+
+    // Apply account order to active group
+    const orderedActiveGroup = useMemo(() => {
+        if (!activeGroup) return undefined;
+        const tabKey = activeTab as string;
+        const order = account_orders[tabKey];
+        if (!order || order.length === 0) return activeGroup;
+        const orderSet = new Set(order);
+        const ordered = order
+            .filter((id) => activeGroup.accounts.some((a) => a.id === id))
+            .map((id) => activeGroup.accounts.find((a) => a.id === id))
+            .filter(Boolean);
+        const remaining = activeGroup.accounts.filter((a) => !orderSet.has(a.id));
+        return {
+            ...activeGroup,
+            accounts: [...ordered, ...remaining] as typeof activeGroup.accounts,
+        };
+    }, [activeGroup, account_orders, activeTab]);
+
     // auto-scroll active tab into view
     useEffect(() => {
         const el = tabsRef.current?.querySelector(`[data-tab="${activeTab}"]`);
@@ -374,13 +424,21 @@ export function PopupView() {
                         />
                     )}
 
-                    {!loading && plugins.length > 0 && activeTab !== "overview" && activeGroup && (
-                        <ProviderAccountList
-                            group={activeGroup}
-                            collapsedAccounts={collapsed_map}
-                            onToggleAccount={toggle_handler}
-                        />
-                    )}
+                    {!loading &&
+                        plugins.length > 0 &&
+                        activeTab !== "overview" &&
+                        orderedActiveGroup && (
+                            <ProviderAccountList
+                                group={orderedActiveGroup}
+                                collapsedAccounts={collapsed_map}
+                                onToggleAccount={toggle_handler}
+                                draggingId={is_live ? account_drag_id : null}
+                                overId={is_live ? account_over_id : null}
+                                onDragStart={is_live ? handle_account_drag_start : undefined}
+                                onDragEnter={is_live ? handle_account_drag_enter : undefined}
+                                onDragEnd={is_live ? handle_account_drag_end : undefined}
+                            />
+                        )}
 
                     {!loading && plugins.length > 0 && activeTab !== "overview" && !activeGroup && (
                         <div className="empty">

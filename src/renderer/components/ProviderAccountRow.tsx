@@ -1,10 +1,16 @@
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import { CollapsibleCard } from "./CollapsibleCard";
+import { Icon } from "./Icon";
 
 interface ProviderAccountRowProps {
     account: ProviderUsageAccount;
     collapsed?: boolean;
     onToggleCollapsed?: () => void;
+    dragging?: boolean;
+    dragOver?: boolean;
+    onDragStart?: () => void;
+    onDragEnter?: () => void;
+    onDragEnd?: () => void;
 }
 
 function usageText(used: number, limit: number): string {
@@ -27,15 +33,37 @@ export function ProviderAccountRow({
     account,
     collapsed,
     onToggleCollapsed,
+    dragging,
+    dragOver,
+    onDragStart,
+    onDragEnter,
+    onDragEnd,
 }: ProviderAccountRowProps) {
     const source = account.windows[0]?.source ?? "direct";
+    const grip = onDragStart ? (
+        <button
+            className="icon-btn card-grip"
+            title="拖动以调整顺序"
+            type="button"
+            onMouseDown={onDragStart}
+            onClick={(e) => {
+                e.stopPropagation();
+            }}
+        >
+            <Icon name="grip" size={16} strokeWidth={2} />
+        </button>
+    ) : null;
+
     const header = (
-        <div>
-            <div className="card-name">
-                {account.accountLabel}
-                <span className="source-badge">{source.toUpperCase()}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {grip}
+            <div>
+                <div className="card-name">
+                    {account.accountLabel}
+                    <span className="source-badge">{source.toUpperCase()}</span>
+                </div>
+                <div className="rel-time">{account.windows.length} 个窗口</div>
             </div>
-            <div className="rel-time">{account.windows.length} 个窗口</div>
         </div>
     );
     const details = (
@@ -67,9 +95,22 @@ export function ProviderAccountRow({
         </div>
     );
 
+    const card_class = (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "");
+    const drag_events = onDragStart
+        ? {
+              draggable: true as const,
+              onDragStart,
+              onDragEnter,
+              onDragOver: (e: React.DragEvent) => {
+                  e.preventDefault();
+              },
+              onDragEnd,
+          }
+        : {};
+
     if (collapsed === undefined || onToggleCollapsed === undefined) {
         return (
-            <div className="card">
+            <div className={"card" + card_class} {...drag_events}>
                 <div className="card-head">{header}</div>
                 {details}
             </div>
@@ -84,6 +125,8 @@ export function ProviderAccountRow({
             toggleLabel={
                 collapsed ? `展开 ${account.accountLabel}` : `折叠 ${account.accountLabel}`
             }
+            className={card_class || undefined}
+            {...drag_events}
         >
             {details}
         </CollapsibleCard>
