@@ -17,6 +17,11 @@ interface ProviderOverviewProps {
     disabledProviders?: Set<string>;
     onToggleDisableProvider?: (provider: UsageProvider) => void;
     onDeleteProvider?: (provider: UsageProvider) => void;
+    draggingProvider?: UsageProvider | null;
+    overProvider?: UsageProvider | null;
+    onDragStart?: (provider: UsageProvider) => void;
+    onDragEnter?: (provider: UsageProvider) => void;
+    onDragEnd?: () => void;
 }
 
 export function ProviderOverview({
@@ -29,6 +34,11 @@ export function ProviderOverview({
     disabledProviders,
     onToggleDisableProvider,
     onDeleteProvider,
+    draggingProvider,
+    overProvider,
+    onDragStart,
+    onDragEnter,
+    onDragEnd,
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
 
@@ -50,6 +60,11 @@ export function ProviderOverview({
                         disabled={is_disabled}
                         onToggleDisable={onToggleDisableProvider}
                         onDelete={onDeleteProvider}
+                        dragging={draggingProvider === provider}
+                        dragOver={overProvider === provider && draggingProvider !== provider}
+                        onDragStart={onDragStart}
+                        onDragEnter={onDragEnter}
+                        onDragEnd={onDragEnd}
                     />
                 );
             })}

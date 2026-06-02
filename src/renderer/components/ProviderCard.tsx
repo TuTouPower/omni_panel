@@ -18,6 +18,11 @@ interface ProviderCardProps {
     disabled?: boolean;
     onToggleDisable?: (provider: UsageProvider) => void;
     onDelete?: (provider: UsageProvider) => void;
+    dragging?: boolean;
+    dragOver?: boolean;
+    onDragStart?: (provider: UsageProvider) => void;
+    onDragEnter?: (provider: UsageProvider) => void;
+    onDragEnd?: () => void;
 }
 
 function is_auth_error(error: string): boolean {
@@ -43,6 +48,11 @@ export function ProviderCard({
     disabled = false,
     onToggleDisable,
     onDelete,
+    dragging,
+    dragOver,
+    onDragStart,
+    onDragEnter,
+    onDragEnd,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.windows.length ?? 0) > 0;
@@ -51,7 +61,27 @@ export function ProviderCard({
     const is_auth = connectorError !== undefined && is_auth_error(connectorError.error);
     const hasAccounts = group !== undefined && group.accounts.length > 0;
     const is_danger = group?.status === "critical";
-    const card_class = (is_danger ? "alert" : "") + (disabled ? " disabled" : "");
+    const card_class =
+        (is_danger ? "alert" : "") +
+        (disabled ? " disabled" : "") +
+        (dragging ? " dragging" : "") +
+        (dragOver ? " drag-over" : "");
+
+    const grip_handle = onDragStart ? (
+        <button
+            className="icon-btn card-grip"
+            title="拖动以调整顺序"
+            type="button"
+            onMouseDown={() => {
+                onDragStart(provider);
+            }}
+            onClick={(e) => {
+                e.stopPropagation();
+            }}
+        >
+            <Icon name="grip" size={18} strokeWidth={2} />
+        </button>
+    ) : null;
 
     const render_state = () => {
         if (disabled) {
@@ -155,6 +185,7 @@ export function ProviderCard({
 
     const header = (
         <>
+            {grip_handle}
             <VendorMark id={provider} size={26} />
             <span className="card-name">{label}</span>
             {accountCount > 1 && (expanded === false || disabled) && (
@@ -333,9 +364,31 @@ export function ProviderCard({
         );
     };
 
+    const drag_events = onDragStart
+        ? {
+              draggable: true as const,
+              onDragStart: () => {
+                  onDragStart(provider);
+              },
+              onDragEnter: onDragEnter
+                  ? () => {
+                        onDragEnter(provider);
+                    }
+                  : undefined,
+              onDragOver: (e: React.DragEvent) => {
+                  e.preventDefault();
+              },
+              onDragEnd: onDragEnd,
+          }
+        : {};
+
     const card_content =
         onToggleExpand === undefined || !hasAccounts ? (
-            <div data-provider={provider} className={"card" + (card_class ? ` ${card_class}` : "")}>
+            <div
+                data-provider={provider}
+                className={"card" + (card_class ? ` ${card_class}` : "")}
+                {...drag_events}
+            >
                 <div className="card-head">
                     {header}
                     <div className="card-tools">{tools}</div>

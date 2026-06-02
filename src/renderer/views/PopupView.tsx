@@ -39,6 +39,9 @@ export function PopupView() {
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
     const [disabled_providers, set_disabled_providers] = useState<Set<string>>(() => new Set());
+    const [provider_order, set_provider_order] = useState<UsageProvider[]>([]);
+    const [drag_id, set_drag_id] = useState<UsageProvider | null>(null);
+    const [over_id, set_over_id] = useState<UsageProvider | null>(null);
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
     const tabsRef = useRef<HTMLDivElement>(null);
     const live_root_ref = useRef<HTMLDivElement | null>(null);
@@ -47,6 +50,15 @@ export function PopupView() {
 
     const providerGroups = useMemo(() => buildProviderUsageGroups(plugins), [plugins]);
     const visibleProviders = useMemo(() => getVisibleProviders(plugins), [plugins]);
+
+    // Apply persisted order to visible providers
+    const orderedProviders = useMemo(() => {
+        if (provider_order.length === 0) return visibleProviders;
+        const orderSet = new Set(provider_order);
+        const ordered = provider_order.filter((p) => visibleProviders.includes(p));
+        const remaining = visibleProviders.filter((p) => !orderSet.has(p));
+        return [...ordered, ...remaining];
+    }, [visibleProviders, provider_order]);
     const providerErrors = useMemo(() => {
         const map = new Map<UsageProvider, { displayName: string; error: string }>();
         for (const c of plugins) {
@@ -144,6 +156,35 @@ export function PopupView() {
             module: MODULE,
             message: `Delete provider ${provider} not yet implemented`,
         });
+    };
+
+    // Drag-and-drop handlers for provider card reordering
+    const handle_drag_start = (provider: UsageProvider) => {
+        set_drag_id(provider);
+    };
+
+    const handle_drag_enter = (provider: UsageProvider) => {
+        if (!drag_id || drag_id === provider) return;
+        set_over_id(provider);
+        // Reorder: move drag_id to the position of provider
+        set_provider_order((prev) => {
+            const base =
+                prev.length > 0
+                    ? prev.filter((p) => orderedProviders.includes(p))
+                    : [...orderedProviders];
+            const from = base.indexOf(drag_id);
+            const to = base.indexOf(provider);
+            if (from < 0 || to < 0) return prev;
+            const next = [...base];
+            next.splice(from, 1);
+            next.splice(to, 0, drag_id);
+            return next;
+        });
+    };
+
+    const handle_drag_end = () => {
+        set_drag_id(null);
+        set_over_id(null);
     };
 
     // auto-scroll active tab into view
@@ -286,7 +327,7 @@ export function PopupView() {
                     {!loading && plugins.length > 0 && activeTab === "overview" && (
                         <ProviderOverview
                             groups={providerGroups}
-                            visibleProviders={visibleProviders}
+                            visibleProviders={orderedProviders}
                             providerErrors={providerErrors}
                             onRefreshProvider={is_live ? refreshProvider : () => undefined}
                             expandedProviders={is_live ? expanded_providers : undefined}
@@ -294,6 +335,11 @@ export function PopupView() {
                             disabledProviders={is_live ? disabled_providers : undefined}
                             onToggleDisableProvider={is_live ? toggle_disable_provider : undefined}
                             onDeleteProvider={is_live ? delete_provider : undefined}
+                            draggingProvider={is_live ? drag_id : null}
+                            overProvider={is_live ? over_id : null}
+                            onDragStart={is_live ? handle_drag_start : undefined}
+                            onDragEnter={is_live ? handle_drag_enter : undefined}
+                            onDragEnd={is_live ? handle_drag_end : undefined}
                         />
                     )}
 
