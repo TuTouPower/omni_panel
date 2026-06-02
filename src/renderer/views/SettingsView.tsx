@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useConfig } from "../hooks/use-config";
+import { useSettingsHeightReport } from "../hooks/use-settings-height-report";
 import { useTheme } from "../lib/theme";
 import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
@@ -225,6 +226,7 @@ function AccountDialog({
 /* ── Main View ── */
 export function SettingsView() {
     useTheme();
+    useSettingsHeightReport();
     const { config, hasSecrets, loading, error, save, saveSecrets } = useConfig();
     const [pluginInfos, setPluginInfos] = useState<PluginInfo[]>([]);
     const [section, setSection] = useState("general");
@@ -273,21 +275,32 @@ export function SettingsView() {
         return Array.from(map.values());
     }, [config, pluginInfos]);
 
-    // Local UI state for settings not yet backed by config
+    // Config-backed settings with defaults for optional fields
+    const accentColor = config?.accentColor ?? "#3d7afd";
+    const themeMode = config?.theme ?? "light";
+    const pinToTop = config?.pinToTop ?? false;
+    const minimizeToTray = config?.minimizeToTray ?? true;
+    const globalIntervalSeconds = config?.globalRefreshIntervalSeconds ?? 300;
+    const pauseAutoRefresh = config?.pauseAutoRefresh ?? false;
+
+    const interval_label = (() => {
+        if (globalIntervalSeconds <= 60) return "1 分钟";
+        if (globalIntervalSeconds <= 300) return "5 分钟";
+        if (globalIntervalSeconds <= 900) return "15 分钟";
+        if (globalIntervalSeconds <= 1800) return "30 分钟";
+        return "仅手动";
+    })();
+
+    // Local-only UI state (not persisted)
     const [localState, setLocalState] = useState({
         lang: "简体中文",
-        interval: "5 分钟",
-        pin: false,
         trayClick: "打开主面板",
-        pauseRefresh: false,
-        minToTray: true,
         cacheMax: "100 MB",
         notifyNear: true,
         notifyLimit: true,
         notifyFail: true,
         notifyWay: "系统通知",
     });
-    const [accent, setAccent] = useState("#3d7afd");
     const [dataMsg, setDataMsg] = useState<string | null>(null);
 
     const up = useCallback((k: string, v: unknown) => {
@@ -381,9 +394,6 @@ export function SettingsView() {
         window.location.hash = "#popup";
     };
 
-    const isDark = document.documentElement.classList.contains("dark");
-    const themeMode = isDark ? "dark" : "light";
-
     if (loading) {
         return (
             <div className="window">
@@ -456,9 +466,12 @@ export function SettingsView() {
                                 </SetRow>
                                 <SetRow title="启动后最小化到托盘">
                                     <Toggle
-                                        on={localState.minToTray}
+                                        on={minimizeToTray}
                                         onClick={() => {
-                                            up("minToTray", !localState.minToTray);
+                                            void save({
+                                                ...config,
+                                                minimizeToTray: !minimizeToTray,
+                                            });
                                         }}
                                     />
                                 </SetRow>
@@ -466,9 +479,19 @@ export function SettingsView() {
                                 <div className="set-group-label">刷新</div>
                                 <SetRow title="自动刷新间隔" sub="后台轮询各服务用量的频率">
                                     <Select
-                                        value={localState.interval}
+                                        value={interval_label}
                                         onChange={(v) => {
-                                            up("interval", v);
+                                            const map: Record<string, number> = {
+                                                "1 分钟": 60,
+                                                "5 分钟": 300,
+                                                "15 分钟": 900,
+                                                "30 分钟": 1800,
+                                                仅手动: 86400,
+                                            };
+                                            void save({
+                                                ...config,
+                                                globalRefreshIntervalSeconds: map[v] ?? 300,
+                                            });
                                         }}
                                         options={[
                                             "1 分钟",
@@ -481,9 +504,12 @@ export function SettingsView() {
                                 </SetRow>
                                 <SetRow title="暂停自动刷新" sub="临时停止后台轮询">
                                     <Toggle
-                                        on={localState.pauseRefresh}
+                                        on={pauseAutoRefresh}
                                         onClick={() => {
-                                            up("pauseRefresh", !localState.pauseRefresh);
+                                            void save({
+                                                ...config,
+                                                pauseAutoRefresh: !pauseAutoRefresh,
+                                            });
                                         }}
                                     />
                                 </SetRow>
@@ -491,9 +517,9 @@ export function SettingsView() {
                                 <div className="set-group-label">窗口</div>
                                 <SetRow title="窗口始终置顶">
                                     <Toggle
-                                        on={localState.pin}
+                                        on={pinToTop}
                                         onClick={() => {
-                                            up("pin", !localState.pin);
+                                            void save({ ...config, pinToTop: !pinToTop });
                                         }}
                                     />
                                 </SetRow>
@@ -546,9 +572,24 @@ export function SettingsView() {
                                                         size={22}
                                                     />
                                                     <span className="agh-name">{group.label}</span>
-                                                    <span className="count-badge">
-                                                        {group.plugins.length}
-                                                    </span>
+                                                    <button
+                                                        className="agh-add"
+                                                        title={`添加 ${group.label} 账号`}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setDialog({
+                                                                mode: "add",
+                                                                instanceId: undefined,
+                                                                pluginName: group.label,
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Icon
+                                                            name="plus"
+                                                            size={16}
+                                                            strokeWidth={2.2}
+                                                        />
+                                                    </button>
                                                 </div>
                                                 <div className="acct-rows">
                                                     {group.plugins.map((p) => {
@@ -559,6 +600,16 @@ export function SettingsView() {
                                                             info?.source === "cpa"
                                                                 ? `CPA · ${group.label}`
                                                                 : p.name;
+                                                        // Show masked key for first secret param
+                                                        const secretKeys = Object.keys(
+                                                            hasSecrets[p.instanceId] ?? {},
+                                                        ).filter(
+                                                            (k) => hasSecrets[p.instanceId]?.[k],
+                                                        );
+                                                        const maskedKey =
+                                                            secretKeys.length > 0
+                                                                ? `${(secretKeys[0] ?? "").slice(0, 3)}…`
+                                                                : "";
                                                         return (
                                                             <div
                                                                 className={`acct-row${row_off ? " off" : ""}`}
@@ -570,6 +621,11 @@ export function SettingsView() {
                                                                 <span className="ar-name">
                                                                     {display_name}
                                                                 </span>
+                                                                {maskedKey && (
+                                                                    <span className="ai-key">
+                                                                        {maskedKey}
+                                                                    </span>
+                                                                )}
                                                                 {row_off && (
                                                                     <span className="ar-off">
                                                                         已关闭
@@ -599,6 +655,24 @@ export function SettingsView() {
                                                                         className="icon-btn ar-ic"
                                                                         title="删除"
                                                                         type="button"
+                                                                        onClick={() => {
+                                                                            if (
+                                                                                !window.confirm(
+                                                                                    `确定删除 "${display_name}"？此操作不可撤销。`,
+                                                                                )
+                                                                            ) {
+                                                                                return;
+                                                                            }
+                                                                            void save({
+                                                                                ...config,
+                                                                                plugins:
+                                                                                    config.plugins.filter(
+                                                                                        (pl) =>
+                                                                                            pl.instanceId !==
+                                                                                            p.instanceId,
+                                                                                    ),
+                                                                            });
+                                                                        }}
                                                                     >
                                                                         <Icon
                                                                             name="trash"
@@ -607,7 +681,6 @@ export function SettingsView() {
                                                                     </button>
                                                                     <Toggle
                                                                         on={is_enabled}
-                                                                        disabled={row_off}
                                                                         onClick={() => {
                                                                             void save({
                                                                                 ...config,
@@ -668,6 +741,8 @@ export function SettingsView() {
                                                         : ""
                                                 }
                                                 onClick={() => {
+                                                    const newTheme = k;
+                                                    void save({ ...config, theme: newTheme });
                                                     if (k === "system") {
                                                         const sysDark = window.matchMedia(
                                                             "(prefers-color-scheme: dark)",
@@ -695,10 +770,21 @@ export function SettingsView() {
                                         {ACCENTS.map((c) => (
                                             <button
                                                 key={c}
-                                                className={`accent-sw${accent === c ? " on" : ""}`}
+                                                className={`accent-sw${accentColor === c ? " on" : ""}`}
                                                 style={{ background: c, color: c }}
                                                 onClick={() => {
-                                                    setAccent(c);
+                                                    void save({ ...config, accentColor: c });
+                                                    // Apply accent CSS variable immediately
+                                                    if (c === "#3d7afd") {
+                                                        document.documentElement.style.removeProperty(
+                                                            "--blue",
+                                                        );
+                                                    } else {
+                                                        document.documentElement.style.setProperty(
+                                                            "--blue",
+                                                            c,
+                                                        );
+                                                    }
                                                 }}
                                                 type="button"
                                             />
