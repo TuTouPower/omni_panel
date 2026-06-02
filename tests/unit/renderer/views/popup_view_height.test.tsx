@@ -130,8 +130,16 @@ describe("PopupView collapse + height report", () => {
                 refreshAll: plugin_refresh_all,
             },
             config: {
-                get: vi.fn(),
-                save: vi.fn(),
+                get: vi.fn().mockResolvedValue({
+                    config: {
+                        schemaVersion: 1,
+                        language: "zh-Hans",
+                        plugins: [],
+                        launchAtLogin: false,
+                    },
+                    hasSecrets: {},
+                }),
+                save: vi.fn().mockResolvedValue(undefined),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
                 export: vi.fn(),

@@ -43,6 +43,37 @@ export function PopupView() {
     const [drag_id, set_drag_id] = useState<UsageProvider | null>(null);
     const [over_id, set_over_id] = useState<UsageProvider | null>(null);
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
+
+    // Load persisted provider order from config
+    useEffect(() => {
+        window.usageboard.config
+            .get()
+            .then((result) => {
+                const order = result.config.providerOrder;
+                if (order && order.length > 0) {
+                    set_provider_order(order as UsageProvider[]);
+                }
+            })
+            .catch(() => {
+                // ignore load errors
+            });
+    }, []);
+
+    // Persist provider order to config when it changes
+    useEffect(() => {
+        if (provider_order.length === 0) return;
+        window.usageboard.config
+            .get()
+            .then((result) => {
+                void window.usageboard.config.save({
+                    ...result.config,
+                    providerOrder: provider_order,
+                });
+            })
+            .catch(() => {
+                // ignore save errors
+            });
+    }, [provider_order]);
     const tabsRef = useRef<HTMLDivElement>(null);
     const live_root_ref = useRef<HTMLDivElement | null>(null);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);

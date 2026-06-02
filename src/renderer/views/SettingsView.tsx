@@ -282,6 +282,11 @@ export function SettingsView() {
     const minimizeToTray = config?.minimizeToTray ?? true;
     const globalIntervalSeconds = config?.globalRefreshIntervalSeconds ?? 300;
     const pauseAutoRefresh = config?.pauseAutoRefresh ?? false;
+    const notifyNearLimit = config?.notifyNearLimit ?? true;
+    const notifyAtLimit = config?.notifyAtLimit ?? true;
+    const notifyOnFail = config?.notifyOnFail ?? true;
+    const notifyMethod = config?.notifyMethod ?? "系统通知";
+    const cacheMaxMb = config?.cacheMaxMb ?? 100;
 
     const interval_label = (() => {
         if (globalIntervalSeconds <= 60) return "1 分钟";
@@ -295,11 +300,6 @@ export function SettingsView() {
     const [localState, setLocalState] = useState({
         lang: "简体中文",
         trayClick: "打开主面板",
-        cacheMax: "100 MB",
-        notifyNear: true,
-        notifyLimit: true,
-        notifyFail: true,
-        notifyWay: "系统通知",
     });
     const [dataMsg, setDataMsg] = useState<string | null>(null);
 
@@ -800,34 +800,37 @@ export function SettingsView() {
                                 <div className="set-group-label">用量提醒</div>
                                 <SetRow title="接近限制时提醒" sub="任一周期用量达到 80% 时">
                                     <Toggle
-                                        on={localState.notifyNear}
+                                        on={notifyNearLimit}
                                         onClick={() => {
-                                            up("notifyNear", !localState.notifyNear);
+                                            void save({
+                                                ...config,
+                                                notifyNearLimit: !notifyNearLimit,
+                                            });
                                         }}
                                     />
                                 </SetRow>
                                 <SetRow title="达到限制时提醒" sub="任一周期用量达到 100% 时">
                                     <Toggle
-                                        on={localState.notifyLimit}
+                                        on={notifyAtLimit}
                                         onClick={() => {
-                                            up("notifyLimit", !localState.notifyLimit);
+                                            void save({ ...config, notifyAtLimit: !notifyAtLimit });
                                         }}
                                     />
                                 </SetRow>
                                 <SetRow title="刷新失败时提醒" sub="连续刷新失败或凭证失效时">
                                     <Toggle
-                                        on={localState.notifyFail}
+                                        on={notifyOnFail}
                                         onClick={() => {
-                                            up("notifyFail", !localState.notifyFail);
+                                            void save({ ...config, notifyOnFail: !notifyOnFail });
                                         }}
                                     />
                                 </SetRow>
                                 <div className="set-group-label">方式</div>
                                 <SetRow title="提醒方式">
                                     <Select
-                                        value={localState.notifyWay}
+                                        value={notifyMethod}
                                         onChange={(v) => {
-                                            up("notifyWay", v);
+                                            void save({ ...config, notifyMethod: v });
                                         }}
                                         options={["系统通知", "托盘图标角标", "仅应用内", "关闭"]}
                                     />
@@ -844,11 +847,14 @@ export function SettingsView() {
                                     sub="历史趋势数据占用的最大空间，超出后自动清理最旧记录"
                                 >
                                     <Select
-                                        value={localState.cacheMax}
+                                        value={`${String(cacheMaxMb)} MB`}
                                         onChange={(v) => {
-                                            up("cacheMax", v);
+                                            const mb = parseInt(v, 10);
+                                            if (!isNaN(mb)) {
+                                                void save({ ...config, cacheMaxMb: mb });
+                                            }
                                         }}
-                                        options={["50 MB", "100 MB", "200 MB", "500 MB", "不限制"]}
+                                        options={["50 MB", "100 MB", "200 MB", "500 MB"]}
                                     />
                                 </SetRow>
                                 <SetRow title="本地用量缓存" sub="历史趋势数据 · 占用 4.2 MB">
@@ -927,9 +933,9 @@ export function SettingsView() {
                                         src={logo}
                                         alt="OmniUsage"
                                         className="aa-logo"
-                                        width="64"
-                                        height="64"
-                                        style={{ borderRadius: 14 }}
+                                        width="56"
+                                        height="56"
+                                        style={{ borderRadius: 12 }}
                                     />
                                     <div className="aa-name">OmniUsage</div>
                                     <div className="aa-ver">版本 1.0.0 · 已是最新版本</div>

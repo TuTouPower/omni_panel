@@ -63,8 +63,16 @@ describe("PopupView mirror isolation", () => {
                 refreshAll: vi.fn().mockResolvedValue(undefined),
             },
             config: {
-                get: vi.fn(),
-                save: vi.fn(),
+                get: vi.fn().mockResolvedValue({
+                    config: {
+                        schemaVersion: 1,
+                        language: "zh-Hans",
+                        plugins: [],
+                        launchAtLogin: false,
+                    },
+                    hasSecrets: {},
+                }),
+                save: vi.fn().mockResolvedValue(undefined),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
                 export: vi.fn(),

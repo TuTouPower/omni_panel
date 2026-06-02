@@ -17,6 +17,12 @@ export interface AppConfiguration {
     readonly minimizeToTray?: boolean;
     readonly globalRefreshIntervalSeconds?: number;
     readonly pauseAutoRefresh?: boolean;
+    readonly providerOrder?: readonly string[];
+    readonly notifyNearLimit?: boolean;
+    readonly notifyAtLimit?: boolean;
+    readonly notifyOnFail?: boolean;
+    readonly notifyMethod?: string;
+    readonly cacheMaxMb?: number;
 }
 
 export interface PluginConfiguration {
