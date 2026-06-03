@@ -994,6 +994,7 @@ body {
 .ds-head-text {
     flex: 1;
     min-width: 0;
+    padding-top: 1px;
 }
 .ds-title {
     font-size: 16px;
@@ -1030,6 +1031,7 @@ body {
     border: 0.5px solid var(--field-border);
     background: var(--win-bg);
     color: var(--text-2);
+    font-family: inherit;
     font-size: 12.5px;
     font-weight: 600;
     padding: 6px 11px;
@@ -1060,6 +1062,9 @@ body {
 .dm-faint {
     color: var(--text-3);
 }
+.ds-meta .dm-line .dm-faint {
+    color: var(--text-3);
+}
 .ds-covers {
     display: flex;
     align-items: center;
@@ -1067,12 +1072,13 @@ body {
     margin: 13px 0 0 55px;
 }
 .dc-label {
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text-3);
 }
 .dc-icons {
     display: flex;
+    align-items: center;
     gap: 4px;
 }
 .dc-icons .vicon {
@@ -1205,7 +1211,7 @@ body {
 .cfg-scope-row .cr-vendor {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     font-size: 13.5px;
     font-weight: 550;
     color: var(--text);
@@ -1258,18 +1264,22 @@ body {
 }
 .disc-desc {
     font-size: 12.5px;
+    line-height: 1.5;
     color: var(--text-3);
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 .disc-grp {
-    margin-bottom: 8px;
+    border-bottom: 0.5px solid var(--hairline);
+}
+.disc-grp:first-of-type {
+    border-top: 0.5px solid var(--hairline);
 }
 .disc-head {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     width: 100%;
-    padding: 8px 4px;
+    padding: 11px 2px;
     border: 0;
     background: transparent;
     font-family: inherit;
@@ -1278,11 +1288,11 @@ body {
 }
 .disc-head .dh-name {
     font-size: 13.5px;
-    font-weight: 600;
+    font-weight: 650;
     color: var(--text);
 }
 .disc-head .dh-count {
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--text-3);
     background: var(--chip-bg);
@@ -1321,10 +1331,12 @@ body {
     font-size: 13px;
     font-weight: 550;
     color: var(--text);
+    width: 102px;
+    flex-shrink: 0;
 }
 .disc-row .dr-key {
     font-family: "SF Mono", ui-monospace, Menlo, monospace;
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--text-3);
     white-space: nowrap;
     overflow: hidden;
@@ -1629,6 +1641,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 154px;
     flex-shrink: 0;
 }
 .ao-vendor .ao-name {
@@ -1675,7 +1688,7 @@ body {
     background: var(--card-bg);
     box-shadow: var(--card-shadow);
     overflow: hidden;
-    margin-bottom: 14px;
+    margin-top: 10px;
     transition: opacity 0.18s;
 }
 .acct-group:last-child {
@@ -1687,12 +1700,12 @@ body {
 .acct-group-head {
     display: flex;
     align-items: center;
-    gap: 9px;
-    padding: 11px 13px;
+    gap: 10px;
+    padding: 12px 14px;
     border-bottom: 0.5px solid var(--hairline);
 }
 .acct-group-head .agh-name {
-    font-size: 14px;
+    font-size: 14.5px;
     font-weight: 650;
     color: var(--text);
     letter-spacing: -0.01em;
@@ -1743,7 +1756,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 11px 14px;
+    padding: 11px 14px 11px 12px;
     border-top: 0.5px solid var(--hairline);
 }
 .acct-rows .acct-row:first-child {
@@ -1765,6 +1778,9 @@ body {
     font-size: 13.5px;
     font-weight: 550;
     color: var(--text);
+    white-space: nowrap;
+    width: 116px;
+    flex-shrink: 0;
 }
 .acct-row.off .ar-name {
     color: var(--text-2);
