@@ -22,6 +22,7 @@ interface ProviderOverviewProps {
     onDragStart?: ((provider: UsageProvider) => void) | undefined;
     onDragEnter?: ((provider: UsageProvider) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
+    refreshingProviders?: Set<string> | undefined;
 }
 
 export function ProviderOverview({
@@ -39,6 +40,7 @@ export function ProviderOverview({
     onDragStart,
     onDragEnter,
     onDragEnd,
+    refreshingProviders,
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
 
@@ -67,6 +69,7 @@ export function ProviderOverview({
                             onDragStart={onDragStart}
                             onDragEnter={onDragEnter}
                             onDragEnd={onDragEnd}
+                            refreshing={refreshingProviders?.has(provider)}
                         />
                     );
                 })}

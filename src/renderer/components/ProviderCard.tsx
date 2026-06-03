@@ -27,6 +27,7 @@ interface ProviderCardProps {
     onDragStart?: ((provider: UsageProvider) => void) | undefined;
     onDragEnter?: ((provider: UsageProvider) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
+    refreshing?: boolean | undefined;
 }
 
 function is_auth_error(error: string): boolean {
@@ -57,6 +58,7 @@ export function ProviderCard({
     onDragStart,
     onDragEnter,
     onDragEnd,
+    refreshing: is_refreshing = false,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.windows.length ?? 0) > 0;
@@ -230,7 +232,10 @@ export function ProviderCard({
                 </span>
             )}
             {disabled && <span className="off-badge">已关闭</span>}
-            {!disabled && hasUsage && <span className="rel-time">{updated_text}</span>}
+            {!disabled && is_refreshing && <span className="rel-time">刷新中…</span>}
+            {!disabled && !is_refreshing && hasUsage && (
+                <span className="rel-time">{updated_text}</span>
+            )}
         </>
     );
 
@@ -238,7 +243,7 @@ export function ProviderCard({
         <>
             {onRefresh !== undefined && !disabled && (
                 <button
-                    className="icon-btn"
+                    className={"icon-btn" + (is_refreshing ? " spinning" : "")}
                     title={`刷新 ${label}`}
                     aria-label={`刷新 ${label}`}
                     onClick={(e) => {
@@ -316,6 +321,20 @@ export function ProviderCard({
     );
 
     const render_overview = () => {
+        if (is_refreshing && !overview_windows.length) {
+            return (
+                <div className="skeleton-bars">
+                    <div className="skel-row">
+                        <div className="skel lbl" />
+                        <div className="skel" />
+                    </div>
+                    <div className="skel-row">
+                        <div className="skel lbl" />
+                        <div className="skel" />
+                    </div>
+                </div>
+            );
+        }
         if (!overview_windows.length) return <div className="card-state off">暂无有效用量数据</div>;
         return (
             <div className="ub-rows">

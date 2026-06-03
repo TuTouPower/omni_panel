@@ -393,119 +393,129 @@ export function PopupView() {
 
                 {/* scroll body */}
                 <div className="scroll">
-                    {error && (
-                        <div className="net-banner">
-                            <Icon name="cloud_off" size={18} />
-                            <span>网络连接异常，部分数据可能不是最新</span>
-                            <span
-                                className="nb-action"
-                                onClick={is_live ? handleRefreshAll : undefined}
-                            >
-                                重新连接
-                            </span>
-                        </div>
-                    )}
-
-                    {loading && plugins.length === 0 && (
-                        <div className="card">
-                            <div className="card-head">
-                                <div className="skel lbl" />
+                    <div className="scroll-inner">
+                        {error && (
+                            <div className="net-banner">
+                                <Icon name="cloud_off" size={18} />
+                                <span>网络连接异常，部分数据可能不是最新</span>
+                                <span
+                                    className="nb-action"
+                                    onClick={is_live ? handleRefreshAll : undefined}
+                                >
+                                    重新连接
+                                </span>
                             </div>
-                            <div className="skeleton-bars">
-                                <div className="skel-row">
+                        )}
+
+                        {loading && plugins.length === 0 && (
+                            <div className="card">
+                                <div className="card-head">
                                     <div className="skel lbl" />
-                                    <div className="skel" />
                                 </div>
-                                <div className="skel-row">
-                                    <div className="skel lbl" />
-                                    <div className="skel" />
+                                <div className="skeleton-bars">
+                                    <div className="skel-row">
+                                        <div className="skel lbl" />
+                                        <div className="skel" />
+                                    </div>
+                                    <div className="skel-row">
+                                        <div className="skel lbl" />
+                                        <div className="skel" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {!loading && plugins.length === 0 && !error && (
-                        <div className="empty">
-                            <div className="empty-ic">
-                                <Icon name="inbox" size={30} strokeWidth={1.6} />
+                        {!loading && plugins.length === 0 && !error && (
+                            <div className="empty">
+                                <div className="empty-ic">
+                                    <Icon name="inbox" size={30} strokeWidth={1.6} />
+                                </div>
+                                <div className="empty-title">还没有添加任何服务</div>
+                                <div className="empty-sub">
+                                    添加你的第一个 AI 服务账号，即可在这里实时查看用量限制与 Token
+                                    趋势。
+                                </div>
+                                <button
+                                    className="btn-primary"
+                                    onClick={is_live ? goToSettings : undefined}
+                                >
+                                    <Icon name="plus" size={15} color="#fff" />
+                                    添加服务
+                                </button>
                             </div>
-                            <div className="empty-title">还没有添加任何服务</div>
-                            <div className="empty-sub">
-                                添加你的第一个 AI 服务账号，即可在这里实时查看用量限制与 Token
-                                趋势。
-                            </div>
-                            <button
-                                className="btn-primary"
-                                onClick={is_live ? goToSettings : undefined}
-                            >
-                                <Icon name="plus" size={15} color="#fff" />
-                                添加服务
-                            </button>
-                        </div>
-                    )}
+                        )}
 
-                    {!loading && plugins.length > 0 && activeTab === "overview" && (
-                        <ProviderOverview
-                            groups={providerGroups}
-                            visibleProviders={orderedProviders}
-                            providerErrors={providerErrors}
-                            onRefreshProvider={is_live ? refreshProvider : () => undefined}
-                            expandedProviders={is_live ? expanded_providers : undefined}
-                            onToggleExpandProvider={is_live ? toggle_expand_provider : undefined}
-                            disabledProviders={is_live ? disabled_providers : undefined}
-                            onToggleDisableProvider={is_live ? toggle_disable_provider : undefined}
-                            onDeleteProvider={is_live ? delete_provider : undefined}
-                            draggingProvider={is_live ? drag_id : null}
-                            overProvider={is_live ? over_id : null}
-                            onDragStart={is_live ? handle_drag_start : undefined}
-                            onDragEnter={is_live ? handle_drag_enter : undefined}
-                            onDragEnd={is_live ? handle_drag_end : undefined}
-                        />
-                    )}
-
-                    {!loading &&
-                        plugins.length > 0 &&
-                        activeTab !== "overview" &&
-                        orderedActiveGroup && (
-                            <ProviderAccountList
-                                group={orderedActiveGroup}
-                                collapsedAccounts={collapsed_map}
-                                onToggleAccount={toggle_handler}
-                                draggingId={is_live ? account_drag_id : null}
-                                overId={is_live ? account_over_id : null}
-                                onDragStart={is_live ? handle_account_drag_start : undefined}
-                                onDragEnter={is_live ? handle_account_drag_enter : undefined}
-                                onDragEnd={is_live ? handle_account_drag_end : undefined}
+                        {!loading && plugins.length > 0 && activeTab === "overview" && (
+                            <ProviderOverview
+                                groups={providerGroups}
+                                visibleProviders={orderedProviders}
+                                providerErrors={providerErrors}
+                                onRefreshProvider={is_live ? refreshProvider : () => undefined}
+                                expandedProviders={is_live ? expanded_providers : undefined}
+                                onToggleExpandProvider={
+                                    is_live ? toggle_expand_provider : undefined
+                                }
+                                disabledProviders={is_live ? disabled_providers : undefined}
+                                onToggleDisableProvider={
+                                    is_live ? toggle_disable_provider : undefined
+                                }
+                                onDeleteProvider={is_live ? delete_provider : undefined}
+                                draggingProvider={is_live ? drag_id : null}
+                                overProvider={is_live ? over_id : null}
+                                onDragStart={is_live ? handle_drag_start : undefined}
+                                onDragEnter={is_live ? handle_drag_enter : undefined}
+                                onDragEnd={is_live ? handle_drag_end : undefined}
+                                refreshingProviders={is_live ? refresh_providers : undefined}
                             />
                         )}
 
-                    {!loading && plugins.length > 0 && activeTab !== "overview" && !activeGroup && (
-                        <div className="empty">
-                            <div className="empty-title">
-                                该服务暂无账号。请到设置添加数据来源。
-                            </div>
-                        </div>
-                    )}
+                        {!loading &&
+                            plugins.length > 0 &&
+                            activeTab !== "overview" &&
+                            orderedActiveGroup && (
+                                <ProviderAccountList
+                                    group={orderedActiveGroup}
+                                    collapsedAccounts={collapsed_map}
+                                    onToggleAccount={toggle_handler}
+                                    draggingId={is_live ? account_drag_id : null}
+                                    overId={is_live ? account_over_id : null}
+                                    onDragStart={is_live ? handle_account_drag_start : undefined}
+                                    onDragEnter={is_live ? handle_account_drag_enter : undefined}
+                                    onDragEnd={is_live ? handle_account_drag_end : undefined}
+                                />
+                            )}
 
-                    {/* Token panel — disabled until backend token persistence is ready */}
-                    {token_panel_enabled && !loading && plugins.length > 0 && (
-                        <CollapsibleCard
-                            header={<span className="card-name">Total Tokens</span>}
-                            collapsed={token_panel_collapsed}
-                            onToggle={
-                                is_live
-                                    ? () => {
-                                          set_token_panel_collapsed((v) => !v);
-                                      }
-                                    : () => undefined
-                            }
-                            toggleLabel={
-                                token_panel_collapsed ? "展开 Token 面板" : "折叠 Token 面板"
-                            }
-                        >
-                            <TokenPanel has_real_data={false} />
-                        </CollapsibleCard>
-                    )}
+                        {!loading &&
+                            plugins.length > 0 &&
+                            activeTab !== "overview" &&
+                            !activeGroup && (
+                                <div className="empty">
+                                    <div className="empty-title">
+                                        该服务暂无账号。请到设置添加数据来源。
+                                    </div>
+                                </div>
+                            )}
+
+                        {/* Token panel — disabled until backend token persistence is ready */}
+                        {token_panel_enabled && !loading && plugins.length > 0 && (
+                            <CollapsibleCard
+                                header={<span className="card-name">Total Tokens</span>}
+                                collapsed={token_panel_collapsed}
+                                onToggle={
+                                    is_live
+                                        ? () => {
+                                              set_token_panel_collapsed((v) => !v);
+                                          }
+                                        : () => undefined
+                                }
+                                toggleLabel={
+                                    token_panel_collapsed ? "展开 Token 面板" : "折叠 Token 面板"
+                                }
+                            >
+                                <TokenPanel has_real_data={false} />
+                            </CollapsibleCard>
+                        )}
+                    </div>
                 </div>
 
                 {/* status bar */}
@@ -525,6 +535,11 @@ export function PopupView() {
     // Mirrors are only useful for live height measurement; skip them in
     // environments without ResizeObserver (jsdom in vitest by default) so the
     // duplicate DOM does not confuse `screen.getByText` queries in tests.
+    const refresh_providers = useMemo(
+        () => (refreshing ? new Set(orderedProviders) : new Set<string>()),
+        [refreshing, orderedProviders],
+    );
+
     const should_render_mirrors = typeof ResizeObserver !== "undefined";
 
     return (
