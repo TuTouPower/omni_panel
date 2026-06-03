@@ -213,6 +213,72 @@ Phase 22 完成了主面板视觉和交互的全面对齐。`frontend-demo-align
 
 ---
 
+## Phase 24: Demo 差异补齐（子代理分析）
+
+### 背景
+
+Phase 22–23 完成了主面板与设置页的主体对齐。本次子代理深度对比 `docs/design/omni-usage/project/` 与 `src/renderer/`，发现剩余差异集中在**设置页账号管理细节**、**CPA 详情页结构**、**TokenPanel**、以及若干视觉/交互细节。Token 面板仍按用户要求跳过。
+
+### 核心原则
+
+1. 继承 Phase 22/23 全部原则。
+2. Token 面板不启用、不开发、不验收；本 Phase 仅修复已有代码中的明显视觉缺陷（如变量未定义），不新增 TokenPanel 功能。
+3. 不修改 `docs/design/omni-usage/**`。
+4. 两份差异文档冲突处，先读 demo 与现有代码验证，再实现。
+5. 每项完成前跑 `pnpm test`；涉及 UI 的项必须手工点击。
+
+### 24.1 最高优先级：设置页账号管理
+
+- [x] 账号页右上角补"添加账号"主按钮，对齐 demo `settings-panel.jsx:500-504`。
+- [x] 单账号行改为 demo `.ao-item` 卡片式布局：补边框、圆角、阴影（当前 `.acct-row` 无卡片视觉层级）。
+- [x] 多账号 group header 补 `{N} 个账号` badge（CSS `.agh-count` 已有，JSX 未渲染）。
+- [x] 账号操作顺序对齐 demo：来源标签 → toggle → 编辑 → 隐藏/删除（当前顺序是编辑 → 隐藏/删除 → toggle）。
+
+### 24.2 最高优先级：CPA Manager 详情页
+
+- [x] 将 `CpaConnectorSettings` 重构为 demo 双栏布局：左栏=连接配置/连接状态/同步设置/同步范围/保存/移除，右栏=已发现账号按服务商 collapsible group。
+- [x] 补齐"移除数据源"按钮（demo `settings-panel.jsx:268-274`，当前缺失）。
+- [x] 补齐"连接状态"显示（demo 有独立连接状态行，当前只有 ConnectorStatusCard）。
+- [x] 补齐"同步间隔""自动同步""同步失败通知"字段（demo 有，当前缺失）。
+
+### 24.3 高优先级：主面板布局细节
+
+- [x] 引入 `.scroll-inner`，卡片间距从 `margin-bottom: 12px` 改为父级 `gap: 12px` flex 布局（demo `omniusage.css:373-379`）。
+- [x] `.window` 增加 height transition 动画（demo `omniusage.css:169-181`，当前只有 background/box-shadow transition）。
+- [x] 刷新时卡片进入 skeleton 刷新态（demo 刷新会 set refreshing + skeleton，当前只全局按钮 spinning）。
+
+### 24.4 高优先级：CSS 变量修复
+
+- [x] 修复 `.source-badge` 使用的未定义变量 `--border`、`--muted-foreground`，改为 demo `.src-tag` 风格使用 `--text-3` + `--chip-bg`。
+- [x] 设置页左 nav 补齐 demo 的混合背景 `color-mix(in srgb, var(--win-bg) 70%, var(--desktop) 8%)`。
+
+### 24.5 中优先级：数据源页面
+
+- [x] 数据源卡片补"更多"按钮（demo 有同步/编辑/更多三个按钮，当前只有同步/编辑）。
+
+### 24.6 中优先级：添加/编辑账号弹窗
+
+- [x] Picker Dialog header 对齐 demo（当前有 `ad-mark` icon，demo 没有；副标题文案不同）。
+- [x] 直接添加服务表单样式从 Tailwind utility 对齐 demo `.ad-input` / `.ad-field` 风格。
+
+### 24.7 低优先级：文案与细节
+
+- [x] 关于页版本号对齐（当前 `1.0.0`，demo `1.4.2`，需确认产品版本）。
+- [x] 常规设置页对比 demo：当前多了"暂停自动刷新""窗口始终置顶"，确认是否保留。（决策：保留，这些是功能项）
+- [x] 数据页缓存上限补齐 demo 的"不限制"选项。
+- [x] cursor 行为统一（当前部分控件 `cursor: default`，部分 `cursor: pointer`，需统一策略）。
+
+### 验收标准
+
+1. 设置页账号管理与 demo 视觉和交互完全对齐。
+2. CPA 详情页改为双栏布局，字段完整。
+3. 主面板卡片间距、高度动画、刷新 skeleton 与 demo 一致。
+4. 所有 CSS 变量引用有效，无 undefined token。
+5. `pnpm test` 通过。
+6. UI 手工点击验收通过。
+
+---
+
 ## 通用约束（每轮适用）
 
 1. 不实现本轮范围外的功能
