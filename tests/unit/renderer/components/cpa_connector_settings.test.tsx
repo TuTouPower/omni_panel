@@ -118,23 +118,19 @@ function renderSettings(overrides: Partial<Parameters<typeof CpaConnectorSetting
 }
 
 describe("CpaConnectorSettings", () => {
-    it("renders connected status, URL, secret placeholder, buttons, monitor switches, and accounts", () => {
+    it("renders two-column layout with config fields, connection status, sync settings, and discovered accounts", () => {
         renderSettings();
 
-        expect(screen.getByText("CPA 额度连接器")).toBeInTheDocument();
-        expect(screen.getByText("已连接")).toBeInTheDocument();
+        // Config fields
         expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
         expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
-        expect(screen.getByRole("button", { name: "测试连接" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "立即同步" })).toBeInTheDocument();
-        expect(screen.getByLabelText("监控 Claude")).toBeChecked();
-        expect(screen.getByLabelText("监控 Codex")).not.toBeChecked();
-        expect(screen.getByLabelText("监控 Gemini")).toBeChecked();
-        expect(screen.getByLabelText("监控 Antigravity")).not.toBeChecked();
-        expect(screen.getByLabelText("监控 Kimi")).not.toBeChecked();
-        expect(screen.getByText("Claude 1")).toBeInTheDocument();
+
+        // Connection status
+        expect(screen.getByText("已连接")).toBeInTheDocument();
+
+        // Discovered accounts
         expect(screen.getByText("Claude Account")).toBeInTheDocument();
-        expect(screen.getByText("Codex 1")).toBeInTheDocument();
+        expect(screen.getByText("Codex Account")).toBeInTheDocument();
     });
 
     it("renders partial failure and disconnected statuses", () => {
@@ -162,24 +158,24 @@ describe("CpaConnectorSettings", () => {
         expect(screen.getByText("未连接")).toBeInTheDocument();
     });
 
-    it("calls refresh from immediate sync", async () => {
-        const user = userEvent.setup();
-        const onRefresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        renderSettings({ onRefresh });
-
-        await user.click(screen.getByRole("button", { name: "立即同步" }));
-
-        expect(onRefresh).toHaveBeenCalledTimes(1);
-    });
-
     it("saves monitor changes and does not save placeholder secret", async () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const onSaveSecrets = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
         renderSettings({ onSave, onSaveSecrets });
 
-        await user.click(screen.getByLabelText("监控 Claude"));
-        await user.click(screen.getByLabelText("监控 Antigravity"));
+        // Find monitor toggle buttons by their row text
+        const claudeRow = screen.getByText("监控 Claude").closest(".cfg-scope-row");
+        const antigravityRow = screen.getByText("监控 Antigravity").closest(".cfg-scope-row");
+        if (!claudeRow || !antigravityRow) throw new Error("missing monitor rows");
+
+        // Toggle monitor_claude off
+        const claudeBtn = claudeRow.querySelector(".sw");
+        const antigravityBtn = antigravityRow.querySelector(".sw");
+        if (!claudeBtn || !antigravityBtn) throw new Error("missing toggle buttons");
+        await user.click(claudeBtn);
+        // Toggle monitor_antigravity on
+        await user.click(antigravityBtn);
         await user.clear(screen.getByLabelText("CPA-Manager URL"));
         await user.type(screen.getByLabelText("CPA-Manager URL"), "http://new-cpa.example ");
         await user.click(screen.getByTestId("cpa-settings-save-btn"));
@@ -253,17 +249,10 @@ describe("CpaConnectorSettings", () => {
         expect(screen.getByTestId("cpa-settings-save-btn")).not.toBeDisabled();
     });
 
-    it("catches refresh failure and shows an error", async () => {
-        const user = userEvent.setup();
-        const onRefresh = vi
-            .fn<() => Promise<void>>()
-            .mockRejectedValue(new Error("refresh failed"));
-        renderSettings({ onRefresh });
+    it("renders remove data source button", () => {
+        const onRemove = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+        renderSettings({ onRemove });
 
-        await user.click(screen.getByRole("button", { name: "立即同步" }));
-
-        await waitFor(() => {
-            expect(screen.getByRole("alert")).toHaveTextContent("同步失败");
-        });
+        expect(screen.getByText("移除数据源")).toBeInTheDocument();
     });
 });

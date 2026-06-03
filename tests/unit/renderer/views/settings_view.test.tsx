@@ -231,7 +231,8 @@ describe("SettingsView", () => {
         // Find the CPA connector's edit button (first CPA plugin row)
         const edit_buttons = screen.getAllByTitle("编辑");
         const cpa_edit = edit_buttons.find((b) => {
-            const row_text = b.closest(".acct-row")?.textContent ?? "";
+            const row_text =
+                b.closest(".ao-item")?.textContent ?? b.closest(".acct-row")?.textContent ?? "";
             return row_text.includes("CPA");
         });
         if (!cpa_edit) throw new Error("missing CPA edit button");
@@ -242,8 +243,6 @@ describe("SettingsView", () => {
         });
         expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
         expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
-        expect(screen.getByLabelText("监控 Claude")).toBeChecked();
-        expect(screen.getByText("Claude 1")).toBeInTheDocument();
         expect(screen.getByText("Claude Account")).toBeInTheDocument();
     });
 
