@@ -90,26 +90,32 @@ export function SettingsForm({
     return (
         <form
             onSubmit={handleSubmit}
-            className="space-y-4"
+            className="ad-body-form"
             data-testid={`settings-form-${instanceId}`}
         >
-            <h3 className="text-sm font-semibold">{name}</h3>
+            <div className="cfg-label" style={{ fontSize: 14, marginBottom: 8 }}>
+                {name}
+            </div>
             {parameters.map((param) => (
-                <label key={param.name} className="block space-y-1">
-                    <span className="text-xs text-[var(--muted-foreground)]">{param.label}</span>
+                <div className="ad-field" key={param.name}>
+                    <label className="cfg-label" htmlFor={param.name}>
+                        {param.label}
+                    </label>
                     {param.type === "boolean" ? (
                         <input
                             type="checkbox"
+                            id={param.name}
                             name={param.name}
                             defaultChecked={values[param.name] === "true"}
                             className="h-4 w-4"
                         />
                     ) : param.type === "choice" ? (
                         <select
+                            id={param.name}
                             name={param.name}
                             defaultValue={values[param.name] ?? param.defaultValue ?? ""}
                             required={param.required}
-                            className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                            className="ad-input"
                         >
                             {param.options?.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
@@ -126,6 +132,7 @@ export function SettingsForm({
                                       ? "number"
                                       : "text"
                             }
+                            id={param.name}
                             name={param.name}
                             defaultValue={
                                 param.type === "secret"
@@ -136,21 +143,19 @@ export function SettingsForm({
                             }
                             placeholder={param.placeholder}
                             required={param.required}
-                            className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                            className={"ad-input" + (param.type === "secret" ? " mono" : "")}
                         />
                     )}
                     {typeof param["description"] === "string" && (
-                        <p className="text-xs text-[var(--muted-foreground)]">
-                            {param["description"]}
-                        </p>
+                        <p className="ad-hint">{param["description"]}</p>
                     )}
-                </label>
+                </div>
             ))}
             {Object.keys(endpoints ?? {}).map((endpointName) => (
-                <label key={endpointName} className="block space-y-1">
-                    <span className="text-xs text-[var(--muted-foreground)]">
+                <div className="ad-field" key={endpointName}>
+                    <label className="cfg-label">
                         {endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`}
-                    </span>
+                    </label>
                     <input
                         type="url"
                         name={`endpoint:${endpointName}`}
@@ -164,12 +169,12 @@ export function SettingsForm({
                         aria-label={
                             endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`
                         }
-                        className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                        className="ad-input"
                     />
-                </label>
+                </div>
             ))}
-            <label className="block space-y-1">
-                <span className="text-xs text-[var(--muted-foreground)]">刷新间隔（分钟）</span>
+            <div className="ad-field">
+                <label className="cfg-label">刷新间隔（分钟）</label>
                 <input
                     type="number"
                     name="refreshIntervalMinutes"
@@ -177,20 +182,16 @@ export function SettingsForm({
                     max={60}
                     defaultValue={Math.round(refreshIntervalSeconds / 60)}
                     data-testid={`settings-refresh-interval-${instanceId}`}
-                    className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    className="ad-input"
                 />
-                <p className="text-xs text-[var(--muted-foreground)]">范围 1–60 分钟</p>
-            </label>
-            <div className="flex gap-2">
+                <p className="ad-hint">范围 1–60 分钟</p>
+            </div>
+            <div className="ad-foot">
                 <button
                     type="submit"
                     disabled={saving}
                     data-testid={`settings-save-btn-${instanceId}`}
-                    className={`rounded-[var(--radius)] px-4 py-1.5 text-sm ${
-                        saved
-                            ? "bg-green-600 text-white"
-                            : "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                    }`}
+                    className={"cf-save" + (saved ? " saved" : "")}
                 >
                     {saving ? "保存中..." : saved ? "已保存" : "保存"}
                 </button>
@@ -201,7 +202,7 @@ export function SettingsForm({
                         onClick={() => {
                             onDuplicate(instanceId);
                         }}
-                        className="rounded-[var(--radius)] border border-[var(--border)] px-4 py-1.5 text-sm"
+                        className="cf-secondary"
                     >
                         复制
                     </button>

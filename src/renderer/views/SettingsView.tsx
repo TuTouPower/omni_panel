@@ -158,14 +158,10 @@ function AccountDialog({
                 role="dialog"
             >
                 <div className="ad-head">
-                    <span className="ad-mark">
-                        <VendorMark id="overview" size={24} />
-                    </span>
                     <div className="ad-htext">
                         <div className="ad-title">{isEdit ? "编辑账号" : "添加账号"}</div>
                         <div className="ad-sub">
-                            {pluginName ?? "新账号"}
-                            {isEdit && pluginName ? ` · ${pluginName}` : ""}
+                            {isEdit ? (pluginName ?? "新账号") : "选择要添加的服务"}
                         </div>
                     </div>
                     <button className="ad-close" onClick={onClose} title="关闭" type="button">
@@ -381,6 +377,17 @@ function DataSourceList({
                                 >
                                     编辑
                                 </button>
+                                <button
+                                    className="ds-btn"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onOpenDetail();
+                                    }}
+                                    type="button"
+                                    title="更多"
+                                >
+                                    <Icon name="more" size={15} />
+                                </button>
                             </div>
                         </div>
                         <div className="ds-meta">
@@ -421,6 +428,7 @@ function CpaDetailPage({
     onSave,
     onSaveSecrets,
     onRefresh,
+    onDelete,
 }: {
     pluginInfos: PluginInfo[];
     config: AppConfiguration;
@@ -435,6 +443,7 @@ function CpaDetailPage({
     ) => Promise<void>;
     onSaveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
     onRefresh: (instanceId: string) => Promise<void>;
+    onDelete: (instanceId: string) => Promise<void>;
 }) {
     const cpaPlugin = pluginInfos.find((p) => p.source === "cpa");
     const cpaConfig = cpaPlugin
@@ -482,6 +491,9 @@ function CpaDetailPage({
                     onRefresh={async () => {
                         await onRefresh(cpaPlugin.instanceId);
                     }}
+                    onRemove={async () => {
+                        await onDelete(cpaPlugin.instanceId);
+                    }}
                 />
             </div>
         </>
@@ -518,9 +530,6 @@ function CpaAddDialog({ onClose }: { onClose: () => void }) {
                 role="dialog"
             >
                 <div className="ad-head">
-                    <span className="ad-mark">
-                        <VendorMark id="cpa" size={24} />
-                    </span>
                     <div className="ad-htext">
                         <div className="ad-title">添加 CPA Manager</div>
                         <div className="ad-sub">批量接入多个服务商账号</div>
@@ -610,6 +619,7 @@ function CpaAddDialog({ onClose }: { onClose: () => void }) {
 /* ── Main View ── */
 export function SettingsView() {
     useTheme();
+    const version = "1.0.0";
     const { config, hasSecrets, loading, error, save, saveSecrets } = useConfig();
     const [pluginInfos, setPluginInfos] = useState<PluginInfo[]>([]);
     const [section, setSection] = useState("general");
@@ -940,6 +950,23 @@ export function SettingsView() {
                         {/* ── Accounts ── */}
                         {section === "accounts" && (
                             <>
+                                <div className="sp-head">
+                                    <span className="sp-title">账号管理</span>
+                                    <button
+                                        className="sp-action"
+                                        onClick={() => {
+                                            setDialog({
+                                                mode: "add",
+                                                instanceId: undefined,
+                                                pluginName: undefined,
+                                            });
+                                        }}
+                                        type="button"
+                                    >
+                                        <Icon name="plus" size={15} strokeWidth={2} />
+                                        添加账号
+                                    </button>
+                                </div>
                                 <div className="acct-intro">
                                     关闭后该卡片不再显示在主面板，也会停止刷新用量。可随时在此重新启用。
                                 </div>
@@ -973,33 +1000,52 @@ export function SettingsView() {
                                                     : "";
                                             return (
                                                 <div
-                                                    className={`acct-row${!is_enabled ? " off" : ""}`}
+                                                    className={`ao-item${!is_enabled ? " off" : ""}`}
                                                     key={group.label + group.provider}
-                                                    style={{ marginBottom: 8, padding: "8px 0" }}
                                                 >
-                                                    <VendorMark
-                                                        id={
-                                                            group.provider === "connector"
-                                                                ? "overview"
-                                                                : group.provider
-                                                        }
-                                                        size={20}
-                                                    />
-                                                    <span className="ar-name">{display_name}</span>
-                                                    {maskedKey && (
-                                                        <span className="ai-key">{maskedKey}</span>
-                                                    )}
-                                                    {info?.source === "cpa" && (
-                                                        <span className="ar-badge cpa">
-                                                            来自 CPA Manager
+                                                    <div className="ao-vendor">
+                                                        <VendorMark
+                                                            id={
+                                                                group.provider === "connector"
+                                                                    ? "overview"
+                                                                    : group.provider
+                                                            }
+                                                            size={24}
+                                                        />
+                                                        <span className="ao-name">
+                                                            {display_name}
                                                         </span>
+                                                    </div>
+                                                    {maskedKey && (
+                                                        <span className="ao-key">{maskedKey}</span>
                                                     )}
-                                                    {!is_enabled && (
-                                                        <span className="ar-off">已关闭</span>
-                                                    )}
-                                                    <div className="ar-actions">
+                                                    <div className="ao-actions">
+                                                        {info?.source === "cpa" && (
+                                                            <span className="src-tag">
+                                                                来自 CPA Manager
+                                                            </span>
+                                                        )}
+                                                        <Toggle
+                                                            on={is_enabled}
+                                                            onClick={() => {
+                                                                void save({
+                                                                    ...config,
+                                                                    plugins: config.plugins.map(
+                                                                        (pl) =>
+                                                                            pl.instanceId ===
+                                                                            p.instanceId
+                                                                                ? {
+                                                                                      ...pl,
+                                                                                      enabled:
+                                                                                          !pl.enabled,
+                                                                                  }
+                                                                                : pl,
+                                                                    ),
+                                                                });
+                                                            }}
+                                                        />
                                                         <button
-                                                            className="icon-btn ar-ic"
+                                                            className="icon-btn sp-ic"
                                                             title="编辑"
                                                             type="button"
                                                             onClick={() => {
@@ -1014,7 +1060,7 @@ export function SettingsView() {
                                                         </button>
                                                         {info?.source === "cpa" ? (
                                                             <button
-                                                                className="icon-btn ar-ic"
+                                                                className="icon-btn sp-ic"
                                                                 title="隐藏"
                                                                 type="button"
                                                                 onClick={() => {
@@ -1026,8 +1072,7 @@ export function SettingsView() {
                                                                                 p.instanceId
                                                                                     ? {
                                                                                           ...pl,
-                                                                                          enabled:
-                                                                                              !pl.enabled,
+                                                                                          enabled: false,
                                                                                       }
                                                                                     : pl,
                                                                         ),
@@ -1038,7 +1083,7 @@ export function SettingsView() {
                                                             </button>
                                                         ) : (
                                                             <button
-                                                                className="icon-btn ar-ic"
+                                                                className="icon-btn sp-ic danger"
                                                                 title="删除"
                                                                 type="button"
                                                                 onClick={() => {
@@ -1062,25 +1107,6 @@ export function SettingsView() {
                                                                 <Icon name="trash" size={15} />
                                                             </button>
                                                         )}
-                                                        <Toggle
-                                                            on={is_enabled}
-                                                            onClick={() => {
-                                                                void save({
-                                                                    ...config,
-                                                                    plugins: config.plugins.map(
-                                                                        (pl) =>
-                                                                            pl.instanceId ===
-                                                                            p.instanceId
-                                                                                ? {
-                                                                                      ...pl,
-                                                                                      enabled:
-                                                                                          !pl.enabled,
-                                                                                  }
-                                                                                : pl,
-                                                                    ),
-                                                                });
-                                                            }}
-                                                        />
                                                     </div>
                                                 </div>
                                             );
@@ -1101,6 +1127,9 @@ export function SettingsView() {
                                                         size={22}
                                                     />
                                                     <span className="agh-name">{group.label}</span>
+                                                    <span className="agh-count">
+                                                        {group.plugins.length} 个账号
+                                                    </span>
                                                     <button
                                                         className="agh-add"
                                                         title={`添加 ${group.label} 账号`}
@@ -1155,19 +1184,34 @@ export function SettingsView() {
                                                                         {maskedKey}
                                                                     </span>
                                                                 )}
-                                                                {row_off && (
-                                                                    <span className="ar-off">
-                                                                        已关闭
-                                                                    </span>
-                                                                )}
-                                                                {info?.source === "cpa" && (
-                                                                    <span className="ar-badge cpa">
-                                                                        来自 CPA Manager
-                                                                    </span>
-                                                                )}
                                                                 <div className="ar-actions">
+                                                                    {info?.source === "cpa" && (
+                                                                        <span className="src-tag">
+                                                                            来自 CPA Manager
+                                                                        </span>
+                                                                    )}
+                                                                    <Toggle
+                                                                        on={is_enabled}
+                                                                        onClick={() => {
+                                                                            void save({
+                                                                                ...config,
+                                                                                plugins:
+                                                                                    config.plugins.map(
+                                                                                        (pl) =>
+                                                                                            pl.instanceId ===
+                                                                                            p.instanceId
+                                                                                                ? {
+                                                                                                      ...pl,
+                                                                                                      enabled:
+                                                                                                          !pl.enabled,
+                                                                                                  }
+                                                                                                : pl,
+                                                                                    ),
+                                                                            });
+                                                                        }}
+                                                                    />
                                                                     <button
-                                                                        className="icon-btn ar-ic"
+                                                                        className="icon-btn sp-ic"
                                                                         title="编辑"
                                                                         type="button"
                                                                         onClick={() => {
@@ -1187,7 +1231,7 @@ export function SettingsView() {
                                                                     </button>
                                                                     {info?.source === "cpa" ? (
                                                                         <button
-                                                                            className="icon-btn ar-ic"
+                                                                            className="icon-btn sp-ic"
                                                                             title="隐藏"
                                                                             type="button"
                                                                             onClick={() => {
@@ -1214,7 +1258,7 @@ export function SettingsView() {
                                                                         </button>
                                                                     ) : (
                                                                         <button
-                                                                            className="icon-btn ar-ic"
+                                                                            className="icon-btn sp-ic danger"
                                                                             title="删除"
                                                                             type="button"
                                                                             onClick={() => {
@@ -1242,26 +1286,6 @@ export function SettingsView() {
                                                                             />
                                                                         </button>
                                                                     )}
-                                                                    <Toggle
-                                                                        on={is_enabled}
-                                                                        onClick={() => {
-                                                                            void save({
-                                                                                ...config,
-                                                                                plugins:
-                                                                                    config.plugins.map(
-                                                                                        (pl) =>
-                                                                                            pl.instanceId ===
-                                                                                            p.instanceId
-                                                                                                ? {
-                                                                                                      ...pl,
-                                                                                                      enabled:
-                                                                                                          !pl.enabled,
-                                                                                                  }
-                                                                                                : pl,
-                                                                                    ),
-                                                                            });
-                                                                        }}
-                                                                    />
                                                                 </div>
                                                             </div>
                                                         );
@@ -1300,6 +1324,15 @@ export function SettingsView() {
                                         onSave={savePluginSettings}
                                         onSaveSecrets={savePluginSecrets}
                                         onRefresh={refreshPlugin}
+                                        onDelete={async (instanceId) => {
+                                            await save({
+                                                ...config,
+                                                plugins: config.plugins.filter(
+                                                    (p) => p.instanceId !== instanceId,
+                                                ),
+                                            });
+                                            setDsView("list");
+                                        }}
                                     />
                                 )}
                             </>
@@ -1441,14 +1474,20 @@ export function SettingsView() {
                                     sub="历史趋势数据占用的最大空间，超出后自动清理最旧记录"
                                 >
                                     <Select
-                                        value={`${String(cacheMaxMb)} MB`}
+                                        value={
+                                            cacheMaxMb === 0 ? "不限制" : `${String(cacheMaxMb)} MB`
+                                        }
                                         onChange={(v) => {
+                                            if (v === "不限制") {
+                                                void save({ ...config, cacheMaxMb: 0 });
+                                                return;
+                                            }
                                             const mb = parseInt(v, 10);
                                             if (!isNaN(mb)) {
                                                 void save({ ...config, cacheMaxMb: mb });
                                             }
                                         }}
-                                        options={["50 MB", "100 MB", "200 MB", "500 MB"]}
+                                        options={["50 MB", "100 MB", "200 MB", "500 MB", "不限制"]}
                                     />
                                 </SetRow>
                                 <SetRow title="本地用量缓存" sub="历史趋势数据 · 占用 4.2 MB">
@@ -1532,7 +1571,7 @@ export function SettingsView() {
                                         style={{ borderRadius: 12 }}
                                     />
                                     <div className="aa-name">OmniUsage</div>
-                                    <div className="aa-ver">版本 1.0.0 · 已是最新版本</div>
+                                    <div className="aa-ver">版本 {version} · 已是最新版本</div>
                                     <button className="btn-primary" type="button">
                                         <Icon name="refresh" size={15} color="#fff" />
                                         检查更新
