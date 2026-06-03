@@ -279,6 +279,116 @@ Phase 22–23 完成了主面板与设置页的主体对齐。本次子代理深
 
 ---
 
+## Phase 25: 前端样式与 Demo 精确对齐（CSS 数值级）
+
+### 背景
+
+Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子代理深度对比 `src/renderer/styles/globals.css` 与 `docs/design/omni-usage/project/` 的 `omniusage.css`、`settings-panel.css`、`settings.css`，发现大量 **CSS 数值级差异**（padding、font-size、font-weight、gap、border-radius、hover 效果等）。Token 面板仍跳过。
+
+### 核心原则
+
+1. 继承 Phase 22–24 全部原则。
+2. Token 面板不启用、不开发、不验收。
+3. 不修改 `docs/design/omni-usage/**`。
+4. 只改 CSS 数值和选择器，不改组件结构（除非 CSS 选择器不匹配）。
+5. 每项完成前跑 `pnpm test`。
+
+### 25.1 设置页字号与间距（高优先级）
+
+- [x] `.sp-title`：`font-size: 21px; letter-spacing: -0.01em`（当前 `16px`，缺 letter-spacing）
+- [x] `.sp-crumb .cc-cur`：补齐 `font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.01em`
+- [x] `.sp-crumb`：`gap: 8px`（当前 `6px`）
+- [x] `.set-nav-item`：`padding: 8px 10px; font-size: 13.5px; gap: 10px`（当前 `8px 9px; 13px; 9px`）
+- [x] `.sp-action`：`gap: 6px; padding: 8px 14px`（当前 `gap: 5px; padding: 7px 14px`）
+- [x] `.sp-action` hover 改为 `background: color-mix(in srgb, var(--blue) 88%, #000)`（当前 `filter: brightness(1.08)`）
+- [x] `.sp-action` active 补齐 `transform: scale(0.97)`
+- [x] `.sp-action` 补齐 `transition: background 0.14s, transform 0.1s`
+
+### 25.2 CPA 详情页数值对齐（高优先级）
+
+- [x] `.cfg-sec`：`font-weight: 600; letter-spacing: 0.05em`（当前 `700; 0.06em`）
+- [x] `.cfg-sec`：`margin: 2px 0 11px`（当前 `18px 0 10px`，上间距过大）
+- [x] `.cfg-sec:not(:first-child)` 补齐 `margin-top: 22px`
+- [x] `.cfg-field`：`margin-bottom: 13px`（当前 `10px`）
+- [x] `.cfg-field:last-child` 补齐 `margin-bottom: 0`
+- [x] `.cfg-label` 补齐 `display: block`，`margin-bottom: 6px`（当前 `5px`）
+- [x] `.cfg-row:last-child` 补齐 `border-bottom: 0`
+- [x] `.cfg-row .cr-text` 补齐 `min-width: 0`（防溢出）
+- [x] `.cpa-foot .cf-save` 补齐 `padding: 9px 18px`（当前 `9px 16px`）+ 阴影
+- [x] `.cpa-foot .cf-save:hover` 补齐 `background: color-mix(in srgb, var(--blue) 88%, #000)`
+- [x] `.cpa-foot .cf-remove:hover`：`color-mix(..., 9%)`（当前 `8%`）
+- [x] `.cpa-foot .cf-remove` 补齐 `transition: background 0.12s`
+- [x] `.cpa-cfg` / `.cpa-disc` 补齐 WebKit 自定义滚动条样式
+- [x] `.cpa-cfg` / `.cpa-disc` 补齐 `scrollbar-width: thin`
+
+### 25.3 发现账号区域对齐（中优先级）
+
+- [x] `.disc-desc` 补齐 `line-height: 1.5`，`margin-bottom: 14px`（当前 `12px`）
+- [x] `.disc-grp` 改为分隔线式：`border-bottom: 0.5px solid var(--hairline)`（当前 `margin-bottom: 8px`）
+- [x] `.disc-grp:first-of-type` 补齐 `border-top: 0.5px solid var(--hairline)`
+- [x] `.disc-head`：`gap: 9px; padding: 11px 2px`（当前 `gap: 8px; padding: 8px 4px`）
+- [x] `.disc-head .dh-name`：`font-weight: 650`（当前 `600`）
+- [x] `.disc-head .dh-count`：`font-size: 11.5px`（当前 `11px`）
+- [x] `.disc-row .dr-note`：补齐 `width: 102px; flex-shrink: 0`（防溢出）
+- [x] `.disc-row .dr-key`：`font-size: 11.5px`（当前 `12px`）
+
+### 25.4 账号管理布局数值对齐（中优先级）
+
+- [x] `.acct-group` 改为 `margin-top: 10px`（当前 `margin-bottom: 14px`）
+- [x] `.acct-group-head`：`gap: 10px; padding: 12px 14px`（当前 `gap: 9px; padding: 11px 13px`）
+- [x] `.acct-group-head .agh-name`：`font-size: 14.5px`（当前 `14px`）
+- [x] `.acct-row` 左 padding 改为 `12px`（当前 `14px`，demo `.gr-row` 是 `11px 14px 11px 12px`）
+- [x] `.acct-row .ar-name` 补齐固定宽度（demo `.gr-note` 有 `width: 102px; flex-shrink: 0`）
+- [x] `.ao-vendor` 补齐 `width: 154px`
+
+### 25.5 数据源页面细节（中优先级）
+
+- [x] `.ds-head-text` 补齐 `padding-top: 1px`
+- [x] `.ds-btn` 补齐 `font-family: inherit`
+- [x] `.dc-label`：`font-size: 12px`（当前 `11.5px`）
+- [x] `.dc-icons` 补齐 `align-items: center`
+- [x] `.ds-meta .dm-line .dm-faint` 选择器收紧（当前作用域过宽）
+
+### 25.6 主面板微调（低优先级）
+
+- [x] `.card.disabled` 混合色改为 `var(--desktop)`（当前 `var(--win-bg)`）
+- [x] `.card.acct .card-name` 补齐 `font-size: 15px`
+- [x] `.card-menu` 补齐 `-webkit-backdrop-filter: blur(28px) saturate(170%)`
+- [x] `.app-logo` 补齐 `filter: drop-shadow(0 3px 7px rgba(61, 122, 253, 0.26))`
+- [x] `.tokens` 去掉额外 `margin`（demo 无 margin，当前有 `4px 0 6px`）
+- [x] `.tokens-head .card-grip` 补齐 `margin-left: -4px; margin-right: -2px`
+- [x] `.tokens-head .seg` 补齐 `margin-left: auto; flex-shrink: 0`
+
+### 25.7 Dialog 微调（低优先级）
+
+- [x] `.acct-dialog .ad-btn` / `.ad-test` 补齐 `white-space: nowrap`
+- [x] `.ad-hint` 去重：合并两段重复定义，最终值对齐 demo
+- [x] `.set-row .sr-text` 补齐 `min-width: 0`（防溢出）
+
+### 25.8 交互反馈统一（低优先级）
+
+- [x] 统一 cursor 策略：桌面 UI 语义下所有按钮默认 `cursor: default`，可交互元素（链接、导航）用 `cursor: pointer`
+- [x] `.cfg-scope-row .cr-vendor`：`gap: 9px`（当前 `8px`）
+
+### 25.9 CSS 技术债清理（低优先级）
+
+- [x] 清理未定义的 shadcn 风格变量引用（`--primary`、`--border`、`--muted-foreground` 等），改为已有变量或补 alias
+- [x] 清理 `.bar-val` 未定义样式（`UsageBarRow.tsx` 引用但 globals.css 无定义）
+- [x] 确认旧版 `.bar-row` / `.fill` 用量条是否仍被使用，未使用则标记废弃
+
+### 验收标准
+
+1. 设置页字号、间距、hover 效果与 demo 数值完全一致。
+2. CPA 详情页各数值与 demo 一致，滚动条自定义。
+3. 发现账号区域间距、分隔线与 demo 一致。
+4. 账号管理布局数值与 demo 一致。
+5. 数据源页面细节对齐。
+6. 所有 CSS 变量引用有效。
+7. `pnpm test` 通过。
+8. UI 手工点击验收通过。
+
+---
+
 ## 通用约束（每轮适用）
 
 1. 不实现本轮范围外的功能
