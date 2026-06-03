@@ -12,16 +12,16 @@ interface ProviderOverviewProps {
     visibleProviders: UsageProvider[];
     providerErrors: Map<UsageProvider, ProviderError>;
     onRefreshProvider: (provider: UsageProvider) => void;
-    expandedProviders?: Record<string, boolean>;
-    onToggleExpandProvider?: (provider: UsageProvider) => void;
-    disabledProviders?: Set<string>;
-    onToggleDisableProvider?: (provider: UsageProvider) => void;
-    onDeleteProvider?: (provider: UsageProvider) => void;
-    draggingProvider?: UsageProvider | null;
-    overProvider?: UsageProvider | null;
-    onDragStart?: (provider: UsageProvider) => void;
-    onDragEnter?: (provider: UsageProvider) => void;
-    onDragEnd?: () => void;
+    expandedProviders?: Record<string, boolean> | undefined;
+    onToggleExpandProvider?: ((provider: UsageProvider) => void) | undefined;
+    disabledProviders?: Set<string> | undefined;
+    onToggleDisableProvider?: ((provider: UsageProvider) => void) | undefined;
+    onDeleteProvider?: ((provider: UsageProvider) => void) | undefined;
+    draggingProvider?: UsageProvider | null | undefined;
+    overProvider?: UsageProvider | null | undefined;
+    onDragStart?: ((provider: UsageProvider) => void) | undefined;
+    onDragEnter?: ((provider: UsageProvider) => void) | undefined;
+    onDragEnd?: (() => void) | undefined;
 }
 
 export function ProviderOverview({

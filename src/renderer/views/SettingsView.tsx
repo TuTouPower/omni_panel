@@ -113,6 +113,7 @@ function AccountDialog({
     onSaveSecrets,
     onRefresh,
     onSelectService,
+    onCpa,
     onClose,
 }: {
     mode: "add" | "edit";
@@ -224,7 +225,6 @@ function AccountDialog({
                         <AddAccountPicker
                             pluginInfos={pluginInfos}
                             onSelect={onSelectService}
-                            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- false positive on void callback
                             onCpa={onCpa}
                         />
                     ) : (
@@ -629,7 +629,7 @@ export function SettingsView() {
     interface ProviderAccountGroup {
         provider: UsageProvider | "connector";
         label: string;
-        plugins: (PluginConfiguration & { pluginInfo?: PluginInfo })[];
+        plugins: (PluginConfiguration & { pluginInfo?: PluginInfo | undefined })[];
     }
     const account_groups = useMemo<ProviderAccountGroup[]>(() => {
         if (!config) return [];

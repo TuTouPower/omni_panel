@@ -85,6 +85,7 @@ describe("PopupView mirror isolation", () => {
             popup: {
                 report_content_height: vi.fn(),
             },
+            settings: { open: vi.fn() },
             log: vi.fn(),
         };
     });

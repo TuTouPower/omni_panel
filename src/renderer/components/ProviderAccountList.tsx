@@ -3,13 +3,13 @@ import { ProviderAccountRow } from "./ProviderAccountRow";
 
 interface ProviderAccountListProps {
     group: ProviderUsageGroup;
-    collapsedAccounts?: Record<string, boolean>;
-    onToggleAccount?: (accountId: string) => void;
-    draggingId?: string | null;
-    overId?: string | null;
-    onDragStart?: (accountId: string) => void;
-    onDragEnter?: (accountId: string) => void;
-    onDragEnd?: () => void;
+    collapsedAccounts?: Record<string, boolean> | undefined;
+    onToggleAccount?: ((accountId: string) => void) | undefined;
+    draggingId?: string | null | undefined;
+    overId?: string | null | undefined;
+    onDragStart?: ((accountId: string) => void) | undefined;
+    onDragEnter?: ((accountId: string) => void) | undefined;
+    onDragEnd?: (() => void) | undefined;
 }
 
 export function ProviderAccountList({

@@ -5,13 +5,13 @@ import { Icon } from "./Icon";
 
 interface ProviderAccountRowProps {
     account: ProviderUsageAccount;
-    collapsed?: boolean;
-    onToggleCollapsed?: () => void;
-    dragging?: boolean;
-    dragOver?: boolean;
-    onDragStart?: () => void;
-    onDragEnter?: () => void;
-    onDragEnd?: () => void;
+    collapsed?: boolean | undefined;
+    onToggleCollapsed?: (() => void) | undefined;
+    dragging?: boolean | undefined;
+    dragOver?: boolean | undefined;
+    onDragStart?: (() => void) | undefined;
+    onDragEnter?: (() => void) | undefined;
+    onDragEnd?: (() => void) | undefined;
 }
 
 function usageText(used: number, limit: number): string {

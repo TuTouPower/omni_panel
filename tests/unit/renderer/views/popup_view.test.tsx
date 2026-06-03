@@ -130,6 +130,7 @@ describe("PopupView", () => {
             popup: {
                 report_content_height: vi.fn(),
             },
+            settings: { open: vi.fn() },
             log: usage_log,
         };
     });

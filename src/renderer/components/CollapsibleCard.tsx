@@ -5,17 +5,17 @@ interface CollapsibleCardProps {
     /** Header content (always visible: title, summary, status). */
     header: ReactNode;
     /** Optional right-side tools (refresh, select, etc.) rendered before the collapse toggle. */
-    tools?: ReactNode;
+    tools?: ReactNode | undefined;
     /** Details content hidden when collapsed. */
-    children?: ReactNode;
+    children?: ReactNode | undefined;
     /** Whether the card is currently collapsed. */
     collapsed: boolean;
     /** Called when the user toggles the collapse state. */
     onToggle: () => void;
     /** Optional extra className on the outer card. */
-    className?: string;
+    className?: string | undefined;
     /** Accessible label for the collapse toggle. */
-    toggleLabel?: string;
+    toggleLabel?: string | undefined;
 }
 
 export function CollapsibleCard({

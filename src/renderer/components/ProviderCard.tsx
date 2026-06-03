@@ -16,17 +16,17 @@ interface ProviderCardProps {
     provider: UsageProvider;
     group?: ProviderUsageGroup | undefined;
     connectorError?: ProviderError | undefined;
-    onRefresh?: (provider: UsageProvider) => void;
-    expanded?: boolean;
-    onToggleExpand?: (provider: UsageProvider) => void;
-    disabled?: boolean;
-    onToggleDisable?: (provider: UsageProvider) => void;
-    onDelete?: (provider: UsageProvider) => void;
-    dragging?: boolean;
-    dragOver?: boolean;
-    onDragStart?: (provider: UsageProvider) => void;
-    onDragEnter?: (provider: UsageProvider) => void;
-    onDragEnd?: () => void;
+    onRefresh?: ((provider: UsageProvider) => void) | undefined;
+    expanded?: boolean | undefined;
+    onToggleExpand?: ((provider: UsageProvider) => void) | undefined;
+    disabled?: boolean | undefined;
+    onToggleDisable?: ((provider: UsageProvider) => void) | undefined;
+    onDelete?: ((provider: UsageProvider) => void) | undefined;
+    dragging?: boolean | undefined;
+    dragOver?: boolean | undefined;
+    onDragStart?: ((provider: UsageProvider) => void) | undefined;
+    onDragEnter?: ((provider: UsageProvider) => void) | undefined;
+    onDragEnd?: (() => void) | undefined;
 }
 
 function is_auth_error(error: string): boolean {

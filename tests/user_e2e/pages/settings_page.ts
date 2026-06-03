@@ -1,7 +1,7 @@
 import type { ElectronApplication, Page } from "@playwright/test";
 
 export class SettingsPage {
-    constructor(private page: Page) {}
+    constructor(public page: Page) {}
 
     async waitReady() {
         await this.page.waitForSelector('[data-testid="settings-sidebar"]', { timeout: 10_000 });
