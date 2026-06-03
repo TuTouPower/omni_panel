@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
-import { ConnectorStatusCard } from "./ConnectorStatusCard";
+import { Icon, VendorMark } from "./Icon";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { PluginConfiguration } from "../../shared/types/config";
 import type { UsageItem, UsageProvider } from "../../shared/schemas/plugin-output";
@@ -38,6 +38,7 @@ interface CpaConnectorSettingsProps {
     ) => Promise<void> | void;
     onSaveSecrets: (secrets: Record<string, string>) => Promise<void> | void;
     onRefresh: () => Promise<void> | void;
+    onRemove?: () => Promise<void> | void;
 }
 
 function getDefaultValue(connector: ConnectorInfo, name: string) {
@@ -63,12 +64,25 @@ function getStatus(connector: ConnectorInfo) {
     return "未连接";
 }
 
+function relativeTime(date: Date | string | number): string {
+    const now = Date.now();
+    const t = new Date(date).getTime();
+    const diff = Math.max(0, now - t) / 1000;
+    if (diff < 60) return "刚刚";
+    const mins = Math.floor(diff / 60);
+    if (diff < 3600) return `${String(mins)} 分钟前`;
+    const hours = Math.floor(diff / 3600);
+    if (diff < 86400) return `${String(hours)} 小时前`;
+    const days = Math.floor(diff / 86400);
+    return `${String(days)} 天前`;
+}
+
 function groupAccounts(items: readonly UsageItem[]) {
-    const groups = new Map<UsageProvider, Set<string>>();
+    const groups = new Map<UsageProvider, UsageItem[]>();
     for (const item of items) {
-        const labels = groups.get(item.provider) ?? new Set<string>();
-        labels.add(item.accountLabel);
-        groups.set(item.provider, labels);
+        const list = groups.get(item.provider) ?? [];
+        list.push(item);
+        groups.set(item.provider, list);
     }
     return Array.from(groups.entries());
 }
@@ -80,7 +94,10 @@ export function CpaConnectorSettings({
     onSave,
     onSaveSecrets,
     onRefresh,
+    onRemove,
 }: CpaConnectorSettingsProps) {
+    // onRefresh is part of the interface for future use
+    void onRefresh;
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [secret, setSecret] = useState(hasSecrets["cpa_mgmt_key"] ? "***" : "");
@@ -96,18 +113,35 @@ export function CpaConnectorSettings({
         }
         return values;
     });
+    const [autoSync, setAutoSync] = useState(true);
+    const [failNotify, setFailNotify] = useState(true);
+    const [syncInterval, setSyncInterval] = useState(
+        config.refreshIntervalSeconds <= 60
+            ? "1 分钟"
+            : config.refreshIntervalSeconds <= 300
+              ? "5 分钟"
+              : config.refreshIntervalSeconds <= 900
+                ? "15 分钟"
+                : config.refreshIntervalSeconds <= 1800
+                  ? "30 分钟"
+                  : "仅手动",
+    );
+    const [openGrps, setOpenGrps] = useState<Set<string>>(() => {
+        const items = getSnapshotItems(connector);
+        const grps = groupAccounts(items);
+        return new Set(grps.map(([p]) => p));
+    });
 
     const items = useMemo(() => getSnapshotItems(connector), [connector]);
     const accountGroups = useMemo(() => groupAccounts(items), [items]);
-
-    const handleRefresh = useCallback(async () => {
-        setError(null);
-        try {
-            await onRefresh();
-        } catch {
-            setError("同步失败");
-        }
-    }, [onRefresh]);
+    const status = getStatus(connector);
+    const isConnected = status === "已连接";
+    const lastSync =
+        connector.snapshot.status === "ready"
+            ? relativeTime(connector.snapshot.updatedAt)
+            : connector.snapshot.status === "failed" && connector.snapshot.updatedAt
+              ? relativeTime(connector.snapshot.updatedAt)
+              : "未同步";
 
     const handleSubmit = useCallback(
         (event: React.SyntheticEvent<HTMLFormElement>) => {
@@ -129,6 +163,14 @@ export function CpaConnectorSettings({
                 secrets["cpa_mgmt_key"] = secret;
             }
 
+            const intervalMap: Record<string, number> = {
+                "1 分钟": 60,
+                "5 分钟": 300,
+                "15 分钟": 900,
+                "30 分钟": 1800,
+                仅手动: 86400,
+            };
+
             setSaving(true);
             setError(null);
             void Promise.resolve()
@@ -136,7 +178,7 @@ export function CpaConnectorSettings({
                     if (Object.keys(secrets).length > 0) {
                         await onSaveSecrets(secrets);
                     }
-                    await onSave(nonSecrets, endpointOverrides, config.refreshIntervalSeconds);
+                    await onSave(nonSecrets, endpointOverrides, intervalMap[syncInterval] ?? 300);
                 })
                 .catch(() => {
                     setError("保存失败");
@@ -145,121 +187,214 @@ export function CpaConnectorSettings({
                     setSaving(false);
                 });
         },
-        [config, endpoint, monitors, onSave, onSaveSecrets, saving, secret],
+        [config, endpoint, monitors, onSave, onSaveSecrets, saving, secret, syncInterval],
     );
 
+    const handleRemove = useCallback(() => {
+        if (!onRemove) return;
+        if (!window.confirm("确定移除该数据源？已发现的账号将被清除。")) return;
+        void onRemove();
+    }, [onRemove]);
+
+    const toggleGrp = (id: string) => {
+        setOpenGrps((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
     return (
-        <form className="space-y-4" data-testid="cpa-connector-settings" onSubmit={handleSubmit}>
-            <ConnectorStatusCard
-                title="CPA 额度连接器"
-                status={getStatus(connector)}
-                details={`${String(items.length)} 个额度项`}
-            />
-            {error && (
-                <div className="text-xs text-[var(--destructive)]" role="alert">
-                    {error}
+        <form className="cpa-detail" data-testid="cpa-connector-settings" onSubmit={handleSubmit}>
+            {/* left column: config */}
+            <div className="cpa-cfg">
+                <div className="cfg-sec">连接配置</div>
+                <div className="cfg-field">
+                    <div className="cfg-label">CPA-Manager URL</div>
+                    <input
+                        aria-label="CPA-Manager URL"
+                        className="ad-input"
+                        name="endpoint:default"
+                        onChange={(event) => {
+                            setEndpoint(event.target.value);
+                        }}
+                        type="url"
+                        value={endpoint}
+                    />
                 </div>
-            )}
+                <div className="cfg-field">
+                    <div className="cfg-label">API 密钥</div>
+                    <input
+                        aria-label="管理密钥"
+                        className="ad-input mono"
+                        name="cpa_mgmt_key"
+                        onChange={(event) => {
+                            setSecret(event.target.value);
+                        }}
+                        type="password"
+                        value={secret}
+                    />
+                </div>
 
-            <label className="block space-y-1">
-                <span className="text-xs text-[var(--muted-foreground)]">CPA-Manager URL</span>
-                <input
-                    aria-label="CPA-Manager URL"
-                    className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    name="endpoint:default"
-                    onChange={(event) => {
-                        setEndpoint(event.target.value);
-                    }}
-                    type="url"
-                    value={endpoint}
-                />
-            </label>
+                <div className="cfg-sec">连接状态</div>
+                <div className="cfg-status">
+                    <span className={`csd${isConnected ? "" : " off"}`} />
+                    <span className={isConnected ? "cs-ok" : "cs-err"}>{status}</span>
+                    <span className="cs-sync">上次同步：{lastSync}</span>
+                </div>
 
-            <label className="block space-y-1">
-                <span className="text-xs text-[var(--muted-foreground)]">管理密钥</span>
-                <input
-                    aria-label="管理密钥"
-                    className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    name="cpa_mgmt_key"
-                    onChange={(event) => {
-                        setSecret(event.target.value);
-                    }}
-                    type="password"
-                    value={secret}
-                />
-            </label>
-
-            <div className="flex gap-2">
-                <button
-                    className="rounded-[var(--radius)] border border-[var(--border)] px-4 py-1.5 text-sm"
-                    onClick={() => {
-                        void handleRefresh();
-                    }}
-                    type="button"
-                >
-                    测试连接
-                </button>
-                <button
-                    className="rounded-[var(--radius)] border border-[var(--border)] px-4 py-1.5 text-sm"
-                    onClick={() => {
-                        void handleRefresh();
-                    }}
-                    type="button"
-                >
-                    立即同步
-                </button>
-            </div>
-
-            <div className="space-y-2">
-                <div className="text-xs font-semibold text-[var(--muted-foreground)]">监控范围</div>
-                {MONITORS.map((monitor) => (
-                    <label key={monitor.name} className="flex items-center gap-2 text-sm">
-                        <input
-                            checked={monitors[monitor.name]}
-                            name={monitor.name}
-                            onChange={(event) => {
-                                setMonitors((previous) => ({
-                                    ...previous,
-                                    [monitor.name]: event.target.checked,
-                                }));
+                <div className="cfg-sec">同步设置</div>
+                <div className="cfg-row">
+                    <div className="cr-text">
+                        <div className="cr-title">同步间隔</div>
+                    </div>
+                    <div className="cr-ctrl">
+                        <select
+                            className="ad-input"
+                            style={{ width: "auto", padding: "6px 10px" }}
+                            value={syncInterval}
+                            onChange={(e) => {
+                                setSyncInterval(e.target.value);
                             }}
-                            type="checkbox"
-                        />
-                        <span>{monitor.label}</span>
-                    </label>
+                        >
+                            <option>1 分钟</option>
+                            <option>5 分钟</option>
+                            <option>15 分钟</option>
+                            <option>30 分钟</option>
+                            <option>仅手动</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="cfg-row">
+                    <div className="cr-text">
+                        <div className="cr-title">自动同步</div>
+                    </div>
+                    <div className="cr-ctrl">
+                        <button
+                            className="sw"
+                            data-on={autoSync ? "1" : "0"}
+                            type="button"
+                            onClick={() => {
+                                setAutoSync((v) => !v);
+                            }}
+                        >
+                            <i />
+                        </button>
+                    </div>
+                </div>
+                <div className="cfg-row">
+                    <div className="cr-text">
+                        <div className="cr-title">同步失败通知</div>
+                    </div>
+                    <div className="cr-ctrl">
+                        <button
+                            className="sw"
+                            data-on={failNotify ? "1" : "0"}
+                            type="button"
+                            onClick={() => {
+                                setFailNotify((v) => !v);
+                            }}
+                        >
+                            <i />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="cfg-sec">同步范围</div>
+                {MONITORS.map((monitor) => (
+                    <div className="cfg-row cfg-scope-row" key={monitor.name}>
+                        <span className="cr-vendor">
+                            <VendorMark
+                                id={monitor.name.replace("monitor_", "") as UsageProvider}
+                                size={20}
+                            />
+                            {monitor.label}
+                        </span>
+                        <div className="cr-ctrl">
+                            <button
+                                className="sw"
+                                data-on={monitors[monitor.name] ? "1" : "0"}
+                                type="button"
+                                onClick={() => {
+                                    setMonitors((prev) => ({
+                                        ...prev,
+                                        [monitor.name]: !prev[monitor.name],
+                                    }));
+                                }}
+                            >
+                                <i />
+                            </button>
+                        </div>
+                    </div>
                 ))}
+
+                {error && (
+                    <div className="text-xs" style={{ color: "var(--red)" }} role="alert">
+                        {error}
+                    </div>
+                )}
+
+                <div className="cpa-foot">
+                    <button
+                        className="cf-save"
+                        data-testid="cpa-settings-save-btn"
+                        disabled={saving}
+                        type="submit"
+                    >
+                        <Icon name="check" size={15} color="#fff" />
+                        {saving ? "保存中..." : "保存"}
+                    </button>
+                    <button className="cf-remove" type="button" onClick={handleRemove}>
+                        <Icon name="trash" size={14} />
+                        移除数据源
+                    </button>
+                </div>
             </div>
 
-            <div className="space-y-2">
-                <div className="text-xs font-semibold text-[var(--muted-foreground)]">
+            {/* right column: discovered accounts */}
+            <div className="cpa-disc">
+                <div className="cfg-sec" style={{ marginTop: 0 }}>
                     已发现账号
                 </div>
+                <div className="disc-desc">由 CPA Manager 发现的账号，将显示在主面板中。</div>
                 {accountGroups.length === 0 ? (
-                    <div className="text-xs text-[var(--muted-foreground)]">暂无账号</div>
+                    <div className="text-xs" style={{ color: "var(--text-3)" }}>
+                        暂无账号
+                    </div>
                 ) : (
-                    accountGroups.map(([provider, labels]) => (
-                        <div key={provider} className="space-y-1 text-sm">
-                            <div className="font-medium">
-                                {PROVIDER_LABELS[provider]} {labels.size}
-                            </div>
-                            {Array.from(labels).map((label) => (
-                                <div key={label} className="text-xs text-[var(--muted-foreground)]">
-                                    {label}
+                    accountGroups.map(([provider, acctItems]) => (
+                        <div className="disc-grp" key={provider}>
+                            <button
+                                className="disc-head"
+                                data-open={openGrps.has(provider) ? "true" : "false"}
+                                onClick={() => {
+                                    toggleGrp(provider);
+                                }}
+                                type="button"
+                            >
+                                <VendorMark id={provider} size={20} />
+                                <span className="dh-name">{PROVIDER_LABELS[provider]}</span>
+                                <span className="dh-count">{acctItems.length} 个</span>
+                                <span className="dh-chev">
+                                    <Icon name="chevron" size={16} />
+                                </span>
+                            </button>
+                            {openGrps.has(provider) && (
+                                <div className="disc-rows">
+                                    {acctItems.map((item) => (
+                                        <div className="disc-row" key={item.accountLabel}>
+                                            <span className="drd" />
+                                            <span className="dr-note">{item.accountLabel}</span>
+                                            <span className="dr-key">{item.accountId}</span>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+                            )}
                         </div>
                     ))
                 )}
             </div>
-
-            <button
-                className="rounded-[var(--radius)] bg-[var(--primary)] px-4 py-1.5 text-sm text-[var(--primary-foreground)]"
-                data-testid="cpa-settings-save-btn"
-                disabled={saving}
-                type="submit"
-            >
-                {saving ? "保存中..." : "保存"}
-            </button>
         </form>
     );
 }
