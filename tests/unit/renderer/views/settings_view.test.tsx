@@ -226,7 +226,7 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         await waitFor(() => {
-            expect(screen.getAllByText("Claude").length).toBeGreaterThan(0);
+            expect(screen.getAllByText(/CPA/).length).toBeGreaterThan(0);
         });
         // Find the CPA connector's edit button (first CPA plugin row)
         const edit_buttons = screen.getAllByTitle("编辑");

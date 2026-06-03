@@ -107,10 +107,12 @@ function AccountDialog({
     pluginName,
     pluginInfo,
     pluginConfig,
+    pluginInfos,
     hasSecrets,
     onSave,
     onSaveSecrets,
     onRefresh,
+    onSelectService,
     onClose,
 }: {
     mode: "add" | "edit";
@@ -118,6 +120,7 @@ function AccountDialog({
     pluginName: string | undefined;
     pluginInfo: PluginInfo | undefined;
     pluginConfig: PluginConfiguration | undefined;
+    pluginInfos: PluginInfo[];
     hasSecrets: Record<string, boolean> | undefined;
     onSave: (
         instanceId: string,
@@ -128,6 +131,8 @@ function AccountDialog({
     ) => Promise<void>;
     onSaveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
     onRefresh: (instanceId: string) => Promise<void>;
+    onSelectService: (instanceId: string, pluginName: string) => void;
+    onCpa: () => void;
     onClose: () => void;
 }) {
     const isEdit = mode === "edit";
@@ -216,7 +221,12 @@ function AccountDialog({
                             />
                         )
                     ) : mode === "add" && !instanceId ? (
-                        <AddAccountPicker />
+                        <AddAccountPicker
+                            pluginInfos={pluginInfos}
+                            onSelect={onSelectService}
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- false positive on void callback
+                            onCpa={onCpa}
+                        />
                     ) : (
                         <div className="text-sm text-[var(--text-3)]">暂不支持在此添加新账号</div>
                     )}
@@ -236,7 +246,23 @@ const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
 ];
 
 /* ── Add Account Picker ── */
-function AddAccountPicker() {
+function AddAccountPicker({
+    pluginInfos,
+    onSelect,
+    onCpa,
+}: {
+    pluginInfos: PluginInfo[];
+    onSelect: (instanceId: string, pluginName: string) => void;
+    onCpa: () => void;
+}) {
+    const handleServiceClick = (provider: UsageProvider) => {
+        // Find the first plugin instance that provides this provider
+        const match = pluginInfos.find((p) => p.activeProviders.includes(provider) && p.enabled);
+        if (match) {
+            onSelect(match.instanceId, match.displayName);
+        }
+    };
+
     return (
         <div className="pick-body">
             <div className="set-group-label" style={{ marginTop: 0 }}>
@@ -244,7 +270,14 @@ function AddAccountPicker() {
             </div>
             <div className="pick-grid">
                 {ADD_COMMON_SERVICES.map((s) => (
-                    <button className="pick-card" key={s.id} type="button">
+                    <button
+                        className="pick-card"
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                            handleServiceClick(s.id);
+                        }}
+                    >
                         <span className="pc-mark">
                             <VendorMark id={s.id} size={30} />
                         </span>
@@ -253,7 +286,7 @@ function AddAccountPicker() {
                 ))}
             </div>
             <div className="set-group-label">高级方式</div>
-            <button className="pick-adv" type="button">
+            <button className="pick-adv" type="button" onClick={onCpa}>
                 <span className="pa-icon">
                     <VendorMark id="cpa" size={24} />
                 </span>
@@ -455,6 +488,125 @@ function CpaDetailPage({
     );
 }
 
+const CPA_SCOPE: UsageProvider[] = ["claude", "codex", "gemini", "antigravity", "kimi"];
+
+/* ── CPA Add Data Source Dialog ── */
+function CpaAddDialog({ onClose }: { onClose: () => void }) {
+    const [url, setUrl] = useState("");
+    const [key, setKey] = useState("");
+    const [showKey, setShowKey] = useState(false);
+    const [scope, setScope] = useState<Set<UsageProvider>>(() => new Set(CPA_SCOPE));
+
+    const toggleScope = (id: UsageProvider) => {
+        setScope((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const canSave = url.trim().length > 0 && key.trim().length > 0;
+
+    return (
+        <div className="acct-dialog-scrim" onMouseDown={onClose}>
+            <div
+                className="acct-dialog wide"
+                onMouseDown={(e) => {
+                    e.stopPropagation();
+                }}
+                role="dialog"
+            >
+                <div className="ad-head">
+                    <span className="ad-mark">
+                        <VendorMark id="cpa" size={24} />
+                    </span>
+                    <div className="ad-htext">
+                        <div className="ad-title">添加 CPA Manager</div>
+                        <div className="ad-sub">批量接入多个服务商账号</div>
+                    </div>
+                    <button className="ad-close" onClick={onClose} title="关闭" type="button">
+                        <Icon name="close" size={17} strokeWidth={2} />
+                    </button>
+                </div>
+                <div className="ad-body">
+                    <div className="ad-field">
+                        <label className="ad-label">CPA-Manager URL</label>
+                        <input
+                            className="ad-input mono"
+                            value={url}
+                            onChange={(e) => {
+                                setUrl(e.target.value);
+                            }}
+                            placeholder="https://cpa.example.com"
+                            autoFocus
+                        />
+                    </div>
+                    <div className="ad-field">
+                        <label className="ad-label">管理密钥</label>
+                        <div className="ad-key">
+                            <input
+                                className="ad-input mono"
+                                type={showKey ? "text" : "password"}
+                                value={key}
+                                onChange={(e) => {
+                                    setKey(e.target.value);
+                                }}
+                                placeholder="cpa_sk_..."
+                            />
+                            <button
+                                className="ad-eye"
+                                onClick={() => {
+                                    setShowKey(!showKey);
+                                }}
+                                title={showKey ? "隐藏" : "显示"}
+                                type="button"
+                            >
+                                <Icon name={showKey ? "eye_off" : "eye"} size={16} />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="ad-field">
+                        <label className="ad-label">同步范围</label>
+                        <div className="scope-list">
+                            {CPA_SCOPE.map((id) => (
+                                <div className="scope-item" key={id}>
+                                    <VendorMark id={id} size={20} />
+                                    <span className="si-name">{PROVIDER_LABELS[id]}</span>
+                                    <Toggle
+                                        on={scope.has(id)}
+                                        onClick={() => {
+                                            toggleScope(id);
+                                        }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <div className="ad-foot">
+                    <button className="ad-test" type="button">
+                        <Icon name="refresh" size={14} />
+                        测试连接
+                    </button>
+                    <div className="ad-foot-r">
+                        <button className="ad-btn ghost" onClick={onClose} type="button">
+                            取消
+                        </button>
+                        <button
+                            className={`ad-btn primary${canSave ? "" : " disabled"}`}
+                            disabled={!canSave}
+                            type="button"
+                        >
+                            保存并同步
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ── Main View ── */
 export function SettingsView() {
     useTheme();
@@ -462,6 +614,7 @@ export function SettingsView() {
     const [pluginInfos, setPluginInfos] = useState<PluginInfo[]>([]);
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);
+    const [showCpaAdd, setShowCpaAdd] = useState(false);
     const [dsView, setDsView] = useState<"list" | "detail">("list");
 
     // CPA detection: show 数据源 nav only when CPA connector exists
@@ -801,6 +954,138 @@ export function SettingsView() {
                                 ) : (
                                     account_groups.map((group) => {
                                         const all_disabled = group.plugins.every((p) => !p.enabled);
+                                        // Single-account provider: one-row display (no group card)
+                                        if (group.plugins.length === 1) {
+                                            const p = group.plugins[0];
+                                            if (!p) return null;
+                                            const is_enabled = p.enabled;
+                                            const info = p.pluginInfo;
+                                            const display_name =
+                                                info?.source === "cpa"
+                                                    ? `CPA · ${group.label}`
+                                                    : p.name;
+                                            const secretKeys = Object.keys(
+                                                hasSecrets[p.instanceId] ?? {},
+                                            ).filter((k) => hasSecrets[p.instanceId]?.[k]);
+                                            const maskedKey =
+                                                secretKeys.length > 0
+                                                    ? `${(secretKeys[0] ?? "").slice(0, 3)}…`
+                                                    : "";
+                                            return (
+                                                <div
+                                                    className={`acct-row${!is_enabled ? " off" : ""}`}
+                                                    key={group.label + group.provider}
+                                                    style={{ marginBottom: 8, padding: "8px 0" }}
+                                                >
+                                                    <VendorMark
+                                                        id={
+                                                            group.provider === "connector"
+                                                                ? "overview"
+                                                                : group.provider
+                                                        }
+                                                        size={20}
+                                                    />
+                                                    <span className="ar-name">{display_name}</span>
+                                                    {maskedKey && (
+                                                        <span className="ai-key">{maskedKey}</span>
+                                                    )}
+                                                    {info?.source === "cpa" && (
+                                                        <span className="ar-badge cpa">
+                                                            来自 CPA Manager
+                                                        </span>
+                                                    )}
+                                                    {!is_enabled && (
+                                                        <span className="ar-off">已关闭</span>
+                                                    )}
+                                                    <div className="ar-actions">
+                                                        <button
+                                                            className="icon-btn ar-ic"
+                                                            title="编辑"
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setDialog({
+                                                                    mode: "edit",
+                                                                    instanceId: p.instanceId,
+                                                                    pluginName: display_name,
+                                                                });
+                                                            }}
+                                                        >
+                                                            <Icon name="edit" size={15} />
+                                                        </button>
+                                                        {info?.source === "cpa" ? (
+                                                            <button
+                                                                className="icon-btn ar-ic"
+                                                                title="隐藏"
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    void save({
+                                                                        ...config,
+                                                                        plugins: config.plugins.map(
+                                                                            (pl) =>
+                                                                                pl.instanceId ===
+                                                                                p.instanceId
+                                                                                    ? {
+                                                                                          ...pl,
+                                                                                          enabled:
+                                                                                              !pl.enabled,
+                                                                                      }
+                                                                                    : pl,
+                                                                        ),
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <Icon name="eye_off" size={15} />
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                className="icon-btn ar-ic"
+                                                                title="删除"
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    if (
+                                                                        !window.confirm(
+                                                                            `确定删除 "${display_name}"？此操作不可撤销。`,
+                                                                        )
+                                                                    )
+                                                                        return;
+                                                                    void save({
+                                                                        ...config,
+                                                                        plugins:
+                                                                            config.plugins.filter(
+                                                                                (pl) =>
+                                                                                    pl.instanceId !==
+                                                                                    p.instanceId,
+                                                                            ),
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <Icon name="trash" size={15} />
+                                                            </button>
+                                                        )}
+                                                        <Toggle
+                                                            on={is_enabled}
+                                                            onClick={() => {
+                                                                void save({
+                                                                    ...config,
+                                                                    plugins: config.plugins.map(
+                                                                        (pl) =>
+                                                                            pl.instanceId ===
+                                                                            p.instanceId
+                                                                                ? {
+                                                                                      ...pl,
+                                                                                      enabled:
+                                                                                          !pl.enabled,
+                                                                                  }
+                                                                                : pl,
+                                                                    ),
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        // Multi-account provider: grouped display
                                         return (
                                             <div
                                                 className={`acct-group${all_disabled ? " off" : ""}`}
@@ -1000,11 +1285,7 @@ export function SettingsView() {
                                             setDsView("detail");
                                         }}
                                         onAdd={() => {
-                                            setDialog({
-                                                mode: "add",
-                                                instanceId: undefined,
-                                                pluginName: undefined,
-                                            });
+                                            setShowCpaAdd(true);
                                         }}
                                     />
                                 )}
@@ -1301,12 +1582,27 @@ export function SettingsView() {
                         pluginConfig={config.plugins.find(
                             (p) => p.instanceId === dialog.instanceId,
                         )}
+                        pluginInfos={pluginInfos}
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
                         onSaveSecrets={savePluginSecrets}
                         onRefresh={refreshPlugin}
+                        onSelectService={(id, name) => {
+                            setDialog({ mode: "edit", instanceId: id, pluginName: name });
+                        }}
+                        onCpa={() => {
+                            setDialog(null);
+                            setShowCpaAdd(true);
+                        }}
                         onClose={() => {
                             setDialog(null);
+                        }}
+                    />
+                )}
+                {showCpaAdd && (
+                    <CpaAddDialog
+                        onClose={() => {
+                            setShowCpaAdd(false);
                         }}
                     />
                 )}
