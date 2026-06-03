@@ -91,14 +91,16 @@ testWithConfig.describe("auto-seed with existing config", () => {
         await sPage.waitForTimeout(500);
 
         // "My Claude" must still exist (not replaced by "Claude" or "Claude 2")
+        // Single-account providers render as .acct-row without .acct-group wrapper
         await expectWithConfig(
-            sPage.locator(".acct-group").filter({ hasText: "My Claude" }).first(),
+            sPage.locator(".acct-row, .acct-group").filter({ hasText: "My Claude" }).first(),
         ).toBeVisible();
 
         // Total plugin count should be >= 7 (1 existing + 6 auto-seeded)
-        // CPA may split into multiple groups per active provider, so exact count varies.
+        // Count both grouped and standalone account rows
+        const acctRows = sPage.locator(".acct-row");
         const acctGroups = sPage.locator(".acct-group");
-        const count = await acctGroups.count();
+        const count = (await acctRows.count()) + (await acctGroups.count());
         expectWithConfig(count).toBeGreaterThanOrEqual(BUNDLED_PLUGIN_NAMES.length);
     });
 });
