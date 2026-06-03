@@ -1,7 +1,11 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ProviderCard } from "../../../../src/renderer/components/ProviderCard";
-import type { ProviderUsageGroup } from "../../../../src/renderer/lib/provider-usage";
+import {
+    buildOverviewForGroup,
+    type ProviderUsageGroup,
+    type ProviderUsageWindow,
+} from "../../../../src/renderer/lib/provider-usage";
 
 vi.mock("../../../../src/renderer/lib/theme", () => ({
     useTheme: () => undefined,
@@ -66,6 +70,27 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
     };
 }
 
+function makeWindow(overrides: Partial<ProviderUsageWindow> = {}): ProviderUsageWindow {
+    return {
+        id: "w-overview",
+        provider: "deepseek",
+        source: "api_key",
+        sourceInstanceId: "ds-overview",
+        connectorInstanceId: "ds-overview",
+        connectorDisplayName: "DeepSeek",
+        accountId: "acc-overview",
+        accountLabel: "Account Overview",
+        name: "5小时",
+        used: 0,
+        limit: 0,
+        displayStyle: "ratio",
+        resetAt: null,
+        status: "normal",
+        updatedAt: "2026-06-02T10:00:00Z",
+        ...overrides,
+    };
+}
+
 describe("ProviderCard", () => {
     beforeEach(() => {
         window.usageboard = {
@@ -89,6 +114,7 @@ describe("ProviderCard", () => {
                 onThemeChange: vi.fn(),
             },
             popup: { report_content_height: vi.fn() },
+            settings: { open: vi.fn() },
             log: vi.fn(),
         } as unknown as typeof window.usageboard;
     });
@@ -155,8 +181,26 @@ describe("ProviderCard", () => {
         render(
             <ProviderCard provider="deepseek" group={group} expanded onToggleExpand={vi.fn()} />,
         );
-        expect(screen.getByText("平均")).toBeInTheDocument();
+        expect(screen.getByText("概览")).toBeInTheDocument();
         expect(screen.getByText("3账号")).toBeInTheDocument();
+    });
+
+    it("renders overview rows by default for expanded multi-account providers", () => {
+        const group = makeGroup({
+            accountCount: 2,
+            windows: [
+                makeWindow({ id: "w1", accountId: "a1", used: 50, limit: 100 }),
+                makeWindow({ id: "w2", accountId: "a2", used: 100, limit: 300 }),
+            ],
+        });
+
+        render(
+            <ProviderCard provider="deepseek" group={group} expanded onToggleExpand={vi.fn()} />,
+        );
+
+        expect(screen.getByText("概览")).toBeInTheDocument();
+        expect(screen.getByText("150 / 400")).toBeInTheDocument();
+        expect(screen.queryByText("Account 1")).not.toBeInTheDocument();
     });
 
     it("shows auth error with login action", () => {
@@ -194,5 +238,65 @@ describe("ProviderCard", () => {
     it("renders grip handle when onDragStart is provided", () => {
         render(<ProviderCard provider="deepseek" group={makeGroup()} onDragStart={vi.fn()} />);
         expect(screen.getByTitle("拖动以调整顺序")).toBeInTheDocument();
+    });
+
+    it("builds weighted overview by quota period", () => {
+        const group = makeGroup({
+            windows: [
+                makeWindow({ id: "w1", accountId: "a1", used: 50, limit: 100 }),
+                makeWindow({ id: "w2", accountId: "a2", used: 100, limit: 300 }),
+                makeWindow({ id: "w3", accountId: "a3", name: "一周", used: 20, limit: 100 }),
+            ],
+        });
+
+        const overview = buildOverviewForGroup(group);
+
+        expect(overview).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ name: "5小时", percent: 38, used: 150, limit: 400 }),
+                expect.objectContaining({ name: "一周", percent: 20, used: 20, limit: 100 }),
+            ]),
+        );
+    });
+
+    it("skips invalid overview quota windows", () => {
+        const group = makeGroup({
+            windows: [
+                makeWindow({ id: "w1", accountId: "a1", used: 10, limit: 0 }),
+                makeWindow({ id: "w2", accountId: "a2", used: 0, limit: 0, status: "unknown" }),
+            ],
+        });
+
+        expect(buildOverviewForGroup(group)).toEqual([]);
+    });
+
+    it("only shows converged overview times", () => {
+        const group = makeGroup({
+            windows: [
+                makeWindow({
+                    id: "w1",
+                    accountId: "a1",
+                    used: 50,
+                    limit: 100,
+                    updatedAt: "2026-06-02T10:00:00Z",
+                    resetAt: "2026-06-02T13:00:00Z",
+                }),
+                makeWindow({
+                    id: "w2",
+                    accountId: "a2",
+                    used: 50,
+                    limit: 100,
+                    updatedAt: "2026-06-02T10:09:00Z",
+                    resetAt: "2026-06-02T13:11:00Z",
+                }),
+            ],
+        });
+
+        expect(buildOverviewForGroup(group)[0]).toEqual(
+            expect.objectContaining({
+                updatedAt: "2026-06-02T10:09:00Z",
+                resetAt: null,
+            }),
+        );
     });
 });

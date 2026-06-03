@@ -184,3 +184,83 @@ export function getVisibleProviders(connectors: readonly ConnectorInfo[]): Usage
 
     return [...providers].sort(compareProviders);
 }
+
+const TEN_MINUTES_MS = 10 * 60 * 1000;
+
+export function resolveConvergentTime(timestamps: (string | null | undefined)[]): string | null {
+    const valid = timestamps
+        .map((t) => (t ? { raw: t, time: new Date(t).getTime() } : null))
+        .filter((t): t is { raw: string; time: number } => t !== null && Number.isFinite(t.time));
+    const [first] = valid;
+    if (!first) return null;
+    if (valid.length === 1) return first.raw;
+
+    const earliest = valid.reduce((min, item) => Math.min(min, item.time), first.time);
+    const latest = valid.reduce((max, item) => Math.max(max, item.time), first.time);
+
+    if (latest - earliest > TEN_MINUTES_MS) return null;
+
+    return valid.find((t) => t.time === latest)?.raw ?? null;
+}
+
+function hasValidQuota(window: ProviderUsageWindow): boolean {
+    return (
+        Number.isFinite(window.used) &&
+        Number.isFinite(window.limit) &&
+        window.used >= 0 &&
+        window.limit > 0
+    );
+}
+
+export interface OverviewWindow {
+    id: string;
+    name: string;
+    percent: number;
+    used: number;
+    limit: number;
+    displayStyle: UsageItem["displayStyle"];
+    status: UsageItem["status"];
+    updatedAt: string | null;
+    resetAt: string | null;
+    color?: UsageItem["color"];
+}
+
+export function buildOverviewForGroup(group: ProviderUsageGroup): OverviewWindow[] {
+    const byPeriod = new Map<string, ProviderUsageWindow[]>();
+
+    for (const window of group.windows) {
+        const existing = byPeriod.get(window.name) ?? [];
+        existing.push(window);
+        byPeriod.set(window.name, existing);
+    }
+
+    const result: OverviewWindow[] = [];
+
+    for (const [name, windows] of byPeriod) {
+        const validWindows = windows.filter(hasValidQuota);
+        if (validWindows.length === 0) continue;
+
+        const totalUsed = validWindows.reduce((sum, window) => sum + window.used, 0);
+        const totalLimit = validWindows.reduce((sum, window) => sum + window.limit, 0);
+        const percent = Math.round((totalUsed / totalLimit) * 100);
+        const periodWorstStatus = validWindows.reduce<UsageItem["status"]>(
+            (worst, window) => worstStatus(window.status, worst),
+            "normal",
+        );
+
+        result.push({
+            id: `overview-${name}`,
+            name,
+            percent: Math.min(100, Math.max(0, percent)),
+            used: totalUsed,
+            limit: totalLimit,
+            displayStyle: validWindows[0]?.displayStyle ?? "percent",
+            status: periodWorstStatus,
+            updatedAt: resolveConvergentTime(validWindows.map((window) => window.updatedAt)),
+            resetAt: resolveConvergentTime(validWindows.map((window) => window.resetAt)),
+            color: validWindows.find((window) => window.color)?.color,
+        });
+    }
+
+    return result;
+}

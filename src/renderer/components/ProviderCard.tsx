@@ -1,7 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
-import { PROVIDER_LABELS } from "../lib/provider-usage";
+import {
+    PROVIDER_LABELS,
+    buildOverviewForGroup,
+    resolveConvergentTime,
+} from "../lib/provider-usage";
 import { relativeTime, formatResetTime } from "../lib/utils";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
@@ -181,7 +185,17 @@ export function ProviderCard({
         };
     }, [menu_open, close_menu]);
 
-    const updated_text = group?.updatedAt ? relativeTime(group.updatedAt) : "";
+    const is_multi = accountCount > 1;
+    const overview_windows = useMemo(() => (group ? buildOverviewForGroup(group) : []), [group]);
+    const overview_updated_at = useMemo(
+        () =>
+            is_multi
+                ? resolveConvergentTime(overview_windows.map((window) => window.updatedAt))
+                : (group?.updatedAt ?? null),
+        [group?.updatedAt, is_multi, overview_windows],
+    );
+
+    const updated_text = overview_updated_at ? relativeTime(overview_updated_at) : "";
 
     const header = (
         <>
@@ -195,13 +209,13 @@ export function ProviderCard({
                 <span className="l2seg" role="tablist">
                     <button
                         className={l2open ? "" : "on"}
-                        title="平均用量"
+                        title="概览"
                         type="button"
                         onClick={() => {
                             if (l2open) set_l2open(false);
                         }}
                     >
-                        平均
+                        概览
                     </button>
                     <button
                         className={l2open ? "on" : ""}
@@ -301,7 +315,43 @@ export function ProviderCard({
         </>
     );
 
-    const is_multi = accountCount > 1;
+    const render_overview = () => {
+        if (!overview_windows.length) return <div className="card-state off">暂无有效用量数据</div>;
+        return (
+            <div className="ub-rows">
+                {overview_windows.map((ow) => {
+                    const displayPercent = Math.min(100, Math.max(0, ow.percent));
+                    const resetAtText = ow.resetAt ? formatResetTime(ow.resetAt) : null;
+                    const danger = ow.status === "critical";
+                    return (
+                        <div className="ub-row" key={ow.id}>
+                            <div className="ub-row-label">{ow.name}</div>
+                            <div
+                                className="ub-bar"
+                                data-tone={
+                                    danger ? "danger" : ow.status === "warning" ? "warn" : undefined
+                                }
+                                data-invert={displayPercent >= 52 ? "true" : undefined}
+                            >
+                                <div
+                                    className="ub-bar-fill"
+                                    style={{ width: `${String(displayPercent)}%` }}
+                                />
+                                <div className="ub-bar-text">
+                                    {ow.displayStyle === "percent"
+                                        ? `${String(displayPercent)}%`
+                                        : `${ow.used.toLocaleString()} / ${ow.limit.toLocaleString()}`}
+                                </div>
+                            </div>
+                            <div className="ub-row-time">
+                                {danger ? "⚠" : (resetAtText ?? "--")}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
 
     const render_account_detail = () => {
         if (!group) return null;
@@ -411,9 +461,11 @@ export function ProviderCard({
             >
                 {is_multi && l2open
                     ? render_account_detail()
-                    : group.accounts.map((account) => (
-                          <ProviderAccountRow key={account.id} account={account} />
-                      ))}
+                    : is_multi && !l2open
+                      ? render_overview()
+                      : group.accounts.map((account) => (
+                            <ProviderAccountRow key={account.id} account={account} />
+                        ))}
             </CollapsibleCard>
         );
 

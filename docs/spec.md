@@ -331,7 +331,8 @@ refresh(instanceId)
 - `failed`：显示错误信息 + stale 数据（如有）+ 相对时间
 - 颜色阈值：>=75% 黄色，>=90% 红色
 - **总览页就地展开**：总览 tab 下的 ProviderCard 支持 chevron 展开/折叠，展开后显示该 provider 的账号列表，折叠/展开驱动高度自适应。
-- **多账号 L2 segmented control**：多账号 provider 展开后显示 `平均` / `N账号` 切换。默认"平均"视图显示跨账号聚合用量；点击"N账号"切换到账号明细视图（`.acct-detail`），显示状态点、账号名、脱敏 key、更新时间、进度条。单账号 provider 不显示 L2 控件。
+- **多账号 L2 segmented control**：多账号 provider 展开后显示 `概览` / `N账号` 切换。默认"概览"视图按额度周期独立聚合当前可显示账号：只纳入有效 `used/limit` 数据，优先用 `sum(used) / sum(limit)` 计算整体使用率；无有效数据的周期不显示伪造数值。点击"N账号"切换到账号明细视图（`.acct-detail`），显示状态点、账号名、脱敏 key、更新时间、进度条。单账号 provider 不显示 L2 控件。
+- **概览时间显示**：多账号概览的采集刷新时间和额度重置时间都不取均值；同一周期内有效账号时间差不超过 10 分钟时显示最新时间，超过 10 分钟则不显示该时间。
 - **卡片菜单**：编辑 / 启用或关闭 / 删除，相对卡片右上角定位，毛玻璃背景（`backdrop-filter: blur(28px) saturate(170%)`）。
 - **禁用状态**：`disabled` class 灰化卡片，显示"监控已关闭，不再刷新用量" + "启用"操作。
 - **Tab 导航**：总览 tab `.pinned` + `.tabs-pin-divider` 分隔线 + `.tabs-fade.right` 渐隐 + `.tabs-chevron` 箭头。各 provider 使用品牌 SVG 图标。
