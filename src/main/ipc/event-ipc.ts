@@ -1,4 +1,4 @@
-import { nativeTheme, BrowserWindow } from "electron";
+import { nativeTheme, BrowserWindow, ipcMain } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { PluginSnapshotDTO } from "../../shared/types/ipc";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
@@ -64,6 +64,13 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
     };
 
     nativeTheme.on("updated", themeHandler);
+
+    // Allow renderer to set the app theme explicitly.
+    // Setting nativeTheme.themeSource triggers the "updated" event above,
+    // which broadcasts to all windows automatically.
+    ipcMain.handle(IPC_CHANNELS.THEME_SET, (_e, mode: "light" | "dark" | "system") => {
+        nativeTheme.themeSource = mode;
+    });
 
     return () => {
         unsubState();

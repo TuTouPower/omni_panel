@@ -1,6 +1,7 @@
 import {
     app,
     BrowserWindow,
+    nativeTheme,
     Tray,
     Menu,
     nativeImage,
@@ -316,6 +317,9 @@ void app.whenReady().then(async () => {
 
     // Reload config after potential seeding
     const currentConfig = await configStore.load();
+
+    // Apply saved theme so nativeTheme.shouldUseDarkColors is correct from the start
+    nativeTheme.themeSource = currentConfig.theme ?? "system";
 
     function buildSecretParamKeys(cfg: {
         plugins: readonly PluginConfiguration[];

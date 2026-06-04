@@ -114,7 +114,7 @@ describe("Renderer smoke tests", () => {
                     cb(true);
                 }
             });
-            expect(document.documentElement.classList.contains("dark")).toBe(true);
+            expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
         });
     });
 });

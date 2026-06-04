@@ -11,12 +11,12 @@ test.describe("popup theme", () => {
         await popup.waitReady();
 
         // Check current theme
-        const has_dark = await page.evaluate(() => {
-            return document.documentElement.classList.contains("dark");
+        const theme_attr = await page.evaluate(() => {
+            return document.documentElement.getAttribute("data-theme");
         });
 
         // Theme may be light or dark depending on system settings
-        expect(typeof has_dark).toBe("boolean");
+        expect(theme_attr === "light" || theme_attr === "dark").toBe(true);
     });
 
     test("danger colors remain readable in dark mode", async ({ omni }) => {

@@ -19,6 +19,8 @@ export const IPC_CHANNELS = {
     EVENT_STATE_CHANGE: "event:stateChange",
     EVENT_THEME_CHANGE: "event:themeChange",
 
+    THEME_SET: "theme:set",
+
     LOG_RENDERER: "log:renderer",
 
     /** Popup renderer reports measured content height for window auto-sizing. */
@@ -136,6 +138,10 @@ export interface UsageboardApi {
          * minimum height) so the main process can lock the BrowserWindow size.
          */
         report_content_height(report: PopupContentHeightReport): void;
+    };
+    theme: {
+        /** Tell the main process to apply the given theme mode. */
+        set(mode: "light" | "dark" | "system"): void;
     };
     settings: {
         /** Open or focus the settings window. */

@@ -92,6 +92,11 @@ const api: UsageboardApi = {
             void ipcRenderer.invoke(IPC_CHANNELS.POPUP_REPORT_CONTENT_HEIGHT, report);
         },
     },
+    theme: {
+        set: (mode: "light" | "dark" | "system") => {
+            void ipcRenderer.invoke(IPC_CHANNELS.THEME_SET, mode);
+        },
+    },
     settings: {
         open: () => {
             void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_OPEN);

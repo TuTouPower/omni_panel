@@ -1433,20 +1433,7 @@ export function SettingsView() {
                                                 onClick={() => {
                                                     const newTheme = k;
                                                     void save({ ...config, theme: newTheme });
-                                                    if (k === "system") {
-                                                        const sysDark = window.matchMedia(
-                                                            "(prefers-color-scheme: dark)",
-                                                        ).matches;
-                                                        document.documentElement.classList.toggle(
-                                                            "dark",
-                                                            sysDark,
-                                                        );
-                                                    } else {
-                                                        document.documentElement.classList.toggle(
-                                                            "dark",
-                                                            k === "dark",
-                                                        );
-                                                    }
+                                                    window.usageboard.theme.set(newTheme);
                                                 }}
                                                 type="button"
                                             >

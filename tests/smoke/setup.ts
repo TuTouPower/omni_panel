@@ -149,6 +149,9 @@ function createMockApi() {
                 };
             },
         },
+        theme: {
+            set: vi.fn(),
+        },
         log: vi.fn(),
         popup: {
             report_content_height: vi.fn(),
