@@ -9,7 +9,11 @@ import { ProviderNav } from "../components/ProviderNav";
 import { ProviderOverview } from "../components/ProviderOverview";
 import { TokenPanel } from "../components/TokenPanel";
 import { CollapsibleCard } from "../components/CollapsibleCard";
-import { buildProviderUsageGroups, getVisibleProviders } from "../lib/provider-usage";
+import {
+    buildProviderUsageGroups,
+    getVisibleProviders,
+    PROVIDER_ORDER,
+} from "../lib/provider-usage";
 import { format_rel_time } from "../lib/rel-time";
 import logo from "../assets/logo.png";
 
@@ -108,19 +112,25 @@ export function PopupView() {
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
 
     // Load persisted provider order from config
+    const valid_providers = useMemo(() => new Set(PROVIDER_ORDER as readonly string[]), []);
     useEffect(() => {
         window.usageboard.config
             .get()
             .then((result) => {
                 const order = result.config.providerOrder;
                 if (order && order.length > 0) {
-                    set_provider_order(order as UsageProvider[]);
+                    const validated = (order as string[]).filter((p): p is UsageProvider =>
+                        valid_providers.has(p),
+                    );
+                    if (validated.length > 0) {
+                        set_provider_order(validated);
+                    }
                 }
             })
             .catch(() => {
                 // ignore load errors
             });
-    }, []);
+    }, [valid_providers]);
 
     // Persist provider order to config when it changes
     useEffect(() => {
@@ -141,6 +151,16 @@ export function PopupView() {
     const live_root_ref = useRef<HTMLDivElement | null>(null);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
     const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
+    const refresh_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Cleanup refresh timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (refresh_timeout_ref.current !== null) {
+                clearTimeout(refresh_timeout_ref.current);
+            }
+        };
+    }, []);
 
     const providerGroups = useMemo(() => buildProviderUsageGroups(plugins), [plugins]);
     const visibleProviders = useMemo(() => getVisibleProviders(plugins), [plugins]);
@@ -220,7 +240,7 @@ export function PopupView() {
                 });
             })
             .finally(() => {
-                setTimeout(() => {
+                refresh_timeout_ref.current = setTimeout(() => {
                     setRefreshing(false);
                 }, 800);
             });

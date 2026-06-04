@@ -68,15 +68,23 @@ export function definePlugin(handler: PluginHandler, options: DefinePluginOption
         });
 }
 
+function sanitizeErrorMessage(msg: string): string {
+    // Remove potential key patterns
+    let safe = msg.replace(/\b(sk-|key-|api[_-]?key\s*[:=]\s*)\S+/gi, "[REDACTED]");
+    // Truncate to 500 chars
+    if (safe.length > 500) safe = safe.slice(0, 500);
+    return safe;
+}
+
 function normalizeError(err: unknown): PluginOutput {
     if (err instanceof Error) {
         if (err.message.startsWith("MISSING_PARAM:")) {
             const key = err.message.slice("MISSING_PARAM:".length);
             return fail("MISSING_PARAM", `Missing required parameter: ${key}`);
         }
-        return fail("PLUGIN_ERROR", err.message);
+        return fail("PLUGIN_ERROR", sanitizeErrorMessage(err.message));
     }
-    return fail("PLUGIN_ERROR", String(err));
+    return fail("PLUGIN_ERROR", sanitizeErrorMessage(String(err)));
 }
 
 export function failFromHttp(err: HttpError, contextLabel?: string): PluginOutput {
