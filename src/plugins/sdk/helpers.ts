@@ -65,10 +65,10 @@ export function appLanguage(params: Record<string, string>): AppLanguage {
 }
 
 export function numeric(value: unknown): number {
-    if (typeof value === "number") return value;
+    if (typeof value === "number") return isFinite(value) ? value : 0;
     if (typeof value === "string") {
         const n = Number(value);
-        return Number.isNaN(n) ? 0 : n;
+        return isFinite(n) ? n : 0;
     }
     return 0;
 }
