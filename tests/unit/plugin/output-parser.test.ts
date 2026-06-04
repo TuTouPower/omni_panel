@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-    parsePluginResult,
-    parsePluginSuccessOutput,
-} from "../../../src/main/core/plugin/output-parser";
+import { parsePluginResult } from "../../../src/main/core/plugin/output-parser";
 import {
     PluginOutputParseError,
     PluginSchemaError,
@@ -76,20 +73,6 @@ describe("parsePluginResult", () => {
 
     it("throws PluginSchemaError for wrong type", () => {
         expect(() => parsePluginResult(loadFixture("invalid-wrong-type.json"))).toThrow(
-            PluginSchemaError,
-        );
-    });
-});
-
-describe("parsePluginSuccessOutput", () => {
-    it("parses success-basic.json", () => {
-        const result = parsePluginSuccessOutput(loadFixture("success-basic.json"));
-        expect(result.success).toBe(true);
-        expect(result.items.length).toBeGreaterThan(0);
-    });
-
-    it("throws for error output", () => {
-        expect(() => parsePluginSuccessOutput(loadFixture("error-json-field.json"))).toThrow(
             PluginSchemaError,
         );
     });
