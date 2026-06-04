@@ -34,6 +34,17 @@ function stripRemovedConfigFields(config: Record<string, unknown>): Record<strin
 export function createConfigStore(configPath: string): AppConfigStore {
     let pendingTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingConfig: AppConfiguration | null = null;
+    let saveQueue: Promise<void> = Promise.resolve();
+
+    async function doSave(config: AppConfiguration): Promise<void> {
+        await mkdir(dirname(configPath), { recursive: true });
+        const sorted = sortKeys(config);
+        const json = JSON.stringify(sorted, null, 2);
+        const tmpPath = `${configPath}.tmp`;
+        await writeFile(tmpPath, json, "utf8");
+        await rename(tmpPath, configPath);
+        log.debug(`Config saved to ${configPath} (${String(config.plugins.length)} plugins)`);
+    }
 
     return {
         async load(): Promise<AppConfiguration> {
@@ -69,13 +80,8 @@ export function createConfigStore(configPath: string): AppConfigStore {
         },
 
         async save(config: AppConfiguration): Promise<void> {
-            await mkdir(dirname(configPath), { recursive: true });
-            const sorted = sortKeys(config);
-            const json = JSON.stringify(sorted, null, 2);
-            const tmpPath = `${configPath}.tmp`;
-            await writeFile(tmpPath, json, "utf8");
-            await rename(tmpPath, configPath);
-            log.debug(`Config saved to ${configPath} (${String(config.plugins.length)} plugins)`);
+            saveQueue = saveQueue.then(() => doSave(config));
+            await saveQueue;
         },
 
         scheduleSave(config: AppConfiguration, delayMs = 500): void {

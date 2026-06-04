@@ -13,6 +13,7 @@ export interface SecretsStore {
 
 export function createSecretsStore(filePath: string, crypto: CryptoBackend): SecretsStore {
     const log = createLogger("secrets-store");
+    let writeQueue: Promise<void> = Promise.resolve();
 
     async function readAll(): Promise<Record<string, string>> {
         try {
@@ -26,12 +27,17 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
         }
     }
 
-    async function writeAll(data: Record<string, string>): Promise<void> {
+    async function doWriteAll(data: Record<string, string>): Promise<void> {
         await mkdir(dirname(filePath), { recursive: true });
         const tmpPath = `${filePath}.tmp`;
         await writeFile(tmpPath, JSON.stringify(data, null, 2), { mode: 0o600 });
         await rename(tmpPath, filePath);
         await chmod(filePath, 0o600);
+    }
+
+    async function queuedWrite(data: Record<string, string>): Promise<void> {
+        writeQueue = writeQueue.then(() => doWriteAll(data));
+        await writeQueue;
     }
 
     return {
@@ -48,7 +54,7 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
             const data = await readAll();
             const isNew = !(key in data);
             data[key] = crypto.encrypt(value);
-            await writeAll(data);
+            await queuedWrite(data);
             if (isNew) {
                 log.info(`Secret stored: ${key.split(":")[0] ?? key}:***`);
             }
@@ -61,7 +67,7 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
                 return;
             }
             const filtered = Object.fromEntries(Object.entries(data).filter(([k]) => k !== key));
-            await writeAll(filtered);
+            await queuedWrite(filtered);
             log.info(`Secret deleted: ${key}`);
         },
 
@@ -83,7 +89,7 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
             for (const [key, value] of Object.entries(decrypted)) {
                 data[key] = crypto.encrypt(value);
             }
-            await writeAll(data);
+            await queuedWrite(data);
             log.info(`Imported ${String(Object.keys(data).length)} secrets`);
         },
     };
