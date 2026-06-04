@@ -18,6 +18,9 @@
     --card-foreground: var(--text);
     --muted: var(--chip-bg);
     --muted-foreground: var(--text-3);
+    --destructive: var(--red);
+    --ring: var(--blue);
+    --foreground: var(--text);
 
     --desktop: #e7eaf1;
     --win-bg: #ffffff;
@@ -312,7 +315,6 @@ body {
     border-radius: 14px;
     box-shadow: var(--card-shadow);
     padding: 14px 16px;
-    margin-bottom: 12px;
 }
 .card.alert {
     border-color: color-mix(in srgb, var(--red) 38%, var(--card-border));
@@ -803,7 +805,6 @@ body {
     color: color-mix(in srgb, var(--red) 80%, var(--text));
     border-radius: 12px;
     padding: 11px 14px;
-    margin-bottom: 12px;
     font-size: 13px;
 }
 .net-banner .nb-action {
