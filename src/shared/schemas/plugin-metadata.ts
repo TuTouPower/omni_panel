@@ -16,7 +16,7 @@ export const pluginParameterOptionSchema = z
         label: z.string(),
         value: z.string(),
     })
-    .passthrough();
+    .strict();
 
 export const pluginParameterMetadataSchema = z
     .object({
@@ -28,7 +28,7 @@ export const pluginParameterMetadataSchema = z
         defaultValue: z.string().optional(),
         options: z.array(pluginParameterOptionSchema).optional(),
     })
-    .passthrough();
+    .strict();
 
 export const pluginEndpointsSchema = z.record(z.string().url().nullable());
 
@@ -42,7 +42,7 @@ export const pluginMetadataSchema = z
         supportedProviders: z.array(usageProviderSchema).optional(),
         defaultSource: usageSourceSchema.optional(),
     })
-    .passthrough();
+    .strict();
 
 export type PluginMetadata = z.infer<typeof pluginMetadataSchema>;
 export type PluginParameterMetadata = z.infer<typeof pluginParameterMetadataSchema>;
