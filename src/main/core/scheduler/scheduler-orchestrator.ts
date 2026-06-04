@@ -4,7 +4,7 @@ import type { AppConfigStore } from "../config/config-store";
 
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 
-export interface PluginListConfig {
+interface PluginListConfig {
     plugins: readonly {
         enabled: boolean;
         instanceId: string;
@@ -12,12 +12,12 @@ export interface PluginListConfig {
     }[];
 }
 
-export interface SchedulerOrchestratorDeps {
+interface SchedulerOrchestratorDeps {
     scheduler: PluginScheduler;
     configStore: AppConfigStore;
 }
 
-export interface SchedulerOrchestrator {
+interface SchedulerOrchestrator {
     startAll(config: PluginListConfig): void;
     rebuild(config: PluginListConfig): void;
     suspend(): void;

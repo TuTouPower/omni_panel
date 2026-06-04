@@ -1,4 +1,4 @@
-export const USAGE_COLORS = [
+const USAGE_COLORS = [
     "#5B8CFF", // 1 主蓝
     "#8B72F8", // 2 主紫
     "#46C7C7", // 3 主青

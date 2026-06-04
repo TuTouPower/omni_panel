@@ -40,7 +40,7 @@ export interface ProviderUsageGroup {
     accounts: ProviderUsageAccount[];
 }
 
-export const PROVIDER_ORDER: readonly UsageProvider[] = [
+const PROVIDER_ORDER: readonly UsageProvider[] = [
     "claude",
     "codex",
     "gemini",

@@ -1,7 +1,7 @@
 import { MIN_REFRESH_INTERVAL_SECONDS } from "../../../shared/constants";
 import { createLogger } from "../../../shared/lib/logger";
 
-export interface PluginSchedulerDeps {
+interface PluginSchedulerDeps {
     refresh: (instanceId: string) => Promise<void>;
 }
 

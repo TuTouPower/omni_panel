@@ -30,10 +30,6 @@ export function getUserPluginsDir(): string {
     return join(getDataRoot(), "plugins");
 }
 
-export function getLogsDir(): string {
-    return join(getDataRoot(), "logs");
-}
-
 export function get_tray_icon_path(): string {
     if (app.isPackaged) {
         return join(process.resourcesPath, "tray-icon.png");
