@@ -189,14 +189,18 @@ export async function handleConfigExport(
     try {
         const { dialog, app } = await import("electron");
         const config = await deps.configStore.load();
-        const secrets = await deps.secretsStore.exportAll();
+        const rawSecrets = await deps.secretsStore.exportAll();
+        const redactedSecrets: Record<string, string> = {};
+        for (const key of Object.keys(rawSecrets)) {
+            redactedSecrets[key] = "***REDACTED***";
+        }
 
         const data: ConfigExportData = {
             formatVersion: 1,
             exportedAt: new Date().toISOString(),
             appVersion: app.getVersion(),
             config,
-            secrets,
+            secrets: redactedSecrets,
         };
 
         const { filePath, canceled } = await dialog.showSaveDialog({

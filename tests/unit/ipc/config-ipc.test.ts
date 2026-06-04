@@ -242,7 +242,7 @@ describe("config-ipc", () => {
         const parsed = JSON.parse(await readFile(exportPath, "utf8")) as Record<string, unknown>;
         expect(parsed["formatVersion"]).toBe(1);
         expect(parsed["config"]).toBeDefined();
-        expect(parsed["secrets"]).toEqual({ "claude:API_KEY": "sk-real" });
+        expect(parsed["secrets"]).toEqual({ "claude:API_KEY": "***REDACTED***" });
     });
 
     it("handleConfigExport returns saved=false when dialog canceled", async () => {

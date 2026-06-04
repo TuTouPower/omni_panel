@@ -18,13 +18,6 @@ export class PluginSchemaError extends Error {
     }
 }
 
-export class MetadataParseError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "MetadataParseError";
-    }
-}
-
 export class PluginExecutionError extends Error {
     constructor(
         message: string,

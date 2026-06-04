@@ -28,6 +28,18 @@ export const appConfigurationSchema = z.object({
     plugins: z.array(pluginConfigurationSchema),
     launchAtLogin: z.boolean(),
     proxy: proxyConfigurationSchema.optional(),
+    accentColor: z.string().optional(),
+    theme: z.enum(["light", "dark", "system"]).optional(),
+    pinToTop: z.boolean().optional(),
+    minimizeToTray: z.boolean().optional(),
+    globalRefreshIntervalSeconds: z.number().int().min(1).optional(),
+    pauseAutoRefresh: z.boolean().optional(),
+    providerOrder: z.array(z.string()).optional(),
+    notifyNearLimit: z.boolean().optional(),
+    notifyAtLimit: z.boolean().optional(),
+    notifyOnFail: z.boolean().optional(),
+    notifyMethod: z.string().optional(),
+    cacheMaxMb: z.number().positive().optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {

@@ -20,8 +20,3 @@ export type PluginSnapshotState =
 export interface RuntimeStoreListener {
     onStateChange(instanceId: string, state: PluginSnapshotState): void;
 }
-
-export interface SystemEventBus {
-    onSleep(callback: () => void): void;
-    onWake(callback: () => void): void;
-}
