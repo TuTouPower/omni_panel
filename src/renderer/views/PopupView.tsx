@@ -10,10 +10,71 @@ import { ProviderOverview } from "../components/ProviderOverview";
 import { TokenPanel } from "../components/TokenPanel";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { buildProviderUsageGroups, getVisibleProviders } from "../lib/provider-usage";
+import { format_rel_time } from "../lib/rel-time";
 import logo from "../assets/logo.png";
 
 const MODULE = "PopupView";
 const token_panel_enabled = import.meta.env["VITE_ENABLE_TOKEN_PANEL"] === "1";
+
+/** Auth-related error patterns for credential failure detection. */
+const AUTH_ERROR_PATTERNS = [
+    "401",
+    "403",
+    "UNAUTHORIZED",
+    "FORBIDDEN",
+    "INVALID_TOKEN",
+    "EXPIRED_TOKEN",
+];
+const AUTH_WORD_RE = /\bAUTH\b/u;
+
+type StatusBarDot = "green" | "red" | "amber";
+
+interface StatusBarState {
+    dot: StatusBarDot;
+    label: string;
+}
+
+/**
+ * Determine status bar state with priority:
+ * 未配置 > 凭证失效 > 网络异常 > 接近限制 > 数据正常
+ */
+function derive_status_bar(
+    plugins: ReturnType<typeof usePlugins>["plugins"],
+    global_error: unknown,
+): StatusBarState {
+    if (plugins.length === 0) {
+        return { dot: "amber", label: "尚未配置" };
+    }
+
+    // Check for credential failures (401/403/AUTH in error messages)
+    for (const p of plugins) {
+        if (p.snapshot.status !== "failed") continue;
+        const err_upper = p.snapshot.error.toUpperCase();
+        if (
+            AUTH_ERROR_PATTERNS.some((pat) => err_upper.includes(pat)) ||
+            AUTH_WORD_RE.test(err_upper)
+        ) {
+            return { dot: "amber", label: "凭证失效" };
+        }
+    }
+
+    // Network / other errors
+    if (global_error || plugins.some((p) => p.snapshot.status === "failed")) {
+        return { dot: "red", label: "网络异常" };
+    }
+
+    // Check for warning/critical usage items
+    for (const p of plugins) {
+        if (p.snapshot.status !== "ready") continue;
+        for (const item of p.snapshot.items) {
+            if (item.status === "warning" || item.status === "critical") {
+                return { dot: "amber", label: "接近限制" };
+            }
+        }
+    }
+
+    return { dot: "green", label: "数据正常" };
+}
 
 function errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
@@ -315,9 +376,9 @@ export function PopupView() {
         }
     }, [activeTab]);
 
-    const hasError = plugins.some((p) => p.snapshot.status === "failed");
-    const statusDot = error || hasError ? "red" : "green";
-    const statusLabel = error || hasError ? "刷新异常" : plugins.length > 0 ? "运行中" : "尚未配置";
+    const statusBar = derive_status_bar(plugins, error);
+    const statusDot = statusBar.dot;
+    const statusLabel = statusBar.label;
     const lastUpdated = plugins
         .filter((p) => p.snapshot.status === "ready" || p.snapshot.status === "failed")
         .map((p) =>
@@ -329,7 +390,7 @@ export function PopupView() {
         .filter(Boolean)
         .sort()
         .pop();
-    const footerTime = lastUpdated ? "刚刚更新" : "";
+    const footerTime = format_rel_time(lastUpdated ?? "");
 
     // Phase 20.5: titlebar drag is platform-dependent.
     // macOS popups are anchored to the tray icon and must not be user-draggable.
