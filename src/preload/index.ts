@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import type {
-    IpcResult,
     UsageboardApi,
     PluginSnapshotDTO,
     RendererLogPayload,
@@ -9,13 +8,24 @@ import type {
 } from "../shared/types/ipc";
 import "./usageboard-api";
 
+function is_ipc_result(
+    val: unknown,
+): val is { ok: boolean; data?: unknown; error?: { code: string; message: string } } {
+    if (typeof val !== "object" || val === null) return false;
+    const obj = val as Record<string, unknown>;
+    return typeof obj["ok"] === "boolean";
+}
+
 async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
     const raw: unknown = await ipcRenderer.invoke(channel, ...args);
-    const result = raw as IpcResult<T>;
-    if (!result.ok) {
-        throw new Error(`[${result.error.code}] ${result.error.message}`);
+    if (!is_ipc_result(raw)) {
+        throw new Error("Invalid IPC response");
     }
-    return result.data;
+    if (!raw.ok) {
+        const err = raw.error ?? { code: "UNKNOWN", message: "Unknown error" };
+        throw new Error(`[${err.code}] ${err.message}`);
+    }
+    return raw.data as T;
 }
 
 type UnwrapPromise<T> = T extends Promise<infer U> ? U : never;
