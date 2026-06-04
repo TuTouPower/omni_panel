@@ -30,6 +30,7 @@ export function createSchedulerOrchestrator(
 ): SchedulerOrchestrator {
     const log = createLogger("orchestrator");
     let safetyNetTimer: ReturnType<typeof setTimeout> | null = null;
+    let generation = 0;
 
     function startAll(config: PluginListConfig): void {
         let count = 0;
@@ -51,6 +52,7 @@ export function createSchedulerOrchestrator(
     function suspend(): void {
         log.info("suspend: stopping all schedulers");
         deps.scheduler.stopAll();
+        generation++;
         if (safetyNetTimer) {
             clearTimeout(safetyNetTimer);
         }
@@ -62,13 +64,19 @@ export function createSchedulerOrchestrator(
             clearTimeout(safetyNetTimer);
             safetyNetTimer = null;
         }
+        const resumeGen = generation;
         void deps.configStore.load().then((latestConfig) => {
+            if (generation !== resumeGen) {
+                log.info("resume: generation mismatch, skipping startAll");
+                return;
+            }
             log.info("resume: restarting enabled plugins");
             startAll(latestConfig);
         });
     }
 
     function shutdown(): void {
+        generation++;
         if (safetyNetTimer) {
             clearTimeout(safetyNetTimer);
             safetyNetTimer = null;
