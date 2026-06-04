@@ -140,19 +140,6 @@ body {
 .titlebar.titlebar-no-drag {
     -webkit-app-region: no-drag;
 }
-.app-badge {
-    width: 30px;
-    height: 30px;
-    border-radius: 9px;
-    background: linear-gradient(150deg, #5b8dff, #6f5cf6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    flex-shrink: 0;
-    box-shadow: 0 3px 8px rgba(83, 99, 246, 0.35);
-    overflow: hidden;
-}
 .app-logo {
     display: block;
     object-fit: contain;
@@ -1644,19 +1631,6 @@ body {
     text-align: center;
     padding: 14px 0 20px;
 }
-.about-app .aa-badge {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    background: linear-gradient(150deg, #5b8dff, #6f5cf6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    box-shadow: 0 6px 16px rgba(83, 99, 246, 0.35);
-    margin-bottom: 12px;
-    overflow: hidden;
-}
 .about-app .aa-name {
     font-size: 17px;
     font-weight: 700;
@@ -2518,16 +2492,6 @@ body {
 
 .tray-win-head .app-logo {
     filter: drop-shadow(0 3px 7px rgba(61, 122, 253, 0.26));
-}
-
-.tray-win-tag {
-    margin-left: auto;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-3);
-    background: var(--field-bg);
-    padding: 3px 8px;
-    border-radius: 99px;
 }
 
 .tray-menu-body {
