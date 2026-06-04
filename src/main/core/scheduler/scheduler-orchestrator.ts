@@ -51,6 +51,9 @@ export function createSchedulerOrchestrator(
     function suspend(): void {
         log.info("suspend: stopping all schedulers");
         deps.scheduler.stopAll();
+        if (safetyNetTimer) {
+            clearTimeout(safetyNetTimer);
+        }
         safetyNetTimer = setTimeout(resume, FOUR_HOURS_MS);
     }
 
