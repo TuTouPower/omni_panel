@@ -60,7 +60,7 @@ export function createHttpClient(metadataEndpoints?: Record<string, string | nul
                 ...(dispatcher ? { dispatcher } : {}),
             });
 
-            const text = await res.body.text();
+            const text = await readBodyWithLimit(res);
             let data: unknown = null;
             if (text.length > 0) {
                 try {
@@ -111,6 +111,9 @@ function buildUrl(base: string, path: string, query?: HttpRequestOptions["query"
     const baseTrimmed = base.endsWith("/") ? base.slice(0, -1) : base;
     const pathNorm = path.startsWith("/") ? path : `/${path}`;
     const url = new URL(baseTrimmed + pathNorm);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+        throw new Error(`Unsupported URL protocol: ${url.protocol}`);
+    }
     if (query) {
         for (const [k, v] of Object.entries(query)) {
             if (v !== undefined) url.searchParams.set(k, String(v));
@@ -128,7 +131,21 @@ function buildProxyDispatcher(): Dispatcher | undefined {
             return new ProxyAgent(parsed.url);
         }
     } catch {
-        // 配置错就走直连
+        throw new Error(`Invalid OMNI_PLUGIN_PROXY: failed to parse proxy configuration`);
     }
-    return undefined;
+    throw new Error(`Invalid OMNI_PLUGIN_PROXY: missing or empty "url" field`);
+}
+
+const MAX_BODY_SIZE = 1024 * 1024; // 1MB
+
+async function readBodyWithLimit(res: Dispatcher.ResponseData): Promise<string> {
+    const contentLength = parseInt(res.headers["content-length"] ?? "0", 10);
+    if (contentLength > MAX_BODY_SIZE) {
+        throw new Error(`Response body too large: ${String(contentLength)} bytes`);
+    }
+    const text = await res.body.text();
+    if (text.length > MAX_BODY_SIZE) {
+        throw new Error(`Response body too large: ${String(text.length)} bytes`);
+    }
+    return text;
 }
