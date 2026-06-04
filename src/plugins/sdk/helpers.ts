@@ -54,7 +54,7 @@ export function makeTranslator(translations: Record<string, Record<string, strin
         const text = values[language] ?? values["zh-Hans"] ?? key;
         if (!kwargs) return text;
         return Object.entries(kwargs).reduce(
-            (acc, [k, v]) => acc.replace(`{${k}}`, String(v)),
+            (acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)),
             text,
         );
     };
