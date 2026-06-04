@@ -14,20 +14,23 @@ interface ProviderAccountRowProps {
     onDragEnd?: (() => void) | undefined;
 }
 
-function usageText(used: number, limit: number): string {
-    if (limit <= 0) return `${used.toLocaleString()} / -`;
-    return `${used.toLocaleString()} / ${limit.toLocaleString()}`;
-}
-
 function percent(used: number, limit: number): number {
     if (limit <= 0) return 0;
     return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
 }
 
-function tone(status: string): string {
-    if (status === "critical") return "danger";
-    if (status === "warning") return "warn";
-    return "normal";
+function is_5hour_period(name: string): boolean {
+    return name.includes("5小时");
+}
+
+function period_label(name: string): string {
+    if (is_5hour_period(name)) return "5小时";
+    if (name.includes("一周")) return "一周";
+    return name;
+}
+
+function period_fill_class(name: string): string {
+    return is_5hour_period(name) ? "blue" : "purple";
 }
 
 export function ProviderAccountRow({
@@ -68,30 +71,27 @@ export function ProviderAccountRow({
         </div>
     );
     const details = (
-        <div className="ub-rows">
+        <div className="bars">
             {account.windows.map((window) => {
-                const windowPercent = percent(window.used, window.limit);
+                const window_percent = percent(window.used, window.limit);
+                const danger = window.status === "critical";
                 return (
-                    <div className="ub-row" key={window.id}>
-                        <div className="ub-row-label">{window.name}</div>
-                        <div
-                            className="ub-bar"
-                            data-tone={tone(window.status)}
-                            data-invert={windowPercent >= 52 ? "true" : "false"}
-                        >
+                    <div className="bar-row" key={window.id}>
+                        <span className="bar-lbl">{period_label(window.name)}</span>
+                        <div className="track">
                             <div
-                                className="ub-bar-fill"
-                                style={{ width: `${String(windowPercent)}%` }}
+                                className={
+                                    "fill " + (danger ? "danger" : period_fill_class(window.name))
+                                }
+                                style={{ width: `${String(window_percent)}%` }}
                             />
-                            <div className="ub-bar-text">
-                                {window.displayStyle === "percent"
-                                    ? `${String(windowPercent)}%`
-                                    : usageText(window.used, window.limit)}
-                            </div>
                         </div>
-                        <div className="ub-row-time">
+                        <span className={"bar-pct" + (danger ? " danger" : "")}>
+                            {window_percent}%
+                        </span>
+                        <span className="bar-reset">
                             {window.resetAt ? formatResetTime(window.resetAt) : "--"}
-                        </div>
+                        </span>
                     </div>
                 );
             })}

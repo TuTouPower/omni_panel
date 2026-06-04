@@ -1868,68 +1868,60 @@ body {
 
 /* ============ USAGEBOARD DESIGN DEMO ALIGNMENT ============ */
 
-/* Usage rows — design demo style */
-.ub-rows {
+/* Progress rows — thin 6px bar system (replaces ub-rows/ub-bar) */
+.bars {
+    margin-top: 11px;
     display: flex;
     flex-direction: column;
     gap: 9px;
-    margin-top: 11px;
 }
-.ub-row {
+.bar-row {
     display: grid;
-    grid-template-columns: 100px 1fr auto;
+    grid-template-columns: 42px 1fr 40px 76px;
     align-items: center;
-    gap: 11px;
+    gap: 10px;
 }
-.ub-row-label {
-    font-size: 14px;
+.bar-lbl {
+    font-size: 12.5px;
     color: var(--text-2);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
-.ub-bar {
-    position: relative;
-    height: 26px;
-    border-radius: 8px;
+.track {
+    height: 6px;
     background: var(--track);
+    border-radius: 99px;
     overflow: hidden;
 }
-.ub-bar-fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    border-radius: 8px;
-    background: linear-gradient(180deg, #5a6eea 0%, var(--blue) 100%);
+.fill {
+    height: 100%;
+    border-radius: 99px;
     transition: width 0.5s cubic-bezier(0.3, 0.8, 0.4, 1);
 }
-.ub-bar[data-tone="danger"] .ub-bar-fill {
-    background: linear-gradient(180deg, #ed6750 0%, var(--red) 100%);
+.fill.blue {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--blue) 62%, #fff), var(--blue));
 }
-.ub-bar[data-tone="warn"] .ub-bar-fill {
-    background: linear-gradient(180deg, #edaf52 0%, var(--amber) 100%);
+.fill.purple {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--purple) 62%, #fff), var(--purple));
 }
-.ub-bar-text {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13.5px;
-    font-weight: 700;
+.fill.danger {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--red) 55%, #fff), var(--red));
+}
+.bar-pct {
+    font-size: 12.5px;
+    font-weight: 600;
     color: var(--text);
-    letter-spacing: -0.01em;
-    font-variant-numeric: tabular-nums;
-}
-.ub-bar[data-invert="true"] .ub-bar-text {
-    color: #fff;
-}
-.ub-row-time {
-    font-size: 13px;
-    color: var(--text-3);
-    white-space: nowrap;
     text-align: right;
-    min-width: 60px;
     font-variant-numeric: tabular-nums;
+}
+.bar-pct.danger {
+    color: var(--red);
+}
+.bar-reset {
+    font-size: 12px;
+    color: var(--text-3);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 /* Token grid */

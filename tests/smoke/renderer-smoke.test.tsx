@@ -25,7 +25,7 @@ describe("Renderer smoke tests", () => {
             const target = deepseekTabs[deepseekTabs.length - 1];
             if (!target) throw new Error("DeepSeek tab not found");
             await user.click(target);
-            expect(screen.getByText(/5,000.*10,000/)).toBeInTheDocument();
+            expect(screen.getByText("50%")).toBeInTheDocument();
         });
 
         it("shows failed provider source as an empty provider page", async () => {

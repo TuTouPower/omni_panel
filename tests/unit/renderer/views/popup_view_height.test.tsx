@@ -201,13 +201,13 @@ describe("PopupView collapse + height report", () => {
 
         const live_expand_a = find_live_button(/^展开 Account A$/);
         const account_a_card = live_expand_a.closest(".card");
-        expect(account_a_card?.querySelector(".ub-rows")).toBeNull();
+        expect(account_a_card?.querySelector(".bars")).toBeNull();
 
         const live_b_card = screen
             .getAllByRole("button", { name: /^折叠 Account B$/ })
             .find((b) => !b.closest('[aria-hidden="true"]'))
             ?.closest(".card");
-        expect(live_b_card?.querySelector(".ub-rows")).not.toBeNull();
+        expect(live_b_card?.querySelector(".bars")).not.toBeNull();
     });
 
     it("resets collapse state when switching tabs", async () => {

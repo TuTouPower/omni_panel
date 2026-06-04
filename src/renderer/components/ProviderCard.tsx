@@ -30,6 +30,44 @@ interface ProviderCardProps {
     refreshing?: boolean | undefined;
 }
 
+function is_5hour_period(name: string): boolean {
+    return name.includes("5小时");
+}
+
+function period_label(name: string): string {
+    if (is_5hour_period(name)) return "5小时";
+    if (name.includes("一周")) return "一周";
+    return name;
+}
+
+function period_fill_class(name: string): string {
+    return is_5hour_period(name) ? "blue" : "purple";
+}
+
+function render_bar_row(
+    key: string,
+    name: string,
+    percent: number,
+    reset_at: string | null,
+    status: string,
+) {
+    const display_percent = Math.min(100, Math.max(0, percent));
+    const danger = status === "critical";
+    return (
+        <div className="bar-row" key={key}>
+            <span className="bar-lbl">{period_label(name)}</span>
+            <div className="track">
+                <div
+                    className={"fill " + (danger ? "danger" : period_fill_class(name))}
+                    style={{ width: `${String(display_percent)}%` }}
+                />
+            </div>
+            <span className={"bar-pct" + (danger ? " danger" : "")}>{display_percent}%</span>
+            <span className="bar-reset">{danger ? "⚠" : (reset_at ?? "--")}</span>
+        </div>
+    );
+}
+
 function is_auth_error(error: string): boolean {
     const lower = error.toLowerCase();
     return (
@@ -337,37 +375,16 @@ export function ProviderCard({
         }
         if (!overview_windows.length) return <div className="card-state off">暂无有效用量数据</div>;
         return (
-            <div className="ub-rows">
-                {overview_windows.map((ow) => {
-                    const displayPercent = Math.min(100, Math.max(0, ow.percent));
-                    const resetAtText = ow.resetAt ? formatResetTime(ow.resetAt) : null;
-                    const danger = ow.status === "critical";
-                    return (
-                        <div className="ub-row" key={ow.id}>
-                            <div className="ub-row-label">{ow.name}</div>
-                            <div
-                                className="ub-bar"
-                                data-tone={
-                                    danger ? "danger" : ow.status === "warning" ? "warn" : undefined
-                                }
-                                data-invert={displayPercent >= 52 ? "true" : undefined}
-                            >
-                                <div
-                                    className="ub-bar-fill"
-                                    style={{ width: `${String(displayPercent)}%` }}
-                                />
-                                <div className="ub-bar-text">
-                                    {ow.displayStyle === "percent"
-                                        ? `${String(displayPercent)}%`
-                                        : `${ow.used.toLocaleString()} / ${ow.limit.toLocaleString()}`}
-                                </div>
-                            </div>
-                            <div className="ub-row-time">
-                                {danger ? "⚠" : (resetAtText ?? "--")}
-                            </div>
-                        </div>
-                    );
-                })}
+            <div className="bars">
+                {overview_windows.map((ow) =>
+                    render_bar_row(
+                        ow.id,
+                        ow.name,
+                        ow.percent,
+                        ow.resetAt ? formatResetTime(ow.resetAt) : null,
+                        ow.status,
+                    ),
+                )}
             </div>
         );
     };
@@ -388,46 +405,19 @@ export function ProviderCard({
                         </div>
                         <div className="ai-bars">
                             {account.windows.map((window) => {
-                                const windowPercent =
+                                const window_percent =
                                     window.limit > 0
                                         ? Math.min(
                                               100,
                                               Math.round((window.used / window.limit) * 100),
                                           )
                                         : 0;
-                                const windowDanger = windowPercent >= 85;
-                                return (
-                                    <div className="ub-row" key={window.id}>
-                                        <div className="ub-row-label">{window.name}</div>
-                                        <div
-                                            className="ub-bar"
-                                            data-tone={
-                                                window.status === "critical"
-                                                    ? "danger"
-                                                    : window.status === "warning"
-                                                      ? "warn"
-                                                      : undefined
-                                            }
-                                            data-invert={windowPercent >= 52 ? "true" : undefined}
-                                        >
-                                            <div
-                                                className="ub-bar-fill"
-                                                style={{ width: `${String(windowPercent)}%` }}
-                                            />
-                                            <div className="ub-bar-text">
-                                                {window.displayStyle === "percent"
-                                                    ? `${String(windowPercent)}%`
-                                                    : `${window.used.toLocaleString()} / ${window.limit.toLocaleString()}`}
-                                            </div>
-                                        </div>
-                                        <div className="ub-row-time">
-                                            {windowDanger
-                                                ? "⚠"
-                                                : window.resetAt
-                                                  ? formatResetTime(window.resetAt)
-                                                  : "--"}
-                                        </div>
-                                    </div>
+                                return render_bar_row(
+                                    window.id,
+                                    window.name,
+                                    window_percent,
+                                    window.resetAt ? formatResetTime(window.resetAt) : null,
+                                    window.status,
                                 );
                             })}
                         </div>

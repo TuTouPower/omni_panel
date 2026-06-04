@@ -199,7 +199,7 @@ describe("ProviderCard", () => {
         );
 
         expect(screen.getByText("概览")).toBeInTheDocument();
-        expect(screen.getByText("150 / 400")).toBeInTheDocument();
+        expect(screen.getByText("38%")).toBeInTheDocument();
         expect(screen.queryByText("Account 1")).not.toBeInTheDocument();
     });
 
