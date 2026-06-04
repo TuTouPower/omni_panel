@@ -7,6 +7,7 @@ import {
     resolveConvergentTime,
 } from "../lib/provider-usage";
 import { relativeTime, formatResetTime } from "../lib/utils";
+import { usage_color } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { CollapsibleCard } from "./CollapsibleCard";
@@ -29,18 +30,10 @@ interface ProviderCardProps {
     refreshing?: boolean | undefined;
 }
 
-function is_5hour_period(name: string): boolean {
-    return name.includes("5小时");
-}
-
 function period_label(name: string): string {
-    if (is_5hour_period(name)) return "5小时";
+    if (name.includes("5小时")) return "5小时";
     if (name.includes("一周")) return "一周";
     return name;
-}
-
-function period_fill_class(name: string): string {
-    return is_5hour_period(name) ? "blue" : "purple";
 }
 
 function render_bar_row(
@@ -48,21 +41,23 @@ function render_bar_row(
     name: string,
     percent: number,
     reset_at: string | null,
-    status: string,
+    idx: number,
 ) {
     const display_percent = Math.min(100, Math.max(0, percent));
-    const danger = status === "critical";
     return (
         <div className="bar-row" key={key}>
             <span className="bar-lbl">{period_label(name)}</span>
             <div className="track">
                 <div
-                    className={"fill " + (danger ? "danger" : period_fill_class(name))}
-                    style={{ width: `${String(display_percent)}%` }}
+                    className="fill"
+                    style={{
+                        width: `${String(display_percent)}%`,
+                        background: usage_color(idx),
+                    }}
                 />
             </div>
-            <span className={"bar-pct" + (danger ? " danger" : "")}>{display_percent}%</span>
-            <span className="bar-reset">{danger ? "⚠" : (reset_at ?? "--")}</span>
+            <span className="bar-pct">{display_percent}%</span>
+            <span className="bar-reset">{reset_at ?? "--"}</span>
         </div>
     );
 }
@@ -375,13 +370,13 @@ export function ProviderCard({
         if (!overview_periods.length) return <div className="card-state off">暂无有效用量数据</div>;
         return (
             <div className="bars">
-                {overview_periods.map((ow) =>
+                {overview_periods.map((ow, idx) =>
                     render_bar_row(
                         ow.id,
                         ow.name,
                         ow.percent,
                         ow.resetAt ? formatResetTime(ow.resetAt) : null,
-                        ow.status,
+                        idx,
                     ),
                 )}
             </div>
@@ -403,7 +398,7 @@ export function ProviderCard({
                             </span>
                         </div>
                         <div className="ai-bars">
-                            {account.periods.map((period) => {
+                            {account.periods.map((period, idx) => {
                                 const period_percent =
                                     period.limit > 0
                                         ? Math.min(
@@ -416,7 +411,7 @@ export function ProviderCard({
                                     period.name,
                                     period_percent,
                                     period.resetAt ? formatResetTime(period.resetAt) : null,
-                                    period.status,
+                                    idx,
                                 );
                             })}
                         </div>
@@ -472,7 +467,7 @@ export function ProviderCard({
                     : is_multi && !l2open
                       ? render_overview()
                       : group.accounts.flatMap((account) =>
-                            account.periods.map((period) => {
+                            account.periods.map((period, idx) => {
                                 const period_pct =
                                     period.limit > 0
                                         ? Math.min(
@@ -485,7 +480,7 @@ export function ProviderCard({
                                     period.name,
                                     period_pct,
                                     period.resetAt ? formatResetTime(period.resetAt) : null,
-                                    period.status,
+                                    idx,
                                 );
                             }),
                         )}

@@ -484,24 +484,12 @@ body {
     border-radius: 99px;
     transition: width 0.5s cubic-bezier(0.3, 0.8, 0.4, 1);
 }
-.fill.blue {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--blue) 62%, #fff), var(--blue));
-}
-.fill.purple {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--purple) 62%, #fff), var(--purple));
-}
-.fill.danger {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--red) 55%, #fff), var(--red));
-}
 .bar-pct {
     font-size: 12.5px;
     font-weight: 600;
     color: var(--text);
     text-align: center;
     font-variant-numeric: tabular-nums;
-}
-.bar-pct.danger {
-    color: var(--red);
 }
 .bar-reset {
     font-size: 12px;
@@ -1916,24 +1904,12 @@ body {
     border-radius: 99px;
     transition: width 0.5s cubic-bezier(0.3, 0.8, 0.4, 1);
 }
-.fill.blue {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--blue) 62%, #fff), var(--blue));
-}
-.fill.purple {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--purple) 62%, #fff), var(--purple));
-}
-.fill.danger {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--red) 55%, #fff), var(--red));
-}
 .bar-pct {
     font-size: 12.5px;
     font-weight: 600;
     color: var(--text);
     text-align: center;
     font-variant-numeric: tabular-nums;
-}
-.bar-pct.danger {
-    color: var(--red);
 }
 .bar-reset {
     font-size: 12px;

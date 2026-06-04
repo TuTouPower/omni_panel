@@ -6,6 +6,14 @@ import {
     type ProviderUsageGroup,
     type ProviderUsagePeriod,
 } from "../../../../src/renderer/lib/provider-usage";
+import { USAGE_COLORS } from "../../../../src/renderer/lib/usage-colors";
+
+function hex_to_rgb(hex: string): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgb(${String(r)}, ${String(g)}, ${String(b)})`;
+}
 
 vi.mock("../../../../src/renderer/lib/theme", () => ({
     useTheme: () => undefined,
@@ -270,33 +278,95 @@ describe("ProviderCard", () => {
         expect(buildOverviewForGroup(group)).toEqual([]);
     });
 
-    it("only shows converged overview times", () => {
+    it("assigns bar colors by position index, not by period type", () => {
         const group = makeGroup({
+            accountCount: 3,
             periods: [
-                makePeriod({
-                    id: "w1",
+                makePeriod({ id: "w1", accountId: "a1", name: "一周", used: 10, limit: 100 }),
+                makePeriod({ id: "w2", accountId: "a2", name: "5小时", used: 20, limit: 100 }),
+                makePeriod({ id: "w3", accountId: "a3", name: "一周", used: 30, limit: 100 }),
+            ],
+            accounts: [
+                {
+                    id: "a1",
+                    sourceInstanceId: "ds-1",
                     accountId: "a1",
-                    used: 50,
-                    limit: 100,
+                    accountLabel: "A1",
+                    status: "normal",
                     updatedAt: "2026-06-02T10:00:00Z",
-                    resetAt: "2026-06-02T13:00:00Z",
-                }),
-                makePeriod({
-                    id: "w2",
+                    periods: [
+                        makePeriod({
+                            id: "w1",
+                            accountId: "a1",
+                            name: "一周",
+                            used: 10,
+                            limit: 100,
+                        }),
+                    ],
+                },
+                {
+                    id: "a2",
+                    sourceInstanceId: "ds-1",
                     accountId: "a2",
-                    used: 50,
-                    limit: 100,
-                    updatedAt: "2026-06-02T10:09:00Z",
-                    resetAt: "2026-06-02T13:11:00Z",
-                }),
+                    accountLabel: "A2",
+                    status: "normal",
+                    updatedAt: "2026-06-02T10:00:00Z",
+                    periods: [
+                        makePeriod({
+                            id: "w2",
+                            accountId: "a2",
+                            name: "5小时",
+                            used: 20,
+                            limit: 100,
+                        }),
+                    ],
+                },
+                {
+                    id: "a3",
+                    sourceInstanceId: "ds-1",
+                    accountId: "a3",
+                    accountLabel: "A3",
+                    status: "normal",
+                    updatedAt: "2026-06-02T10:00:00Z",
+                    periods: [
+                        makePeriod({
+                            id: "w3",
+                            accountId: "a3",
+                            name: "一周",
+                            used: 30,
+                            limit: 100,
+                        }),
+                    ],
+                },
             ],
         });
 
-        expect(buildOverviewForGroup(group)[0]).toEqual(
-            expect.objectContaining({
-                updatedAt: "2026-06-02T10:09:00Z",
-                resetAt: null,
-            }),
+        render(
+            <ProviderCard provider="deepseek" group={group} expanded onToggleExpand={vi.fn()} />,
         );
+
+        // Overview mode: aggregated bars by period type ("一周" idx=0, "5小时" idx=1)
+        const fills = document.querySelectorAll(".fill");
+        expect(fills.length).toBeGreaterThanOrEqual(2);
+        expect((fills[0] as HTMLElement).style.background).toBe(hex_to_rgb(USAGE_COLORS[0]));
+        expect((fills[1] as HTMLElement).style.background).toBe(hex_to_rgb(USAGE_COLORS[1]));
+    });
+
+    it("does not apply fill.blue, fill.purple, or fill.danger classes", () => {
+        const group = makeGroup({
+            periods: [
+                makePeriod({ id: "w1", name: "5小时", used: 10, limit: 100 }),
+                makePeriod({ id: "w2", name: "一周", used: 90, limit: 100, status: "critical" }),
+            ],
+        });
+
+        render(<ProviderCard provider="deepseek" group={group} />);
+
+        const fills = document.querySelectorAll(".fill");
+        for (const f of fills) {
+            expect(f.classList.contains("blue")).toBe(false);
+            expect(f.classList.contains("purple")).toBe(false);
+            expect(f.classList.contains("danger")).toBe(false);
+        }
     });
 });
