@@ -510,7 +510,7 @@ body {
     font-size: 12.5px;
     font-weight: 600;
     color: var(--text);
-    text-align: right;
+    text-align: center;
     font-variant-numeric: tabular-nums;
 }
 .bar-pct.danger {
@@ -1955,7 +1955,7 @@ body {
     font-size: 12.5px;
     font-weight: 600;
     color: var(--text);
-    text-align: right;
+    text-align: center;
     font-variant-numeric: tabular-nums;
 }
 .bar-pct.danger {

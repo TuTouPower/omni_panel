@@ -42,7 +42,7 @@ test.describe("popup card states", () => {
         await popup.waitReady();
 
         const inverted = await page.evaluate(() => {
-            const bars = document.querySelectorAll('.ub-bar[data-invert="true"]');
+            const bars = document.querySelectorAll(".bar-row .fill");
             return bars.length;
         });
         expect(inverted).toBeGreaterThanOrEqual(0);

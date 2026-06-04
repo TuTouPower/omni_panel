@@ -99,7 +99,7 @@ test.describe("multi-account display", () => {
         await page.waitForTimeout(500);
 
         // Should have 3 bar-row elements for 3 items
-        const bars = live.locator(".ub-row");
+        const bars = live.locator(".bar-row");
         await expect(bars).toHaveCount(3, { timeout: 10_000 });
     });
 });
