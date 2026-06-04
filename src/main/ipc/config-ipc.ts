@@ -1,6 +1,7 @@
+import { z } from "zod/v3";
 import { readFile, writeFile } from "node:fs/promises";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
-import type { ConfigSaveSecretsPayload, ConfigExportData } from "../../shared/types/ipc";
+import type { ConfigExportData } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
@@ -10,6 +11,11 @@ import { appConfigurationSchema } from "../core/config/types";
 import { createLogger } from "../../shared/lib/logger";
 
 const MASK = "***";
+
+const saveSecretsSchema = z.object({
+    instanceId: z.string(),
+    secrets: z.record(z.string()),
+});
 
 export interface ConfigIpcDeps {
     configStore: AppConfigStore;
@@ -115,14 +121,11 @@ export async function handleConfigSaveSecrets(
     payload: unknown,
 ): Promise<IpcResult<void>> {
     try {
-        if (!payload || typeof payload !== "object") {
+        const parsed = saveSecretsSchema.safeParse(payload);
+        if (!parsed.success) {
             return fail("VALIDATION_ERROR", "无效的请求数据");
         }
-        const { instanceId, secrets } = payload as ConfigSaveSecretsPayload;
-
-        if (!instanceId || typeof instanceId !== "string") {
-            return fail("VALIDATION_ERROR", "无效的插件 ID");
-        }
+        const { instanceId, secrets } = parsed.data;
 
         const config = await deps.configStore.load();
         const plugin = config.plugins.find((p: PluginConfiguration) => p.instanceId === instanceId);
