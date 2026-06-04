@@ -63,7 +63,6 @@ _[tool: fork_verifier_agent]_
 三个页面已设计完成，在一张设计画布上并排展示。
 
 **布局**
-
 - **用量面板** (360×480) · 托盘左键弹出 · 无边框
 - **设置** (640×520) · 独立窗口 · 含系统标题栏
 - **托盘菜单** · 含快捷摘要 + 子菜单提示
@@ -71,14 +70,12 @@ _[tool: fork_verifier_agent]_
 每个页面提供 **Light / Dark** 两版，可点击艺术板进入全屏查看，左右键切换。
 
 **设计语言**
-
 - 蓝色主调用 oklch 单一色相 (252°)，明暗模式下保持色相一致，仅调节明度
 - UI 字体走系统栈（SF Pro / PingFang），数字与代码用 JetBrains Mono — 程序员习惯的等宽数字对齐
 - 进度条 4px、卡片间用细分隔线而非容器卡片，密度参考 Linear / Raycast
 - 状态颜色：normal 蓝、warning 琥珀、critical 红，pill 用 color-mix 半透明背景
 
 **可继续迭代的方向**
-
 - 空状态（无插件 / Python 未安装 / 全部 idle）
 - PluginCard 的 loading skeleton 与 failed + stale data 双层展示
 - 设置页"通用设置"独立视图（语言、开机自启、外观切换）
@@ -149,7 +146,6 @@ _[tool: fork_verifier_agent]_
 改完了：
 
 **用量面板**
-
 - 移除顶部 summary 条；总数 `10` 改成 logo 旁的小药丸
 - 10 行密集列表，支持同服务多账号（Codex × 3, GLM × 2 等），账号后缀用 mono 浅色区分
 - 每行：名称 + 账号 / 相对时间 / 百分比 + 3px 进度条
@@ -157,15 +153,13 @@ _[tool: fork_verifier_agent]_
 - 底栏改成「python3 · 9 启用 · 1 错误」+ ⌘R，去掉"自动刷新"误导文案
 
 **托盘菜单**
-
 - 去掉「在 Finder 中打开数据目录」和顶部用量条
 - 新增三平台变体，每个都有 light + dark：
-    - **macOS**：顶部 menubar，圆角 9px，⌘ 快捷键，箭头指针
-    - **Windows**：底部 taskbar，圆角 8px，`Ctrl+` 前缀，hover 用蓝色软底（Win11 风格）
-    - **Linux** (GNOME-ish)：顶部活动栏，圆角 12px，更宽的 hover 区域
+  - **macOS**：顶部 menubar，圆角 9px，⌘ 快捷键，箭头指针
+  - **Windows**：底部 taskbar，圆角 8px，`Ctrl+` 前缀，hover 用蓝色软底（Win11 风格）
+  - **Linux** (GNOME-ish)：顶部活动栏，圆角 12px，更宽的 hover 区域
 
 **设置**
-
 - 修复搜索框溢出（box-sizing + 容器宽度约束）
 
 ## User
@@ -181,3 +175,4 @@ _[tool: done]_
 _[tool: fork_verifier_agent]_
 
 修好了 — `.pp-list` 加 `overflow-y: auto` + `min-height: 0`，配上细 6px 滚动条样式（webkit / firefox 都覆盖），MiniMax 错误行不再被裁切，列表也可以容纳更多账号。
+

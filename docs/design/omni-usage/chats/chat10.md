@@ -51,3 +51,4 @@ All three changes are in the active files for `OmniUsage UI.html`. Let me verify
 _[tool: str_replace_edit]_
 
 Done — 托盘窗口宽度收到 184px，右侧空白减半。
+

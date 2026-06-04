@@ -23,7 +23,6 @@ I've extracted the design system from both references. The visual language is cr
 ## User
 
 Questions answered:
-
 - deliverable_format: 做成可点击切换的真实原型（点设置图标进设置，右键出菜单）
 - settings_sections: Decide for me
 - tray_menu_items: 立即刷新全部, 打开主面板, 开机自启开关, 设置…, 检查更新, 退出, 暂停/恢复自动刷新
@@ -206,7 +205,6 @@ _[tool: fork_verifier_agent]_
 **交互状态**（通过 Tweaks 面板 → 演示状态 切换）：默认 / 接近·达到限制（红色警示）/ 刷新中 / 刷新失败·网络异常 / 凭证失效 / 无数据空状态。Tweaks 还可切浅色·深色·跟随系统主题和强调色。
 
 几点说明：
-
 - 厂商 Logo 全部用**几何占位图标**（非真实品牌标识），保持区分度但不照搬商标——后续可换成你的真实素材。
 - 账号数据是示例（Claude 5 个账号等），可随时替换。
 
@@ -255,3 +253,4 @@ _[tool: fork_verifier_agent]_
 ## User
 
 还有之前说的托盘样式呢，托盘点击后出来的窗口呢？里面的选项呢
+

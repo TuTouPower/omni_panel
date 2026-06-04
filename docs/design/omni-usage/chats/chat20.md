@@ -77,7 +77,6 @@ _[tool: fork_verifier_agent]_
 Done. The settings (gear) button in the main panel now opens the standalone settings window from **OmniUsage Settings.html** — the wider two-pane `.sp-window` with the 常规/账号/数据源/外观/通知/数据与隐私/关于 nav, add-account picker, and CPA Manager detail. The back arrow in the settings nav returns you to the monitor.
 
 Changes:
-
 - Wired the gear to render `SettingsPanel` (with a new functional back action) instead of the old in-panel settings.
 - Loaded `settings-panel.css` + `settings-data.js` + `settings-panel.jsx` into the main UI.
 - Deleted the original `settings.jsx` interface.
@@ -182,3 +181,4 @@ Verifier agent check completed
 ## Assistant
 
 Verified — the gear button calls `window.open('OmniUsage Settings.html')` (no inline settings swap), and the standalone settings window renders cleanly. All done.
+

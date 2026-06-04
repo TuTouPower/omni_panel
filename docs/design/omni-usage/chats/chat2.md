@@ -153,7 +153,6 @@ I've rebuilt the interface to match your **UsageBoard** reference screenshots. I
 **设置 · Settings** — the 3-column plugin manager (sidebar → plugin list with toggles → detail panel with segmented controls).
 
 Notes:
-
 - Provider marks are **generic geometric stand-ins** (asterisk, hexagon, flower, waveform, etc.) in brand-appropriate colors rather than exact trademarked logos.
 - I kept the filename `OmniUsage UI.html`, but the wordmark now reads "UsageBoard" per the refs — say the word if you'd like the file/project renamed.
 
@@ -170,7 +169,7 @@ _[tool: update_todos]_
 You're right — that was wrong of me. I copied the reference too literally, including the macOS tray popover chrome (the dark caret + desktop background). Let me fix both things:
 
 1. **Drop the macOS tray styling entirely** — just render the popup window itself, no caret, no desktop. Whether it docks top (Mac) or bottom (Windows) isn't my concern.
-2. **Make it my own design** — keep the _structure_ (usage bars, token grid, charts, tabs/list) that works well, but apply my own visual language instead of cloning theirs.
+2. **Make it my own design** — keep the *structure* (usage bars, token grid, charts, tabs/list) that works well, but apply my own visual language instead of cloning theirs.
 
 My own direction: neutral gray bar tracks (not the reference's blue-on-blue), a refined **indigo** accent, each provider icon set in a softly-tinted rounded tile, cleaner typography and spacing. Let me rework it.
 
@@ -202,7 +201,7 @@ _[tool: str_replace_edit]_
 
 _[tool: str_replace_edit]_
 
-Now update `app.jsx` so each artboard _is_ the window — rounded corners, soft shadow, no desktop margin. I'll add a shared style and trim heights.
+Now update `app.jsx` so each artboard *is* the window — rounded corners, soft shadow, no desktop margin. I'll add a shared style and trim heights.
 
 _[tool: str_replace_edit]_
 
@@ -248,7 +247,7 @@ This is now my own design and just the window. The changes:
 
 - **Removed all the macOS tray chrome** — no dark caret, no desktop background. It's purely the popup window now (rounded corners + soft shadow), so it doesn't matter whether it docks top or bottom.
 - **My own visual language** rather than a copy of the screenshots: neutral gray bar tracks (the reference used blue-on-blue), an **indigo** accent with subtle gradient fills, and each service icon sits in a **softly-tinted rounded tile** (terracotta for Claude, indigo for Codex/GLM, etc.). Refined type, spacing and badges.
-- Kept the _structure_ that works — tabbed mode (bars + per-model tokens + trend chart), list mode (collapsible cards), and the settings window — but drawn in my own format.已经重做好了。这次是我自己的设计，主要改了两点：
+- Kept the *structure* that works — tabbed mode (bars + per-model tokens + trend chart), list mode (collapsible cards), and the settings window — but drawn in my own format.已经重做好了。这次是我自己的设计，主要改了两点：
 
 1. **去掉了 macOS 托盘那套外壳**——没有黑色小箭头、没有桌面背景了。现在就是一个独立的弹出窗口（圆角 + 柔和投影），顶部还是底部弹出都无所谓。
 2. **换成我自己的视觉风格**，不是照搬截图：进度条用中性灰底槽（参考图是蓝底蓝条）、靛蓝主色配渐变填充、每个服务图标放在**淡色圆角小色块**里（Claude 赭色、Codex/GLM 靛蓝等），字号间距和徽章也重新调过。
@@ -299,3 +298,4 @@ _[tool: screenshot_user_view]_
 - **设置窗口**：刚才去掉了假的 macOS 红黄绿圆点。窗口边框交给系统画，app 只画自己的内容区(侧栏 + 插件列表 + 详情面板)。
 
 所以整个界面在 Windows、macOS、Linux 上都是一致的样子。你看这个方向对了吗？还有哪里要调整？
+

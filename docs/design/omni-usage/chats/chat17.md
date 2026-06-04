@@ -120,3 +120,4 @@ _[tool: done]_
 _[tool: fork_verifier_agent]_
 
 Done. The main panel's multi-account expand now uses a single `[平均 | N账号]` segmented control per the spec — collapsed shows a `N账号` tag, expanded toggles cleanly between average usage and per-account detail, all in one clickable window. The expand mockup file was left untouched.
+

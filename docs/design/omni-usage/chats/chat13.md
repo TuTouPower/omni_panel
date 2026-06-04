@@ -17,7 +17,6 @@ Current date is now June 2, 2026
 The user has not attached a design system. If they have ALSO not attached references or art direction, and the project is empty, you must ASK the user what visual aesthetic they want. Use the questions_v2 tool to ask about preferred vibe, audience, colors, type, mood, etc. Do NOT just pick your own visual aesthetic without getting the user's aesthetic input -- this is how you get slop!
 
 Once answered, use this guidance when creating designs:
-
 - Choose a type pairing from web-safe set or Google Fonts. Helvetica is a good choice. Avoid hard-to-read or overly stylized fonts. Use 1-3 fonts only.
 - Foreground and background: choose a color tone (warm, cool, neutral, something in-between). Use subtly-toned whites and blacks; avoid saturations above 0.02 for whites.
 - Accents: choose 0-2 additional accent colors using oklch. All accents should share same chroma and lightness; vary hue.
@@ -112,7 +111,7 @@ Codex [2] [平均] 6 分钟前
 每个账号可以用更轻量的小卡片 / 分隔区域展示，但不要做得太厚重。
 每个账号显示：
 账号备注名，例如「个人账号」「工作账号」「测试账号」
-可选的脱敏 key，例如 sk-\*\*\*\*8e7j
+可选的脱敏 key，例如 sk-****8e7j
 更新时间，例如「5 分钟前」
 5小时进度条、百分比、刷新时间
 一周进度条、百分比、刷新时间
@@ -187,6 +186,7 @@ Claude 仍然显示平均用量。
 最终目标：
 用户在总览页可以先看到所有厂商的折叠小白条；点开某个厂商后看到这个厂商的当前用量。如果这个厂商有多个账号，默认看到平均用量；再点「查看账号」才看到每个账号的详细用量。
 </pasted_text>
+
 
 <system-reminder>Auto-injected reminder (ignore if not relevant): do not recreate copyrighted or branded UI unless the user's email domain matches that company. Create original designs instead.</system-reminder>
 
@@ -295,12 +295,10 @@ _[tool: fork_verifier_agent]_
 Done. I built **`OmniUsage 多账号展开.html`** — three state diagrams on a comparison canvas, strictly continuing the existing design system (no changes to window size, top nav, or base card styling).
 
 **两级展开逻辑**
-
 - **一级**（卡片右上角 chevron）控制整张厂商卡片折叠/展开。折叠态只剩一条小白条：拖动柄、Logo、厂商名、更新时间、刷新、三点菜单、一级按钮。
 - **二级**（展开内容右下角的文字按钮「查看 N 个账号」/「收起账号」，刻意比一级更弱）只在多账号厂商展开后出现，控制账号明细。
 
 **三个状态**
-
 1. **全部折叠** — 所有厂商小白条；多账号厂商（Claude 3、Codex 2、GLM 2）显示账号数 +「平均」标签，单账号厂商不显示。无进度条。
 2. **展开多账号厂商（平均）** — Claude 直接显示平均的 5小时/一周，样式与单账号展开完全一致，仅厂商名后多了「3」「平均」两个标签；右下角「查看 3 个账号」。
 3. **展开账号明细** — 平均保留在上，下方轻量凹陷抽屉冒出 个人/工作/测试 三个账号，各含备注名、脱敏 key、更新时间、5小时与一周进度；二级按钮变「收起账号」。底部 Token 柱状图原样保留。
@@ -433,3 +431,4 @@ Clean now —「8 分钟前」stays on one line, the 账号/收起 toggle sits w
 _[tool: fork_verifier_agent]_
 
 已完成,等待后台核查。三个状态的调整都已就位。
+

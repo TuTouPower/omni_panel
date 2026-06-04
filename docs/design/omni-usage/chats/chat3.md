@@ -123,7 +123,7 @@ _[tool: update_todos]_
 
 You're right on all counts — I overbuilt it and invented a "rotation" concept that doesn't exist. Let me throw that out and rebuild it your way:
 
-- **No multi-account mode.** Accounts live _inside_ tab mode.
+- **No multi-account mode.** Accounts live *inside* tab mode.
 - **Tab mode:** pick a tab (e.g. Codex) → swipe through that provider's accounts one at a time. **No token stats.**
 - **List mode:** show only the first account by default; expand to see all accounts.
 - **No "已满额 / 建议切换"** anything.
@@ -269,3 +269,4 @@ _[tool: fork_verifier_agent]_
 - **系统托盘右键菜单**：用量标签 / 用量列表 / 全部刷新 / 刷新指定服务（▸ 二级菜单，列出各服务，Codex 标 5、GLM 标 2）/ 重启 / 退出。
 
 翻页和列表展开在画布里都是真能点的。要不要我把"添加账号 / 退出登录"也接到账号头部那一排？
+

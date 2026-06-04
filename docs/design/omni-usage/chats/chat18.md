@@ -77,7 +77,6 @@ Let me verify the core behavior with a directed check — confirming the window 
 **Deleted** `OmniUsage 多账号展开.html` (and unregistered it).
 
 **Made the main panel content-driven** per the spec:
-
 - The window no longer has a fixed 816px height. A `ResizeObserver` watches the body's real content box; on change it measures inside `requestAnimationFrame`, clamps to `[160px, 75% of screen]`, and locks the window to that exact height — with a smooth height transition.
 - **1px debounce, no time delay** — resizes feel instant, matching the spec's reasoning.
 - **Collapse = DOM removal** (already how the cards worked) drives shrink; expand drives grow. Converted the body to flex + `gap` so the measured `scrollHeight` is exact (margin-collapsing was hiding a few px).
@@ -103,7 +102,6 @@ Verifier agent check completed
 **删除**：`OmniUsage 多账号展开.html` 已删除。
 
 **主面板高度自适应**：
-
 - 窗口不再固定高度，改为内容驱动 —— `ResizeObserver` 监听内容真实高度，在 `requestAnimationFrame` 中测量，钳制到 `[160px, 屏幕 75%]` 后锁定窗口高度，并带平滑高度过渡。
 - 折叠卡片 = 移除 DOM → 内容收缩 → 窗口收缩；展开则反向变高。
 - 内容区改用 flex + `gap`(去掉了 margin)，避免边距合并导致测量少几像素。
@@ -111,3 +109,4 @@ Verifier agent check completed
 - 只有内容超过屏幕 75% 时才出现内部滚动，否则窗口刚好贴合内容。
 
 页面加载无报错，后台验证也已通过。需要我再调整最小/最大高度阈值或过渡动画节奏吗？
+
