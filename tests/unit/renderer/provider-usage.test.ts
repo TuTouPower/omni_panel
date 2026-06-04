@@ -71,7 +71,7 @@ describe("provider usage aggregation", () => {
         expect(groups[0]?.provider).toBe("claude");
         expect(groups[0]?.label).toBe("Claude");
         expect(groups[0]?.accountCount).toBe(1);
-        expect(groups[0]?.windows).toHaveLength(1);
+        expect(groups[0]?.periods).toHaveLength(1);
         expect(groups.map((group) => group.provider)).not.toContain("cpa");
     });
 

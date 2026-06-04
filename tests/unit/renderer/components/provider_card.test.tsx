@@ -4,7 +4,7 @@ import { ProviderCard } from "../../../../src/renderer/components/ProviderCard";
 import {
     buildOverviewForGroup,
     type ProviderUsageGroup,
-    type ProviderUsageWindow,
+    type ProviderUsagePeriod,
 } from "../../../../src/renderer/lib/provider-usage";
 
 vi.mock("../../../../src/renderer/lib/theme", () => ({
@@ -18,7 +18,7 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
         accountCount: 1,
         status: "normal",
         updatedAt: "2026-06-02T10:00:00Z",
-        windows: [
+        periods: [
             {
                 id: "w1",
                 provider: "deepseek",
@@ -45,7 +45,7 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
                 accountLabel: "Account 1",
                 status: "normal",
                 updatedAt: "2026-06-02T10:00:00Z",
-                windows: [
+                periods: [
                     {
                         id: "w1",
                         provider: "deepseek",
@@ -70,7 +70,7 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
     };
 }
 
-function makeWindow(overrides: Partial<ProviderUsageWindow> = {}): ProviderUsageWindow {
+function makePeriod(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsagePeriod {
     return {
         id: "w-overview",
         provider: "deepseek",
@@ -188,9 +188,9 @@ describe("ProviderCard", () => {
     it("renders overview rows by default for expanded multi-account providers", () => {
         const group = makeGroup({
             accountCount: 2,
-            windows: [
-                makeWindow({ id: "w1", accountId: "a1", used: 50, limit: 100 }),
-                makeWindow({ id: "w2", accountId: "a2", used: 100, limit: 300 }),
+            periods: [
+                makePeriod({ id: "w1", accountId: "a1", used: 50, limit: 100 }),
+                makePeriod({ id: "w2", accountId: "a2", used: 100, limit: 300 }),
             ],
         });
 
@@ -242,10 +242,10 @@ describe("ProviderCard", () => {
 
     it("builds weighted overview by quota period", () => {
         const group = makeGroup({
-            windows: [
-                makeWindow({ id: "w1", accountId: "a1", used: 50, limit: 100 }),
-                makeWindow({ id: "w2", accountId: "a2", used: 100, limit: 300 }),
-                makeWindow({ id: "w3", accountId: "a3", name: "一周", used: 20, limit: 100 }),
+            periods: [
+                makePeriod({ id: "w1", accountId: "a1", used: 50, limit: 100 }),
+                makePeriod({ id: "w2", accountId: "a2", used: 100, limit: 300 }),
+                makePeriod({ id: "w3", accountId: "a3", name: "一周", used: 20, limit: 100 }),
             ],
         });
 
@@ -261,9 +261,9 @@ describe("ProviderCard", () => {
 
     it("skips invalid overview quota windows", () => {
         const group = makeGroup({
-            windows: [
-                makeWindow({ id: "w1", accountId: "a1", used: 10, limit: 0 }),
-                makeWindow({ id: "w2", accountId: "a2", used: 0, limit: 0, status: "unknown" }),
+            periods: [
+                makePeriod({ id: "w1", accountId: "a1", used: 10, limit: 0 }),
+                makePeriod({ id: "w2", accountId: "a2", used: 0, limit: 0, status: "unknown" }),
             ],
         });
 
@@ -272,8 +272,8 @@ describe("ProviderCard", () => {
 
     it("only shows converged overview times", () => {
         const group = makeGroup({
-            windows: [
-                makeWindow({
+            periods: [
+                makePeriod({
                     id: "w1",
                     accountId: "a1",
                     used: 50,
@@ -281,7 +281,7 @@ describe("ProviderCard", () => {
                     updatedAt: "2026-06-02T10:00:00Z",
                     resetAt: "2026-06-02T13:00:00Z",
                 }),
-                makeWindow({
+                makePeriod({
                     id: "w2",
                     accountId: "a2",
                     used: 50,

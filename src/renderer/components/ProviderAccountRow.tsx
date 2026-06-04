@@ -43,7 +43,7 @@ export function ProviderAccountRow({
     onDragEnter,
     onDragEnd,
 }: ProviderAccountRowProps) {
-    const source = account.windows[0]?.source ?? "direct";
+    const source = account.periods[0]?.source ?? "direct";
     const grip = onDragStart ? (
         <button
             className="icon-btn card-grip"
@@ -66,31 +66,31 @@ export function ProviderAccountRow({
                     {account.accountLabel}
                     <span className="source-badge">{source.toUpperCase()}</span>
                 </div>
-                <div className="rel-time">{account.windows.length} 个窗口</div>
+                <div className="rel-time">{account.periods.length}个周期</div>
             </div>
         </div>
     );
     const details = (
         <div className="bars">
-            {account.windows.map((window) => {
-                const window_percent = percent(window.used, window.limit);
-                const danger = window.status === "critical";
+            {account.periods.map((period) => {
+                const period_percent = percent(period.used, period.limit);
+                const danger = period.status === "critical";
                 return (
-                    <div className="bar-row" key={window.id}>
-                        <span className="bar-lbl">{period_label(window.name)}</span>
+                    <div className="bar-row" key={period.id}>
+                        <span className="bar-lbl">{period_label(period.name)}</span>
                         <div className="track">
                             <div
                                 className={
-                                    "fill " + (danger ? "danger" : period_fill_class(window.name))
+                                    "fill " + (danger ? "danger" : period_fill_class(period.name))
                                 }
-                                style={{ width: `${String(window_percent)}%` }}
+                                style={{ width: `${String(period_percent)}%` }}
                             />
                         </div>
                         <span className={"bar-pct" + (danger ? " danger" : "")}>
-                            {window_percent}%
+                            {period_percent}%
                         </span>
                         <span className="bar-reset">
-                            {window.resetAt ? formatResetTime(window.resetAt) : "--"}
+                            {period.resetAt ? formatResetTime(period.resetAt) : "--"}
                         </span>
                     </div>
                 );

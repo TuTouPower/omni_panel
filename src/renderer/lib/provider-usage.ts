@@ -1,7 +1,7 @@
 import type { UsageItem, UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 
-export interface ProviderUsageWindow {
+export interface ProviderUsagePeriod {
     id: string;
     provider: UsageProvider;
     source: UsageSource;
@@ -27,7 +27,7 @@ export interface ProviderUsageAccount {
     accountLabel: string;
     status: UsageItem["status"];
     updatedAt: string;
-    windows: ProviderUsageWindow[];
+    periods: ProviderUsagePeriod[];
 }
 
 export interface ProviderUsageGroup {
@@ -36,7 +36,7 @@ export interface ProviderUsageGroup {
     accountCount: number;
     status: UsageItem["status"];
     updatedAt: string;
-    windows: ProviderUsageWindow[];
+    periods: ProviderUsagePeriod[];
     accounts: ProviderUsageAccount[];
 }
 
@@ -83,11 +83,11 @@ function worstStatus(a: UsageItem["status"], b: UsageItem["status"]): UsageItem[
     return STATUS_RANK[a] >= STATUS_RANK[b] ? a : b;
 }
 
-function toWindow(
+function toPeriod(
     item: UsageItem,
     connector: ConnectorInfo,
     updatedAt: string,
-): ProviderUsageWindow {
+): ProviderUsagePeriod {
     return {
         id: item.id,
         provider: item.provider,
@@ -111,47 +111,47 @@ function toWindow(
 export function buildProviderUsageGroups(
     connectors: readonly ConnectorInfo[],
 ): ProviderUsageGroup[] {
-    const windowsByProvider = new Map<UsageProvider, ProviderUsageWindow[]>();
+    const periodsByProvider = new Map<UsageProvider, ProviderUsagePeriod[]>();
 
     for (const connector of connectors) {
         if (!connector.enabled) continue;
         if (connector.snapshot.status !== "ready") continue;
 
         for (const item of connector.snapshot.items) {
-            const windows = windowsByProvider.get(item.provider) ?? [];
-            windows.push(toWindow(item, connector, connector.snapshot.updatedAt));
-            windowsByProvider.set(item.provider, windows);
+            const periods = periodsByProvider.get(item.provider) ?? [];
+            periods.push(toPeriod(item, connector, connector.snapshot.updatedAt));
+            periodsByProvider.set(item.provider, periods);
         }
     }
 
-    return [...windowsByProvider.entries()]
+    return [...periodsByProvider.entries()]
         .sort(([a], [b]) => compareProviders(a, b))
-        .map(([provider, windows]) => {
+        .map(([provider, periods]) => {
             const accountsByKey = new Map<string, ProviderUsageAccount>();
             let groupStatus: UsageItem["status"] = "normal";
-            let groupUpdatedAt = windows[0]?.updatedAt ?? "";
+            let groupUpdatedAt = periods[0]?.updatedAt ?? "";
 
-            for (const window of windows) {
-                const accountKey = `${window.sourceInstanceId}:${window.accountId}`;
+            for (const period of periods) {
+                const accountKey = `${period.sourceInstanceId}:${period.accountId}`;
                 const account = accountsByKey.get(accountKey);
-                groupStatus = worstStatus(groupStatus, window.status);
-                groupUpdatedAt = latestTimestamp(groupUpdatedAt, window.updatedAt);
+                groupStatus = worstStatus(groupStatus, period.status);
+                groupUpdatedAt = latestTimestamp(groupUpdatedAt, period.updatedAt);
 
                 if (account) {
-                    account.windows.push(window);
-                    account.status = worstStatus(account.status, window.status);
-                    account.updatedAt = latestTimestamp(account.updatedAt, window.updatedAt);
+                    account.periods.push(period);
+                    account.status = worstStatus(account.status, period.status);
+                    account.updatedAt = latestTimestamp(account.updatedAt, period.updatedAt);
                     continue;
                 }
 
                 accountsByKey.set(accountKey, {
                     id: accountKey,
-                    sourceInstanceId: window.sourceInstanceId,
-                    accountId: window.accountId,
-                    accountLabel: window.accountLabel,
-                    status: window.status,
-                    updatedAt: window.updatedAt,
-                    windows: [window],
+                    sourceInstanceId: period.sourceInstanceId,
+                    accountId: period.accountId,
+                    accountLabel: period.accountLabel,
+                    status: period.status,
+                    updatedAt: period.updatedAt,
+                    periods: [period],
                 });
             }
 
@@ -161,7 +161,7 @@ export function buildProviderUsageGroups(
                 accountCount: accountsByKey.size,
                 status: groupStatus,
                 updatedAt: groupUpdatedAt,
-                windows,
+                periods,
                 accounts: [...accountsByKey.values()],
             };
         });
@@ -203,12 +203,12 @@ export function resolveConvergentTime(timestamps: (string | null | undefined)[])
     return valid.find((t) => t.time === latest)?.raw ?? null;
 }
 
-function hasValidQuota(window: ProviderUsageWindow): boolean {
+function hasValidQuota(period: ProviderUsagePeriod): boolean {
     return (
-        Number.isFinite(window.used) &&
-        Number.isFinite(window.limit) &&
-        window.used >= 0 &&
-        window.limit > 0
+        Number.isFinite(period.used) &&
+        Number.isFinite(period.limit) &&
+        period.used >= 0 &&
+        period.limit > 0
     );
 }
 
@@ -226,25 +226,25 @@ export interface OverviewWindow {
 }
 
 export function buildOverviewForGroup(group: ProviderUsageGroup): OverviewWindow[] {
-    const byPeriod = new Map<string, ProviderUsageWindow[]>();
+    const byPeriod = new Map<string, ProviderUsagePeriod[]>();
 
-    for (const window of group.windows) {
-        const existing = byPeriod.get(window.name) ?? [];
-        existing.push(window);
-        byPeriod.set(window.name, existing);
+    for (const period of group.periods) {
+        const existing = byPeriod.get(period.name) ?? [];
+        existing.push(period);
+        byPeriod.set(period.name, existing);
     }
 
     const result: OverviewWindow[] = [];
 
-    for (const [name, windows] of byPeriod) {
-        const validWindows = windows.filter(hasValidQuota);
-        if (validWindows.length === 0) continue;
+    for (const [name, periods] of byPeriod) {
+        const validPeriods = periods.filter(hasValidQuota);
+        if (validPeriods.length === 0) continue;
 
-        const totalUsed = validWindows.reduce((sum, window) => sum + window.used, 0);
-        const totalLimit = validWindows.reduce((sum, window) => sum + window.limit, 0);
+        const totalUsed = validPeriods.reduce((sum, period) => sum + period.used, 0);
+        const totalLimit = validPeriods.reduce((sum, period) => sum + period.limit, 0);
         const percent = Math.round((totalUsed / totalLimit) * 100);
-        const periodWorstStatus = validWindows.reduce<UsageItem["status"]>(
-            (worst, window) => worstStatus(window.status, worst),
+        const periodWorstStatus = validPeriods.reduce<UsageItem["status"]>(
+            (worst, period) => worstStatus(period.status, worst),
             "normal",
         );
 
@@ -254,11 +254,11 @@ export function buildOverviewForGroup(group: ProviderUsageGroup): OverviewWindow
             percent: Math.min(100, Math.max(0, percent)),
             used: totalUsed,
             limit: totalLimit,
-            displayStyle: validWindows[0]?.displayStyle ?? "percent",
+            displayStyle: validPeriods[0]?.displayStyle ?? "percent",
             status: periodWorstStatus,
-            updatedAt: resolveConvergentTime(validWindows.map((window) => window.updatedAt)),
-            resetAt: resolveConvergentTime(validWindows.map((window) => window.resetAt)),
-            color: validWindows.find((window) => window.color)?.color,
+            updatedAt: resolveConvergentTime(validPeriods.map((period) => period.updatedAt)),
+            resetAt: resolveConvergentTime(validPeriods.map((period) => period.resetAt)),
+            color: validPeriods.find((period) => period.color)?.color,
         });
     }
 

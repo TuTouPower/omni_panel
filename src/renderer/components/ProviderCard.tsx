@@ -10,7 +10,6 @@ import { relativeTime, formatResetTime } from "../lib/utils";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { CollapsibleCard } from "./CollapsibleCard";
-import { ProviderAccountRow } from "./ProviderAccountRow";
 
 interface ProviderCardProps {
     provider: UsageProvider;
@@ -99,7 +98,7 @@ export function ProviderCard({
     refreshing: is_refreshing = false,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
-    const hasUsage = (group?.windows.length ?? 0) > 0;
+    const hasUsage = (group?.periods.length ?? 0) > 0;
     const label = connectorError?.displayName ?? group?.label ?? PROVIDER_LABELS[provider];
     const isFailed = connectorError !== undefined && !hasUsage;
     const is_auth = connectorError !== undefined && is_auth_error(connectorError.error);
@@ -226,13 +225,13 @@ export function ProviderCard({
     }, [menu_open, close_menu]);
 
     const is_multi = accountCount > 1;
-    const overview_windows = useMemo(() => (group ? buildOverviewForGroup(group) : []), [group]);
+    const overview_periods = useMemo(() => (group ? buildOverviewForGroup(group) : []), [group]);
     const overview_updated_at = useMemo(
         () =>
             is_multi
-                ? resolveConvergentTime(overview_windows.map((window) => window.updatedAt))
+                ? resolveConvergentTime(overview_periods.map((period) => period.updatedAt))
                 : (group?.updatedAt ?? null),
-        [group?.updatedAt, is_multi, overview_windows],
+        [group?.updatedAt, is_multi, overview_periods],
     );
 
     const updated_text = overview_updated_at ? relativeTime(overview_updated_at) : "";
@@ -359,7 +358,7 @@ export function ProviderCard({
     );
 
     const render_overview = () => {
-        if (is_refreshing && !overview_windows.length) {
+        if (is_refreshing && !overview_periods.length) {
             return (
                 <div className="skeleton-bars">
                     <div className="skel-row">
@@ -373,10 +372,10 @@ export function ProviderCard({
                 </div>
             );
         }
-        if (!overview_windows.length) return <div className="card-state off">暂无有效用量数据</div>;
+        if (!overview_periods.length) return <div className="card-state off">暂无有效用量数据</div>;
         return (
             <div className="bars">
-                {overview_windows.map((ow) =>
+                {overview_periods.map((ow) =>
                     render_bar_row(
                         ow.id,
                         ow.name,
@@ -404,20 +403,20 @@ export function ProviderCard({
                             </span>
                         </div>
                         <div className="ai-bars">
-                            {account.windows.map((window) => {
-                                const window_percent =
-                                    window.limit > 0
+                            {account.periods.map((period) => {
+                                const period_percent =
+                                    period.limit > 0
                                         ? Math.min(
                                               100,
-                                              Math.round((window.used / window.limit) * 100),
+                                              Math.round((period.used / period.limit) * 100),
                                           )
                                         : 0;
                                 return render_bar_row(
-                                    window.id,
-                                    window.name,
-                                    window_percent,
-                                    window.resetAt ? formatResetTime(window.resetAt) : null,
-                                    window.status,
+                                    period.id,
+                                    period.name,
+                                    period_percent,
+                                    period.resetAt ? formatResetTime(period.resetAt) : null,
+                                    period.status,
                                 );
                             })}
                         </div>
@@ -472,9 +471,24 @@ export function ProviderCard({
                     ? render_account_detail()
                     : is_multi && !l2open
                       ? render_overview()
-                      : group.accounts.map((account) => (
-                            <ProviderAccountRow key={account.id} account={account} />
-                        ))}
+                      : group.accounts.flatMap((account) =>
+                            account.periods.map((period) => {
+                                const period_pct =
+                                    period.limit > 0
+                                        ? Math.min(
+                                              100,
+                                              Math.round((period.used / period.limit) * 100),
+                                          )
+                                        : 0;
+                                return render_bar_row(
+                                    period.id,
+                                    period.name,
+                                    period_pct,
+                                    period.resetAt ? formatResetTime(period.resetAt) : null,
+                                    period.status,
+                                );
+                            }),
+                        )}
             </CollapsibleCard>
         );
 
