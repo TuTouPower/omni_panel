@@ -2,11 +2,10 @@ import { z } from "zod/v3";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { PluginInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
-import { ok, fail } from "./helpers";
+import { ok, fail, toDTO } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { PluginConfiguration } from "../../shared/types/config";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
-import type { PluginSnapshotState } from "../core/scheduler/types";
 import type { PluginRefreshService } from "../core/scheduler/refresh-service";
 import type { PluginDefinition } from "../core/plugin/types";
 import type { PluginMetadata } from "../../shared/schemas/plugin-metadata";
@@ -15,32 +14,6 @@ import { resolveDisplayNames } from "../core/plugin/display-names";
 import { createLogger } from "../../shared/lib/logger";
 
 const instanceIdSchema = z.string().min(1);
-
-function toDTO(state: PluginSnapshotState): PluginSnapshotDTO {
-    switch (state.status) {
-        case "idle":
-            return { status: "idle" };
-        case "loading":
-            return { status: "loading" };
-        case "ready":
-            return {
-                status: "ready",
-                items: state.items,
-                updatedAt: state.updatedAt.toISOString(),
-                ...(state.badge !== undefined && { badge: state.badge }),
-                ...(state.chart !== undefined && { chart: state.chart }),
-            };
-        case "failed":
-            return {
-                status: "failed",
-                error: state.error,
-                ...(state.lastSuccess !== undefined && {
-                    updatedAt: state.lastSuccess.updatedAt,
-                    items: state.lastSuccess.items,
-                }),
-            };
-    }
-}
 
 function sourceFromMetadata(metadata: PluginMetadata | null): UsageSource {
     return metadata?.defaultSource ?? "direct";

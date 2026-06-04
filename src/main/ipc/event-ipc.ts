@@ -1,35 +1,12 @@
 import { nativeTheme, BrowserWindow, ipcMain } from "electron";
+import { z } from "zod/v3";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
-import type { PluginSnapshotDTO } from "../../shared/types/ipc";
+import { toDTO } from "./helpers";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
 import type { PluginSnapshotState } from "../core/scheduler/types";
 import { createLogger } from "../../shared/lib/logger";
 
-function toDTO(state: PluginSnapshotState): PluginSnapshotDTO {
-    switch (state.status) {
-        case "idle":
-            return { status: "idle" };
-        case "loading":
-            return { status: "loading" };
-        case "ready":
-            return {
-                status: "ready",
-                items: state.items,
-                updatedAt: state.updatedAt.toISOString(),
-                ...(state.badge !== undefined && { badge: state.badge }),
-                ...(state.chart !== undefined && { chart: state.chart }),
-            };
-        case "failed":
-            return {
-                status: "failed",
-                error: state.error,
-                ...(state.lastSuccess !== undefined && {
-                    updatedAt: state.lastSuccess.updatedAt,
-                    items: state.lastSuccess.items,
-                }),
-            };
-    }
-}
+const themeSchema = z.enum(["light", "dark", "system"]);
 
 export interface EventIpcDeps {
     runtimeStore: RuntimeStore;
@@ -68,12 +45,18 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
     // Allow renderer to set the app theme explicitly.
     // Setting nativeTheme.themeSource triggers the "updated" event above,
     // which broadcasts to all windows automatically.
-    ipcMain.handle(IPC_CHANNELS.THEME_SET, (_e, mode: "light" | "dark" | "system") => {
-        nativeTheme.themeSource = mode;
+    ipcMain.handle(IPC_CHANNELS.THEME_SET, (_e, mode: unknown) => {
+        const parsed = themeSchema.safeParse(mode);
+        if (!parsed.success) {
+            log.warn(`Invalid THEME_SET mode: ${String(mode)}`);
+            return;
+        }
+        nativeTheme.themeSource = parsed.data;
     });
 
     return () => {
         unsubState();
         nativeTheme.off("updated", themeHandler);
+        ipcMain.removeHandler(IPC_CHANNELS.THEME_SET);
     };
 }

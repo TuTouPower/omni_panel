@@ -1,4 +1,5 @@
-import type { IpcResult } from "../../shared/types/ipc";
+import type { IpcResult, PluginSnapshotDTO } from "../../shared/types/ipc";
+import type { PluginSnapshotState } from "../core/scheduler/types";
 
 export type { IpcResult };
 
@@ -8,4 +9,30 @@ export function ok<T>(data: T): IpcResult<T> {
 
 export function fail(code: string, message: string): IpcResult<never> {
     return { ok: false, error: { code, message } };
+}
+
+export function toDTO(state: PluginSnapshotState): PluginSnapshotDTO {
+    switch (state.status) {
+        case "idle":
+            return { status: "idle" };
+        case "loading":
+            return { status: "loading" };
+        case "ready":
+            return {
+                status: "ready",
+                items: state.items,
+                updatedAt: state.updatedAt.toISOString(),
+                ...(state.badge !== undefined && { badge: state.badge }),
+                ...(state.chart !== undefined && { chart: state.chart }),
+            };
+        case "failed":
+            return {
+                status: "failed",
+                error: state.error,
+                ...(state.lastSuccess !== undefined && {
+                    updatedAt: state.lastSuccess.updatedAt,
+                    items: state.lastSuccess.items,
+                }),
+            };
+    }
 }
