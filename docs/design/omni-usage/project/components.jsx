@@ -1,29 +1,44 @@
-/* components.jsx — shared UI: Bar, UsageCard, TokenChart, Tab */
+/* components.jsx — shared UI: BarRow, UsageCard, TokenChart, Tab */
 
-function Bar({ label, value, kind }) {
-  const danger = value >= 85;
-  return (
-    <div className="bar-row">
-      <span className="bar-lbl">{label}</span>
-      <div className="track">
-        <div className={'fill ' + (danger ? 'danger' : kind)} style={{ width: Math.min(100, value) + '%' }} />
-      </div>
-      <span className={'bar-pct' + (danger ? ' danger' : '')}>{value}%</span>
-      <span className="bar-reset">{label === '5小时' ? null : null}{value === -1 ? '' : ''}</span>
-    </div>
-  );
+/* OmniUsage usage-bar palette — fixed 3 + 3 + 2 cool-tone system.
+   Colors are assigned strictly by a bar's ORDER within its card/account,
+   cycling every 8 bars (index % 8). Never keyed to metric type, vendor,
+   or thresholds — same position always gets the same color, everywhere. */
+const USAGE_COLORS = [
+  '#5B8CFF', // 1 主蓝
+  '#8B72F8', // 2 主紫
+  '#46C7C7', // 3 主青
+  '#7EA2FF', // 4 扩展蓝
+  '#A18CFF', // 5 扩展紫
+  '#72D4D1', // 6 扩展青
+  '#9CB8FF', // 7 浅蓝灰
+  '#B6A7FF', // 8 浅紫灰
+];
+function usageColor(idx) {
+  const n = USAGE_COLORS.length;
+  return USAGE_COLORS[((idx % n) + n) % n];
 }
 
-/* full row with reset time column */
-function BarRow({ label, value, kind, reset, danger }) {
+/* full row with reset time column.
+   When `max` is given the row is a fraction metric (e.g. balance / MCP calls):
+   it shows "value/max" instead of a percentage and drops the reset column.
+   `idx` is the bar's position within its card/account (0-based). */
+function BarRow({ label, value, max, idx = 0, reset }) {
+  const unused = value == null;
+  const frac = max != null;
+  const pct = unused ? 0 : (frac ? (max > 0 ? (value / max) * 100 : 0) : value);
+  const c = usageColor(idx);
   return (
-    <div className="bar-row">
+    <div className={'bar-row' + (frac ? ' frac' : '')}>
       <span className="bar-lbl">{label}</span>
       <div className="track">
-        <div className={'fill ' + (danger ? 'danger' : kind)} style={{ width: Math.min(100, value) + '%' }} />
+        <div className="fill" style={{
+          width: Math.max(0, Math.min(100, pct)) + '%',
+          background: c,
+        }} />
       </div>
-      <span className={'bar-pct' + (danger ? ' danger' : '')}>{value}%</span>
-      <span className="bar-reset">{reset}</span>
+      <span className="bar-pct">{unused ? '' : (frac ? value + '/' + max : value + '%')}</span>
+      {!frac && <span className="bar-reset">{unused ? '' : reset}</span>}
     </div>
   );
 }
@@ -56,10 +71,11 @@ function CardMenu({ disabled, onEdit, onDelete, onToggle, onClose }) {
   );
 }
 
-function UsageCard({ vendorId, name, badge, updated, h5, week, r5, rw,
+function UsageCard({ vendorId, name, updated, h5, week, r5, rw,
+                     balanceOnly, balance, mcp, metrics,
                      accounts, l2open, onToggleL2,
                      state = 'normal', refreshing, onRefresh, limitMode,
-                     collapsed, onToggleCollapse, disabled, onEnable,
+                     collapsed, onToggleCollapse, disabled,
                      menuOpen, onToggleMenu, onCloseMenu, onEdit, onDelete, onToggleDisable,
                      canDrag, onDragStart, onDragEnter, onDragEnd, onHandleDown, dragging, dragOver }) {
   const isAcct = !vendorId;
@@ -150,17 +166,39 @@ function UsageCard({ vendorId, name, badge, updated, h5, week, r5, rw,
                    <span className="ai-time">{a.updated}</span>
                  </div>
                  <div className="ai-bars">
-                   <BarRow label="5小时" value={a.h5} kind="blue" reset={a.r5} danger={adH5} />
-                   <BarRow label="一周"  value={a.week} kind="purple" reset={a.rw} danger={adWk} />
+                   {a.metrics ? (
+                     a.metrics.map((m, i) => (
+                       <BarRow key={m.label} label={m.label} value={m.value} max={m.max} idx={i} />
+                     ))
+                   ) : a.balanceOnly && a.balance ? (
+                     <BarRow label="余额" value={a.balance.value} max={a.balance.max} idx={0} />
+                   ) : (
+                     <>
+                       <BarRow label="5小时" value={a.h5} idx={0} reset={a.r5} />
+                       <BarRow label="一周"  value={a.week} idx={1} reset={a.rw} />
+                       {a.mcp && <BarRow label="MCP" value={a.mcp.value} max={a.mcp.max} idx={2} />}
+                     </>
+                   )}
                  </div>
                </div>
              );
            })}
          </div>
+       ) : metrics ? (
+         <div className="bars">
+           {metrics.map((m, i) => (
+             <BarRow key={m.label} label={m.label} value={m.value} max={m.max} idx={i} />
+           ))}
+         </div>
+       ) : balanceOnly && balance ? (
+         <div className="bars">
+           <BarRow label="余额" value={balance.value} max={balance.max} idx={0} />
+         </div>
        ) : (
          <div className="bars">
-           <BarRow label="5小时" value={h5} kind="blue" reset={r5} danger={dH5} />
-           <BarRow label="一周"  value={week} kind="purple" reset={rw} danger={dWk} />
+           <BarRow label="5小时" value={h5} idx={0} reset={r5} />
+           <BarRow label="一周"  value={week} idx={1} reset={rw} />
+           {mcp && <BarRow label="MCP" value={mcp.value} max={mcp.max} idx={2} />}
          </div>
        )}
     </div>
@@ -168,7 +206,7 @@ function UsageCard({ vendorId, name, badge, updated, h5, week, r5, rw,
 }
 
 /* ---------- token chart ---------- */
-function TokenChart({ data, range }) {
+function TokenChart({ data }) {
   const W = 400, H = 168;
   const padL = 34, padR = 8, padT = 10, padB = 24;
   const plotW = W - padL - padR;
@@ -236,21 +274,20 @@ function TokenPanel({ chartData, totals, collapsed, onToggleCollapse, onHandleDo
           <Icon name="chev_down" size={18} />
         </button>
       </div>
-      {!collapsed && <TokenChart data={chartData[range]} range={range} />}
+      {!collapsed && <TokenChart data={chartData[range]} />}
     </div>
   );
 }
 
-function Tab({ active, onClick, icon, vendorId, label }) {
+function Tab({ active, onClick, vendorId, label }) {
   return (
     <button className={'tab' + (active ? ' active' : '')} onClick={onClick}>
       <span className="tab-ic">
-        {icon ? <Icon name={icon} size={22} color={active ? 'var(--blue)' : 'var(--text-2)'} strokeWidth={1.8} />
-              : <VendorMark id={vendorId} size={24} />}
+        <VendorMark id={vendorId} size={24} />
       </span>
       <span className="tab-lbl">{label}</span>
     </button>
   );
 }
 
-Object.assign(window, { Bar, BarRow, SkeletonBars, CardMenu, UsageCard, TokenChart, TokenPanel, Tab });
+Object.assign(window, { BarRow, SkeletonBars, CardMenu, UsageCard, TokenChart, TokenPanel, Tab });

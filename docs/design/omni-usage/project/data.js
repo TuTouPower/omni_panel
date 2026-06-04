@@ -15,32 +15,51 @@ const VENDORS = [
   {
     id: 'codex', name: 'Codex', updated: '10 分钟前',
     accounts: [
-      { name: '主力账号', key: 'sk-****c0d3x1a2b3c4', updated: '10 分钟前', h5: 18, week: 93, r5: '今天 13:34', rw: '5/18 21:00' },
-      { name: '团队账号', key: 'sk-****d5e6f7g8h9i0', updated: '11 分钟前', h5: 14, week: 71, r5: '今天 13:30', rw: '5/18 21:00' },
+      { name: '主力账号', key: 'sk-****c0d3x1a2b3c4', updated: '10 分钟前', h5: 6, week: 93, r5: '今天 13:34', rw: '5/18 21:00' },
+      { name: '团队账号', key: 'sk-****d5e6f7g8h9i0', updated: '11 分钟前', h5: 8, week: 71, r5: '今天 13:30', rw: '5/18 21:00' },
     ],
-    h5: 18, week: 93, r5: '今天 13:34', rw: '5/18 21:00',
+    h5: 6, week: 93, r5: '今天 13:34', rw: '5/18 21:00',
   },
   {
     id: 'glm', name: 'GLM', updated: '12 分钟前',
     accounts: [
-      { name: '个人账号', key: 'sk-****g1l2m3n4o5p6', updated: '12 分钟前', h5: 34, week: 41, r5: '今天 13:14', rw: '5/17 10:00' },
-      { name: '研究账号', key: 'sk-****q7r8s9t0u1v2', updated: '13 分钟前', h5: 21, week: 38, r5: '今天 13:11', rw: '5/17 10:00' },
+      { name: '个人账号', key: 'sk-****g1l2m3n4o5p6', updated: '12 分钟前', h5: 34, week: 41, r5: '今天 13:14', rw: '5/17 10:00', mcp: { value: 58, max: 1000 } },
+      { name: '研究账号', key: 'sk-****q7r8s9t0u1v2', updated: '13 分钟前', h5: 21, week: 38, r5: '今天 13:11', rw: '5/17 10:00', mcp: { value: 37, max: 1000 } },
     ],
     h5: 34, week: 41, r5: '今天 13:14', rw: '5/17 10:00',
+    mcp: { value: 95, max: 1000 },
   },
   {
     id: 'deepseek', name: 'DeepSeek', updated: '9 分钟前',
     accounts: [
-      { name: '个人账号', key: 'sk-****d9e8e7p6s5k4', updated: '9 分钟前', h5: 7, week: 22, r5: '今天 13:38', rw: '5/18 09:00' },
+      { name: '个人账号', key: 'sk-****d9e8e7p6s5k4', updated: '9 分钟前', r5: '今天 13:38', rw: '5/18 09:00', balanceOnly: true, balance: { value: 52, max: 100 } },
     ],
     h5: 7, week: 22, r5: '今天 13:38', rw: '5/18 09:00',
+    balanceOnly: true, balance: { value: 52, max: 100 },
   },
   {
     id: 'minimax', name: 'MiniMax', updated: '11 分钟前',
     accounts: [
-      { name: '个人账号', key: 'sk-****m1n2m3a4x5b6', updated: '11 分钟前', h5: 12, week: 31, r5: '今天 13:20', rw: '5/18 08:00' },
+      { name: '个人账号', key: 'sk-****m1n2m3a4x5b6', updated: '11 分钟前', h5: null, week: 31, r5: '', rw: '5/18 08:00' },
     ],
-    h5: 12, week: 31, r5: '今天 13:20', rw: '5/18 08:00',
+    h5: null, week: 31, r5: '', rw: '5/18 08:00',
+  },
+  {
+    id: 'gemini', name: 'Gemini', updated: '5 分钟前',
+    accounts: [
+      { name: '个人账号', key: 'sk-gem-****1111', updated: '5 分钟前',
+        metrics: [
+          { label: 'Pro',   value: 41 },
+          { label: 'Flash', value: 43 },
+          { label: 'Lite',  value: 16 },
+          { label: '图像',  value: 29 },
+          { label: '嵌入',  value: 72 },
+          { label: '缓存',  value: 34 },
+          { label: '文件',  value: 18 },
+          { label: '批量',  value: 8 },
+        ],
+      },
+    ],
   },
   {
     id: 'tavily', name: 'Tavily', updated: '6 分钟前',
@@ -83,6 +102,7 @@ const TOTALS = {
   glm:      { today: 96,  week: 540,  month: 2010 },
   deepseek: { today: 31,  week: 188,  month: 690 },
   minimax:  { today: 28,  week: 164,  month: 620 },
+  gemini:   { today: 88,  week: 520,  month: 1980 },
   tavily:   { today: 17,  week: 96,   month: 358 },
 };
 function fmtTokens(m) {
@@ -95,7 +115,7 @@ function fmtTokens(m) {
 
 /* per-vendor today curves (slightly different shapes) */
 function vendorChart(id) {
-  const seedPeak = { claude:14, codex:16, glm:13, deepseek:12, minimax:15, tavily:14 }[id] || 14;
+  const seedPeak = { claude:14, codex:16, glm:13, deepseek:12, minimax:15, gemini:14, tavily:14 }[id] || 14;
   return {
     today: { values: bellCurve(28, seedPeak, 0.85, 4.6, 0.28), labels: CHART.today.labels },
     week:  { values: CHART.week.values.map(v => v*0.8), labels: CHART.week.labels },

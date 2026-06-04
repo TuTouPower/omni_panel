@@ -10,11 +10,9 @@ const UI_ICONS = {
   chevron: '<path d="M9 6l6 6-6 6"/>',
   chev_down: '<path d="M6 9l6 6 6-6"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
-  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   trash: '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7"/>',
   edit: '<path d="M16.5 4.5l3 3L8 19l-4 1 1-4z"/>',
-  warn: '<path d="M12 3l9.5 16.5H2.5z"/><path d="M12 10v4M12 17h.01"/>',
   cloud_off: '<path d="M3 3l18 18M18.4 15.4A4 4 0 0 0 17 8h-1.3A7 7 0 0 0 6 6.3M5.5 9.5A4 4 0 0 0 6 17h10"/>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 1 1 8 0v3"/>',
   inbox: '<path d="M3 13l3-8h12l3 8M3 13v6a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-6M3 13h5l1.5 2.5h5L16 13h5"/>',
@@ -31,8 +29,6 @@ const UI_ICONS = {
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/>',
   eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
   eye_off: '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4 4M9.4 5.3A9.4 9.4 0 0 1 12 5c6 0 9.5 6.5 9.5 6.5a16.6 16.6 0 0 1-3.2 3.9M6.5 6.6A16.5 16.5 0 0 0 2.5 12S6 18.5 12 18.5a9.2 9.2 0 0 0 2.9-.5"/>',
-  key: '<circle cx="7.5" cy="15.5" r="3.8"/><path d="M10.2 12.8L20 3M16.5 6.5l2.5 2.5M14 9l2 2"/>',
-  clipboard: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
 };
 

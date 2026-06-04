@@ -105,7 +105,7 @@ function MultiGroup({ vendor, accounts, isOn, onToggle, mode }) {
   );
 }
 
-function AccountsPage({ mode, onAdd }) {
+function AccountsPage({ mode }) {
   const dataset = mode === 'cpa' ? ACCT_CPA : ACCT_NORMAL;
   const [off, setOff] = React.useState(() => new Set());
   const toggle = (k) => setOff((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });

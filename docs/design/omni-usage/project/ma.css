@@ -7,29 +7,6 @@
      · recessed account-detail drawer
    ============================================================ */
 
-/* ---- window sized to content for canvas state diagrams ---- */
-.ma-window { height: auto; animation: none; }
-.ma-window .scroll { flex: 0 0 auto; min-height: 0; overflow: visible; padding-bottom: 14px; }
-
-/* ---- legacy head tags (still used by the canvas state diagram in
-        ma-states.jsx — kept intact so that file is unaffected) ---- */
-.avg-badge {
-  font-size: 11px; font-weight: 600; color: var(--text-2);
-  background: var(--chip-bg); padding: 1px 8px; border-radius: 7px; line-height: 1.55;
-  letter-spacing: .02em; flex-shrink: 0;
-}
-.acct-toggle {
-  display: inline-flex; align-items: center; gap: 3px;
-  border: 0; background: transparent; cursor: default; font-family: inherit;
-  font-size: 12px; font-weight: 600; color: var(--text-2);
-  height: 28px; padding: 0 7px 0 9px; border-radius: 8px; margin-right: 1px;
-  transition: background .14s, color .14s; white-space: nowrap;
-}
-.acct-toggle:hover { background: var(--iconbtn-hov); color: var(--text); }
-.acct-toggle svg { transition: transform .22s ease; color: var(--text-3); }
-.acct-toggle:hover svg { color: var(--text-2); }
-.acct-toggle.open svg { transform: rotate(180deg); }
-
 /* ---- head: account-count tag (collapsed / disabled only). count-badge base
         already exists in omniusage.css; here we just keep it from shrinking ---- */
 .card-head .count-badge { flex-shrink: 0; }

@@ -8,6 +8,7 @@
   --blue:   #3d7afd;          /* 5h / primary / selected */
   --purple: #7b5cf6;          /* week */
   --green:  #22c55e;
+  --teal:   #0ea5a3;
   --amber:  #f5a524;
   --red:    #ef4444;
 
@@ -24,6 +25,7 @@
   --text-3:       #9aa2b2;
   --hairline:     #eef1f6;
   --track:        #edf0f6;
+  --bar-track:    #e9edf5;     /* usage-bar track — unified across all bars */
   --tab-active:   #eef3ff;
   --chip-bg:      #f1f4f9;
   --chip-active:  #ffffff;
@@ -42,6 +44,7 @@
   --blue:   #5b8dff;
   --purple: #9a80ff;
   --green:  #34d27b;
+  --teal:   #2dd4cf;
   --amber:  #f7b53c;
   --red:    #ff6b6b;
 
@@ -57,6 +60,7 @@
   --text-3:       #6c7382;
   --hairline:     #262b34;
   --track:        #2b313c;
+  --bar-track:    #2b313c;
   --tab-active:   rgba(91,141,255,.16);
   --chip-bg:      #262b34;
   --chip-active:  #363c48;
@@ -108,11 +112,8 @@ html, body {
   padding: 12px 14px; font-size: 13.5px; font-weight: 700; color: var(--text);
   border-bottom: .5px solid var(--hairline);
 }
-.app-badge.sm { width: 22px; height: 22px; border-radius: 7px; box-shadow: 0 2px 5px rgba(83,99,246,.32); }
 .app-logo { display: block; object-fit: contain; flex-shrink: 0;
   filter: drop-shadow(0 3px 7px rgba(61,122,253,.26)); }
-.tray-win-tag { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--text-3);
-  background: var(--field-bg); padding: 3px 8px; border-radius: 99px; }
 .tray-menu-body { padding: 7px; }
 
 /* ---------- the popup window ----------
@@ -137,24 +138,12 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .window { transition: background .35s ease, box-shadow .35s ease; }
 }
-.window.hidden { display: none; }
-@keyframes popIn {
-  from { opacity: 0; transform: translateY(-8px) scale(.985); }
-  to   { opacity: 1; transform: none; }
-}
 
 /* ---------- title bar ---------- */
 .titlebar {
   display: flex; align-items: center; gap: 10px;
   padding: 14px 16px 12px;
   flex-shrink: 0;
-}
-.app-badge {
-  width: 30px; height: 30px; border-radius: 9px;
-  background: linear-gradient(150deg, #5b8dff, #6f5cf6);
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; flex-shrink: 0;
-  box-shadow: 0 3px 8px rgba(83,99,246,.35);
 }
 .app-title { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -.01em; }
 .titlebar .tb-actions { margin-left: auto; display: flex; align-items: center; gap: 2px; }
@@ -284,18 +273,18 @@ html, body {
 
 /* progress rows */
 .bars { margin-top: 11px; display: flex; flex-direction: column; gap: 9px; }
-.bar-row { display: grid; grid-template-columns: 42px 1fr 40px 76px; align-items: center; gap: 10px; }
+.bar-row { display: grid; grid-template-columns: 42px 1fr 64px 76px; align-items: center; gap: 10px; }
 .bar-lbl { font-size: 12.5px; color: var(--text-2); }
 .track {
-  height: 6px; background: var(--track); border-radius: 99px; overflow: hidden;
+  height: 6px; background: var(--bar-track); border-radius: 99px; overflow: hidden;
 }
 .fill { height: 100%; border-radius: 99px; transition: width .5s cubic-bezier(.3,.8,.4,1); }
-.fill.blue   { background: linear-gradient(90deg, color-mix(in srgb, var(--blue) 62%, #fff), var(--blue)); }
-.fill.purple { background: linear-gradient(90deg, color-mix(in srgb, var(--purple) 62%, #fff), var(--purple)); }
-.fill.danger { background: linear-gradient(90deg, color-mix(in srgb, var(--red) 55%, #fff), var(--red)); }
-.bar-pct { font-size: 12.5px; font-weight: 600; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
-.bar-pct.danger { color: var(--red); }
+/* fill color is set inline per bar from the fixed 8-color usage palette (see BarRow) */
+.bar-pct { font-size: 12.5px; font-weight: 600; color: var(--text); text-align: center; font-variant-numeric: tabular-nums; }
 .bar-reset { font-size: 12px; color: var(--text-3); text-align: right; font-variant-numeric: tabular-nums; }
+/* fraction metrics (balance / MCP / quota counts) keep the SAME grid as percentage
+   rows so the value lines up in the same column; the reset cell is just left empty. */
+.bar-row.frac { grid-template-columns: 42px 1fr 64px 76px; }
 
 /* card states */
 .card-state {
@@ -479,9 +468,6 @@ html, body {
 
 /* about */
 .about-app { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 14px 0 20px; }
-.about-app .aa-badge { width: 56px; height: 56px; border-radius: 16px;
-  background: linear-gradient(150deg, #5b8dff, #6f5cf6); display: flex; align-items: center;
-  justify-content: center; color: #fff; box-shadow: 0 6px 16px rgba(83,99,246,.35); margin-bottom: 12px; }
 .about-app .aa-name { font-size: 17px; font-weight: 700; color: var(--text); }
 .about-app .aa-ver { font-size: 12.5px; color: var(--text-3); margin-top: 3px; }
 .about-links { display: flex; flex-direction: column; }

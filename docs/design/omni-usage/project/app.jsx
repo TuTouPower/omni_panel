@@ -3,7 +3,8 @@
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "theme": "light",
   "accent": "#3d7afd",
-  "demoState": "default"
+  "demoState": "default",
+  "settingsMode": "normal"
 }/*EDITMODE-END*/;
 
 const DEMO_LABELS = [
@@ -35,11 +36,11 @@ function App() {
   const [tab, setTab] = React.useState('overview');       // overview | vendorId
   const [winOpen, setWinOpen] = React.useState(true);
 
-  /* settings lives in its own window — open OmniUsage Settings.html as a popup */
-  const openSettings = () => {
-    window.open('OmniUsage Settings.html', 'omniusage-settings',
-      'width=900,height=760,menubar=no,toolbar=no,location=no,status=no');
-  };
+  /* settings now lives in-page as its own overlay window (migrated from
+     the standalone OmniUsage Settings.html). Opening it shows the overlay;
+     the panel's back/close button hides it. */
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const openSettings = () => setSettingsOpen(true);
 
   const [autostart, setAutostart] = React.useState(true);
   const [pauseRefresh, setPauseRefresh] = React.useState(false);
@@ -223,6 +224,7 @@ function App() {
         const d = demo === 'limit' ? limitTransform(base, i) : base;
         items.push(<UsageCard key={key} vendorId={v.id} name={v.name}
           accounts={v.accounts}
+          balanceOnly={v.balanceOnly} balance={v.balance} mcp={v.mcp} metrics={d.metrics}
           l2open={l2set.has(v.id)} onToggleL2={() => toggleSet(setL2set, v.id)}
           updated={getUpdated(key, v.updated)} h5={d.h5} week={d.week} r5={d.r5} rw={d.rw}
           state={demo === 'error' ? 'error' : demo === 'auth' ? 'auth' : 'normal'}
@@ -240,6 +242,7 @@ function App() {
         if (disabledSet.has(key) || disabledSet.has('v:' + currentVendor.id)) return;   // closed cards live only in settings
         const d = demo === 'limit' ? limitTransform(a, i) : a;
         items.push(<UsageCard key={key} name={a.name}
+          balanceOnly={a.balanceOnly} balance={a.balance} mcp={a.mcp} metrics={a.metrics}
           updated={getUpdated(key, a.updated)} h5={d.h5} week={d.week} r5={a.r5} rw={a.rw}
           state={demo === 'error' ? 'error' : demo === 'auth' ? 'auth' : 'normal'}
           refreshing={refreshing.has(key) || demo === 'refreshing'}
@@ -336,6 +339,17 @@ function App() {
         </div>
       )}
 
+      {/* settings — in-page overlay window (migrated from OmniUsage Settings.html) */}
+      {settingsOpen && (
+        <div className="sp-stage">
+          <SettingsPanel
+            mode={t.settingsMode}
+            theme={t.theme} onTheme={(v) => setTweak('theme', v)}
+            accent={t.accent} onAccent={(v) => setTweak('accent', v)}
+            onBack={() => setSettingsOpen(false)} />
+        </div>
+      )}
+
       {/* tweaks */}
       <TweaksPanel title="Tweaks">
         <TweakSection label="主题" />
@@ -348,6 +362,10 @@ function App() {
         <TweakSection label="状态预览" />
         <TweakSelect label="演示状态" value={t.demoState} options={DEMO_LABELS}
           onChange={(v) => setTweak('demoState', v)} />
+        <TweakSection label="设置窗口" />
+        <TweakRadio label="账号来源" value={t.settingsMode} options={[
+          { value: 'normal', label: '普通用户' }, { value: 'cpa', label: 'CPA 用户' }]}
+          onChange={(v) => setTweak('settingsMode', v)} />
       </TweaksPanel>
     </div>
   );
