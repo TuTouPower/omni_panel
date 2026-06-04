@@ -11,6 +11,7 @@ import { appConfigurationSchema } from "../core/config/types";
 import { createLogger } from "../../shared/lib/logger";
 
 const MASK = "***";
+const log = createLogger("ipc:config");
 
 const saveSecretsSchema = z.object({
     instanceId: z.string(),
@@ -79,7 +80,8 @@ export async function handleConfigGet(
             hasSecrets[plugin.instanceId] = pluginSecrets;
         }
         return ok({ config: masked, hasSecrets });
-    } catch {
+    } catch (error: unknown) {
+        log.error("handleConfigGet failed", error);
         return fail("INTERNAL_ERROR", "获取配置失败");
     }
 }
