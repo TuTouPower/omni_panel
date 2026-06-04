@@ -146,7 +146,12 @@ const api: UsageboardApi = {
         },
     },
     log: (payload: RendererLogPayload) => {
-        void ipcRenderer.invoke(IPC_CHANNELS.LOG_RENDERER, payload);
+        const sanitized: RendererLogPayload = {
+            level: payload.level,
+            module: sanitizeLogField(payload.module, 128),
+            message: sanitizeLogField(payload.message, 4096),
+        };
+        void ipcRenderer.invoke(IPC_CHANNELS.LOG_RENDERER, sanitized);
     },
 };
 
@@ -157,4 +162,11 @@ if (process.env.E2E === "1") {
     contextBridge.exposeInMainWorld("__test__", {
         trayClick: () => ipcRenderer.invoke("test:tray-click"),
     });
+}
+
+const CONTROL_CHARS_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f]/g;
+
+function sanitizeLogField(value: string, maxLen: number): string {
+    const stripped = value.replace(CONTROL_CHARS_RE, "");
+    return stripped.length > maxLen ? stripped.slice(0, maxLen) : stripped;
 }
