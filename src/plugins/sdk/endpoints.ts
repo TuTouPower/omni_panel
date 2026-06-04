@@ -9,7 +9,9 @@ export function resolveEndpoint(key: string, fallbackFromMetadata?: string | nul
             const value = map[key];
             if (typeof value === "string" && value.length > 0) return value;
         } catch {
-            // 静默 — 注入错就回落到 metadata 默认
+            process.stderr.write(
+                `[omni-sdk] WARN: OMNI_PLUGIN_ENDPOINTS parse failed, falling back to metadata defaults\n`,
+            );
         }
     }
     return fallbackFromMetadata ?? null;
