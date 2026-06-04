@@ -530,69 +530,6 @@ void app.whenReady().then(async () => {
             });
         }
 
-        // Left-click → toggle popup (usage view)
-        tray.on("click", () => {
-            log.info(
-                `[tray] click handler fired, popupWin exists: ${popupWin ? "true" : "false"}, destroyed: ${String(popupWin?.isDestroyed())}`,
-            );
-            if (popupWin && !popupWin.isDestroyed()) {
-                popupWin.close();
-                popupWin = null;
-                popup_controller = null;
-                log.info("[tray] closed popup");
-                return;
-            }
-            popupWin = createWindowFor("popup");
-
-            // Position popup near tray icon
-            const trayBounds = tray.getBounds();
-            const display = screen.getDisplayNearestPoint({
-                x: trayBounds.x + trayBounds.width / 2,
-                y: trayBounds.y + trayBounds.height / 2,
-            });
-            const popupCfg = WINDOW_CONFIGS["popup"];
-            const popupWidth = popupCfg?.width ?? 460;
-            const popupHeight = popupCfg?.height ?? 480;
-            const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
-            const y = Math.round(trayBounds.y + trayBounds.height + 4);
-            const clampedX = Math.max(
-                display.workArea.x,
-                Math.min(x, display.workArea.x + display.workArea.width - popupWidth),
-            );
-            const clampedY = Math.min(
-                y,
-                display.workArea.y + display.workArea.height - popupHeight,
-            );
-            popupWin.setBounds({
-                x: clampedX,
-                y: clampedY,
-                width: popupWidth,
-                height: popupHeight,
-            });
-            popupWin.show();
-            popupWin.focus();
-
-            // Initialise Phase 20 height controller for this popup session.
-            popup_anchor_state.tray_bounds =
-                trayBounds.width > 0 && trayBounds.height > 0 ? trayBounds : null;
-            popup_anchor_state.user_moved = false;
-            popup_controller = build_popup_controller(popupWin);
-
-            // Track user-initiated moves so subsequent resizes don't snap back to tray.
-            popupWin.on("move", () => {
-                if (popup_anchor_state.suppress_move) return;
-                popup_anchor_state.user_moved = true;
-            });
-
-            popupWin.on("closed", () => {
-                popupWin = null;
-                popup_controller = null;
-                popup_anchor_state.tray_bounds = null;
-                popup_anchor_state.user_moved = false;
-                popup_anchor_state.suppress_move = false;
-            });
-        });
-
         // Tray menu state
         let is_paused = false;
         const hasLoginItemApi = typeof app.setLoginItemSettings === "function";
