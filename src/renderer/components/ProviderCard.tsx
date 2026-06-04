@@ -84,7 +84,7 @@ function render_bar_row(
             </div>
         );
     }
-    const display_percent = Math.min(100, Math.max(0, value));
+    const pct = limit > 0 ? Math.min(100, Math.max(0, Math.round((value / limit) * 100))) : 0;
     return (
         <div className="bar-row" key={key}>
             <span className="bar-lbl">{period_label(name)}</span>
@@ -92,12 +92,12 @@ function render_bar_row(
                 <div
                     className="fill"
                     style={{
-                        width: `${String(display_percent)}%`,
+                        width: `${String(pct)}%`,
                         background: usage_color(idx),
                     }}
                 />
             </div>
-            <span className="bar-pct">{display_percent}%</span>
+            <span className="bar-pct">{pct}%</span>
             <span className="bar-reset">{reset_at ?? "--"}</span>
         </div>
     );
