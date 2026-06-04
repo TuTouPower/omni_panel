@@ -413,7 +413,7 @@ export function CpaConnectorSettings({
                             {openGrps.has(provider) && (
                                 <div className="disc-rows">
                                     {acctItems.map((item) => (
-                                        <div className="disc-row" key={item.accountLabel}>
+                                        <div className="disc-row" key={item.id}>
                                             <span className="drd" />
                                             <span className="dr-note">{item.accountLabel}</span>
                                             <span className="dr-key">{item.accountId}</span>
