@@ -16,6 +16,8 @@ export const usageProviderSchema = z.enum([
 ]);
 export const usageSourceSchema = z.enum(["cpa", "direct", "local", "api_key", "oauth"]);
 
+const finiteNonNegative = z.number().finite().nonnegative();
+
 export const usageItemSchema = z.object({
     id: z.string(),
     provider: usageProviderSchema,
@@ -24,8 +26,8 @@ export const usageItemSchema = z.object({
     accountId: z.string(),
     accountLabel: z.string(),
     name: z.string(),
-    used: z.number().nullable(),
-    limit: z.number(),
+    used: finiteNonNegative.nullable(),
+    limit: finiteNonNegative,
     displayStyle: usageDisplayStyleSchema,
     resetAt: z.string().nullable().optional(),
     status: usageStatusSchema.default("unknown"),
@@ -34,7 +36,7 @@ export const usageItemSchema = z.object({
 
 export const pluginChartSegmentSchema = z.object({
     model: z.string(),
-    tokens: z.number(),
+    tokens: finiteNonNegative,
 });
 
 export const pluginChartBucketSchema = z.object({
