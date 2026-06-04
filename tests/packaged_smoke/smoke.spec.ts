@@ -108,7 +108,7 @@ test.describe("packaged binary smoke", () => {
             const pageErrors: Error[] = [];
             app.page.on("pageerror", (err) => pageErrors.push(err));
 
-            await expect(app.page.locator(".app-title")).toContainText("OmniUsage", {
+            await expect(app.page.locator(".app-title").first()).toContainText("OmniUsage", {
                 timeout: 15_000,
             });
             expect(pageErrors).toEqual([]);
@@ -139,7 +139,7 @@ test.describe("packaged binary smoke", () => {
 
         const app = await launchPackagedApp(47002 + testInfo.workerIndex * 10);
         try {
-            await expect(app.page.locator(".app-title")).toContainText("OmniUsage", {
+            await expect(app.page.locator(".app-title").first()).toContainText("OmniUsage", {
                 timeout: 15_000,
             });
 

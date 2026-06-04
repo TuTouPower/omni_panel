@@ -7,11 +7,15 @@ test.describe("popup visual states", () => {
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        // Wait for any pending network activity to settle
-        await page.waitForLoadState("networkidle").catch(() => undefined);
-        await expect(page).toHaveScreenshot("popup_ready.png", {
-            fullPage: true,
-        });
+        // Wait for cards to render and state transitions to settle
+        await page
+            .locator(".card")
+            .first()
+            .waitFor({ timeout: 10_000 })
+            .catch(() => undefined);
+        await page.waitForTimeout(2000);
+        const screenshot = await page.screenshot({ fullPage: true });
+        expect(screenshot).toMatchSnapshot("popup_ready.png");
     });
 
     test("title bar area", async ({ omni }) => {
@@ -19,8 +23,15 @@ test.describe("popup visual states", () => {
         const popup = new PopupPage(page);
         await popup.waitReady();
 
+        await page
+            .locator(".card")
+            .first()
+            .waitFor({ timeout: 10_000 })
+            .catch(() => undefined);
+        await page.waitForTimeout(2000);
         const titleBar = page.locator(".app-title").first();
-        await expect(titleBar).toHaveScreenshot("popup_title_bar.png");
+        const screenshot = await titleBar.screenshot();
+        expect(screenshot).toMatchSnapshot("popup_title_bar.png");
     });
 
     test("plugin card area", async ({ omni }) => {

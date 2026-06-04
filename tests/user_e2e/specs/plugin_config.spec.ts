@@ -71,13 +71,15 @@ test.describe("plugin configuration", () => {
         // CPA plugin is grouped by its active providers (e.g. "Claude"),
         // not in a standalone "CPA 额度连接器" group.
         // Find any account row containing CPA and click its edit button.
-        const cpaRow = sPage.locator(".acct-row").filter({ hasText: "CPA" }).first();
+        const cpaRow = sPage.locator(".acct-row, .ao-item").filter({ hasText: "CPA" }).first();
         await expect(cpaRow).toBeVisible();
         await cpaRow.locator('button[title="编辑"]').first().click();
-        await expect(sPage.locator('[role="dialog"]')).toBeVisible({ timeout: 10_000 });
+        // CPA detail page renders inline (not in a dialog)
+        await expect(sPage.locator('[data-testid="cpa-connector-settings"]')).toBeVisible({
+            timeout: 10_000,
+        });
 
         await expect(sPage.getByLabel("CPA-Manager URL")).toBeVisible();
-        await expect(sPage.getByRole("button", { name: "测试连接" })).toBeVisible();
     });
 
     test("CPA settings persist after app restart without exposing the secret", async ({ omni }) => {

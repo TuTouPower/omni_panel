@@ -97,10 +97,12 @@ testWithConfig.describe("auto-seed with existing config", () => {
         ).toBeVisible();
 
         // Total plugin count should be >= 7 (1 existing + 6 auto-seeded)
-        // Count both grouped and standalone account rows
+        // Count both grouped and standalone account rows (.ao-item for single, .acct-row for grouped)
         const acctRows = sPage.locator(".acct-row");
         const acctGroups = sPage.locator(".acct-group");
-        const count = (await acctRows.count()) + (await acctGroups.count());
+        const aoItems = sPage.locator(".ao-item");
+        const count =
+            (await acctRows.count()) + (await acctGroups.count()) + (await aoItems.count());
         expectWithConfig(count).toBeGreaterThanOrEqual(BUNDLED_PLUGIN_NAMES.length);
     });
 });
