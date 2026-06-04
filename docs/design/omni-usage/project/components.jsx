@@ -81,17 +81,17 @@ function UsageCard({ vendorId, name, badge, updated, h5, week, r5, rw,
         </button>
         {vendorId && <VendorMark id={vendorId} size={26} />}
         <span className="card-name">{name}</span>
-        {multi && (collapsed || disabled) && <span className="count-badge">{accts.length}账号</span>}
+        {multi && (collapsed || disabled) && <span className="count-badge">{collapsed && !disabled && !l2open ? '概览' : accts.length + '账号'}</span>}
         {multi && !collapsed && !disabled && (
           <span className="l2seg" role="tablist">
-            <button className={l2open ? '' : 'on'} title="平均用量"
-              onClick={() => { if (l2open) onToggleL2(); }}>平均</button>
+            <button className={l2open ? '' : 'on'} title="概览"
+              onClick={() => { if (l2open) onToggleL2(); }}>概览</button>
             <button className={l2open ? 'on' : ''} title="账号明细"
               onClick={() => { if (!l2open) onToggleL2(); }}>{accts.length}账号</button>
           </span>
         )}
         {disabled && <span className="off-badge">已关闭</span>}
-        {!collapsed && !disabled && <span className="rel-time">{refreshing ? '刷新中…' : updated}</span>}
+        {!disabled && <span className="rel-time">{refreshing ? '刷新中…' : updated}</span>}
         <div className="card-tools">
           {!disabled && (
             <button className={'icon-btn card-refresh' + (refreshing ? ' spinning' : '')}
