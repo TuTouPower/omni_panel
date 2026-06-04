@@ -153,6 +153,8 @@ const api: UsageboardApi = {
 contextBridge.exposeInMainWorld("usageboard", api);
 
 // E2E test helpers — only used by Playwright tests
-contextBridge.exposeInMainWorld("__test__", {
-    trayClick: () => ipcRenderer.invoke("test:tray-click"),
-});
+if (process.env.E2E === "1") {
+    contextBridge.exposeInMainWorld("__test__", {
+        trayClick: () => ipcRenderer.invoke("test:tray-click"),
+    });
+}
