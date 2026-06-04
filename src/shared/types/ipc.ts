@@ -116,7 +116,9 @@ export interface RendererLogPayload {
     message: string;
 }
 
-export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: IpcError };
+export type IpcResult<T> =
+    | { readonly ok: true; readonly data: T }
+    | { readonly ok: false; readonly error: IpcError };
 
 export type RendererPlatform = "darwin" | "win32" | "linux";
 

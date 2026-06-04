@@ -230,7 +230,6 @@ export function ProviderCard({
 
     const [menu_open, set_menu_open] = useState(false);
     const [l2open, set_l2open] = useState(false);
-    const menu_wrap_ref = useRef<HTMLDivElement>(null);
     const menu_ref = useRef<HTMLDivElement>(null);
 
     const toggle_menu = (e: React.MouseEvent) => {
@@ -327,7 +326,7 @@ export function ProviderCard({
                     <Icon name="refresh" size={16} />
                 </button>
             )}
-            <div className="card-menu-wrap" ref={menu_wrap_ref}>
+            <div className="card-menu-wrap">
                 <button
                     className="icon-btn"
                     aria-label="更多操作"

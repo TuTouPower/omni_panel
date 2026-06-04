@@ -1,8 +1,6 @@
-import type { IpcError } from "../../shared/types/ipc";
+import type { IpcResult } from "../../shared/types/ipc";
 
-export type IpcResult<T> =
-    | { readonly ok: true; readonly data: T }
-    | { readonly ok: false; readonly error: IpcError };
+export type { IpcResult };
 
 export function ok<T>(data: T): IpcResult<T> {
     return { ok: true, data };
