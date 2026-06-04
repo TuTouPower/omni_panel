@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { Icon, VendorMark } from "./Icon";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { PluginConfiguration } from "../../shared/types/config";
@@ -131,6 +131,36 @@ export function CpaConnectorSettings({
         const grps = groupAccounts(items);
         return new Set(grps.map(([p]) => p));
     });
+
+    // Sync state when connector changes (e.g. parent refreshes connector data)
+    useEffect(() => {
+        setSecret(hasSecrets["cpa_mgmt_key"] ? "***" : "");
+        setEndpoint(
+            config.endpointOverrides["default"] ?? connector.metadata?.endpoints?.["default"] ?? "",
+        );
+        const values: Record<string, boolean> = {};
+        for (const monitor of MONITORS) {
+            values[monitor.name] = isEnabledValue(
+                config.parameterValues[monitor.name] ?? getDefaultValue(connector, monitor.name),
+            );
+        }
+        setMonitors(values);
+        setSyncInterval(
+            config.refreshIntervalSeconds <= 60
+                ? "1 分钟"
+                : config.refreshIntervalSeconds <= 300
+                  ? "5 分钟"
+                  : config.refreshIntervalSeconds <= 900
+                    ? "15 分钟"
+                    : config.refreshIntervalSeconds <= 1800
+                      ? "30 分钟"
+                      : "仅手动",
+        );
+        const items = getSnapshotItems(connector);
+        const grps = groupAccounts(items);
+        setOpenGrps(new Set(grps.map(([p]) => p)));
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset only on instanceId change
+    }, [connector.instanceId]);
 
     const items = useMemo(() => getSnapshotItems(connector), [connector]);
     const accountGroups = useMemo(() => groupAccounts(items), [items]);
