@@ -405,3 +405,76 @@ Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子
 
 1. 本轮改了哪些文件？
 2. 哪些测试证明它工作？
+
+---
+
+## Phase 26: 残余 Demo 差异补齐
+
+> 全部完成。6 次 commit，395 测试全过。
+
+### 26.1 进度条系统
+
+- [x] 26px 粗药丸 (`ub-row`) → 6px 细线 (`bar-row`)
+- [x] 周期颜色：5小时=蓝 `.fill.blue`，一周=紫 `.fill.purple`
+- [x] 废弃旧 `.ub-row` / `.ub-bar` / `.ub-bar-fill` / `.ub-bar-text`
+
+### 26.2 设置窗口 frame
+
+- [x] `titleBarStyle: "hidden"` + `frame: false`
+- [x] 18px 圆角 + 窗口阴影
+- [x] 自定义标题栏：拖拽区域 + 最小化/最大化/关闭按钮
+
+### 26.3 深色模式
+
+- [x] popup 窗口接通 `onThemeChange` IPC
+- [x] 改用 `data-theme="dark"` 属性
+- [x] 启动时读取已保存主题
+
+### 26.4 状态栏文案
+
+- [x] "运行中"→"数据正常"，"刷新异常"→"网络异常"
+- [x] 新增"接近限制"/"凭证失效"状态
+- [x] 刷新时间显示真实相对时间
+
+### 26.5 卡片间距
+
+- [x] 删除 `.card` 的 `margin-bottom: 12px`
+
+### 26.6 折叠状态
+
+- [x] count-badge 文案跟随 L2 选择
+
+### 26.8 网络横幅间距
+
+- [x] 移除 `.net-banner` 的 `margin-bottom: 12px`
+
+### 26.9 CSS 变量
+
+- [x] 补齐 `--destructive` / `--ring` / `--foreground` alias
+
+### 26.10 概览与单账号卡片
+
+- [x] 禁用厂商显示为 disabled 灰化卡片
+- [x] 单账号卡片扁平化
+- [x] windows→periods 重命名
+
+### 26.11 托盘菜单
+
+- [x] frameless BrowserWindow，184px 宽，16px 圆角
+- [x] 毛玻璃 `backdrop-filter: blur(28px) saturate(170%)`
+- [x] 菜单项：图标+文字+checkbox 状态
+- [x] 左键行为配置
+
+### 26.12 测试
+
+- [x] `pnpm test`: 52 单元 + 9 集成 = 61 文件，395 测试，零失败
+
+### Commits
+
+1. `fix: CSS 快速修复 26.5/26.8/26.9`
+2. `feat: 替换进度条系统为 6px 细线 (26.1)`
+3. `refactor: 数据模型重命名 windows→periods + 卡片重构 (26.6/26.10)`
+4. `feat: 设置窗口改为 frameless + 自定义标题栏 (26.2)`
+5. `feat: 深色模式 IPC 通路 (26.3)`
+6. `feat: 状态栏文案对齐 demo (26.4)`
+7. `feat: 自定义托盘菜单 (26.11)`
