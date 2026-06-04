@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { AppConfiguration } from "../../shared/types/config";
 
 const MODULE = "use-config";
@@ -9,12 +9,15 @@ interface UseConfigResult {
     loading: boolean;
     error: string | null;
     save: (newConfig: AppConfiguration) => Promise<void>;
+    update_config: (updater: (prev: AppConfiguration) => AppConfiguration) => void;
     saveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
     duplicate: (instanceId: string) => Promise<void>;
 }
 
 export function useConfig(): UseConfigResult {
     const [config, setConfig] = useState<AppConfiguration | null>(null);
+    const config_ref = useRef<AppConfiguration | null>(null);
+    const save_queue_ref = useRef(Promise.resolve());
     const [hasSecrets, setHasSecrets] = useState<Record<string, Record<string, boolean>>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -31,6 +34,7 @@ export function useConfig(): UseConfigResult {
                         module: MODULE,
                         message: `Config loaded: ${String(result.config.plugins.length)} plugins`,
                     });
+                    config_ref.current = result.config;
                     setConfig(result.config);
                     setHasSecrets(result.hasSecrets);
                     setLoading(false);
@@ -53,10 +57,24 @@ export function useConfig(): UseConfigResult {
         };
     }, []);
 
-    const save = useCallback(async (newConfig: AppConfiguration) => {
+    const save = useCallback((newConfig: AppConfiguration): Promise<void> => {
         window.usageboard.log({ level: "debug", module: MODULE, message: "Saving config" });
-        await window.usageboard.config.save(newConfig);
+        config_ref.current = newConfig;
         setConfig(newConfig);
+        const p = save_queue_ref.current.then(() => window.usageboard.config.save(newConfig));
+        save_queue_ref.current = p.catch(() => undefined);
+        return p;
+    }, []);
+
+    const update_config = useCallback((updater: (prev: AppConfiguration) => AppConfiguration) => {
+        const current = config_ref.current;
+        if (!current) return;
+        const next = updater(current);
+        config_ref.current = next;
+        setConfig(next);
+        save_queue_ref.current = save_queue_ref.current.then(() =>
+            window.usageboard.config.save(next),
+        );
     }, []);
 
     const saveSecrets = useCallback(async (instanceId: string, secrets: Record<string, string>) => {
@@ -85,9 +103,10 @@ export function useConfig(): UseConfigResult {
         await window.usageboard.config.duplicate(instanceId);
         // Reload config to reflect the new duplicate
         const result = await window.usageboard.config.get();
+        config_ref.current = result.config;
         setConfig(result.config);
         setHasSecrets(result.hasSecrets);
     }, []);
 
-    return { config, hasSecrets, loading, error, save, saveSecrets, duplicate };
+    return { config, hasSecrets, loading, error, save, update_config, saveSecrets, duplicate };
 }
