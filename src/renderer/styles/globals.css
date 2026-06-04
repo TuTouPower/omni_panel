@@ -1918,6 +1918,9 @@ body {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
+.bar-row.frac {
+    grid-template-columns: 42px 1fr 80px 76px;
+}
 
 /* Token grid */
 .ub-tokens {

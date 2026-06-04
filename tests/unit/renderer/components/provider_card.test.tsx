@@ -207,7 +207,8 @@ describe("ProviderCard", () => {
         );
 
         expect(screen.getByText("概览")).toBeInTheDocument();
-        expect(screen.getByText("38%")).toBeInTheDocument();
+        // ratio mode: aggregated used=150, limit=400
+        expect(screen.getByText("150/400")).toBeInTheDocument();
         expect(screen.queryByText("Account 1")).not.toBeInTheDocument();
     });
 

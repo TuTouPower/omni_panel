@@ -4,6 +4,7 @@ import type { UsageItem } from "../../../src/shared/schemas/plugin-output";
 import type { ConnectorInfo } from "../../../src/shared/types/ipc";
 import {
     buildProviderUsageGroups,
+    buildOverviewForGroup,
     getVisibleProviders,
 } from "../../../src/renderer/lib/provider-usage";
 
@@ -162,5 +163,42 @@ describe("provider usage aggregation", () => {
 
         expect(buildProviderUsageGroups(connectors)).toEqual([]);
         expect(getVisibleProviders(connectors)).toEqual([]);
+    });
+
+    it("preserves null used values in periods", () => {
+        const connectors = [
+            connectorInfo({
+                source: "cpa",
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [usageItem({ used: null })],
+                },
+            }),
+        ];
+
+        const groups = buildProviderUsageGroups(connectors);
+        expect(groups).toHaveLength(1);
+        expect(groups[0]?.periods[0]?.used).toBeNull();
+        expect(groups[0]?.periods[0]?.limit).toBe(100);
+    });
+
+    it("excludes null-used periods from overview aggregation", () => {
+        const connectors = [
+            connectorInfo({
+                source: "cpa",
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [usageItem({ used: null, name: "Requests" })],
+                },
+            }),
+        ];
+
+        const groups = buildProviderUsageGroups(connectors);
+        const overview = buildOverviewForGroup(groups[0] ?? { provider: "x", accounts: [] });
+        expect(overview).toHaveLength(0);
     });
 });

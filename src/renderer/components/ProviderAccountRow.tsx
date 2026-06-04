@@ -66,6 +66,48 @@ export function ProviderAccountRow({
     const details = (
         <div className="bars">
             {account.periods.map((period, idx) => {
+                if (period.used == null) {
+                    return (
+                        <div className="bar-row" key={period.id}>
+                            <span className="bar-lbl">{period_label(period.name)}</span>
+                            <div className="track">
+                                <div
+                                    className="fill"
+                                    style={{
+                                        width: "0%",
+                                        background: usage_color(idx),
+                                    }}
+                                />
+                            </div>
+                            <span className="bar-pct" />
+                            <span className="bar-reset" />
+                        </div>
+                    );
+                }
+                if (period.displayStyle === "ratio" && period.limit > 0) {
+                    const fill_pct = Math.min(
+                        100,
+                        Math.max(0, Math.round((period.used / period.limit) * 100)),
+                    );
+                    return (
+                        <div className="bar-row frac" key={period.id}>
+                            <span className="bar-lbl">{period_label(period.name)}</span>
+                            <div className="track">
+                                <div
+                                    className="fill"
+                                    style={{
+                                        width: `${String(fill_pct)}%`,
+                                        background: usage_color(idx),
+                                    }}
+                                />
+                            </div>
+                            <span className="bar-pct">
+                                {period.used}/{period.limit}
+                            </span>
+                            <span className="bar-reset" />
+                        </div>
+                    );
+                }
                 const period_percent = percent(period.used, period.limit);
                 return (
                     <div className="bar-row" key={period.id}>

@@ -11,7 +11,7 @@ export interface ProviderUsagePeriod {
     accountId: string;
     accountLabel: string;
     name: string;
-    used: number;
+    used: number | null;
     limit: number;
     displayStyle: UsageItem["displayStyle"];
     resetAt?: string | null | undefined;
@@ -240,7 +240,7 @@ export function buildOverviewForGroup(group: ProviderUsageGroup): OverviewWindow
         const validPeriods = periods.filter(hasValidQuota);
         if (validPeriods.length === 0) continue;
 
-        const totalUsed = validPeriods.reduce((sum, period) => sum + period.used, 0);
+        const totalUsed = validPeriods.reduce((sum, period) => sum + (period.used ?? 0), 0);
         const totalLimit = validPeriods.reduce((sum, period) => sum + period.limit, 0);
         const percent = Math.round((totalUsed / totalLimit) * 100);
         const periodWorstStatus = validPeriods.reduce<UsageItem["status"]>(

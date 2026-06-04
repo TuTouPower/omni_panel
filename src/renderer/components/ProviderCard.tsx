@@ -39,11 +39,52 @@ function period_label(name: string): string {
 function render_bar_row(
     key: string,
     name: string,
-    percent: number,
+    value: number | null,
+    limit: number,
+    display_style: "percent" | "ratio",
     reset_at: string | null,
     idx: number,
 ) {
-    const display_percent = Math.min(100, Math.max(0, percent));
+    if (value == null) {
+        return (
+            <div className="bar-row" key={key}>
+                <span className="bar-lbl">{period_label(name)}</span>
+                <div className="track">
+                    <div
+                        className="fill"
+                        style={{
+                            width: "0%",
+                            background: usage_color(idx),
+                        }}
+                    />
+                </div>
+                <span className="bar-pct" />
+                <span className="bar-reset" />
+            </div>
+        );
+    }
+    if (display_style === "ratio" && limit > 0) {
+        const fill_pct = Math.min(100, Math.max(0, Math.round((value / limit) * 100)));
+        return (
+            <div className="bar-row frac" key={key}>
+                <span className="bar-lbl">{period_label(name)}</span>
+                <div className="track">
+                    <div
+                        className="fill"
+                        style={{
+                            width: `${String(fill_pct)}%`,
+                            background: usage_color(idx),
+                        }}
+                    />
+                </div>
+                <span className="bar-pct">
+                    {value}/{limit}
+                </span>
+                <span className="bar-reset" />
+            </div>
+        );
+    }
+    const display_percent = Math.min(100, Math.max(0, value));
     return (
         <div className="bar-row" key={key}>
             <span className="bar-lbl">{period_label(name)}</span>
@@ -374,7 +415,9 @@ export function ProviderCard({
                     render_bar_row(
                         ow.id,
                         ow.name,
-                        ow.percent,
+                        ow.used,
+                        ow.limit,
+                        ow.displayStyle,
                         ow.resetAt ? formatResetTime(ow.resetAt) : null,
                         idx,
                     ),
@@ -398,22 +441,17 @@ export function ProviderCard({
                             </span>
                         </div>
                         <div className="ai-bars">
-                            {account.periods.map((period, idx) => {
-                                const period_percent =
-                                    period.limit > 0
-                                        ? Math.min(
-                                              100,
-                                              Math.round((period.used / period.limit) * 100),
-                                          )
-                                        : 0;
-                                return render_bar_row(
+                            {account.periods.map((period, idx) =>
+                                render_bar_row(
                                     period.id,
                                     period.name,
-                                    period_percent,
+                                    period.used,
+                                    period.limit,
+                                    period.displayStyle,
                                     period.resetAt ? formatResetTime(period.resetAt) : null,
                                     idx,
-                                );
-                            })}
+                                ),
+                            )}
                         </div>
                     </div>
                 ))}
@@ -467,22 +505,17 @@ export function ProviderCard({
                     : is_multi && !l2open
                       ? render_overview()
                       : group.accounts.flatMap((account) =>
-                            account.periods.map((period, idx) => {
-                                const period_pct =
-                                    period.limit > 0
-                                        ? Math.min(
-                                              100,
-                                              Math.round((period.used / period.limit) * 100),
-                                          )
-                                        : 0;
-                                return render_bar_row(
+                            account.periods.map((period, idx) =>
+                                render_bar_row(
                                     period.id,
                                     period.name,
-                                    period_pct,
+                                    period.used,
+                                    period.limit,
+                                    period.displayStyle,
                                     period.resetAt ? formatResetTime(period.resetAt) : null,
                                     idx,
-                                );
-                            }),
+                                ),
+                            ),
                         )}
             </CollapsibleCard>
         );

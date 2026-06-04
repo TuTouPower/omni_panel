@@ -24,7 +24,7 @@ export const usageItemSchema = z.object({
     accountId: z.string(),
     accountLabel: z.string(),
     name: z.string(),
-    used: z.number(),
+    used: z.number().nullable(),
     limit: z.number(),
     displayStyle: usageDisplayStyleSchema,
     resetAt: z.string().nullable().optional(),
