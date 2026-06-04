@@ -61,24 +61,44 @@ export async function executePlugin(
         const stderrChunks: Buffer[] = [];
         let stdoutBytes = 0;
         let stderrBytes = 0;
+        let stdoutStopped = false;
+        let stderrStopped = false;
         let timedOut = false;
         let settled = false;
 
         child.stdout.on("data", (chunk: Buffer) => {
+            if (stdoutStopped) return;
             stdoutChunks.push(chunk);
             stdoutBytes += chunk.length;
             if (stdoutBytes > 1024 * 1024) {
+                stdoutStopped = true;
                 log.warn("Plugin stdout exceeded 1MB, killing");
                 child.kill("SIGTERM");
+                const graceMs = 2000;
+                setTimeout(() => {
+                    if (!settled) {
+                        log.error("Plugin did not exit after stdout SIGTERM, sending SIGKILL");
+                        child.kill("SIGKILL");
+                    }
+                }, graceMs);
             }
         });
 
         child.stderr.on("data", (chunk: Buffer) => {
+            if (stderrStopped) return;
             stderrChunks.push(chunk);
             stderrBytes += chunk.length;
             if (stderrBytes > 256 * 1024) {
+                stderrStopped = true;
                 log.warn("Plugin stderr exceeded 256KB, killing");
                 child.kill("SIGTERM");
+                const graceMs = 2000;
+                setTimeout(() => {
+                    if (!settled) {
+                        log.error("Plugin did not exit after stderr SIGTERM, sending SIGKILL");
+                        child.kill("SIGKILL");
+                    }
+                }, graceMs);
             }
         });
 
