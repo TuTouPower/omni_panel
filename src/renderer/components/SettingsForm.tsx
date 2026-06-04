@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { PluginParameterMetadata } from "../../shared/schemas/plugin-metadata";
 
 interface SettingsFormProps {
@@ -34,6 +34,17 @@ export function SettingsForm({
 }: SettingsFormProps) {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const mounted_ref = useRef(true);
+    const saved_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        return () => {
+            mounted_ref.current = false;
+            if (saved_timeout_ref.current !== null) {
+                clearTimeout(saved_timeout_ref.current);
+            }
+        };
+    }, []);
 
     const handleSubmit = useCallback(
         (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -75,13 +86,18 @@ export function SettingsForm({
             setSaved(false);
             void onSave(instanceId, nonSecrets, secrets, endpointOverrides, intervalSeconds)
                 .then(() => {
+                    if (!mounted_ref.current) return;
                     setSaved(true);
-                    setTimeout(() => {
-                        setSaved(false);
+                    saved_timeout_ref.current = setTimeout(() => {
+                        if (mounted_ref.current) {
+                            setSaved(false);
+                        }
                     }, 1500);
                 })
                 .finally(() => {
-                    setSaving(false);
+                    if (mounted_ref.current) {
+                        setSaving(false);
+                    }
                 });
         },
         [endpoints, instanceId, onSave, parameters, saving],
@@ -146,8 +162,8 @@ export function SettingsForm({
                             className={"ad-input" + (param.type === "secret" ? " mono" : "")}
                         />
                     )}
-                    {typeof param["description"] === "string" && (
-                        <p className="ad-hint">{param["description"]}</p>
+                    {typeof param.description === "string" && (
+                        <p className="ad-hint">{param.description}</p>
                     )}
                 </div>
             ))}
