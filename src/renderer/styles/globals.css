@@ -905,11 +905,10 @@ body {
     scrollbar-width: thin;
     scrollbar-color: rgba(120, 130, 150, 0.35) transparent;
 }
-/* ── settings window (independent BrowserWindow) ── */
+/* ── settings window (independent BrowserWindow — frameless) ── */
 [data-window="settings"].window {
-    border-radius: 0;
-    border: none;
-    box-shadow: none;
+    border-radius: 18px;
+    overflow: hidden;
 }
 [data-window="settings"] .set-nav {
     width: 176px;
@@ -917,6 +916,52 @@ body {
 }
 [data-window="settings"] .set-content {
     padding: 14px 24px 24px;
+}
+/* ── settings custom title bar ── */
+.settings-titlebar {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 8px 0 14px;
+    flex-shrink: 0;
+    -webkit-app-region: drag;
+    user-select: none;
+}
+.settings-titlebar .st-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    flex: 1;
+    min-width: 0;
+}
+.settings-titlebar .st-controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    -webkit-app-region: no-drag;
+}
+.settings-titlebar .st-btn {
+    width: 36px;
+    height: 28px;
+    border: 0;
+    background: transparent;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    color: var(--iconbtn);
+    transition:
+        background 0.12s,
+        color 0.12s;
+}
+.settings-titlebar .st-btn:hover {
+    background: var(--iconbtn-hov);
+    color: var(--text-2);
+}
+.settings-titlebar .st-btn.close:hover {
+    background: #e81123;
+    color: #fff;
 }
 /* ── data source page ── */
 .sp-head {

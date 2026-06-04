@@ -25,6 +25,9 @@ export const IPC_CHANNELS = {
     POPUP_REPORT_CONTENT_HEIGHT: "popup:reportContentHeight",
 
     SETTINGS_OPEN: "settings:open",
+    SETTINGS_MINIMIZE: "settings:minimize",
+    SETTINGS_MAXIMIZE: "settings:maximize",
+    SETTINGS_CLOSE: "settings:close",
 
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
@@ -137,6 +140,12 @@ export interface UsageboardApi {
     settings: {
         /** Open or focus the settings window. */
         open(): void;
+        /** Minimize the settings window. */
+        minimize(): void;
+        /** Toggle maximize/restore on the settings window. */
+        maximize(): void;
+        /** Close the settings window. */
+        close(): void;
     };
     log(payload: RendererLogPayload): void;
 }

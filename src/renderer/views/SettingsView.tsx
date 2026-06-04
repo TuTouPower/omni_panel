@@ -616,6 +616,65 @@ function CpaAddDialog({ onClose }: { onClose: () => void }) {
     );
 }
 
+/* ── Title Bar (frameless window controls) ── */
+function TitleBar() {
+    return (
+        <div className="settings-titlebar">
+            <span className="st-title">设置</span>
+            <div className="st-controls">
+                <button
+                    className="st-btn"
+                    onClick={() => {
+                        window.usageboard.settings.minimize();
+                    }}
+                    title="最小化"
+                    type="button"
+                >
+                    <svg width="10" height="1" viewBox="0 0 10 1">
+                        <rect width="10" height="1" fill="currentColor" />
+                    </svg>
+                </button>
+                <button
+                    className="st-btn"
+                    onClick={() => {
+                        window.usageboard.settings.maximize();
+                    }}
+                    title="最大化"
+                    type="button"
+                >
+                    <svg width="10" height="10" viewBox="0 0 10 10">
+                        <rect
+                            x="0.5"
+                            y="0.5"
+                            width="9"
+                            height="9"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1"
+                        />
+                    </svg>
+                </button>
+                <button
+                    className="st-btn close"
+                    onClick={() => {
+                        window.usageboard.settings.close();
+                    }}
+                    title="关闭"
+                    type="button"
+                >
+                    <svg width="10" height="10" viewBox="0 0 10 10">
+                        <path
+                            d="M0.5 0.5L9.5 9.5M9.5 0.5L0.5 9.5"
+                            stroke="currentColor"
+                            strokeWidth="1.2"
+                        />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    );
+}
+
 /* ── Main View ── */
 export function SettingsView() {
     useTheme();
@@ -800,6 +859,7 @@ export function SettingsView() {
     if (loading) {
         return (
             <div className="window" data-window="settings">
+                <TitleBar />
                 <div className="p-6 text-[var(--text-3)]">加载中...</div>
             </div>
         );
@@ -807,6 +867,7 @@ export function SettingsView() {
     if (error) {
         return (
             <div className="window" data-window="settings">
+                <TitleBar />
                 <div className="p-6">
                     <div className="net-banner">
                         <Icon name="cloud_off" size={18} />
@@ -820,6 +881,8 @@ export function SettingsView() {
 
     return (
         <div className="window" data-window="settings">
+            <TitleBar />
+
             <div className="settings">
                 {/* header */}
                 <div className="settings-head">

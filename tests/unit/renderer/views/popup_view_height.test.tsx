@@ -152,7 +152,7 @@ describe("PopupView collapse + height report", () => {
             popup: {
                 report_content_height: report_height,
             },
-            settings: { open: vi.fn() },
+            settings: { open: vi.fn(), minimize: vi.fn(), maximize: vi.fn(), close: vi.fn() },
             log: vi.fn(),
         };
     });

@@ -104,11 +104,23 @@ interface WindowConfig {
     frame?: boolean;
     show?: boolean;
     autoHideMenuBar?: boolean;
+    titleBarStyle?: "hidden" | "hiddenInset" | "default";
+    titleBarOverlay?: boolean;
+    roundedCorners?: boolean;
 }
 
 const WINDOW_CONFIGS: Record<string, WindowConfig> = {
     popup: { route: "popup", width: 460, height: 480, frame: false, show: false },
-    settings: { route: "settings", width: 820, height: 660, frame: true, show: true },
+    settings: {
+        route: "settings",
+        width: 820,
+        height: 660,
+        frame: false,
+        show: true,
+        titleBarStyle: "hidden",
+        titleBarOverlay: false,
+        roundedCorners: true,
+    },
 };
 
 function getPreloadPath(): string {
@@ -136,6 +148,9 @@ function createWindowFor(key: string): BrowserWindow {
         frame: cfg.frame ?? true,
         show: cfg.show ?? true,
         autoHideMenuBar: cfg.autoHideMenuBar ?? false,
+        ...(cfg.titleBarStyle !== undefined && { titleBarStyle: cfg.titleBarStyle }),
+        ...(cfg.titleBarOverlay !== undefined && { titleBarOverlay: cfg.titleBarOverlay }),
+        ...(cfg.roundedCorners !== undefined && { roundedCorners: cfg.roundedCorners }),
         icon: get_app_icon_path(),
         webPreferences: {
             ...SECURE_WEB_PREFS,
@@ -396,6 +411,22 @@ void app.whenReady().then(async () => {
     // Register IPC handler for opening settings from renderer
     ipcMain.handle(IPC_CHANNELS.SETTINGS_OPEN, () => {
         createOrFocusSettings();
+    });
+
+    // Settings window frameless controls
+    ipcMain.on(IPC_CHANNELS.SETTINGS_MINIMIZE, () => {
+        if (settingsWin && !settingsWin.isDestroyed()) settingsWin.minimize();
+    });
+    ipcMain.on(IPC_CHANNELS.SETTINGS_MAXIMIZE, () => {
+        if (!settingsWin || settingsWin.isDestroyed()) return;
+        if (settingsWin.isMaximized()) {
+            settingsWin.unmaximize();
+        } else {
+            settingsWin.maximize();
+        }
+    });
+    ipcMain.on(IPC_CHANNELS.SETTINGS_CLOSE, () => {
+        if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
     });
 
     // Popup height controller (Phase 20). Renderer reports content height;

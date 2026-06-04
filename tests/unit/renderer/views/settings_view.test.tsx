@@ -184,6 +184,9 @@ describe("SettingsView", () => {
             },
             settings: {
                 open: vi.fn(),
+                minimize: vi.fn(),
+                maximize: vi.fn(),
+                close: vi.fn(),
             },
             log: vi.fn(),
         };

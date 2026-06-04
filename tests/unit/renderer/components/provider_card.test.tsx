@@ -114,7 +114,7 @@ describe("ProviderCard", () => {
                 onThemeChange: vi.fn(),
             },
             popup: { report_content_height: vi.fn() },
-            settings: { open: vi.fn() },
+            settings: { open: vi.fn(), minimize: vi.fn(), maximize: vi.fn(), close: vi.fn() },
             log: vi.fn(),
         } as unknown as typeof window.usageboard;
     });

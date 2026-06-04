@@ -96,6 +96,15 @@ const api: UsageboardApi = {
         open: () => {
             void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_OPEN);
         },
+        minimize: () => {
+            ipcRenderer.send(IPC_CHANNELS.SETTINGS_MINIMIZE);
+        },
+        maximize: () => {
+            ipcRenderer.send(IPC_CHANNELS.SETTINGS_MAXIMIZE);
+        },
+        close: () => {
+            ipcRenderer.send(IPC_CHANNELS.SETTINGS_CLOSE);
+        },
     },
     log: (payload: RendererLogPayload) => {
         void ipcRenderer.invoke(IPC_CHANNELS.LOG_RENDERER, payload);
