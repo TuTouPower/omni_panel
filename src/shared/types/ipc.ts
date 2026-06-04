@@ -31,6 +31,18 @@ export const IPC_CHANNELS = {
     SETTINGS_MAXIMIZE: "settings:maximize",
     SETTINGS_CLOSE: "settings:close",
 
+    /** Tray menu — custom frameless window actions. */
+    TRAY_OPEN_PANEL: "tray:openPanel",
+    TRAY_REFRESH_ALL: "tray:refreshAll",
+    TRAY_TOGGLE_PAUSE: "tray:togglePause",
+    TRAY_TOGGLE_AUTOSTART: "tray:toggleAutostart",
+    TRAY_OPEN_SETTINGS: "tray:openSettings",
+    TRAY_CHECK_UPDATE: "tray:checkUpdate",
+    TRAY_QUIT: "tray:quit",
+    TRAY_HIDE: "tray:hide",
+    TRAY_PAUSE_STATE: "tray:pauseState",
+    TRAY_AUTOSTART_STATE: "tray:autostartState",
+
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
 } as const;
@@ -152,6 +164,18 @@ export interface UsageboardApi {
         maximize(): void;
         /** Close the settings window. */
         close(): void;
+    };
+    tray: {
+        open_panel(): void;
+        refresh_all(): void;
+        toggle_pause(): void;
+        toggle_autostart(): void;
+        open_settings(): void;
+        check_update(): void;
+        quit(): void;
+        hide(): void;
+        on_pause_state(callback: (paused: boolean) => void): () => void;
+        on_autostart_state(callback: (enabled: boolean) => void): () => void;
     };
     log(payload: RendererLogPayload): void;
 }

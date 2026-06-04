@@ -2487,6 +2487,52 @@ body {
     text-transform: uppercase;
     color: var(--text-3);
 }
+
+/* ---------- standalone tray window ---------- */
+.tray-window {
+    width: 184px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    background: var(--menu-bg);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    backdrop-filter: blur(28px) saturate(170%);
+    border: 0.5px solid var(--menu-border);
+    border-radius: 16px;
+    box-shadow: var(--menu-shadow);
+    padding: 8px 0;
+    animation: ctxIn 0.18s ease-out;
+    overflow: hidden;
+}
+
+.tray-win-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text);
+    border-bottom: 0.5px solid var(--hairline);
+    margin-bottom: 2px;
+}
+
+.tray-win-head .app-logo {
+    filter: drop-shadow(0 3px 7px rgba(61, 122, 253, 0.26));
+}
+
+.tray-win-tag {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    background: var(--field-bg);
+    padding: 3px 8px;
+    border-radius: 99px;
+}
+
+.tray-menu-body {
+    padding: 7px;
+}
 .ctx-status {
     display: flex;
     align-items: center;

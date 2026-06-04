@@ -153,6 +153,19 @@ describe("PopupView collapse + height report", () => {
                 report_content_height: report_height,
             },
             settings: { open: vi.fn(), minimize: vi.fn(), maximize: vi.fn(), close: vi.fn() },
+            theme: { set: vi.fn() },
+            tray: {
+                open_panel: vi.fn(),
+                refresh_all: vi.fn(),
+                toggle_pause: vi.fn(),
+                toggle_autostart: vi.fn(),
+                open_settings: vi.fn(),
+                check_update: vi.fn(),
+                quit: vi.fn(),
+                hide: vi.fn(),
+                on_pause_state: vi.fn(() => vi.fn()),
+                on_autostart_state: vi.fn(() => vi.fn()),
+            },
             log: vi.fn(),
         };
     });

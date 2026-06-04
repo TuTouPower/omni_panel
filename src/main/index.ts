@@ -3,7 +3,6 @@ import {
     BrowserWindow,
     nativeTheme,
     Tray,
-    Menu,
     nativeImage,
     screen,
     powerMonitor,
@@ -121,6 +120,13 @@ const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         titleBarStyle: "hidden",
         titleBarOverlay: false,
         roundedCorners: true,
+    },
+    tray_menu: {
+        route: "tray",
+        width: 184,
+        height: 340,
+        frame: false,
+        show: false,
     },
 };
 
@@ -395,6 +401,8 @@ void app.whenReady().then(async () => {
 
     // Window references — shared between tray and E2E mode
     let popupWin: BrowserWindow | null = null;
+    /** Custom tray menu frameless window (replaces native context menu). */
+    let trayMenuWin: BrowserWindow | null = null;
 
     // Settings window singleton
     let settingsWin: BrowserWindow | null = null;
@@ -585,109 +593,219 @@ void app.whenReady().then(async () => {
             });
         });
 
-        // Right-click → context menu
-        const language = currentConfig.language;
-        const isZh = language === "zh-Hans";
-        const labels = isZh
-            ? {
-                  open: "打开主面板",
-                  refresh: "立即刷新全部",
-                  pauseOn: "暂停自动刷新",
-                  pauseOff: "恢复自动刷新",
-                  autostart: "开机自启",
-                  settings: "设置…",
-                  checkUpdate: `检查更新 v${app.getVersion()}`,
-                  quit: "退出 OmniUsage",
-              }
-            : {
-                  open: "Open Panel",
-                  refresh: "Refresh All",
-                  pauseOn: "Pause Auto-Refresh",
-                  pauseOff: "Resume Auto-Refresh",
-                  autostart: "Launch at Login",
-                  settings: "Settings…",
-                  checkUpdate: `Check for Updates v${app.getVersion()}`,
-                  quit: "Quit OmniUsage",
-              };
-        const isPaused = { value: false };
-        // app.setLoginItemSettings may not exist on all platforms
+        // Tray menu state
+        let is_paused = false;
         const hasLoginItemApi = typeof app.setLoginItemSettings === "function";
-        const setAutoLaunch = hasLoginItemApi
-            ? (enable: boolean) => {
-                  app.setLoginItemSettings({ openAtLogin: enable });
-              }
-            : undefined;
 
-        tray.setContextMenu(
-            Menu.buildFromTemplate([
-                {
-                    label: labels.open,
-                    click: () => {
-                        tray.emit("click");
-                    },
-                },
-                {
-                    label: labels.refresh,
-                    click: () => {
-                        for (const p of currentConfig.plugins) {
-                            if (p.enabled) void refreshService.refresh(p.instanceId);
-                        }
-                    },
-                },
-                { type: "separator" },
-                {
-                    label: isPaused.value ? labels.pauseOff : labels.pauseOn,
-                    type: "checkbox",
-                    checked: isPaused.value,
-                    click: (menuItem) => {
-                        isPaused.value = menuItem.checked;
-                        if (menuItem.checked) {
-                            orchestrator.suspend();
-                        } else {
-                            orchestrator.resume();
-                            orchestrator.rebuild(currentConfig);
-                            orchestrator.startAll(currentConfig);
-                        }
-                    },
-                },
-                ...(setAutoLaunch
-                    ? [
-                          {
-                              label: labels.autostart,
-                              type: "checkbox" as const,
-                              checked: app.getLoginItemSettings().openAtLogin,
-                              click: (menuItem: Electron.MenuItem) => {
-                                  setAutoLaunch(menuItem.checked);
-                              },
-                          },
-                      ]
-                    : []),
-                { type: "separator" },
-                {
-                    label: labels.settings,
-                    click: () => {
-                        createOrFocusSettings();
-                    },
-                },
-                {
-                    label: labels.checkUpdate,
-                    click: () => {
-                        log.info("Check for updates requested (not yet implemented)");
-                    },
-                },
-                { type: "separator" },
-                {
-                    label: labels.quit,
-                    click: () => {
-                        app.quit();
-                    },
-                },
-            ]),
-        );
+        // Custom tray menu window setup
+
+        function hideTrayMenu(): void {
+            if (!trayMenuWin || trayMenuWin.isDestroyed()) return;
+            trayMenuWin.removeListener("blur", hideTrayMenu);
+            trayMenuWin.hide();
+            trayMenuWin.setSkipTaskbar(true);
+        }
+
+        // Create tray menu window once
+        const trayMenuCfg = WINDOW_CONFIGS["tray_menu"];
+        trayMenuWin = new BrowserWindow({
+            width: trayMenuCfg?.width ?? 184,
+            height: trayMenuCfg?.height ?? 340,
+            frame: false,
+            transparent: true,
+            skipTaskbar: true,
+            alwaysOnTop: true,
+            show: false,
+            resizable: false,
+            icon: get_app_icon_path(),
+            webPreferences: {
+                ...SECURE_WEB_PREFS,
+                preload: getPreloadPath(),
+            },
+        });
+        void trayMenuWin.loadURL(getRendererUrl("tray"));
+
+        // Forward pause/autostart state to tray menu renderer
+        const send_tray_state = (): void => {
+            if (trayMenuWin && !trayMenuWin.isDestroyed()) {
+                try {
+                    trayMenuWin.webContents.send("tray:pauseState", is_paused);
+                    trayMenuWin.webContents.send(
+                        "tray:autostartState",
+                        hasLoginItemApi ? app.getLoginItemSettings().openAtLogin : false,
+                    );
+                } catch {
+                    // window may be destroyed mid-send
+                }
+            }
+        };
+        trayMenuWin.webContents.on("did-finish-load", () => {
+            send_tray_state();
+        });
+        trayMenuWin.on("closed", () => {
+            trayMenuWin = null;
+        });
+
+        // Tray menu IPC handlers
+        ipcMain.handle("tray:openPanel", () => {
+            hideTrayMenu();
+            tray.emit("click");
+        });
+        ipcMain.handle("tray:refreshAll", () => {
+            for (const p of currentConfig.plugins) {
+                if (p.enabled) void refreshService.refresh(p.instanceId);
+            }
+        });
+        ipcMain.handle("tray:togglePause", () => {
+            is_paused = !is_paused;
+            if (is_paused) {
+                orchestrator.suspend();
+            } else {
+                orchestrator.resume();
+                orchestrator.rebuild(currentConfig);
+                orchestrator.startAll(currentConfig);
+            }
+            send_tray_state();
+        });
+        ipcMain.handle("tray:toggleAutostart", () => {
+            if (!hasLoginItemApi) return;
+            const current = app.getLoginItemSettings().openAtLogin;
+            app.setLoginItemSettings({ openAtLogin: !current });
+            send_tray_state();
+        });
+        ipcMain.handle("tray:openSettings", () => {
+            hideTrayMenu();
+            createOrFocusSettings();
+        });
+        ipcMain.handle("tray:checkUpdate", () => {
+            log.info("Check for updates requested (not yet implemented)");
+        });
+        ipcMain.handle("tray:quit", () => {
+            app.quit();
+        });
+        ipcMain.handle("tray:hide", () => {
+            hideTrayMenu();
+        });
+
+        // Click → toggle popup (left-click)
+        tray.on("click", () => {
+            // Hide tray menu if visible
+            if (trayMenuWin && !trayMenuWin.isDestroyed() && trayMenuWin.isVisible()) {
+                trayMenuWin.removeListener("blur", hideTrayMenu);
+                trayMenuWin.hide();
+            }
+
+            log.info(
+                `[tray] click handler fired, popupWin exists: ${popupWin ? "true" : "false"}, destroyed: ${String(popupWin?.isDestroyed())}`,
+            );
+            if (popupWin && !popupWin.isDestroyed()) {
+                popupWin.close();
+                popupWin = null;
+                popup_controller = null;
+                log.info("[tray] closed popup");
+                return;
+            }
+            popupWin = createWindowFor("popup");
+
+            // Position popup near tray icon
+            const trayBounds = tray.getBounds();
+            const display = screen.getDisplayNearestPoint({
+                x: trayBounds.x + trayBounds.width / 2,
+                y: trayBounds.y + trayBounds.height / 2,
+            });
+            const popupCfg = WINDOW_CONFIGS["popup"];
+            const popupWidth = popupCfg?.width ?? 460;
+            const popupHeight = popupCfg?.height ?? 480;
+            const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
+            const y = Math.round(trayBounds.y + trayBounds.height + 4);
+            const clampedX = Math.max(
+                display.workArea.x,
+                Math.min(x, display.workArea.x + display.workArea.width - popupWidth),
+            );
+            const clampedY = Math.min(
+                y,
+                display.workArea.y + display.workArea.height - popupHeight,
+            );
+            popupWin.setBounds({
+                x: clampedX,
+                y: clampedY,
+                width: popupWidth,
+                height: popupHeight,
+            });
+            popupWin.show();
+            popupWin.focus();
+
+            // Initialise Phase 20 height controller for this popup session.
+            popup_anchor_state.tray_bounds =
+                trayBounds.width > 0 && trayBounds.height > 0 ? trayBounds : null;
+            popup_anchor_state.user_moved = false;
+            popup_controller = build_popup_controller(popupWin);
+
+            // Track user-initiated moves so subsequent resizes don't snap back to tray.
+            popupWin.on("move", () => {
+                if (popup_anchor_state.suppress_move) return;
+                popup_anchor_state.user_moved = true;
+            });
+
+            popupWin.on("closed", () => {
+                popupWin = null;
+                popup_controller = null;
+                popup_anchor_state.tray_bounds = null;
+                popup_anchor_state.user_moved = false;
+                popup_anchor_state.suppress_move = false;
+            });
+        });
+
+        // Right-click → show custom tray menu
+        tray.on("right-click", () => {
+            // Hide popup if open
+            if (popupWin && !popupWin.isDestroyed()) {
+                popupWin.close();
+                popupWin = null;
+                popup_controller = null;
+            }
+
+            if (!trayMenuWin || trayMenuWin.isDestroyed()) return;
+
+            const trayBounds = tray.getBounds();
+            const display = screen.getDisplayNearestPoint({
+                x: trayBounds.x + trayBounds.width / 2,
+                y: trayBounds.y + trayBounds.height / 2,
+            });
+            const menuWidth = trayMenuCfg?.width ?? 184;
+            const menuHeight = trayMenuCfg?.height ?? 340;
+
+            const cx = Math.round(trayBounds.x + trayBounds.width / 2 - menuWidth / 2);
+            const cy = trayBounds.y + trayBounds.height + 4;
+
+            const clampedX = Math.max(
+                display.workArea.x,
+                Math.min(cx, display.workArea.x + display.workArea.width - menuWidth),
+            );
+            const clampedY =
+                cy + menuHeight > display.workArea.y + display.workArea.height
+                    ? trayBounds.y - menuHeight - 4
+                    : cy;
+
+            trayMenuWin.setBounds({
+                x: clampedX,
+                y: clampedY,
+                width: menuWidth,
+                height: menuHeight,
+            });
+            send_tray_state();
+            trayMenuWin.show();
+            trayMenuWin.focus();
+            trayMenuWin.once("blur", hideTrayMenu);
+        });
     } // end of E2E !== "1" tray block
 
     app.on("before-quit", () => {
         log.info("Application shutting down");
+        if (trayMenuWin && !trayMenuWin.isDestroyed()) {
+            trayMenuWin.destroy();
+            trayMenuWin = null;
+        }
         if (settingsWin && !settingsWin.isDestroyed()) {
             settingsWin.destroy();
             settingsWin = null;

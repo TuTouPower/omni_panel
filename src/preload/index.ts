@@ -111,6 +111,30 @@ const api: UsageboardApi = {
             ipcRenderer.send(IPC_CHANNELS.SETTINGS_CLOSE);
         },
     },
+    tray: {
+        open_panel: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_OPEN_PANEL),
+        refresh_all: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_REFRESH_ALL),
+        toggle_pause: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_TOGGLE_PAUSE),
+        toggle_autostart: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_TOGGLE_AUTOSTART),
+        open_settings: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_OPEN_SETTINGS),
+        check_update: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_CHECK_UPDATE),
+        quit: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_QUIT),
+        hide: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_HIDE),
+        on_pause_state: (callback: (paused: boolean) => void) => {
+            const handler = (_e: unknown, paused: boolean) => {
+                callback(paused);
+            };
+            ipcRenderer.on(IPC_CHANNELS.TRAY_PAUSE_STATE, handler);
+            return () => ipcRenderer.removeListener(IPC_CHANNELS.TRAY_PAUSE_STATE, handler);
+        },
+        on_autostart_state: (callback: (enabled: boolean) => void) => {
+            const handler = (_e: unknown, enabled: boolean) => {
+                callback(enabled);
+            };
+            ipcRenderer.on(IPC_CHANNELS.TRAY_AUTOSTART_STATE, handler);
+            return () => ipcRenderer.removeListener(IPC_CHANNELS.TRAY_AUTOSTART_STATE, handler);
+        },
+    },
     log: (payload: RendererLogPayload) => {
         void ipcRenderer.invoke(IPC_CHANNELS.LOG_RENDERER, payload);
     },
