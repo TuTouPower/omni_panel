@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-export function relativeTime(isoDate: string): string {
+export function relative_time(isoDate: string): string {
     const diff = Date.now() - new Date(isoDate).getTime();
     if (diff < 0) return "刚刚";
     const seconds = Math.floor(diff / 1000);
@@ -20,7 +20,7 @@ export function relativeTime(isoDate: string): string {
 }
 
 /** Format resetAt ISO string as "今天 13:10" or "5/18 21:00". */
-export function formatResetTime(isoDate: string): string {
+export function format_reset_time(isoDate: string): string {
     const d = new Date(isoDate);
     const now = new Date();
     const hh = String(d.getHours()).padStart(2, "0");

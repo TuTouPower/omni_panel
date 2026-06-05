@@ -1,5 +1,5 @@
 import type { ProviderUsageAccount } from "../lib/provider-usage";
-import { formatResetTime } from "../lib/utils";
+import { format_reset_time } from "../lib/utils";
 import { usage_color } from "../lib/usage-colors";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { Icon } from "./Icon";
@@ -123,7 +123,7 @@ export function ProviderAccountRow({
                         </div>
                         <span className="bar-pct">{period_percent}%</span>
                         <span className="bar-reset">
-                            {period.resetAt ? formatResetTime(period.resetAt) : "--"}
+                            {period.resetAt ? format_reset_time(period.resetAt) : "--"}
                         </span>
                     </div>
                 );

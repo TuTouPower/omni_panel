@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, type CSSProperties } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
-import { usePlugins } from "../hooks/use-plugins";
-import { usePopupHeightReport } from "../hooks/use-popup-height-report";
+import { use_plugins } from "../hooks/use-plugins";
+import { use_popup_height_report } from "../hooks/use-popup-height-report";
 import { useTheme } from "../lib/theme";
 import { Icon } from "../components/Icon";
 import { ProviderAccountList } from "../components/ProviderAccountList";
@@ -10,8 +10,8 @@ import { ProviderOverview } from "../components/ProviderOverview";
 import { TokenPanel } from "../components/TokenPanel";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import {
-    buildProviderUsageGroups,
-    getVisibleProviders,
+    build_provider_usage_groups,
+    get_visible_providers,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
 import { format_rel_time } from "../lib/rel-time";
@@ -43,7 +43,7 @@ interface StatusBarState {
  * 未配置 > 凭证失效 > 网络异常 > 接近限制 > 数据正常
  */
 function derive_status_bar(
-    plugins: ReturnType<typeof usePlugins>["plugins"],
+    plugins: ReturnType<typeof use_plugins>["plugins"],
     global_error: unknown,
 ): StatusBarState {
     if (plugins.length === 0) {
@@ -86,7 +86,7 @@ function errorMessage(error: unknown): string {
 
 function structural_signature(
     activeTab: UsageProvider | "overview",
-    groups: ReturnType<typeof buildProviderUsageGroups>,
+    groups: ReturnType<typeof build_provider_usage_groups>,
 ): string {
     if (activeTab === "overview") {
         return "overview:" + groups.map((g) => g.provider).join(",");
@@ -98,7 +98,7 @@ function structural_signature(
 
 export function PopupView() {
     useTheme();
-    const { plugins, loading, error, refreshAll } = usePlugins();
+    const { plugins, loading, error, refreshAll } = use_plugins();
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
@@ -162,8 +162,8 @@ export function PopupView() {
         };
     }, []);
 
-    const providerGroups = useMemo(() => buildProviderUsageGroups(plugins), [plugins]);
-    const visibleProviders = useMemo(() => getVisibleProviders(plugins), [plugins]);
+    const providerGroups = useMemo(() => build_provider_usage_groups(plugins), [plugins]);
+    const visibleProviders = useMemo(() => get_visible_providers(plugins), [plugins]);
 
     // Apply persisted order to visible providers
     const orderedProviders = useMemo(() => {
@@ -222,7 +222,7 @@ export function PopupView() {
         }
     }, [signature]);
 
-    usePopupHeightReport(content_mirror_ref, collapsed_mirror_ref);
+    use_popup_height_report(content_mirror_ref, collapsed_mirror_ref);
 
     const goToSettings = () => {
         window.usageboard.settings.open();

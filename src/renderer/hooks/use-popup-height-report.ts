@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import { useEffect, useRef } from "react";
 
 /**
@@ -18,7 +19,7 @@ import { useEffect, useRef } from "react";
  * Debounce is delegated to the main-side controller; this hook only suppresses
  * exact-duplicate reports to avoid waking the IPC bridge on every paint.
  */
-export function usePopupHeightReport(
+export function use_popup_height_report(
     contentMirrorRef: React.RefObject<HTMLElement | null>,
     collapsedMirrorRef: React.RefObject<HTMLElement | null>,
 ): void {

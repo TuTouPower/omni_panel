@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useConfig } from "../hooks/use-config";
+import { use_config } from "../hooks/use-config";
 import { Icon } from "../components/Icon";
 import logo from "../assets/logo.png";
 
@@ -21,7 +21,7 @@ const get_app_version = (): string => {
 };
 
 export function TrayMenu() {
-    const { config } = useConfig();
+    const { config } = use_config();
     const [is_paused, set_is_paused] = useState(false);
     const [is_autostart, set_is_autostart] = useState(false);
     const app_version = useMemo(() => get_app_version(), []);

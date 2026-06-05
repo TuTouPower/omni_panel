@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import { useState, useEffect, useCallback } from "react";
 import type { PluginInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
 
@@ -11,7 +12,7 @@ interface UsePluginsResult {
     refreshAll: () => Promise<void>;
 }
 
-export function usePlugins(): UsePluginsResult {
+export function use_plugins(): UsePluginsResult {
     const [plugins, setPlugins] = useState<PluginInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

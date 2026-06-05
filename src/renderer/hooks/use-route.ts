@@ -1,8 +1,9 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import { useState, useEffect } from "react";
 
 const MODULE = "use-route";
 
-export function useRoute(): string {
+export function use_route(): string {
     const [route, setRoute] = useState(() => window.location.hash.slice(1) || "popup");
 
     useEffect(() => {

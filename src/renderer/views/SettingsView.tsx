@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useConfig } from "../hooks/use-config";
+import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
@@ -8,7 +8,7 @@ import type { PluginInfo } from "../../shared/types/ipc";
 import type { PluginConfiguration, AppConfiguration } from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
-import { relativeTime } from "../lib/utils";
+import { relative_time } from "../lib/utils";
 import logo from "../assets/logo.png";
 
 /* ── types ── */
@@ -323,9 +323,9 @@ function DataSourceList({
     const providers = cpaPlugin?.activeProviders ?? [];
     const lastSync =
         snapshot?.status === "ready"
-            ? relativeTime(snapshot.updatedAt)
+            ? relative_time(snapshot.updatedAt)
             : snapshot?.status === "failed" && snapshot.updatedAt
-              ? relativeTime(snapshot.updatedAt)
+              ? relative_time(snapshot.updatedAt)
               : "未同步";
 
     return (
@@ -679,7 +679,7 @@ function TitleBar() {
 export function SettingsView() {
     useTheme();
     const version = "1.0.0";
-    const { config, hasSecrets, loading, error, save, saveSecrets } = useConfig();
+    const { config, hasSecrets, loading, error, save, saveSecrets } = use_config();
     const [pluginInfos, setPluginInfos] = useState<PluginInfo[]>([]);
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);

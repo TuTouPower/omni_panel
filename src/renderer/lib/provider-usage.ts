@@ -108,7 +108,7 @@ function toPeriod(
     };
 }
 
-export function buildProviderUsageGroups(
+export function build_provider_usage_groups(
     connectors: readonly ConnectorInfo[],
 ): ProviderUsageGroup[] {
     const periodsByProvider = new Map<UsageProvider, ProviderUsagePeriod[]>();
@@ -167,10 +167,10 @@ export function buildProviderUsageGroups(
         });
 }
 
-export function getVisibleProviders(connectors: readonly ConnectorInfo[]): UsageProvider[] {
+export function get_visible_providers(connectors: readonly ConnectorInfo[]): UsageProvider[] {
     const providers = new Set<UsageProvider>();
 
-    for (const group of buildProviderUsageGroups(connectors)) {
+    for (const group of build_provider_usage_groups(connectors)) {
         providers.add(group.provider);
     }
 
@@ -187,7 +187,7 @@ export function getVisibleProviders(connectors: readonly ConnectorInfo[]): Usage
 
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 
-export function resolveConvergentTime(timestamps: (string | null | undefined)[]): string | null {
+export function resolve_convergent_time(timestamps: (string | null | undefined)[]): string | null {
     const valid = timestamps
         .map((t) => (t ? { raw: t, time: new Date(t).getTime() } : null))
         .filter((t): t is { raw: string; time: number } => t !== null && Number.isFinite(t.time));
@@ -225,7 +225,7 @@ export interface OverviewWindow {
     color?: UsageItem["color"];
 }
 
-export function buildOverviewForGroup(group: ProviderUsageGroup): OverviewWindow[] {
+export function build_overview_for_group(group: ProviderUsageGroup): OverviewWindow[] {
     const byPeriod = new Map<string, ProviderUsagePeriod[]>();
 
     for (const period of group.periods) {
@@ -256,8 +256,8 @@ export function buildOverviewForGroup(group: ProviderUsageGroup): OverviewWindow
             limit: totalLimit,
             displayStyle: validPeriods[0]?.displayStyle ?? "percent",
             status: periodWorstStatus,
-            updatedAt: resolveConvergentTime(validPeriods.map((period) => period.updatedAt)),
-            resetAt: resolveConvergentTime(validPeriods.map((period) => period.resetAt)),
+            updatedAt: resolve_convergent_time(validPeriods.map((period) => period.updatedAt)),
+            resetAt: resolve_convergent_time(validPeriods.map((period) => period.resetAt)),
             color: validPeriods.find((period) => period.color)?.color,
         });
     }

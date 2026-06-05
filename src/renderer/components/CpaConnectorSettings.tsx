@@ -3,6 +3,8 @@ import { Icon, VendorMark } from "./Icon";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { PluginConfiguration } from "../../shared/types/config";
 import type { UsageItem, UsageProvider } from "../../shared/schemas/plugin-output";
+import { PROVIDER_LABELS } from "../lib/provider-usage";
+import { relative_time } from "../lib/utils";
 
 const MONITORS: readonly { name: string; label: string }[] = [
     { name: "monitor_claude", label: "监控 Claude" },
@@ -11,18 +13,6 @@ const MONITORS: readonly { name: string; label: string }[] = [
     { name: "monitor_antigravity", label: "监控 Antigravity" },
     { name: "monitor_kimi", label: "监控 Kimi" },
 ];
-
-const PROVIDER_LABELS: Record<UsageProvider, string> = {
-    claude: "Claude",
-    codex: "Codex",
-    gemini: "Gemini",
-    antigravity: "Antigravity",
-    kimi: "Kimi",
-    glm: "GLM",
-    minimax: "MiniMax",
-    deepseek: "DeepSeek",
-    tavily: "Tavily",
-};
 
 interface CpaConnectorSettingsProps {
     connector: ConnectorInfo;
@@ -41,21 +31,21 @@ interface CpaConnectorSettingsProps {
     onRemove?: () => Promise<void> | void;
 }
 
-function getDefaultValue(connector: ConnectorInfo, name: string) {
+function get_default_value(connector: ConnectorInfo, name: string) {
     return connector.metadata?.parameters?.find((param) => param.name === name)?.defaultValue;
 }
 
-function isEnabledValue(value: string | undefined) {
+function is_enabled_value(value: string | undefined) {
     return value?.toLowerCase() === "true";
 }
 
-function getSnapshotItems(connector: ConnectorInfo): readonly UsageItem[] {
+function get_snapshot_items(connector: ConnectorInfo): readonly UsageItem[] {
     if (connector.snapshot.status === "ready") return connector.snapshot.items;
     if (connector.snapshot.status === "failed") return connector.snapshot.items ?? [];
     return [];
 }
 
-function getStatus(connector: ConnectorInfo) {
+function get_status(connector: ConnectorInfo) {
     if (connector.snapshot.status === "ready" && connector.snapshot.items.length > 0)
         return "已连接";
     if (connector.snapshot.status === "failed" && (connector.snapshot.items?.length ?? 0) > 0) {
@@ -64,20 +54,7 @@ function getStatus(connector: ConnectorInfo) {
     return "未连接";
 }
 
-function relativeTime(date: Date | string | number): string {
-    const now = Date.now();
-    const t = new Date(date).getTime();
-    const diff = Math.max(0, now - t) / 1000;
-    if (diff < 60) return "刚刚";
-    const mins = Math.floor(diff / 60);
-    if (diff < 3600) return `${String(mins)} 分钟前`;
-    const hours = Math.floor(diff / 3600);
-    if (diff < 86400) return `${String(hours)} 小时前`;
-    const days = Math.floor(diff / 86400);
-    return `${String(days)} 天前`;
-}
-
-function groupAccounts(items: readonly UsageItem[]) {
+function group_accounts(items: readonly UsageItem[]) {
     const groups = new Map<UsageProvider, UsageItem[]>();
     for (const item of items) {
         const list = groups.get(item.provider) ?? [];
@@ -107,8 +84,8 @@ export function CpaConnectorSettings({
     const [monitors, setMonitors] = useState<Record<string, boolean>>(() => {
         const values: Record<string, boolean> = {};
         for (const monitor of MONITORS) {
-            values[monitor.name] = isEnabledValue(
-                config.parameterValues[monitor.name] ?? getDefaultValue(connector, monitor.name),
+            values[monitor.name] = is_enabled_value(
+                config.parameterValues[monitor.name] ?? get_default_value(connector, monitor.name),
             );
         }
         return values;
@@ -127,8 +104,8 @@ export function CpaConnectorSettings({
                   : "仅手动",
     );
     const [openGrps, setOpenGrps] = useState<Set<string>>(() => {
-        const items = getSnapshotItems(connector);
-        const grps = groupAccounts(items);
+        const items = get_snapshot_items(connector);
+        const grps = group_accounts(items);
         return new Set(grps.map(([p]) => p));
     });
 
@@ -140,8 +117,8 @@ export function CpaConnectorSettings({
         );
         const values: Record<string, boolean> = {};
         for (const monitor of MONITORS) {
-            values[monitor.name] = isEnabledValue(
-                config.parameterValues[monitor.name] ?? getDefaultValue(connector, monitor.name),
+            values[monitor.name] = is_enabled_value(
+                config.parameterValues[monitor.name] ?? get_default_value(connector, monitor.name),
             );
         }
         setMonitors(values);
@@ -156,24 +133,24 @@ export function CpaConnectorSettings({
                       ? "30 分钟"
                       : "仅手动",
         );
-        const items = getSnapshotItems(connector);
-        const grps = groupAccounts(items);
+        const items = get_snapshot_items(connector);
+        const grps = group_accounts(items);
         setOpenGrps(new Set(grps.map(([p]) => p)));
         // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset only on instanceId change
     }, [connector.instanceId]);
 
-    const items = useMemo(() => getSnapshotItems(connector), [connector]);
-    const accountGroups = useMemo(() => groupAccounts(items), [items]);
-    const status = getStatus(connector);
+    const items = useMemo(() => get_snapshot_items(connector), [connector]);
+    const accountGroups = useMemo(() => group_accounts(items), [items]);
+    const status = get_status(connector);
     const isConnected = status === "已连接";
     const lastSync =
         connector.snapshot.status === "ready"
-            ? relativeTime(connector.snapshot.updatedAt)
+            ? relative_time(connector.snapshot.updatedAt)
             : connector.snapshot.status === "failed" && connector.snapshot.updatedAt
-              ? relativeTime(connector.snapshot.updatedAt)
+              ? relative_time(connector.snapshot.updatedAt)
               : "未同步";
 
-    const handleSubmit = useCallback(
+    const handle_submit = useCallback(
         (event: React.SyntheticEvent<HTMLFormElement>) => {
             event.preventDefault();
             if (saving) return;
@@ -220,7 +197,7 @@ export function CpaConnectorSettings({
         [config, endpoint, monitors, onSave, onSaveSecrets, saving, secret, syncInterval],
     );
 
-    const handleRemove = useCallback(() => {
+    const handle_remove = useCallback(() => {
         if (!onRemove) return;
         if (!window.confirm("确定移除该数据源？已发现的账号将被清除。")) return;
         void onRemove();
@@ -236,7 +213,7 @@ export function CpaConnectorSettings({
     };
 
     return (
-        <form className="cpa-detail" data-testid="cpa-connector-settings" onSubmit={handleSubmit}>
+        <form className="cpa-detail" data-testid="cpa-connector-settings" onSubmit={handle_submit}>
             {/* left column: config */}
             <div className="cpa-cfg">
                 <div className="cfg-sec">连接配置</div>
@@ -375,7 +352,7 @@ export function CpaConnectorSettings({
                         <Icon name="check" size={15} color="#fff" />
                         {saving ? "保存中..." : "保存"}
                     </button>
-                    <button className="cf-remove" type="button" onClick={handleRemove}>
+                    <button className="cf-remove" type="button" onClick={handle_remove}>
                         <Icon name="trash" size={14} />
                         移除数据源
                     </button>

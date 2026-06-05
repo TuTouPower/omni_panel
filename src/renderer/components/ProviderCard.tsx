@@ -3,10 +3,10 @@ import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
 import {
     PROVIDER_LABELS,
-    buildOverviewForGroup,
-    resolveConvergentTime,
+    build_overview_for_group,
+    resolve_convergent_time,
 } from "../lib/provider-usage";
-import { relativeTime, formatResetTime } from "../lib/utils";
+import { relative_time, format_reset_time } from "../lib/utils";
 import { usage_color } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
@@ -260,16 +260,16 @@ export function ProviderCard({
     }, [menu_open, close_menu]);
 
     const is_multi = accountCount > 1;
-    const overview_periods = useMemo(() => (group ? buildOverviewForGroup(group) : []), [group]);
+    const overview_periods = useMemo(() => (group ? build_overview_for_group(group) : []), [group]);
     const overview_updated_at = useMemo(
         () =>
             is_multi
-                ? resolveConvergentTime(overview_periods.map((period) => period.updatedAt))
+                ? resolve_convergent_time(overview_periods.map((period) => period.updatedAt))
                 : (group?.updatedAt ?? null),
         [group?.updatedAt, is_multi, overview_periods],
     );
 
-    const updated_text = overview_updated_at ? relativeTime(overview_updated_at) : "";
+    const updated_text = overview_updated_at ? relative_time(overview_updated_at) : "";
 
     const header = (
         <>
@@ -417,7 +417,7 @@ export function ProviderCard({
                         ow.used,
                         ow.limit,
                         ow.displayStyle,
-                        ow.resetAt ? formatResetTime(ow.resetAt) : null,
+                        ow.resetAt ? format_reset_time(ow.resetAt) : null,
                         idx,
                     ),
                 )}
@@ -436,7 +436,7 @@ export function ProviderCard({
                             <span className="ai-name">{account.accountLabel}</span>
                             <span className="ai-key">{account.accountId}</span>
                             <span className="ai-time">
-                                {account.updatedAt ? relativeTime(account.updatedAt) : ""}
+                                {account.updatedAt ? relative_time(account.updatedAt) : ""}
                             </span>
                         </div>
                         <div className="ai-bars">
@@ -447,7 +447,7 @@ export function ProviderCard({
                                     period.used,
                                     period.limit,
                                     period.displayStyle,
-                                    period.resetAt ? formatResetTime(period.resetAt) : null,
+                                    period.resetAt ? format_reset_time(period.resetAt) : null,
                                     idx,
                                 ),
                             )}
@@ -511,7 +511,7 @@ export function ProviderCard({
                                     period.used,
                                     period.limit,
                                     period.displayStyle,
-                                    period.resetAt ? formatResetTime(period.resetAt) : null,
+                                    period.resetAt ? format_reset_time(period.resetAt) : null,
                                     idx,
                                 ),
                             ),

@@ -46,7 +46,7 @@ export function SettingsForm({
         };
     }, []);
 
-    const handleSubmit = useCallback(
+    const handle_submit = useCallback(
         (e: React.SyntheticEvent<HTMLFormElement>) => {
             e.preventDefault();
             if (saving) return;
@@ -105,7 +105,7 @@ export function SettingsForm({
 
     return (
         <form
-            onSubmit={handleSubmit}
+            onSubmit={handle_submit}
             className="ad-body-form"
             data-testid={`settings-form-${instanceId}`}
         >

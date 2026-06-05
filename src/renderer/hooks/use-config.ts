@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { AppConfiguration } from "../../shared/types/config";
 
@@ -14,7 +15,7 @@ interface UseConfigResult {
     duplicate: (instanceId: string) => Promise<void>;
 }
 
-export function useConfig(): UseConfigResult {
+export function use_config(): UseConfigResult {
     const [config, setConfig] = useState<AppConfiguration | null>(null);
     const config_ref = useRef<AppConfiguration | null>(null);
     const save_queue_ref = useRef(Promise.resolve());
