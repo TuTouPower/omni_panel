@@ -807,6 +807,43 @@ export function SettingsView() {
         return Array.from(map.values());
     }, [config, pluginInfos]);
 
+    // Hidden CPA accounts from accountOverrides — for restore section
+    const hiddenAccounts = useMemo(() => {
+        const hidden = config?.accountOverrides?.hidden;
+        if (!hidden) return [];
+        const result: { provider: UsageProvider; key: string; accountLabel: string }[] = [];
+        for (const [prov, keys] of Object.entries(hidden)) {
+            for (const key of keys) {
+                const parts = key.split(":");
+                const accountLabel = parts.length >= 3 ? parts.slice(2).join(":") : key;
+                result.push({ provider: prov as UsageProvider, key, accountLabel });
+            }
+        }
+        return result;
+    }, [config]);
+
+    const restoreHiddenAccount = useCallback(
+        (provider: UsageProvider, key: string) => {
+            if (!config) return;
+            const current = config.accountOverrides?.hidden?.[provider];
+            if (!current) return;
+            const next = current.filter((k) => k !== key);
+            const rest = { ...config.accountOverrides.hidden };
+            if (next.length === 0) {
+                // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+                delete rest[provider];
+            } else {
+                rest[provider] = next;
+            }
+            const newOverrides =
+                Object.keys(rest).length > 0
+                    ? { ...config.accountOverrides, hidden: rest }
+                    : { ...config.accountOverrides, hidden: undefined };
+            void save({ ...config, accountOverrides: newOverrides });
+        },
+        [config, save],
+    );
+
     // Config-backed settings with defaults for optional fields
     const accentColor = config?.accentColor ?? "#3d7afd";
     const themeMode = config?.theme ?? "light";
@@ -1224,30 +1261,7 @@ export function SettingsView() {
                                                         >
                                                             <Icon name="edit" size={15} />
                                                         </button>
-                                                        {info?.source === "cpa" ? (
-                                                            <button
-                                                                className="icon-btn sp-ic"
-                                                                title="隐藏"
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    void save({
-                                                                        ...config,
-                                                                        plugins: config.plugins.map(
-                                                                            (pl) =>
-                                                                                pl.instanceId ===
-                                                                                p.instanceId
-                                                                                    ? {
-                                                                                          ...pl,
-                                                                                          enabled: false,
-                                                                                      }
-                                                                                    : pl,
-                                                                        ),
-                                                                    });
-                                                                }}
-                                                            >
-                                                                <Icon name="eye_off" size={15} />
-                                                            </button>
-                                                        ) : (
+                                                        {info?.source !== "cpa" && (
                                                             <button
                                                                 className="icon-btn sp-ic danger"
                                                                 title="删除"
@@ -1395,34 +1409,7 @@ export function SettingsView() {
                                                                             size={15}
                                                                         />
                                                                     </button>
-                                                                    {info?.source === "cpa" ? (
-                                                                        <button
-                                                                            className="icon-btn sp-ic"
-                                                                            title="隐藏"
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                void save({
-                                                                                    ...config,
-                                                                                    plugins:
-                                                                                        config.plugins.map(
-                                                                                            (pl) =>
-                                                                                                pl.instanceId ===
-                                                                                                p.instanceId
-                                                                                                    ? {
-                                                                                                          ...pl,
-                                                                                                          enabled: false,
-                                                                                                      }
-                                                                                                    : pl,
-                                                                                        ),
-                                                                                });
-                                                                            }}
-                                                                        >
-                                                                            <Icon
-                                                                                name="eye_off"
-                                                                                size={15}
-                                                                            />
-                                                                        </button>
-                                                                    ) : (
+                                                                    {info?.source !== "cpa" && (
                                                                         <button
                                                                             className="icon-btn sp-ic danger"
                                                                             title="删除"
@@ -1460,6 +1447,45 @@ export function SettingsView() {
                                             </div>
                                         );
                                     })
+                                )}
+                                {hiddenAccounts.length > 0 && (
+                                    <>
+                                        <div className="set-group-label" style={{ marginTop: 16 }}>
+                                            已隐藏的 CPA 账号
+                                        </div>
+                                        <div className="acct-intro">
+                                            这些账号来自主面板账号菜单的"隐藏"操作，不会影响远端
+                                            CPA-Manager。
+                                        </div>
+                                        {hiddenAccounts.map((item) => (
+                                            <div className="ao-item" key={item.key}>
+                                                <div className="ao-vendor">
+                                                    <VendorMark id={item.provider} size={20} />
+                                                    <span className="ao-name">
+                                                        {item.accountLabel}
+                                                    </span>
+                                                </div>
+                                                <span className="ao-key" title={item.key}>
+                                                    {item.key.split(":")[0]}
+                                                </span>
+                                                <div className="ao-actions">
+                                                    <button
+                                                        className="icon-btn sp-ic"
+                                                        title="恢复"
+                                                        type="button"
+                                                        onClick={() => {
+                                                            restoreHiddenAccount(
+                                                                item.provider,
+                                                                item.key,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Icon name="eye" size={15} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </>
                                 )}
                             </>
                         )}
