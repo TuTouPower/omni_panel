@@ -148,7 +148,6 @@ export function PopupView() {
             });
     }, [provider_order]);
     const tabsRef = useRef<HTMLDivElement>(null);
-    const live_root_ref = useRef<HTMLDivElement | null>(null);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
     const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
     const refresh_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -643,7 +642,7 @@ export function PopupView() {
 
     return (
         <>
-            <div className="window" data-popup="live" ref={live_root_ref}>
+            <div className="window" data-popup="live">
                 {render_body(true, false)}
             </div>
             {should_render_mirrors && (
