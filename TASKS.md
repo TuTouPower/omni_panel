@@ -796,7 +796,76 @@ Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子
 
 ---
 
-## 通用约束（每轮适用）
+## Phase 31: 账号操作按钮失效 + 测试 mock 路由不一致
+
+> 发现时间：2026-06-06 | 优先级：P0 | 状态：待修
+
+### BUG：主面板账号菜单按钮点击无效
+
+主面板（popup 窗口）账号卡片"更多"菜单里的三个按钮：
+
+| 按钮         | 调用的 API        | popup 窗口有？ | 现象     |
+| ------------ | ----------------- | -------------- | -------- |
+| 编辑         | `settings.open()` | 有 ✓           | 正常     |
+| 隐藏（CPA）  | `config.save()`   | **没有** ✗     | 静默失效 |
+| 删除（直接） | `config.save()`   | **没有** ✗     | 静默失效 |
+
+**根因：** `src/preload/index.ts:222-234` — popup 窗口走 `default` 分支，`config: config_readonly` 只有 `get`，没有 `save` / `saveSecrets` / `duplicate`。
+
+```ts
+// src/preload/index.ts:56-59
+const config_readonly = {
+    get: () => invoke<...>(IPC_CHANNELS.CONFIG_GET),
+};
+
+// src/preload/index.ts:62-73
+const config_full = {
+    ...config_readonly,
+    save: (config: unknown) => invoke<...>(IPC_CHANNELS.CONFIG_SAVE, config),
+    saveSecrets: (payload: unknown) => invoke<...>(IPC_CHANNELS.CONFIG_SAVE_SECRETS, payload),
+    duplicate: ...,
+};
+
+// src/preload/index.ts:222-234 — popup 只能用 readonly
+default: // popup
+    return {
+        config: config_readonly, // ← 没有 save
+        ...
+    };
+```
+
+### 为什么全部测试没发现
+
+| 测试文件                         | 真实路由         | mock 的 config  | 问题                                             |
+| -------------------------------- | ---------------- | --------------- | ------------------------------------------------ |
+| `popup_view.test.tsx:135`        | popup            | `save: vi.fn()` | 给了没权限的方法                                 |
+| `popup_view_height.test.tsx:142` | popup            | `save: vi.fn()` | 同上                                             |
+| `popup_view_mirror.test.tsx:75`  | popup            | `save: vi.fn()` | 同上                                             |
+| `tray_menu.test.tsx:21,40`       | tray             | `save: vi.fn()` | 同上                                             |
+| `provider_card.test.tsx:114`     | （popup 视图内） | `save: vi.fn()` | 同上                                             |
+| `smoke/setup.ts:134`             | 全局             | `save: vi.fn()` | 同上                                             |
+| E2E `account_operations.spec.ts` | 真实 Electron    | 真实 preload    | 只测了"编辑"（`settings.open`），没测"隐藏/删除" |
+
+**结论：**
+
+- 单元测试 mock 不区分窗口路由，所有窗口 mock 给了全套 API
+- E2E 避开了需要 `config.save` 的路径
+- 没有 preload 路由逻辑的专门测试
+
+### 类似风险
+
+如果 popup/tray 视图有其他地方调 `config.save` / `saveSecrets` / `duplicate`，同样会静默失效。
+
+### 待修项
+
+- [ ] **31.1 修复 preload 路由**：popup 窗口需要写入 config，换 `config_full` 或加专用 IPC
+- [ ] **31.2 mock 路由对齐**：popup/tray 视图测试按真实路由 API 签名 mock
+- [ ] **31.3 preload 路由单元测试**：验证 `config_readonly` vs `config_full` 差异不被打破
+- [ ] **31.4 E2E 补齐隐藏/删除路径**：真实点击 → `config.save` 链路覆盖
+- [ ] **31.5 全局排查**：扫描 popup/tray 视图所有 `config.save` 调用
+- [ ] **31.6 打包验收**：`pnpm package` 后真实点击隐藏/删除确认生效
+
+---
 
 1. 不实现本轮范围外的功能
 2. 不重构无关文件
