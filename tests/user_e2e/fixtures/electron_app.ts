@@ -6,13 +6,9 @@ import { join, resolve } from "node:path";
 const ROOT = process.cwd();
 const MAIN_ENTRY = resolve(ROOT, ".vite/build/index.js");
 
-// Default isolated userData — shared by tests that don't seed plugins.
-// When onReady is provided, a fresh tmp dir is created per launch to isolate seeded data.
-const DEFAULT_E2E_USER_DATA = mkdtempSync(join(tmpdir(), "omniusage-e2e-"));
-
-/** Returns the default shared userData dir (for tests without custom seeding). */
+/** Returns a fresh isolated userData dir for each test. */
 export function getDefaultUserData(): string {
-    return DEFAULT_E2E_USER_DATA;
+    return mkdtempSync(join(tmpdir(), "omniusage-e2e-"));
 }
 
 function getElectronPath(): string {
@@ -39,11 +35,7 @@ export interface LaunchAppOptions {
 export async function launchApp(options?: LaunchAppOptions): Promise<LaunchedApp> {
     // When explicit dir is given, reuse it. When onReady is provided without dir, create fresh.
     // Otherwise reuse the shared default dir.
-    const userDataDir =
-        options?.userDataDir ??
-        (options?.onReady
-            ? mkdtempSync(join(tmpdir(), "omniusage-e2e-custom-"))
-            : DEFAULT_E2E_USER_DATA);
+    const userDataDir = options?.userDataDir ?? mkdtempSync(join(tmpdir(), "omniusage-e2e-"));
 
     options?.onReady?.(userDataDir);
 

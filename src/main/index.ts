@@ -12,6 +12,7 @@ import {
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
+import { execSync } from "node:child_process";
 import {
     getConfigPath,
     getDataRoot,
@@ -89,10 +90,23 @@ function findSystemNode(): string {
     const pathDirs = (process.env["PATH"] ?? "").split(isWin ? ";" : ":");
     for (const dir of pathDirs) {
         const candidate = join(dir, nodeCmd);
-        if (existsSync(candidate)) return candidate;
+        if (existsSync(candidate) && isRealNode(candidate)) return candidate;
     }
     // Fallback: use process.execPath (Electron) — may fail in packaged mode
     return process.execPath;
+}
+
+function isRealNode(binPath: string): boolean {
+    try {
+        const version = execSync(`"${binPath}" --version`, {
+            timeout: 5000,
+            encoding: "utf8",
+            stdio: ["pipe", "pipe", "pipe"],
+        }).trim();
+        return /^v\d+\.\d+\.\d+/.test(version);
+    } catch {
+        return false;
+    }
 }
 
 const SYSTEM_NODE = findSystemNode();
