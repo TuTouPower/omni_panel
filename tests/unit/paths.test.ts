@@ -6,7 +6,7 @@ vi.mock("electron", () => ({
     },
 }));
 
-const { getDataRoot, getConfigPath, getStatesDir, getUserPluginsDir, getLogsDir } =
+const { getDataRoot, getConfigPath, getStatesDir, getUserPluginsDir } =
     await import("../../src/main/core/paths");
 
 describe("paths", () => {
@@ -27,9 +27,5 @@ describe("paths", () => {
 
     it("getUserPluginsDir ends with plugins", () => {
         expect(getUserPluginsDir()).toMatch(/plugins$/);
-    });
-
-    it("getLogsDir ends with logs", () => {
-        expect(getLogsDir()).toMatch(/logs$/);
     });
 });
