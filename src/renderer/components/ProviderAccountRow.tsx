@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import { format_usage_period_label } from "../lib/provider-usage";
 import { format_reset_time } from "../lib/utils";
@@ -14,6 +15,9 @@ interface ProviderAccountRowProps {
     onDragStart?: (() => void) | undefined;
     onDragEnter?: (() => void) | undefined;
     onDragEnd?: (() => void) | undefined;
+    onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
+    onHideOrDeleteAccount?: ((account: ProviderUsageAccount) => void) | undefined;
+    isCpaSource?: boolean | undefined;
 }
 
 function percent(used: number, limit: number): number {
@@ -30,8 +34,38 @@ export function ProviderAccountRow({
     onDragStart,
     onDragEnter,
     onDragEnd,
+    onEditAccount,
+    onHideOrDeleteAccount,
+    isCpaSource = false,
 }: ProviderAccountRowProps) {
     const source = account.periods[0]?.source ?? "direct";
+    const [menu_open, set_menu_open] = useState(false);
+    const menu_ref = useRef<HTMLDivElement>(null);
+
+    const close_menu = useCallback(() => {
+        set_menu_open(false);
+    }, []);
+
+    useEffect(() => {
+        if (!menu_open) return;
+        const on_click = (e: MouseEvent) => {
+            if (menu_ref.current && !menu_ref.current.contains(e.target as Node)) {
+                close_menu();
+            }
+        };
+        const on_key = (e: KeyboardEvent) => {
+            if (e.key === "Escape") close_menu();
+        };
+        document.addEventListener("mousedown", on_click);
+        document.addEventListener("keydown", on_key);
+        return () => {
+            document.removeEventListener("mousedown", on_click);
+            document.removeEventListener("keydown", on_key);
+        };
+    }, [menu_open, close_menu]);
+
+    const has_menu = onEditAccount !== undefined || onHideOrDeleteAccount !== undefined;
+
     const grip = onDragStart ? (
         <button
             className="icon-btn card-grip"
@@ -56,6 +90,62 @@ export function ProviderAccountRow({
                 </div>
                 <div className="rel-time">{account.periods.length}个周期</div>
             </div>
+            {has_menu && (
+                <div className="card-menu-wrap" style={{ marginLeft: "auto" }}>
+                    <button
+                        className="icon-btn"
+                        aria-label="账号操作"
+                        title="账号操作"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            set_menu_open((v) => !v);
+                        }}
+                    >
+                        <Icon name="more" size={14} />
+                    </button>
+                    {menu_open && (
+                        <>
+                            <div className="card-menu-overlay" onClick={close_menu} />
+                            <div
+                                className="card-menu"
+                                ref={menu_ref}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                }}
+                            >
+                                {onEditAccount && (
+                                    <div
+                                        className="cm-item"
+                                        onClick={() => {
+                                            onEditAccount(account);
+                                            close_menu();
+                                        }}
+                                    >
+                                        <span className="cm-ic">
+                                            <Icon name="edit" size={14} />
+                                        </span>
+                                        编辑
+                                    </div>
+                                )}
+                                {onHideOrDeleteAccount && (
+                                    <div
+                                        className="cm-item danger"
+                                        onClick={() => {
+                                            onHideOrDeleteAccount(account);
+                                            close_menu();
+                                        }}
+                                    >
+                                        <span className="cm-ic">
+                                            <Icon name="trash" size={14} />
+                                        </span>
+                                        {isCpaSource ? "隐藏" : "删除"}
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     );
     const details = (

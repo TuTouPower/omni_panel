@@ -1,4 +1,5 @@
 import type { AppLanguage } from "./plugin";
+import type { UsageProvider } from "../schemas/plugin-output";
 
 export interface ProxyConfiguration {
     readonly url: string;
@@ -14,6 +15,11 @@ export interface FloatingBoundsConfiguration {
     readonly width: number;
     readonly height: number;
     readonly displayId?: string;
+}
+
+export interface AccountOverrides {
+    readonly hidden?: Readonly<Record<UsageProvider, readonly string[]>>;
+    readonly disabled?: Readonly<Record<UsageProvider, readonly string[]>>;
 }
 
 export interface AppConfiguration {
@@ -37,6 +43,7 @@ export interface AppConfiguration {
     readonly mainPanelMode?: MainPanelMode;
     readonly floatingHeightMode?: FloatingHeightMode;
     readonly floatingBounds?: FloatingBoundsConfiguration;
+    readonly accountOverrides?: AccountOverrides;
 }
 
 export interface PluginConfiguration {

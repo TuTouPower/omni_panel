@@ -12,8 +12,11 @@ import { CollapsibleCard } from "../components/CollapsibleCard";
 import {
     build_provider_usage_groups,
     get_visible_providers,
+    apply_account_overrides,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
+import type { ProviderUsageAccount } from "../lib/provider-usage";
+import type { AccountOverrides } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import logo from "../assets/logo.png";
 
@@ -111,6 +114,9 @@ export function PopupView() {
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
     const [main_panel_mode, set_main_panel_mode] = useState<"popup" | "floating">("popup");
+    const [account_overrides, set_account_overrides] = useState<AccountOverrides | undefined>(
+        undefined,
+    );
 
     useEffect(() => {
         let cancelled = false;
@@ -141,6 +147,9 @@ export function PopupView() {
                     if (validated.length > 0) {
                         set_provider_order(validated);
                     }
+                }
+                if (result.config.accountOverrides) {
+                    set_account_overrides(result.config.accountOverrides);
                 }
             })
             .catch(() => {
@@ -177,7 +186,11 @@ export function PopupView() {
         };
     }, []);
 
-    const providerGroups = useMemo(() => build_provider_usage_groups(plugins), [plugins]);
+    const rawGroups = useMemo(() => build_provider_usage_groups(plugins), [plugins]);
+    const providerGroups = useMemo(
+        () => apply_account_overrides(rawGroups, account_overrides),
+        [rawGroups, account_overrides],
+    );
     const visibleProviders = useMemo(() => get_visible_providers(plugins), [plugins]);
 
     // Apply persisted order to visible providers
@@ -340,6 +353,56 @@ export function PopupView() {
                     plugins: result.config.plugins.filter(
                         (p) => p.instanceId !== target.instanceId,
                     ),
+                });
+            }
+        });
+    };
+
+    const edit_account = (account: ProviderUsageAccount) => {
+        const first_period = account.periods[0];
+        if (!first_period) return;
+        window.usageboard.settings.open();
+        window.usageboard.log({
+            level: "info",
+            module: MODULE,
+            message: `编辑账号: ${account.id}`,
+        });
+    };
+
+    const hide_or_delete_account = (account: ProviderUsageAccount) => {
+        const first_period = account.periods[0];
+        if (!first_period) return;
+        const provider = first_period.provider;
+        const is_cpa = first_period.source === "cpa";
+
+        void window.usageboard.config.get().then((result) => {
+            if (is_cpa) {
+                const current = result.config.accountOverrides ?? {};
+                const hidden_list = [...(current.hidden?.[provider] ?? []), account.id];
+                const new_overrides: AccountOverrides = {
+                    ...current,
+                    hidden: { ...current.hidden, [provider]: hidden_list },
+                };
+                void window.usageboard.config.save({
+                    ...result.config,
+                    accountOverrides: new_overrides,
+                });
+                set_account_overrides(new_overrides);
+                window.usageboard.log({
+                    level: "info",
+                    module: MODULE,
+                    message: `隐藏 CPA 账号: ${account.id}`,
+                });
+            } else {
+                const target_instance = account.sourceInstanceId;
+                void window.usageboard.config.save({
+                    ...result.config,
+                    plugins: result.config.plugins.filter((p) => p.instanceId !== target_instance),
+                });
+                window.usageboard.log({
+                    level: "info",
+                    module: MODULE,
+                    message: `删除直接账号: ${account.id}`,
                 });
             }
         });
@@ -609,6 +672,10 @@ export function PopupView() {
                                     onDragStart={is_live ? handle_account_drag_start : undefined}
                                     onDragEnter={is_live ? handle_account_drag_enter : undefined}
                                     onDragEnd={is_live ? handle_account_drag_end : undefined}
+                                    onEditAccount={is_live ? edit_account : undefined}
+                                    onHideOrDeleteAccount={
+                                        is_live ? hide_or_delete_account : undefined
+                                    }
                                 />
                             )}
 

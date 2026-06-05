@@ -1,4 +1,4 @@
-import type { ProviderUsageGroup } from "../lib/provider-usage";
+import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
 import { ProviderAccountRow } from "./ProviderAccountRow";
 
 interface ProviderAccountListProps {
@@ -10,6 +10,8 @@ interface ProviderAccountListProps {
     onDragStart?: ((accountId: string) => void) | undefined;
     onDragEnter?: ((accountId: string) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
+    onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
+    onHideOrDeleteAccount?: ((account: ProviderUsageAccount) => void) | undefined;
 }
 
 export function ProviderAccountList({
@@ -21,6 +23,8 @@ export function ProviderAccountList({
     onDragStart,
     onDragEnter,
     onDragEnd,
+    onEditAccount,
+    onHideOrDeleteAccount,
 }: ProviderAccountListProps) {
     return (
         <>
@@ -28,8 +32,17 @@ export function ProviderAccountList({
                 const collapsed = collapsedAccounts?.[account.id] ?? false;
                 const isDragging = draggingId === account.id;
                 const isDragOver = overId === account.id && draggingId !== account.id;
+                const is_cpa = account.periods.some((p) => p.source === "cpa");
                 if (!onToggleAccount) {
-                    return <ProviderAccountRow key={account.id} account={account} />;
+                    return (
+                        <ProviderAccountRow
+                            key={account.id}
+                            account={account}
+                            onEditAccount={onEditAccount}
+                            onHideOrDeleteAccount={onHideOrDeleteAccount}
+                            isCpaSource={is_cpa}
+                        />
+                    );
                 }
                 const onToggle = () => {
                     onToggleAccount(account.id);
@@ -57,6 +70,9 @@ export function ProviderAccountList({
                                 : undefined
                         }
                         onDragEnd={onDragEnd}
+                        onEditAccount={onEditAccount}
+                        onHideOrDeleteAccount={onHideOrDeleteAccount}
+                        isCpaSource={is_cpa}
                     />
                 );
             })}

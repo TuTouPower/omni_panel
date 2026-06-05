@@ -1,4 +1,5 @@
 import type { UsageItem, UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
+import type { AccountOverrides } from "../../shared/types/config";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 
 export interface ProviderUsagePeriod {
@@ -181,6 +182,33 @@ export function build_provider_usage_groups(
                 accounts: [...accountsByKey.values()],
             };
         });
+}
+
+export function apply_account_overrides(
+    groups: ProviderUsageGroup[],
+    overrides: AccountOverrides | undefined,
+): ProviderUsageGroup[] {
+    if (!overrides) return groups;
+    const hidden_set = new Set<string>();
+    for (const keys of Object.values(overrides.hidden ?? {})) {
+        for (const k of keys) hidden_set.add(k);
+    }
+    if (hidden_set.size === 0) return groups;
+
+    return groups
+        .map((group) => {
+            const filtered = group.accounts.filter((a) => !hidden_set.has(a.id));
+            const filtered_periods = group.periods.filter(
+                (p) => !hidden_set.has(accountKeyForPeriod(p)),
+            );
+            return {
+                ...group,
+                accounts: filtered,
+                periods: filtered_periods,
+                accountCount: filtered.length,
+            };
+        })
+        .filter((group) => group.accounts.length > 0);
 }
 
 export function get_visible_providers(connectors: readonly ConnectorInfo[]): UsageProvider[] {

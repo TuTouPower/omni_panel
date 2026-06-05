@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { UsageItem } from "../../../src/shared/schemas/plugin-output";
 import type { ConnectorInfo } from "../../../src/shared/types/ipc";
 import {
+    apply_account_overrides,
     build_provider_usage_groups,
     build_overview_for_group,
     get_visible_providers,
@@ -285,5 +286,131 @@ describe("provider usage aggregation", () => {
         if (!group) throw new Error("Expected provider usage group");
         const overview = build_overview_for_group(group);
         expect(overview).toHaveLength(0);
+    });
+
+    it("separates CPA accounts with same label from different sourceInstanceId", () => {
+        const connectors = [
+            connectorInfo({
+                source: "cpa",
+                sourceInstanceId: "cpa-main",
+                instanceId: "cpa-main-connector",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            source: "cpa",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "auth-1",
+                            accountLabel: "Same Label",
+                        }),
+                    ],
+                },
+            }),
+            connectorInfo({
+                source: "cpa",
+                sourceInstanceId: "cpa-secondary",
+                instanceId: "cpa-secondary-connector",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            source: "cpa",
+                            sourceInstanceId: "cpa-secondary",
+                            accountId: "auth-2",
+                            accountLabel: "Same Label",
+                        }),
+                    ],
+                },
+            }),
+        ];
+
+        const groups = build_provider_usage_groups(connectors);
+        expect(groups).toHaveLength(1);
+        expect(groups[0]?.accountCount).toBe(2);
+        const ids = groups[0]?.accounts.map((a) => a.id);
+        expect(ids?.[0]).not.toBe(ids?.[1]);
+    });
+});
+
+describe("apply_account_overrides", () => {
+    const two_account_connectors = [
+        connectorInfo({
+            source: "cpa",
+            supportedProviders: ["claude"],
+            activeProviders: ["claude"],
+            snapshot: {
+                status: "ready",
+                updatedAt: "2026-01-01T12:00:00Z",
+                items: [
+                    usageItem({
+                        id: "claude-a-5h",
+                        provider: "claude",
+                        source: "cpa",
+                        sourceInstanceId: "cpa-main",
+                        accountId: "auth-a",
+                        accountLabel: "Account A",
+                        name: "Claude Pro · 5小时",
+                    }),
+                    usageItem({
+                        id: "claude-a-week",
+                        provider: "claude",
+                        source: "cpa",
+                        sourceInstanceId: "cpa-main",
+                        accountId: "auth-a",
+                        accountLabel: "Account A",
+                        name: "Claude Pro · 每周",
+                    }),
+                    usageItem({
+                        id: "claude-b-5h",
+                        provider: "claude",
+                        source: "cpa",
+                        sourceInstanceId: "cpa-main",
+                        accountId: "auth-b",
+                        accountLabel: "Account B",
+                        name: "Claude Pro · 5小时",
+                        used: 20,
+                        limit: 200,
+                    }),
+                ],
+            },
+        }),
+    ];
+
+    it("returns groups unchanged when overrides are undefined", () => {
+        const groups = build_provider_usage_groups(two_account_connectors);
+        const result = apply_account_overrides(groups, undefined);
+        expect(result).toEqual(groups);
+    });
+
+    it("removes hidden accounts and their periods", () => {
+        const groups = build_provider_usage_groups(two_account_connectors);
+        const account_a_key = groups[0]?.accounts.find((a) => a.accountLabel === "Account A")?.id;
+        if (!account_a_key) throw new Error("Account A not found");
+
+        const result = apply_account_overrides(groups, {
+            hidden: { claude: [account_a_key] },
+        });
+
+        expect(result).toHaveLength(1);
+        expect(result[0]?.accountCount).toBe(1);
+        expect(result[0]?.accounts[0]?.accountLabel).toBe("Account B");
+        expect(result[0]?.periods).toHaveLength(1);
+    });
+
+    it("removes entire group when all accounts are hidden", () => {
+        const groups = build_provider_usage_groups(two_account_connectors);
+        const all_keys = groups[0]?.accounts.map((a) => a.id) ?? [];
+
+        const result = apply_account_overrides(groups, {
+            hidden: { claude: all_keys },
+        });
+
+        expect(result).toHaveLength(0);
     });
 });
