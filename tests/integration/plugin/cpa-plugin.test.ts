@@ -70,7 +70,7 @@ function gemini_api_call_response(): unknown {
             buckets: [
                 {
                     modelId: "gemini-2.5-pro",
-                    tokenType: "requests",
+                    tokenType: "INPUT_TOKENS",
                     remainingFraction: 0.75,
                     resetTime: "2026-05-27T00:00:00Z",
                 },
@@ -202,13 +202,13 @@ describe("CPA plugin subprocess", () => {
 
         expect(parsed.items).toContainEqual(
             expect.objectContaining({
-                id: "gemini:gemini-auth:gemini-2.5-pro requests",
+                id: "gemini:gemini-auth:2.5 Pro 输入",
                 provider: "gemini",
                 source: "cpa",
                 sourceInstanceId: "cpa-test-source",
                 accountId: "gemini-auth",
                 accountLabel: "gemini@example.com",
-                name: "Gemini (gemini@example.com) · gemini-2.5-pro requests",
+                name: "Gemini (gemini@example.com) · 2.5 Pro 输入",
             }),
         );
     });

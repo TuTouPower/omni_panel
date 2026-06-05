@@ -292,6 +292,34 @@ function parseCodex(body: Record<string, unknown>, account: CpaAccount): UsageIt
     return items;
 }
 
+function formatGeminiModelLabel(modelId: string): string {
+    return modelId
+        .replace(/^gemini[-_]?/i, "")
+        .split(/[-_\s]+/)
+        .filter((part) => part.length > 0)
+        .map((part) => {
+            const lower = part.toLowerCase();
+            if (lower === "pro") return "Pro";
+            if (lower === "flash") return "Flash";
+            return part;
+        })
+        .join(" ");
+}
+
+function formatGeminiTokenType(tokenType: string): string {
+    const normalized = tokenType.toLowerCase().replace(/[-\s]+/g, "_");
+    if (normalized === "input_tokens") return "输入";
+    if (normalized === "output_tokens") return "输出";
+    if (normalized === "requests") return "请求";
+    return tokenType.replace(/[_-]+/g, " ").trim();
+}
+
+function formatGeminiBucketLabel(modelId: string, tokenType: string): string {
+    const modelLabel = formatGeminiModelLabel(modelId);
+    const tokenLabel = tokenType ? formatGeminiTokenType(tokenType) : "";
+    return tokenLabel ? `${modelLabel} ${tokenLabel}` : modelLabel;
+}
+
 function parseGeminiBuckets(body: Record<string, unknown>, account: CpaAccount): UsageItem[] {
     const items: UsageItem[] = [];
     const buckets = (body.buckets ?? []) as Record<string, unknown>[];
@@ -302,7 +330,7 @@ function parseGeminiBuckets(body: Record<string, unknown>, account: CpaAccount):
         if (remaining <= 1) remaining *= 100;
         const usedPct = Math.min(Math.max(0, 100 - remaining), 100);
         const resetAt = (bucket.resetTime ?? bucket.reset_time ?? null) as string | null;
-        const label: string = tokenType ? `${modelId} ${tokenType}` : modelId;
+        const label = formatGeminiBucketLabel(modelId, tokenType);
         items.push({
             id: `gemini:${account.accountId}:${label}`,
             ...itemContext("gemini", account),

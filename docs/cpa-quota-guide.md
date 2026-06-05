@@ -255,7 +255,7 @@ body = {
 ```
 
 - `remainingFraction`：值 ≤ 1 时 ×100；`used_percent = 100 - remaining_percent`
-- `plan_type`：用 `modelId` 或 `tokenType` 作为标识
+- 展示标签：`modelId` 去掉 `gemini-` 前缀并美化，常见 `tokenType` 简化为 `输入` / `输出` / `请求`
 - 一个账号可能有多个 bucket（不同模型/不同类型 tokens）
 
 ### Antigravity (Gemini 内部版 / Google 内部 AI Studio)
