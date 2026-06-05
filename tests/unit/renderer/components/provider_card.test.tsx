@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ProviderCard } from "../../../../src/renderer/components/ProviderCard";
 import {
@@ -369,5 +369,55 @@ describe("ProviderCard", () => {
             expect(f.classList.contains("purple")).toBe(false);
             expect(f.classList.contains("danger")).toBe(false);
         }
+    });
+
+    it("renders null usage as an empty bar", () => {
+        const group = makeGroup({
+            periods: [
+                makePeriod({
+                    id: "empty",
+                    name: "5小时",
+                    used: null,
+                    limit: 100,
+                    displayStyle: "percent",
+                    resetAt: "2026-06-02T12:00:00Z",
+                }),
+            ],
+            accounts: [
+                {
+                    id: "a1",
+                    sourceInstanceId: "ds-1",
+                    accountId: "a1",
+                    accountLabel: "A1",
+                    status: "normal",
+                    updatedAt: "2026-06-02T10:00:00Z",
+                    periods: [
+                        makePeriod({
+                            id: "empty",
+                            name: "5小时",
+                            used: null,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: "2026-06-02T12:00:00Z",
+                        }),
+                    ],
+                },
+            ],
+        });
+
+        render(
+            <ProviderCard provider="deepseek" group={group} expanded onToggleExpand={vi.fn()} />,
+        );
+
+        const row = screen.getByText("5小时").closest(".bar-row");
+        expect(row).toBeInstanceOf(HTMLElement);
+        const bar_row = row as HTMLElement;
+        const fill = bar_row.querySelector(".fill");
+        expect(fill).toBeInstanceOf(HTMLElement);
+        expect((fill as HTMLElement).style.width).toBe("0%");
+        expect(bar_row.querySelector(".bar-pct")).toHaveTextContent("");
+        expect(bar_row.querySelector(".bar-reset")).toHaveTextContent("");
+        expect(within(bar_row).queryByText("0%")).not.toBeInTheDocument();
+        expect(within(bar_row).queryByText("--")).not.toBeInTheDocument();
     });
 });
