@@ -132,8 +132,8 @@ const WINDOW_CONFIGS: Record<string, WindowConfig> = {
     },
     tray_menu: {
         route: "tray",
-        width: 184,
-        height: 340,
+        width: 1,
+        height: 1,
         frame: false,
         show: false,
     },
@@ -538,6 +538,10 @@ void app.whenReady().then(async () => {
 
         // Create tray menu window once
         const trayMenuCfg = WINDOW_CONFIGS["tray_menu"];
+        let tray_menu_size = {
+            width: trayMenuCfg?.width ?? 184,
+            height: trayMenuCfg?.height ?? 340,
+        };
         trayMenuWin = new BrowserWindow({
             width: trayMenuCfg?.width ?? 184,
             height: trayMenuCfg?.height ?? 340,
@@ -616,6 +620,21 @@ void app.whenReady().then(async () => {
         ipcMain.handle("tray:hide", () => {
             hideTrayMenu();
         });
+        ipcMain.handle(IPC_CHANNELS.TRAY_REPORT_MENU_SIZE, (_event, report: unknown) => {
+            if (typeof report !== "object" || report === null) return;
+            const { width, height } = report as { width?: unknown; height?: unknown };
+            if (typeof width !== "number" || typeof height !== "number") return;
+            if (!Number.isFinite(width) || !Number.isFinite(height)) return;
+
+            tray_menu_size = {
+                width: Math.max(1, Math.ceil(width)),
+                height: Math.max(1, Math.ceil(height)),
+            };
+            if (trayMenuWin && !trayMenuWin.isDestroyed() && trayMenuWin.isVisible()) {
+                const bounds = trayMenuWin.getBounds();
+                trayMenuWin.setBounds({ ...bounds, ...tray_menu_size });
+            }
+        });
 
         // Click → toggle main panel (left-click)
         tray.on("click", () => {
@@ -637,8 +656,8 @@ void app.whenReady().then(async () => {
                 x: trayBounds.x + trayBounds.width / 2,
                 y: trayBounds.y + trayBounds.height / 2,
             });
-            const menuWidth = trayMenuCfg?.width ?? 184;
-            const menuHeight = trayMenuCfg?.height ?? 340;
+            const menuWidth = tray_menu_size.width;
+            const menuHeight = tray_menu_size.height;
 
             const cx = Math.round(trayBounds.x + trayBounds.width / 2 - menuWidth / 2);
             const cy = trayBounds.y + trayBounds.height + 4;

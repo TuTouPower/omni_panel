@@ -147,6 +147,9 @@ const tray_methods = {
     check_update: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_CHECK_UPDATE),
     quit: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_QUIT),
     hide: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_HIDE),
+    report_menu_size: (report: { width: number; height: number }) => {
+        void ipcRenderer.invoke(IPC_CHANNELS.TRAY_REPORT_MENU_SIZE, report);
+    },
     on_pause_state: (callback: (paused: boolean) => void) => {
         const handler = (_e: unknown, paused: boolean) => {
             callback(paused);

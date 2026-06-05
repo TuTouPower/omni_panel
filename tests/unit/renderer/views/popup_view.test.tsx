@@ -157,6 +157,7 @@ describe("PopupView", () => {
                 check_update: vi.fn(),
                 quit: vi.fn(),
                 hide: vi.fn(),
+                report_menu_size: vi.fn(),
                 on_pause_state: vi.fn(() => vi.fn()),
                 on_autostart_state: vi.fn(() => vi.fn()),
             },

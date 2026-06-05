@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { Icon } from "../components/Icon";
@@ -25,6 +25,7 @@ export function TrayMenu() {
     useTheme();
 
     const { config } = use_config();
+    const menu_ref = useRef<HTMLDivElement | null>(null);
     const [is_paused, set_is_paused] = useState(false);
     const [is_autostart, set_is_autostart] = useState(false);
     const app_version = useMemo(() => get_app_version(), []);
@@ -118,10 +119,43 @@ export function TrayMenu() {
         [is_paused, is_autostart, app_version],
     );
 
+    useEffect(() => {
+        document.documentElement.setAttribute("data-window", "tray");
+        return () => {
+            document.documentElement.removeAttribute("data-window");
+        };
+    }, []);
+
+    useEffect(() => {
+        const el = menu_ref.current;
+        if (!el) return;
+
+        const report_size = (): void => {
+            const rect = el.getBoundingClientRect();
+            window.usageboard.tray.report_menu_size({
+                width: Math.ceil(rect.width),
+                height: Math.ceil(rect.height),
+            });
+        };
+
+        report_size();
+
+        if (typeof ResizeObserver === "undefined") return;
+
+        const observer = new ResizeObserver(() => {
+            report_size();
+        });
+        observer.observe(el);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [items]);
+
     const sep_indexes = new Set([2, 4, 6]); // indexes where separators appear
 
     return (
-        <div className="tray-window">
+        <div className="tray-window" ref={menu_ref}>
             <div className="tray-win-head">
                 <img className="app-logo sm" src={logo} alt="" width={24} height={24} />
                 <span>OmniUsage</span>

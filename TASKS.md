@@ -623,6 +623,179 @@ Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子
 
 ---
 
+## Phase 29: 文档纠偏与交互边界
+
+### 背景
+
+用户指出两类误导性实现来源：
+
+1. 托盘右键菜单不应固定窗口高度制造滚动条。
+2. 产品不存在“周期数量”设定；demo 中 `5小时` / `一周` 只是示例数据，不是要求 UI 增加“几个周期”的前端元素。
+
+### 29.1 托盘右键菜单尺寸规则
+
+- [ ] 托盘右键菜单是菜单窗口，不是主面板 Popup / Floating Window。
+- [ ] 菜单窗口宽度由菜单内容决定。
+- [ ] 菜单窗口高度由菜单内容决定。
+- [ ] 菜单项变多或变少时，窗口尺寸跟随内容变化。
+- [ ] 不额外设置固定高度来承载正常菜单内容。
+- [ ] 不因为固定高度不足而显示滚动条。
+- [ ] 不复用主面板的固定高度、75% 高度上限、内部滚动策略。
+- [ ] 只有屏幕可用区域放不下完整菜单时，才允许做边界修正。
+
+### 29.2 用量周期数量规则
+
+- [ ] 不存在“两个周期”“三个周期”“八个周期”这种产品设定。
+- [ ] 不新增任何专门显示“有几个周期”的前端元素。
+- [ ] `docs/design/omni-usage/**` 或 demo 差异文档里的 `5小时` / `一周` 只能当示例数据理解。
+- [ ] 用量条数量完全来自插件返回的真实 `UsageItem` / periods 数据。
+- [ ] UI 只渲染真实返回的用量项，不按 demo 示例补齐、裁剪或伪造周期。
+- [ ] 多账号概览可以按周期标签聚合真实数据，但不能把聚合结果解释为固定周期数量。
+- [ ] 文案、测试名、文档不得再写“固定两个周期”这类误导表述。
+
+### 29.3 文档同步
+
+- [x] 修正 `docs/demo-vs-implementation-diff.md`，明确 demo 的 `5小时` / `一周` 只是示例，不是周期数量设定。
+- [x] 更新 `docs/window_design.md`，记录托盘右键菜单按内容决定尺寸。
+- [x] 更新 `docs/spec.md`，记录 TrayMenu 不使用主面板高度策略。
+- [x] 更新 `docs/superpowers/specs/2026-06-01-demo-ui-alignment-design.md`，记录自绘托盘菜单窗口边界。
+
+### 验收标准
+
+1. 右键托盘菜单正常内容下没有滚动条。
+2. 右键托盘菜单宽高跟随内容变化。
+3. 主面板和账号明细不显示“几个周期”这类专门前端元素。
+4. 用量条数量只由真实插件返回数据决定。
+5. 文档中不再把 demo 示例误写成固定周期数量规则。
+
+---
+
+## Phase 30: 主面板账号级操作修正
+
+### 背景
+
+用户反馈主面板内账号行的操作语义不对：点击编辑没有打开对应账号设置，点击关闭没有关闭对应账号面板，点击删除也删不掉。排查结论：当前主面板的“编辑 / 关闭 / 删除”菜单是 **provider 级**操作，位于 `ProviderCard`；账号明细行 `ProviderAccountRow` 只有折叠和拖拽能力，没有账号级编辑、关闭、删除 handler。CPA 账号来自插件输出和 CPA-Manager，不是 OmniUsage 本地配置里的独立账号实体，因此不能把 provider 级删除当作账号删除。
+
+### 核心原则
+
+1. 区分 provider 级操作与 account 级操作，UI 文案和行为不能混用。
+2. CPA 来源账号不能假装执行远端删除；除非 CPA-Manager 提供真实删除 API，否则“删除”只能是本地隐藏/移除显示。
+3. 直接添加账号可以删除本地插件配置；CPA 来源账号只做隐藏/关闭/重新显示。
+4. 编辑必须带目标上下文，不能只打开通用设置窗口。
+5. 所有操作都必须有可验证的配置变更、UI 变更和日志/IPC 证据。
+
+### 30.1 账号身份模型
+
+- [ ] 明确账号级稳定 key 生成规则，复用当前聚合后的 `ProviderUsageAccount.id`，但必须确认刷新后稳定。
+- [ ] CPA 账号 key 必须包含足够信息避免冲突：`sourceInstanceId` + provider + accountId/accountLabel。
+- [ ] 直接插件账号 key 必须能映射回对应 `PluginConfiguration.instanceId`。
+- [ ] 文档中明确：`account.accountId` 是上游账号标识，`account.id` 是 UI/配置使用的稳定 key。
+- [ ] 增加单元测试覆盖同名账号、不同 provider、不同 sourceInstanceId 时 key 不冲突。
+
+### 30.2 配置数据结构
+
+- [ ] 在应用配置中新增账号级本地状态，例如：
+
+    ```ts
+    accountOverrides?: {
+        hidden?: Record<UsageProvider, string[]>;
+        disabled?: Record<UsageProvider, string[]>;
+    };
+    ```
+
+- [ ] `hidden` 表示从主面板移除显示；用于 CPA 来源账号的“删除/隐藏”。
+- [ ] `disabled` 表示保留显示但不参与刷新/聚合，或按最终 UI 决策隐藏禁用账号；不得影响同 provider 下其他账号。
+- [ ] 配置迁移要兼容旧配置，缺字段时按空对象处理。
+- [ ] 保存时只改目标账号 key，不改整个 provider，不删除无关插件。
+- [ ] secret 不写入该结构，不进入日志。
+
+### 30.3 主面板账号菜单
+
+- [ ] `ProviderAccountRow` 新增账号级菜单入口，不复用 `ProviderCard` 的 provider 菜单。
+- [ ] `ProviderAccountRow` props 增加：
+    - `onEditAccount(account)`
+    - `onToggleAccountDisabled(account)`
+    - `onHideOrDeleteAccount(account)`
+    - `accountDisabled` / `accountHidden` 或等价状态
+- [ ] `ProviderAccountList` 负责把账号对象和 handler 逐层传下去。
+- [ ] `PopupView` 负责实现账号级 handler，并调用 `window.usageboard.config.get/save`。
+- [ ] 菜单文案按来源区分：
+    - CPA 来源：`编辑` / `关闭` 或 `启用` / `隐藏`
+    - 直接添加：`编辑` / `关闭` 或 `启用` / `删除`
+- [ ] 点击账号菜单项必须 `stopPropagation()`，不能误触发折叠、拖拽或 provider 展开。
+- [ ] 账号菜单关闭逻辑与 provider 菜单一致：点击外部关闭、Escape 关闭。
+
+### 30.4 编辑账号定位
+
+- [ ] 扩展 settings 打开 IPC，支持带上下文打开：`settings.open({ instanceId, provider, accountId })` 或等价参数。
+- [ ] 主进程 settings IPC 需要把目标上下文传给设置窗口；如果窗口已存在，则聚焦并发送定位事件。
+- [ ] `SettingsView` 收到上下文后定位对应账号：
+    - 直接添加账号：打开对应插件的编辑弹窗。
+    - CPA 来源账号：进入 CPA Manager 数据源详情页，并滚动/高亮对应发现账号。
+- [ ] 找不到目标账号时，不静默失败；应打开设置页并显示可理解提示或日志。
+- [ ] 编辑 CPA 来源账号时明确边界：OmniUsage 只能改本地显示/监控配置，不能改 CPA-Manager 远端账号属性，除非远端 API 支持。
+
+### 30.5 关闭账号行为
+
+- [ ] 账号级关闭只影响目标账号，不影响同 provider 下其他账号。
+- [ ] CPA 来源账号关闭不能写 `monitor_provider=false`，因为那会关闭整个 provider。
+- [ ] 直接添加账号关闭可以映射到对应 plugin `enabled=false`，但只限单账号插件。
+- [ ] 主面板渲染前应用账号级 disabled 状态：
+    - 若产品决策为隐藏禁用账号，则过滤掉该账号。
+    - 若产品决策为保留禁用卡片，则显示灰态并停止刷新/聚合。
+- [ ] 概览聚合必须排除已关闭账号，避免关闭账号仍影响 provider 总览用量。
+- [ ] 关闭后必须可重新启用；设置页也能看到并恢复。
+
+### 30.6 删除 / 隐藏账号行为
+
+- [ ] CPA 来源账号菜单文案优先用“隐藏”，不要写成会误解为远端删除的“删除”。
+- [ ] CPA 隐藏只写入本地 `hidden` account override，不调用不存在的远端删除。
+- [ ] 直接添加账号删除才删除本地 plugin config，并同步删除对应 secret/cache（如现有删除链路支持）。
+- [ ] 删除/隐藏前需要确认弹窗，至少对不可恢复的直接删除必须确认。
+- [ ] 隐藏后的 CPA 账号必须能在设置页“已发现账号”中重新显示。
+- [ ] 删除/隐藏后 provider 如果没有剩余可见账号，主面板应显示空态或移除该 provider tab，不能留下空壳。
+
+### 30.7 数据流与刷新
+
+- [ ] `derive_provider_usage_groups` 或其调用方需要应用 account overrides，确保主面板、provider 概览、账号 tab 使用同一过滤结果。
+- [ ] 账号级 disabled/hidden 变更后触发 UI 状态刷新，不需要等下一轮插件刷新。
+- [ ] 对 CPA 数据，插件仍可返回全部账号；过滤发生在 renderer/config 层，避免改插件协议。
+- [ ] 对直接插件删除，删除后要停止 scheduler 对应实例，避免后台继续刷新已删除账号。
+- [ ] 日志增加必要证据：账号级操作开始、目标 key、结果；不要记录 secret 或完整敏感 key。
+
+### 30.8 测试
+
+- [ ] `provider_account_row.test.tsx`：账号菜单显示正确文案，点击菜单项调用账号级 handler，点击不触发折叠。
+- [ ] `provider_account_list.test.tsx` 或现有视图测试：handler 传递的是目标账号，不是 provider。
+- [ ] `popup_view.test.tsx`：CPA 账号关闭只影响该账号，不关闭整个 Gemini/Claude provider。
+- [ ] `popup_view.test.tsx`：CPA 账号隐藏后从主面板移除，其他账号仍显示，概览聚合排除隐藏账号。
+- [ ] `popup_view.test.tsx`：直接添加账号删除会删除对应 plugin config。
+- [ ] `settings_view.test.tsx`：带 account context 打开后定位/高亮对应账号或打开编辑弹窗。
+- [ ] E2E：在打包产物中手工验证编辑、关闭、隐藏/删除三条路径。
+- [ ] 每项完成前跑 `pnpm test`；涉及 UI 的项必须手工点击；最终需要 `pnpm package` 后启动打包产物验证。
+
+### 30.9 文档同步
+
+- [ ] 更新 `docs/spec.md`：记录 provider 级操作和 account 级操作的区别。
+- [ ] 更新 `docs/spec.md`：记录 CPA 来源账号“隐藏”不是远端删除。
+- [ ] 更新 `docs/test.md`：补账号级编辑、关闭、隐藏/删除的手工验收步骤。
+- [ ] 更新相关 demo 差异文档，避免继续把 provider 菜单误写成账号菜单。
+
+### 验收标准
+
+1. 主面板账号行有独立账号级菜单。
+2. 点击账号编辑能打开设置并定位到对应账号。
+3. 点击账号关闭只影响该账号，不影响同 provider 下其他账号。
+4. 点击 CPA 来源账号隐藏后，该账号从主面板消失，并可在设置页恢复。
+5. 点击直接添加账号删除后，对应本地插件配置被删除。
+6. 概览聚合不包含 disabled/hidden 账号。
+7. 日志能证明账号级操作链路执行成功，且不泄露 secret。
+8. `pnpm test` 通过。
+9. UI 手工点击验收通过。
+10. `pnpm package` 后打包产物验收通过。
+
+---
+
 ## 通用约束（每轮适用）
 
 1. 不实现本轮范围外的功能

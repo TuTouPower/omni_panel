@@ -102,6 +102,15 @@ body {
     color: var(--text);
 }
 
+html[data-window="tray"],
+html[data-window="tray"] body,
+html[data-window="tray"] #root {
+    width: max-content;
+    height: max-content;
+    overflow: hidden;
+    background: transparent;
+}
+
 /* ── popup window ── */
 .window {
     width: 100%;
@@ -2221,7 +2230,7 @@ body {
 
 /* ---------- standalone tray window ---------- */
 .tray-window {
-    width: 184px;
+    width: max-content;
     flex-shrink: 0;
     align-self: flex-start;
     background: var(--menu-bg);
@@ -2253,6 +2262,10 @@ body {
 
 .tray-menu-body {
     padding: 7px;
+}
+
+.tray-window .ctx-item {
+    white-space: nowrap;
 }
 
 /* ============ L2 segmented control + account detail drawer ============ */

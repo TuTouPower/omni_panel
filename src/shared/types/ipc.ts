@@ -44,6 +44,7 @@ export const IPC_CHANNELS = {
     TRAY_CHECK_UPDATE: "tray:checkUpdate",
     TRAY_QUIT: "tray:quit",
     TRAY_HIDE: "tray:hide",
+    TRAY_REPORT_MENU_SIZE: "tray:reportMenuSize",
     TRAY_PAUSE_STATE: "tray:pauseState",
     TRAY_AUTOSTART_STATE: "tray:autostartState",
 
@@ -56,6 +57,11 @@ export interface PopupContentHeightReport {
     content_height: number;
     /** Measured height when all collapsible cards are collapsed. */
     collapsed_min_height: number;
+}
+
+export interface TrayMenuSizeReport {
+    width: number;
+    height: number;
 }
 
 export type PluginSnapshotDTO =
@@ -184,6 +190,7 @@ export interface UsageboardApi {
         check_update(): void;
         quit(): void;
         hide(): void;
+        report_menu_size(report: TrayMenuSizeReport): void;
         on_pause_state(callback: (paused: boolean) => void): () => void;
         on_autostart_state(callback: (enabled: boolean) => void): () => void;
     };
