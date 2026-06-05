@@ -4,6 +4,7 @@ import type { ProviderUsageGroup } from "../lib/provider-usage";
 import {
     PROVIDER_LABELS,
     build_overview_for_group,
+    format_usage_period_label,
     resolve_convergent_time,
 } from "../lib/provider-usage";
 import { relative_time, format_reset_time } from "../lib/utils";
@@ -30,12 +31,6 @@ interface ProviderCardProps {
     refreshing?: boolean | undefined;
 }
 
-function period_label(name: string): string {
-    if (name.includes("5小时")) return "5小时";
-    if (name.includes("一周")) return "一周";
-    return name;
-}
-
 function render_bar_row(
     key: string,
     name: string,
@@ -48,7 +43,7 @@ function render_bar_row(
     if (value == null) {
         return (
             <div className="bar-row" key={key}>
-                <span className="bar-lbl">{period_label(name)}</span>
+                <span className="bar-lbl">{format_usage_period_label(name)}</span>
                 <div className="track">
                     <div
                         className="fill"
@@ -67,7 +62,7 @@ function render_bar_row(
         const fill_pct = Math.min(100, Math.max(0, Math.round((value / limit) * 100)));
         return (
             <div className="bar-row frac" key={key}>
-                <span className="bar-lbl">{period_label(name)}</span>
+                <span className="bar-lbl">{format_usage_period_label(name)}</span>
                 <div className="track">
                     <div
                         className="fill"
@@ -87,7 +82,7 @@ function render_bar_row(
     const pct = limit > 0 ? Math.min(100, Math.max(0, Math.round((value / limit) * 100))) : 0;
     return (
         <div className="bar-row" key={key}>
-            <span className="bar-lbl">{period_label(name)}</span>
+            <span className="bar-lbl">{format_usage_period_label(name)}</span>
             <div className="track">
                 <div
                     className="fill"

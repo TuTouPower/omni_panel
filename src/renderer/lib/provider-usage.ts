@@ -115,6 +115,15 @@ function accountKeyForPeriod(period: ProviderUsagePeriod): string {
     return `${period.sourceInstanceId}:${period.accountId}`;
 }
 
+export function format_usage_period_label(name: string): string {
+    if (name.includes("5小时") || name.includes("5 小时")) return "5小时";
+    if (name.includes("一周") || name.includes("每周") || /weekly|week/i.test(name)) return "一周";
+    if (/\bMCP\b/i.test(name)) return "MCP";
+
+    const after_separator = name.split("·").pop()?.trim();
+    return after_separator && after_separator.length > 0 ? after_separator : name;
+}
+
 export function build_provider_usage_groups(
     connectors: readonly ConnectorInfo[],
 ): ProviderUsageGroup[] {
@@ -212,6 +221,7 @@ export function resolve_convergent_time(timestamps: (string | null | undefined)[
 
 function hasValidQuota(period: ProviderUsagePeriod): boolean {
     return (
+        period.used !== null &&
         Number.isFinite(period.used) &&
         Number.isFinite(period.limit) &&
         period.used >= 0 &&
@@ -236,9 +246,10 @@ export function build_overview_for_group(group: ProviderUsageGroup): OverviewWin
     const byPeriod = new Map<string, ProviderUsagePeriod[]>();
 
     for (const period of group.periods) {
-        const existing = byPeriod.get(period.name) ?? [];
+        const label = format_usage_period_label(period.name);
+        const existing = byPeriod.get(label) ?? [];
         existing.push(period);
-        byPeriod.set(period.name, existing);
+        byPeriod.set(label, existing);
     }
 
     const result: OverviewWindow[] = [];

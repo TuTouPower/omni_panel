@@ -1,4 +1,5 @@
 import type { ProviderUsageAccount } from "../lib/provider-usage";
+import { format_usage_period_label } from "../lib/provider-usage";
 import { format_reset_time } from "../lib/utils";
 import { usage_color } from "../lib/usage-colors";
 import { CollapsibleCard } from "./CollapsibleCard";
@@ -18,12 +19,6 @@ interface ProviderAccountRowProps {
 function percent(used: number, limit: number): number {
     if (limit <= 0) return 0;
     return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
-}
-
-function period_label(name: string): string {
-    if (name.includes("5小时")) return "5小时";
-    if (name.includes("一周")) return "一周";
-    return name;
 }
 
 export function ProviderAccountRow({
@@ -69,7 +64,9 @@ export function ProviderAccountRow({
                 if (period.used == null) {
                     return (
                         <div className="bar-row" key={period.id}>
-                            <span className="bar-lbl">{period_label(period.name)}</span>
+                            <span className="bar-lbl">
+                                {format_usage_period_label(period.name)}
+                            </span>
                             <div className="track">
                                 <div
                                     className="fill"
@@ -91,7 +88,9 @@ export function ProviderAccountRow({
                     );
                     return (
                         <div className="bar-row frac" key={period.id}>
-                            <span className="bar-lbl">{period_label(period.name)}</span>
+                            <span className="bar-lbl">
+                                {format_usage_period_label(period.name)}
+                            </span>
                             <div className="track">
                                 <div
                                     className="fill"
@@ -111,7 +110,7 @@ export function ProviderAccountRow({
                 const period_percent = percent(period.used, period.limit);
                 return (
                     <div className="bar-row" key={period.id}>
-                        <span className="bar-lbl">{period_label(period.name)}</span>
+                        <span className="bar-lbl">{format_usage_period_label(period.name)}</span>
                         <div className="track">
                             <div
                                 className="fill"

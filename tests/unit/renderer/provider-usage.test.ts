@@ -281,7 +281,9 @@ describe("provider usage aggregation", () => {
         ];
 
         const groups = build_provider_usage_groups(connectors);
-        const overview = build_overview_for_group(groups[0] ?? { provider: "x", accounts: [] });
+        const [group] = groups;
+        if (!group) throw new Error("Expected provider usage group");
+        const overview = build_overview_for_group(group);
         expect(overview).toHaveLength(0);
     });
 });
