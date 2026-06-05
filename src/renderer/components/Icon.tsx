@@ -8,11 +8,9 @@ const UI_ICONS: Record<string, string> = {
     back: '<path d="M15 5l-7 7 7 7"/>',
     chev_down: '<path d="M6 9l6 6 6-6"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
-    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     trash: '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7"/>',
     edit: '<path d="M16.5 4.5l3 3L8 19l-4 1 1-4z"/>',
-    warn: '<path d="M12 3l9.5 16.5H2.5z"/><path d="M12 10v4M12 17h.01"/>',
     cloud_off:
         '<path d="M3 3l18 18M18.4 15.4A4 4 0 0 0 17 8h-1.3A7 7 0 0 0 6 6.3M5.5 9.5A4 4 0 0 0 6 17h10"/>',
     lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 1 1 8 0v3"/>',

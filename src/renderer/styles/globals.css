@@ -34,6 +34,7 @@
     --text-3: #9aa2b2;
     --hairline: #eef1f6;
     --track: #edf0f6;
+    --bar-track: #e9edf5;
     --tab-active: #eef3ff;
     --chip-bg: #f1f4f9;
     --chip-active: #ffffff;
@@ -69,6 +70,7 @@
     --text-3: #6c7382;
     --hairline: #262b34;
     --track: #2b313c;
+    --bar-track: #2b313c;
     --tab-active: rgba(91, 141, 255, 0.16);
     --chip-bg: #262b34;
     --chip-active: #363c48;
@@ -466,10 +468,11 @@ body {
 .bar-lbl {
     font-size: 12.5px;
     color: var(--text-2);
+    white-space: nowrap;
 }
 .track {
     height: 6px;
-    background: var(--track);
+    background: var(--bar-track);
     border-radius: 99px;
     overflow: hidden;
 }
@@ -490,6 +493,10 @@ body {
     color: var(--text-3);
     text-align: right;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.bar-row.frac {
+    grid-template-columns: 42px 1fr 64px 76px;
 }
 .bar-val {
     font-size: 12px;
@@ -1803,55 +1810,6 @@ body {
 .sw:disabled {
     opacity: 0.4;
     cursor: default;
-}
-
-/* ============ USAGEBOARD DESIGN DEMO ALIGNMENT ============ */
-
-/* Progress rows — thin 6px bar system (replaces ub-rows/ub-bar) */
-.bars {
-    margin-top: 11px;
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-}
-.bar-row {
-    display: grid;
-    grid-template-columns: 42px 1fr 40px 76px;
-    align-items: center;
-    gap: 10px;
-}
-.bar-lbl {
-    font-size: 12.5px;
-    color: var(--text-2);
-    white-space: nowrap;
-}
-.track {
-    height: 6px;
-    background: var(--track);
-    border-radius: 99px;
-    overflow: hidden;
-}
-.fill {
-    height: 100%;
-    border-radius: 99px;
-    transition: width 0.5s cubic-bezier(0.3, 0.8, 0.4, 1);
-}
-.bar-pct {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--text);
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-}
-.bar-reset {
-    font-size: 12px;
-    color: var(--text-3);
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-.bar-row.frac {
-    grid-template-columns: 42px 1fr 80px 76px;
 }
 
 /* ============ ADD / EDIT ACCOUNT DIALOG ============ */
