@@ -310,7 +310,7 @@ function formatGeminiTokenType(tokenType: string): string {
     const normalized = tokenType.toLowerCase().replace(/[-\s]+/g, "_");
     if (normalized === "input_tokens") return "输入";
     if (normalized === "output_tokens") return "输出";
-    if (normalized === "requests") return "请求";
+    if (normalized === "requests") return "";
     return tokenType.replace(/[_-]+/g, " ").trim();
 }
 
