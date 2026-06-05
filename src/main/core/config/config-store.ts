@@ -66,13 +66,26 @@ export function createConfigStore(configPath: string): AppConfigStore {
                     } as AppConfiguration;
                     return migrated;
                 }
+                // Backup corrupted file before falling back to defaults
+                try {
+                    await writeFile(`${configPath}.bak`, raw, "utf8");
+                } catch {
+                    // non-critical
+                }
                 log.warn(
-                    `Config schema mismatch at ${configPath}, using defaults`,
+                    `Config schema mismatch at ${configPath}, backed up and using defaults`,
                     result.error.issues,
                 );
                 return { ...DEFAULT_CONFIGURATION };
             } catch (err: unknown) {
                 if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+                    // Backup corrupted file
+                    try {
+                        const raw = await readFile(configPath, "utf8").catch(() => null);
+                        if (raw) await writeFile(`${configPath}.bak`, raw, "utf8");
+                    } catch {
+                        // non-critical
+                    }
                     log.warn(`Config load failed (${configPath}), using defaults`, err);
                 }
                 return { ...DEFAULT_CONFIGURATION };

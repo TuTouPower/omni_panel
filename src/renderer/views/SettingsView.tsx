@@ -163,10 +163,14 @@ function AccountDialog({
                     e.stopPropagation();
                 }}
                 role="dialog"
+                aria-modal="true"
+                aria-labelledby="acct-dialog-title"
             >
                 <div className="ad-head">
                     <div className="ad-htext">
-                        <div className="ad-title">{isEdit ? "编辑账号" : "添加账号"}</div>
+                        <div className="ad-title" id="acct-dialog-title">
+                            {isEdit ? "编辑账号" : "添加账号"}
+                        </div>
                         <div className="ad-sub">
                             {isEdit ? (pluginName ?? "新账号") : "选择要添加的服务"}
                         </div>
@@ -557,10 +561,14 @@ function CpaAddDialog({ onClose }: { onClose: () => void }) {
                     e.stopPropagation();
                 }}
                 role="dialog"
+                aria-modal="true"
+                aria-labelledby="cpa-dialog-title"
             >
                 <div className="ad-head">
                     <div className="ad-htext">
-                        <div className="ad-title">添加 CPA Manager</div>
+                        <div className="ad-title" id="cpa-dialog-title">
+                            添加 CPA Manager
+                        </div>
                         <div className="ad-sub">批量接入多个服务商账号</div>
                     </div>
                     <button className="ad-close" onClick={onClose} title="关闭" type="button">

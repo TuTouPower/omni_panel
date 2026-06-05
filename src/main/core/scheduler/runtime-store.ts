@@ -25,7 +25,7 @@ export function createRuntimeStore(): RuntimeStore {
         },
 
         getAll(): ReadonlyMap<string, PluginSnapshotState> {
-            return states;
+            return new Map(states);
         },
 
         subscribe(listener: RuntimeStoreListener): () => void {

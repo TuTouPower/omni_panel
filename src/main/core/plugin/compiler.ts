@@ -30,7 +30,8 @@ export async function compilePlugin(
     sdkDir: string,
 ): Promise<CompileResult> {
     const name = basename(plugin.executablePath, ".ts");
-    const outDir = join(cacheDir, name);
+    const pathHash = createHash("sha256").update(plugin.executablePath).digest("hex").slice(0, 8);
+    const outDir = join(cacheDir, `${name}-${pathHash}`);
     const outPath = join(outDir, "index.js");
     const manifestPath = join(outDir, "manifest.json");
 
