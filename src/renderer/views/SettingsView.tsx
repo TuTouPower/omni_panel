@@ -10,12 +10,19 @@ import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
 import logo from "../assets/logo.png";
+import package_json from "../../../package.json";
 
 /* ── types ── */
 interface DialogState {
     mode: "add" | "edit";
     instanceId: string | undefined;
     pluginName: string | undefined;
+}
+
+interface ProviderAccountGroup {
+    provider: UsageProvider | "connector";
+    label: string;
+    plugins: (PluginConfiguration & { pluginInfo?: PluginInfo | undefined })[];
 }
 
 /* ── constants ── */
@@ -678,7 +685,7 @@ function TitleBar() {
 /* ── Main View ── */
 export function SettingsView() {
     useTheme();
-    const version = "1.0.0";
+    const version = package_json.version;
     const { config, hasSecrets, loading, error, save, saveSecrets } = use_config();
     const [pluginInfos, setPluginInfos] = useState<PluginInfo[]>([]);
     const [section, setSection] = useState("general");
@@ -695,11 +702,6 @@ export function SettingsView() {
     }, [section]);
 
     // Phase 21.5: group plugins by provider for the accounts page
-    interface ProviderAccountGroup {
-        provider: UsageProvider | "connector";
-        label: string;
-        plugins: (PluginConfiguration & { pluginInfo?: PluginInfo | undefined })[];
-    }
     const account_groups = useMemo<ProviderAccountGroup[]>(() => {
         if (!config) return [];
         const map = new Map<string, ProviderAccountGroup>();

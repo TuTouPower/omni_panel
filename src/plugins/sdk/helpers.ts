@@ -7,10 +7,7 @@ export function statusFor(used: number, total: number): "normal" | "warning" | "
     return "normal";
 }
 
-export function colorFor(
-    used: number,
-    total: number,
-): "blue" | "green" | "yellow" | "orange" | "red" {
+export function colorFor(used: number, total: number): "blue" | "yellow" | "orange" | "red" {
     const pct = total > 0 ? (used / total) * 100 : 0;
     if (pct >= 90) return "red";
     if (pct >= 80) return "orange";
@@ -18,7 +15,7 @@ export function colorFor(
     return "blue";
 }
 
-export function colorForPct(pct: number): "blue" | "green" | "yellow" | "orange" | "red" {
+export function colorForPct(pct: number): "blue" | "yellow" | "orange" | "red" {
     if (pct >= 90) return "red";
     if (pct >= 80) return "orange";
     if (pct >= 60) return "yellow";

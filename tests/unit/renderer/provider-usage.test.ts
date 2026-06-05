@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { UsageItem } from "../../../src/shared/schemas/plugin-output";
 import type { ConnectorInfo } from "../../../src/shared/types/ipc";
 import {
-    buildProviderUsageGroups,
-    buildOverviewForGroup,
-    getVisibleProviders,
+    build_provider_usage_groups,
+    build_overview_for_group,
+    get_visible_providers,
 } from "../../../src/renderer/lib/provider-usage";
 
 function usageItem(overrides: Partial<UsageItem> = {}): UsageItem {
@@ -66,7 +66,7 @@ describe("provider usage aggregation", () => {
             }),
         ];
 
-        const groups = buildProviderUsageGroups(connectors);
+        const groups = build_provider_usage_groups(connectors);
 
         expect(groups).toHaveLength(1);
         expect(groups[0]?.provider).toBe("claude");
@@ -120,7 +120,7 @@ describe("provider usage aggregation", () => {
             }),
         ];
 
-        expect(buildProviderUsageGroups(connectors).map((group) => group.provider)).toEqual([
+        expect(build_provider_usage_groups(connectors).map((group) => group.provider)).toEqual([
             "glm",
             "minimax",
         ]);
@@ -140,7 +140,7 @@ describe("provider usage aggregation", () => {
             }),
         ];
 
-        const visibleProviders = getVisibleProviders(connectors);
+        const visibleProviders = get_visible_providers(connectors);
 
         expect(visibleProviders).toEqual(["claude"]);
         expect(visibleProviders).not.toContain("gemini");
@@ -161,8 +161,8 @@ describe("provider usage aggregation", () => {
             }),
         ];
 
-        expect(buildProviderUsageGroups(connectors)).toEqual([]);
-        expect(getVisibleProviders(connectors)).toEqual([]);
+        expect(build_provider_usage_groups(connectors)).toEqual([]);
+        expect(get_visible_providers(connectors)).toEqual([]);
     });
 
     it("preserves null used values in periods", () => {
@@ -178,7 +178,7 @@ describe("provider usage aggregation", () => {
             }),
         ];
 
-        const groups = buildProviderUsageGroups(connectors);
+        const groups = build_provider_usage_groups(connectors);
         expect(groups).toHaveLength(1);
         expect(groups[0]?.periods[0]?.used).toBeNull();
         expect(groups[0]?.periods[0]?.limit).toBe(100);
@@ -197,8 +197,8 @@ describe("provider usage aggregation", () => {
             }),
         ];
 
-        const groups = buildProviderUsageGroups(connectors);
-        const overview = buildOverviewForGroup(groups[0] ?? { provider: "x", accounts: [] });
+        const groups = build_provider_usage_groups(connectors);
+        const overview = build_overview_for_group(groups[0] ?? { provider: "x", accounts: [] });
         expect(overview).toHaveLength(0);
     });
 });

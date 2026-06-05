@@ -37,7 +37,7 @@ const config: AppConfiguration = {
 };
 
 vi.mock("../../../../src/renderer/hooks/use-config", () => ({
-    useConfig: () => ({
+    use_config: () => ({
         config,
         hasSecrets: { "cpa-1": { cpa_mgmt_key: true } },
         loading: false,

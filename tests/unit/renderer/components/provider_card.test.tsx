@@ -2,11 +2,11 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ProviderCard } from "../../../../src/renderer/components/ProviderCard";
 import {
-    buildOverviewForGroup,
+    build_overview_for_group,
     type ProviderUsageGroup,
     type ProviderUsagePeriod,
 } from "../../../../src/renderer/lib/provider-usage";
-import { USAGE_COLORS } from "../../../../src/renderer/lib/usage-colors";
+import { usage_color } from "../../../../src/renderer/lib/usage-colors";
 
 function hex_to_rgb(hex: string): string {
     const r = parseInt(hex.slice(1, 3), 16);
@@ -258,7 +258,7 @@ describe("ProviderCard", () => {
             ],
         });
 
-        const overview = buildOverviewForGroup(group);
+        const overview = build_overview_for_group(group);
 
         expect(overview).toEqual(
             expect.arrayContaining([
@@ -276,7 +276,7 @@ describe("ProviderCard", () => {
             ],
         });
 
-        expect(buildOverviewForGroup(group)).toEqual([]);
+        expect(build_overview_for_group(group)).toEqual([]);
     });
 
     it("assigns bar colors by position index, not by period type", () => {
@@ -349,8 +349,8 @@ describe("ProviderCard", () => {
         // Overview mode: aggregated bars by period type ("一周" idx=0, "5小时" idx=1)
         const fills = document.querySelectorAll(".fill");
         expect(fills.length).toBeGreaterThanOrEqual(2);
-        expect((fills[0] as HTMLElement).style.background).toBe(hex_to_rgb(USAGE_COLORS[0]));
-        expect((fills[1] as HTMLElement).style.background).toBe(hex_to_rgb(USAGE_COLORS[1]));
+        expect((fills[0] as HTMLElement).style.background).toBe(hex_to_rgb(usage_color(0)));
+        expect((fills[1] as HTMLElement).style.background).toBe(hex_to_rgb(usage_color(1)));
     });
 
     it("does not apply fill.blue, fill.purple, or fill.danger classes", () => {

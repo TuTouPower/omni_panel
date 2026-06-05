@@ -6,7 +6,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function relative_time(isoDate: string): string {
-    const diff = Date.now() - new Date(isoDate).getTime();
+    if (!isoDate) return "";
+    const ts = new Date(isoDate).getTime();
+    if (!Number.isFinite(ts)) return "";
+    const diff = Date.now() - ts;
     if (diff < 0) return "刚刚";
     const seconds = Math.floor(diff / 1000);
     if (seconds < 10) return "刚刚";
