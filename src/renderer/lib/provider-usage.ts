@@ -108,6 +108,13 @@ function toPeriod(
     };
 }
 
+function accountKeyForPeriod(period: ProviderUsagePeriod): string {
+    if (period.source === "cpa") {
+        return `${period.sourceInstanceId}:label:${period.accountLabel}`;
+    }
+    return `${period.sourceInstanceId}:${period.accountId}`;
+}
+
 export function build_provider_usage_groups(
     connectors: readonly ConnectorInfo[],
 ): ProviderUsageGroup[] {
@@ -132,7 +139,7 @@ export function build_provider_usage_groups(
             let groupUpdatedAt = periods[0]?.updatedAt ?? "";
 
             for (const period of periods) {
-                const accountKey = `${period.sourceInstanceId}:${period.accountId}`;
+                const accountKey = accountKeyForPeriod(period);
                 const account = accountsByKey.get(accountKey);
                 groupStatus = worstStatus(groupStatus, period.status);
                 groupUpdatedAt = latestTimestamp(groupUpdatedAt, period.updatedAt);

@@ -126,6 +126,89 @@ describe("provider usage aggregation", () => {
         ]);
     });
 
+    it("groups CPA rows by account label", () => {
+        const items: UsageItem[] = Array.from({ length: 5 }).flatMap((_, index) => {
+            const account_index = String(index);
+            const account_label = `Codex Account ${String(index + 1)}`;
+            return [
+                usageItem({
+                    id: `codex-${account_index}-5h`,
+                    provider: "codex",
+                    source: "cpa",
+                    sourceInstanceId: "cpa-main",
+                    accountId: `auth-${account_index}-5h`,
+                    accountLabel: account_label,
+                    name: "Codex · 5小时",
+                }),
+                usageItem({
+                    id: `codex-${account_index}-week`,
+                    provider: "codex",
+                    source: "cpa",
+                    sourceInstanceId: "cpa-main",
+                    accountId: `auth-${account_index}-week`,
+                    accountLabel: account_label,
+                    name: "Codex · 每周",
+                }),
+            ];
+        });
+        const connectors = [
+            connectorInfo({
+                source: "cpa",
+                supportedProviders: ["codex"],
+                activeProviders: ["codex"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items,
+                },
+            }),
+        ];
+
+        const [group] = build_provider_usage_groups(connectors);
+
+        expect(group?.accountCount).toBe(5);
+        expect(
+            group?.accounts.map((account) => account.periods).map((periods) => periods.length),
+        ).toEqual([2, 2, 2, 2, 2]);
+    });
+
+    it("keeps non-CPA rows grouped by account id", () => {
+        const connectors = [
+            connectorInfo({
+                source: "api_key",
+                sourceInstanceId: "codex-direct",
+                supportedProviders: ["codex"],
+                activeProviders: ["codex"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            id: "codex-direct-1",
+                            provider: "codex",
+                            source: "api_key",
+                            sourceInstanceId: "codex-direct",
+                            accountId: "auth-1",
+                            accountLabel: "Same Label",
+                        }),
+                        usageItem({
+                            id: "codex-direct-2",
+                            provider: "codex",
+                            source: "api_key",
+                            sourceInstanceId: "codex-direct",
+                            accountId: "auth-2",
+                            accountLabel: "Same Label",
+                        }),
+                    ],
+                },
+            }),
+        ];
+
+        const [group] = build_provider_usage_groups(connectors);
+
+        expect(group?.accountCount).toBe(2);
+    });
+
     it("uses active CPA providers for visibility instead of all supported providers", () => {
         const connectors = [
             connectorInfo({
