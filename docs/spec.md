@@ -158,7 +158,7 @@
 | `accountLabel`     | string  | 账号显示名，不得包含 secret                            |
 | `id`               | string  | 唯一标识（推荐包含插件名+指标名）                      |
 | `name`             | string  | 显示名称                                               |
-| `used`             | number  | 已用量                                                 |
+| `used`             | number? | 已用量；可为 null 表示从未使用，UI 渲染为空用量条      |
 | `limit`            | number  | 总额度                                                 |
 | `displayStyle`     | string  | `percent` 或 `ratio`                                   |
 | `resetAt`          | string? | 额度重置时间（ISO 8601，可为 null）                    |
@@ -327,9 +327,11 @@ refresh(instanceId)
 ### 6.4 ProviderCard
 
 - `idle` / `loading`：显示 Skeleton 占位
-- `ready`：显示 provider 名 + 账号分组 + 使用量进度条 + 百分比 + 相对时间（"刚刚" / "X 分钟前"，每秒更新）
+- `ready`：显示 provider 名 + 账号分组 + 使用量进度条 + 百分比/分数值 + 相对时间（"刚刚" / "X 分钟前"，每秒更新）
 - `failed`：显示错误信息 + stale 数据（如有）+ 相对时间
-- 颜色阈值：>=75% 黄色，>=90% 红色
+- **用量条颜色**：按卡片内位置索引使用 8 色冷色调色板循环分配（`idx % 8`），纯色填充，不按指标类型或 warning/critical 阈值变色。
+- **数值显示**：`displayStyle: "percent"` 显示百分比；`displayStyle: "ratio"` 显示 `used/limit`，reset 列留空；数字列居中对齐。
+- **空用量条**：`used == null` 时进度条宽度为 0，不显示数字和 reset 时间。
 - **总览页就地展开**：总览 tab 下的 ProviderCard 支持 chevron 展开/折叠，展开后显示该 provider 的账号列表，折叠/展开驱动高度自适应。
 - **多账号 L2 segmented control**：多账号 provider 展开后显示 `概览` / `N账号` 切换。默认"概览"视图按额度周期独立聚合当前可显示账号：只纳入有效 `used/limit` 数据，优先用 `sum(used) / sum(limit)` 计算整体使用率；无有效数据的周期不显示伪造数值。点击"N账号"切换到账号明细视图（`.acct-detail`），显示状态点、账号名、脱敏 key、更新时间、进度条。单账号 provider 不显示 L2 控件。
 - **概览时间显示**：多账号概览的采集刷新时间和额度重置时间都不取均值；同一周期内有效账号时间差不超过 10 分钟时显示最新时间，超过 10 分钟则不显示该时间。

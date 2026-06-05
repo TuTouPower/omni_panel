@@ -22,16 +22,16 @@ const USAGE_COLORS = [
 // 颜色索引 = 位置 % 8
 ```
 
-**本项目现状**：`UsageBarRow.tsx` 使用 `color?: "blue" | "purple"` + `danger_threshold` 切换红色。`ProviderCard.tsx` 的 `render_bar_row` 硬编码 `period_fill_class(name)` 返回 `"blue"` 或 `"purple"`。CSS 使用渐变（`linear-gradient(..., color-mix(...))`）而非纯色。
+**本项目状态**：已实现。`src/renderer/lib/usage-colors.ts` 提供 8 色调色板和循环取色；`ProviderCard.tsx` / `ProviderAccountRow.tsx` 按行位置传入索引并用纯色 `style.background` 渲染；`globals.css` 使用 `--bar-track` 作为统一轨道底色，已删除旧 `.fill.blue` / `.fill.purple` / `.fill.danger` 样式。
 
-**需要改动**：
+**已实现**：
 
-| 文件                     | 改什么                                                                                                                                                  |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `UsageBarRow.tsx`        | 新增 `idx` prop（0-based 位置），删除 `color`/`danger_threshold`/`is_danger`。颜色从 `USAGE_COLORS[idx % 8]` 取，直接在 `style.background` 设置纯色 hex |
-| `ProviderCard.tsx`       | `render_bar_row` 改为传 `idx` 替代 `period_fill_class`，删除 `danger` / `period_fill_class` 逻辑                                                        |
-| `ProviderAccountRow.tsx` | 同上                                                                                                                                                    |
-| `globals.css`            | 删除 `.fill.blue` / `.fill.purple` / `.fill.danger` 渐变规则；新增 `--bar-track: #e9edf5` 变量（轨道统一底色）                                          |
+| 文件                               | 状态                                                        |
+| ---------------------------------- | ----------------------------------------------------------- |
+| `src/renderer/lib/usage-colors.ts` | 已新增 `USAGE_COLORS` / `usage_color(idx)`                  |
+| `ProviderCard.tsx`                 | 已删除类型颜色映射，按位置索引渲染纯色                      |
+| `ProviderAccountRow.tsx`           | 已按位置索引渲染纯色                                        |
+| `globals.css`                      | 已删除旧 fill class 和重复 bar 定义，轨道使用 `--bar-track` |
 
 **颜色调色板常量**（建议放 `src/renderer/lib/usage-colors.ts`）：
 
@@ -55,9 +55,7 @@ export function usage_color(idx: number): string {
 
 **Demo 现状**：`.bar-pct { text-align: center; }`，数字在列内居中。
 
-**本项目现状**：`.bar-pct { text-align: right; }`
-
-**需要改动**：`globals.css` 中 `.bar-pct` 改为 `text-align: center`。
+**本项目状态**：已实现。`globals.css` 中唯一 `.bar-pct` 定义为 `text-align: center`，并有 `tests/unit/renderer/globals_css.test.ts` 锁定。
 
 ## 三、分数/余额/MCP 等非百分比指标（chat25）
 
@@ -70,14 +68,7 @@ export function usage_color(idx: number): string {
 // 显示：余额 ██████████  52/100
 ```
 
-**本项目现状**：`UsageBarRow` 只有百分比模式，`fill_pct` + `value` text。`ProviderCard` 的 `render_bar_row` 始终显示 `percent%`。
-
-**需要改动**：
-
-| 文件              | 改什么                                                                 |
-| ----------------- | ---------------------------------------------------------------------- |
-| `UsageBarRow.tsx` | 新增 `max` prop。有 max 时不显示 `%` 而显示 `value/max`，隐藏 reset 列 |
-| `globals.css`     | 新增 `.bar-row.frac` 样式（与百分比行同 grid，reset 列留空）           |
+**本项目状态**：已实现。插件输出的 `displayStyle: "ratio"` 映射为 `value/limit`，ratio 行使用 `.bar-row.frac`，reset 列留空。当前没有独立 `UsageBarRow.tsx`，逻辑在 `ProviderCard.tsx` / `ProviderAccountRow.tsx` 中等价实现。
 
 ## 四、空用量条支持（chat27）
 
@@ -88,9 +79,7 @@ export function usage_color(idx: number): string {
 <BarRow label="5小时" value={null} idx={0} reset="" />
 ```
 
-**本项目现状**：不支持 `null` 值，`percent()` 返回 0 渲染空进度条。
-
-**需要改动**：`UsageBarRow` 检测 `value == null`，填充宽度设为 0，右侧数字和 reset 显示为空字符串。
+**本项目状态**：已实现。`used == null` 时填充宽度为 0，右侧数字和 reset 均为空；`provider_card.test.tsx` 已覆盖空条。
 
 ## 五、CSS 清理
 
@@ -102,14 +91,7 @@ export function usage_color(idx: number): string {
 - `.window.hidden` + `@keyframes popIn` — 未使用
 - `ma.css` 中的 `.ma-window` / `.avg-badge` / `.acct-toggle` — 指向不存在的文件
 
-**本项目对应的 globals.css** 中仍有这些样式：
-
-- `.app-badge`（第 143 行）
-- `.aa-badge`（第 1647 行）
-- `.tray-win-tag`（第 2523 行）
-- `.fill.blue` / `.fill.purple` / `.fill.danger`（第 500-508 行 / 第 1945-1952 行重复定义）
-
-**需要改动**：删除上述未使用的 CSS 规则。注意 `globals.css` 有重复的 `.bars` / `.bar-row` / `.fill` 定义块（两段），需合并去重。
+**本项目状态**：已完成清理。`globals.css` 不再包含 `.app-badge`、`.aa-badge`、`.tray-win-tag`、旧 fill class、`.bar-pct.danger` 和第二段重复 bar 定义；`Icon.tsx` 删除了无引用的 `clock` / `warn`，项目内没有 `key` / `clipboard` icon 定义。
 
 ## 六、设置窗口覆盖层（chat23）
 
@@ -135,11 +117,11 @@ export function usage_color(idx: number): string {
 
 ## 总结：需要改动的优先级
 
-| 优先级     | 项                               | 涉及文件                                                                       |
+| 状态       | 项                               | 涉及文件                                                                       |
 | ---------- | -------------------------------- | ------------------------------------------------------------------------------ |
-| **P0**     | 用量条 8 色位置调色板 + 纯色填充 | `UsageBarRow.tsx`, `ProviderCard.tsx`, `ProviderAccountRow.tsx`, `globals.css` |
-| **P0**     | 数字居中对齐                     | `globals.css`                                                                  |
-| **P0**     | 分数/ratio 显示支持              | `UsageBarRow.tsx`, `globals.css`                                               |
-| **P1**     | 空用量条支持                     | `UsageBarRow.tsx`                                                              |
-| **P1**     | CSS 死代码清理                   | `globals.css`                                                                  |
+| **已完成** | 用量条 8 色位置调色板 + 纯色填充 | `usage-colors.ts`, `ProviderCard.tsx`, `ProviderAccountRow.tsx`, `globals.css` |
+| **已完成** | 数字居中对齐                     | `globals.css`                                                                  |
+| **已完成** | 分数/ratio 显示支持              | `ProviderCard.tsx`, `ProviderAccountRow.tsx`, `globals.css`                    |
+| **已完成** | 空用量条支持                     | `ProviderCard.tsx`, `ProviderAccountRow.tsx`                                   |
+| **已完成** | CSS 死代码清理                   | `globals.css`, `Icon.tsx`                                                      |
 | **不适用** | 设置窗口 in-page overlay         | 本项目已有 frameless BrowserWindow，维持现状                                   |
