@@ -164,6 +164,9 @@ const log_method = (payload: RendererLogPayload) => {
     void ipcRenderer.invoke(IPC_CHANNELS.LOG_RENDERER, sanitized);
 };
 
+// Route-based API restriction: each window only gets the capabilities it needs.
+const current_route = window.location.hash.slice(1) || "popup";
+
 // Build route-specific API: each window only gets capabilities it needs
 const api: UsageboardApi = (() => {
     switch (current_route) {
@@ -221,6 +224,3 @@ function sanitizeLogField(value: string, maxLen: number): string {
     const stripped = value.replace(CONTROL_CHARS_RE, "");
     return stripped.length > maxLen ? stripped.slice(0, maxLen) : stripped;
 }
-
-// Route-based API restriction: each window only gets the capabilities it needs.
-const current_route = window.location.hash.slice(1) || "popup";
