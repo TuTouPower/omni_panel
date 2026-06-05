@@ -1,20 +1,39 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ElectronApplication, Page } from "@playwright/test";
 import { createTestWithSetup } from "../fixtures/test_with_setup";
 
 const { test, expect } = createTestWithSetup({
     enableTray: true,
+    setupPlugins: (userDataDir: string) => {
+        writeFileSync(
+            join(userDataDir, "config.json"),
+            JSON.stringify({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                mainPanelMode: "popup",
+                plugins: [],
+            }),
+        );
+    },
 });
 
 async function triggerTrayClick(page: Page): Promise<void> {
-    // Fire-and-forget: trayClick closes the popup window, which destroys the
-    // renderer context before page.evaluate can resolve. Don't await the inner
-    // promise; swallow the inevitable "context closed" error.
     await page
         .evaluate(() => {
-            const w = window as unknown as Record<string, { trayClick: () => void }>;
-            w["__test__"]?.trayClick();
+            window.usageboard.tray.open_panel();
         })
         .catch(() => undefined);
+}
+
+async function popupWindowCount(app: ElectronApplication): Promise<number> {
+    return await app.evaluate(
+        ({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows().filter((win) =>
+                win.webContents.getURL().includes("#popup"),
+            ).length,
+    );
 }
 
 async function findPopupPage(app: ElectronApplication): Promise<Page> {
@@ -44,17 +63,14 @@ test.describe("tray interaction", () => {
         });
     });
 
-    test("tray click closes open popup", async ({ omni }) => {
+    test("tray click closes open popup when main panel mode is popup", async ({ omni }) => {
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
         await expect(page.locator('[data-popup="live"]').getByText("OmniUsage")).toBeVisible({
             timeout: 10_000,
         });
 
-        const closePromise = page.waitForEvent("close", { timeout: 10_000 });
         await triggerTrayClick(page);
-        await closePromise;
-
-        expect(omni.app.windows().filter((w) => !w.isClosed()).length).toBeLessThanOrEqual(1);
+        await expect.poll(() => popupWindowCount(omni.app)).toBe(0);
     });
 });
