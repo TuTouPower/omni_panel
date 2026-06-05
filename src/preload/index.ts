@@ -223,7 +223,7 @@ const api: UsageboardApi = (() => {
             return {
                 platform: renderer_platform,
                 plugin: plugin_methods,
-                config: config_readonly,
+                config: config_full,
                 event: event_methods,
                 popup: popup_methods,
                 main_panel: main_panel_methods,
@@ -231,7 +231,7 @@ const api: UsageboardApi = (() => {
                 settings: settings_methods,
                 tray: tray_methods,
                 log: log_method,
-            } as unknown as UsageboardApi;
+            };
     }
 })();
 

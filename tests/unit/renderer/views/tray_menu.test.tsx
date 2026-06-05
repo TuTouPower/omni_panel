@@ -35,13 +35,9 @@ describe("TrayMenu", () => {
                 refresh: vi.fn(),
                 refreshAll: vi.fn(),
             },
+            // tray 窗口只有 config_readonly，仅含 get
             config: {
                 get: vi.fn().mockResolvedValue({ config: base_config, hasSecrets: {} }),
-                save: vi.fn(),
-                saveSecrets: vi.fn(),
-                duplicate: vi.fn(),
-                export: vi.fn(),
-                import: vi.fn(),
             },
             event: {
                 onStateChange: vi.fn(() => vi.fn()),

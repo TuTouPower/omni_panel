@@ -141,4 +141,28 @@ test.describe("account-level operations", () => {
         expect(settings_page.url()).toContain("#settings");
         await settings_page.close();
     });
+
+    test("delete menu item visible on direct-source accounts", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
+        await page.waitForTimeout(5000);
+
+        const live = popup.root();
+        const tab = live.getByRole("button", { name: /^DeepSeek$/ });
+        if ((await tab.count()) === 0) {
+            test.skip(true, "DeepSeek tab not found");
+            return;
+        }
+        await tab.click();
+        await page.waitForTimeout(500);
+
+        // Click first account menu
+        await live.locator('[aria-label="账号操作"]').first().click();
+        await page.waitForTimeout(300);
+
+        // Direct-source accounts show 删除 (not 隐藏)
+        const delete_item = page.getByText("删除");
+        expect(await delete_item.isVisible()).toBe(true);
+    });
 });

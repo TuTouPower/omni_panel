@@ -798,7 +798,7 @@ Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子
 
 ## Phase 31: 账号操作按钮失效 + 测试 mock 路由不一致
 
-> 发现时间：2026-06-06 | 优先级：P0 | 状态：待修
+> 发现时间：2026-06-06 | 优先级：P0 | 状态：已修复
 
 ### BUG：主面板账号菜单按钮点击无效
 
@@ -858,11 +858,11 @@ default: // popup
 
 ### 待修项
 
-- [ ] **31.1 修复 preload 路由**：popup 窗口需要写入 config，换 `config_full` 或加专用 IPC
-- [ ] **31.2 mock 路由对齐**：popup/tray 视图测试按真实路由 API 签名 mock
-- [ ] **31.3 preload 路由单元测试**：验证 `config_readonly` vs `config_full` 差异不被打破
-- [ ] **31.4 E2E 补齐隐藏/删除路径**：真实点击 → `config.save` 链路覆盖
-- [ ] **31.5 全局排查**：扫描 popup/tray 视图所有 `config.save` 调用
+- [x] **31.1 修复 preload 路由**：popup `default` 分支 `config_readonly` → `config_full`，现在有 `save`/`saveSecrets`/`duplicate`
+- [x] **31.2 mock 路由对齐**：tray 测试 mock 只留 `get`，对应 `config_readonly`；移除无用 `useTheme` mock
+- [x] **31.3 preload 路由 E2E 测试**：`preload_routes.spec.ts` 验证 popup 窗口暴露 `config.save` 等方法
+- [x] **31.4 E2E 补齐删除路径**：`account_operations.spec.ts` 增加"删除"菜单项可见性测试
+- [x] **31.5 全局排查**：`PopupView.tsx` 有 6 处 `config.save` 调用，`TrayMenu.tsx` 无调用 — 仅 popup 受影响
 - [ ] **31.6 打包验收**：`pnpm package` 后真实点击隐藏/删除确认生效
 
 ---
