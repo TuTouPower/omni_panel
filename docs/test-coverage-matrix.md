@@ -135,7 +135,7 @@
 | popup 内容高度测量       | ✅   | `unit/main/popup_height_controller.test.ts`, `unit/renderer/views/popup_view_height.test.tsx`    |
 | 折叠状态驱动窗口缩放     | ✅   | `unit/renderer/views/popup_view_height.test.tsx` (collapse/expand toggle, overview expand)       |
 | 全折叠高度作为最小高度   | ✅   | `unit/main/popup_height_controller.test.ts` (compute_target_height min clamp)                    |
-| 85% work area 最大约束   | ✅   | `unit/main/popup_height_controller.test.ts` (max ratio, tiny display)                            |
+| 75% work area 最大约束   | ✅   | `unit/main/popup_height_controller.test.ts` (max ratio, tiny display)                            |
 | 1px debounce 防抖        | ✅   | `unit/main/popup_height_controller.test.ts` (should_apply_report, controller duplicate suppress) |
 | macOS 托盘锚定不可移动   | ✅   | `unit/main/popup_height_controller.test.ts` (apply_locked_size darwin path)                      |
 | Win/Linux 可移动保留位置 | ✅   | `unit/main/popup_height_controller.test.ts` (Path B y-preservation fix, user_moved paths)        |
