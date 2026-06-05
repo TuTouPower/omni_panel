@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { ConfigExportData } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
-import { ok, fail } from "./helpers";
+import { ok, fail, assert_valid_sender } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { SecretsStore } from "../core/config/secrets-store";
 import type { AppConfiguration, PluginConfiguration } from "../../shared/types/config";
@@ -291,8 +291,9 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () =>
         logged(IPC_CHANNELS.CONFIG_GET, () => handleConfigGet(deps)),
     );
-    ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE, (_e, config: unknown) =>
+    ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE, (e, config: unknown) =>
         logged(IPC_CHANNELS.CONFIG_SAVE, async () => {
+            assert_valid_sender(e);
             const result = await handleConfigSave(deps, config);
             if (result.ok) {
                 const cfg = config as { plugins?: unknown[] };
@@ -301,8 +302,9 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
             return result;
         }),
     );
-    ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (_e, payload: unknown) =>
+    ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (e, payload: unknown) =>
         logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, () => {
+            assert_valid_sender(e);
             const p = payload as { instanceId?: string; secrets?: Record<string, unknown> };
             log.info(
                 `Saving secrets for instanceId=${p.instanceId ?? "?"}, keys=[${Object.keys(p.secrets ?? {}).join(", ")}]`,
@@ -310,16 +312,23 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
             return handleConfigSaveSecrets(deps, payload);
         }),
     );
-    ipcMain.handle(IPC_CHANNELS.CONFIG_DUPLICATE, (_e, instanceId: string) =>
+    ipcMain.handle(IPC_CHANNELS.CONFIG_DUPLICATE, (e, instanceId: string) =>
         logged(IPC_CHANNELS.CONFIG_DUPLICATE, () => {
+            assert_valid_sender(e);
             log.info(`Duplicating plugin ${instanceId}`);
             return handleConfigDuplicate(deps, instanceId);
         }),
     );
-    ipcMain.handle(IPC_CHANNELS.CONFIG_EXPORT, () =>
-        logged(IPC_CHANNELS.CONFIG_EXPORT, () => handleConfigExport(deps)),
+    ipcMain.handle(IPC_CHANNELS.CONFIG_EXPORT, (e) =>
+        logged(IPC_CHANNELS.CONFIG_EXPORT, () => {
+            assert_valid_sender(e);
+            return handleConfigExport(deps);
+        }),
     );
-    ipcMain.handle(IPC_CHANNELS.CONFIG_IMPORT, () =>
-        logged(IPC_CHANNELS.CONFIG_IMPORT, () => handleConfigImport(deps)),
+    ipcMain.handle(IPC_CHANNELS.CONFIG_IMPORT, (e) =>
+        logged(IPC_CHANNELS.CONFIG_IMPORT, () => {
+            assert_valid_sender(e);
+            return handleConfigImport(deps);
+        }),
     );
 }

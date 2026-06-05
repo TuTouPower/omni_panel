@@ -14,7 +14,7 @@ import {
     get_visible_providers,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
-import { format_rel_time } from "../lib/rel-time";
+import { relative_time } from "../lib/utils";
 import logo from "../assets/logo.png";
 
 const MODULE = "PopupView";
@@ -273,27 +273,21 @@ export function PopupView() {
 
     const toggle_disable_provider = (provider: UsageProvider) => {
         void window.usageboard.config.get().then((result) => {
-            const plugin = result.config.plugins.find((p) =>
-                p.enabled
-                    ? p.name === provider ||
-                      (plugins
-                          .find((pi) => pi.instanceId === p.instanceId)
-                          ?.activeProviders.includes(provider) ??
-                          false)
-                    : false,
-            );
-            const disabledPlugin = result.config.plugins.find((p) => {
-                if (p.enabled) return false;
+            const related_plugins = result.config.plugins.filter((p) => {
                 const info = plugins.find((pi) => pi.instanceId === p.instanceId);
                 return info?.activeProviders.includes(provider) ?? false;
             });
-            const target = plugin ?? disabledPlugin;
-            if (!target) return;
+            if (related_plugins.length === 0) return;
+            const any_enabled = related_plugins.some((p) => p.enabled);
+            const new_enabled = !any_enabled;
             void window.usageboard.config.save({
                 ...result.config,
-                plugins: result.config.plugins.map((p) =>
-                    p.instanceId === target.instanceId ? { ...p, enabled: !p.enabled } : p,
-                ),
+                plugins: result.config.plugins.map((p) => {
+                    if (related_plugins.some((rp) => rp.instanceId === p.instanceId)) {
+                        return { ...p, enabled: new_enabled };
+                    }
+                    return p;
+                }),
             });
         });
     };
@@ -305,10 +299,34 @@ export function PopupView() {
                 return info?.activeProviders.includes(provider) ?? false;
             });
             if (!target) return;
-            void window.usageboard.config.save({
-                ...result.config,
-                plugins: result.config.plugins.filter((p) => p.instanceId !== target.instanceId),
-            });
+            const info = plugins.find((pi) => pi.instanceId === target.instanceId);
+            const is_cpa = info?.source === "cpa";
+            if (is_cpa) {
+                // CPA: 只禁用对应 monitor 参数，不删除整个插件
+                const monitor_key = `monitor_${provider}`;
+                void window.usageboard.config.save({
+                    ...result.config,
+                    plugins: result.config.plugins.map((p) =>
+                        p.instanceId === target.instanceId
+                            ? {
+                                  ...p,
+                                  parameterValues: {
+                                      ...p.parameterValues,
+                                      [monitor_key]: "false",
+                                  },
+                              }
+                            : p,
+                    ),
+                });
+            } else {
+                // 独立插件：直接删除
+                void window.usageboard.config.save({
+                    ...result.config,
+                    plugins: result.config.plugins.filter(
+                        (p) => p.instanceId !== target.instanceId,
+                    ),
+                });
+            }
         });
     };
 
@@ -410,7 +428,7 @@ export function PopupView() {
         .filter(Boolean)
         .sort()
         .pop();
-    const footerTime = format_rel_time(lastUpdated ?? "");
+    const footerTime = relative_time(lastUpdated ?? "");
 
     // Phase 20.5: titlebar drag is platform-dependent.
     // macOS popups are anchored to the tray icon and must not be user-draggable.

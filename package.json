@@ -20,6 +20,7 @@
         "arch": "depcruise src --validate .dependency-cruiser.cjs",
         "schema:export": "tsx scripts/export-schemas.ts",
         "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch",
+        "typecheck:plugins": "tsc --noEmit --strict --moduleResolution bundler --esModuleInterop --skipLibCheck resources/plugins/*.ts",
         "security:js": "gitleaks detect --source .",
         "security:sast": "semgrep scan --config=auto src/",
         "test": "vitest run --exclude tests/integration/plugin && vitest run tests/integration/plugin --no-file-parallelism",
@@ -52,7 +53,11 @@
         "onlyBuiltDependencies": [
             "electron",
             "electron-winstaller"
-        ]
+        ],
+        "overrides": {
+            "tar": ">=6.2.1",
+            "tmp": ">=0.2.4"
+        }
     },
     "devDependencies": {
         "@electron-forge/cli": "^7.11.2",

@@ -346,7 +346,18 @@ function DataSourceList({
             </div>
             <div className="ds-list">
                 {cpaPlugin ? (
-                    <div className="ds-card" onClick={onOpenDetail} role="button" tabIndex={0}>
+                    <div
+                        className="ds-card"
+                        onClick={onOpenDetail}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                onOpenDetail();
+                            }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                    >
                         <div className="ds-top">
                             <span className="ds-icon">
                                 <VendorMark id="cpa" size={26} />
@@ -465,7 +476,18 @@ function CpaDetailPage({
         <>
             <div className="sp-head">
                 <div className="sp-crumb">
-                    <span className="sp-crumb-link" onClick={onBack} role="button" tabIndex={0}>
+                    <span
+                        className="sp-crumb-link"
+                        onClick={onBack}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                onBack();
+                            }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                    >
                         数据源
                     </span>
                     <span className="cc-sep">

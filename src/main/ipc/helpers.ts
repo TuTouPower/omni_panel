@@ -1,3 +1,4 @@
+import type { IpcMainInvokeEvent } from "electron";
 import type { IpcResult, PluginSnapshotDTO } from "../../shared/types/ipc";
 import type { PluginSnapshotState } from "../core/scheduler/types";
 
@@ -9,6 +10,13 @@ export function ok<T>(data: T): IpcResult<T> {
 
 export function fail(code: string, message: string): IpcResult<never> {
     return { ok: false, error: { code, message } };
+}
+
+export function assert_valid_sender(event: IpcMainInvokeEvent): void {
+    const url = event.senderFrame?.url ?? "";
+    if (!url || url === "about:blank") {
+        throw new Error("IPC not allowed from unknown origin");
+    }
 }
 
 export function toDTO(state: PluginSnapshotState): PluginSnapshotDTO {
