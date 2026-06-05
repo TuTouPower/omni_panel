@@ -25,13 +25,14 @@ export function default_floating_bounds(display: DisplayLike): FloatingBoundsCon
     const work = display.workArea;
     const width = Math.min(DEFAULT_FLOATING_WIDTH, work.width);
     const height = Math.min(DEFAULT_FLOATING_HEIGHT, work.height);
-    return {
+    const bounds = {
         x: work.x + work.width - width,
         y: work.y + work.height - height,
         width,
         height,
-        ...(display_id(display) !== undefined && { displayId: display_id(display) }),
     };
+    const id = display_id(display);
+    return id === undefined ? bounds : { ...bounds, displayId: id };
 }
 
 export function clamp_floating_bounds_to_display(
@@ -43,13 +44,14 @@ export function clamp_floating_bounds_to_display(
     const height = clamp(Math.round(bounds.height), MIN_FLOATING_HEIGHT, work.height);
     const x = clamp(Math.round(bounds.x), work.x, work.x + work.width - width);
     const y = clamp(Math.round(bounds.y), work.y, work.y + work.height - height);
-    return {
+    const bounds_out = {
         x,
         y,
         width,
         height,
-        ...(display_id(display) !== undefined && { displayId: display_id(display) }),
     };
+    const id = display_id(display);
+    return id === undefined ? bounds_out : { ...bounds_out, displayId: id };
 }
 
 export function restore_floating_bounds(

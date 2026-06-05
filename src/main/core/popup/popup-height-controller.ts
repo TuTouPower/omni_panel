@@ -52,10 +52,10 @@ export interface PopupAnchorContext {
 
 /**
  * Compute the locked window height from a content report and the target
- * display. Clamped to `[collapsed_min, floor(workArea.height * 0.85)]`.
+ * display. Clamped to `[collapsed_min, floor(workArea.height * 0.75)]`.
  *
  * Content height is rounded up so sub-pixel content is never clipped.
- * Max height is rounded down so the popup never exceeds the 85% constraint.
+ * Max height is rounded down so the popup never exceeds the 75% constraint.
  */
 export function compute_target_height(report: ContentHeightReport, display: DisplayLike): number {
     const max_height = Math.floor(display.workArea.height * MAX_HEIGHT_RATIO);
