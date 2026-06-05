@@ -361,7 +361,11 @@ export function PopupView() {
     const edit_account = (account: ProviderUsageAccount) => {
         const first_period = account.periods[0];
         if (!first_period) return;
-        window.usageboard.settings.open();
+        window.usageboard.settings.open({
+            instanceId: account.sourceInstanceId,
+            provider: first_period.provider,
+            accountId: account.id,
+        });
         window.usageboard.log({
             level: "info",
             module: MODULE,
@@ -395,6 +399,10 @@ export function PopupView() {
                 });
             } else {
                 const target_instance = account.sourceInstanceId;
+                const plugin = result.config.plugins.find((p) => p.instanceId === target_instance);
+                if (!plugin) return;
+                if (!window.confirm(`确定要删除 ${account.accountLabel} 吗？此操作不可恢复。`))
+                    return;
                 void window.usageboard.config.save({
                     ...result.config,
                     plugins: result.config.plugins.filter((p) => p.instanceId !== target_instance),

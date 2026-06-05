@@ -27,6 +27,7 @@ export const IPC_CHANNELS = {
     POPUP_REPORT_CONTENT_HEIGHT: "popup:reportContentHeight",
 
     SETTINGS_OPEN: "settings:open",
+    SETTINGS_NAVIGATE: "settings:navigate",
     SETTINGS_MINIMIZE: "settings:minimize",
     SETTINGS_MAXIMIZE: "settings:maximize",
     SETTINGS_CLOSE: "settings:close",
@@ -132,6 +133,12 @@ export type IpcResult<T> =
 
 export type RendererPlatform = "darwin" | "win32" | "linux";
 
+export interface SettingsOpenContext {
+    readonly instanceId?: string;
+    readonly provider?: string;
+    readonly accountId?: string;
+}
+
 export interface UsageboardApi {
     /** Host platform exposed to the renderer for platform-aware UI (e.g. titlebar drag). */
     platform: RendererPlatform;
@@ -155,6 +162,7 @@ export interface UsageboardApi {
     event: {
         onStateChange(callback: (instanceId: string, state: PluginSnapshotDTO) => void): () => void;
         onThemeChange(callback: (isDark: boolean) => void): () => void;
+        onSettingsNavigate(callback: (context: SettingsOpenContext) => void): () => void;
     };
     popup: {
         /**
@@ -172,8 +180,8 @@ export interface UsageboardApi {
         set(mode: "light" | "dark" | "system"): void;
     };
     settings: {
-        /** Open or focus the settings window. */
-        open(): void;
+        /** Open or focus the settings window, optionally with account context for navigation. */
+        open(context?: SettingsOpenContext): void;
         /** Minimize the settings window. */
         minimize(): void;
         /** Toggle maximize/restore on the settings window. */

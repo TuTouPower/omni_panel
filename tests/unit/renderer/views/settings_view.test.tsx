@@ -181,6 +181,7 @@ describe("SettingsView", () => {
             event: {
                 onStateChange: vi.fn(),
                 onThemeChange: vi.fn(),
+                onSettingsNavigate: vi.fn(() => vi.fn()),
             },
             popup: {
                 report_content_height: vi.fn(),
@@ -310,6 +311,31 @@ describe("SettingsView", () => {
 
         await waitFor(() => {
             expect(screen.queryByText("浮动窗口高度")).not.toBeInTheDocument();
+        });
+    });
+
+    it("navigates to accounts section on settings navigate event", async () => {
+        let navigate_callback:
+            | ((context: { instanceId?: string; provider?: string; accountId?: string }) => void)
+            | undefined;
+
+        const mock_on_settings_navigate = vi.fn((cb: unknown) => {
+            navigate_callback = cb as typeof navigate_callback;
+            return vi.fn();
+        });
+        window.usageboard.event.onSettingsNavigate = mock_on_settings_navigate;
+
+        render(<SettingsView />);
+
+        await waitFor(() => {
+            expect(mock_on_settings_navigate).toHaveBeenCalled();
+        });
+
+        if (!navigate_callback) throw new Error("navigate callback not captured");
+        navigate_callback({ instanceId: "deepseek-1", provider: "deepseek", accountId: "test" });
+
+        await waitFor(() => {
+            expect(screen.getByText("API 密钥")).toBeInTheDocument();
         });
     });
 });

@@ -148,6 +148,7 @@ describe("PopupView collapse + height report", () => {
             event: {
                 onStateChange: vi.fn(() => vi.fn()),
                 onThemeChange: vi.fn(),
+                onSettingsNavigate: vi.fn(() => vi.fn()),
             },
             popup: {
                 report_content_height: report_height,

@@ -141,6 +141,7 @@ describe("PopupView", () => {
             event: {
                 onStateChange: vi.fn(() => vi.fn()),
                 onThemeChange: vi.fn(),
+                onSettingsNavigate: vi.fn(() => vi.fn()),
             },
             popup: {
                 report_content_height: vi.fn(),
@@ -347,5 +348,71 @@ describe("PopupView", () => {
             view.unmount();
             (globalThis as Record<string, unknown>)["ResizeObserver"] = original_resize_observer;
         }
+    });
+
+    it("shows account-level menu on account rows", async () => {
+        render(<PopupView />);
+
+        // Switch to Claude tab to see accounts
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        await waitFor(() => {
+            expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
+        });
+
+        // Account rows should have account-level menu buttons
+        const account_menu_buttons = screen.getAllByLabelText("账号操作");
+        expect(account_menu_buttons.length).toBeGreaterThan(0);
+    });
+
+    it("account menu shows hide for CPA source", async () => {
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        await waitFor(() => {
+            expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
+        });
+
+        // Click account menu
+        const account_menu = screen.getAllByLabelText("账号操作")[0];
+        if (!account_menu) throw new Error("account menu not found");
+        fireEvent.click(account_menu);
+
+        await waitFor(() => {
+            expect(screen.getByText("隐藏")).toBeInTheDocument();
+        });
+    });
+
+    it("opens settings with context when account edit is clicked", async () => {
+        const settings_open = vi.fn();
+        window.usageboard.settings.open = settings_open;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        await waitFor(() => {
+            expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
+        });
+
+        // Open account menu and click edit
+        const account_menu = screen.getAllByLabelText("账号操作")[0];
+        if (!account_menu) throw new Error("account menu not found");
+        fireEvent.click(account_menu);
+
+        await waitFor(() => {
+            expect(screen.getByText("编辑")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByText("编辑"));
+
+        expect(settings_open).toHaveBeenCalledWith(
+            expect.objectContaining({
+                provider: "claude",
+            }),
+        );
     });
 });

@@ -101,6 +101,18 @@ const event_methods = {
         ipcRenderer.on(IPC_CHANNELS.EVENT_THEME_CHANGE, handler);
         return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_THEME_CHANGE, handler);
     },
+    onSettingsNavigate: (
+        callback: (context: { instanceId?: string; provider?: string; accountId?: string }) => void,
+    ) => {
+        const handler = (
+            _e: unknown,
+            context: { instanceId?: string; provider?: string; accountId?: string },
+        ) => {
+            callback(context);
+        };
+        ipcRenderer.on(IPC_CHANNELS.SETTINGS_NAVIGATE, handler);
+        return () => ipcRenderer.removeListener(IPC_CHANNELS.SETTINGS_NAVIGATE, handler);
+    },
 };
 
 const popup_methods = {
@@ -124,8 +136,8 @@ const theme_methods = {
 };
 
 const settings_methods = {
-    open: () => {
-        void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_OPEN);
+    open: (context?: { instanceId?: string; provider?: string; accountId?: string }) => {
+        void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_OPEN, context);
     },
     minimize: () => {
         ipcRenderer.send(IPC_CHANNELS.SETTINGS_MINIMIZE);

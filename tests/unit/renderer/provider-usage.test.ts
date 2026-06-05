@@ -413,4 +413,18 @@ describe("apply_account_overrides", () => {
 
         expect(result).toHaveLength(0);
     });
+
+    it("removes disabled accounts the same as hidden", () => {
+        const groups = build_provider_usage_groups(two_account_connectors);
+        const account_b_key = groups[0]?.accounts.find((a) => a.accountLabel === "Account B")?.id;
+        if (!account_b_key) throw new Error("Account B not found");
+
+        const result = apply_account_overrides(groups, {
+            disabled: { claude: [account_b_key] },
+        });
+
+        expect(result).toHaveLength(1);
+        expect(result[0]?.accountCount).toBe(1);
+        expect(result[0]?.accounts[0]?.accountLabel).toBe("Account A");
+    });
 });

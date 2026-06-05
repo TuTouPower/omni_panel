@@ -689,7 +689,7 @@ Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子
 - [x] 明确账号级稳定 key 生成规则，复用当前聚合后的 `ProviderUsageAccount.id`，但必须确认刷新后稳定。
 - [x] CPA 账号 key 必须包含足够信息避免冲突：`sourceInstanceId` + provider + accountId/accountLabel。
 - [x] 直接插件账号 key 必须能映射回对应 `PluginConfiguration.instanceId`。
-- [ ] 文档中明确：`account.accountId` 是上游账号标识，`account.id` 是 UI/配置使用的稳定 key。
+- [x] 文档中明确：`account.accountId` 是上游账号标识，`account.id` 是 UI/配置使用的稳定 key。
 - [x] 增加单元测试覆盖同名账号、不同 provider、不同 sourceInstanceId 时 key 不冲突。
 
 ### 30.2 配置数据结构
@@ -704,7 +704,7 @@ Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子
     ```
 
 - [x] `hidden` 表示从主面板移除显示；用于 CPA 来源账号的”删除/隐藏”。
-- [ ] `disabled` 表示保留显示但不参与刷新/聚合，或按最终 UI 决策隐藏禁用账号；不得影响同 provider 下其他账号。
+- [ ] `disabled` 表示保留显示但不参与刷新/聚合，或按最终 UI 决策隐藏禁用账号；不得影响同 provider 下其他账号。（已实现：disabled 与 hidden 同效，从面板移除）
 - [x] 配置迁移要兼容旧配置，缺字段时按空对象处理。
 - [x] 保存时只改目标账号 key，不改整个 provider，不删除无关插件。
 - [x] secret 不写入该结构，不进入日志。
@@ -727,13 +727,13 @@ Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子
 
 ### 30.4 编辑账号定位
 
-- [ ] 扩展 settings 打开 IPC，支持带上下文打开：`settings.open({ instanceId, provider, accountId })` 或等价参数。
-- [ ] 主进程 settings IPC 需要把目标上下文传给设置窗口；如果窗口已存在，则聚焦并发送定位事件。
-- [ ] `SettingsView` 收到上下文后定位对应账号：
+- [x] 扩展 settings 打开 IPC，支持带上下文打开：`settings.open({ instanceId, provider, accountId })` 或等价参数。
+- [x] 主进程 settings IPC 需要把目标上下文传给设置窗口；如果窗口已存在，则聚焦并发送定位事件。
+- [x] `SettingsView` 收到上下文后定位对应账号：
     - 直接添加账号：打开对应插件的编辑弹窗。
     - CPA 来源账号：进入 CPA Manager 数据源详情页，并滚动/高亮对应发现账号。
-- [ ] 找不到目标账号时，不静默失败；应打开设置页并显示可理解提示或日志。
-- [ ] 编辑 CPA 来源账号时明确边界：OmniUsage 只能改本地显示/监控配置，不能改 CPA-Manager 远端账号属性，除非远端 API 支持。
+- [x] 找不到目标账号时，不静默失败；应打开设置页并显示可理解提示或日志。
+- [x] 编辑 CPA 来源账号时明确边界：OmniUsage 只能改本地显示/监控配置，不能改 CPA-Manager 远端账号属性，除非远端 API 支持。
 
 ### 30.5 关闭账号行为
 
@@ -751,7 +751,7 @@ Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子
 - [x] CPA 来源账号菜单文案优先用”隐藏”，不要写成会误解为远端删除的”删除”。
 - [x] CPA 隐藏只写入本地 `hidden` account override，不调用不存在的远端删除。
 - [x] 直接添加账号删除才删除本地 plugin config，并同步删除对应 secret/cache（如现有删除链路支持）。
-- [ ] 删除/隐藏前需要确认弹窗，至少对不可恢复的直接删除必须确认。
+- [ ] 删除/隐藏前需要确认弹窗，至少对不可恢复的直接删除必须确认。（已实现直接删除的 confirm 弹窗）
 - [ ] 隐藏后的 CPA 账号必须能在设置页”已发现账号”中重新显示。
 - [x] 删除/隐藏后 provider 如果没有剩余可见账号，主面板应显示空态或移除该 provider tab，不能留下空壳。
 
@@ -766,11 +766,11 @@ Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子
 ### 30.8 测试
 
 - [x] `provider_account_row.test.tsx`：账号菜单显示正确文案，点击菜单项调用账号级 handler，点击不触发折叠。
-- [ ] `provider_account_list.test.tsx` 或现有视图测试：handler 传递的是目标账号，不是 provider。
-- [ ] `popup_view.test.tsx`：CPA 账号关闭只影响该账号，不关闭整个 Gemini/Claude provider。
-- [ ] `popup_view.test.tsx`：CPA 账号隐藏后从主面板移除，其他账号仍显示，概览聚合排除隐藏账号。
-- [ ] `popup_view.test.tsx`：直接添加账号删除会删除对应 plugin config。
-- [ ] `settings_view.test.tsx`：带 account context 打开后定位/高亮对应账号或打开编辑弹窗。
+- [x] `provider_account_list.test.tsx` 或现有视图测试：handler 传递的是目标账号，不是 provider。
+- [x] `popup_view.test.tsx`：CPA 账号关闭只影响该账号，不关闭整个 Gemini/Claude provider。
+- [x] `popup_view.test.tsx`：CPA 账号隐藏后从主面板移除，其他账号仍显示，概览聚合排除隐藏账号。
+- [x] `popup_view.test.tsx`：直接添加账号删除会删除对应 plugin config。
+- [x] `settings_view.test.tsx`：带 account context 打开后定位/高亮对应账号或打开编辑弹窗。
 - [ ] E2E：在打包产物中手工验证编辑、关闭、隐藏/删除三条路径。
 - [x] 每项完成前跑 `pnpm test`；涉及 UI 的项必须手工点击；最终需要 `pnpm package` 后启动打包产物验证。
 

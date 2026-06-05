@@ -148,6 +148,7 @@ function createMockApi() {
                     themeListeners.delete(cb);
                 };
             },
+            onSettingsNavigate: vi.fn(() => vi.fn()),
         },
         theme: {
             set: vi.fn(),

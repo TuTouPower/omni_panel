@@ -46,6 +46,7 @@ describe("TrayMenu", () => {
             event: {
                 onStateChange: vi.fn(() => vi.fn()),
                 onThemeChange: vi.fn(() => vi.fn()),
+                onSettingsNavigate: vi.fn(() => vi.fn()),
             },
             popup: { report_content_height: vi.fn() },
             main_panel: { hide: vi.fn(), get_mode: vi.fn().mockResolvedValue("popup") },

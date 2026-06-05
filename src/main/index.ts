@@ -437,9 +437,15 @@ void app.whenReady().then(async () => {
     }
 
     // Register IPC handler for opening settings from renderer
-    ipcMain.handle(IPC_CHANNELS.SETTINGS_OPEN, () => {
-        createOrFocusSettings();
-    });
+    ipcMain.handle(
+        IPC_CHANNELS.SETTINGS_OPEN,
+        (_event, context?: { instanceId?: string; provider?: string; accountId?: string }) => {
+            createOrFocusSettings();
+            if (context && settingsWin && !settingsWin.isDestroyed()) {
+                settingsWin.webContents.send(IPC_CHANNELS.SETTINGS_NAVIGATE, context);
+            }
+        },
+    );
 
     // Settings window frameless controls
     ipcMain.on(IPC_CHANNELS.SETTINGS_MINIMIZE, () => {

@@ -758,6 +758,17 @@ export function SettingsView() {
         if (section !== "datasource") setDsView("list");
     }, [section]);
 
+    // Listen for navigate events from main panel (edit account)
+    useEffect(() => {
+        const unsub = window.usageboard.event.onSettingsNavigate((context) => {
+            setSection("accounts");
+            if (context.instanceId) {
+                setDialog({ mode: "edit", instanceId: context.instanceId, pluginName: undefined });
+            }
+        });
+        return unsub;
+    }, []);
+
     // Phase 21.5: group plugins by provider for the accounts page
     const account_groups = useMemo<ProviderAccountGroup[]>(() => {
         if (!config) return [];
