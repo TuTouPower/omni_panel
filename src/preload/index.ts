@@ -109,6 +109,14 @@ const popup_methods = {
     },
 };
 
+const main_panel_methods = {
+    hide: () => {
+        void ipcRenderer.invoke(IPC_CHANNELS.MAIN_PANEL_HIDE);
+    },
+    get_mode: () =>
+        ipcRenderer.invoke(IPC_CHANNELS.MAIN_PANEL_GET_MODE) as Promise<"popup" | "floating">,
+};
+
 const theme_methods = {
     set: (mode: "light" | "dark" | "system") => {
         void ipcRenderer.invoke(IPC_CHANNELS.THEME_SET, mode);
@@ -177,6 +185,7 @@ const api: UsageboardApi = (() => {
                 config: config_full,
                 event: event_methods,
                 popup: popup_methods,
+                main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
                 tray: tray_methods,
@@ -189,11 +198,12 @@ const api: UsageboardApi = (() => {
                 config: config_readonly,
                 event: event_methods,
                 popup: popup_methods,
+                main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
                 tray: tray_methods,
                 log: log_method,
-            } as UsageboardApi;
+            } as unknown as UsageboardApi;
         default: // popup
             return {
                 platform: renderer_platform,
@@ -201,18 +211,19 @@ const api: UsageboardApi = (() => {
                 config: config_readonly,
                 event: event_methods,
                 popup: popup_methods,
+                main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
                 tray: tray_methods,
                 log: log_method,
-            } as UsageboardApi;
+            } as unknown as UsageboardApi;
     }
 })();
 
 contextBridge.exposeInMainWorld("usageboard", api);
 
 // E2E test helpers — only used by Playwright tests
-if (process.env.E2E === "1") {
+if (process.env["E2E"] === "1") {
     contextBridge.exposeInMainWorld("__test__", {
         trayClick: () => ipcRenderer.invoke("test:tray-click"),
     });

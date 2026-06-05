@@ -126,6 +126,23 @@ describe("main panel controller", () => {
         expect(controller.get_mode()).toBe("floating");
     });
 
+    it("positions popup shell near the tray", () => {
+        const { controller, windows } = build({ ...base_config, mainPanelMode: "popup" });
+        controller.open_or_focus();
+        const win = windows[0];
+        expect(win?.setBounds).toHaveBeenCalledWith(
+            expect.objectContaining({ x: 782, y: 240, width: 460, height: 480 }),
+        );
+    });
+
+    it("updates mode on config change even when the panel is closed", () => {
+        const { controller, state } = build({ ...base_config, mainPanelMode: "popup" });
+        expect(controller.get_mode()).toBe("popup");
+        state.config = { ...state.config, mainPanelMode: "floating" };
+        controller.apply_config_change();
+        expect(controller.get_mode()).toBe("floating");
+    });
+
     it("hides floating shell instead of destroying it", () => {
         const { controller, windows } = build({ ...base_config, mainPanelMode: "floating" });
         controller.open_or_focus();

@@ -122,6 +122,7 @@ describe("ProviderCard", () => {
                 onThemeChange: vi.fn(),
             },
             popup: { report_content_height: vi.fn() },
+            main_panel: { hide: vi.fn(), get_mode: vi.fn().mockResolvedValue("popup") },
             settings: { open: vi.fn(), minimize: vi.fn(), maximize: vi.fn(), close: vi.fn() },
             log: vi.fn(),
         } as unknown as typeof window.usageboard;

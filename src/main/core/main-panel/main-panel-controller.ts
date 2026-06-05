@@ -17,6 +17,13 @@ import type {
 
 const log = createLogger("main-panel");
 
+function clamp(value: number, lo: number, hi: number): number {
+    if (hi < lo) return lo;
+    if (value < lo) return lo;
+    if (value > hi) return hi;
+    return value;
+}
+
 interface DisplayLike {
     readonly id?: string | number;
     readonly workArea: Rectangle;
@@ -91,15 +98,35 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         if (mode !== "floating" || suppress_bounds_save || target.isDestroyed()) return;
         const bounds = target.getBounds();
         const display = deps.get_display_for_bounds(bounds);
+        const display_id = display.id === undefined ? undefined : String(display.id);
+        const floatingBounds = {
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+        };
         deps.save_config({
             ...deps.get_config(),
-            floatingBounds: {
-                x: bounds.x,
-                y: bounds.y,
-                width: bounds.width,
-                height: bounds.height,
-                ...(display.id !== undefined && { displayId: String(display.id) }),
-            },
+            floatingBounds:
+                display_id === undefined
+                    ? floatingBounds
+                    : { ...floatingBounds, displayId: display_id },
+        });
+    }
+
+    function position_popup(target: WindowLike): void {
+        const tray_bounds = deps.get_tray_bounds();
+        if (!tray_bounds || tray_bounds.width <= 0 || tray_bounds.height <= 0) return;
+        const current = target.getBounds();
+        const display = deps.get_display_for_bounds(tray_bounds);
+        const work = display.workArea;
+        const x = Math.round(tray_bounds.x + tray_bounds.width / 2 - current.width / 2);
+        const y = Math.round(tray_bounds.y + tray_bounds.height + 4);
+        target.setBounds({
+            x: clamp(x, work.x, work.x + work.width - current.width),
+            y: clamp(y, work.y, work.y + work.height - current.height),
+            width: current.width,
+            height: current.height,
         });
     }
 
@@ -131,6 +158,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 save_floating_bounds(target);
             });
         } else {
+            position_popup(target);
             target.setResizable(false);
         }
 
@@ -185,16 +213,18 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         },
         apply_config_change() {
             const next_mode = current_mode();
-            if (next_mode !== mode && win && !win.isDestroyed()) {
+            if (!win || win.isDestroyed()) {
+                mode = next_mode;
+                return;
+            }
+            if (next_mode !== mode) {
                 this.close_for_mode_switch();
                 const target = create_panel_window(next_mode);
                 target.show();
                 target.focus();
                 return;
             }
-            if (win && !win.isDestroyed()) {
-                win.setAlwaysOnTop(deps.get_config().pinToTop ?? false);
-            }
+            win.setAlwaysOnTop(deps.get_config().pinToTop ?? false);
         },
         report_content_height(report: PopupContentHeightReport) {
             if (!win || win.isDestroyed() || !height_controller) return null;

@@ -156,6 +156,7 @@ function createMockApi() {
         popup: {
             report_content_height: vi.fn(),
         },
+        main_panel: { hide: vi.fn(), get_mode: vi.fn().mockResolvedValue("popup" as const) },
         _stateListeners: stateListeners,
         _themeListeners: themeListeners,
         _plugins: plugins,

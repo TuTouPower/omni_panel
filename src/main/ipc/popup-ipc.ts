@@ -1,16 +1,11 @@
 import { ipcMain } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { PopupContentHeightReport } from "../../shared/types/ipc";
-import type { PopupHeightController } from "../core/popup/popup-height-controller";
 import { ok, fail } from "./helpers";
 import type { IpcResult } from "./helpers";
 
 export interface PopupIpcDeps {
-    /**
-     * Resolves the active popup height controller. The popup window may not
-     * yet exist; return null in that case and the report will be ignored.
-     */
-    get_controller: () => PopupHeightController | null;
+    report_content_height: (report: PopupContentHeightReport) => number | null;
 }
 
 function is_valid_report(value: unknown): value is PopupContentHeightReport {
@@ -31,10 +26,7 @@ export function registerPopupIpc(deps: PopupIpcDeps): () => void {
         if (!is_valid_report(payload)) {
             return fail("invalid_payload", "popup height report must include numeric heights");
         }
-        const controller = deps.get_controller();
-        if (controller) {
-            controller.report_content_height(payload);
-        }
+        deps.report_content_height(payload);
         return ok(null);
     };
     ipcMain.handle(IPC_CHANNELS.POPUP_REPORT_CONTENT_HEIGHT, handler);

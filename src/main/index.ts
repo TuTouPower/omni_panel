@@ -43,13 +43,8 @@ import { registerEventIpc } from "./ipc/event-ipc";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
 import { IPC_CHANNELS } from "../shared/types/ipc";
-import {
-    create_popup_height_controller,
-    type PopupHeightController,
-    type PopupPlatform,
-    type PopupAnchorContext,
-    type BoundsLike,
-} from "./core/popup/popup-height-controller";
+import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
+import type { MainPanelController } from "./core/main-panel/main-panel-types";
 import { discoverPlugins } from "./core/plugin/discovery";
 import { compilePlugin } from "./core/plugin/compiler";
 import type { PluginConfiguration } from "../shared/types/config";
@@ -158,7 +153,7 @@ function getRendererUrl(route: string): string {
     return `file://${resolve(join(__dirname, "../renderer/main_window/src/renderer/index.html"))}#${route}`;
 }
 
-function createWindowFor(key: string): BrowserWindow {
+function createWindowFor(key: string, options: { load?: boolean } = {}): BrowserWindow {
     const cfg = WINDOW_CONFIGS[key];
     if (!cfg) throw new Error(`Unknown window: ${key}`);
     const log = createLogger("main");
@@ -181,7 +176,9 @@ function createWindowFor(key: string): BrowserWindow {
     if (cfg.autoHideMenuBar) {
         win.setMenuBarVisibility(false);
     }
-    void win.loadURL(getRendererUrl(cfg.route));
+    if (options.load !== false) {
+        void win.loadURL(getRendererUrl(cfg.route));
+    }
     win.on("closed", () => {
         log.info(`Window closed: ${key}`);
     });
@@ -337,6 +334,7 @@ void app.whenReady().then(async () => {
 
     // Reload config after potential seeding
     const currentConfig = await configStore.load();
+    let currentConfigSnapshot = currentConfig;
 
     // Apply saved theme so nativeTheme.shouldUseDarkColors is correct from the start
     nativeTheme.themeSource = currentConfig.theme ?? "system";
@@ -389,6 +387,9 @@ void app.whenReady().then(async () => {
     });
     const orchestrator = createSchedulerOrchestrator({ scheduler, configStore });
 
+    let main_panel_controller: MainPanelController | null = null;
+    let tray_ref: Tray | null = null;
+
     // Register IPC handlers
     await registerPluginIpc({
         configStore,
@@ -401,6 +402,7 @@ void app.whenReady().then(async () => {
         secretsStore,
         secretParamKeys,
         onConfigSaved: (updatedConfig) => {
+            currentConfigSnapshot = updatedConfig;
             log.info("Config saved — rebuilding scheduler and secret keys");
             const newKeys = buildSecretParamKeys(updatedConfig);
             secretParamKeys.clear();
@@ -408,13 +410,13 @@ void app.whenReady().then(async () => {
                 secretParamKeys.set(k, v);
             }
             orchestrator.rebuild(updatedConfig);
+            main_panel_controller?.apply_config_change();
         },
     });
     await registerLogIpc();
     cleanupEventIpc = registerEventIpc({ runtimeStore });
 
     // Window references — shared between tray and E2E mode
-    let popupWin: BrowserWindow | null = null;
     /** Custom tray menu frameless window (replaces native context menu). */
     let trayMenuWin: BrowserWindow | null = null;
 
@@ -455,61 +457,37 @@ void app.whenReady().then(async () => {
         if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
     });
 
-    // Popup height controller (Phase 20). Renderer reports content height;
-    // controller applies clamped, debounced resizes to the BrowserWindow.
-    let popup_controller: PopupHeightController | null = null;
-    const popup_anchor_state: {
-        tray_bounds: BoundsLike | null;
-        user_moved: boolean;
-        // Set while controller-driven setBounds is in flight so the
-        // `move` event handler does not mistake it for a user drag.
-        suppress_move: boolean;
-    } = {
-        tray_bounds: null,
-        user_moved: false,
-        suppress_move: false,
-    };
+    ipcMain.handle(IPC_CHANNELS.MAIN_PANEL_HIDE, () => {
+        main_panel_controller?.hide();
+    });
+    ipcMain.handle(
+        IPC_CHANNELS.MAIN_PANEL_GET_MODE,
+        () => main_panel_controller?.get_mode() ?? "popup",
+    );
 
-    const popup_platform: PopupPlatform =
+    const main_panel_platform =
         process.platform === "darwin" ? "darwin" : process.platform === "win32" ? "win32" : "linux";
 
-    function build_popup_controller(win: BrowserWindow): PopupHeightController {
-        return create_popup_height_controller({
-            platform: popup_platform,
-            get_window: () => {
-                if (win.isDestroyed()) return null;
-                return {
-                    isDestroyed: () => win.isDestroyed(),
-                    getBounds: () => win.getBounds(),
-                    setBounds: (bounds) => {
-                        popup_anchor_state.suppress_move = true;
-                        try {
-                            win.setBounds(bounds);
-                        } finally {
-                            // BrowserWindow.setBounds can emit `move`
-                            // asynchronously on some platforms; release the
-                            // flag on the next tick so the immediately
-                            // following move event is still suppressed.
-                            setImmediate(() => {
-                                popup_anchor_state.suppress_move = false;
-                            });
-                        }
-                    },
-                };
-            },
-            get_display_for_window: () => {
-                const bounds = win.getBounds();
-                return screen.getDisplayMatching(bounds);
-            },
-            get_anchor: (): PopupAnchorContext => ({
-                tray_bounds: popup_anchor_state.tray_bounds,
-                user_moved: popup_anchor_state.user_moved,
-            }),
-        });
-    }
+    main_panel_controller = create_main_panel_controller({
+        platform: main_panel_platform,
+        get_config: () => currentConfigSnapshot,
+        save_config: (next) => {
+            currentConfigSnapshot = next;
+            configStore.scheduleSave(next);
+        },
+        create_window: () => createWindowFor("popup", { load: false }),
+        get_renderer_url: getRendererUrl,
+        get_preload_path: getPreloadPath,
+        get_app_icon_path,
+        get_tray_bounds: () => tray_ref?.getBounds() ?? null,
+        get_display_for_bounds: (bounds) => screen.getDisplayMatching(bounds),
+        get_all_displays: () => screen.getAllDisplays(),
+        get_primary_display: () => screen.getPrimaryDisplay(),
+    });
 
     cleanupPopupIpc = registerPopupIpc({
-        get_controller: () => popup_controller,
+        report_content_height: (report) =>
+            main_panel_controller?.report_content_height(report) ?? null,
     });
 
     // Start periodic refresh for enabled plugins
@@ -533,6 +511,7 @@ void app.whenReady().then(async () => {
             log.warn("Tray icon loaded as empty image");
         }
         const tray = new Tray(trayIcon);
+        tray_ref = tray;
         tray.setToolTip("OmniUsage — AI 用量监控");
         log.info("System tray created");
         if (process.env["E2E"] === "1") {
@@ -603,7 +582,7 @@ void app.whenReady().then(async () => {
             tray.emit("click");
         });
         ipcMain.handle("tray:refreshAll", () => {
-            for (const p of currentConfig.plugins) {
+            for (const p of currentConfigSnapshot.plugins) {
                 if (p.enabled) void refreshService.refresh(p.instanceId);
             }
         });
@@ -613,8 +592,8 @@ void app.whenReady().then(async () => {
                 orchestrator.suspend();
             } else {
                 orchestrator.resume();
-                orchestrator.rebuild(currentConfig);
-                orchestrator.startAll(currentConfig);
+                orchestrator.rebuild(currentConfigSnapshot);
+                orchestrator.startAll(currentConfigSnapshot);
             }
             send_tray_state();
         });
@@ -638,84 +617,19 @@ void app.whenReady().then(async () => {
             hideTrayMenu();
         });
 
-        // Click → toggle popup (left-click)
+        // Click → toggle main panel (left-click)
         tray.on("click", () => {
-            // Hide tray menu if visible
             if (trayMenuWin && !trayMenuWin.isDestroyed() && trayMenuWin.isVisible()) {
                 trayMenuWin.removeListener("blur", hideTrayMenu);
                 trayMenuWin.hide();
             }
 
-            log.info(
-                `[tray] click handler fired, popupWin exists: ${popupWin ? "true" : "false"}, destroyed: ${String(popupWin?.isDestroyed())}`,
-            );
-            if (popupWin && !popupWin.isDestroyed()) {
-                popupWin.close();
-                popupWin = null;
-                popup_controller = null;
-                log.info("[tray] closed popup");
-                return;
-            }
-            popupWin = createWindowFor("popup");
-
-            // Position popup near tray icon
-            const trayBounds = tray.getBounds();
-            const display = screen.getDisplayNearestPoint({
-                x: trayBounds.x + trayBounds.width / 2,
-                y: trayBounds.y + trayBounds.height / 2,
-            });
-            const popupCfg = WINDOW_CONFIGS["popup"];
-            const popupWidth = popupCfg?.width ?? 460;
-            const popupHeight = popupCfg?.height ?? 480;
-            const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
-            const y = Math.round(trayBounds.y + trayBounds.height + 4);
-            const clampedX = Math.max(
-                display.workArea.x,
-                Math.min(x, display.workArea.x + display.workArea.width - popupWidth),
-            );
-            const clampedY = Math.min(
-                y,
-                display.workArea.y + display.workArea.height - popupHeight,
-            );
-            popupWin.setBounds({
-                x: clampedX,
-                y: clampedY,
-                width: popupWidth,
-                height: popupHeight,
-            });
-            popupWin.show();
-            popupWin.focus();
-
-            // Initialise Phase 20 height controller for this popup session.
-            popup_anchor_state.tray_bounds =
-                trayBounds.width > 0 && trayBounds.height > 0 ? trayBounds : null;
-            popup_anchor_state.user_moved = false;
-            popup_controller = build_popup_controller(popupWin);
-
-            // Track user-initiated moves so subsequent resizes don't snap back to tray.
-            popupWin.on("move", () => {
-                if (popup_anchor_state.suppress_move) return;
-                popup_anchor_state.user_moved = true;
-            });
-
-            popupWin.on("closed", () => {
-                popupWin = null;
-                popup_controller = null;
-                popup_anchor_state.tray_bounds = null;
-                popup_anchor_state.user_moved = false;
-                popup_anchor_state.suppress_move = false;
-            });
+            log.info("[tray] toggling main panel");
+            main_panel_controller?.open_or_toggle();
         });
 
         // Right-click → show custom tray menu
         tray.on("right-click", () => {
-            // Hide popup if open
-            if (popupWin && !popupWin.isDestroyed()) {
-                popupWin.close();
-                popupWin = null;
-                popup_controller = null;
-            }
-
             if (!trayMenuWin || trayMenuWin.isDestroyed()) return;
 
             const trayBounds = tray.getBounds();
@@ -761,6 +675,8 @@ void app.whenReady().then(async () => {
             settingsWin.destroy();
             settingsWin = null;
         }
+        main_panel_controller?.close_for_mode_switch();
+        main_panel_controller = null;
         orchestrator.shutdown();
         cleanupEventIpc?.();
         cleanupEventIpc = null;
@@ -777,24 +693,10 @@ void app.whenReady().then(async () => {
         }
     });
 
-    // In E2E mode, auto-open popup so tests don't need tray interaction
+    // In E2E mode, auto-open main panel so tests don't need tray interaction
     if (process.env["E2E"] === "1") {
-        log.info("E2E mode: auto-opening popup");
-        popupWin = createWindowFor("popup");
-        popup_anchor_state.tray_bounds = null;
-        popup_anchor_state.user_moved = false;
-        popup_controller = build_popup_controller(popupWin);
-        popupWin.on("move", () => {
-            if (popup_anchor_state.suppress_move) return;
-            popup_anchor_state.user_moved = true;
-        });
-        popupWin.on("closed", () => {
-            popupWin = null;
-            popup_controller = null;
-            popup_anchor_state.tray_bounds = null;
-            popup_anchor_state.user_moved = false;
-            popup_anchor_state.suppress_move = false;
-        });
+        log.info("E2E mode: auto-opening main panel");
+        main_panel_controller.open_or_focus();
     }
 });
 

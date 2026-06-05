@@ -31,6 +31,10 @@ export const IPC_CHANNELS = {
     SETTINGS_MAXIMIZE: "settings:maximize",
     SETTINGS_CLOSE: "settings:close",
 
+    /** Main panel shell actions. */
+    MAIN_PANEL_HIDE: "mainPanel:hide",
+    MAIN_PANEL_GET_MODE: "mainPanel:getMode",
+
     /** Tray menu — custom frameless window actions. */
     TRAY_OPEN_PANEL: "tray:openPanel",
     TRAY_REFRESH_ALL: "tray:refreshAll",
@@ -152,6 +156,10 @@ export interface UsageboardApi {
          * minimum height) so the main process can lock the BrowserWindow size.
          */
         report_content_height(report: PopupContentHeightReport): void;
+    };
+    main_panel: {
+        hide(): void;
+        get_mode(): Promise<"popup" | "floating">;
     };
     theme: {
         /** Tell the main process to apply the given theme mode. */

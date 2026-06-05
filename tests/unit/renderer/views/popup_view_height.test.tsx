@@ -152,6 +152,7 @@ describe("PopupView collapse + height report", () => {
             popup: {
                 report_content_height: report_height,
             },
+            main_panel: { hide: vi.fn(), get_mode: vi.fn().mockResolvedValue("popup") },
             settings: { open: vi.fn(), minimize: vi.fn(), maximize: vi.fn(), close: vi.fn() },
             theme: { set: vi.fn() },
             tray: {

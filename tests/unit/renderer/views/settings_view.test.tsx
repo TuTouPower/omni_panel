@@ -182,6 +182,7 @@ describe("SettingsView", () => {
             popup: {
                 report_content_height: vi.fn(),
             },
+            main_panel: { hide: vi.fn(), get_mode: vi.fn().mockResolvedValue("popup") },
             settings: {
                 open: vi.fn(),
                 minimize: vi.fn(),
