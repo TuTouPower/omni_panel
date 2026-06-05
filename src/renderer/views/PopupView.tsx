@@ -110,6 +110,22 @@ export function PopupView() {
     const [account_over_id, set_account_over_id] = useState<string | null>(null);
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
+    const [main_panel_mode, set_main_panel_mode] = useState<"popup" | "floating">("popup");
+
+    useEffect(() => {
+        let cancelled = false;
+        window.usageboard.main_panel
+            .get_mode()
+            .then((mode) => {
+                if (!cancelled) set_main_panel_mode(mode);
+            })
+            .catch(() => {
+                if (!cancelled) set_main_panel_mode("popup");
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     // Load persisted provider order from config
     const valid_providers = useMemo(() => new Set(PROVIDER_ORDER as readonly string[]), []);
@@ -473,6 +489,19 @@ export function PopupView() {
                         >
                             <Icon name="gear" size={18} />
                         </button>
+                        {is_live && main_panel_mode === "floating" && (
+                            <button
+                                className="icon-btn floating-close-btn"
+                                title="隐藏到托盘"
+                                aria-label="隐藏主面板"
+                                type="button"
+                                onClick={() => {
+                                    window.usageboard.main_panel.hide();
+                                }}
+                            >
+                                <Icon name="close" size={18} />
+                            </button>
+                        )}
                     </div>
                 </div>
 

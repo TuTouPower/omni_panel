@@ -8,6 +8,18 @@ vi.mock("../../../../src/renderer/lib/theme", () => ({
     useTheme: () => undefined,
 }));
 
+class FakeResizeObserver {
+    observe() {
+        return undefined;
+    }
+    unobserve() {
+        return undefined;
+    }
+    disconnect() {
+        return undefined;
+    }
+}
+
 function connectorInfo(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
     const source = overrides.source ?? "cpa";
     const supportedProviders = overrides.supportedProviders ?? ["claude"];
@@ -36,11 +48,14 @@ function connectorInfo(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
 const plugin_list = vi.fn<() => Promise<ConnectorInfo[]>>();
 const plugin_refresh = vi.fn<(instanceId: string) => Promise<void>>().mockResolvedValue(undefined);
 const plugin_refresh_all = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+const main_panel_hide = vi.fn<() => void>();
+const main_panel_get_mode = vi.fn<() => Promise<"popup" | "floating">>().mockResolvedValue("popup");
 const usage_log = vi.fn<(payload: { level: string; module: string; message: string }) => void>();
 
 describe("PopupView", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        main_panel_get_mode.mockResolvedValue("popup");
         plugin_refresh.mockResolvedValue(undefined);
         plugin_refresh_all.mockResolvedValue(undefined);
         plugin_list.mockResolvedValue([
@@ -130,7 +145,7 @@ describe("PopupView", () => {
             popup: {
                 report_content_height: vi.fn(),
             },
-            main_panel: { hide: vi.fn(), get_mode: vi.fn().mockResolvedValue("popup") },
+            main_panel: { hide: main_panel_hide, get_mode: main_panel_get_mode },
             settings: { open: vi.fn(), minimize: vi.fn(), maximize: vi.fn(), close: vi.fn() },
             theme: { set: vi.fn() },
             tray: {
@@ -293,5 +308,43 @@ describe("PopupView", () => {
             const expand_btn = screen.queryByRole("button", { name: /展开 Claude Account/ });
             expect(expand_btn).toBeInTheDocument();
         });
+    });
+
+    it("does not show the floating close button in popup mode", async () => {
+        render(<PopupView />);
+
+        await waitFor(() => {
+            expect(main_panel_get_mode).toHaveBeenCalled();
+        });
+
+        expect(screen.queryByRole("button", { name: "隐藏主面板" })).not.toBeInTheDocument();
+    });
+
+    it("shows the floating close button in floating mode and hides the main panel", async () => {
+        main_panel_get_mode.mockResolvedValue("floating");
+
+        render(<PopupView />);
+
+        const close_btn = await screen.findByRole("button", { name: "隐藏主面板" });
+        fireEvent.click(close_btn);
+
+        expect(main_panel_hide).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not expose extra floating close buttons from mirror trees", async () => {
+        const original_resize_observer = globalThis.ResizeObserver;
+        (globalThis as Record<string, unknown>)["ResizeObserver"] = FakeResizeObserver;
+        main_panel_get_mode.mockResolvedValue("floating");
+
+        const view = render(<PopupView />);
+
+        try {
+            await waitFor(() => {
+                expect(screen.getAllByRole("button", { name: "隐藏主面板" }).length).toBe(1);
+            });
+        } finally {
+            view.unmount();
+            (globalThis as Record<string, unknown>)["ResizeObserver"] = original_resize_observer;
+        }
     });
 });
