@@ -5,6 +5,17 @@ export interface ProxyConfiguration {
     readonly noProxy?: readonly string[];
 }
 
+export type MainPanelMode = "system" | "popup" | "floating";
+export type FloatingHeightMode = "fixed" | "followContent";
+
+export interface FloatingBoundsConfiguration {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+    readonly displayId?: string;
+}
+
 export interface AppConfiguration {
     readonly schemaVersion: number;
     readonly language: AppLanguage;
@@ -23,6 +34,9 @@ export interface AppConfiguration {
     readonly notifyOnFail?: boolean;
     readonly notifyMethod?: string;
     readonly cacheMaxMb?: number;
+    readonly mainPanelMode?: MainPanelMode;
+    readonly floatingHeightMode?: FloatingHeightMode;
+    readonly floatingBounds?: FloatingBoundsConfiguration;
 }
 
 export interface PluginConfiguration {

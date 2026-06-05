@@ -22,6 +22,16 @@ export const proxyConfigurationSchema = z.object({
     noProxy: z.array(z.string()).optional(),
 });
 
+export const mainPanelModeSchema = z.enum(["system", "popup", "floating"]);
+export const floatingHeightModeSchema = z.enum(["fixed", "followContent"]);
+export const floatingBoundsSchema = z.object({
+    x: z.number().finite(),
+    y: z.number().finite(),
+    width: z.number().int().min(320),
+    height: z.number().int().min(240),
+    displayId: z.string().optional(),
+});
+
 export const appConfigurationSchema = z.object({
     schemaVersion: z.number().int(),
     language: appLanguageSchema,
@@ -40,6 +50,9 @@ export const appConfigurationSchema = z.object({
     notifyOnFail: z.boolean().optional(),
     notifyMethod: z.string().optional(),
     cacheMaxMb: z.number().positive().optional(),
+    mainPanelMode: mainPanelModeSchema.optional(),
+    floatingHeightMode: floatingHeightModeSchema.optional(),
+    floatingBounds: floatingBoundsSchema.optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {
