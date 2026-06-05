@@ -66,12 +66,14 @@ test.describe("popup card collapse height", () => {
         const statusbar = page.locator(".statusbar").first();
         await expect(statusbar).toBeVisible();
 
-        // No large bottom whitespace
+        // No large bottom whitespace — scope to live popup only
         const space = await page.evaluate(() => {
-            const sb = document.querySelector(".statusbar");
+            const live = document.querySelector('[data-popup="live"]');
+            if (!(live instanceof HTMLElement)) return -1;
+            const sb = live.querySelector(".statusbar");
             if (!(sb instanceof HTMLElement)) return -1;
             const sb_rect = sb.getBoundingClientRect();
-            const body_height = document.body.offsetHeight;
+            const body_height = live.offsetHeight;
             return body_height - sb_rect.bottom;
         });
         expect(space).toBeLessThan(20);

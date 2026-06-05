@@ -19,16 +19,19 @@ async function triggerTrayClick(page: Page): Promise<void> {
 
 async function findPopupPage(app: ElectronApplication): Promise<Page> {
     // With custom tray menu, firstWindow() may return the tray menu window.
-    // Find the popup window by checking for the data-popup="live" element.
-    for (const win of app.windows()) {
-        const hasPopup = await win
-            .locator('[data-popup="live"]')
-            .count()
-            .catch(() => 0);
-        if (hasPopup > 0) return win;
+    // Wait for a window that contains the data-popup="live" element.
+    for (let i = 0; i < 20; i++) {
+        for (const win of app.windows()) {
+            if (win.isClosed()) continue;
+            const hasPopup = await win
+                .locator('[data-popup="live"]')
+                .count()
+                .catch(() => 0);
+            if (hasPopup > 0) return win;
+        }
+        await new Promise((r) => setTimeout(r, 500));
     }
-    // Fallback to firstWindow
-    return app.firstWindow();
+    throw new Error("Popup window not found after 10s");
 }
 
 test.describe("tray interaction", () => {
