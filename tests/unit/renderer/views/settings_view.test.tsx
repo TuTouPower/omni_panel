@@ -8,7 +8,7 @@ const save = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 const saveSecrets = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 const duplicate = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 
-const config: AppConfiguration = {
+const base_config: AppConfiguration = {
     schemaVersion: 1,
     language: "zh-Hans",
     launchAtLogin: false,
@@ -36,9 +36,11 @@ const config: AppConfiguration = {
     ],
 };
 
+let current_config: AppConfiguration = base_config;
+
 vi.mock("../../../../src/renderer/hooks/use-config", () => ({
     use_config: () => ({
-        config,
+        config: current_config,
         hasSecrets: { "cpa-1": { cpa_mgmt_key: true } },
         loading: false,
         error: null,
@@ -55,6 +57,7 @@ vi.mock("../../../../src/renderer/lib/theme", () => ({
 describe("SettingsView", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        current_config = base_config;
         window.usageboard = {
             platform: "win32",
             plugin: {
@@ -225,14 +228,14 @@ describe("SettingsView", () => {
             expect(saveSecrets).toHaveBeenCalledWith("deepseek-1", { API_KEY: "sk-test" });
         });
         expect(save).toHaveBeenCalledWith({
-            ...config,
+            ...base_config,
             plugins: [
                 {
-                    ...config.plugins[0],
+                    ...base_config.plugins[0],
                     parameterValues: {},
                     endpointOverrides: { default: "https://api.deepseek.example" },
                 },
-                config.plugins[1],
+                base_config.plugins[1],
             ],
         });
     });
@@ -245,7 +248,6 @@ describe("SettingsView", () => {
         await waitFor(() => {
             expect(screen.getAllByText(/CPA/).length).toBeGreaterThan(0);
         });
-        // Find the CPA connector's edit button (first CPA plugin row)
         const edit_buttons = screen.getAllByTitle("编辑");
         const cpa_edit = edit_buttons.find((b) => {
             const row_text =
@@ -272,5 +274,41 @@ describe("SettingsView", () => {
         await user.click(backBtn);
         expect(closeSpy).toHaveBeenCalled();
         closeSpy.mockRestore();
+    });
+
+    it("saves main panel mode", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.selectOptions(screen.getByDisplayValue("跟随系统推荐"), "弹出面板");
+
+        expect(save).toHaveBeenCalledWith({
+            ...base_config,
+            mainPanelMode: "popup",
+        });
+    });
+
+    it("shows and saves floating height mode when floating is effective", async () => {
+        const user = userEvent.setup();
+        current_config = { ...base_config, mainPanelMode: "floating" };
+        render(<SettingsView />);
+
+        expect(screen.getByText("浮动窗口高度")).toBeInTheDocument();
+        await user.selectOptions(screen.getByDisplayValue("保持窗口大小"), "跟随内容变化");
+
+        expect(save).toHaveBeenCalledWith({
+            ...base_config,
+            mainPanelMode: "floating",
+            floatingHeightMode: "followContent",
+        });
+    });
+
+    it("hides floating height mode when popup is effective", async () => {
+        current_config = { ...base_config, mainPanelMode: "popup" };
+        render(<SettingsView />);
+
+        await waitFor(() => {
+            expect(screen.queryByText("浮动窗口高度")).not.toBeInTheDocument();
+        });
     });
 });

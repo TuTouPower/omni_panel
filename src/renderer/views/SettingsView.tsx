@@ -5,7 +5,12 @@ import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { Icon, VendorMark } from "../components/Icon";
 import type { PluginInfo } from "../../shared/types/ipc";
-import type { PluginConfiguration, AppConfiguration } from "../../shared/types/config";
+import type {
+    PluginConfiguration,
+    AppConfiguration,
+    MainPanelMode,
+    FloatingHeightMode,
+} from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
@@ -37,6 +42,28 @@ const NAV_ITEMS = [
 ] as const;
 
 const ACCENTS = ["#3d7afd", "#6f5cf6", "#0ea5a3", "#f5772f", "#e23744"];
+const MAIN_PANEL_MODE_LABELS = ["跟随系统推荐", "弹出面板", "浮动窗口"] as const;
+const FLOATING_HEIGHT_MODE_LABELS = ["保持窗口大小", "跟随内容变化"] as const;
+
+function main_panel_mode_label_to_value(label: string): MainPanelMode {
+    if (label === "弹出面板") return "popup";
+    if (label === "浮动窗口") return "floating";
+    return "system";
+}
+
+function main_panel_mode_value_to_label(value: MainPanelMode | undefined): string {
+    if (value === "popup") return "弹出面板";
+    if (value === "floating") return "浮动窗口";
+    return "跟随系统推荐";
+}
+
+function floating_height_mode_label_to_value(label: string): FloatingHeightMode {
+    return label === "跟随内容变化" ? "followContent" : "fixed";
+}
+
+function floating_height_mode_value_to_label(value: FloatingHeightMode | undefined): string {
+    return value === "followContent" ? "跟随内容变化" : "保持窗口大小";
+}
 
 /* ── helpers ── */
 function Toggle({
@@ -773,6 +800,14 @@ export function SettingsView() {
     const accentColor = config?.accentColor ?? "#3d7afd";
     const themeMode = config?.theme ?? "light";
     const pinToTop = config?.pinToTop ?? false;
+    const mainPanelMode = config?.mainPanelMode ?? "system";
+    const floatingHeightMode = config?.floatingHeightMode ?? "fixed";
+    const effectiveMainPanelMode =
+        mainPanelMode === "system"
+            ? window.usageboard.platform === "darwin"
+                ? "popup"
+                : "floating"
+            : mainPanelMode;
     const minimizeToTray = config?.minimizeToTray ?? true;
     const globalIntervalSeconds = config?.globalRefreshIntervalSeconds ?? 300;
     const pauseAutoRefresh = config?.pauseAutoRefresh ?? false;
@@ -793,7 +828,6 @@ export function SettingsView() {
     // Local-only UI state (not persisted)
     const [localState, setLocalState] = useState({
         lang: "简体中文",
-        trayClick: "打开主面板",
     });
     const [dataMsg, setDataMsg] = useState<string | null>(null);
 
@@ -1013,6 +1047,21 @@ export function SettingsView() {
                                 </SetRow>
 
                                 <div className="set-group-label">窗口</div>
+                                <SetRow
+                                    title="主面板打开方式"
+                                    sub="左键托盘图标永远打开主面板，外壳由这里决定"
+                                >
+                                    <Select
+                                        value={main_panel_mode_value_to_label(mainPanelMode)}
+                                        onChange={(v) => {
+                                            void save({
+                                                ...config,
+                                                mainPanelMode: main_panel_mode_label_to_value(v),
+                                            });
+                                        }}
+                                        options={[...MAIN_PANEL_MODE_LABELS]}
+                                    />
+                                </SetRow>
                                 <SetRow title="窗口始终置顶">
                                     <Toggle
                                         on={pinToTop}
@@ -1021,15 +1070,26 @@ export function SettingsView() {
                                         }}
                                     />
                                 </SetRow>
-                                <SetRow title="点击托盘图标">
-                                    <Select
-                                        value={localState.trayClick}
-                                        onChange={(v) => {
-                                            up("trayClick", v);
-                                        }}
-                                        options={["打开主面板", "打开菜单"]}
-                                    />
-                                </SetRow>
+                                {effectiveMainPanelMode === "floating" && (
+                                    <SetRow
+                                        title="浮动窗口高度"
+                                        sub="保持窗口大小时内容在窗口内滚动；跟随内容变化时只能调整宽度"
+                                    >
+                                        <Select
+                                            value={floating_height_mode_value_to_label(
+                                                floatingHeightMode,
+                                            )}
+                                            onChange={(v) => {
+                                                void save({
+                                                    ...config,
+                                                    floatingHeightMode:
+                                                        floating_height_mode_label_to_value(v),
+                                                });
+                                            }}
+                                            options={[...FLOATING_HEIGHT_MODE_LABELS]}
+                                        />
+                                    </SetRow>
+                                )}
                                 <SetRow title="界面语言">
                                     <Select
                                         value={localState.lang}
