@@ -19,8 +19,11 @@ import type { ProviderUsageAccount } from "../lib/provider-usage";
 import type { AccountOverrides, UsageBarColorScheme } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import logo from "../assets/logo.png";
+import { createLogger } from "../../shared/lib/logger";
 
 const MODULE = "PopupView";
+const log = createLogger("renderer:popup-view");
+const should_log_raw = import.meta.env.DEV;
 const token_panel_enabled = import.meta.env["VITE_ENABLE_TOKEN_PANEL"] === "1";
 
 /** Auth-related error patterns for credential failure detection. */
@@ -141,6 +144,9 @@ export function PopupView() {
         window.usageboard.config
             .get()
             .then((result) => {
+                if (should_log_raw) {
+                    log.debug("popup config raw", { config: result.config });
+                }
                 const order = result.config.providerOrder;
                 if (order && order.length > 0) {
                     const validated = (order as string[]).filter((p): p is UsageProvider =>
@@ -197,6 +203,24 @@ export function PopupView() {
         [rawGroups, account_overrides],
     );
     const visibleProviders = useMemo(() => get_visible_providers(plugins), [plugins]);
+
+    useEffect(() => {
+        if (should_log_raw) {
+            log.debug("popup runtime states raw", { states: plugins });
+        }
+    }, [plugins]);
+
+    useEffect(() => {
+        if (should_log_raw) {
+            log.debug("popup grouped usage raw", { groups: providerGroups });
+        }
+    }, [providerGroups]);
+
+    useEffect(() => {
+        if (should_log_raw) {
+            log.debug("popup usage bar color scheme raw", { usage_bar_color_scheme });
+        }
+    }, [usage_bar_color_scheme]);
 
     // Apply persisted order to visible providers
     const orderedProviders = useMemo(() => {

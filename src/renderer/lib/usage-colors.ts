@@ -1,6 +1,11 @@
+import { createLogger } from "../../shared/lib/logger";
+
 export type UsageBarColorScheme = "risk-current" | "risk-projected" | "nine-cycle";
 
 export const DEFAULT_USAGE_BAR_COLOR_SCHEME: UsageBarColorScheme = "risk-current";
+
+const log = createLogger("renderer:usage-colors");
+const should_log_raw = import.meta.env.DEV;
 
 const USAGE_COLORS = [
     "#5B8CFF", // 1 主蓝
@@ -43,9 +48,31 @@ export function usage_window_elapsed(
     reset_at: string | null | undefined,
     now_ms = Date.now(),
 ): number | undefined {
-    if (!reset_at) return undefined;
+    if (!reset_at) {
+        if (should_log_raw) {
+            log.debug("usage window elapsed raw", {
+                period_name,
+                reset_at,
+                now_ms,
+                elapsed: undefined,
+                reason: "missing resetAt",
+            });
+        }
+        return undefined;
+    }
     const reset_ms = Date.parse(reset_at);
-    if (!Number.isFinite(reset_ms)) return undefined;
+    if (!Number.isFinite(reset_ms)) {
+        if (should_log_raw) {
+            log.debug("usage window elapsed raw", {
+                period_name,
+                reset_at,
+                now_ms,
+                elapsed: undefined,
+                reason: "invalid resetAt",
+            });
+        }
+        return undefined;
+    }
     const name = period_name.toLowerCase();
     const hour = 60 * 60 * 1000;
     const day = 24 * hour;
@@ -62,16 +89,46 @@ export function usage_window_elapsed(
                 : name.includes("天") || name.includes("每日") || name.includes("day")
                   ? day
                   : undefined;
-    if (duration === undefined) return undefined;
+    if (duration === undefined) {
+        if (should_log_raw) {
+            log.debug("usage window elapsed raw", {
+                period_name,
+                reset_at,
+                now_ms,
+                elapsed: undefined,
+                reason: "unknown period",
+            });
+        }
+        return undefined;
+    }
     const remaining = reset_ms - now_ms;
-    return Math.min(1, Math.max(0, 1 - remaining / duration));
+    const elapsed = Math.min(1, Math.max(0, 1 - remaining / duration));
+    if (should_log_raw) {
+        log.debug("usage window elapsed raw", {
+            period_name,
+            reset_at,
+            now_ms,
+            reset_ms,
+            duration,
+            remaining,
+            elapsed,
+        });
+    }
+    return elapsed;
 }
 
 export function bar_fill_color(
     scheme: UsageBarColorScheme | undefined,
     { pct, idx, elapsed }: { pct: number; idx: number; elapsed?: number | undefined },
 ): string {
-    if (scheme === "nine-cycle") return usage_color(idx);
-    if (scheme === "risk-projected") return `var(--risk-${risk_projected_level(pct, elapsed)})`;
-    return `var(--risk-${risk_current_level(pct)})`;
+    const result =
+        scheme === "nine-cycle"
+            ? usage_color(idx)
+            : scheme === "risk-projected"
+              ? `var(--risk-${risk_projected_level(pct, elapsed)})`
+              : `var(--risk-${risk_current_level(pct)})`;
+    if (should_log_raw) {
+        log.debug("bar fill color raw", { scheme, pct, idx, elapsed, result });
+    }
+    return result;
 }

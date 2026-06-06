@@ -1,3 +1,4 @@
+import { createLogger } from "../../shared/lib/logger";
 import type { UsageItem, UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
 import type { AccountOverrides } from "../../shared/types/config";
 import type { ConnectorInfo } from "../../shared/types/ipc";
@@ -65,6 +66,9 @@ export const PROVIDER_LABELS: Record<UsageProvider, string> = {
     tavily: "Tavily",
 };
 
+const log = createLogger("renderer:provider-usage");
+const should_log_raw = import.meta.env.DEV;
+
 const STATUS_RANK: Record<UsageItem["status"], number> = {
     normal: 0,
     unknown: 1,
@@ -128,6 +132,9 @@ export function format_usage_period_label(name: string): string {
 export function build_provider_usage_groups(
     connectors: readonly ConnectorInfo[],
 ): ProviderUsageGroup[] {
+    if (should_log_raw) {
+        log.debug("provider usage input raw", { snapshots: connectors });
+    }
     const periodsByProvider = new Map<UsageProvider, ProviderUsagePeriod[]>();
 
     for (const connector of connectors) {
@@ -141,7 +148,7 @@ export function build_provider_usage_groups(
         }
     }
 
-    return [...periodsByProvider.entries()]
+    const groups = [...periodsByProvider.entries()]
         .sort(([a], [b]) => compareProviders(a, b))
         .map(([provider, periods]) => {
             const accountsByKey = new Map<string, ProviderUsageAccount>();
@@ -182,6 +189,10 @@ export function build_provider_usage_groups(
                 accounts: [...accountsByKey.values()],
             };
         });
+    if (should_log_raw) {
+        log.debug("provider usage grouped raw", { groups });
+    }
+    return groups;
 }
 
 export function apply_account_overrides(
@@ -311,5 +322,11 @@ export function build_overview_for_group(group: ProviderUsageGroup): OverviewWin
         });
     }
 
+    if (should_log_raw) {
+        log.debug("provider overview periods raw", {
+            provider: group.provider,
+            overviewPeriods: result,
+        });
+    }
     return result;
 }

@@ -15,6 +15,7 @@ import type {
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
+import { createLogger } from "../../shared/lib/logger";
 import logo from "../assets/logo.png";
 import package_json from "../../../package.json";
 
@@ -82,6 +83,8 @@ const BAR_COLOR_SCHEMES: {
 ];
 const MAIN_PANEL_MODE_LABELS = ["跟随系统推荐", "弹出面板", "浮动窗口"] as const;
 const FLOATING_HEIGHT_MODE_LABELS = ["保持窗口大小", "跟随内容变化"] as const;
+const log = createLogger("renderer:settings-view");
+const should_log_raw = import.meta.env.DEV;
 
 function main_panel_mode_label_to_value(label: string): MainPanelMode {
     if (label === "弹出面板") return "popup";
@@ -834,6 +837,22 @@ export function SettingsView() {
     const [showCpaAdd, setShowCpaAdd] = useState(false);
     const [dsView, setDsView] = useState<"list" | "detail">("list");
 
+    useEffect(() => {
+        if (should_log_raw && config) {
+            log.debug("settings config raw", { config });
+        }
+    }, [config]);
+
+    const save_config = useCallback(
+        async (payload: AppConfiguration) => {
+            if (should_log_raw) {
+                log.debug("settings save payload raw", { payload });
+            }
+            await save(payload);
+        },
+        [save],
+    );
+
     // CPA detection: show 数据源 nav only when CPA connector exists
     const hasCpa = pluginInfos.some((p) => p.source === "cpa");
 
@@ -927,9 +946,9 @@ export function SettingsView() {
                               ([key]) => key !== "hidden",
                           ),
                       );
-            void save({ ...config, accountOverrides: newOverrides });
+            void save_config({ ...config, accountOverrides: newOverrides });
         },
-        [config, save],
+        [config, save_config],
     );
 
     // Config-backed settings with defaults for optional fields
@@ -953,6 +972,12 @@ export function SettingsView() {
     const notifyMethod = config?.notifyMethod ?? "系统通知";
     const cacheMaxMb = config?.cacheMaxMb ?? 100;
     const usageBarColorScheme = config?.usageBarColorScheme ?? "risk-current";
+
+    useEffect(() => {
+        if (should_log_raw) {
+            log.debug("settings usage bar color scheme raw", { value: usageBarColorScheme });
+        }
+    }, [usageBarColorScheme]);
 
     const interval_label = (() => {
         if (globalIntervalSeconds <= 60) return "1 分钟";
@@ -1025,7 +1050,7 @@ export function SettingsView() {
             if (Object.keys(secrets).length > 0) {
                 await saveSecrets(instanceId, secrets);
             }
-            await save({
+            await save_config({
                 ...config,
                 plugins: config.plugins.map((plugin) =>
                     plugin.instanceId === instanceId
@@ -1039,7 +1064,7 @@ export function SettingsView() {
                 ),
             });
         },
-        [config, save, saveSecrets],
+        [config, save_config, saveSecrets],
     );
 
     const savePluginSecrets = useCallback(
@@ -1126,7 +1151,7 @@ export function SettingsView() {
                                     <Toggle
                                         on={config.launchAtLogin}
                                         onClick={() => {
-                                            void save({
+                                            void save_config({
                                                 ...config,
                                                 launchAtLogin: !config.launchAtLogin,
                                             });
@@ -1137,7 +1162,7 @@ export function SettingsView() {
                                     <Toggle
                                         on={minimizeToTray}
                                         onClick={() => {
-                                            void save({
+                                            void save_config({
                                                 ...config,
                                                 minimizeToTray: !minimizeToTray,
                                             });
@@ -1157,7 +1182,7 @@ export function SettingsView() {
                                                 "30 分钟": 1800,
                                                 仅手动: 86400,
                                             };
-                                            void save({
+                                            void save_config({
                                                 ...config,
                                                 globalRefreshIntervalSeconds: map[v] ?? 300,
                                             });
@@ -1175,7 +1200,7 @@ export function SettingsView() {
                                     <Toggle
                                         on={pauseAutoRefresh}
                                         onClick={() => {
-                                            void save({
+                                            void save_config({
                                                 ...config,
                                                 pauseAutoRefresh: !pauseAutoRefresh,
                                             });
@@ -1191,7 +1216,7 @@ export function SettingsView() {
                                     <Select
                                         value={main_panel_mode_value_to_label(mainPanelMode)}
                                         onChange={(v) => {
-                                            void save({
+                                            void save_config({
                                                 ...config,
                                                 mainPanelMode: main_panel_mode_label_to_value(v),
                                             });
@@ -1203,7 +1228,7 @@ export function SettingsView() {
                                     <Toggle
                                         on={pinToTop}
                                         onClick={() => {
-                                            void save({ ...config, pinToTop: !pinToTop });
+                                            void save_config({ ...config, pinToTop: !pinToTop });
                                         }}
                                     />
                                 </SetRow>
@@ -1217,7 +1242,7 @@ export function SettingsView() {
                                                 floatingHeightMode,
                                             )}
                                             onChange={(v) => {
-                                                void save({
+                                                void save_config({
                                                     ...config,
                                                     floatingHeightMode:
                                                         floating_height_mode_label_to_value(v),
@@ -1320,7 +1345,7 @@ export function SettingsView() {
                                                         <Toggle
                                                             on={is_enabled}
                                                             onClick={() => {
-                                                                void save({
+                                                                void save_config({
                                                                     ...config,
                                                                     plugins: config.plugins.map(
                                                                         (pl) =>
@@ -1362,7 +1387,7 @@ export function SettingsView() {
                                                                         )
                                                                     )
                                                                         return;
-                                                                    void save({
+                                                                    void save_config({
                                                                         ...config,
                                                                         plugins:
                                                                             config.plugins.filter(
@@ -1462,7 +1487,7 @@ export function SettingsView() {
                                                                     <Toggle
                                                                         on={is_enabled}
                                                                         onClick={() => {
-                                                                            void save({
+                                                                            void save_config({
                                                                                 ...config,
                                                                                 plugins:
                                                                                     config.plugins.map(
@@ -1511,7 +1536,7 @@ export function SettingsView() {
                                                                                 ) {
                                                                                     return;
                                                                                 }
-                                                                                void save({
+                                                                                void save_config({
                                                                                     ...config,
                                                                                     plugins:
                                                                                         config.plugins.filter(
@@ -1606,7 +1631,7 @@ export function SettingsView() {
                                         onSaveSecrets={savePluginSecrets}
                                         onRefresh={refreshPlugin}
                                         onDelete={async (instanceId) => {
-                                            await save({
+                                            await save_config({
                                                 ...config,
                                                 plugins: config.plugins.filter(
                                                     (p) => p.instanceId !== instanceId,
@@ -1650,7 +1675,10 @@ export function SettingsView() {
                                                 }
                                                 onClick={() => {
                                                     const newTheme = k;
-                                                    void save({ ...config, theme: newTheme });
+                                                    void save_config({
+                                                        ...config,
+                                                        theme: newTheme,
+                                                    });
                                                     window.usageboard.theme.set(newTheme);
                                                 }}
                                                 type="button"
@@ -1668,7 +1696,7 @@ export function SettingsView() {
                                                 className={`accent-sw${accentColor === c ? " on" : ""}`}
                                                 style={{ background: c, color: c }}
                                                 onClick={() => {
-                                                    void save({ ...config, accentColor: c });
+                                                    void save_config({ ...config, accentColor: c });
                                                     // Apply accent CSS variable immediately
                                                     if (c === "#3d7afd") {
                                                         document.documentElement.style.removeProperty(
@@ -1697,7 +1725,10 @@ export function SettingsView() {
                                     <BarSchemeField
                                         value={usageBarColorScheme}
                                         onChange={(value) => {
-                                            void save({ ...config, usageBarColorScheme: value });
+                                            void save_config({
+                                                ...config,
+                                                usageBarColorScheme: value,
+                                            });
                                         }}
                                     />
                                 </div>
@@ -1712,7 +1743,7 @@ export function SettingsView() {
                                     <Toggle
                                         on={notifyNearLimit}
                                         onClick={() => {
-                                            void save({
+                                            void save_config({
                                                 ...config,
                                                 notifyNearLimit: !notifyNearLimit,
                                             });
@@ -1723,7 +1754,10 @@ export function SettingsView() {
                                     <Toggle
                                         on={notifyAtLimit}
                                         onClick={() => {
-                                            void save({ ...config, notifyAtLimit: !notifyAtLimit });
+                                            void save_config({
+                                                ...config,
+                                                notifyAtLimit: !notifyAtLimit,
+                                            });
                                         }}
                                     />
                                 </SetRow>
@@ -1731,7 +1765,10 @@ export function SettingsView() {
                                     <Toggle
                                         on={notifyOnFail}
                                         onClick={() => {
-                                            void save({ ...config, notifyOnFail: !notifyOnFail });
+                                            void save_config({
+                                                ...config,
+                                                notifyOnFail: !notifyOnFail,
+                                            });
                                         }}
                                     />
                                 </SetRow>
@@ -1740,7 +1777,7 @@ export function SettingsView() {
                                     <Select
                                         value={notifyMethod}
                                         onChange={(v) => {
-                                            void save({ ...config, notifyMethod: v });
+                                            void save_config({ ...config, notifyMethod: v });
                                         }}
                                         options={["系统通知", "托盘图标角标", "仅应用内", "关闭"]}
                                     />
@@ -1762,12 +1799,12 @@ export function SettingsView() {
                                         }
                                         onChange={(v) => {
                                             if (v === "不限制") {
-                                                void save({ ...config, cacheMaxMb: 0 });
+                                                void save_config({ ...config, cacheMaxMb: 0 });
                                                 return;
                                             }
                                             const mb = parseInt(v, 10);
                                             if (!isNaN(mb)) {
-                                                void save({ ...config, cacheMaxMb: mb });
+                                                void save_config({ ...config, cacheMaxMb: mb });
                                             }
                                         }}
                                         options={["50 MB", "100 MB", "200 MB", "500 MB", "不限制"]}
