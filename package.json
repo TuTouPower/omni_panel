@@ -12,7 +12,7 @@
         "reload": "tsx scripts/package-and-run.ts --no-build",
         "make": "cross-env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-forge make",
         "publish": "electron-forge publish",
-        "lint": "eslint src tests scripts fixtures *.ts --max-warnings=0",
+        "lint": "eslint src tests scripts tests/fixtures *.ts --max-warnings=0",
         "typecheck": "tsc --noEmit",
         "format:check": "prettier --check .",
         "format": "prettier --write .",

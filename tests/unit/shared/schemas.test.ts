@@ -8,8 +8,8 @@ import {
     pluginResultSchema,
 } from "../../../src/shared/schemas/plugin-output";
 
-const fixturesDir = resolve(__dirname, "../../../fixtures/plugin-output");
-const metadataFixturesDir = resolve(__dirname, "../../../fixtures/plugin-metadata");
+const fixturesDir = resolve(__dirname, "../../fixtures/plugin-output");
+const metadataFixturesDir = resolve(__dirname, "../../fixtures/plugin-metadata");
 
 describe("pluginResultSchema (discriminated union)", () => {
     it("accepts success-basic.json", () => {

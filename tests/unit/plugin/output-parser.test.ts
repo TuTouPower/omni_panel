@@ -7,7 +7,7 @@ import {
     PluginSchemaError,
 } from "../../../src/shared/errors/plugin-errors";
 
-const fixturesDir = resolve(__dirname, "../../../fixtures/plugin-output");
+const fixturesDir = resolve(__dirname, "../../fixtures/plugin-output");
 
 function loadFixture(name: string): string {
     return readFileSync(resolve(fixturesDir, name), "utf8");

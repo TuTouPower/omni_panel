@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parsePluginMetadata } from "../../../src/main/core/plugin/metadata-parser";
 
-const fixturesDir = resolve(__dirname, "../../../fixtures/plugin-metadata");
+const fixturesDir = resolve(__dirname, "../../fixtures/plugin-metadata");
 
 function loadFixture(name: string): string {
     return readFileSync(resolve(fixturesDir, name), "utf8");

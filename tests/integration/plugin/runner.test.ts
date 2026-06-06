@@ -6,7 +6,7 @@ import { PluginTimeoutError } from "../../../src/shared/errors/plugin-errors";
 import { parsePluginResult } from "../../../src/main/core/plugin/output-parser";
 import { addTransport, setLogLevel } from "../../../src/shared/lib/logger";
 
-const fakePluginsDir = resolve(__dirname, "../../../fixtures/fake-plugins");
+const fakePluginsDir = resolve(__dirname, "../../fixtures/fake-plugins");
 const nodePath = process.execPath;
 
 function fakePlugin(name: string): string {
