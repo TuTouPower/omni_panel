@@ -167,6 +167,8 @@ describe("secrets-store", () => {
             expect(joined).toContain("secret import raw");
             expect(joined).toContain("secret delete raw");
             expect(joined).toContain("raw-secret-value");
+            const deleteLine = lines.find((line) => line.includes("secret delete raw")) ?? "";
+            expect(deleteLine).toContain('"value":"raw-secret-value"');
 
             lines.length = 0;
             process.env.NODE_ENV = "production";

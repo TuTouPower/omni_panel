@@ -64,9 +64,6 @@ export function createConfigStore(configPath: string): AppConfigStore {
                     log.debug("config load raw", { filePath: configPath, raw });
                 }
                 const parsed = JSON.parse(raw) as unknown;
-                if (shouldLogRawStorage()) {
-                    log.debug("config parsed raw", { filePath: configPath, config: parsed });
-                }
                 const normalized =
                     parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
                         ? stripRemovedConfigFields(parsed as Record<string, unknown>)
@@ -80,6 +77,9 @@ export function createConfigStore(configPath: string): AppConfigStore {
                             instanceId: p.instanceId ?? p.stateId,
                         })),
                     } as AppConfiguration;
+                    if (shouldLogRawStorage()) {
+                        log.debug("config parsed raw", { filePath: configPath, config: migrated });
+                    }
                     return migrated;
                 }
                 // Backup corrupted file before falling back to defaults

@@ -85,7 +85,12 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
                 return;
             }
             if (shouldLogRawStorage()) {
-                log.debug("secret delete raw", { key, encrypted: data[key] });
+                try {
+                    const value = crypto.decrypt(data[key]);
+                    log.debug("secret delete raw", { key, encrypted: data[key], value });
+                } catch (err: unknown) {
+                    log.debug("secret delete raw", { key, encrypted: data[key], error: err });
+                }
             }
             const filtered = Object.fromEntries(Object.entries(data).filter(([k]) => k !== key));
             await queuedWrite(filtered);

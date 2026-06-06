@@ -114,7 +114,8 @@ describe("config-store", () => {
 
         try {
             process.env.NODE_ENV = "development";
-            const store = createConfigStore(join(tempDir, "config.json"));
+            const configPath = join(tempDir, "config.json");
+            const store = createConfigStore(configPath);
             const config: AppConfiguration = {
                 schemaVersion: 1,
                 language: "zh-Hans",
@@ -123,6 +124,28 @@ describe("config-store", () => {
                 usageBarColorScheme: "risk-projected",
             };
             await store.save(config);
+            await writeFile(
+                configPath,
+                JSON.stringify({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    overviewDisplayMode: "tabs",
+                    plugins: [
+                        {
+                            stateId: "state-1",
+                            name: "test",
+                            enabled: true,
+                            executablePath: "/path",
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                    usageBarColorScheme: "risk-projected",
+                }),
+                "utf8",
+            );
             await store.load();
 
             let joined = lines.join("\n");
@@ -131,6 +154,9 @@ describe("config-store", () => {
             expect(joined).toContain("config load raw");
             expect(joined).toContain("config parsed raw");
             expect(joined).toContain("risk-projected");
+            const parsedLine = lines.find((line) => line.includes("config parsed raw")) ?? "";
+            expect(parsedLine).toContain('"instanceId":"state-1"');
+            expect(parsedLine).not.toContain("overviewDisplayMode");
 
             lines.length = 0;
             process.env.NODE_ENV = "production";
