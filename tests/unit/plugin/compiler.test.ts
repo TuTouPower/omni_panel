@@ -62,6 +62,24 @@ describe("compilePlugin", () => {
         expect(mockBuild).toHaveBeenCalledOnce();
     });
 
+    it("recompiles when SDK changes", async () => {
+        const plugin = makePlugin("test.ts");
+        await writeFile(plugin.executablePath, `console.log("hello");`, "utf8");
+        mockBuild.mockResolvedValue({ errors: [], warnings: [] });
+
+        const cacheDir = join(testDir, "cache");
+        await compilePlugin(plugin, cacheDir, sdkDir);
+        await writeFile(
+            join(sdkDir, "index.ts"),
+            "export function definePlugin() { return 1; }",
+            "utf8",
+        );
+        const result = await compilePlugin(plugin, cacheDir, sdkDir);
+
+        expect(result.status).toBe("compiled");
+        expect(mockBuild).toHaveBeenCalledTimes(2);
+    });
+
     it("returns compile_error for build failure with no cache", async () => {
         const plugin = makePlugin("bad.ts");
         await writeFile(plugin.executablePath, `const x = "unclosed`, "utf8");

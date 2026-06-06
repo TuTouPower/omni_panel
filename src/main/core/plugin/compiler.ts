@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { join, basename } from "node:path";
 import { createLogger } from "../../../shared/lib/logger";
 import type { PluginDefinition } from "./types";
@@ -50,9 +50,25 @@ export type CompileResult =
     | { status: "stale_cache"; executablePath: string; error: string }
     | { status: "compile_error"; executablePath: ""; error: string };
 
-async function computeHash(filePath: string): Promise<string> {
-    const content = await readFile(filePath, "utf8");
-    return createHash("sha256").update(content).digest("hex");
+async function list_sdk_files(dir: string): Promise<string[]> {
+    const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+    return entries
+        .filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
+        .map((entry) => join(entry.parentPath, entry.name))
+        .sort();
+}
+
+async function compute_compile_hash(plugin_path: string, sdk_dir: string): Promise<string> {
+    const hash = createHash("sha256");
+    const plugin_content = await readFile(plugin_path, "utf8");
+    hash.update("plugin\0").update(plugin_path).update("\0").update(plugin_content);
+
+    for (const file_path of await list_sdk_files(sdk_dir)) {
+        const sdk_content = await readFile(file_path, "utf8");
+        hash.update("sdk\0").update(file_path).update("\0").update(sdk_content);
+    }
+
+    return hash.digest("hex");
 }
 
 export async function compilePlugin(
@@ -66,7 +82,7 @@ export async function compilePlugin(
     const outPath = join(outDir, "index.js");
     const manifestPath = join(outDir, "manifest.json");
 
-    const sourceHash = await computeHash(plugin.executablePath);
+    const sourceHash = await compute_compile_hash(plugin.executablePath, sdkDir);
 
     // Check cache
     try {
