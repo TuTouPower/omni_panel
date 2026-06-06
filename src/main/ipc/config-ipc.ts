@@ -300,44 +300,40 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () =>
         logged(IPC_CHANNELS.CONFIG_GET, [], () => handleConfigGet(deps)),
     );
-    ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE, (e, config: unknown) =>
-        logged(IPC_CHANNELS.CONFIG_SAVE, [config], async () => {
-            assert_valid_sender(e);
+    ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE, (e, config: unknown) => {
+        assert_valid_sender(e);
+        return logged(IPC_CHANNELS.CONFIG_SAVE, [config], async () => {
             const result = await handleConfigSave(deps, config);
             if (result.ok) {
                 const cfg = config as { plugins?: unknown[] };
                 log.info(`Config saved: ${String(cfg.plugins?.length ?? "?")} plugins`);
             }
             return result;
-        }),
-    );
-    ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (e, payload: unknown) =>
-        logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, [payload], () => {
-            assert_valid_sender(e);
+        });
+    });
+    ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (e, payload: unknown) => {
+        assert_valid_sender(e);
+        return logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, [payload], () => {
             const p = payload as { instanceId?: string; secrets?: Record<string, unknown> };
             log.info(
                 `Saving secrets for instanceId=${p.instanceId ?? "?"}, keys=[${Object.keys(p.secrets ?? {}).join(", ")}]`,
             );
             return handleConfigSaveSecrets(deps, payload);
-        }),
-    );
-    ipcMain.handle(IPC_CHANNELS.CONFIG_DUPLICATE, (e, instanceId: string) =>
-        logged(IPC_CHANNELS.CONFIG_DUPLICATE, [instanceId], () => {
-            assert_valid_sender(e);
+        });
+    });
+    ipcMain.handle(IPC_CHANNELS.CONFIG_DUPLICATE, (e, instanceId: string) => {
+        assert_valid_sender(e);
+        return logged(IPC_CHANNELS.CONFIG_DUPLICATE, [instanceId], () => {
             log.info(`Duplicating plugin ${instanceId}`);
             return handleConfigDuplicate(deps, instanceId);
-        }),
-    );
-    ipcMain.handle(IPC_CHANNELS.CONFIG_EXPORT, (e) =>
-        logged(IPC_CHANNELS.CONFIG_EXPORT, [], () => {
-            assert_valid_sender(e);
-            return handleConfigExport(deps);
-        }),
-    );
-    ipcMain.handle(IPC_CHANNELS.CONFIG_IMPORT, (e) =>
-        logged(IPC_CHANNELS.CONFIG_IMPORT, [], () => {
-            assert_valid_sender(e);
-            return handleConfigImport(deps);
-        }),
-    );
+        });
+    });
+    ipcMain.handle(IPC_CHANNELS.CONFIG_EXPORT, (e) => {
+        assert_valid_sender(e);
+        return logged(IPC_CHANNELS.CONFIG_EXPORT, [], () => handleConfigExport(deps));
+    });
+    ipcMain.handle(IPC_CHANNELS.CONFIG_IMPORT, (e) => {
+        assert_valid_sender(e);
+        return logged(IPC_CHANNELS.CONFIG_IMPORT, [], () => handleConfigImport(deps));
+    });
 }

@@ -106,7 +106,7 @@ describe("config-ipc", () => {
     it("logs raw config IPC request and response payloads", async () => {
         const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
         const lines: string[] = [];
-        addTransport({
+        const remove_transport = addTransport({
             write(level, module, message, meta) {
                 lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
             },
@@ -132,6 +132,8 @@ describe("config-ipc", () => {
             expect(joined).toContain("ipc response raw");
             expect(joined).toContain("config:get");
         } finally {
+            remove_transport();
+            setLogLevel("info");
             if (previous_node_env === undefined) {
                 delete process.env["NODE_ENV"];
             } else {
