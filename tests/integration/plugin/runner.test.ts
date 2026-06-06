@@ -4,6 +4,7 @@ import { executePlugin } from "../../../src/main/core/plugin/runner";
 import { buildPluginCommand } from "../../../src/main/core/plugin/command-builder";
 import { PluginTimeoutError } from "../../../src/shared/errors/plugin-errors";
 import { parsePluginResult } from "../../../src/main/core/plugin/output-parser";
+import { addTransport, setLogLevel } from "../../../src/shared/lib/logger";
 
 const fakePluginsDir = resolve(__dirname, "../../../fixtures/fake-plugins");
 const nodePath = process.execPath;
@@ -49,6 +50,40 @@ describe("executePlugin", () => {
         const result = await executePlugin(cmd);
         expect(result.exitCode).toBe(0);
         expect(result.stderr).toContain("debug info");
+    });
+
+    it("does not log raw command or output outside development", async () => {
+        const original_node_env = process.env["NODE_ENV"];
+        process.env["NODE_ENV"] = "production";
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                if (module === "runner") {
+                    lines.push(`${level}:${message}:${JSON.stringify(meta)}`);
+                }
+            },
+        });
+        setLogLevel("debug");
+        const cmd = buildPluginCommand(fakePlugin("prints-to-stderr.js"), {}, "zh-Hans", nodePath);
+
+        try {
+            const result = await executePlugin(cmd);
+            const joined = lines.join("\n");
+
+            expect(result.exitCode).toBe(0);
+            expect(joined).toContain("spawn:");
+            expect(joined).toContain("exit 0");
+            expect(joined).not.toContain("plugin command raw");
+            expect(joined).not.toContain("plugin stdout raw");
+            expect(joined).not.toContain("plugin stderr raw");
+        } finally {
+            if (original_node_env === undefined) {
+                delete process.env["NODE_ENV"];
+            } else {
+                process.env["NODE_ENV"] = original_node_env;
+            }
+            remove_transport();
+        }
     });
 
     it("passes parameters correctly", async () => {

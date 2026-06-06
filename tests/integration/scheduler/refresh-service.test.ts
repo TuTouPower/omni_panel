@@ -322,6 +322,8 @@ describe("refresh-service", () => {
     });
 
     it("logs full plugin stdout, parsed output, and runtime payload", async () => {
+        const original_node_env = process.env["NODE_ENV"];
+        process.env["NODE_ENV"] = "development";
         const lines: string[] = [];
         const remove_transport = addTransport({
             write(level, module, message, meta) {
@@ -374,6 +376,56 @@ describe("refresh-service", () => {
             expect(joined).toContain("parsed plugin output raw");
             expect(joined).toContain("runtime ready payload raw");
         } finally {
+            if (original_node_env === undefined) {
+                delete process.env["NODE_ENV"];
+            } else {
+                process.env["NODE_ENV"] = original_node_env;
+            }
+            remove_transport();
+        }
+    });
+
+    it("does not log raw plugin payloads outside development", async () => {
+        const original_node_env = process.env["NODE_ENV"];
+        process.env["NODE_ENV"] = "production";
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        const deps = createDeps({
+            runner: vi.fn<RefreshServiceDeps["runner"]>().mockResolvedValue({
+                stdout: JSON.stringify({
+                    success: true,
+                    schemaVersion: 1,
+                    updatedAt: "2026-05-24T12:00:00Z",
+                    items: [],
+                }),
+                stderr: "debug stderr body",
+                exitCode: 0,
+                durationMs: 123,
+            }),
+        });
+        const service = createRefreshService(deps);
+
+        try {
+            await service.refresh("state-1", { force: true });
+            const joined = lines.join("\n");
+
+            expect(joined).toContain("Plugin state-1 (test-plugin) stdout");
+            expect(joined).not.toContain("plugin stdout raw");
+            expect(joined).not.toContain("debug stderr body");
+            expect(joined).not.toContain("parsed plugin output raw");
+            expect(joined).not.toContain("runtime ready payload raw");
+        } finally {
+            if (original_node_env === undefined) {
+                delete process.env["NODE_ENV"];
+            } else {
+                process.env["NODE_ENV"] = original_node_env;
+            }
             remove_transport();
         }
     });
