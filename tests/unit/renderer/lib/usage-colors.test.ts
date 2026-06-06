@@ -84,6 +84,7 @@ describe("usage color debug logs", () => {
             expect(joined).toContain('"result":"var(--risk-yellow)"');
         } finally {
             remove_transport();
+            setLogLevel("debug");
         }
     });
 });
