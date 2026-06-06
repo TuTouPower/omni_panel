@@ -247,6 +247,20 @@ describe("SettingsView", () => {
         });
     });
 
+    it("does not render connector-level toggle for CPA account rows", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        await waitFor(() => {
+            expect(screen.getByText("在数据源中管理")).toBeInTheDocument();
+        });
+
+        const cpa_row = screen.getByText("在数据源中管理").closest(".ao-item");
+        if (!cpa_row) throw new Error("missing CPA row");
+        expect(cpa_row.querySelector(".sw")).toBeNull();
+    });
+
     it("renders CPA connector settings page from accounts", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);

@@ -1342,25 +1342,31 @@ export function SettingsView() {
                                                                 来自 CPA Manager
                                                             </span>
                                                         )}
-                                                        <Toggle
-                                                            on={is_enabled}
-                                                            onClick={() => {
-                                                                void save_config({
-                                                                    ...config,
-                                                                    plugins: config.plugins.map(
-                                                                        (pl) =>
-                                                                            pl.instanceId ===
-                                                                            p.instanceId
-                                                                                ? {
-                                                                                      ...pl,
-                                                                                      enabled:
-                                                                                          !pl.enabled,
-                                                                                  }
-                                                                                : pl,
-                                                                    ),
-                                                                });
-                                                            }}
-                                                        />
+                                                        {info?.source === "cpa" ? (
+                                                            <span className="src-tag">
+                                                                在数据源中管理
+                                                            </span>
+                                                        ) : (
+                                                            <Toggle
+                                                                on={is_enabled}
+                                                                onClick={() => {
+                                                                    void save_config({
+                                                                        ...config,
+                                                                        plugins: config.plugins.map(
+                                                                            (pl) =>
+                                                                                pl.instanceId ===
+                                                                                p.instanceId
+                                                                                    ? {
+                                                                                          ...pl,
+                                                                                          enabled:
+                                                                                              !pl.enabled,
+                                                                                      }
+                                                                                    : pl,
+                                                                        ),
+                                                                    });
+                                                                }}
+                                                            />
+                                                        )}
                                                         <button
                                                             className="icon-btn sp-ic"
                                                             title="编辑"
@@ -1484,26 +1490,32 @@ export function SettingsView() {
                                                                             来自 CPA Manager
                                                                         </span>
                                                                     )}
-                                                                    <Toggle
-                                                                        on={is_enabled}
-                                                                        onClick={() => {
-                                                                            void save_config({
-                                                                                ...config,
-                                                                                plugins:
-                                                                                    config.plugins.map(
-                                                                                        (pl) =>
-                                                                                            pl.instanceId ===
-                                                                                            p.instanceId
-                                                                                                ? {
-                                                                                                      ...pl,
-                                                                                                      enabled:
-                                                                                                          !pl.enabled,
-                                                                                                  }
-                                                                                                : pl,
-                                                                                    ),
-                                                                            });
-                                                                        }}
-                                                                    />
+                                                                    {info?.source === "cpa" ? (
+                                                                        <span className="src-tag">
+                                                                            在数据源中管理
+                                                                        </span>
+                                                                    ) : (
+                                                                        <Toggle
+                                                                            on={is_enabled}
+                                                                            onClick={() => {
+                                                                                void save_config({
+                                                                                    ...config,
+                                                                                    plugins:
+                                                                                        config.plugins.map(
+                                                                                            (pl) =>
+                                                                                                pl.instanceId ===
+                                                                                                p.instanceId
+                                                                                                    ? {
+                                                                                                          ...pl,
+                                                                                                          enabled:
+                                                                                                              !pl.enabled,
+                                                                                                      }
+                                                                                                    : pl,
+                                                                                        ),
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    )}
                                                                     <button
                                                                         className="icon-btn sp-ic"
                                                                         title="编辑"

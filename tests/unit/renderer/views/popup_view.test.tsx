@@ -386,6 +386,93 @@ describe("PopupView", () => {
         });
     });
 
+    it("hides CPA account by saving account override", async () => {
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        await waitFor(() => {
+            expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
+        });
+
+        const account_menu = screen.getAllByLabelText("账号操作")[0];
+        if (!account_menu) throw new Error("account menu not found");
+        fireEvent.click(account_menu);
+
+        await waitFor(() => {
+            expect(screen.getByText("隐藏")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByText("隐藏"));
+
+        await waitFor(() => {
+            expect(config_save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    accountOverrides: {
+                        hidden: {
+                            claude: ["cpa-main:label:Claude Account"],
+                        },
+                    },
+                }),
+            );
+        });
+    });
+
+    it("deletes direct account by removing its plugin config", async () => {
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [
+                    {
+                        instanceId: "deepseek-key",
+                        stateId: "deepseek-key",
+                        name: "DeepSeek",
+                        enabled: true,
+                        executablePath: "plugins/deepseek.ts",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+            },
+            hasSecrets: {},
+        });
+        window.usageboard.config.save = config_save;
+        vi.spyOn(window, "confirm").mockReturnValue(true);
+
+        render(<PopupView />);
+
+        const deepseek_tab = await screen.findByRole("button", { name: /^DeepSeek$/ });
+        fireEvent.click(deepseek_tab);
+
+        await waitFor(() => {
+            expect(screen.getAllByText("DeepSeek Account").length).toBeGreaterThan(0);
+        });
+
+        const account_menu = screen.getAllByLabelText("账号操作")[0];
+        if (!account_menu) throw new Error("account menu not found");
+        fireEvent.click(account_menu);
+
+        await waitFor(() => {
+            expect(screen.getByText("删除")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByText("删除"));
+
+        await waitFor(() => {
+            expect(config_save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    plugins: [],
+                }),
+            );
+        });
+    });
+
     it("opens settings with context when account edit is clicked", async () => {
         const settings_open = vi.fn();
         window.usageboard.settings.open = settings_open;
