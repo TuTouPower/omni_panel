@@ -46,6 +46,7 @@ typings/
 .env
 .env.test
 .env.local
+config/env/.env.local
 
 # Package artifacts
 *.tgz

@@ -134,7 +134,7 @@ describe("plugin-ipc", () => {
                         stateId: "deepseek-1",
                         name: "DeepSeek",
                         enabled: true,
-                        executablePath: "resources\\plugins\\deepseek-usage-plugin.py",
+                        executablePath: "assets\\plugins\\deepseek-usage-plugin.ts",
                         refreshIntervalSeconds: 300,
                         parameterValues: {},
                         endpointOverrides: {},
@@ -160,8 +160,8 @@ describe("plugin-ipc", () => {
         };
         const definitions = [
             {
-                scriptName: "deepseek-usage-plugin.py",
-                executablePath: "resources\\plugins\\deepseek-usage-plugin.py",
+                scriptName: "deepseek-usage-plugin.ts",
+                executablePath: "assets\\plugins\\deepseek-usage-plugin.ts",
                 metadata: {
                     schemaVersion: 1,
                     name: "DeepSeek",
