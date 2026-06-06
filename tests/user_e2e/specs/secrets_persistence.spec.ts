@@ -51,12 +51,24 @@ const { test, expect } = createTestWithSetup({
 });
 
 async function openSettings(app: ElectronApplication, page: Page): Promise<Page> {
-    await page.evaluate(() => {
-        window.usageboard.settings.open();
-    });
-    const settingsWindow = await app.waitForEvent("window", { timeout: 10_000 });
-    await settingsWindow.waitForLoadState("domcontentloaded");
-    await settingsWindow.waitForSelector('[data-testid="settings-sidebar"]', { timeout: 10_000 });
+    const [settingsWindow] = await Promise.all([
+        app.waitForEvent("window", {
+            predicate: async (appWindow) => {
+                await appWindow
+                    .waitForLoadState("domcontentloaded", { timeout: 5_000 })
+                    .catch(() => undefined);
+                return appWindow
+                    .locator('[data-testid="settings-sidebar"]')
+                    .isVisible({ timeout: 5_000 })
+                    .catch(() => false);
+            },
+            timeout: 10_000,
+        }),
+        page.evaluate(() => {
+            window.usageboard.settings.open();
+        }),
+    ]);
+
     return settingsWindow;
 }
 

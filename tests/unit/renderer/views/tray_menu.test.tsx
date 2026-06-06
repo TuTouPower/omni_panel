@@ -62,7 +62,7 @@ describe("TrayMenu", () => {
                 on_autostart_state: vi.fn(() => vi.fn()),
             },
             log: vi.fn(),
-        };
+        } as unknown as typeof window.usageboard;
     });
 
     it("applies dark theme from saved config", async () => {

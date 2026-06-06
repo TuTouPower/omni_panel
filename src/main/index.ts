@@ -220,7 +220,17 @@ void app.whenReady().then(async () => {
     const configPath = getConfigPath();
     const statesDir = getStatesDir();
 
-    const crypto = createSafeStorageCrypto();
+    const crypto =
+        process.env["E2E"] === "1"
+            ? {
+                  encrypt(plaintext: string): string {
+                      return Buffer.from(plaintext, "utf8").toString("base64");
+                  },
+                  decrypt(ciphertext: string): string {
+                      return Buffer.from(ciphertext, "base64").toString("utf8");
+                  },
+              }
+            : createSafeStorageCrypto();
     const configStore = createConfigStore(configPath);
     const cacheStore = createCacheStore(statesDir);
     const runtimeStore = createRuntimeStore();

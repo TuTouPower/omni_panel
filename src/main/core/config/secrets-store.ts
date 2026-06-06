@@ -47,7 +47,14 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
             if (encrypted === undefined) {
                 return null;
             }
-            return crypto.decrypt(encrypted);
+            try {
+                return crypto.decrypt(encrypted);
+            } catch {
+                log.warn(
+                    `Failed to decrypt secret ${key.split(":")[0] ?? key}:***, treating as missing`,
+                );
+                return null;
+            }
         },
 
         async set(key: string, value: string): Promise<void> {

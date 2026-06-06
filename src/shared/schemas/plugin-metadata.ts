@@ -28,6 +28,7 @@ export const pluginParameterMetadataSchema = z
         type: pluginParameterTypeSchema,
         required: z.boolean(),
         placeholder: z.string().optional(),
+        description: z.string().optional(),
         defaultValue: z.string().optional(),
         options: z.array(pluginParameterOptionSchema).optional(),
         // localization fields

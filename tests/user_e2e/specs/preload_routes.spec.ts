@@ -10,10 +10,10 @@ import type { Page } from "@playwright/test";
 
 async function getConfigApiKeys(page: Page): Promise<string[]> {
     return page.evaluate(() => {
-        const c = (window as unknown as Record<string, unknown>).usageboard as
+        const c = (window as unknown as Record<string, unknown>)["usageboard"] as
             | Record<string, unknown>
             | undefined;
-        const cfg = c?.config as Record<string, unknown> | undefined;
+        const cfg = c?.["config"] as Record<string, unknown> | undefined;
         return cfg ? Object.keys(cfg).sort() : [];
     });
 }

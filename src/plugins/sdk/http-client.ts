@@ -139,7 +139,11 @@ function buildProxyDispatcher(): Dispatcher | undefined {
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
 async function readBodyWithLimit(res: Dispatcher.ResponseData): Promise<string> {
-    const contentLength = parseInt(res.headers["content-length"] ?? "0", 10);
+    const rawContentLength = res.headers["content-length"];
+    const contentLengthValue = Array.isArray(rawContentLength)
+        ? rawContentLength[0]
+        : rawContentLength;
+    const contentLength = parseInt(contentLengthValue ?? "0", 10);
     if (contentLength > MAX_BODY_SIZE) {
         throw new Error(`Response body too large: ${String(contentLength)} bytes`);
     }

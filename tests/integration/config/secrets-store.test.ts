@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, stat, readFile } from "node:fs/promises";
+import { mkdtemp, rm, stat, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createSecretsStore } from "../../../src/main/core/config/secrets-store";
@@ -80,6 +80,21 @@ describe("secrets-store", () => {
         const store = createSecretsStore(join(tempDir, "secrets.json"), trackingCrypto);
         await store.set("token", "my-secret-token");
         expect(encryptCalls).toEqual(["my-secret-token"]);
+    });
+
+    it("returns null when stored ciphertext cannot be decrypted", async () => {
+        const filePath = join(tempDir, "secrets.json");
+        const store = createSecretsStore(filePath, {
+            encrypt(plaintext: string) {
+                return testCrypto.encrypt(plaintext);
+            },
+            decrypt() {
+                throw new Error("bad ciphertext");
+            },
+        });
+        await writeFile(filePath, JSON.stringify({ api_key: "broken" }));
+
+        expect(await store.get("api_key")).toBeNull();
     });
 
     it("exportAll returns all secrets decrypted", async () => {
