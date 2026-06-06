@@ -49,10 +49,17 @@ function serialize_meta(meta: unknown): unknown {
                 stack: value.stack,
             };
         }
+        if (value instanceof Date) return value.toISOString();
         if (seen.has(value)) return "[Circular]";
         seen.add(value);
         try {
             if (Array.isArray(value)) return value.map((item) => visit(item));
+            if (value instanceof Map) {
+                return Object.fromEntries(
+                    Array.from(value.entries()).map(([key, item]) => [String(key), visit(item)]),
+                );
+            }
+            if (value instanceof Set) return Array.from(value.values()).map((item) => visit(item));
             if (Object.getPrototypeOf(value) !== Object.prototype)
                 return Object.prototype.toString.call(value);
 

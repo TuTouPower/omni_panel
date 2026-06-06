@@ -76,4 +76,33 @@ describe("logger", () => {
             remove_transport();
         }
     });
+
+    it("serializes Date Map and Set metadata as raw JSON-compatible values", () => {
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            const log = createLogger("test");
+            log.debug("native values", {
+                resetAt: new Date("2026-06-06T12:00:00.000Z"),
+                headers: new Map<string, unknown>([["Authorization", "Bearer real-token"]]),
+                providers: new Set(["claude", "codex"]),
+            });
+
+            const output = lines.join("\n");
+            expect(output).toContain('"resetAt":"2026-06-06T12:00:00.000Z"');
+            expect(output).toContain('"headers":{"Authorization":"Bearer real-token"}');
+            expect(output).toContain('"providers":["claude","codex"]');
+            expect(output).not.toContain("[object Date]");
+            expect(output).not.toContain("[object Map]");
+            expect(output).not.toContain("[object Set]");
+        } finally {
+            remove_transport();
+        }
+    });
 });
