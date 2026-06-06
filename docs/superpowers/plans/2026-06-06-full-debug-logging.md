@@ -996,7 +996,7 @@ Run:
 pnpm package
 ```
 
-Expected: package succeeds and starts `out/OmniUsage-win32-x64/OmniUsage.exe`.
+Expected: package succeeds and starts `dist/OmniUsage-win32-x64/OmniUsage.exe`.
 
 - [ ] **Step 6: Run packaged smoke**
 

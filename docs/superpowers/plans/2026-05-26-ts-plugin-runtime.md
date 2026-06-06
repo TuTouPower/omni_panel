@@ -28,30 +28,30 @@
 
 ### New files
 
-| File                                                      | Responsibility                                                                |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `src/plugins/sdk/index.ts`                                | SDK unified re-export                                                         |
-| `src/plugins/sdk/define-plugin.ts`                        | `definePlugin`, `parseArgs`, `requireParam`                                   |
-| `src/plugins/sdk/result.ts`                               | `ok`, `fail`                                                                  |
-| `src/plugins/sdk/http.ts`                                 | `fetchJson`, `PluginHttpError`                                                |
-| `src/plugins/sdk/helpers.ts`                              | `statusFor`, `colorFor`, `colorForPct`, `makeTranslator`, common translations |
-| `src/main/core/plugin/compiler.ts`                        | esbuild compile TS→JS, sourceHash cache, manifest                             |
-| `resources/plugins/deepseek-usage-plugin.ts`              | DeepSeek plugin                                                               |
-| `resources/plugins/tavily-usage-plugin.ts`                | Tavily plugin                                                                 |
-| `resources/plugins/glm-usage-plugin.ts`                   | GLM plugin                                                                    |
-| `resources/plugins/minimax-usage-plugin.ts`               | MiniMax plugin                                                                |
-| `resources/plugins/codex-usage-plugin.ts`                 | Codex plugin                                                                  |
-| `resources/plugins/claude-usage-plugin.ts`                | Claude plugin                                                                 |
-| `resources/plugins/cpa-usage-plugin.ts`                   | CPA plugin                                                                    |
-| `tests/unit/plugin/compiler.test.ts`                      | Compiler tests                                                                |
-| `tests/unit/sdk/result.test.ts`                           | SDK result tests                                                              |
-| `tests/unit/sdk/helpers.test.ts`                          | SDK helpers tests                                                             |
-| `tests/unit/sdk/define-plugin.test.ts`                    | SDK definePlugin tests                                                        |
-| `fixtures/plugin-metadata/metadata-basic.ts`              | TS metadata fixture                                                           |
-| `fixtures/plugin-metadata/metadata-with-secret.ts`        | TS metadata fixture                                                           |
-| `fixtures/plugin-metadata/metadata-with-choice.ts`        | TS metadata fixture                                                           |
-| `fixtures/plugin-metadata/metadata-missing-end-marker.ts` | TS metadata fixture                                                           |
-| `fixtures/plugin-metadata/metadata-invalid-json.ts`       | TS metadata fixture                                                           |
+| File                                                            | Responsibility                                                                |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `src/plugins/sdk/index.ts`                                      | SDK unified re-export                                                         |
+| `src/plugins/sdk/define-plugin.ts`                              | `definePlugin`, `parseArgs`, `requireParam`                                   |
+| `src/plugins/sdk/result.ts`                                     | `ok`, `fail`                                                                  |
+| `src/plugins/sdk/http.ts`                                       | `fetchJson`, `PluginHttpError`                                                |
+| `src/plugins/sdk/helpers.ts`                                    | `statusFor`, `colorFor`, `colorForPct`, `makeTranslator`, common translations |
+| `src/main/core/plugin/compiler.ts`                              | esbuild compile TS→JS, sourceHash cache, manifest                             |
+| `resources/plugins/deepseek-usage-plugin.ts`                    | DeepSeek plugin                                                               |
+| `resources/plugins/tavily-usage-plugin.ts`                      | Tavily plugin                                                                 |
+| `resources/plugins/glm-usage-plugin.ts`                         | GLM plugin                                                                    |
+| `resources/plugins/minimax-usage-plugin.ts`                     | MiniMax plugin                                                                |
+| `resources/plugins/codex-usage-plugin.ts`                       | Codex plugin                                                                  |
+| `resources/plugins/claude-usage-plugin.ts`                      | Claude plugin                                                                 |
+| `resources/plugins/cpa-usage-plugin.ts`                         | CPA plugin                                                                    |
+| `tests/unit/plugin/compiler.test.ts`                            | Compiler tests                                                                |
+| `tests/unit/sdk/result.test.ts`                                 | SDK result tests                                                              |
+| `tests/unit/sdk/helpers.test.ts`                                | SDK helpers tests                                                             |
+| `tests/unit/sdk/define-plugin.test.ts`                          | SDK definePlugin tests                                                        |
+| `tests/fixtures/plugin-metadata/metadata-basic.ts`              | TS metadata fixture                                                           |
+| `tests/fixtures/plugin-metadata/metadata-with-secret.ts`        | TS metadata fixture                                                           |
+| `tests/fixtures/plugin-metadata/metadata-with-choice.ts`        | TS metadata fixture                                                           |
+| `tests/fixtures/plugin-metadata/metadata-missing-end-marker.ts` | TS metadata fixture                                                           |
+| `tests/fixtures/plugin-metadata/metadata-invalid-json.ts`       | TS metadata fixture                                                           |
 
 ### Modified files
 
@@ -72,15 +72,15 @@
 
 ### Deleted files (Task 12, after all TS plugins written)
 
-| File                                      | Reason                         |
-| ----------------------------------------- | ------------------------------ |
-| `src/main/core/plugin/python-detect.ts`   | No Python                      |
-| `resources/plugins/*.py`                  | All replaced by TS             |
-| `resources/plugins/_common.py`            | Replaced by SDK                |
-| `tests/unit/plugin/python-detect.test.ts` | Testing deleted code           |
-| `src/main/ipc/system-ipc.ts`              | Only had Python status handler |
-| `fixtures/plugin-metadata/metadata-*.py`  | Replaced by TS fixtures        |
-| `docs/ts-plugin-runtime-plan.md`          | Archive to `docs/archive/`     |
+| File                                           | Reason                         |
+| ---------------------------------------------- | ------------------------------ |
+| `src/main/core/plugin/python-detect.ts`        | No Python                      |
+| `resources/plugins/*.py`                       | All replaced by TS             |
+| `resources/plugins/_common.py`                 | Replaced by SDK                |
+| `tests/unit/plugin/python-detect.test.ts`      | Testing deleted code           |
+| `src/main/ipc/system-ipc.ts`                   | Only had Python status handler |
+| `tests/fixtures/plugin-metadata/metadata-*.py` | Replaced by TS fixtures        |
+| `docs/ts-plugin-runtime-plan.md`               | Archive to `docs/archive/`     |
 
 ---
 
@@ -340,7 +340,7 @@ feat: rewrite output parser for discriminated union, update refresh service
 - Modify: `src/main/core/plugin/metadata-parser.ts`
 - Create: TS fixture files (replace .py fixtures)
 - Modify: `tests/unit/plugin/metadata-parser.test.ts`
-- Delete: `fixtures/plugin-metadata/metadata-*.py`
+- Delete: `tests/fixtures/plugin-metadata/metadata-*.py`
 
 Only `//` comment prefix. No `#` support. Replace `.py` fixtures with `.ts` fixtures immediately.
 
@@ -358,7 +358,7 @@ function stripCommentPrefix(line: string): string {
 
 - [ ] **Step 2: Create TS fixtures, delete .py fixtures**
 
-Delete all `fixtures/plugin-metadata/metadata-*.py` files. Create new `.ts` fixtures:
+Delete all `tests/fixtures/plugin-metadata/metadata-*.py` files. Create new `.ts` fixtures:
 
 `metadata-basic.ts`:
 
@@ -425,7 +425,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parsePluginMetadata } from "../../../src/main/core/plugin/metadata-parser";
 
-const fixturesDir = resolve(__dirname, "../../../fixtures/plugin-metadata");
+const fixturesDir = resolve(__dirname, "../../fixtures/plugin-metadata");
 function loadFixture(name: string): string {
     return readFileSync(resolve(fixturesDir, name), "utf8");
 }
@@ -1528,7 +1528,7 @@ feat: add CPA and Claude TypeScript plugins
 - Delete: `src/main/core/plugin/python-detect.ts`
 - Delete: `tests/unit/plugin/python-detect.test.ts`
 - Delete: `src/main/ipc/system-ipc.ts` (if not already deleted)
-- Delete: `fixtures/plugin-metadata/metadata-*.py`
+- Delete: `tests/fixtures/plugin-metadata/metadata-*.py`
 - Move: `docs/ts-plugin-runtime-plan.md` → `docs/archive/`
 
 All TS plugins are now in place. Safe to remove Python.
@@ -1539,7 +1539,7 @@ All TS plugins are now in place. Safe to remove Python.
 rm resources/plugins/_common.py resources/plugins/*.py
 rm src/main/core/plugin/python-detect.ts
 rm tests/unit/plugin/python-detect.test.ts
-rm fixtures/plugin-metadata/metadata-*.py
+rm tests/fixtures/plugin-metadata/metadata-*.py
 ```
 
 - [ ] **Step 2: Archive reference doc**

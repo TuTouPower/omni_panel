@@ -1196,7 +1196,7 @@ git commit -m "test: visual regression baseline for popup and settings states"
 - Create: `tests/packaged_smoke/run.ts`
 - Create: `scripts/run_packaged_smoke.ts`
 - Modify: `package.json`（加 `test:packaged`：先 `pnpm package` 再跑 packaged smoke）
-- Modify: `playwright.config.ts`（新增 `packaged` project，executablePath 指向 `out/OmniUsage-win32-x64/OmniUsage.exe`）
+- Modify: `playwright.config.ts`（新增 `packaged` project，executablePath 指向 `dist/OmniUsage-win32-x64/OmniUsage.exe`）
 
 之前的踩坑：dev 跑通 packaged 白屏（GPU / 路径 / extraResource）。这是最关键的一层。
 
@@ -1209,9 +1209,9 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 const PACKAGED_EXE = {
-    win32: resolve("out/OmniUsage-win32-x64/OmniUsage.exe"),
-    darwin: resolve("out/OmniUsage-darwin-arm64/OmniUsage.app/Contents/MacOS/OmniUsage"),
-    linux: resolve("out/OmniUsage-linux-x64/OmniUsage"),
+    win32: resolve("dist/OmniUsage-win32-x64/OmniUsage.exe"),
+    darwin: resolve("dist/OmniUsage-darwin-arm64/OmniUsage.app/Contents/MacOS/OmniUsage"),
+    linux: resolve("dist/OmniUsage-linux-x64/OmniUsage"),
 }[process.platform];
 
 export async function launchPackaged(): Promise<ElectronApplication> {

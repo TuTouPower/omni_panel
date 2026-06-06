@@ -1486,7 +1486,7 @@ Because this task changes Electron window lifecycle, run packaged smoke if time 
 
 ```bash
 pnpm package
-./out/OmniUsage-win32-x64/OmniUsage.exe
+./dist/OmniUsage-win32-x64/OmniUsage.exe
 ```
 
 Manual packaged checks:

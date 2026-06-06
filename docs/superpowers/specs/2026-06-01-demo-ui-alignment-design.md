@@ -170,7 +170,7 @@ demo 有独立 `TrayWindow` / 右键菜单视觉。
     - 明暗主题。
 - 打包验证：
     - `pnpm package`
-    - 启动 `out/OmniUsage-win32-x64/OmniUsage.exe`
+    - 启动 `dist/OmniUsage-win32-x64/OmniUsage.exe`
     - 确认窗口加载、托盘出现、主路径可用。
 
 ## 风险与未闭环

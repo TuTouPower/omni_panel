@@ -2269,7 +2269,7 @@ Run:
 pnpm package
 ```
 
-Expected: app package exists under `out/OmniUsage-win32-x64/OmniUsage.exe` on Windows.
+Expected: app package exists under `dist/OmniUsage-win32-x64/OmniUsage.exe` on Windows.
 
 - [ ] **Step 6: Run packaged smoke**
 
@@ -2286,7 +2286,7 @@ Expected: PASS, including popup root height and no CPA main provider tab.
 Run:
 
 ```bash
-./out/OmniUsage-win32-x64/OmniUsage.exe
+./dist/OmniUsage-win32-x64/OmniUsage.exe
 ```
 
 Manual checks:
