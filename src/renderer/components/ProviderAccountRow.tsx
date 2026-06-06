@@ -21,6 +21,7 @@ interface ProviderAccountRowProps {
     onDragEnter?: (() => void) | undefined;
     onDragEnd?: (() => void) | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
+    onDisableAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onHideOrDeleteAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     isCpaSource?: boolean | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
@@ -41,6 +42,7 @@ export function ProviderAccountRow({
     onDragEnter,
     onDragEnd,
     onEditAccount,
+    onDisableAccount,
     onHideOrDeleteAccount,
     isCpaSource = false,
     barColorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
@@ -71,7 +73,10 @@ export function ProviderAccountRow({
         };
     }, [menu_open, close_menu]);
 
-    const has_menu = onEditAccount !== undefined || onHideOrDeleteAccount !== undefined;
+    const has_menu =
+        onEditAccount !== undefined ||
+        onDisableAccount !== undefined ||
+        onHideOrDeleteAccount !== undefined;
 
     const grip = onDragStart ? (
         <button
@@ -132,6 +137,20 @@ export function ProviderAccountRow({
                                             <Icon name="edit" size={14} />
                                         </span>
                                         编辑
+                                    </div>
+                                )}
+                                {onDisableAccount && (
+                                    <div
+                                        className="cm-item"
+                                        onClick={() => {
+                                            onDisableAccount(account);
+                                            close_menu();
+                                        }}
+                                    >
+                                        <span className="cm-ic">
+                                            <Icon name="close" size={14} />
+                                        </span>
+                                        关闭监控
                                     </div>
                                 )}
                                 {onHideOrDeleteAccount && (

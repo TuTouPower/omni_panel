@@ -12,6 +12,7 @@ interface ProviderAccountListProps {
     onDragEnter?: ((accountId: string) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
+    onDisableAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onHideOrDeleteAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
 }
@@ -26,6 +27,7 @@ export function ProviderAccountList({
     onDragEnter,
     onDragEnd,
     onEditAccount,
+    onDisableAccount,
     onHideOrDeleteAccount,
     barColorScheme,
 }: ProviderAccountListProps) {
@@ -42,6 +44,7 @@ export function ProviderAccountList({
                             key={account.id}
                             account={account}
                             onEditAccount={onEditAccount}
+                            onDisableAccount={onDisableAccount}
                             onHideOrDeleteAccount={onHideOrDeleteAccount}
                             isCpaSource={is_cpa}
                             barColorScheme={barColorScheme}
@@ -75,6 +78,7 @@ export function ProviderAccountList({
                         }
                         onDragEnd={onDragEnd}
                         onEditAccount={onEditAccount}
+                        onDisableAccount={onDisableAccount}
                         onHideOrDeleteAccount={onHideOrDeleteAccount}
                         isCpaSource={is_cpa}
                         barColorScheme={barColorScheme}

@@ -505,4 +505,57 @@ describe("apply_account_overrides", () => {
         expect(result[0]?.accountCount).toBe(1);
         expect(result[0]?.accounts[0]?.accountLabel).toBe("Account A");
     });
+
+    it("applies overrides only to the matching provider group", () => {
+        const connectors = [
+            connectorInfo({
+                source: "api_key",
+                sourceInstanceId: "shared-source",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            provider: "claude",
+                            source: "api_key",
+                            sourceInstanceId: "shared-source",
+                            accountId: "shared-account",
+                            accountLabel: "Shared Account",
+                        }),
+                    ],
+                },
+            }),
+            connectorInfo({
+                source: "api_key",
+                sourceInstanceId: "shared-source",
+                supportedProviders: ["gemini"],
+                activeProviders: ["gemini"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            provider: "gemini",
+                            source: "api_key",
+                            sourceInstanceId: "shared-source",
+                            accountId: "shared-account",
+                            accountLabel: "Shared Account",
+                        }),
+                    ],
+                },
+            }),
+        ];
+        const groups = build_provider_usage_groups(connectors);
+        const claude_key = groups.find((group) => group.provider === "claude")?.accounts[0]?.id;
+        if (!claude_key) throw new Error("Claude account not found");
+
+        const result = apply_account_overrides(groups, {
+            disabled: { claude: [claude_key] },
+        });
+
+        expect(result.map((group) => group.provider)).toEqual(["gemini"]);
+        expect(result[0]?.accounts[0]?.accountLabel).toBe("Shared Account");
+    });
 });

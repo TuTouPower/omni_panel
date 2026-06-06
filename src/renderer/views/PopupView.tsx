@@ -122,6 +122,7 @@ export function PopupView() {
     const [account_overrides, set_account_overrides] = useState<AccountOverrides | undefined>(
         undefined,
     );
+    const [account_action_error, set_account_action_error] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -402,21 +403,24 @@ export function PopupView() {
         });
     };
 
-    const hide_or_delete_account = (account: ProviderUsageAccount) => {
+    const disable_account = (account: ProviderUsageAccount) => {
         const first_period = account.periods[0];
         if (!first_period) return;
         const provider = first_period.provider;
-        const is_cpa = first_period.source === "cpa";
 
-        void window.usageboard.config.get().then((result) => {
-            if (is_cpa) {
+        void (async () => {
+            set_account_action_error(null);
+            try {
+                const result = await window.usageboard.config.get();
                 const current = result.config.accountOverrides ?? {};
-                const hidden_list = [...(current.hidden?.[provider] ?? []), account.id];
+                const disabled_list = Array.from(
+                    new Set([...(current.disabled?.[provider] ?? []), account.id]),
+                );
                 const new_overrides: AccountOverrides = {
                     ...current,
-                    hidden: { ...current.hidden, [provider]: hidden_list },
+                    disabled: { ...current.disabled, [provider]: disabled_list },
                 };
-                void window.usageboard.config.save({
+                await window.usageboard.config.save({
                     ...result.config,
                     accountOverrides: new_overrides,
                 });
@@ -424,25 +428,74 @@ export function PopupView() {
                 window.usageboard.log({
                     level: "info",
                     module: MODULE,
-                    message: `隐藏 CPA 账号: ${account.id}`,
+                    message: `关闭账号监控: ${provider}`,
                 });
-            } else {
+            } catch (err: unknown) {
+                set_account_action_error("保存账号操作失败");
+                window.usageboard.log({
+                    level: "error",
+                    module: MODULE,
+                    message: `关闭账号监控失败: ${errorMessage(err)}`,
+                });
+            }
+        })();
+    };
+
+    const hide_or_delete_account = (account: ProviderUsageAccount) => {
+        const first_period = account.periods[0];
+        if (!first_period) return;
+        const provider = first_period.provider;
+        const is_cpa = first_period.source === "cpa";
+
+        void (async () => {
+            set_account_action_error(null);
+            try {
+                const result = await window.usageboard.config.get();
+                if (is_cpa) {
+                    const current = result.config.accountOverrides ?? {};
+                    const hidden_list = Array.from(
+                        new Set([...(current.hidden?.[provider] ?? []), account.id]),
+                    );
+                    const new_overrides: AccountOverrides = {
+                        ...current,
+                        hidden: { ...current.hidden, [provider]: hidden_list },
+                    };
+                    await window.usageboard.config.save({
+                        ...result.config,
+                        accountOverrides: new_overrides,
+                    });
+                    set_account_overrides(new_overrides);
+                    window.usageboard.log({
+                        level: "info",
+                        module: MODULE,
+                        message: `隐藏 CPA 账号: ${provider}`,
+                    });
+                    return;
+                }
+
                 const target_instance = account.sourceInstanceId;
                 const plugin = result.config.plugins.find((p) => p.instanceId === target_instance);
                 if (!plugin) return;
                 if (!window.confirm(`确定要删除 ${account.accountLabel} 吗？此操作不可恢复。`))
                     return;
-                void window.usageboard.config.save({
+                await window.usageboard.config.save({
                     ...result.config,
                     plugins: result.config.plugins.filter((p) => p.instanceId !== target_instance),
                 });
                 window.usageboard.log({
                     level: "info",
                     module: MODULE,
-                    message: `删除直接账号: ${account.id}`,
+                    message: `删除直接账号: ${provider}`,
+                });
+            } catch (err: unknown) {
+                set_account_action_error("保存账号操作失败");
+                window.usageboard.log({
+                    level: "error",
+                    module: MODULE,
+                    message: `保存账号操作失败: ${errorMessage(err)}`,
                 });
             }
-        });
+        })();
     };
 
     // Drag-and-drop handlers for provider card reordering
@@ -634,6 +687,13 @@ export function PopupView() {
                             </div>
                         )}
 
+                        {account_action_error && (
+                            <div className="net-banner" role="alert">
+                                <Icon name="cloud_off" size={18} />
+                                <span>{account_action_error}</span>
+                            </div>
+                        )}
+
                         {loading && plugins.length === 0 && (
                             <div className="card">
                                 <div className="card-head">
@@ -711,6 +771,7 @@ export function PopupView() {
                                     onDragEnter={is_live ? handle_account_drag_enter : undefined}
                                     onDragEnd={is_live ? handle_account_drag_end : undefined}
                                     onEditAccount={is_live ? edit_account : undefined}
+                                    onDisableAccount={is_live ? disable_account : undefined}
                                     onHideOrDeleteAccount={
                                         is_live ? hide_or_delete_account : undefined
                                     }

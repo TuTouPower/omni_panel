@@ -202,17 +202,14 @@ export function apply_account_overrides(
     overrides: AccountOverrides | undefined,
 ): ProviderUsageGroup[] {
     if (!overrides) return groups;
-    const excluded_set = new Set<string>();
-    for (const keys of Object.values(overrides.hidden ?? {})) {
-        for (const k of keys) excluded_set.add(k);
-    }
-    for (const keys of Object.values(overrides.disabled ?? {})) {
-        for (const k of keys) excluded_set.add(k);
-    }
-    if (excluded_set.size === 0) return groups;
-
     return groups
         .map((group) => {
+            const excluded_set = new Set([
+                ...(overrides.hidden?.[group.provider] ?? []),
+                ...(overrides.disabled?.[group.provider] ?? []),
+            ]);
+            if (excluded_set.size === 0) return group;
+
             const filtered = group.accounts.filter((a) => !excluded_set.has(a.id));
             const filtered_periods = group.periods.filter(
                 (p) => !excluded_set.has(accountKeyForPeriod(p)),

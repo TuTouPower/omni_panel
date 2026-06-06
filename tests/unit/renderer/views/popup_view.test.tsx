@@ -421,6 +421,65 @@ describe("PopupView", () => {
         });
     });
 
+    it("disables an account by saving account override", async () => {
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        await waitFor(() => {
+            expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
+        });
+
+        const account_menu = screen.getAllByLabelText("账号操作")[0];
+        if (!account_menu) throw new Error("account menu not found");
+        fireEvent.click(account_menu);
+
+        await waitFor(() => {
+            expect(screen.getByText("关闭监控")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByText("关闭监控"));
+
+        await waitFor(() => {
+            expect(config_save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    accountOverrides: {
+                        disabled: {
+                            claude: ["cpa-main:label:Claude Account"],
+                        },
+                    },
+                }),
+            );
+        });
+    });
+
+    it("shows account save failure feedback", async () => {
+        window.usageboard.config.save = vi.fn().mockRejectedValue(new Error("disk locked"));
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        await waitFor(() => {
+            expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
+        });
+
+        const account_menu = screen.getAllByLabelText("账号操作")[0];
+        if (!account_menu) throw new Error("account menu not found");
+        fireEvent.click(account_menu);
+
+        await waitFor(() => {
+            expect(screen.getByText("关闭监控")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByText("关闭监控"));
+
+        await expect(screen.findByRole("alert")).resolves.toHaveTextContent("保存账号操作失败");
+    });
+
     it("deletes direct account by removing its plugin config", async () => {
         const config_save = vi.fn().mockResolvedValue(undefined);
         window.usageboard.config.get = vi.fn().mockResolvedValue({
