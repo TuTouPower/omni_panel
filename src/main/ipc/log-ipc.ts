@@ -9,23 +9,29 @@ export function handleRendererLog(payload: unknown): IpcResult<void> {
     if (!payload || typeof payload !== "object") return ok(undefined);
 
     const { level, module, message } = payload as RendererLogPayload;
-    const log: Logger = createLogger(`renderer:${module}`);
+    const meta =
+        process.env["NODE_ENV"] === "development"
+            ? (payload as RendererLogPayload).meta
+            : undefined;
+    const log: Logger = createLogger(
+        module.startsWith("renderer:") ? module : `renderer:${module}`,
+    );
 
     switch (level) {
         case "debug":
-            log.debug(message);
+            log.debug(message, meta);
             break;
         case "info":
-            log.info(message);
+            log.info(message, meta);
             break;
         case "warn":
-            log.warn(message);
+            log.warn(message, meta);
             break;
         case "error":
-            log.error(message);
+            log.error(message, meta);
             break;
         default:
-            log.warn(`Invalid renderer log level: ${String(level)} — ${message}`);
+            log.warn(`Invalid renderer log level: ${String(level)} — ${message}`, meta);
             break;
     }
 

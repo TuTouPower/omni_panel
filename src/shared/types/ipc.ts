@@ -125,6 +125,7 @@ export interface RendererLogPayload {
     level: RendererLogLevel;
     module: string;
     message: string;
+    meta?: unknown;
 }
 
 export type IpcResult<T> =

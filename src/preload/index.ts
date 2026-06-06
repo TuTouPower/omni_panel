@@ -184,6 +184,9 @@ const log_method = (payload: RendererLogPayload) => {
         module: sanitizeLogField(payload.module, 128),
         message: sanitizeLogField(payload.message, 4096),
     };
+    if (import.meta.env.DEV) {
+        sanitized.meta = payload.meta;
+    }
     void ipcRenderer.invoke(IPC_CHANNELS.LOG_RENDERER, sanitized);
 };
 
