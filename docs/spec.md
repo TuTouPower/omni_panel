@@ -57,7 +57,7 @@
 - renderer 禁止直接访问 `fs`、`child_process`、`ipcRenderer`
 - `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`
 - preload 通过 `contextBridge` 暴露白名单 API（`window.usageboard.*`）
-- secret 参数不进入日志、错误消息、测试快照
+- secret 参数不进入错误消息、测试快照；开发期 raw debug 日志会记录完整原始值
 - renderer 只能调用 IPC 白名单方法，不能发任意 channel
 
 ---
@@ -174,7 +174,7 @@
 
 - **timeout**：15 秒，超时后 kill 子进程，返回 failed snapshot
 - **stderr**：exit 0 时仅调试用；exit 非零时作为错误消息 fallback
-- 安全：参数值在日志中脱敏为 `***`
+- 开发期 raw debug 日志会记录完整参数值；打包/非开发环境不写新增 full raw payload
 
 ### 3.6 内置插件
 
@@ -208,7 +208,7 @@
 - Linux: `~/.config/OmniUsage`
 
 启动后日志第一行会写入实际日志文件路径：`Logging initialized: .../logs/app-YYYY-MM-DD.log`。
-刷新排查优先看 `refresh-service`、`runner`、`compiler`、`ipc:*` 模块；secret-like 字段统一脱敏为 `***`。
+刷新排查优先看 `refresh-service`、`runner`、`compiler`、`ipc:*`、`renderer:*` 模块；开发期 raw debug 日志会记录 config/cache/secrets/IPC/renderer/插件 stdout-stderr 的完整原始 payload（不脱敏），打包/非开发环境不写新增 full raw payload。
 
 ### 4.2 AppConfiguration schema
 
@@ -428,15 +428,15 @@ Main → Renderer 广播，当插件状态变更时推送 `instanceId + snapshot
 
 ## 8. 安全模型
 
-| 层级     | 措施                                                         |
-| -------- | ------------------------------------------------------------ |
-| Electron | contextIsolation + sandbox + nodeIntegration=false           |
-| IPC      | contextBridge 白名单，不允许任意 channel                     |
-| 密钥     | Electron safeStorage 加密存储，不进日志/错误/测试            |
-| 日志     | secret 参数值脱敏为 `***`                                    |
-| Git      | secrets.json 在 .gitignore，pre-commit gitleaks 扫描         |
-| SAST     | Semgrep 自定义规则（no nodeIntegration、no eval、no remote） |
-| 依赖     | dependency-cruiser 禁止 renderer import Node API             |
+| 层级     | 措施                                                             |
+| -------- | ---------------------------------------------------------------- |
+| Electron | contextIsolation + sandbox + nodeIntegration=false               |
+| IPC      | contextBridge 白名单，不允许任意 channel                         |
+| 密钥     | Electron safeStorage 加密存储；开发期 raw debug 日志可记录明文值 |
+| 日志     | 新增 full raw payload 仅开发环境输出，不做脱敏                   |
+| Git      | secrets.json 在 .gitignore，pre-commit gitleaks 扫描             |
+| SAST     | Semgrep 自定义规则（no nodeIntegration、no eval、no remote）     |
+| 依赖     | dependency-cruiser 禁止 renderer import Node API                 |
 
 ---
 
