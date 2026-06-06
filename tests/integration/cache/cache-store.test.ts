@@ -115,6 +115,18 @@ describe("cache-store", () => {
             expect(joined).toContain("cache load missing raw");
             expect(joined).toContain("cache delete raw");
             expect(joined).toContain("2026-05-24T14:00:00Z");
+            const saveLine = lines.find((line) => line.includes("cache save raw")) ?? "";
+            expect(saveLine).toContain('"raw"');
+            expect(saveLine).toContain('"snapshot"');
+            expect(saveLine).toContain('"resetAt":"2026-05-24T14:00:00Z"');
+            const loadLine = lines.find((line) => line.includes("cache load raw")) ?? "";
+            expect(loadLine).toContain('"raw"');
+            expect(loadLine).toContain('"snapshot"');
+            expect(loadLine).not.toContain('"parsed"');
+            const deleteLine = lines.find((line) => line.includes("cache delete raw")) ?? "";
+            expect(deleteLine).toContain('"raw"');
+            expect(deleteLine).toContain('"snapshot"');
+            expect(deleteLine).toContain('"resetAt":"2026-05-24T14:00:00Z"');
 
             lines.length = 0;
             process.env.NODE_ENV = "production";

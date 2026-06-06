@@ -36,11 +36,11 @@ export function createCacheStore(statesDir: string): CacheStore {
             const path = getPath(stateId);
             try {
                 const raw = await readFile(path, "utf8");
-                const parsed = JSON.parse(raw) as PluginCachedState;
+                const snapshot = JSON.parse(raw) as PluginCachedState;
                 if (shouldLogRawStorage()) {
-                    log.debug("cache load raw", { stateId, path, raw, parsed });
+                    log.debug("cache load raw", { stateId, path, raw, snapshot });
                 }
-                return parsed;
+                return snapshot;
             } catch {
                 if (shouldLogRawStorage()) {
                     log.debug("cache load missing raw", { stateId, path });
@@ -52,18 +52,25 @@ export function createCacheStore(statesDir: string): CacheStore {
         async save(stateId: string, state: PluginCachedState): Promise<void> {
             await mkdir(statesDir, { recursive: true });
             const path = getPath(stateId);
+            const raw = JSON.stringify(state, null, 2);
             if (shouldLogRawStorage()) {
-                log.debug("cache save raw", { stateId, path, state });
+                log.debug("cache save raw", { stateId, path, raw, snapshot: state });
             }
             const tmpPath = `${path}.tmp`;
-            await writeFile(tmpPath, JSON.stringify(state, null, 2), "utf8");
+            await writeFile(tmpPath, raw, "utf8");
             await rename(tmpPath, path);
         },
 
         async delete(stateId: string): Promise<void> {
             const path = getPath(stateId);
             if (shouldLogRawStorage()) {
-                log.debug("cache delete raw", { stateId, path });
+                try {
+                    const raw = await readFile(path, "utf8");
+                    const snapshot = JSON.parse(raw) as PluginCachedState;
+                    log.debug("cache delete raw", { stateId, path, raw, snapshot });
+                } catch {
+                    log.debug("cache delete raw", { stateId, path });
+                }
             }
             try {
                 await unlink(path);
