@@ -77,6 +77,7 @@ describe("usage color debug logs", () => {
             expect(color).toBe("var(--risk-yellow)");
             expect(joined).toContain("usage window elapsed raw");
             expect(joined).toContain("bar fill color raw");
+            expect(joined).toContain('"reset_at":"2026-06-06T12:00:00Z"');
             expect(joined).toContain("2026-06-06T12:00:00Z");
             expect(joined).toContain("risk-projected");
             expect(joined).toContain('"elapsed":0.6');
