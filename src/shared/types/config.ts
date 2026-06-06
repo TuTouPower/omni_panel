@@ -9,6 +9,12 @@ export interface ProxyConfiguration {
 export type MainPanelMode = "system" | "popup" | "floating";
 export type FloatingHeightMode = "fixed" | "followContent";
 export type UsageBarColorScheme = "risk-current" | "risk-projected" | "nine-cycle";
+export type UsageBarStyle = "thin" | "capsule";
+
+export const USAGE_LABEL_MAP_MAX_ENTRIES = 50;
+export const USAGE_LABEL_MAP_MAX_KEY_LENGTH = 120;
+export const USAGE_LABEL_MAP_MAX_VALUE_LENGTH = 80;
+export const USAGE_LABEL_MAP_MAX_TEXT_LENGTH = 12_000;
 
 export interface FloatingBoundsConfiguration {
     readonly x: number;
@@ -44,6 +50,8 @@ export interface AppConfiguration {
     readonly mainPanelMode?: MainPanelMode;
     readonly floatingHeightMode?: FloatingHeightMode;
     readonly usageBarColorScheme?: UsageBarColorScheme;
+    readonly usageBarStyle?: UsageBarStyle;
+    readonly usageLabelMap?: Readonly<Record<string, string>>;
     readonly floatingBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;
 }

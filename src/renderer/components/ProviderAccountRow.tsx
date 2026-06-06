@@ -1,15 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
-import { format_usage_period_label } from "../lib/provider-usage";
-import { format_reset_time } from "../lib/utils";
-import {
-    bar_fill_color,
-    DEFAULT_USAGE_BAR_COLOR_SCHEME,
-    usage_window_elapsed,
-    type UsageBarColorScheme,
-} from "../lib/usage-colors";
+import { relative_time } from "../lib/utils";
+import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { Icon } from "./Icon";
+import { UsageBarRow } from "./UsageRows";
 
 interface ProviderAccountRowProps {
     account: ProviderUsageAccount;
@@ -25,11 +21,8 @@ interface ProviderAccountRowProps {
     onHideOrDeleteAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     isCpaSource?: boolean | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
-}
-
-function percent(used: number, limit: number): number {
-    if (limit <= 0) return 0;
-    return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
+    barStyle?: UsageBarStyle | undefined;
+    labelMap?: Readonly<Record<string, string>> | undefined;
 }
 
 export function ProviderAccountRow({
@@ -46,6 +39,8 @@ export function ProviderAccountRow({
     onHideOrDeleteAccount,
     isCpaSource = false,
     barColorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
+    barStyle = "thin",
+    labelMap,
 }: ProviderAccountRowProps) {
     const source = account.periods[0]?.source ?? "direct";
     const [menu_open, set_menu_open] = useState(false);
@@ -100,7 +95,9 @@ export function ProviderAccountRow({
                     {account.accountLabel}
                     <span className="source-badge">{source.toUpperCase()}</span>
                 </div>
-                <div className="rel-time">{account.periods.length}个周期</div>
+                <div className="rel-time">
+                    {account.updatedAt ? relative_time(account.updatedAt) : ""}
+                </div>
             </div>
             {has_menu && (
                 <div className="card-menu-wrap" style={{ marginLeft: "auto" }}>
@@ -176,86 +173,16 @@ export function ProviderAccountRow({
     );
     const details = (
         <div className="bars">
-            {account.periods.map((period, idx) => {
-                const elapsed = usage_window_elapsed(period.name, period.resetAt);
-                if (period.used == null) {
-                    return (
-                        <div className="bar-row" key={period.id}>
-                            <span className="bar-lbl">
-                                {format_usage_period_label(period.name)}
-                            </span>
-                            <div className="track">
-                                <div
-                                    className="fill"
-                                    style={{
-                                        width: "0%",
-                                        background: bar_fill_color(barColorScheme, {
-                                            pct: 0,
-                                            idx,
-                                            elapsed,
-                                        }),
-                                    }}
-                                />
-                            </div>
-                            <span className="bar-pct" />
-                            <span className="bar-reset" />
-                        </div>
-                    );
-                }
-                if (period.displayStyle === "ratio" && period.limit > 0) {
-                    const fill_pct = Math.min(
-                        100,
-                        Math.max(0, Math.round((period.used / period.limit) * 100)),
-                    );
-                    return (
-                        <div className="bar-row frac" key={period.id}>
-                            <span className="bar-lbl">
-                                {format_usage_period_label(period.name)}
-                            </span>
-                            <div className="track">
-                                <div
-                                    className="fill"
-                                    style={{
-                                        width: `${String(fill_pct)}%`,
-                                        background: bar_fill_color(barColorScheme, {
-                                            pct: fill_pct,
-                                            idx,
-                                            elapsed,
-                                        }),
-                                    }}
-                                />
-                            </div>
-                            <span className="bar-pct">
-                                {period.used}/{period.limit}
-                            </span>
-                            <span className="bar-reset" />
-                        </div>
-                    );
-                }
-                const period_percent = percent(period.used, period.limit);
-                return (
-                    <div className="bar-row" key={period.id}>
-                        <span className="bar-lbl">{format_usage_period_label(period.name)}</span>
-                        <div className="track">
-                            <div
-                                className="fill"
-                                style={{
-                                    width: `${String(period_percent)}%`,
-                                    background: bar_fill_color(barColorScheme, {
-                                        pct: period_percent,
-                                        idx,
-                                        elapsed,
-                                    }),
-                                }}
-                            />
-                        </div>
-                        <span className="bar-pct">{period_percent}%</span>
-                        <span className="bar-reset">
-                            {period.resetAt ? format_reset_time(period.resetAt) : "--"}
-                        </span>
-                    </div>
-                );
-            })}
+            {account.periods.map((period, idx) => (
+                <UsageBarRow
+                    key={period.id}
+                    period={period}
+                    index={idx}
+                    colorScheme={barColorScheme}
+                    barStyle={barStyle}
+                    labelMap={labelMap}
+                />
+            ))}
         </div>
     );
 

@@ -39,6 +39,13 @@ describe("ProviderAccountRow account menu", () => {
         vi.clearAllMocks();
     });
 
+    it("shows update time instead of period count", () => {
+        const { container } = render(<ProviderAccountRow account={make_account()} />);
+
+        expect(screen.queryByText(/个周期/)).not.toBeInTheDocument();
+        expect(container.querySelector(".rel-time")?.textContent).not.toBe("");
+    });
+
     it("does not show account menu when no handlers provided", () => {
         render(<ProviderAccountRow account={make_account()} />);
 

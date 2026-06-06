@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
 import { SettingsView } from "../../../../src/renderer/views/SettingsView";
@@ -349,6 +349,50 @@ describe("SettingsView", () => {
         expect(save).toHaveBeenCalledWith({
             ...base_config,
             usageBarColorScheme: "nine-cycle",
+        });
+    });
+
+    it("saves usage bar style from appearance settings", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-appearance"));
+        await user.selectOptions(screen.getByDisplayValue("细线型"), "粗胶囊型");
+
+        expect(save).toHaveBeenCalledWith({
+            ...base_config,
+            usageBarStyle: "capsule",
+        });
+    });
+
+    it("saves usage label map from appearance settings", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-appearance"));
+        fireEvent.change(screen.getByLabelText("用量标签映射"), {
+            target: { value: "gemini-long=Gemini Short" },
+        });
+
+        expect(save).toHaveBeenCalledWith({
+            ...base_config,
+            usageLabelMap: { "gemini-long": "Gemini Short" },
+        });
+    });
+
+    it("keeps usage label map draft while typing", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-appearance"));
+        const textarea = screen.getByLabelText("用量标签映射");
+        await user.type(textarea, "gemini-long=Gemini Short");
+        await user.type(textarea, "\npartial");
+
+        expect(textarea).toHaveValue("gemini-long=Gemini Short\npartial");
+        expect(save).toHaveBeenLastCalledWith({
+            ...base_config,
+            usageLabelMap: { "gemini-long": "Gemini Short" },
         });
     });
 

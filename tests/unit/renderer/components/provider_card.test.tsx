@@ -138,24 +138,10 @@ describe("ProviderCard", () => {
         expect(document.querySelector(".rel-time")).toBeInTheDocument();
     });
 
-    it("shows off-badge when disabled", () => {
-        render(<ProviderCard provider="deepseek" group={makeGroup()} disabled />);
-        expect(screen.getByText("已关闭")).toBeInTheDocument();
-        expect(screen.getByText("监控已关闭，不再刷新用量")).toBeInTheDocument();
-    });
-
-    it("shows enable action when disabled", () => {
-        const onToggle = vi.fn();
-        render(
-            <ProviderCard
-                provider="deepseek"
-                group={makeGroup()}
-                disabled
-                onToggleDisable={onToggle}
-            />,
-        );
-        fireEvent.click(screen.getByText("启用"));
-        expect(onToggle).toHaveBeenCalledWith("deepseek");
+    it("does not render disabled card state", () => {
+        render(<ProviderCard provider="deepseek" group={makeGroup()} />);
+        expect(screen.queryByText("已关闭")).not.toBeInTheDocument();
+        expect(screen.queryByText("监控已关闭，不再刷新用量")).not.toBeInTheDocument();
     });
 
     it("shows edit/enable-disable/delete menu items", () => {
@@ -491,7 +477,7 @@ describe("ProviderCard", () => {
         const fill = (row as HTMLElement).querySelector<HTMLElement>(".fill");
         if (!fill) throw new Error("missing fill");
         expect(fill.style.background).toBe("var(--risk-green)");
-        expect((row as HTMLElement).querySelector(".bar-reset")).toHaveTextContent("--");
+        expect((row as HTMLElement).querySelector(".bar-reset")).toBeEmptyDOMElement();
     });
 
     it("uses nine-cycle colors when configured", () => {
@@ -587,8 +573,8 @@ describe("ProviderCard", () => {
         const fill = bar_row.querySelector(".fill");
         expect(fill).toBeInstanceOf(HTMLElement);
         expect((fill as HTMLElement).style.width).toBe("0%");
-        expect(bar_row.querySelector(".bar-pct")).toHaveTextContent("");
-        expect(bar_row.querySelector(".bar-reset")).toHaveTextContent("");
+        expect(bar_row.querySelector(".bar-pct")).toBeEmptyDOMElement();
+        expect(bar_row.querySelector(".bar-reset")).toBeEmptyDOMElement();
         expect(within(bar_row).queryByText("0%")).not.toBeInTheDocument();
         expect(within(bar_row).queryByText("--")).not.toBeInTheDocument();
     });

@@ -1,6 +1,6 @@
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
-import type { UsageBarColorScheme } from "../lib/usage-colors";
+import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import { ProviderCard } from "./ProviderCard";
 
 export interface ProviderError {
@@ -15,7 +15,6 @@ interface ProviderOverviewProps {
     onRefreshProvider: (provider: UsageProvider) => void;
     expandedProviders?: Record<string, boolean> | undefined;
     onToggleExpandProvider?: ((provider: UsageProvider) => void) | undefined;
-    disabledProviders?: Set<string> | undefined;
     onToggleDisableProvider?: ((provider: UsageProvider) => void) | undefined;
     onDeleteProvider?: ((provider: UsageProvider) => void) | undefined;
     draggingProvider?: UsageProvider | null | undefined;
@@ -25,6 +24,8 @@ interface ProviderOverviewProps {
     onDragEnd?: (() => void) | undefined;
     refreshingProviders?: Set<string> | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
+    barStyle?: UsageBarStyle | undefined;
+    labelMap?: Readonly<Record<string, string>> | undefined;
 }
 
 export function ProviderOverview({
@@ -34,7 +35,6 @@ export function ProviderOverview({
     onRefreshProvider,
     expandedProviders,
     onToggleExpandProvider,
-    disabledProviders,
     onToggleDisableProvider,
     onDeleteProvider,
     draggingProvider,
@@ -44,6 +44,8 @@ export function ProviderOverview({
     onDragEnd,
     refreshingProviders,
     barColorScheme,
+    barStyle,
+    labelMap,
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
 
@@ -57,7 +59,6 @@ export function ProviderOverview({
                         group={groupsByProvider.get(provider)}
                         connectorError={providerErrors.get(provider)}
                         onRefresh={onRefreshProvider}
-                        disabled={disabledProviders?.has(provider) ?? false}
                         expanded={
                             expandedProviders ? (expandedProviders[provider] ?? false) : undefined
                         }
@@ -71,6 +72,8 @@ export function ProviderOverview({
                         onDragEnd={onDragEnd}
                         refreshing={refreshingProviders?.has(provider)}
                         barColorScheme={barColorScheme}
+                        barStyle={barStyle}
+                        labelMap={labelMap}
                     />
                 );
             })}

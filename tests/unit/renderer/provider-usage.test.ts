@@ -6,6 +6,7 @@ import {
     apply_account_overrides,
     build_provider_usage_groups,
     build_overview_for_group,
+    format_usage_period_label,
     get_visible_providers,
 } from "../../../src/renderer/lib/provider-usage";
 
@@ -51,6 +52,22 @@ function connectorInfo(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
         ...overrides,
     };
 }
+
+describe("format_usage_period_label", () => {
+    it("shortens known long model labels", () => {
+        expect(format_usage_period_label("gemini-3.1-flash-lite-preview")).toBe(
+            "3.1 Flash-Lite·Pv",
+        );
+    });
+
+    it("lets custom label map override built-in labels", () => {
+        expect(
+            format_usage_period_label("gemini-3.1-flash-lite-preview", {
+                "gemini-3.1-flash-lite-preview": "Gemini Custom",
+            }),
+        ).toBe("Gemini Custom");
+    });
+});
 
 describe("provider usage aggregation", () => {
     it("groups CPA Claude items under provider claude without creating cpa provider", () => {

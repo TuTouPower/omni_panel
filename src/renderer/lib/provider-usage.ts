@@ -120,7 +120,24 @@ function accountKeyForPeriod(period: ProviderUsagePeriod): string {
     return `${period.sourceInstanceId}:${period.accountId}`;
 }
 
-export function format_usage_period_label(name: string): string {
+const LABEL_MAP: Record<string, string> = {
+    "gemini-3.1-flash-lite-preview": "3.1 Flash-Lite·Pv",
+    "gemini-2.5-flash-lite-preview": "2.5 Flash-Lite·Pv",
+    "gemini-2.5-pro-preview": "2.5 Pro·Pv",
+    "gemini-2.5-flash-preview": "2.5 Flash·Pv",
+};
+
+export function format_usage_period_label(
+    name: string,
+    overrides?: Readonly<Record<string, string>>,
+): string {
+    const normalized = name.trim();
+    const custom = overrides?.[normalized];
+    if (custom) return custom;
+
+    const mapped = LABEL_MAP[normalized];
+    if (mapped) return mapped;
+
     if (name.includes("5小时") || name.includes("5 小时")) return "5小时";
     if (name.includes("一周") || name.includes("每周") || /weekly|week/i.test(name)) return "一周";
     if (/\bMCP\b/i.test(name)) return "MCP";

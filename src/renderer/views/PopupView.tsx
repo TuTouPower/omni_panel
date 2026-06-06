@@ -16,10 +16,15 @@ import {
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
-import type { AccountOverrides, UsageBarColorScheme } from "../../shared/types/config";
+import type {
+    AccountOverrides,
+    UsageBarColorScheme,
+    UsageBarStyle,
+} from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import logo from "../assets/logo.png";
 import { createLogger } from "../../shared/lib/logger";
+import { redact_config_raw } from "../../shared/lib/config_redaction";
 
 const MODULE = "PopupView";
 const log = createLogger("renderer:popup-view");
@@ -119,6 +124,10 @@ export function PopupView() {
     const [main_panel_mode, set_main_panel_mode] = useState<"popup" | "floating">("popup");
     const [usage_bar_color_scheme, set_usage_bar_color_scheme] =
         useState<UsageBarColorScheme>("risk-current");
+    const [usage_bar_style, set_usage_bar_style] = useState<UsageBarStyle>("thin");
+    const [usage_label_map, set_usage_label_map] = useState<
+        Readonly<Record<string, string>> | undefined
+    >(undefined);
     const [account_overrides, set_account_overrides] = useState<AccountOverrides | undefined>(
         undefined,
     );
@@ -146,7 +155,7 @@ export function PopupView() {
             .get()
             .then((result) => {
                 if (should_log_raw) {
-                    log.debug("popup config raw", { config: result.config });
+                    log.debug("popup config raw", { config: redact_config_raw(result.config) });
                 }
                 const order = result.config.providerOrder;
                 if (order && order.length > 0) {
@@ -160,6 +169,10 @@ export function PopupView() {
                 if (result.config.usageBarColorScheme) {
                     set_usage_bar_color_scheme(result.config.usageBarColorScheme);
                 }
+                if (result.config.usageBarStyle) {
+                    set_usage_bar_style(result.config.usageBarStyle);
+                }
+                set_usage_label_map(result.config.usageLabelMap);
                 if (result.config.accountOverrides) {
                     set_account_overrides(result.config.accountOverrides);
                 }
@@ -241,25 +254,6 @@ export function PopupView() {
             }
         }
         return map;
-    }, [plugins]);
-
-    // Derive disabled providers from plugin enabled state (config-backed).
-    // A provider is disabled only when ALL its plugins are disabled.
-    const disabled_providers = useMemo(() => {
-        const set = new Set<string>();
-        const providerPlugins = new Map<string, { total: number; disabled: number }>();
-        for (const p of plugins) {
-            for (const prov of p.activeProviders) {
-                const entry = providerPlugins.get(prov) ?? { total: 0, disabled: 0 };
-                entry.total++;
-                if (!p.enabled) entry.disabled++;
-                providerPlugins.set(prov, entry);
-            }
-        }
-        for (const [prov, entry] of providerPlugins) {
-            if (entry.disabled === entry.total) set.add(prov);
-        }
-        return set;
     }, [plugins]);
 
     const activeGroup =
@@ -742,7 +736,6 @@ export function PopupView() {
                                 onToggleExpandProvider={
                                     is_live ? toggle_expand_provider : undefined
                                 }
-                                disabledProviders={is_live ? disabled_providers : undefined}
                                 onToggleDisableProvider={
                                     is_live ? toggle_disable_provider : undefined
                                 }
@@ -754,6 +747,8 @@ export function PopupView() {
                                 onDragEnd={is_live ? handle_drag_end : undefined}
                                 refreshingProviders={is_live ? refresh_providers : undefined}
                                 barColorScheme={usage_bar_color_scheme}
+                                barStyle={usage_bar_style}
+                                labelMap={usage_label_map}
                             />
                         )}
 
@@ -776,6 +771,8 @@ export function PopupView() {
                                         is_live ? hide_or_delete_account : undefined
                                     }
                                     barColorScheme={usage_bar_color_scheme}
+                                    barStyle={usage_bar_style}
+                                    labelMap={usage_label_map}
                                 />
                             )}
 

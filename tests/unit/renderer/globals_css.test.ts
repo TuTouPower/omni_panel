@@ -5,9 +5,13 @@ import { describe, expect, it } from "vitest";
 const css = readFileSync(join(process.cwd(), "src/renderer/styles/globals.css"), "utf8");
 
 describe("globals usage bar css", () => {
-    it("keeps one centered bar percentage rule", () => {
-        expect(css.match(/\.bar-pct\s*\{/g)).toHaveLength(1);
-        expect(css).toMatch(/\.bar-pct\s*\{[\s\S]*text-align:\s*center;/);
+    it("keeps right-aligned tabular bar value columns", () => {
+        expect(css).toMatch(
+            /\.bar-pct,\s*\.bar-reset,\s*\.bar-clock\s*\{[\s\S]*text-align:\s*right;/,
+        );
+        expect(css).toMatch(
+            /\.bar-pct,\s*\.bar-reset,\s*\.bar-clock\s*\{[\s\S]*font-variant-numeric:\s*tabular-nums;/,
+        );
     });
 
     it("uses the usage-bar track token", () => {
@@ -16,10 +20,21 @@ describe("globals usage bar css", () => {
         expect(css).toContain("background: var(--bar-track)");
     });
 
-    it("keeps ratio rows aligned to the compact value column", () => {
+    it("keeps ratio rows aligned to the five-column layout", () => {
         expect(css).toMatch(
-            /\.bar-row\.frac\s*\{\s*grid-template-columns:\s*42px 1fr 64px 76px;\s*\}/,
+            /\.bar-row\.frac\s*\{\s*grid-template-columns:\s*4ic minmax\(0, 1fr\) 5ch 5ch 5ch;\s*\}/,
         );
+    });
+
+    it("keeps capsule bars aligned and isolated", () => {
+        expect(css).toContain(".bar-row.capsule");
+        expect(css).toContain("grid-template-columns: 4ic minmax(0, 1fr) 5ch 5ch");
+        expect(css).toContain("height: 22px");
+        expect(css).toContain("background: color-mix(in srgb, var(--bar-fill) 16%, transparent)");
+        expect(css).toContain("border-radius: 999px");
+        expect(css).toContain("isolation: isolate");
+        expect(css).toContain(".bar-capsule-value-dark");
+        expect(css).toContain(".bar-capsule-value-light");
     });
 
     it("does not keep obsolete bar classes", () => {
@@ -28,5 +43,7 @@ describe("globals usage bar css", () => {
         expect(css).not.toContain(".app-badge");
         expect(css).not.toContain(".aa-badge");
         expect(css).not.toContain(".tray-win-tag");
+        expect(css).not.toContain(".off-badge");
+        expect(css).not.toContain(".card.disabled");
     });
 });

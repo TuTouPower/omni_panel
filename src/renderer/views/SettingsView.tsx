@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { SettingsForm } from "../components/SettingsForm";
@@ -11,11 +11,19 @@ import type {
     MainPanelMode,
     FloatingHeightMode,
     UsageBarColorScheme,
+    UsageBarStyle,
+} from "../../shared/types/config";
+import {
+    USAGE_LABEL_MAP_MAX_ENTRIES,
+    USAGE_LABEL_MAP_MAX_KEY_LENGTH,
+    USAGE_LABEL_MAP_MAX_TEXT_LENGTH,
+    USAGE_LABEL_MAP_MAX_VALUE_LENGTH,
 } from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
 import { createLogger } from "../../shared/lib/logger";
+import { redact_config_raw } from "../../shared/lib/config_redaction";
 import logo from "../assets/logo.png";
 import package_json from "../../../package.json";
 
@@ -83,6 +91,7 @@ const BAR_COLOR_SCHEMES: {
 ];
 const MAIN_PANEL_MODE_LABELS = ["跟随系统推荐", "弹出面板", "浮动窗口"] as const;
 const FLOATING_HEIGHT_MODE_LABELS = ["保持窗口大小", "跟随内容变化"] as const;
+const BAR_STYLE_LABELS = ["细线型", "粗胶囊型"] as const;
 const log = createLogger("renderer:settings-view");
 const should_log_raw = import.meta.env.DEV;
 
@@ -104,6 +113,53 @@ function floating_height_mode_label_to_value(label: string): FloatingHeightMode 
 
 function floating_height_mode_value_to_label(value: FloatingHeightMode | undefined): string {
     return value === "followContent" ? "跟随内容变化" : "保持窗口大小";
+}
+
+function bar_style_label_to_value(label: string): UsageBarStyle {
+    return label === "粗胶囊型" ? "capsule" : "thin";
+}
+
+function bar_style_value_to_label(value: UsageBarStyle | undefined): string {
+    return value === "capsule" ? "粗胶囊型" : "细线型";
+}
+
+function format_usage_label_map(value: Readonly<Record<string, string>> | undefined): string {
+    return Object.entries(value ?? {})
+        .map(([source, target]) => `${source}=${target}`)
+        .join("\n");
+}
+
+function parse_usage_label_map(value: string): Record<string, string> | undefined {
+    if (value.length > USAGE_LABEL_MAP_MAX_TEXT_LENGTH) return undefined;
+    const entries = value
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line): [string, string] | null => {
+            const separator = line.indexOf("=");
+            if (separator <= 0) return null;
+            const source = line.slice(0, separator).trim();
+            const target = line.slice(separator + 1).trim();
+            if (
+                source.length === 0 ||
+                target.length === 0 ||
+                source.length > USAGE_LABEL_MAP_MAX_KEY_LENGTH ||
+                target.length > USAGE_LABEL_MAP_MAX_VALUE_LENGTH
+            ) {
+                return null;
+            }
+            return [source, target];
+        })
+        .filter((entry): entry is [string, string] => entry !== null);
+
+    return entries.length > 0
+        ? Object.fromEntries(entries.slice(0, USAGE_LABEL_MAP_MAX_ENTRIES))
+        : undefined;
+}
+
+function override_account_label(key: string): string {
+    const parts = key.split(":");
+    return parts.length >= 3 ? parts.slice(2).join(":") : "账号";
 }
 
 /* ── helpers ── */
@@ -836,17 +892,24 @@ export function SettingsView() {
     const [dialog, setDialog] = useState<DialogState | null>(null);
     const [showCpaAdd, setShowCpaAdd] = useState(false);
     const [dsView, setDsView] = useState<"list" | "detail">("list");
+    const [usage_label_map_text, set_usage_label_map_text] = useState("");
+    const usage_label_map_dirty_ref = useRef(false);
 
     useEffect(() => {
         if (should_log_raw && config) {
-            log.debug("settings config raw", { config });
+            log.debug("settings config raw", { config: redact_config_raw(config) });
         }
     }, [config]);
+
+    useEffect(() => {
+        if (usage_label_map_dirty_ref.current) return;
+        set_usage_label_map_text(format_usage_label_map(config?.usageLabelMap));
+    }, [config?.usageLabelMap]);
 
     const save_config = useCallback(
         async (payload: AppConfiguration) => {
             if (should_log_raw) {
-                log.debug("settings save payload raw", { payload });
+                log.debug("settings save payload raw", { payload: redact_config_raw(payload) });
             }
             await save(payload);
         },
@@ -910,28 +973,33 @@ export function SettingsView() {
         return Array.from(map.values());
     }, [config, pluginInfos]);
 
-    // Hidden CPA accounts from accountOverrides — for restore section
-    const hiddenAccounts = useMemo(() => {
-        const hidden = config?.accountOverrides?.hidden;
-        if (!hidden) return [];
-        const result: { provider: UsageProvider; key: string; accountLabel: string }[] = [];
-        for (const [prov, keys] of Object.entries(hidden)) {
-            for (const key of keys) {
-                const parts = key.split(":");
-                const accountLabel = parts.length >= 3 ? parts.slice(2).join(":") : key;
-                result.push({ provider: prov as UsageProvider, key, accountLabel });
+    const overrideAccounts = useMemo(() => {
+        const result: {
+            provider: UsageProvider;
+            key: string;
+            accountLabel: string;
+            kind: "hidden" | "disabled";
+        }[] = [];
+        for (const kind of ["hidden", "disabled"] as const) {
+            const overrides = config?.accountOverrides?.[kind];
+            if (!overrides) continue;
+            for (const [prov, keys] of Object.entries(overrides)) {
+                for (const key of keys) {
+                    const accountLabel = override_account_label(key);
+                    result.push({ provider: prov as UsageProvider, key, accountLabel, kind });
+                }
             }
         }
         return result;
     }, [config]);
 
-    const restoreHiddenAccount = useCallback(
-        (provider: UsageProvider, key: string) => {
+    const restoreOverrideAccount = useCallback(
+        (provider: UsageProvider, key: string, kind: "hidden" | "disabled") => {
             if (!config) return;
-            const current = config.accountOverrides?.hidden?.[provider];
+            const current = config.accountOverrides?.[kind]?.[provider];
             if (!current) return;
             const next = current.filter((k) => k !== key);
-            const rest = { ...config.accountOverrides.hidden };
+            const rest = { ...(config.accountOverrides[kind] ?? {}) };
             if (next.length === 0) {
                 // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
                 delete rest[provider];
@@ -940,10 +1008,10 @@ export function SettingsView() {
             }
             const newOverrides =
                 Object.keys(rest).length > 0
-                    ? { ...config.accountOverrides, hidden: rest }
+                    ? { ...config.accountOverrides, [kind]: rest }
                     : Object.fromEntries(
                           Object.entries(config.accountOverrides ?? {}).filter(
-                              ([key]) => key !== "hidden",
+                              ([key]) => key !== kind,
                           ),
                       );
             void save_config({ ...config, accountOverrides: newOverrides });
@@ -972,6 +1040,7 @@ export function SettingsView() {
     const notifyMethod = config?.notifyMethod ?? "系统通知";
     const cacheMaxMb = config?.cacheMaxMb ?? 100;
     const usageBarColorScheme = config?.usageBarColorScheme ?? "risk-current";
+    const usageBarStyle = config?.usageBarStyle ?? "thin";
 
     useEffect(() => {
         if (should_log_raw) {
@@ -1308,13 +1377,6 @@ export function SettingsView() {
                                                 info?.source === "cpa"
                                                     ? `CPA · ${group.label}`
                                                     : p.name;
-                                            const secretKeys = Object.keys(
-                                                hasSecrets[p.instanceId] ?? {},
-                                            ).filter((k) => hasSecrets[p.instanceId]?.[k]);
-                                            const maskedKey =
-                                                secretKeys.length > 0
-                                                    ? `${(secretKeys[0] ?? "").slice(0, 3)}…`
-                                                    : "";
                                             return (
                                                 <div
                                                     className={`ao-item${!is_enabled ? " off" : ""}`}
@@ -1333,15 +1395,7 @@ export function SettingsView() {
                                                             {display_name}
                                                         </span>
                                                     </div>
-                                                    {maskedKey && (
-                                                        <span className="ao-key">{maskedKey}</span>
-                                                    )}
                                                     <div className="ao-actions">
-                                                        {info?.source === "cpa" && (
-                                                            <span className="src-tag">
-                                                                来自 CPA Manager
-                                                            </span>
-                                                        )}
                                                         {info?.source === "cpa" ? (
                                                             <span className="src-tag">
                                                                 在数据源中管理
@@ -1458,16 +1512,6 @@ export function SettingsView() {
                                                             info?.source === "cpa"
                                                                 ? `CPA · ${group.label}`
                                                                 : p.name;
-                                                        // Show masked key for first secret param
-                                                        const secretKeys = Object.keys(
-                                                            hasSecrets[p.instanceId] ?? {},
-                                                        ).filter(
-                                                            (k) => hasSecrets[p.instanceId]?.[k],
-                                                        );
-                                                        const maskedKey =
-                                                            secretKeys.length > 0
-                                                                ? `${(secretKeys[0] ?? "").slice(0, 3)}…`
-                                                                : "";
                                                         return (
                                                             <div
                                                                 className={`acct-row${row_off ? " off" : ""}`}
@@ -1479,17 +1523,7 @@ export function SettingsView() {
                                                                 <span className="ar-name">
                                                                     {display_name}
                                                                 </span>
-                                                                {maskedKey && (
-                                                                    <span className="ai-key">
-                                                                        {maskedKey}
-                                                                    </span>
-                                                                )}
                                                                 <div className="ar-actions">
-                                                                    {info?.source === "cpa" && (
-                                                                        <span className="src-tag">
-                                                                            来自 CPA Manager
-                                                                        </span>
-                                                                    )}
                                                                     {info?.source === "cpa" ? (
                                                                         <span className="src-tag">
                                                                             在数据源中管理
@@ -1574,35 +1608,37 @@ export function SettingsView() {
                                         );
                                     })
                                 )}
-                                {hiddenAccounts.length > 0 && (
+                                {overrideAccounts.length > 0 && (
                                     <>
                                         <div className="set-group-label" style={{ marginTop: 16 }}>
-                                            已隐藏的 CPA 账号
+                                            已隐藏 / 已关闭的账号
                                         </div>
                                         <div className="acct-intro">
-                                            这些账号来自主面板账号菜单的"隐藏"操作，不会影响远端
-                                            CPA-Manager。
+                                            这些账号来自主面板账号菜单的"隐藏"或"关闭监控"操作，可在这里恢复。
                                         </div>
-                                        {hiddenAccounts.map((item) => (
+                                        {overrideAccounts.map((item) => (
                                             <div className="ao-item" key={item.key}>
                                                 <div className="ao-vendor">
                                                     <VendorMark id={item.provider} size={20} />
                                                     <span className="ao-name">
                                                         {item.accountLabel}
                                                     </span>
+                                                    <span className="src-tag">
+                                                        {item.kind === "hidden"
+                                                            ? "已隐藏"
+                                                            : "已关闭"}
+                                                    </span>
                                                 </div>
-                                                <span className="ao-key" title={item.key}>
-                                                    {item.key.split(":")[0]}
-                                                </span>
                                                 <div className="ao-actions">
                                                     <button
                                                         className="icon-btn sp-ic"
                                                         title="恢复"
                                                         type="button"
                                                         onClick={() => {
-                                                            restoreHiddenAccount(
+                                                            restoreOverrideAccount(
                                                                 item.provider,
                                                                 item.key,
+                                                                item.kind,
                                                             );
                                                         }}
                                                     >
@@ -1740,6 +1776,57 @@ export function SettingsView() {
                                             void save_config({
                                                 ...config,
                                                 usageBarColorScheme: value,
+                                            });
+                                        }}
+                                    />
+                                </div>
+                                <SetRow
+                                    title="用量条样式"
+                                    sub="细线型保持紧凑；粗胶囊型把数值放进进度条内。"
+                                >
+                                    <Select
+                                        value={bar_style_value_to_label(usageBarStyle)}
+                                        onChange={(value) => {
+                                            void save_config({
+                                                ...config,
+                                                usageBarStyle: bar_style_label_to_value(value),
+                                            });
+                                        }}
+                                        options={[...BAR_STYLE_LABELS]}
+                                    />
+                                </SetRow>
+                                <div className="set-row set-row-stack">
+                                    <div className="sr-text">
+                                        <div className="sr-title">用量标签映射</div>
+                                        <div className="sr-sub">
+                                            每行一个“原始名称=显示名称”，会覆盖内置长标签缩写。
+                                        </div>
+                                    </div>
+                                    <textarea
+                                        className="set-textarea"
+                                        aria-label="用量标签映射"
+                                        value={usage_label_map_text}
+                                        onChange={(event) => {
+                                            const next_text = event.target.value.slice(
+                                                0,
+                                                USAGE_LABEL_MAP_MAX_TEXT_LENGTH,
+                                            );
+                                            usage_label_map_dirty_ref.current = true;
+                                            set_usage_label_map_text(next_text);
+                                            const usage_label_map =
+                                                parse_usage_label_map(next_text);
+                                            if (!usage_label_map && next_text.trim().length > 0)
+                                                return;
+                                            const {
+                                                usageLabelMap: removed_usage_label_map,
+                                                ...rest
+                                            } = config;
+                                            void removed_usage_label_map;
+                                            void save_config({
+                                                ...rest,
+                                                ...(usage_label_map && {
+                                                    usageLabelMap: usage_label_map,
+                                                }),
                                             });
                                         }}
                                     />

@@ -4,19 +4,15 @@ import type { ProviderUsageGroup } from "../lib/provider-usage";
 import {
     PROVIDER_LABELS,
     build_overview_for_group,
-    format_usage_period_label,
     resolve_convergent_time,
 } from "../lib/provider-usage";
-import { relative_time, format_reset_time } from "../lib/utils";
-import {
-    bar_fill_color,
-    DEFAULT_USAGE_BAR_COLOR_SCHEME,
-    usage_window_elapsed,
-    type UsageBarColorScheme,
-} from "../lib/usage-colors";
+import { relative_time } from "../lib/utils";
+import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
+import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { CollapsibleCard } from "./CollapsibleCard";
+import { UsageBarRow, AccountUsageRow } from "./UsageRows";
 
 interface ProviderCardProps {
     provider: UsageProvider;
@@ -25,7 +21,6 @@ interface ProviderCardProps {
     onRefresh?: ((provider: UsageProvider) => void) | undefined;
     expanded?: boolean | undefined;
     onToggleExpand?: ((provider: UsageProvider) => void) | undefined;
-    disabled?: boolean | undefined;
     onToggleDisable?: ((provider: UsageProvider) => void) | undefined;
     onDelete?: ((provider: UsageProvider) => void) | undefined;
     dragging?: boolean | undefined;
@@ -35,79 +30,8 @@ interface ProviderCardProps {
     onDragEnd?: (() => void) | undefined;
     refreshing?: boolean | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
-}
-
-function render_bar_row(
-    key: string,
-    name: string,
-    value: number | null,
-    limit: number,
-    display_style: "percent" | "ratio",
-    reset_at: string | null | undefined,
-    idx: number,
-    color_scheme: UsageBarColorScheme,
-) {
-    const elapsed = usage_window_elapsed(name, reset_at);
-    if (value == null) {
-        return (
-            <div className="bar-row" key={key}>
-                <span className="bar-lbl">{format_usage_period_label(name)}</span>
-                <div className="track">
-                    <div
-                        className="fill"
-                        style={{
-                            width: "0%",
-                            background: bar_fill_color(color_scheme, { pct: 0, idx, elapsed }),
-                        }}
-                    />
-                </div>
-                <span className="bar-pct" />
-                <span className="bar-reset" />
-            </div>
-        );
-    }
-    if (display_style === "ratio" && limit > 0) {
-        const fill_pct = Math.min(100, Math.max(0, Math.round((value / limit) * 100)));
-        return (
-            <div className="bar-row frac" key={key}>
-                <span className="bar-lbl">{format_usage_period_label(name)}</span>
-                <div className="track">
-                    <div
-                        className="fill"
-                        style={{
-                            width: `${String(fill_pct)}%`,
-                            background: bar_fill_color(color_scheme, {
-                                pct: fill_pct,
-                                idx,
-                                elapsed,
-                            }),
-                        }}
-                    />
-                </div>
-                <span className="bar-pct">
-                    {value}/{limit}
-                </span>
-                <span className="bar-reset" />
-            </div>
-        );
-    }
-    const pct = limit > 0 ? Math.min(100, Math.max(0, Math.round((value / limit) * 100))) : 0;
-    return (
-        <div className="bar-row" key={key}>
-            <span className="bar-lbl">{format_usage_period_label(name)}</span>
-            <div className="track">
-                <div
-                    className="fill"
-                    style={{
-                        width: `${String(pct)}%`,
-                        background: bar_fill_color(color_scheme, { pct, idx, elapsed }),
-                    }}
-                />
-            </div>
-            <span className="bar-pct">{pct}%</span>
-            <span className="bar-reset">{reset_at ? format_reset_time(reset_at) : "--"}</span>
-        </div>
-    );
+    barStyle?: UsageBarStyle | undefined;
+    labelMap?: Readonly<Record<string, string>> | undefined;
 }
 
 function is_auth_error(error: string): boolean {
@@ -130,7 +54,6 @@ export function ProviderCard({
     onRefresh,
     expanded,
     onToggleExpand,
-    disabled = false,
     onToggleDisable,
     onDelete,
     dragging,
@@ -140,6 +63,8 @@ export function ProviderCard({
     onDragEnd,
     refreshing: is_refreshing = false,
     barColorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
+    barStyle = "thin",
+    labelMap,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
@@ -150,7 +75,6 @@ export function ProviderCard({
     const is_danger = group?.status === "critical";
     const card_class =
         (is_danger || isFailed ? "alert" : "") +
-        (disabled ? " disabled" : "") +
         (dragging ? " dragging" : "") +
         (dragOver ? " drag-over" : "");
 
@@ -171,26 +95,6 @@ export function ProviderCard({
     ) : null;
 
     const render_state = () => {
-        if (disabled) {
-            return (
-                <div className="card-state off">
-                    <span className="cs-ic">
-                        <Icon name="power" size={16} />
-                    </span>
-                    <span>监控已关闭，不再刷新用量</span>
-                    {onToggleDisable && (
-                        <span
-                            className="cs-action"
-                            onClick={() => {
-                                onToggleDisable(provider);
-                            }}
-                        >
-                            启用
-                        </span>
-                    )}
-                </div>
-            );
-        }
         if (isFailed) {
             if (is_auth) {
                 return (
@@ -284,10 +188,10 @@ export function ProviderCard({
             {grip_handle}
             <VendorMark id={provider} size={26} />
             <span className="card-name">{label}</span>
-            {accountCount > 1 && (expanded === false || disabled) && (
+            {accountCount > 1 && expanded === false && (
                 <span className="count-badge">{String(accountCount)}账号</span>
             )}
-            {accountCount > 1 && expanded !== false && !disabled && (
+            {accountCount > 1 && expanded !== false && (
                 <span className="l2seg" role="tablist">
                     <button
                         className={l2open ? "" : "on"}
@@ -311,17 +215,14 @@ export function ProviderCard({
                     </button>
                 </span>
             )}
-            {disabled && <span className="off-badge">已关闭</span>}
-            {!disabled && is_refreshing && <span className="rel-time">刷新中…</span>}
-            {!disabled && !is_refreshing && hasUsage && (
-                <span className="rel-time">{updated_text}</span>
-            )}
+            {is_refreshing && <span className="rel-time">刷新中…</span>}
+            {!is_refreshing && hasUsage && <span className="rel-time">{updated_text}</span>}
         </>
     );
 
     const tools = (
         <>
-            {onRefresh !== undefined && !disabled && (
+            {onRefresh !== undefined && (
                 <button
                     className={"icon-btn" + (is_refreshing ? " spinning" : "")}
                     title={`刷新 ${label}`}
@@ -376,7 +277,7 @@ export function ProviderCard({
                                     <span className="cm-ic">
                                         <Icon name="power" size={15} />
                                     </span>
-                                    {disabled ? "启用" : "关闭"}
+                                    关闭
                                 </div>
                             )}
                             {onDelete && (
@@ -418,18 +319,16 @@ export function ProviderCard({
         if (!overview_periods.length) return <div className="card-state off">暂无有效用量数据</div>;
         return (
             <div className="bars">
-                {overview_periods.map((ow, idx) =>
-                    render_bar_row(
-                        ow.id,
-                        ow.name,
-                        ow.used,
-                        ow.limit,
-                        ow.displayStyle,
-                        ow.resetAt,
-                        idx,
-                        barColorScheme,
-                    ),
-                )}
+                {overview_periods.map((period, idx) => (
+                    <UsageBarRow
+                        key={period.id}
+                        period={period}
+                        index={idx}
+                        colorScheme={barColorScheme}
+                        barStyle={barStyle}
+                        labelMap={labelMap}
+                    />
+                ))}
             </div>
         );
     };
@@ -439,30 +338,13 @@ export function ProviderCard({
         return (
             <div className="acct-detail">
                 {group.accounts.map((account) => (
-                    <div className="acct-item" key={account.id}>
-                        <div className="ai-head">
-                            <span className="ai-dot" />
-                            <span className="ai-name">{account.accountLabel}</span>
-                            <span className="ai-key">{account.accountId}</span>
-                            <span className="ai-time">
-                                {account.updatedAt ? relative_time(account.updatedAt) : ""}
-                            </span>
-                        </div>
-                        <div className="ai-bars">
-                            {account.periods.map((period, idx) =>
-                                render_bar_row(
-                                    period.id,
-                                    period.name,
-                                    period.used,
-                                    period.limit,
-                                    period.displayStyle,
-                                    period.resetAt,
-                                    idx,
-                                    barColorScheme,
-                                ),
-                            )}
-                        </div>
-                    </div>
+                    <AccountUsageRow
+                        key={account.id}
+                        account={account}
+                        barColorScheme={barColorScheme}
+                        barStyle={barStyle}
+                        labelMap={labelMap}
+                    />
                 ))}
             </div>
         );
@@ -514,18 +396,16 @@ export function ProviderCard({
                     : is_multi && !l2open
                       ? render_overview()
                       : group.accounts.flatMap((account) =>
-                            account.periods.map((period, idx) =>
-                                render_bar_row(
-                                    period.id,
-                                    period.name,
-                                    period.used,
-                                    period.limit,
-                                    period.displayStyle,
-                                    period.resetAt,
-                                    idx,
-                                    barColorScheme,
-                                ),
-                            ),
+                            account.periods.map((period, idx) => (
+                                <UsageBarRow
+                                    key={period.id}
+                                    period={period}
+                                    index={idx}
+                                    colorScheme={barColorScheme}
+                                    barStyle={barStyle}
+                                    labelMap={labelMap}
+                                />
+                            )),
                         )}
             </CollapsibleCard>
         );

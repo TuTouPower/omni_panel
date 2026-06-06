@@ -1,4 +1,4 @@
-import type { UsageBarColorScheme } from "../lib/usage-colors";
+import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
 import { ProviderAccountRow } from "./ProviderAccountRow";
 
@@ -15,6 +15,8 @@ interface ProviderAccountListProps {
     onDisableAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onHideOrDeleteAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
+    barStyle?: UsageBarStyle | undefined;
+    labelMap?: Readonly<Record<string, string>> | undefined;
 }
 
 export function ProviderAccountList({
@@ -30,6 +32,8 @@ export function ProviderAccountList({
     onDisableAccount,
     onHideOrDeleteAccount,
     barColorScheme,
+    barStyle,
+    labelMap,
 }: ProviderAccountListProps) {
     return (
         <>
@@ -48,6 +52,8 @@ export function ProviderAccountList({
                             onHideOrDeleteAccount={onHideOrDeleteAccount}
                             isCpaSource={is_cpa}
                             barColorScheme={barColorScheme}
+                            barStyle={barStyle}
+                            labelMap={labelMap}
                         />
                     );
                 }
@@ -82,6 +88,8 @@ export function ProviderAccountList({
                         onHideOrDeleteAccount={onHideOrDeleteAccount}
                         isCpaSource={is_cpa}
                         barColorScheme={barColorScheme}
+                        barStyle={barStyle}
+                        labelMap={labelMap}
                     />
                 );
             })}

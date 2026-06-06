@@ -1,6 +1,5 @@
+import type { UsageBarColorScheme } from "../../shared/types/config";
 import { createLogger } from "../../shared/lib/logger";
-
-export type UsageBarColorScheme = "risk-current" | "risk-projected" | "nine-cycle";
 
 export const DEFAULT_USAGE_BAR_COLOR_SCHEME: UsageBarColorScheme = "risk-current";
 
