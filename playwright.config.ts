@@ -10,7 +10,7 @@ const config: PlaywrightTestConfig = {
         viewport: null,
         actionTimeout: 10_000,
     },
-    outputDir: "./out/e2e-artifacts",
+    outputDir: "./dist/e2e-artifacts",
     projects: [
         {
             name: "default",

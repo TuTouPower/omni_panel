@@ -8,9 +8,9 @@ import { tmpdir } from "node:os";
 const ROOT = process.cwd();
 
 const EXE_BY_PLATFORM: Record<string, string> = {
-    win32: resolve(ROOT, "out/OmniUsage-win32-x64/OmniUsage.exe"),
-    darwin: resolve(ROOT, "out/OmniUsage-darwin-arm64/OmniUsage.app/Contents/MacOS/OmniUsage"),
-    linux: resolve(ROOT, "out/OmniUsage-linux-x64/OmniUsage"),
+    win32: resolve(ROOT, "dist/OmniUsage-win32-x64/OmniUsage.exe"),
+    darwin: resolve(ROOT, "dist/OmniUsage-darwin-arm64/OmniUsage.app/Contents/MacOS/OmniUsage"),
+    linux: resolve(ROOT, "dist/OmniUsage-linux-x64/OmniUsage"),
 };
 const PACKAGED_EXE = EXE_BY_PLATFORM[process.platform];
 

@@ -46,8 +46,8 @@ function run_packaged(): void {
     const exe = resolve(
         ROOT,
         is_win
-            ? "out/OmniUsage-win32-x64/OmniUsage.exe"
-            : "out/OmniUsage-darwin-x64/OmniUsage.app/Contents/MacOS/OmniUsage",
+            ? "dist/OmniUsage-win32-x64/OmniUsage.exe"
+            : "dist/OmniUsage-darwin-x64/OmniUsage.app/Contents/MacOS/OmniUsage",
     );
 
     log(`starting: ${exe}`);

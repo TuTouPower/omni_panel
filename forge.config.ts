@@ -8,6 +8,7 @@ import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 
 const config: ForgeConfig = {
+    outDir: "dist",
     packagerConfig: {
         asar: true,
         extraResource: ["resources/plugins", "src/plugins/sdk", "resources/tray-icon.png"],

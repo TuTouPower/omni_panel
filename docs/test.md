@@ -6,12 +6,12 @@
 
 ## 1. 测试分层
 
-| 层级           | 目录                    | 框架             | 职责                                                                                                 |
-| -------------- | ----------------------- | ---------------- | ---------------------------------------------------------------------------------------------------- |
-| 单元测试       | `tests/unit/`           | Vitest           | 纯函数、工具类、schema 校验、parser 逻辑                                                             |
-| 集成测试       | `tests/integration/`    | Vitest           | 能在 Node 环境真实运行的主进程模块（config/cache/scheduler/runner）                                  |
-| 用户端到端测试 | `tests/user_e2e/`       | Playwright       | 真实 Electron 实例，**模拟真实用户操作**                                                             |
-| 打包 smoke     | `tests/packaged_smoke/` | Playwright + CDP | 验证 `out/OmniUsage-win32-x64/OmniUsage.exe` 能正常启动、渲染、发现内置插件并覆盖 popup 窗口高度回归 |
+| 层级           | 目录                    | 框架             | 职责                                                                                                  |
+| -------------- | ----------------------- | ---------------- | ----------------------------------------------------------------------------------------------------- |
+| 单元测试       | `tests/unit/`           | Vitest           | 纯函数、工具类、schema 校验、parser 逻辑                                                              |
+| 集成测试       | `tests/integration/`    | Vitest           | 能在 Node 环境真实运行的主进程模块（config/cache/scheduler/runner）                                   |
+| 用户端到端测试 | `tests/user_e2e/`       | Playwright       | 真实 Electron 实例，**模拟真实用户操作**                                                              |
+| 打包 smoke     | `tests/packaged_smoke/` | Playwright + CDP | 验证 `dist/OmniUsage-win32-x64/OmniUsage.exe` 能正常启动、渲染、发现内置插件并覆盖 popup 窗口高度回归 |
 
 三层职责不重叠：
 
@@ -50,7 +50,7 @@
 
 以下问题涉及打包产物或 Electron 运行时，自动化只能辅助，不能单独宣称已解决：
 
-- `out/OmniUsage-win32-x64/OmniUsage.exe` 首次启动。
+- `dist/OmniUsage-win32-x64/OmniUsage.exe` 首次启动。
 - 系统托盘真实显示效果、popup 窗口位置。
 - Popup 根容器必须填满窗口高度，防止底部 body 背景空白。
 - Popup 动态高度（Phase 20）：折叠/展开卡片后窗口实际跟随 `popup:reportContentHeight` 调整大小、不超过 75% 工作区、不出现额外底部留白。自动化只能覆盖控制器纯函数与 ResizeObserver 上报逻辑，真实多显示器/不同 DPI 下的 `setBounds` 行为只能人工验收。
@@ -83,7 +83,7 @@ pnpm package
 pnpm test:packaged
 
 # 打包后真实启动验证
-./out/OmniUsage-win32-x64/OmniUsage.exe
+./dist/OmniUsage-win32-x64/OmniUsage.exe
 
 # Phase 20 手动验收（打包后真实环境）
 # 1. 打开托盘主面板，观察窗口高度是否按展开内容自动撑高，无不必要底部空白。
