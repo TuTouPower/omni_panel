@@ -72,12 +72,23 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
     // Setting nativeTheme.themeSource triggers the "updated" event above,
     // which broadcasts to all windows automatically.
     ipcMain.handle(IPC_CHANNELS.THEME_SET, (_e, mode: unknown) => {
-        const parsed = themeSchema.safeParse(mode);
-        if (!parsed.success) {
-            log.warn(`Invalid THEME_SET mode: ${String(mode)}`);
-            return;
+        const channel = IPC_CHANNELS.THEME_SET;
+        const args = [mode];
+        const is_development = process.env["NODE_ENV"] === "development";
+        if (is_development) log.debug("ipc request raw", { channel, args });
+        try {
+            const parsed = themeSchema.safeParse(mode);
+            if (!parsed.success) {
+                log.warn(`Invalid THEME_SET mode: ${String(mode)}`);
+                if (is_development) log.debug("ipc response raw", { channel, result: undefined });
+                return;
+            }
+            nativeTheme.themeSource = parsed.data;
+            if (is_development) log.debug("ipc response raw", { channel, result: undefined });
+        } catch (error: unknown) {
+            if (is_development) log.debug("ipc error raw", { channel, error });
+            throw error;
         }
-        nativeTheme.themeSource = parsed.data;
     });
 
     return () => {
