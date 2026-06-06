@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { writeFileSync, mkdirSync } from "node:fs";
 import type { ElectronApplication, Page } from "@playwright/test";
+import { PopupPage } from "../pages/popup_page";
 import { createTestWithSetup } from "../fixtures/test_with_setup";
 import { seed_fake_plugin } from "../fixtures/seeded_plugin";
 
@@ -23,6 +24,7 @@ const { test, expect } = createTestWithSetup({
                     placeholder: "Enter your API key",
                 },
             ],
+            requiredParam: "api_secret",
         });
 
         // Write config with a stable instanceId so secrets persist across restarts
@@ -104,6 +106,23 @@ test.describe("secrets persistence", () => {
         form = await openSecretForm(sPage);
         const secretInputAfter = form.locator('input[name="api_secret"][type="password"]');
         await expect(secretInputAfter).toHaveValue("***");
+    });
+
+    test("saved secret is passed to the plugin subprocess on refresh", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        const sPage = await openSettings(omni.app, page);
+
+        const form = await openSecretForm(sPage);
+        await form.locator('input[name="api_secret"][type="password"]').fill("subprocess-secret");
+        await form.locator('button[type="submit"]').click();
+        await expect(sPage.locator('[role="dialog"]')).toBeHidden();
+
+        const popup = new PopupPage(page);
+        await popup.clickRefresh();
+        await popup.root().getByRole("button", { name: "展开" }).first().click();
+        await expect(popup.root().getByText("Test")).toBeVisible({ timeout: 15_000 });
+        await expect(popup.root().getByText("10/100")).toBeVisible();
     });
 
     test("secret value is masked in UI, not shown in plain text", async ({ omni }) => {
