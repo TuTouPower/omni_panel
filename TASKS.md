@@ -22,76 +22,76 @@
 
 **Demo 规则**：统一 5 列 `4ic minmax(0,1fr) 5ch 5ch 5ch`，gap 6px。label/value/date/clock 固定宽度，progress 是唯一弹性列。
 
-- [ ] 用量条行结构改为 5 列：`label(4ic) | progress(1fr) | value(5ch) | date(5ch) | clock(5ch)`
-- [ ] 时间列拆分为 date + clock 独立对齐（如 `今天 13:10` → date:`今天` clock:`13:10`）
-- [ ] 数字日期格式化为 `MM.DD`（如 `5/18 → 05.18`）
-- [ ] label 列固定 4ic，全局不按厂商变化，超长走 CSS ellipsis + hover tooltip
-- [ ] value/date/clock 右对齐，tabular-nums
-- [ ] column-gap: 6px
-- [ ] 窗口变宽时只拉伸 progress 列
+- [x] 用量条行结构改为 5 列：`label(4ic) | progress(1fr) | value(5ch) | date(5ch) | clock(5ch)`
+- [x] 时间列拆分为 date + clock 独立对齐（如 `今天 13:10` → date:`今天` clock:`13:10`）
+- [x] 数字日期格式化为 `MM.DD`（如 `5/18 → 05.18`）
+- [x] label 列固定 4ic，全局不按厂商变化，超长走 CSS ellipsis + hover tooltip
+- [x] value/date/clock 右对齐，tabular-nums
+- [x] column-gap: 6px
+- [x] 窗口变宽时只拉伸 progress 列
 
 ### 36.2 用量条颜色方案（P0）
 
 **Demo 规则**：三套颜色方案，通过 `BarSchemeContext` 传递。九色循环从 8 色改为 9 色。
 
-- [ ] 新增 `risk-current`（默认）：≥95 红、>85 橙、>60 黄、其他绿
-- [ ] 新增 `risk-projected`：按 elapsed 预测，无 elapsed 回退 risk-current
-- [ ] 九色循环从 8 色升级为 9 色（新增 `#A7D8D8` 淡青灰）
-- [ ] 亮暗主题各一套 `--risk-green/yellow/orange/red` CSS 变量
-- [ ] 轨道底色 `--bar-track` 亮色 `#E9EDF5` / 暗色 `#2B313C`
-- [ ] 设置 > 外观 > 用量条颜色方案：三选一，默认 risk-current
+- [x] 新增 `risk-current`（默认）：≥95 红、>85 橙、>60 黄、其他绿
+- [x] 新增 `risk-projected`：按 elapsed 预测，无 elapsed 回退 risk-current
+- [x] 九色循环从 8 色升级为 9 色（新增 `#A7D8D8` 淡青灰）
+- [x] 亮暗主题各一套 `--risk-green/yellow/orange/red` CSS 变量
+- [x] 轨道底色 `--bar-track` 亮色 `#E9EDF5` / 暗色 `#2B313C`
+- [x] 设置 > 外观 > 用量条颜色方案：三选一，默认 risk-current
 
 ### 36.3 粗胶囊型用量条（P1）
 
 **Demo 规则**：与颜色方案独立的新设置，4 列 `4ic 1fr 5ch 5ch`，数值在胶囊内。
 
-- [ ] 新增 `BarStyleContext`：`thin`（默认）/ `capsule`
-- [ ] 胶囊型 4 列：`label | capsule+value | date | clock`（无独立 value 列）
-- [ ] 胶囊 22px 高，999px 圆角，行距 7px
-- [ ] 数值固定在轨道中心，不跟随填充移动
-- [ ] 轨道 = 填充色 16% 透明度（`color-mix`）
-- [ ] 文字对比：深色底层 + 白色 clip-path 二层方案
-- [ ] `isolation: isolate` 防止 z-index 泄漏
-- [ ] 三套颜色方案兼容胶囊型
-- [ ] 设置 > 外观 > 用量条样式：细线型 / 粗胶囊型
+- [x] 新增 `BarStyleContext`：`thin`（默认）/ `capsule`
+- [x] 胶囊型 4 列：`label | capsule+value | date | clock`（无独立 value 列）
+- [x] 胶囊 22px 高，999px 圆角，行距 7px
+- [x] 数值固定在轨道中心，不跟随填充移动
+- [x] 轨道 = 填充色 16% 透明度（`color-mix`）
+- [x] 文字对比：深色底层 + 白色 clip-path 二层方案
+- [x] `isolation: isolate` 防止 z-index 泄漏
+- [x] 三套颜色方案兼容胶囊型
+- [x] 设置 > 外观 > 用量条样式：细线型 / 粗胶囊型
 
 ### 36.4 面板宽度与 resize（P1）
 
-- [ ] 面板默认宽 482px，最小 472px，最大 780px
-- [ ] 右边缘可拖拽调整宽度（demo `.win-resize`）
-- [ ] 高度由 ResizeObserver 驱动，clamp `[160px, 75% vh]`
-- [ ] 变宽时只拉伸 progress/capsule 列
+- [x] 面板默认宽 482px，最小 472px，最大 780px
+- [x] 右边缘可拖拽调整宽度（demo `.win-resize`）
+- [x] 高度由 ResizeObserver 驱动，clamp `[160px, 75% vh]`
+- [x] 变宽时只拉伸 progress/capsule 列
 
 ### 36.5 长标签映射（P2）
 
-- [ ] 内置 `LABEL_MAP` 映射缩短长模型名（如 `gemini-3.1-flash-lite-preview → 3.1 Flash-Lite·Pv`）
-- [ ] 用户可自定义映射覆盖内置映射
-- [ ] 超长标签 CSS ellipsis + title tooltip
+- [x] 内置 `LABEL_MAP` 映射缩短长模型名（如 `gemini-3.1-flash-lite-preview → 3.1 Flash-Lite·Pv`）
+- [x] 用户可自定义映射覆盖内置映射
+- [x] 超长标签 CSS ellipsis + title tooltip
 
 ### 36.6 设置页更新（P1）
 
-- [ ] 常规页新增「窗口」分组：主面板打开方式、窗口置顶、浮动高度
-- [ ] 移除「点击托盘图标」设置（左键永远开主面板）
-- [ ] 账号页去掉密钥列显示
-- [ ] CPA 已发现账号不显示密钥
+- [x] 常规页新增「窗口」分组：主面板打开方式、窗口置顶、浮动高度
+- [x] 移除「点击托盘图标」设置（左键永远开主面板）
+- [x] 账号页去掉密钥列显示
+- [x] CPA 已发现账号不显示密钥
 
 ### 36.7 骨架屏优化（P2）
 
-- [ ] 无刷新时间的余额行（如 DeepSeek），时间列置空而非显示 `--`
+- [x] 无刷新时间的余额行（如 DeepSeek），时间列置空而非显示 `--`
 
 ### 36.8 死代码清理（P2）
 
-- [ ] 移除 disabled-card 相关死代码（"已关闭" badge、`.card.disabled` 等），确认 demo 不渲染 disabled 卡片
-- [ ] 移除 `status` / `footerUpdated` 死状态
+- [x] 移除 disabled-card 相关死代码（"已关闭" badge、`.card.disabled` 等），确认 demo 不渲染 disabled 卡片
+- [x] 移除 `status` / `footerUpdated` 死状态
 
 ### 36.9 测试
 
-- [ ] 五列行结构测试：列宽、对齐、gap、弹性列
-- [ ] 时间拆分测试：`splitTime()` 各格式
-- [ ] 颜色方案测试：三套方案、九色循环、风险色阈值
-- [ ] 胶囊型测试：结构、文字对比、z-isolation
-- [ ] 长标签映射测试：内置映射、用户覆盖、ellipisis
-- [ ] `pnpm test` 全部通过
+- [x] 五列行结构测试：列宽、对齐、gap、弹性列
+- [x] 时间拆分测试：`splitTime()` 各格式
+- [x] 颜色方案测试：三套方案、九色循环、风险色阈值
+- [x] 胶囊型测试：结构、文字对比、z-isolation
+- [x] 长标签映射测试：内置映射、用户覆盖、ellipisis
+- [x] `pnpm test` 全部通过
 
 ### 验收标准
 
@@ -1258,12 +1258,12 @@ Phase 29.2 已明确：
 
 ### 待修项
 
-- [ ] **35.1 提取通用账号行组件**：`ProviderAccountRow` 和 `ProviderCard.render_account_detail()` 合并为一套组件，拖拽和菜单作为可选 props，总览页和标签页共用
-- [ ] **35.2 删除"N个周期"**：通用组件里不显示周期数量
-- [ ] **35.3 补刷新时间**：通用组件显示 `relative_time(account.updatedAt)`
-- [ ] **35.4 补展示内容测试**：测试验证 header 渲染了刷新时间、没有"N个周期"、用量条数量来自真实数据
-- [ ] **35.5 删除 `ProviderCard.render_account_detail()` 内联代码**，改用通用组件
-- [ ] **35.6 `pnpm test` 全部通过**
+- [x] **35.1 提取通用账号行组件**：`ProviderAccountRow` 和 `ProviderCard.render_account_detail()` 合并为一套组件，拖拽和菜单作为可选 props，总览页和标签页共用
+- [x] **35.2 删除"N个周期"**：通用组件里不显示周期数量
+- [x] **35.3 补刷新时间**：通用组件显示 `relative_time(account.updatedAt)`
+- [x] **35.4 补展示内容测试**：测试验证 header 渲染了刷新时间、没有"N个周期"、用量条数量来自真实数据
+- [x] **35.5 删除 `ProviderCard.render_account_detail()` 内联代码**，改用通用组件
+- [x] **35.6 `pnpm test` 全部通过**
 
 ### 关联
 
