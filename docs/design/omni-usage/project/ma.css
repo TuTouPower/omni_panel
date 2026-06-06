@@ -55,10 +55,6 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 16%, transparent);
 }
 .ai-name { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: -.01em; }
-.ai-key {
-  font-family: "SF Mono", ui-monospace, Menlo, monospace;
-  font-size: 11px; color: var(--text-3); letter-spacing: .01em;
-}
 .ai-time { margin-left: auto; font-size: 11.5px; color: var(--text-3); flex-shrink: 0; }
 .ai-bars { display: flex; flex-direction: column; gap: 8px; }
 

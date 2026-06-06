@@ -4,6 +4,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "theme": "light",
   "accent": "#3d7afd",
   "barScheme": "risk-current",
+  "barStyle": "thin",
   "demoState": "default",
   "settingsMode": "normal"
 }/*EDITMODE-END*/;
@@ -39,6 +40,26 @@ function App() {
   const [tab, setTab] = React.useState('overview');       // overview | vendorId
   const [winOpen, setWinOpen] = React.useState(true);
 
+  /* panel width (spec §一/§七) — drag the right edge to widen; only the
+     usage-bar column (1fr) consumes the extra width. Clamped to [min, max];
+     min keeps the title row from ever breaking. */
+  const MIN_W = 472, MAX_W = 780;
+  const [winW, setWinW] = React.useState(482);
+  const onResizeDown = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = winRef.current ? winRef.current.offsetWidth : winW;
+    const move = (ev) => setWinW(Math.max(MIN_W, Math.min(MAX_W, startW + (ev.clientX - startX))));
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.style.userSelect = '';
+    };
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   /* settings now lives in-page as its own overlay window (migrated from
      the standalone OmniUsage Settings.html). Opening it shows the overlay;
      the panel's back/close button hides it. */
@@ -50,7 +71,6 @@ function App() {
 
   const [refreshing, setRefreshing] = React.useState(() => new Set());
   const [overrides, setOverrides] = React.useState({});   // key -> "刚刚"
-  const [footerUpdated, setFooterUpdated] = React.useState('2 分钟前');
   const [globalSpin, setGlobalSpin] = React.useState(false);
 
   /* card management state */
@@ -141,7 +161,7 @@ function App() {
     setTimeout(() => setGlobalSpin(false), 1200);
     setCollapsed(new Set());   // new operation → clear manual collapses so fresh results show (window re-expands)
     setTokCollapsed(false);
-    refreshKeys(visibleKeys(), () => setFooterUpdated('刚刚'));
+    refreshKeys(visibleKeys());
   };
 
   const getUpdated = (key, orig) => overrides[key] || orig;
@@ -177,7 +197,6 @@ function App() {
   const cardActions = (cardKey, scopeId) => ({
     collapsed: collapsed.has(cardKey),
     onToggleCollapse: () => toggleSet(setCollapsed, cardKey),
-    disabled: disabledSet.has(cardKey),
     onToggleDisable: () => toggleSet(setDisabledSet, cardKey),
     menuOpen: menuKey === cardKey,
     onToggleMenu: () => setMenuKey(menuKey === cardKey ? null : cardKey),
@@ -185,13 +204,6 @@ function App() {
     onEdit: () => {},
     onDelete: () => setRemoved((prev) => new Set(prev).add(tab + ':' + scopeId)),
   });
-
-  /* status pill */
-  const status = demo === 'error' ? { dot: 'red', label: '网络异常' }
-    : demo === 'auth' ? { dot: 'amber', label: '凭证失效' }
-    : demo === 'limit' ? { dot: 'amber', label: '接近限制' }
-    : demo === 'empty' ? { dot: 'amber', label: '尚未配置' }
-    : { dot: 'green', label: '数据正常' };
 
   /* ---- monitor body ---- */
   const renderCards = () => {
@@ -276,10 +288,11 @@ function App() {
 
   return (
     <BarSchemeContext.Provider value={t.barScheme}>
+    <BarStyleContext.Provider value={t.barStyle}>
     <div className="desktop">
       {/* main monitor window */}
       {winOpen && (
-          <div className="window" ref={winRef}>
+          <div className="window" ref={winRef} style={{ width: winW }}>
               <>
                 <div className="titlebar" onContextMenu={openCtx}>
                   <img className="app-logo" src="logo.png" alt="OmniUsage" width="30" height="30" />
@@ -319,6 +332,7 @@ function App() {
                   </div>
                 </div>
               </>
+              <div className="win-resize" onPointerDown={onResizeDown} title="拖动调整面板宽度" />
           </div>
       )}
 
@@ -351,6 +365,7 @@ function App() {
             theme={t.theme} onTheme={(v) => setTweak('theme', v)}
             accent={t.accent} onAccent={(v) => setTweak('accent', v)}
             barScheme={t.barScheme} onBarScheme={(v) => setTweak('barScheme', v)}
+            barStyle={t.barStyle} onBarStyle={(v) => setTweak('barStyle', v)}
             onBack={() => setSettingsOpen(false)} />
         </div>
       )}
@@ -364,6 +379,10 @@ function App() {
         <TweakColor label="强调色" value={t.accent}
           options={['#3d7afd', '#6f5cf6', '#0ea5a3', '#f5772f', '#e23744']}
           onChange={(v) => setTweak('accent', v)} />
+        <TweakSelect label="用量条样式" value={t.barStyle} options={[
+          { value: 'thin', label: '细线型' },
+          { value: 'capsule', label: '粗胶囊型' }]}
+          onChange={(v) => setTweak('barStyle', v)} />
         <TweakSelect label="用量条颜色" value={t.barScheme} options={[
           { value: 'risk-current', label: '风险色：仅当前用量' },
           { value: 'risk-projected', label: '风险色：带投影预测' },
@@ -378,6 +397,7 @@ function App() {
           onChange={(v) => setTweak('settingsMode', v)} />
       </TweaksPanel>
     </div>
+    </BarStyleContext.Provider>
     </BarSchemeContext.Provider>
   );
 }

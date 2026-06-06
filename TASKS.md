@@ -4,6 +4,107 @@
 
 ---
 
+## Phase 36: Demo Handoff chat30-39 对齐
+
+### 背景
+
+`docs/design/omni_usage-handoff.tar.gz` 解压后包含 chat30-39 共 10 轮设计迭代。与当前实现对比，以下设计要素需要补齐或修正。详细变更记录见 `docs/design/CHANGELOG-design.md`。
+
+### 核心原则
+
+1. 以 demo 代码（`docs/design/omni-usage/project/`）为准。
+2. 不修改 `docs/design/omni-usage/**`。
+3. 每项完成前跑 `pnpm test`。
+4. 涉及 UI 的项必须手工点击验收。
+5. 涉及打包的项必须 packaged smoke。
+
+### 36.1 用量条五列行结构（P0）
+
+**Demo 规则**：统一 5 列 `4ic minmax(0,1fr) 5ch 5ch 5ch`，gap 6px。label/value/date/clock 固定宽度，progress 是唯一弹性列。
+
+- [ ] 用量条行结构改为 5 列：`label(4ic) | progress(1fr) | value(5ch) | date(5ch) | clock(5ch)`
+- [ ] 时间列拆分为 date + clock 独立对齐（如 `今天 13:10` → date:`今天` clock:`13:10`）
+- [ ] 数字日期格式化为 `MM.DD`（如 `5/18 → 05.18`）
+- [ ] label 列固定 4ic，全局不按厂商变化，超长走 CSS ellipsis + hover tooltip
+- [ ] value/date/clock 右对齐，tabular-nums
+- [ ] column-gap: 6px
+- [ ] 窗口变宽时只拉伸 progress 列
+
+### 36.2 用量条颜色方案（P0）
+
+**Demo 规则**：三套颜色方案，通过 `BarSchemeContext` 传递。九色循环从 8 色改为 9 色。
+
+- [ ] 新增 `risk-current`（默认）：≥95 红、>85 橙、>60 黄、其他绿
+- [ ] 新增 `risk-projected`：按 elapsed 预测，无 elapsed 回退 risk-current
+- [ ] 九色循环从 8 色升级为 9 色（新增 `#A7D8D8` 淡青灰）
+- [ ] 亮暗主题各一套 `--risk-green/yellow/orange/red` CSS 变量
+- [ ] 轨道底色 `--bar-track` 亮色 `#E9EDF5` / 暗色 `#2B313C`
+- [ ] 设置 > 外观 > 用量条颜色方案：三选一，默认 risk-current
+
+### 36.3 粗胶囊型用量条（P1）
+
+**Demo 规则**：与颜色方案独立的新设置，4 列 `4ic 1fr 5ch 5ch`，数值在胶囊内。
+
+- [ ] 新增 `BarStyleContext`：`thin`（默认）/ `capsule`
+- [ ] 胶囊型 4 列：`label | capsule+value | date | clock`（无独立 value 列）
+- [ ] 胶囊 22px 高，999px 圆角，行距 7px
+- [ ] 数值固定在轨道中心，不跟随填充移动
+- [ ] 轨道 = 填充色 16% 透明度（`color-mix`）
+- [ ] 文字对比：深色底层 + 白色 clip-path 二层方案
+- [ ] `isolation: isolate` 防止 z-index 泄漏
+- [ ] 三套颜色方案兼容胶囊型
+- [ ] 设置 > 外观 > 用量条样式：细线型 / 粗胶囊型
+
+### 36.4 面板宽度与 resize（P1）
+
+- [ ] 面板默认宽 482px，最小 472px，最大 780px
+- [ ] 右边缘可拖拽调整宽度（demo `.win-resize`）
+- [ ] 高度由 ResizeObserver 驱动，clamp `[160px, 75% vh]`
+- [ ] 变宽时只拉伸 progress/capsule 列
+
+### 36.5 长标签映射（P2）
+
+- [ ] 内置 `LABEL_MAP` 映射缩短长模型名（如 `gemini-3.1-flash-lite-preview → 3.1 Flash-Lite·Pv`）
+- [ ] 用户可自定义映射覆盖内置映射
+- [ ] 超长标签 CSS ellipsis + title tooltip
+
+### 36.6 设置页更新（P1）
+
+- [ ] 常规页新增「窗口」分组：主面板打开方式、窗口置顶、浮动高度
+- [ ] 移除「点击托盘图标」设置（左键永远开主面板）
+- [ ] 账号页去掉密钥列显示
+- [ ] CPA 已发现账号不显示密钥
+
+### 36.7 骨架屏优化（P2）
+
+- [ ] 无刷新时间的余额行（如 DeepSeek），时间列置空而非显示 `--`
+
+### 36.8 死代码清理（P2）
+
+- [ ] 移除 disabled-card 相关死代码（"已关闭" badge、`.card.disabled` 等），确认 demo 不渲染 disabled 卡片
+- [ ] 移除 `status` / `footerUpdated` 死状态
+
+### 36.9 测试
+
+- [ ] 五列行结构测试：列宽、对齐、gap、弹性列
+- [ ] 时间拆分测试：`splitTime()` 各格式
+- [ ] 颜色方案测试：三套方案、九色循环、风险色阈值
+- [ ] 胶囊型测试：结构、文字对比、z-isolation
+- [ ] 长标签映射测试：内置映射、用户覆盖、ellipisis
+- [ ] `pnpm test` 全部通过
+
+### 验收标准
+
+1. 用量条 5 列行结构全局对齐，gap 6px。
+2. 三套颜色方案可选，默认 risk-current。
+3. 胶囊型可选，默认细线型。
+4. 时间列 date + clock 独立对齐。
+5. 面板宽度 472-780px 可调。
+6. 设置页窗口分组、无密钥列。
+7. `pnpm test` 通过。
+
+---
+
 ## Phase 22: Demo 差异补齐（不含 Token 面板）
 
 ### 背景

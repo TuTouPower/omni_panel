@@ -73,7 +73,6 @@ function OneRowAccount({ vendor, account, on, onToggle, mode }) {
         <span className={'ao-dot' + (on ? '' : ' off')} />
         <span className="ao-note">{account.name}</span>
       </div>
-      <span className="ao-key">{account.key}</span>
       <AccountActions source={account.source} on={on} onToggle={onToggle} mode={mode} />
     </div>
   );
@@ -95,7 +94,6 @@ function MultiGroup({ vendor, accounts, isOn, onToggle, mode }) {
               <span className="gr-handle" title="拖动排序"><Icon name="grip" size={16} strokeWidth={2} /></span>
               <span className={'gr-dot' + (on ? '' : ' off')} />
               <span className="gr-note">{a.name}</span>
-              <span className="gr-key">{a.key}</span>
               <AccountActions source={a.source} on={on} onToggle={() => onToggle(a.key)} mode={mode} />
             </div>
           );
@@ -187,7 +185,6 @@ function DiscoveredGroup({ vendor, accounts, open, onToggle }) {
             <div className="disc-row" key={a.key}>
               <span className="drd" />
               <span className="dr-note">{a.name}</span>
-              <span className="dr-key">{a.key}</span>
             </div>
           ))}
         </div>
@@ -480,12 +477,12 @@ function BarSchemeField({ value, onChange }) {
   );
 }
 
-function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBarScheme, onBack }) {
+function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBarScheme, barStyle, onBarStyle, onBack }) {
   const [section, setSection] = React.useState('accounts');
   const [dsView, setDsView] = React.useState('list');   // list | cpa
   const [dialog, setDialog] = React.useState(null);      // {type:'picker'|'vendor'|'cpa', vendorId?}
   const [s, setS] = React.useState({
-    interval: '5 分钟', lang: '简体中文', trayClick: '打开主面板', pin: false,
+    interval: '5 分钟', lang: '简体中文', panelMode: '浮动窗口', pin: true, floatHeight: '保持窗口大小',
     notifyNear: true, notifyLimit: true, notifyFail: true, notifyWay: '系统通知', cacheMax: '100 MB',
   });
   const up = (k, v) => setS((p) => ({ ...p, [k]: v }));
@@ -569,9 +566,17 @@ function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBa
                 <SPRow title="自动刷新间隔" sub="后台轮询各服务用量的频率">
                   <SPSelect value={s.interval} onChange={(v) => up('interval', v)} options={['1 分钟', '5 分钟', '15 分钟', '30 分钟', '仅手动']} />
                 </SPRow>
-                <SPRow title="点击托盘图标">
-                  <SPSelect value={s.trayClick} onChange={(v) => up('trayClick', v)} options={['打开主面板', '打开菜单']} />
+                <div className="set-group-label">窗口</div>
+                <SPRow title="主面板打开方式" sub="左键托盘图标永远打开主面板，外壳由这里决定">
+                  <SPSelect value={s.panelMode} onChange={(v) => up('panelMode', v)} options={['跟随系统推荐', '弹出面板', '浮动窗口']} />
                 </SPRow>
+                <SPRow title="窗口始终置顶">
+                  <SPToggle on={s.pin} onClick={() => up('pin', !s.pin)} />
+                </SPRow>
+                <SPRow title="浮动窗口高度" sub="保持窗口大小时内容在窗口内滚动；跟随内容变化时只能调整宽度">
+                  <SPSelect value={s.floatHeight} onChange={(v) => up('floatHeight', v)} options={['保持窗口大小', '跟随内容变化']} />
+                </SPRow>
+                <div className="set-group-label">其他</div>
                 <SPRow title="界面语言">
                   <SPSelect value={s.lang} onChange={(v) => up('lang', v)} options={['简体中文', 'English', '跟随系统']} />
                 </SPRow>
@@ -597,6 +602,13 @@ function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBa
                   </div>
                 </SPRow>
                 <div className="set-group-label">用量条</div>
+                <SPRow title="用量条样式" sub="细线型信息密度高；粗胶囊型把数值放进条内，更醒目。">
+                  <div className="set-seg">
+                    {[['thin', '细线型'], ['capsule', '粗胶囊型']].map(([k, lb]) => (
+                      <button key={k} className={barStyle === k ? 'on' : ''} onClick={() => onBarStyle(k)}>{lb}</button>
+                    ))}
+                  </div>
+                </SPRow>
                 <div className="set-row set-row-stack">
                   <div className="sr-text">
                     <div className="sr-title">用量条颜色方案</div>

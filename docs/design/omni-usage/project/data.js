@@ -23,40 +23,50 @@ const VENDORS = [
   {
     id: 'glm', name: 'GLM', updated: '12 分钟前',
     accounts: [
-      { name: '个人账号', key: 'sk-****g1l2m3n4o5p6', updated: '12 分钟前', h5: 34, week: 41, r5: '今天 13:14', rw: '5/17 10:00', e5: 0.40, ew: 0.65, mcp: { value: 58, max: 1000 } },
-      { name: '研究账号', key: 'sk-****q7r8s9t0u1v2', updated: '13 分钟前', h5: 21, week: 38, r5: '今天 13:11', rw: '5/17 10:00', e5: 0.40, ew: 0.65, mcp: { value: 37, max: 1000 } },
+      { name: '个人账号', key: 'sk-****g1l2m3n4o5p6', updated: '12 分钟前', h5: 34, week: 41, r5: '今天 13:14', rw: '5/17 10:00', e5: 0.40, ew: 0.65, mcp: { value: 58, max: 1000, reset: '6/8 19:00' } },
+      { name: '研究账号', key: 'sk-****q7r8s9t0u1v2', updated: '13 分钟前', h5: 21, week: 38, r5: '今天 13:11', rw: '5/17 10:00', e5: 0.40, ew: 0.65, mcp: { value: 37, max: 1000, reset: '6/8 19:00' } },
     ],
     h5: 34, week: 41, r5: '今天 13:14', rw: '5/17 10:00', e5: 0.40, ew: 0.65,
-    mcp: { value: 95, max: 1000 },
+    mcp: { value: 95, max: 1000, reset: '6/8 19:00' },
   },
   {
     id: 'deepseek', name: 'DeepSeek', updated: '9 分钟前',
     accounts: [
-      { name: '个人账号', key: 'sk-****d9e8e7p6s5k4', updated: '9 分钟前', r5: '今天 13:38', rw: '5/18 09:00', e5: 0.25, ew: 0.50, balanceOnly: true, balance: { value: 52, max: 100 } },
+      { name: '个人账号', key: 'sk-****d9e8e7p6s5k4', updated: '9 分钟前', r5: '今天 13:38', rw: '5/18 09:00', e5: 0.25, ew: 0.50, balanceOnly: true, balance: { value: 52, max: 100, reset: '' } },
     ],
     h5: 7, week: 22, r5: '今天 13:38', rw: '5/18 09:00', e5: 0.25, ew: 0.50,
-    balanceOnly: true, balance: { value: 52, max: 100 },
+    balanceOnly: true, balance: { value: 52, max: 100, reset: '' },
   },
   {
     id: 'minimax', name: 'MiniMax', updated: '11 分钟前',
     accounts: [
-      { name: '个人账号', key: 'sk-****m1n2m3a4x5b6', updated: '11 分钟前', h5: null, week: 31, r5: '', rw: '5/18 08:00', ew: 0.55 },
+      { name: '个人账号', key: 'sk-****m1n2m3a4x5b6', updated: '11 分钟前',
+        metrics: [
+          { label: '文本',      value: 28, reset: '今天 13:10' },
+          { label: '语音',      value: 41, reset: '今天 13:10' },
+          { label: '图像',      value: 63, reset: '今天 13:10' },
+          { label: '视频',      value: 35, reset: '今天 13:10' },
+          { label: '搜索',      value: 18, reset: '今天 13:10' },
+          { label: 'Embedding', value: 31, reset: '今天 13:10' },
+          { label: '重排',      value: 22, reset: '今天 13:10' },
+          { label: '视觉',      value: 47, reset: '今天 13:10' },
+        ],
+      },
     ],
-    h5: null, week: 31, r5: '', rw: '5/18 08:00', ew: 0.55,
   },
   {
     id: 'gemini', name: 'Gemini', updated: '5 分钟前',
     accounts: [
       { name: '个人账号', key: 'sk-gem-****1111', updated: '5 分钟前',
         metrics: [
-          { label: 'Pro',   value: 41 },
-          { label: 'Flash', value: 43 },
-          { label: 'Lite',  value: 16 },
-          { label: '图像',  value: 29 },
-          { label: '嵌入',  value: 72 },
-          { label: '缓存',  value: 34 },
-          { label: '文件',  value: 18 },
-          { label: '批量',  value: 8 },
+          { label: 'gemini-2.5-pro',                 value: 41, reset: '今天 14:00' },
+          { label: 'gemini-2.5-flash',               value: 43, reset: '今天 14:00' },
+          { label: 'gemini-2.5-flash-lite',          value: 16, reset: '今天 14:00' },
+          { label: 'gemini-3-pro-preview',           value: 58, reset: '今天 14:00' },
+          { label: 'gemini-3-flash-preview',         value: 49, reset: '今天 14:00' },
+          { label: 'gemini-3.1-pro-preview',         value: 12, reset: '今天 14:00' },
+          { label: 'gemini-3.1-flash-lite',          value: 27, reset: '今天 14:00' },
+          { label: 'gemini-3.1-flash-lite-preview',  value: 8,  reset: '今天 14:00' },
         ],
       },
     ],
@@ -64,9 +74,14 @@ const VENDORS = [
   {
     id: 'tavily', name: 'Tavily', updated: '6 分钟前',
     accounts: [
-      { name: '个人账号', key: 'tvly-****a1b2c3d4', updated: '6 分钟前', h5: 46, week: 67, r5: '今天 13:10', rw: '6/1 08:00', e5: 0.60, ew: 0.70 },
+      { name: '个人账号', key: 'tvly-****a1b2c3d4', updated: '6 分钟前',
+        metrics: [
+          { label: '总量', value: 67, reset: '6/1 08:00' },
+          { label: '搜索', value: 46, reset: '今天 13:10' },
+          { label: '提取', value: 23, reset: '今天 13:10' },
+        ],
+      },
     ],
-    h5: 46, week: 67, r5: '今天 13:10', rw: '6/1 08:00', e5: 0.60, ew: 0.70,
   },
 ];
 
