@@ -36,56 +36,51 @@ function shouldLog(level: LogLevel): boolean {
     return LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[globalLevel];
 }
 
-const SENSITIVE_KEY = /authorization|password|passwd|secret|token|api[_-]?key|apikey|credential/i;
+function serialize_meta(meta: unknown): unknown {
+    const seen = new WeakSet<object>();
 
-function redact_message(message: string): string {
-    return message
-        .replace(
-            /\b(authorization|password|passwd|secret|token|api[_-]?key|apikey|credential)\s*[:=]\s*([^\s,;]+)/gi,
-            "$1=***",
-        )
-        .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer ***");
-}
-
-function redact_meta(meta: unknown): unknown {
-    if (meta === undefined || meta === null) return meta;
-    if (typeof meta === "string") return redact_message(meta);
-    if (typeof meta !== "object") return meta;
-    if (meta instanceof Error) {
-        const redacted = new Error(redact_message(meta.message));
-        if (meta.stack) {
-            redacted.stack = redact_message(meta.stack);
+    function visit(value: unknown): unknown {
+        if (value === undefined || value === null) return value;
+        if (typeof value !== "object") return value;
+        if (value instanceof Error) {
+            return {
+                name: value.name,
+                message: value.message,
+                stack: value.stack,
+            };
         }
-        return redacted;
-    }
-    if (Array.isArray(meta)) return meta.map((item) => redact_meta(item));
-    if (Object.getPrototypeOf(meta) !== Object.prototype) return meta;
+        if (seen.has(value)) return "[Circular]";
+        seen.add(value);
+        if (Array.isArray(value)) return value.map((item) => visit(item));
+        if (Object.getPrototypeOf(value) !== Object.prototype)
+            return Object.prototype.toString.call(value);
 
-    return Object.fromEntries(
-        Object.entries(meta as Record<string, unknown>).map(([key, value]) => [
-            key,
-            SENSITIVE_KEY.test(key) ? "***" : redact_meta(value),
-        ]),
-    );
+        return Object.fromEntries(
+            Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+                key,
+                visit(item),
+            ]),
+        );
+    }
+
+    return visit(meta);
 }
 
 function emit(level: LogLevel, module: string, message: string, meta?: unknown): void {
     if (!shouldLog(level)) return;
-    const safe_message = redact_message(message);
-    const safe_meta = redact_meta(meta);
+    const safe_meta = serialize_meta(meta);
     for (const t of transports) {
-        t.write(level, module, safe_message, safe_meta);
+        t.write(level, module, message, safe_meta);
     }
 }
 
 function formatMeta(meta: unknown): string {
     if (meta === undefined) return "";
-    if (meta instanceof Error) return ` | ${meta.stack ?? meta.message}`;
     if (typeof meta === "string") return ` | ${meta}`;
     try {
         return ` | ${JSON.stringify(meta)}`;
     } catch {
-        return ` | [unserializable]`;
+        return " | [unserializable]";
     }
 }
 

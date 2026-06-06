@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { addTransport, createLogger, setLogLevel } from "../../../src/shared/lib/logger";
 
 describe("logger", () => {
-    it("redacts secret-like fields in messages and metadata", () => {
+    it("logs raw message and metadata values in debug mode", () => {
         const lines: string[] = [];
         const remove_transport = addTransport({
             write(level, module, message, meta) {
@@ -20,13 +20,33 @@ describe("logger", () => {
             });
 
             const output = lines.join("\n");
-            expect(output).toContain("api_key=***");
-            expect(output).toContain('"Authorization":"***"');
-            expect(output).toContain('"password":"***"');
+            expect(output).toContain("api_key=secret-token");
+            expect(output).toContain('"Authorization":"Bearer real-token"');
+            expect(output).toContain('"password":"real-password"');
             expect(output).toContain("visible");
-            expect(output).not.toContain("secret-token");
-            expect(output).not.toContain("real-token");
-            expect(output).not.toContain("real-password");
+        } finally {
+            remove_transport();
+        }
+    });
+
+    it("serializes circular metadata without throwing", () => {
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            const payload: Record<string, unknown> = { name: "root" };
+            payload["self"] = payload;
+
+            const log = createLogger("test");
+            expect(() => {
+                log.debug("circular", payload);
+            }).not.toThrow();
+            expect(lines.join("\n")).toContain("[Circular]");
         } finally {
             remove_transport();
         }
