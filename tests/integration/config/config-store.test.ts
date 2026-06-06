@@ -100,4 +100,54 @@ describe("config-store", () => {
         expect(config.language).toBe("zh-Hans");
         expect(config.plugins).toEqual([]);
     });
+
+    it("logs raw config load and save payloads only in development", async () => {
+        const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
+        const original_node_env = process.env.NODE_ENV;
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            process.env.NODE_ENV = "development";
+            const store = createConfigStore(join(tempDir, "config.json"));
+            const config: AppConfiguration = {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                usageBarColorScheme: "risk-projected",
+            };
+            await store.save(config);
+            await store.load();
+
+            let joined = lines.join("\n");
+            expect(joined).toContain("config save payload raw");
+            expect(joined).toContain("config save complete raw");
+            expect(joined).toContain("config load raw");
+            expect(joined).toContain("config parsed raw");
+            expect(joined).toContain("risk-projected");
+
+            lines.length = 0;
+            process.env.NODE_ENV = "production";
+            await store.save(config);
+            await store.load();
+
+            joined = lines.join("\n");
+            expect(joined).not.toContain("config save payload raw");
+            expect(joined).not.toContain("config load raw");
+            expect(joined).not.toContain("risk-projected");
+        } finally {
+            if (original_node_env === undefined) {
+                delete process.env.NODE_ENV;
+            } else {
+                process.env.NODE_ENV = original_node_env;
+            }
+            remove_transport();
+        }
+    });
 });

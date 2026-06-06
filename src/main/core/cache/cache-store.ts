@@ -1,6 +1,11 @@
 import { readFile, writeFile, unlink, mkdir, rename } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import type { PluginCachedState } from "./types";
+import { createLogger } from "../../../shared/lib/logger";
+
+function shouldLogRawStorage(): boolean {
+    return process.env.NODE_ENV === "development";
+}
 
 export interface CacheStore {
     load(stateId: string): Promise<PluginCachedState | null>;
@@ -12,6 +17,7 @@ const VALID_STATE_ID = /^[a-zA-Z0-9_-]+$/;
 
 export function createCacheStore(statesDir: string): CacheStore {
     const resolvedDir = resolve(statesDir);
+    const log = createLogger("cache-store");
 
     function getPath(stateId: string): string {
         if (!VALID_STATE_ID.test(stateId)) {
@@ -30,8 +36,15 @@ export function createCacheStore(statesDir: string): CacheStore {
             const path = getPath(stateId);
             try {
                 const raw = await readFile(path, "utf8");
-                return JSON.parse(raw) as PluginCachedState;
+                const parsed = JSON.parse(raw) as PluginCachedState;
+                if (shouldLogRawStorage()) {
+                    log.debug("cache load raw", { stateId, path, raw, parsed });
+                }
+                return parsed;
             } catch {
+                if (shouldLogRawStorage()) {
+                    log.debug("cache load missing raw", { stateId, path });
+                }
                 return null;
             }
         },
@@ -39,6 +52,9 @@ export function createCacheStore(statesDir: string): CacheStore {
         async save(stateId: string, state: PluginCachedState): Promise<void> {
             await mkdir(statesDir, { recursive: true });
             const path = getPath(stateId);
+            if (shouldLogRawStorage()) {
+                log.debug("cache save raw", { stateId, path, state });
+            }
             const tmpPath = `${path}.tmp`;
             await writeFile(tmpPath, JSON.stringify(state, null, 2), "utf8");
             await rename(tmpPath, path);
@@ -46,6 +62,9 @@ export function createCacheStore(statesDir: string): CacheStore {
 
         async delete(stateId: string): Promise<void> {
             const path = getPath(stateId);
+            if (shouldLogRawStorage()) {
+                log.debug("cache delete raw", { stateId, path });
+            }
             try {
                 await unlink(path);
             } catch {

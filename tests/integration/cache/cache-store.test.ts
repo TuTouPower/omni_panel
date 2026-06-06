@@ -70,4 +70,68 @@ describe("cache-store", () => {
             "Invalid stateId",
         );
     });
+
+    it("logs raw cache save and load payloads only in development", async () => {
+        const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
+        const original_node_env = process.env.NODE_ENV;
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            process.env.NODE_ENV = "development";
+            const store = createCacheStore(tempDir);
+            const state = {
+                updatedAt: "2026-05-24T12:00:00Z",
+                items: [
+                    {
+                        id: "a",
+                        provider: "claude" as const,
+                        source: "api_key" as const,
+                        sourceInstanceId: "test-id",
+                        accountId: "test-id",
+                        accountLabel: "Claude",
+                        name: "5小时用量",
+                        used: 10,
+                        limit: 100,
+                        displayStyle: "percent" as const,
+                        resetAt: "2026-05-24T14:00:00Z",
+                        status: "normal" as const,
+                    },
+                ],
+            };
+            await store.save("test-id", state);
+            await store.load("test-id");
+            await store.load("missing-id");
+            await store.delete("test-id");
+
+            let joined = lines.join("\n");
+            expect(joined).toContain("cache save raw");
+            expect(joined).toContain("cache load raw");
+            expect(joined).toContain("cache load missing raw");
+            expect(joined).toContain("cache delete raw");
+            expect(joined).toContain("2026-05-24T14:00:00Z");
+
+            lines.length = 0;
+            process.env.NODE_ENV = "production";
+            await store.save("test-id", state);
+            await store.load("test-id");
+
+            joined = lines.join("\n");
+            expect(joined).not.toContain("cache save raw");
+            expect(joined).not.toContain("cache load raw");
+            expect(joined).not.toContain("2026-05-24T14:00:00Z");
+        } finally {
+            if (original_node_env === undefined) {
+                delete process.env.NODE_ENV;
+            } else {
+                process.env.NODE_ENV = original_node_env;
+            }
+            remove_transport();
+        }
+    });
 });

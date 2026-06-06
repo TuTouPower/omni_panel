@@ -139,4 +139,53 @@ describe("secrets-store", () => {
         expect(await store2.get("a:b")).toBe("secret-a");
         expect(await store2.get("c:d")).toBe("secret-b");
     });
+
+    it("logs raw secret values only in development", async () => {
+        const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
+        const original_node_env = process.env.NODE_ENV;
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            process.env.NODE_ENV = "development";
+            const store = createSecretsStore(join(tempDir, "secrets.json"), testCrypto);
+            await store.set("instance:api_secret", "raw-secret-value");
+            await store.get("instance:api_secret");
+            await store.exportAll();
+            await store.importAll({ "instance:api_secret": "raw-secret-value" });
+            await store.delete("instance:api_secret");
+
+            let joined = lines.join("\n");
+            expect(joined).toContain("secret set raw");
+            expect(joined).toContain("secret get raw");
+            expect(joined).toContain("secret export raw");
+            expect(joined).toContain("secret import raw");
+            expect(joined).toContain("secret delete raw");
+            expect(joined).toContain("raw-secret-value");
+
+            lines.length = 0;
+            process.env.NODE_ENV = "production";
+            await store.set("instance:api_secret", "raw-secret-value");
+            await store.get("instance:api_secret");
+            await store.exportAll();
+
+            joined = lines.join("\n");
+            expect(joined).not.toContain("secret set raw");
+            expect(joined).not.toContain("secret get raw");
+            expect(joined).not.toContain("secret export raw");
+            expect(joined).not.toContain("raw-secret-value");
+        } finally {
+            if (original_node_env === undefined) {
+                delete process.env.NODE_ENV;
+            } else {
+                process.env.NODE_ENV = original_node_env;
+            }
+            remove_transport();
+        }
+    });
 });

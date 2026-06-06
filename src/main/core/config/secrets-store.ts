@@ -3,6 +3,10 @@ import { dirname } from "node:path";
 import type { CryptoBackend } from "./crypto-backend";
 import { createLogger } from "../../../shared/lib/logger";
 
+function shouldLogRawStorage(): boolean {
+    return process.env.NODE_ENV === "development";
+}
+
 export interface SecretsStore {
     get(key: string): Promise<string | null>;
     set(key: string, value: string): Promise<void>;
@@ -48,7 +52,11 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
                 return null;
             }
             try {
-                return crypto.decrypt(encrypted);
+                const value = crypto.decrypt(encrypted);
+                if (shouldLogRawStorage()) {
+                    log.debug("secret get raw", { key, encrypted, value });
+                }
+                return value;
             } catch {
                 log.warn(
                     `Failed to decrypt secret ${key.split(":")[0] ?? key}:***, treating as missing`,
@@ -61,6 +69,9 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
             const data = await readAll();
             const isNew = !(key in data);
             data[key] = crypto.encrypt(value);
+            if (shouldLogRawStorage()) {
+                log.debug("secret set raw", { key, value, encrypted: data[key] });
+            }
             await queuedWrite(data);
             if (isNew) {
                 log.info(`Secret stored: ${key.split(":")[0] ?? key}:***`);
@@ -72,6 +83,9 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
             if (!(key in data)) {
                 log.debug(`Secret delete requested but not found: ${key}`);
                 return;
+            }
+            if (shouldLogRawStorage()) {
+                log.debug("secret delete raw", { key, encrypted: data[key] });
             }
             const filtered = Object.fromEntries(Object.entries(data).filter(([k]) => k !== key));
             await queuedWrite(filtered);
@@ -88,6 +102,9 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
                     log.warn(`Failed to decrypt secret ${key.split(":")[0] ?? key}:***, skipping`);
                 }
             }
+            if (shouldLogRawStorage()) {
+                log.debug("secret export raw", { result });
+            }
             return result;
         },
 
@@ -95,6 +112,9 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
             const data: Record<string, string> = {};
             for (const [key, value] of Object.entries(decrypted)) {
                 data[key] = crypto.encrypt(value);
+            }
+            if (shouldLogRawStorage()) {
+                log.debug("secret import raw", { decrypted, encrypted: data });
             }
             await queuedWrite(data);
             log.info(`Imported ${String(Object.keys(data).length)} secrets`);

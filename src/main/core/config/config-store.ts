@@ -13,6 +13,10 @@ export interface AppConfigStore {
 
 const log = createLogger("config-store");
 
+function shouldLogRawStorage(): boolean {
+    return process.env.NODE_ENV === "development";
+}
+
 function sortKeys(obj: unknown): unknown {
     if (Array.isArray(obj)) return obj.map(sortKeys);
     if (obj !== null && typeof obj === "object") {
@@ -39,10 +43,16 @@ export function createConfigStore(configPath: string): AppConfigStore {
     async function doSave(config: AppConfiguration): Promise<void> {
         await mkdir(dirname(configPath), { recursive: true });
         const sorted = sortKeys(config);
+        if (shouldLogRawStorage()) {
+            log.debug("config save payload raw", { filePath: configPath, config: sorted });
+        }
         const json = JSON.stringify(sorted, null, 2);
         const tmpPath = `${configPath}.tmp`;
         await writeFile(tmpPath, json, "utf8");
         await rename(tmpPath, configPath);
+        if (shouldLogRawStorage()) {
+            log.debug("config save complete raw", { filePath: configPath });
+        }
         log.debug(`Config saved to ${configPath} (${String(config.plugins.length)} plugins)`);
     }
 
@@ -50,7 +60,13 @@ export function createConfigStore(configPath: string): AppConfigStore {
         async load(): Promise<AppConfiguration> {
             try {
                 const raw = await readFile(configPath, "utf8");
+                if (shouldLogRawStorage()) {
+                    log.debug("config load raw", { filePath: configPath, raw });
+                }
                 const parsed = JSON.parse(raw) as unknown;
+                if (shouldLogRawStorage()) {
+                    log.debug("config parsed raw", { filePath: configPath, config: parsed });
+                }
                 const normalized =
                     parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
                         ? stripRemovedConfigFields(parsed as Record<string, unknown>)
