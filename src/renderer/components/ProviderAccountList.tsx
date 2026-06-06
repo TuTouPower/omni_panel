@@ -77,6 +77,7 @@ export function ProviderAccountList({
                         onEditAccount={onEditAccount}
                         onHideOrDeleteAccount={onHideOrDeleteAccount}
                         isCpaSource={is_cpa}
+                        barColorScheme={barColorScheme}
                     />
                 );
             })}

@@ -430,6 +430,70 @@ describe("ProviderCard", () => {
         expect(bar_fill_color("risk-projected", { pct: 50, idx: 0 })).toBe("var(--risk-green)");
     });
 
+    it("uses current-only color for multi-account overview when reset display is hidden", () => {
+        const first_period = makePeriod({
+            id: "a-5h",
+            accountId: "a",
+            accountLabel: "A",
+            name: "Claude Pro · 5小时",
+            used: 50,
+            limit: 100,
+            displayStyle: "percent",
+            resetAt: "2026-01-01T17:00:00Z",
+        });
+        const second_period = makePeriod({
+            id: "b-5h",
+            accountId: "b",
+            accountLabel: "B",
+            name: "Claude Pro · 5小时",
+            used: 50,
+            limit: 100,
+            displayStyle: "percent",
+            resetAt: "2026-01-01T17:30:00Z",
+        });
+        const group = makeGroup({
+            accountCount: 2,
+            periods: [first_period, second_period],
+            accounts: [
+                {
+                    id: "a",
+                    sourceInstanceId: "ds-1",
+                    accountId: "a",
+                    accountLabel: "A",
+                    status: "normal",
+                    updatedAt: "2026-01-01T15:00:00Z",
+                    periods: [first_period],
+                },
+                {
+                    id: "b",
+                    sourceInstanceId: "ds-1",
+                    accountId: "b",
+                    accountLabel: "B",
+                    status: "normal",
+                    updatedAt: "2026-01-01T15:00:00Z",
+                    periods: [second_period],
+                },
+            ],
+        });
+
+        render(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={vi.fn()}
+                barColorScheme="risk-projected"
+            />,
+        );
+
+        const row = screen.getByText("5小时").closest(".bar-row");
+        expect(row).toBeInstanceOf(HTMLElement);
+        const fill = (row as HTMLElement).querySelector<HTMLElement>(".fill");
+        if (!fill) throw new Error("missing fill");
+        expect(fill.style.background).toBe("var(--risk-green)");
+        expect((row as HTMLElement).querySelector(".bar-reset")).toHaveTextContent("--");
+    });
+
     it("uses nine-cycle colors when configured", () => {
         const group = makeGroup({
             periods: [makePeriod({ id: "first", name: "5小时", used: 95, limit: 100 })],

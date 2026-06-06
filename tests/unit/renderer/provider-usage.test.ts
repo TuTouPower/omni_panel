@@ -288,6 +288,41 @@ describe("provider usage aggregation", () => {
         expect(overview).toHaveLength(0);
     });
 
+    it("hides overview reset time when account reset times are too far apart", () => {
+        const connectors = [
+            connectorInfo({
+                source: "cpa",
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            id: "claude-a-5h",
+                            accountId: "auth-a",
+                            accountLabel: "Account A",
+                            name: "Claude Pro · 5小时",
+                            resetAt: "2026-01-01T17:00:00Z",
+                        }),
+                        usageItem({
+                            id: "claude-b-5h",
+                            accountId: "auth-b",
+                            accountLabel: "Account B",
+                            name: "Claude Pro · 5小时",
+                            resetAt: "2026-01-01T17:30:00Z",
+                        }),
+                    ],
+                },
+            }),
+        ];
+
+        const [group] = build_provider_usage_groups(connectors);
+        if (!group) throw new Error("Expected provider usage group");
+        const [overview] = build_overview_for_group(group);
+
+        expect(overview?.resetAt).toBeNull();
+    });
+
     it("separates CPA accounts with same label from different sourceInstanceId", () => {
         const connectors = [
             connectorInfo({
