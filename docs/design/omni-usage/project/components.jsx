@@ -1,9 +1,19 @@
 /* components.jsx — shared UI: BarRow, UsageCard, TokenChart, Tab */
 
-/* OmniUsage usage-bar palette — fixed 3 + 3 + 2 cool-tone system.
+/* =================================================================
+   USAGE-BAR COLOR SCHEMES
+   Three selectable strategies (设置 > 外观 > 用量条颜色方案):
+     'risk-current'   风险色：仅当前用量      ← DEFAULT
+     'risk-projected' 风险色：带投影预测
+     'nine-cycle'     彩色区分：九色循环
+   The active scheme is supplied through BarSchemeContext (default below
+   is the system default — risk-current). Never default to nine-cycle.
+   ================================================================= */
+const BarSchemeContext = React.createContext('risk-current');
+
+/* --- nine-color cycle (visual distinction only — NOT a risk signal) ---
    Colors are assigned strictly by a bar's ORDER within its card/account,
-   cycling every 8 bars (index % 8). Never keyed to metric type, vendor,
-   or thresholds — same position always gets the same color, everywhere. */
+   cycling every 9 bars (index % 9). Bar 10 reuses color 1, bar 11 color 2… */
 const USAGE_COLORS = [
   '#5B8CFF', // 1 主蓝
   '#8B72F8', // 2 主紫
@@ -13,21 +23,58 @@ const USAGE_COLORS = [
   '#72D4D1', // 6 扩展青
   '#9CB8FF', // 7 浅蓝灰
   '#B6A7FF', // 8 浅紫灰
+  '#A7D8D8', // 9 淡青灰
 ];
 function usageColor(idx) {
   const n = USAGE_COLORS.length;
   return USAGE_COLORS[((idx % n) + n) % n];
 }
 
+/* --- risk colors (green / yellow / orange / red) --- */
+const RISK_VARS = { green: 'var(--risk-green)', yellow: 'var(--risk-yellow)', orange: 'var(--risk-orange)', red: 'var(--risk-red)' };
+
+/* 风险色：仅当前用量 — judged from current usage ratio only.
+   pct is 0..100. Severity: red > orange > yellow > green. */
+function riskCurrentLevel(pct) {
+  if (pct >= 95) return 'red';
+  if (pct > 85)  return 'orange';
+  if (pct > 60)  return 'yellow';
+  return 'green';
+}
+
+/* 风险色：带投影预测 — also projects end-of-window usage from current pace.
+   projected = current / elapsed (both ratios). If elapsed is missing or
+   invalid (no reset/window-start, elapsed<=0, bad data), fall back to the
+   current-only rule. */
+function riskProjectedLevel(pct, elapsed) {
+  if (!(elapsed > 0)) return riskCurrentLevel(pct);   // graceful fallback
+  const projected = (pct / 100) / elapsed;            // ratio, e.g. 1.0 = on track to 100%
+  if (pct >= 95 || projected >= 1.00) return 'red';
+  if (pct > 85  || projected >= 0.90) return 'orange';
+  if (pct > 60  || projected >= 0.75) return 'yellow';
+  return 'green';
+}
+
+/* resolve the fill color for a bar under the active scheme. */
+function barFillColor(scheme, { pct, idx, elapsed }) {
+  if (scheme === 'nine-cycle') return usageColor(idx);
+  if (scheme === 'risk-projected') return RISK_VARS[riskProjectedLevel(pct, elapsed)];
+  // 'risk-current' (default) + any unknown value → safest, simplest rule
+  return RISK_VARS[riskCurrentLevel(pct)];
+}
+
 /* full row with reset time column.
    When `max` is given the row is a fraction metric (e.g. balance / MCP calls):
    it shows "value/max" instead of a percentage and drops the reset column.
-   `idx` is the bar's position within its card/account (0-based). */
-function BarRow({ label, value, max, idx = 0, reset }) {
+   `idx` is the bar's position within its card/account (0-based).
+   `elapsed` (0..1, optional) is the elapsed fraction of this metric's quota
+   window — used only by the 带投影预测 scheme. */
+function BarRow({ label, value, max, idx = 0, reset, elapsed }) {
+  const scheme = React.useContext(BarSchemeContext);
   const unused = value == null;
   const frac = max != null;
   const pct = unused ? 0 : (frac ? (max > 0 ? (value / max) * 100 : 0) : value);
-  const c = usageColor(idx);
+  const c = barFillColor(scheme, { pct, idx, elapsed });
   return (
     <div className={'bar-row' + (frac ? ' frac' : '')}>
       <span className="bar-lbl">{label}</span>
@@ -71,7 +118,7 @@ function CardMenu({ disabled, onEdit, onDelete, onToggle, onClose }) {
   );
 }
 
-function UsageCard({ vendorId, name, updated, h5, week, r5, rw,
+function UsageCard({ vendorId, name, updated, h5, week, r5, rw, e5, ew,
                      balanceOnly, balance, mcp, metrics,
                      accounts, l2open, onToggleL2,
                      state = 'normal', refreshing, onRefresh, limitMode,
@@ -174,8 +221,8 @@ function UsageCard({ vendorId, name, updated, h5, week, r5, rw,
                      <BarRow label="余额" value={a.balance.value} max={a.balance.max} idx={0} />
                    ) : (
                      <>
-                       <BarRow label="5小时" value={a.h5} idx={0} reset={a.r5} />
-                       <BarRow label="一周"  value={a.week} idx={1} reset={a.rw} />
+                       <BarRow label="5小时" value={a.h5} idx={0} reset={a.r5} elapsed={a.e5} />
+                       <BarRow label="一周"  value={a.week} idx={1} reset={a.rw} elapsed={a.ew} />
                        {a.mcp && <BarRow label="MCP" value={a.mcp.value} max={a.mcp.max} idx={2} />}
                      </>
                    )}
@@ -196,8 +243,8 @@ function UsageCard({ vendorId, name, updated, h5, week, r5, rw,
          </div>
        ) : (
          <div className="bars">
-           <BarRow label="5小时" value={h5} idx={0} reset={r5} />
-           <BarRow label="一周"  value={week} idx={1} reset={rw} />
+           <BarRow label="5小时" value={h5} idx={0} reset={r5} elapsed={e5} />
+           <BarRow label="一周"  value={week} idx={1} reset={rw} elapsed={ew} />
            {mcp && <BarRow label="MCP" value={mcp.value} max={mcp.max} idx={2} />}
          </div>
        )}
@@ -290,4 +337,4 @@ function Tab({ active, onClick, vendorId, label }) {
   );
 }
 
-Object.assign(window, { BarRow, SkeletonBars, CardMenu, UsageCard, TokenChart, TokenPanel, Tab });
+Object.assign(window, { BarSchemeContext, BarRow, SkeletonBars, CardMenu, UsageCard, TokenChart, TokenPanel, Tab });

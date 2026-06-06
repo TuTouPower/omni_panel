@@ -4,45 +4,45 @@ const VENDORS = [
   {
     id: 'claude', name: 'Claude', updated: '8 分钟前',
     accounts: [
-      { name: '个人账号', key: 'sk-****a1b2c3d4e5f6', updated: '8 分钟前',  h5: 22, week: 61, r5: '今天 13:10', rw: '5/18 21:00' },
-      { name: '工作账号', key: 'sk-****f7g8h9i0j1k2', updated: '7 分钟前',  h5: 18, week: 57, r5: '今天 13:12', rw: '5/18 21:00' },
-      { name: '测试账号', key: 'sk-****l3m4n5o6p7q8', updated: '9 分钟前',  h5: 12, week: 33, r5: '今天 13:13', rw: '5/18 21:00' },
-      { name: '备用账号', key: 'sk-****r9s0t1u2v3w4', updated: '6 分钟前',  h5: 9,  week: 26, r5: '今天 13:09', rw: '5/18 21:00' },
-      { name: '开发账号', key: 'sk-****x5y6z7a8b9c0', updated: '10 分钟前', h5: 15, week: 44, r5: '今天 13:08', rw: '5/18 21:00' },
+      { name: '个人账号', key: 'sk-****a1b2c3d4e5f6', updated: '8 分钟前',  h5: 22, week: 61, r5: '今天 13:10', rw: '5/18 21:00', e5: 0.35, ew: 0.62 },
+      { name: '工作账号', key: 'sk-****f7g8h9i0j1k2', updated: '7 分钟前',  h5: 18, week: 57, r5: '今天 13:12', rw: '5/18 21:00', e5: 0.35, ew: 0.62 },
+      { name: '测试账号', key: 'sk-****l3m4n5o6p7q8', updated: '9 分钟前',  h5: 12, week: 33, r5: '今天 13:13', rw: '5/18 21:00', e5: 0.30, ew: 0.60 },
+      { name: '备用账号', key: 'sk-****r9s0t1u2v3w4', updated: '6 分钟前',  h5: 9,  week: 26, r5: '今天 13:09', rw: '5/18 21:00', e5: 0.30, ew: 0.60 },
+      { name: '开发账号', key: 'sk-****x5y6z7a8b9c0', updated: '10 分钟前', h5: 15, week: 44, r5: '今天 13:08', rw: '5/18 21:00', e5: 0.30, ew: 0.60 },
     ],
-    h5: 72, week: 58, r5: '今天 13:10', rw: '5/18 21:00',
+    h5: 72, week: 58, r5: '今天 13:10', rw: '5/18 21:00', e5: 0.55, ew: 0.60,
   },
   {
     id: 'codex', name: 'Codex', updated: '10 分钟前',
     accounts: [
-      { name: '主力账号', key: 'sk-****c0d3x1a2b3c4', updated: '10 分钟前', h5: 6, week: 93, r5: '今天 13:34', rw: '5/18 21:00' },
-      { name: '团队账号', key: 'sk-****d5e6f7g8h9i0', updated: '11 分钟前', h5: 8, week: 71, r5: '今天 13:30', rw: '5/18 21:00' },
+      { name: '主力账号', key: 'sk-****c0d3x1a2b3c4', updated: '10 分钟前', h5: 6, week: 93, r5: '今天 13:34', rw: '5/18 21:00', e5: 0.20, ew: 0.80 },
+      { name: '团队账号', key: 'sk-****d5e6f7g8h9i0', updated: '11 分钟前', h5: 8, week: 71, r5: '今天 13:30', rw: '5/18 21:00', e5: 0.20, ew: 0.80 },
     ],
-    h5: 6, week: 93, r5: '今天 13:34', rw: '5/18 21:00',
+    h5: 6, week: 93, r5: '今天 13:34', rw: '5/18 21:00', e5: 0.20, ew: 0.80,
   },
   {
     id: 'glm', name: 'GLM', updated: '12 分钟前',
     accounts: [
-      { name: '个人账号', key: 'sk-****g1l2m3n4o5p6', updated: '12 分钟前', h5: 34, week: 41, r5: '今天 13:14', rw: '5/17 10:00', mcp: { value: 58, max: 1000 } },
-      { name: '研究账号', key: 'sk-****q7r8s9t0u1v2', updated: '13 分钟前', h5: 21, week: 38, r5: '今天 13:11', rw: '5/17 10:00', mcp: { value: 37, max: 1000 } },
+      { name: '个人账号', key: 'sk-****g1l2m3n4o5p6', updated: '12 分钟前', h5: 34, week: 41, r5: '今天 13:14', rw: '5/17 10:00', e5: 0.40, ew: 0.65, mcp: { value: 58, max: 1000 } },
+      { name: '研究账号', key: 'sk-****q7r8s9t0u1v2', updated: '13 分钟前', h5: 21, week: 38, r5: '今天 13:11', rw: '5/17 10:00', e5: 0.40, ew: 0.65, mcp: { value: 37, max: 1000 } },
     ],
-    h5: 34, week: 41, r5: '今天 13:14', rw: '5/17 10:00',
+    h5: 34, week: 41, r5: '今天 13:14', rw: '5/17 10:00', e5: 0.40, ew: 0.65,
     mcp: { value: 95, max: 1000 },
   },
   {
     id: 'deepseek', name: 'DeepSeek', updated: '9 分钟前',
     accounts: [
-      { name: '个人账号', key: 'sk-****d9e8e7p6s5k4', updated: '9 分钟前', r5: '今天 13:38', rw: '5/18 09:00', balanceOnly: true, balance: { value: 52, max: 100 } },
+      { name: '个人账号', key: 'sk-****d9e8e7p6s5k4', updated: '9 分钟前', r5: '今天 13:38', rw: '5/18 09:00', e5: 0.25, ew: 0.50, balanceOnly: true, balance: { value: 52, max: 100 } },
     ],
-    h5: 7, week: 22, r5: '今天 13:38', rw: '5/18 09:00',
+    h5: 7, week: 22, r5: '今天 13:38', rw: '5/18 09:00', e5: 0.25, ew: 0.50,
     balanceOnly: true, balance: { value: 52, max: 100 },
   },
   {
     id: 'minimax', name: 'MiniMax', updated: '11 分钟前',
     accounts: [
-      { name: '个人账号', key: 'sk-****m1n2m3a4x5b6', updated: '11 分钟前', h5: null, week: 31, r5: '', rw: '5/18 08:00' },
+      { name: '个人账号', key: 'sk-****m1n2m3a4x5b6', updated: '11 分钟前', h5: null, week: 31, r5: '', rw: '5/18 08:00', ew: 0.55 },
     ],
-    h5: null, week: 31, r5: '', rw: '5/18 08:00',
+    h5: null, week: 31, r5: '', rw: '5/18 08:00', ew: 0.55,
   },
   {
     id: 'gemini', name: 'Gemini', updated: '5 分钟前',
@@ -64,9 +64,9 @@ const VENDORS = [
   {
     id: 'tavily', name: 'Tavily', updated: '6 分钟前',
     accounts: [
-      { name: '个人账号', key: 'tvly-****a1b2c3d4', updated: '6 分钟前', h5: 46, week: 67, r5: '今天 13:10', rw: '6/1 08:00' },
+      { name: '个人账号', key: 'tvly-****a1b2c3d4', updated: '6 分钟前', h5: 46, week: 67, r5: '今天 13:10', rw: '6/1 08:00', e5: 0.60, ew: 0.70 },
     ],
-    h5: 46, week: 67, r5: '今天 13:10', rw: '6/1 08:00',
+    h5: 46, week: 67, r5: '今天 13:10', rw: '6/1 08:00', e5: 0.60, ew: 0.70,
   },
 ];
 

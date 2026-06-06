@@ -440,7 +440,47 @@ function CpaAddDialog({ onClose }) {
 /* =================================================================
    ROOT PANEL
    ================================================================= */
-function SettingsPanel({ mode, theme, onTheme, accent, onAccent, onBack }) {
+/* usage-bar color scheme — ordered list, default 风险色：仅当前用量.
+   Order is fixed: current-only first, projected second, nine-cycle last. */
+const BAR_SCHEMES = [
+  { value: 'risk-current', title: '风险色：仅当前用量', badge: '默认',
+    sub: '只看当前用量比例判断颜色，逻辑简单、不依赖重置时间，适合大多数数据。',
+    swatch: ['var(--risk-green)', 'var(--risk-yellow)', 'var(--risk-orange)', 'var(--risk-red)'] },
+  { value: 'risk-projected', title: '风险色：带投影预测',
+    sub: '在当前用量基础上，按当前速度预测窗口结束时的用量；无法预测时回退到「仅当前用量」。',
+    swatch: ['var(--risk-green)', 'var(--risk-yellow)', 'var(--risk-orange)', 'var(--risk-red)'] },
+  { value: 'nine-cycle', title: '彩色区分：九色循环',
+    sub: '仅用于区分不同用量条，按顺序循环取色，不表达安全或风险。',
+    swatch: ['#5B8CFF', '#8B72F8', '#46C7C7', '#7EA2FF', '#A18CFF'] },
+];
+
+function BarSchemeField({ value, onChange }) {
+  return (
+    <div className="bsf-list">
+      {BAR_SCHEMES.map((o) => {
+        const on = value === o.value;
+        return (
+          <button key={o.value} className={'bsf-opt' + (on ? ' on' : '')}
+            onClick={() => onChange(o.value)}>
+            <span className={'bsf-radio' + (on ? ' on' : '')}><i /></span>
+            <span className="bsf-text">
+              <span className="bsf-title-row">
+                <span className="bsf-title">{o.title}</span>
+                {o.badge && <span className="bsf-badge">{o.badge}</span>}
+              </span>
+              <span className="bsf-sub">{o.sub}</span>
+            </span>
+            <span className="bsf-swatch">
+              {o.swatch.map((c, i) => <span key={i} className="bsf-dot" style={{ background: c }} />)}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBarScheme, onBack }) {
   const [section, setSection] = React.useState('accounts');
   const [dsView, setDsView] = React.useState('list');   // list | cpa
   const [dialog, setDialog] = React.useState(null);      // {type:'picker'|'vendor'|'cpa', vendorId?}
@@ -556,6 +596,14 @@ function SettingsPanel({ mode, theme, onTheme, accent, onAccent, onBack }) {
                     ))}
                   </div>
                 </SPRow>
+                <div className="set-group-label">用量条</div>
+                <div className="set-row set-row-stack">
+                  <div className="sr-text">
+                    <div className="sr-title">用量条颜色方案</div>
+                    <div className="sr-sub">控制所有用量条的取色方式。默认按当前用量显示风险色。</div>
+                  </div>
+                  <BarSchemeField value={barScheme} onChange={onBarScheme} />
+                </div>
               </>
             )}
 

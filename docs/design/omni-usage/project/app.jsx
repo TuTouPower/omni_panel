@@ -3,6 +3,7 @@
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "theme": "light",
   "accent": "#3d7afd",
+  "barScheme": "risk-current",
   "demoState": "default",
   "settingsMode": "normal"
 }/*EDITMODE-END*/;
@@ -26,7 +27,9 @@ function limitTransform(items, i) {
 function vendorAvg(v) {
   const n = v.accounts.length;
   const avg = (k) => Math.round(v.accounts.reduce((s, a) => s + a[k], 0) / n);
-  return { h5: avg('h5'), week: avg('week'), r5: v.accounts[0].r5, rw: v.accounts[0].rw };
+  const avgF = (k) => v.accounts.reduce((s, a) => s + (a[k] || 0), 0) / n;
+  return { h5: avg('h5'), week: avg('week'), r5: v.accounts[0].r5, rw: v.accounts[0].rw,
+           e5: avgF('e5'), ew: avgF('ew') };
 }
 
 function App() {
@@ -226,7 +229,7 @@ function App() {
           accounts={v.accounts}
           balanceOnly={v.balanceOnly} balance={v.balance} mcp={v.mcp} metrics={d.metrics}
           l2open={l2set.has(v.id)} onToggleL2={() => toggleSet(setL2set, v.id)}
-          updated={getUpdated(key, v.updated)} h5={d.h5} week={d.week} r5={d.r5} rw={d.rw}
+          updated={getUpdated(key, v.updated)} h5={d.h5} week={d.week} r5={d.r5} rw={d.rw} e5={d.e5} ew={d.ew}
           state={demo === 'error' ? 'error' : demo === 'auth' ? 'auth' : 'normal'}
           refreshing={refreshing.has(key) || demo === 'refreshing'}
           limitMode={demo === 'limit'}
@@ -243,7 +246,7 @@ function App() {
         const d = demo === 'limit' ? limitTransform(a, i) : a;
         items.push(<UsageCard key={key} name={a.name}
           balanceOnly={a.balanceOnly} balance={a.balance} mcp={a.mcp} metrics={a.metrics}
-          updated={getUpdated(key, a.updated)} h5={d.h5} week={d.week} r5={a.r5} rw={a.rw}
+          updated={getUpdated(key, a.updated)} h5={d.h5} week={d.week} r5={a.r5} rw={a.rw} e5={a.e5} ew={a.ew}
           state={demo === 'error' ? 'error' : demo === 'auth' ? 'auth' : 'normal'}
           refreshing={refreshing.has(key) || demo === 'refreshing'}
           limitMode={demo === 'limit'}
@@ -272,6 +275,7 @@ function App() {
   const openCtx = (e) => { e.preventDefault(); };
 
   return (
+    <BarSchemeContext.Provider value={t.barScheme}>
     <div className="desktop">
       {/* main monitor window */}
       {winOpen && (
@@ -346,6 +350,7 @@ function App() {
             mode={t.settingsMode}
             theme={t.theme} onTheme={(v) => setTweak('theme', v)}
             accent={t.accent} onAccent={(v) => setTweak('accent', v)}
+            barScheme={t.barScheme} onBarScheme={(v) => setTweak('barScheme', v)}
             onBack={() => setSettingsOpen(false)} />
         </div>
       )}
@@ -359,6 +364,11 @@ function App() {
         <TweakColor label="强调色" value={t.accent}
           options={['#3d7afd', '#6f5cf6', '#0ea5a3', '#f5772f', '#e23744']}
           onChange={(v) => setTweak('accent', v)} />
+        <TweakSelect label="用量条颜色" value={t.barScheme} options={[
+          { value: 'risk-current', label: '风险色：仅当前用量' },
+          { value: 'risk-projected', label: '风险色：带投影预测' },
+          { value: 'nine-cycle', label: '彩色区分：九色循环' }]}
+          onChange={(v) => setTweak('barScheme', v)} />
         <TweakSection label="状态预览" />
         <TweakSelect label="演示状态" value={t.demoState} options={DEMO_LABELS}
           onChange={(v) => setTweak('demoState', v)} />
@@ -368,6 +378,7 @@ function App() {
           onChange={(v) => setTweak('settingsMode', v)} />
       </TweaksPanel>
     </div>
+    </BarSchemeContext.Provider>
   );
 }
 
