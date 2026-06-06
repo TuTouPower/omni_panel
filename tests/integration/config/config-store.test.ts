@@ -122,6 +122,8 @@ describe("config-store", () => {
                 plugins: [],
                 launchAtLogin: false,
                 usageBarColorScheme: "risk-projected",
+                usageBarStyle: "capsule",
+                usageLabelMap: { "gemini-long": "Gemini Short" },
             };
             await store.save(config);
             await writeFile(
@@ -143,6 +145,8 @@ describe("config-store", () => {
                     ],
                     launchAtLogin: false,
                     usageBarColorScheme: "risk-projected",
+                    usageBarStyle: "capsule",
+                    usageLabelMap: { "gemini-long": "Gemini Short" },
                 }),
                 "utf8",
             );
@@ -154,6 +158,8 @@ describe("config-store", () => {
             expect(joined).toContain("config load raw");
             expect(joined).toContain("config parsed raw");
             expect(joined).toContain("risk-projected");
+            expect(joined).toContain("[redacted]");
+            expect(joined).not.toContain("Gemini Short");
             const parsedLine = lines.find((line) => line.includes("config parsed raw")) ?? "";
             expect(parsedLine).toContain('"instanceId":"state-1"');
             expect(parsedLine).not.toContain("overviewDisplayMode");

@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import { dirname } from "node:path";
 import { type AppConfiguration, DEFAULT_CONFIGURATION, appConfigurationSchema } from "./types";
 import { createLogger } from "../../../shared/lib/logger";
+import { redact_config_json, redact_config_raw } from "../../../shared/lib/config_redaction";
 
 export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
@@ -44,7 +45,10 @@ export function createConfigStore(configPath: string): AppConfigStore {
         await mkdir(dirname(configPath), { recursive: true });
         const sorted = sortKeys(config);
         if (shouldLogRawStorage()) {
-            log.debug("config save payload raw", { filePath: configPath, config: sorted });
+            log.debug("config save payload raw", {
+                filePath: configPath,
+                config: redact_config_raw(sorted),
+            });
         }
         const json = JSON.stringify(sorted, null, 2);
         const tmpPath = `${configPath}.tmp`;
@@ -61,7 +65,10 @@ export function createConfigStore(configPath: string): AppConfigStore {
             try {
                 const raw = await readFile(configPath, "utf8");
                 if (shouldLogRawStorage()) {
-                    log.debug("config load raw", { filePath: configPath, raw });
+                    log.debug("config load raw", {
+                        filePath: configPath,
+                        raw: redact_config_json(raw),
+                    });
                 }
                 const parsed = JSON.parse(raw) as unknown;
                 const normalized =
@@ -78,7 +85,10 @@ export function createConfigStore(configPath: string): AppConfigStore {
                         })),
                     } as AppConfiguration;
                     if (shouldLogRawStorage()) {
-                        log.debug("config parsed raw", { filePath: configPath, config: migrated });
+                        log.debug("config parsed raw", {
+                            filePath: configPath,
+                            config: redact_config_raw(migrated),
+                        });
                     }
                     return migrated;
                 }

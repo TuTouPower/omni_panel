@@ -8,6 +8,7 @@ import type { PluginResult } from "../../../shared/schemas/plugin-output";
 import type { AppLanguage } from "../../../shared/types/plugin";
 import type { SecretsStore } from "../config/secrets-store";
 import { createLogger } from "../../../shared/lib/logger";
+import { redact_config_raw } from "../../../shared/lib/config_redaction";
 import { resolveRuntimeEnv } from "./endpoint-resolver";
 import {
     PluginOutputParseError,
@@ -92,7 +93,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             const config = await deps.configStore.load();
             log.debug(`Config loaded for ${instanceId}: ${String(config.plugins.length)} plugins`);
             if (should_log_raw_debug()) {
-                log.debug("refresh config raw", { config });
+                log.debug("refresh config raw", { config: redact_config_raw(config) });
             }
             const plugin = config.plugins.find(
                 (p: PluginConfiguration) => p.instanceId === instanceId,

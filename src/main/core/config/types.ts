@@ -1,6 +1,11 @@
 import { z } from "zod/v3";
 import type { AppLanguage } from "../../../shared/types/plugin";
 import type { AppConfiguration } from "../../../shared/types/config";
+import {
+    USAGE_LABEL_MAP_MAX_ENTRIES,
+    USAGE_LABEL_MAP_MAX_KEY_LENGTH,
+    USAGE_LABEL_MAP_MAX_VALUE_LENGTH,
+} from "../../../shared/types/config";
 
 export type { AppConfiguration, PluginConfiguration } from "../../../shared/types/config";
 
@@ -25,6 +30,14 @@ export const proxyConfigurationSchema = z.object({
 export const mainPanelModeSchema = z.enum(["system", "popup", "floating"]);
 export const floatingHeightModeSchema = z.enum(["fixed", "followContent"]);
 export const usageBarColorSchemeSchema = z.enum(["risk-current", "risk-projected", "nine-cycle"]);
+export const usageBarStyleSchema = z.enum(["thin", "capsule"]);
+export const usageLabelMapSchema = z
+    .record(z.string().min(1).max(USAGE_LABEL_MAP_MAX_VALUE_LENGTH))
+    .refine(
+        (value) =>
+            Object.keys(value).length <= USAGE_LABEL_MAP_MAX_ENTRIES &&
+            Object.keys(value).every((key) => key.length <= USAGE_LABEL_MAP_MAX_KEY_LENGTH),
+    );
 export const floatingBoundsSchema = z.object({
     x: z.number().finite(),
     y: z.number().finite(),
@@ -54,6 +67,8 @@ export const appConfigurationSchema = z.object({
     mainPanelMode: mainPanelModeSchema.optional(),
     floatingHeightMode: floatingHeightModeSchema.optional(),
     usageBarColorScheme: usageBarColorSchemeSchema.optional(),
+    usageBarStyle: usageBarStyleSchema.optional(),
+    usageLabelMap: usageLabelMapSchema.optional(),
     floatingBounds: floatingBoundsSchema.optional(),
 });
 

@@ -1,5 +1,5 @@
 import { z } from "zod/v3";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, stat } from "node:fs/promises";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { ConfigExportData } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
@@ -9,8 +9,10 @@ import type { SecretsStore } from "../core/config/secrets-store";
 import type { AppConfiguration, PluginConfiguration } from "../../shared/types/config";
 import { appConfigurationSchema } from "../core/config/types";
 import { createLogger } from "../../shared/lib/logger";
+import { redact_config_raw } from "../../shared/lib/config_redaction";
 
 const MASK = "***";
+const MAX_IMPORT_BYTES = 1_000_000;
 const log = createLogger("ipc:config");
 
 const saveSecretsSchema = z.object({
@@ -237,6 +239,10 @@ export async function handleConfigImport(
 
         const filePath = filePaths[0];
         if (canceled || !filePath) return ok({ imported: false });
+        const file_info = await stat(filePath);
+        if (file_info.size > MAX_IMPORT_BYTES) {
+            return fail("VALIDATION_ERROR", "导入文件过大");
+        }
 
         const raw: unknown = JSON.parse(await readFile(filePath, "utf8"));
         if (!raw || typeof raw !== "object") {
@@ -279,11 +285,13 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     ): Promise<IpcResult<T>> {
         const start = Date.now();
         const is_development = process.env["NODE_ENV"] === "development";
-        if (is_development) log.debug("ipc request raw", { channel, args });
+        if (is_development)
+            log.debug("ipc request raw", { channel, args: redact_config_raw(args) });
         log.debug(`${channel} called`);
         try {
             const result = await fn();
-            if (is_development) log.debug("ipc response raw", { channel, result });
+            if (is_development)
+                log.debug("ipc response raw", { channel, result: redact_config_raw(result) });
             const elapsed = Date.now() - start;
             if (!result.ok) {
                 log.warn(`${channel} failed: ${result.error.code} (${String(elapsed)}ms)`);

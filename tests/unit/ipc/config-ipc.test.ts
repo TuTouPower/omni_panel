@@ -55,6 +55,7 @@ function createMockDeps() {
             },
         ],
         launchAtLogin: false,
+        usageLabelMap: { "internal-model": "Private Label" },
     };
 
     const configStore = {
@@ -131,6 +132,8 @@ describe("config-ipc", () => {
             expect(joined).toContain("ipc request raw");
             expect(joined).toContain("ipc response raw");
             expect(joined).toContain("config:get");
+            expect(joined).toContain("[redacted]");
+            expect(joined).not.toContain("Private Label");
         } finally {
             remove_transport();
             setLogLevel("debug");
