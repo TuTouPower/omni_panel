@@ -522,7 +522,7 @@ New main renderer components:
 - `src/renderer/views/PopupView.tsx`: render provider overview and provider pages.
 - `src/renderer/views/SettingsView.tsx`: group configuration by data source.
 - `src/renderer/components/CpaConnectorSettings.tsx`: CPA-specific settings and diagnostics.
-- `resources/plugins/*.ts`: emit schema version `2` items and connector metadata.
+- `assets/plugins/*.ts`: emit schema version `2` items and connector metadata.
 
 ## Testing Requirements
 

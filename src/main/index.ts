@@ -11,8 +11,6 @@ import {
 } from "electron";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { execSync } from "node:child_process";
 import {
     getConfigPath,
     getDataRoot,
@@ -47,6 +45,10 @@ import { create_main_panel_controller } from "./core/main-panel/main-panel-contr
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
 import { discoverPlugins } from "./core/plugin/discovery";
 import { compilePlugin } from "./core/plugin/compiler";
+import {
+    BundledResourceIntegrityError,
+    verify_bundled_resources,
+} from "./core/plugin/bundled_resource_verifier";
 import type { PluginConfiguration } from "../shared/types/config";
 import type { PluginDefinition } from "./core/plugin/types";
 
@@ -73,38 +75,7 @@ const SECURE_WEB_PREFS = {
     allowRunningInsecureContent: false,
 } as const;
 
-/**
- * Find the system Node.js binary. Plugins must run under a real Node runtime,
- * not under Electron (ELECTRON_RUN_AS_NODE is unreliable in packaged apps).
- */
-function findSystemNode(): string {
-    const isWin = process.platform === "win32";
-    const nodeCmd = isWin ? "node.exe" : "node";
-
-    // Search PATH for node
-    const pathDirs = (process.env["PATH"] ?? "").split(isWin ? ";" : ":");
-    for (const dir of pathDirs) {
-        const candidate = join(dir, nodeCmd);
-        if (existsSync(candidate) && isRealNode(candidate)) return candidate;
-    }
-    // Fallback: use process.execPath (Electron) — may fail in packaged mode
-    return process.execPath;
-}
-
-function isRealNode(binPath: string): boolean {
-    try {
-        const version = execSync(`"${binPath}" --version`, {
-            timeout: 5000,
-            encoding: "utf8",
-            stdio: ["pipe", "pipe", "pipe"],
-        }).trim();
-        return /^v\d+\.\d+\.\d+/.test(version);
-    } catch {
-        return false;
-    }
-}
-
-const SYSTEM_NODE = findSystemNode();
+const PLUGIN_NODE = process.execPath;
 
 interface WindowConfig {
     route: string;
@@ -152,17 +123,15 @@ const WINDOW_CONFIGS: Record<string, WindowConfig> = {
 };
 
 function getPreloadPath(): string {
-    return join(__dirname, "preload.js");
+    return join(__dirname, "../preload/index.js");
 }
 
 function getRendererUrl(route: string): string {
-    const devServerUrl = process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"];
+    const devServerUrl = process.env["ELECTRON_RENDERER_URL"];
     if (devServerUrl) {
         return `${devServerUrl}#${route}`;
     }
-    // Vite build output mirrors the source directory structure,
-    // so src/renderer/index.html ends up at ../renderer/main_window/src/renderer/index.html
-    return `file://${resolve(join(__dirname, "../renderer/main_window/src/renderer/index.html"))}#${route}`;
+    return `file://${resolve(join(__dirname, "../renderer/index.html"))}#${route}`;
 }
 
 function createWindowFor(key: string, options: { load?: boolean } = {}): BrowserWindow {
@@ -218,7 +187,7 @@ void app.whenReady().then(async () => {
     log.info("Application starting");
 
     // Set CSP programmatically — allows Vite dev server in dev mode
-    const devServerUrl = process.env["MAIN_WINDOW_VITE_DEV_SERVER_URL"];
+    const devServerUrl = process.env["ELECTRON_RENDERER_URL"];
     const devOrigin = devServerUrl ? new URL(devServerUrl).origin : null;
     const cspScriptSrc = devOrigin ? `'self' ${devOrigin} 'unsafe-eval'` : "'self'";
     const cspConnectSrc = devOrigin ? `'self' ${devOrigin} ws:` : "'self'";
@@ -254,7 +223,23 @@ void app.whenReady().then(async () => {
     // Discover bundled + user plugins
     const bundledDir = getBundledPluginsDir();
     const userDir = getUserPluginsDir();
-    const bundledDefs = await discoverPlugins(bundledDir, "bundled");
+    const sdkDir = getSdkDir();
+    let bundledDefs: readonly PluginDefinition[] = [];
+    if (app.isPackaged) {
+        try {
+            await verify_bundled_resources(bundledDir, sdkDir);
+            bundledDefs = await discoverPlugins(bundledDir, "bundled");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (error instanceof BundledResourceIntegrityError) {
+                log.error(`Bundled plugin integrity check failed: ${message}`);
+            } else {
+                log.error(`Bundled plugin integrity check could not run: ${message}`);
+            }
+        }
+    } else {
+        bundledDefs = await discoverPlugins(bundledDir, "bundled");
+    }
     const userDefs = await discoverPlugins(userDir, "user");
     const allDefinitions: readonly PluginDefinition[] = [...bundledDefs, ...userDefs];
     log.info(
@@ -263,7 +248,6 @@ void app.whenReady().then(async () => {
 
     // Compile TS plugins to JS
     const cacheDir = getPluginCacheDir();
-    const sdkDir = getSdkDir();
     const compiledPaths = new Map<string, string>();
 
     for (const def of allDefinitions) {
@@ -278,14 +262,13 @@ void app.whenReady().then(async () => {
         }
     }
 
-    // Build command using system Node (not Electron)
     const buildCommand = (
         executablePath: string,
         parameterValues: Record<string, string>,
         language: "zh-Hans" | "en",
     ) => {
         const compiledPath = compiledPaths.get(executablePath) ?? executablePath;
-        return buildPluginCommand(compiledPath, parameterValues, language, SYSTEM_NODE);
+        return buildPluginCommand(compiledPath, parameterValues, language, PLUGIN_NODE);
     };
 
     // Build secretParamKeys from plugin metadata

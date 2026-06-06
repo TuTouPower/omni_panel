@@ -4,7 +4,7 @@
 
 **Goal:** Replace all 7 Python plugins with TypeScript, remove Python runtime entirely, add esbuild compilation pipeline.
 
-**Architecture:** TS plugins in `resources/plugins/` compiled to JS via esbuild into `userData/plugin-cache/`. Host spawns Node subprocess (via Electron's `process.execPath`) for each plugin. SDK inline-bundled into each plugin. Output schema uses `success: true/false` discriminated union, all existing data fields preserved.
+**Architecture:** TS plugins in `assets/plugins/` compiled to JS via esbuild into `userData/plugin-cache/`. Host spawns Node subprocess (via Electron's `process.execPath`) for each plugin. SDK inline-bundled into each plugin. Output schema uses `success: true/false` discriminated union, all existing data fields preserved.
 
 **Tech Stack:** TypeScript, esbuild, Node.js built-in `fetch()`, Vitest, Zod
 
@@ -14,13 +14,13 @@
 
 生产包必须满足：
 
-| 资源                     | 来源                                                          | 说明                    |
-| ------------------------ | ------------------------------------------------------------- | ----------------------- |
-| `resources/plugins/*.ts` | Electron Forge 打包到 `resources/plugins/`                    | TS 源码，运行时编译     |
-| `src/plugins/sdk/*`      | 开发时通过 esbuild alias 引用，开发侧依赖                     | SDK 源码不需要进生产包  |
-| `esbuild`                | production dependency (`dependencies` 而非 `devDependencies`) | 运行时编译用户/内置插件 |
-| Node runtime             | `process.execPath`（Electron 自带）                           | 不依赖系统 node         |
-| `plugin-cache/`          | `userData` 目录，自动创建                                     | 编译产物缓存            |
+| 资源                  | 来源                                                               | 说明                    |
+| --------------------- | ------------------------------------------------------------------ | ----------------------- |
+| `assets/plugins/*.ts` | electron-builder extraResource 到 `process.resourcesPath/plugins/` | TS 源码，运行时编译     |
+| `src/plugins/sdk/*`   | 开发时通过 esbuild alias 引用，开发侧依赖                          | SDK 源码不需要进生产包  |
+| `esbuild`             | production dependency (`dependencies` 而非 `devDependencies`)      | 运行时编译用户/内置插件 |
+| Node runtime          | `process.execPath`（Electron 自带）                                | 不依赖系统 node         |
+| `plugin-cache/`       | `userData` 目录，自动创建                                          | 编译产物缓存            |
 
 ---
 
@@ -36,13 +36,13 @@
 | `src/plugins/sdk/http.ts`                                       | `fetchJson`, `PluginHttpError`                                                |
 | `src/plugins/sdk/helpers.ts`                                    | `statusFor`, `colorFor`, `colorForPct`, `makeTranslator`, common translations |
 | `src/main/core/plugin/compiler.ts`                              | esbuild compile TS→JS, sourceHash cache, manifest                             |
-| `resources/plugins/deepseek-usage-plugin.ts`                    | DeepSeek plugin                                                               |
-| `resources/plugins/tavily-usage-plugin.ts`                      | Tavily plugin                                                                 |
-| `resources/plugins/glm-usage-plugin.ts`                         | GLM plugin                                                                    |
-| `resources/plugins/minimax-usage-plugin.ts`                     | MiniMax plugin                                                                |
-| `resources/plugins/codex-usage-plugin.ts`                       | Codex plugin                                                                  |
-| `resources/plugins/claude-usage-plugin.ts`                      | Claude plugin                                                                 |
-| `resources/plugins/cpa-usage-plugin.ts`                         | CPA plugin                                                                    |
+| `assets/plugins/deepseek-usage-plugin.ts`                       | DeepSeek plugin                                                               |
+| `assets/plugins/tavily-usage-plugin.ts`                         | Tavily plugin                                                                 |
+| `assets/plugins/glm-usage-plugin.ts`                            | GLM plugin                                                                    |
+| `assets/plugins/minimax-usage-plugin.ts`                        | MiniMax plugin                                                                |
+| `assets/plugins/codex-usage-plugin.ts`                          | Codex plugin                                                                  |
+| `assets/plugins/claude-usage-plugin.ts`                         | Claude plugin                                                                 |
+| `assets/plugins/cpa-usage-plugin.ts`                            | CPA plugin                                                                    |
 | `tests/unit/plugin/compiler.test.ts`                            | Compiler tests                                                                |
 | `tests/unit/sdk/result.test.ts`                                 | SDK result tests                                                              |
 | `tests/unit/sdk/helpers.test.ts`                                | SDK helpers tests                                                             |
@@ -75,8 +75,8 @@
 | File                                           | Reason                         |
 | ---------------------------------------------- | ------------------------------ |
 | `src/main/core/plugin/python-detect.ts`        | No Python                      |
-| `resources/plugins/*.py`                       | All replaced by TS             |
-| `resources/plugins/_common.py`                 | Replaced by SDK                |
+| `assets/plugins/*.py`                          | All replaced by TS             |
+| `assets/plugins/_common.py`                    | Replaced by SDK                |
 | `tests/unit/plugin/python-detect.test.ts`      | Testing deleted code           |
 | `src/main/ipc/system-ipc.ts`                   | Only had Python status handler |
 | `tests/fixtures/plugin-metadata/metadata-*.py` | Replaced by TS fixtures        |
@@ -1311,7 +1311,7 @@ feat: wire compiler into main entry, remove Python runtime
 
 **Files:**
 
-- Create: `resources/plugins/deepseek-usage-plugin.ts`
+- Create: `assets/plugins/deepseek-usage-plugin.ts`
 
 No `export default`. CLI self-executing with `definePlugin()`.
 
@@ -1441,9 +1441,9 @@ feat: add DeepSeek TypeScript plugin
 
 **Files:**
 
-- Create: `resources/plugins/tavily-usage-plugin.ts`
-- Create: `resources/plugins/glm-usage-plugin.ts`
-- Create: `resources/plugins/minimax-usage-plugin.ts`
+- Create: `assets/plugins/tavily-usage-plugin.ts`
+- Create: `assets/plugins/glm-usage-plugin.ts`
+- Create: `assets/plugins/minimax-usage-plugin.ts`
 
 Straightforward ports from Python. Each uses SDK, no `export default`.
 
@@ -1475,7 +1475,7 @@ feat: add Tavily, GLM, MiniMax TypeScript plugins
 
 **Files:**
 
-- Create: `resources/plugins/codex-usage-plugin.ts`
+- Create: `assets/plugins/codex-usage-plugin.ts`
 
 - [ ] **Step 1: Port codex-usage-plugin.py**
 
@@ -1497,8 +1497,8 @@ feat: add Codex TypeScript plugin
 
 **Files:**
 
-- Create: `resources/plugins/cpa-usage-plugin.ts`
-- Create: `resources/plugins/claude-usage-plugin.ts`
+- Create: `assets/plugins/cpa-usage-plugin.ts`
+- Create: `assets/plugins/claude-usage-plugin.ts`
 
 - [ ] **Step 1: Port cpa-usage-plugin.py**
 
@@ -1524,7 +1524,7 @@ feat: add CPA and Claude TypeScript plugins
 
 **Files:**
 
-- Delete: `resources/plugins/*.py`, `resources/plugins/_common.py`
+- Delete: `assets/plugins/*.py`, `assets/plugins/_common.py`
 - Delete: `src/main/core/plugin/python-detect.ts`
 - Delete: `tests/unit/plugin/python-detect.test.ts`
 - Delete: `src/main/ipc/system-ipc.ts` (if not already deleted)
@@ -1536,7 +1536,7 @@ All TS plugins are now in place. Safe to remove Python.
 - [ ] **Step 1: Delete Python plugin files**
 
 ```bash
-rm resources/plugins/_common.py resources/plugins/*.py
+rm assets/plugins/_common.py assets/plugins/*.py
 rm src/main/core/plugin/python-detect.ts
 rm tests/unit/plugin/python-detect.test.ts
 rm tests/fixtures/plugin-metadata/metadata-*.py

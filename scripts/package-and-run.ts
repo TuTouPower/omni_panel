@@ -46,8 +46,8 @@ function run_packaged(): void {
     const exe = resolve(
         ROOT,
         is_win
-            ? "dist/OmniUsage-win32-x64/OmniUsage.exe"
-            : "dist/OmniUsage-darwin-x64/OmniUsage.app/Contents/MacOS/OmniUsage",
+            ? "artifacts/win-unpacked/OmniUsage.exe"
+            : "artifacts/mac/OmniUsage.app/Contents/MacOS/OmniUsage",
     );
 
     log(`starting: ${exe}`);
@@ -75,8 +75,13 @@ async function main(): Promise<void> {
 
     // Step 4: package (skip if --no-build)
     if (!no_build) {
-        log("running electron-forge package...");
-        execSync("electron-forge package", {
+        log("running electron-vite build...");
+        execSync("electron-vite build", {
+            cwd: ROOT,
+            stdio: "inherit",
+        });
+        log("running electron-builder --dir...");
+        execSync("electron-builder --dir", {
             cwd: ROOT,
             stdio: "inherit",
             env: {

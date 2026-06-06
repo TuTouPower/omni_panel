@@ -189,7 +189,7 @@ git commit -m "docs: add test coverage matrix mapping spec to tests"
 
 - **Phase A (schema)**：Modify `src/shared/schemas/plugin-metadata.ts`、`src/shared/types/config.ts`、`src/shared/schemas/configuration.ts`(如有)
 - **Phase B (SDK)**：Create `src/plugins/sdk/http-client.ts`、`src/plugins/sdk/errors.ts`、`src/plugins/sdk/endpoints.ts`; Modify `src/plugins/sdk/define-plugin.ts`、`src/plugins/sdk/index.ts`; Delete `src/plugins/sdk/http.ts`（旧 fetchJson）
-- **Phase C (plugins)**：Modify `resources/plugins/{claude,codex,deepseek,glm,minimax,tavily,cpa}-usage-plugin.ts` 7 个
+- **Phase C (plugins)**：Modify `assets/plugins/{claude,codex,deepseek,glm,minimax,tavily,cpa}-usage-plugin.ts` 7 个
 - **Phase D (runtime)**：Modify `src/main/core/scheduler/refresh-service.ts`、`src/main/core/plugin/command-builder.ts`（如需）、`src/main/core/plugin/runner.ts`（env 透传）
 - **Phase E (harness)**：Create `tests/integration/plugin/_helpers/{plugin_test_harness,http_stub,with_stub_backend}.ts`
 - **Phase F (tests)**：Create `tests/integration/plugin/{claude,codex,deepseek,glm,minimax,tavily}-plugin.test.ts`; Modify `tests/integration/plugin/cpa-plugin.test.ts`
@@ -528,7 +528,7 @@ pnpm add undici
 pnpm typecheck
 ```
 
-预期：所有插件源（`resources/plugins/*.ts`）报错 `fetchJson / PluginHttpError` 找不到 — 留给 Phase C 修。
+预期：所有插件源（`assets/plugins/*.ts`）报错 `fetchJson / PluginHttpError` 找不到 — 留给 Phase C 修。
 
 - [ ] **B.8 提交**
 
@@ -546,7 +546,7 @@ git commit -m "feat(sdk): typed http client with endpoint registry and proxy sup
 - [ ] **C.1 重写 DeepSeek 作为参考实现**
 
 ```ts
-// resources/plugins/deepseek-usage-plugin.ts (节选)
+// assets/plugins/deepseek-usage-plugin.ts (节选)
 // UsageBoardPlugin:
 // {
 //   "name@en": "DeepSeek",
@@ -590,7 +590,7 @@ interface DeepSeekBalanceResp {
 
 ```bash
 pnpm typecheck
-npx esbuild resources/plugins/deepseek-usage-plugin.ts --bundle --platform=node --format=cjs --outfile=.cache/deepseek.test.cjs
+npx esbuild assets/plugins/deepseek-usage-plugin.ts --bundle --platform=node --format=cjs --outfile=.cache/deepseek.test.cjs
 ```
 
 预期：通过。
@@ -617,7 +617,7 @@ npx vitest run tests/integration/plugin/cpa-plugin.test.ts
 - [ ] **C.6 提交**
 
 ```bash
-git add resources/plugins/
+git add assets/plugins/
 git commit -m "refactor(plugins): all 7 bundled plugins use typed http client and endpoint registry"
 ```
 
@@ -1196,7 +1196,7 @@ git commit -m "test: visual regression baseline for popup and settings states"
 - Create: `tests/packaged_smoke/run.ts`
 - Create: `scripts/run_packaged_smoke.ts`
 - Modify: `package.json`（加 `test:packaged`：先 `pnpm package` 再跑 packaged smoke）
-- Modify: `playwright.config.ts`（新增 `packaged` project，executablePath 指向 `dist/OmniUsage-win32-x64/OmniUsage.exe`）
+- Modify: `playwright.config.ts`（新增 `packaged` project，executablePath 指向 `artifacts/win-unpacked/OmniUsage.exe`）
 
 之前的踩坑：dev 跑通 packaged 白屏（GPU / 路径 / extraResource）。这是最关键的一层。
 
@@ -1209,9 +1209,9 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 const PACKAGED_EXE = {
-    win32: resolve("dist/OmniUsage-win32-x64/OmniUsage.exe"),
-    darwin: resolve("dist/OmniUsage-darwin-arm64/OmniUsage.app/Contents/MacOS/OmniUsage"),
-    linux: resolve("dist/OmniUsage-linux-x64/OmniUsage"),
+    win32: resolve("artifacts/win-unpacked/OmniUsage.exe"),
+    darwin: resolve("artifacts/mac/OmniUsage.app/Contents/MacOS/OmniUsage"),
+    linux: resolve("artifacts/linux-unpacked/omni-usage"),
 }[process.platform];
 
 export async function launchPackaged(): Promise<ElectronApplication> {

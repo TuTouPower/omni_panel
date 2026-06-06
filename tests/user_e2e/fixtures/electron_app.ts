@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const ROOT = process.cwd();
-const MAIN_ENTRY = resolve(ROOT, ".vite/build/index.js");
+const MAIN_ENTRY = resolve(ROOT, "out/main/index.js");
 
 /** Returns a fresh isolated userData dir for each test. */
 export function getDefaultUserData(): string {

@@ -1,10 +1,41 @@
+import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, basename } from "node:path";
-import { createHash } from "node:crypto";
 import { createLogger } from "../../../shared/lib/logger";
 import type { PluginDefinition } from "./types";
 
 const log = createLogger("compiler");
+const require_module = createRequire(import.meta.url);
+
+const ESBUILD_PACKAGES: Record<string, string> = {
+    "darwin-arm64": "@esbuild/darwin-arm64/bin/esbuild",
+    "darwin-x64": "@esbuild/darwin-x64/bin/esbuild",
+    "linux-arm64": "@esbuild/linux-arm64/bin/esbuild",
+    "linux-x64": "@esbuild/linux-x64/bin/esbuild",
+    "win32-arm64": "@esbuild/win32-arm64/esbuild.exe",
+    "win32-ia32": "@esbuild/win32-ia32/esbuild.exe",
+    "win32-x64": "@esbuild/win32-x64/esbuild.exe",
+};
+
+function configure_esbuild_binary_path(): void {
+    const package_name = ESBUILD_PACKAGES[`${process.platform}-${process.arch}`];
+    if (!package_name || !process.resourcesPath) {
+        return;
+    }
+
+    try {
+        const binary_path = require_module.resolve(package_name);
+        if (binary_path.includes("app.asar")) {
+            process.env["ESBUILD_BINARY_PATH"] = binary_path.replace(
+                "app.asar",
+                "app.asar.unpacked",
+            );
+        }
+    } catch {
+        return;
+    }
+}
 
 interface CompileManifest {
     sourcePath: string;
@@ -51,6 +82,7 @@ export async function compilePlugin(
 
     // Compile
     try {
+        configure_esbuild_binary_path();
         const esbuild = await import("esbuild");
         await mkdir(outDir, { recursive: true });
 

@@ -6,7 +6,7 @@
 
 **Architecture:** Keep existing `plugin:*` IPC channels and persisted `PluginConfiguration.instanceId`, but expose connector/provider semantics in DTOs and renderer code. Require plugin output schema v2 for all bundled plugins, aggregate usage items by provider in shared renderer logic, and render CPA only in settings/data-source UI.
 
-**Tech Stack:** TypeScript, React 19, Electron, Vite, Zod v3, Vitest, Playwright, Electron Forge.
+**Tech Stack:** TypeScript, React 19, Electron, Vite, Zod v3, Vitest, Playwright, electron-vite/electron-builder.
 
 ---
 
@@ -42,13 +42,13 @@
 ### Plugin files
 
 - Modify all bundled plugins:
-    - `resources/plugins/cpa-usage-plugin.ts`
-    - `resources/plugins/claude-usage-plugin.ts`
-    - `resources/plugins/codex-usage-plugin.ts`
-    - `resources/plugins/glm-usage-plugin.ts`
-    - `resources/plugins/minimax-usage-plugin.ts`
-    - `resources/plugins/deepseek-usage-plugin.ts`
-    - `resources/plugins/tavily-usage-plugin.ts`
+    - `assets/plugins/cpa-usage-plugin.ts`
+    - `assets/plugins/claude-usage-plugin.ts`
+    - `assets/plugins/codex-usage-plugin.ts`
+    - `assets/plugins/glm-usage-plugin.ts`
+    - `assets/plugins/minimax-usage-plugin.ts`
+    - `assets/plugins/deepseek-usage-plugin.ts`
+    - `assets/plugins/tavily-usage-plugin.ts`
 - Add metadata `supportedProviders` and output schema v2 usage item metadata.
 
 ### Renderer provider UI
@@ -276,7 +276,7 @@ git commit -m "feat(schema): require provider usage output v2"
 **Files:**
 
 - Modify: `src/shared/schemas/plugin-metadata.ts`
-- Modify: `resources/plugins/*.ts`
+- Modify: `assets/plugins/*.ts`
 - Test: `tests/unit/plugin/bundled-metadata.test.ts`
 
 - [ ] **Step 1: Write failing metadata test**
@@ -340,7 +340,7 @@ export const pluginMetadataSchema = z
 
 - [ ] **Step 4: Update plugin comment metadata**
 
-In each `resources/plugins/*.ts` `UsageBoardPlugin` JSON block, add exact provider list.
+In each `assets/plugins/*.ts` `UsageBoardPlugin` JSON block, add exact provider list.
 
 CPA:
 
@@ -404,7 +404,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/shared/schemas/plugin-metadata.ts resources/plugins tests/unit/plugin/bundled-metadata.test.ts
+git add src/shared/schemas/plugin-metadata.ts assets/plugins tests/unit/plugin/bundled-metadata.test.ts
 git commit -m "feat(plugin): declare supported providers"
 ```
 
@@ -529,13 +529,13 @@ git commit -m "feat(runtime): pass source instance id to plugins"
 
 **Files:**
 
-- Modify: `resources/plugins/cpa-usage-plugin.ts`
-- Modify: `resources/plugins/claude-usage-plugin.ts`
-- Modify: `resources/plugins/codex-usage-plugin.ts`
-- Modify: `resources/plugins/glm-usage-plugin.ts`
-- Modify: `resources/plugins/minimax-usage-plugin.ts`
-- Modify: `resources/plugins/deepseek-usage-plugin.ts`
-- Modify: `resources/plugins/tavily-usage-plugin.ts`
+- Modify: `assets/plugins/cpa-usage-plugin.ts`
+- Modify: `assets/plugins/claude-usage-plugin.ts`
+- Modify: `assets/plugins/codex-usage-plugin.ts`
+- Modify: `assets/plugins/glm-usage-plugin.ts`
+- Modify: `assets/plugins/minimax-usage-plugin.ts`
+- Modify: `assets/plugins/deepseek-usage-plugin.ts`
+- Modify: `assets/plugins/tavily-usage-plugin.ts`
 - Test: `tests/integration/plugin/*.test.ts`
 
 - [ ] **Step 1: Update integration test expectations**
@@ -662,7 +662,7 @@ Use each plugin's actual provider/name:
 
 - [ ] **Step 5: Convert CPA plugin**
 
-In `resources/plugins/cpa-usage-plugin.ts`, keep `PROVIDER_REGISTRY` keys matching CPA-Manager auth file providers, but parse output providers separately. Update every existing parser (`parseClaude`, `parseCodex`, `parseGeminiBuckets`, `parseAntigravityModels`, `parseKimi`) from `(body, email)` to `(body, account: CpaAccount)` so item builders can use `account.accountId` and `account.accountLabel`.
+In `assets/plugins/cpa-usage-plugin.ts`, keep `PROVIDER_REGISTRY` keys matching CPA-Manager auth file providers, but parse output providers separately. Update every existing parser (`parseClaude`, `parseCodex`, `parseGeminiBuckets`, `parseAntigravityModels`, `parseKimi`) from `(body, email)` to `(body, account: CpaAccount)` so item builders can use `account.accountId` and `account.accountLabel`.
 
 ```ts
 interface ProviderEntry {
@@ -729,7 +729,7 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add resources/plugins tests/integration/plugin
+git add assets/plugins tests/integration/plugin
 git commit -m "feat(plugins): emit provider usage schema v2"
 ```
 
@@ -2269,7 +2269,7 @@ Run:
 pnpm package
 ```
 
-Expected: app package exists under `dist/OmniUsage-win32-x64/OmniUsage.exe` on Windows.
+Expected: app package exists under `artifacts/win-unpacked/OmniUsage.exe` on Windows.
 
 - [ ] **Step 6: Run packaged smoke**
 
@@ -2286,7 +2286,7 @@ Expected: PASS, including popup root height and no CPA main provider tab.
 Run:
 
 ```bash
-./dist/OmniUsage-win32-x64/OmniUsage.exe
+./artifacts/win-unpacked/OmniUsage.exe
 ```
 
 Manual checks:

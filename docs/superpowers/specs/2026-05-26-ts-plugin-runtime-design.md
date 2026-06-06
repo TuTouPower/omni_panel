@@ -165,7 +165,7 @@ App start
 
 ### Compiler details
 
-- Input: `resources/plugins/deepseek-usage-plugin.ts`
+- Input: `assets/plugins/deepseek-usage-plugin.ts`
 - Output: `userData/plugin-cache/deepseek-usage-plugin/index.js` + `manifest.json`
 - Manifest: `{ sourcePath, compiledPath, sourceHash, compiledAt }`
 - Startup: compare sourceHash, skip if unchanged
@@ -174,7 +174,7 @@ App start
 ### Directory structure
 
 ```
-resources/plugins/
+assets/plugins/
   deepseek-usage-plugin.ts
   claude-usage-plugin.ts
   cpa-usage-plugin.ts
@@ -188,8 +188,8 @@ userData/plugin-cache/
 
 ### Removed files
 
-- `resources/plugins/*.py` (all Python plugins)
-- `resources/plugins/_common.py`
+- `assets/plugins/*.py` (all Python plugins)
+- `assets/plugins/_common.py`
 - `src/main/core/plugin/python-detect.ts`
 
 ## 5. Plugin Rewrite List

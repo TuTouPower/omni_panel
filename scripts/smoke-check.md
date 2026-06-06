@@ -5,7 +5,7 @@
 ## 检查步骤
 
 1. **启动应用**
-    - 运行打包产物（如 `./dist/OmniUsage-win32-x64/OmniUsage.exe`）
+    - 运行打包产物（如 `./artifacts/win-unpacked/OmniUsage.exe`）
     - 确认无启动崩溃
 
 2. **渲染进程**
@@ -43,5 +43,5 @@
 
 ```bash
 # 打包并启动
-pnpm package && ./dist/OmniUsage-win32-x64/OmniUsage.exe
+pnpm package && ./artifacts/win-unpacked/OmniUsage.exe
 ```
