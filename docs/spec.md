@@ -17,7 +17,7 @@
 
 **技术栈**：Electron + TypeScript + Vite + React + Vitest + Playwright + Zod + ESLint + Prettier
 
-**打包**：Electron Forge（Windows / macOS / Linux）
+**打包**：electron-vite + electron-builder（Windows / macOS / Linux）
 
 ---
 
@@ -66,9 +66,10 @@
 
 ### 3.1 插件文件
 
-- **源文件**：TypeScript（`.ts`），UTF-8 编码，存于 `resources/plugins/`（开发）或 `process.resourcesPath/plugins/`（打包后）
+- **源文件**：TypeScript（`.ts`），UTF-8 编码，存于 `assets/plugins/`（开发）或 `process.resourcesPath/plugins/`（打包后）
 - **编译产物**：`compiler.ts` 用 esbuild 将插件 + SDK 编译为单文件 JavaScript，缓存于 user data 目录（按 source SHA-256 失效）
-- **执行方式**：宿主用 Electron 内置 Node 执行编译后的 JS，`spawn(process.execPath, [pluginJs, ...args], { env: { ELECTRON_RUN_AS_NODE: "1" } })`
+- **执行方式**：宿主用 Electron 内置 Node 执行编译后的 JS，`spawn(process.execPath, [pluginJs], { env: { ELECTRON_RUN_AS_NODE: "1" } })`
+- 打包后宿主在发现内置插件前校验 `process.resourcesPath/plugins` 和 `process.resourcesPath/sdk` 的 asar 内置 SHA-256 清单；不匹配则跳过内置插件
 - `_` 开头的文件名跳过（如 `_common.ts`）
 
 ### 3.2 元数据注释块
@@ -100,12 +101,14 @@
 ### 3.3 参数传递
 
 ```
-<electron-node> <plugin.js> --usageboard-param KEY1=value1 --usageboard-param KEY2=value2 --usageboard-param USAGEBOARD_LANGUAGE=zh-Hans
+<electron-node> <plugin.js>
+stdin: { "params": { "KEY1": "value1", "KEY2": "value2", "USAGEBOARD_LANGUAGE": "zh-Hans" } }
 ```
 
 - 仅传非空参数值
 - `USAGEBOARD_LANGUAGE` 由宿主注入，值为 `zh-Hans` 或 `en`
 - 参数值均为字符串
+- `--usageboard-param KEY=value` 仅保留给手动运行和旧插件兼容；宿主运行时不通过 argv 传 secret
 
 ### 3.4 插件 stdout 输出
 
@@ -492,10 +495,10 @@ pnpm package        # 打包并启动
 
 | 环境   | 路径                             |
 | ------ | -------------------------------- |
-| 开发   | `<project>/resources/plugins/`   |
+| 开发   | `<project>/assets/plugins/`      |
 | 打包后 | `process.resourcesPath/plugins/` |
 
 ### 10.4 已知限制
 
-- 系统托盘图标为占位（需替换实际图标）
-- 打包格式：Electron Forge（Windows Squirrel / macOS ZIP / Linux DEB+RPM）
+- 打包产物从 `process.resourcesPath` 加载托盘图标、窗口图标、内置插件和 SDK；内置插件和 SDK 启动时做 SHA-256 完整性校验
+- 打包格式：electron-builder（Windows NSIS / macOS DMG+ZIP / Linux AppImage+DEB+RPM）

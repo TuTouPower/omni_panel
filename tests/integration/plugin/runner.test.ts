@@ -86,6 +86,41 @@ describe("executePlugin", () => {
         }
     });
 
+    it("redacts sensitive argv values in logs", async () => {
+        const original_node_env = process.env["NODE_ENV"];
+        process.env["NODE_ENV"] = "production";
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                if (module === "runner") {
+                    lines.push(`${level}:${message}:${JSON.stringify(meta)}`);
+                }
+            },
+        });
+        setLogLevel("debug");
+        const cmd = {
+            command: nodePath,
+            args: [fakePlugin("prints-valid-json.js"), "api_key=abc123", "sk-secret"],
+        };
+
+        try {
+            const result = await executePlugin(cmd);
+            const joined = lines.join("\n");
+
+            expect(result.exitCode).toBe(0);
+            expect(joined).toContain("api_key=***");
+            expect(joined).not.toContain("abc123");
+            expect(joined).not.toContain("sk-secret");
+        } finally {
+            if (original_node_env === undefined) {
+                delete process.env["NODE_ENV"];
+            } else {
+                process.env["NODE_ENV"] = original_node_env;
+            }
+            remove_transport();
+        }
+    });
+
     it("passes parameters correctly", async () => {
         const cmd = buildPluginCommand(
             fakePlugin("echoes-params.js"),

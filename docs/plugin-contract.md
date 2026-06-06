@@ -129,10 +129,11 @@ definePlugin(
 
 ## 参数传递
 
-- 命令行格式：`--usageboard-param KEY=value`
+- stdin JSON：`{ "params": { "KEY": "value", "USAGEBOARD_LANGUAGE": "zh-Hans" } }`
 - 仅传递用户已填写（非空）的参数值
-- 宿主额外传入 `--usageboard-param USAGEBOARD_LANGUAGE=zh-Hans` 或 `en`
+- 宿主额外传入 `USAGEBOARD_LANGUAGE=zh-Hans` 或 `en`
 - 参数值均为字符串
+- 命令行 `--usageboard-param KEY=value` 仅保留给手动运行和旧插件兼容；宿主运行时不通过 argv 传 secret
 
 ## 插件 stdout JSON
 

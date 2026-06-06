@@ -1,4 +1,4 @@
-import { writeSync } from "node:fs";
+import { readFileSync, writeSync } from "node:fs";
 import type { PluginOutput } from "./result";
 import { fail } from "./result";
 import { createHttpClient, type HttpClient } from "./http-client";
@@ -21,6 +21,30 @@ export interface DefinePluginOptions {
         readonly endpoints?: Record<string, string | null>;
     };
     readonly translations?: Record<string, Record<string, string>>;
+}
+
+function parseStdinParams(): Record<string, string> {
+    if (process.stdin.isTTY) {
+        return {};
+    }
+
+    try {
+        const raw = readFileSync(0, "utf8").trim();
+        if (!raw) {
+            return {};
+        }
+        const payload = JSON.parse(raw) as { params?: unknown };
+        if (!payload.params || typeof payload.params !== "object") {
+            return {};
+        }
+        const entries = Object.entries(payload.params).filter((entry) => {
+            const [key, value] = entry as [unknown, unknown];
+            return typeof key === "string" && typeof value === "string";
+        }) as [string, string][];
+        return Object.fromEntries(entries);
+    } catch {
+        return {};
+    }
 }
 
 export function parseArgs(argv = process.argv.slice(2)): Record<string, string> {
@@ -47,7 +71,7 @@ export function requireParam(params: Record<string, string>, key: string): strin
 }
 
 export function definePlugin(handler: PluginHandler, options: DefinePluginOptions = {}): void {
-    const params = parseArgs();
+    const params = { ...parseStdinParams(), ...parseArgs() };
     const language = appLanguage(params);
     const translate = makeTranslator(options.translations ?? {});
     const ctx: PluginContext = {

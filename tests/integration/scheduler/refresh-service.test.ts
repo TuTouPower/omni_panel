@@ -303,7 +303,8 @@ describe("refresh-service", () => {
         await service.refresh("state-1");
         const state = deps.runtimeStore.getSnapshot("state-1");
         expect(state.status).toBe("failed");
-        expect(state.status === "failed" && state.error).toContain("API key invalid");
+        expect(state.status === "failed" && state.error).toContain("Plugin exited with code 1");
+        expect(state.status === "failed" && state.error).not.toContain("API key invalid");
         expect(deps.cacheStore.save).not.toHaveBeenCalled();
     });
 

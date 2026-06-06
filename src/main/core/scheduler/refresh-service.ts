@@ -244,9 +244,9 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             } catch (error: unknown) {
                 let message: string;
                 if (error instanceof PluginExecutionError) {
-                    message = error.stderr.trim() || error.message;
+                    message = error.message;
                     log.error(
-                        `Plugin ${instanceId} (${plugin.name}) failed (exit ${String(error.exitCode)}): ${message}`,
+                        `Plugin ${instanceId} (${plugin.name}) failed (exit ${String(error.exitCode)}, stderr=${String(error.stderr.length)}B): ${message}`,
                     );
                 } else {
                     message = error instanceof Error ? error.message : String(error);

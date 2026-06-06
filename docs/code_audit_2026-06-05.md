@@ -151,11 +151,11 @@
 - **描述**：`mode: "light" | "dark" | "system"` 只靠 TS 类型，renderer 可传任意值。
 - **建议**：Zod schema 校验。
 
-### M12. `findSystemNode()` 信任 PATH 中第一个 `node.exe`
+### M12. 插件参数曾通过 argv 暴露 secrets（已修）
 
-- **文件**：`src/main/index.ts:84-95`
-- **描述**：PATH 被污染时会用恶意 node 执行插件，插件参数含解密后的 secrets。
-- **建议**：优先使用应用随包 Node runtime，或校验签名/版本。
+- **文件**：`src/main/core/plugin/command-builder.ts`、`src/main/core/plugin/runner.ts`
+- **描述**：旧实现从 PATH 查找 `node.exe`，并通过 argv 传递解密后的 secrets。PATH 被污染时可执行恶意 node，本机进程也可能读取命令行。
+- **现状**：宿主改用 `process.execPath` + `ELECTRON_RUN_AS_NODE=1`，参数改为 stdin JSON；argv 仅保留手动运行兼容。
 
 ### M13. E2E `__test__` API 在生产环境暴露
 
@@ -214,56 +214,56 @@
 ### M22. 依赖审计存在高危漏洞
 
 - **文件**：`package.json`
-- **描述**：vitest <4.1.0 存在严重级别任意文件读取/执行风险；Electron Forge 传递依赖 tar/tmp 有路径穿越漏洞。
+- **描述**：vitest <4.1.0 存在严重级别任意文件读取/执行风险；打包链路传递依赖需继续跟踪 tar/tmp 等路径穿越漏洞。
 - **建议**：升级 vitest 到 >=4.1.0，升级或 pnpm overrides 强制 tar/tmp 版本。
 
-### M23. `resources/plugins` 排除在 typecheck 之外
+### M23. `assets/plugins` 排除在 typecheck 之外
 
 - **文件**：`tsconfig.json:33`
 - **描述**：插件作为 extraResource 发布但不纳入 `tsc --noEmit` 检查，运行时才发现类型错误。
 - **建议**：新增 `typecheck:plugins` 脚本并纳入 `check` 命令。
 
-### M24. forge 打包把插件源码放在 asar 外，可被篡改
+### M24. 打包把插件源码放在 asar 外，可被篡改（已修）
 
-- **文件**：`forge.config.ts:13`
-- **描述**：`resources/plugins` 和 `src/plugins/sdk` 作为 extraResource 放在 `process.resourcesPath`，运行时 esbuild 编译执行。安装目录可被本地低权限用户修改。
-- **建议**：构建期预编译放入 asar，或对 bundled plugin 做签名/哈希校验。
+- **文件**：`electron-builder.yml`、`src/main/core/plugin/bundled_resource_verifier.ts`、`src/main/index.ts`
+- **描述**：`assets/plugins` 和 `src/plugins/sdk` 作为 extraResource 放在 `process.resourcesPath`，运行时 esbuild 编译执行。安装目录可被本地低权限用户修改。
+- **现状**：打包后发现内置插件前，宿主用 asar 内置 SHA-256 清单校验 `plugins` 和 `sdk` 文件集合及内容；不匹配则跳过内置插件，只保留用户插件。
 
 ---
 
 ## 低严重度问题
 
-| #   | 文件                           | 行号            | 描述                                                                             |
-| --- | ------------------------------ | --------------- | -------------------------------------------------------------------------------- |
-| L01 | `config-ipc.ts`                | 76-78,108-110   | 多处 catch 吞掉错误细节，线上问题难以定位                                        |
-| L02 | `output-parser.ts`             | 9-16            | JSON parse 失败时完整 stdout 放入错误对象，可能泄露敏感信息                      |
-| L03 | `safe-storage-crypto.ts`       | 17-27           | Linux 非安全 backend 下只返回泛化错误，用户不知需配置 gnome-libsecret            |
-| L04 | `runtime-store.ts`             | 27-29           | `getAll()` 返回内部 Map 引用，破坏封装                                           |
-| L05 | `config-store.ts`              | 39-68           | 配置损坏时直接返回默认配置并覆盖，应先备份原文件                                 |
-| L06 | `compiler.ts`                  | 32-35           | 缓存目录只用 basename，bundled 与 user 插件同名时缓存冲突                        |
-| L07 | `log-ipc.ts`                   | 8-29            | renderer 日志 IPC 未校验 payload                                                 |
-| L08 | `TrayMenu.tsx`                 | 127-129         | 使用数组 index 作为 key                                                          |
-| L09 | `CardMenu.tsx`                 | 52-55           | 使用数组 index 作为 key                                                          |
-| L10 | `PopupView.tsx`                | 110-123         | `providerOrder` 类型断言绕过，非法值可进入状态                                   |
-| L11 | `plugins/sdk/endpoints.ts`     | 5-13            | `OMNI_PLUGIN_ENDPOINTS` 解析失败静默回退 metadata                                |
-| L12 | `plugins/sdk/http-client.ts`   | 110-119         | `buildUrl` 未校验最终 URL protocol/host                                          |
-| L13 | `plugins/sdk/define-plugin.ts` | 71-80           | 插件异常标准化原样输出 message，可能泄露 API key                                 |
-| L14 | `plugins/sdk/helpers.ts`       | 56-59           | `makeTranslator` 只替换每个占位符第一次出现                                      |
-| L15 | `plugins/sdk/helpers.ts`       | 67-74           | `numeric()` 接受 `Infinity`                                                      |
-| L16 | `shared/types/plugin.ts`       | 10-18           | `colorFor` 返回类型含 `"green"` 但实现永不返回                                   |
-| L17 | `shared/types/plugin.ts`       | 3-18            | `total <= 0` 时返回 `"normal"` 掩盖异常数据                                      |
-| L18 | `SettingsView.tsx`             | 506-617         | CPA "保存并同步"按钮无 onClick                                                   |
-| L19 | `SettingsView.tsx`             | 1543-1607       | "清除缓存"/"导出用量数据"/"重置应用"按钮无 onClick                               |
-| L20 | `SettingsView.tsx`             | 1625-1646       | "检查更新"和关于页链接无实际行为                                                 |
-| L21 | `SettingsView.tsx`             | 762-765         | `localState.lang`/`trayClick` 不持久化，页面刷新后丢失                           |
-| L22 | `PopupView.tsx`                | 141             | `live_root_ref` 仅绑定 DOM 但未读取 `.current`                                   |
-| L23 | `ProviderCard.tsx`             | 233             | `menu_wrap_ref` 仅绑定 DOM 但未读取 `.current`                                   |
-| L24 | `RefreshButton.tsx`            | 20-28           | 失败提示 setTimeout 未清理                                                       |
-| L25 | `SettingsView.tsx`             | 152-159,524-531 | 弹窗 `role="dialog"` 缺少 `aria-modal` 和 `aria-labelledby`                      |
-| L26 | `package.json`                 | 13              | `make` 脚本用 Unix `env VAR=...`，Windows 不可移植                               |
-| L27 | `package.json`                 | 25-26           | `test:coverage` 第二段插件测试未纳入覆盖率统计                                   |
-| L28 | `knip.json`                    | 11              | 忽略列表掩盖了 `lodash`、`@electron-forge/plugin-auto-unpack-natives` 疑似未使用 |
-| L29 | `package.json`                 | 17              | `format:check` 范围远小于 `format`，无法覆盖所有文件                             |
+| #   | 文件                           | 行号            | 描述                                                                  |
+| --- | ------------------------------ | --------------- | --------------------------------------------------------------------- |
+| L01 | `config-ipc.ts`                | 76-78,108-110   | 多处 catch 吞掉错误细节，线上问题难以定位                             |
+| L02 | `output-parser.ts`             | 9-16            | JSON parse 失败时完整 stdout 放入错误对象，可能泄露敏感信息           |
+| L03 | `safe-storage-crypto.ts`       | 17-27           | Linux 非安全 backend 下只返回泛化错误，用户不知需配置 gnome-libsecret |
+| L04 | `runtime-store.ts`             | 27-29           | `getAll()` 返回内部 Map 引用，破坏封装                                |
+| L05 | `config-store.ts`              | 39-68           | 配置损坏时直接返回默认配置并覆盖，应先备份原文件                      |
+| L06 | `compiler.ts`                  | 32-35           | 缓存目录只用 basename，bundled 与 user 插件同名时缓存冲突             |
+| L07 | `log-ipc.ts`                   | 8-29            | renderer 日志 IPC 未校验 payload                                      |
+| L08 | `TrayMenu.tsx`                 | 127-129         | 使用数组 index 作为 key                                               |
+| L09 | `CardMenu.tsx`                 | 52-55           | 使用数组 index 作为 key                                               |
+| L10 | `PopupView.tsx`                | 110-123         | `providerOrder` 类型断言绕过，非法值可进入状态                        |
+| L11 | `plugins/sdk/endpoints.ts`     | 5-13            | `OMNI_PLUGIN_ENDPOINTS` 解析失败静默回退 metadata                     |
+| L12 | `plugins/sdk/http-client.ts`   | 110-119         | `buildUrl` 未校验最终 URL protocol/host                               |
+| L13 | `plugins/sdk/define-plugin.ts` | 71-80           | 插件异常标准化原样输出 message，可能泄露 API key                      |
+| L14 | `plugins/sdk/helpers.ts`       | 56-59           | `makeTranslator` 只替换每个占位符第一次出现                           |
+| L15 | `plugins/sdk/helpers.ts`       | 67-74           | `numeric()` 接受 `Infinity`                                           |
+| L16 | `shared/types/plugin.ts`       | 10-18           | `colorFor` 返回类型含 `"green"` 但实现永不返回                        |
+| L17 | `shared/types/plugin.ts`       | 3-18            | `total <= 0` 时返回 `"normal"` 掩盖异常数据                           |
+| L18 | `SettingsView.tsx`             | 506-617         | CPA "保存并同步"按钮无 onClick                                        |
+| L19 | `SettingsView.tsx`             | 1543-1607       | "清除缓存"/"导出用量数据"/"重置应用"按钮无 onClick                    |
+| L20 | `SettingsView.tsx`             | 1625-1646       | "检查更新"和关于页链接无实际行为                                      |
+| L21 | `SettingsView.tsx`             | 762-765         | `localState.lang`/`trayClick` 不持久化，页面刷新后丢失                |
+| L22 | `PopupView.tsx`                | 141             | `live_root_ref` 仅绑定 DOM 但未读取 `.current`                        |
+| L23 | `ProviderCard.tsx`             | 233             | `menu_wrap_ref` 仅绑定 DOM 但未读取 `.current`                        |
+| L24 | `RefreshButton.tsx`            | 20-28           | 失败提示 setTimeout 未清理                                            |
+| L25 | `SettingsView.tsx`             | 152-159,524-531 | 弹窗 `role="dialog"` 缺少 `aria-modal` 和 `aria-labelledby`           |
+| L26 | `package.json`                 | 13              | `make` 脚本用 Unix `env VAR=...`，Windows 不可移植                    |
+| L27 | `package.json`                 | 25-26           | `test:coverage` 第二段插件测试未纳入覆盖率统计                        |
+| L28 | `knip.json`                    | 11              | 忽略列表掩盖了 `lodash`、`electron-builder` 疑似未使用                |
+| L29 | `package.json`                 | 17              | `format:check` 范围远小于 `format`，无法覆盖所有文件                  |
 
 ---
 

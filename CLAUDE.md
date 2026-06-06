@@ -28,7 +28,7 @@
 
 ## 关键设计保留
 
-- **插件系统**：TS 源文件 → esbuild 编译为单文件 JS → Electron 内置 Node 子进程执行（`ELECTRON_RUN_AS_NODE=1`），CLI 参数输入、stdout JSON 输出、元数据自描述
+- **插件系统**：TS 源文件 → esbuild 编译为单文件 JS → Electron 内置 Node 子进程执行（`ELECTRON_RUN_AS_NODE=1`），stdin JSON 输入（argv 仅手动兼容，不用于宿主传 secret）、stdout JSON 输出、元数据自描述
 - **独立刷新调度**：每个插件独立周期刷新，缓存感知
 - **双层架构**：Core 逻辑层与 UI 层分离
 
@@ -44,7 +44,7 @@
 测试要做完好的单元测试、集成测试、用户端到端测试，尽量少用 mock，多用真实环境。
 
 - **每个任务完成前必须跑 `pnpm test`**，确认全部通过或已记录已知失败。
-- **涉及打包的任务**：必须真实启动打包产物验证（`pnpm package && ./dist/OmniUsage-win32-x64/OmniUsage.exe`），确认渲染进程正常加载、托盘出现、功能可用。
+- **涉及打包的任务**：必须真实启动打包产物验证（`pnpm package && ./artifacts/win-unpacked/OmniUsage.exe`），确认渲染进程正常加载、托盘出现、功能可用。
 - **涉及 UI 的任务**：必须手工点击操作验证关键路径。
 - 自动化通过 ≠ 产物可用。打包 smoke 未验证时不能说"已修复"，只能说"自动化路径通过，packaged 行为未验证"。
 - 详细规范见 `docs/test.md`。

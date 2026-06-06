@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { buildPluginCommand } from "../../../src/main/core/plugin/command-builder";
 
+function paramsFromStdin(stdin: string | undefined): Record<string, string> {
+    const payload = JSON.parse(stdin ?? "{}") as { params?: Record<string, string> };
+    return payload.params ?? {};
+}
+
 describe("buildPluginCommand", () => {
     it("uses provided nodePath", () => {
         const result = buildPluginCommand(
@@ -13,16 +18,28 @@ describe("buildPluginCommand", () => {
         expect(result.args[0]).toBe("/cache/plugin/index.js");
     });
 
-    it("formats parameters as separate --usageboard-param KEY=VALUE", () => {
+    it("passes parameters through stdin", () => {
         const result = buildPluginCommand(
             "/cache/plugin/index.js",
             { API_KEY: "abc123" },
             "zh-Hans",
             "/path/to/node",
         );
-        const idx = result.args.indexOf("--usageboard-param");
-        expect(idx).toBeGreaterThan(-1);
-        expect(result.args[idx + 1]).toBe("API_KEY=abc123");
+        expect(result.args).toEqual(["/cache/plugin/index.js"]);
+        expect(paramsFromStdin(result.stdin)).toEqual({
+            API_KEY: "abc123",
+            USAGEBOARD_LANGUAGE: "zh-Hans",
+        });
+    });
+
+    it("does not expose parameter values in argv", () => {
+        const result = buildPluginCommand(
+            "/cache/plugin/index.js",
+            { API_KEY: "abc123" },
+            "zh-Hans",
+            "/path/to/node",
+        );
+        expect(result.args.join(" ")).not.toContain("abc123");
     });
 
     it("skips empty parameter values", () => {
@@ -32,20 +49,17 @@ describe("buildPluginCommand", () => {
             "zh-Hans",
             "/path/to/node",
         );
-        expect(result.args.every((a: string) => !a.includes("EMPTY"))).toBe(true);
+        expect(result.stdin).not.toContain("EMPTY");
     });
 
     it("always passes USAGEBOARD_LANGUAGE", () => {
         const result = buildPluginCommand("/cache/plugin/index.js", {}, "en", "/path/to/node");
-        const langIdx = result.args.indexOf("USAGEBOARD_LANGUAGE=en");
-        expect(langIdx).toBeGreaterThan(-1);
-        expect(result.args[langIdx - 1]).toBe("--usageboard-param");
+        expect(paramsFromStdin(result.stdin)["USAGEBOARD_LANGUAGE"]).toBe("en");
     });
 
     it("passes language zh-Hans correctly", () => {
         const result = buildPluginCommand("/cache/plugin/index.js", {}, "zh-Hans", "/path/to/node");
-        const langIdx = result.args.indexOf("USAGEBOARD_LANGUAGE=zh-Hans");
-        expect(langIdx).toBeGreaterThan(-1);
+        expect(paramsFromStdin(result.stdin)["USAGEBOARD_LANGUAGE"]).toBe("zh-Hans");
     });
 
     it("accepts parameter values with special characters", () => {
@@ -55,7 +69,6 @@ describe("buildPluginCommand", () => {
             "zh-Hans",
             "/path/to/node",
         );
-        const idx = result.args.indexOf("KEY=val&rm -rf /");
-        expect(idx).toBeGreaterThan(-1);
+        expect(paramsFromStdin(result.stdin)["KEY"]).toBe("val&rm -rf /");
     });
 });

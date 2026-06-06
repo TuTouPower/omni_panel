@@ -10,6 +10,16 @@ function should_log_raw_debug(): boolean {
     return process.env["NODE_ENV"] === "development";
 }
 
+function redact_arg(arg: string): string {
+    if (/^(?:[^=]*(?:key|token|secret|password)[^=]*)=/iu.test(arg)) {
+        return `${arg.slice(0, arg.indexOf("=") + 1)}***`;
+    }
+    if (/^(?:sk-|key-|api[_-]?key)/iu.test(arg)) {
+        return "***";
+    }
+    return arg;
+}
+
 export interface PluginExecutionResult {
     readonly stdout: string;
     readonly stderr: string;
@@ -36,25 +46,14 @@ export async function executePlugin(
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const startTime = Date.now();
 
-    // Redact secret values from command args before logging
-    const safeArgs: string[] = [];
-    for (let i = 0; i < command.args.length; i++) {
-        const arg = command.args[i] ?? "";
-        if (arg === "--usageboard-param" && i + 1 < command.args.length) {
-            const next = command.args[i + 1] ?? "";
-            const eqIdx = next.indexOf("=");
-            safeArgs.push(arg, eqIdx > 0 ? next.substring(0, eqIdx + 1) + "***" : next);
-            i++; // skip the value arg, already handled
-        } else {
-            safeArgs.push(arg);
-        }
-    }
-    log.debug(`spawn: ${command.command} ${safeArgs.join(" ")}`);
+    const redacted_args = command.args.map(redact_arg);
+    log.debug(`spawn: ${command.command} ${redacted_args.join(" ")}`);
     if (should_log_raw_debug()) {
         log.debug("plugin command raw", {
             command: command.command,
-            args: command.args,
+            args: redacted_args,
             env: command.env,
+            stdinBytes: command.stdin?.length ?? 0,
             timeoutMs,
         });
     }
@@ -68,6 +67,7 @@ export async function executePlugin(
                 ELECTRON_RUN_AS_NODE: "1",
             },
         });
+        child.stdin.end(command.stdin ?? "");
 
         const stdoutChunks: Buffer[] = [];
         const stderrChunks: Buffer[] = [];
@@ -149,7 +149,7 @@ export async function executePlugin(
                     log.debug("plugin stderr raw", { stderr });
                 }
                 if (stderr.length > 0) {
-                    log.warn(`stderr: ${stderr.slice(0, 500)}`);
+                    log.warn(`stderr received: ${String(stderr.length)}B`);
                 }
                 resolve({
                     stdout,
