@@ -867,6 +867,230 @@ default: // popup
 
 ---
 
+## Phase 32: 刷新期间 provider 丢失上次成功数据
+
+> 发现时间：2026-06-06 | 优先级：P0 | 状态：已修复
+
+### BUG：CPA 刷新数据时 Claude / Codex 等显示未登录无数据
+
+用户反馈：CPA 刷新数据时，Claude、Codex 等 provider 会短暂或持续显示“未登录 / 无数据”。
+
+### 排查结论
+
+根因不是 CPA 真实未登录，也不是 CPA cache 缺失，而是公共刷新状态模型会在刷新中清空 renderer 可见数据。
+
+证据：
+
+- `src/main/core/scheduler/refresh-service.ts` 刷新前调用 `runtimeStore.updateState(instanceId, { status: "loading" })`。
+- `src/main/core/scheduler/runtime-store.ts` 的 `updateState` 是整包替换，不保留旧 `items`。
+- `src/main/ipc/helpers.ts` 把 loading DTO 转成 `{ status: "loading" }`，不带 `items` / `updatedAt`。
+- `src/renderer/lib/provider-usage.ts` 聚合 provider 时只接受 `connector.snapshot.status === "ready"`。
+- 本机日志确认 CPA connector 先广播 loading，约 2.3 秒后才广播 ready 22 items；这段时间 provider 聚合里没有 Claude / Codex / Gemini 的 CPA 数据。
+- 本机 cache 确认 CPA state 有 22 条，上次成功数据存在，provider 包含 `claude` / `codex` / `gemini`。
+
+### 影响范围
+
+这是所有数据源共享的问题，不只 CPA。
+
+- 单 provider 数据源：表现为单卡刷新期间短暂空态、错误态或“重新登录”感。
+- CPA 多 provider connector：一个 connector 承载 Claude / Codex / Gemini 等多个 provider，所以 loading 清空后多个 provider 同时从聚合结果消失，用户感知最明显。
+- 失败路径已有 `lastSuccess`，但 loading 路径没有；刷新中仍会丢旧数据。
+
+### 建议修法
+
+优先修公共状态模型，不对 CPA 特判。
+
+- loading 状态保留上次成功快照：`loading + lastSuccess` 或 DTO 直接带旧 `items` / `updatedAt`。
+- renderer 聚合时把“有 lastSuccess 的 loading/failed”当作可显示数据，UI 同时显示“刷新中”或错误提示。
+- 失败时继续显示上次成功数据，不让 provider 变成空态；错误只作为附加状态展示。
+- 测试覆盖公共插件刷新：`ready -> loading` 期间 provider 不消失；`ready -> failed(lastSuccess)` 期间 provider 不消失。
+- 再补 CPA 多 provider 用例：CPA loading 期间 Claude / Codex / Gemini 卡片和账号明细仍显示上次成功数据。
+
+### 待修项
+
+- [x] 确认是刷新中的 loading 状态覆盖了 provider 聚合结果，不是 stale cache 缺失。
+- [x] 确认 Claude / Codex 等 provider 在 CPA 刷新期间会因 CPA connector 非 ready 被误判为空 provider。
+- [x] 确认刷新失败或刷新中应继续显示上次成功数据。
+- [x] 修公共刷新状态模型，loading/failed 保留 last success 可显示数据。
+- [x] 补测试覆盖刷新期间 provider 不应显示“未登录 / 无数据”。
+
+---
+
+## Phase 33: 账号管理按钮语义错位 + Phase30 假验收
+
+> 发现时间：2026-06-06 | 优先级：P0 | 状态：部分修复，仍有账号级 disabled / 保存失败反馈待补
+
+### BUG：账号面板关闭 / 编辑 / 删除等按钮看起来无效或作用对象错误
+
+用户反馈：账号面板上的关闭、编辑、删除等按钮无效。追溯后确认不是单个按钮没绑定，而是账号级管理语义和实际实现错位。
+
+### 排查结论
+
+Phase 30/31 做过相关工作，但没有完成真实账号级管理闭环；`TASKS.md` 里把部分能力勾成完成，属于假验收。
+
+证据：
+
+- 主面板账号行菜单有绑定：`ProviderAccountRow.tsx` 会调用 `onEditAccount` / `onHideOrDeleteAccount`。
+- `PopupView.tsx` 的编辑只打开设置窗口并传 `instanceId/provider/accountId`，没有保证进入真实账号编辑表单。
+- `PopupView.tsx` 的 CPA 账号操作只写 `accountOverrides.hidden`，不是账号级关闭；非 CPA 才删除整个 plugin。
+- 设置页“账号管理”把 CPA connector 按 provider 拆成多行，但每行仍操作同一个 CPA `instanceId`。
+- 设置页 Toggle 实际写的是 `plugin.enabled = false`，会关闭整个 CPA connector，不是关闭某个 provider 或账号。
+- CPA 行删除按钮不渲染，所以用户看到的“删除/关闭/编辑”语义不一致。
+- 当前 `apply_account_overrides()` 已过滤 `hidden` 和 `disabled`，但历史 Phase 30 初始实现主要只落了 hidden；真正 disabled 写入与 UI 行为没有闭环。
+
+### 历史问题
+
+Phase 30 的验收口径过弱，导致“按钮存在 / 回调触发”被当成“账号管理可用”。
+
+- `provider_account_row.test.tsx` 只测菜单显示、文案、点击调用 handler、点击不触发折叠。
+- `account_operations.spec.ts` 只测账号菜单按钮存在、编辑可打开设置窗口、直接账号菜单有“删除”文本。
+- Phase 31 修了 popup preload 权限，但 `preload_routes.spec.ts` 只测 popup 暴露 `config.save` 等 API key。
+- E2E 没有验证点击隐藏/删除/关闭后 config 是否变化，也没有验证 UI 是否真的移除或禁用目标账号。
+- 这些测试能防“按钮完全没渲染”，不能证明业务功能生效。
+
+### 影响范围
+
+- CPA 多 provider / 多账号场景最严重：UI 露出的是账号或 provider 行，实际保存的是 connector 级 enabled 或 hidden override。
+- 用户点击关闭时，可能关闭整个 CPA 数据源，而不是目标账号。
+- 用户点击编辑时，可能只是打开设置窗口或 CPA connector 设置，不是目标账号编辑。
+- 用户点击删除时，CPA 没有真实删除；只能隐藏，且 UI 文案/入口需要明确。
+- 非 CPA 直接账号删除路径较接近真实删除，但仍缺少 E2E 验证保存结果和刷新后 UI 结果。
+
+### 建议修法
+
+先定义清楚三类动作，不要再混用“账号管理”和“数据源管理”。
+
+- 数据源/connector 管理：启用、关闭、删除 plugin instance。
+- 账号级隐藏：对 CPA 这类聚合来源隐藏某个 account key；文案用“隐藏”，不要叫删除。
+- 账号级关闭：写入 `accountOverrides.disabled`，provider 聚合和刷新展示都按 account key 精确过滤或标记禁用。
+- 设置页把“数据源管理”和“账号级管理”分区；CPA provider 行不能再用同一个 connector toggle 伪装成账号关闭。
+- 主面板和设置页共用同一套 account key 规则，尤其 CPA 使用 `sourceInstanceId:label:accountLabel`。
+- 所有保存失败必须有可见反馈，不能 `void save_config(...)` 后静默失败。
+
+### 测试要求
+
+后续修复必须测真实业务结果，不能只测 DOM 或回调。
+
+- 点击 CPA 账号隐藏后，验证 config 写入 `accountOverrides.hidden`，目标账号从 UI 消失，其他 CPA provider/账号仍保留。
+- 点击账号关闭后，验证 config 写入 `accountOverrides.disabled`，目标账号禁用状态生效，且不是关闭整个 connector。
+- 点击非 CPA 删除后，验证 config 删除目标 plugin，UI 刷新后账号消失。
+- 点击编辑后，验证打开的是目标 `instanceId/provider/accountId` 对应的真实编辑路径，不只是 settings window 存在。
+- preload/route 测试必须执行一次真实 `config.save`，不能只检查 API key 存在。
+- mock 必须按窗口路由收敛权限，避免再出现测试环境比真实环境权限更大的假通过。
+
+### 类似提交线索
+
+确认同型：
+
+- `68c537e feat: 主面板账号级操作（隐藏/删除/编辑菜单）`：实现了菜单和部分 hidden/delete/edit，但没有完整 disabled 闭环。
+- `ef4be5b feat: Phase 30 完善 — settings navigate IPC + disabled 过滤 + 确认弹窗`：补了 disabled 过滤和 settings navigate，但设置页 CPA toggle 仍是 connector 级操作。
+- `8f2a353 feat: Phase 30 收尾 — 隐藏账号恢复 + accounts E2E + 文档同步`：E2E 新增的是菜单存在、编辑打开 settings window；没有测 config/UI 真实业务结果。
+- `4ce6ee6 fix: Phase 31 — preload 路由修复 + 测试对齐`：修了 popup `config.save` 权限，但 E2E 只新增“删除”菜单项可见和 API key 存在测试，仍不能证明删除/隐藏/关闭生效。
+
+疑似弱验收：
+
+- `10eae89 docs: 标记 Phase 24 全部完成` 把 CPA 详情页字段完整、测试连接、保存并同步、UI 手工点击验收写为完成。
+- 但前一个测试提交 `7d7f7d9 test: Phase 24 测试更新` 删除了“立即同步调用 refresh”和“同步失败显示错误”的断言，改成只测“移除数据源”按钮存在；这属于测试覆盖倒退。
+- `a51e3ed feat: add ProviderCard tests and mark all Phase 22 items complete` 把拖拽排序、设置持久化、packaged smoke 等勾选为完成，但提交里主要新增 `ProviderCard` 单元测试；其中多项只是 class/menu/文案覆盖，未证明持久化或真实拖拽结果。需后续单独复核。
+
+### 待修项
+
+- [x] 确认按钮不是单纯未绑定，而是账号级语义和实际实现错位。
+- [x] 确认 Phase 30 存在过度勾选：disabled/账号关闭没有真实业务闭环。
+- [x] 确认 Phase 31 只修了 preload 权限和弱 E2E，仍未验证真实隐藏/删除/关闭结果。
+- [ ] 重新设计账号级 hidden / disabled / delete 的准确语义。
+- [x] 修设置页账号管理，不再把 CPA connector toggle 当账号关闭。
+- [ ] 修主面板账号操作保存失败的可见反馈。
+- [x] 补真实业务测试：CPA 隐藏写入 `accountOverrides.hidden`，非 CPA 删除移除 plugin config；完整 disabled 行为仍待补。
+
+---
+
+## Phase 34: 历史弱验收 / 假完成审计
+
+> 发现时间：2026-06-06 | 优先级：P1 | 状态：部分整改，历史 Phase22/24 全量复核待补
+
+### 问题
+
+历史多个 Phase 存在“任务文档已勾选完成，但测试或提交只能证明表层 UI 存在”的风险。当前已确认 Phase 30/31 是同型问题，Phase 22/24 有明显弱验收线索。
+
+### 已确认假验收
+
+#### Phase 30/31：账号级操作
+
+- `68c537e feat: 主面板账号级操作（隐藏/删除/编辑菜单）`
+    - 实际做了账号菜单、CPA hidden、直接账号 delete、settings open。
+    - 没有完成真正账号级 disabled 闭环。
+    - 测试集中在菜单文案和 handler 调用。
+- `ef4be5b feat: Phase 30 完善 — settings navigate IPC + disabled 过滤 + 确认弹窗`
+    - 补了 disabled 过滤和 settings navigate。
+    - 设置页 CPA toggle 仍可能关闭整个 connector，不是目标账号。
+- `8f2a353 feat: Phase 30 收尾 — 隐藏账号恢复 + accounts E2E + 文档同步`
+    - E2E 只测账号菜单出现、编辑打开 settings window。
+    - 没有测隐藏/关闭/删除后的 config 变化和 UI 结果。
+- `4ce6ee6 fix: Phase 31 — preload 路由修复 + 测试对齐`
+    - 修了 popup preload 权限。
+    - 新增 E2E 仍只测“删除”菜单项可见和 `config.save` API key 存在。
+    - 不能证明真实保存、隐藏、删除、关闭生效。
+
+结论：Phase 30/31 的“账号行编辑、删除、开关全部接线到真实能力”“关闭后可重新启用”“E2E 验证编辑、关闭、隐藏/删除”等勾选过度。
+
+### 疑似弱验收
+
+#### Phase 24：CPA 详情页 / 设置页账号管理
+
+- `10eae89 docs: 标记 Phase 24 全部完成`
+    - 文档把“CPA 详情页字段完整”“测试连接”“保存并同步”“UI 手工点击验收”标记完成。
+- `7d7f7d9 test: Phase 24 测试更新`
+    - 删除了“立即同步调用 refresh”的测试。
+    - 删除了“同步失败显示错误”的测试。
+    - 改为只测“移除数据源”按钮存在。
+
+风险：测试覆盖从行为验证退化成存在性验证，但 TASKS 仍写成功能完整。
+
+#### Phase 22：ProviderCard / demo 对齐
+
+- `a51e3ed feat: add ProviderCard tests and mark all Phase 22 items complete`
+    - 提交主要新增 `ProviderCard` 单元测试。
+    - TASKS 同时勾选拖拽排序、设置持久化、托盘 E2E、packaged smoke 等较大验收项。
+    - 测试多为文案、class、菜单项、按钮存在，不足以证明持久化、真实拖拽排序、打包产物手工验收。
+
+风险：把组件层单测当成跨窗口/持久化/打包验收。
+
+### 需要统一整改的验收规则
+
+以后不能把以下检查当作功能完成：
+
+- 按钮存在。
+- 菜单项可见。
+- handler 被调用。
+- window 打开。
+- preload API key 存在。
+- CSS class 存在。
+- `count >= 0` 这类永真断言。
+- `test.skip` 掩盖刷新或数据未出现。
+
+必须按业务结果验收：
+
+- 点击后 config / cache / state 真实变化。
+- UI 刷新后目标对象变化，且非目标对象不受影响。
+- 失败路径有可见错误。
+- reload / restart 后持久化仍生效。
+- 对 Electron 权限问题，测试必须按真实窗口 route 暴露 API。
+- 涉及打包的功能必须跑 packaged smoke 或明确写“未验证”。
+
+### 待办
+
+- [x] 记录 Phase 30/31 已确认假验收。
+- [x] 记录 Phase 24 测试覆盖倒退线索。
+- [x] 记录 Phase 22 组件测试替代真实验收风险。
+- [x] 清理本轮发现的弱 E2E：账号操作、卡片状态、拖拽、设置账号、刷新状态、折叠高度、resize debounce 不再用永真断言或动态 skip。
+- [ ] 逐项复核 Phase 22 的拖拽排序、设置持久化、托盘 E2E、packaged smoke 是否有真实测试或手工记录。
+- [ ] 逐项复核 Phase 24 的测试连接、立即同步、同步失败错误展示是否仍可用。
+- [ ] 清理或改写 TASKS 中所有“已完成但只有弱测试证明”的勾选。
+- [x] 给账号操作、刷新状态补真实业务测试；CPA 设置仍需补测试连接 / 立即同步 / 失败展示复核。
+
+---
+
 1. 不实现本轮范围外的功能
 2. 不重构无关文件
 3. 不修改插件协议来适配实现
