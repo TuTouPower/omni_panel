@@ -16,6 +16,8 @@ import type {
 } from "./main-panel-types";
 
 const log = createLogger("main-panel");
+const MIN_PANEL_WIDTH = 472;
+const MAX_PANEL_WIDTH = 780;
 
 function clamp(value: number, lo: number, hi: number): number {
     if (hi < lo) return lo;
@@ -102,7 +104,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         const floatingBounds = {
             x: bounds.x,
             y: bounds.y,
-            width: bounds.width,
+            width: clamp(bounds.width, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH),
             height: bounds.height,
         };
         deps.save_config({
@@ -148,8 +150,11 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 deps.get_all_displays(),
                 display,
             );
-            target.setBounds(bounds);
-            target.setMinimumSize(320, 240);
+            target.setBounds({
+                ...bounds,
+                width: clamp(bounds.width, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH),
+            });
+            target.setMinimumSize(MIN_PANEL_WIDTH, 240);
             target.setResizable(true);
             target.on("resize", () => {
                 save_floating_bounds(target);
@@ -159,7 +164,8 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             });
         } else {
             position_popup(target);
-            target.setResizable(false);
+            target.setMinimumSize(MIN_PANEL_WIDTH, 160);
+            target.setResizable(true);
         }
 
         height_controller = build_height_controller(target);

@@ -116,10 +116,22 @@ interface WindowConfig {
     titleBarStyle?: "hidden" | "hiddenInset" | "default";
     titleBarOverlay?: boolean;
     roundedCorners?: boolean;
+    resizable?: boolean;
+    minWidth?: number;
+    maxWidth?: number;
 }
 
 const WINDOW_CONFIGS: Record<string, WindowConfig> = {
-    popup: { route: "popup", width: 460, height: 480, frame: false, show: false },
+    popup: {
+        route: "popup",
+        width: 482,
+        height: 480,
+        frame: false,
+        show: false,
+        resizable: true,
+        minWidth: 472,
+        maxWidth: 780,
+    },
     settings: {
         route: "settings",
         width: 820,
@@ -164,6 +176,9 @@ function createWindowFor(key: string, options: { load?: boolean } = {}): Browser
         frame: cfg.frame ?? true,
         show: cfg.show ?? true,
         autoHideMenuBar: cfg.autoHideMenuBar ?? false,
+        resizable: cfg.resizable ?? true,
+        ...(cfg.minWidth !== undefined && { minWidth: cfg.minWidth }),
+        ...(cfg.maxWidth !== undefined && { maxWidth: cfg.maxWidth }),
         ...(cfg.titleBarStyle !== undefined && { titleBarStyle: cfg.titleBarStyle }),
         ...(cfg.titleBarOverlay !== undefined && { titleBarOverlay: cfg.titleBarOverlay }),
         ...(cfg.roundedCorners !== undefined && { roundedCorners: cfg.roundedCorners }),
