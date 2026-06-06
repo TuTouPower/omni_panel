@@ -87,6 +87,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
         try {
             const config = await deps.configStore.load();
             log.debug(`Config loaded for ${instanceId}: ${String(config.plugins.length)} plugins`);
+            log.debug("refresh config raw", { config });
             const plugin = config.plugins.find(
                 (p: PluginConfiguration) => p.instanceId === instanceId,
             );
@@ -94,6 +95,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 log.warn(`Refresh requested for unknown instanceId: ${instanceId}`);
                 return;
             }
+            log.debug("refresh plugin config raw", { plugin });
 
             if (!options?.force) {
                 const cached = await deps.cacheStore.load(instanceId);
@@ -125,6 +127,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             log.debug(`Runtime state loading for ${instanceId}`);
 
             const mergedParams = await mergeSecrets(instanceId, plugin.parameterValues);
+            log.debug("merged plugin params raw", { mergedParams });
             const command = deps.commandBuilder(
                 plugin.executablePath,
                 mergedParams,
@@ -133,6 +136,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
 
             const metadataEndpoints = deps.getMetadataEndpoints(instanceId);
             const runtimeEnv = resolveRuntimeEnv(metadataEndpoints, plugin, config);
+            log.debug("runtime env raw", { runtimeEnv, command });
             const commandWithEnv: PluginCommand = {
                 ...command,
                 env: {
@@ -163,6 +167,8 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 log.debug(
                     `Plugin ${instanceId} (${plugin.name}) stdout [${String(result.stdout.length)}B]`,
                 );
+                log.debug("plugin stdout raw", { stdout: result.stdout });
+                log.debug("plugin stderr raw", { stderr: result.stderr });
                 if (result.stderr.length > 0) {
                     log.debug(
                         `Plugin ${instanceId} (${plugin.name}) stderr [${String(result.stderr.length)}B]`,
@@ -170,6 +176,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 }
                 log.debug(`Parsing plugin output for ${instanceId}`);
                 const output = deps.outputParser(result.stdout);
+                log.debug("parsed plugin output raw", { output });
                 if (!output.success) {
                     log.warn(
                         `Plugin ${instanceId} (${plugin.name}) reported error: ${output.error.code} - ${output.error.message}`,
@@ -186,21 +193,25 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 );
 
                 log.debug(`Saving cache for ${instanceId}`);
-                await deps.cacheStore.save(instanceId, {
+                const cachePayload = {
                     updatedAt: output.updatedAt,
                     items: output.items,
                     ...(output.badge !== undefined && { badge: output.badge }),
                     ...(output.chart !== undefined && { chart: output.chart }),
-                });
+                };
+                log.debug("cache save payload raw", { cachePayload });
+                await deps.cacheStore.save(instanceId, cachePayload);
                 log.debug(`Cache saved for ${instanceId}`);
 
-                deps.runtimeStore.updateState(instanceId, {
-                    status: "ready",
+                const readyPayload = {
+                    status: "ready" as const,
                     items: output.items,
                     updatedAt: new Date(output.updatedAt),
                     ...(output.badge !== undefined && { badge: output.badge }),
                     ...(output.chart !== undefined && { chart: output.chart }),
-                });
+                };
+                log.debug("runtime ready payload raw", { readyPayload });
+                deps.runtimeStore.updateState(instanceId, readyPayload);
                 log.debug(`Runtime state ready for ${instanceId}`);
             } catch (error: unknown) {
                 let message: string;

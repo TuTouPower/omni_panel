@@ -321,6 +321,63 @@ describe("refresh-service", () => {
         expect(deps.runner).toHaveBeenCalledWith(expect.anything(), { timeoutMs: 15_000 });
     });
 
+    it("logs full plugin stdout, parsed output, and runtime payload", async () => {
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        const stdout = JSON.stringify({
+            success: true,
+            schemaVersion: 1,
+            updatedAt: "2026-05-24T12:00:00Z",
+            items: [
+                {
+                    id: "item-1",
+                    provider: "deepseek",
+                    source: "api_key",
+                    sourceInstanceId: "state-1",
+                    accountId: "acct-1",
+                    accountLabel: "Account 1",
+                    name: "5小时用量",
+                    used: 50,
+                    limit: 100,
+                    displayStyle: "percent",
+                    resetAt: "2026-05-24T14:00:00Z",
+                    status: "normal",
+                    color: "green",
+                },
+            ],
+        });
+        const output = JSON.parse(stdout) as ReturnType<RefreshServiceDeps["outputParser"]>;
+        const deps = createDeps({
+            runner: vi.fn<RefreshServiceDeps["runner"]>().mockResolvedValue({
+                stdout,
+                stderr: "debug stderr body",
+                exitCode: 0,
+                durationMs: 123,
+            }),
+            outputParser: vi.fn().mockReturnValue(output),
+        });
+        const service = createRefreshService(deps);
+
+        try {
+            await service.refresh("state-1", { force: true });
+            const joined = lines.join("\n");
+
+            expect(joined).toContain("plugin stdout raw");
+            expect(joined).toContain("2026-05-24T14:00:00Z");
+            expect(joined).toContain("debug stderr body");
+            expect(joined).toContain("parsed plugin output raw");
+            expect(joined).toContain("runtime ready payload raw");
+        } finally {
+            remove_transport();
+        }
+    });
+
     it("logs refresh boundaries without leaking secret values", async () => {
         const lines: string[] = [];
         const remove_transport = addTransport({

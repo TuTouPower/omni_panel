@@ -46,6 +46,12 @@ export async function executePlugin(
         }
     }
     log.debug(`spawn: ${command.command} ${safeArgs.join(" ")}`);
+    log.debug("plugin command raw", {
+        command: command.command,
+        args: command.args,
+        env: command.env,
+        timeoutMs,
+    });
 
     return new Promise<PluginExecutionResult>((resolve, reject) => {
         const child = spawn(command.command, [...command.args], {
@@ -132,6 +138,8 @@ export async function executePlugin(
                 log.debug(
                     `exit ${String(code)} in ${String(durationMs)}ms, stdout=${String(stdout.length)}B stderr=${String(stderr.length)}B`,
                 );
+                log.debug("plugin stdout raw", { stdout });
+                log.debug("plugin stderr raw", { stderr });
                 if (stderr.length > 0) {
                     log.warn(`stderr: ${stderr.slice(0, 500)}`);
                 }
