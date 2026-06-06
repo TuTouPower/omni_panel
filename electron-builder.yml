@@ -1,47 +1,47 @@
 appId: com.omniusage.app
 productName: OmniUsage
 directories:
-  output: artifacts
+    output: artifacts
 files:
-  - out/**
-  - package.json
+    - out/**
+    - package.json
 extraResources:
-  - from: assets/plugins
-    to: plugins
-  - from: src/plugins/sdk
-    to: sdk
-  - from: assets/tray-icon.png
-    to: tray-icon.png
-  - from: assets/icon.png
-    to: icon.png
+    - from: assets/plugins
+      to: plugins
+    - from: src/plugins/sdk
+      to: sdk
+    - from: assets/tray-icon.png
+      to: tray-icon.png
+    - from: assets/icon.png
+      to: icon.png
 asar: true
 electronFuses:
-  enableEmbeddedAsarIntegrityValidation: true
-  onlyLoadAppFromAsar: true
-  runAsNode: true
-  enableCookieEncryption: true
-  enableNodeOptionsEnvironmentVariable: false
-  enableNodeCliInspectArguments: false
+    enableEmbeddedAsarIntegrityValidation: true
+    onlyLoadAppFromAsar: true
+    runAsNode: true
+    enableCookieEncryption: true
+    enableNodeOptionsEnvironmentVariable: false
+    enableNodeCliInspectArguments: false
 win:
-  target:
-    - target: nsis
-      arch: [x64]
-  icon: assets/icon.ico
+    target:
+        - target: nsis
+          arch: [x64]
+    icon: assets/icon.ico
 nsis:
-  oneClick: false
-  perMachine: false
-  allowToChangeInstallationDirectory: true
+    oneClick: false
+    perMachine: false
+    allowToChangeInstallationDirectory: true
 mac:
-  target:
-    - target: dmg
-      arch: [x64, arm64]
-    - target: zip
-      arch: [x64, arm64]
-  icon: assets/icon.png
-  hardenedRuntime: true
+    target:
+        - target: dmg
+          arch: [x64, arm64]
+        - target: zip
+          arch: [x64, arm64]
+    icon: assets/icon.png
+    hardenedRuntime: true
 linux:
-  target:
-    - AppImage
-    - deb
-    - rpm
-  icon: assets/icon.png
+    target:
+        - AppImage
+        - deb
+        - rpm
+    icon: assets/icon.png
