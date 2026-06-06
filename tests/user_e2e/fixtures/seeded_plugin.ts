@@ -9,8 +9,15 @@ export function seed_fake_plugin(
     user_plugin_dir: string,
     spec: {
         name: string;
-        items: { id: string; name: string; used: number; limit: number }[];
+        items: {
+            id: string;
+            name: string;
+            used: number;
+            limit: number;
+            status?: "normal" | "warning" | "critical" | "unknown";
+        }[];
         behavior?: "ok" | "error" | "slow" | "crash";
+        errorMessage?: string;
         parameters?: {
             name: string;
             label: string;
@@ -55,13 +62,13 @@ export function seed_fake_plugin(
             used: it.used,
             limit: it.limit,
             displayStyle: "ratio",
-            status: "normal",
+            status: it.status ?? "normal",
         })),
     );
 
     let body: string;
     if (spec.behavior === "error") {
-        body = `console.log(JSON.stringify({ success: false, error: { code: "FAKE_ERROR", message: "fake error" } }));\n`;
+        body = `console.log(JSON.stringify({ success: false, error: { code: "FAKE_ERROR", message: ${JSON.stringify(spec.errorMessage ?? "fake error")} } }));\n`;
     } else if (spec.behavior === "crash") {
         body = `process.exit(2);\n`;
     } else if (spec.behavior === "slow") {

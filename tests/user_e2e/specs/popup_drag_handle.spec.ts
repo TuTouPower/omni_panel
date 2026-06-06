@@ -1,38 +1,52 @@
-import { expect, test } from "../fixtures/test";
+import { join } from "node:path";
+import { createTestWithSetup } from "../fixtures/test_with_setup";
+import { seed_fake_plugin } from "../fixtures/seeded_plugin";
 import { PopupPage } from "../pages/popup_page";
 
-/**
- * Phase 21 E2E: drag handle visual verification.
- * Verifies that card grip handles exist and trigger drag state classes.
- */
+const { test, expect } = createTestWithSetup({
+    setupPlugins: (userDataDir: string) => {
+        seed_fake_plugin(join(userDataDir, "plugins"), {
+            name: "drag-claude-plugin",
+            displayName: "DragClaude",
+            provider: "claude",
+            items: [
+                {
+                    id: "drag-account",
+                    name: "Drag Account",
+                    used: 1,
+                    limit: 10,
+                },
+            ],
+        });
+    },
+});
+
 test.describe("popup drag handle", () => {
     test("card grip handle is visible on draggable cards", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        // Card grips may be present on some cards
-        const grips = page.locator(".card-grip");
-        expect(await grips.count()).toBeGreaterThanOrEqual(0);
+        await expect(popup.root().locator(".card-grip").first()).toBeVisible();
     });
 
-    test("drag classes can be applied to cards", async ({ omni }) => {
+    test("dragging a card grip applies drag state to its card", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        // Verify the CSS classes exist (not that drag-and-drop actually works)
-        const has_classes = await page.evaluate(() => {
-            const card = document.querySelector(".card");
-            if (!(card instanceof HTMLElement)) return false;
-            card.classList.add("dragging");
-            const has_dragging = card.classList.contains("dragging");
-            card.classList.remove("dragging");
-            card.classList.add("drag-over");
-            const has_drag_over = card.classList.contains("drag-over");
-            card.classList.remove("drag-over");
-            return has_dragging && has_drag_over;
-        });
-        expect(has_classes).toBe(true);
+        const grip = popup.root().locator(".card-grip").first();
+        const box = await grip.boundingBox();
+        if (!box) throw new Error("missing card grip bounds");
+
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+
+        const card = grip.locator(
+            "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' card ')][1]",
+        );
+        await expect(card).toHaveClass(/dragging/);
+
+        await page.mouse.up();
     });
 });

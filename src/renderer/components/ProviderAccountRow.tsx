@@ -240,7 +240,10 @@ export function ProviderAccountRow({
         </div>
     );
 
-    const card_class = (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "");
+    const card_class =
+        (account.status === "critical" ? " alert" : "") +
+        (dragging ? " dragging" : "") +
+        (dragOver ? " drag-over" : "");
     const drag_events = onDragStart
         ? {
               draggable: true as const,

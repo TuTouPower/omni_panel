@@ -1,45 +1,64 @@
-import { expect, test } from "../fixtures/test";
+import { join } from "node:path";
+import { createTestWithSetup } from "../fixtures/test_with_setup";
+import { seed_fake_plugin } from "../fixtures/seeded_plugin";
 import { PopupPage } from "../pages/popup_page";
 
-/**
- * Phase 20 E2E: verify popup height debounce behaviour.
- * Rapid collapse/expand should not cause resize loops.
- */
+const { test, expect } = createTestWithSetup({
+    setupPlugins: (userDataDir: string) => {
+        seed_fake_plugin(join(userDataDir, "plugins"), {
+            name: "debounce-claude-plugin",
+            displayName: "DebounceClaude",
+            provider: "claude",
+            items: [
+                { id: "debounce-a", name: "Debounce Account A", used: 10, limit: 100 },
+                { id: "debounce-b", name: "Debounce Account B", used: 20, limit: 100 },
+            ],
+        });
+    },
+});
+
 test.describe("popup height debounce", () => {
-    test("rapid collapse/expand does not cause excessive resize", async ({ omni }) => {
+    test("rapid collapse and expand leaves popup usable", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
+        await page.waitForTimeout(5000);
 
-        // Count bounds-changed events during rapid toggle
-        const event_count = await page.evaluate(async () => {
-            const count = 0;
-            // Listen for ResizeObserver firings as a proxy for resize events
-            const mirrors = document.querySelectorAll(".popup-mirror");
-            if (mirrors.length < 2) return { count, reason: "no mirrors found" };
+        const live = popup.root();
+        await live.getByRole("button", { name: /^Claude$/ }).click();
 
-            // Rapidly toggle collapse on all chevrons
-            const btns = document.querySelectorAll('[aria-label="折叠"], [aria-label="展开"]');
-            for (const btn of btns) {
-                if (btn instanceof HTMLElement) btn.click();
-                await new Promise((r) => setTimeout(r, 50));
-            }
-            return { count };
-        });
+        for (const label of ["Debounce Account A", "Debounce Account B"]) {
+            await live.getByRole("button", { name: new RegExp(`折叠 ${label}`) }).click();
+            await live.getByRole("button", { name: new RegExp(`展开 ${label}`) }).click();
+        }
 
-        // The debounce should prevent excessive height reports
-        // (exact count depends on DOM, but it should be reasonable)
-        expect(event_count.count).toBeGreaterThanOrEqual(0);
+        await expect(
+            live.locator(".card-name").filter({ hasText: "Debounce Account A" }),
+        ).toBeVisible();
+        await expect(live.locator(".statusbar")).toBeVisible();
     });
 
-    test("sub-pixel change does not trigger resize", async ({ omni }) => {
+    test("mirror trees stay hidden while live popup remains measurable", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        const mirrors_exist = await page.evaluate(() => {
-            return document.querySelectorAll(".popup-mirror").length >= 2;
+        const metrics = await page.evaluate(() => {
+            const live = document.querySelector('[data-popup="live"]');
+            const visible_mirrors = [...document.querySelectorAll(".popup-mirror")].filter(
+                (node) => {
+                    if (!(node instanceof HTMLElement)) return false;
+                    const style = window.getComputedStyle(node);
+                    return style.visibility !== "hidden" && style.display !== "none";
+                },
+            );
+            return {
+                live_height: live instanceof HTMLElement ? live.getBoundingClientRect().height : 0,
+                visible_mirror_count: visible_mirrors.length,
+            };
         });
-        expect(mirrors_exist).toBe(true);
+
+        expect(metrics.live_height).toBeGreaterThan(0);
+        expect(metrics.visible_mirror_count).toBe(0);
     });
 });

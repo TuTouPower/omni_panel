@@ -70,18 +70,12 @@ test.describe("account-level operations", () => {
 
         const live = popup.root();
 
-        // Navigate to DeepSeek tab (seeded plugin provides deepseek)
         const tab = live.getByRole("button", { name: /^DeepSeek$/ });
-        if ((await tab.count()) === 0) {
-            test.skip(true, "DeepSeek tab not found — plugin may not have refreshed");
-            return;
-        }
+        await expect(tab).toBeVisible();
         await tab.click();
-        await page.waitForTimeout(500);
 
-        // Account-level menu buttons should be present
         const menu_buttons = live.locator('[aria-label="账号操作"]');
-        expect(await menu_buttons.count()).toBeGreaterThanOrEqual(2);
+        await expect(menu_buttons).toHaveCount(2);
     });
 
     test("account menu shows actionable items", async ({ omni }) => {
@@ -92,20 +86,12 @@ test.describe("account-level operations", () => {
 
         const live = popup.root();
         const tab = live.getByRole("button", { name: /^DeepSeek$/ });
-        if ((await tab.count()) === 0) {
-            test.skip(true, "DeepSeek tab not found");
-            return;
-        }
+        await expect(tab).toBeVisible();
         await tab.click();
-        await page.waitForTimeout(500);
 
-        // Click the first account menu
         await live.locator('[aria-label="账号操作"]').first().click();
-        await page.waitForTimeout(300);
 
-        // Menu should contain 编辑
-        const edit_item = page.getByText("编辑");
-        expect(await edit_item.isVisible()).toBe(true);
+        await expect(page.getByText("编辑")).toBeVisible();
     });
 
     test("edit from account menu opens settings window", async ({ omni }) => {
@@ -116,27 +102,15 @@ test.describe("account-level operations", () => {
 
         const live = popup.root();
         const tab = live.getByRole("button", { name: /^DeepSeek$/ });
-        if ((await tab.count()) === 0) {
-            test.skip(true, "DeepSeek tab not found");
-            return;
-        }
+        await expect(tab).toBeVisible();
         await tab.click();
-        await page.waitForTimeout(500);
 
-        // Click account menu
         await live.locator('[aria-label="账号操作"]').first().click();
-        await page.waitForTimeout(300);
 
-        // Click 编辑
-        const edit_btn = page.getByText("编辑");
-        if ((await edit_btn.count()) === 0) {
-            test.skip(true, "编辑 not found in menu");
-            return;
-        }
-        await edit_btn.click();
+        const settingsPromise = omni.app.waitForEvent("window", { timeout: 10_000 });
+        await page.getByText("编辑").click();
 
-        // Settings window should open
-        const settings_page = await omni.app.waitForEvent("window", { timeout: 10_000 });
+        const settings_page = await settingsPromise;
         await settings_page.waitForLoadState("domcontentloaded");
         expect(settings_page.url()).toContain("#settings");
         await settings_page.close();
@@ -150,19 +124,11 @@ test.describe("account-level operations", () => {
 
         const live = popup.root();
         const tab = live.getByRole("button", { name: /^DeepSeek$/ });
-        if ((await tab.count()) === 0) {
-            test.skip(true, "DeepSeek tab not found");
-            return;
-        }
+        await expect(tab).toBeVisible();
         await tab.click();
-        await page.waitForTimeout(500);
 
-        // Click first account menu
         await live.locator('[aria-label="账号操作"]').first().click();
-        await page.waitForTimeout(300);
 
-        // Direct-source accounts show 删除 (not 隐藏)
-        const delete_item = page.getByText("删除");
-        expect(await delete_item.isVisible()).toBe(true);
+        await expect(page.getByText("删除")).toBeVisible();
     });
 });
