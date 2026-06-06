@@ -51,4 +51,29 @@ describe("logger", () => {
             remove_transport();
         }
     });
+
+    it("serializes repeated non-circular references as full values", () => {
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            const shared = { name: "shared" };
+            const payload = { first: shared, second: shared };
+
+            const log = createLogger("test");
+            log.debug("repeated", payload);
+
+            const output = lines.join("\n");
+            expect(output).toContain('"first":{"name":"shared"}');
+            expect(output).toContain('"second":{"name":"shared"}');
+            expect(output).not.toContain("[Circular]");
+        } finally {
+            remove_transport();
+        }
+    });
 });

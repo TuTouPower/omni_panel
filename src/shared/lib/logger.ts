@@ -51,16 +51,20 @@ function serialize_meta(meta: unknown): unknown {
         }
         if (seen.has(value)) return "[Circular]";
         seen.add(value);
-        if (Array.isArray(value)) return value.map((item) => visit(item));
-        if (Object.getPrototypeOf(value) !== Object.prototype)
-            return Object.prototype.toString.call(value);
+        try {
+            if (Array.isArray(value)) return value.map((item) => visit(item));
+            if (Object.getPrototypeOf(value) !== Object.prototype)
+                return Object.prototype.toString.call(value);
 
-        return Object.fromEntries(
-            Object.entries(value as Record<string, unknown>).map(([key, item]) => [
-                key,
-                visit(item),
-            ]),
-        );
+            return Object.fromEntries(
+                Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+                    key,
+                    visit(item),
+                ]),
+            );
+        } finally {
+            seen.delete(value);
+        }
     }
 
     return visit(meta);
