@@ -2,6 +2,7 @@ import { appendFile, mkdir, readdir, stat, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import {
     addTransport,
+    createConsoleTransport,
     createFileTransport,
     createLogger,
     setLogLevel,
@@ -51,7 +52,6 @@ export async function initLogging(userDataPath: string): Promise<() => void> {
 
     let removeConsoleTransport: (() => void) | undefined;
     if (process.env["NODE_ENV"] !== "production") {
-        const { createConsoleTransport } = await import("../../shared/lib/logger");
         removeConsoleTransport = addTransport(createConsoleTransport());
     }
 

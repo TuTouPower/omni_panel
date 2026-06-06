@@ -29,6 +29,6 @@
         "skipLibCheck": true,
         "jsx": "react-jsx"
     },
-    "include": ["src", "tests", "scripts", "*.ts"],
+    "include": ["src", "tests", "scripts", "*.ts", "*.mts"],
     "exclude": ["node_modules", "assets/plugins"]
 }

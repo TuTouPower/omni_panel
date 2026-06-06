@@ -33,7 +33,7 @@
         "test:visual": "playwright test --config=playwright.config.ts --project=visual",
         "test:visual:update": "playwright test --config=playwright.config.ts --project=visual --update-snapshots",
         "test:packaged": "playwright test --config=playwright.config.ts --project=packaged",
-        "test:contract:live": "vitest run --config vitest.contract_live.config.ts",
+        "test:contract:live": "vitest run --config vitest.contract_live.config.mts",
         "test:full": "pnpm test && pnpm test:contract:live",
         "prepare": "husky"
     },
