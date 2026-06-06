@@ -4,7 +4,7 @@ import type { PluginCachedState } from "./types";
 import { createLogger } from "../../../shared/lib/logger";
 
 function shouldLogRawStorage(): boolean {
-    return process.env.NODE_ENV === "development";
+    return process.env["NODE_ENV"] === "development";
 }
 
 export interface CacheStore {

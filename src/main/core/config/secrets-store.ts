@@ -4,7 +4,7 @@ import type { CryptoBackend } from "./crypto-backend";
 import { createLogger } from "../../../shared/lib/logger";
 
 function shouldLogRawStorage(): boolean {
-    return process.env.NODE_ENV === "development";
+    return process.env["NODE_ENV"] === "development";
 }
 
 export interface SecretsStore {
@@ -80,16 +80,17 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
 
         async delete(key: string): Promise<void> {
             const data = await readAll();
-            if (!(key in data)) {
+            const encrypted = data[key];
+            if (encrypted === undefined) {
                 log.debug(`Secret delete requested but not found: ${key}`);
                 return;
             }
             if (shouldLogRawStorage()) {
                 try {
-                    const value = crypto.decrypt(data[key]);
-                    log.debug("secret delete raw", { key, encrypted: data[key], value });
+                    const value = crypto.decrypt(encrypted);
+                    log.debug("secret delete raw", { key, encrypted, value });
                 } catch (err: unknown) {
-                    log.debug("secret delete raw", { key, encrypted: data[key], error: err });
+                    log.debug("secret delete raw", { key, encrypted, error: err });
                 }
             }
             const filtered = Object.fromEntries(Object.entries(data).filter(([k]) => k !== key));

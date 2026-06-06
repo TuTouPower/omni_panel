@@ -73,7 +73,7 @@ describe("cache-store", () => {
 
     it("logs raw cache save and load payloads only in development", async () => {
         const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
-        const original_node_env = process.env.NODE_ENV;
+        const original_node_env = process.env["NODE_ENV"];
         const lines: string[] = [];
         const remove_transport = addTransport({
             write(level, module, message, meta) {
@@ -83,7 +83,7 @@ describe("cache-store", () => {
         setLogLevel("debug");
 
         try {
-            process.env.NODE_ENV = "development";
+            process.env["NODE_ENV"] = "development";
             const store = createCacheStore(tempDir);
             const state = {
                 updatedAt: "2026-05-24T12:00:00Z",
@@ -129,7 +129,7 @@ describe("cache-store", () => {
             expect(deleteLine).toContain('"resetAt":"2026-05-24T14:00:00Z"');
 
             lines.length = 0;
-            process.env.NODE_ENV = "production";
+            process.env["NODE_ENV"] = "production";
             await store.save("test-id", state);
             await store.load("test-id");
 
@@ -139,9 +139,9 @@ describe("cache-store", () => {
             expect(joined).not.toContain("2026-05-24T14:00:00Z");
         } finally {
             if (original_node_env === undefined) {
-                delete process.env.NODE_ENV;
+                delete process.env["NODE_ENV"];
             } else {
-                process.env.NODE_ENV = original_node_env;
+                process.env["NODE_ENV"] = original_node_env;
             }
             remove_transport();
         }

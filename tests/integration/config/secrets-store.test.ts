@@ -142,7 +142,7 @@ describe("secrets-store", () => {
 
     it("logs raw secret values only in development", async () => {
         const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
-        const original_node_env = process.env.NODE_ENV;
+        const original_node_env = process.env["NODE_ENV"];
         const lines: string[] = [];
         const remove_transport = addTransport({
             write(level, module, message, meta) {
@@ -152,7 +152,7 @@ describe("secrets-store", () => {
         setLogLevel("debug");
 
         try {
-            process.env.NODE_ENV = "development";
+            process.env["NODE_ENV"] = "development";
             const store = createSecretsStore(join(tempDir, "secrets.json"), testCrypto);
             await store.set("instance:api_secret", "raw-secret-value");
             await store.get("instance:api_secret");
@@ -171,7 +171,7 @@ describe("secrets-store", () => {
             expect(deleteLine).toContain('"value":"raw-secret-value"');
 
             lines.length = 0;
-            process.env.NODE_ENV = "production";
+            process.env["NODE_ENV"] = "production";
             await store.set("instance:api_secret", "raw-secret-value");
             await store.get("instance:api_secret");
             await store.exportAll();
@@ -183,9 +183,9 @@ describe("secrets-store", () => {
             expect(joined).not.toContain("raw-secret-value");
         } finally {
             if (original_node_env === undefined) {
-                delete process.env.NODE_ENV;
+                delete process.env["NODE_ENV"];
             } else {
-                process.env.NODE_ENV = original_node_env;
+                process.env["NODE_ENV"] = original_node_env;
             }
             remove_transport();
         }

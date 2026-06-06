@@ -103,7 +103,7 @@ describe("config-store", () => {
 
     it("logs raw config load and save payloads only in development", async () => {
         const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
-        const original_node_env = process.env.NODE_ENV;
+        const original_node_env = process.env["NODE_ENV"];
         const lines: string[] = [];
         const remove_transport = addTransport({
             write(level, module, message, meta) {
@@ -113,7 +113,7 @@ describe("config-store", () => {
         setLogLevel("debug");
 
         try {
-            process.env.NODE_ENV = "development";
+            process.env["NODE_ENV"] = "development";
             const configPath = join(tempDir, "config.json");
             const store = createConfigStore(configPath);
             const config: AppConfiguration = {
@@ -159,7 +159,7 @@ describe("config-store", () => {
             expect(parsedLine).not.toContain("overviewDisplayMode");
 
             lines.length = 0;
-            process.env.NODE_ENV = "production";
+            process.env["NODE_ENV"] = "production";
             await store.save(config);
             await store.load();
 
@@ -169,9 +169,9 @@ describe("config-store", () => {
             expect(joined).not.toContain("risk-projected");
         } finally {
             if (original_node_env === undefined) {
-                delete process.env.NODE_ENV;
+                delete process.env["NODE_ENV"];
             } else {
-                process.env.NODE_ENV = original_node_env;
+                process.env["NODE_ENV"] = original_node_env;
             }
             remove_transport();
         }

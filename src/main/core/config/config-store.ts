@@ -14,7 +14,7 @@ export interface AppConfigStore {
 const log = createLogger("config-store");
 
 function shouldLogRawStorage(): boolean {
-    return process.env.NODE_ENV === "development";
+    return process.env["NODE_ENV"] === "development";
 }
 
 function sortKeys(obj: unknown): unknown {
