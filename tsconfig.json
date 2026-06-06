@@ -30,5 +30,5 @@
         "jsx": "react-jsx"
     },
     "include": ["src", "tests", "scripts", "*.ts"],
-    "exclude": ["node_modules", "resources/plugins"]
+    "exclude": ["node_modules", "assets/plugins"]
 }

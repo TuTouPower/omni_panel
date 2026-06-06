@@ -3,13 +3,11 @@
         "src/main/index.ts",
         "src/preload/index.ts",
         "src/renderer/index.tsx",
-        "forge.config.ts",
-        "vite.*.config.ts",
-        "resources/plugins/*.ts"
+        "electron.vite.config.ts",
+        "assets/plugins/*.ts"
     ],
-    "project": ["src/**/*.ts", "src/**/*.tsx", "resources/plugins/**/*.ts", "*.config.ts"],
+    "project": ["src/**/*.ts", "src/**/*.tsx", "assets/plugins/**/*.ts", "*.config.ts"],
     "ignoreDependencies": [
-        "@electron-forge/plugin-auto-unpack-natives",
         "@typescript-eslint/eslint-plugin",
         "@typescript-eslint/parser",
         "eslint-plugin-import",

@@ -51,7 +51,7 @@ const { test, expect } = createTestWithSetup({
                         stateId: "cpa-test-state",
                         name: "CPA",
                         enabled: true,
-                        executablePath: "resources/plugins/cpa-usage-plugin.ts",
+                        executablePath: "assets/plugins/cpa-usage-plugin.ts",
                         refreshIntervalSeconds: 300,
                         parameterValues: {
                             monitor_gemini: "false",

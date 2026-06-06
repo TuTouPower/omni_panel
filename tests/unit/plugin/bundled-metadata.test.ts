@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { discoverPlugins } from "../../../src/main/core/plugin/discovery";
 import { resolve } from "node:path";
 
-const bundledDir = resolve(process.cwd(), "resources/plugins");
+const bundledDir = resolve(process.cwd(), "assets/plugins");
 
 describe("bundled plugin metadata verification", () => {
     it("discovers exactly 7 plugins", async () => {

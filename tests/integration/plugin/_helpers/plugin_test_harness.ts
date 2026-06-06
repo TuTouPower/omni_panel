@@ -6,7 +6,7 @@ import { buildPluginCommand } from "../../../../src/main/core/plugin/command-bui
 import { parsePluginResult } from "../../../../src/main/core/plugin/output-parser";
 import type { PluginResult } from "../../../../src/shared/schemas/plugin-output";
 
-const PLUGIN_DIR = resolve(__dirname, "../../../../resources/plugins");
+const PLUGIN_DIR = resolve(__dirname, "../../../../assets/plugins");
 // Shared cache across runs/workers. Each plugin file is compiled by only one
 // worker (the test file that owns it), so different workers never write to the
 // same out_path. After the first warm-up run, every subsequent run is a cache

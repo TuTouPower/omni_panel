@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import type { AppConfiguration } from "../../../src/shared/types/config";
 import type { PluginDefinition } from "../../../src/main/core/plugin/types";
 
-const bundledDir = resolve(process.cwd(), "resources/plugins");
+const bundledDir = resolve(process.cwd(), "assets/plugins");
 
 /**
  * Replicates the auto-seed logic from src/main/index.ts:
