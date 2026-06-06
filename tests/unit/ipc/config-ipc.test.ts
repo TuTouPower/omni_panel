@@ -133,7 +133,48 @@ describe("config-ipc", () => {
             expect(joined).toContain("config:get");
         } finally {
             remove_transport();
-            setLogLevel("info");
+            setLogLevel("debug");
+            if (previous_node_env === undefined) {
+                delete process.env["NODE_ENV"];
+            } else {
+                process.env["NODE_ENV"] = previous_node_env;
+            }
+        }
+    });
+
+    it("does not log protected config IPC payloads before sender validation", async () => {
+        const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        const previous_node_env = process.env["NODE_ENV"];
+
+        try {
+            setLogLevel("debug");
+            process.env["NODE_ENV"] = "development";
+            const deps = createMockDeps();
+            const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+            await registerConfigIpc(deps);
+
+            const handler = ipc_main_mock.handle.mock.calls.find(
+                ([channel]) => channel === "config:save",
+            )?.[1];
+            if (!handler) throw new Error("missing config:save handler");
+
+            expect(() =>
+                handler({ senderFrame: { url: "about:blank" } } as Electron.IpcMainInvokeEvent, {
+                    secret: "raw-secret",
+                }),
+            ).toThrow("IPC not allowed from unknown origin");
+
+            expect(lines.join("\n")).not.toContain("ipc request raw");
+            expect(lines.join("\n")).not.toContain("raw-secret");
+        } finally {
+            remove_transport();
+            setLogLevel("debug");
             if (previous_node_env === undefined) {
                 delete process.env["NODE_ENV"];
             } else {
