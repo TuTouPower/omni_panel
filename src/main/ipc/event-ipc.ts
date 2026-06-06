@@ -17,26 +17,52 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
 
     const unsubState = deps.runtimeStore.subscribe({
         onStateChange(instanceId: string, state: PluginSnapshotState) {
-            const dto = toDTO(state);
-            const winCount = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).length;
-            log.debug(
-                `State change: ${instanceId} → ${dto.status} (broadcast to ${String(winCount)} windows)`,
-            );
-            for (const win of BrowserWindow.getAllWindows()) {
-                if (!win.isDestroyed()) {
-                    win.webContents.send(IPC_CHANNELS.EVENT_STATE_CHANGE, instanceId, dto);
+            const channel = IPC_CHANNELS.EVENT_STATE_CHANGE;
+            const args = [instanceId, state];
+            const is_development = process.env["NODE_ENV"] === "development";
+            if (is_development) log.debug("ipc request raw", { channel, args });
+            try {
+                const dto = toDTO(state);
+                const winCount = BrowserWindow.getAllWindows().filter(
+                    (w) => !w.isDestroyed(),
+                ).length;
+                log.debug(
+                    `State change: ${instanceId} → ${dto.status} (broadcast to ${String(winCount)} windows)`,
+                );
+                for (const win of BrowserWindow.getAllWindows()) {
+                    if (!win.isDestroyed()) {
+                        win.webContents.send(channel, instanceId, dto);
+                    }
                 }
+                if (is_development) {
+                    log.debug("ipc response raw", {
+                        channel,
+                        result: { instanceId, dto, winCount },
+                    });
+                }
+            } catch (error: unknown) {
+                if (is_development) log.debug("ipc error raw", { channel, error });
+                throw error;
             }
         },
     });
 
     const themeHandler = () => {
-        const isDark = nativeTheme.shouldUseDarkColors;
-        log.debug(`Theme changed: ${isDark ? "dark" : "light"}`);
-        for (const win of BrowserWindow.getAllWindows()) {
-            if (!win.isDestroyed()) {
-                win.webContents.send(IPC_CHANNELS.EVENT_THEME_CHANGE, isDark);
+        const channel = IPC_CHANNELS.EVENT_THEME_CHANGE;
+        const is_development = process.env["NODE_ENV"] === "development";
+        if (is_development) log.debug("ipc request raw", { channel, args: [] });
+        try {
+            const isDark = nativeTheme.shouldUseDarkColors;
+            log.debug(`Theme changed: ${isDark ? "dark" : "light"}`);
+            for (const win of BrowserWindow.getAllWindows()) {
+                if (!win.isDestroyed()) {
+                    win.webContents.send(channel, isDark);
+                }
             }
+            if (is_development) log.debug("ipc response raw", { channel, result: isDark });
+        } catch (error: unknown) {
+            if (is_development) log.debug("ipc error raw", { channel, error });
+            throw error;
         }
     };
 

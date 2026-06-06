@@ -4,12 +4,20 @@ import { tmpdir } from "node:os";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AppConfiguration } from "../../../src/shared/types/config";
 
+type Ipc_handler = (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown;
+type Ipc_handle = (channel: string, listener: Ipc_handler) => void;
+
+const ipc_main_mock = vi.hoisted(() => ({
+    handle: vi.fn<Ipc_handle>(),
+}));
+
 vi.mock("electron", () => ({
     app: { getVersion: () => "1.0.0-test" },
     dialog: {
         showSaveDialog: vi.fn(),
         showOpenDialog: vi.fn(),
     },
+    ipcMain: ipc_main_mock,
 }));
 
 let temp_dir: string | undefined;
@@ -93,6 +101,43 @@ describe("config-ipc", () => {
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.data.hasSecrets["claude"]).toEqual({ API_KEY: true });
+    });
+
+    it("logs raw config IPC request and response payloads", async () => {
+        const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
+        const lines: string[] = [];
+        addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+        const previous_node_env = process.env["NODE_ENV"];
+
+        try {
+            process.env["NODE_ENV"] = "development";
+            const deps = createMockDeps();
+            const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+            await registerConfigIpc(deps);
+
+            const handler = ipc_main_mock.handle.mock.calls.find(
+                ([channel]) => channel === "config:get",
+            )?.[1];
+            if (!handler) throw new Error("missing config:get handler");
+
+            await handler({} as Electron.IpcMainInvokeEvent);
+
+            const joined = lines.join("\n");
+            expect(joined).toContain("ipc request raw");
+            expect(joined).toContain("ipc response raw");
+            expect(joined).toContain("config:get");
+        } finally {
+            if (previous_node_env === undefined) {
+                delete process.env["NODE_ENV"];
+            } else {
+                process.env["NODE_ENV"] = previous_node_env;
+            }
+        }
     });
 
     it("handleConfigSave strips secret fields from parameterValues", async () => {

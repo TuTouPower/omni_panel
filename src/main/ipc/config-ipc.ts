@@ -274,25 +274,34 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
 
     async function logged<T>(
         channel: string,
+        args: unknown[],
         fn: () => Promise<IpcResult<T>>,
     ): Promise<IpcResult<T>> {
         const start = Date.now();
+        const is_development = process.env["NODE_ENV"] === "development";
+        if (is_development) log.debug("ipc request raw", { channel, args });
         log.debug(`${channel} called`);
-        const result = await fn();
-        const elapsed = Date.now() - start;
-        if (!result.ok) {
-            log.warn(`${channel} failed: ${result.error.code} (${String(elapsed)}ms)`);
-        } else {
-            log.debug(`${channel} ok (${String(elapsed)}ms)`);
+        try {
+            const result = await fn();
+            if (is_development) log.debug("ipc response raw", { channel, result });
+            const elapsed = Date.now() - start;
+            if (!result.ok) {
+                log.warn(`${channel} failed: ${result.error.code} (${String(elapsed)}ms)`);
+            } else {
+                log.debug(`${channel} ok (${String(elapsed)}ms)`);
+            }
+            return result;
+        } catch (error: unknown) {
+            if (is_development) log.debug("ipc error raw", { channel, error });
+            throw error;
         }
-        return result;
     }
 
     ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () =>
-        logged(IPC_CHANNELS.CONFIG_GET, () => handleConfigGet(deps)),
+        logged(IPC_CHANNELS.CONFIG_GET, [], () => handleConfigGet(deps)),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE, (e, config: unknown) =>
-        logged(IPC_CHANNELS.CONFIG_SAVE, async () => {
+        logged(IPC_CHANNELS.CONFIG_SAVE, [config], async () => {
             assert_valid_sender(e);
             const result = await handleConfigSave(deps, config);
             if (result.ok) {
@@ -303,7 +312,7 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
         }),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (e, payload: unknown) =>
-        logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, () => {
+        logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, [payload], () => {
             assert_valid_sender(e);
             const p = payload as { instanceId?: string; secrets?: Record<string, unknown> };
             log.info(
@@ -313,20 +322,20 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
         }),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_DUPLICATE, (e, instanceId: string) =>
-        logged(IPC_CHANNELS.CONFIG_DUPLICATE, () => {
+        logged(IPC_CHANNELS.CONFIG_DUPLICATE, [instanceId], () => {
             assert_valid_sender(e);
             log.info(`Duplicating plugin ${instanceId}`);
             return handleConfigDuplicate(deps, instanceId);
         }),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_EXPORT, (e) =>
-        logged(IPC_CHANNELS.CONFIG_EXPORT, () => {
+        logged(IPC_CHANNELS.CONFIG_EXPORT, [], () => {
             assert_valid_sender(e);
             return handleConfigExport(deps);
         }),
     );
     ipcMain.handle(IPC_CHANNELS.CONFIG_IMPORT, (e) =>
-        logged(IPC_CHANNELS.CONFIG_IMPORT, () => {
+        logged(IPC_CHANNELS.CONFIG_IMPORT, [], () => {
             assert_valid_sender(e);
             return handleConfigImport(deps);
         }),

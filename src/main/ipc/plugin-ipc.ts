@@ -124,36 +124,45 @@ export async function registerPluginIpc(deps: PluginIpcDeps): Promise<void> {
 
     async function logged<T>(
         channel: string,
+        args: unknown[],
         fn: () => Promise<IpcResult<T>>,
     ): Promise<IpcResult<T>> {
         const start = Date.now();
+        const is_development = process.env["NODE_ENV"] === "development";
+        if (is_development) log.debug("ipc request raw", { channel, args });
         log.debug(`${channel} called`);
-        const result = await fn();
-        const elapsed = Date.now() - start;
-        if (!result.ok) {
-            log.warn(`${channel} failed: ${result.error.code} (${String(elapsed)}ms)`);
-        } else {
-            log.debug(`${channel} ok (${String(elapsed)}ms)`);
+        try {
+            const result = await fn();
+            if (is_development) log.debug("ipc response raw", { channel, result });
+            const elapsed = Date.now() - start;
+            if (!result.ok) {
+                log.warn(`${channel} failed: ${result.error.code} (${String(elapsed)}ms)`);
+            } else {
+                log.debug(`${channel} ok (${String(elapsed)}ms)`);
+            }
+            return result;
+        } catch (error: unknown) {
+            if (is_development) log.debug("ipc error raw", { channel, error });
+            throw error;
         }
-        return result;
     }
 
     ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, () =>
-        logged(IPC_CHANNELS.PLUGIN_LIST, () => handlePluginList(deps)),
+        logged(IPC_CHANNELS.PLUGIN_LIST, [], () => handlePluginList(deps)),
     );
     ipcMain.handle(IPC_CHANNELS.PLUGIN_GET_STATE, (_e, instanceId: string) =>
-        logged(IPC_CHANNELS.PLUGIN_GET_STATE, () =>
+        logged(IPC_CHANNELS.PLUGIN_GET_STATE, [instanceId], () =>
             Promise.resolve(handlePluginGetState(deps, instanceId)),
         ),
     );
     ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH, (_e, instanceId: string) =>
-        logged(IPC_CHANNELS.PLUGIN_REFRESH, () => {
+        logged(IPC_CHANNELS.PLUGIN_REFRESH, [instanceId], () => {
             log.info(`User requested refresh for ${instanceId}`);
             return handlePluginRefresh(deps, instanceId);
         }),
     );
     ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH_ALL, () =>
-        logged(IPC_CHANNELS.PLUGIN_REFRESH_ALL, () => {
+        logged(IPC_CHANNELS.PLUGIN_REFRESH_ALL, [], () => {
             log.info("User requested refresh all plugins");
             return handlePluginRefreshAll(deps);
         }),

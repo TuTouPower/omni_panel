@@ -34,5 +34,19 @@ export function handleRendererLog(payload: unknown): IpcResult<void> {
 
 export async function registerLogIpc(): Promise<void> {
     const { ipcMain } = await import("electron");
-    ipcMain.handle(IPC_CHANNELS.LOG_RENDERER, (_e, payload: unknown) => handleRendererLog(payload));
+    const log = createLogger("ipc:log");
+    ipcMain.handle(IPC_CHANNELS.LOG_RENDERER, (_e, payload: unknown) => {
+        const channel = IPC_CHANNELS.LOG_RENDERER;
+        const args = [payload];
+        const is_development = process.env["NODE_ENV"] === "development";
+        if (is_development) log.debug("ipc request raw", { channel, args });
+        try {
+            const result = handleRendererLog(payload);
+            if (is_development) log.debug("ipc response raw", { channel, result });
+            return result;
+        } catch (error: unknown) {
+            if (is_development) log.debug("ipc error raw", { channel, error });
+            throw error;
+        }
+    });
 }
