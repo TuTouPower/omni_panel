@@ -1,14 +1,22 @@
 # Demo 对齐清单
 
-> 基于 `f972d23`（最新 design demo commit）与当前前端代码的差异分析。
-> 聊天记录：`docs/design/omni-usage/chats/chat23.md` ~ `chat27.md`
+> 基于 `docs/design/CHANGELOG-design.md`（chat28 + chat29）与当前前端代码的差异分析。
 
-## 一、用量条颜色系统（chat26）
+## 一、用量条颜色方案（chat28 / chat29）
 
-**Demo 现状**：用量条颜色不再按指标类型（蓝=5小时、紫=一周）分配，改为按**条在卡片内的位置**固定分配 8 色冷色调色板，纯色填充，无渐变。
+**Demo 现状**：用量条颜色从单一位置色板升级为三套可选方案，默认必须是「风险色：仅当前用量」。九色循环只作为第三个可选方案，不再默认启用。
+
+| 顺序 | 方案                       | 规则                                                           |
+| ---- | -------------------------- | -------------------------------------------------------------- |
+| 1    | 风险色：仅当前用量（默认） | `>=95` 红，`>85` 橙，`>60` 黄，其他绿                          |
+| 2    | 风险色：带投影预测         | 额外计算 `projected = current / elapsed`，无法计算时回退方案 1 |
+| 3    | 彩色区分：九色循环         | 按位置 `idx % 9` 循环冷色系，只做视觉区分                      |
+
+**本项目状态**：已实现。`src/renderer/lib/usage-colors.ts` 提供三套取色逻辑；投影方案会按已知周期标签与 `resetAt` 推算 elapsed，无法计算时回退当前用量风险色；`ProviderCard.tsx` / `ProviderAccountRow.tsx` 默认使用风险色，仅在配置为 `nine-cycle` 时使用九色循环；`SettingsView.tsx` 在「设置 > 外观 > 用量条颜色方案」提供三项选择并持久化到 `usageBarColorScheme`。
+
+**九色循环色板**：
 
 ```ts
-// 固定 8 色调色板（3主+3次+2弱），按位置循环
 const USAGE_COLORS = [
     "#5B8CFF",
     "#8B72F8",
@@ -18,38 +26,19 @@ const USAGE_COLORS = [
     "#72D4D1",
     "#9CB8FF",
     "#B6A7FF",
+    "#A7D8D8",
 ];
-// 颜色索引 = 位置 % 8
 ```
-
-**本项目状态**：已实现。`src/renderer/lib/usage-colors.ts` 提供 8 色调色板和循环取色；`ProviderCard.tsx` / `ProviderAccountRow.tsx` 按行位置传入索引并用纯色 `style.background` 渲染；`globals.css` 使用 `--bar-track` 作为统一轨道底色，已删除旧 `.fill.blue` / `.fill.purple` / `.fill.danger` 样式。
 
 **已实现**：
 
-| 文件                               | 状态                                                        |
-| ---------------------------------- | ----------------------------------------------------------- |
-| `src/renderer/lib/usage-colors.ts` | 已新增 `USAGE_COLORS` / `usage_color(idx)`                  |
-| `ProviderCard.tsx`                 | 已删除类型颜色映射，按位置索引渲染纯色                      |
-| `ProviderAccountRow.tsx`           | 已按位置索引渲染纯色                                        |
-| `globals.css`                      | 已删除旧 fill class 和重复 bar 定义，轨道使用 `--bar-track` |
-
-**颜色调色板常量**（建议放 `src/renderer/lib/usage-colors.ts`）：
-
-```ts
-export const USAGE_COLORS = [
-    "#5B8CFF", // 1 主蓝
-    "#8B72F8", // 2 主紫
-    "#46C7C7", // 3 主青
-    "#7EA2FF", // 4 扩展蓝
-    "#A18CFF", // 5 扩展紫
-    "#72D4D1", // 6 扩展青
-    "#9CB8FF", // 7 浅蓝灰
-    "#B6A7FF", // 8 浅紫灰
-];
-export function usage_color(idx: number): string {
-    return USAGE_COLORS[((idx % USAGE_COLORS.length) + USAGE_COLORS.length) % USAGE_COLORS.length];
-}
-```
+| 文件                               | 状态                                      |
+| ---------------------------------- | ----------------------------------------- |
+| `src/renderer/lib/usage-colors.ts` | 三套方案 + 默认 `risk-current` + 九色循环 |
+| `ProviderCard.tsx`                 | 概览/列表卡片按配置取色                   |
+| `ProviderAccountRow.tsx`           | 标签页账号详情按配置取色                  |
+| `SettingsView.tsx`                 | 外观页新增三选项设置                      |
+| `globals.css`                      | 新增亮/暗主题风险色变量和设置项样式       |
 
 ## 二、用量条数值居中对齐（chat27）
 
@@ -117,11 +106,11 @@ export function usage_color(idx: number): string {
 
 ## 总结：需要改动的优先级
 
-| 状态       | 项                               | 涉及文件                                                                       |
-| ---------- | -------------------------------- | ------------------------------------------------------------------------------ |
-| **已完成** | 用量条 8 色位置调色板 + 纯色填充 | `usage-colors.ts`, `ProviderCard.tsx`, `ProviderAccountRow.tsx`, `globals.css` |
-| **已完成** | 数字居中对齐                     | `globals.css`                                                                  |
-| **已完成** | 分数/ratio 显示支持              | `ProviderCard.tsx`, `ProviderAccountRow.tsx`, `globals.css`                    |
-| **已完成** | 空用量条支持                     | `ProviderCard.tsx`, `ProviderAccountRow.tsx`                                   |
-| **已完成** | CSS 死代码清理                   | `globals.css`, `Icon.tsx`                                                      |
-| **不适用** | 设置窗口 in-page overlay         | 本项目已有 frameless BrowserWindow，维持现状                                   |
+| 状态       | 项                              | 涉及文件                                                                                           |
+| ---------- | ------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **已完成** | 用量条三套颜色方案 + 默认风险色 | `usage-colors.ts`, `ProviderCard.tsx`, `ProviderAccountRow.tsx`, `SettingsView.tsx`, `globals.css` |
+| **已完成** | 数字居中对齐                    | `globals.css`                                                                                      |
+| **已完成** | 分数/ratio 显示支持             | `ProviderCard.tsx`, `ProviderAccountRow.tsx`, `globals.css`                                        |
+| **已完成** | 空用量条支持                    | `ProviderCard.tsx`, `ProviderAccountRow.tsx`                                                       |
+| **已完成** | CSS 死代码清理                  | `globals.css`, `Icon.tsx`                                                                          |
+| **不适用** | 设置窗口 in-page overlay        | 本项目已有 frameless BrowserWindow，维持现状                                                       |

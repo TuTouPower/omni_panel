@@ -9,6 +9,10 @@
     --green: #22c55e;
     --amber: #f5a524;
     --red: #ef4444;
+    --risk-green: #22c55e;
+    --risk-yellow: #eab308;
+    --risk-orange: #f97316;
+    --risk-red: #ef4444;
 
     /* shadcn-compat aliases (used by Tailwind utility classes) */
     --primary: var(--blue);
@@ -57,6 +61,10 @@
     --green: #34d27b;
     --amber: #f7b53c;
     --red: #ff6b6b;
+    --risk-green: #34d27b;
+    --risk-yellow: #f5c84b;
+    --risk-orange: #ff9d4d;
+    --risk-red: #ff6b6b;
 
     --desktop: #0c0e13;
     --win-bg: #181b22;
@@ -1596,6 +1604,109 @@ html[data-window="tray"] #root {
 .accent-sw.on {
     border-color: var(--win-bg);
     box-shadow: 0 0 0 2px currentColor;
+}
+
+.set-row.set-row-stack {
+    display: block;
+}
+.set-row.set-row-stack .sr-text {
+    margin-bottom: 11px;
+}
+.bsf-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.bsf-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    width: 100%;
+    padding: 12px 13px;
+    text-align: left;
+    font-family: inherit;
+    cursor: default;
+    background: var(--field-bg);
+    border: 1px solid var(--field-border);
+    border-radius: 11px;
+    transition:
+        border-color 0.15s,
+        background 0.15s,
+        box-shadow 0.15s;
+}
+.bsf-opt:hover {
+    border-color: color-mix(in srgb, var(--blue) 40%, var(--field-border));
+}
+.bsf-opt.on {
+    border-color: var(--blue);
+    background: color-mix(in srgb, var(--blue) 7%, var(--field-bg));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 16%, transparent);
+}
+.bsf-radio {
+    flex-shrink: 0;
+    width: 17px;
+    height: 17px;
+    margin-top: 1px;
+    border-radius: 50%;
+    border: 1.5px solid var(--field-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.bsf-radio.on {
+    border-color: var(--blue);
+}
+.bsf-radio i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--blue);
+    transform: scale(0);
+    transition: transform 0.15s;
+}
+.bsf-radio.on i {
+    transform: scale(1);
+}
+.bsf-text {
+    min-width: 0;
+    flex: 1;
+}
+.bsf-title-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.bsf-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text);
+}
+.bsf-badge {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--blue);
+    line-height: 1.4;
+    background: color-mix(in srgb, var(--blue) 13%, transparent);
+    padding: 1px 7px;
+    border-radius: 6px;
+}
+.bsf-sub {
+    display: block;
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-3);
+}
+.bsf-swatch {
+    flex-shrink: 0;
+    display: flex;
+    gap: 4px;
+    margin-top: 3px;
+}
+.bsf-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
 }
 
 /* about */

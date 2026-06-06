@@ -6,7 +6,7 @@ import {
     type ProviderUsageGroup,
     type ProviderUsagePeriod,
 } from "../../../../src/renderer/lib/provider-usage";
-import { usage_color } from "../../../../src/renderer/lib/usage-colors";
+import { bar_fill_color, usage_color } from "../../../../src/renderer/lib/usage-colors";
 
 function hex_to_rgb(hex: string): string {
     const r = parseInt(hex.slice(1, 3), 16);
@@ -382,7 +382,13 @@ describe("ProviderCard", () => {
         });
 
         render(
-            <ProviderCard provider="deepseek" group={group} expanded onToggleExpand={vi.fn()} />,
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={vi.fn()}
+                barColorScheme="nine-cycle"
+            />,
         );
 
         // Overview mode: aggregated bars by period type ("一周" idx=0, "5小时" idx=1)
@@ -390,6 +396,69 @@ describe("ProviderCard", () => {
         expect(fills.length).toBeGreaterThanOrEqual(2);
         expect((fills[0] as HTMLElement).style.background).toBe(hex_to_rgb(usage_color(0)));
         expect((fills[1] as HTMLElement).style.background).toBe(hex_to_rgb(usage_color(1)));
+    });
+
+    it("uses current-only risk colors by default", () => {
+        const group = makeGroup({
+            periods: [makePeriod({ id: "warn", name: "5小时", used: 61, limit: 100 })],
+            accounts: [
+                {
+                    id: "a1",
+                    sourceInstanceId: "ds-1",
+                    accountId: "a1",
+                    accountLabel: "A1",
+                    status: "normal",
+                    updatedAt: "2026-06-02T10:00:00Z",
+                    periods: [makePeriod({ id: "warn", name: "5小时", used: 61, limit: 100 })],
+                },
+            ],
+        });
+
+        render(
+            <ProviderCard provider="deepseek" group={group} expanded onToggleExpand={vi.fn()} />,
+        );
+
+        const fill = document.querySelector<HTMLElement>(".fill");
+        if (!fill) throw new Error("missing fill");
+        expect(fill.style.background).toBe("var(--risk-yellow)");
+    });
+
+    it("resolves projected risk colors and falls back to current-only without elapsed", () => {
+        expect(bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed: 0.4 })).toBe(
+            "var(--risk-red)",
+        );
+        expect(bar_fill_color("risk-projected", { pct: 50, idx: 0 })).toBe("var(--risk-green)");
+    });
+
+    it("uses nine-cycle colors when configured", () => {
+        const group = makeGroup({
+            periods: [makePeriod({ id: "first", name: "5小时", used: 95, limit: 100 })],
+            accounts: [
+                {
+                    id: "a1",
+                    sourceInstanceId: "ds-1",
+                    accountId: "a1",
+                    accountLabel: "A1",
+                    status: "normal",
+                    updatedAt: "2026-06-02T10:00:00Z",
+                    periods: [makePeriod({ id: "first", name: "5小时", used: 95, limit: 100 })],
+                },
+            ],
+        });
+
+        render(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={vi.fn()}
+                barColorScheme="nine-cycle"
+            />,
+        );
+
+        const fill = document.querySelector<HTMLElement>(".fill");
+        if (!fill) throw new Error("missing fill");
+        expect(fill.style.background).toBe(hex_to_rgb(usage_color(0)));
     });
 
     it("does not apply fill.blue, fill.purple, or fill.danger classes", () => {

@@ -24,6 +24,7 @@ export const proxyConfigurationSchema = z.object({
 
 export const mainPanelModeSchema = z.enum(["system", "popup", "floating"]);
 export const floatingHeightModeSchema = z.enum(["fixed", "followContent"]);
+export const usageBarColorSchemeSchema = z.enum(["risk-current", "risk-projected", "nine-cycle"]);
 export const floatingBoundsSchema = z.object({
     x: z.number().finite(),
     y: z.number().finite(),
@@ -52,6 +53,7 @@ export const appConfigurationSchema = z.object({
     cacheMaxMb: z.number().positive().optional(),
     mainPanelMode: mainPanelModeSchema.optional(),
     floatingHeightMode: floatingHeightModeSchema.optional(),
+    usageBarColorScheme: usageBarColorSchemeSchema.optional(),
     floatingBounds: floatingBoundsSchema.optional(),
 });
 

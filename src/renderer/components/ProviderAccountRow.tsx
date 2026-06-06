@@ -2,7 +2,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import { format_usage_period_label } from "../lib/provider-usage";
 import { format_reset_time } from "../lib/utils";
-import { usage_color } from "../lib/usage-colors";
+import {
+    bar_fill_color,
+    DEFAULT_USAGE_BAR_COLOR_SCHEME,
+    usage_window_elapsed,
+    type UsageBarColorScheme,
+} from "../lib/usage-colors";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { Icon } from "./Icon";
 
@@ -18,6 +23,7 @@ interface ProviderAccountRowProps {
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onHideOrDeleteAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     isCpaSource?: boolean | undefined;
+    barColorScheme?: UsageBarColorScheme | undefined;
 }
 
 function percent(used: number, limit: number): number {
@@ -37,6 +43,7 @@ export function ProviderAccountRow({
     onEditAccount,
     onHideOrDeleteAccount,
     isCpaSource = false,
+    barColorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
 }: ProviderAccountRowProps) {
     const source = account.periods[0]?.source ?? "direct";
     const [menu_open, set_menu_open] = useState(false);
@@ -151,6 +158,7 @@ export function ProviderAccountRow({
     const details = (
         <div className="bars">
             {account.periods.map((period, idx) => {
+                const elapsed = usage_window_elapsed(period.name, period.resetAt);
                 if (period.used == null) {
                     return (
                         <div className="bar-row" key={period.id}>
@@ -162,7 +170,11 @@ export function ProviderAccountRow({
                                     className="fill"
                                     style={{
                                         width: "0%",
-                                        background: usage_color(idx),
+                                        background: bar_fill_color(barColorScheme, {
+                                            pct: 0,
+                                            idx,
+                                            elapsed,
+                                        }),
                                     }}
                                 />
                             </div>
@@ -186,7 +198,11 @@ export function ProviderAccountRow({
                                     className="fill"
                                     style={{
                                         width: `${String(fill_pct)}%`,
-                                        background: usage_color(idx),
+                                        background: bar_fill_color(barColorScheme, {
+                                            pct: fill_pct,
+                                            idx,
+                                            elapsed,
+                                        }),
                                     }}
                                 />
                             </div>
@@ -206,7 +222,11 @@ export function ProviderAccountRow({
                                 className="fill"
                                 style={{
                                     width: `${String(period_percent)}%`,
-                                    background: usage_color(idx),
+                                    background: bar_fill_color(barColorScheme, {
+                                        pct: period_percent,
+                                        idx,
+                                        elapsed,
+                                    }),
                                 }}
                             />
                         </div>

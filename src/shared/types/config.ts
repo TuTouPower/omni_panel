@@ -8,6 +8,7 @@ export interface ProxyConfiguration {
 
 export type MainPanelMode = "system" | "popup" | "floating";
 export type FloatingHeightMode = "fixed" | "followContent";
+export type UsageBarColorScheme = "risk-current" | "risk-projected" | "nine-cycle";
 
 export interface FloatingBoundsConfiguration {
     readonly x: number;
@@ -18,8 +19,8 @@ export interface FloatingBoundsConfiguration {
 }
 
 export interface AccountOverrides {
-    readonly hidden?: Readonly<Record<UsageProvider, readonly string[]>>;
-    readonly disabled?: Readonly<Record<UsageProvider, readonly string[]>>;
+    readonly hidden?: Readonly<Partial<Record<UsageProvider, readonly string[]>>>;
+    readonly disabled?: Readonly<Partial<Record<UsageProvider, readonly string[]>>>;
 }
 
 export interface AppConfiguration {
@@ -42,6 +43,7 @@ export interface AppConfiguration {
     readonly cacheMaxMb?: number;
     readonly mainPanelMode?: MainPanelMode;
     readonly floatingHeightMode?: FloatingHeightMode;
+    readonly usageBarColorScheme?: UsageBarColorScheme;
     readonly floatingBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;
 }

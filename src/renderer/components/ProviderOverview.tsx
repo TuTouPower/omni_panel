@@ -1,5 +1,6 @@
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
+import type { UsageBarColorScheme } from "../lib/usage-colors";
 import { ProviderCard } from "./ProviderCard";
 
 export interface ProviderError {
@@ -23,6 +24,7 @@ interface ProviderOverviewProps {
     onDragEnter?: ((provider: UsageProvider) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
     refreshingProviders?: Set<string> | undefined;
+    barColorScheme?: UsageBarColorScheme | undefined;
 }
 
 export function ProviderOverview({
@@ -41,6 +43,7 @@ export function ProviderOverview({
     onDragEnter,
     onDragEnd,
     refreshingProviders,
+    barColorScheme,
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
 
@@ -67,6 +70,7 @@ export function ProviderOverview({
                         onDragEnter={onDragEnter}
                         onDragEnd={onDragEnd}
                         refreshing={refreshingProviders?.has(provider)}
+                        barColorScheme={barColorScheme}
                     />
                 );
             })}

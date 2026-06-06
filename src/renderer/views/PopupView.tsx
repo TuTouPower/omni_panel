@@ -16,7 +16,7 @@ import {
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
-import type { AccountOverrides } from "../../shared/types/config";
+import type { AccountOverrides, UsageBarColorScheme } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import logo from "../assets/logo.png";
 
@@ -114,6 +114,8 @@ export function PopupView() {
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
     const [main_panel_mode, set_main_panel_mode] = useState<"popup" | "floating">("popup");
+    const [usage_bar_color_scheme, set_usage_bar_color_scheme] =
+        useState<UsageBarColorScheme>("risk-current");
     const [account_overrides, set_account_overrides] = useState<AccountOverrides | undefined>(
         undefined,
     );
@@ -147,6 +149,9 @@ export function PopupView() {
                     if (validated.length > 0) {
                         set_provider_order(validated);
                     }
+                }
+                if (result.config.usageBarColorScheme) {
+                    set_usage_bar_color_scheme(result.config.usageBarColorScheme);
                 }
                 if (result.config.accountOverrides) {
                     set_account_overrides(result.config.accountOverrides);
@@ -664,6 +669,7 @@ export function PopupView() {
                                 onDragEnter={is_live ? handle_drag_enter : undefined}
                                 onDragEnd={is_live ? handle_drag_end : undefined}
                                 refreshingProviders={is_live ? refresh_providers : undefined}
+                                barColorScheme={usage_bar_color_scheme}
                             />
                         )}
 
@@ -684,6 +690,7 @@ export function PopupView() {
                                     onHideOrDeleteAccount={
                                         is_live ? hide_or_delete_account : undefined
                                     }
+                                    barColorScheme={usage_bar_color_scheme}
                                 />
                             )}
 

@@ -8,7 +8,12 @@ import {
     resolve_convergent_time,
 } from "../lib/provider-usage";
 import { relative_time, format_reset_time } from "../lib/utils";
-import { usage_color } from "../lib/usage-colors";
+import {
+    bar_fill_color,
+    DEFAULT_USAGE_BAR_COLOR_SCHEME,
+    usage_window_elapsed,
+    type UsageBarColorScheme,
+} from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { CollapsibleCard } from "./CollapsibleCard";
@@ -29,6 +34,7 @@ interface ProviderCardProps {
     onDragEnter?: ((provider: UsageProvider) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
     refreshing?: boolean | undefined;
+    barColorScheme?: UsageBarColorScheme | undefined;
 }
 
 function render_bar_row(
@@ -37,9 +43,11 @@ function render_bar_row(
     value: number | null,
     limit: number,
     display_style: "percent" | "ratio",
-    reset_at: string | null,
+    reset_at: string | null | undefined,
     idx: number,
+    color_scheme: UsageBarColorScheme,
 ) {
+    const elapsed = usage_window_elapsed(name, reset_at);
     if (value == null) {
         return (
             <div className="bar-row" key={key}>
@@ -49,7 +57,7 @@ function render_bar_row(
                         className="fill"
                         style={{
                             width: "0%",
-                            background: usage_color(idx),
+                            background: bar_fill_color(color_scheme, { pct: 0, idx, elapsed }),
                         }}
                     />
                 </div>
@@ -68,7 +76,11 @@ function render_bar_row(
                         className="fill"
                         style={{
                             width: `${String(fill_pct)}%`,
-                            background: usage_color(idx),
+                            background: bar_fill_color(color_scheme, {
+                                pct: fill_pct,
+                                idx,
+                                elapsed,
+                            }),
                         }}
                     />
                 </div>
@@ -88,12 +100,12 @@ function render_bar_row(
                     className="fill"
                     style={{
                         width: `${String(pct)}%`,
-                        background: usage_color(idx),
+                        background: bar_fill_color(color_scheme, { pct, idx, elapsed }),
                     }}
                 />
             </div>
             <span className="bar-pct">{pct}%</span>
-            <span className="bar-reset">{reset_at ?? "--"}</span>
+            <span className="bar-reset">{reset_at ? format_reset_time(reset_at) : "--"}</span>
         </div>
     );
 }
@@ -127,6 +139,7 @@ export function ProviderCard({
     onDragEnter,
     onDragEnd,
     refreshing: is_refreshing = false,
+    barColorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
@@ -412,8 +425,9 @@ export function ProviderCard({
                         ow.used,
                         ow.limit,
                         ow.displayStyle,
-                        ow.resetAt ? format_reset_time(ow.resetAt) : null,
+                        ow.resetAt,
                         idx,
+                        barColorScheme,
                     ),
                 )}
             </div>
@@ -442,8 +456,9 @@ export function ProviderCard({
                                     period.used,
                                     period.limit,
                                     period.displayStyle,
-                                    period.resetAt ? format_reset_time(period.resetAt) : null,
+                                    period.resetAt,
                                     idx,
+                                    barColorScheme,
                                 ),
                             )}
                         </div>
@@ -506,8 +521,9 @@ export function ProviderCard({
                                     period.used,
                                     period.limit,
                                     period.displayStyle,
-                                    period.resetAt ? format_reset_time(period.resetAt) : null,
+                                    period.resetAt,
                                     idx,
+                                    barColorScheme,
                                 ),
                             ),
                         )}

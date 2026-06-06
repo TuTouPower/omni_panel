@@ -23,6 +23,25 @@ test.describe("settings view", () => {
         await expect(sidebar).toBeVisible();
     });
 
+    test("changes usage bar color scheme from appearance settings", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        const settings = await navigateToSettings(omni.app, page);
+        const sPage = settings.page;
+
+        await sPage.locator('[data-testid="settings-plugin-nav-appearance"]').click();
+
+        await expect(sPage.getByText("用量条颜色方案")).toBeVisible();
+        await expect(sPage.getByRole("button", { name: /风险色：仅当前用量/ })).toBeVisible();
+        await expect(sPage.getByRole("button", { name: /风险色：带投影预测/ })).toBeVisible();
+        await expect(sPage.getByRole("button", { name: /彩色区分：九色循环/ })).toBeVisible();
+
+        await sPage.getByRole("button", { name: /彩色区分：九色循环/ }).click();
+        await expect(sPage.getByRole("button", { name: /彩色区分：九色循环/ })).toHaveClass(
+            /\bon\b/,
+        );
+    });
+
     test("plugins with parameters show config forms in account edit dialog", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });

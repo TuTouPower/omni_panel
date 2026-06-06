@@ -10,6 +10,7 @@ import type {
     AppConfiguration,
     MainPanelMode,
     FloatingHeightMode,
+    UsageBarColorScheme,
 } from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
@@ -42,6 +43,43 @@ const NAV_ITEMS = [
 ] as const;
 
 const ACCENTS = ["#3d7afd", "#6f5cf6", "#0ea5a3", "#f5772f", "#e23744"];
+const BAR_COLOR_SCHEMES: {
+    value: UsageBarColorScheme;
+    title: string;
+    badge?: string;
+    sub: string;
+    swatch: string[];
+}[] = [
+    {
+        value: "risk-current",
+        title: "风险色：仅当前用量",
+        badge: "默认",
+        sub: "只看当前用量比例判断颜色，不依赖重置时间。",
+        swatch: [
+            "var(--risk-green)",
+            "var(--risk-yellow)",
+            "var(--risk-orange)",
+            "var(--risk-red)",
+        ],
+    },
+    {
+        value: "risk-projected",
+        title: "风险色：带投影预测",
+        sub: "按当前速度预测窗口结束用量；无法预测时回退到仅当前用量。",
+        swatch: [
+            "var(--risk-green)",
+            "var(--risk-yellow)",
+            "var(--risk-orange)",
+            "var(--risk-red)",
+        ],
+    },
+    {
+        value: "nine-cycle",
+        title: "彩色区分：九色循环",
+        sub: "按位置循环九色，只做视觉区分，不表达风险。",
+        swatch: ["#5B8CFF", "#8B72F8", "#46C7C7", "#7EA2FF", "#A18CFF"],
+    },
+];
 const MAIN_PANEL_MODE_LABELS = ["跟随系统推荐", "弹出面板", "浮动窗口"] as const;
 const FLOATING_HEIGHT_MODE_LABELS = ["保持窗口大小", "跟随内容变化"] as const;
 
@@ -131,6 +169,52 @@ function Select({
                 </option>
             ))}
         </select>
+    );
+}
+
+function BarSchemeField({
+    value,
+    onChange,
+}: {
+    value: UsageBarColorScheme;
+    onChange: (value: UsageBarColorScheme) => void;
+}) {
+    return (
+        <div className="bsf-list">
+            {BAR_COLOR_SCHEMES.map((scheme) => {
+                const on = value === scheme.value;
+                return (
+                    <button
+                        key={scheme.value}
+                        className={`bsf-opt${on ? " on" : ""}`}
+                        type="button"
+                        onClick={() => {
+                            onChange(scheme.value);
+                        }}
+                    >
+                        <span className={`bsf-radio${on ? " on" : ""}`}>
+                            <i />
+                        </span>
+                        <span className="bsf-text">
+                            <span className="bsf-title-row">
+                                <span className="bsf-title">{scheme.title}</span>
+                                {scheme.badge && <span className="bsf-badge">{scheme.badge}</span>}
+                            </span>
+                            <span className="bsf-sub">{scheme.sub}</span>
+                        </span>
+                        <span className="bsf-swatch">
+                            {scheme.swatch.map((color, idx) => (
+                                <span
+                                    key={`${scheme.value}-${String(idx)}`}
+                                    className="bsf-dot"
+                                    style={{ background: color }}
+                                />
+                            ))}
+                        </span>
+                    </button>
+                );
+            })}
+        </div>
     );
 }
 
@@ -838,7 +922,11 @@ export function SettingsView() {
             const newOverrides =
                 Object.keys(rest).length > 0
                     ? { ...config.accountOverrides, hidden: rest }
-                    : { ...config.accountOverrides, hidden: undefined };
+                    : Object.fromEntries(
+                          Object.entries(config.accountOverrides ?? {}).filter(
+                              ([key]) => key !== "hidden",
+                          ),
+                      );
             void save({ ...config, accountOverrides: newOverrides });
         },
         [config, save],
@@ -864,6 +952,7 @@ export function SettingsView() {
     const notifyOnFail = config?.notifyOnFail ?? true;
     const notifyMethod = config?.notifyMethod ?? "系统通知";
     const cacheMaxMb = config?.cacheMaxMb ?? 100;
+    const usageBarColorScheme = config?.usageBarColorScheme ?? "risk-current";
 
     const interval_label = (() => {
         if (globalIntervalSeconds <= 60) return "1 分钟";
@@ -1597,6 +1686,21 @@ export function SettingsView() {
                                         ))}
                                     </div>
                                 </SetRow>
+                                <div className="set-group-label">用量条</div>
+                                <div className="set-row set-row-stack">
+                                    <div className="sr-text">
+                                        <div className="sr-title">用量条颜色方案</div>
+                                        <div className="sr-sub">
+                                            控制所有用量条的取色方式。默认按当前用量显示风险色。
+                                        </div>
+                                    </div>
+                                    <BarSchemeField
+                                        value={usageBarColorScheme}
+                                        onChange={(value) => {
+                                            void save({ ...config, usageBarColorScheme: value });
+                                        }}
+                                    />
+                                </div>
                             </>
                         )}
 

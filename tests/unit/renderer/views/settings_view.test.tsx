@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
 import { SettingsView } from "../../../../src/renderer/views/SettingsView";
@@ -58,6 +58,11 @@ describe("SettingsView", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         current_config = base_config;
+        window.matchMedia = vi.fn().mockReturnValue({
+            matches: false,
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+        });
         window.usageboard = {
             platform: "win32",
             plugin: {
@@ -314,6 +319,25 @@ describe("SettingsView", () => {
         });
     });
 
+    it("shows and saves usage bar color scheme from appearance settings", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-appearance"));
+
+        expect(screen.getByText("用量条颜色方案")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /风险色：仅当前用量/ })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /风险色：带投影预测/ })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /彩色区分：九色循环/ })).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: /彩色区分：九色循环/ }));
+
+        expect(save).toHaveBeenCalledWith({
+            ...base_config,
+            usageBarColorScheme: "nine-cycle",
+        });
+    });
+
     it("navigates to accounts section on settings navigate event", async () => {
         let navigate_callback:
             | ((context: { instanceId?: string; provider?: string; accountId?: string }) => void)
@@ -332,7 +356,13 @@ describe("SettingsView", () => {
         });
 
         if (!navigate_callback) throw new Error("navigate callback not captured");
-        navigate_callback({ instanceId: "deepseek-1", provider: "deepseek", accountId: "test" });
+        act(() => {
+            navigate_callback?.({
+                instanceId: "deepseek-1",
+                provider: "deepseek",
+                accountId: "test",
+            });
+        });
 
         await waitFor(() => {
             expect(screen.getByText("API 密钥")).toBeInTheDocument();

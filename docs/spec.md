@@ -334,7 +334,7 @@ refresh(instanceId)
 - `idle` / `loading`：显示 Skeleton 占位
 - `ready`：显示 provider 名 + 账号分组 + 使用量进度条 + 百分比/分数值 + 相对时间（"刚刚" / "X 分钟前"，每秒更新）
 - `failed`：显示错误信息 + stale 数据（如有）+ 相对时间
-- **用量条颜色**：按卡片内位置索引使用 8 色冷色调色板循环分配（`idx % 8`），纯色填充，不按指标类型或 warning/critical 阈值变色。
+- **用量条颜色**：默认使用「风险色：仅当前用量」（`>=95` 红，`>85` 橙，`>60` 黄，其他绿）；可在设置中切换「风险色：带投影预测」或「彩色区分：九色循环」（`idx % 9`）。
 - **数值显示**：`displayStyle: "percent"` 显示百分比；`displayStyle: "ratio"` 显示 `used/limit`，reset 列留空；数字列居中对齐。
 - **空用量条**：`used == null` 时进度条宽度为 0，不显示数字和 reset 时间。
 - **总览页就地展开**：总览 tab 下的 ProviderCard 支持 chevron 展开/折叠，展开后显示该 provider 的账号列表，折叠/展开驱动高度自适应。

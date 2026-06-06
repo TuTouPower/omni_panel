@@ -77,12 +77,14 @@ describe("ProviderAccountRow account menu", () => {
     });
 
     it("shows edit and delete for direct source", async () => {
+        const [base_period] = make_account().periods;
+        if (!base_period) throw new Error("missing base period");
         const direct_account = make_account({
             id: "deepseek:deepseek-account",
             sourceInstanceId: "deepseek",
             periods: [
                 {
-                    ...make_account().periods[0],
+                    ...base_period,
                     source: "api_key",
                     sourceInstanceId: "deepseek",
                 },
