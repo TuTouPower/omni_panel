@@ -77,6 +77,49 @@ describe("provider usage aggregation", () => {
         expect(groups.map((group) => group.provider)).not.toContain("cpa");
     });
 
+    it("keeps provider groups from loading snapshots with last successful items", () => {
+        const connectors = [
+            connectorInfo({
+                source: "cpa",
+                supportedProviders: ["claude", "codex"],
+                activeProviders: ["claude", "codex"],
+                snapshot: {
+                    status: "loading",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [usageItem()],
+                },
+            }),
+        ];
+
+        const groups = build_provider_usage_groups(connectors);
+
+        expect(groups).toHaveLength(1);
+        expect(groups[0]?.provider).toBe("claude");
+        expect(groups[0]?.accountCount).toBe(1);
+    });
+
+    it("keeps provider groups from failed snapshots with last successful items", () => {
+        const connectors = [
+            connectorInfo({
+                source: "cpa",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "failed",
+                    error: "timeout",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [usageItem()],
+                },
+            }),
+        ];
+
+        const groups = build_provider_usage_groups(connectors);
+
+        expect(groups).toHaveLength(1);
+        expect(groups[0]?.provider).toBe("claude");
+        expect(groups[0]?.periods).toHaveLength(1);
+    });
+
     it("keeps GLM and MiniMax as ordered provider groups", () => {
         const connectors = [
             connectorInfo({

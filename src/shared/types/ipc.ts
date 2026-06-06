@@ -67,7 +67,13 @@ export interface TrayMenuSizeReport {
 
 export type PluginSnapshotDTO =
     | { status: "idle" }
-    | { status: "loading" }
+    | {
+          status: "loading";
+          updatedAt?: string;
+          items?: readonly UsageItem[];
+          badge?: string;
+          chart?: PluginChart;
+      }
     | {
           status: "ready";
           items: readonly UsageItem[];

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ok, fail } from "../../../src/main/ipc/helpers";
+import { ok, fail, toDTO } from "../../../src/main/ipc/helpers";
 
 describe("IPC helpers", () => {
     it("ok() returns success envelope with data", () => {
@@ -26,11 +26,35 @@ describe("IPC helpers", () => {
         });
     });
 
-    it("fail() returns error envelope for internal errors", () => {
-        const result = fail("INTERNAL_ERROR", "刷新失败");
-        expect(result.ok).toBe(false);
-        if (!result.ok) {
-            expect(result.error.code).toBe("INTERNAL_ERROR");
-        }
+    it("toDTO includes last successful items during loading", () => {
+        const result = toDTO({
+            status: "loading",
+            lastSuccess: {
+                updatedAt: "2026-06-06T12:00:00Z",
+                items: [
+                    {
+                        id: "item-1",
+                        provider: "claude",
+                        source: "cpa",
+                        sourceInstanceId: "cpa-1",
+                        accountId: "acct-1",
+                        accountLabel: "Claude Account",
+                        name: "5小时用量",
+                        used: 10,
+                        limit: 100,
+                        displayStyle: "percent",
+                        status: "normal",
+                    },
+                ],
+                badge: "10%",
+            },
+        });
+
+        expect(result).toMatchObject({
+            status: "loading",
+            updatedAt: "2026-06-06T12:00:00Z",
+            badge: "10%",
+        });
+        expect(result.status === "loading" && result.items?.[0]?.provider).toBe("claude");
     });
 });

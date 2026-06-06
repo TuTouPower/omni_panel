@@ -3,7 +3,7 @@ import type { PluginCachedState } from "../cache/types";
 
 export type PluginSnapshotState =
     | { readonly status: "idle" }
-    | { readonly status: "loading" }
+    | { readonly status: "loading"; readonly lastSuccess?: PluginCachedState }
     | {
           readonly status: "ready";
           readonly items: readonly UsageItem[];

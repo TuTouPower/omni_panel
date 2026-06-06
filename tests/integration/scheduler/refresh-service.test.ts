@@ -183,6 +183,67 @@ describe("refresh-service", () => {
         expect(deps.runner).toHaveBeenCalledTimes(1);
     });
 
+    it("keeps last successful cache while refresh is loading", async () => {
+        const cached = {
+            updatedAt: "2026-06-06T12:00:00Z",
+            items: [
+                {
+                    id: "item-1",
+                    provider: "claude" as const,
+                    source: "cpa" as const,
+                    sourceInstanceId: "cpa-1",
+                    accountId: "acct-1",
+                    accountLabel: "Claude Account",
+                    name: "5小时用量",
+                    used: 10,
+                    limit: 100,
+                    displayStyle: "percent" as const,
+                    status: "normal" as const,
+                },
+            ],
+        };
+        let resolveRunner!: () => void;
+        const deps = createDeps({
+            runner: vi.fn<RefreshServiceDeps["runner"]>().mockImplementation(
+                () =>
+                    new Promise<{
+                        stdout: string;
+                        stderr: string;
+                        exitCode: number;
+                        durationMs: number;
+                    }>((resolve) => {
+                        resolveRunner = () => {
+                            resolve({
+                                stdout: JSON.stringify({
+                                    success: true,
+                                    schemaVersion: 1,
+                                    updatedAt: "2026-06-06T12:05:00Z",
+                                    items: [],
+                                }),
+                                stderr: "",
+                                exitCode: 0,
+                                durationMs: 10,
+                            });
+                        };
+                    }),
+            ),
+        });
+        (deps.cacheStore.load as ReturnType<typeof vi.fn>).mockResolvedValue(cached);
+        const service = createRefreshService(deps);
+
+        const refreshPromise = service.refresh("state-1", { force: true });
+        await new Promise((r) => setTimeout(r, 0));
+
+        const loadingState = deps.runtimeStore.getSnapshot("state-1");
+        expect(loadingState.status).toBe("loading");
+        expect(
+            loadingState.status === "loading" && loadingState.lastSuccess?.items[0]?.provider,
+        ).toBe("claude");
+
+        resolveRunner();
+        await refreshPromise;
+    });
+
     it("sets runtime to failed on runner error", async () => {
         const deps = createDeps();
         (deps.runner as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("timeout"));

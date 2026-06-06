@@ -139,11 +139,13 @@ export function build_provider_usage_groups(
 
     for (const connector of connectors) {
         if (!connector.enabled) continue;
-        if (connector.snapshot.status !== "ready") continue;
+        const snapshot = connector.snapshot;
+        if (!("items" in snapshot)) continue;
+        if (!("updatedAt" in snapshot)) continue;
 
-        for (const item of connector.snapshot.items) {
+        for (const item of snapshot.items) {
             const periods = periodsByProvider.get(item.provider) ?? [];
-            periods.push(toPeriod(item, connector, connector.snapshot.updatedAt));
+            periods.push(toPeriod(item, connector, snapshot.updatedAt));
             periodsByProvider.set(item.provider, periods);
         }
     }

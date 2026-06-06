@@ -131,7 +131,11 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 log.debug(`Cache skipped for ${instanceId}: force refresh`);
             }
 
-            deps.runtimeStore.updateState(instanceId, { status: "loading" });
+            const lastSuccessBeforeRefresh = await deps.cacheStore.load(instanceId);
+            deps.runtimeStore.updateState(instanceId, {
+                status: "loading",
+                ...(lastSuccessBeforeRefresh !== null && { lastSuccess: lastSuccessBeforeRefresh }),
+            });
             log.debug(`Runtime state loading for ${instanceId}`);
 
             const mergedParams = await mergeSecrets(instanceId, plugin.parameterValues);
