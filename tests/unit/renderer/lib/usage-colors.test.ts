@@ -79,6 +79,8 @@ describe("usage color debug logs", () => {
             expect(joined).toContain("bar fill color raw");
             expect(joined).toContain("2026-06-06T12:00:00Z");
             expect(joined).toContain("risk-projected");
+            expect(joined).toContain('"elapsed":0.6');
+            expect(joined).toContain('"result":"var(--risk-yellow)"');
         } finally {
             remove_transport();
         }
