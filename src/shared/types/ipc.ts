@@ -86,6 +86,8 @@ export type PluginSnapshotDTO =
           error: string;
           updatedAt?: string;
           items?: readonly UsageItem[];
+          badge?: string;
+          chart?: PluginChart;
       };
 
 export type ConnectorSnapshotDTO = PluginSnapshotDTO;

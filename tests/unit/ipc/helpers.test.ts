@@ -55,6 +55,28 @@ describe("IPC helpers", () => {
             updatedAt: "2026-06-06T12:00:00Z",
             badge: "10%",
         });
-        expect(result.status === "loading" && result.items?.[0]?.provider).toBe("claude");
+        expect(result.status).toBe("loading");
+        if (result.status !== "loading") throw new Error("expected loading DTO");
+        expect(result.items?.[0]?.provider).toBe("claude");
+    });
+
+    it("toDTO includes last successful metadata during failed", () => {
+        const result = toDTO({
+            status: "failed",
+            error: "timeout",
+            lastSuccess: {
+                updatedAt: "2026-06-06T12:00:00Z",
+                items: [],
+                badge: "10%",
+            },
+        });
+
+        expect(result).toEqual({
+            status: "failed",
+            error: "timeout",
+            updatedAt: "2026-06-06T12:00:00Z",
+            items: [],
+            badge: "10%",
+        });
     });
 });

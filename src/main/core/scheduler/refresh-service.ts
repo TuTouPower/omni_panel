@@ -204,6 +204,9 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                     deps.runtimeStore.updateState(instanceId, {
                         status: "failed",
                         error: output.error.message,
+                        ...(lastSuccessBeforeRefresh !== null && {
+                            lastSuccess: lastSuccessBeforeRefresh,
+                        }),
                     });
                     log.debug(`Runtime state failed for ${instanceId}`);
                     return;

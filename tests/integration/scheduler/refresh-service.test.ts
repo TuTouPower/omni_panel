@@ -236,12 +236,46 @@ describe("refresh-service", () => {
 
         const loadingState = deps.runtimeStore.getSnapshot("state-1");
         expect(loadingState.status).toBe("loading");
-        expect(
-            loadingState.status === "loading" && loadingState.lastSuccess?.items[0]?.provider,
-        ).toBe("claude");
+        if (loadingState.status !== "loading") throw new Error("expected loading state");
+        expect(loadingState.lastSuccess?.items[0]?.provider).toBe("claude");
 
         resolveRunner();
         await refreshPromise;
+    });
+
+    it("keeps last successful cache when plugin reports an error", async () => {
+        const cached = {
+            updatedAt: "2026-06-06T12:00:00Z",
+            items: [
+                {
+                    id: "item-1",
+                    provider: "claude" as const,
+                    source: "cpa" as const,
+                    sourceInstanceId: "cpa-1",
+                    accountId: "acct-1",
+                    accountLabel: "Claude Account",
+                    name: "5小时用量",
+                    used: 10,
+                    limit: 100,
+                    displayStyle: "percent" as const,
+                    status: "normal" as const,
+                },
+            ],
+        };
+        const deps = createDeps();
+        (deps.cacheStore.load as ReturnType<typeof vi.fn>).mockResolvedValue(cached);
+        deps.outputParser.mockReturnValue({
+            success: false,
+            error: { code: "FAKE_ERROR", message: "network timeout" },
+        });
+        const service = createRefreshService(deps);
+
+        await service.refresh("state-1", { force: true });
+
+        const failedState = deps.runtimeStore.getSnapshot("state-1");
+        expect(failedState.status).toBe("failed");
+        if (failedState.status !== "failed") throw new Error("expected failed state");
+        expect(failedState.lastSuccess?.items[0]?.provider).toBe("claude");
     });
 
     it("sets runtime to failed on runner error", async () => {

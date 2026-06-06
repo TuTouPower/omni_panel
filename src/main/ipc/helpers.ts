@@ -52,6 +52,12 @@ export function toDTO(state: PluginSnapshotState): PluginSnapshotDTO {
                 ...(state.lastSuccess !== undefined && {
                     updatedAt: state.lastSuccess.updatedAt,
                     items: state.lastSuccess.items,
+                    ...(state.lastSuccess.badge !== undefined && {
+                        badge: state.lastSuccess.badge,
+                    }),
+                    ...(state.lastSuccess.chart !== undefined && {
+                        chart: state.lastSuccess.chart,
+                    }),
                 }),
             };
     }
