@@ -200,13 +200,13 @@ export function PopupView() {
         });
     }, [apply_config, reload]);
 
-    // Persist provider order to config when it changes
+    // Persist provider order to config when it changes (serialized to prevent races)
     useEffect(() => {
         if (provider_order.length === 0) return;
-        window.usageboard.config
-            .get()
-            .then((result) => {
-                void window.usageboard.config.save({
+        save_queue_ref.current = save_queue_ref.current
+            .then(async () => {
+                const result = await window.usageboard.config.get();
+                await window.usageboard.config.save({
                     ...result.config,
                     providerOrder: provider_order,
                 });
@@ -219,6 +219,7 @@ export function PopupView() {
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
     const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
     const refresh_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const save_queue_ref = useRef(Promise.resolve());
 
     // Cleanup refresh timeout on unmount
     useEffect(() => {
@@ -342,78 +343,96 @@ export function PopupView() {
     };
 
     const toggle_disable_provider = (provider: UsageProvider) => {
-        void window.usageboard.config.get().then((result) => {
-            const related_plugins = result.config.plugins.filter((p) => {
-                const info = plugins.find((pi) => pi.instanceId === p.instanceId);
-                return info?.activeProviders.includes(provider) ?? false;
-            });
-            if (related_plugins.length === 0) return;
+        save_queue_ref.current = save_queue_ref.current
+            .then(async () => {
+                const result = await window.usageboard.config.get();
+                const related_plugins = result.config.plugins.filter((p) => {
+                    const info = plugins.find((pi) => pi.instanceId === p.instanceId);
+                    return info?.activeProviders.includes(provider) ?? false;
+                });
+                if (related_plugins.length === 0) return;
 
-            const updated_plugins = result.config.plugins.map((p) => {
-                if (!related_plugins.some((rp) => rp.instanceId === p.instanceId)) {
-                    return p;
-                }
-                const info = plugins.find((pi) => pi.instanceId === p.instanceId);
-                // CPA connector: toggle monitor param per provider, don't disable entire connector
-                if (info?.source === "cpa") {
-                    const monitor_key = `monitor_${provider}`;
-                    const current_val = p.parameterValues[monitor_key];
-                    const is_off = String(current_val) === "false";
-                    return {
-                        ...p,
-                        parameterValues: {
-                            ...p.parameterValues,
-                            [monitor_key]: is_off ? "true" : "false",
-                        },
-                    };
-                }
-                // Direct plugin: toggle plugin.enabled
-                return { ...p, enabled: !p.enabled };
-            });
+                const updated_plugins = result.config.plugins.map((p) => {
+                    if (!related_plugins.some((rp) => rp.instanceId === p.instanceId)) {
+                        return p;
+                    }
+                    const info = plugins.find((pi) => pi.instanceId === p.instanceId);
+                    // CPA connector: toggle monitor param per provider, don't disable entire connector
+                    if (info?.source === "cpa") {
+                        const monitor_key = `monitor_${provider}`;
+                        const current_val = p.parameterValues[monitor_key];
+                        const is_off = String(current_val) === "false";
+                        return {
+                            ...p,
+                            parameterValues: {
+                                ...p.parameterValues,
+                                [monitor_key]: is_off ? "true" : "false",
+                            },
+                        };
+                    }
+                    // Direct plugin: toggle plugin.enabled
+                    return { ...p, enabled: !p.enabled };
+                });
 
-            void window.usageboard.config.save({
-                ...result.config,
-                plugins: updated_plugins,
+                await window.usageboard.config.save({
+                    ...result.config,
+                    plugins: updated_plugins,
+                });
+            })
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: MODULE,
+                    message: `toggle provider failed: ${errorMessage(err)}`,
+                });
             });
-        });
     };
 
     const delete_provider = (provider: UsageProvider) => {
-        void window.usageboard.config.get().then((result) => {
-            const target = result.config.plugins.find((p) => {
-                const info = plugins.find((pi) => pi.instanceId === p.instanceId);
-                return info?.activeProviders.includes(provider) ?? false;
+        save_queue_ref.current = save_queue_ref.current
+            .then(async () => {
+                const result = await window.usageboard.config.get();
+                const target = result.config.plugins.find((p) => {
+                    const info = plugins.find((pi) => pi.instanceId === p.instanceId);
+                    return info?.activeProviders.includes(provider) ?? false;
+                });
+                if (!target) return;
+                const info = plugins.find((pi) => pi.instanceId === target.instanceId);
+                const is_cpa = info?.source === "cpa";
+                if (is_cpa) {
+                    // CPA: 只禁用对应 monitor 参数，不删除整个插件
+                    const monitor_key = `monitor_${provider}`;
+                    await window.usageboard.config.save({
+                        ...result.config,
+                        plugins: result.config.plugins.map((p) =>
+                            p.instanceId === target.instanceId
+                                ? {
+                                      ...p,
+                                      parameterValues: {
+                                          ...p.parameterValues,
+                                          [monitor_key]: "false",
+                                      },
+                                  }
+                                : p,
+                        ),
+                    });
+                } else {
+                    // 独立插件：直接删除
+                    await window.usageboard.config.save({
+                        ...result.config,
+                        plugins: result.config.plugins.filter(
+                            (p) => p.instanceId !== target.instanceId,
+                        ),
+                    });
+                }
+            })
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: MODULE,
+                    message: `delete provider failed: ${errorMessage(err)}`,
+                });
             });
-            if (!target) return;
-            const info = plugins.find((pi) => pi.instanceId === target.instanceId);
-            const is_cpa = info?.source === "cpa";
-            if (is_cpa) {
-                // CPA: 只禁用对应 monitor 参数，不删除整个插件
-                const monitor_key = `monitor_${provider}`;
-                void window.usageboard.config.save({
-                    ...result.config,
-                    plugins: result.config.plugins.map((p) =>
-                        p.instanceId === target.instanceId
-                            ? {
-                                  ...p,
-                                  parameterValues: {
-                                      ...p.parameterValues,
-                                      [monitor_key]: "false",
-                                  },
-                              }
-                            : p,
-                    ),
-                });
-            } else {
-                // 独立插件：直接删除
-                void window.usageboard.config.save({
-                    ...result.config,
-                    plugins: result.config.plugins.filter(
-                        (p) => p.instanceId !== target.instanceId,
-                    ),
-                });
-            }
-        });
     };
 
     const edit_account = (account: ProviderUsageAccount) => {
