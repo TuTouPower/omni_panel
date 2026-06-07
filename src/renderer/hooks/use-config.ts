@@ -73,9 +73,9 @@ export function use_config(): UseConfigResult {
         const next = updater(current);
         config_ref.current = next;
         setConfig(next);
-        save_queue_ref.current = save_queue_ref.current.then(() =>
-            window.usageboard.config.save(next),
-        );
+        save_queue_ref.current = save_queue_ref.current
+            .then(() => window.usageboard.config.save(next))
+            .catch(() => undefined);
     }, []);
 
     const saveSecrets = useCallback(async (instanceId: string, secrets: Record<string, string>) => {
