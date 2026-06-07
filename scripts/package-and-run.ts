@@ -11,18 +11,57 @@ function log(msg: string) {
 
 function kill_omni(): void {
     const is_win = platform() === "win32";
+    const procs = is_win ? ["OmniUsage.exe", "electron.exe"] : ["OmniUsage", "electron"];
 
-    for (const proc of ["OmniUsage.exe", "electron.exe"]) {
+    for (const proc of procs) {
         try {
             if (is_win) {
-                execSync(`taskkill /f /im ${proc} 2>nul`, { stdio: "pipe" });
+                execSync(`taskkill /f /t /im ${proc} 2>nul`, { stdio: "pipe" });
             } else {
                 execSync(`pkill -f ${proc}`, { stdio: "pipe" });
             }
-            log(`killed existing ${proc} process`);
         } catch {
             // process not running
         }
+    }
+}
+
+function wait_for_exit(max_ms = 5000): void {
+    const is_win = platform() === "win32";
+    const deadline = Date.now() + max_ms;
+    while (Date.now() < deadline) {
+        let running = false;
+        try {
+            if (is_win) {
+                execSync('tasklist /fi "imagename eq OmniUsage.exe" /nh', { stdio: "pipe" })
+                    .toString()
+                    .includes("OmniUsage.exe");
+                running = execSync('tasklist /fi "imagename eq OmniUsage.exe" /nh', {
+                    stdio: "pipe",
+                })
+                    .toString()
+                    .includes("OmniUsage.exe");
+            } else {
+                execSync("pgrep -f OmniUsage", { stdio: "pipe" });
+                running = true;
+            }
+        } catch {
+            // not running
+        }
+        if (!running) {
+            log("all OmniUsage processes exited");
+            return;
+        }
+        execSync("timeout /t 1 /nobreak >nul 2>&1 || sleep 1", { shell: true, stdio: "pipe" });
+    }
+    log("warning: OmniUsage still running after timeout, forcing kill");
+    try {
+        execSync("taskkill /f /t /im OmniUsage.exe 2>nul || pkill -9 -f OmniUsage", {
+            shell: true,
+            stdio: "pipe",
+        });
+    } catch {
+        // best effort
     }
 }
 
@@ -61,14 +100,14 @@ function run_packaged(): void {
     log("packaged app started");
 }
 
-async function main(): Promise<void> {
+function main(): void {
     const no_build = process.argv.includes("--no-build");
 
     // Step 1: kill existing process
     kill_omni();
 
-    // Step 2: wait a moment for the process to exit
-    await new Promise((r) => setTimeout(r, 500));
+    // Step 2: wait for processes to fully exit
+    wait_for_exit();
 
     // Step 3: clear plugin cache (avoids stale garbled data after encoding changes)
     clear_plugin_cache();
@@ -95,4 +134,4 @@ async function main(): Promise<void> {
     run_packaged();
 }
 
-void main();
+main();
