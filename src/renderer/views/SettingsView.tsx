@@ -6,6 +6,7 @@ import {
     refresh_seconds_to_label,
     refresh_label_to_seconds,
 } from "../lib/refresh-intervals";
+import { remove_account_override } from "../lib/account-overrides";
 import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { Icon, VendorMark } from "../components/Icon";
@@ -1018,25 +1019,13 @@ export function SettingsView() {
 
     const restoreOverrideAccount = useCallback(
         (provider: UsageProvider, key: string, kind: "hidden" | "disabled") => {
-            if (!config) return;
-            const current = config.accountOverrides?.[kind]?.[provider];
-            if (!current) return;
-            const next = current.filter((k) => k !== key);
-            const rest = { ...(config.accountOverrides[kind] ?? {}) };
-            if (next.length === 0) {
-                // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-                delete rest[provider];
-            } else {
-                rest[provider] = next;
-            }
-            const newOverrides =
-                Object.keys(rest).length > 0
-                    ? { ...config.accountOverrides, [kind]: rest }
-                    : Object.fromEntries(
-                          Object.entries(config.accountOverrides ?? {}).filter(
-                              ([key]) => key !== kind,
-                          ),
-                      );
+            if (!config?.accountOverrides) return;
+            const newOverrides = remove_account_override(
+                config.accountOverrides,
+                kind,
+                provider,
+                key,
+            );
             void save_config({ ...config, accountOverrides: newOverrides });
         },
         [config, save_config],

@@ -23,6 +23,7 @@ import type {
     UsageBarStyle,
 } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
+import { add_account_override } from "../lib/account-overrides";
 import logo from "../assets/logo.png";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
@@ -459,14 +460,12 @@ export function PopupView() {
             set_account_action_error(null);
             try {
                 const result = await window.usageboard.config.get();
-                const current = result.config.accountOverrides ?? {};
-                const disabled_list = Array.from(
-                    new Set([...(current.disabled?.[provider] ?? []), account.id]),
+                const new_overrides = add_account_override(
+                    result.config.accountOverrides,
+                    "disabled",
+                    provider,
+                    account.id,
                 );
-                const new_overrides: AccountOverrides = {
-                    ...current,
-                    disabled: { ...current.disabled, [provider]: disabled_list },
-                };
                 await window.usageboard.config.save({
                     ...result.config,
                     accountOverrides: new_overrides,
@@ -499,14 +498,12 @@ export function PopupView() {
             try {
                 const result = await window.usageboard.config.get();
                 if (is_cpa) {
-                    const current = result.config.accountOverrides ?? {};
-                    const hidden_list = Array.from(
-                        new Set([...(current.hidden?.[provider] ?? []), account.id]),
+                    const new_overrides = add_account_override(
+                        result.config.accountOverrides,
+                        "hidden",
+                        provider,
+                        account.id,
                     );
-                    const new_overrides: AccountOverrides = {
-                        ...current,
-                        hidden: { ...current.hidden, [provider]: hidden_list },
-                    };
                     await window.usageboard.config.save({
                         ...result.config,
                         accountOverrides: new_overrides,
