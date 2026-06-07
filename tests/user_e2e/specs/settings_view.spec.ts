@@ -86,4 +86,25 @@ test.describe("settings view", () => {
         await expect(form.locator('input[name="endpoint:default"]')).toBeVisible();
         await expect(sPage.locator("text=无可配置参数")).toHaveCount(0);
     });
+
+    test("usage label map can be edited and saved", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        const settings = await navigateToSettings(omni.app, page);
+        const sPage = settings.page;
+
+        await sPage.locator('[data-testid="settings-plugin-nav-appearance"]').click();
+
+        const labelMapField = sPage.getByLabel("用量标签映射");
+        await expect(labelMapField).toBeVisible();
+
+        // Clear and type new value
+        await labelMapField.fill("");
+        await labelMapField.fill("gemini-long=Gemini Short");
+        // Trigger blur to save
+        await labelMapField.press("Tab");
+
+        // Verify the textarea still shows the value after save
+        await expect(labelMapField).toHaveValue("gemini-long=Gemini Short");
+    });
 });
