@@ -40,6 +40,7 @@ import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
+import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
@@ -649,14 +650,12 @@ void app.whenReady().then(async () => {
             hideTrayMenu();
         });
         ipcMain.handle(IPC_CHANNELS.TRAY_REPORT_MENU_SIZE, (_event, report: unknown) => {
-            if (typeof report !== "object" || report === null) return;
-            const { width, height } = report as { width?: unknown; height?: unknown };
-            if (typeof width !== "number" || typeof height !== "number") return;
-            if (!Number.isFinite(width) || !Number.isFinite(height)) return;
+            const parsed = parseSizeReport(report, ["width", "height"]);
+            if (!parsed) return;
 
             tray_menu_size = {
-                width: Math.max(1, Math.ceil(width)),
-                height: Math.max(1, Math.ceil(height)),
+                width: Math.max(1, Math.ceil(parsed.width)),
+                height: Math.max(1, Math.ceil(parsed.height)),
             };
             if (trayMenuWin && !trayMenuWin.isDestroyed() && trayMenuWin.isVisible()) {
                 const bounds = trayMenuWin.getBounds();
