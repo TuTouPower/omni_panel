@@ -87,40 +87,32 @@ const config_full = {
         ),
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T is needed for callback type inference
+function subscribe<T extends unknown[]>(
+    channel: string,
+    callback: (...args: T) => void,
+): () => void {
+    const handler = (_e: unknown, ...args: T) => {
+        callback(...args);
+    };
+    ipcRenderer.on(channel, handler);
+    return () => ipcRenderer.removeListener(channel, handler);
+}
+
 const event_methods = {
-    onStateChange: (callback: (instanceId: string, state: PluginSnapshotDTO) => void) => {
-        const handler = (_e: unknown, instanceId: string, state: PluginSnapshotDTO) => {
-            callback(instanceId, state);
-        };
-        ipcRenderer.on(IPC_CHANNELS.EVENT_STATE_CHANGE, handler);
-        return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_STATE_CHANGE, handler);
-    },
-    onConfigChange: (callback: (config: AppConfiguration) => void) => {
-        const handler = (_e: unknown, config: AppConfiguration) => {
-            callback(config);
-        };
-        ipcRenderer.on(IPC_CHANNELS.CONFIG_CHANGED, handler);
-        return () => ipcRenderer.removeListener(IPC_CHANNELS.CONFIG_CHANGED, handler);
-    },
-    onThemeChange: (callback: (isDark: boolean) => void) => {
-        const handler = (_e: unknown, isDark: boolean) => {
-            callback(isDark);
-        };
-        ipcRenderer.on(IPC_CHANNELS.EVENT_THEME_CHANGE, handler);
-        return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_THEME_CHANGE, handler);
-    },
+    onStateChange: (callback: (instanceId: string, state: PluginSnapshotDTO) => void) =>
+        subscribe<[string, PluginSnapshotDTO]>(IPC_CHANNELS.EVENT_STATE_CHANGE, callback),
+    onConfigChange: (callback: (config: AppConfiguration) => void) =>
+        subscribe<[AppConfiguration]>(IPC_CHANNELS.CONFIG_CHANGED, callback),
+    onThemeChange: (callback: (isDark: boolean) => void) =>
+        subscribe<[boolean]>(IPC_CHANNELS.EVENT_THEME_CHANGE, callback),
     onSettingsNavigate: (
         callback: (context: { instanceId?: string; provider?: string; accountId?: string }) => void,
-    ) => {
-        const handler = (
-            _e: unknown,
-            context: { instanceId?: string; provider?: string; accountId?: string },
-        ) => {
-            callback(context);
-        };
-        ipcRenderer.on(IPC_CHANNELS.SETTINGS_NAVIGATE, handler);
-        return () => ipcRenderer.removeListener(IPC_CHANNELS.SETTINGS_NAVIGATE, handler);
-    },
+    ) =>
+        subscribe<[{ instanceId?: string; provider?: string; accountId?: string }]>(
+            IPC_CHANNELS.SETTINGS_NAVIGATE,
+            callback,
+        ),
 };
 
 const popup_methods = {
