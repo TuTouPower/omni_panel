@@ -189,6 +189,7 @@ stdin: { "params": { "KEY1": "value1", "KEY2": "value2", "USAGEBOARD_LANGUAGE": 
 | 智谱     | `glm-usage-plugin.ts`      | 是           | 调用智谱 GLM API                                                |
 | MiniMax  | `minimax-usage-plugin.ts`  | 是           | 调用 MiniMax API                                                |
 | Tavily   | `tavily-usage-plugin.ts`   | 是           | 调用 Tavily API                                                 |
+| MiMo     | `mimo-usage-plugin.ts`     | 是           | 通过 MiMo Cookie 登录获取 token                                 |
 | CPA      | `cpa-usage-plugin.ts`      | 是           | 通过 CPA-Manager 获取 Claude/Codex/Gemini/Antigravity/Kimi 额度 |
 
 ---
@@ -314,11 +315,11 @@ refresh(instanceId)
 
 ### 6.2 窗口配置
 
-| 窗口     | 路由        | 尺寸                                 | frame | 特殊行为                                                                   |
-| -------- | ----------- | ------------------------------------ | ----- | -------------------------------------------------------------------------- |
-| Popup    | `#popup`    | 460 × (初始 480，按内容动态调整)     | 无    | 点击托盘时定位到图标下方，内容填满窗口高度，高度自动跟随内容（详见 §6.7）  |
-| Settings | `#settings` | 820 × 660                            | 有    | 独立 BrowserWindow，与 Popup 互不阻塞；通过 IPC `settings:open` 打开或聚焦 |
-| TrayMenu | `#tray`     | 按菜单内容测量，随菜单内容变化而变化 | 无    | 右键托盘菜单；不使用主面板高度策略，不为正常菜单内容显示滚动条             |
+| 窗口     | 路由        | 尺寸                                 | frame | 特殊行为                                                                                                  |
+| -------- | ----------- | ------------------------------------ | ----- | --------------------------------------------------------------------------------------------------------- |
+| Popup    | `#popup`    | 460 × (初始 480，按内容动态调整)     | 无    | 点击托盘时定位到图标下方，内容填满窗口高度，高度自动跟随内容（详见 §6.7）                                 |
+| Settings | `#settings` | 820 × 660                            | 无    | 独立 BrowserWindow（frameless + custom titlebar），与 Popup 互不阻塞；通过 IPC `settings:open` 打开或聚焦 |
+| TrayMenu | `#tray`     | 按菜单内容测量，随菜单内容变化而变化 | 无    | 右键托盘菜单；不使用主面板高度策略，不为正常菜单内容显示滚动条                                            |
 
 ### 6.3 PopupView
 
@@ -382,7 +383,7 @@ refresh(instanceId)
 
 ### 6.5 SettingsView
 
-- 独立 BrowserWindow（820×660，原生 frame），通过 IPC `settings:open` 打开，与 Popup 互不阻塞
+- 独立 BrowserWindow（820×660，frameless + custom titlebar），通过 IPC `settings:open` 打开，与 Popup 互不阻塞
 - 左侧导航（176px）：常规、账号、数据源（CPA 才显示）、外观、通知、数据与隐私、关于
 - 数据源页：CPA Manager 卡片列表 + 详情页（复用 CpaConnectorSettings）
 - 添加账号：服务选择 picker（常用服务网格 + CPA Manager 高级入口）

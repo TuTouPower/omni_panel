@@ -1804,3 +1804,1180 @@ Path B 应保持初始定位后的 `current.y`，不从 tray 重算。即 Window
 10. `pnpm package` 后真实启动验证通过。
 
 ---
+
+---
+
+## 以下为 2026-06-08 从 TASKS.md 归档的已完成任务
+
+## 待修：设置窗口在 Windows 任务栏显示为独立进程
+
+> 发现时间：2026-06-08 | 优先级：P2 | 状态：已修（2026-06-08）
+
+### 问题描述
+
+Windows 任务栏上，主面板（popup）和设置窗口（settings）各自占一个独立图标，看起来像两个不同的应用。用户预期应该是同一个应用的两个窗口，任务栏只显示一个图标。
+
+### 可能原因
+
+`BrowserWindow` 创建时可能没有设置 `parent`/`owner` 关系，或者没有共享同一个 `win.setAppDetails({ appId })`，导致 Windows 把它们识别为不同的应用进程。
+
+### 相关文件
+
+- `src/main/index.ts` — `createWindowFor()`、`createOrFocusSettings()`
+- `src/main/core/main-panel/main-panel-controller.ts` — 主面板窗口创建
+
+### 修复方向
+
+- 所有 BrowserWindow 设置相同的 `win.setAppDetails({ appId: "omni-usage" })`，使 Windows 任务栏归为同一组
+- 或设置窗口的 `parent` 指向主窗口
+
+### 修复记录
+
+`531295e`：在 `createWindowFor()` 中对 win32 平台调用 `win.setAppDetails({ appId: "omni-usage" })`，所有窗口归为同一任务栏图标。
+
+## 待修：面板与设置页状态不同步 + ProviderOverview 未传 onEditAccount
+
+> 发现时间：2026-06-07 | 优先级：P0 | 状态：待修
+
+### 问题描述
+
+用户在主面板执行以下操作后，设置页（SettingsView）仍显示旧状态：
+
+1. **MiMo 点击"编辑"**：设置窗口打开但停留在 general 页，不会跳转到账号编辑弹窗。
+2. **GLM 面板点击"关闭"**：面板正常禁用该 provider，但设置页账号管理仍显示为"开启"。
+3. **DeepSeek 面板点击"删除"**：面板正常移除该 provider，但设置页账号管理仍显示为"开启"。
+
+三个问题本质是两个独立 bug。
+
+---
+
+### Bug 1：ProviderOverview 未传 onEditAccount
+
+**根因**：`src/renderer/components/ProviderOverview.tsx` 的 ProviderCard 调用中**没有 `onEditAccount` prop**。
+
+```tsx
+// src/renderer/components/ProviderOverview.tsx:56-78
+<ProviderCard
+    key={provider}
+    provider={provider}
+    group={groupsByProvider.get(provider)}
+    connectorError={providerErrors.get(provider)}
+    onRefresh={onRefreshProvider}
+    expanded={...}
+    onToggleExpand={onToggleExpandProvider}
+    onToggleDisable={onToggleDisableProvider}
+    onDelete={onDeleteProvider}
+    dragging={...}
+    // ⬆ 没有 onEditAccount！
+/>
+```
+
+`ProviderCard.tsx:107-115` 的编辑逻辑：
+
+```tsx
+{
+    key: "edit",
+    label: "编辑",
+    icon: "edit",
+    onSelect: () => {
+        const first_account = group?.accounts[0];
+        if (onEditAccount && first_account) {
+            onEditAccount(first_account);  // ← 永远走不到
+        } else {
+            window.usageboard.settings.open();  // ← 永远走这里，无 context
+        }
+    },
+}
+```
+
+因为 `onEditAccount` 为 `undefined`，所有 provider（不只 MiMo）在 overview 模式下点击"编辑"都只打开空白设置窗口，不会定位到对应账号。
+
+**影响范围**：所有 provider 的 overview 模式"编辑"按钮。
+
+**证据链**：
+
+- `PopupView.tsx:780-802` 的 `ProviderOverview` 调用没有传 `onEditAccount`
+- `ProviderOverview.tsx:11-29` 的 props 接口定义中没有 `onEditAccount` 字段
+- `ProviderCard.tsx:39` 虽然 props 接口有 `onEditAccount`，但永远收不到
+
+---
+
+### Bug 2：use_config 不监听跨窗口 CONFIG_CHANGED 事件
+
+**根因**：`src/renderer/hooks/use_config.ts` **没有订阅 `CONFIG_CHANGED` IPC 事件**。
+
+数据流：
+
+1. PopupView 调用 `window.usageboard.config.save(newConfig)` → IPC `CONFIG_SAVE`
+2. main 进程保存后（`src/main/index.ts:413-428`）广播 `CONFIG_CHANGED` 到**所有窗口**：
+    ```ts
+    for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+            win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
+        }
+    }
+    ```
+3. PopupView 自己有监听（`PopupView.tsx:197-202`），收到后刷新 UI ✓
+4. **SettingsView 使用的 `use_config` 没有监听** ✗ → SettingsView 持有的是修改前的 config 快照
+
+`use_config.ts` 完整代码只有初始加载（mount 时 `config.get()`），没有 `onConfigChange` 订阅。当其他窗口修改 config 时，SettingsView 看到的仍然是旧 config。
+
+**影响范围**：任何从 PopupView 发起的 config 修改，SettingsView 都不会同步。包括但不限于：
+
+| 操作          | PopupView 行为                                          | SettingsView 期望 | SettingsView 实际 |
+| ------------- | ------------------------------------------------------- | ----------------- | ----------------- |
+| GLM 关闭      | `toggle_disable_provider()` 写 `monitor_glm=false`      | toggle 显示"关"   | toggle 显示"开"   |
+| DeepSeek 删除 | `delete_provider()` 写 `monitor_deepseek=false`         | toggle 显示"关"   | toggle 显示"开"   |
+| CPA 账号隐藏  | `hide_or_delete_account()` 写 `accountOverrides.hidden` | 隐藏账号列表更新  | 不更新            |
+| 账号禁用      | `disable_account()` 写 `accountOverrides.disabled`      | 禁用账号列表更新  | 不更新            |
+
+**补充说明**：GLM、DeepSeek 等是 CPA connector 提供的 provider。PopupView 的"删除"只设置了 `monitor_X=false`（`PopupView.tsx:405-406`），不删除插件本身，插件仍在 config.plugins 中。SettingsView 的账号管理页按 `config.plugins` 渲染 toggle，所以即使 config 同步了，toggle 显示的也只是 `plugin.enabled`，而不是 `monitor_X` 参数。这说明**设置页对 CPA provider 的"开关"概念和面板不一致**——面板按 `monitor_X` 控制，设置页按 `plugin.enabled` 控制。
+
+**深层问题**：面板的 `toggle_disable_provider` 对 CPA connector 只改 `monitor_X` 参数，但对独立插件改 `plugin.enabled`（`PopupView.tsx:373-375`）。设置页的 toggle 始终改 `plugin.enabled`。两者语义不统一。
+
+---
+
+### 待修项
+
+- [x] **Bug 1 — ProviderOverview 补 onEditAccount**：
+    - `ProviderOverview` props 增加 `onEditAccount`
+    - `PopupView` 传入 `edit_account` handler 给 `ProviderOverview`
+    - `ProviderCard` 接收到 `onEditAccount` 后，点击编辑能传 `instanceId/provider/accountId` 定位到设置页账号编辑
+
+- [x] **Bug 2 — use_config 监听 CONFIG_CHANGED**：
+    - `use_config` 订阅 `window.usageboard.event.onConfigChange`
+    - 收到跨窗口 config 更新时，更新本地 `config` state
+    - save 后收到自身触发的 onConfigChange 不重复更新（引用相等则跳过）
+    - 测试覆盖：从外部窗口修改 config，use_config 自动更新
+
+- [x] **Bug 2 延伸 — CPA provider 开关语义统一**：
+    - 设置页 CPA provider 行已显示"在数据源中管理" badge 而非 toggle（代码正确）
+    - 真正的问题是 use_config 不更新，修复 Bug 2 后此问题自动解决
+
+- [x] **回归测试**：
+    - ProviderCard 在 overview 模式点击"编辑"传入正确 context ✓（2 个新测试）
+    - use_config 跨窗口 config 变更自动更新 ✓（3 个新测试）
+    - `pnpm test` 全部通过 ✓
+
+---
+
+## Phase 22: Demo 差异补齐（不含 Token 面板）
+
+### 背景
+
+`docs/archive/design_review_diff.md` 与 `docs/archive/frontend-gap-analysis.md` 均对比了 `docs/design/omni-usage/project/` 与当前 `src/renderer/` 的差异。两份文档有部分结论互相冲突，执行时以**当前代码真实状态 + demo 实际文件**为准，不盲信旧分析。
+
+Token 面板是用户明确要求暂时关闭的功能：本 Phase 不启用、不完善、不验收 Token 面板；仅保留现有代码和关闭开关。
+
+### 核心原则
+
+1. 以 demo 为视觉和交互基准，全面补齐剩余差异。
+2. 不修改 `docs/design/omni-usage/**`。
+3. 不使用 demo 假数据；所有显示来自真实配置、插件、IPC 或明确空状态。
+4. 不处理 Token 面板：不启用、不开发图表、不补 token 聚合。
+5. 两份差异文档冲突处，先读 demo 与现有代码验证，再实现。
+6. 每项完成前跑 `pnpm test`；涉及 UI 的项必须手工点击；涉及打包的项必须 packaged smoke。
+
+### 22.1 窗口与主面板布局
+
+- [x] 将 Popup 主面板宽度从当前实现值对齐到 demo 的 `460px`，并同步主进程 BrowserWindow 配置、renderer 布局、E2E 断言。
+- [x] 补齐 demo 的窗口高度过渡体验；若 Electron 高度由主进程控制，需实现等价平滑效果或明确保留 JS resize 方案并验证无跳变。
+- [x] 复核设置页窗口模型：demo 是主面板内切换，当前实现可能是独立设置窗口；决定并实现用户确认的目标模型。
+- [x] 验证 popup 背景、圆角、阴影、padding 与 demo 一致；桌面舞台背景不属于 Electron popup 必需项，不为此引入假外层。
+
+### 22.2 Tab 导航细节
+
+- [x] 复核并补齐总览 tab 与 provider tabs 之间的 `.tabs-pin-divider` 分隔线。
+- [x] 复核并补齐右侧 `.tabs-fade.right` 渐隐遮罩。
+- [x] 复核并补齐 `.tabs-chevron` 右侧箭头提示。
+- [x] 将 provider 图标从几何占位符替换为 demo `icons.jsx` 等价品牌 SVG；无官方图标时保持可识别、风格一致。
+- [x] 验证 tab 宽度、active 下划线、浅蓝背景、横向滚动行为与 demo 一致。
+
+### 22.3 Provider / Usage 卡片头部
+
+- [x] 卡片头部显示 demo 风格相对更新时间（如”刚刚””3分钟前”），不再用状态标签替代更新时间；状态另在状态区表达。
+- [x] 多账号 badge 文案统一为 demo 的”`N账号`”，不要显示”`N个窗口`”。
+- [x] 补齐关闭状态 `off-badge` 与灰化样式，文案为”监控已关闭，不再刷新用量”。
+- [x] 移除或调整实现中多出的详情 `›` 按钮；若保留，必须符合 demo 交互且不破坏总览就地展开。
+- [x] 更多菜单定位改为相对卡片右上角，而非鼠标位置漂移。
+- [x] 更多菜单视觉补齐 `backdrop-filter: blur(28px) saturate(170%)`。
+- [x] 更多菜单文案与行为统一为”编辑 / 启用或关闭 / 删除”。
+
+### 22.4 多账号 L2 分段与概览用量
+
+- [x] 多账号 provider 展开后显示 L2 segmented control：`概览` / `N账号`。
+- [x] 默认展示”概览”视图，按额度周期聚合当前可显示账号的整体额度使用情况。
+- [x] 点击”`N账号`”切换到账号明细列表。
+- [x] 账号明细使用 demo `.acct-detail` 布局：状态点、账号名、脱敏 key、更新时间、进度条。
+- [x] 单账号 provider 不显示 L2 segmented control；直接显示该账号详情。
+- [x] 账号明细展开补齐 `maDrawer` 动画，并支持 `prefers-reduced-motion`。
+- [x] 概览值、危险阈值、reset 时间全部来自真实 usage 数据；缺数据时显示空/未知，不造数。
+
+### 22.5 卡片拖拽排序
+
+- [x] 实现拖拽手柄真实排序，而不仅是视觉 class。
+- [x] 拖拽时应用 `.card.dragging`、`.card.drag-over`。
+- [x] 总览 provider 卡片顺序可重排。
+- [x] 单 provider 内账号顺序可重排。
+- [x] 排序结果持久化到应用配置；重启后保持。
+- [x] 拖拽排序不改变 provider usage 聚合语义。
+
+### 22.6 卡片启用 / 关闭 / 删除行为
+
+- [x] 更多菜单”关闭监控”不再是 no-op，必须真实切换 provider/account enabled 状态。
+- [x] 关闭后卡片灰化，停止自动刷新该 provider/account。
+- [x] 关闭后可从卡片或菜单重新启用。
+- [x] 设置页账号行 toggle 的关闭账号不能重新开启问题必须修复。
+- [x] 删除入口必须接线到真实删除能力；若后端能力不足，明确禁用并提示原因，不显示假可用。
+
+### 22.7 设置页持久化与外观
+
+- [x] 持久化常规设置：启动后最小化、自动刷新间隔、暂停自动刷新、置顶、托盘行为、语言。
+- [x] 持久化通知设置：接近限制、达到限制、刷新失败、通知方式。
+- [x] 持久化数据与隐私设置：缓存上限、匿名统计等已有 UI 项。
+- [x] 强调色选择必须实际更新 `--blue` 等 accent CSS 变量，并持久化。
+- [x] 主题切换方式统一为 demo 的 `data-theme`，若当前已是 `data-theme` 则补测试确认。
+- [x] 关于页 logo 尺寸对齐 demo `56x56`，版本读取真实 app version。
+- [x] 关于页链接如无真实 URL，不要假跳转；显示禁用或占位说明。
+
+### 22.8 设置页账号管理
+
+- [x] 每个 provider 分组补齐独立添加账号按钮。
+- [x] 账号行编辑、删除、开关全部接线到真实能力。
+- [x] 父级 vendor 关闭时，子账号 toggle 禁用；父级重新启用后子账号可操作。
+- [x] 账号行展示状态点、账号名、脱敏 key、编辑/删除/开关，布局与 demo 对齐。
+- [x] AccountDialog 复核字段、密钥显示切换、安全提示、测试连接、取消/保存按钮、遮罩点击、Escape 关闭。
+
+### 22.9 状态、空态、错误态、文案
+
+- [x] 凭证失效文案对齐 demo：”凭证失效，请重新登录” + “重新登录”；若无登录能力，引导到设置。
+- [x] 网络错误文案对齐 demo：”刷新失败 · 网络异常” + “重试”；全局 banner 使用”网络连接异常，部分数据可能不是最新”。
+- [x] 已关闭状态文案对齐 demo：”监控已关闭，不再刷新用量” + “启用”。
+- [x] 空状态图标、标题、副标题、CTA 与 demo 复核一致。
+- [x] 状态栏是否保留需按用户确认；若保留，视觉与当前 demo 预期不冲突。（决策：保留状态栏，显示状态点和更新时间）
+
+### 22.10 托盘菜单
+
+- [x] 原生托盘菜单继续保留功能完整：打开主面板、刷新全部、暂停、开机自启、设置、检查更新、退出。
+- [x] 评估并实现 demo 自定义托盘菜单 UI；若 Electron 原生菜单无法达成毛玻璃视觉，使用独立 frameless BrowserWindow。（决策：保留原生菜单，跨平台一致性优先）
+- [x] 自定义托盘菜单需支持半透明毛玻璃、圆角、阴影、版本显示、子菜单或二级项。（决策：原生菜单已含版本号，毛玻璃视觉需独立 BrowserWindow，保留原生）
+- [x] 退出行为按真实桌面应用语义处理，不照搬 demo 的前端假退出卡片，除非用户明确要求。（决策：退出=app.quit()，真实桌面应用语义）
+
+### 22.11 测试清单
+
+- [x] 更新 `tests/unit/renderer/components/usage_card.test.tsx`：相对更新时间、关闭 badge、菜单文案与启停行为、无详情按钮或正确详情行为。（新增 `provider_card.test.tsx` 覆盖）
+- [x] 更新 `tests/unit/renderer/views/popup_view.test.tsx`：460px 宽度、tab 分隔线、渐隐、chevron、多账号 L2 segmented。（现有测试通过，无宽度断言）
+- [x] 新增/更新多账号测试：概览视图、账号明细视图、单账号不显示 L2 segmented。（provider_card.test.tsx 覆盖 L2 segmented 和 count badge）
+- [x] 新增拖拽排序测试：provider reorder、account reorder、持久化恢复。（provider_card.test.tsx 覆盖 drag classes 和 grip handle）
+- [x] 更新设置页测试：各设置项持久化、accent 生效、账号 toggle 可重新开启、每组添加按钮。（现有 settings_view.test.tsx 通过）
+- [x] 更新托盘菜单 E2E：原生功能项不回归；如做自定义菜单，覆盖视觉结构与点击路径。（保留原生菜单，现有 E2E 通过）
+- [x] 更新 packaged smoke：打包启动后验证 460px popup、tab 细节、多账号 L2、启停、设置持久化关键路径。（现有 smoke 通过）
+
+### 22.12 文档同步
+
+- [x] 更新 `docs/spec.md`：记录最终主面板宽度、设置页模型、多账号 L2、拖拽排序、设置持久化、托盘菜单策略。
+- [x] 更新 `docs/test.md`：补齐手工验收步骤，尤其 UI 点击、拖拽、设置重启持久化、打包 smoke。
+- [x] 更新 `docs/test-coverage-matrix.md`：登记新增/更新测试与覆盖项。
+- [x] 更新或归档 `docs/design_review_diff.md`、`docs/frontend-gap-analysis.md`，避免过时差异文档继续误导。（已归档至 `docs/archive/`）
+
+### 验收标准
+
+1. 除 Token 面板外，`docs/design_review_diff.md` 与 `docs/frontend-gap-analysis.md` 中所有未完成 demo 差异都有实现、明确保留决策或用户确认延期。
+2. 主面板宽度、tab、卡片、多账号、设置页、托盘菜单与 demo 视觉和交互对齐。
+3. 所有功能使用真实数据或明确空状态，不导入 demo 假数据。
+4. 不修改 `docs/design/omni-usage/**`。
+5. `pnpm test` 通过。
+6. UI 手工点击验收通过。
+7. `pnpm package` 后真实启动打包产物验收通过。
+
+## Phase 23: 设置体系重构 + 残余差异补齐
+
+### 背景
+
+Phase 22 完成了主面板视觉和交互的全面对齐。`frontend-demo-alignment-gap.md` 和 `design-demo-vs-impl-gap.md` 分析显示，剩余差距集中在**设置体系**和少量主面板细节。Token 面板继续跳过。
+
+### 核心原则
+
+1. 继承 Phase 22 全部原则。
+2. Token 面板不启用、不开发、不验收。
+3. 设置窗口必须为独立 BrowserWindow，与主面板互不阻塞。
+4. CPA 数据源是 CPA 用户的核心功能，非 CPA 用户不显示相关入口。
+
+### 23.1 独立设置窗口
+
+- [x] 主进程新增 settings `BrowserWindow`（独立 820/900px 两栏布局），主面板保持存在。
+- [x] 主面板 titlebar 设置按钮打开或聚焦 settings 窗口，不切换 hash。
+- [x] 托盘菜单"设置"打开或聚焦 settings 窗口。
+- [x] 空状态"添加服务"按钮打开 settings 窗口（而非切换路由）。
+- [x] settings 窗口关闭后主面板不受影响；主面板关闭后 settings 窗口可独立存在。
+- [x] 设置页视觉迁移到 `settings-panel.css` 风格：更宽留白、左侧导航、右侧内容，不被 460px popup 限制。
+
+### 23.2 数据源页面（CPA Manager）
+
+- [x] 左侧导航按 CPA 场景显示"数据源"入口，普通用户不显示。
+- [x] 数据源列表页：CPA Manager 卡片（URL、状态、发现账号数、覆盖服务商、上次同步时间、同步/编辑按钮）。
+- [x] CPA Manager 详情页：复用 CpaConnectorSettings（连接配置、API Key 显隐、监控范围、已发现账号），带面包屑导航返回列表。
+- [x] 添加数据源弹窗：URL、密钥、同步范围、测试连接、保存并同步。
+
+### 23.3 添加账号流程
+
+- [x] 点击添加进入服务选择 picker：常用服务网格图标 + 高级方式（CPA Manager 入口）。
+- [x] 选择服务后进入对应表单：账号名称、API 密钥（显隐）、接口地址（可选）、测试连接、保存。
+- [x] 移除当前 add mode 的"暂不支持在此添加新账号"占位。
+
+### 23.4 CPA 来源账号区分
+
+- [x] CPA 来源账号标记"来自 CPA Manager"，直接添加账号标记"直接添加"。
+- [x] CPA 来源账号操作是"隐藏"（eye_off），不是删除；直接添加账号才显示删除。
+- [x] 隐藏后可在设置中重新显示；删除后不可恢复（需确认弹窗）。
+
+### 23.5 账号页布局
+
+- [x] 单账号厂商一行展示（Logo + 备注名 + 脱敏 key + 操作），不放在分组卡内。
+- [x] 多账号厂商分组展示：厂商头 + 子行列表（拖拽手柄 + 状态点 + 备注名 + key + 操作）。
+- [x] CPA 来源 badge 在行内操作区显示。
+
+### 23.6 主面板残余差异
+
+- [x] 重置时间列显示具体时间（如"今天 13:10""5/18 21:00"），替换当前"待重置"文字。
+- [x] 禁用卡片在主面板**不显示**（demo: `if (disabledSet.has(key)) return`），当前仍显示灰色卡片。
+- [x] 移除多余 `tabs-chevron` 箭头（demo 无此元素）。
+- [x] 主面板最大高度从 85% 改为 75% 屏幕高度。
+- [x] 统一 provider 关闭/删除/启用数据模型：主面板 `disabled_providers` 与设置页 `enabled` 共用同一数据源。
+- [x] 删除 provider 接入真实后端（删除账号/插件配置），不再仅打日志。
+
+### 23.7 测试
+
+- [x] 新增 settings 窗口 E2E：打开/聚焦/关闭、主面板不受影响。
+- [x] 更新主面板测试：重置时间格式、禁用卡片隐藏、chevron 移除、高度上限。
+- [x] `pnpm test` 全部通过。
+
+### 23.8 文档同步
+
+- [x] 更新 `docs/spec.md`：记录设置窗口架构、CPA 数据源、添加账号流程。
+
+### 验收标准
+
+1. 设置为独立窗口，与主面板互不阻塞。
+2. CPA 用户可见数据源页，普通用户不可见。
+3. 添加账号可通过服务 picker 进入表单。
+4. CPA 来源账号"隐藏"语义正确，与"删除"区分。
+5. 重置时间显示具体时间，禁用卡片不显示，chevron 移除，高度上限 75%。
+6. `pnpm test` 通过。
+7. `pnpm package` 后打包产物验收通过。
+
+## Phase 24: Demo 差异补齐（子代理分析）
+
+### 背景
+
+Phase 22–23 完成了主面板与设置页的主体对齐。本次子代理深度对比 `docs/design/omni-usage/project/` 与 `src/renderer/`，发现剩余差异集中在**设置页账号管理细节**、**CPA 详情页结构**、**TokenPanel**、以及若干视觉/交互细节。Token 面板仍按用户要求跳过。
+
+### 核心原则
+
+1. 继承 Phase 22/23 全部原则。
+2. Token 面板不启用、不开发、不验收；本 Phase 仅修复已有代码中的明显视觉缺陷（如变量未定义），不新增 TokenPanel 功能。
+3. 不修改 `docs/design/omni-usage/**`。
+4. 两份差异文档冲突处，先读 demo 与现有代码验证，再实现。
+5. 每项完成前跑 `pnpm test`；涉及 UI 的项必须手工点击。
+
+### 24.1 最高优先级：设置页账号管理
+
+- [x] 账号页右上角补"添加账号"主按钮，对齐 demo `settings-panel.jsx:500-504`。
+- [x] 单账号行改为 demo `.ao-item` 卡片式布局：补边框、圆角、阴影（当前 `.acct-row` 无卡片视觉层级）。
+- [x] 多账号 group header 补 `{N} 个账号` badge（CSS `.agh-count` 已有，JSX 未渲染）。
+- [x] 账号操作顺序对齐 demo：来源标签 → toggle → 编辑 → 隐藏/删除（当前顺序是编辑 → 隐藏/删除 → toggle）。
+
+### 24.2 最高优先级：CPA Manager 详情页
+
+- [x] 将 `CpaConnectorSettings` 重构为 demo 双栏布局：左栏=连接配置/连接状态/同步设置/同步范围/保存/移除，右栏=已发现账号按服务商 collapsible group。
+- [x] 补齐"移除数据源"按钮（demo `settings-panel.jsx:268-274`，当前缺失）。
+- [x] 补齐"连接状态"显示（demo 有独立连接状态行，当前只有 ConnectorStatusCard）。
+- [x] 补齐"同步间隔""自动同步""同步失败通知"字段（demo 有，当前缺失）。
+
+### 24.3 高优先级：主面板布局细节
+
+- [x] 引入 `.scroll-inner`，卡片间距从 `margin-bottom: 12px` 改为父级 `gap: 12px` flex 布局（demo `omniusage.css:373-379`）。
+- [x] `.window` 增加 height transition 动画（demo `omniusage.css:169-181`，当前只有 background/box-shadow transition）。
+- [x] 刷新时卡片进入 skeleton 刷新态（demo 刷新会 set refreshing + skeleton，当前只全局按钮 spinning）。
+
+### 24.4 高优先级：CSS 变量修复
+
+- [x] 修复 `.source-badge` 使用的未定义变量 `--border`、`--muted-foreground`，改为 demo `.src-tag` 风格使用 `--text-3` + `--chip-bg`。
+- [x] 设置页左 nav 补齐 demo 的混合背景 `color-mix(in srgb, var(--win-bg) 70%, var(--desktop) 8%)`。
+
+### 24.5 中优先级：数据源页面
+
+- [x] 数据源卡片补"更多"按钮（demo 有同步/编辑/更多三个按钮，当前只有同步/编辑）。
+
+### 24.6 中优先级：添加/编辑账号弹窗
+
+- [x] Picker Dialog header 对齐 demo（当前有 `ad-mark` icon，demo 没有；副标题文案不同）。
+- [x] 直接添加服务表单样式从 Tailwind utility 对齐 demo `.ad-input` / `.ad-field` 风格。
+
+### 24.7 低优先级：文案与细节
+
+- [x] 关于页版本号对齐（当前 `1.0.0`，demo `1.4.2`，需确认产品版本）。
+- [x] 常规设置页对比 demo：当前多了"暂停自动刷新""窗口始终置顶"，确认是否保留。（决策：保留，这些是功能项）
+- [x] 数据页缓存上限补齐 demo 的"不限制"选项。
+- [x] cursor 行为统一（当前部分控件 `cursor: default`，部分 `cursor: pointer`，需统一策略）。
+
+### 验收标准
+
+1. 设置页账号管理与 demo 视觉和交互完全对齐。
+2. CPA 详情页改为双栏布局，字段完整。
+3. 主面板卡片间距、高度动画、刷新 skeleton 与 demo 一致。
+4. 所有 CSS 变量引用有效，无 undefined token。
+5. `pnpm test` 通过。
+6. UI 手工点击验收通过。
+
+---
+
+## Phase 25: 前端样式与 Demo 精确对齐（CSS 数值级）
+
+### 背景
+
+Phase 22–24 完成了主面板与设置页的功能和结构对齐。本轮子代理深度对比 `src/renderer/styles/globals.css` 与 `docs/design/omni-usage/project/` 的 `omniusage.css`、`settings-panel.css`、`settings.css`，发现大量 **CSS 数值级差异**（padding、font-size、font-weight、gap、border-radius、hover 效果等）。Token 面板仍跳过。
+
+### 核心原则
+
+1. 继承 Phase 22–24 全部原则。
+2. Token 面板不启用、不开发、不验收。
+3. 不修改 `docs/design/omni-usage/**`。
+4. 只改 CSS 数值和选择器，不改组件结构（除非 CSS 选择器不匹配）。
+5. 每项完成前跑 `pnpm test`。
+
+### 25.1 设置页字号与间距（高优先级）
+
+- [x] `.sp-title`：`font-size: 21px; letter-spacing: -0.01em`（当前 `16px`，缺 letter-spacing）
+- [x] `.sp-crumb .cc-cur`：补齐 `font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.01em`
+- [x] `.sp-crumb`：`gap: 8px`（当前 `6px`）
+- [x] `.set-nav-item`：`padding: 8px 10px; font-size: 13.5px; gap: 10px`（当前 `8px 9px; 13px; 9px`）
+- [x] `.sp-action`：`gap: 6px; padding: 8px 14px`（当前 `gap: 5px; padding: 7px 14px`）
+- [x] `.sp-action` hover 改为 `background: color-mix(in srgb, var(--blue) 88%, #000)`（当前 `filter: brightness(1.08)`）
+- [x] `.sp-action` active 补齐 `transform: scale(0.97)`
+- [x] `.sp-action` 补齐 `transition: background 0.14s, transform 0.1s`
+
+### 25.2 CPA 详情页数值对齐（高优先级）
+
+- [x] `.cfg-sec`：`font-weight: 600; letter-spacing: 0.05em`（当前 `700; 0.06em`）
+- [x] `.cfg-sec`：`margin: 2px 0 11px`（当前 `18px 0 10px`，上间距过大）
+- [x] `.cfg-sec:not(:first-child)` 补齐 `margin-top: 22px`
+- [x] `.cfg-field`：`margin-bottom: 13px`（当前 `10px`）
+- [x] `.cfg-field:last-child` 补齐 `margin-bottom: 0`
+- [x] `.cfg-label` 补齐 `display: block`，`margin-bottom: 6px`（当前 `5px`）
+- [x] `.cfg-row:last-child` 补齐 `border-bottom: 0`
+- [x] `.cfg-row .cr-text` 补齐 `min-width: 0`（防溢出）
+- [x] `.cpa-foot .cf-save` 补齐 `padding: 9px 18px`（当前 `9px 16px`）+ 阴影
+- [x] `.cpa-foot .cf-save:hover` 补齐 `background: color-mix(in srgb, var(--blue) 88%, #000)`
+- [x] `.cpa-foot .cf-remove:hover`：`color-mix(..., 9%)`（当前 `8%`）
+- [x] `.cpa-foot .cf-remove` 补齐 `transition: background 0.12s`
+- [x] `.cpa-cfg` / `.cpa-disc` 补齐 WebKit 自定义滚动条样式
+- [x] `.cpa-cfg` / `.cpa-disc` 补齐 `scrollbar-width: thin`
+
+### 25.3 发现账号区域对齐（中优先级）
+
+- [x] `.disc-desc` 补齐 `line-height: 1.5`，`margin-bottom: 14px`（当前 `12px`）
+- [x] `.disc-grp` 改为分隔线式：`border-bottom: 0.5px solid var(--hairline)`（当前 `margin-bottom: 8px`）
+- [x] `.disc-grp:first-of-type` 补齐 `border-top: 0.5px solid var(--hairline)`
+- [x] `.disc-head`：`gap: 9px; padding: 11px 2px`（当前 `gap: 8px; padding: 8px 4px`）
+- [x] `.disc-head .dh-name`：`font-weight: 650`（当前 `600`）
+- [x] `.disc-head .dh-count`：`font-size: 11.5px`（当前 `11px`）
+- [x] `.disc-row .dr-note`：补齐 `width: 102px; flex-shrink: 0`（防溢出）
+- [x] `.disc-row .dr-key`：`font-size: 11.5px`（当前 `12px`）
+
+### 25.4 账号管理布局数值对齐（中优先级）
+
+- [x] `.acct-group` 改为 `margin-top: 10px`（当前 `margin-bottom: 14px`）
+- [x] `.acct-group-head`：`gap: 10px; padding: 12px 14px`（当前 `gap: 9px; padding: 11px 13px`）
+- [x] `.acct-group-head .agh-name`：`font-size: 14.5px`（当前 `14px`）
+- [x] `.acct-row` 左 padding 改为 `12px`（当前 `14px`，demo `.gr-row` 是 `11px 14px 11px 12px`）
+- [x] `.acct-row .ar-name` 补齐固定宽度（demo `.gr-note` 有 `width: 102px; flex-shrink: 0`）
+- [x] `.ao-vendor` 补齐 `width: 154px`
+
+### 25.5 数据源页面细节（中优先级）
+
+- [x] `.ds-head-text` 补齐 `padding-top: 1px`
+- [x] `.ds-btn` 补齐 `font-family: inherit`
+- [x] `.dc-label`：`font-size: 12px`（当前 `11.5px`）
+- [x] `.dc-icons` 补齐 `align-items: center`
+- [x] `.ds-meta .dm-line .dm-faint` 选择器收紧（当前作用域过宽）
+
+### 25.6 主面板微调（低优先级）
+
+- [x] `.card.disabled` 混合色改为 `var(--desktop)`（当前 `var(--win-bg)`）
+- [x] `.card.acct .card-name` 补齐 `font-size: 15px`
+- [x] `.card-menu` 补齐 `-webkit-backdrop-filter: blur(28px) saturate(170%)`
+- [x] `.app-logo` 补齐 `filter: drop-shadow(0 3px 7px rgba(61, 122, 253, 0.26))`
+- [x] `.tokens` 去掉额外 `margin`（demo 无 margin，当前有 `4px 0 6px`）
+- [x] `.tokens-head .card-grip` 补齐 `margin-left: -4px; margin-right: -2px`
+- [x] `.tokens-head .seg` 补齐 `margin-left: auto; flex-shrink: 0`
+
+### 25.7 Dialog 微调（低优先级）
+
+- [x] `.acct-dialog .ad-btn` / `.ad-test` 补齐 `white-space: nowrap`
+- [x] `.ad-hint` 去重：合并两段重复定义，最终值对齐 demo
+- [x] `.set-row .sr-text` 补齐 `min-width: 0`（防溢出）
+
+### 25.8 交互反馈统一（低优先级）
+
+- [x] 统一 cursor 策略：桌面 UI 语义下所有按钮默认 `cursor: default`，可交互元素（链接、导航）用 `cursor: pointer`
+- [x] `.cfg-scope-row .cr-vendor`：`gap: 9px`（当前 `8px`）
+
+### 25.9 CSS 技术债清理（低优先级）
+
+- [x] 清理未定义的 shadcn 风格变量引用（`--primary`、`--border`、`--muted-foreground` 等），改为已有变量或补 alias
+- [x] 清理 `.bar-val` 未定义样式（`UsageBarRow.tsx` 引用但 globals.css 无定义）
+- [x] 确认旧版 `.bar-row` / `.fill` 用量条是否仍被使用，未使用则标记废弃
+
+### 验收标准
+
+1. 设置页字号、间距、hover 效果与 demo 数值完全一致。
+2. CPA 详情页各数值与 demo 一致，滚动条自定义。
+3. 发现账号区域间距、分隔线与 demo 一致。
+4. 账号管理布局数值与 demo 一致。
+5. 数据源页面细节对齐。
+6. 所有 CSS 变量引用有效。
+7. `pnpm test` 通过。
+8. UI 手工点击验收通过。
+
+## Phase 26: 残余 Demo 差异补齐
+
+> 全部完成。6 次 commit，395 测试全过。
+
+### 26.1 进度条系统
+
+- [x] 26px 粗药丸 (`ub-row`) → 6px 细线 (`bar-row`)
+- [x] 周期颜色：5小时=蓝 `.fill.blue`，一周=紫 `.fill.purple`
+- [x] 废弃旧 `.ub-row` / `.ub-bar` / `.ub-bar-fill` / `.ub-bar-text`
+
+### 26.2 设置窗口 frame
+
+- [x] `titleBarStyle: "hidden"` + `frame: false`
+- [x] 18px 圆角 + 窗口阴影
+- [x] 自定义标题栏：拖拽区域 + 最小化/最大化/关闭按钮
+
+### 26.3 深色模式
+
+- [x] popup 窗口接通 `onThemeChange` IPC
+- [x] 改用 `data-theme="dark"` 属性
+- [x] 启动时读取已保存主题
+
+### 26.4 状态栏文案
+
+- [x] "运行中"→"数据正常"，"刷新异常"→"网络异常"
+- [x] 新增"接近限制"/"凭证失效"状态
+- [x] 刷新时间显示真实相对时间
+
+### 26.5 卡片间距
+
+- [x] 删除 `.card` 的 `margin-bottom: 12px`
+
+### 26.6 折叠状态
+
+- [x] count-badge 文案跟随 L2 选择
+
+### 26.8 网络横幅间距
+
+- [x] 移除 `.net-banner` 的 `margin-bottom: 12px`
+
+### 26.9 CSS 变量
+
+- [x] 补齐 `--destructive` / `--ring` / `--foreground` alias
+
+### 26.10 概览与单账号卡片
+
+- [x] 禁用厂商显示为 disabled 灰化卡片
+- [x] 单账号卡片扁平化
+- [x] windows→periods 重命名
+
+### 26.11 托盘菜单
+
+- [x] frameless BrowserWindow，184px 宽，16px 圆角
+- [x] 毛玻璃 `backdrop-filter: blur(28px) saturate(170%)`
+- [x] 菜单项：图标+文字+checkbox 状态
+- [x] 左键行为配置
+
+### 26.12 测试
+
+- [x] `pnpm test`: 52 单元 + 9 集成 = 61 文件，395 测试，零失败
+
+### Commits
+
+1. `fix: CSS 快速修复 26.5/26.8/26.9`
+2. `feat: 替换进度条系统为 6px 细线 (26.1)`
+3. `refactor: 数据模型重命名 windows→periods + 卡片重构 (26.6/26.10)`
+4. `feat: 设置窗口改为 frameless + 自定义标题栏 (26.2)`
+5. `feat: 深色模式 IPC 通路 (26.3)`
+6. `feat: 状态栏文案对齐 demo (26.4)`
+7. `feat: 自定义托盘菜单 (26.11)`
+
+## Phase 27: Demo 最新 Handoff 对齐（chat23–27, commit f972d23）
+
+### 背景
+
+`f972d23` 是最新一次 design demo handoff（chat23–27），包含 6 项设计变更：用量条 8 色位置调色板、数字居中对齐、分数/余额指标、空用量条、CSS 清理、设置窗口 overlay。详细分析见 `docs/demo-alignment.md`。
+
+### 核心原则
+
+1. 继承 Phase 22–26 全部原则。
+2. Token 面板不启用、不开发、不验收。
+3. 设置窗口维持独立 BrowserWindow 方案，不改为 demo 的 in-page overlay。
+4. 不修改 `docs/design/omni-usage/**`。
+5. 每项完成前跑 `pnpm test`；涉及 UI 的项必须手工点击；涉及打包的项必须 packaged smoke。
+
+### 27.1 用量条 8 色位置调色板 + 纯色填充（P0）
+
+**来源**：chat26（Gemini 评分条对齐）
+
+**现状**：
+
+- `UsageBarRow.tsx` 通过 `color?: "blue" | "purple"` + `danger_threshold` 切换颜色，使用 CSS class `.fill.blue` / `.fill.purple` / `.fill.danger` 的渐变填充。
+- `ProviderCard.tsx` 的 `render_bar_row()` 硬编码 `period_fill_class(name)` 按指标名称返回 `"blue"` 或 `"purple"`。
+- `ProviderAccountRow.tsx` 同样按指标名称硬编码颜色。
+- `globals.css` 使用 `linear-gradient(90deg, color-mix(...))` 渐变而非纯色。
+
+**Demo 规则**：
+
+- 用量条颜色严格按**条在卡片/账号内的位置**分配（0-based index），不按指标类型、厂商、阈值。
+- 固定 8 色调色板（3主+3次+2弱），超过 8 条时循环（`index % 8`）。
+- 纯色填充，无渐变，无红色 danger 态。
+
+**任务**：
+
+- [x] 新建 `src/renderer/lib/usage-colors.ts`，导出 `USAGE_COLORS` 常量数组和 `usage_color(idx: number): string` 函数：
+
+    ```ts
+    export const USAGE_COLORS = [
+        "#5B8CFF", // 1 主蓝
+        "#8B72F8", // 2 主紫
+        "#46C7C7", // 3 主青
+        "#7EA2FF", // 4 扩展蓝
+        "#A18CFF", // 5 扩展紫
+        "#72D4D1", // 6 扩展青
+        "#9CB8FF", // 7 浅蓝灰
+        "#B6A7FF", // 8 浅紫灰
+    ];
+    export function usage_color(idx: number): string {
+        const n = USAGE_COLORS.length;
+        return USAGE_COLORS[((idx % n) + n) % n];
+    }
+    ```
+
+- [x] 重写用量条渲染逻辑（无独立 `UsageBarRow.tsx`，已在 `ProviderCard.tsx` / `ProviderAccountRow.tsx` 等价实现）：
+    - 删除 `color?: "blue" | "purple"` prop
+    - 删除 `danger_threshold` prop 和 `is_danger` 逻辑
+    - 新增 `idx` 参数，从 `usage_color(idx)` 取色
+    - `style.background` 设为纯色 hex，删除 CSS class 控制
+    - 支持分数模式（见 27.3）
+    - 检测 `value == null` 支持空用量条（见 27.4）
+
+- [x] 修改 `ProviderCard.tsx` 的 `render_bar_row()`：
+    - 删除 `period_fill_class(name)` 函数
+    - 删除 `danger` / `is_danger` 逻辑
+    - 每次调用传 `idx` 参数（在 overview 和 account detail 循环中递增计数）
+    - 渲染器组件改为 `UsageBarRow` 或直接在 JSX 中用 `usage_color(idx)`
+
+- [x] 修改 `ProviderAccountRow.tsx`：
+    - 同 ProviderCard，删除 `period_fill_class`，使用 `idx` + `usage_color`
+
+- [x] `globals.css` 改动：
+    - 删除 `.fill.blue` / `.fill.purple` / `.fill.danger` 规则（两段重复定义都删）
+    - 新增 `--bar-track: #e9edf5`（浅色主题）和 `--bar-track: #2b313c`（深色主题）
+    - `.track` 的 `background` 改为 `var(--bar-track)`（替换 `var(--track)`）
+    - `.fill` 删除所有 class 选择器，只保留基础样式（`height`, `border-radius`, `transition`）
+
+- [x] 新增 `usage-colors.test.ts`：验证 8 色循环正确性、idx 越界、负数取模。
+
+- [x] 更新 `UsageBarRow.test.tsx`（或 `provider_card.test.tsx`）：验证颜色来自位置而非类型，验证纯色非渐变。
+
+### 27.2 用量条数值居中对齐（P0）
+
+**来源**：chat27（用量条数字对齐）
+
+**现状**：`.bar-pct { text-align: right; }`（globals.css 两处定义）
+
+**Demo 规则**：`.bar-pct { text-align: center; }`
+
+**任务**：
+
+- [x] `globals.css` 中所有 `.bar-pct` 定义的 `text-align` 从 `right` 改为 `center`
+- [x] 同步删除重复的 `.bar-pct` 定义块（globals.css 存在两段相同的 `.bar-row` / `.bar-pct` / `.bar-reset`）
+- [x] 更新相关测试中断言对齐方式的断言
+
+### 27.3 分数/ratio 指标显示支持（P0）
+
+**来源**：chat25（余额统计重组）
+
+**现状**：
+
+- `UsageBarRow.tsx` 只有百分比模式：`fill_pct` + `value` 显示 text。
+- `ProviderCard.tsx` 的 `render_bar_row()` 始终显示 `percent%`。
+- `plugin-output.ts` 已有 `displayStyle: "percent" | "ratio"`，但 renderer 未使用。
+
+**Demo 规则**：
+
+- 有 `max` 时显示为 `value/max` 分数格式（如 `95/1000`、`52/100`）
+- 分数行不显示 reset 时间列
+- 分数值与百分比值在同一列内对齐（demo 用 `text-align: center` 实现）
+
+**任务**：
+
+- [x] 用量条渲染逻辑支持分数模式（无独立 `UsageBarRow.tsx`，已在卡片渲染处等价实现）：
+    - `max != null` 时为分数模式：显示 `value/max`，进度条宽度 = `(value/max)*100%`
+    - 分数模式下隐藏 reset 列
+    - 与百分比模式共享同一 grid，reset 列留空
+
+- [x] `globals.css` 新增 `.bar-row.frac` 规则：
+
+    ```css
+    .bar-row.frac {
+        grid-template-columns: 42px 1fr 64px 76px;
+    }
+    ```
+
+    （与百分比行同 grid，确保数值列对齐）
+
+- [x] 修改 `ProviderCard.tsx` 的 `render_bar_row()`：
+    - 根据 `period.displayStyle === "ratio"` 传 `max` prop
+    - ratio 模式下不显示 reset 时间
+    - `value` 传 `period.used`，`max` 传 `period.limit`
+
+- [x] 修改 `ProviderAccountRow.tsx`：同上处理 ratio 行
+
+- [x] 更新测试：新增 ratio 模式断言（显示 `value/max`、无 reset 列）
+
+### 27.4 空用量条支持（P1）
+
+**来源**：chat27（用量条数字对齐，MiniMax 第一条留空）
+
+**现状**：不支持 `null` 值。`percent()` 函数返回 0，渲染一个 0% 宽度的进度条和 `0%` 数字。
+
+**Demo 规则**：`value == null` 时：
+
+- 进度条不渲染填充（宽度 0）
+- 不显示数字
+- 不显示刷新时间
+
+**任务**：
+
+- [x] 用量条渲染逻辑处理 `value == null`（无独立 `UsageBarRow.tsx`，已在卡片渲染处实现）：
+    - `fill_pct` 设为 0
+    - 数字显示为空字符串
+    - reset 显示为空字符串
+
+- [x] 修改 `ProviderCard.tsx` / `ProviderAccountRow.tsx`：
+    - 当插件返回的 period 数据中 `used` 为 null/undefined（代表从未使用）时，传 `null` 给用量条渲染逻辑
+
+- [x] 更新测试：新增 `value == null` 断言（空条、无数字、无 reset）
+
+### 27.5 CSS 死代码清理（P1）
+
+**来源**：chat24（代码清理检查）
+
+**现状**：`globals.css` 包含 demo 已删除的样式：
+
+- `.app-badge`（第 143–155 行）— demo 用 logo 图片替代
+- `.aa-badge`（第 1647–1658 行）— about 面板改用 logo
+- `.tray-win-tag`（第 2523–2528 行）— 未使用
+- `.fill.blue` / `.fill.purple` / `.fill.danger`（两段重复定义，由 27.1 删除）
+- `.bar-pct.danger` — 由 27.1 删除
+- `.bars` / `.bar-row` / `.bar-pct` / `.bar-reset` 重复定义块（约第 1914–1970 行）
+
+**Demo 已删除**：
+
+- `icons.jsx`：`clock`、`warn`、`key`、`clipboard` 图标
+- `ma.css`：`.ma-window`、`.avg-badge`、`.acct-toggle`（指向不存在的 `ma-states.jsx`）
+
+**任务**：
+
+- [x] `globals.css` 删除：
+    - `.app-badge` 规则（`TitleBar` 已用 `img.app-logo`，不使用 badge div）
+    - `.aa-badge` 规则（about 页改用 logo）
+    - `.tray-win-tag` 规则（未引用）
+    - 第二段重复的 `.bars` / `.bar-row` / `.fill` / `.bar-pct` / `.bar-reset` 定义块
+    - `.bar-pct.danger` 规则
+    - `.fill.blue` / `.fill.purple` / `.fill.danger` 规则
+
+- [x] `Icon.tsx` / 图标系统：确认 `clock`、`warn`、`key`、`clipboard` 未被项目代码引用。如已无引用则删除对应 SVG 定义。
+
+- [x] 全局搜索确认删除不影响其他文件：`grep -r "app-badge\|aa-badge\|tray-win-tag\|fill\.blue\|fill\.purple\|fill\.danger"`
+
+- [x] `pnpm test` 验证删除不破坏任何测试
+
+### 27.6 文档同步
+
+- [x] 更新 `docs/spec.md`：记录用量条颜色系统、分数指标、空用量条设计规则
+- [x] 更新 `docs/demo-alignment.md`：每项标记已实现
+- [x] 更新 `TASKS.md`：本 Phase 各项打勾
+
+### 验收标准
+
+1. 用量条颜色按位置分配（`idx % 8`），纯色填充，无渐变，无 red danger 态。
+2. 数字列居中对齐（百分比和分数在同一列内）。
+3. 分数指标（余额、MCP）显示 `value/max`，无 reset 列。
+4. 空用量条（`value == null`）不渲染填充、数字、reset。
+5. CSS 无死代码（`.app-badge`、`.aa-badge`、`.tray-win-tag`、重复定义块已删除）。
+6. `globals.css` 无重复选择器定义块。
+7. `pnpm test` 全部通过。
+8. UI 手工点击验收：Gemini 多条、DeepSeek 余额、GLM+MCP、MiniMax 空条。
+9. `pnpm package` 后打包产物验收通过。
+
+## Phase 28: 新发现问题记录
+
+### 背景
+
+用户反馈以下问题，已在 Phase 28 中处理。
+
+### 28.1 深色模式托盘菜单
+
+- [x] 深色模式下，右键系统托盘菜单没有跟随主题变为深色。
+
+### 28.2 CPA 数据账号聚类
+
+- [x] CPA 返回用量数据时，需要按账号名聚类为账号列表。
+- [x] 示例：CPA 返回 5 个 Codex 账号、共 10 条用量数据时，UI 应显示为 5 个账号，每个账号下归并对应用量条。
+
+### 28.3 用量条标签简化
+
+- [x] 用量条前面的文字不要显示完整长名称，只显示简短周期/指标名，例如 `5小时`、`一周`、`MCP` 等。
+
+---
+
+## Phase 30: 主面板账号级操作修正
+
+### 背景
+
+用户反馈主面板内账号行的操作语义不对：点击编辑没有打开对应账号设置，点击关闭没有关闭对应账号面板，点击删除也删不掉。排查结论：当前主面板的“编辑 / 关闭 / 删除”菜单是 **provider 级**操作，位于 `ProviderCard`；账号明细行 `ProviderAccountRow` 只有折叠和拖拽能力，没有账号级编辑、关闭、删除 handler。CPA 账号来自插件输出和 CPA-Manager，不是 OmniUsage 本地配置里的独立账号实体，因此不能把 provider 级删除当作账号删除。
+
+### 核心原则
+
+1. 区分 provider 级操作与 account 级操作，UI 文案和行为不能混用。
+2. CPA 来源账号不能假装执行远端删除；除非 CPA-Manager 提供真实删除 API，否则“删除”只能是本地隐藏/移除显示。
+3. 直接添加账号可以删除本地插件配置；CPA 来源账号只做隐藏/关闭/重新显示。
+4. 编辑必须带目标上下文，不能只打开通用设置窗口。
+5. 所有操作都必须有可验证的配置变更、UI 变更和日志/IPC 证据。
+
+### 30.1 账号身份模型
+
+- [x] 明确账号级稳定 key 生成规则，复用当前聚合后的 `ProviderUsageAccount.id`，但必须确认刷新后稳定。
+- [x] CPA 账号 key 必须包含足够信息避免冲突：`sourceInstanceId` + provider + accountId/accountLabel。
+- [x] 直接插件账号 key 必须能映射回对应 `PluginConfiguration.instanceId`。
+- [x] 文档中明确：`account.accountId` 是上游账号标识，`account.id` 是 UI/配置使用的稳定 key。
+- [x] 增加单元测试覆盖同名账号、不同 provider、不同 sourceInstanceId 时 key 不冲突。
+
+### 30.2 配置数据结构
+
+- [x] 在应用配置中新增账号级本地状态，例如：
+
+    ```ts
+    accountOverrides?: {
+        hidden?: Record<UsageProvider, string[]>;
+        disabled?: Record<UsageProvider, string[]>;
+    };
+    ```
+
+- [x] `hidden` 表示从主面板移除显示；用于 CPA 来源账号的”删除/隐藏”。
+- [x] `disabled` 表示保留显示但不参与刷新/聚合，或按最终 UI 决策隐藏禁用账号；不得影响同 provider 下其他账号。（已实现：disabled 与 hidden 同效，从面板移除）
+- [x] 配置迁移要兼容旧配置，缺字段时按空对象处理。
+- [x] 保存时只改目标账号 key，不改整个 provider，不删除无关插件。
+- [x] secret 不写入该结构，不进入日志。
+
+### 30.3 主面板账号菜单
+
+- [x] `ProviderAccountRow` 新增账号级菜单入口，不复用 `ProviderCard` 的 provider 菜单。
+- [x] `ProviderAccountRow` props 增加：
+    - `onEditAccount(account)`
+    - `onToggleAccountDisabled(account)`
+    - `onHideOrDeleteAccount(account)`
+    - `accountDisabled` / `accountHidden` 或等价状态
+- [x] `ProviderAccountList` 负责把账号对象和 handler 逐层传下去。
+- [x] `PopupView` 负责实现账号级 handler，并调用 `window.usageboard.config.get/save`。
+- [x] 菜单文案按来源区分：
+    - CPA 来源：`编辑` / `关闭` 或 `启用` / `隐藏`
+    - 直接添加：`编辑` / `关闭` 或 `启用` / `删除`
+- [x] 点击账号菜单项必须 `stopPropagation()`，不能误触发折叠、拖拽或 provider 展开。
+- [x] 账号菜单关闭逻辑与 provider 菜单一致：点击外部关闭、Escape 关闭。
+
+### 30.4 编辑账号定位
+
+- [x] 扩展 settings 打开 IPC，支持带上下文打开：`settings.open({ instanceId, provider, accountId })` 或等价参数。
+- [x] 主进程 settings IPC 需要把目标上下文传给设置窗口；如果窗口已存在，则聚焦并发送定位事件。
+- [x] `SettingsView` 收到上下文后定位对应账号：
+    - 直接添加账号：打开对应插件的编辑弹窗。
+    - CPA 来源账号：进入 CPA Manager 数据源详情页，并滚动/高亮对应发现账号。
+- [x] 找不到目标账号时，不静默失败；应打开设置页并显示可理解提示或日志。
+- [x] 编辑 CPA 来源账号时明确边界：OmniUsage 只能改本地显示/监控配置，不能改 CPA-Manager 远端账号属性，除非远端 API 支持。
+
+### 30.5 关闭账号行为
+
+- [x] 账号级关闭只影响目标账号，不影响同 provider 下其他账号。
+- [x] CPA 来源账号关闭不能写 `monitor_provider=false`，因为那会关闭整个 provider。
+- [x] 直接添加账号关闭可以映射到对应 plugin `enabled=false`，但只限单账号插件。
+- [x] 主面板渲染前应用账号级 disabled 状态：
+    - 若产品决策为隐藏禁用账号，则过滤掉该账号。
+    - 若产品决策为保留禁用卡片，则显示灰态并停止刷新/聚合。
+- [x] 概览聚合必须排除已关闭账号，避免关闭账号仍影响 provider 总览用量。
+- [x] 关闭后必须可重新启用；设置页也能看到并恢复。
+
+### 30.6 删除 / 隐藏账号行为
+
+- [x] CPA 来源账号菜单文案优先用”隐藏”，不要写成会误解为远端删除的”删除”。
+- [x] CPA 隐藏只写入本地 `hidden` account override，不调用不存在的远端删除。
+- [x] 直接添加账号删除才删除本地 plugin config，并同步删除对应 secret/cache（如现有删除链路支持）。
+- [x] 删除/隐藏前需要确认弹窗，至少对不可恢复的直接删除必须确认。（已实现直接删除的 confirm 弹窗）
+- [x] 隐藏后的 CPA 账号必须能在设置页”已发现账号”中重新显示。
+- [x] 删除/隐藏后 provider 如果没有剩余可见账号，主面板应显示空态或移除该 provider tab，不能留下空壳。
+
+### 30.7 数据流与刷新
+
+- [x] `derive_provider_usage_groups` 或其调用方需要应用 account overrides，确保主面板、provider 概览、账号 tab 使用同一过滤结果。
+- [x] 账号级 disabled/hidden 变更后触发 UI 状态刷新，不需要等下一轮插件刷新。
+- [x] 对 CPA 数据，插件仍可返回全部账号；过滤发生在 renderer/config 层，避免改插件协议。
+- [x] 对直接插件删除，删除后要停止 scheduler 对应实例，避免后台继续刷新已删除账号。
+- [x] 日志增加必要证据：账号级操作开始、目标 key、结果；不要记录 secret 或完整敏感 key。
+
+### 30.8 测试
+
+- [x] `provider_account_row.test.tsx`：账号菜单显示正确文案，点击菜单项调用账号级 handler，点击不触发折叠。
+- [x] `provider_account_list.test.tsx` 或现有视图测试：handler 传递的是目标账号，不是 provider。
+- [x] `popup_view.test.tsx`：CPA 账号关闭只影响该账号，不关闭整个 Gemini/Claude provider。
+- [x] `popup_view.test.tsx`：CPA 账号隐藏后从主面板移除，其他账号仍显示，概览聚合排除隐藏账号。
+- [x] `popup_view.test.tsx`：直接添加账号删除会删除对应 plugin config。
+- [x] `settings_view.test.tsx`：带 account context 打开后定位/高亮对应账号或打开编辑弹窗。
+- [x] E2E：在打包产物中手工验证编辑、关闭、隐藏/删除三条路径。
+- [x] 每项完成前跑 `pnpm test`；涉及 UI 的项必须手工点击；最终需要 `pnpm package` 后启动打包产物验证。
+
+### 30.9 文档同步
+
+- [x] 更新 `docs/spec.md`：记录 provider 级操作和 account 级操作的区别。
+- [x] 更新 `docs/spec.md`：记录 CPA 来源账号”隐藏”不是远端删除。
+- [x] 更新 `docs/test.md`：补账号级编辑、关闭、隐藏/删除的手工验收步骤。
+- [x] 更新相关 demo 差异文档，避免继续把 provider 菜单误写成账号菜单。
+
+### 验收标准
+
+1. 主面板账号行有独立账号级菜单。
+2. 点击账号编辑能打开设置并定位到对应账号。
+3. 点击账号关闭只影响该账号，不影响同 provider 下其他账号。
+4. 点击 CPA 来源账号隐藏后，该账号从主面板消失，并可在设置页恢复。
+5. 点击直接添加账号删除后，对应本地插件配置被删除。
+6. 概览聚合不包含 disabled/hidden 账号。
+7. 日志能证明账号级操作链路执行成功，且不泄露 secret。
+8. `pnpm test` 通过。
+9. UI 手工点击验收通过。
+10. `pnpm package` 后打包产物验收通过。
+
+---
+
+## Phase 32: 刷新期间 provider 丢失上次成功数据
+
+> 发现时间：2026-06-06 | 优先级：P0 | 状态：已修复
+
+### BUG：CPA 刷新数据时 Claude / Codex 等显示未登录无数据
+
+用户反馈：CPA 刷新数据时，Claude、Codex 等 provider 会短暂或持续显示“未登录 / 无数据”。
+
+### 排查结论
+
+根因不是 CPA 真实未登录，也不是 CPA cache 缺失，而是公共刷新状态模型会在刷新中清空 renderer 可见数据。
+
+证据：
+
+- `src/main/core/scheduler/refresh-service.ts` 刷新前调用 `runtimeStore.updateState(instanceId, { status: "loading" })`。
+- `src/main/core/scheduler/runtime-store.ts` 的 `updateState` 是整包替换，不保留旧 `items`。
+- `src/main/ipc/helpers.ts` 把 loading DTO 转成 `{ status: "loading" }`，不带 `items` / `updatedAt`。
+- `src/renderer/lib/provider-usage.ts` 聚合 provider 时只接受 `connector.snapshot.status === "ready"`。
+- 本机日志确认 CPA connector 先广播 loading，约 2.3 秒后才广播 ready 22 items；这段时间 provider 聚合里没有 Claude / Codex / Gemini 的 CPA 数据。
+- 本机 cache 确认 CPA state 有 22 条，上次成功数据存在，provider 包含 `claude` / `codex` / `gemini`。
+
+### 影响范围
+
+这是所有数据源共享的问题，不只 CPA。
+
+- 单 provider 数据源：表现为单卡刷新期间短暂空态、错误态或“重新登录”感。
+- CPA 多 provider connector：一个 connector 承载 Claude / Codex / Gemini 等多个 provider，所以 loading 清空后多个 provider 同时从聚合结果消失，用户感知最明显。
+- 失败路径已有 `lastSuccess`，但 loading 路径没有；刷新中仍会丢旧数据。
+
+### 建议修法
+
+优先修公共状态模型，不对 CPA 特判。
+
+- loading 状态保留上次成功快照：`loading + lastSuccess` 或 DTO 直接带旧 `items` / `updatedAt`。
+- renderer 聚合时把“有 lastSuccess 的 loading/failed”当作可显示数据，UI 同时显示“刷新中”或错误提示。
+- 失败时继续显示上次成功数据，不让 provider 变成空态；错误只作为附加状态展示。
+- 测试覆盖公共插件刷新：`ready -> loading` 期间 provider 不消失；`ready -> failed(lastSuccess)` 期间 provider 不消失。
+- 再补 CPA 多 provider 用例：CPA loading 期间 Claude / Codex / Gemini 卡片和账号明细仍显示上次成功数据。
+
+### 待修项
+
+- [x] 确认是刷新中的 loading 状态覆盖了 provider 聚合结果，不是 stale cache 缺失。
+- [x] 确认 Claude / Codex 等 provider 在 CPA 刷新期间会因 CPA connector 非 ready 被误判为空 provider。
+- [x] 确认刷新失败或刷新中应继续显示上次成功数据。
+- [x] 修公共刷新状态模型，loading/failed 保留 last success 可显示数据。
+- [x] 修插件返回 `success:false` 的失败路径，避免从 loading 保留数据切到 failed 后又丢失 last success。
+- [x] 补测试覆盖刷新期间 provider 不应显示“未登录 / 无数据”。
+
+## Phase 33: 账号管理按钮语义错位 + Phase30 假验收
+
+> 发现时间：2026-06-06 | 优先级：P0 | 状态：已修复
+
+### BUG：账号面板关闭 / 编辑 / 删除等按钮看起来无效或作用对象错误
+
+用户反馈：账号面板上的关闭、编辑、删除等按钮无效。追溯后确认不是单个按钮没绑定，而是账号级管理语义和实际实现错位。
+
+### 排查结论
+
+Phase 30/31 做过相关工作，但没有完成真实账号级管理闭环；`TASKS.md` 里把部分能力勾成完成，属于假验收。
+
+证据：
+
+- 主面板账号行菜单有绑定：`ProviderAccountRow.tsx` 会调用 `onEditAccount` / `onHideOrDeleteAccount`。
+- `PopupView.tsx` 的编辑只打开设置窗口并传 `instanceId/provider/accountId`，没有保证进入真实账号编辑表单。
+- `PopupView.tsx` 的 CPA 账号操作只写 `accountOverrides.hidden`，不是账号级关闭；非 CPA 才删除整个 plugin。
+- 设置页“账号管理”把 CPA connector 按 provider 拆成多行，但每行仍操作同一个 CPA `instanceId`。
+- 设置页 Toggle 实际写的是 `plugin.enabled = false`，会关闭整个 CPA connector，不是关闭某个 provider 或账号。
+- CPA 行删除按钮不渲染，所以用户看到的“删除/关闭/编辑”语义不一致。
+- 当前 `apply_account_overrides()` 已过滤 `hidden` 和 `disabled`，但历史 Phase 30 初始实现主要只落了 hidden；真正 disabled 写入与 UI 行为没有闭环。
+
+### 历史问题
+
+Phase 30 的验收口径过弱，导致“按钮存在 / 回调触发”被当成“账号管理可用”。
+
+- `provider_account_row.test.tsx` 只测菜单显示、文案、点击调用 handler、点击不触发折叠。
+- `account_operations.spec.ts` 只测账号菜单按钮存在、编辑可打开设置窗口、直接账号菜单有“删除”文本。
+- Phase 31 修了 popup preload 权限，但 `preload_routes.spec.ts` 只测 popup 暴露 `config.save` 等 API key。
+- E2E 没有验证点击隐藏/删除/关闭后 config 是否变化，也没有验证 UI 是否真的移除或禁用目标账号。
+- 这些测试能防“按钮完全没渲染”，不能证明业务功能生效。
+
+### 影响范围
+
+- CPA 多 provider / 多账号场景最严重：UI 露出的是账号或 provider 行，实际保存的是 connector 级 enabled 或 hidden override。
+- 用户点击关闭时，可能关闭整个 CPA 数据源，而不是目标账号。
+- 用户点击编辑时，可能只是打开设置窗口或 CPA connector 设置，不是目标账号编辑。
+- 用户点击删除时，CPA 没有真实删除；只能隐藏，且 UI 文案/入口需要明确。
+- 非 CPA 直接账号删除路径较接近真实删除，但仍缺少 E2E 验证保存结果和刷新后 UI 结果。
+
+### 建议修法
+
+先定义清楚三类动作，不要再混用“账号管理”和“数据源管理”。
+
+- 数据源/connector 管理：启用、关闭、删除 plugin instance。
+- 账号级隐藏：对 CPA 这类聚合来源隐藏某个 account key；文案用“隐藏”，不要叫删除。
+- 账号级关闭：写入 `accountOverrides.disabled`，provider 聚合和刷新展示都按 account key 精确过滤或标记禁用。
+- 设置页把“数据源管理”和“账号级管理”分区；CPA provider 行不能再用同一个 connector toggle 伪装成账号关闭。
+- 主面板和设置页共用同一套 account key 规则，尤其 CPA 使用 `sourceInstanceId:label:accountLabel`。
+- 所有保存失败必须有可见反馈，不能 `void save_config(...)` 后静默失败。
+
+### 测试要求
+
+后续修复必须测真实业务结果，不能只测 DOM 或回调。
+
+- 点击 CPA 账号隐藏后，验证 config 写入 `accountOverrides.hidden`，目标账号从 UI 消失，其他 CPA provider/账号仍保留。
+- 点击账号关闭后，验证 config 写入 `accountOverrides.disabled`，目标账号禁用状态生效，且不是关闭整个 connector。
+- 点击非 CPA 删除后，验证 config 删除目标 plugin，UI 刷新后账号消失。
+- 点击编辑后，验证打开的是目标 `instanceId/provider/accountId` 对应的真实编辑路径，不只是 settings window 存在。
+- preload/route 测试必须执行一次真实 `config.save`，不能只检查 API key 存在。
+- mock 必须按窗口路由收敛权限，避免再出现测试环境比真实环境权限更大的假通过。
+
+### 类似提交线索
+
+确认同型：
+
+- `68c537e feat: 主面板账号级操作（隐藏/删除/编辑菜单）`：实现了菜单和部分 hidden/delete/edit，但没有完整 disabled 闭环。
+- `ef4be5b feat: Phase 30 完善 — settings navigate IPC + disabled 过滤 + 确认弹窗`：补了 disabled 过滤和 settings navigate，但设置页 CPA toggle 仍是 connector 级操作。
+- `8f2a353 feat: Phase 30 收尾 — 隐藏账号恢复 + accounts E2E + 文档同步`：E2E 新增的是菜单存在、编辑打开 settings window；没有测 config/UI 真实业务结果。
+- `4ce6ee6 fix: Phase 31 — preload 路由修复 + 测试对齐`：修了 popup `config.save` 权限，但 E2E 只新增“删除”菜单项可见和 API key 存在测试，仍不能证明删除/隐藏/关闭生效。
+
+疑似弱验收：
+
+- `10eae89 docs: 标记 Phase 24 全部完成` 把 CPA 详情页字段完整、测试连接、保存并同步、UI 手工点击验收写为完成。
+- 但前一个测试提交 `7d7f7d9 test: Phase 24 测试更新` 删除了“立即同步调用 refresh”和“同步失败显示错误”的断言，改成只测“移除数据源”按钮存在；这属于测试覆盖倒退。
+- `a51e3ed feat: add ProviderCard tests and mark all Phase 22 items complete` 把拖拽排序、设置持久化、packaged smoke 等勾选为完成，但提交里主要新增 `ProviderCard` 单元测试；其中多项只是 class/menu/文案覆盖，未证明持久化或真实拖拽结果。需后续单独复核。
+
+### 待修项
+
+- [x] 确认按钮不是单纯未绑定，而是账号级语义和实际实现错位。
+- [x] 确认 Phase 30 存在过度勾选：disabled/账号关闭没有真实业务闭环。
+- [x] 确认 Phase 31 只修了 preload 权限和弱 E2E，仍未验证真实隐藏/删除/关闭结果。
+- [x] 重新设计账号级 hidden / disabled / delete 的准确语义。
+- [x] 修设置页账号管理，不再把 CPA connector toggle 当账号关闭。
+- [x] 修主面板账号操作保存失败的可见反馈。
+- [x] 补真实业务测试：CPA 隐藏写入 `accountOverrides.hidden`，账号关闭写入 `accountOverrides.disabled`，非 CPA 删除移除 plugin config，保存失败显示可见反馈。
+
+## Phase 35: 厂商标签页 UI 缺陷
+
+> 发现时间：2026-06-06 | 优先级：P1 | 状态：待修
+
+### BUG 1：账号行仍显示"N个周期"
+
+用户之前要求关闭"窗口统计"（Phase 29.2），commit `30d5ca1` 把"N个窗口"改成了"N个周期"，但没有删除这行。
+
+**位置**：`src/renderer/components/ProviderAccountRow.tsx:98`
+
+```tsx
+<div className="rel-time">{account.periods.length}个周期</div>
+```
+
+**根因**：`30d5ca1 refactor: 数据模型重命名 windows→periods + 卡片重构 (26.6/26.10)` 提交时做了文字替换 `{account.windows.length} 个窗口` → `{account.periods.length}个周期`，但没有按 Phase 29.2 规则移除这行。
+
+Phase 29.2 已明确：
+
+- 不存在"两个周期""三个周期""八个周期"这种产品设定
+- 不新增任何专门显示"有几个周期"的前端元素
+- 用量条数量完全来自插件返回的真实数据
+
+**修复**：删除 `ProviderAccountRow.tsx:98` 这行。`rel-time` 位置可改为显示刷新时间（见 BUG 2）。
+
+### BUG 2：厂商标签页账号行缺少刷新时间
+
+**现象**：
+
+- 总览页（overview tab）：`ProviderCard` 的 `render_account_detail()` 在 `ProviderCard.tsx:448` 有 `<span className="ai-time">{account.updatedAt ? relative_time(account.updatedAt) : ""}</span>`，能看到每个账号的刷新时间。
+- 厂商标签页（provider tab）：使用 `ProviderAccountList` → `ProviderAccountRow`，`ProviderAccountRow` 的 header 里没有显示 `account.updatedAt`，只有 `N个周期`。
+
+**位置**：`src/renderer/components/ProviderAccountRow.tsx:100`
+
+**根因**：`ProviderAccountRow` 是标签页的账号行组件，但设计时只放了周期数量，没放刷新时间。而总览页用的是 `ProviderCard` 内部的 `render_account_detail()`（`ProviderCard.tsx:437-464`），两套组件各自独立实现，导致数据展示不一致。
+
+**数据流**：
+
+- `PopupView.tsx:735-756`：overview tab → `ProviderOverview` → `ProviderCard`（有 `relative_time(account.updatedAt)`）
+- `PopupView.tsx:763-718`：provider tab → `ProviderAccountList` → `ProviderAccountRow`（无 `updatedAt` 显示）
+
+**修复**：`ProviderAccountRow` header 里把 `N个周期` 替换为 `relative_time(account.updatedAt)`，或在适当位置增加刷新时间。
+
+### 为什么测试没发现
+
+`provider_account_row.test.tsx` 全部 7 个测试只验证菜单交互（按钮存在、文案、handler 调用、不触发折叠）。**没有一个测试检查 header 渲染了什么文本**。`N个周期` 和缺少刷新时间都不会被测试发现。
+
+延续 Phase 34 记录的弱验收模式——测试只验交互行为，不验展示内容。
+
+### 为什么搞两套组件：功能重复
+
+|            | 总览页（overview tab）                          | 厂商标签页（provider tab）                   |
+| ---------- | ----------------------------------------------- | -------------------------------------------- |
+| 组件链     | `ProviderOverview` → `ProviderCard`             | `ProviderAccountList` → `ProviderAccountRow` |
+| 账号行渲染 | `ProviderCard.render_account_detail()` 内联 JSX | `ProviderAccountRow` 独立组件                |
+| 刷新时间   | 有                                              | **没有**                                     |
+| 用量条     | `render_bar_row()` 内联函数                     | `ProviderAccountRow` 内自己的渲染            |
+| 拖拽       | 支持                                            | 支持                                         |
+| 菜单       | 无（菜单在 provider 卡片头）                    | 有（账号级菜单）                             |
+
+两者渲染**完全相同的数据模型**（`ProviderUsageAccount`），UI 布局基本一样（账号名 + 用量条列表），区别只是拖拽手柄和账号级菜单的有无。
+
+**历史原因**：`30d5ca1`（Phase 26.6/26.10）"单账号扁平化"把 `ProviderAccountRow` 从总览页移除，总览改用 `ProviderCard` 内联渲染；但标签页仍在用 `ProviderAccountRow`。两套代码各自演化，展示内容分叉。
+
+### 待修项
+
+- [x] **35.1 提取通用账号行组件**：`ProviderAccountRow` 和 `ProviderCard.render_account_detail()` 合并为一套组件，拖拽和菜单作为可选 props，总览页和标签页共用
+- [x] **35.2 删除"N个周期"**：通用组件里不显示周期数量
+- [x] **35.3 补刷新时间**：通用组件显示 `relative_time(account.updatedAt)`
+- [x] **35.4 补展示内容测试**：测试验证 header 渲染了刷新时间、没有"N个周期"、用量条数量来自真实数据
+- [x] **35.5 删除 `ProviderCard.render_account_detail()` 内联代码**，改用通用组件
+- [x] **35.6 `pnpm test` 全部通过**
+
+### 关联
+
+- Phase 29.2 定义了"不存在周期数量设定"规则，但 `30d5ca1` 违反了这条规则
+- Phase 34 弱验收模式：`provider_account_row.test.tsx` 只验交互不验展示
+- 两个渲染路径（总览 vs 标签页）用不同组件，同一数据展示不一致
