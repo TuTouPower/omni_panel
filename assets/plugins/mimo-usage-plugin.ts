@@ -124,7 +124,7 @@ definePlugin(
                 name: label,
                 used: item.used,
                 limit: item.limit,
-                displayStyle: "ratio" as const,
+                displayStyle: "percent" as const,
                 ...(resetAt && { resetAt }),
                 status: statusFor(item.used, item.limit),
                 color: colorFor(item.used, item.limit),
