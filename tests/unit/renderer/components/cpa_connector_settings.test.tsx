@@ -226,6 +226,7 @@ describe("CpaConnectorSettings", () => {
         renderSettings({
             onSave,
             config: {
+                enabled: true,
                 endpointOverrides: { default: "http://cpa.example" },
                 parameterValues: {
                     cpa_mgmt_key: "leaked-secret",

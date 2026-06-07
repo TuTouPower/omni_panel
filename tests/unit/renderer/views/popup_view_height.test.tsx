@@ -163,6 +163,7 @@ describe("PopupView collapse + height report", () => {
                 toggle_autostart: vi.fn(),
                 open_settings: vi.fn(),
                 check_update: vi.fn(),
+                restart: vi.fn(),
                 quit: vi.fn(),
                 hide: vi.fn(),
                 report_menu_size: vi.fn(),

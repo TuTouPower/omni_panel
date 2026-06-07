@@ -6,7 +6,10 @@ const config_get = vi.fn();
 const config_save = vi.fn().mockResolvedValue(undefined);
 const config_save_secrets = vi.fn().mockResolvedValue(undefined);
 const config_duplicate = vi.fn().mockResolvedValue(undefined);
-const on_config_change = vi.fn(() => vi.fn());
+const on_config_change = vi.fn((callback: (config: AppConfiguration) => void) => {
+    void callback;
+    return vi.fn();
+});
 
 const base_config: AppConfiguration = {
     schemaVersion: 1,

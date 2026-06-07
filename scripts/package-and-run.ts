@@ -49,12 +49,15 @@ function wait_for_exit(max_ms = 5000): void {
             log("all OmniUsage processes exited");
             return;
         }
-        execSync("timeout /t 1 /nobreak >nul 2>&1 || sleep 1", { shell: true, stdio: "pipe" });
+        execSync("timeout /t 1 /nobreak >nul 2>&1 || sleep 1", {
+            shell: is_win ? "cmd.exe" : "/bin/sh",
+            stdio: "pipe",
+        });
     }
     log("warning: OmniUsage still running after timeout, forcing kill");
     try {
         execSync("taskkill /f /t /im OmniUsage.exe 2>nul || pkill -9 -f OmniUsage", {
-            shell: true,
+            shell: platform() === "win32" ? "cmd.exe" : "/bin/sh",
             stdio: "pipe",
         });
     } catch {
