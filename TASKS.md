@@ -4,6 +4,264 @@
 
 ---
 
+## 待修：主面板 Provider 菜单编辑 / 关闭 / 删除反馈无效
+
+### 背景
+
+用户在打包产物主面板点击 provider 卡片右上角菜单里的「编辑 / 关闭 / 删除」后，界面看起来无效。之前已有相关提交：
+
+- `68c537e feat: 主面板账号级操作（隐藏/删除/编辑菜单）`
+- `24b9dbd fix: complete account disable actions`
+
+但这两个提交主要覆盖**账号级菜单**和部分账号操作，当前问题还存在于**主面板 provider 级菜单**与配置变更后的前端刷新链路。
+
+### 已观察事实
+
+本机日志 `C:\Users\TestUser\AppData\Roaming\OmniUsage\logs\app-2026-06-07.log` 显示，点击后不是完全没有触发：
+
+```text
+[2026-06-07T02:31:10.305Z] [DEBUG] [ipc:config] config:get called
+[2026-06-07T02:31:10.308Z] [DEBUG] [ipc:config] config:save called
+[2026-06-07T02:31:10.310Z] [DEBUG] [config-store] Config saved ... (7 plugins)
+[2026-06-07T02:31:10.310Z] [INFO] [main] Config saved — rebuilding scheduler and secret keys
+[2026-06-07T02:31:10.311Z] [INFO] [orchestrator] startAll: 4 plugins
+[2026-06-07T02:31:10.311Z] [INFO] [ipc:config] Config saved: 7 plugins
+```
+
+这说明「关闭 / 删除」至少已经进入保存配置路径，并触发 scheduler rebuild。用户感知的“无效”更可能是**当前 popup 前端没有同步刷新插件列表 / 配置状态**，而不是点击事件完全没执行。
+
+### 当前代码线索
+
+- `src/renderer/components/ProviderCard.tsx` provider 级菜单：
+    - 「编辑」只调用 `window.usageboard.settings.open()`，没有传 `instanceId/provider/accountId`，所以只能打开设置，不能定位到具体账号。
+    - 「关闭」调用 `onToggleDisable(provider)`。
+    - 「删除」调用 `onDelete(provider)`。
+- `src/renderer/views/PopupView.tsx`：
+    - `toggle_disable_provider()` / `delete_provider()` 保存配置后，没有主动重拉 `plugin.list()`。
+    - `use_plugins()` 只在 mount 时加载插件列表；之后只监听 `onStateChange` 更新 snapshot，不监听 config/plugin list 变化。
+    - 结果：配置已保存、scheduler 已 rebuild，但当前主面板仍拿旧 `plugins` state 渲染，看起来像没反应。
+- `src/main/index.ts` settings open：
+    - `SETTINGS_OPEN` 里如果带 context，会立即 `settingsWin.webContents.send(SETTINGS_NAVIGATE, context)`。
+    - 新建 settings 窗口时 renderer 可能尚未注册 `onSettingsNavigate`，事件有丢失风险。
+- `src/renderer/views/SettingsView.tsx`：
+    - `onSettingsNavigate` 收到 context 后只按 `instanceId` 打开编辑弹窗。
+    - provider 级编辑目前没传 context，因此不会定位。
+
+### 待修范围
+
+- [ ] 主面板 provider 级「关闭」保存后，当前 popup 立即反映禁用状态 / provider 消失或灰化（按目标行为确定）。
+- [ ] 主面板 provider 级「删除」保存后，当前 popup 立即移除对应 provider / 账号。
+- [ ] 主面板 provider 级「编辑」应传入足够 context：
+    - 单账号 provider：定位到该账号编辑弹窗。
+    - 多账号 provider：定位到设置账号页对应 provider 分组，或明确进入账号列表让用户选择。
+    - CPA provider：定位到 CPA 数据源详情 / provider scope，而不是无上下文打开设置。
+- [ ] 新建 settings 窗口时，`SETTINGS_NAVIGATE` 不应在 renderer 未 ready 时丢失。
+- [ ] 配置保存后需要有统一通知链路：main 广播 config/plugin-list changed，popup 收到后重拉或更新本地状态。
+
+### 建议修复方向
+
+1. 在 config save 成功后广播配置变更事件，例如 `config:changed`。
+2. preload 暴露 `event.onConfigChange`。
+3. `use_plugins()` 或 `PopupView` 监听 config change 后重拉 `window.usageboard.plugin.list()`，同步 `enabled/activeProviders/plugins`。
+4. `SETTINGS_OPEN` 带 context 时，等 settings window `did-finish-load` 后再发送 navigate；已有窗口则直接发送。
+5. provider 级编辑补上下文策略，并加测试覆盖单账号、多账号、CPA 三类。
+
+### 回归测试要求
+
+- [ ] 单元测试：provider 级关闭调用 config.save 后，popup 重拉 plugin list 或 UI 状态更新。
+- [ ] 单元测试：provider 级删除调用 config.save 后，popup 不再渲染目标 provider。
+- [ ] 单元测试：provider 级编辑传入正确 settings context。
+- [ ] 单元测试：settings navigate 在新窗口 ready 后仍能定位。
+- [ ] E2E：打包产物主面板中点击编辑 / 关闭 / 删除，真实 UI 有可见结果。
+- [ ] 完成前按 `docs/test.md` 跑 `pnpm typecheck`、`pnpm lint`、`pnpm test`；涉及 UI 需手工点击；涉及打包需 packaged smoke。
+
+---
+
+## 待修：主面板拖动按钮无法拖动
+
+### 背景
+
+用户在打包产物主面板点击 / 拖动卡片左侧拖动按钮，无法完成排序。
+
+### 当前代码线索
+
+- `src/renderer/components/ProviderCard.tsx`：拖动按钮 `.card-grip` 只在 `onMouseDown` 时调用 `onDragStart(provider)`。
+- 同文件真正的 HTML5 拖拽属性 `draggable: true` 和 `onDragStart` 挂在外层 `.card` 上。
+- `src/renderer/components/ProviderAccountRow.tsx` 账号拖动也有同类结构：按钮 `onMouseDown`，外层 card 才是 draggable。
+- 这会导致拖动按钮本身看起来可拖，但浏览器实际 dragstart 不一定从父级 draggable card 开始，结果只设置了内部 dragging 状态，没有可靠触发重排。
+
+### 待修范围
+
+- [ ] provider 卡片拖动按钮拖拽必须真实触发排序。
+- [ ] 账号卡片拖动按钮拖拽必须真实触发排序。
+- [ ] 拖动行为不应误触发卡片折叠 / 菜单 / 刷新。
+- [ ] 拖动排序后配置持久化，重启仍保持顺序。
+- [ ] 打包产物中手工验证拖动按钮可用。
+
+### 建议修复方向
+
+1. 把 `draggable` / `onDragStart` 挂到 `.card-grip` 按钮本身，或改成 pointer events 手写拖拽，不要只靠父级 card。
+2. provider 和 account 两套拖动实现保持一致。
+3. 加单元测试覆盖 drag start / drag enter / drag end 后顺序保存。
+4. 加 E2E 覆盖真实用户拖动按钮重排。
+
+---
+
+## 待修：失败 / 无数据 provider 缺少统一折叠按钮
+
+### 背景
+
+用户指出 MiniMax 这种刷新失败或暂时拿不到数据的 provider，右侧也应该显示折叠按钮，样式要和正常 provider 保持统一。
+
+### 当前问题
+
+- 当前失败 / 无数据状态主要走 `ProviderCard.render_state()`，只显示错误或空状态。
+- 失败但仍属于主面板 provider 卡片时，右侧交互按钮和正常有数据卡片不完全一致。
+- 视觉结果是 MiniMax 这类失败卡片缺少统一的折叠 / 展开入口，和 Claude / Codex / Gemini / GLM 等正常卡片不一致。
+
+### 待修范围
+
+- [ ] 失败 provider 也显示统一的右侧折叠 / 展开按钮。
+- [ ] 无数据 provider 也显示统一的右侧折叠 / 展开按钮（如果卡片结构允许展开）。
+- [ ] 折叠后错误 / 空状态内容隐藏或按统一规则收起。
+- [ ] 展开后错误信息、重试入口、更新时间 / 状态显示不丢失。
+- [ ] MiniMax 失败场景加入 UI 回归测试。
+- [ ] 打包产物中手工验证 MiniMax 失败卡片样式与正常卡片一致。
+
+### 建议修复方向
+
+1. 统一 `ProviderCard` header/tools 渲染，不按是否有 usage 数据拆出完全不同的按钮结构。
+2. 让失败 / 空状态也走同一套 collapsible shell。
+3. 对 MiniMax `MISSING_PARAM` 或刷新失败 fixture 加单元测试 / E2E 断言。
+
+---
+
+## 待重构：主面板卡片交互重复代码抽取
+
+### 背景
+
+用户要求检查主面板相关代码是否重复。当前 Provider 卡片、账号卡片、拖动、用量条列表存在重复实现；其中拖动重复还和“拖动按钮无法拖动”问题相关。
+
+### 重复点 1：菜单行为重复
+
+位置：
+
+- `src/renderer/components/ProviderCard.tsx`
+    - `menu_open` / `menu_ref` / 外部点击关闭 / Escape 关闭
+    - provider 级 `.card-menu` / `.cm-item`
+- `src/renderer/components/ProviderAccountRow.tsx`
+    - 同样的 `menu_open` / `menu_ref` / 外部点击关闭 / Escape 关闭
+    - account 级 `.card-menu` / `.cm-item`
+
+问题：
+
+- 两套菜单行为几乎一样，只是菜单项不同。
+- 后续修键盘访问、focus、外部点击、overlay、样式时容易只改一边。
+- provider 菜单与 account 菜单已经出现行为差异，增加 bug 面。
+
+建议：
+
+- [ ] 抽 `CardActionMenu`。
+- [ ] 菜单项用数据描述：`label/icon/danger/onSelect`。
+- [ ] provider/account 两处只传菜单项，不再各自维护 open/ref/effect。
+- [ ] 补单元测试覆盖：打开、点击项、外部点击关闭、Escape 关闭。
+
+### 重复点 2：拖动按钮与拖拽事件重复，且可能导致拖动 bug
+
+位置：
+
+- `src/renderer/components/ProviderCard.tsx`
+    - `.card-grip` 按钮
+    - `drag_events` 对象
+- `src/renderer/components/ProviderAccountRow.tsx`
+    - `.card-grip` 按钮
+    - `drag_events` 对象
+- `src/renderer/views/PopupView.tsx`
+    - provider reorder handlers
+    - account reorder handlers
+
+问题：
+
+- `.card-grip` 只在 `onMouseDown` 设置拖动状态。
+- 真正的 `draggable/onDragStart/onDragEnter/onDragEnd` 挂在外层 card。
+- `CollapsibleCard` 当前不转发任意 root props；`ProviderAccountRow` 传入 `{...drag_events}` 但可能被忽略，`ProviderCard` collapsible 分支也没有稳定传入 drag props。
+- 结果是按钮看起来可拖，但实际 HTML5 drag 事件不可靠。
+
+建议：
+
+- [ ] 抽 `DragGrip`。
+- [ ] 让 `CollapsibleCard` 支持 `rootProps` 或继承 `React.HTMLAttributes<HTMLDivElement>` 并转发到根 `.card`。
+- [ ] provider/account 两套拖动统一使用同一套 root props / grip 行为。
+- [ ] 若继续使用 HTML5 DnD，确保拖动从 grip 开始也能触发有效 dragstart。
+- [ ] 补 provider 和 account 拖动排序单元测试 / E2E。
+
+### 重复点 3：卡片 shell 分支重复
+
+位置：
+
+- `src/renderer/components/ProviderCard.tsx`
+    - 普通 `.card` 分支
+    - `CollapsibleCard` 分支
+- `src/renderer/components/ProviderAccountRow.tsx`
+    - 普通 `.card` 分支
+    - `CollapsibleCard` 分支
+
+问题：
+
+- 两个组件都在重复决定“普通 card vs collapsible card”。
+- className、header、tools、children、drag props 分散，导致 collapsible 与非 collapsible 行为不一致。
+
+建议：
+
+- [ ] 优先让 `CollapsibleCard` 成为统一 card shell：没有 `collapsed/onToggle` 时也可当普通 card 使用；或抽底层 `CardShell`。
+- [ ] 所有 root props、drag props、className 只走一个入口。
+- [ ] 修复时避免一次性大改视觉结构，先保行为一致。
+
+### 重复点 4：用量条列表 mapping 重复
+
+位置：
+
+- `src/renderer/components/ProviderCard.tsx`
+    - overview periods → `UsageBarRow`
+    - single-account periods → `UsageBarRow`
+- `src/renderer/components/ProviderAccountRow.tsx`
+    - account periods → `UsageBarRow`
+- `src/renderer/components/UsageRows.tsx`
+    - `AccountUsageRow` 内部也 map periods → `UsageBarRow`
+
+问题：
+
+- 重复传 `period/index/colorScheme/barStyle/labelMap`。
+- 之前单账号粗胶囊型缺少 `.bars` 容器，就是这种重复导致的漏改。
+
+建议：
+
+- [ ] 抽 `UsageBarList`，统一负责 `.bars` / `.ai-bars` 容器和 `UsageBarRow` mapping。
+- [ ] ProviderCard、ProviderAccountRow、AccountUsageRow 复用它。
+- [ ] 补测试：概览、单账号、多账号、粗胶囊型都使用一致容器和间距。
+
+### 不建议优先大抽：失败 / 空状态
+
+观察：
+
+- `ProviderCard.render_state()` 内失败 / auth / 无数据状态相对集中。
+- `PopupView` 也有 active tab 空状态，但语义不同。
+
+建议：
+
+- [ ] 不做大状态机抽象。
+- [ ] 如需统一样式，只抽很小的展示组件 `CardState`：`variant/icon/message/actionLabel/onAction`。
+- [ ] 优先级低于菜单、拖动、用量条列表。
+
+### 优先级
+
+1. `CardActionMenu`：减少 provider/account 菜单分叉。
+2. `DragGrip` + `CollapsibleCard rootProps`：同时解决重复和拖动按钮 bug。
+3. `UsageBarList`：防止用量条容器/间距再次漏改。
+4. 可选 `CardState`：只做轻量展示统一。
+
+---
+
 ## Phase 36: Demo Handoff chat30-39 对齐
 
 ### 背景
