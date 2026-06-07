@@ -121,23 +121,88 @@ describe("compilePlugin", () => {
         }
     });
 
-    it("passes correct options to esbuild", async () => {
+    it("uses fallback cache before compiling", async () => {
         const plugin = makePlugin("test.ts");
         await writeFile(plugin.executablePath, `console.log("hello");`, "utf8");
         mockBuild.mockResolvedValue({ errors: [], warnings: [] });
 
-        await compilePlugin(plugin, join(testDir, "cache"), sdkDir);
+        const fallbackDir = join(testDir, "fallback-cache");
+        await compilePlugin(plugin, fallbackDir, sdkDir);
+        mockBuild.mockClear();
 
-        interface EsbuildOptions {
-            alias?: Record<string, string>;
-            platform?: string;
-            format?: string;
-            bundle?: boolean;
-        }
-        const callArgs = mockBuild.mock.calls[0]?.[0] as EsbuildOptions | undefined;
-        expect(callArgs?.alias?.["@omni-usage/plugin-sdk"]).toBe(join(sdkDir, "index.ts"));
-        expect(callArgs?.platform).toBe("node");
-        expect(callArgs?.format).toBe("cjs");
-        expect(callArgs?.bundle).toBe(true);
+        const result = await compilePlugin(plugin, join(testDir, "cache"), sdkDir, {
+            fallbackCacheDir: fallbackDir,
+        });
+
+        expect(result.status).toBe("cached");
+        expect(result.executablePath).toContain("fallback-cache");
+        expect(mockBuild).not.toHaveBeenCalled();
+    });
+
+    it("uses fallback cache built from a different resource root", async () => {
+        const buildRoot = join(testDir, "build-root");
+        const runtimeRoot = join(testDir, "runtime-root");
+        const buildSdkDir = join(buildRoot, "sdk");
+        const runtimeSdkDir = join(runtimeRoot, "sdk");
+        const buildPluginPath = join(buildRoot, "plugins", "test.ts");
+        const runtimePluginPath = join(runtimeRoot, "plugins", "test.ts");
+        await mkdir(join(buildRoot, "plugins"), { recursive: true });
+        await mkdir(join(runtimeRoot, "plugins"), { recursive: true });
+        await mkdir(buildSdkDir, { recursive: true });
+        await mkdir(runtimeSdkDir, { recursive: true });
+        await writeFile(buildPluginPath, `console.log("hello");`, "utf8");
+        await writeFile(runtimePluginPath, `console.log("hello");`, "utf8");
+        await writeFile(join(buildSdkDir, "index.ts"), "export function definePlugin() {}", "utf8");
+        await writeFile(
+            join(runtimeSdkDir, "index.ts"),
+            "export function definePlugin() {}",
+            "utf8",
+        );
+        mockBuild.mockResolvedValue({ errors: [], warnings: [] });
+
+        const fallbackDir = join(testDir, "fallback-cache");
+        const buildPlugin: PluginDefinition = {
+            scriptName: "test.ts",
+            executablePath: buildPluginPath,
+            metadata: null,
+            source: "bundled",
+        };
+        const runtimePlugin: PluginDefinition = {
+            scriptName: "test.ts",
+            executablePath: runtimePluginPath,
+            metadata: null,
+            source: "bundled",
+        };
+        await compilePlugin(buildPlugin, fallbackDir, buildSdkDir);
+        mockBuild.mockClear();
+
+        const result = await compilePlugin(runtimePlugin, join(testDir, "cache"), runtimeSdkDir, {
+            fallbackCacheDir: fallbackDir,
+        });
+
+        expect(result.status).toBe("cached");
+        expect(result.executablePath).toContain("fallback-cache");
+        expect(mockBuild).not.toHaveBeenCalled();
+    });
+
+    it("compiles to primary cache when fallback cache is stale", async () => {
+        const plugin = makePlugin("test.ts");
+        await writeFile(plugin.executablePath, `console.log("hello");`, "utf8");
+        mockBuild.mockResolvedValue({ errors: [], warnings: [] });
+
+        const fallbackDir = join(testDir, "fallback-cache");
+        const cacheDir = join(testDir, "cache");
+        await compilePlugin(plugin, fallbackDir, sdkDir);
+        await writeFile(plugin.executablePath, `console.log("changed");`, "utf8");
+        mockBuild.mockClear();
+
+        const result = await compilePlugin(plugin, cacheDir, sdkDir, {
+            fallbackCacheDir: fallbackDir,
+        });
+
+        expect(result.status).toBe("compiled");
+        expect(result.executablePath).toContain("cache");
+        expect(result.executablePath).not.toContain("fallback-cache");
+        expect(mockBuild).toHaveBeenCalledOnce();
     });
 });

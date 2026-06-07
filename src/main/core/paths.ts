@@ -48,6 +48,10 @@ export function getPluginCacheDir(): string {
     return join(getDataRoot(), "plugin-cache");
 }
 
+export function getBundledPluginCacheDir(): string {
+    return join(process.resourcesPath, "plugin-cache");
+}
+
 export function getSdkDir(): string {
     if (app.isPackaged) {
         return join(process.resourcesPath, "sdk");
