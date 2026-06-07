@@ -3,6 +3,7 @@ logs
 __pycache__
 *.log
 data/logs/*
+data/*.jsonl
 !data/logs/.gitkeep
 npm-debug.log*
 yarn-debug.log*
