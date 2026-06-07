@@ -114,6 +114,11 @@ function main(): void {
 
     // Step 4: package (skip if --no-build)
     if (!no_build) {
+        log("updating bundled resource hashes...");
+        execSync("npx tsx scripts/update-bundled-hashes.ts", {
+            cwd: ROOT,
+            stdio: "inherit",
+        });
         log("running electron-vite build...");
         execSync("electron-vite build", {
             cwd: ROOT,
