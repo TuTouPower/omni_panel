@@ -121,6 +121,8 @@ export function PopupView() {
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
     const [provider_order, set_provider_order] = useState<UsageProvider[]>([]);
+    const save_queue_ref = useRef(Promise.resolve());
+    const synced_order_ref = useRef<UsageProvider[]>([]);
     const [drag_id, set_drag_id] = useState<UsageProvider | null>(null);
     const [over_id, set_over_id] = useState<UsageProvider | null>(null);
     const [account_drag_id, set_account_drag_id] = useState<string | null>(null);
@@ -229,8 +231,6 @@ export function PopupView() {
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
     const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
     const refresh_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const save_queue_ref = useRef(Promise.resolve());
-    const synced_order_ref = useRef<UsageProvider[]>([]);
 
     // Cleanup refresh timeout on unmount
     useEffect(() => {
