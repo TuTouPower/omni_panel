@@ -134,7 +134,7 @@ export function ProviderCard({
                         <span
                             className="cs-action"
                             onClick={() => {
-                                window.usageboard.settings.open();
+                                window.usageboard.settings.open({ provider });
                             }}
                         >
                             重新登录
