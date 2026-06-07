@@ -10,6 +10,7 @@ import type { AppConfiguration, PluginConfiguration } from "../../shared/types/c
 import { appConfigurationSchema } from "../core/config/types";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
+import { createLoggedIpcHandler } from "./logged";
 
 const MASK = "***";
 const MAX_IMPORT_BYTES = 1_000_000;
@@ -277,32 +278,10 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     const { ipcMain } = await import("electron");
     const log = createLogger("ipc:config");
 
-    async function logged<T>(
-        channel: string,
-        args: unknown[],
-        fn: () => Promise<IpcResult<T>>,
-    ): Promise<IpcResult<T>> {
-        const start = Date.now();
-        const is_development = process.env["NODE_ENV"] === "development";
-        if (is_development)
-            log.debug("ipc request raw", { channel, args: redact_config_raw(args) });
-        log.debug(`${channel} called`);
-        try {
-            const result = await fn();
-            if (is_development)
-                log.debug("ipc response raw", { channel, result: redact_config_raw(result) });
-            const elapsed = Date.now() - start;
-            if (!result.ok) {
-                log.warn(`${channel} failed: ${result.error.code} (${String(elapsed)}ms)`);
-            } else {
-                log.debug(`${channel} ok (${String(elapsed)}ms)`);
-            }
-            return result;
-        } catch (error: unknown) {
-            if (is_development) log.debug("ipc error raw", { channel, error });
-            throw error;
-        }
-    }
+    const logged = createLoggedIpcHandler(log, {
+        redactArgs: redact_config_raw as (args: unknown[]) => unknown[],
+        redactResult: redact_config_raw,
+    });
 
     ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () =>
         logged(IPC_CHANNELS.CONFIG_GET, [], () => handleConfigGet(deps)),

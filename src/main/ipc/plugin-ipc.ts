@@ -12,6 +12,7 @@ import type { PluginMetadata } from "../../shared/schemas/plugin-metadata";
 import type { UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
 import { resolveDisplayNames } from "../core/plugin/display-names";
 import { createLogger } from "../../shared/lib/logger";
+import { createLoggedIpcHandler } from "./logged";
 
 const instanceIdSchema = z.string().min(1);
 
@@ -122,30 +123,7 @@ export async function registerPluginIpc(deps: PluginIpcDeps): Promise<void> {
     const { ipcMain } = await import("electron");
     const log = createLogger("ipc:plugin");
 
-    async function logged<T>(
-        channel: string,
-        args: unknown[],
-        fn: () => Promise<IpcResult<T>>,
-    ): Promise<IpcResult<T>> {
-        const start = Date.now();
-        const is_development = process.env["NODE_ENV"] === "development";
-        if (is_development) log.debug("ipc request raw", { channel, args });
-        log.debug(`${channel} called`);
-        try {
-            const result = await fn();
-            if (is_development) log.debug("ipc response raw", { channel, result });
-            const elapsed = Date.now() - start;
-            if (!result.ok) {
-                log.warn(`${channel} failed: ${result.error.code} (${String(elapsed)}ms)`);
-            } else {
-                log.debug(`${channel} ok (${String(elapsed)}ms)`);
-            }
-            return result;
-        } catch (error: unknown) {
-            if (is_development) log.debug("ipc error raw", { channel, error });
-            throw error;
-        }
-    }
+    const logged = createLoggedIpcHandler(log);
 
     ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, () =>
         logged(IPC_CHANNELS.PLUGIN_LIST, [], () => handlePluginList(deps)),
