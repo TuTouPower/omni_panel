@@ -437,4 +437,26 @@ describe("SettingsView", () => {
             expect(screen.getByText("API 密钥")).toBeInTheDocument();
         });
     });
+
+    it("right-aligns account action buttons via margin-left: auto", async () => {
+        // The .ao-actions element must have margin-left: auto to push
+        // toggle/action buttons to the right edge of the flex row.
+        // JSDOM doesn't load external CSS, so we verify the rule exists in the source.
+        const { readFile } = await import("node:fs/promises");
+        const { join, dirname } = await import("node:path");
+        const { fileURLToPath } = await import("node:url");
+        const css = await readFile(
+            join(
+                dirname(fileURLToPath(import.meta.url)),
+                "../../../../src/renderer/styles/globals.css",
+            ),
+            "utf8",
+        );
+
+        // .ao-actions block must include margin-left: auto
+        const match = /\.ao-actions\s*\{([^}]+)\}/.exec(css);
+        if (!match) throw new Error(".ao-actions rule not found in globals.css");
+        expect(match[1]).toContain("margin-left");
+        expect(match[1]).toContain("auto");
+    });
 });
