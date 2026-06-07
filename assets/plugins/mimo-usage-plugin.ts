@@ -6,9 +6,9 @@
 //   "defaultSource": "direct",
 //   "name@zh-Hans": "MiMo",
 //   "name@en": "MiMo",
-//   "description": "查询小米 MiMo 开放平台用量",
-//   "description@zh-Hans": "查询小米 MiMo 开放平台用量",
-//   "description@en": "Query Xiaomi MiMo platform usage",
+//   "description": "查询小米 MiMo 开放平台用量。Cookie 必须包含 api-platform_serviceToken，否则会 401",
+//   "description@zh-Hans": "查询小米 MiMo 开放平台用量。Cookie 必须包含 api-platform_serviceToken，否则会 401",
+//   "description@en": "Query Xiaomi MiMo platform usage. Cookie must include api-platform_serviceToken or you'll get 401",
 //   "parameters": [
 //     {
 //       "name": "SESSION_COOKIE",
@@ -17,9 +17,9 @@
 //       "label@en": "Cookie",
 //       "type": "secret",
 //       "required": true,
-//       "description": "在 platform.xiaomimimo.com 登录后，按 F12 打开控制台输入 copy(document.cookie) 即可复制",
-//       "description@zh-Hans": "在 platform.xiaomimimo.com 登录后，按 F12 打开控制台输入 copy(document.cookie) 即可复制",
-//       "description@en": "Login to platform.xiaomimimo.com, press F12, run copy(document.cookie) in console",
+//       "description": "在 platform.xiaomimimo.com 登录后，按 F12 打开控制台输入 copy(document.cookie) 即可复制。必须包含 api-platform_serviceToken 字段",
+//       "description@zh-Hans": "在 platform.xiaomimimo.com 登录后，按 F12 打开控制台输入 copy(document.cookie) 即可复制。必须包含 api-platform_serviceToken 字段",
+//       "description@en": "Login to platform.xiaomimimo.com, press F12, run copy(document.cookie) in console. Must include api-platform_serviceToken",
 //       "placeholder": "cookie-preferences=...; api-platform_serviceToken=..."
 //     }
 //   ],
