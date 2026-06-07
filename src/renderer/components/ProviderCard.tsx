@@ -26,7 +26,6 @@ interface ProviderCardProps {
     expanded?: boolean | undefined;
     onToggleExpand?: ((provider: UsageProvider) => void) | undefined;
     onToggleDisable?: ((provider: UsageProvider) => void) | undefined;
-    onDelete?: ((provider: UsageProvider) => void) | undefined;
     dragging?: boolean | undefined;
     dragOver?: boolean | undefined;
     onDragStart?: ((provider: UsageProvider) => void) | undefined;
@@ -60,7 +59,6 @@ export function ProviderCard({
     expanded,
     onToggleExpand,
     onToggleDisable,
-    onDelete,
     dragging,
     dragOver,
     onDragStart,
@@ -124,18 +122,6 @@ export function ProviderCard({
             },
         });
     }
-    if (onDelete) {
-        menu_items.push({
-            key: "delete",
-            label: "删除",
-            icon: "trash",
-            danger: true,
-            onSelect: () => {
-                onDelete(provider);
-            },
-        });
-    }
-
     const render_state = () => {
         if (isFailed) {
             if (is_auth) {

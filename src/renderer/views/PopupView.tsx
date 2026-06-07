@@ -389,53 +389,6 @@ export function PopupView() {
             });
     };
 
-    const delete_provider = (provider: UsageProvider) => {
-        save_queue_ref.current = save_queue_ref.current
-            .then(async () => {
-                const result = await window.usageboard.config.get();
-                const target = result.config.plugins.find((p) => {
-                    const info = plugins.find((pi) => pi.instanceId === p.instanceId);
-                    return info?.activeProviders.includes(provider) ?? false;
-                });
-                if (!target) return;
-                const info = plugins.find((pi) => pi.instanceId === target.instanceId);
-                const is_cpa = info?.source === "cpa";
-                if (is_cpa) {
-                    // CPA: 只禁用对应 monitor 参数，不删除整个插件
-                    const monitor_key = `monitor_${provider}`;
-                    await window.usageboard.config.save({
-                        ...result.config,
-                        plugins: result.config.plugins.map((p) =>
-                            p.instanceId === target.instanceId
-                                ? {
-                                      ...p,
-                                      parameterValues: {
-                                          ...p.parameterValues,
-                                          [monitor_key]: "false",
-                                      },
-                                  }
-                                : p,
-                        ),
-                    });
-                } else {
-                    // 独立插件：直接删除
-                    await window.usageboard.config.save({
-                        ...result.config,
-                        plugins: result.config.plugins.filter(
-                            (p) => p.instanceId !== target.instanceId,
-                        ),
-                    });
-                }
-            })
-            .catch((err: unknown) => {
-                window.usageboard.log({
-                    level: "error",
-                    module: MODULE,
-                    message: `delete provider failed: ${errorMessage(err)}`,
-                });
-            });
-    };
-
     const edit_account = (account: ProviderUsageAccount) => {
         const first_period = account.periods[0];
         if (!first_period) return;
@@ -789,7 +742,6 @@ export function PopupView() {
                                 onToggleDisableProvider={
                                     is_live ? toggle_disable_provider : undefined
                                 }
-                                onDeleteProvider={is_live ? delete_provider : undefined}
                                 onEditAccount={is_live ? edit_account : undefined}
                                 draggingProvider={is_live ? drag_id : null}
                                 overProvider={is_live ? over_id : null}

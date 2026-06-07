@@ -147,19 +147,11 @@ describe("ProviderCard", () => {
 
     it("shows edit/enable-disable/delete menu items", () => {
         const onToggle = vi.fn();
-        const onDelete = vi.fn();
-        render(
-            <ProviderCard
-                provider="deepseek"
-                group={makeGroup()}
-                onToggleDisable={onToggle}
-                onDelete={onDelete}
-            />,
-        );
+        render(<ProviderCard provider="deepseek" group={makeGroup()} onToggleDisable={onToggle} />);
         fireEvent.click(screen.getByLabelText("更多操作"));
         expect(screen.getByText("编辑")).toBeInTheDocument();
         expect(screen.getByText("关闭")).toBeInTheDocument();
-        expect(screen.getByText("删除")).toBeInTheDocument();
+        expect(screen.queryByText("删除")).not.toBeInTheDocument();
     });
 
     it("does not render detail button", () => {
