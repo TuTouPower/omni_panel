@@ -13,7 +13,7 @@
 
 多平台 AI 服务用量监控桌面应用（Electron），对标 macOS 原生版 UsageBoard。
 
-**目标**：集中展示 Claude、OpenAI Codex、Gemini、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily 等 AI 服务的用量数据。
+**目标**：集中展示 Claude、OpenAI Codex、Gemini、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily、MiMo 等 AI 服务的用量数据。
 
 **技术栈**：Electron + TypeScript + Vite + React + Vitest + Playwright + Zod + ESLint + Prettier
 

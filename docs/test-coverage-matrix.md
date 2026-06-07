@@ -1,7 +1,7 @@
 # 测试覆盖矩阵
 
 > 将 `docs/spec.md` 的功能章节映射到现有测试，标注覆盖状态。
-> 生成日期：2026-05-30（含 Task 3-8 完成后更新；2026-06-01 追加 Phase 20 popup 动态高度行）。
+> 生成日期：2026-05-30（含 Task 3-8 完成后更新；2026-06-01 追加 Phase 20；2026-06-08 更新插件数量 7→8，追加 MiMo）
 
 ## 图例
 
@@ -21,7 +21,7 @@
 | §3.4 stdout 输出 schema           | 成功/错误 JSON 结构，items/badge/chart 可选                                            | ✅   | `unit/shared/plugin-output.test.ts` (schema v2/provider metadata/CPA provider rejection), `unit/shared/schemas.test.ts` (basic/badge/chart/empty/nulls/error/missing/wrong-type), `unit/plugin/output-parser.test.ts` | —                                                                                   |
 | §3.4 schema v1 rejection          | v1 成功输出不再兼容                                                                    | ✅   | `unit/shared/plugin-output.test.ts` (rejects schemaVersion 1 success output)                                                                                                                                          | —                                                                                   |
 | §3.5 exit code / timeout / stderr | 0 解析、非零取 stderr、15s timeout、stderr 不等于失败                                  | ✅   | `integration/plugin/runner.test.ts` (stdout/stderr/exit/timeout/SIGKILL/中文)                                                                                                                                         | —                                                                                   |
-| §3.6 内置插件清单（7 个）         | 7 个 bundled 插件，元数据正确，secret 参数声明正确                                     | ✅   | `unit/plugin/bundled-metadata.test.ts` (计数 + 元数据快照), 7 个 stub 集成测试（成功/缺参/401/429/500/超时）                                                                                                          | —                                                                                   |
+| §3.6 内置插件清单（8 个）         | 8 个 bundled 插件，元数据正确，secret 参数声明正确                                     | ✅   | `unit/plugin/bundled-metadata.test.ts` (计数 + 元数据快照), 8 个 stub 集成测试（成功/缺参/401/429/500/超时）                                                                                                          | —                                                                                   |
 
 ---
 
@@ -115,6 +115,7 @@
 | MiniMax  | ✅                  | ✅ 6 case     | ❌             | `integration/plugin/minimax-plugin.test.ts`  |
 | Tavily   | ✅                  | ✅ 6 case     | ❌             | `integration/plugin/tavily-plugin.test.ts`   |
 | CPA      | ✅                  | ✅ 6 case     | ❌             | `integration/plugin/cpa-plugin.test.ts`      |
+| MiMo     | ✅                  | ✅ 4 case     | ❌             | `integration/plugin/mimo-plugin.test.ts`     |
 
 ---
 
@@ -124,7 +125,7 @@
 - 前端 UI (§6) 已有 12 个组件单元测试 + 24 个 E2E spec，覆盖主路径。剩余 ⚠️ 项见 Phase 22。
 - 安全 (§8) 缺少 renderer 沙箱与 IPC 白名单断言。
 - 打包 smoke 已覆盖启动、白屏、内置插件发现。
-- 内置插件 (§3.6) 7 个全部有 stub 集成测试（真实子进程 + HTTP 桩），共 37 case。
+- 内置插件 (§3.6) 8 个全部有 stub 集成测试（真实子进程 + HTTP 桩），共 41 case。
 
 ---
 
