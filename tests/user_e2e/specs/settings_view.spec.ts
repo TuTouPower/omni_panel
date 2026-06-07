@@ -42,6 +42,28 @@ test.describe("settings view", () => {
         );
     });
 
+    test("shows usage bar style buttons above color scheme", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        const settings = await navigateToSettings(omni.app, page);
+        const sPage = settings.page;
+
+        await sPage.locator('[data-testid="settings-plugin-nav-appearance"]').click();
+        const styleLabel = sPage.getByText("用量条样式");
+        const colorLabel = sPage.getByText("用量条颜色方案");
+        await expect(styleLabel).toBeVisible();
+        await expect(colorLabel).toBeVisible();
+        const styleBox = await styleLabel.boundingBox();
+        const colorBox = await colorLabel.boundingBox();
+        expect(styleBox?.y).toBeLessThan(colorBox?.y ?? 0);
+
+        const styleField = sPage.getByLabel("用量条样式");
+        await expect(styleField.getByRole("button", { name: "细线型" })).toBeVisible();
+        await expect(styleField.getByRole("button", { name: "粗胶囊型" })).toBeVisible();
+        await styleField.getByRole("button", { name: "粗胶囊型" }).click();
+        await expect(styleField.getByRole("button", { name: "粗胶囊型" })).toHaveClass(/\bon\b/);
+    });
+
     test("plugins with parameters show config forms in account edit dialog", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });

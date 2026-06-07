@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, act, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
 import { SettingsView } from "../../../../src/renderer/views/SettingsView";
@@ -352,12 +352,22 @@ describe("SettingsView", () => {
         });
     });
 
-    it("saves usage bar style from appearance settings", async () => {
+    it("renders usage bar style as buttons above color scheme and saves it", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-appearance"));
-        await user.selectOptions(screen.getByDisplayValue("细线型"), "粗胶囊型");
+        const style_label = screen.getByText("用量条样式");
+        const color_label = screen.getByText("用量条颜色方案");
+        expect(
+            Boolean(
+                style_label.compareDocumentPosition(color_label) & Node.DOCUMENT_POSITION_FOLLOWING,
+            ),
+        ).toBe(true);
+
+        const style_field = screen.getByLabelText("用量条样式");
+        expect(within(style_field).getByRole("button", { name: "细线型" })).toHaveClass("on");
+        await user.click(within(style_field).getByRole("button", { name: "粗胶囊型" }));
 
         expect(save).toHaveBeenCalledWith({
             ...base_config,
