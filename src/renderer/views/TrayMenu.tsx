@@ -3,6 +3,7 @@ import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { Icon } from "../components/Icon";
 import logo from "../assets/logo.png";
+import { useResizeObserver } from "../hooks/use-resize-observer";
 
 interface TrayMenuItem {
     icon: string;
@@ -126,31 +127,17 @@ export function TrayMenu() {
         };
     }, []);
 
-    useEffect(() => {
+    const report_menu_size = useCallback((): void => {
         const el = menu_ref.current;
         if (!el) return;
-
-        const report_size = (): void => {
-            const rect = el.getBoundingClientRect();
-            window.usageboard.tray.report_menu_size({
-                width: Math.ceil(rect.width),
-                height: Math.ceil(rect.height),
-            });
-        };
-
-        report_size();
-
-        if (typeof ResizeObserver === "undefined") return;
-
-        const observer = new ResizeObserver(() => {
-            report_size();
+        const rect = el.getBoundingClientRect();
+        window.usageboard.tray.report_menu_size({
+            width: Math.ceil(rect.width),
+            height: Math.ceil(rect.height),
         });
-        observer.observe(el);
+    }, []);
 
-        return () => {
-            observer.disconnect();
-        };
-    }, [items]);
+    useResizeObserver(menu_ref, report_menu_size, [items]);
 
     const sep_indexes = new Set([2, 4, 6]); // indexes where separators appear
 
