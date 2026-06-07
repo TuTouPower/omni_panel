@@ -290,7 +290,7 @@ describe("config-ipc", () => {
         expect(deps.secretsStore.set).not.toHaveBeenCalled();
     });
 
-    it("handleConfigSaveSecrets rejects disabled plugin", async () => {
+    it("handleConfigSaveSecrets allows saving secrets for disabled plugin", async () => {
         const deps = createMockDeps();
         const loaded = structuredClone(await deps.configStore.load()) as AppConfiguration;
         const claudePlugin = loaded.plugins.find((p) => p.stateId === "claude");
@@ -307,11 +307,8 @@ describe("config-ipc", () => {
             secrets: { API_KEY: "new-key" },
         });
 
-        expect(result.ok).toBe(false);
-        if (!result.ok) {
-            expect(result.error.code).toBe("VALIDATION_ERROR");
-        }
-        expect(deps.secretsStore.set).not.toHaveBeenCalled();
+        expect(result.ok).toBe(true);
+        expect(deps.secretsStore.set).toHaveBeenCalledWith("claude:API_KEY", "new-key");
     });
 
     it("handleConfigExport writes JSON file via dialog", async () => {

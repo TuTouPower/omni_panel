@@ -134,7 +134,6 @@ export async function handleConfigSaveSecrets(
         const config = await deps.configStore.load();
         const plugin = config.plugins.find((p: PluginConfiguration) => p.instanceId === instanceId);
         if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
-        if (!plugin.enabled) return fail("VALIDATION_ERROR", "插件未启用");
 
         const allowedKeys = deps.secretParamKeys.get(instanceId);
         if (!allowedKeys) return ok(undefined);

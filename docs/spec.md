@@ -387,7 +387,7 @@ refresh(instanceId)
 - 数据源页：CPA Manager 卡片列表 + 详情页（复用 CpaConnectorSettings）
 - 添加账号：服务选择 picker（常用服务网格 + CPA Manager 高级入口）
 - CPA 来源账号显示"来自 CPA Manager" badge，操作为"隐藏"（非删除）
-- CPA connector 配置只在 Settings / 数据源页展示，包含 CPA-Manager URL、管理密钥、provider 采集开关
+- CPA connector 配置只在 Settings / 数据源页展示，包含启用开关、CPA-Manager URL、管理密钥、provider 采集开关。禁用状态下仍可保存密钥，但不会触发刷新。
 - 选中后显示参数表单（由 PluginMetadata 自动生成）
 - 参数类型映射：`secret` → password input，`choice` → select，`boolean` → checkbox
 - 刷新间隔输入框（number，1–60 分钟）
