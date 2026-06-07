@@ -370,7 +370,7 @@ void app.whenReady().then(async () => {
 
     // Build metadataEndpoints map from plugin definitions
     function getMetadataEndpoints(instanceId: string): Record<string, string | null> | undefined {
-        const plugin = currentConfig.plugins.find((p) => p.instanceId === instanceId);
+        const plugin = currentConfigSnapshot.plugins.find((p) => p.instanceId === instanceId);
         if (!plugin) return undefined;
         const def = allDefinitions.find((d) => d.executablePath === plugin.executablePath);
         return def?.metadata?.endpoints;
