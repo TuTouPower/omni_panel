@@ -10,6 +10,7 @@ interface UsePluginsResult {
     error: string | null;
     refresh: (instanceId: string) => Promise<void>;
     refreshAll: () => Promise<void>;
+    reload: () => Promise<void>;
 }
 
 export function use_plugins(): UsePluginsResult {
@@ -17,38 +18,37 @@ export function use_plugins(): UsePluginsResult {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        let cancelled = false;
-        window.usageboard.log({ level: "debug", module: MODULE, message: "Loading plugin list" });
-        window.usageboard.plugin
-            .list()
-            .then((list) => {
-                if (!cancelled) {
-                    window.usageboard.log({
-                        level: "info",
-                        module: MODULE,
-                        message: `Loaded ${String(list.length)} plugins`,
-                    });
-                    setPlugins(list);
-                    setLoading(false);
-                }
-            })
-            .catch((err: unknown) => {
-                if (!cancelled) {
-                    const message = err instanceof Error ? err.message : "加载插件失败";
-                    window.usageboard.log({
-                        level: "error",
-                        module: MODULE,
-                        message: `Failed to load plugins: ${message}`,
-                    });
-                    setError(message);
-                    setLoading(false);
-                }
+    const reload = useCallback(async () => {
+        window.usageboard.log({
+            level: "debug",
+            module: MODULE,
+            message: "Reloading plugin list",
+        });
+        try {
+            const list = await window.usageboard.plugin.list();
+            window.usageboard.log({
+                level: "info",
+                module: MODULE,
+                message: `Loaded ${String(list.length)} plugins`,
             });
-        return () => {
-            cancelled = true;
-        };
+            setPlugins(list);
+            setError(null);
+            setLoading(false);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "加载插件失败";
+            window.usageboard.log({
+                level: "error",
+                module: MODULE,
+                message: `Failed to load plugins: ${message}`,
+            });
+            setError(message);
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        void reload();
+    }, [reload]);
 
     useEffect(() => {
         const unsub = window.usageboard.event.onStateChange(
@@ -79,5 +79,5 @@ export function use_plugins(): UsePluginsResult {
         await window.usageboard.plugin.refreshAll();
     }, []);
 
-    return { plugins, loading, error, refresh, refreshAll: refreshAllFn };
+    return { plugins, loading, error, refresh, refreshAll: refreshAllFn, reload };
 }

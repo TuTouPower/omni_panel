@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, type CSSProperties } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, type CSSProperties } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { use_plugins } from "../hooks/use-plugins";
 import { use_popup_height_report } from "../hooks/use-popup-height-report";
@@ -18,6 +18,7 @@ import {
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import type {
     AccountOverrides,
+    AppConfiguration,
     UsageBarColorScheme,
     UsageBarStyle,
 } from "../../shared/types/config";
@@ -107,9 +108,13 @@ function structural_signature(
     return `tab:${activeTab}:` + group.accounts.map((a) => a.id).join(",");
 }
 
+function arrays_equal<T>(left: readonly T[] | undefined, right: readonly T[]): boolean {
+    return left?.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 export function PopupView() {
     useTheme();
-    const { plugins, loading, error, refreshAll } = use_plugins();
+    const { plugins, loading, error, refreshAll, reload } = use_plugins();
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
@@ -148,8 +153,32 @@ export function PopupView() {
         };
     }, []);
 
-    // Load persisted provider order from config
     const valid_providers = useMemo(() => new Set(PROVIDER_ORDER as readonly string[]), []);
+
+    const apply_config = useCallback(
+        (config: AppConfiguration) => {
+            const order = config.providerOrder;
+            if (order && order.length > 0) {
+                const validated = order.filter((p): p is UsageProvider => valid_providers.has(p));
+                if (validated.length > 0) {
+                    set_provider_order((current) =>
+                        arrays_equal(current, validated) ? current : validated,
+                    );
+                }
+            }
+            if (config.usageBarColorScheme) {
+                set_usage_bar_color_scheme(config.usageBarColorScheme);
+            }
+            if (config.usageBarStyle) {
+                set_usage_bar_style(config.usageBarStyle);
+            }
+            set_usage_label_map(config.usageLabelMap);
+            set_account_overrides(config.accountOverrides);
+        },
+        [valid_providers],
+    );
+
+    // Load persisted provider order from config
     useEffect(() => {
         window.usageboard.config
             .get()
@@ -157,30 +186,19 @@ export function PopupView() {
                 if (should_log_raw) {
                     log.debug("popup config raw", { config: redact_config_raw(result.config) });
                 }
-                const order = result.config.providerOrder;
-                if (order && order.length > 0) {
-                    const validated = (order as string[]).filter((p): p is UsageProvider =>
-                        valid_providers.has(p),
-                    );
-                    if (validated.length > 0) {
-                        set_provider_order(validated);
-                    }
-                }
-                if (result.config.usageBarColorScheme) {
-                    set_usage_bar_color_scheme(result.config.usageBarColorScheme);
-                }
-                if (result.config.usageBarStyle) {
-                    set_usage_bar_style(result.config.usageBarStyle);
-                }
-                set_usage_label_map(result.config.usageLabelMap);
-                if (result.config.accountOverrides) {
-                    set_account_overrides(result.config.accountOverrides);
-                }
+                apply_config(result.config);
             })
             .catch(() => {
                 // ignore load errors
             });
-    }, [valid_providers]);
+    }, [apply_config]);
+
+    useEffect(() => {
+        return window.usageboard.event.onConfigChange?.((config) => {
+            apply_config(config);
+            void reload();
+        });
+    }, [apply_config, reload]);
 
     // Persist provider order to config when it changes
     useEffect(() => {
