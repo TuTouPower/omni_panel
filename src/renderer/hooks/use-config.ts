@@ -58,6 +58,17 @@ export function use_config(): UseConfigResult {
         };
     }, []);
 
+    // Listen for config changes from other windows (e.g. popup toggling a provider)
+    useEffect(() => {
+        const unsub = window.usageboard.event.onConfigChange?.((incoming) => {
+            // Skip if this is the echo of our own save (same reference)
+            if (incoming === config_ref.current) return;
+            config_ref.current = incoming;
+            setConfig(incoming);
+        });
+        return unsub;
+    }, []);
+
     const save = useCallback((newConfig: AppConfiguration): Promise<void> => {
         window.usageboard.log({ level: "debug", module: MODULE, message: "Saving config" });
         config_ref.current = newConfig;
