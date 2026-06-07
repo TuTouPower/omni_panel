@@ -144,7 +144,7 @@ xdg-open coverage/index.html
 | Lines      | 1%   |
 
 > 基线日期：2026-05-30。阈值 = 基线 - 5%。
-> 详细基线数据见 `docs/archive/coverage-baseline.md`。
+> 详细基线数据见 `docs/archive/coverage_baseline.md`。
 
 ---
 

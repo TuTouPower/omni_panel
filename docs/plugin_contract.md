@@ -1,6 +1,6 @@
 # 插件协议契约
 
-> 基于 `docs/archive/old-data-models.md` 和 `docs/archive/old-behavior-map.md` 冻结。
+> 基于 `docs/archive/old_data_models.md` 和 `docs/archive/old_behavior_map.md` 冻结。
 
 ## 插件文件格式
 
@@ -238,4 +238,4 @@ definePlugin(
 - **容错**：单个账号失败不阻塞其他账号，全部失败才输出 error JSON
 - **Antigravity**：三个 URL 回退机制，自动尝试不同端点
 - **Gemini**：两步请求（`loadCodeAssist` → `retrieveUserQuota`）
-- 详细 API 规范见 `docs/cpa-quota-guide.md`
+- 详细 API 规范见 `docs/cpa_quota_guide.md`

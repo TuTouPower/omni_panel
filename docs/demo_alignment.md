@@ -1,6 +1,6 @@
 # Demo 对齐清单
 
-> 基于 `docs/design/CHANGELOG-design.md`（chat28 + chat29）与当前前端代码的差异分析。
+> 基于 `docs/design/changelog_design.md`（chat28 + chat29）与当前前端代码的差异分析。
 
 ## 一、用量条颜色方案（chat28 / chat29）
 

@@ -1,6 +1,6 @@
 # OmniUsage 任务清单
 
-> 已完成的 Phase 1–28、30、32–33、35 移入 `docs/archive/tasks-history.md`。
+> 已完成的 Phase 1–28、30、32–33、35 移入 `docs/archive/tasks_history.md`。
 
 ---
 
@@ -266,7 +266,7 @@
 
 ### 背景
 
-`docs/design/omni_usage-handoff.tar.gz` 解压后包含 chat30-39 共 10 轮设计迭代。与当前实现对比，以下设计要素需要补齐或修正。详细变更记录见 `docs/design/CHANGELOG-design.md`。
+`docs/design/omni_usage-handoff.tar.gz` 解压后包含 chat30-39 共 10 轮设计迭代。与当前实现对比，以下设计要素需要补齐或修正。详细变更记录见 `docs/design/changelog_design.md`。
 
 ### 核心原则
 
@@ -395,10 +395,10 @@
 
 ### 29.3 文档同步
 
-- [x] 修正 `docs/demo-vs-implementation-diff.md`，明确 demo 的 `5小时` / `一周` 只是示例，不是周期数量设定。
+- [x] 修正 `docs/archive/demo_vs_implementation_diff.md`，明确 demo 的 `5小时` / `一周` 只是示例，不是周期数量设定。
 - [x] 更新 `docs/window_design.md`，记录托盘右键菜单按内容决定尺寸。
 - [x] 更新 `docs/spec.md`，记录 TrayMenu 不使用主面板高度策略。
-- [x] 更新 `docs/superpowers/specs/2026-06-01-demo-ui-alignment-design.md`，记录自绘托盘菜单窗口边界。
+- [x] 更新 `docs/archive/superpowers/specs/2026_06_01_demo_ui_alignment_design.md`，记录自绘托盘菜单窗口边界。
 
 ### 验收标准
 
