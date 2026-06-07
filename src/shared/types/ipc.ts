@@ -15,6 +15,7 @@ export const IPC_CHANNELS = {
     CONFIG_DUPLICATE: "config:duplicate",
     CONFIG_EXPORT: "config:export",
     CONFIG_IMPORT: "config:import",
+    CONFIG_CHANGED: "config:changed",
 
     EVENT_STATE_CHANGE: "event:stateChange",
     EVENT_THEME_CHANGE: "event:themeChange",
@@ -170,6 +171,7 @@ export interface UsageboardApi {
     };
     event: {
         onStateChange(callback: (instanceId: string, state: PluginSnapshotDTO) => void): () => void;
+        onConfigChange?(callback: (config: AppConfiguration) => void): () => void;
         onThemeChange(callback: (isDark: boolean) => void): () => void;
         onSettingsNavigate(callback: (context: SettingsOpenContext) => void): () => void;
     };

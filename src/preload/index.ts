@@ -6,6 +6,7 @@ import type {
     RendererLogPayload,
     RendererPlatform,
 } from "../shared/types/ipc";
+import type { AppConfiguration } from "../shared/types/config";
 import "./usageboard-api";
 
 function is_ipc_result(
@@ -93,6 +94,13 @@ const event_methods = {
         };
         ipcRenderer.on(IPC_CHANNELS.EVENT_STATE_CHANGE, handler);
         return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_STATE_CHANGE, handler);
+    },
+    onConfigChange: (callback: (config: AppConfiguration) => void) => {
+        const handler = (_e: unknown, config: AppConfiguration) => {
+            callback(config);
+        };
+        ipcRenderer.on(IPC_CHANNELS.CONFIG_CHANGED, handler);
+        return () => ipcRenderer.removeListener(IPC_CHANNELS.CONFIG_CHANGED, handler);
     },
     onThemeChange: (callback: (isDark: boolean) => void) => {
         const handler = (_e: unknown, isDark: boolean) => {
