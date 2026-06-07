@@ -5,6 +5,11 @@ import type { PluginConfiguration } from "../../shared/types/config";
 import type { UsageItem, UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
+import {
+    REFRESH_INTERVAL_OPTIONS,
+    refresh_seconds_to_label,
+    refresh_label_to_seconds,
+} from "../lib/refresh-intervals";
 
 const MONITORS: readonly { name: string; label: string }[] = [
     { name: "monitor_claude", label: "监控 Claude" },
@@ -97,15 +102,7 @@ export function CpaConnectorSettings({
     const [autoSync, setAutoSync] = useState(true);
     const [failNotify, setFailNotify] = useState(true);
     const [syncInterval, setSyncInterval] = useState(
-        config.refreshIntervalSeconds <= 60
-            ? "1 分钟"
-            : config.refreshIntervalSeconds <= 300
-              ? "5 分钟"
-              : config.refreshIntervalSeconds <= 900
-                ? "15 分钟"
-                : config.refreshIntervalSeconds <= 1800
-                  ? "30 分钟"
-                  : "仅手动",
+        refresh_seconds_to_label(config.refreshIntervalSeconds),
     );
     const [openGrps, setOpenGrps] = useState<Set<string>>(() => {
         const items = get_snapshot_items(connector);
@@ -126,22 +123,12 @@ export function CpaConnectorSettings({
             );
         }
         setMonitors(values);
-        setSyncInterval(
-            config.refreshIntervalSeconds <= 60
-                ? "1 分钟"
-                : config.refreshIntervalSeconds <= 300
-                  ? "5 分钟"
-                  : config.refreshIntervalSeconds <= 900
-                    ? "15 分钟"
-                    : config.refreshIntervalSeconds <= 1800
-                      ? "30 分钟"
-                      : "仅手动",
-        );
+        setSyncInterval(refresh_seconds_to_label(config.refreshIntervalSeconds));
         const items = get_snapshot_items(connector);
         const grps = group_accounts(items);
         setOpenGrps(new Set(grps.map(([p]) => p)));
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset only on instanceId change
-    }, [connector.instanceId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset on any external data change
+    }, [connector.instanceId, config, hasSecrets]);
 
     const items = useMemo(() => get_snapshot_items(connector), [connector]);
     const accountGroups = useMemo(() => group_accounts(items), [items]);
@@ -174,14 +161,6 @@ export function CpaConnectorSettings({
                 secrets["cpa_mgmt_key"] = secret;
             }
 
-            const intervalMap: Record<string, number> = {
-                "1 分钟": 60,
-                "5 分钟": 300,
-                "15 分钟": 900,
-                "30 分钟": 1800,
-                仅手动: 86400,
-            };
-
             setSaving(true);
             setError(null);
             void Promise.resolve()
@@ -189,7 +168,11 @@ export function CpaConnectorSettings({
                     if (Object.keys(secrets).length > 0) {
                         await onSaveSecrets(secrets);
                     }
-                    await onSave(nonSecrets, endpointOverrides, intervalMap[syncInterval] ?? 300);
+                    await onSave(
+                        nonSecrets,
+                        endpointOverrides,
+                        refresh_label_to_seconds(syncInterval),
+                    );
                 })
                 .catch(() => {
                     setError("保存失败");
@@ -286,11 +269,9 @@ export function CpaConnectorSettings({
                                 setSyncInterval(e.target.value);
                             }}
                         >
-                            <option>1 分钟</option>
-                            <option>5 分钟</option>
-                            <option>15 分钟</option>
-                            <option>30 分钟</option>
-                            <option>仅手动</option>
+                            {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                                <option key={opt.label}>{opt.label}</option>
+                            ))}
                         </select>
                     </div>
                 </div>

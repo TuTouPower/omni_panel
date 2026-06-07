@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
+import {
+    REFRESH_INTERVAL_OPTIONS,
+    refresh_seconds_to_label,
+    refresh_label_to_seconds,
+} from "../lib/refresh-intervals";
 import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { Icon, VendorMark } from "../components/Icon";
@@ -287,6 +292,7 @@ function AccountDialog({
     onRefresh,
     onSelectService,
     onCpa,
+    onToggleEnabled,
     onClose,
 }: {
     mode: "add" | "edit";
@@ -307,6 +313,7 @@ function AccountDialog({
     onRefresh: (instanceId: string) => Promise<void>;
     onSelectService: (instanceId: string, pluginName: string) => void;
     onCpa: () => void;
+    onToggleEnabled: (instanceId: string, enabled: boolean) => void;
     onClose: () => void;
 }) {
     const isEdit = mode === "edit";
@@ -355,7 +362,9 @@ function AccountDialog({
                                     endpointOverrides: pluginConfig.endpointOverrides,
                                     parameterValues: pluginConfig.parameterValues,
                                     refreshIntervalSeconds: pluginConfig.refreshIntervalSeconds,
+                                    enabled: pluginConfig.enabled,
                                 }}
+                                enabled={pluginConfig.enabled}
                                 hasSecrets={hasSecrets ?? {}}
                                 onSave={async (
                                     nonSecrets,
@@ -373,6 +382,9 @@ function AccountDialog({
                                 }}
                                 onSaveSecrets={async (secrets) => {
                                     await onSaveSecrets(instanceId, secrets);
+                                }}
+                                onToggleEnabled={(nextEnabled) => {
+                                    onToggleEnabled(instanceId, nextEnabled);
                                 }}
                                 onRefresh={async () => {
                                     await onRefresh(instanceId);
@@ -1059,19 +1071,14 @@ export function SettingsView() {
         }
     }, [usageBarColorScheme]);
 
-    const interval_label = (() => {
-        if (globalIntervalSeconds <= 60) return "1 分钟";
-        if (globalIntervalSeconds <= 300) return "5 分钟";
-        if (globalIntervalSeconds <= 900) return "15 分钟";
-        if (globalIntervalSeconds <= 1800) return "30 分钟";
-        return "仅手动";
-    })();
+    const interval_label = refresh_seconds_to_label(globalIntervalSeconds);
 
     // Local-only UI state (not persisted)
     const [localState, setLocalState] = useState({
         lang: "简体中文",
     });
     const [dataMsg, setDataMsg] = useState<string | null>(null);
+    const data_msg_timer = useRef<ReturnType<typeof setTimeout>>();
 
     const up = useCallback((k: string, v: unknown) => {
         setLocalState((p) => ({ ...p, [k]: v }));
@@ -1084,7 +1091,8 @@ export function SettingsView() {
         } catch {
             setDataMsg("导出失败");
         }
-        setTimeout(() => {
+        clearTimeout(data_msg_timer.current);
+        data_msg_timer.current = setTimeout(() => {
             setDataMsg(null);
         }, 2000);
     }, []);
@@ -1101,7 +1109,8 @@ export function SettingsView() {
             }
         } catch {
             setDataMsg("导入失败");
-            setTimeout(() => {
+            clearTimeout(data_msg_timer.current);
+            data_msg_timer.current = setTimeout(() => {
                 setDataMsg(null);
             }, 2000);
         }
@@ -1255,25 +1264,13 @@ export function SettingsView() {
                                     <Select
                                         value={interval_label}
                                         onChange={(v) => {
-                                            const map: Record<string, number> = {
-                                                "1 分钟": 60,
-                                                "5 分钟": 300,
-                                                "15 分钟": 900,
-                                                "30 分钟": 1800,
-                                                仅手动: 86400,
-                                            };
                                             void save_config({
                                                 ...config,
-                                                globalRefreshIntervalSeconds: map[v] ?? 300,
+                                                globalRefreshIntervalSeconds:
+                                                    refresh_label_to_seconds(v),
                                             });
                                         }}
-                                        options={[
-                                            "1 分钟",
-                                            "5 分钟",
-                                            "15 分钟",
-                                            "30 分钟",
-                                            "仅手动",
-                                        ]}
+                                        options={REFRESH_INTERVAL_OPTIONS.map((opt) => opt.label)}
                                     />
                                 </SetRow>
                                 <SetRow title="暂停自动刷新" sub="临时停止后台轮询">
@@ -2073,6 +2070,16 @@ export function SettingsView() {
                         onCpa={() => {
                             setDialog(null);
                             setShowCpaAdd(true);
+                        }}
+                        onToggleEnabled={(instanceId, nextEnabled) => {
+                            void save_config({
+                                ...config,
+                                plugins: config.plugins.map((pl) =>
+                                    pl.instanceId === instanceId
+                                        ? { ...pl, enabled: nextEnabled }
+                                        : pl,
+                                ),
+                            });
                         }}
                         onClose={() => {
                             setDialog(null);
