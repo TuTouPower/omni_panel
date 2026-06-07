@@ -396,7 +396,7 @@
 ### 29.3 文档同步
 
 - [x] 修正 `docs/archive/demo_vs_implementation_diff.md`，明确 demo 的 `5小时` / `一周` 只是示例，不是周期数量设定。
-- [x] 更新 `docs/window_design.md`，记录托盘右键菜单按内容决定尺寸。
+- [x] 更新 `docs/archive/window_design.md`，记录托盘右键菜单按内容决定尺寸。
 - [x] 更新 `docs/spec.md`，记录 TrayMenu 不使用主面板高度策略。
 - [x] 更新 `docs/archive/superpowers/specs/2026_06_01_demo_ui_alignment_design.md`，记录自绘托盘菜单窗口边界。
 
