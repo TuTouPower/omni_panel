@@ -790,6 +790,7 @@ export function PopupView() {
                                     is_live ? toggle_disable_provider : undefined
                                 }
                                 onDeleteProvider={is_live ? delete_provider : undefined}
+                                onEditAccount={is_live ? edit_account : undefined}
                                 draggingProvider={is_live ? drag_id : null}
                                 overProvider={is_live ? over_id : null}
                                 onDragStart={is_live ? handle_drag_start : undefined}

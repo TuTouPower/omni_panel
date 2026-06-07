@@ -1,5 +1,5 @@
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
-import type { ProviderUsageGroup } from "../lib/provider-usage";
+import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import { ProviderCard } from "./ProviderCard";
 
@@ -17,6 +17,7 @@ interface ProviderOverviewProps {
     onToggleExpandProvider?: ((provider: UsageProvider) => void) | undefined;
     onToggleDisableProvider?: ((provider: UsageProvider) => void) | undefined;
     onDeleteProvider?: ((provider: UsageProvider) => void) | undefined;
+    onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     draggingProvider?: UsageProvider | null | undefined;
     overProvider?: UsageProvider | null | undefined;
     onDragStart?: ((provider: UsageProvider) => void) | undefined;
@@ -37,6 +38,7 @@ export function ProviderOverview({
     onToggleExpandProvider,
     onToggleDisableProvider,
     onDeleteProvider,
+    onEditAccount,
     draggingProvider,
     overProvider,
     onDragStart,
@@ -65,6 +67,7 @@ export function ProviderOverview({
                         onToggleExpand={onToggleExpandProvider}
                         onToggleDisable={onToggleDisableProvider}
                         onDelete={onDeleteProvider}
+                        onEditAccount={onEditAccount}
                         dragging={draggingProvider === provider}
                         dragOver={overProvider === provider && draggingProvider !== provider}
                         onDragStart={onDragStart}

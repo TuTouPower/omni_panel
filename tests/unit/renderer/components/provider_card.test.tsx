@@ -121,6 +121,7 @@ describe("ProviderCard", () => {
                 onStateChange: vi.fn(() => vi.fn()),
                 onThemeChange: vi.fn(),
                 onSettingsNavigate: vi.fn(() => vi.fn()),
+                onConfigChange: vi.fn(() => vi.fn()),
             },
             popup: { report_content_height: vi.fn() },
             main_panel: { hide: vi.fn(), get_mode: vi.fn().mockResolvedValue("popup") },
@@ -668,5 +669,26 @@ describe("ProviderCard", () => {
         );
         const toggle = screen.getByLabelText("展开");
         expect(toggle).toBeInTheDocument();
+    });
+
+    it("calls onEditAccount with first account when edit is clicked", () => {
+        const onEditAccount = vi.fn();
+        const group = makeGroup();
+        render(<ProviderCard provider="deepseek" group={group} onEditAccount={onEditAccount} />);
+        fireEvent.click(screen.getByLabelText("更多操作"));
+        fireEvent.click(screen.getByText("编辑"));
+        expect(onEditAccount).toHaveBeenCalledTimes(1);
+        expect(onEditAccount).toHaveBeenCalledWith(group.accounts[0]);
+    });
+
+    it("falls back to settings.open() when onEditAccount is not provided", () => {
+        const group = makeGroup();
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        const open = window.usageboard.settings.open;
+        render(<ProviderCard provider="deepseek" group={group} />);
+        fireEvent.click(screen.getByLabelText("更多操作"));
+        fireEvent.click(screen.getByText("编辑"));
+        expect(open).toHaveBeenCalledTimes(1);
+        expect(open).toHaveBeenCalledWith();
     });
 });
