@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PopupView } from "../../../../src/renderer/views/PopupView";
 import type { ConnectorInfo } from "../../../../src/shared/types/ipc";
+import type { AppConfiguration } from "../../../../src/shared/types/config";
 
 vi.mock("../../../../src/renderer/lib/theme", () => ({
     useTheme: () => undefined,
@@ -156,6 +157,7 @@ describe("PopupView", () => {
                 toggle_autostart: vi.fn(),
                 open_settings: vi.fn(),
                 check_update: vi.fn(),
+                restart: vi.fn(),
                 quit: vi.fn(),
                 hide: vi.fn(),
                 report_menu_size: vi.fn(),
@@ -560,5 +562,46 @@ describe("PopupView", () => {
                 provider: "claude",
             }),
         );
+    });
+
+    it("does not re-save providerOrder when external CONFIG_CHANGED arrives", async () => {
+        // PopupView should NOT call config.save() with providerOrder
+        // when the providerOrder was received from another window via CONFIG_CHANGED.
+        // If it does, it creates a ping-pong loop between popup and settings windows.
+
+        let on_config_change_cb: ((config: AppConfiguration) => void) | undefined;
+        window.usageboard.event.onConfigChange = vi.fn((cb: (config: AppConfiguration) => void) => {
+            on_config_change_cb = cb;
+            return vi.fn();
+        });
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        await screen.findByText("总览");
+
+        // Simulate CONFIG_CHANGED from settings window with providerOrder
+        expect(on_config_change_cb).toBeDefined();
+        const incoming: AppConfiguration = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            providerOrder: ["claude", "deepseek"],
+        };
+
+        act(() => {
+            on_config_change_cb?.(incoming);
+        });
+
+        // Flush microtasks
+        await new Promise((resolve) => {
+            setTimeout(resolve, 50);
+        });
+
+        // provider_order state should be set but MUST NOT trigger a config.save()
+        // with providerOrder (that would bounce back to settings window)
+        expect(config_save).not.toHaveBeenCalled();
     });
 });
