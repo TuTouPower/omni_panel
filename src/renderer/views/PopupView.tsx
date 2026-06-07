@@ -24,7 +24,7 @@ import type {
 } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import { add_account_override } from "../lib/account-overrides";
-import { compute_drag_reorder } from "../lib/drag-reorder";
+import { compute_drag_reorder, build_reorder_base } from "../lib/drag-reorder";
 import logo from "../assets/logo.png";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
@@ -524,10 +524,7 @@ export function PopupView() {
         if (!drag_id || drag_id === provider) return;
         set_over_id(provider);
         set_provider_order((prev) => {
-            const base =
-                prev.length > 0
-                    ? prev.filter((p) => orderedProviders.includes(p))
-                    : [...orderedProviders];
+            const base = build_reorder_base(prev, orderedProviders);
             const next = compute_drag_reorder(base, drag_id, provider, {
                 pointer_y: clientY,
                 rect_top: rect.top,

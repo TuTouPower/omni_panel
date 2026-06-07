@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { compute_drag_reorder } from "../../../../src/renderer/lib/drag-reorder";
+import {
+    compute_drag_reorder,
+    build_reorder_base,
+} from "../../../../src/renderer/lib/drag-reorder";
 
 const base = ["a", "b", "c", "d"] as const;
 
@@ -57,5 +60,30 @@ describe("compute_drag_reorder", () => {
         // Dragging "a" over "b" again (now from > to) requires pointer above
         // midpoint; at y=200 (below midpoint) it stays put.
         expect(compute_drag_reorder(moved, "a", "b", { pointer_y: 200, ...tall })).toBeNull();
+    });
+});
+
+describe("build_reorder_base", () => {
+    it("appends visible items missing from the persisted order", () => {
+        // Regression: a provider added after the order was saved (e.g. mimo)
+        // is absent from persisted order and must still be reorderable.
+        const persisted = ["claude", "tavily"];
+        const visible = ["claude", "tavily", "mimo"];
+        const base = build_reorder_base(persisted, visible);
+        expect(base).toEqual(["claude", "tavily", "mimo"]);
+        // the appended item is now findable, so a reorder can commit
+        expect(base.indexOf("mimo")).toBeGreaterThanOrEqual(0);
+    });
+
+    it("drops persisted items that are no longer visible", () => {
+        expect(build_reorder_base(["a", "gone", "b"], ["a", "b"])).toEqual(["a", "b"]);
+    });
+
+    it("falls back to visible order when nothing is persisted", () => {
+        expect(build_reorder_base([], ["a", "b", "c"])).toEqual(["a", "b", "c"]);
+    });
+
+    it("preserves the persisted order for known items", () => {
+        expect(build_reorder_base(["c", "a"], ["a", "b", "c"])).toEqual(["c", "a", "b"]);
     });
 });

@@ -35,3 +35,21 @@ export function compute_drag_reorder<T>(
     next.splice(to, 0, drag_id);
     return next;
 }
+
+/**
+ * Build the working order for a drag reorder.
+ *
+ * `persisted` is the saved order (may be incomplete — e.g. a provider added
+ * after the order was last saved is absent). `visible` is the full set of
+ * currently rendered items in display order. The result keeps the persisted
+ * order for known items and appends any visible items missing from it, so
+ * every on-screen item is present and reorderable.
+ */
+export function build_reorder_base<T>(persisted: readonly T[], visible: readonly T[]): T[] {
+    const source = persisted.length > 0 ? persisted : visible;
+    const visible_set = new Set(visible);
+    const ordered = source.filter((item) => visible_set.has(item));
+    const ordered_set = new Set(ordered);
+    const remaining = visible.filter((item) => !ordered_set.has(item));
+    return [...ordered, ...remaining];
+}
