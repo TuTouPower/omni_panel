@@ -197,13 +197,22 @@ export function PopupView() {
     useEffect(() => {
         return window.usageboard.event.onConfigChange?.((config) => {
             apply_config(config);
+            if (config.providerOrder && config.providerOrder.length > 0) {
+                synced_order_ref.current = config.providerOrder.filter((p): p is UsageProvider =>
+                    valid_providers.has(p),
+                );
+            }
             void reload();
         });
-    }, [apply_config, reload]);
+    }, [apply_config, reload, valid_providers]);
 
-    // Persist provider order to config when it changes (serialized to prevent races)
+    // Persist provider order to config when user reorders (not from external config sync)
     useEffect(() => {
         if (provider_order.length === 0) return;
+        const prev = synced_order_ref.current;
+        if (prev.length === provider_order.length && prev.every((v, i) => v === provider_order[i]))
+            return;
+        synced_order_ref.current = provider_order;
         save_queue_ref.current = save_queue_ref.current
             .then(async () => {
                 const result = await window.usageboard.config.get();
@@ -221,6 +230,7 @@ export function PopupView() {
     const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
     const refresh_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
     const save_queue_ref = useRef(Promise.resolve());
+    const synced_order_ref = useRef<UsageProvider[]>([]);
 
     // Cleanup refresh timeout on unmount
     useEffect(() => {
