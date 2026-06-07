@@ -24,6 +24,7 @@ import type {
 } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import { add_account_override } from "../lib/account-overrides";
+import { compute_drag_reorder } from "../lib/drag-reorder";
 import logo from "../assets/logo.png";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
@@ -513,19 +514,26 @@ export function PopupView() {
     const handle_drag_enter = (provider: UsageProvider) => {
         if (!drag_id || drag_id === provider) return;
         set_over_id(provider);
-        // Reorder: move drag_id to the position of provider
+    };
+
+    // Reorder uses a direction-aware midpoint guard (see compute_drag_reorder)
+    // to avoid swap-back flicker when a short card is dragged across a tall
+    // (expanded) card. Fires on dragOver so the move commits as the pointer
+    // crosses the midpoint, not merely on entry.
+    const handle_drag_over = (provider: UsageProvider, clientY: number, rect: DOMRect) => {
+        if (!drag_id || drag_id === provider) return;
+        set_over_id(provider);
         set_provider_order((prev) => {
             const base =
                 prev.length > 0
                     ? prev.filter((p) => orderedProviders.includes(p))
                     : [...orderedProviders];
-            const from = base.indexOf(drag_id);
-            const to = base.indexOf(provider);
-            if (from < 0 || to < 0) return prev;
-            const next = [...base];
-            next.splice(from, 1);
-            next.splice(to, 0, drag_id);
-            return next;
+            const next = compute_drag_reorder(base, drag_id, provider, {
+                pointer_y: clientY,
+                rect_top: rect.top,
+                rect_height: rect.height,
+            });
+            return next ?? prev;
         });
     };
 
@@ -757,6 +765,7 @@ export function PopupView() {
                                 overProvider={is_live ? over_id : null}
                                 onDragStart={is_live ? handle_drag_start : undefined}
                                 onDragEnter={is_live ? handle_drag_enter : undefined}
+                                onDragOver={is_live ? handle_drag_over : undefined}
                                 onDragEnd={is_live ? handle_drag_end : undefined}
                                 refreshingProviders={is_live ? refresh_providers : undefined}
                                 barColorScheme={usage_bar_color_scheme}

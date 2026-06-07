@@ -30,6 +30,7 @@ interface ProviderCardProps {
     dragOver?: boolean | undefined;
     onDragStart?: ((provider: UsageProvider) => void) | undefined;
     onDragEnter?: ((provider: UsageProvider) => void) | undefined;
+    onDragOver?: ((provider: UsageProvider, clientY: number, rect: DOMRect) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
     refreshing?: boolean | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
@@ -63,6 +64,7 @@ export function ProviderCard({
     dragOver,
     onDragStart,
     onDragEnter,
+    onDragOver,
     onDragEnd,
     refreshing: is_refreshing = false,
     barColorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
@@ -285,8 +287,11 @@ export function ProviderCard({
                         onDragEnter(provider);
                     }
                   : undefined,
-              onDragOver: (e: React.DragEvent) => {
+              onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
                   e.preventDefault();
+                  if (onDragOver) {
+                      onDragOver(provider, e.clientY, e.currentTarget.getBoundingClientRect());
+                  }
               },
               onDragEnd: onDragEnd,
           }

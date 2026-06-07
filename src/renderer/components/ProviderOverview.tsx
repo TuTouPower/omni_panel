@@ -21,6 +21,7 @@ interface ProviderOverviewProps {
     overProvider?: UsageProvider | null | undefined;
     onDragStart?: ((provider: UsageProvider) => void) | undefined;
     onDragEnter?: ((provider: UsageProvider) => void) | undefined;
+    onDragOver?: ((provider: UsageProvider, clientY: number, rect: DOMRect) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
     refreshingProviders?: Set<string> | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
@@ -41,6 +42,7 @@ export function ProviderOverview({
     overProvider,
     onDragStart,
     onDragEnter,
+    onDragOver,
     onDragEnd,
     refreshingProviders,
     barColorScheme,
@@ -69,6 +71,7 @@ export function ProviderOverview({
                         dragOver={overProvider === provider && draggingProvider !== provider}
                         onDragStart={onDragStart}
                         onDragEnter={onDragEnter}
+                        onDragOver={onDragOver}
                         onDragEnd={onDragEnd}
                         refreshing={refreshingProviders?.has(provider)}
                         barColorScheme={barColorScheme}
