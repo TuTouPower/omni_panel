@@ -1,6 +1,6 @@
 # 插件协议契约
 
-> 基于 `docs/old-data-models.md` 和 `docs/old-behavior-map.md` 冻结。
+> 基于 `docs/archive/old-data-models.md` 和 `docs/archive/old-behavior-map.md` 冻结。
 
 ## 插件文件格式
 

@@ -24,7 +24,7 @@
 
 ## 2. 通用原则
 
-- **当前状态**：单元/集成测试有一定覆盖，但 renderer smoke 测试全部使用 mock IPC，**不验证真实 Electron 环境**。
+- **当前状态**：单元/集成测试已有较完整覆盖，E2E 测试覆盖主路径。
 - **少 mock，多真实**：外部服务默认使用本地可控桩；本地能力（插件发现、TS 编译、配置读写、子进程 spawn）真实测试。
 - **覆盖完整**：测试要覆盖所有功能、所有 UI 状态（loading / 正常 / 错误 / 空）。
 - **E2E 全程真实用户视角**：每个用例都是"用户做了某操作 → 看到某结果"。
@@ -77,7 +77,7 @@ npx vitest run tests/unit
 # 集成测试（子集）
 npx vitest run tests/integration
 
-# 端到端测试（Playwright，待实现）
+# 端到端测试（Playwright）
 pnpm test:e2e
 
 # 打包 + 自动化 smoke
@@ -144,7 +144,7 @@ xdg-open coverage/index.html
 | Lines      | 1%   |
 
 > 基线日期：2026-05-30。阈值 = 基线 - 5%。
-> 详细基线数据见 `docs/coverage-baseline.md`。
+> 详细基线数据见 `docs/archive/coverage-baseline.md`。
 
 ---
 
