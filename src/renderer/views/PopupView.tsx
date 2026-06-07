@@ -348,16 +348,32 @@ export function PopupView() {
                 return info?.activeProviders.includes(provider) ?? false;
             });
             if (related_plugins.length === 0) return;
-            const any_enabled = related_plugins.some((p) => p.enabled);
-            const new_enabled = !any_enabled;
+
+            const updated_plugins = result.config.plugins.map((p) => {
+                if (!related_plugins.some((rp) => rp.instanceId === p.instanceId)) {
+                    return p;
+                }
+                const info = plugins.find((pi) => pi.instanceId === p.instanceId);
+                // CPA connector: toggle monitor param per provider, don't disable entire connector
+                if (info?.source === "cpa") {
+                    const monitor_key = `monitor_${provider}`;
+                    const current_val = p.parameterValues[monitor_key];
+                    const is_off = String(current_val) === "false";
+                    return {
+                        ...p,
+                        parameterValues: {
+                            ...p.parameterValues,
+                            [monitor_key]: is_off ? "true" : "false",
+                        },
+                    };
+                }
+                // Direct plugin: toggle plugin.enabled
+                return { ...p, enabled: !p.enabled };
+            });
+
             void window.usageboard.config.save({
                 ...result.config,
-                plugins: result.config.plugins.map((p) => {
-                    if (related_plugins.some((rp) => rp.instanceId === p.instanceId)) {
-                        return { ...p, enabled: new_enabled };
-                    }
-                    return p;
-                }),
+                plugins: updated_plugins,
             });
         });
     };
