@@ -401,6 +401,18 @@ function AccountDialog({
                                 endpoints={pluginInfo.metadata?.endpoints ?? {}}
                                 endpointValues={pluginConfig.endpointOverrides}
                                 refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
+                                providerId={pluginInfo.activeProviders[0]}
+                                onCookieLogin={async (id) => {
+                                    try {
+                                        const result = await window.usageboard.auth.cookieLogin(id);
+                                        if (result.saved) {
+                                            await window.usageboard.config.get();
+                                        }
+                                        return result.saved;
+                                    } catch {
+                                        return false;
+                                    }
+                                }}
                                 onSave={async (...args) => {
                                     await onSave(...args);
                                     onClose();
@@ -982,10 +994,21 @@ export function SettingsView() {
             setSection("accounts");
             if (context.instanceId) {
                 setDialog({ mode: "edit", instanceId: context.instanceId, pluginName: undefined });
+            } else if (context.provider) {
+                const match = pluginInfos.find((p) =>
+                    p.activeProviders.includes(context.provider as UsageProvider),
+                );
+                if (match) {
+                    setDialog({
+                        mode: "edit",
+                        instanceId: match.instanceId,
+                        pluginName: match.displayName,
+                    });
+                }
             }
         });
         return unsub;
-    }, []);
+    }, [pluginInfos]);
 
     // Phase 21.5: group plugins by provider for the accounts page
     const account_groups = useMemo<ProviderAccountGroup[]>(() => {
@@ -1095,7 +1118,7 @@ export function SettingsView() {
         lang: "简体中文",
     });
     const [dataMsg, setDataMsg] = useState<string | null>(null);
-    const data_msg_timer = useRef<ReturnType<typeof setTimeout>>();
+    const data_msg_timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     const up = useCallback((k: string, v: unknown) => {
         setLocalState((p) => ({ ...p, [k]: v }));

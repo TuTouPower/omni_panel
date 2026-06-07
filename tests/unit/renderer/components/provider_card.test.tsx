@@ -681,6 +681,6 @@ describe("ProviderCard", () => {
         fireEvent.click(screen.getByLabelText("更多操作"));
         fireEvent.click(screen.getByText("编辑"));
         expect(open).toHaveBeenCalledTimes(1);
-        expect(open).toHaveBeenCalledWith();
+        expect(open).toHaveBeenCalledWith({ provider: "deepseek" });
     });
 });

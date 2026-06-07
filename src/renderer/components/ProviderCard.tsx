@@ -107,7 +107,7 @@ export function ProviderCard({
                 if (onEditAccount && first_account) {
                     onEditAccount(first_account);
                 } else {
-                    window.usageboard.settings.open();
+                    window.usageboard.settings.open({ provider });
                 }
             },
         },
