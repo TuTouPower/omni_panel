@@ -1882,6 +1882,7 @@ html[data-window="tray"] #root {
     align-items: center;
     gap: 4px;
     flex-shrink: 0;
+    margin-left: auto;
 }
 .ao-actions .sw {
     margin: 0 4px;
