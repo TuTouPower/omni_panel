@@ -132,7 +132,7 @@ export function ProviderAccountRow({
     return (
         <CollapsibleCard
             header={header}
-            collapsed={can_collapse ? !collapsed : false}
+            collapsed={can_collapse ? collapsed : false}
             onToggle={can_collapse ? onToggleCollapsed : () => undefined}
             toggleLabel={
                 collapsed ? `展开 ${account.accountLabel}` : `折叠 ${account.accountLabel}`
