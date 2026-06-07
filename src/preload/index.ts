@@ -157,6 +157,7 @@ const tray_methods = {
     toggle_autostart: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_TOGGLE_AUTOSTART),
     open_settings: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_OPEN_SETTINGS),
     check_update: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_CHECK_UPDATE),
+    restart: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_RESTART),
     quit: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_QUIT),
     hide: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_HIDE),
     report_menu_size: (report: { width: number; height: number }) => {

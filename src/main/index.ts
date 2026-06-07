@@ -646,6 +646,10 @@ void app.whenReady().then(async () => {
         ipcMain.handle("tray:quit", () => {
             app.quit();
         });
+        ipcMain.handle("tray:restart", () => {
+            app.relaunch();
+            app.quit();
+        });
         ipcMain.handle("tray:hide", () => {
             hideTrayMenu();
         });

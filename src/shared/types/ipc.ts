@@ -45,6 +45,7 @@ export const IPC_CHANNELS = {
     TRAY_OPEN_SETTINGS: "tray:openSettings",
     TRAY_CHECK_UPDATE: "tray:checkUpdate",
     TRAY_QUIT: "tray:quit",
+    TRAY_RESTART: "tray:restart",
     TRAY_HIDE: "tray:hide",
     TRAY_REPORT_MENU_SIZE: "tray:reportMenuSize",
     TRAY_PAUSE_STATE: "tray:pauseState",
@@ -207,6 +208,7 @@ export interface UsageboardApi {
         toggle_autostart(): void;
         open_settings(): void;
         check_update(): void;
+        restart(): void;
         quit(): void;
         hide(): void;
         report_menu_size(report: TrayMenuSizeReport): void;

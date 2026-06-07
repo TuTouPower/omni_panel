@@ -106,6 +106,14 @@ export function TrayMenu() {
                     window.usageboard.tray.check_update();
                 },
             },
+            {
+                icon: "refresh",
+                label_zh: "重启",
+                label_en: "Restart",
+                action: () => {
+                    window.usageboard.tray.restart();
+                },
+            },
             // separator
             {
                 icon: "exit",
@@ -139,7 +147,7 @@ export function TrayMenu() {
 
     useResizeObserver(menu_ref, report_menu_size, [items]);
 
-    const sep_indexes = new Set([2, 4, 6]); // indexes where separators appear
+    const sep_indexes = new Set([2, 4, 7]); // indexes where separators appear
 
     return (
         <div className="tray-window" ref={menu_ref}>
