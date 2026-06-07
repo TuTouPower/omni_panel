@@ -17,14 +17,15 @@
 //       "label@en": "Cookie",
 //       "type": "secret",
 //       "required": true,
-//       "description": "获取方式：打开 platform.xiaomimimo.com 登录后，F12 → Application → Cookies → xiaomimimo.com → 复制 api-platform_serviceToken 的值。或从 Network 标签页任意请求的 Cookie 头复制完整值",
-//       "description@zh-Hans": "获取方式：打开 platform.xiaomimimo.com 登录后，F12 → Application → Cookies → xiaomimimo.com → 复制 api-platform_serviceToken 的值。或从 Network 标签页任意请求的 Cookie 头复制完整值",
-//       "description@en": "Get cookie: open platform.xiaomimimo.com, F12 → Application → Cookies → xiaomimimo.com → copy api-platform_serviceToken. Or copy full Cookie header from any Network request",
-//       "placeholder": "cookie-preferences=...; api-platform_serviceToken=..."
+//       "description": "查询小米 MiMo 开放平台用量。推荐点击「网页登录」自动获取 Cookie，也可手动：F12 → Application → Cookies → 复制 api-platform_serviceToken 的值",
+//       "description@zh-Hans": "查询小米 MiMo 开放平台用量。推荐点击「网页登录」自动获取 Cookie，也可手动：F12 → Application → Cookies → 复制 api-platform_serviceToken 的值",
+//       "description@en": "Query Xiaomi MiMo platform usage. Use the Login button to auto-fill, or manually: F12 → Application → Cookies → copy api-platform_serviceToken value",
+//       "placeholder": "api-platform_serviceToken=...（点击「网页登录」可自动填入）"
 //     }
 //   ],
 //   "endpoints": {
-//     "default": "https://platform.xiaomimimo.com"
+//     "default": "https://platform.xiaomimimo.com",
+//     "login": "https://platform.xiaomimimo.com/console/plan-manage"
 //   }
 // }
 // /UsageBoardPlugin
@@ -39,7 +40,10 @@ import {
     colorFor,
 } from "@omni-usage/plugin-sdk";
 
-const METADATA_ENDPOINTS = { default: "https://platform.xiaomimimo.com" };
+const METADATA_ENDPOINTS = {
+    default: "https://platform.xiaomimimo.com",
+    login: "https://platform.xiaomimimo.com/console/plan-manage",
+};
 const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-source";
 
 const translations = {

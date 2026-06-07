@@ -442,7 +442,7 @@ void app.whenReady().then(async () => {
     });
     await registerLogIpc();
     cleanupEventIpc = registerEventIpc({ runtimeStore });
-    await registerAuthIpc({ configStore, secretsStore, definitions: allDefinitions });
+    registerAuthIpc({ configStore, secretsStore, definitions: allDefinitions });
 
     // Window references — shared between tray and E2E mode
     /** Custom tray menu frameless window (replaces native context menu). */
