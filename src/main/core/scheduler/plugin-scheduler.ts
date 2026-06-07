@@ -6,7 +6,7 @@ interface PluginSchedulerDeps {
 }
 
 export interface PluginScheduler {
-    start(instanceId: string, intervalSeconds: number): void;
+    start(instanceId: string, intervalSeconds: number, options?: { immediate?: boolean }): void;
     stop(instanceId: string): void;
     stopAll(): void;
     refreshNow(instanceId: string): void;
@@ -17,12 +17,18 @@ export function createPluginScheduler(deps: PluginSchedulerDeps): PluginSchedule
     const log = createLogger("scheduler");
     const timers = new Map<string, { timer: ReturnType<typeof setInterval>; interval: number }>();
 
-    function start(instanceId: string, intervalSeconds: number): void {
+    function start(
+        instanceId: string,
+        intervalSeconds: number,
+        options?: { immediate?: boolean },
+    ): void {
         stop(instanceId);
         const interval = Math.max(intervalSeconds, MIN_REFRESH_INTERVAL_SECONDS) * 1000;
 
         log.debug(`Starting scheduler for ${instanceId} (every ${String(intervalSeconds)}s)`);
-        void deps.refresh(instanceId);
+        if (options?.immediate !== false) {
+            void deps.refresh(instanceId);
+        }
 
         const timer = setInterval(() => {
             void deps.refresh(instanceId);

@@ -44,9 +44,18 @@ export function createSchedulerOrchestrator(
     }
 
     function rebuild(config: PluginListConfig): void {
-        log.info("rebuild: stopping all and restarting enabled");
+        log.info("rebuild: stopping all and restarting enabled (no immediate refresh)");
         deps.scheduler.stopAll();
-        startAll(config);
+        let count = 0;
+        for (const plugin of config.plugins) {
+            if (plugin.enabled) {
+                deps.scheduler.start(plugin.instanceId, plugin.refreshIntervalSeconds, {
+                    immediate: false,
+                });
+                count++;
+            }
+        }
+        log.info(`rebuild: restarted ${String(count)} plugins`);
     }
 
     function suspend(): void {

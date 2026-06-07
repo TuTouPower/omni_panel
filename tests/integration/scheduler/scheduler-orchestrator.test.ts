@@ -8,8 +8,8 @@ function createMockScheduler(): PluginScheduler & { calls: string[] } {
     const calls: string[] = [];
     return {
         calls,
-        start: (instanceId: string) => {
-            calls.push(`start:${instanceId}`);
+        start: (instanceId: string, _interval?: number, options?: { immediate?: boolean }) => {
+            calls.push(`start:${instanceId}${options?.immediate === false ? ":deferred" : ""}`);
         },
         stop: (instanceId: string) => {
             calls.push(`stop:${instanceId}`);
@@ -104,11 +104,13 @@ describe("scheduler-orchestrator", () => {
         expect(scheduler.calls).not.toContain("start:b");
     });
 
-    it("rebuild stops all then restarts enabled", () => {
+    it("rebuild stops all then restarts enabled without immediate refresh", () => {
         orchestrator.rebuild(config);
         expect(scheduler.calls[0]).toBe("stopAll");
-        expect(scheduler.calls).toContain("start:a");
-        expect(scheduler.calls).toContain("start:c");
+        expect(scheduler.calls).toContain("start:a:deferred");
+        expect(scheduler.calls).toContain("start:c:deferred");
+        expect(scheduler.calls).not.toContain("start:a");
+        expect(scheduler.calls).not.toContain("start:c");
     });
 
     it("suspend stops all", () => {

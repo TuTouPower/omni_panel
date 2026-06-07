@@ -64,4 +64,21 @@ describe("plugin-scheduler", () => {
         vi.advanceTimersByTime(20_000);
         expect(refresh).toHaveBeenCalledTimes(2);
     });
+
+    it("does not call refresh immediately when immediate:false", () => {
+        const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+        const scheduler = createPluginScheduler({ refresh });
+        scheduler.start("p1", 10, { immediate: false });
+        expect(refresh).toHaveBeenCalledTimes(0);
+    });
+
+    it("still calls refresh on interval when immediate:false", async () => {
+        const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+        const scheduler = createPluginScheduler({ refresh });
+        scheduler.start("p1", 10, { immediate: false });
+        expect(refresh).toHaveBeenCalledTimes(0);
+
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(refresh).toHaveBeenCalledTimes(1);
+    });
 });
