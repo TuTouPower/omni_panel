@@ -9,9 +9,9 @@ import {
 
 export type { AppConfiguration, PluginConfiguration } from "../../../shared/types/config";
 
-export const appLanguageSchema = z.enum(["zh-Hans", "en"]) as z.ZodType<AppLanguage>;
+const appLanguageSchema = z.enum(["zh-Hans", "en"]) as z.ZodType<AppLanguage>;
 
-export const pluginConfigurationSchema = z.object({
+const pluginConfigurationSchema = z.object({
     instanceId: z.string().min(1).optional(),
     stateId: z.string().min(1),
     name: z.string().min(1),
@@ -22,23 +22,23 @@ export const pluginConfigurationSchema = z.object({
     endpointOverrides: z.record(z.string()).default({}),
 });
 
-export const proxyConfigurationSchema = z.object({
+const proxyConfigurationSchema = z.object({
     url: z.string().min(1),
     noProxy: z.array(z.string()).optional(),
 });
 
-export const mainPanelModeSchema = z.enum(["system", "popup", "floating"]);
-export const floatingHeightModeSchema = z.enum(["fixed", "followContent"]);
-export const usageBarColorSchemeSchema = z.enum(["risk-current", "risk-projected", "nine-cycle"]);
-export const usageBarStyleSchema = z.enum(["thin", "capsule"]);
-export const usageLabelMapSchema = z
+const mainPanelModeSchema = z.enum(["system", "popup", "floating"]);
+const floatingHeightModeSchema = z.enum(["fixed", "followContent"]);
+const usageBarColorSchemeSchema = z.enum(["risk-current", "risk-projected", "nine-cycle"]);
+const usageBarStyleSchema = z.enum(["thin", "capsule"]);
+const usageLabelMapSchema = z
     .record(z.string().min(1).max(USAGE_LABEL_MAP_MAX_VALUE_LENGTH))
     .refine(
         (value) =>
             Object.keys(value).length <= USAGE_LABEL_MAP_MAX_ENTRIES &&
             Object.keys(value).every((key) => key.length <= USAGE_LABEL_MAP_MAX_KEY_LENGTH),
     );
-export const floatingBoundsSchema = z.object({
+const floatingBoundsSchema = z.object({
     x: z.number().finite(),
     y: z.number().finite(),
     width: z.number().int().min(320),

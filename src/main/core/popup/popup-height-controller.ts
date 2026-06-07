@@ -8,7 +8,7 @@
  */
 
 export const MAX_HEIGHT_RATIO = 0.75;
-export const HEIGHT_REPORT_DEBOUNCE_PX = 1;
+const HEIGHT_REPORT_DEBOUNCE_PX = 1;
 
 export interface ContentHeightReport {
     /** Measured visible content height in CSS pixels (may be fractional). */

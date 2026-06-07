@@ -149,7 +149,7 @@ export async function handleConfigSaveSecrets(
     }
 }
 
-export async function handleConfigDuplicate(
+async function handleConfigDuplicate(
     deps: ConfigIpcDeps,
     payload: unknown,
 ): Promise<IpcResult<void>> {

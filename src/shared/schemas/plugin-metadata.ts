@@ -1,7 +1,7 @@
 import { z } from "zod/v3";
 import { usageProviderSchema, usageSourceSchema } from "./plugin-output";
 
-export const pluginParameterTypeSchema = z.enum([
+const pluginParameterTypeSchema = z.enum([
     "string",
     "secret",
     "integer",
@@ -11,7 +11,7 @@ export const pluginParameterTypeSchema = z.enum([
     "file",
 ]);
 
-export const pluginParameterOptionSchema = z
+const pluginParameterOptionSchema = z
     .object({
         label: z.string(),
         value: z.string(),
@@ -21,7 +21,7 @@ export const pluginParameterOptionSchema = z
     })
     .strict();
 
-export const pluginParameterMetadataSchema = z
+const pluginParameterMetadataSchema = z
     .object({
         name: z.string(),
         label: z.string(),
@@ -39,7 +39,7 @@ export const pluginParameterMetadataSchema = z
     })
     .strict();
 
-export const pluginEndpointsSchema = z.record(z.string().url().nullable());
+const pluginEndpointsSchema = z.record(z.string().url().nullable());
 
 export const pluginMetadataSchema = z
     .object({

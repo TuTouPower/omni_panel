@@ -1,8 +1,8 @@
 import { z } from "zod/v3";
 
-export const usageDisplayStyleSchema = z.enum(["percent", "ratio"]);
-export const usageStatusSchema = z.enum(["normal", "warning", "critical", "unknown"]);
-export const usageColorSchema = z.enum(["blue", "green", "yellow", "orange", "red"]);
+const usageDisplayStyleSchema = z.enum(["percent", "ratio"]);
+const usageStatusSchema = z.enum(["normal", "warning", "critical", "unknown"]);
+const usageColorSchema = z.enum(["blue", "green", "yellow", "orange", "red"]);
 export const usageProviderSchema = z.enum([
     "claude",
     "codex",
@@ -19,7 +19,7 @@ export const usageSourceSchema = z.enum(["cpa", "direct", "local", "api_key", "o
 
 const finiteNonNegative = z.number().finite().nonnegative();
 
-export const usageItemSchema = z.object({
+const usageItemSchema = z.object({
     id: z.string(),
     provider: usageProviderSchema,
     source: usageSourceSchema,
@@ -35,18 +35,18 @@ export const usageItemSchema = z.object({
     color: usageColorSchema.optional(),
 });
 
-export const pluginChartSegmentSchema = z.object({
+const pluginChartSegmentSchema = z.object({
     model: z.string(),
     tokens: finiteNonNegative,
 });
 
-export const pluginChartBucketSchema = z.object({
+const pluginChartBucketSchema = z.object({
     id: z.string().optional(),
     label: z.string(),
     segments: z.array(pluginChartSegmentSchema),
 });
 
-export const pluginChartSchema = z.object({
+const pluginChartSchema = z.object({
     kind: z.string(),
     period: z.string(),
     bucketUnit: z.enum(["hour", "day"]),
