@@ -18,6 +18,7 @@ import {
     getBundledPluginsDir,
     getUserPluginsDir,
     getPluginCacheDir,
+    getBundledPluginCacheDir,
     getSdkDir,
     get_tray_icon_path,
     get_app_icon_path,
@@ -38,6 +39,7 @@ import { buildPluginCommand } from "./core/plugin/command-builder";
 import { registerPluginIpc } from "./ipc/plugin-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
+import { registerAuthIpc } from "./ipc/auth-ipc";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
 import { parseSizeReport } from "./ipc/size-validation";
@@ -158,6 +160,10 @@ function createWindowFor(key: string, options: { load?: boolean } = {}): Browser
             preload: getPreloadPath(),
         },
     });
+    // Group all windows under one taskbar icon on Windows
+    if (process.platform === "win32") {
+        win.setAppDetails({ appId: "omni-usage" });
+    }
     if (cfg.autoHideMenuBar) {
         win.setMenuBarVisibility(false);
     }
@@ -252,7 +258,14 @@ void app.whenReady().then(async () => {
     const compiledPaths = new Map<string, string>();
 
     for (const def of allDefinitions) {
-        const result = await compilePlugin(def, cacheDir, sdkDir);
+        const fallbackCacheDir =
+            app.isPackaged && def.source === "bundled" ? getBundledPluginCacheDir() : undefined;
+        const result = await compilePlugin(
+            def,
+            cacheDir,
+            sdkDir,
+            fallbackCacheDir ? { fallbackCacheDir } : {},
+        );
         if (result.executablePath) {
             compiledPaths.set(def.executablePath, result.executablePath);
             if (result.status === "stale_cache") {
@@ -429,6 +442,7 @@ void app.whenReady().then(async () => {
     });
     await registerLogIpc();
     cleanupEventIpc = registerEventIpc({ runtimeStore });
+    await registerAuthIpc({ configStore, secretsStore, definitions: allDefinitions });
 
     // Window references — shared between tray and E2E mode
     /** Custom tray menu frameless window (replaces native context menu). */
@@ -657,9 +671,13 @@ void app.whenReady().then(async () => {
             const parsed = parseSizeReport(report, ["width", "height"]);
             if (!parsed) return;
 
+            const width = parsed["width"];
+            const height = parsed["height"];
+            if (width === undefined || height === undefined) return;
+
             tray_menu_size = {
-                width: Math.max(1, Math.ceil(parsed.width)),
-                height: Math.max(1, Math.ceil(parsed.height)),
+                width: Math.max(1, Math.ceil(width)),
+                height: Math.max(1, Math.ceil(height)),
             };
             if (trayMenuWin && !trayMenuWin.isDestroyed() && trayMenuWin.isVisible()) {
                 const bounds = trayMenuWin.getBounds();
