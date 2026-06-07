@@ -604,4 +604,47 @@ describe("PopupView", () => {
         // with providerOrder (that would bounce back to settings window)
         expect(config_save).not.toHaveBeenCalled();
     });
+
+    it("renders provider cards after CONFIG_CHANGED sync with providerOrder", async () => {
+        // Smoking test: when CONFIG_CHANGED arrives with providerOrder,
+        // cards must still be visible (no blank screen regression).
+
+        let on_config_change_cb: ((config: AppConfiguration) => void) | undefined;
+        window.usageboard.event.onConfigChange = vi.fn((cb: (config: AppConfiguration) => void) => {
+            on_config_change_cb = cb;
+            return vi.fn();
+        });
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        // Initial render: cards are visible
+        await screen.findByText("总览");
+        expect(screen.getAllByText("Claude").length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText("DeepSeek").length).toBeGreaterThanOrEqual(1);
+
+        // External CONFIG_CHANGED from settings window
+        expect(on_config_change_cb).toBeDefined();
+        act(() => {
+            on_config_change_cb?.({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [],
+                providerOrder: ["deepseek", "claude"],
+            });
+        });
+
+        await new Promise((resolve) => {
+            setTimeout(resolve, 50);
+        });
+
+        // Cards must still be visible after CONFIG_CHANGED sync
+        expect(screen.getByText("总览")).toBeInTheDocument();
+        expect(screen.getAllByText("Claude").length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText("DeepSeek").length).toBeGreaterThanOrEqual(1);
+        // No save must have happened
+        expect(config_save).not.toHaveBeenCalled();
+    });
 });
