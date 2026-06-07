@@ -6,9 +6,9 @@
 //   "defaultSource": "direct",
 //   "name@zh-Hans": "MiMo",
 //   "name@en": "MiMo",
-//   "description": "查询小米 MiMo 开放平台用量。Cookie 必须包含 api-platform_serviceToken，否则会 401",
-//   "description@zh-Hans": "查询小米 MiMo 开放平台用量。Cookie 必须包含 api-platform_serviceToken，否则会 401",
-//   "description@en": "Query Xiaomi MiMo platform usage. Cookie must include api-platform_serviceToken or you'll get 401",
+//   "description": "查询小米 MiMo 开放平台用量",
+//   "description@zh-Hans": "查询小米 MiMo 开放平台用量",
+//   "description@en": "Query Xiaomi MiMo platform usage",
 //   "parameters": [
 //     {
 //       "name": "SESSION_COOKIE",
@@ -17,9 +17,9 @@
 //       "label@en": "Cookie",
 //       "type": "secret",
 //       "required": true,
-//       "description": "获取方式：打开 platform.xiaomimimo.com 并登录，F12 → Network → 刷新页面 → 点击任意 api 请求 → 复制 Request Headers 中的完整 Cookie 值。注意：document.cookie 无法获取 httpOnly 的 serviceToken",
-//       "description@zh-Hans": "获取方式：打开 platform.xiaomimimo.com 并登录，F12 → Network → 刷新页面 → 点击任意 api 请求 → 复制 Request Headers 中的完整 Cookie 值。注意：document.cookie 无法获取 httpOnly 的 serviceToken",
-//       "description@en": "How to get: open platform.xiaomimimo.com and login, F12 → Network → refresh → click any API request → copy full Cookie from Request Headers. Note: document.cookie cannot access httpOnly serviceToken",
+//       "description": "获取方式：打开 platform.xiaomimimo.com 登录后，F12 → Application → Cookies → xiaomimimo.com → 复制 api-platform_serviceToken 的值。或从 Network 标签页任意请求的 Cookie 头复制完整值",
+//       "description@zh-Hans": "获取方式：打开 platform.xiaomimimo.com 登录后，F12 → Application → Cookies → xiaomimimo.com → 复制 api-platform_serviceToken 的值。或从 Network 标签页任意请求的 Cookie 头复制完整值",
+//       "description@en": "Get cookie: open platform.xiaomimimo.com, F12 → Application → Cookies → xiaomimimo.com → copy api-platform_serviceToken. Or copy full Cookie header from any Network request",
 //       "placeholder": "cookie-preferences=...; api-platform_serviceToken=..."
 //     }
 //   ],
