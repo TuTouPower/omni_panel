@@ -17,9 +17,9 @@
 //       "label@en": "Cookie",
 //       "type": "secret",
 //       "required": true,
-//       "description": "在 platform.xiaomimimo.com 登录后，按 F12 打开控制台输入 copy(document.cookie) 即可复制。必须包含 api-platform_serviceToken 字段",
-//       "description@zh-Hans": "在 platform.xiaomimimo.com 登录后，按 F12 打开控制台输入 copy(document.cookie) 即可复制。必须包含 api-platform_serviceToken 字段",
-//       "description@en": "Login to platform.xiaomimimo.com, press F12, run copy(document.cookie) in console. Must include api-platform_serviceToken",
+//       "description": "获取方式：打开 platform.xiaomimimo.com 并登录，F12 → Network → 刷新页面 → 点击任意 api 请求 → 复制 Request Headers 中的完整 Cookie 值。注意：document.cookie 无法获取 httpOnly 的 serviceToken",
+//       "description@zh-Hans": "获取方式：打开 platform.xiaomimimo.com 并登录，F12 → Network → 刷新页面 → 点击任意 api 请求 → 复制 Request Headers 中的完整 Cookie 值。注意：document.cookie 无法获取 httpOnly 的 serviceToken",
+//       "description@en": "How to get: open platform.xiaomimimo.com and login, F12 → Network → refresh → click any API request → copy full Cookie from Request Headers. Note: document.cookie cannot access httpOnly serviceToken",
 //       "placeholder": "cookie-preferences=...; api-platform_serviceToken=..."
 //     }
 //   ],
