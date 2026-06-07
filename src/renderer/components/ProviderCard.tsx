@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
-import type { ProviderUsageGroup } from "../lib/provider-usage";
+import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
 import {
     PROVIDER_LABELS,
     build_overview_for_group,
@@ -12,7 +12,11 @@ import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { CollapsibleCard } from "./CollapsibleCard";
-import { UsageBarRow, AccountUsageRow } from "./UsageRows";
+import { CardActionMenu } from "./CardActionMenu";
+import type { CardActionMenuItem } from "./CardActionMenu";
+import { UsageBarList } from "./UsageBarList";
+import { DragGrip } from "./DragGrip";
+import { AccountUsageRow } from "./UsageRows";
 
 interface ProviderCardProps {
     provider: UsageProvider;
@@ -32,6 +36,7 @@ interface ProviderCardProps {
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
+    onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
 }
 
 function is_auth_error(error: string): boolean {
@@ -65,6 +70,7 @@ export function ProviderCard({
     barColorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
     barStyle = "thin",
     labelMap,
+    onEditAccount,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
@@ -78,21 +84,57 @@ export function ProviderCard({
         (dragging ? " dragging" : "") +
         (dragOver ? " drag-over" : "");
 
-    const grip_handle = onDragStart ? (
-        <button
-            className="icon-btn card-grip"
-            title="拖动以调整顺序"
-            type="button"
-            onMouseDown={() => {
-                onDragStart(provider);
-            }}
-            onClick={(e) => {
-                e.stopPropagation();
-            }}
-        >
-            <Icon name="grip" size={18} strokeWidth={2} />
-        </button>
-    ) : null;
+    const [l2open, set_l2open] = useState(false);
+
+    const is_multi = accountCount > 1;
+    const overview_periods = useMemo(() => (group ? build_overview_for_group(group) : []), [group]);
+    const overview_updated_at = useMemo(
+        () =>
+            is_multi
+                ? resolve_convergent_time(overview_periods.map((period) => period.updatedAt))
+                : (group?.updatedAt ?? null),
+        [group?.updatedAt, is_multi, overview_periods],
+    );
+
+    const updated_text = overview_updated_at ? relative_time(overview_updated_at) : "";
+
+    // Provider-level menu items
+    const menu_items: CardActionMenuItem[] = [
+        {
+            key: "edit",
+            label: "编辑",
+            icon: "edit",
+            onSelect: () => {
+                const first_account = group?.accounts[0];
+                if (onEditAccount && first_account) {
+                    onEditAccount(first_account);
+                } else {
+                    window.usageboard.settings.open();
+                }
+            },
+        },
+    ];
+    if (onToggleDisable) {
+        menu_items.push({
+            key: "disable",
+            label: "关闭",
+            icon: "power",
+            onSelect: () => {
+                onToggleDisable(provider);
+            },
+        });
+    }
+    if (onDelete) {
+        menu_items.push({
+            key: "delete",
+            label: "删除",
+            icon: "trash",
+            danger: true,
+            onSelect: () => {
+                onDelete(provider);
+            },
+        });
+    }
 
     const render_state = () => {
         if (isFailed) {
@@ -140,52 +182,16 @@ export function ProviderCard({
         return null;
     };
 
-    const [menu_open, set_menu_open] = useState(false);
-    const [l2open, set_l2open] = useState(false);
-    const menu_ref = useRef<HTMLDivElement>(null);
-
-    const toggle_menu = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        set_menu_open((v) => !v);
-    };
-
-    const close_menu = useCallback(() => {
-        set_menu_open(false);
-    }, []);
-
-    useEffect(() => {
-        if (!menu_open) return;
-        const on_click_outside = (e: MouseEvent) => {
-            if (menu_ref.current && !menu_ref.current.contains(e.target as Node)) {
-                close_menu();
-            }
-        };
-        const on_escape = (e: KeyboardEvent) => {
-            if (e.key === "Escape") close_menu();
-        };
-        document.addEventListener("mousedown", on_click_outside);
-        document.addEventListener("keydown", on_escape);
-        return () => {
-            document.removeEventListener("mousedown", on_click_outside);
-            document.removeEventListener("keydown", on_escape);
-        };
-    }, [menu_open, close_menu]);
-
-    const is_multi = accountCount > 1;
-    const overview_periods = useMemo(() => (group ? build_overview_for_group(group) : []), [group]);
-    const overview_updated_at = useMemo(
-        () =>
-            is_multi
-                ? resolve_convergent_time(overview_periods.map((period) => period.updatedAt))
-                : (group?.updatedAt ?? null),
-        [group?.updatedAt, is_multi, overview_periods],
-    );
-
-    const updated_text = overview_updated_at ? relative_time(overview_updated_at) : "";
-
     const header = (
         <>
-            {grip_handle}
+            {onDragStart && (
+                <DragGrip
+                    onMouseDown={() => {
+                        onDragStart(provider);
+                    }}
+                    iconSize={18}
+                />
+            )}
             <VendorMark id={provider} size={26} />
             <span className="card-name">{label}</span>
             {accountCount > 1 && expanded === false && (
@@ -235,69 +241,7 @@ export function ProviderCard({
                     <Icon name="refresh" size={16} />
                 </button>
             )}
-            <div className="card-menu-wrap">
-                <button
-                    className="icon-btn"
-                    aria-label="更多操作"
-                    title="更多操作"
-                    onClick={toggle_menu}
-                >
-                    <Icon name="more" size={16} />
-                </button>
-                {menu_open && (
-                    <>
-                        <div className="card-menu-overlay" onClick={close_menu} />
-                        <div
-                            className="card-menu"
-                            ref={menu_ref}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                            }}
-                        >
-                            <div
-                                className="cm-item"
-                                onClick={() => {
-                                    window.usageboard.settings.open();
-                                    close_menu();
-                                }}
-                            >
-                                <span className="cm-ic">
-                                    <Icon name="edit" size={15} />
-                                </span>
-                                编辑
-                            </div>
-                            {onToggleDisable && (
-                                <div
-                                    className="cm-item"
-                                    onClick={() => {
-                                        onToggleDisable(provider);
-                                        close_menu();
-                                    }}
-                                >
-                                    <span className="cm-ic">
-                                        <Icon name="power" size={15} />
-                                    </span>
-                                    关闭
-                                </div>
-                            )}
-                            {onDelete && (
-                                <div
-                                    className="cm-item danger"
-                                    onClick={() => {
-                                        onDelete(provider);
-                                        close_menu();
-                                    }}
-                                >
-                                    <span className="cm-ic">
-                                        <Icon name="trash" size={15} />
-                                    </span>
-                                    删除
-                                </div>
-                            )}
-                        </div>
-                    </>
-                )}
-            </div>
+            <CardActionMenu ariaLabel="更多操作" title="更多操作" items={menu_items} />
         </>
     );
 
@@ -318,18 +262,12 @@ export function ProviderCard({
         }
         if (!overview_periods.length) return <div className="card-state off">暂无有效用量数据</div>;
         return (
-            <div className="bars">
-                {overview_periods.map((period, idx) => (
-                    <UsageBarRow
-                        key={period.id}
-                        period={period}
-                        index={idx}
-                        colorScheme={barColorScheme}
-                        barStyle={barStyle}
-                        labelMap={labelMap}
-                    />
-                ))}
-            </div>
+            <UsageBarList
+                periods={overview_periods}
+                colorScheme={barColorScheme}
+                barStyle={barStyle}
+                labelMap={labelMap}
+            />
         );
     };
 
@@ -350,7 +288,7 @@ export function ProviderCard({
         );
     };
 
-    const drag_events = onDragStart
+    const drag_root_props = onDragStart
         ? {
               draggable: true as const,
               onDragStart: () => {
@@ -366,51 +304,47 @@ export function ProviderCard({
               },
               onDragEnd: onDragEnd,
           }
-        : {};
+        : undefined;
 
-    const card_content =
-        onToggleExpand === undefined || !hasAccounts ? (
-            <div
-                data-provider={provider}
-                className={"card" + (card_class ? ` ${card_class}` : "")}
-                {...drag_events}
-            >
-                <div className="card-head">
-                    {header}
-                    <div className="card-tools">{tools}</div>
-                </div>
-                {render_state()}
-            </div>
-        ) : (
-            <CollapsibleCard
-                header={header}
-                tools={tools}
-                collapsed={!expanded}
-                onToggle={() => {
-                    onToggleExpand(provider);
-                }}
-                className={card_class || undefined}
-            >
-                {is_multi && l2open
-                    ? render_account_detail()
-                    : is_multi && !l2open
-                      ? render_overview()
-                      : group.accounts.map((account) => (
-                            <div className="bars" key={account.id}>
-                                {account.periods.map((period, idx) => (
-                                    <UsageBarRow
-                                        key={period.id}
-                                        period={period}
-                                        index={idx}
-                                        colorScheme={barColorScheme}
-                                        barStyle={barStyle}
-                                        labelMap={labelMap}
-                                    />
-                                ))}
-                            </div>
-                        ))}
-            </CollapsibleCard>
-        );
+    // Collapsible content: state message OR bar content
+    const collapse_children =
+        isFailed || !hasUsage
+            ? render_state()
+            : is_multi && l2open
+              ? render_account_detail()
+              : is_multi && !l2open
+                ? render_overview()
+                : group
+                  ? group.accounts.map((account) => (
+                        <UsageBarList
+                            key={account.id}
+                            periods={account.periods}
+                            colorScheme={barColorScheme}
+                            barStyle={barStyle}
+                            labelMap={labelMap}
+                        />
+                    ))
+                  : null;
 
-    return card_content;
+    const can_collapse = onToggleExpand !== undefined && hasAccounts;
+
+    // Unified: always use CollapsibleCard, even for non-collapsible (failed/no-data)
+    return (
+        <CollapsibleCard
+            header={header}
+            tools={tools}
+            collapsed={can_collapse ? !expanded : false}
+            onToggle={
+                can_collapse
+                    ? () => {
+                          onToggleExpand(provider);
+                      }
+                    : () => undefined
+            }
+            className={card_class || undefined}
+            rootProps={drag_root_props}
+        >
+            {collapse_children}
+        </CollapsibleCard>
+    );
 }

@@ -2,20 +2,15 @@ import type { ReactNode } from "react";
 import { Icon } from "./Icon";
 
 interface CollapsibleCardProps {
-    /** Header content (always visible: title, summary, status). */
     header: ReactNode;
-    /** Optional right-side tools (refresh, select, etc.) rendered before the collapse toggle. */
     tools?: ReactNode | undefined;
-    /** Details content hidden when collapsed. */
     children?: ReactNode | undefined;
-    /** Whether the card is currently collapsed. */
     collapsed: boolean;
-    /** Called when the user toggles the collapse state. */
     onToggle: () => void;
-    /** Optional extra className on the outer card. */
     className?: string | undefined;
-    /** Accessible label for the collapse toggle. */
     toggleLabel?: string | undefined;
+    /** Extra props forwarded to the root .card div (e.g. draggable, onDragStart). */
+    rootProps?: React.HTMLAttributes<HTMLDivElement> | undefined;
 }
 
 export function CollapsibleCard({
@@ -26,6 +21,7 @@ export function CollapsibleCard({
     onToggle,
     className,
     toggleLabel,
+    rootProps,
 }: CollapsibleCardProps) {
     const has_details = children !== undefined && children !== null && children !== false;
     const aria_label = toggleLabel ?? (collapsed ? "展开" : "折叠");
@@ -36,6 +32,7 @@ export function CollapsibleCard({
                 "card" + (collapsed ? " collapsed" : "") + (className ? ` ${className}` : "")
             }
             data-collapsed={collapsed ? "true" : "false"}
+            {...rootProps}
         >
             <div className="card-head">
                 {header}

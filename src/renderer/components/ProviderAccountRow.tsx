@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useMemo } from "react";
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
 import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import { CollapsibleCard } from "./CollapsibleCard";
-import { Icon } from "./Icon";
-import { UsageBarRow } from "./UsageRows";
+import { CardActionMenu } from "./CardActionMenu";
+import type { CardActionMenuItem } from "./CardActionMenu";
+import { UsageBarList } from "./UsageBarList";
+import { DragGrip } from "./DragGrip";
 
 interface ProviderAccountRowProps {
     account: ProviderUsageAccount;
@@ -27,7 +29,7 @@ interface ProviderAccountRowProps {
 
 export function ProviderAccountRow({
     account,
-    collapsed,
+    collapsed = false,
     onToggleCollapsed,
     dragging,
     dragOver,
@@ -43,53 +45,49 @@ export function ProviderAccountRow({
     labelMap,
 }: ProviderAccountRowProps) {
     const source = account.periods[0]?.source ?? "direct";
-    const [menu_open, set_menu_open] = useState(false);
-    const menu_ref = useRef<HTMLDivElement>(null);
 
-    const close_menu = useCallback(() => {
-        set_menu_open(false);
-    }, []);
-
-    useEffect(() => {
-        if (!menu_open) return;
-        const on_click = (e: MouseEvent) => {
-            if (menu_ref.current && !menu_ref.current.contains(e.target as Node)) {
-                close_menu();
-            }
-        };
-        const on_key = (e: KeyboardEvent) => {
-            if (e.key === "Escape") close_menu();
-        };
-        document.addEventListener("mousedown", on_click);
-        document.addEventListener("keydown", on_key);
-        return () => {
-            document.removeEventListener("mousedown", on_click);
-            document.removeEventListener("keydown", on_key);
-        };
-    }, [menu_open, close_menu]);
-
-    const has_menu =
-        onEditAccount !== undefined ||
-        onDisableAccount !== undefined ||
-        onHideOrDeleteAccount !== undefined;
-
-    const grip = onDragStart ? (
-        <button
-            className="icon-btn card-grip"
-            title="拖动以调整顺序"
-            type="button"
-            onMouseDown={onDragStart}
-            onClick={(e) => {
-                e.stopPropagation();
-            }}
-        >
-            <Icon name="grip" size={16} strokeWidth={2} />
-        </button>
-    ) : null;
+    const menu_items: CardActionMenuItem[] = useMemo(() => {
+        const items: CardActionMenuItem[] = [];
+        if (onEditAccount) {
+            items.push({
+                key: "edit",
+                label: "编辑",
+                icon: "edit",
+                iconSize: 14,
+                onSelect: () => {
+                    onEditAccount(account);
+                },
+            });
+        }
+        if (onDisableAccount) {
+            items.push({
+                key: "disable",
+                label: "关闭监控",
+                icon: "close",
+                iconSize: 14,
+                onSelect: () => {
+                    onDisableAccount(account);
+                },
+            });
+        }
+        if (onHideOrDeleteAccount) {
+            items.push({
+                key: "delete",
+                label: isCpaSource ? "隐藏" : "删除",
+                icon: "trash",
+                iconSize: 14,
+                danger: true,
+                onSelect: () => {
+                    onHideOrDeleteAccount(account);
+                },
+            });
+        }
+        return items;
+    }, [account, onEditAccount, onDisableAccount, onHideOrDeleteAccount, isCpaSource]);
 
     const header = (
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {grip}
+            {onDragStart && <DragGrip onMouseDown={onDragStart} />}
             <div>
                 <div className="card-name">
                     {account.accountLabel}
@@ -99,90 +97,16 @@ export function ProviderAccountRow({
                     {account.updatedAt ? relative_time(account.updatedAt) : ""}
                 </div>
             </div>
-            {has_menu && (
-                <div className="card-menu-wrap" style={{ marginLeft: "auto" }}>
-                    <button
-                        className="icon-btn"
-                        aria-label="账号操作"
+            {menu_items.length > 0 && (
+                <div style={{ marginLeft: "auto" }}>
+                    <CardActionMenu
+                        ariaLabel="账号操作"
                         title="账号操作"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            set_menu_open((v) => !v);
-                        }}
-                    >
-                        <Icon name="more" size={14} />
-                    </button>
-                    {menu_open && (
-                        <>
-                            <div className="card-menu-overlay" onClick={close_menu} />
-                            <div
-                                className="card-menu"
-                                ref={menu_ref}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                }}
-                            >
-                                {onEditAccount && (
-                                    <div
-                                        className="cm-item"
-                                        onClick={() => {
-                                            onEditAccount(account);
-                                            close_menu();
-                                        }}
-                                    >
-                                        <span className="cm-ic">
-                                            <Icon name="edit" size={14} />
-                                        </span>
-                                        编辑
-                                    </div>
-                                )}
-                                {onDisableAccount && (
-                                    <div
-                                        className="cm-item"
-                                        onClick={() => {
-                                            onDisableAccount(account);
-                                            close_menu();
-                                        }}
-                                    >
-                                        <span className="cm-ic">
-                                            <Icon name="close" size={14} />
-                                        </span>
-                                        关闭监控
-                                    </div>
-                                )}
-                                {onHideOrDeleteAccount && (
-                                    <div
-                                        className="cm-item danger"
-                                        onClick={() => {
-                                            onHideOrDeleteAccount(account);
-                                            close_menu();
-                                        }}
-                                    >
-                                        <span className="cm-ic">
-                                            <Icon name="trash" size={14} />
-                                        </span>
-                                        {isCpaSource ? "隐藏" : "删除"}
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    )}
+                        triggerIconSize={14}
+                        items={menu_items}
+                    />
                 </div>
             )}
-        </div>
-    );
-    const details = (
-        <div className="bars">
-            {account.periods.map((period, idx) => (
-                <UsageBarRow
-                    key={period.id}
-                    period={period}
-                    index={idx}
-                    colorScheme={barColorScheme}
-                    barStyle={barStyle}
-                    labelMap={labelMap}
-                />
-            ))}
         </div>
     );
 
@@ -190,7 +114,8 @@ export function ProviderAccountRow({
         (account.status === "critical" ? " alert" : "") +
         (dragging ? " dragging" : "") +
         (dragOver ? " drag-over" : "");
-    const drag_events = onDragStart
+
+    const drag_root_props = onDragStart
         ? {
               draggable: true as const,
               onDragStart,
@@ -200,29 +125,27 @@ export function ProviderAccountRow({
               },
               onDragEnd,
           }
-        : {};
+        : undefined;
 
-    if (collapsed === undefined || onToggleCollapsed === undefined) {
-        return (
-            <div className={"card" + card_class} {...drag_events}>
-                <div className="card-head">{header}</div>
-                {details}
-            </div>
-        );
-    }
+    const can_collapse = onToggleCollapsed !== undefined;
 
     return (
         <CollapsibleCard
             header={header}
-            collapsed={collapsed}
-            onToggle={onToggleCollapsed}
+            collapsed={can_collapse ? !collapsed : false}
+            onToggle={can_collapse ? onToggleCollapsed : () => undefined}
             toggleLabel={
                 collapsed ? `展开 ${account.accountLabel}` : `折叠 ${account.accountLabel}`
             }
             className={card_class || undefined}
-            {...drag_events}
+            rootProps={drag_root_props}
         >
-            {details}
+            <UsageBarList
+                periods={account.periods}
+                colorScheme={barColorScheme}
+                barStyle={barStyle}
+                labelMap={labelMap}
+            />
         </CollapsibleCard>
     );
 }
