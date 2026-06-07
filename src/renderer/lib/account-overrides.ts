@@ -7,13 +7,12 @@ export function add_account_override(
     provider: string,
     accountId: string,
 ): AccountOverrides {
+    const provider_key = provider as UsageProvider;
     const current = overrides ?? {};
-    const list = Array.from(
-        new Set([...(current[kind]?.[provider as UsageProvider] ?? []), accountId]),
-    );
+    const list = Array.from(new Set([...(current[kind]?.[provider_key] ?? []), accountId]));
     return {
         ...current,
-        [kind]: { ...(current[kind] ?? {}), [provider]: list },
+        [kind]: { ...(current[kind] ?? {}), [provider_key]: list },
     };
 }
 
@@ -23,15 +22,16 @@ export function remove_account_override(
     provider: string,
     accountId: string,
 ): AccountOverrides {
-    const current_list = overrides[kind]?.[provider as UsageProvider];
+    const provider_key = provider as UsageProvider;
+    const current_list = overrides[kind]?.[provider_key];
     if (!current_list) return overrides;
     const next_list = current_list.filter((id) => id !== accountId);
     const rest = { ...(overrides[kind] ?? {}) };
     if (next_list.length === 0) {
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-        delete rest[provider];
+        delete rest[provider_key];
     } else {
-        rest[provider] = next_list;
+        rest[provider_key] = next_list;
     }
     if (Object.keys(rest).length > 0) {
         return { ...overrides, [kind]: rest };

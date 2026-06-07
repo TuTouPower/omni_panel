@@ -10,6 +10,8 @@ interface SettingsFormProps {
     endpoints?: Record<string, string | null>;
     endpointValues?: Record<string, string>;
     refreshIntervalSeconds: number;
+    providerId?: string;
+    onCookieLogin?: (instanceId: string) => Promise<boolean>;
     onSave: (
         instanceId: string,
         nonSecrets: Record<string, string>,
@@ -29,11 +31,14 @@ export function SettingsForm({
     endpoints,
     endpointValues,
     refreshIntervalSeconds,
+    providerId,
+    onCookieLogin,
     onSave,
     onDuplicate,
 }: SettingsFormProps) {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [loginLoading, setLoginLoading] = useState(false);
     const mounted_ref = useRef(true);
     const saved_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -140,27 +145,52 @@ export function SettingsForm({
                             ))}
                         </select>
                     ) : (
-                        <input
-                            type={
-                                param.type === "secret"
-                                    ? "password"
-                                    : param.type === "integer"
-                                      ? "number"
-                                      : "text"
-                            }
-                            id={param.name}
-                            name={param.name}
-                            defaultValue={
-                                param.type === "secret"
-                                    ? hasSecrets?.[param.name]
-                                        ? "***"
-                                        : ""
-                                    : (values[param.name] ?? param.defaultValue ?? "")
-                            }
-                            placeholder={param.placeholder}
-                            required={param.required}
-                            className={"ad-input" + (param.type === "secret" ? " mono" : "")}
-                        />
+                        <div className="ad-secret-row">
+                            <input
+                                type={
+                                    param.type === "secret"
+                                        ? "password"
+                                        : param.type === "integer"
+                                          ? "number"
+                                          : "text"
+                                }
+                                id={param.name}
+                                name={param.name}
+                                defaultValue={
+                                    param.type === "secret"
+                                        ? hasSecrets?.[param.name]
+                                            ? "***"
+                                            : ""
+                                        : (values[param.name] ?? param.defaultValue ?? "")
+                                }
+                                placeholder={param.placeholder}
+                                required={param.required}
+                                className={"ad-input" + (param.type === "secret" ? " mono" : "")}
+                            />
+                            {providerId === "mimo" &&
+                                param.name === "SESSION_COOKIE" &&
+                                onCookieLogin && (
+                                    <button
+                                        type="button"
+                                        className="cf-secondary"
+                                        disabled={loginLoading}
+                                        onClick={() => {
+                                            setLoginLoading(true);
+                                            void onCookieLogin(instanceId).then((ok) => {
+                                                setLoginLoading(false);
+                                                if (ok) {
+                                                    const el = document.getElementById(
+                                                        param.name,
+                                                    ) as HTMLInputElement | null;
+                                                    if (el) el.value = "***";
+                                                }
+                                            });
+                                        }}
+                                    >
+                                        {loginLoading ? "登录中..." : "网页登录"}
+                                    </button>
+                                )}
+                        </div>
                     )}
                     {typeof param.description === "string" && (
                         <p className="ad-hint">{param.description}</p>

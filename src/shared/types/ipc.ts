@@ -51,6 +51,8 @@ export const IPC_CHANNELS = {
     TRAY_PAUSE_STATE: "tray:pauseState",
     TRAY_AUTOSTART_STATE: "tray:autostartState",
 
+    AUTH_COOKIE_LOGIN: "auth:cookieLogin",
+
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
 } as const;
@@ -214,6 +216,9 @@ export interface UsageboardApi {
         report_menu_size(report: TrayMenuSizeReport): void;
         on_pause_state(callback: (paused: boolean) => void): () => void;
         on_autostart_state(callback: (enabled: boolean) => void): () => void;
+    };
+    auth: {
+        cookieLogin(instanceId: string): Promise<{ saved: boolean }>;
     };
     log(payload: RendererLogPayload): void;
 }

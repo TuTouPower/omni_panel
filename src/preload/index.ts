@@ -179,6 +179,11 @@ const tray_methods = {
     },
 };
 
+const auth_methods = {
+    cookieLogin: (instanceId: string) =>
+        invoke<{ saved: boolean }>(IPC_CHANNELS.AUTH_COOKIE_LOGIN, instanceId),
+};
+
 const log_method = (payload: RendererLogPayload) => {
     const sanitized: RendererLogPayload = {
         level: payload.level,
@@ -208,6 +213,7 @@ const api: UsageboardApi = (() => {
                 theme: theme_methods,
                 settings: settings_methods,
                 tray: tray_methods,
+                auth: auth_methods,
                 log: log_method,
             };
         case "tray":

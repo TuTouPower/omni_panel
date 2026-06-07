@@ -2178,6 +2178,19 @@ html[data-window="tray"] #root {
 .ad-key .ad-input {
     padding-right: 40px;
 }
+.ad-secret-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+.ad-secret-row .ad-input {
+    flex: 1;
+    min-width: 0;
+}
+.ad-secret-row .cf-secondary {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
 .ad-eye {
     position: absolute;
     top: 50%;

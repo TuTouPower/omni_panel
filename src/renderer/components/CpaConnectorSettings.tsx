@@ -266,7 +266,10 @@ export function CpaConnectorSettings({
                             style={{ width: "auto", padding: "6px 10px" }}
                             value={syncInterval}
                             onChange={(e) => {
-                                setSyncInterval(e.target.value);
+                                setSyncInterval(
+                                    e.target
+                                        .value as (typeof REFRESH_INTERVAL_OPTIONS)[number]["label"],
+                                );
                             }}
                         >
                             {REFRESH_INTERVAL_OPTIONS.map((opt) => (
