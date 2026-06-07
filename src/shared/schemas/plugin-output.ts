@@ -13,6 +13,7 @@ export const usageProviderSchema = z.enum([
     "minimax",
     "deepseek",
     "tavily",
+    "mimo",
 ]);
 export const usageSourceSchema = z.enum(["cpa", "direct", "local", "api_key", "oauth"]);
 

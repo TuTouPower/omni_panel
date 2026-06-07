@@ -52,6 +52,7 @@ export const PROVIDER_ORDER: readonly UsageProvider[] = [
     "minimax",
     "deepseek",
     "tavily",
+    "mimo",
 ];
 
 export const PROVIDER_LABELS: Record<UsageProvider, string> = {
@@ -64,6 +65,7 @@ export const PROVIDER_LABELS: Record<UsageProvider, string> = {
     minimax: "MiniMax",
     deepseek: "DeepSeek",
     tavily: "Tavily",
+    mimo: "MiMo",
 };
 
 const log = createLogger("renderer:provider-usage");

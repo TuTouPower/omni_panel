@@ -420,6 +420,7 @@ const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
     { id: "kimi", label: "Kimi" },
     { id: "deepseek", label: "DeepSeek" },
     { id: "tavily", label: "Tavily" },
+    { id: "mimo", label: "MiMo" },
 ];
 
 /* ── Add Account Picker ── */

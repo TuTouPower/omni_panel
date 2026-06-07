@@ -8,6 +8,7 @@ const PLUGIN_HASHES: Readonly<Record<string, string>> = {
     "cpa-usage-plugin.ts": "d92389bb474888746e3d4d245bbf1acb4f7ae3d05a1f8d908972a99da5177357",
     "deepseek-usage-plugin.ts": "71f1634c3e87a815d52b4685e16d4c52f8fbeeb3883b838a6e7bd4ed3ec42211",
     "glm-usage-plugin.ts": "7e262fc77d5d93e31be239a1c925713ba387b91af2b98c77e77ffd7ce32111a9",
+    "mimo-usage-plugin.ts": "cf35d93ff0d9dfb8bad99dbc374b9f9674e34e62a42f9fa8e1f513dcc9b50f73",
     "minimax-usage-plugin.ts": "53b10a2bfa473a78f5424b50b4676e5a7eae341efdfd574e229c452733cc6109",
     "tavily-usage-plugin.ts": "9f846176dfc6cd44ed85ab1db9bbbabf469c41bf59e239bd35cd3af10ce32aab",
     "tsconfig.json": "6afd460e11238e42af163c64413cef38df7ba0ecc1459b52052d9486ba409629",
@@ -20,7 +21,7 @@ const SDK_HASHES: Readonly<Record<string, string>> = {
     "helpers.ts": "62062cbdf70e790677b447cfe2e7ec040485920df6061222083497381e96206d",
     "http-client.ts": "4c60168efc6d5d1cb67374d28e980fbbf61df10622550ad84b5e7438d88dc7b2",
     "index.ts": "bf1d945d1c274f86506d2cbae83f2d9d604e2df93f9d6883dfc2fafaca36c0ca",
-    "result.ts": "4b72c9157d7d69d381b9f8da8ea528e06d0a99ebe62eb5ab9d9678aee5ef3209",
+    "result.ts": "36f68663b71d180de0544ba8fad35d752c90269e4af6818946a788158a8f3d51",
 };
 
 export class BundledResourceIntegrityError extends Error {

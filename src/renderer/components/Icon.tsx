@@ -110,6 +110,10 @@ const VENDOR_MARKS: Record<string, (s: number) => string> = {
         `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">` +
         `<path d="M12 21V8" stroke="#3d7afd"/><path d="M12 8l-4 4M12 8l4 4" stroke="#3d7afd"/>` +
         `<path d="M12 3l5 4" stroke="#f5a524"/><path d="M5 9l5-2.5" stroke="#22c55e"/></svg>`,
+    mimo: (s) =>
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none">` +
+        `<rect x="4" y="4" width="16" height="16" rx="4" fill="#ff6900"/>` +
+        `<text x="12" y="16.5" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold" font-family="sans-serif">Mi</text></svg>`,
 };
 
 interface VendorMarkProps {

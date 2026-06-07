@@ -7,6 +7,9 @@
     "private": true,
     "scripts": {
         "start": "electron-vite dev",
+        "hash:update": "tsx scripts/update-bundled-hashes.ts",
+        "prebuild": "tsx scripts/update-bundled-hashes.ts",
+        "pretest": "tsx scripts/update-bundled-hashes.ts",
         "build": "electron-vite build",
         "package": "tsx scripts/package-and-run.ts",
         "package:build": "tsx scripts/package-and-run.ts",

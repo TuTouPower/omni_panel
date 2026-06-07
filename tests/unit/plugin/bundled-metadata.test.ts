@@ -5,9 +5,9 @@ import { resolve } from "node:path";
 const bundledDir = resolve(process.cwd(), "assets/plugins");
 
 describe("bundled plugin metadata verification", () => {
-    it("discovers exactly 7 plugins", async () => {
+    it("discovers exactly 8 plugins", async () => {
         const defs = await discoverPlugins(bundledDir);
-        expect(defs.length).toBe(7);
+        expect(defs.length).toBe(8);
     });
 
     const expected = [
@@ -18,6 +18,7 @@ describe("bundled plugin metadata verification", () => {
         { scriptName: "codex-usage-plugin.ts", name: "Codex", secretParams: [] },
         { scriptName: "claude-usage-plugin.ts", name: "Claude", secretParams: [] },
         { scriptName: "cpa-usage-plugin.ts", name: "CPA", secretParams: ["cpa_mgmt_key"] },
+        { scriptName: "mimo-usage-plugin.ts", name: "MiMo", secretParams: ["SESSION_COOKIE"] },
     ];
 
     const expectedProvidersByPlugin: Record<string, string[]> = {
@@ -28,6 +29,7 @@ describe("bundled plugin metadata verification", () => {
         "glm-usage-plugin.ts": ["glm"],
         "minimax-usage-plugin.ts": ["minimax"],
         "tavily-usage-plugin.ts": ["tavily"],
+        "mimo-usage-plugin.ts": ["mimo"],
     };
 
     const expectedSourceByPlugin: Record<string, string> = {
@@ -38,6 +40,7 @@ describe("bundled plugin metadata verification", () => {
         "glm-usage-plugin.ts": "api_key",
         "minimax-usage-plugin.ts": "api_key",
         "tavily-usage-plugin.ts": "api_key",
+        "mimo-usage-plugin.ts": "direct",
     };
 
     for (const exp of expected) {

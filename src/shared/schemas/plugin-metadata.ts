@@ -34,6 +34,8 @@ export const pluginParameterMetadataSchema = z
         // localization fields
         "label@zh-Hans": z.string().optional(),
         "label@en": z.string().optional(),
+        "description@zh-Hans": z.string().optional(),
+        "description@en": z.string().optional(),
     })
     .strict();
 

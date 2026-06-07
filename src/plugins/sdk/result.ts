@@ -11,7 +11,8 @@ export interface UsageItem {
         | "glm"
         | "minimax"
         | "deepseek"
-        | "tavily";
+        | "tavily"
+        | "mimo";
     source: "cpa" | "direct" | "local" | "api_key" | "oauth";
     sourceInstanceId: string;
     accountId: string;
