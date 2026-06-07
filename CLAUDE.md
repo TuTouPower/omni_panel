@@ -28,7 +28,7 @@
 
 ## 关键设计保留
 
-- **插件系统**：TS 源文件 → esbuild 编译为单文件 JS → Electron 内置 Node 子进程执行（`ELECTRON_RUN_AS_NODE=1`），stdin JSON 输入（argv 仅手动兼容，不用于宿主传 secret）、stdout JSON 输出、元数据自描述
+- **插件系统**：TS 源文件 → esbuild 编译为单文件 JS → Electron 内置 Node 子进程执行（`ELECTRON_RUN_AS_NODE=1`），stdin JSON 输入（argv 仅手动兼容，不用于宿主传 secret）、stdout JSON 输出、元数据自描述；打包时预编译内置插件到 `resources/plugin-cache`，首次启动优先使用该缓存
 - **独立刷新调度**：每个插件独立周期刷新，缓存感知
 - **双层架构**：Core 逻辑层与 UI 层分离
 
