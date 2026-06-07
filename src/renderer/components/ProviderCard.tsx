@@ -326,7 +326,7 @@ export function ProviderCard({
                     ))
                   : null;
 
-    const can_collapse = onToggleExpand !== undefined && hasAccounts;
+    const can_collapse = onToggleExpand !== undefined && (hasAccounts || isFailed);
 
     // Unified: always use CollapsibleCard, even for non-collapsible (failed/no-data)
     return (

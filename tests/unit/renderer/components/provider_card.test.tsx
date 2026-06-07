@@ -621,4 +621,52 @@ describe("ProviderCard", () => {
         expect(within(bar_row).queryByText("0%")).not.toBeInTheDocument();
         expect(within(bar_row).queryByText("--")).not.toBeInTheDocument();
     });
+
+    it("failed provider card is collapsible even without accounts", () => {
+        const onToggleExpand = vi.fn();
+        render(
+            <ProviderCard
+                provider="minimax"
+                connectorError={{ error: "NETWORK_ERROR", displayName: "MiniMax" }}
+                onToggleExpand={onToggleExpand}
+                expanded={false}
+            />,
+        );
+        const toggle = screen.getByLabelText("展开");
+        expect(toggle).toBeInTheDocument();
+        fireEvent.click(toggle);
+        expect(onToggleExpand).toHaveBeenCalledWith("minimax");
+    });
+
+    it("failed provider card with accounts is collapsible", () => {
+        const onToggleExpand = vi.fn();
+        const group = makeGroup({
+            provider: "minimax",
+            label: "MiniMax",
+            status: "critical",
+            accounts: [
+                {
+                    id: "acc-mm",
+                    sourceInstanceId: "mm-1",
+                    accountId: "acc-mm",
+                    accountLabel: "MiniMax Account",
+                    status: "critical",
+                    updatedAt: "2026-06-02T10:00:00Z",
+                    periods: [],
+                },
+            ],
+            accountCount: 1,
+        });
+        render(
+            <ProviderCard
+                provider="minimax"
+                group={group}
+                connectorError={{ error: "NETWORK_ERROR", displayName: "MiniMax" }}
+                onToggleExpand={onToggleExpand}
+                expanded={false}
+            />,
+        );
+        const toggle = screen.getByLabelText("展开");
+        expect(toggle).toBeInTheDocument();
+    });
 });
