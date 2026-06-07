@@ -747,6 +747,9 @@ void app.whenReady().then(async () => {
     if (process.env["E2E"] === "1") {
         log.info("E2E mode: auto-opening main panel");
         main_panel_controller.open_or_focus();
+    } else {
+        // Auto-open main panel on app start
+        main_panel_controller.open_or_focus();
     }
 });
 
