@@ -511,6 +511,49 @@ describe("ProviderCard", () => {
         expect(fill.style.background).toBe(hex_to_rgb(usage_color(0)));
     });
 
+    it("wraps single-account capsule bars in the shared bars container", () => {
+        const group = makeGroup({
+            periods: [
+                makePeriod({ id: "w1", name: "5小时", used: 10, limit: 100 }),
+                makePeriod({ id: "w2", name: "一周", used: 90, limit: 100, status: "critical" }),
+            ],
+            accounts: [
+                {
+                    id: "a1",
+                    sourceInstanceId: "ds-1",
+                    accountId: "a1",
+                    accountLabel: "A1",
+                    status: "normal",
+                    updatedAt: "2026-06-02T10:00:00Z",
+                    periods: [
+                        makePeriod({ id: "w1", name: "5小时", used: 10, limit: 100 }),
+                        makePeriod({
+                            id: "w2",
+                            name: "一周",
+                            used: 90,
+                            limit: 100,
+                            status: "critical",
+                        }),
+                    ],
+                },
+            ],
+        });
+
+        render(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={vi.fn()}
+                barStyle="capsule"
+            />,
+        );
+
+        const bars = document.querySelector(".bars");
+        expect(bars).toBeInTheDocument();
+        expect(bars?.querySelectorAll(".bar-row.capsule")).toHaveLength(2);
+    });
+
     it("does not apply fill.blue, fill.purple, or fill.danger classes", () => {
         const group = makeGroup({
             periods: [

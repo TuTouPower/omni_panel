@@ -44,6 +44,7 @@
 - 插件参数链路：用户填写 secret → 保存到凭证库 → 刷新 → 子进程插件通过 SDK 收到 stdin 参数 → UI 显示数据。
 - Dashboard / Settings / Popup 三个视图的渲染和切换。
 - provider card 显示、状态展示、错误信息。
+- 用量条 UI 回归：细线型/粗胶囊型在概览、单账号、多账号视图中都使用一致的行间距和列结构。
 - 空状态、加载态、错误态的 DOM 状态。
 - CPA UI 回归：主 UI 不显示 CPA provider tab；CPA 数据进入对应 provider；CPA 配置只出现在设置 / 数据源页。
 

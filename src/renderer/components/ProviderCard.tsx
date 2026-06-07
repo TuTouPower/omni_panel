@@ -395,18 +395,20 @@ export function ProviderCard({
                     ? render_account_detail()
                     : is_multi && !l2open
                       ? render_overview()
-                      : group.accounts.flatMap((account) =>
-                            account.periods.map((period, idx) => (
-                                <UsageBarRow
-                                    key={period.id}
-                                    period={period}
-                                    index={idx}
-                                    colorScheme={barColorScheme}
-                                    barStyle={barStyle}
-                                    labelMap={labelMap}
-                                />
-                            )),
-                        )}
+                      : group.accounts.map((account) => (
+                            <div className="bars" key={account.id}>
+                                {account.periods.map((period, idx) => (
+                                    <UsageBarRow
+                                        key={period.id}
+                                        period={period}
+                                        index={idx}
+                                        colorScheme={barColorScheme}
+                                        barStyle={barStyle}
+                                        labelMap={labelMap}
+                                    />
+                                ))}
+                            </div>
+                        ))}
             </CollapsibleCard>
         );
 
