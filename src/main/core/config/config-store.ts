@@ -1,8 +1,8 @@
-import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
 import { type AppConfiguration, DEFAULT_CONFIGURATION, appConfigurationSchema } from "./types";
 import { createLogger } from "../../../shared/lib/logger";
 import { redact_config_json, redact_config_raw } from "../../../shared/lib/config_redaction";
+import { writeJsonAtomic } from "../storage/write-json";
 
 export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
@@ -42,7 +42,6 @@ export function createConfigStore(configPath: string): AppConfigStore {
     let saveQueue: Promise<void> = Promise.resolve();
 
     async function doSave(config: AppConfiguration): Promise<void> {
-        await mkdir(dirname(configPath), { recursive: true });
         const sorted = sortKeys(config);
         if (shouldLogRawStorage()) {
             log.debug("config save payload raw", {
@@ -50,10 +49,7 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 config: redact_config_raw(sorted),
             });
         }
-        const json = JSON.stringify(sorted, null, 2);
-        const tmpPath = `${configPath}.tmp`;
-        await writeFile(tmpPath, json, "utf8");
-        await rename(tmpPath, configPath);
+        await writeJsonAtomic(configPath, sorted);
         if (shouldLogRawStorage()) {
             log.debug("config save complete raw", { filePath: configPath });
         }

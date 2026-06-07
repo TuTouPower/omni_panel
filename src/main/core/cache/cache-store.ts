@@ -1,7 +1,8 @@
-import { readFile, writeFile, unlink, mkdir, rename } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import type { PluginCachedState } from "./types";
 import { createLogger } from "../../../shared/lib/logger";
+import { writeJsonAtomic } from "../storage/write-json";
 
 function shouldLogRawStorage(): boolean {
     return process.env["NODE_ENV"] === "development";
@@ -50,15 +51,12 @@ export function createCacheStore(statesDir: string): CacheStore {
         },
 
         async save(stateId: string, state: PluginCachedState): Promise<void> {
-            await mkdir(statesDir, { recursive: true });
             const path = getPath(stateId);
             const raw = JSON.stringify(state, null, 2);
             if (shouldLogRawStorage()) {
                 log.debug("cache save raw", { stateId, path, raw, snapshot: state });
             }
-            const tmpPath = `${path}.tmp`;
-            await writeFile(tmpPath, raw, "utf8");
-            await rename(tmpPath, path);
+            await writeJsonAtomic(path, state);
         },
 
         async delete(stateId: string): Promise<void> {

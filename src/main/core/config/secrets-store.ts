@@ -1,7 +1,7 @@
-import { readFile, writeFile, mkdir, rename, chmod } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile, chmod } from "node:fs/promises";
 import type { CryptoBackend } from "./crypto-backend";
 import { createLogger } from "../../../shared/lib/logger";
+import { writeJsonAtomic } from "../storage/write-json";
 
 function shouldLogRawStorage(): boolean {
     return process.env["NODE_ENV"] === "development";
@@ -32,10 +32,7 @@ export function createSecretsStore(filePath: string, crypto: CryptoBackend): Sec
     }
 
     async function doWriteAll(data: Record<string, string>): Promise<void> {
-        await mkdir(dirname(filePath), { recursive: true });
-        const tmpPath = `${filePath}.tmp`;
-        await writeFile(tmpPath, JSON.stringify(data, null, 2), { mode: 0o600 });
-        await rename(tmpPath, filePath);
+        await writeJsonAtomic(filePath, data, { chmod: 0o600 });
         await chmod(filePath, 0o600);
     }
 
