@@ -119,10 +119,6 @@ function bar_style_label_to_value(label: string): UsageBarStyle {
     return label === "粗胶囊型" ? "capsule" : "thin";
 }
 
-function bar_style_value_to_label(value: UsageBarStyle | undefined): string {
-    return value === "capsule" ? "粗胶囊型" : "细线型";
-}
-
 function format_usage_label_map(value: Readonly<Record<string, string>> | undefined): string {
     return Object.entries(value ?? {})
         .map(([source, target]) => `${source}=${target}`)
@@ -1764,6 +1760,31 @@ export function SettingsView() {
                                     </div>
                                 </SetRow>
                                 <div className="set-group-label">用量条</div>
+                                <SetRow
+                                    title="用量条样式"
+                                    sub="细线型保持紧凑；粗胶囊型把数值放进进度条内。"
+                                >
+                                    <div className="set-seg" aria-label="用量条样式">
+                                        {BAR_STYLE_LABELS.map((label) => {
+                                            const value = bar_style_label_to_value(label);
+                                            return (
+                                                <button
+                                                    key={label}
+                                                    className={usageBarStyle === value ? "on" : ""}
+                                                    onClick={() => {
+                                                        void save_config({
+                                                            ...config,
+                                                            usageBarStyle: value,
+                                                        });
+                                                    }}
+                                                    type="button"
+                                                >
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </SetRow>
                                 <div className="set-row set-row-stack">
                                     <div className="sr-text">
                                         <div className="sr-title">用量条颜色方案</div>
@@ -1781,21 +1802,6 @@ export function SettingsView() {
                                         }}
                                     />
                                 </div>
-                                <SetRow
-                                    title="用量条样式"
-                                    sub="细线型保持紧凑；粗胶囊型把数值放进进度条内。"
-                                >
-                                    <Select
-                                        value={bar_style_value_to_label(usageBarStyle)}
-                                        onChange={(value) => {
-                                            void save_config({
-                                                ...config,
-                                                usageBarStyle: bar_style_label_to_value(value),
-                                            });
-                                        }}
-                                        options={[...BAR_STYLE_LABELS]}
-                                    />
-                                </SetRow>
                                 <div className="set-row set-row-stack">
                                     <div className="sr-text">
                                         <div className="sr-title">用量标签映射</div>
