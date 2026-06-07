@@ -94,6 +94,54 @@ DeepSeek 余额行 `balance.reset = ''`，`splitTime('')` 返回 `{date:'', cloc
 
 ---
 
+## chat40 ~ chat41（2026-06-07）
+
+### 1. 数据源 CPA 开关（chat40）
+
+`settings-panel.jsx` DataSourcePage + `settings-panel.css`：
+
+- 每个数据源卡片右上角新增 `SPToggle` 启用/停用开关
+- 关闭后：卡片整体变暗（`[data-off]` opacity .62）、状态点变灰、状态文字改为「已停用」、同步按钮禁用、`ds-covers` 和 `ds-meta` 加 `grayscale(.5)`
+- `settings-panel.css` 新增 `.ds-card[data-off]` 及子选择器
+
+### 2. 卡片菜单移除删除按钮（chat41）
+
+`components.jsx` CardMenu：
+
+- 只保留「编辑」和「关闭」两项，删除「删除」
+- 删除操作仅在设置 > 账号页进行
+
+### 3. 设置页删除按钮红色 + 二次确认（chat41）
+
+`settings-panel.jsx` 新增 `ConfirmDelete` 组件 + `AccountActions` 改动：
+
+- `ConfirmDelete`：遮罩层 `.acct-dialog-scrim`、danger 红色标记、不可撤销提示、Esc 关闭、「取消」/「删除账号」双按钮
+- CPA 来源账号（`source === 'cpa'`）显示「隐藏账号」按钮（眼睛图标），不可删除
+- 直接添加账号（`source === 'direct'`）显示红色「删除账号」按钮（`sp-ic danger`），点击触发二次确认
+- `settings-data.js` ACCT_NORMAL / ACCT_CPA 每个账号增加 `source` 字段（`'cpa'` 或 `'direct'`）
+
+`settings-panel.css` 新增：
+
+- `.sp-ic.danger` — 红色按钮常态 + hover
+- `.acct-dialog.confirm` — 确认弹窗宽度 372px
+- `.ad-mark.danger` — 红色圆标记
+- `.confirm-msg` — 确认提示文字
+- `.ad-btn.danger` — 红色确认按钮 + hover
+
+### 4. 独立设置窗口（恢复）
+
+`OmniUsage Settings.html` 重新作为独立页面存在（chat36 曾移除）：
+
+- 加载 `settings-data.js` + `panel-app.jsx`（不再加载 `data.js` / `components.jsx` / `app.jsx`）
+- `panel-app.jsx`（新增）：独立设置窗口的 root，内含 `SettingsPanel` + `TweaksPanel`（用户类型 / 主题 / 强调色）
+- `OmniUsage UI.html` 中设置仍以 overlay 形式内嵌（`.sp-stage`），两条路径共享 `SettingsPanel` 组件
+
+### 5. 恢复 screenshots / uploads 目录
+
+chat39 删除的 `screenshots/` 和 `uploads/` 目录重新存在于此次 handoff 中。
+
+---
+
 ## chat28 ~ chat29（2026-06-05 ~ 06）
 
 ### 用量条颜色方案

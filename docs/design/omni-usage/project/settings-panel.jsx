@@ -47,9 +47,40 @@ const ACCENTS = ['#3d7afd', '#6f5cf6', '#0ea5a3', '#f5772f', '#e23744'];
 /* =================================================================
    ACCOUNT ROWS
    ================================================================= */
-function AccountActions({ source, on, onToggle, mode }) {
-  // cpa account → hide (no delete); direct account → delete
+function ConfirmDelete({ name, onCancel, onConfirm }) {
+  React.useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+  return (
+    <div className="acct-dialog-scrim" onMouseDown={onCancel}>
+      <div className="acct-dialog confirm" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="ad-head">
+          <span className="ad-mark danger"><Icon name="trash" size={18} /></span>
+          <div className="ad-htext">
+            <div className="ad-title">删除账号</div>
+            <div className="ad-sub">此操作无法撤销</div>
+          </div>
+        </div>
+        <div className="ad-body">
+          <div className="confirm-msg">确定要删除账号 <b>{name}</b> 吗？删除后该账号的所有本地用量记录将一并移除。</div>
+        </div>
+        <div className="ad-foot">
+          <div className="ad-foot-r">
+            <button className="ad-btn ghost" onClick={onCancel}>取消</button>
+            <button className="ad-btn danger" onClick={onConfirm}>删除账号</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AccountActions({ source, on, onToggle, mode, name }) {
+  // cpa account → hide (no delete); direct account → delete (with confirm)
   const isCpa = mode === 'cpa' && source === 'cpa';
+  const [confirm, setConfirm] = React.useState(false);
   return (
     <div className="ao-actions" onClick={(e) => e.stopPropagation()}>
       {mode === 'cpa' && <SrcTag source={source} />}
@@ -57,7 +88,8 @@ function AccountActions({ source, on, onToggle, mode }) {
       <button className="sp-ic" title="编辑备注名"><Icon name="edit" size={15} /></button>
       {isCpa
         ? <button className="sp-ic" title="隐藏账号"><Icon name="eye_off" size={15} /></button>
-        : <button className="sp-ic danger" title="删除账号"><Icon name="trash" size={15} /></button>}
+        : <button className="sp-ic danger" title="删除账号" onClick={() => setConfirm(true)}><Icon name="trash" size={15} /></button>}
+      {confirm && <ConfirmDelete name={name} onCancel={() => setConfirm(false)} onConfirm={() => setConfirm(false)} />}
     </div>
   );
 }
@@ -73,7 +105,7 @@ function OneRowAccount({ vendor, account, on, onToggle, mode }) {
         <span className={'ao-dot' + (on ? '' : ' off')} />
         <span className="ao-note">{account.name}</span>
       </div>
-      <AccountActions source={account.source} on={on} onToggle={onToggle} mode={mode} />
+      <AccountActions source={account.source} on={on} onToggle={onToggle} mode={mode} name={account.name} />
     </div>
   );
 }
@@ -94,7 +126,7 @@ function MultiGroup({ vendor, accounts, isOn, onToggle, mode }) {
               <span className="gr-handle" title="拖动排序"><Icon name="grip" size={16} strokeWidth={2} /></span>
               <span className={'gr-dot' + (on ? '' : ' off')} />
               <span className="gr-note">{a.name}</span>
-              <AccountActions source={a.source} on={on} onToggle={() => onToggle(a.key)} mode={mode} />
+              <AccountActions source={a.source} on={on} onToggle={() => onToggle(a.key)} mode={mode} name={a.name} />
             </div>
           );
         })}
@@ -134,18 +166,23 @@ function AccountsPage({ mode }) {
    DATA SOURCE PAGE
    ================================================================= */
 function DataSourcePage({ onOpen }) {
+  const [enabled, setEnabled] = React.useState(() => new Set(DATA_SOURCES.map((d) => d.id)));
+  const toggle = (id) => setEnabled((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
   return (
     <div className="ds-list">
-      {DATA_SOURCES.map((d) => (
-        <div className="ds-card" key={d.id} onClick={() => onOpen(d.id)}>
+      {DATA_SOURCES.map((d) => {
+        const on = enabled.has(d.id);
+        return (
+        <div className="ds-card" key={d.id} data-off={on ? undefined : 'true'} onClick={() => onOpen(d.id)}>
           <div className="ds-top">
             <span className="ds-icon"><VendorMark id="cpa" size={26} /></span>
             <div className="ds-head-text">
               <div className="ds-title">{d.name}</div>
-              <div className="ds-status"><span className="dsd" />状态：{d.status}</div>
+              <div className="ds-status"><span className="dsd" />状态：{on ? d.status : '已停用'}</div>
             </div>
             <div className="ds-actions">
-              <button className="ds-btn" onClick={(e) => e.stopPropagation()}><Icon name="refresh" size={14} />同步</button>
+              <SPToggle on={on} onClick={(e) => { e.stopPropagation(); toggle(d.id); }} />
+              <button className="ds-btn" disabled={!on} onClick={(e) => e.stopPropagation()}><Icon name="refresh" size={14} />同步</button>
               <button className="ds-btn" onClick={(e) => { e.stopPropagation(); onOpen(d.id); }}><Icon name="edit" size={14} />编辑</button>
               <button className="ds-btn icon" title="更多" onClick={(e) => e.stopPropagation()}><Icon name="more" size={16} /></button>
             </div>
@@ -162,7 +199,8 @@ function DataSourcePage({ onOpen }) {
             </span>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -131,8 +131,20 @@
   justify-content: center; flex-shrink: 0; transition: background .12s, color .12s;
 }
 .sp-ic:hover { background: var(--iconbtn-hov); color: var(--text-2); }
+.sp-ic.danger { color: var(--red); }
 .sp-ic.danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 .ao-actions .sw, .gr-actions .sw { margin: 0 4px; }
+
+/* delete-confirm dialog */
+.acct-dialog.confirm { max-width: 372px; }
+.ad-mark.danger { background: color-mix(in srgb, var(--red) 13%, transparent); color: var(--red); }
+.confirm-msg { font-size: 13.5px; line-height: 1.55; color: var(--text-2); }
+.confirm-msg b { color: var(--text); font-weight: 600; }
+.ad-btn.danger {
+  background: var(--red); color: #fff;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--red) 32%, transparent);
+}
+.ad-btn.danger:hover { background: color-mix(in srgb, var(--red) 88%, #000); }
 
 /* ====================== ACCOUNT — MULTI GROUP ====================== */
 .grp {
@@ -194,6 +206,13 @@
 .ds-status .dsd { width: 7px; height: 7px; border-radius: 50%; background: var(--green);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 16%, transparent); }
 .ds-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ds-actions .sw { margin-right: 4px; }
+
+/* disabled data source */
+.ds-card[data-off] { opacity: .62; }
+.ds-card[data-off] .ds-status { color: var(--text-3); }
+.ds-card[data-off] .ds-status .dsd { background: var(--text-3); box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-3) 14%, transparent); }
+.ds-card[data-off] .ds-covers, .ds-card[data-off] .ds-meta { filter: grayscale(.5); }
 .ds-btn {
   display: inline-flex; align-items: center; gap: 5px; border: .5px solid var(--field-border);
   background: var(--win-bg); color: var(--text-2); font-family: inherit; font-size: 12.5px;

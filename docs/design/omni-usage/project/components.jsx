@@ -219,9 +219,6 @@ function CardMenu({ onEdit, onDelete, onToggle, onClose }) {
         <div className="cm-item" onClick={() => { onToggle(); onClose(); }}>
           <span className="cm-ic"><Icon name="power" size={15} /></span>关闭
         </div>
-        <div className="cm-item danger" onClick={() => { onDelete(); onClose(); }}>
-          <span className="cm-ic"><Icon name="trash" size={15} /></span>删除
-        </div>
       </div>
     </>
   );
