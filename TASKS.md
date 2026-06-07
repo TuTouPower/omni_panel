@@ -266,7 +266,7 @@
 
 ### 背景
 
-`docs/design/omni_usage-handoff.tar.gz` 解压后包含 chat30-39 共 10 轮设计迭代。与当前实现对比，以下设计要素需要补齐或修正。详细变更记录见 `docs/design/changelog_design.md`。
+`docs/design/omni_usage-handoff.tar.gz` 解压后包含 chat30-39 共 10 轮设计迭代。与当前实现对比，以下设计要素需要补齐或修正。详细变更记录见 `docs/archive/changelog_design.md`。
 
 ### 核心原则
 
