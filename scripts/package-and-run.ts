@@ -33,9 +33,6 @@ function wait_for_exit(max_ms = 5000): void {
         let running = false;
         try {
             if (is_win) {
-                execSync('tasklist /fi "imagename eq OmniUsage.exe" /nh', { stdio: "pipe" })
-                    .toString()
-                    .includes("OmniUsage.exe");
                 running = execSync('tasklist /fi "imagename eq OmniUsage.exe" /nh', {
                     stdio: "pipe",
                 })
