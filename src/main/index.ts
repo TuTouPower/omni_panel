@@ -418,6 +418,11 @@ void app.whenReady().then(async () => {
                 secretParamKeys.set(k, v);
             }
             orchestrator.rebuild(updatedConfig);
+            for (const win of BrowserWindow.getAllWindows()) {
+                if (!win.isDestroyed()) {
+                    win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
+                }
+            }
             main_panel_controller?.apply_config_change();
         },
     });
@@ -431,26 +436,35 @@ void app.whenReady().then(async () => {
     // Settings window singleton
     let settingsWin: BrowserWindow | null = null;
 
-    function createOrFocusSettings(): void {
+    function createOrFocusSettings(): { created: boolean } {
         if (settingsWin && !settingsWin.isDestroyed()) {
             settingsWin.show();
             settingsWin.focus();
-            return;
+            return { created: false };
         }
         settingsWin = createWindowFor("settings");
         settingsWin.center();
         settingsWin.on("closed", () => {
             settingsWin = null;
         });
+        return { created: true };
     }
 
     // Register IPC handler for opening settings from renderer
     ipcMain.handle(
         IPC_CHANNELS.SETTINGS_OPEN,
         (_event, context?: { instanceId?: string; provider?: string; accountId?: string }) => {
-            createOrFocusSettings();
-            if (context && settingsWin && !settingsWin.isDestroyed()) {
-                settingsWin.webContents.send(IPC_CHANNELS.SETTINGS_NAVIGATE, context);
+            const { created } = createOrFocusSettings();
+            if (!context || !settingsWin || settingsWin.isDestroyed()) return;
+            const win = settingsWin;
+            if (created) {
+                win.webContents.once("did-finish-load", () => {
+                    if (!win.isDestroyed()) {
+                        win.webContents.send(IPC_CHANNELS.SETTINGS_NAVIGATE, context);
+                    }
+                });
+            } else {
+                win.webContents.send(IPC_CHANNELS.SETTINGS_NAVIGATE, context);
             }
         },
     );
