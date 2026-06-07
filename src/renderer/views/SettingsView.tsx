@@ -498,16 +498,19 @@ function DataSourceList({
     config,
     onOpenDetail,
     onAdd,
+    saveConfig,
 }: {
     pluginInfos: PluginInfo[];
     config: AppConfiguration;
     onOpenDetail: () => void;
     onAdd: () => void;
+    saveConfig: (config: AppConfiguration) => void | Promise<void>;
 }) {
     const cpaPlugin = pluginInfos.find((p) => p.source === "cpa");
     const cpaConfig = cpaPlugin
         ? config.plugins.find((p) => p.instanceId === cpaPlugin.instanceId)
         : undefined;
+    const enabled = cpaConfig?.enabled ?? true;
     const url = cpaConfig?.endpointOverrides["default"] ?? "";
     const snapshot = cpaPlugin?.snapshot;
     const accountsCount = snapshot?.status === "ready" ? snapshot.items.length : 0;
@@ -518,6 +521,16 @@ function DataSourceList({
             : snapshot?.status === "failed" && snapshot.updatedAt
               ? relative_time(snapshot.updatedAt)
               : "未同步";
+
+    const toggleEnabled = () => {
+        if (!cpaPlugin) return;
+        void saveConfig({
+            ...config,
+            plugins: config.plugins.map((pl) =>
+                pl.instanceId === cpaPlugin.instanceId ? { ...pl, enabled: !enabled } : pl,
+            ),
+        });
+    };
 
     return (
         <>
@@ -532,6 +545,7 @@ function DataSourceList({
                 {cpaPlugin ? (
                     <div
                         className="ds-card"
+                        data-off={enabled ? undefined : "true"}
                         onClick={onOpenDetail}
                         onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -551,16 +565,30 @@ function DataSourceList({
                                 <div className="ds-status">
                                     <span className="dsd" />
                                     状态：
-                                    {snapshot?.status === "ready"
-                                        ? "正常"
-                                        : snapshot?.status === "failed"
-                                          ? "异常"
-                                          : "未连接"}
+                                    {enabled
+                                        ? snapshot?.status === "ready"
+                                            ? "正常"
+                                            : snapshot?.status === "failed"
+                                              ? "异常"
+                                              : "未连接"
+                                        : "已停用"}
                                 </div>
                             </div>
                             <div className="ds-actions">
                                 <button
+                                    className="sw"
+                                    data-on={enabled ? "1" : "0"}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleEnabled();
+                                    }}
+                                    type="button"
+                                >
+                                    <i />
+                                </button>
+                                <button
                                     className="ds-btn"
+                                    disabled={!enabled}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         void window.usageboard.plugin.refresh(cpaPlugin.instanceId);
@@ -1662,6 +1690,7 @@ export function SettingsView() {
                                         onAdd={() => {
                                             setShowCpaAdd(true);
                                         }}
+                                        saveConfig={save_config}
                                     />
                                 )}
                                 {dsView === "detail" && (

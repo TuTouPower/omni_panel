@@ -1041,6 +1041,20 @@ html[data-window="tray"] #root {
         0 12px 28px -10px rgba(22, 33, 66, 0.18);
     border-color: color-mix(in srgb, var(--blue) 26%, var(--card-border));
 }
+.ds-card[data-off] {
+    opacity: 0.62;
+}
+.ds-card[data-off] .ds-status {
+    color: var(--text-3);
+}
+.ds-card[data-off] .ds-status .dsd {
+    background: var(--text-3);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-3) 14%, transparent);
+}
+.ds-card[data-off] .ds-covers,
+.ds-card[data-off] .ds-meta {
+    filter: grayscale(0.5);
+}
 .ds-top {
     display: flex;
     align-items: flex-start;
@@ -1088,6 +1102,9 @@ html[data-window="tray"] #root {
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
+}
+.ds-actions .sw {
+    margin-right: 4px;
 }
 .ds-btn {
     display: inline-flex;
