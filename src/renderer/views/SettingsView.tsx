@@ -618,6 +618,7 @@ function CpaDetailPage({
     onSaveSecrets,
     onRefresh,
     onDelete,
+    saveConfig,
 }: {
     pluginInfos: PluginInfo[];
     config: AppConfiguration;
@@ -633,6 +634,7 @@ function CpaDetailPage({
     onSaveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
     onRefresh: (instanceId: string) => Promise<void>;
     onDelete: (instanceId: string) => Promise<void>;
+    saveConfig: (config: AppConfiguration) => Promise<void>;
 }) {
     const cpaPlugin = pluginInfos.find((p) => p.source === "cpa");
     const cpaConfig = cpaPlugin
@@ -674,7 +676,9 @@ function CpaDetailPage({
                         endpointOverrides: cpaConfig.endpointOverrides,
                         parameterValues: cpaConfig.parameterValues,
                         refreshIntervalSeconds: cpaConfig.refreshIntervalSeconds,
+                        enabled: cpaConfig.enabled,
                     }}
+                    enabled={cpaConfig.enabled}
                     hasSecrets={hasSecrets[cpaPlugin.instanceId] ?? {}}
                     onSave={async (nonSecrets, endpointOverrides, refreshIntervalSeconds) => {
                         await onSave(
@@ -687,6 +691,16 @@ function CpaDetailPage({
                     }}
                     onSaveSecrets={async (secrets) => {
                         await onSaveSecrets(cpaPlugin.instanceId, secrets);
+                    }}
+                    onToggleEnabled={(nextEnabled) => {
+                        void saveConfig({
+                            ...config,
+                            plugins: config.plugins.map((pl) =>
+                                pl.instanceId === cpaPlugin.instanceId
+                                    ? { ...pl, enabled: nextEnabled }
+                                    : pl,
+                            ),
+                        });
                     }}
                     onRefresh={async () => {
                         await onRefresh(cpaPlugin.instanceId);
@@ -1684,6 +1698,7 @@ export function SettingsView() {
                                             });
                                             setDsView("list");
                                         }}
+                                        saveConfig={save_config}
                                     />
                                 )}
                             </>

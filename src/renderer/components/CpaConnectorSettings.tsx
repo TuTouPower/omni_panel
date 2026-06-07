@@ -18,15 +18,17 @@ interface CpaConnectorSettingsProps {
     connector: ConnectorInfo;
     config: Pick<
         PluginConfiguration,
-        "endpointOverrides" | "parameterValues" | "refreshIntervalSeconds"
+        "endpointOverrides" | "parameterValues" | "refreshIntervalSeconds" | "enabled"
     >;
     hasSecrets: Record<string, boolean>;
+    enabled: boolean;
     onSave: (
         nonSecrets: Record<string, string>,
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
     ) => Promise<void> | void;
     onSaveSecrets: (secrets: Record<string, string>) => Promise<void> | void;
+    onToggleEnabled: (enabled: boolean) => void;
     onRefresh: () => Promise<void> | void;
     onRemove?: () => Promise<void> | void;
 }
@@ -68,8 +70,10 @@ export function CpaConnectorSettings({
     connector,
     config,
     hasSecrets,
+    enabled,
     onSave,
     onSaveSecrets,
+    onToggleEnabled,
     onRefresh,
     onRemove,
 }: CpaConnectorSettingsProps) {
@@ -216,6 +220,23 @@ export function CpaConnectorSettings({
         <form className="cpa-detail" data-testid="cpa-connector-settings" onSubmit={handle_submit}>
             {/* left column: config */}
             <div className="cpa-cfg">
+                <div className="cfg-row" style={{ marginTop: 0 }}>
+                    <div className="cr-text">
+                        <div className="cr-title">启用</div>
+                    </div>
+                    <div className="cr-ctrl">
+                        <button
+                            className="sw"
+                            data-on={enabled ? "1" : "0"}
+                            type="button"
+                            onClick={() => {
+                                onToggleEnabled(!enabled);
+                            }}
+                        >
+                            <i />
+                        </button>
+                    </div>
+                </div>
                 <div className="cfg-sec">连接配置</div>
                 <div className="cfg-field">
                     <div className="cfg-label">CPA-Manager URL</div>

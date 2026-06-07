@@ -107,10 +107,13 @@ function renderSettings(overrides: Partial<Parameters<typeof CpaConnectorSetting
             endpointOverrides: { default: "http://cpa.example" },
             parameterValues: { monitor_codex: "false" },
             refreshIntervalSeconds: 300,
+            enabled: true,
         },
+        enabled: true,
         hasSecrets: { cpa_mgmt_key: true },
         onSave: vi.fn<SaveHandler>().mockResolvedValue(undefined),
         onSaveSecrets: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+        onToggleEnabled: vi.fn(),
         onRefresh: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
         ...overrides,
     };
@@ -148,10 +151,17 @@ describe("CpaConnectorSettings", () => {
         rerender(
             <CpaConnectorSettings
                 connector={connector({ snapshot: { status: "idle" } })}
-                config={{ endpointOverrides: {}, parameterValues: {}, refreshIntervalSeconds: 300 }}
+                config={{
+                    endpointOverrides: {},
+                    parameterValues: {},
+                    refreshIntervalSeconds: 300,
+                    enabled: true,
+                }}
+                enabled={true}
                 hasSecrets={{}}
                 onSave={vi.fn()}
                 onSaveSecrets={vi.fn()}
+                onToggleEnabled={vi.fn()}
                 onRefresh={vi.fn()}
             />,
         );
@@ -254,5 +264,28 @@ describe("CpaConnectorSettings", () => {
         renderSettings({ onRemove });
 
         expect(screen.getByText("移除数据源")).toBeInTheDocument();
+    });
+
+    it("calls onToggleEnabled when clicking the enabled switch", async () => {
+        const user = userEvent.setup();
+        const onToggleEnabled = vi.fn();
+        renderSettings({ enabled: true, onToggleEnabled });
+
+        const enabledRow = screen.getByText("启用").closest(".cfg-row");
+        const btn = enabledRow?.querySelector(".sw");
+        expect(btn).toBeTruthy();
+        expect(btn).toHaveAttribute("data-on", "1");
+
+        if (!btn) throw new Error("missing enabled switch");
+        await user.click(btn);
+        expect(onToggleEnabled).toHaveBeenCalledWith(false);
+    });
+
+    it("renders enabled switch as off when disabled", () => {
+        renderSettings({ enabled: false });
+
+        const enabledRow = screen.getByText("启用").closest(".cfg-row");
+        const btn = enabledRow?.querySelector(".sw");
+        expect(btn).toHaveAttribute("data-on", "0");
     });
 });
