@@ -4,6 +4,132 @@
 
 ---
 
+## 待修：面板与设置页状态不同步 + ProviderOverview 未传 onEditAccount
+
+> 发现时间：2026-06-07 | 优先级：P0 | 状态：待修
+
+### 问题描述
+
+用户在主面板执行以下操作后，设置页（SettingsView）仍显示旧状态：
+
+1. **MiMo 点击"编辑"**：设置窗口打开但停留在 general 页，不会跳转到账号编辑弹窗。
+2. **GLM 面板点击"关闭"**：面板正常禁用该 provider，但设置页账号管理仍显示为"开启"。
+3. **DeepSeek 面板点击"删除"**：面板正常移除该 provider，但设置页账号管理仍显示为"开启"。
+
+三个问题本质是两个独立 bug。
+
+---
+
+### Bug 1：ProviderOverview 未传 onEditAccount
+
+**根因**：`src/renderer/components/ProviderOverview.tsx` 的 ProviderCard 调用中**没有 `onEditAccount` prop**。
+
+```tsx
+// src/renderer/components/ProviderOverview.tsx:56-78
+<ProviderCard
+    key={provider}
+    provider={provider}
+    group={groupsByProvider.get(provider)}
+    connectorError={providerErrors.get(provider)}
+    onRefresh={onRefreshProvider}
+    expanded={...}
+    onToggleExpand={onToggleExpandProvider}
+    onToggleDisable={onToggleDisableProvider}
+    onDelete={onDeleteProvider}
+    dragging={...}
+    // ⬆ 没有 onEditAccount！
+/>
+```
+
+`ProviderCard.tsx:107-115` 的编辑逻辑：
+
+```tsx
+{
+    key: "edit",
+    label: "编辑",
+    icon: "edit",
+    onSelect: () => {
+        const first_account = group?.accounts[0];
+        if (onEditAccount && first_account) {
+            onEditAccount(first_account);  // ← 永远走不到
+        } else {
+            window.usageboard.settings.open();  // ← 永远走这里，无 context
+        }
+    },
+}
+```
+
+因为 `onEditAccount` 为 `undefined`，所有 provider（不只 MiMo）在 overview 模式下点击"编辑"都只打开空白设置窗口，不会定位到对应账号。
+
+**影响范围**：所有 provider 的 overview 模式"编辑"按钮。
+
+**证据链**：
+
+- `PopupView.tsx:780-802` 的 `ProviderOverview` 调用没有传 `onEditAccount`
+- `ProviderOverview.tsx:11-29` 的 props 接口定义中没有 `onEditAccount` 字段
+- `ProviderCard.tsx:39` 虽然 props 接口有 `onEditAccount`，但永远收不到
+
+---
+
+### Bug 2：use_config 不监听跨窗口 CONFIG_CHANGED 事件
+
+**根因**：`src/renderer/hooks/use_config.ts` **没有订阅 `CONFIG_CHANGED` IPC 事件**。
+
+数据流：
+
+1. PopupView 调用 `window.usageboard.config.save(newConfig)` → IPC `CONFIG_SAVE`
+2. main 进程保存后（`src/main/index.ts:413-428`）广播 `CONFIG_CHANGED` 到**所有窗口**：
+    ```ts
+    for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+            win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
+        }
+    }
+    ```
+3. PopupView 自己有监听（`PopupView.tsx:197-202`），收到后刷新 UI ✓
+4. **SettingsView 使用的 `use_config` 没有监听** ✗ → SettingsView 持有的是修改前的 config 快照
+
+`use_config.ts` 完整代码只有初始加载（mount 时 `config.get()`），没有 `onConfigChange` 订阅。当其他窗口修改 config 时，SettingsView 看到的仍然是旧 config。
+
+**影响范围**：任何从 PopupView 发起的 config 修改，SettingsView 都不会同步。包括但不限于：
+
+| 操作          | PopupView 行为                                          | SettingsView 期望 | SettingsView 实际 |
+| ------------- | ------------------------------------------------------- | ----------------- | ----------------- |
+| GLM 关闭      | `toggle_disable_provider()` 写 `monitor_glm=false`      | toggle 显示"关"   | toggle 显示"开"   |
+| DeepSeek 删除 | `delete_provider()` 写 `monitor_deepseek=false`         | toggle 显示"关"   | toggle 显示"开"   |
+| CPA 账号隐藏  | `hide_or_delete_account()` 写 `accountOverrides.hidden` | 隐藏账号列表更新  | 不更新            |
+| 账号禁用      | `disable_account()` 写 `accountOverrides.disabled`      | 禁用账号列表更新  | 不更新            |
+
+**补充说明**：GLM、DeepSeek 等是 CPA connector 提供的 provider。PopupView 的"删除"只设置了 `monitor_X=false`（`PopupView.tsx:405-406`），不删除插件本身，插件仍在 config.plugins 中。SettingsView 的账号管理页按 `config.plugins` 渲染 toggle，所以即使 config 同步了，toggle 显示的也只是 `plugin.enabled`，而不是 `monitor_X` 参数。这说明**设置页对 CPA provider 的"开关"概念和面板不一致**——面板按 `monitor_X` 控制，设置页按 `plugin.enabled` 控制。
+
+**深层问题**：面板的 `toggle_disable_provider` 对 CPA connector 只改 `monitor_X` 参数，但对独立插件改 `plugin.enabled`（`PopupView.tsx:373-375`）。设置页的 toggle 始终改 `plugin.enabled`。两者语义不统一。
+
+---
+
+### 待修项
+
+- [x] **Bug 1 — ProviderOverview 补 onEditAccount**：
+    - `ProviderOverview` props 增加 `onEditAccount`
+    - `PopupView` 传入 `edit_account` handler 给 `ProviderOverview`
+    - `ProviderCard` 接收到 `onEditAccount` 后，点击编辑能传 `instanceId/provider/accountId` 定位到设置页账号编辑
+
+- [x] **Bug 2 — use_config 监听 CONFIG_CHANGED**：
+    - `use_config` 订阅 `window.usageboard.event.onConfigChange`
+    - 收到跨窗口 config 更新时，更新本地 `config` state
+    - save 后收到自身触发的 onConfigChange 不重复更新（引用相等则跳过）
+    - 测试覆盖：从外部窗口修改 config，use_config 自动更新
+
+- [x] **Bug 2 延伸 — CPA provider 开关语义统一**：
+    - 设置页 CPA provider 行已显示"在数据源中管理" badge 而非 toggle（代码正确）
+    - 真正的问题是 use_config 不更新，修复 Bug 2 后此问题自动解决
+
+- [x] **回归测试**：
+    - ProviderCard 在 overview 模式点击"编辑"传入正确 context ✓（2 个新测试）
+    - use_config 跨窗口 config 变更自动更新 ✓（3 个新测试）
+    - `pnpm test` 全部通过 ✓
+
+---
+
 ## 待修：主面板 Provider 菜单编辑 / 关闭 / 删除反馈无效
 
 ### 背景
