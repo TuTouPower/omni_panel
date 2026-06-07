@@ -4,6 +4,34 @@
 
 ---
 
+## 待修：设置窗口在 Windows 任务栏显示为独立进程
+
+> 发现时间：2026-06-08 | 优先级：P2 | 状态：已修（2026-06-08）
+
+### 问题描述
+
+Windows 任务栏上，主面板（popup）和设置窗口（settings）各自占一个独立图标，看起来像两个不同的应用。用户预期应该是同一个应用的两个窗口，任务栏只显示一个图标。
+
+### 可能原因
+
+`BrowserWindow` 创建时可能没有设置 `parent`/`owner` 关系，或者没有共享同一个 `win.setAppDetails({ appId })`，导致 Windows 把它们识别为不同的应用进程。
+
+### 相关文件
+
+- `src/main/index.ts` — `createWindowFor()`、`createOrFocusSettings()`
+- `src/main/core/main-panel/main-panel-controller.ts` — 主面板窗口创建
+
+### 修复方向
+
+- 所有 BrowserWindow 设置相同的 `win.setAppDetails({ appId: "omni-usage" })`，使 Windows 任务栏归为同一组
+- 或设置窗口的 `parent` 指向主窗口
+
+### 修复记录
+
+`531295e`：在 `createWindowFor()` 中对 win32 平台调用 `win.setAppDetails({ appId: "omni-usage" })`，所有窗口归为同一任务栏图标。
+
+---
+
 ## 待修：面板与设置页状态不同步 + ProviderOverview 未传 onEditAccount
 
 > 发现时间：2026-06-07 | 优先级：P0 | 状态：待修
