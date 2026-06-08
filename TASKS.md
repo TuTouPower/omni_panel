@@ -74,18 +74,6 @@ MiniMax 等失败卡片右侧无折叠按钮，与正常卡片不一致。
 
 ---
 
-## 待重构
-
-优先级排序：
-
-1. **CardActionMenu** — provider/account 两套菜单行为重复
-2. **DragGrip + CollapsibleCard rootProps** — 拖动实现重复
-3. **UsageBarList** — 用量条 mapping 重复
-
-不建议一次性大改，先保行为一致。
-
----
-
 ## Phase 36: Demo Handoff chat30-39 对齐
 
 详细变更记录见 `docs/archive/changelog_design.md`。
