@@ -213,6 +213,7 @@ describe("SettingsView", () => {
                 on_pause_state: vi.fn(() => vi.fn()),
                 on_autostart_state: vi.fn(() => vi.fn()),
             },
+            auth: { cookieLogin: vi.fn(), refreshCookies: vi.fn() },
             log: vi.fn(),
         };
     });

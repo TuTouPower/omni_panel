@@ -71,6 +71,13 @@ export const appConfigurationSchema = z.object({
     usageLabelMap: usageLabelMapSchema.optional(),
     accountLabelMaps: z.record(z.record(z.string())).optional(),
     floatingBounds: floatingBoundsSchema.optional(),
+    cookieRefreshHours: z
+        .number()
+        .int()
+        .refine((v) => [0, 6, 12, 24].includes(v), {
+            message: "cookieRefreshHours must be 0, 6, 12, or 24",
+        })
+        .optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {
@@ -78,4 +85,5 @@ export const DEFAULT_CONFIGURATION: AppConfiguration = {
     language: "zh-Hans",
     plugins: [],
     launchAtLogin: false,
+    cookieRefreshHours: 24,
 };

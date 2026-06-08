@@ -55,6 +55,7 @@ export interface AppConfiguration {
     readonly accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>>;
     readonly floatingBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;
+    readonly cookieRefreshHours?: number;
 }
 
 export interface PluginConfiguration {
