@@ -202,3 +202,85 @@ describe("SettingsForm", () => {
         expect(secrets).not.toHaveProperty("API_KEY");
     });
 });
+
+describe("SettingsForm cookie login", () => {
+    it("renders 网页登录 button for MiMo SESSION_COOKIE parameter", () => {
+        renderForm({
+            instanceId: "mimo-1",
+            name: "MiMo",
+            providerId: "mimo",
+            parameters: [
+                {
+                    name: "SESSION_COOKIE",
+                    label: "Cookie",
+                    type: "secret",
+                    required: true,
+                },
+            ],
+            values: {},
+            hasSecrets: {},
+            onCookieLogin: vi.fn().mockResolvedValue(true),
+        });
+        expect(screen.getByText("网页登录")).toBeInTheDocument();
+    });
+
+    it("does not render 网页登录 for non-MiMo providers", () => {
+        renderForm({
+            instanceId: "kimi-1",
+            name: "Kimi",
+            providerId: "kimi",
+            parameters: [
+                {
+                    name: "SESSION_COOKIE",
+                    label: "Cookie",
+                    type: "secret",
+                    required: true,
+                },
+            ],
+            values: {},
+            hasSecrets: {},
+            onCookieLogin: vi.fn(),
+        });
+        expect(screen.queryByText("网页登录")).not.toBeInTheDocument();
+    });
+
+    it("shows 登录中... while cookieLogin is in progress", async () => {
+        // Use a deferred promise so we can observe the loading state
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        let resolve_login: (v: boolean) => void = () => {};
+        const login_promise = new Promise<boolean>((r) => {
+            resolve_login = r;
+        });
+        const onCookieLogin = vi.fn().mockReturnValue(login_promise);
+        const user = userEvent.setup();
+
+        renderForm({
+            instanceId: "mimo-1",
+            name: "MiMo",
+            providerId: "mimo",
+            parameters: [
+                {
+                    name: "SESSION_COOKIE",
+                    label: "Cookie",
+                    type: "secret",
+                    required: true,
+                },
+            ],
+            values: {},
+            hasSecrets: {},
+            onCookieLogin,
+        });
+
+        await user.click(screen.getByText("网页登录"));
+        expect(onCookieLogin).toHaveBeenCalledWith("mimo-1");
+        // Button should show loading text and be disabled
+        const btn = screen.getByText("登录中...");
+        expect(btn).toBeDisabled();
+
+        // Resolve the login
+        resolve_login(true);
+        await vi.waitFor(() => {
+            expect(screen.getByText("网页登录")).toBeInTheDocument();
+        });
+    });
+});

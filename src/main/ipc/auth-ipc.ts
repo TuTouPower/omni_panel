@@ -40,12 +40,18 @@ export async function handleCookieLogin(
 
     return new Promise<IpcResult<{ saved: boolean }>>((resolve) => {
         let resolved = false;
+        let cookieDetected = false;
         let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+        let captureTimer: ReturnType<typeof setTimeout> | null = null;
 
         function cleanup() {
             if (cleanupTimer) {
                 clearTimeout(cleanupTimer);
                 cleanupTimer = null;
+            }
+            if (captureTimer) {
+                clearTimeout(captureTimer);
+                captureTimer = null;
             }
             loginSession.cookies.removeListener("changed", onCookieChanged);
         }
@@ -66,21 +72,51 @@ export async function handleCookieLogin(
             if (removed) return;
             if (cookie.name !== "api-platform_serviceToken") return;
 
-            log.info("Detected api-platform_serviceToken cookie, saving...");
-            const cookieHeader = `api-platform_serviceToken=${cookie.value}`;
-            void deps.secretsStore
-                .set(`${instanceId}:SESSION_COOKIE`, cookieHeader)
-                .then(() => {
-                    log.info("Cookie saved successfully");
-                    finish(ok({ saved: true }));
-                    if (!loginWin.isDestroyed()) {
-                        loginWin.close();
-                    }
-                })
-                .catch((err: unknown) => {
-                    log.error("Failed to save cookie", err);
-                    finish(fail("INTERNAL_ERROR", "保存 Cookie 失败"));
-                });
+            if (!cookieDetected) {
+                cookieDetected = true;
+                log.info(
+                    "Detected api-platform_serviceToken cookie, waiting for login to stabilize...",
+                );
+                // Delay 5s to let MiMo login redirects complete and set the final cookie value.
+                // The first cookie set during login redirects is often an intermediate/temporary value
+                // that gets overwritten when the actual auth flow finishes.
+                if (!loginWin.isDestroyed()) {
+                    loginWin.setTitle("MiMo 登录 - 已检测到登录，请稍候...");
+                }
+                captureTimer = setTimeout(() => {
+                    void loginSession.cookies
+                        .get({ name: "api-platform_serviceToken" })
+                        .then((cookies) => {
+                            const latest = cookies[cookies.length - 1];
+                            if (!latest) {
+                                log.warn(
+                                    "api-platform_serviceToken cookie disappeared after delay",
+                                );
+                                finish(ok({ saved: false }));
+                                return;
+                            }
+                            const cookieHeader = `api-platform_serviceToken=${latest.value}`;
+                            log.info("Capturing final cookie value after stabilization delay");
+                            void deps.secretsStore
+                                .set(`${instanceId}:SESSION_COOKIE`, cookieHeader)
+                                .then(() => {
+                                    log.info("Cookie saved successfully");
+                                    finish(ok({ saved: true }));
+                                    if (!loginWin.isDestroyed()) {
+                                        loginWin.close();
+                                    }
+                                })
+                                .catch((err: unknown) => {
+                                    log.error("Failed to save cookie", err);
+                                    finish(fail("INTERNAL_ERROR", "保存 Cookie 失败"));
+                                });
+                        })
+                        .catch((err: unknown) => {
+                            log.error("Failed to read cookie after delay", err);
+                            finish(fail("INTERNAL_ERROR", "读取 Cookie 失败"));
+                        });
+                }, 5000);
+            }
         };
 
         loginSession.cookies.on("changed", onCookieChanged);
@@ -100,7 +136,29 @@ export async function handleCookieLogin(
         });
 
         loginWin.on("closed", () => {
-            if (!resolved) {
+            if (resolved) return;
+            // If cookie was detected but 5s delay hasn't fired yet,
+            // capture the latest cookie immediately before finishing.
+            if (cookieDetected) {
+                void loginSession.cookies
+                    .get({ name: "api-platform_serviceToken" })
+                    .then((cookies) => {
+                        const latest = cookies[cookies.length - 1];
+                        if (latest) {
+                            const cookieHeader = `api-platform_serviceToken=${latest.value}`;
+                            return deps.secretsStore.set(
+                                `${instanceId}:SESSION_COOKIE`,
+                                cookieHeader,
+                            );
+                        }
+                    })
+                    .catch((err: unknown) => {
+                        log.error("Failed to capture cookie on window close", err);
+                    })
+                    .finally(() => {
+                        finish(ok({ saved: cookieDetected }));
+                    });
+            } else {
                 finish(ok({ saved: false }));
             }
         });
