@@ -143,6 +143,9 @@ export function PopupView() {
     const [account_label_maps, set_account_label_maps] = useState<
         Readonly<Record<string, Readonly<Record<string, string>>>> | undefined
     >(undefined);
+    const [provider_label_maps, set_provider_label_maps] = useState<
+        Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>> | undefined
+    >(undefined);
     const [account_action_error, set_account_action_error] = useState<string | null>(null);
 
     useEffect(() => {
@@ -181,6 +184,7 @@ export function PopupView() {
             }
             set_usage_label_map(config.usageLabelMap);
             set_account_label_maps(config.accountLabelMaps);
+            set_provider_label_maps(config.providerLabelMaps);
             set_account_overrides(config.accountOverrides);
         },
         [valid_providers],
@@ -717,6 +721,7 @@ export function PopupView() {
                                 barColorScheme={usage_bar_color_scheme}
                                 barStyle={usage_bar_style}
                                 labelMap={usage_label_map}
+                                providerLabelMaps={provider_label_maps}
                             />
                         )}
 
@@ -739,6 +744,7 @@ export function PopupView() {
                                     barStyle={usage_bar_style}
                                     labelMap={usage_label_map}
                                     accountLabelMaps={account_label_maps}
+                                    providerLabelMaps={provider_label_maps}
                                 />
                             )}
 

@@ -27,6 +27,9 @@ interface ProviderOverviewProps {
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
+    providerLabelMaps?:
+        | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
+        | undefined;
 }
 
 export function ProviderOverview({
@@ -48,8 +51,15 @@ export function ProviderOverview({
     barColorScheme,
     barStyle,
     labelMap,
+    providerLabelMaps,
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
+
+    const merged_label_map = (provider: UsageProvider) => {
+        const per_provider = providerLabelMaps?.[provider];
+        if (!per_provider) return labelMap;
+        return { ...(labelMap ?? {}), ...per_provider };
+    };
 
     return (
         <>
@@ -76,7 +86,7 @@ export function ProviderOverview({
                         refreshing={refreshingProviders?.has(provider)}
                         barColorScheme={barColorScheme}
                         barStyle={barStyle}
-                        labelMap={labelMap}
+                        labelMap={merged_label_map(provider)}
                     />
                 );
             })}

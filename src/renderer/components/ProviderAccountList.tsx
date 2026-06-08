@@ -1,4 +1,5 @@
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
+import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
 import { ProviderAccountRow } from "./ProviderAccountRow";
 
@@ -17,6 +18,9 @@ interface ProviderAccountListProps {
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
     accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>> | undefined;
+    providerLabelMaps?:
+        | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
+        | undefined;
 }
 
 export function ProviderAccountList({
@@ -34,7 +38,10 @@ export function ProviderAccountList({
     barStyle,
     labelMap,
     accountLabelMaps,
+    providerLabelMaps,
 }: ProviderAccountListProps) {
+    const per_provider_map = providerLabelMaps?.[group.provider] ?? {};
+
     return (
         <>
             {group.accounts.map((account) => {
@@ -42,10 +49,12 @@ export function ProviderAccountList({
                 const isDragging = draggingId === account.id;
                 const isDragOver = overId === account.id && draggingId !== account.id;
                 const per_account_map = accountLabelMaps?.[account.sourceInstanceId] ?? {};
-                const merged_label_map =
+                const merged_label_map: Readonly<Record<string, string>> | undefined =
+                    Object.keys(per_provider_map).length > 0 ||
                     Object.keys(per_account_map).length > 0
-                        ? { ...labelMap, ...per_account_map }
+                        ? { ...labelMap, ...per_provider_map, ...per_account_map }
                         : labelMap;
+
                 if (!onToggleAccount) {
                     return (
                         <ProviderAccountRow
