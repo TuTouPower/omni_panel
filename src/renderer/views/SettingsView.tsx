@@ -444,6 +444,8 @@ function AccountDialog({
                             onSelect={onSelectService}
                             onCpa={onCpa}
                         />
+                    ) : mode === "edit" ? (
+                        <div className="text-sm text-[var(--text-3)]">加载中...</div>
                     ) : (
                         <div className="text-sm text-[var(--text-3)]">暂不支持在此添加新账号</div>
                     )}
@@ -1565,7 +1567,8 @@ export function SettingsView() {
                                                             className="icon-btn sp-ic"
                                                             title="编辑"
                                                             type="button"
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
                                                                 setDialog({
                                                                     mode: "edit",
                                                                     instanceId: p.instanceId,
@@ -1714,7 +1717,8 @@ export function SettingsView() {
                                                                         className="icon-btn sp-ic"
                                                                         title="编辑"
                                                                         type="button"
-                                                                        onClick={() => {
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
                                                                             setDialog({
                                                                                 mode: "edit",
                                                                                 instanceId:
