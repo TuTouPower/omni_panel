@@ -7,8 +7,7 @@ import type { UsageProvider } from "../../../src/shared/schemas/plugin-output";
 
 const { mock_browser_window, mock_session, mock_cookies } = vi.hoisted(() => {
     const mock_cookies = {
-        on: vi.fn(),
-        removeListener: vi.fn(),
+        get: vi.fn<() => Promise<{ name: string; value: string }[]>>(),
     };
     return {
         mock_cookies,
@@ -200,8 +199,8 @@ describe("createCookieRefreshService", () => {
         expect(result).toEqual({ refreshed: 0, failed: 0 });
     });
 
-    // Test 5: No login URL
-    it("skips plugin without a login endpoint", async () => {
+    // Test 5: Plugin eligible but no cookie in session
+    it("returns zero refreshed when persistent session has no cookie", async () => {
         const def = make_plugin_def("mimo_plugin", ["mimo"], {
             has_secret: true,
         });
@@ -210,6 +209,8 @@ describe("createCookieRefreshService", () => {
             make_config([make_plugin_config("inst1", "/plugins/mimo_plugin")]),
         );
 
+        mock_cookies.get.mockResolvedValue([]); // no cookies
+
         const service = createCookieRefreshService({
             configStore: config_store_mock,
             secretsStore: secrets_store_mock,
@@ -217,7 +218,7 @@ describe("createCookieRefreshService", () => {
         });
 
         const result = await service.refreshAll();
-        expect(result).toEqual({ refreshed: 0, failed: 0 });
+        expect(result).toEqual({ refreshed: 0, failed: 1 });
     });
 
     // Test 6: Deduplication
@@ -234,39 +235,17 @@ describe("createCookieRefreshService", () => {
             ]),
         );
 
+        mock_cookies.get.mockResolvedValue([
+            { name: "api-platform_serviceToken", value: "test-token" },
+        ]);
+
         const service = createCookieRefreshService({
             configStore: config_store_mock,
             secretsStore: secrets_store_mock,
             definitions: [mimo_def],
         });
 
-        const result_promise = service.refreshAll();
-
-        // refreshAll is async — yield to let the continuation past `await load()`
-        // register the cookie listener before we read the mock calls
-        await Promise.resolve();
-
-        const on_calls = mock_cookies.on.mock.calls.filter((c: unknown[]) => c[0] === "changed");
-        expect(on_calls.length).toBe(1);
-
-        const call = on_calls[0];
-        if (!call) throw new Error("expected a changed listener call");
-        const listener = call[1] as (
-            event: unknown,
-            cookie: { name: string; value: string },
-            cause: string,
-            removed: boolean,
-        ) => void;
-
-        // Trigger the cookie changed event with matching cookie name
-        listener(
-            null,
-            { name: "api-platform_serviceToken", value: "test-token" },
-            "explicit",
-            false,
-        );
-
-        const result = await result_promise;
+        const result = await service.refreshAll();
 
         expect(result).toEqual({ refreshed: 1, failed: 0 });
         expect(secrets_store_mock.set).toHaveBeenCalledTimes(2);
@@ -291,16 +270,23 @@ describe("createCookieRefreshService", () => {
             make_config([make_plugin_config("inst1", "/plugins/mimo_plugin")]),
         );
 
+        // Deferred promise so the first refresh_vendor hangs
+        let resolve_get: ((value: { name: string; value: string }[]) => void) | undefined;
+        const get_promise = new Promise<{ name: string; value: string }[]>((resolve) => {
+            resolve_get = resolve;
+        });
+        mock_cookies.get.mockReturnValue(get_promise);
+
         const service = createCookieRefreshService({
             configStore: config_store_mock,
             secretsStore: secrets_store_mock,
             definitions: [mimo_def],
         });
 
-        // Start first refresh (don't await - it will hang on cookie listener)
+        // Start first refresh (don't await - it will hang on cookies.get)
         void service.refreshAll();
 
-        // Yield so the first call processes past `await load()` and registers in_progress
+        // Yield so the first call processes past `await configStore.load()`
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
         // Second concurrent call should skip mimo (already in progress)
@@ -308,25 +294,25 @@ describe("createCookieRefreshService", () => {
 
         expect(result2).toEqual({ refreshed: 0, failed: 0 });
         expect(service.inProgress.has("mimo")).toBe(true);
+
+        // Clean up: resolve the first call
+        if (resolve_get) {
+            resolve_get([{ name: "api-platform_serviceToken", value: "token" }]);
+        }
+        await Promise.resolve();
     });
 
-    // Test 8: Empty plugins (no eligible plugins after filtering)
-    it("returns zeros when no plugins are eligible after filtering", async () => {
-        // Mix of ineligible plugins: CPA, no secret, unknown vendor, no login
+    // Test 8: Mixed eligibility — only mimo via no_login_def is eligible
+    it("returns zeros when no eligible plugins have cookies in session", async () => {
+        // Some plugins are ineligible: CPA source, no secret, unknown vendor
         const cpa_def = make_plugin_def("cpa_plugin", ["mimo"], {
             default_source: "cpa",
             has_secret: true,
-            login_url: "https://example.com/login",
         });
         const no_secret_def = make_plugin_def("nosecret_plugin", ["kimi"], {
             has_secret: false,
-            login_url: "https://example.com/login",
         });
         const unknown_vendor_def = make_plugin_def("unknown_plugin", ["claude"], {
-            has_secret: true,
-            login_url: "https://example.com/login",
-        });
-        const no_login_def = make_plugin_def("nologin_plugin", ["mimo"], {
             has_secret: true,
         });
 
@@ -335,14 +321,15 @@ describe("createCookieRefreshService", () => {
                 make_plugin_config("cpa", "/plugins/cpa_plugin"),
                 make_plugin_config("nosecret", "/plugins/nosecret_plugin"),
                 make_plugin_config("unknown", "/plugins/unknown_plugin"),
-                make_plugin_config("nologin", "/plugins/nologin_plugin"),
             ]),
         );
+
+        mock_cookies.get.mockResolvedValue([]); // no cookies
 
         const service = createCookieRefreshService({
             configStore: config_store_mock,
             secretsStore: secrets_store_mock,
-            definitions: [cpa_def, no_secret_def, unknown_vendor_def, no_login_def],
+            definitions: [cpa_def, no_secret_def, unknown_vendor_def],
         });
 
         const result = await service.refreshAll();
