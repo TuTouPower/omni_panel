@@ -289,4 +289,64 @@ describe("CpaConnectorSettings", () => {
         const btn = enabledRow?.querySelector(".sw");
         expect(btn).toHaveAttribute("data-on", "0");
     });
+
+    it("shows label map button per provider when onEditLabelMap is provided", () => {
+        const onEditLabelMap = vi.fn();
+        renderSettings({
+            onEditLabelMap,
+            connector: connector({
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-05-31T00:00:00.000Z",
+                    items: [
+                        usageItem({ provider: "claude" }),
+                        usageItem({ id: "codex-1", provider: "codex", accountLabel: "CX" }),
+                    ],
+                },
+            }),
+        });
+
+        const tag_buttons = screen.getAllByTitle(/标签映射/);
+        expect(tag_buttons.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("calls onEditLabelMap with correct provider when tag button is clicked", async () => {
+        const user = userEvent.setup();
+        const onEditLabelMap = vi.fn();
+        renderSettings({
+            onEditLabelMap,
+            connector: connector({
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-05-31T00:00:00.000Z",
+                    items: [usageItem({ provider: "claude" })],
+                },
+            }),
+        });
+
+        const tag_btn = screen.getByTitle(/标签映射/);
+        await user.click(tag_btn);
+        expect(onEditLabelMap).toHaveBeenCalledWith("claude");
+    });
+
+    it("calls onRemove when remove button is clicked and confirmed", async () => {
+        const user = userEvent.setup();
+        window.confirm = vi.fn().mockReturnValue(true);
+        const onRemove = vi.fn();
+        renderSettings({ onRemove });
+
+        await user.click(screen.getByText("移除数据源"));
+        expect(window.confirm).toHaveBeenCalled();
+        expect(onRemove).toHaveBeenCalled();
+    });
+
+    it("does not call onRemove when remove is cancelled", async () => {
+        const user = userEvent.setup();
+        window.confirm = vi.fn().mockReturnValue(false);
+        const onRemove = vi.fn();
+        renderSettings({ onRemove });
+
+        await user.click(screen.getByText("移除数据源"));
+        expect(onRemove).not.toHaveBeenCalled();
+    });
 });
