@@ -57,21 +57,19 @@ describe("ProviderAccountRow account menu", () => {
             <ProviderAccountRow
                 account={make_account()}
                 onEditAccount={vi.fn()}
-                onHideOrDeleteAccount={vi.fn()}
-                isCpaSource={true}
+                onDisableAccount={vi.fn()}
             />,
         );
 
         expect(screen.getByLabelText("账号操作")).toBeInTheDocument();
     });
 
-    it("shows edit and hide for CPA source", async () => {
+    it("shows edit and disable in the menu", async () => {
         render(
             <ProviderAccountRow
                 account={make_account()}
                 onEditAccount={vi.fn()}
-                onHideOrDeleteAccount={vi.fn()}
-                isCpaSource={true}
+                onDisableAccount={vi.fn()}
             />,
         );
 
@@ -80,52 +78,14 @@ describe("ProviderAccountRow account menu", () => {
         await waitFor(() => {
             expect(screen.getByText("编辑")).toBeInTheDocument();
         });
-        expect(screen.getByText("隐藏")).toBeInTheDocument();
-    });
-
-    it("shows edit and delete for direct source", async () => {
-        const [base_period] = make_account().periods;
-        if (!base_period) throw new Error("missing base period");
-        const direct_account = make_account({
-            id: "deepseek:deepseek-account",
-            sourceInstanceId: "deepseek",
-            periods: [
-                {
-                    ...base_period,
-                    source: "api_key",
-                    sourceInstanceId: "deepseek",
-                },
-            ],
-        });
-
-        render(
-            <ProviderAccountRow
-                account={direct_account}
-                onEditAccount={vi.fn()}
-                onHideOrDeleteAccount={vi.fn()}
-                isCpaSource={false}
-            />,
-        );
-
-        fireEvent.click(screen.getByLabelText("账号操作"));
-
-        await waitFor(() => {
-            expect(screen.getByText("删除")).toBeInTheDocument();
-        });
+        expect(screen.getByText("关闭监控")).toBeInTheDocument();
     });
 
     it("calls onEditAccount when edit is clicked", async () => {
         const on_edit = vi.fn();
         const account = make_account();
 
-        render(
-            <ProviderAccountRow
-                account={account}
-                onEditAccount={on_edit}
-                onHideOrDeleteAccount={vi.fn()}
-                isCpaSource={true}
-            />,
-        );
+        render(<ProviderAccountRow account={account} onEditAccount={on_edit} />);
 
         fireEvent.click(screen.getByLabelText("账号操作"));
 
@@ -137,27 +97,26 @@ describe("ProviderAccountRow account menu", () => {
         expect(on_edit).toHaveBeenCalledWith(account);
     });
 
-    it("calls onHideOrDeleteAccount when hide/delete is clicked", async () => {
-        const on_hide = vi.fn();
+    it("calls onDisableAccount when disable is clicked", async () => {
+        const on_disable = vi.fn();
         const account = make_account();
 
         render(
             <ProviderAccountRow
                 account={account}
                 onEditAccount={vi.fn()}
-                onHideOrDeleteAccount={on_hide}
-                isCpaSource={true}
+                onDisableAccount={on_disable}
             />,
         );
 
         fireEvent.click(screen.getByLabelText("账号操作"));
 
         await waitFor(() => {
-            expect(screen.getByText("隐藏")).toBeInTheDocument();
+            expect(screen.getByText("关闭监控")).toBeInTheDocument();
         });
-        fireEvent.click(screen.getByText("隐藏"));
+        fireEvent.click(screen.getByText("关闭监控"));
 
-        expect(on_hide).toHaveBeenCalledWith(account);
+        expect(on_disable).toHaveBeenCalledWith(account);
     });
 
     it("clicking menu does not trigger collapse toggle", () => {
@@ -169,8 +128,7 @@ describe("ProviderAccountRow account menu", () => {
                 collapsed={false}
                 onToggleCollapsed={on_toggle}
                 onEditAccount={vi.fn()}
-                onHideOrDeleteAccount={vi.fn()}
-                isCpaSource={true}
+                onDisableAccount={vi.fn()}
             />,
         );
 

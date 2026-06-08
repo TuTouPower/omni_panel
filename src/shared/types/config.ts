@@ -52,6 +52,7 @@ export interface AppConfiguration {
     readonly usageBarColorScheme?: UsageBarColorScheme;
     readonly usageBarStyle?: UsageBarStyle;
     readonly usageLabelMap?: Readonly<Record<string, string>>;
+    readonly accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>>;
     readonly floatingBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;
 }

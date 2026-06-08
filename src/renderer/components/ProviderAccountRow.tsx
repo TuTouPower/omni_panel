@@ -20,8 +20,6 @@ interface ProviderAccountRowProps {
     onDragEnd?: (() => void) | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onDisableAccount?: ((account: ProviderUsageAccount) => void) | undefined;
-    onHideOrDeleteAccount?: ((account: ProviderUsageAccount) => void) | undefined;
-    isCpaSource?: boolean | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
@@ -38,8 +36,6 @@ export function ProviderAccountRow({
     onDragEnd,
     onEditAccount,
     onDisableAccount,
-    onHideOrDeleteAccount,
-    isCpaSource = false,
     barColorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
     barStyle = "thin",
     labelMap,
@@ -70,20 +66,8 @@ export function ProviderAccountRow({
                 },
             });
         }
-        if (onHideOrDeleteAccount) {
-            items.push({
-                key: "delete",
-                label: isCpaSource ? "隐藏" : "删除",
-                icon: "trash",
-                iconSize: 14,
-                danger: true,
-                onSelect: () => {
-                    onHideOrDeleteAccount(account);
-                },
-            });
-        }
         return items;
-    }, [account, onEditAccount, onDisableAccount, onHideOrDeleteAccount, isCpaSource]);
+    }, [account, onEditAccount, onDisableAccount]);
 
     const header = (
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

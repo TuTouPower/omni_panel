@@ -368,30 +368,7 @@ describe("PopupView", () => {
         expect(account_menu_buttons.length).toBeGreaterThan(0);
     });
 
-    it("account menu shows hide for CPA source", async () => {
-        render(<PopupView />);
-
-        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
-        fireEvent.click(claude_tab);
-
-        await waitFor(() => {
-            expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
-        });
-
-        // Click account menu
-        const account_menu = screen.getAllByLabelText("账号操作")[0];
-        if (!account_menu) throw new Error("account menu not found");
-        fireEvent.click(account_menu);
-
-        await waitFor(() => {
-            expect(screen.getByText("隐藏")).toBeInTheDocument();
-        });
-    });
-
-    it("hides CPA account by saving account override", async () => {
-        const config_save = vi.fn().mockResolvedValue(undefined);
-        window.usageboard.config.save = config_save;
-
+    it("account menu does not show hide or delete", async () => {
         render(<PopupView />);
 
         const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
@@ -406,21 +383,10 @@ describe("PopupView", () => {
         fireEvent.click(account_menu);
 
         await waitFor(() => {
-            expect(screen.getByText("隐藏")).toBeInTheDocument();
+            expect(screen.getByText("编辑")).toBeInTheDocument();
         });
-        fireEvent.click(screen.getByText("隐藏"));
-
-        await waitFor(() => {
-            expect(config_save).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    accountOverrides: {
-                        hidden: {
-                            claude: ["cpa-main:label:Claude Account"],
-                        },
-                    },
-                }),
-            );
-        });
+        expect(screen.queryByText("隐藏")).not.toBeInTheDocument();
+        expect(screen.queryByText("删除")).not.toBeInTheDocument();
     });
 
     it("disables an account by saving account override", async () => {
@@ -480,58 +446,6 @@ describe("PopupView", () => {
         fireEvent.click(screen.getByText("关闭监控"));
 
         await expect(screen.findByRole("alert")).resolves.toHaveTextContent("保存账号操作失败");
-    });
-
-    it("deletes direct account by removing its plugin config", async () => {
-        const config_save = vi.fn().mockResolvedValue(undefined);
-        window.usageboard.config.get = vi.fn().mockResolvedValue({
-            config: {
-                schemaVersion: 1,
-                language: "zh-Hans",
-                launchAtLogin: false,
-                plugins: [
-                    {
-                        instanceId: "deepseek-key",
-                        stateId: "deepseek-key",
-                        name: "DeepSeek",
-                        enabled: true,
-                        executablePath: "plugins/deepseek.ts",
-                        refreshIntervalSeconds: 300,
-                        parameterValues: {},
-                        endpointOverrides: {},
-                    },
-                ],
-            },
-            hasSecrets: {},
-        });
-        window.usageboard.config.save = config_save;
-        vi.spyOn(window, "confirm").mockReturnValue(true);
-
-        render(<PopupView />);
-
-        const deepseek_tab = await screen.findByRole("button", { name: /^DeepSeek$/ });
-        fireEvent.click(deepseek_tab);
-
-        await waitFor(() => {
-            expect(screen.getAllByText("DeepSeek Account").length).toBeGreaterThan(0);
-        });
-
-        const account_menu = screen.getAllByLabelText("账号操作")[0];
-        if (!account_menu) throw new Error("account menu not found");
-        fireEvent.click(account_menu);
-
-        await waitFor(() => {
-            expect(screen.getByText("删除")).toBeInTheDocument();
-        });
-        fireEvent.click(screen.getByText("删除"));
-
-        await waitFor(() => {
-            expect(config_save).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    plugins: [],
-                }),
-            );
-        });
     });
 
     it("opens settings with context when account edit is clicked", async () => {

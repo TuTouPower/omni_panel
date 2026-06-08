@@ -140,6 +140,9 @@ export function PopupView() {
     const [account_overrides, set_account_overrides] = useState<AccountOverrides | undefined>(
         undefined,
     );
+    const [account_label_maps, set_account_label_maps] = useState<
+        Readonly<Record<string, Readonly<Record<string, string>>>> | undefined
+    >(undefined);
     const [account_action_error, set_account_action_error] = useState<string | null>(null);
 
     useEffect(() => {
@@ -177,6 +180,7 @@ export function PopupView() {
                 set_usage_bar_style(config.usageBarStyle);
             }
             set_usage_label_map(config.usageLabelMap);
+            set_account_label_maps(config.accountLabelMaps);
             set_account_overrides(config.accountOverrides);
         },
         [valid_providers],
@@ -446,61 +450,6 @@ export function PopupView() {
                     level: "error",
                     module: MODULE,
                     message: `关闭账号监控失败: ${errorMessage(err)}`,
-                });
-            }
-        })();
-    };
-
-    const hide_or_delete_account = (account: ProviderUsageAccount) => {
-        const first_period = account.periods[0];
-        if (!first_period) return;
-        const provider = first_period.provider;
-        const is_cpa = first_period.source === "cpa";
-
-        void (async () => {
-            set_account_action_error(null);
-            try {
-                const result = await window.usageboard.config.get();
-                if (is_cpa) {
-                    const new_overrides = add_account_override(
-                        result.config.accountOverrides,
-                        "hidden",
-                        provider,
-                        account.id,
-                    );
-                    await window.usageboard.config.save({
-                        ...result.config,
-                        accountOverrides: new_overrides,
-                    });
-                    set_account_overrides(new_overrides);
-                    window.usageboard.log({
-                        level: "info",
-                        module: MODULE,
-                        message: `隐藏 CPA 账号: ${provider}`,
-                    });
-                    return;
-                }
-
-                const target_instance = account.sourceInstanceId;
-                const plugin = result.config.plugins.find((p) => p.instanceId === target_instance);
-                if (!plugin) return;
-                if (!window.confirm(`确定要删除 ${account.accountLabel} 吗？此操作不可恢复。`))
-                    return;
-                await window.usageboard.config.save({
-                    ...result.config,
-                    plugins: result.config.plugins.filter((p) => p.instanceId !== target_instance),
-                });
-                window.usageboard.log({
-                    level: "info",
-                    module: MODULE,
-                    message: `删除直接账号: ${provider}`,
-                });
-            } catch (err: unknown) {
-                set_account_action_error("保存账号操作失败");
-                window.usageboard.log({
-                    level: "error",
-                    module: MODULE,
-                    message: `保存账号操作失败: ${errorMessage(err)}`,
                 });
             }
         })();
@@ -786,12 +735,10 @@ export function PopupView() {
                                     onDragEnd={is_live ? handle_account_drag_end : undefined}
                                     onEditAccount={is_live ? edit_account : undefined}
                                     onDisableAccount={is_live ? disable_account : undefined}
-                                    onHideOrDeleteAccount={
-                                        is_live ? hide_or_delete_account : undefined
-                                    }
                                     barColorScheme={usage_bar_color_scheme}
                                     barStyle={usage_bar_style}
                                     labelMap={usage_label_map}
+                                    accountLabelMaps={account_label_maps}
                                 />
                             )}
 

@@ -69,6 +69,7 @@ export const appConfigurationSchema = z.object({
     usageBarColorScheme: usageBarColorSchemeSchema.optional(),
     usageBarStyle: usageBarStyleSchema.optional(),
     usageLabelMap: usageLabelMapSchema.optional(),
+    accountLabelMaps: z.record(z.record(z.string())).optional(),
     floatingBounds: floatingBoundsSchema.optional(),
 });
 

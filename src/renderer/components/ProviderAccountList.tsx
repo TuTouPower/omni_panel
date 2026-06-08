@@ -13,10 +13,10 @@ interface ProviderAccountListProps {
     onDragEnd?: (() => void) | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onDisableAccount?: ((account: ProviderUsageAccount) => void) | undefined;
-    onHideOrDeleteAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
+    accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>> | undefined;
 }
 
 export function ProviderAccountList({
@@ -30,10 +30,10 @@ export function ProviderAccountList({
     onDragEnd,
     onEditAccount,
     onDisableAccount,
-    onHideOrDeleteAccount,
     barColorScheme,
     barStyle,
     labelMap,
+    accountLabelMaps,
 }: ProviderAccountListProps) {
     return (
         <>
@@ -41,7 +41,11 @@ export function ProviderAccountList({
                 const collapsed = collapsedAccounts?.[account.id] ?? false;
                 const isDragging = draggingId === account.id;
                 const isDragOver = overId === account.id && draggingId !== account.id;
-                const is_cpa = account.periods.some((p) => p.source === "cpa");
+                const per_account_map = accountLabelMaps?.[account.sourceInstanceId] ?? {};
+                const merged_label_map =
+                    Object.keys(per_account_map).length > 0
+                        ? { ...labelMap, ...per_account_map }
+                        : labelMap;
                 if (!onToggleAccount) {
                     return (
                         <ProviderAccountRow
@@ -49,11 +53,9 @@ export function ProviderAccountList({
                             account={account}
                             onEditAccount={onEditAccount}
                             onDisableAccount={onDisableAccount}
-                            onHideOrDeleteAccount={onHideOrDeleteAccount}
-                            isCpaSource={is_cpa}
                             barColorScheme={barColorScheme}
                             barStyle={barStyle}
-                            labelMap={labelMap}
+                            labelMap={merged_label_map}
                         />
                     );
                 }
@@ -85,11 +87,9 @@ export function ProviderAccountList({
                         onDragEnd={onDragEnd}
                         onEditAccount={onEditAccount}
                         onDisableAccount={onDisableAccount}
-                        onHideOrDeleteAccount={onHideOrDeleteAccount}
-                        isCpaSource={is_cpa}
                         barColorScheme={barColorScheme}
                         barStyle={barStyle}
-                        labelMap={labelMap}
+                        labelMap={merged_label_map}
                     />
                 );
             })}
