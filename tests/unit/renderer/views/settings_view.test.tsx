@@ -495,4 +495,27 @@ describe("SettingsView", () => {
         expect(mock_cookie_login).toHaveBeenCalledWith("mimo-1");
         expect(mock_refresh).not.toHaveBeenCalled();
     });
+
+    it("disables a plugin when toggle is clicked on accounts page", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+
+        // Find the DeepSeek toggle button and click it
+        const toggles = screen.getAllByRole("button").filter((btn) => btn.className.includes("sw"));
+        const deepseek_toggle = toggles[0];
+        if (!deepseek_toggle) throw new Error("toggle not found");
+        await user.click(deepseek_toggle);
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalled();
+        });
+        const saved_config = (
+            save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
+        )?.[0];
+        if (!saved_config) return;
+        const deepseek_plugin = saved_config.plugins.find((p) => p.instanceId === "deepseek-1");
+        expect(deepseek_plugin?.enabled).toBe(false);
+    });
 });
