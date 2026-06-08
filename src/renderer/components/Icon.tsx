@@ -35,6 +35,12 @@ const UI_ICONS: Record<string, string> = {
     external_link:
         '<path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
     globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 4 9 15 15 0 0 1-4 9 15 15 0 0 1-4-9A15 15 0 0 1 12 3z"/>',
+    clipboard:
+        '<rect x="8" y="4" width="8" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+    tag: '<path d="M3 7v5.6a2 2 0 0 0 .6 1.4l7 7a2 2 0 0 0 2.8 0l5.6-5.6a2 2 0 0 0 0-2.8l-7-7A2 2 0 0 0 12.6 3H5a2 2 0 0 0-2 2z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
 };
 
 interface IconProps {
@@ -114,6 +120,12 @@ const VENDOR_MARKS: Record<string, (s: number) => string> = {
         `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none">` +
         `<rect x="4" y="4" width="16" height="16" rx="4" fill="#ff6900"/>` +
         `<text x="12" y="16.5" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold" font-family="sans-serif">Mi</text></svg>`,
+    cpa: (s) =>
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke-width="4.2">` +
+        `<path d="M12 5A7 7 0 0 1 19 12" stroke="#3d7afd"/>` +
+        `<path d="M19 12A7 7 0 0 1 12 19" stroke="#22c55e"/>` +
+        `<path d="M12 19A7 7 0 0 1 5 12" stroke="#f5a524"/>` +
+        `<path d="M5 12A7 7 0 0 1 12 5" stroke="#d97757"/></svg>`,
 };
 
 interface VendorMarkProps {
