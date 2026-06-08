@@ -117,3 +117,168 @@ describe("AddAccountDialog MIMO session cookie", () => {
         });
     });
 });
+
+describe("AddAccountDialog API key", () => {
+    let on_save: ReturnType<typeof vi.fn>;
+    let on_close: ReturnType<typeof vi.fn>;
+    let on_cpa: ReturnType<typeof vi.fn>;
+
+    function apikey_plugin(overrides: Partial<PluginInfo> = {}): PluginInfo {
+        return {
+            instanceId: "deepseek-1",
+            sourceInstanceId: "deepseek-1",
+            stateId: "deepseek-1",
+            name: "DeepSeek",
+            displayName: "DeepSeek",
+            enabled: true,
+            source: "api_key",
+            supportedProviders: ["deepseek"],
+            activeProviders: ["deepseek"],
+            metadata: {
+                parameters: [
+                    {
+                        name: "API_KEY",
+                        label: "API Key",
+                        type: "secret",
+                        required: true,
+                    },
+                ],
+            },
+            snapshot: { status: "idle" },
+            ...overrides,
+        };
+    }
+
+    beforeEach(() => {
+        on_save = vi.fn().mockResolvedValue(undefined);
+        on_close = vi.fn();
+        on_cpa = vi.fn();
+    });
+
+    it("passes API_KEY in secrets when adding an apikey account", async () => {
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[apikey_plugin()]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        await user.click(screen.getByText("DeepSeek"));
+
+        // Should show API key input
+        const key_input = screen.getByPlaceholderText(/sk-/);
+        expect(key_input).toBeInTheDocument();
+        await user.type(key_input, "sk-test-key-123");
+
+        await user.click(screen.getByText("添加账号"));
+
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        const saved = get_saved_params(on_save);
+        expect(saved.secrets).toEqual({ API_KEY: "sk-test-key-123" });
+        expect(saved.vendor_id).toBe("deepseek");
+        expect(saved.auth_method).toBe("apikey");
+    });
+
+    it("passes endpoint override when provided", async () => {
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[apikey_plugin()]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        await user.click(screen.getByText("DeepSeek"));
+        await user.type(screen.getByPlaceholderText(/sk-/), "sk-key");
+
+        // Fill optional endpoint
+        const endpoint_input = screen.getByPlaceholderText("https://api.deepseek.com");
+        await user.type(endpoint_input, "https://custom.api.example.com");
+
+        await user.click(screen.getByText("添加账号"));
+
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        const saved = get_saved_params(on_save);
+        expect(saved.endpoint_overrides).toEqual({ default: "https://custom.api.example.com" });
+    });
+
+    it("does not include empty endpoint override", async () => {
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[apikey_plugin()]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        await user.click(screen.getByText("DeepSeek"));
+        await user.type(screen.getByPlaceholderText(/sk-/), "sk-key");
+        await user.click(screen.getByText("添加账号"));
+
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        const saved = get_saved_params(on_save);
+        expect(saved.endpoint_overrides).toBeUndefined();
+    });
+
+    it("disables vendor button when plugin is not enabled", () => {
+        const disabled = apikey_plugin({ enabled: false, activeProviders: [] });
+        render(
+            <AddAccountDialog
+                plugin_infos={[disabled]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        const btn = screen.getByText("DeepSeek").closest("button");
+        expect(btn?.className).toContain("disabled");
+    });
+
+    it("shows CPA button when has_cpa is true", () => {
+        render(
+            <AddAccountDialog
+                plugin_infos={[]}
+                has_cpa={true}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        expect(screen.getByText("CPA Manager")).toBeInTheDocument();
+    });
+
+    it("calls on_cpa when CPA button is clicked", async () => {
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[]}
+                has_cpa={true}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        await user.click(screen.getByText("CPA Manager"));
+        expect(on_cpa).toHaveBeenCalled();
+    });
+});

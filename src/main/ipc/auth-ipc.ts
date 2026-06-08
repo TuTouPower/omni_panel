@@ -77,12 +77,17 @@ export async function handleCookieLogin(
                     if (latest) {
                         const cookieHeader = `api-platform_serviceToken=${latest.value}`;
                         log.info("Saving cookie from persistent session on window close");
-                        return deps.secretsStore
+                        void deps.secretsStore
                             .set(`${instanceId}:SESSION_COOKIE`, cookieHeader)
                             .then(() => {
                                 log.info("Cookie saved successfully");
                                 finish(ok({ saved: true }));
+                            })
+                            .catch((err: unknown) => {
+                                log.error("Failed to save cookie on window close", err);
+                                finish(fail("INTERNAL_ERROR", "保存 Cookie 失败"));
                             });
+                        return;
                     }
                     log.info("No api-platform_serviceToken cookie on window close");
                     finish(ok({ saved: false }));
