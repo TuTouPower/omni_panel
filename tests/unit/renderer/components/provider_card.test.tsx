@@ -705,7 +705,7 @@ describe("ProviderCard", () => {
         expect(card.classList.contains("alert")).toBe(false);
     });
 
-    it("adds alert class when connectorError is set and no usage data", () => {
+    it("does not add alert class when connectorError is set", () => {
         const { container } = render(
             <ProviderCard
                 provider="minimax"
@@ -716,7 +716,7 @@ describe("ProviderCard", () => {
         );
         const card = container.querySelector(".card");
         if (!card) throw new Error("missing .card");
-        expect(card.classList.contains("alert")).toBe(true);
+        expect(card.classList.contains("alert")).toBe(false);
     });
 
     it("does not add alert class when group has warning status", () => {
