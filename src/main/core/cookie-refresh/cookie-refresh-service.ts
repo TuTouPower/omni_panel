@@ -1,4 +1,4 @@
-import { BrowserWindow, session } from "electron";
+import { session } from "electron";
 import type { AppConfigStore } from "../config/config-store";
 import type { SecretsStore } from "../config/secrets-store";
 import type { PluginDefinition } from "../plugin/types";
@@ -6,8 +6,6 @@ import type { UsageProvider } from "../../../shared/schemas/plugin-output";
 import { createLogger } from "../../../shared/lib/logger";
 
 const log = createLogger("cookie-refresh");
-
-const REFRESH_TIMEOUT_MS = 30_000;
 
 interface VendorCookieConfig {
     cookieName: string;
@@ -18,14 +16,6 @@ const VENDOR_COOKIE_MAP: Partial<Record<UsageProvider, VendorCookieConfig>> = {
     mimo: { cookieName: "api-platform_serviceToken", secretParamName: "SESSION_COOKIE" },
     kimi: { cookieName: "access_token", secretParamName: "SESSION_COOKIE" },
 };
-
-const SECURE_WEB_PREFS = {
-    contextIsolation: true,
-    nodeIntegration: false,
-    sandbox: true,
-    webSecurity: true,
-    allowRunningInsecureContent: false,
-} as const;
 
 export interface CookieRefreshDeps {
     configStore: AppConfigStore;
@@ -38,98 +28,54 @@ export type CookieRefreshService = ReturnType<typeof createCookieRefreshService>
 export function createCookieRefreshService(deps: CookieRefreshDeps) {
     const in_progress = new Set<string>();
 
-    function refresh_vendor(
+    async function refresh_vendor(
         vendor_id: UsageProvider,
         instance_ids: string[],
-        login_url: string,
         cookie_config: VendorCookieConfig,
     ): Promise<boolean> {
-        const partition = `persist:${vendor_id}-cookie-refresh`;
+        // Use the same persistent partition as the login window.
+        // Cookies set during manual login survive across app restarts
+        // and are available here without opening any window.
+        const partition = `persist:${vendor_id}-login`;
         const refresh_session = session.fromPartition(partition);
 
-        return new Promise<boolean>((resolve) => {
-            let resolved = false;
-            let timeout_id: ReturnType<typeof setTimeout> | null = null;
-
-            function cleanup() {
-                if (timeout_id) {
-                    clearTimeout(timeout_id);
-                    timeout_id = null;
-                }
-                refresh_session.cookies.removeListener("changed", on_cookie_changed);
+        try {
+            const cookies = await refresh_session.cookies.get({
+                name: cookie_config.cookieName,
+            });
+            const latest = cookies[cookies.length - 1];
+            if (!latest) {
+                log.info(
+                    `No ${cookie_config.cookieName} in persistent session for ${vendor_id} — user needs to re-login`,
+                );
+                return false;
             }
 
-            function finish(success: boolean) {
-                if (resolved) return;
-                resolved = true;
-                cleanup();
-                if (!win.isDestroyed()) {
-                    win.close();
-                }
-                in_progress.delete(vendor_id);
-                resolve(success);
-            }
-
-            const on_cookie_changed = (
-                _event: Electron.Event,
-                cookie: Electron.Cookie,
-                _cause: string,
-                removed: boolean,
-            ) => {
-                if (removed) return;
-                if (cookie.name !== cookie_config.cookieName) return;
-
-                log.info(`Detected ${cookie_config.cookieName} cookie for vendor ${vendor_id}`);
-
-                const cookie_header = `${cookie_config.cookieName}=${cookie.value}`;
-                const promises = instance_ids.map((instance_id) =>
+            const cookie_header = `${cookie_config.cookieName}=${latest.value}`;
+            const results = await Promise.allSettled(
+                instance_ids.map((instance_id) =>
                     deps.secretsStore.set(
                         `${instance_id}:${cookie_config.secretParamName}`,
                         cookie_header,
                     ),
-                );
-
-                void Promise.allSettled(promises).then((results) => {
-                    const succeeded = results.filter((r) => r.status === "fulfilled").length;
-                    const failed = results.filter((r) => r.status === "rejected").length;
-                    log.info(
-                        `Cookie refresh for ${vendor_id}: ${String(succeeded)} saved, ${String(failed)} failed`,
-                    );
-                    finish(succeeded > 0);
-                });
-            };
-
-            refresh_session.cookies.on("changed", on_cookie_changed);
-
-            const win = new BrowserWindow({
-                show: false,
-                webPreferences: {
-                    ...SECURE_WEB_PREFS,
-                    partition,
-                },
-            });
-
-            win.on("closed", () => {
-                if (!resolved) {
-                    log.debug(`Cookie refresh window closed for ${vendor_id}`);
-                    finish(false);
-                }
-            });
-
-            timeout_id = setTimeout(() => {
-                if (!resolved) {
-                    log.warn(`Cookie refresh timed out for vendor ${vendor_id}`);
-                    finish(false);
-                }
-            }, REFRESH_TIMEOUT_MS);
-
-            void win.loadURL(login_url);
-        });
+                ),
+            );
+            const succeeded = results.filter((r) => r.status === "fulfilled").length;
+            const failed = results.filter((r) => r.status === "rejected").length;
+            log.info(
+                `Cookie refresh for ${vendor_id}: ${String(succeeded)} saved, ${String(failed)} failed (from persistent session)`,
+            );
+            return succeeded > 0;
+        } catch (err: unknown) {
+            log.error(`Failed to refresh cookies for ${vendor_id}`, err);
+            return false;
+        } finally {
+            in_progress.delete(vendor_id);
+        }
     }
 
     interface VendorGroup {
         instance_ids: string[];
-        login_url: string;
     }
 
     async function refreshAll(): Promise<{ refreshed: number; failed: number }> {
@@ -145,19 +91,14 @@ export function createCookieRefreshService(deps: CookieRefreshDeps) {
 
             const meta = def.metadata;
 
-            // Requirement 2a: defaultSource !== "cpa"
+            // Requirement: defaultSource !== "cpa"
             if (meta.defaultSource === "cpa") continue;
 
-            // Requirement 2b: has at least one secret type parameter
+            // Requirement: has at least one secret type parameter
             const has_secret_param = meta.parameters?.some((p) => p.type === "secret");
             if (!has_secret_param) continue;
 
-            // Requirement 2d: has login or default endpoint
-            const endpoints = meta.endpoints;
-            const login_url = endpoints?.["login"] ?? endpoints?.["default"];
-            if (!login_url || typeof login_url !== "string") continue;
-
-            // Requirement 2c: at least one supportedProvider is in vendor cookie map
+            // Requirement: at least one supportedProvider is in vendor cookie map
             const providers = meta.supportedProviders ?? [];
             for (const provider of providers) {
                 const cookie_config = VENDOR_COOKIE_MAP[provider];
@@ -165,7 +106,7 @@ export function createCookieRefreshService(deps: CookieRefreshDeps) {
 
                 let group = vendor_groups.get(provider);
                 if (!group) {
-                    group = { instance_ids: [], login_url };
+                    group = { instance_ids: [] };
                     vendor_groups.set(provider, group);
                 }
                 if (!group.instance_ids.includes(plugin.instanceId)) {
@@ -192,9 +133,7 @@ export function createCookieRefreshService(deps: CookieRefreshDeps) {
             log.info(
                 `Starting cookie refresh for ${vendor_id} (${String(group.instance_ids.length)} instances)`,
             );
-            tasks.push(
-                refresh_vendor(vendor_id, group.instance_ids, group.login_url, cookie_config),
-            );
+            tasks.push(refresh_vendor(vendor_id, group.instance_ids, cookie_config));
         }
 
         if (tasks.length === 0) {
