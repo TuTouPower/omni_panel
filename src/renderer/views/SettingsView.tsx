@@ -425,6 +425,7 @@ function AccountDialog({
                                     try {
                                         const result = await window.usageboard.auth.cookieLogin(id);
                                         if (result.saved) {
+                                            await window.usageboard.plugin.refresh(id);
                                             await window.usageboard.config.get();
                                         }
                                         return result.saved;
