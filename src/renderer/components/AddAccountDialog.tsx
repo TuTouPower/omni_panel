@@ -239,10 +239,12 @@ function SessionForm({
     vendor_id,
     account_name,
     set_account_name,
+    form_ref,
 }: {
     vendor_id: UsageProvider;
     account_name: string;
     set_account_name: (v: string) => void;
+    form_ref: React.RefObject<{ cookie: string }>;
 }) {
     const meta = AUTH_SESSION_META[vendor_id] ?? {
         host: "",
@@ -250,6 +252,10 @@ function SessionForm({
         cookie_keys: [],
     };
     const [cookie, set_cookie] = useState("");
+
+    useEffect(() => {
+        form_ref.current = { cookie };
+    }, [cookie, form_ref]);
 
     return (
         <>
@@ -380,6 +386,9 @@ export function AddAccountDialog({
     const api_form_ref = useRef<{ api_key: string; endpoint_override?: string }>({
         api_key: "",
     });
+    const session_form_ref = useRef<{ cookie: string }>({
+        cookie: "",
+    });
 
     const auth_method: AuthMethod = (vendor_id && VENDOR_AUTH_MAP[vendor_id]) ?? "apikey";
 
@@ -439,6 +448,12 @@ export function AddAccountDialog({
                     params.endpoint_overrides = {
                         default: data.endpoint_override,
                     };
+                }
+            } else if (auth_method === "session") {
+                const data = session_form_ref.current;
+                const cookie = data.cookie.trim();
+                if (cookie) {
+                    params.secrets = { SESSION_COOKIE: cookie };
                 }
             }
 
@@ -512,6 +527,7 @@ export function AddAccountDialog({
                                     vendor_id={vendor_id}
                                     account_name={account_name}
                                     set_account_name={set_account_name}
+                                    form_ref={session_form_ref}
                                 />
                             )}
                             {auth_method === "local" && <LocalScanForm vendor_id={vendor_id} />}
