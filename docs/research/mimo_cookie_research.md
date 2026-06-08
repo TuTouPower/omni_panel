@@ -124,6 +124,26 @@ Cookie: <SESSION_COOKIE 原样传入，无任何处理>
 
 ---
 
+## 五-bis、已知 Bug（2026-06-08）
+
+### Bug #1：新增 MiMo 账号时 Cookie 未被保存
+
+`src/renderer/components/AddAccountDialog.tsx` 的 `handle_save`（行 422-449）只处理 `apikey` 分支，`SessionForm` 的 cookie state 未暴露给父组件，`session` 分支缺 `params.secrets = { SESSION_COOKIE: cookie }`。
+
+**影响**：用户通过"添加账号"流程粘贴 Cookie 后，新建的 MiMo 插件实例没有 `SESSION_COOKIE`，刷新时插件报 `MISSING_PARAM:SESSION_COOKIE`。
+
+**测试**：`tests/unit/renderer/components/add_account_dialog.test.tsx`（2 个预期失败的测试）。
+
+### Bug #2：网页登录保存 Cookie 后未刷新插件
+
+`src/renderer/views/SettingsView.tsx` 的 `onCookieLogin` 回调（行 424-430）在 `cookieLogin` 成功后只调用了 `config.get()`，没有调用 `plugin.refresh(id)`。
+
+**影响**：用户通过"网页登录"捕获 Cookie 后，Cookie 已保存但插件不刷新，主面板不显示新数据。需等待定时刷新或手动刷新。
+
+**测试**：`tests/unit/renderer/views/settings_view.test.tsx`（cookieLogin refresh 测试验证了期望行为模式）。
+
+---
+
 ## 六、改善方案评估
 
 | 方案                       | 描述                                                                      | 解决痛点                             | 可行性 | 复杂度                     |
