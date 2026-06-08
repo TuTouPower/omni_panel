@@ -6,6 +6,7 @@ import { ok, fail, assert_valid_sender } from "./helpers";
 import type { SecretsStore } from "../core/config/secrets-store";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { PluginDefinition } from "../core/plugin/types";
+import type { CookieRefreshService } from "../core/cookie-refresh/cookie-refresh-service";
 import { createLogger } from "../../shared/lib/logger";
 
 const log = createLogger("ipc:auth");
@@ -16,6 +17,7 @@ export interface AuthIpcDeps {
     configStore: AppConfigStore;
     secretsStore: SecretsStore;
     definitions: readonly PluginDefinition[];
+    cookieRefreshService: CookieRefreshService;
 }
 
 async function handleCookieLogin(
@@ -123,6 +125,13 @@ export function registerAuthIpc(deps: AuthIpcDeps): void {
         (e, instanceId: string): Promise<IpcResult<{ saved: boolean }>> => {
             assert_valid_sender(e);
             return handleCookieLogin(deps, instanceId);
+        },
+    );
+    ipcMain.handle(
+        IPC_CHANNELS.AUTH_REFRESH_COOKIES,
+        (e): Promise<IpcResult<{ refreshed: number; failed: number }>> => {
+            assert_valid_sender(e);
+            return deps.cookieRefreshService.refreshAll().then((result) => ok(result));
         },
     );
 }
