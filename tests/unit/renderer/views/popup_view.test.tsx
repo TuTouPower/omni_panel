@@ -562,4 +562,14 @@ describe("PopupView", () => {
         // No save must have happened
         expect(config_save).not.toHaveBeenCalled();
     });
+
+    it("shows empty state with add service prompt when no plugins configured", async () => {
+        plugin_list.mockResolvedValue([]);
+        render(<PopupView />);
+        await waitFor(() => {
+            expect(screen.getByText("还没有添加任何服务")).toBeInTheDocument();
+        });
+        const add_btn = screen.getByText("添加服务");
+        expect(add_btn).toBeInTheDocument();
+    });
 });
