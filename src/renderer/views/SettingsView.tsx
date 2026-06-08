@@ -418,7 +418,9 @@ function AccountDialog({
                                 endpoints={pluginInfo.metadata?.endpoints ?? {}}
                                 endpointValues={pluginConfig.endpointOverrides}
                                 refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
-                                providerId={pluginInfo.activeProviders[0]}
+                                {...(pluginInfo.activeProviders[0]
+                                    ? { providerId: pluginInfo.activeProviders[0] }
+                                    : {})}
                                 onCookieLogin={async (id) => {
                                     try {
                                         const result = await window.usageboard.auth.cookieLogin(id);

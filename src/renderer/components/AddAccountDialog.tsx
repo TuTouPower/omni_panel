@@ -169,7 +169,7 @@ function ApiKeyForm({
     useEffect(() => {
         form_ref.current = {
             api_key: key,
-            endpoint_override: endpoint || undefined,
+            ...(endpoint ? { endpoint_override: endpoint } : {}),
         };
     }, [key, endpoint, form_ref]);
 
@@ -428,7 +428,6 @@ export function AddAccountDialog({
                 account_name: account_name || vendor_label,
                 auth_method,
                 parameter_values: {},
-                endpoint_overrides: undefined,
                 secrets: {},
             };
 
