@@ -101,6 +101,20 @@ const BAR_COLOR_SCHEMES: {
 const MAIN_PANEL_MODE_LABELS = ["跟随系统推荐", "弹出面板", "浮动窗口"] as const;
 const FLOATING_HEIGHT_MODE_LABELS = ["保持窗口大小", "跟随内容变化"] as const;
 const BAR_STYLE_LABELS = ["细线型", "粗胶囊型"] as const;
+const COOKIE_REFRESH_HOUR_OPTIONS = ["从不", "6 小时", "12 小时", "24 小时"] as const;
+
+function cookie_refresh_hours_to_label(h: number | undefined): string {
+    if (!h || h === 0) return "从不";
+    return `${String(h)} 小时`;
+}
+
+function cookie_refresh_label_to_hours(label: string): number {
+    if (label === "从不") return 0;
+    if (label === "6 小时") return 6;
+    if (label === "12 小时") return 12;
+    return 24;
+}
+
 const log = createLogger("renderer:settings-view");
 const should_log_raw = import.meta.env.DEV;
 
@@ -1446,6 +1460,25 @@ export function SettingsView() {
                                 <div className="acct-intro">
                                     关闭后该卡片不再显示在主面板，也会停止刷新用量。可随时在此重新启用。
                                 </div>
+                                <div className="set-group-label">Cookie 刷新</div>
+                                <SetRow
+                                    title="Cookie 刷新周期"
+                                    sub="定时用已保存的登录会话自动刷新 Cookie，避免频繁手动登录"
+                                >
+                                    <Select
+                                        value={cookie_refresh_hours_to_label(
+                                            config.cookieRefreshHours,
+                                        )}
+                                        onChange={(v) => {
+                                            void save_config({
+                                                ...config,
+                                                cookieRefreshHours:
+                                                    cookie_refresh_label_to_hours(v),
+                                            });
+                                        }}
+                                        options={[...COOKIE_REFRESH_HOUR_OPTIONS]}
+                                    />
+                                </SetRow>
                                 {config.plugins.length === 0 ? (
                                     <div className="text-sm text-[var(--text-3)] py-4">
                                         暂无已配置的服务
