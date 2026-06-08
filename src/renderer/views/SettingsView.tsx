@@ -1240,6 +1240,7 @@ export function SettingsView() {
                         : plugin,
                 ),
             });
+            await window.usageboard.plugin.refresh(instanceId);
         },
         [config, save_config, saveSecrets],
     );

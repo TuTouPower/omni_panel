@@ -72,10 +72,10 @@ async function handleCookieLogin(
                 .set(`${instanceId}:SESSION_COOKIE`, cookieHeader)
                 .then(() => {
                     log.info("Cookie saved successfully");
+                    finish(ok({ saved: true }));
                     if (!loginWin.isDestroyed()) {
                         loginWin.close();
                     }
-                    finish(ok({ saved: true }));
                 })
                 .catch((err: unknown) => {
                     log.error("Failed to save cookie", err);
