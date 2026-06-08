@@ -9,6 +9,9 @@ import {
 import { remove_account_override } from "../lib/account-overrides";
 import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
+import { AddAccountDialog } from "../components/AddAccountDialog";
+import type { AddAccountParams } from "../components/AddAccountDialog";
+import { LabelMapDialog } from "../components/LabelMapDialog";
 import { Icon, VendorMark } from "../components/Icon";
 import type { PluginInfo } from "../../shared/types/ipc";
 import type {
@@ -955,6 +958,12 @@ export function SettingsView() {
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);
     const [showCpaAdd, setShowCpaAdd] = useState(false);
+    const [show_add_account_dialog, set_show_add_account_dialog] = useState(false);
+    const [label_map_dialog, set_label_map_dialog] = useState<{
+        instance_id: string;
+        vendor_id: UsageProvider;
+        account_name: string;
+    } | null>(null);
     const [dsView, setDsView] = useState<"list" | "detail">("list");
     const [usage_label_map_text, set_usage_label_map_text] = useState("");
     const usage_label_map_dirty_ref = useRef(false);
@@ -1205,6 +1214,43 @@ export function SettingsView() {
         [saveSecrets],
     );
 
+    const create_plugin_instance = useCallback(
+        async (params: AddAccountParams) => {
+            if (!config) return;
+            const template = pluginInfos.find(
+                (p) => p.activeProviders.includes(params.vendor_id) && p.enabled,
+            );
+            if (!template) return;
+
+            const template_plugin = config.plugins.find(
+                (p) => p.instanceId === template.instanceId,
+            );
+            if (!template_plugin) return;
+
+            const new_id = crypto.randomUUID();
+            if (Object.keys(params.secrets).length > 0) {
+                await saveSecrets(new_id, params.secrets);
+            }
+            await save_config({
+                ...config,
+                plugins: [
+                    ...config.plugins,
+                    {
+                        instanceId: new_id,
+                        stateId: new_id,
+                        name: params.account_name,
+                        enabled: true,
+                        executablePath: template_plugin.executablePath,
+                        refreshIntervalSeconds: template_plugin.refreshIntervalSeconds,
+                        parameterValues: params.parameter_values,
+                        endpointOverrides: params.endpoint_overrides ?? {},
+                    },
+                ],
+            });
+        },
+        [config, pluginInfos, save_config, saveSecrets],
+    );
+
     const refreshPlugin = useCallback(async (instanceId: string) => {
         await window.usageboard.plugin.refresh(instanceId);
     }, []);
@@ -1389,11 +1435,7 @@ export function SettingsView() {
                                     <button
                                         className="sp-action"
                                         onClick={() => {
-                                            setDialog({
-                                                mode: "add",
-                                                instanceId: undefined,
-                                                pluginName: undefined,
-                                            });
+                                            set_show_add_account_dialog(true);
                                         }}
                                         type="button"
                                     >
@@ -1469,6 +1511,21 @@ export function SettingsView() {
                                                                 }}
                                                             />
                                                         )}
+                                                        <button
+                                                            className="icon-btn sp-ic"
+                                                            title="数据标签映射"
+                                                            type="button"
+                                                            onClick={() => {
+                                                                set_label_map_dialog({
+                                                                    instance_id: p.instanceId,
+                                                                    vendor_id:
+                                                                        group.provider as UsageProvider,
+                                                                    account_name: display_name,
+                                                                });
+                                                            }}
+                                                        >
+                                                            <Icon name="tag" size={15} />
+                                                        </button>
                                                         <button
                                                             className="icon-btn sp-ic"
                                                             title="编辑"
@@ -1598,6 +1655,26 @@ export function SettingsView() {
                                                                             }}
                                                                         />
                                                                     )}
+                                                                    <button
+                                                                        className="icon-btn sp-ic"
+                                                                        title="数据标签映射"
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            set_label_map_dialog({
+                                                                                instance_id:
+                                                                                    p.instanceId,
+                                                                                vendor_id:
+                                                                                    group.provider as UsageProvider,
+                                                                                account_name:
+                                                                                    display_name,
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <Icon
+                                                                            name="tag"
+                                                                            size={15}
+                                                                        />
+                                                                    </button>
                                                                     <button
                                                                         className="icon-btn sp-ic"
                                                                         title="编辑"
@@ -2131,6 +2208,41 @@ export function SettingsView() {
                     <CpaAddDialog
                         onClose={() => {
                             setShowCpaAdd(false);
+                        }}
+                    />
+                )}
+                {show_add_account_dialog && (
+                    <AddAccountDialog
+                        plugin_infos={pluginInfos}
+                        has_cpa={hasCpa}
+                        on_close={() => {
+                            set_show_add_account_dialog(false);
+                        }}
+                        on_save={create_plugin_instance}
+                        on_cpa={() => {
+                            set_show_add_account_dialog(false);
+                            setShowCpaAdd(true);
+                        }}
+                    />
+                )}
+                {label_map_dialog && (
+                    <LabelMapDialog
+                        instance_id={label_map_dialog.instance_id}
+                        vendor_id={label_map_dialog.vendor_id}
+                        account_name={label_map_dialog.account_name}
+                        existing_map={config.accountLabelMaps?.[label_map_dialog.instance_id] ?? {}}
+                        on_save={async (instance_id, map) => {
+                            await save_config({
+                                ...config,
+                                accountLabelMaps: {
+                                    ...(config.accountLabelMaps ?? {}),
+                                    [instance_id]: map,
+                                },
+                            });
+                            set_label_map_dialog(null);
+                        }}
+                        on_close={() => {
+                            set_label_map_dialog(null);
                         }}
                     />
                 )}
