@@ -684,7 +684,7 @@ describe("ProviderCard", () => {
         expect(open).toHaveBeenCalledWith({ provider: "deepseek" });
     });
 
-    it("adds alert class when group status is critical", () => {
+    it("does not add alert class when group status is critical (only connectorError triggers alert)", () => {
         const group = makeGroup({
             status: "critical",
             periods: [
@@ -694,7 +694,7 @@ describe("ProviderCard", () => {
         const { container } = render(<ProviderCard provider="deepseek" group={group} />);
         const card = container.querySelector(".card");
         if (!card) throw new Error("missing .card");
-        expect(card.classList.contains("alert")).toBe(true);
+        expect(card.classList.contains("alert")).toBe(false);
     });
 
     it("does not add alert class when group status is normal", () => {

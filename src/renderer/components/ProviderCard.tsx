@@ -78,11 +78,8 @@ export function ProviderCard({
     const isFailed = connectorError !== undefined && !hasUsage;
     const is_auth = connectorError !== undefined && is_auth_error(connectorError.error);
     const hasAccounts = group !== undefined && group.accounts.length > 0;
-    const is_danger = group?.status === "critical";
     const card_class =
-        (is_danger || isFailed ? "alert" : "") +
-        (dragging ? " dragging" : "") +
-        (dragOver ? " drag-over" : "");
+        (isFailed ? "alert" : "") + (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "");
 
     const [l2open, set_l2open] = useState(false);
 

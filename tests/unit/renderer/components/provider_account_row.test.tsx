@@ -140,7 +140,7 @@ describe("ProviderAccountRow account menu", () => {
         expect(on_toggle).not.toHaveBeenCalled();
     });
 
-    it("adds alert class when account status is critical", () => {
+    it("does not add alert class when account status is critical", () => {
         const account = make_account({
             status: "critical",
             periods: [
@@ -165,7 +165,7 @@ describe("ProviderAccountRow account menu", () => {
         const { container } = render(<ProviderAccountRow account={account} />);
         const card = container.querySelector(".card");
         if (!card) throw new Error("missing .card");
-        expect(card.classList.contains("alert")).toBe(true);
+        expect(card.classList.contains("alert")).toBe(false);
     });
 
     it("does not add alert class when account status is normal", () => {
