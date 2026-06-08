@@ -39,7 +39,8 @@ export function LabelMapDialog({
                     state.status === "ready" || state.status === "failed"
                         ? (state.items ?? [])
                         : [];
-                const fetched: LabelMapRow[] = items.map((item) => ({
+                const filtered = items.filter((item) => item.provider === vendor_id);
+                const fetched: LabelMapRow[] = filtered.map((item) => ({
                     raw: item.name,
                     def: existing_map[item.name] ?? item.name,
                 }));
@@ -53,7 +54,7 @@ export function LabelMapDialog({
                 set_loading(false);
             }
         })();
-    }, [instance_id, existing_map]);
+    }, [instance_id, vendor_id, existing_map]);
 
     const changed_count = rows.filter((r) => (map[r.raw] ?? r.def) !== r.def).length;
 

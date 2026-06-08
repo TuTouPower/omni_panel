@@ -694,6 +694,7 @@ function CpaDetailPage({
     onRefresh,
     onDelete,
     saveConfig,
+    onEditLabelMap,
 }: {
     pluginInfos: PluginInfo[];
     config: AppConfiguration;
@@ -710,6 +711,7 @@ function CpaDetailPage({
     onRefresh: (instanceId: string) => Promise<void>;
     onDelete: (instanceId: string) => Promise<void>;
     saveConfig: (config: AppConfiguration) => Promise<void>;
+    onEditLabelMap?: (provider: UsageProvider) => void;
 }) {
     const cpaPlugin = pluginInfos.find((p) => p.source === "cpa");
     const cpaConfig = cpaPlugin
@@ -783,6 +785,8 @@ function CpaDetailPage({
                     onRemove={async () => {
                         await onDelete(cpaPlugin.instanceId);
                     }}
+                    providerLabelMaps={config.providerLabelMaps}
+                    onEditLabelMap={onEditLabelMap}
                 />
             </div>
         </>
@@ -982,6 +986,7 @@ export function SettingsView() {
         instance_id: string;
         vendor_id: UsageProvider;
         account_name: string;
+        save_target: "account" | "provider";
     } | null>(null);
     const [dsView, setDsView] = useState<"list" | "detail">("list");
     const [usage_label_map_text, set_usage_label_map_text] = useState("");
@@ -1559,6 +1564,7 @@ export function SettingsView() {
                                                                     vendor_id:
                                                                         group.provider as UsageProvider,
                                                                     account_name: display_name,
+                                                                    save_target: "account",
                                                                 });
                                                             }}
                                                         >
@@ -1706,6 +1712,8 @@ export function SettingsView() {
                                                                                     group.provider as UsageProvider,
                                                                                 account_name:
                                                                                     display_name,
+                                                                                save_target:
+                                                                                    "account",
                                                                             });
                                                                         }}
                                                                     >
@@ -1854,6 +1862,20 @@ export function SettingsView() {
                                             setDsView("list");
                                         }}
                                         saveConfig={save_config}
+                                        onEditLabelMap={(provider) => {
+                                            set_label_map_dialog({
+                                                instance_id:
+                                                    config.plugins.find((p) => {
+                                                        const info = pluginInfos.find(
+                                                            (pi) => pi.instanceId === p.instanceId,
+                                                        );
+                                                        return info?.source === "cpa";
+                                                    })?.instanceId ?? "",
+                                                vendor_id: provider,
+                                                account_name: `CPA · ${PROVIDER_LABELS[provider]}`,
+                                                save_target: "provider",
+                                            });
+                                        }}
                                     />
                                 )}
                             </>
@@ -2270,15 +2292,29 @@ export function SettingsView() {
                         instance_id={label_map_dialog.instance_id}
                         vendor_id={label_map_dialog.vendor_id}
                         account_name={label_map_dialog.account_name}
-                        existing_map={config.accountLabelMaps?.[label_map_dialog.instance_id] ?? {}}
+                        existing_map={
+                            label_map_dialog.save_target === "provider"
+                                ? (config.providerLabelMaps?.[label_map_dialog.vendor_id] ?? {})
+                                : (config.accountLabelMaps?.[label_map_dialog.instance_id] ?? {})
+                        }
                         on_save={async (instance_id, map) => {
-                            await save_config({
-                                ...config,
-                                accountLabelMaps: {
-                                    ...(config.accountLabelMaps ?? {}),
-                                    [instance_id]: map,
-                                },
-                            });
+                            if (label_map_dialog.save_target === "provider") {
+                                await save_config({
+                                    ...config,
+                                    providerLabelMaps: {
+                                        ...(config.providerLabelMaps ?? {}),
+                                        [label_map_dialog.vendor_id]: map,
+                                    },
+                                });
+                            } else {
+                                await save_config({
+                                    ...config,
+                                    accountLabelMaps: {
+                                        ...(config.accountLabelMaps ?? {}),
+                                        [instance_id]: map,
+                                    },
+                                });
+                            }
                             set_label_map_dialog(null);
                         }}
                         on_close={() => {

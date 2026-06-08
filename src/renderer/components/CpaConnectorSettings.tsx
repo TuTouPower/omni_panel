@@ -36,6 +36,10 @@ interface CpaConnectorSettingsProps {
     onToggleEnabled: (enabled: boolean) => void;
     onRefresh: () => Promise<void> | void;
     onRemove?: () => Promise<void> | void;
+    providerLabelMaps?:
+        | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
+        | undefined;
+    onEditLabelMap?: ((provider: UsageProvider) => void) | undefined;
 }
 
 function get_default_value(connector: ConnectorInfo, name: string) {
@@ -81,9 +85,12 @@ export function CpaConnectorSettings({
     onToggleEnabled,
     onRefresh,
     onRemove,
+    providerLabelMaps: _providerLabelMaps,
+    onEditLabelMap,
 }: CpaConnectorSettingsProps) {
     // onRefresh is part of the interface for future use
     void onRefresh;
+    void _providerLabelMaps;
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [secret, setSecret] = useState(hasSecrets["cpa_mgmt_key"] ? "***" : "");
@@ -377,21 +384,36 @@ export function CpaConnectorSettings({
                 ) : (
                     accountGroups.map(([provider, acctItems]) => (
                         <div className="disc-grp" key={provider}>
-                            <button
-                                className="disc-head"
-                                data-open={openGrps.has(provider) ? "true" : "false"}
-                                onClick={() => {
-                                    toggleGrp(provider);
-                                }}
-                                type="button"
-                            >
-                                <VendorMark id={provider} size={20} />
-                                <span className="dh-name">{PROVIDER_LABELS[provider]}</span>
-                                <span className="dh-count">{acctItems.length} 个</span>
-                                <span className="dh-chev">
-                                    <Icon name="chevron" size={16} />
-                                </span>
-                            </button>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                <button
+                                    className="disc-head"
+                                    data-open={openGrps.has(provider) ? "true" : "false"}
+                                    onClick={() => {
+                                        toggleGrp(provider);
+                                    }}
+                                    type="button"
+                                >
+                                    <VendorMark id={provider} size={20} />
+                                    <span className="dh-name">{PROVIDER_LABELS[provider]}</span>
+                                    <span className="dh-count">{acctItems.length} 个</span>
+                                    <span className="dh-chev">
+                                        <Icon name="chevron" size={16} />
+                                    </span>
+                                </button>
+                                {onEditLabelMap && (
+                                    <button
+                                        className="icon-btn sp-ic"
+                                        title={`${PROVIDER_LABELS[provider]} 标签映射`}
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEditLabelMap(provider);
+                                        }}
+                                    >
+                                        <Icon name="tag" size={14} />
+                                    </button>
+                                )}
+                            </div>
                             {openGrps.has(provider) && (
                                 <div className="disc-rows">
                                     {acctItems.map((item) => (
