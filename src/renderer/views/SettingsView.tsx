@@ -1028,7 +1028,7 @@ export function SettingsView() {
             if (context.instanceId) {
                 setDialog({ mode: "edit", instanceId: context.instanceId, pluginName: undefined });
             } else if (context.provider) {
-                const match = pluginInfos.find((p) =>
+                let match = pluginInfos.find((p) =>
                     p.activeProviders.includes(context.provider as UsageProvider),
                 );
                 if (match) {
@@ -1036,6 +1036,21 @@ export function SettingsView() {
                         mode: "edit",
                         instanceId: match.instanceId,
                         pluginName: match.displayName,
+                    });
+                } else {
+                    // pluginInfos may not be loaded yet — fetch fresh and retry
+                    void window.usageboard.plugin.list().then((plugins) => {
+                        setPluginInfos(plugins);
+                        match = plugins.find((p) =>
+                            p.activeProviders.includes(context.provider as UsageProvider),
+                        );
+                        if (match) {
+                            setDialog({
+                                mode: "edit",
+                                instanceId: match.instanceId,
+                                pluginName: match.displayName,
+                            });
+                        }
                     });
                 }
             }
