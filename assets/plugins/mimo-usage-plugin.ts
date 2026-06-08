@@ -83,7 +83,10 @@ interface DetailPayload {
 
 definePlugin(
     async (ctx) => {
-        const cookie = requireParam(ctx.params, "SESSION_COOKIE");
+        const raw_cookie = requireParam(ctx.params, "SESSION_COOKIE");
+        const cookie = raw_cookie.includes("=")
+            ? raw_cookie
+            : `api-platform_serviceToken=${raw_cookie}`;
         const headers = { Cookie: cookie };
 
         const [usageResult, detailResult] = await Promise.all([
