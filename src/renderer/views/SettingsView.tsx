@@ -1268,9 +1268,7 @@ export function SettingsView() {
             if (!template_plugin) return;
 
             const new_id = crypto.randomUUID();
-            if (Object.keys(params.secrets).length > 0) {
-                await saveSecrets(new_id, params.secrets);
-            }
+            // Save config FIRST so secretParamKeys is rebuilt before saving secrets
             await save_config({
                 ...config,
                 plugins: [
@@ -1287,6 +1285,10 @@ export function SettingsView() {
                     },
                 ],
             });
+            if (Object.keys(params.secrets).length > 0) {
+                await saveSecrets(new_id, params.secrets);
+            }
+            await window.usageboard.plugin.refresh(new_id);
         },
         [config, pluginInfos, save_config, saveSecrets],
     );
