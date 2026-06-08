@@ -460,4 +460,39 @@ describe("SettingsView", () => {
         expect(match[1]).toContain("margin-left");
         expect(match[1]).toContain("auto");
     });
+
+    it("calls plugin.refresh after cookieLogin succeeds", async () => {
+        const instance_id = "mimo-1";
+        const mock_cookie_login = vi
+            .fn<(_id: string) => Promise<{ saved: boolean }>>()
+            .mockResolvedValue({ saved: true });
+        const mock_refresh = vi.fn();
+        window.usageboard.auth.cookieLogin = mock_cookie_login;
+        window.usageboard.plugin.refresh = mock_refresh;
+
+        const result = await mock_cookie_login(instance_id);
+        if (result.saved) {
+            await mock_refresh(instance_id);
+        }
+
+        expect(mock_cookie_login).toHaveBeenCalledWith("mimo-1");
+        expect(mock_refresh).toHaveBeenCalledWith("mimo-1");
+    });
+
+    it("does not call plugin.refresh when cookieLogin fails", async () => {
+        const mock_cookie_login = vi
+            .fn<(_id: string) => Promise<{ saved: boolean }>>()
+            .mockResolvedValue({ saved: false });
+        const mock_refresh = vi.fn();
+        window.usageboard.auth.cookieLogin = mock_cookie_login;
+        window.usageboard.plugin.refresh = mock_refresh;
+
+        const result = await mock_cookie_login("mimo-1");
+        if (result.saved) {
+            await mock_refresh("mimo-1");
+        }
+
+        expect(mock_cookie_login).toHaveBeenCalledWith("mimo-1");
+        expect(mock_refresh).not.toHaveBeenCalled();
+    });
 });

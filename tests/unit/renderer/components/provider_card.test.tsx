@@ -683,4 +683,52 @@ describe("ProviderCard", () => {
         expect(open).toHaveBeenCalledTimes(1);
         expect(open).toHaveBeenCalledWith({ provider: "deepseek" });
     });
+
+    it("adds alert class when group status is critical", () => {
+        const group = makeGroup({
+            status: "critical",
+            periods: [
+                makePeriod({ id: "w1", name: "5小时", used: 95, limit: 100, status: "critical" }),
+            ],
+        });
+        const { container } = render(<ProviderCard provider="deepseek" group={group} />);
+        const card = container.querySelector(".card");
+        if (!card) throw new Error("missing .card");
+        expect(card.classList.contains("alert")).toBe(true);
+    });
+
+    it("does not add alert class when group status is normal", () => {
+        const group = makeGroup({ status: "normal" });
+        const { container } = render(<ProviderCard provider="deepseek" group={group} />);
+        const card = container.querySelector(".card");
+        if (!card) throw new Error("missing .card");
+        expect(card.classList.contains("alert")).toBe(false);
+    });
+
+    it("adds alert class when connectorError is set and no usage data", () => {
+        const { container } = render(
+            <ProviderCard
+                provider="minimax"
+                connectorError={{ error: "NETWORK_ERROR", displayName: "MiniMax" }}
+                onToggleExpand={vi.fn()}
+                expanded={false}
+            />,
+        );
+        const card = container.querySelector(".card");
+        if (!card) throw new Error("missing .card");
+        expect(card.classList.contains("alert")).toBe(true);
+    });
+
+    it("does not add alert class when group has warning status", () => {
+        const group = makeGroup({
+            status: "warning",
+            periods: [
+                makePeriod({ id: "w1", name: "5小时", used: 80, limit: 100, status: "warning" }),
+            ],
+        });
+        const { container } = render(<ProviderCard provider="deepseek" group={group} />);
+        const card = container.querySelector(".card");
+        if (!card) throw new Error("missing .card");
+        expect(card.classList.contains("alert")).toBe(false);
+    });
 });

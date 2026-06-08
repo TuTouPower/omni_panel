@@ -2,7 +2,10 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProviderAccountRow } from "../../../../src/renderer/components/ProviderAccountRow";
-import type { ProviderUsageAccount } from "../../../../src/renderer/lib/provider-usage";
+import type {
+    ProviderUsageAccount,
+    ProviderUsagePeriod,
+} from "../../../../src/renderer/lib/provider-usage";
 
 function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUsageAccount {
     return {
@@ -135,5 +138,57 @@ describe("ProviderAccountRow account menu", () => {
         fireEvent.click(screen.getByLabelText("账号操作"));
 
         expect(on_toggle).not.toHaveBeenCalled();
+    });
+
+    it("adds alert class when account status is critical", () => {
+        const account = make_account({
+            status: "critical",
+            periods: [
+                {
+                    id: "claude-a-5h",
+                    provider: "claude" as const,
+                    source: "cpa" as const,
+                    sourceInstanceId: "cpa-main",
+                    connectorInstanceId: "cpa-connector",
+                    connectorDisplayName: "CPA",
+                    accountId: "auth-a",
+                    accountLabel: "Account A",
+                    name: "Claude Pro · 5小时",
+                    used: 95,
+                    limit: 100,
+                    displayStyle: "percent" as const,
+                    status: "critical" as const,
+                    updatedAt: "2026-01-01T12:00:00Z",
+                },
+            ],
+        });
+        const { container } = render(<ProviderAccountRow account={account} />);
+        const card = container.querySelector(".card");
+        if (!card) throw new Error("missing .card");
+        expect(card.classList.contains("alert")).toBe(true);
+    });
+
+    it("does not add alert class when account status is normal", () => {
+        const { container } = render(<ProviderAccountRow account={make_account()} />);
+        const card = container.querySelector(".card");
+        if (!card) throw new Error("missing .card");
+        expect(card.classList.contains("alert")).toBe(false);
+    });
+
+    it("does not add alert class when account status is warning", () => {
+        const account = make_account({
+            status: "warning",
+            periods: [
+                {
+                    ...make_account().periods[0],
+                    status: "warning" as const,
+                    used: 80,
+                } as ProviderUsagePeriod,
+            ],
+        });
+        const { container } = render(<ProviderAccountRow account={account} />);
+        const card = container.querySelector(".card");
+        if (!card) throw new Error("missing .card");
+        expect(card.classList.contains("alert")).toBe(false);
     });
 });
