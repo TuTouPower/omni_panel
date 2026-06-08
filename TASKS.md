@@ -1,10 +1,27 @@
 # OmniUsage 任务清单
 
 > 已完成的 Phase 1–35 移入 `docs/archive/tasks_history.md`。
+>
+> **已修**：Provider 菜单编辑跳转 (`e546c88`) · use_config 跨窗口同步 (`897c4c9`) · Codex 拖动闪烁 (`13f4954`+`ebfd9c3`) · 用量标签映射 · 设置窗口任务栏归组 (`531295e`) · 账号 toggle 右对齐 (`1836f1c`)
 
 ---
 
 ## 待修
+
+### MiMo Cookie 401
+
+用户粘贴完整 Cookie 后仍返回 HTTP 401，需排查 Cookie 格式或过期逻辑。
+
+- [ ] 排查 MiMo Cookie 401 根因
+- [ ] 通过 9222 端口 CDP 连接浏览器自动刷新 Cookie
+
+### 托盘重启按钮
+
+- [ ] 托盘菜单加「重启」按钮
+
+### 启动自动打开主面板
+
+- [ ] 软件启动时自动弹出主面板
 
 ### Provider 菜单操作反馈无效
 
