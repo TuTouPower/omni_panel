@@ -20,7 +20,7 @@ export interface AuthIpcDeps {
     cookieRefreshService: CookieRefreshService;
 }
 
-async function handleCookieLogin(
+export async function handleCookieLogin(
     deps: AuthIpcDeps,
     instanceId: string,
 ): Promise<IpcResult<{ saved: boolean }>> {
