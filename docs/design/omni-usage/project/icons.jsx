@@ -30,6 +30,14 @@ const UI_ICONS = {
   eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
   eye_off: '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4 4M9.4 5.3A9.4 9.4 0 0 1 12 5c6 0 9.5 6.5 9.5 6.5a16.6 16.6 0 0 1-3.2 3.9M6.5 6.6A16.5 16.5 0 0 0 2.5 12S6 18.5 12 18.5a9.2 9.2 0 0 0 2.9-.5"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+  clipboard: '<rect x="8" y="4" width="8" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+  tag: '<path d="M3 7v5.6a2 2 0 0 0 .6 1.4l7 7a2 2 0 0 0 2.8 0l5.6-5.6a2 2 0 0 0 0-2.8l-7-7A2 2 0 0 0 12.6 3H5a2 2 0 0 0-2 2z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
+  reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/>',
+  link: '<path d="M9 15l6-6M10.5 6.5l1.8-1.8a4 4 0 0 1 5.7 5.7l-1.8 1.8M13.5 17.5l-1.8 1.8a4 4 0 0 1-5.7-5.7l1.8-1.8"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/>',
 };
 
 function Icon({ name, size = 18, strokeWidth = 1.7, color, style, className }) {
@@ -59,6 +67,8 @@ const VENDOR_ICONS = {
   kimi: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="#17181d"/><path d="M15 8.2A4.6 4.6 0 1 0 15 15.8 5.8 5.8 0 0 1 15 8.2z" fill="#fff"/></svg>`,
   /* blue upward arc — Antigravity placeholder */
   antigravity: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.3" fill="#2f6df0"/><path d="M8 8v3.4a4 4 0 0 0 8 0V8" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><path d="M12 16.4v2.2" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg>`,
+  /* amber rounded square w/ concentric lens — MiMo placeholder */
+  mimo: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="#ff7a45"/><circle cx="12" cy="12" r="5.2" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="1.7" fill="#fff"/></svg>`,
   /* segmented donut — CPA Manager data source */
   cpa: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke-width="4.2"><path d="M12 5A7 7 0 0 1 19 12" stroke="#3d7afd"/><path d="M19 12A7 7 0 0 1 12 19" stroke="#22c55e"/><path d="M12 19A7 7 0 0 1 5 12" stroke="#f5a524"/><path d="M5 12A7 7 0 0 1 12 5" stroke="#d97757"/></svg>`,
 };

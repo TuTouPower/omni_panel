@@ -77,14 +77,16 @@ function ConfirmDelete({ name, onCancel, onConfirm }) {
   );
 }
 
-function AccountActions({ source, on, onToggle, mode, name }) {
+function AccountActions({ source, on, onToggle, mode, name, vendorId, onMap }) {
   // cpa account → hide (no delete); direct account → delete (with confirm)
   const isCpa = mode === 'cpa' && source === 'cpa';
   const [confirm, setConfirm] = React.useState(false);
+  const mappable = (window.VENDOR_RAW_LABELS && window.VENDOR_RAW_LABELS[vendorId]);
   return (
     <div className="ao-actions" onClick={(e) => e.stopPropagation()}>
       {mode === 'cpa' && <SrcTag source={source} />}
       <SPToggle on={on} onClick={onToggle} />
+      {mappable && <button className="sp-ic" title="数据标签映射" onClick={onMap}><Icon name="tag" size={15} /></button>}
       <button className="sp-ic" title="编辑备注名"><Icon name="edit" size={15} /></button>
       {isCpa
         ? <button className="sp-ic" title="隐藏账号"><Icon name="eye_off" size={15} /></button>
@@ -94,7 +96,7 @@ function AccountActions({ source, on, onToggle, mode, name }) {
   );
 }
 
-function OneRowAccount({ vendor, account, on, onToggle, mode }) {
+function OneRowAccount({ vendor, account, on, onToggle, mode, onMap }) {
   return (
     <div className={'ao-item' + (on ? '' : ' off')}>
       <div className="ao-vendor">
@@ -105,12 +107,13 @@ function OneRowAccount({ vendor, account, on, onToggle, mode }) {
         <span className={'ao-dot' + (on ? '' : ' off')} />
         <span className="ao-note">{account.name}</span>
       </div>
-      <AccountActions source={account.source} on={on} onToggle={onToggle} mode={mode} name={account.name} />
+      <AccountActions source={account.source} on={on} onToggle={onToggle} mode={mode} name={account.name}
+        vendorId={vendor.id} onMap={() => onMap(vendor.id, account.name)} />
     </div>
   );
 }
 
-function MultiGroup({ vendor, accounts, isOn, onToggle, mode }) {
+function MultiGroup({ vendor, accounts, isOn, onToggle, mode, onMap }) {
   return (
     <div className="grp">
       <div className="grp-head">
@@ -126,7 +129,8 @@ function MultiGroup({ vendor, accounts, isOn, onToggle, mode }) {
               <span className="gr-handle" title="拖动排序"><Icon name="grip" size={16} strokeWidth={2} /></span>
               <span className={'gr-dot' + (on ? '' : ' off')} />
               <span className="gr-note">{a.name}</span>
-              <AccountActions source={a.source} on={on} onToggle={() => onToggle(a.key)} mode={mode} name={a.name} />
+              <AccountActions source={a.source} on={on} onToggle={() => onToggle(a.key)} mode={mode} name={a.name}
+                vendorId={vendor.id} onMap={() => onMap(vendor.id, a.name)} />
             </div>
           );
         })}
@@ -136,9 +140,12 @@ function MultiGroup({ vendor, accounts, isOn, onToggle, mode }) {
 }
 
 function AccountsPage({ mode }) {
+  const { LabelMapDialog } = window;
   const dataset = mode === 'cpa' ? ACCT_CPA : ACCT_NORMAL;
   const [off, setOff] = React.useState(() => new Set());
+  const [mapFor, setMapFor] = React.useState(null);   // { vendorId, name }
   const toggle = (k) => setOff((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const openMap = (vendorId, name) => setMapFor({ vendorId, name });
 
   return (
     <div className="acct-list">
@@ -149,15 +156,19 @@ function AccountsPage({ mode }) {
           const key = v.id + ':' + a.key;
           return (
             <OneRowAccount key={v.id} vendor={vendor} account={a}
-              on={!off.has(key)} onToggle={() => toggle(key)} mode={mode} />
+              on={!off.has(key)} onToggle={() => toggle(key)} mode={mode} onMap={openMap} />
           );
         }
         return (
-          <MultiGroup key={v.id} vendor={vendor} accounts={v.accounts} mode={mode}
+          <MultiGroup key={v.id} vendor={vendor} accounts={v.accounts} mode={mode} onMap={openMap}
             isOn={(k) => !off.has(v.id + ':' + k)}
             onToggle={(k) => toggle(v.id + ':' + k)} />
         );
       })}
+      {mapFor && (
+        <LabelMapDialog vendorId={mapFor.vendorId} accountName={mapFor.name}
+          synced="5 分钟前" onClose={() => setMapFor(null)} />
+      )}
     </div>
   );
 }
@@ -516,6 +527,7 @@ function BarSchemeField({ value, onChange }) {
 }
 
 function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBarScheme, barStyle, onBarStyle, onBack }) {
+  const { AddAccountDialog } = window;   // routed add-account dialogs (add-account.jsx)
   const [section, setSection] = React.useState('accounts');
   const [dsView, setDsView] = React.useState('list');   // list | cpa
   const [dialog, setDialog] = React.useState(null);      // {type:'picker'|'vendor'|'cpa', vendorId?}
@@ -718,7 +730,7 @@ function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBa
           onClose={() => setDialog(null)} />
       )}
       {dialog && dialog.type === 'vendor' && (
-        <VendorFormDialog vendorId={dialog.vendorId} onClose={() => setDialog(null)} />
+        <AddAccountDialog vendorId={dialog.vendorId} onClose={() => setDialog(null)} />
       )}
       {dialog && dialog.type === 'cpa' && (
         <CpaAddDialog onClose={() => setDialog(null)} />
