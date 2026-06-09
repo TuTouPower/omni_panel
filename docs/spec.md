@@ -222,7 +222,7 @@ definePlugin(
 | 智谱     | `glm-usage-plugin.ts`      | 是           | 调用智谱 GLM API                                                                          |
 | MiniMax  | `minimax-usage-plugin.ts`  | 是           | 调用 MiniMax API                                                                          |
 | Tavily   | `tavily-usage-plugin.ts`   | 是           | 调用 Tavily API                                                                           |
-| MiMo     | `mimo-usage-plugin.ts`     | 是           | 通过 MiMo Cookie 登录获取 token                                                           |
+| MiMo     | `mimo-usage-plugin.ts`     | 是           | 通过 Cookie 网页登录获取用量、套餐详情和余额（3 cookie：serviceToken + slh + ph）         |
 | CPA      | `cpa-usage-plugin.ts`      | 是           | 通过 CPA-Manager 代理获取 5 个 provider 的用量（详见 `docs/research/cpa_quota_guide.md`） |
 
 CPA 插件特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key`（secret）+ 5 个 `monitor_*` boolean 开关；调用 `/v0/management/auth-files` 和 `/v0/management/api-call`；单个账号失败不阻塞其他；Antigravity 三 URL 回退；Gemini 两步请求。
@@ -352,7 +352,7 @@ refresh(instanceId)
 
 | 窗口     | 路由        | 尺寸                                 | frame | 特殊行为                                                                                                  |
 | -------- | ----------- | ------------------------------------ | ----- | --------------------------------------------------------------------------------------------------------- |
-| Popup    | `#popup`    | 460 × (初始 480，按内容动态调整)     | 无    | 点击托盘时定位到图标下方，内容填满窗口高度，高度自动跟随内容（详见 §6.7）                                 |
+| Popup    | `#popup`    | 460 × (初始 480，按内容动态调整)     | 无    | 点击托盘时定位到图标下方，内容填满窗口高度，高度自动跟随内容；Windows 下不显示任务栏图标（详见 §6.7）     |
 | Settings | `#settings` | 820 × 660                            | 无    | 独立 BrowserWindow（frameless + custom titlebar），与 Popup 互不阻塞；通过 IPC `settings:open` 打开或聚焦 |
 | TrayMenu | `#tray`     | 按菜单内容测量，随菜单内容变化而变化 | 无    | 右键托盘菜单；不使用主面板高度策略，不为正常菜单内容显示滚动条                                            |
 

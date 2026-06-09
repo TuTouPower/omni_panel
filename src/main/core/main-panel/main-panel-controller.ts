@@ -46,6 +46,7 @@ type WindowLike = Pick<
     | "setBounds"
     | "setMinimumSize"
     | "setResizable"
+    | "setSkipTaskbar"
     | "show"
 >;
 
@@ -139,6 +140,9 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             log.error("Failed to load main panel", error);
         });
         target.setAlwaysOnTop(deps.get_config().pinToTop ?? false);
+        if (deps.platform === "win32") {
+            target.setSkipTaskbar(next_mode === "popup");
+        }
 
         if (next_mode === "floating") {
             const tray_bounds = deps.get_tray_bounds();

@@ -26,6 +26,7 @@ interface FakeWindow {
     isDestroyed: () => boolean;
     isVisible: () => boolean;
     setResizable: ReturnType<typeof vi.fn>;
+    setSkipTaskbar: ReturnType<typeof vi.fn>;
     setMinimumSize: ReturnType<typeof vi.fn>;
     setAlwaysOnTop: ReturnType<typeof vi.fn>;
     loadURL: ReturnType<typeof vi.fn>;
@@ -66,6 +67,7 @@ function make_window(): FakeWindow {
         setResizable: vi.fn((value: boolean) => {
             win.resizable = value;
         }),
+        setSkipTaskbar: vi.fn(),
         setMinimumSize: vi.fn(),
         setAlwaysOnTop: vi.fn(),
         loadURL: vi.fn(() => Promise.resolve()),
@@ -133,6 +135,27 @@ describe("main panel controller", () => {
         expect(win?.setBounds).toHaveBeenCalledWith(
             expect.objectContaining({ x: 782, y: 240, width: 460, height: 480 }),
         );
+    });
+
+    it("hides popup shell from the Windows taskbar", () => {
+        const { controller, windows } = build({ ...base_config, mainPanelMode: "popup" }, "win32");
+        controller.open_or_focus();
+        expect(windows[0]?.setSkipTaskbar).toHaveBeenCalledWith(true);
+    });
+
+    it("keeps floating shell in the Windows taskbar", () => {
+        const { controller, windows } = build(
+            { ...base_config, mainPanelMode: "floating" },
+            "win32",
+        );
+        controller.open_or_focus();
+        expect(windows[0]?.setSkipTaskbar).toHaveBeenCalledWith(false);
+    });
+
+    it("does not change taskbar visibility outside Windows", () => {
+        const { controller, windows } = build({ ...base_config, mainPanelMode: "popup" }, "darwin");
+        controller.open_or_focus();
+        expect(windows[0]?.setSkipTaskbar).not.toHaveBeenCalled();
     });
 
     it("updates mode on config change even when the panel is closed", () => {

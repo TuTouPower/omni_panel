@@ -69,31 +69,42 @@ export async function handleCookieLogin(
 
         loginWin.on("closed", () => {
             if (resolved) return;
-            // User closed the window — read the current cookie from the persistent session.
+            // Read all required cookies from the persistent session.
             void loginSession.cookies
-                .get({ name: "api-platform_serviceToken" })
-                .then((cookies) => {
-                    const latest = cookies[cookies.length - 1];
-                    if (latest) {
-                        const cookieHeader = `api-platform_serviceToken=${latest.value}`;
-                        log.info("Saving cookie from persistent session on window close");
-                        void deps.secretsStore
-                            .set(`${instanceId}:SESSION_COOKIE`, cookieHeader)
-                            .then(() => {
-                                log.info("Cookie saved successfully");
-                                finish(ok({ saved: true }));
-                            })
-                            .catch((err: unknown) => {
-                                log.error("Failed to save cookie on window close", err);
-                                finish(fail("INTERNAL_ERROR", "保存 Cookie 失败"));
-                            });
+                .get({})
+                .then((all_cookies) => {
+                    const target_names = new Set([
+                        "api-platform_serviceToken",
+                        "api-platform_slh",
+                        "api-platform_ph",
+                    ]);
+                    const matched = all_cookies.filter((c) => target_names.has(c.name));
+                    if (matched.length === 0) {
+                        log.info("No required cookies found on window close");
+                        finish(ok({ saved: false }));
                         return;
                     }
-                    log.info("No api-platform_serviceToken cookie on window close");
-                    finish(ok({ saved: false }));
+                    const cookie_parts: string[] = [];
+                    for (const c of matched) {
+                        cookie_parts.push(`${c.name}=${c.value}`);
+                    }
+                    const cookie_header = cookie_parts.join("; ");
+                    log.info(
+                        `Saving ${String(matched.length)} cookies from persistent session on window close`,
+                    );
+                    void deps.secretsStore
+                        .set(`${instanceId}:SESSION_COOKIE`, cookie_header)
+                        .then(() => {
+                            log.info("Cookies saved successfully");
+                            finish(ok({ saved: true }));
+                        })
+                        .catch((err: unknown) => {
+                            log.error("Failed to save cookies on window close", err);
+                            finish(fail("INTERNAL_ERROR", "保存 Cookie 失败"));
+                        });
                 })
                 .catch((err: unknown) => {
-                    log.error("Failed to read cookie on window close", err);
+                    log.error("Failed to read cookies on window close", err);
                     finish(fail("INTERNAL_ERROR", "读取 Cookie 失败"));
                 });
         });

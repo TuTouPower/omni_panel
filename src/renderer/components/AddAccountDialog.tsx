@@ -54,9 +54,9 @@ const AUTH_SESSION_META: Partial<
     Record<UsageProvider, { host: string; login_url: string; cookie_keys: string[] }>
 > = {
     mimo: {
-        host: "xiaomi.com",
-        login_url: "https://account.xiaomi.com/login",
-        cookie_keys: ["serviceToken", "cUserId"],
+        host: "platform.xiaomimimo.com",
+        login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+        cookie_keys: ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph"],
     },
     kimi: {
         host: "kimi.com",

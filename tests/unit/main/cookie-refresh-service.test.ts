@@ -221,8 +221,8 @@ describe("createCookieRefreshService", () => {
         expect(result).toEqual({ refreshed: 0, failed: 1 });
     });
 
-    // Test 6: Deduplication
-    it("groups two instances with same vendor into one vendor entry", async () => {
+    // Test 6: Deduplication — multi-cookie joining
+    it("groups two instances and saves joined multi-cookie string", async () => {
         const mimo_def = make_plugin_def("mimo_plugin", ["mimo"], {
             has_secret: true,
             login_url: "https://mimo.example.com/login",
@@ -236,7 +236,10 @@ describe("createCookieRefreshService", () => {
         );
 
         mock_cookies.get.mockResolvedValue([
-            { name: "api-platform_serviceToken", value: "test-token" },
+            { name: "api-platform_serviceToken", value: "tok123" },
+            { name: "api-platform_slh", value: "slh456" },
+            { name: "api-platform_ph", value: "ph789" },
+            { name: "other", value: "ignored" },
         ]);
 
         const service = createCookieRefreshService({
@@ -249,13 +252,15 @@ describe("createCookieRefreshService", () => {
 
         expect(result).toEqual({ refreshed: 1, failed: 0 });
         expect(secrets_store_mock.set).toHaveBeenCalledTimes(2);
+        const expected_cookie =
+            "api-platform_serviceToken=tok123; api-platform_slh=slh456; api-platform_ph=ph789";
         expect(secrets_store_mock.set).toHaveBeenCalledWith(
             "inst1:SESSION_COOKIE",
-            "api-platform_serviceToken=test-token",
+            expected_cookie,
         );
         expect(secrets_store_mock.set).toHaveBeenCalledWith(
             "inst2:SESSION_COOKIE",
-            "api-platform_serviceToken=test-token",
+            expected_cookie,
         );
     });
 

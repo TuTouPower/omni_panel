@@ -98,9 +98,12 @@ describe("handleCookieLogin", () => {
         };
     }
 
-    it("returns saved:true when user closes window after logging in (cookie present)", async () => {
+    it("returns saved:true with combined cookie string when all 3 cookies present", async () => {
         mock_cookie_get_result = [
-            { name: "api-platform_serviceToken", value: "real_token_after_login" },
+            { name: "api-platform_serviceToken", value: "tok_abc" },
+            { name: "api-platform_slh", value: "slh_xyz" },
+            { name: "api-platform_ph", value: "ph_123" },
+            { name: "other_cookie", value: "should_be_ignored" },
         ];
 
         const mod = await import("../../../src/main/ipc/auth-ipc");
@@ -112,7 +115,6 @@ describe("handleCookieLogin", () => {
 
         const closed = mock_window_events["closed"];
         if (closed) closed();
-        // Flush microtasks for the cookies.get() promise chain
         await Promise.resolve();
 
         const result = await promise;
@@ -121,11 +123,38 @@ describe("handleCookieLogin", () => {
             expect(result.data.saved).toBe(true);
         }
         expect(secrets_store["mimo-test-1:SESSION_COOKIE"]).toBe(
-            "api-platform_serviceToken=real_token_after_login",
+            "api-platform_serviceToken=tok_abc; api-platform_slh=slh_xyz; api-platform_ph=ph_123",
         );
     });
 
-    it("returns saved:false when user closes window without logging in (no cookie)", async () => {
+    it("returns saved:true when only partial cookies are present", async () => {
+        mock_cookie_get_result = [
+            { name: "api-platform_serviceToken", value: "tok_abc" },
+            { name: "api-platform_slh", value: "slh_xyz" },
+        ];
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const promise = mod.handleCookieLogin(build_deps("mimo-test-1") as never, "mimo-test-1");
+
+        await vi.waitFor(() => {
+            if (!mock_window_events["closed"]) throw new Error("not ready");
+        });
+
+        const closed = mock_window_events["closed"];
+        if (closed) closed();
+        await Promise.resolve();
+
+        const result = await promise;
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.data.saved).toBe(true);
+        }
+        expect(secrets_store["mimo-test-1:SESSION_COOKIE"]).toBe(
+            "api-platform_serviceToken=tok_abc; api-platform_slh=slh_xyz",
+        );
+    });
+
+    it("returns saved:false when no required cookies present", async () => {
         mock_cookie_get_result = [];
 
         const mod = await import("../../../src/main/ipc/auth-ipc");

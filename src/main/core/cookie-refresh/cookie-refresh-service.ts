@@ -8,13 +8,16 @@ import { createLogger } from "../../../shared/lib/logger";
 const log = createLogger("cookie-refresh");
 
 interface VendorCookieConfig {
-    cookieName: string;
+    cookieNames: string[];
     secretParamName: string;
 }
 
 const VENDOR_COOKIE_MAP: Partial<Record<UsageProvider, VendorCookieConfig>> = {
-    mimo: { cookieName: "api-platform_serviceToken", secretParamName: "SESSION_COOKIE" },
-    kimi: { cookieName: "access_token", secretParamName: "SESSION_COOKIE" },
+    mimo: {
+        cookieNames: ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph"],
+        secretParamName: "SESSION_COOKIE",
+    },
+    kimi: { cookieNames: ["access_token"], secretParamName: "SESSION_COOKIE" },
 };
 
 export interface CookieRefreshDeps {
@@ -40,18 +43,18 @@ export function createCookieRefreshService(deps: CookieRefreshDeps) {
         const refresh_session = session.fromPartition(partition);
 
         try {
-            const cookies = await refresh_session.cookies.get({
-                name: cookie_config.cookieName,
-            });
-            const latest = cookies[cookies.length - 1];
-            if (!latest) {
+            const all_cookies = await refresh_session.cookies.get({});
+            const target_names = new Set(cookie_config.cookieNames);
+            const matched = all_cookies.filter((c) => target_names.has(c.name));
+            if (matched.length === 0) {
                 log.info(
-                    `No ${cookie_config.cookieName} in persistent session for ${vendor_id} — user needs to re-login`,
+                    `No cookies found in persistent session for ${vendor_id} — user needs to re-login`,
                 );
                 return false;
             }
 
-            const cookie_header = `${cookie_config.cookieName}=${latest.value}`;
+            const cookie_parts = matched.map((c) => `${c.name}=${c.value}`);
+            const cookie_header = cookie_parts.join("; ");
             const results = await Promise.allSettled(
                 instance_ids.map((instance_id) =>
                     deps.secretsStore.set(

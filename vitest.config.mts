@@ -7,6 +7,7 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": path.join(__dirname, "src/renderer"),
+            "@omni-usage/plugin-sdk": path.join(__dirname, "src/plugins/sdk/index.ts"),
         },
     },
     test: {

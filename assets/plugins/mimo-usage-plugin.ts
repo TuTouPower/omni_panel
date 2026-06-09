@@ -17,10 +17,10 @@
 //       "label@en": "Cookie",
 //       "type": "secret",
 //       "required": true,
-//       "description": "查询小米 MiMo 开放平台用量。推荐点击「网页登录」自动获取 Cookie，也可手动：F12 → Application → Cookies → 复制 api-platform_serviceToken 的值",
-//       "description@zh-Hans": "查询小米 MiMo 开放平台用量。推荐点击「网页登录」自动获取 Cookie，也可手动：F12 → Application → Cookies → 复制 api-platform_serviceToken 的值",
-//       "description@en": "Query Xiaomi MiMo platform usage. Use the Login button to auto-fill, or manually: F12 → Application → Cookies → copy api-platform_serviceToken value",
-//       "placeholder": "api-platform_serviceToken=...（点击「网页登录」可自动填入）"
+//       "description": "包含 api-platform_serviceToken、api-platform_slh、api-platform_ph 的完整 Cookie。推荐点击「网页登录」自动获取。",
+//       "description@zh-Hans": "包含 api-platform_serviceToken、api-platform_slh、api-platform_ph 的完整 Cookie。推荐点击「网页登录」自动获取。",
+//       "description@en": "Full Cookie string containing api-platform_serviceToken, api-platform_slh, api-platform_ph. Use the Login button to auto-fill.",
+//       "placeholder": "api-platform_serviceToken=...; api-platform_slh=...（点击「网页登录」可自动填入）"
 //     }
 //   ],
 //   "endpoints": {
@@ -49,6 +49,7 @@ const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-sourc
 const translations = {
     plan_quota: { "zh-Hans": "套餐额度", en: "Plan Quota" },
     compensation: { "zh-Hans": "补偿积分", en: "Compensation" },
+    balance: { "zh-Hans": "余额", en: "Balance" },
     invalid_response: { "zh-Hans": "响应数据格式异常", en: "Invalid response format" },
     expired: { "zh-Hans": "已过期", en: "Expired" },
 };
@@ -81,17 +82,25 @@ interface DetailPayload {
     };
 }
 
+interface BalancePayload {
+    code: number;
+    message?: string;
+    data?: {
+        balance?: number;
+        totalConsumption?: number;
+        totalRecharge?: number;
+    };
+}
+
 definePlugin(
     async (ctx) => {
-        const raw_cookie = requireParam(ctx.params, "SESSION_COOKIE");
-        const cookie = raw_cookie.includes("=")
-            ? raw_cookie
-            : `api-platform_serviceToken=${raw_cookie}`;
+        const cookie = requireParam(ctx.params, "SESSION_COOKIE");
         const headers = { Cookie: cookie };
 
-        const [usageResult, detailResult] = await Promise.all([
+        const [usageResult, detailResult, balanceResult] = await Promise.all([
             ctx.http.getJson<UsagePayload>("default", "/api/v1/tokenPlan/usage", { headers }),
             ctx.http.getJson<DetailPayload>("default", "/api/v1/tokenPlan/detail", { headers }),
+            ctx.http.getJson<BalancePayload>("default", "/api/v1/balance", { headers }),
         ]);
 
         if (!usageResult.ok) return failFromHttp(usageResult.error, "mimo");
@@ -137,6 +146,22 @@ definePlugin(
                 color: colorFor(item.used, item.limit),
             };
         });
+
+        // Balance: non-blocking — if it fails, still return usage items
+        if (balanceResult.ok && balanceResult.value.code === 0 && balanceResult.value.data) {
+            const balanceData = balanceResult.value.data;
+            const balance = balanceData.balance ?? 0;
+            items.push({
+                id: "mimo-balance",
+                ...itemContext,
+                name: ctx.t("balance"),
+                used: balance,
+                limit: balance >= 0 ? 0 : Math.abs(balance),
+                displayStyle: "ratio" as const,
+                status: balance >= 0 ? "normal" : "critical",
+                color: balance >= 0 ? "blue" : "red",
+            });
+        }
 
         return ok({ items, badge: planName });
     },
