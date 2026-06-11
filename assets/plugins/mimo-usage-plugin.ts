@@ -86,16 +86,29 @@ interface BalancePayload {
     code: number;
     message?: string;
     data?: {
-        balance?: number;
-        totalConsumption?: number;
-        totalRecharge?: number;
+        balance?: number | string;
+        totalConsumption?: number | string;
+        totalRecharge?: number | string;
     };
 }
 
 definePlugin(
     async (ctx) => {
         const cookie = requireParam(ctx.params, "SESSION_COOKIE");
-        const headers = { Cookie: cookie };
+        const headers = {
+            Cookie: cookie,
+            "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+            Referer: "https://platform.xiaomimimo.com/console/plan-manage",
+            Origin: "https://platform.xiaomimimo.com",
+            "x-timeZone": "Asia/Shanghai",
+            Accept: "*/*",
+            "Accept-Language": "zh",
+            "Content-Type": "application/json",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "empty",
+        };
 
         const [usageResult, detailResult, balanceResult] = await Promise.all([
             ctx.http.getJson<UsagePayload>("default", "/api/v1/tokenPlan/usage", { headers }),
@@ -150,17 +163,23 @@ definePlugin(
         // Balance: non-blocking — if it fails, still return usage items
         if (balanceResult.ok && balanceResult.value.code === 0 && balanceResult.value.data) {
             const balanceData = balanceResult.value.data;
-            const balance = balanceData.balance ?? 0;
-            items.push({
-                id: "mimo-balance",
-                ...itemContext,
-                name: ctx.t("balance"),
-                used: balance,
-                limit: balance >= 0 ? 0 : Math.abs(balance),
-                displayStyle: "ratio" as const,
-                status: balance >= 0 ? "normal" : "critical",
-                color: balance >= 0 ? "blue" : "red",
-            });
+            // API may return balance as a string (e.g. "-0.36"); coerce to number.
+            const balance = Number(balanceData.balance ?? 0);
+            if (Number.isFinite(balance)) {
+                // Balance can be negative (overdrawn), but the schema requires
+                // `used >= 0`. There is no numeric-only display style, so encode the
+                // signed value in the label and use `used: null` to avoid a bar.
+                items.push({
+                    id: "mimo-balance",
+                    ...itemContext,
+                    name: `${ctx.t("balance")} ${balance.toFixed(2)}`,
+                    used: null,
+                    limit: 0,
+                    displayStyle: "ratio" as const,
+                    status: balance >= 0 ? "normal" : "critical",
+                    color: balance >= 0 ? "blue" : "red",
+                });
+            }
         }
 
         return ok({ items, badge: planName });

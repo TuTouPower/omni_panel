@@ -20,6 +20,9 @@ vi.mock("electron", () => ({
             cookies: {
                 get: vi.fn(() => Promise.resolve(mock_cookie_get_result)),
             },
+            webRequest: {
+                onBeforeSendHeaders: vi.fn(),
+            },
         })),
     },
     ipcMain: {

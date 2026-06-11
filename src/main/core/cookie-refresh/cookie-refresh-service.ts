@@ -10,11 +10,13 @@ const log = createLogger("cookie-refresh");
 interface VendorCookieConfig {
     cookieNames: string[];
     secretParamName: string;
+    domains?: string[];
 }
 
 const VENDOR_COOKIE_MAP: Partial<Record<UsageProvider, VendorCookieConfig>> = {
     mimo: {
-        cookieNames: ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph"],
+        cookieNames: ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph", "userId"],
+        domains: [".platform.xiaomimimo.com", ".xiaomimimo.com"],
         secretParamName: "SESSION_COOKIE",
     },
     kimi: { cookieNames: ["access_token"], secretParamName: "SESSION_COOKIE" },
@@ -43,9 +45,32 @@ export function createCookieRefreshService(deps: CookieRefreshDeps) {
         const refresh_session = session.fromPartition(partition);
 
         try {
-            const all_cookies = await refresh_session.cookies.get({});
-            const target_names = new Set(cookie_config.cookieNames);
-            const matched = all_cookies.filter((c) => target_names.has(c.name));
+            let matched: Electron.Cookie[];
+            if (cookie_config.domains && cookie_config.domains.length > 0) {
+                // Domain-based: fetch all cookies for each domain, no name filtering.
+                // This picks up any new cookies the platform adds without code changes.
+                const domain_cookies = await Promise.all(
+                    cookie_config.domains.map((domain) => refresh_session.cookies.get({ domain })),
+                );
+                const seen = new Set<string>();
+                matched = [];
+                for (const batch of domain_cookies) {
+                    for (const c of batch) {
+                        const key = `${c.name}:${c.domain ?? ""}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            matched.push(c);
+                        }
+                    }
+                }
+                log.info(
+                    `Domain-based cookie fetch for ${vendor_id}: ${String(matched.length)} cookies across ${String(cookie_config.domains.length)} domains`,
+                );
+            } else {
+                const all_cookies = await refresh_session.cookies.get({});
+                const target_names = new Set(cookie_config.cookieNames);
+                matched = all_cookies.filter((c) => target_names.has(c.name));
+            }
             if (matched.length === 0) {
                 log.info(
                     `No cookies found in persistent session for ${vendor_id} — user needs to re-login`,

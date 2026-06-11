@@ -253,7 +253,7 @@ describe("createCookieRefreshService", () => {
         expect(result).toEqual({ refreshed: 1, failed: 0 });
         expect(secrets_store_mock.set).toHaveBeenCalledTimes(2);
         const expected_cookie =
-            "api-platform_serviceToken=tok123; api-platform_slh=slh456; api-platform_ph=ph789";
+            "api-platform_serviceToken=tok123; api-platform_slh=slh456; api-platform_ph=ph789; other=ignored";
         expect(secrets_store_mock.set).toHaveBeenCalledWith(
             "inst1:SESSION_COOKIE",
             expected_cookie,

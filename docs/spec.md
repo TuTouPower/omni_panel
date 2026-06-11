@@ -214,16 +214,16 @@ definePlugin(
 
 ### 3.6 内置插件
 
-| 插件     | 脚本                       | 需要 API Key | 说明                                                                                      |
-| -------- | -------------------------- | ------------ | ----------------------------------------------------------------------------------------- |
-| Claude   | `claude-usage-plugin.ts`   | 否（读本地） | 读取 `~/.claude` 用量文件                                                                 |
-| Codex    | `codex-usage-plugin.ts`    | 否（读本地） | 读取 `~/.codex` 用量文件                                                                  |
-| DeepSeek | `deepseek-usage-plugin.ts` | 是           | 调用 DeepSeek API                                                                         |
-| 智谱     | `glm-usage-plugin.ts`      | 是           | 调用智谱 GLM API                                                                          |
-| MiniMax  | `minimax-usage-plugin.ts`  | 是           | 调用 MiniMax API                                                                          |
-| Tavily   | `tavily-usage-plugin.ts`   | 是           | 调用 Tavily API                                                                           |
-| MiMo     | `mimo-usage-plugin.ts`     | 是           | 通过 Cookie 网页登录获取用量、套餐详情和余额（3 cookie：serviceToken + slh + ph）         |
-| CPA      | `cpa-usage-plugin.ts`      | 是           | 通过 CPA-Manager 代理获取 5 个 provider 的用量（详见 `docs/research/cpa_quota_guide.md`） |
+| 插件     | 脚本                       | 需要 API Key | 说明                                                                                                                       |
+| -------- | -------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Claude   | `claude-usage-plugin.ts`   | 否（读本地） | 读取 `~/.claude` 用量文件                                                                                                  |
+| Codex    | `codex-usage-plugin.ts`    | 否（读本地） | 读取 `~/.codex` 用量文件                                                                                                   |
+| DeepSeek | `deepseek-usage-plugin.ts` | 是           | 调用 DeepSeek API                                                                                                          |
+| 智谱     | `glm-usage-plugin.ts`      | 是           | 调用智谱 GLM API                                                                                                           |
+| MiniMax  | `minimax-usage-plugin.ts`  | 是           | 调用 MiniMax API                                                                                                           |
+| Tavily   | `tavily-usage-plugin.ts`   | 是           | 调用 Tavily API                                                                                                            |
+| MiMo     | `mimo-usage-plugin.ts`     | 是           | 网页登录拦截浏览器 Cookie 获取用量/套餐/余额；API 需带浏览器请求头否则 401（详见 `docs/research/mimo_cookie_research.md`） |
+| CPA      | `cpa-usage-plugin.ts`      | 是           | 通过 CPA-Manager 代理获取 5 个 provider 的用量（详见 `docs/research/cpa_quota_guide.md`）                                  |
 
 CPA 插件特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key`（secret）+ 5 个 `monitor_*` boolean 开关；调用 `/v0/management/auth-files` 和 `/v0/management/api-call`；单个账号失败不阻塞其他；Antigravity 三 URL 回退；Gemini 两步请求。
 

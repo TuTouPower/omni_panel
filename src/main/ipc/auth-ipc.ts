@@ -42,6 +42,7 @@ export async function handleCookieLogin(
     return new Promise<IpcResult<{ saved: boolean }>>((resolve) => {
         let resolved = false;
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        let captured_cookie: string | null = null;
 
         function finish(result: IpcResult<{ saved: boolean }>) {
             if (resolved) return;
@@ -52,6 +53,23 @@ export async function handleCookieLogin(
             }
             resolve(result);
         }
+
+        // Intercept API requests to capture the exact Cookie header the browser sends.
+        // This is more reliable than reading cookies from the session because the
+        // browser may send cookies that session.cookies.get({}) doesn't return, or
+        // the server may require cookies in a specific format.
+        loginSession.webRequest.onBeforeSendHeaders((details, callback) => {
+            if (!resolved && details.url.includes("/api/v1/")) {
+                const cookie = details.requestHeaders["Cookie"] ?? details.requestHeaders["cookie"];
+                if (cookie) {
+                    captured_cookie = cookie;
+                    log.info(
+                        `Captured Cookie header from browser API request to ${details.url.slice(0, 80)}`,
+                    );
+                }
+            }
+            callback({ requestHeaders: details.requestHeaders });
+        });
 
         const loginWin = new BrowserWindow({
             width: 520,
@@ -69,7 +87,21 @@ export async function handleCookieLogin(
 
         loginWin.on("closed", () => {
             if (resolved) return;
-            // Read all required cookies from the persistent session.
+            if (captured_cookie) {
+                log.info("Saving cookie captured from browser API request");
+                void deps.secretsStore
+                    .set(`${instanceId}:SESSION_COOKIE`, captured_cookie)
+                    .then(() => {
+                        log.info("Cookies saved successfully");
+                        finish(ok({ saved: true }));
+                    })
+                    .catch((err: unknown) => {
+                        log.error("Failed to save cookies", err);
+                        finish(fail("INTERNAL_ERROR", "保存 Cookie 失败"));
+                    });
+                return;
+            }
+            // Fallback: read cookies from persistent session
             void loginSession.cookies
                 .get({})
                 .then((all_cookies) => {
@@ -77,6 +109,7 @@ export async function handleCookieLogin(
                         "api-platform_serviceToken",
                         "api-platform_slh",
                         "api-platform_ph",
+                        "userId",
                     ]);
                     const matched = all_cookies.filter((c) => target_names.has(c.name));
                     if (matched.length === 0) {

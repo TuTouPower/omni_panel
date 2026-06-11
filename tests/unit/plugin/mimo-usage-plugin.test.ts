@@ -53,7 +53,7 @@ function make_ctx(cookie_value: string, http_mock?: ReturnType<typeof make_http_
 
 interface TestItem {
     name: string;
-    used: number;
+    used: number | null;
     limit: number;
     resetAt?: string;
     status: string;
@@ -136,7 +136,7 @@ describe("mimo-usage-plugin", () => {
             if (p === "/api/v1/balance") {
                 return Promise.resolve({
                     ok: true,
-                    value: { code: 0, data: { balance: -0.36 } },
+                    value: { code: 0, data: { balance: "-0.36" } },
                 });
             }
             return Promise.resolve({ ok: false, error: { kind: "http", status: 404 } });
@@ -168,10 +168,11 @@ describe("mimo-usage-plugin", () => {
             expect(comp.used).toBe(24493506494);
         }
 
-        const bal = items.find((i) => i.name === "余额");
+        const bal = items.find((i) => i.name.startsWith("余额"));
         expect(bal).toBeDefined();
         if (bal) {
-            expect(bal.used).toBe(-0.36);
+            expect(bal.name).toBe("余额 -0.36");
+            expect(bal.used).toBeNull();
             expect(bal.status).toBe("critical");
         }
 

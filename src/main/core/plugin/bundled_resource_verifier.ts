@@ -8,7 +8,7 @@ const PLUGIN_HASHES: Readonly<Record<string, string>> = {
     "cpa-usage-plugin.ts": "d92389bb474888746e3d4d245bbf1acb4f7ae3d05a1f8d908972a99da5177357",
     "deepseek-usage-plugin.ts": "71f1634c3e87a815d52b4685e16d4c52f8fbeeb3883b838a6e7bd4ed3ec42211",
     "glm-usage-plugin.ts": "7e262fc77d5d93e31be239a1c925713ba387b91af2b98c77e77ffd7ce32111a9",
-    "mimo-usage-plugin.ts": "a63fd911a20add9349153dfd0db50326562020bef22f728dd10aa951351fe1f4",
+    "mimo-usage-plugin.ts": "3e63428faeaa6ed2798c60841609c4d7dcbee4ec58b86adbb5e2ec29b19a4f99",
     "minimax-usage-plugin.ts": "53b10a2bfa473a78f5424b50b4676e5a7eae341efdfd574e229c452733cc6109",
     "tavily-usage-plugin.ts": "9f846176dfc6cd44ed85ab1db9bbbabf469c41bf59e239bd35cd3af10ce32aab",
     "tsconfig.json": "6afd460e11238e42af163c64413cef38df7ba0ecc1459b52052d9486ba409629",
