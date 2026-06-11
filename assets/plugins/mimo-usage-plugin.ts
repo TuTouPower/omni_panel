@@ -21,6 +21,16 @@
 //       "description@zh-Hans": "包含 api-platform_serviceToken、api-platform_slh、api-platform_ph 的完整 Cookie。推荐点击「网页登录」自动获取。",
 //       "description@en": "Full Cookie string containing api-platform_serviceToken, api-platform_slh, api-platform_ph. Use the Login button to auto-fill.",
 //       "placeholder": "api-platform_serviceToken=...; api-platform_slh=...（点击「网页登录」可自动填入）"
+//     },
+//     {
+//       "name": "LIMIT",
+//       "label": "Amount Limit",
+//       "label@zh-Hans": "金额上限",
+//       "label@en": "Amount Limit",
+//       "type": "integer",
+//       "required": false,
+//       "defaultValue": "100",
+//       "placeholder": "100"
 //     }
 //   ],
 //   "endpoints": {
@@ -38,6 +48,7 @@ import {
     failFromHttp,
     statusFor,
     colorFor,
+    numeric,
 } from "@omni-usage/plugin-sdk";
 
 const METADATA_ENDPOINTS = {
@@ -45,6 +56,12 @@ const METADATA_ENDPOINTS = {
     login: "https://platform.xiaomimimo.com/console/plan-manage",
 };
 const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-source";
+const DEFAULT_LIMIT = 100;
+
+function parseLimit(raw: string): number {
+    const value = Number(raw);
+    return value > 0 ? value : DEFAULT_LIMIT;
+}
 
 const translations = {
     plan_quota: { "zh-Hans": "套餐额度", en: "Plan Quota" },
@@ -95,6 +112,7 @@ interface BalancePayload {
 definePlugin(
     async (ctx) => {
         const cookie = requireParam(ctx.params, "SESSION_COOKIE");
+        const limitAmount = parseLimit(ctx.params.LIMIT ?? "");
         const headers = {
             Cookie: cookie,
             "User-Agent":
@@ -160,21 +178,19 @@ definePlugin(
             };
         });
 
-        // Balance: non-blocking — if it fails, still return usage items
+        // Balance: non-blocking — if it fails, still return usage items.
+        // Displayed as a ratio bar (balance / limit) like DeepSeek.
         if (balanceResult.ok && balanceResult.value.code === 0 && balanceResult.value.data) {
             const balanceData = balanceResult.value.data;
-            // API may return balance as a string (e.g. "-0.36"); coerce to number.
-            const balance = Number(balanceData.balance ?? 0);
+            const balance = numeric(balanceData.balance ?? 0);
             if (Number.isFinite(balance)) {
-                // Balance can be negative (overdrawn), but the schema requires
-                // `used >= 0`. There is no numeric-only display style, so encode the
-                // signed value in the label and use `used: null` to avoid a bar.
+                const used = Math.max(0, balance);
                 items.push({
                     id: "mimo-balance",
                     ...itemContext,
-                    name: `${ctx.t("balance")} ${balance.toFixed(2)}`,
-                    used: null,
-                    limit: 0,
+                    name: ctx.t("balance"),
+                    used,
+                    limit: Math.round(limitAmount * 100) / 100,
                     displayStyle: "ratio" as const,
                     status: balance >= 0 ? "normal" : "critical",
                     color: balance >= 0 ? "blue" : "red",
