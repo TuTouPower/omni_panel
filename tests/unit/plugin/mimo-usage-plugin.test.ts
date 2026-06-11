@@ -171,7 +171,7 @@ describe("mimo-usage-plugin", () => {
         const bal = items.find((i) => i.name === "余额");
         expect(bal).toBeDefined();
         if (bal) {
-            expect(bal.used).toBe(0);
+            expect(bal.used).toBe(-0.36);
             expect(bal.limit).toBe(100);
             expect(bal.status).toBe("critical");
         }

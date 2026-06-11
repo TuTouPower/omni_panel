@@ -184,12 +184,11 @@ definePlugin(
             const balanceData = balanceResult.value.data;
             const balance = numeric(balanceData.balance ?? 0);
             if (Number.isFinite(balance)) {
-                const used = Math.max(0, balance);
                 items.push({
                     id: "mimo-balance",
                     ...itemContext,
                     name: ctx.t("balance"),
-                    used,
+                    used: Math.round(balance * 100) / 100,
                     limit: Math.round(limitAmount * 100) / 100,
                     displayStyle: "ratio" as const,
                     status: balance >= 0 ? "normal" : "critical",
