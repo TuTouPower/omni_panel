@@ -126,10 +126,13 @@ export function createConfigStore(configPath: string): AppConfigStore {
             pendingConfig = config;
             pendingTimer = setTimeout(() => {
                 pendingTimer = null;
+                const cfg = pendingConfig;
                 pendingConfig = null;
-                void this.save(config).catch((err: unknown) => {
-                    log.error("Debounced config save failed", err);
-                });
+                if (cfg) {
+                    void this.save(cfg).catch((err: unknown) => {
+                        log.error("Debounced config save failed", err);
+                    });
+                }
             }, delayMs);
         },
 

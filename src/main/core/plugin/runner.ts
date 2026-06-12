@@ -39,6 +39,21 @@ const minimalEnv: Record<string, string> = {
     COMSPEC: process.env["COMSPEC"] ?? "",
 };
 
+const GRACE_MS = 2000;
+
+function schedule_grace_kill(
+    child: ReturnType<typeof spawn>,
+    reason: string,
+    settled: { value: boolean },
+): ReturnType<typeof setTimeout> {
+    return setTimeout(() => {
+        if (!settled.value) {
+            log.error(`${reason}, sending SIGKILL`);
+            child.kill("SIGKILL");
+        }
+    }, GRACE_MS);
+}
+
 export async function executePlugin(
     command: PluginCommand,
     options?: { readonly timeoutMs?: number },
@@ -76,7 +91,15 @@ export async function executePlugin(
         let stdoutStopped = false;
         let stderrStopped = false;
         let timedOut = false;
-        let settled = false;
+        const settled = { value: false };
+        let graceTimer: ReturnType<typeof setTimeout> | null = null;
+
+        function clearGraceTimer(): void {
+            if (graceTimer !== null) {
+                clearTimeout(graceTimer);
+                graceTimer = null;
+            }
+        }
 
         child.stdout.on("data", (chunk: Buffer) => {
             if (stdoutStopped) return;
@@ -86,13 +109,12 @@ export async function executePlugin(
                 stdoutStopped = true;
                 log.warn("Plugin stdout exceeded 1MB, killing");
                 child.kill("SIGTERM");
-                const graceMs = 2000;
-                setTimeout(() => {
-                    if (!settled) {
-                        log.error("Plugin did not exit after stdout SIGTERM, sending SIGKILL");
-                        child.kill("SIGKILL");
-                    }
-                }, graceMs);
+                clearGraceTimer();
+                graceTimer = schedule_grace_kill(
+                    child,
+                    "Plugin did not exit after stdout SIGTERM",
+                    settled,
+                );
             }
         });
 
@@ -104,13 +126,12 @@ export async function executePlugin(
                 stderrStopped = true;
                 log.warn("Plugin stderr exceeded 256KB, killing");
                 child.kill("SIGTERM");
-                const graceMs = 2000;
-                setTimeout(() => {
-                    if (!settled) {
-                        log.error("Plugin did not exit after stderr SIGTERM, sending SIGKILL");
-                        child.kill("SIGKILL");
-                    }
-                }, graceMs);
+                clearGraceTimer();
+                graceTimer = schedule_grace_kill(
+                    child,
+                    "Plugin did not exit after stderr SIGTERM",
+                    settled,
+                );
             }
         });
 
@@ -120,19 +141,17 @@ export async function executePlugin(
                 `Process ${command.command} timed out after ${String(timeoutMs)}ms, sending SIGTERM`,
             );
             child.kill("SIGTERM");
-            const graceMs = 2000;
-            setTimeout(() => {
-                if (!settled) {
-                    log.error(
-                        `Process ${command.command} did not exit after SIGTERM, sending SIGKILL`,
-                    );
-                    child.kill("SIGKILL");
-                }
-            }, graceMs);
+            clearGraceTimer();
+            graceTimer = schedule_grace_kill(
+                child,
+                `Process ${command.command} did not exit after SIGTERM`,
+                settled,
+            );
         }, timeoutMs);
 
         child.on("close", (code) => {
-            settled = true;
+            settled.value = true;
+            clearGraceTimer();
             clearTimeout(timer);
             const durationMs = Date.now() - startTime;
             const stdout = Buffer.concat(stdoutChunks).toString("utf8");
@@ -161,8 +180,9 @@ export async function executePlugin(
         });
 
         child.on("error", (err) => {
-            if (!settled) {
-                settled = true;
+            if (!settled.value) {
+                settled.value = true;
+                clearGraceTimer();
                 clearTimeout(timer);
                 log.error(`spawn error: ${command.command}`, err);
                 reject(err);

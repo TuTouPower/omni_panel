@@ -550,17 +550,11 @@ export function PopupView() {
     const statusBar = derive_status_bar(plugins, error);
     const statusDot = statusBar.dot;
     const statusLabel = statusBar.label;
-    const lastUpdated = plugins
-        .filter((p) => p.snapshot.status === "ready" || p.snapshot.status === "failed")
-        .map((p) =>
-            (p.snapshot.status === "ready" || p.snapshot.status === "failed") &&
-            p.snapshot.updatedAt
-                ? p.snapshot.updatedAt
-                : "",
-        )
-        .filter(Boolean)
-        .sort()
-        .pop();
+    const lastUpdated = plugins.reduce<string | null>((latest, p) => {
+        if (p.snapshot.status !== "ready" && p.snapshot.status !== "failed") return latest;
+        if (!p.snapshot.updatedAt) return latest;
+        return latest === null || p.snapshot.updatedAt > latest ? p.snapshot.updatedAt : latest;
+    }, null);
     const footerTime = relative_time(lastUpdated ?? "");
 
     // Phase 20.5: titlebar drag is platform-dependent.
