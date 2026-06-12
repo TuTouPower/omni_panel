@@ -28,4 +28,25 @@ describe("paths", () => {
     it("getUserPluginsDir ends with plugins", () => {
         expect(getUserPluginsDir()).toMatch(/plugins$/);
     });
+
+    it("handles Unicode and spaces in userData path", async () => {
+        vi.resetModules();
+        vi.doMock("electron", () => ({
+            app: {
+                getPath: vi.fn(() => "C:\\Users\\李明\\AppData\\Roaming\\Omni Usage"),
+            },
+        }));
+        const {
+            getDataRoot: getDataRoot2,
+            getConfigPath: getConfigPath2,
+            getStatesDir: getStatesDir2,
+            getUserPluginsDir: getUserPluginsDir2,
+        } = await import("../../src/main/core/paths");
+        const root = getDataRoot2();
+        expect(root).toContain("李明");
+        expect(root).toContain("Omni Usage");
+        expect(getConfigPath2()).toMatch(/config\.json$/);
+        expect(getStatesDir2()).toMatch(/states$/);
+        expect(getUserPluginsDir2()).toMatch(/plugins$/);
+    });
 });

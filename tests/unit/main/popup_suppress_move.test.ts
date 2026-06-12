@@ -39,6 +39,14 @@ describe("popup setBounds suppress-move wiring", () => {
                 // Match the setImmediate release in index.ts; for the test
                 // we release on a microtask so subsequent user drags can
                 // still flip user_moved.
+                // LIMITATION: queueMicrotask executes earlier than setImmediate
+                // on Windows. In production index.ts, setImmediate defers the
+                // flag release to the next event loop tick (after the BrowserWindow
+                // "move" event). queueMicrotask runs within the same tick, which
+                // is acceptable here because the synchronous fire_move() has
+                // already been captured in the try block. Tests relying on
+                // flag timing beyond "synchronous move is suppressed" should
+                // use setImmediate + fake timers for exact fidelity.
                 queueMicrotask(() => {
                     state.suppress_move = false;
                 });

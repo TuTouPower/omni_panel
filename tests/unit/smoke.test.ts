@@ -15,8 +15,14 @@ describe("smoke: modules are importable", () => {
         expect(result).toHaveProperty("args");
     });
 
+    // NOTE: echo is a shell builtin on Windows, not a standalone exe.
+    // spawn() works here because Node.js resolves it via cmd.exe on win32.
     it("executePlugin returns PluginExecutionResult", async () => {
-        const result = await executePlugin({ command: "echo", args: [] });
+        const command =
+            process.platform === "win32"
+                ? { command: "cmd", args: ["/c", "echo", "ok"] }
+                : { command: "echo", args: [] };
+        const result = await executePlugin(command);
         expect(result).toHaveProperty("stdout");
         expect(result).toHaveProperty("exitCode");
     });
