@@ -2,13 +2,18 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import Module from "node:module";
 
 const mockBuild = vi.fn();
 
 vi.mock("esbuild", () => ({ build: mockBuild }));
 
 // Must import after vi.mock
-import { compilePlugin } from "../../../src/main/core/plugin/compiler";
+import {
+    compilePlugin,
+    configure_esbuild_binary_path,
+    compute_compile_hash,
+} from "../../../src/main/core/plugin/compiler";
 import type { PluginDefinition } from "../../../src/main/core/plugin/types";
 
 const testDir = join(tmpdir(), `compiler-test-${String(Date.now())}`);
@@ -204,5 +209,158 @@ describe("compilePlugin", () => {
         expect(result.executablePath).toContain("cache");
         expect(result.executablePath).not.toContain("fallback-cache");
         expect(mockBuild).toHaveBeenCalledOnce();
+    });
+});
+
+describe("stale cache whitespace-only rejection", () => {
+    it("returns compile_error when cached output file is whitespace-only", async () => {
+        const plugin = makePlugin("test.ts");
+        await writeFile(plugin.executablePath, `console.log("hello");`, "utf8");
+        mockBuild.mockResolvedValue({ errors: [], warnings: [] });
+
+        const cacheDir = join(testDir, "cache");
+        await compilePlugin(plugin, cacheDir, sdkDir);
+
+        // Overwrite compiled output with whitespace-only content
+        const name = "test";
+        const { createHash } = await import("node:crypto");
+        const pathHash = createHash("sha256").update("test.ts").digest("hex").slice(0, 8);
+        const outPath = join(cacheDir, `${name}-${pathHash}`, "index.js");
+        await writeFile(outPath, "   \n  \t  ", "utf8");
+
+        // Change source so hash changes, then fail
+        const plugin2 = makePlugin("test.ts");
+        await writeFile(plugin2.executablePath, `console.log("changed");`, "utf8");
+        mockBuild.mockRejectedValueOnce(new Error("Syntax error"));
+        const result = await compilePlugin(plugin2, cacheDir, sdkDir);
+
+        expect(result.status).toBe("compile_error");
+    });
+});
+
+describe("hash encoding consistency with bundled_resource_verifier", () => {
+    it("produces same hash as Buffer-based hash_file", async () => {
+        const content = `console.log("test");`;
+        const plugin = makePlugin("test.ts");
+        await writeFile(plugin.executablePath, content, "utf8");
+
+        const pluginHash = await compute_compile_hash(plugin, sdkDir);
+        const { createHash } = await import("node:crypto");
+        const expectedHash = createHash("sha256")
+            .update("plugin\0")
+            .update("test.ts")
+            .update("\0")
+            .update(Buffer.from(content, "utf8"))
+            .update("sdk\0")
+            .update("index.ts")
+            .update("\0")
+            .update(
+                await import("node:fs/promises").then((m) => m.readFile(join(sdkDir, "index.ts"))),
+            )
+            .digest("hex");
+
+        expect(pluginHash).toBe(expectedHash);
+    });
+
+    it("handles BOM files consistently with Buffer-based verifier", async () => {
+        const bom = Buffer.from([0xef, 0xbb, 0xbf]);
+        const content = Buffer.concat([bom, Buffer.from(`console.log("bom");`, "utf8")]);
+        const plugin = makePlugin("bom.ts");
+        await writeFile(plugin.executablePath, content);
+
+        const pluginHash = await compute_compile_hash(plugin, sdkDir);
+        const { createHash } = await import("node:crypto");
+        const expectedHash = createHash("sha256")
+            .update("plugin\0")
+            .update("bom.ts")
+            .update("\0")
+            .update(content)
+            .update("sdk\0")
+            .update("index.ts")
+            .update("\0")
+            .update(
+                await import("node:fs/promises").then((m) => m.readFile(join(sdkDir, "index.ts"))),
+            )
+            .digest("hex");
+
+        expect(pluginHash).toBe(expectedHash);
+    });
+});
+
+describe("configure_esbuild_binary_path", () => {
+    let savedResourcesPath: string | undefined;
+    beforeEach(() => {
+        delete process.env["ESBUILD_BINARY_PATH"];
+        savedResourcesPath = process.resourcesPath;
+        // @ts-expect-error intentional readonly override for test
+        process.resourcesPath = "/test/resources";
+    });
+    afterEach(() => {
+        if (savedResourcesPath === undefined) {
+            // @ts-expect-error intentional readonly override for test
+            delete process.resourcesPath;
+        } else {
+            // @ts-expect-error intentional readonly override for test
+            process.resourcesPath = savedResourcesPath;
+        }
+    });
+
+    it("sets ESBUILD_BINARY_PATH when binary is inside app.asar", () => {
+        const originalPlatform = process.platform;
+        const origResolve = (Module as unknown as Record<string, unknown>)["_resolveFilename"];
+        (Module as unknown as Record<string, unknown>)["_resolveFilename"] = (request: string) => {
+            if (request === "@esbuild/win32-x64/esbuild.exe") {
+                return "C:\\app\\resources\\app.asar\\node_modules\\@esbuild\\win32-x64\\esbuild.exe";
+            }
+            return request;
+        };
+        try {
+            Object.defineProperty(process, "platform", { value: "win32" });
+            configure_esbuild_binary_path();
+            expect(process.env["ESBUILD_BINARY_PATH"]).toBe(
+                "C:\\app\\resources\\app.asar.unpacked\\node_modules\\@esbuild\\win32-x64\\esbuild.exe",
+            );
+        } finally {
+            (Module as unknown as Record<string, unknown>)["_resolveFilename"] = origResolve;
+            Object.defineProperty(process, "platform", { value: originalPlatform });
+        }
+    });
+
+    it("does not set ESBUILD_BINARY_PATH when path does not contain app.asar", () => {
+        const originalPlatform = process.platform;
+        const origResolve = (Module as unknown as Record<string, unknown>)["_resolveFilename"];
+        (Module as unknown as Record<string, unknown>)["_resolveFilename"] = (request: string) => {
+            if (request === "@esbuild/win32-x64/esbuild.exe") {
+                return "/some/other/path/esbuild.exe";
+            }
+            return request;
+        };
+        try {
+            Object.defineProperty(process, "platform", { value: "win32" });
+            configure_esbuild_binary_path();
+            expect(process.env["ESBUILD_BINARY_PATH"]).toBeUndefined();
+        } finally {
+            (Module as unknown as Record<string, unknown>)["_resolveFilename"] = origResolve;
+            Object.defineProperty(process, "platform", { value: originalPlatform });
+        }
+    });
+
+    it("handles require.resolve failure gracefully", () => {
+        const originalPlatform = process.platform;
+        const origResolve = (Module as unknown as Record<string, unknown>)["_resolveFilename"];
+        (Module as unknown as Record<string, unknown>)["_resolveFilename"] = (request: string) => {
+            if (request === "@esbuild/win32-x64/esbuild.exe") {
+                throw new Error("Cannot find module");
+            }
+            return request;
+        };
+        try {
+            Object.defineProperty(process, "platform", { value: "win32" });
+            configure_esbuild_binary_path();
+            expect(process.env["ESBUILD_BINARY_PATH"]).toBeUndefined();
+        } finally {
+            (Module as unknown as Record<string, unknown>)["_resolveFilename"] = origResolve;
+            Object.defineProperty(process, "platform", { value: originalPlatform });
+        }
     });
 });

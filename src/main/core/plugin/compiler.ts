@@ -6,7 +6,6 @@ import { createLogger } from "../../../shared/lib/logger";
 import type { PluginDefinition } from "./types";
 
 const log = createLogger("compiler");
-const require_module = createRequire(import.meta.url);
 
 const ESBUILD_PACKAGES: Record<string, string> = {
     "darwin-arm64": "@esbuild/darwin-arm64/bin/esbuild",
@@ -18,14 +17,14 @@ const ESBUILD_PACKAGES: Record<string, string> = {
     "win32-x64": "@esbuild/win32-x64/esbuild.exe",
 };
 
-function configure_esbuild_binary_path(): void {
+export function configure_esbuild_binary_path(): void {
     const package_name = ESBUILD_PACKAGES[`${process.platform}-${process.arch}`];
     if (!package_name || !process.resourcesPath) {
         return;
     }
 
     try {
-        const binary_path = require_module.resolve(package_name);
+        const binary_path = createRequire(import.meta.url).resolve(package_name);
         if (binary_path.includes("app.asar")) {
             process.env["ESBUILD_BINARY_PATH"] = binary_path.replace(
                 "app.asar",
@@ -58,13 +57,16 @@ async function list_sdk_files(dir: string): Promise<string[]> {
         .sort();
 }
 
-async function compute_compile_hash(plugin: PluginDefinition, sdk_dir: string): Promise<string> {
+export async function compute_compile_hash(
+    plugin: PluginDefinition,
+    sdk_dir: string,
+): Promise<string> {
     const hash = createHash("sha256");
-    const plugin_content = await readFile(plugin.executablePath, "utf8");
+    const plugin_content = await readFile(plugin.executablePath);
     hash.update("plugin\0").update(plugin.scriptName).update("\0").update(plugin_content);
 
     for (const file_path of await list_sdk_files(sdk_dir)) {
-        const sdk_content = await readFile(file_path, "utf8");
+        const sdk_content = await readFile(file_path);
         const sdk_key = relative(sdk_dir, file_path).replaceAll("\\", "/");
         hash.update("sdk\0").update(sdk_key).update("\0").update(sdk_content);
     }
@@ -171,7 +173,7 @@ export async function compilePlugin(
         // Fallback: stale cache?
         try {
             const existing = await readFile(outPath, "utf8");
-            if (existing) {
+            if (existing.trim()) {
                 log.warn(`Using stale cache for ${name}`);
                 return { status: "stale_cache", executablePath: outPath, error: message };
             }
