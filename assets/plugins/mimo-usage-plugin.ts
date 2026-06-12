@@ -50,12 +50,14 @@ import {
     colorFor,
     numeric,
 } from "@omni-usage/plugin-sdk";
+import type { PluginContext, UsageItem } from "@omni-usage/plugin-sdk";
 
 const METADATA_ENDPOINTS = {
     default: "https://platform.xiaomimimo.com",
     login: "https://platform.xiaomimimo.com/console/plan-manage",
 };
-const SOURCE_INSTANCE_ID = process.env.OMNI_SOURCE_INSTANCE_ID ?? "unknown-source";
+// eslint-disable-next-line @typescript-eslint/dot-notation
+const SOURCE_INSTANCE_ID = process.env["OMNI_SOURCE_INSTANCE_ID"] ?? "unknown-source";
 const DEFAULT_LIMIT = 100;
 
 function parseLimit(raw: string): number {
@@ -110,9 +112,10 @@ interface BalancePayload {
 }
 
 definePlugin(
-    async (ctx) => {
+    async (ctx: PluginContext) => {
         const cookie = requireParam(ctx.params, "SESSION_COOKIE");
-        const limitAmount = parseLimit(ctx.params.LIMIT ?? "");
+        // eslint-disable-next-line @typescript-eslint/dot-notation
+        const limitAmount = parseLimit(ctx.params["LIMIT"] ?? "");
         const headers = {
             Cookie: cookie,
             "User-Agent":
@@ -157,7 +160,7 @@ definePlugin(
             accountLabel: planName,
         };
 
-        const items = usage.data.usage.items.map((item) => {
+        const items: UsageItem[] = usage.data.usage.items.map((item) => {
             const label =
                 item.name === "plan_total_token"
                     ? ctx.t("plan_quota")

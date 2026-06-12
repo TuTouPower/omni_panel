@@ -27,7 +27,11 @@
         "verbatimModuleSyntax": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
-        "jsx": "react-jsx"
+        "jsx": "react-jsx",
+        "baseUrl": ".",
+        "paths": {
+            "@omni-usage/plugin-sdk": ["src/plugins/sdk/index.ts"]
+        }
     },
     "include": ["src", "tests", "scripts", "*.ts", "*.mts"],
     "exclude": ["node_modules", "assets/plugins"]

@@ -278,7 +278,10 @@ describe("SettingsForm cookie login", () => {
         expect(btn).toBeDisabled();
 
         // Resolve the login
-        resolve_login(true);
+        // Resolve the login
+        act(() => {
+            resolve_login(true);
+        });
         await vi.waitFor(() => {
             expect(screen.getByText("网页登录")).toBeInTheDocument();
         });

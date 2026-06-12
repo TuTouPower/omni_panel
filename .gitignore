@@ -60,3 +60,5 @@ config/env/.env.local
 .reasonix
 .playwright-mcp/
 artifacts/
+
+data/capture_all*.json

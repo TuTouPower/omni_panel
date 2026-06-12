@@ -171,6 +171,7 @@ describe("PopupView collapse + height report", () => {
                 on_autostart_state: vi.fn(() => vi.fn()),
             },
             auth: { cookieLogin: vi.fn(), refreshCookies: vi.fn() },
+            logs: { export: vi.fn() },
             log: vi.fn(),
         };
     });
