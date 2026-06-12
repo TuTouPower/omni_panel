@@ -4,7 +4,7 @@
 
 ---
 
-## 待办（测试盲区审查 — 2026-06-12）
+## 待办（测试盲区审查 — 2026-06-12，27 项中已完成 26 项）
 
 > 10 子代理并行审查 76 个测试文件，发现以下测试通过但生产可能失败的问题。
 
@@ -27,10 +27,10 @@
 - [x] **`use_config` 被整体 mock，真实 hook 的串行化队列和生命周期不可见**：已文档化限制。
 - [x] **`Tray.getBounds()` Windows 返回零坐标**：已加零值防护，回退到主显示器中心。
 - [x] **`queueMicrotask` vs `setImmediate` 时序差异掩盖竞态**：已文档化限制。
-- [ ] **Windows 无 Unix 信号**：SIGTERM→SIGKILL 升级在 Windows 调用 `TerminateProcess`，行为完全不同。`tests/integration/plugin/runner.test.ts:137`
+- [x] **Windows 无 Unix 信号**：已改用 fd 3 quit 管道协议，跨平台行为一致。
 - [x] **`userData` 路径含 Unicode/空格**：已加 Unicode 路径测试。
 - [x] **`echo` 在 Windows 不是独立 exe**：已改为平台感知 (`cmd /c echo` on Windows)。
-- [ ] **esbuild 编译 vs 打包 ASAR 执行路径完全不同**。`tests/integration/plugin/_helpers/plugin_test_harness.ts:52-81`
+- [x] **esbuild 编译 vs 打包 ASAR 执行路径完全不同**：已加 `tests/packaged_smoke/plugin_execution.test.ts`。
 - [x] **plugin-ipc sender 校验未测试**：已加全部 sender 校验测试。
 
 ### 低危
@@ -39,7 +39,7 @@
 - [x] **usage_rows 硬编码 clipPath 值**：已改为计算值断言。
 - [x] **provider_account_row 只断言负面**：已加正向断言。
 - [x] **refresh-service 不测试失败后恢复**：已加 failed→ready 恢复测试。
-- [ ] **http_stub 绕过 TLS/DNS/重定向/gzip**。`tests/integration/plugin/_helpers/http_stub.ts`
+- [x] **http_stub 绕过 TLS/DNS/重定向/gzip**：已加 HTTPS stub + 自签证书 + 5 个覆盖测试。
 - [ ] **Settings save 端到端从未测试**。`tests/smoke/renderer-smoke.test.tsx:61-79`
 - [x] **Hash 编码不一致**：已对齐为 Buffer。
 - [x] **config-store-debounce 全部 fs 函数被 mock**：已文档化 ENOSPC/EACCES 限制。
