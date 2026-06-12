@@ -1,7 +1,7 @@
 import { nativeTheme, BrowserWindow, ipcMain } from "electron";
 import { z } from "zod/v3";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
-import { toDTO } from "./helpers";
+import { toDTO, assert_valid_sender } from "./helpers";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
 import type { PluginSnapshotState } from "../core/scheduler/types";
 import { createLogger } from "../../shared/lib/logger";
@@ -71,7 +71,8 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
     // Allow renderer to set the app theme explicitly.
     // Setting nativeTheme.themeSource triggers the "updated" event above,
     // which broadcasts to all windows automatically.
-    ipcMain.handle(IPC_CHANNELS.THEME_SET, (_e, mode: unknown) => {
+    ipcMain.handle(IPC_CHANNELS.THEME_SET, (e, mode: unknown) => {
+        assert_valid_sender(e);
         const channel = IPC_CHANNELS.THEME_SET;
         const args = [mode];
         const is_development = process.env["NODE_ENV"] === "development";

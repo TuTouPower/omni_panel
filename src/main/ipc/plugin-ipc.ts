@@ -2,7 +2,7 @@ import { z } from "zod/v3";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { PluginInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
-import { ok, fail, toDTO } from "./helpers";
+import { ok, fail, toDTO, assert_valid_sender } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { PluginConfiguration } from "../../shared/types/config";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
@@ -125,22 +125,28 @@ export async function registerPluginIpc(deps: PluginIpcDeps): Promise<void> {
 
     const logged = createLoggedIpcHandler(log);
 
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, () =>
-        logged(IPC_CHANNELS.PLUGIN_LIST, [], () => handlePluginList(deps)),
+    ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, (e) =>
+        logged(IPC_CHANNELS.PLUGIN_LIST, [], () => {
+            assert_valid_sender(e);
+            return handlePluginList(deps);
+        }),
     );
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_GET_STATE, (_e, instanceId: string) =>
-        logged(IPC_CHANNELS.PLUGIN_GET_STATE, [instanceId], () =>
-            Promise.resolve(handlePluginGetState(deps, instanceId)),
-        ),
+    ipcMain.handle(IPC_CHANNELS.PLUGIN_GET_STATE, (e, instanceId: string) =>
+        logged(IPC_CHANNELS.PLUGIN_GET_STATE, [instanceId], () => {
+            assert_valid_sender(e);
+            return Promise.resolve(handlePluginGetState(deps, instanceId));
+        }),
     );
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH, (_e, instanceId: string) =>
+    ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH, (e, instanceId: string) =>
         logged(IPC_CHANNELS.PLUGIN_REFRESH, [instanceId], () => {
+            assert_valid_sender(e);
             log.info(`User requested refresh for ${instanceId}`);
             return handlePluginRefresh(deps, instanceId);
         }),
     );
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH_ALL, () =>
+    ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH_ALL, (e) =>
         logged(IPC_CHANNELS.PLUGIN_REFRESH_ALL, [], () => {
+            assert_valid_sender(e);
             log.info("User requested refresh all plugins");
             return handlePluginRefreshAll(deps);
         }),
