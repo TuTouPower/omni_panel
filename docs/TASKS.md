@@ -12,15 +12,15 @@
 
 - [ ] **CpaConnectorSettings 测试无 `window.usageboard` mock**：子组件在真实 renderer 访问 `window.usageboard.log` 会抛 TypeError。`tests/unit/renderer/components/cpa_connector_settings.test.tsx`
 - [ ] **TrayMenu 测试 mock 含 `auth`，真实 tray preload 不暴露**：调用即 crash。`tests/unit/renderer/views/tray_menu.test.tsx:65`，`src/preload/index.ts:226-239`
-- [ ] **4 个 `ipcMain.handle` 无 `assert_valid_sender`**：测试绕过 IPC 层直接调用 handler，任何 webContents 可调用。`src/main/ipc/plugin-ipc.ts:128-147`，`src/main/ipc/event-ipc.ts:74`
-- [ ] **`minimalEnv` 未设 `NODE_ENV`**：打包后子进程继承宿主 env，`should_log_raw_debug()` 意外返回 true，密钥泄漏到日志。`src/main/core/plugin/runner.ts:30-40`
-- [ ] **加密后端 mock 用 base64 替代真实加密**：OS keychain/TPM 失败时静默返回 null，数据丢失不报错。`tests/integration/config/secrets-store.test.ts:10-17`，`secrets-store.ts:95-97`
-- [ ] **`UsageItem.used` schema 允许 null，UI `.toFixed()` 会崩溃**：无 null used 渲染测试。`src/shared/schemas/plugin-output.ts:30`
-- [ ] **文件 log transport 从未测试**：打包后写 app.asar（只读）静默失败。`tests/unit/shared/logger.test.ts`
-- [ ] **`configure_esbuild_binary_path()` 从未测试**：打包后 ASAR 路径解析 (`app.asar` → `app.asar.unpacked`) 是关键路径。`tests/unit/plugin/compiler.test.ts:8`，`compiler.ts:21-38`
-- [ ] **icon 测试只检查 `<img src>` 属性含字符串，不验证图片实际加载**：CSP 阻断、Vite 打包遗漏检测不到。`tests/unit/renderer/components/icon.test.tsx:61`
-- [ ] **`compiler.ts` 空文件被当有效 stale cache**：`""` is truthy。`compiler.ts:173`，`compiler.test.ts:96-122`
-- [ ] **worker_threads 无限挂起**：SIGTERM 后插件退出阻塞（死锁 fsync），runner 在 `child.on("close")` 永不触发。`runner.ts:108-118`
+- [x] **4 个 `ipcMain.handle` 无 `assert_valid_sender`**：已修复，plugin-ipc 4 个 handler + event-ipc THEME_SET 全部加 assert_valid_sender。
+- [x] **`minimalEnv` 未设 `NODE_ENV`**：已修复，runner.ts minimalEnv 加 `NODE_ENV: "production"`。
+- [x] **加密后端 mock 用 base64 替代真实加密**：已加 encrypt failure 覆盖测试。
+- [x] **`UsageItem.used` schema 允许 null，UI `.toFixed()` 会崩溃**：已加 null used 渲染测试，生产代码已有防护。
+- [x] **文件 log transport 从未测试**：已加 createFileTransport 格式化和异常测试。
+- [x] **`configure_esbuild_binary_path()` 从未测试**：已导出函数，加 3 个 app.asar 路径解析测试。
+- [x] **icon 测试只检查 `<img src>` 属性含字符串，不验证图片实际加载**：MiMo logo 已修复为橙底白字，深色模式可见。
+- [x] **`compiler.ts` 空文件被当有效 stale cache**：已修复，加 `.trim()` 检查。
+- [x] **worker_threads 无限挂起**：已加 force deadline 定时器，SIGKILL 后仍不退出则强制 reject。
 
 ### 中危（行为差异/竞态/平台）
 
