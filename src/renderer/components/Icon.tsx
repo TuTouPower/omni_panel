@@ -1,4 +1,14 @@
 import { type CSSProperties } from "react";
+import antigravity_svg from "../assets/vendor_logos/antigravity.svg";
+import claude_svg from "../assets/vendor_logos/claude.svg";
+import codex_svg from "../assets/vendor_logos/codex.svg";
+import deepseek_svg from "../assets/vendor_logos/deepseek.svg";
+import gemini_svg from "../assets/vendor_logos/gemini.svg";
+import glm_svg from "../assets/vendor_logos/glm.svg";
+import kimi_svg from "../assets/vendor_logos/kimi.svg";
+import mimo_svg from "../assets/vendor_logos/mimo.svg";
+import minimax_svg from "../assets/vendor_logos/minimax.svg";
+import tavily_svg from "../assets/vendor_logos/tavily.svg";
 
 const UI_ICONS: Record<string, string> = {
     refresh: '<path d="M20 11a8 8 0 1 0-1.5 5.5M20 11V5m0 6h-6"/>',
@@ -72,16 +82,16 @@ export function Icon({ name, size = 18, strokeWidth = 1.7, color, style, classNa
 
 /* ── Vendor marks (SVG placeholder icons, used when no official logo available) ── */
 const VENDOR_LOGOS: Record<string, string> = {
-    claude: new URL("../assets/vendor_logos/claude.svg", import.meta.url).href,
-    codex: new URL("../assets/vendor_logos/codex.svg", import.meta.url).href,
-    gemini: new URL("../assets/vendor_logos/gemini.svg", import.meta.url).href,
-    antigravity: new URL("../assets/vendor_logos/antigravity.svg", import.meta.url).href,
-    kimi: new URL("../assets/vendor_logos/kimi.svg", import.meta.url).href,
-    glm: new URL("../assets/vendor_logos/glm.svg", import.meta.url).href,
-    deepseek: new URL("../assets/vendor_logos/deepseek.svg", import.meta.url).href,
-    minimax: new URL("../assets/vendor_logos/minimax.svg", import.meta.url).href,
-    tavily: new URL("../assets/vendor_logos/tavily.svg", import.meta.url).href,
-    mimo: new URL("../assets/vendor_logos/mimo.svg", import.meta.url).href,
+    claude: claude_svg,
+    codex: codex_svg,
+    gemini: gemini_svg,
+    antigravity: antigravity_svg,
+    kimi: kimi_svg,
+    glm: glm_svg,
+    deepseek: deepseek_svg,
+    minimax: minimax_svg,
+    tavily: tavily_svg,
+    mimo: mimo_svg,
 };
 
 const VENDOR_MARKS: Record<string, (s: number) => string> = {

@@ -204,7 +204,7 @@ void app.whenReady().then(async () => {
             responseHeaders: {
                 ...details.responseHeaders,
                 "Content-Security-Policy": [
-                    `default-src 'self'; script-src ${cspScriptSrc}; style-src 'self' 'unsafe-inline'; connect-src ${cspConnectSrc};`,
+                    `default-src 'self'; script-src ${cspScriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ${cspConnectSrc};`,
                 ],
             },
         });
