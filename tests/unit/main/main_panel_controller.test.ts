@@ -99,6 +99,9 @@ function build(config: AppConfiguration, platform: "darwin" | "win32" | "linux" 
         get_renderer_url: (route) => `app://${route}`,
         get_preload_path: () => "preload.js",
         get_app_icon_path: () => "icon.png",
+        // NOTE: Tray.getBounds() returns zero bounds on Windows; production
+        // code guards against this.  The test uses non-zero bounds to verify
+        // normal popup positioning.
         get_tray_bounds: () => ({ x: 1000, y: 700, width: 24, height: 24 }),
         get_display_for_bounds: () => ({
             id: 1,

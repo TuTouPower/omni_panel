@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CpaConnectorSettings } from "../../../../src/renderer/components/CpaConnectorSettings";
@@ -121,6 +121,14 @@ function renderSettings(overrides: Partial<Parameters<typeof CpaConnectorSetting
 }
 
 describe("CpaConnectorSettings", () => {
+    beforeEach(() => {
+        // Defensive: sub-components or future additions may access window.usageboard.log
+        window.usageboard = {
+            platform: "win32",
+            log: vi.fn(),
+        } as unknown as typeof window.usageboard;
+    });
+
     it("renders two-column layout with config fields, connection status, sync settings, and discovered accounts", () => {
         renderSettings();
 

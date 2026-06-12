@@ -741,6 +741,14 @@ void app.whenReady().then(async () => {
             if (!trayMenuWin || trayMenuWin.isDestroyed()) return;
 
             const trayBounds = tray.getBounds();
+            // Tray.getBounds() returns zero on Windows; fall back to primary display center
+            if (trayBounds.width <= 0 || trayBounds.height <= 0) {
+                const primary = screen.getPrimaryDisplay();
+                trayBounds.x = primary.workArea.x + primary.workArea.width / 2;
+                trayBounds.y = primary.workArea.y + primary.workArea.height / 2;
+                trayBounds.width = 0;
+                trayBounds.height = 0;
+            }
             const display = screen.getDisplayNearestPoint({
                 x: trayBounds.x + trayBounds.width / 2,
                 y: trayBounds.y + trayBounds.height / 2,
