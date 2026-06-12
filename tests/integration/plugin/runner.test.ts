@@ -134,12 +134,24 @@ describe("executePlugin", () => {
         expect(result.stdout).toContain("value");
     });
 
-    it("kills SIGTERM-ignoring process with SIGKILL", async () => {
-        const cmd = buildPluginCommand(fakePlugin("ignores-sigterm.js"), {}, "zh-Hans", nodePath);
+    it("kills quit-ignoring process with force kill", async () => {
+        const cmd = buildPluginCommand(fakePlugin("ignores-quit.js"), {}, "zh-Hans", nodePath);
         const start = Date.now();
         await expect(executePlugin(cmd, { timeoutMs: 500 })).rejects.toThrow(PluginTimeoutError);
         const elapsed = Date.now() - start;
         // Should finish within timeout + grace period (500ms + 2000ms + margin)
+        expect(elapsed).toBeLessThan(5000);
+    });
+
+    it("gracefully exits when stdin quit is received", async () => {
+        const cmd = buildPluginCommand(fakePlugin("graceful-quit.js"), {}, "zh-Hans", nodePath);
+        const start = Date.now();
+        // Timeout fires at 500ms, sends quit, plugin exits before force kill at 2500ms
+        await expect(executePlugin(cmd, { timeoutMs: 500 })).rejects.toThrow(PluginTimeoutError);
+        const elapsed = Date.now() - start;
+        // Should exit after quit is processed: ~2s (plugin sleep) + propagation + margin
+        // NOT waiting for full GRACE_MS(2000) from force kill
+        expect(elapsed).toBeGreaterThan(1500);
         expect(elapsed).toBeLessThan(5000);
     });
 
@@ -165,8 +177,8 @@ describe("executePlugin", () => {
         expect(parsed.NODE_ENV).toBe("production");
     });
 
-    it("rejects via force deadline when SIGKILL cannot stop the process", async () => {
-        const cmd = buildPluginCommand(fakePlugin("ignores-sigterm.js"), {}, "zh-Hans", nodePath);
+    it("rejects via force deadline when force kill cannot stop the process", async () => {
+        const cmd = buildPluginCommand(fakePlugin("ignores-quit.js"), {}, "zh-Hans", nodePath);
         // Force deadline = timeoutMs + GRACE_MS(2000) + FORCE_EXTRA_MS(5000) = 500 + 7000 = 7500ms
         const start = Date.now();
         await expect(executePlugin(cmd, { timeoutMs: 500 })).rejects.toThrow(PluginTimeoutError);

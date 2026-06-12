@@ -1,4 +1,4 @@
-import { readFileSync, writeSync } from "node:fs";
+import { createReadStream, readFileSync, writeSync } from "node:fs";
 import type { PluginOutput } from "./result";
 import { fail } from "./result";
 import { createHttpClient, type HttpClient } from "./http-client";
@@ -80,16 +80,35 @@ export function definePlugin(handler: PluginHandler, options: DefinePluginOption
         language,
         t: (key, kwargs) => translate(language, key, kwargs),
     };
+
+    let handlerDone = false;
+
     handler(ctx)
         .then((result) => {
-            // Synchronous write to fd 1: process.stdout.write is async on
-            // Windows pipes, and the subprocess can exit before stdout flushes
-            // under parallel test load, leaving the harness with empty output.
+            handlerDone = true;
             writeSync(1, JSON.stringify(result));
         })
         .catch((err: unknown) => {
+            handlerDone = true;
             writeSync(1, JSON.stringify(normalizeError(err)));
         });
+
+    // Listen for quit signal on fd 3 (cross-platform, injected by runner).
+    // fd 3 is a dedicated pipe — runner writes "quit\n" when termination is requested.
+    // Plugin reads it and exits gracefully, avoiding SIGTERM on Windows (which
+    // maps to immediate TerminateProcess).
+    if (!process.stdin.isTTY) {
+        try {
+            const quitPipe = createReadStream("", { fd: 3 });
+            quitPipe.on("data", (chunk: Buffer) => {
+                if (chunk.toString().trim() === "quit") {
+                    process.exit(handlerDone ? 0 : 1);
+                }
+            });
+        } catch {
+            // fd 3 not available, ignore — force kill will handle it
+        }
+    }
 }
 
 function sanitizeErrorMessage(msg: string): string {

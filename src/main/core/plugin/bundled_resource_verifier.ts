@@ -15,7 +15,7 @@ const PLUGIN_HASHES: Readonly<Record<string, string>> = {
 };
 
 const SDK_HASHES: Readonly<Record<string, string>> = {
-    "define-plugin.ts": "65b117ca8268ffcf297b9faef5f6b1bf74f8718550ed689f17b6d862b61b57dd",
+    "define-plugin.ts": "b364808db49bc685e5587fb67bc54e17f1f4c2ff7672e25091e7705c4b004603",
     "endpoints.ts": "2c4c7def375029793b374053d5b905fad6ed17851931cc64ef85d47d6de62cc4",
     "errors.ts": "c6fffe9bd61da92b9b144b6a5ce45822d646273ef83b054c4bbd94558d424a78",
     "helpers.ts": "62062cbdf70e790677b447cfe2e7ec040485920df6061222083497381e96206d",

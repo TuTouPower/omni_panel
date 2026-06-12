@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import type { Writable } from "node:stream";
 import type { PluginCommand } from "./command-builder";
 import { PluginTimeoutError } from "../../../shared/errors/plugin-errors";
 import { DEFAULT_TIMEOUT_MS } from "../../../shared/constants";
@@ -42,15 +43,31 @@ const minimalEnv: Record<string, string> = {
 
 const GRACE_MS = 2000;
 
-function schedule_grace_kill(
+// fd 3 is a dedicated quit-signal pipe (cross-platform, no stdin conflict)
+const QUIT_FD = 3;
+
+function sendQuitCommand(child: ReturnType<typeof spawn>): void {
+    try {
+        const quitPipe = child.stdio[QUIT_FD] as Writable | undefined;
+        if (quitPipe && !quitPipe.destroyed && quitPipe.writable) {
+            quitPipe.end("quit\n");
+        } else {
+            child.kill();
+        }
+    } catch {
+        child.kill();
+    }
+}
+
+function schedule_force_kill(
     child: ReturnType<typeof spawn>,
     reason: string,
     settled: { value: boolean },
 ): ReturnType<typeof setTimeout> {
     return setTimeout(() => {
         if (!settled.value) {
-            log.error(`${reason}, sending SIGKILL`);
-            child.kill("SIGKILL");
+            log.error(`${reason}, force killing`);
+            child.kill();
         }
     }, GRACE_MS);
 }
@@ -82,7 +99,9 @@ export async function executePlugin(
                 ...command.env,
                 ELECTRON_RUN_AS_NODE: "1",
             },
+            stdio: ["pipe", "pipe", "pipe", "pipe"],
         });
+        // Write params to stdin (unchanged from original)
         child.stdin.end(command.stdin ?? "");
 
         const stdoutChunks: Buffer[] = [];
@@ -109,11 +128,11 @@ export async function executePlugin(
             if (stdoutBytes > 1024 * 1024) {
                 stdoutStopped = true;
                 log.warn("Plugin stdout exceeded 1MB, killing");
-                child.kill("SIGTERM");
+                sendQuitCommand(child);
                 clearGraceTimer();
-                graceTimer = schedule_grace_kill(
+                graceTimer = schedule_force_kill(
                     child,
-                    "Plugin did not exit after stdout SIGTERM",
+                    "Plugin did not exit after stdout quit",
                     settled,
                 );
             }
@@ -126,11 +145,11 @@ export async function executePlugin(
             if (stderrBytes > 256 * 1024) {
                 stderrStopped = true;
                 log.warn("Plugin stderr exceeded 256KB, killing");
-                child.kill("SIGTERM");
+                sendQuitCommand(child);
                 clearGraceTimer();
-                graceTimer = schedule_grace_kill(
+                graceTimer = schedule_force_kill(
                     child,
-                    "Plugin did not exit after stderr SIGTERM",
+                    "Plugin did not exit after stderr quit",
                     settled,
                 );
             }
@@ -139,13 +158,13 @@ export async function executePlugin(
         const timer = setTimeout(() => {
             timedOut = true;
             log.warn(
-                `Process ${command.command} timed out after ${String(timeoutMs)}ms, sending SIGTERM`,
+                `Process ${command.command} timed out after ${String(timeoutMs)}ms, sending quit`,
             );
-            child.kill("SIGTERM");
+            sendQuitCommand(child);
             clearGraceTimer();
-            graceTimer = schedule_grace_kill(
+            graceTimer = schedule_force_kill(
                 child,
-                `Process ${command.command} did not exit after SIGTERM`,
+                `Process ${command.command} did not exit after quit`,
                 settled,
             );
         }, timeoutMs);
@@ -158,7 +177,7 @@ export async function executePlugin(
                     clearGraceTimer();
                     clearTimeout(timer);
                     log.error(
-                        `Process ${command.command} did not exit after SIGKILL (force deadline), rejecting`,
+                        `Process ${command.command} did not exit after force kill (force deadline), rejecting`,
                     );
                     reject(new PluginTimeoutError(timeoutMs));
                 }
