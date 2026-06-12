@@ -41,9 +41,11 @@ describe("UsageBarRow", () => {
         expect(container.querySelector(".bar-pct")).not.toBeInTheDocument();
         expect(container.querySelectorAll(".bar-capsule-value")).toHaveLength(2);
         expect(container.querySelector(".bar-capsule-value-dark")?.textContent).toBe("10%");
+        // used=10/limit=100 → pct=10 → clipPath = inset(0 {100-10}% 0 0)
+        const expectedPct = Math.round((10 / 100) * 100);
         expect(
             container.querySelector<HTMLElement>(".bar-capsule-value-light")?.style.clipPath,
-        ).toBe("inset(0 90% 0 0)");
+        ).toBe(`inset(0 ${String(100 - expectedPct)}% 0 0)`);
         expect(
             container.querySelector<HTMLElement>(".track")?.style.getPropertyValue("--bar-fill"),
         ).not.toBe("");

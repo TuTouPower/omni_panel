@@ -308,6 +308,31 @@ describe("refresh-service", () => {
         expect(deps.cacheStore.save).not.toHaveBeenCalled();
     });
 
+    it("subsequent refresh succeeds after a failure", async () => {
+        const deps = createDeps();
+        // First call fails
+        (deps.runner as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("timeout"));
+        // Second call succeeds
+        (deps.runner as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+            stdout: JSON.stringify({
+                success: true,
+                schemaVersion: 1,
+                updatedAt: "2026-05-24T12:00:00Z",
+                items: [],
+            }),
+            stderr: "",
+            exitCode: 0,
+            durationMs: 100,
+        });
+        const service = createRefreshService(deps);
+
+        await service.refresh("state-1");
+        expect(deps.runtimeStore.getSnapshot("state-1").status).toBe("failed");
+
+        await service.refresh("state-1", { force: true });
+        expect(deps.runtimeStore.getSnapshot("state-1").status).toBe("ready");
+    });
+
     it("prevents concurrent refresh for same instance", async () => {
         const deps = createDeps();
         let resolveRunner!: () => void;

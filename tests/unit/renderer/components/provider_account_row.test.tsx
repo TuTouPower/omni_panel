@@ -140,7 +140,11 @@ describe("ProviderAccountRow account menu", () => {
         expect(on_toggle).not.toHaveBeenCalled();
     });
 
-    it("does not add alert class when account status is critical", () => {
+    it("card has .card class and no status-specific class when critical", () => {
+        // NOTE: ProviderAccountRow currently has no status→card-class mapping.
+        // This positive assertion verifies the card's base class structure so the
+        // test fails if a status class (e.g. card--critical) is ever introduced
+        // without updating this expectation.
         const account = make_account({
             status: "critical",
             periods: [
@@ -165,6 +169,8 @@ describe("ProviderAccountRow account menu", () => {
         const { container } = render(<ProviderAccountRow account={account} />);
         const card = container.querySelector(".card");
         if (!card) throw new Error("missing .card");
+        expect(card.classList.contains("card")).toBe(true);
+        // Currently no status-based class is applied; update this assertion if one is added.
         expect(card.classList.contains("alert")).toBe(false);
     });
 

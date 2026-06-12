@@ -25,6 +25,9 @@ describe("config-store debounce", () => {
         vi.useRealTimers();
     });
 
+    // NOTE: All fs mocks resolve successfully. ENOSPC, EACCES, and other
+    // transient write-failure modes are not covered by these tests.
+
     it("scheduleSave delays write by default 500ms", async () => {
         const store = createConfigStore("/tmp/config.json");
 
