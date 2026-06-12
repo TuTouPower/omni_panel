@@ -37,6 +37,7 @@ const minimalEnv: Record<string, string> = {
     TMP: process.env["TMP"] ?? "",
     SYSTEMROOT: process.env["SYSTEMROOT"] ?? "",
     COMSPEC: process.env["COMSPEC"] ?? "",
+    NODE_ENV: "production",
 };
 
 const GRACE_MS = 2000;
@@ -149,10 +150,27 @@ export async function executePlugin(
             );
         }, timeoutMs);
 
+        const FORCE_EXTRA_MS = 5000;
+        const forceDeadline = setTimeout(
+            () => {
+                if (!settled.value) {
+                    settled.value = true;
+                    clearGraceTimer();
+                    clearTimeout(timer);
+                    log.error(
+                        `Process ${command.command} did not exit after SIGKILL (force deadline), rejecting`,
+                    );
+                    reject(new PluginTimeoutError(timeoutMs));
+                }
+            },
+            timeoutMs + GRACE_MS + FORCE_EXTRA_MS,
+        );
+
         child.on("close", (code) => {
             settled.value = true;
             clearGraceTimer();
             clearTimeout(timer);
+            clearTimeout(forceDeadline);
             const durationMs = Date.now() - startTime;
             const stdout = Buffer.concat(stdoutChunks).toString("utf8");
             const stderr = Buffer.concat(stderrChunks).toString("utf8");
@@ -184,6 +202,7 @@ export async function executePlugin(
                 settled.value = true;
                 clearGraceTimer();
                 clearTimeout(timer);
+                clearTimeout(forceDeadline);
                 log.error(`spawn error: ${command.command}`, err);
                 reject(err);
             }

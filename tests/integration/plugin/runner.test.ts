@@ -156,4 +156,22 @@ describe("executePlugin", () => {
         const output = parsePluginResult(result.stdout);
         if (output.success) expect(output.items[0]?.name).toBe("中文测试：5小时用量");
     });
+
+    it("sets NODE_ENV=production in child process environment", async () => {
+        const cmd = buildPluginCommand(fakePlugin("echoes-node-env.js"), {}, "zh-Hans", nodePath);
+        const result = await executePlugin(cmd);
+        expect(result.exitCode).toBe(0);
+        const parsed = JSON.parse(result.stdout) as { NODE_ENV: string };
+        expect(parsed.NODE_ENV).toBe("production");
+    });
+
+    it("rejects via force deadline when SIGKILL cannot stop the process", async () => {
+        const cmd = buildPluginCommand(fakePlugin("ignores-sigterm.js"), {}, "zh-Hans", nodePath);
+        // Force deadline = timeoutMs + GRACE_MS(2000) + FORCE_EXTRA_MS(5000) = 500 + 7000 = 7500ms
+        const start = Date.now();
+        await expect(executePlugin(cmd, { timeoutMs: 500 })).rejects.toThrow(PluginTimeoutError);
+        const elapsed = Date.now() - start;
+        // Must finish within force deadline + margin
+        expect(elapsed).toBeLessThan(15_000);
+    });
 });
