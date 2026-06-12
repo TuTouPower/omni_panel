@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, act, fireEvent, within } from "@testing-library/react";
+import { render, screen, waitFor, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
 import { SettingsView } from "../../../../src/renderer/views/SettingsView";
@@ -214,6 +214,7 @@ describe("SettingsView", () => {
                 on_autostart_state: vi.fn(() => vi.fn()),
             },
             auth: { cookieLogin: vi.fn(), refreshCookies: vi.fn() },
+            logs: { export: vi.fn() },
             log: vi.fn(),
         };
     });
@@ -377,35 +378,48 @@ describe("SettingsView", () => {
         });
     });
 
-    it("saves usage label map from appearance settings", async () => {
+    it("does not render global usage label map in appearance settings", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-appearance"));
-        fireEvent.change(screen.getByLabelText("用量标签映射"), {
-            target: { value: "gemini-long=Gemini Short" },
-        });
 
-        expect(save).toHaveBeenCalledWith({
-            ...base_config,
-            usageLabelMap: { "gemini-long": "Gemini Short" },
-        });
+        expect(screen.queryByText("用量标签映射")).not.toBeInTheDocument();
+        expect(screen.queryByLabelText("用量标签映射")).not.toBeInTheDocument();
     });
 
-    it("keeps usage label map draft while typing", async () => {
+    it("does not render anonymous usage statistics in data settings", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
 
-        await user.click(screen.getByTestId("settings-plugin-nav-appearance"));
-        const textarea = screen.getByLabelText("用量标签映射");
-        await user.type(textarea, "gemini-long=Gemini Short");
-        await user.type(textarea, "\npartial");
+        await user.click(screen.getByTestId("settings-plugin-nav-data"));
 
-        expect(textarea).toHaveValue("gemini-long=Gemini Short\npartial");
-        expect(save).toHaveBeenLastCalledWith({
-            ...base_config,
-            usageLabelMap: { "gemini-long": "Gemini Short" },
+        expect(screen.queryByText("匿名使用统计")).not.toBeInTheDocument();
+    });
+
+    it("does not render notification settings because notification delivery is not implemented", async () => {
+        render(<SettingsView />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("settings-plugin-nav-accounts")).toBeInTheDocument();
         });
+        expect(screen.queryByTestId("settings-plugin-nav-notify")).not.toBeInTheDocument();
+        expect(screen.queryByText("接近限制时提醒")).not.toBeInTheDocument();
+    });
+
+    it("exports runtime logs from data settings", async () => {
+        const user = userEvent.setup();
+        const export_logs = vi.fn().mockResolvedValue({ saved: true });
+        window.usageboard.logs = { export: export_logs };
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-data"));
+        await user.click(screen.getByRole("button", { name: "导出日志" }));
+
+        await waitFor(() => {
+            expect(export_logs).toHaveBeenCalled();
+        });
+        expect(screen.getByRole("button", { name: "已导出" })).toBeInTheDocument();
     });
 
     it("navigates to accounts section on settings navigate event", async () => {

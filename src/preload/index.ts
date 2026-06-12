@@ -198,6 +198,10 @@ const log_method = (payload: RendererLogPayload) => {
     void ipcRenderer.invoke(IPC_CHANNELS.LOG_RENDERER, sanitized);
 };
 
+const logs_methods = {
+    export: () => invoke<{ saved: boolean }>(IPC_CHANNELS.LOG_EXPORT),
+};
+
 // Route-based API restriction: each window only gets the capabilities it needs.
 const current_route = window.location.hash.slice(1) || "popup";
 
@@ -216,6 +220,7 @@ const api: UsageboardApi = (() => {
                 settings: settings_methods,
                 tray: tray_methods,
                 auth: auth_methods,
+                logs: logs_methods,
                 log: log_method,
             };
         case "tray":
@@ -229,6 +234,7 @@ const api: UsageboardApi = (() => {
                 theme: theme_methods,
                 settings: settings_methods,
                 tray: tray_methods,
+                logs: logs_methods,
                 log: log_method,
             } as unknown as UsageboardApi;
         default: // popup
@@ -243,6 +249,7 @@ const api: UsageboardApi = (() => {
                 settings: settings_methods,
                 tray: tray_methods,
                 auth: auth_methods,
+                logs: logs_methods,
                 log: log_method,
             };
     }

@@ -453,7 +453,7 @@ void app.whenReady().then(async () => {
             main_panel_controller?.apply_config_change();
         },
     });
-    await registerLogIpc();
+    await registerLogIpc(dataRoot);
     cleanupEventIpc = registerEventIpc({ runtimeStore });
     registerAuthIpc({
         configStore,

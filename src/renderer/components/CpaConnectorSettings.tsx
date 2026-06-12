@@ -39,6 +39,7 @@ interface CpaConnectorSettingsProps {
     providerLabelMaps?:
         | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
         | undefined;
+    selectedProvider?: UsageProvider | undefined;
     onEditLabelMap?: ((provider: UsageProvider) => void) | undefined;
 }
 
@@ -86,6 +87,7 @@ export function CpaConnectorSettings({
     onRefresh,
     onRemove,
     providerLabelMaps: _providerLabelMaps,
+    selectedProvider,
     onEditLabelMap,
 }: CpaConnectorSettingsProps) {
     // onRefresh is part of the interface for future use
@@ -137,7 +139,12 @@ export function CpaConnectorSettings({
         // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset on any external data change
     }, [connector.instanceId, config, hasSecrets]);
 
-    const items = useMemo(() => get_snapshot_items(connector), [connector]);
+    const items = useMemo(() => {
+        const snapshot_items = get_snapshot_items(connector);
+        return selectedProvider
+            ? snapshot_items.filter((item) => item.provider === selectedProvider)
+            : snapshot_items;
+    }, [connector, selectedProvider]);
     const accountGroups = useMemo(() => group_accounts(items), [items]);
     const status = get_status(connector);
     const isConnected = status === "已连接";

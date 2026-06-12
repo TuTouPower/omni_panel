@@ -329,6 +329,27 @@ describe("CpaConnectorSettings", () => {
         expect(onEditLabelMap).toHaveBeenCalledWith("claude");
     });
 
+    it("filters discovered accounts to the selected provider", () => {
+        renderSettings({
+            selectedProvider: "gemini",
+            connector: connector({
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-05-31T00:00:00.000Z",
+                    items: [
+                        usageItem({ provider: "claude", accountLabel: "Claude Account" }),
+                        usageItem({ provider: "codex", accountLabel: "Codex Account" }),
+                        usageItem({ provider: "gemini", accountLabel: "Gemini Account" }),
+                    ],
+                },
+            }),
+        });
+
+        expect(screen.getByText("Gemini Account")).toBeInTheDocument();
+        expect(screen.queryByText("Claude Account")).not.toBeInTheDocument();
+        expect(screen.queryByText("Codex Account")).not.toBeInTheDocument();
+    });
+
     it("calls onRemove when remove button is clicked and confirmed", async () => {
         const user = userEvent.setup();
         window.confirm = vi.fn().mockReturnValue(true);

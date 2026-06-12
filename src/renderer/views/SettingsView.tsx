@@ -22,12 +22,6 @@ import type {
     UsageBarColorScheme,
     UsageBarStyle,
 } from "../../shared/types/config";
-import {
-    USAGE_LABEL_MAP_MAX_ENTRIES,
-    USAGE_LABEL_MAP_MAX_KEY_LENGTH,
-    USAGE_LABEL_MAP_MAX_TEXT_LENGTH,
-    USAGE_LABEL_MAP_MAX_VALUE_LENGTH,
-} from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
@@ -41,6 +35,7 @@ interface DialogState {
     mode: "add" | "edit";
     instanceId: string | undefined;
     pluginName: string | undefined;
+    providerId?: UsageProvider | undefined;
 }
 
 interface ProviderAccountGroup {
@@ -55,7 +50,6 @@ const NAV_ITEMS = [
     { id: "accounts", label: "账号", icon: "inbox" },
     { id: "datasource", label: "数据源", icon: "globe", cpaOnly: true },
     { id: "appearance", label: "外观", icon: "palette" },
-    { id: "notify", label: "通知", icon: "bell" },
     { id: "data", label: "数据与隐私", icon: "shield" },
     { id: "about", label: "关于", icon: "info" },
 ] as const;
@@ -140,40 +134,6 @@ function floating_height_mode_value_to_label(value: FloatingHeightMode | undefin
 
 function bar_style_label_to_value(label: string): UsageBarStyle {
     return label === "粗胶囊型" ? "capsule" : "thin";
-}
-
-function format_usage_label_map(value: Readonly<Record<string, string>> | undefined): string {
-    return Object.entries(value ?? {})
-        .map(([source, target]) => `${source}=${target}`)
-        .join("\n");
-}
-
-function parse_usage_label_map(value: string): Record<string, string> | undefined {
-    if (value.length > USAGE_LABEL_MAP_MAX_TEXT_LENGTH) return undefined;
-    const entries = value
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line): [string, string] | null => {
-            const separator = line.indexOf("=");
-            if (separator <= 0) return null;
-            const source = line.slice(0, separator).trim();
-            const target = line.slice(separator + 1).trim();
-            if (
-                source.length === 0 ||
-                target.length === 0 ||
-                source.length > USAGE_LABEL_MAP_MAX_KEY_LENGTH ||
-                target.length > USAGE_LABEL_MAP_MAX_VALUE_LENGTH
-            ) {
-                return null;
-            }
-            return [source, target];
-        })
-        .filter((entry): entry is [string, string] => entry !== null);
-
-    return entries.length > 0
-        ? Object.fromEntries(entries.slice(0, USAGE_LABEL_MAP_MAX_ENTRIES))
-        : undefined;
 }
 
 function override_account_label(key: string): string {
@@ -312,6 +272,7 @@ function AccountDialog({
     onCpa,
     onToggleEnabled,
     onClose,
+    selectedProvider,
 }: {
     mode: "add" | "edit";
     instanceId: string | undefined;
@@ -333,6 +294,7 @@ function AccountDialog({
     onCpa: () => void;
     onToggleEnabled: (instanceId: string, enabled: boolean) => void;
     onClose: () => void;
+    selectedProvider?: UsageProvider | undefined;
 }) {
     const isEdit = mode === "edit";
 
@@ -407,6 +369,7 @@ function AccountDialog({
                                 onRefresh={async () => {
                                     await onRefresh(instanceId);
                                 }}
+                                selectedProvider={selectedProvider}
                             />
                         ) : (
                             <SettingsForm
@@ -989,19 +952,12 @@ export function SettingsView() {
         save_target: "account" | "provider";
     } | null>(null);
     const [dsView, setDsView] = useState<"list" | "detail">("list");
-    const [usage_label_map_text, set_usage_label_map_text] = useState("");
-    const usage_label_map_dirty_ref = useRef(false);
 
     useEffect(() => {
         if (should_log_raw && config) {
             log.debug("settings config raw", { config: redact_config_raw(config) });
         }
     }, [config]);
-
-    useEffect(() => {
-        if (usage_label_map_dirty_ref.current) return;
-        set_usage_label_map_text(format_usage_label_map(config?.usageLabelMap));
-    }, [config?.usageLabelMap]);
 
     const save_config = useCallback(
         async (payload: AppConfiguration) => {
@@ -1145,10 +1101,6 @@ export function SettingsView() {
     const minimizeToTray = config?.minimizeToTray ?? true;
     const globalIntervalSeconds = config?.globalRefreshIntervalSeconds ?? 300;
     const pauseAutoRefresh = config?.pauseAutoRefresh ?? false;
-    const notifyNearLimit = config?.notifyNearLimit ?? true;
-    const notifyAtLimit = config?.notifyAtLimit ?? true;
-    const notifyOnFail = config?.notifyOnFail ?? true;
-    const notifyMethod = config?.notifyMethod ?? "系统通知";
     const cacheMaxMb = config?.cacheMaxMb ?? 100;
     const usageBarColorScheme = config?.usageBarColorScheme ?? "risk-current";
     const usageBarStyle = config?.usageBarStyle ?? "thin";
@@ -1176,6 +1128,19 @@ export function SettingsView() {
         try {
             const { saved } = await window.usageboard.config.export();
             setDataMsg(saved ? "设置已导出" : null);
+        } catch {
+            setDataMsg("导出失败");
+        }
+        clearTimeout(data_msg_timer.current);
+        data_msg_timer.current = setTimeout(() => {
+            setDataMsg(null);
+        }, 2000);
+    }, []);
+
+    const handleExportLogs = useCallback(async () => {
+        try {
+            const { saved } = await window.usageboard.logs.export();
+            setDataMsg(saved ? "日志已导出" : null);
         } catch {
             setDataMsg("导出失败");
         }
@@ -1598,6 +1563,11 @@ export function SettingsView() {
                                                                     mode: "edit",
                                                                     instanceId: p.instanceId,
                                                                     pluginName: display_name,
+                                                                    providerId:
+                                                                        group.provider ===
+                                                                        "connector"
+                                                                            ? undefined
+                                                                            : group.provider,
                                                                 });
                                                             }}
                                                         >
@@ -1752,6 +1722,11 @@ export function SettingsView() {
                                                                                     p.instanceId,
                                                                                 pluginName:
                                                                                     display_name,
+                                                                                providerId:
+                                                                                    group.provider ===
+                                                                                    "connector"
+                                                                                        ? undefined
+                                                                                        : group.provider,
                                                                             });
                                                                         }}
                                                                     >
@@ -2012,92 +1987,6 @@ export function SettingsView() {
                                         }}
                                     />
                                 </div>
-                                <div className="set-row set-row-stack">
-                                    <div className="sr-text">
-                                        <div className="sr-title">用量标签映射</div>
-                                        <div className="sr-sub">
-                                            每行一个“原始名称=显示名称”，会覆盖内置长标签缩写。
-                                        </div>
-                                    </div>
-                                    <textarea
-                                        className="set-textarea"
-                                        aria-label="用量标签映射"
-                                        value={usage_label_map_text}
-                                        onChange={(event) => {
-                                            const next_text = event.target.value.slice(
-                                                0,
-                                                USAGE_LABEL_MAP_MAX_TEXT_LENGTH,
-                                            );
-                                            usage_label_map_dirty_ref.current = true;
-                                            set_usage_label_map_text(next_text);
-                                            const usage_label_map =
-                                                parse_usage_label_map(next_text);
-                                            if (!usage_label_map && next_text.trim().length > 0)
-                                                return;
-                                            const {
-                                                usageLabelMap: removed_usage_label_map,
-                                                ...rest
-                                            } = config;
-                                            void removed_usage_label_map;
-                                            void save_config({
-                                                ...rest,
-                                                ...(usage_label_map && {
-                                                    usageLabelMap: usage_label_map,
-                                                }),
-                                            });
-                                        }}
-                                    />
-                                </div>
-                            </>
-                        )}
-
-                        {/* ── Notify ── */}
-                        {section === "notify" && (
-                            <>
-                                <div className="set-group-label">用量提醒</div>
-                                <SetRow title="接近限制时提醒" sub="任一周期用量达到 80% 时">
-                                    <Toggle
-                                        on={notifyNearLimit}
-                                        onClick={() => {
-                                            void save_config({
-                                                ...config,
-                                                notifyNearLimit: !notifyNearLimit,
-                                            });
-                                        }}
-                                    />
-                                </SetRow>
-                                <SetRow title="达到限制时提醒" sub="任一周期用量达到 100% 时">
-                                    <Toggle
-                                        on={notifyAtLimit}
-                                        onClick={() => {
-                                            void save_config({
-                                                ...config,
-                                                notifyAtLimit: !notifyAtLimit,
-                                            });
-                                        }}
-                                    />
-                                </SetRow>
-                                <SetRow title="刷新失败时提醒" sub="连续刷新失败或凭证失效时">
-                                    <Toggle
-                                        on={notifyOnFail}
-                                        onClick={() => {
-                                            void save_config({
-                                                ...config,
-                                                notifyOnFail: !notifyOnFail,
-                                            });
-                                        }}
-                                    />
-                                </SetRow>
-                                <div className="set-group-label">方式</div>
-                                <SetRow title="提醒方式">
-                                    <Select
-                                        value={notifyMethod}
-                                        onChange={(v) => {
-                                            void save_config({ ...config, notifyMethod: v });
-                                        }}
-                                        options={["系统通知", "托盘图标角标", "仅应用内", "关闭"]}
-                                    />
-                                </SetRow>
                             </>
                         )}
 
@@ -2160,20 +2049,17 @@ export function SettingsView() {
                                         {dataMsg === "导入失败" ? "失败" : "导入"}
                                     </button>
                                 </SetRow>
-                                <SetRow title="导出用量数据" sub="导出为 CSV / JSON">
+                                <SetRow title="导出运行日志" sub="导出当前运行日志文件">
                                     <button
                                         className="set-select"
                                         style={{ background: "var(--field-bg)" }}
                                         type="button"
+                                        onClick={() => {
+                                            void handleExportLogs();
+                                        }}
                                     >
-                                        导出
+                                        {dataMsg === "日志已导出" ? "已导出" : "导出日志"}
                                     </button>
-                                </SetRow>
-                                <SetRow
-                                    title="匿名使用统计"
-                                    sub="帮助改进 OmniUsage，不含任何用量内容"
-                                >
-                                    <Toggle on={false} disabled />
                                 </SetRow>
                                 <div className="set-group-label" style={{ color: "var(--red)" }}>
                                     危险区域
@@ -2257,6 +2143,7 @@ export function SettingsView() {
                         pluginConfig={config.plugins.find(
                             (p) => p.instanceId === dialog.instanceId,
                         )}
+                        selectedProvider={dialog.providerId}
                         pluginInfos={pluginInfos}
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}

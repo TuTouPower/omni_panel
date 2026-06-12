@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readdir, stat, unlink } from "node:fs/promises";
+import { appendFile, copyFile, mkdir, readdir, stat, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import {
     addTransport,
@@ -10,7 +10,7 @@ import {
 
 const MAX_LOG_AGE_DAYS = 7;
 
-function getLogDir(userDataPath: string): string {
+export function getLogDir(userDataPath: string): string {
     return join(userDataPath, "logs");
 }
 
@@ -34,6 +34,11 @@ async function cleanupOldLogs(logDir: string): Promise<void> {
     } catch {
         // Directory may not exist yet
     }
+}
+
+export async function exportCurrentLog(userDataPath: string, targetPath: string): Promise<void> {
+    const logFile = getLogFilePath(getLogDir(userDataPath));
+    await copyFile(logFile, targetPath);
 }
 
 export async function initLogging(userDataPath: string): Promise<() => void> {

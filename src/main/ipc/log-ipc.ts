@@ -2,8 +2,9 @@ import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { RendererLogPayload } from "../../shared/types/ipc";
 import type { Logger } from "../../shared/lib/logger";
 import { createLogger } from "../../shared/lib/logger";
+import { exportCurrentLog } from "../core/logging";
 import type { IpcResult } from "./helpers";
-import { ok } from "./helpers";
+import { fail, ok, assert_valid_sender } from "./helpers";
 
 export function handleRendererLog(payload: unknown): IpcResult<void> {
     if (!payload || typeof payload !== "object") return ok(undefined);
@@ -38,10 +39,31 @@ export function handleRendererLog(payload: unknown): IpcResult<void> {
     return ok(undefined);
 }
 
-export async function registerLogIpc(): Promise<void> {
+export async function handleLogExport(
+    userDataPath: string,
+): Promise<IpcResult<{ saved: boolean }>> {
+    const log = createLogger("ipc:log");
+    try {
+        const { dialog } = await import("electron");
+        const { filePath, canceled } = await dialog.showSaveDialog({
+            title: "导出运行日志",
+            defaultPath: `omni-usage-log-${new Date().toISOString().slice(0, 10)}.log`,
+            filters: [{ name: "Log", extensions: ["log"] }],
+        });
+        if (canceled || !filePath) return ok({ saved: false });
+        await exportCurrentLog(userDataPath, filePath);
+        return ok({ saved: true });
+    } catch (err: unknown) {
+        log.error("导出日志失败", err);
+        return fail("INTERNAL_ERROR", "导出运行日志失败");
+    }
+}
+
+export async function registerLogIpc(userDataPath: string): Promise<void> {
     const { ipcMain } = await import("electron");
     const log = createLogger("ipc:log");
-    ipcMain.handle(IPC_CHANNELS.LOG_RENDERER, (_e, payload: unknown) => {
+    ipcMain.handle(IPC_CHANNELS.LOG_RENDERER, (e, payload: unknown) => {
+        assert_valid_sender(e);
         const channel = IPC_CHANNELS.LOG_RENDERER;
         const args = [payload];
         const is_development = process.env["NODE_ENV"] === "development";
@@ -54,5 +76,9 @@ export async function registerLogIpc(): Promise<void> {
             if (is_development) log.debug("ipc error raw", { channel, error });
             throw error;
         }
+    });
+    ipcMain.handle(IPC_CHANNELS.LOG_EXPORT, (e) => {
+        assert_valid_sender(e);
+        return handleLogExport(userDataPath);
     });
 }

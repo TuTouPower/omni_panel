@@ -203,6 +203,70 @@ describe("LabelMapDialog", () => {
         expect(screen.queryByText("Codex · 5小时")).not.toBeInTheDocument();
     });
 
+    it("normalizes CPA labels by removing account names and duplicates", async () => {
+        mock_get_state.mockResolvedValue(
+            mock_ready_state([
+                {
+                    id: "codex-a-5h",
+                    provider: "codex",
+                    source: "cpa",
+                    sourceInstanceId: "cpa-1",
+                    accountId: "acc-a",
+                    accountLabel: "Account A",
+                    name: "Codex (Account A) · 5小时",
+                    used: 10,
+                    limit: 50,
+                    displayStyle: "percent",
+                    status: "normal",
+                },
+                {
+                    id: "codex-b-5h",
+                    provider: "codex",
+                    source: "cpa",
+                    sourceInstanceId: "cpa-1",
+                    accountId: "acc-b",
+                    accountLabel: "Account B",
+                    name: "Codex (Account B) · 5小时",
+                    used: 20,
+                    limit: 50,
+                    displayStyle: "percent",
+                    status: "normal",
+                },
+                {
+                    id: "codex-b-week",
+                    provider: "codex",
+                    source: "cpa",
+                    sourceInstanceId: "cpa-1",
+                    accountId: "acc-b",
+                    accountLabel: "Account B",
+                    name: "Codex (Account B) · 每周",
+                    used: 20,
+                    limit: 50,
+                    displayStyle: "percent",
+                    status: "normal",
+                },
+            ]),
+        );
+        render(
+            <LabelMapDialog
+                instance_id="cpa-1"
+                vendor_id="codex"
+                account_name="CPA · Codex"
+                existing_map={{}}
+                on_save={on_save}
+                on_close={on_close}
+            />,
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText("Codex · 5小时")).toBeInTheDocument();
+        });
+        expect(screen.getByText("Codex · 每周")).toBeInTheDocument();
+        expect(screen.queryByText("Codex (Account A) · 5小时")).not.toBeInTheDocument();
+        expect(screen.queryByText("Codex (Account B) · 5小时")).not.toBeInTheDocument();
+        expect(screen.getAllByRole("textbox")).toHaveLength(2);
+    });
+
     it("resets single row to default when reset button clicked", async () => {
         const user = userEvent.setup();
         mock_get_state.mockResolvedValue(mock_ready_state(sample_items()));

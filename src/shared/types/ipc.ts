@@ -23,6 +23,7 @@ export const IPC_CHANNELS = {
     THEME_SET: "theme:set",
 
     LOG_RENDERER: "log:renderer",
+    LOG_EXPORT: "log:export",
 
     /** Popup renderer reports measured content height for window auto-sizing. */
     POPUP_REPORT_CONTENT_HEIGHT: "popup:reportContentHeight",
@@ -221,6 +222,9 @@ export interface UsageboardApi {
     auth: {
         cookieLogin(instanceId: string): Promise<{ saved: boolean }>;
         refreshCookies(): Promise<{ refreshed: number; failed: number }>;
+    };
+    logs: {
+        export(): Promise<{ saved: boolean }>;
     };
     log(payload: RendererLogPayload): void;
 }

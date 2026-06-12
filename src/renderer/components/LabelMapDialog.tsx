@@ -1,10 +1,22 @@
 import { useEffect, useState } from "react";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
+import type { UsageItem, UsageProvider } from "../../shared/schemas/plugin-output";
 import { Icon } from "./Icon";
 
 interface LabelMapRow {
     raw: string;
     def: string;
+}
+
+function normalize_cpa_label(item: UsageItem): string {
+    if (item.source !== "cpa") return item.name;
+    if (!item.accountLabel) return item.name;
+    const escaped_label = item.accountLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const without_account = item.name
+        .replace(new RegExp(`\\s*\\(${escaped_label}\\)`, "g"), "")
+        .replace(new RegExp(`\\s*${escaped_label}\\s*`, "g"), " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    return without_account.length > 0 ? without_account : item.name;
 }
 
 interface LabelMapDialogProps {
@@ -40,10 +52,17 @@ export function LabelMapDialog({
                         ? (state.items ?? [])
                         : [];
                 const filtered = items.filter((item) => item.provider === vendor_id);
-                const fetched: LabelMapRow[] = filtered.map((item) => ({
-                    raw: item.name,
-                    def: existing_map[item.name] ?? item.name,
-                }));
+                const seen = new Set<string>();
+                const fetched: LabelMapRow[] = [];
+                for (const item of filtered) {
+                    const raw = normalize_cpa_label(item);
+                    if (seen.has(raw)) continue;
+                    seen.add(raw);
+                    fetched.push({
+                        raw,
+                        def: existing_map[raw] ?? raw,
+                    });
+                }
                 set_rows(fetched);
                 if (state.status === "ready") {
                     set_synced(new Date(state.updatedAt).toLocaleString());
