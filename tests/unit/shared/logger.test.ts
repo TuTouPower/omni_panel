@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { addTransport, createLogger, setLogLevel } from "../../../src/shared/lib/logger";
+import {
+    addTransport,
+    createFileTransport,
+    createLogger,
+    setLogLevel,
+} from "../../../src/shared/lib/logger";
 
 describe("logger", () => {
     it("logs raw message and metadata values in debug mode", () => {
@@ -101,6 +106,45 @@ describe("logger", () => {
             expect(output).not.toContain("[object Date]");
             expect(output).not.toContain("[object Map]");
             expect(output).not.toContain("[object Set]");
+        } finally {
+            remove_transport();
+        }
+    });
+
+    it("createFileTransport formats lines with timestamp, level, module, message, and meta", () => {
+        const lines: string[] = [];
+        const transport = createFileTransport((line) => lines.push(line));
+        const remove_transport = addTransport(transport);
+        setLogLevel("debug");
+
+        try {
+            const log = createLogger("my-module");
+            log.info("hello world", { key: "value" });
+
+            expect(lines).toHaveLength(1);
+            const line = lines[0] ?? "";
+            expect(line).toMatch(/^\[\d{4}-\d{2}-\d{2}T/);
+            expect(line).toContain("[INFO]");
+            expect(line).toContain("[my-module]");
+            expect(line).toContain("hello world");
+            expect(line).toContain('"key":"value"');
+        } finally {
+            remove_transport();
+        }
+    });
+
+    it("createFileTransport propagates writeLine errors", () => {
+        const transport = createFileTransport(() => {
+            throw new Error("disk full");
+        });
+        const remove_transport = addTransport(transport);
+        setLogLevel("debug");
+
+        try {
+            const log = createLogger("test");
+            expect(() => {
+                log.info("boom");
+            }).toThrow("disk full");
         } finally {
             remove_transport();
         }

@@ -140,6 +140,19 @@ describe("secrets-store", () => {
         expect(await store2.get("c:d")).toBe("secret-b");
     });
 
+    it("propagates encrypt failure from set()", async () => {
+        const failingCrypto: CryptoBackend = {
+            encrypt() {
+                throw new Error("keychain locked");
+            },
+            decrypt(ciphertext: string): string {
+                return testCrypto.decrypt(ciphertext);
+            },
+        };
+        const store = createSecretsStore(join(tempDir, "secrets.json"), failingCrypto);
+        await expect(store.set("api_key", "sk-123")).rejects.toThrow("keychain locked");
+    });
+
     it("logs raw secret values only in development", async () => {
         const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
         const original_node_env = process.env["NODE_ENV"];

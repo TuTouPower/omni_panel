@@ -49,6 +49,25 @@ describe("UsageBarRow", () => {
         ).not.toBe("");
     });
 
+    it("renders empty value and zero fill when used is null (thin style)", () => {
+        const { container } = render(
+            <UsageBarRow period={make_period({ used: null })} index={0} barStyle="thin" />,
+        );
+
+        expect(container.querySelector(".bar-pct")?.textContent).toBe("");
+        expect(container.querySelector<HTMLElement>(".fill")?.style.width).toBe("0%");
+    });
+
+    it("renders empty capsule values and zero fill when used is null (capsule style)", () => {
+        const { container } = render(
+            <UsageBarRow period={make_period({ used: null })} index={0} barStyle="capsule" />,
+        );
+
+        expect(container.querySelector(".bar-capsule-value-dark")?.textContent).toBe("");
+        expect(container.querySelector(".bar-capsule-value-light")?.textContent).toBe("");
+        expect(container.querySelector<HTMLElement>(".fill")?.style.width).toBe("0%");
+    });
+
     it("uses custom label map before built-in labels", () => {
         render(
             <UsageBarRow
