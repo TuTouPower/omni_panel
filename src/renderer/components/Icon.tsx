@@ -70,7 +70,20 @@ export function Icon({ name, size = 18, strokeWidth = 1.7, color, style, classNa
     );
 }
 
-/* ── Vendor marks (geometric placeholder icons, NOT real brand logos) ── */
+/* ── Vendor marks (SVG placeholder icons, used when no official logo available) ── */
+const VENDOR_LOGOS: Record<string, string> = {
+    claude: new URL("../assets/vendor_logos/claude.svg", import.meta.url).href,
+    codex: new URL("../assets/vendor_logos/codex.svg", import.meta.url).href,
+    gemini: new URL("../assets/vendor_logos/gemini.svg", import.meta.url).href,
+    antigravity: new URL("../assets/vendor_logos/antigravity.svg", import.meta.url).href,
+    kimi: new URL("../assets/vendor_logos/kimi.svg", import.meta.url).href,
+    glm: new URL("../assets/vendor_logos/glm.svg", import.meta.url).href,
+    deepseek: new URL("../assets/vendor_logos/deepseek.svg", import.meta.url).href,
+    minimax: new URL("../assets/vendor_logos/minimax.svg", import.meta.url).href,
+    tavily: new URL("../assets/vendor_logos/tavily.svg", import.meta.url).href,
+    mimo: new URL("../assets/vendor_logos/mimo.svg", import.meta.url).href,
+};
+
 const VENDOR_MARKS: Record<string, (s: number) => string> = {
     overview: (s) =>
         `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="#3d7afd" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">` +
@@ -134,6 +147,15 @@ interface VendorMarkProps {
 }
 
 export function VendorMark({ id, size = 28 }: VendorMarkProps) {
+    const logo = VENDOR_LOGOS[id];
+    if (logo) {
+        return (
+            <span className="vicon" style={{ width: size, height: size }}>
+                <img src={logo} alt="" width={size} height={size} />
+            </span>
+        );
+    }
+
     const render = VENDOR_MARKS[id] ?? VENDOR_MARKS["overview"];
     if (!render) return null;
     return (

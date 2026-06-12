@@ -54,13 +54,14 @@ describe("VendorMark", () => {
         expect(span).toBeInTheDocument();
     });
 
-    it("renders inner SVG for known vendor", () => {
+    it("renders an official logo image for known vendor", () => {
         const { container } = render(<VendorMark id="deepseek" />);
-        const inner = container.querySelector("span.vicon svg");
-        expect(inner).toBeInTheDocument();
+        const image = container.querySelector("span.vicon img");
+        expect(image).toBeInTheDocument();
+        expect(image?.getAttribute("src")).toContain("deepseek");
     });
 
-    it("falls back to overview for unknown vendor", () => {
+    it("falls back to overview SVG for unknown vendor", () => {
         const { container } = render(<VendorMark id="unknown-vendor" />);
         const inner = container.querySelector("span.vicon svg");
         expect(inner).toBeInTheDocument();
