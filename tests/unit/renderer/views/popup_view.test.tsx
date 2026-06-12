@@ -507,13 +507,9 @@ describe("PopupView", () => {
             providerOrder: ["claude", "deepseek"],
         };
 
-        act(() => {
+        await act(async () => {
             on_config_change_cb?.(incoming);
-        });
-
-        // Flush microtasks
-        await new Promise((resolve) => {
-            setTimeout(resolve, 50);
+            await Promise.resolve();
         });
 
         // provider_order state should be set but MUST NOT trigger a config.save()
@@ -542,7 +538,7 @@ describe("PopupView", () => {
 
         // External CONFIG_CHANGED from settings window
         expect(on_config_change_cb).toBeDefined();
-        act(() => {
+        await act(async () => {
             on_config_change_cb?.({
                 schemaVersion: 1,
                 language: "zh-Hans",
@@ -550,10 +546,7 @@ describe("PopupView", () => {
                 plugins: [],
                 providerOrder: ["deepseek", "claude"],
             });
-        });
-
-        await new Promise((resolve) => {
-            setTimeout(resolve, 50);
+            await Promise.resolve();
         });
 
         // Cards must still be visible after CONFIG_CHANGED sync

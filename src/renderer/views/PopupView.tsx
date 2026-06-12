@@ -134,9 +134,6 @@ export function PopupView() {
     const [usage_bar_color_scheme, set_usage_bar_color_scheme] =
         useState<UsageBarColorScheme>("risk-current");
     const [usage_bar_style, set_usage_bar_style] = useState<UsageBarStyle>("thin");
-    const [usage_label_map, set_usage_label_map] = useState<
-        Readonly<Record<string, string>> | undefined
-    >(undefined);
     const [account_overrides, set_account_overrides] = useState<AccountOverrides | undefined>(
         undefined,
     );
@@ -182,7 +179,6 @@ export function PopupView() {
             if (config.usageBarStyle) {
                 set_usage_bar_style(config.usageBarStyle);
             }
-            set_usage_label_map(config.usageLabelMap);
             set_account_label_maps(config.accountLabelMaps);
             set_provider_label_maps(config.providerLabelMaps);
             set_account_overrides(config.accountOverrides);
@@ -714,7 +710,6 @@ export function PopupView() {
                                 refreshingProviders={is_live ? refresh_providers : undefined}
                                 barColorScheme={usage_bar_color_scheme}
                                 barStyle={usage_bar_style}
-                                labelMap={usage_label_map}
                                 providerLabelMaps={provider_label_maps}
                             />
                         )}
@@ -736,7 +731,6 @@ export function PopupView() {
                                     onDisableAccount={is_live ? disable_account : undefined}
                                     barColorScheme={usage_bar_color_scheme}
                                     barStyle={usage_bar_style}
-                                    labelMap={usage_label_map}
                                     accountLabelMaps={account_label_maps}
                                     providerLabelMaps={provider_label_maps}
                                 />

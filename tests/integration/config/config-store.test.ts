@@ -123,7 +123,7 @@ describe("config-store", () => {
                 launchAtLogin: false,
                 usageBarColorScheme: "risk-projected",
                 usageBarStyle: "capsule",
-                usageLabelMap: { "gemini-long": "Gemini Short" },
+                providerLabelMaps: { gemini: { "gemini-long": "Gemini Short" } },
             };
             await store.save(config);
             await writeFile(
@@ -146,7 +146,7 @@ describe("config-store", () => {
                     launchAtLogin: false,
                     usageBarColorScheme: "risk-projected",
                     usageBarStyle: "capsule",
-                    usageLabelMap: { "gemini-long": "Gemini Short" },
+                    providerLabelMaps: { gemini: { "gemini-long": "Gemini Short" } },
                 }),
                 "utf8",
             );

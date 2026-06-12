@@ -277,10 +277,9 @@ describe("SettingsForm cookie login", () => {
         const btn = screen.getByText("登录中...");
         expect(btn).toBeDisabled();
 
-        // Resolve the login
-        // Resolve the login
-        act(() => {
+        await act(async () => {
             resolve_login(true);
+            await Promise.resolve();
         });
         await vi.waitFor(() => {
             expect(screen.getByText("网页登录")).toBeInTheDocument();

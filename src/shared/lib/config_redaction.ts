@@ -3,10 +3,7 @@ export function redact_config_raw(value: unknown): unknown {
     if (value !== null && typeof value === "object") {
         const redacted: Record<string, unknown> = {};
         for (const [key, entry] of Object.entries(value)) {
-            redacted[key] =
-                key === "usageLabelMap" || key === "providerLabelMaps"
-                    ? "[redacted]"
-                    : redact_config_raw(entry);
+            redacted[key] = key === "providerLabelMaps" ? "[redacted]" : redact_config_raw(entry);
         }
         return redacted;
     }
