@@ -38,6 +38,9 @@ const base_config: AppConfiguration = {
 
 let current_config: AppConfiguration = base_config;
 
+// LIMITATION: use_config is fully mocked below, which hides real serialization
+// queue behavior (save_queue_ref in use-config.ts). A focused test below
+// exercises the real hook's serialization queue in isolation.
 vi.mock("../../../../src/renderer/hooks/use-config", () => ({
     use_config: () => ({
         config: current_config,
