@@ -1,0 +1,688 @@
+# OmniUsage 项目规范
+
+> 以下是对标项目。
+> https://github.com/qixing-jk/all-api-hub
+> https://github.com/juliantanx/aiusage
+> https://github.com/mm7894215/TokenTracker
+> https://github.com/marsmay/UsageBoard
+> https://github.com/steipete/codexbar
+
+## 对标项目以后做
+
+## 1. 项目概述
+
+多平台 AI 服务用量监控桌面应用（Electron），对标 macOS 原生版 UsageBoard。
+
+**目标**：集中展示 Claude、OpenAI Codex、Gemini、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily、MiMo 等 AI 服务的用量数据。
+
+**技术栈**：Electron + TypeScript + Vite + React + Vitest + Playwright + Zod + ESLint + Prettier
+
+**打包**：electron-vite + electron-builder（Windows / macOS / Linux）
+
+---
+
+## 2. 架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Main Process                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │ ConfigStore   │  │ SecretsStore │  │ CacheStore   │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │           SchedulerOrchestrator                   │  │
+│  │  ┌────────────────────────────────────────────┐  │  │
+│  │  │         PluginScheduler (per plugin)        │  │  │
+│  │  └────────────────────────────────────────────┘  │  │
+│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │ RefreshService│  │ PluginRunner │  │ OutputParser │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+│  ┌──────────────┐  ┌──────────────┐                    │
+│  │ PluginIPC     │  │ ConfigIPC    │  SystemIPC / LogIPC│
+│  └──────────────┘  └──────────────┘                    │
+└─────────────────────┬───────────────────────────────────┘
+                      │ contextBridge (preload)
+┌─────────────────────┴───────────────────────────────────┐
+│                   Renderer Process                       │
+│  ┌──────────────┐  ┌──────────────┐                     │
+│  │  PopupView    │  │ SettingsView │                     │
+│  │  └ ProviderCard │  │ └ SettingsForm│                    │
+│  └──────────────┘  └──────────────┘                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 2.1 安全边界
+
+- renderer 禁止直接访问 `fs`、`child_process`、`ipcRenderer`
+- `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`
+- preload 通过 `contextBridge` 暴露白名单 API（`window.usageboard.*`）
+- secret 参数不进入错误消息、测试快照；开发期 raw debug 日志会记录完整原始值
+- renderer 只能调用 IPC 白名单方法，不能发任意 channel
+
+---
+
+## 3. 插件系统
+
+### 3.1 插件文件
+
+- **源文件**：TypeScript（`.ts`），UTF-8 编码，存于 `assets/plugins/`（开发）或 `process.resourcesPath/plugins/`（打包后）
+- **编译产物**：`compiler.ts` 用 esbuild 将插件 + SDK 编译为单文件 JavaScript，缓存于 user data 目录（按 source SHA-256 失效）
+- **执行方式**：宿主用 Electron 内置 Node 执行编译后的 JS，`spawn(process.execPath, [pluginJs], { env: { ELECTRON_RUN_AS_NODE: "1" } })`
+- 打包后宿主在发现内置插件前校验 `process.resourcesPath/plugins` 和 `process.resourcesPath/sdk` 的 asar 内置 SHA-256 清单；不匹配则跳过内置插件
+- `.` 开头的文件名（隐藏文件）跳过（如 `.DS_Store`）
+
+### 3.2 元数据注释块
+
+插件脚本头部用 `//` 注释块声明元数据，宿主只解析前 **80 行**。
+
+```
+// UsageBoardPlugin:
+// {
+//   "name": "Claude",
+//   "supportedProviders": ["claude"],
+//   "defaultSource": "local",
+//   "name@zh-Hans": "Claude",
+//   "parameters": [
+//     { "name": "api_key", "label": "API Key", "type": "secret", "required": true }
+//   ]
+// }
+// /UsageBoardPlugin
+```
+
+**解析规则**：
+
+- `UsageBoardPlugin:` 为开始标记（前缀匹配，`//` 前缀先被剥离）
+- `/UsageBoardPlugin` 为结束标记
+- 每行去除 `// ` 前缀后拼接，做 JSON 解析
+- 缺少标记或 JSON 无效 → 返回 `null`，不阻塞启动
+- 多语言 key：`name@zh-Hans`、`label@en` 等
+
+**参数类型**：`string` | `secret` | `integer` | `boolean` | `choice` | `directory` | `file`
+
+**`endpoints` 字段**（可选）：`Record<string, string | null>`，声明插件依赖的 HTTP 端点。`string` 值 = 默认 URL，`null` = 必填无默认（如 CPA），省略 = 不依赖外部 HTTP。
+
+**`supportedProviders` 字段**（可选）：声明插件支持的 UsageProvider 列表，用于 UI 聚合和 CPA 连接器 provider 过滤。
+
+**`defaultSource` 字段**（可选）：声明插件的默认来源类型（`local` | `api_key` | `cpa` | `direct` | `oauth`），用于 UI 中的来源分类。
+
+**`icon` 字段**（可选）：插件图标 URL。
+
+### 3.3 参数传递
+
+```
+<electron-node> <plugin.js>
+stdin: { "params": { "KEY1": "value1", "KEY2": "value2", "USAGEBOARD_LANGUAGE": "zh-Hans" } }
+```
+
+- 仅传非空参数值
+- `USAGEBOARD_LANGUAGE` 由宿主注入，值为 `zh-Hans` 或 `en`
+- 参数值均为字符串
+- `--usageboard-param KEY=value` 仅保留给手动运行和旧插件兼容；宿主运行时不通过 argv 传 secret
+
+### 3.3a 端点注入
+
+插件通过环境变量接收端点 URL 和代理配置：
+
+- **`OMNI_PLUGIN_ENDPOINTS`**：JSON `{ "key": "https://url" }`，解析优先级：环境变量 > 用户 `endpointOverrides` > metadata 默认值
+- **`OMNI_PLUGIN_PROXY`**：JSON `{ "url": "http://host:port" }`，通过 undici `ProxyAgent` 接管所有 HTTP 请求
+- **`OMNI_SOURCE_INSTANCE_ID`**：当前插件配置的 `instanceId`，单账号插件用此值写入 `sourceInstanceId` 和 `accountId`
+
+### 3.3b SDK HttpClient
+
+插件通过 `ctx.http` 发起 HTTP 请求：
+
+```ts
+import { definePlugin, ok, failFromHttp } from "@omni-usage/plugin-sdk";
+
+definePlugin(
+    async (ctx) => {
+        const result = await ctx.http.getJson<MyResponse>("default", "/api/path", {
+            headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!result.ok) return failFromHttp(result.error, "my-plugin");
+        return ok({ items: [...] });
+    },
+    { metadata: { endpoints: { default: "https://api.example.com" } } },
+);
+```
+
+- `ctx.http.getJson<T>(endpointKey, path, opts?)` — GET 请求
+- `ctx.http.postJson<T>(endpointKey, path, opts?)` — POST 请求
+- 返回 `Result<T, HttpError>`，`failFromHttp(error, contextLabel)` 将错误转为插件错误输出
+
+### 3.4 插件 stdout 输出
+
+**成功**：
+
+```json
+{
+    "success": true,
+    "schemaVersion": 2,
+    "updatedAt": "2026-05-24T12:00:00Z",
+    "items": [
+        {
+            "id": "string",
+            "provider": "claude",
+            "source": "cpa",
+            "sourceInstanceId": "string",
+            "accountId": "string",
+            "accountLabel": "string",
+            "name": "string",
+            "used": 50.0,
+            "limit": 100.0,
+            "displayStyle": "percent",
+            "resetAt": "2026-06-01T00:00:00Z",
+            "status": "normal",
+            "color": "blue"
+        }
+    ],
+    "badge": "optional",
+    "chart": { "kind": "...", "period": "...", "bucketUnit": "hour", "buckets": [...] }
+}
+```
+
+**错误**：
+
+```json
+{
+    "success": false,
+    "error": { "code": "missing_config", "message": "请在插件设置中配置 API Key" }
+}
+```
+
+**字段说明**：
+
+| 字段               | 类型    | 说明                                                           |
+| ------------------ | ------- | -------------------------------------------------------------- |
+| `provider`         | string  | 归属 provider，用于主 UI 聚合                                  |
+| `source`           | string  | 数据来源类型：`local` / `api_key` / `cpa` / `direct` / `oauth` |
+| `sourceInstanceId` | string  | 来源实例 ID                                                    |
+| `accountId`        | string  | 账号稳定 ID                                                    |
+| `accountLabel`     | string  | 账号显示名，不得包含 secret                                    |
+| `id`               | string  | 唯一标识（推荐包含插件名+指标名）                              |
+| `name`             | string  | 显示名称                                                       |
+| `used`             | number? | 已用量；可为 null 表示从未使用，UI 渲染为空用量条              |
+| `limit`            | number  | 总额度                                                         |
+| `displayStyle`     | string  | `percent` 或 `ratio`                                           |
+| `resetAt`          | string? | 额度重置时间（ISO 8601，可为 null）                            |
+| `status`           | string  | `normal` / `warning` / `critical` / `unknown`                  |
+| `color`            | string? | `blue` / `green` / `yellow` / `orange` / `red`（可选）         |
+
+### 3.5 执行规则
+
+| exit code | 处理                                                       |
+| --------- | ---------------------------------------------------------- |
+| 0         | 解析 stdout JSON                                           |
+| 非零      | 错误。优先用 stderr 内容，stderr 为空则通用 exit code 消息 |
+
+- **timeout**：15 秒，超时后 kill 子进程，返回 failed snapshot
+- **stderr**：exit 0 时仅调试用；exit 非零时作为错误消息 fallback
+- 开发期 raw debug 日志会记录完整参数值；打包/非开发环境不写新增 full raw payload
+
+### 3.6 内置插件
+
+| 插件     | 脚本                       | 需要 API Key | 说明                                                                                                                       |
+| -------- | -------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Claude   | `claude-usage-plugin.ts`   | 否（读本地） | 读取 `~/.claude` 用量文件                                                                                                  |
+| Codex    | `codex-usage-plugin.ts`    | 否（读本地） | 读取 `~/.codex` 用量文件                                                                                                   |
+| DeepSeek | `deepseek-usage-plugin.ts` | 是           | 调用 DeepSeek API                                                                                                          |
+| 智谱     | `glm-usage-plugin.ts`      | 是           | 调用智谱 GLM API                                                                                                           |
+| MiniMax  | `minimax-usage-plugin.ts`  | 是           | 调用 MiniMax API                                                                                                           |
+| Tavily   | `tavily-usage-plugin.ts`   | 是           | 调用 Tavily API                                                                                                            |
+| MiMo     | `mimo-usage-plugin.ts`     | 是           | 网页登录拦截浏览器 Cookie 获取用量/套餐/余额；API 需带浏览器请求头否则 401（详见 `docs/research/mimo_cookie_research.md`） |
+| CPA      | `cpa-usage-plugin.ts`      | 是           | 通过 CPA-Manager 代理获取 5 个 provider 的用量（详见 `docs/research/cpa_quota_guide.md`）                                  |
+
+CPA 插件特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key`（secret）+ 5 个 `monitor_*` boolean 开关；调用 `/v0/management/auth-files` 和 `/v0/management/api-call`；单个账号失败不阻塞其他；Antigravity 三 URL 回退；Gemini 两步请求。
+
+---
+
+## 4. 配置与存储
+
+### 4.1 文件路径
+
+| 文件           | 位置                      | 说明                |
+| -------------- | ------------------------- | ------------------- |
+| `config.json`  | `{userData}/config.json`  | 应用配置            |
+| `secrets.json` | `{userData}/secrets.json` | 加密密钥存储        |
+| `states/`      | `{userData}/states/`      | 插件缓存状态        |
+| `logs/`        | `{userData}/logs/`        | 日志文件（7天滚动） |
+
+`{userData}` 为 `app.getPath('userData')`，即：
+
+- Windows: `%APPDATA%/OmniUsage`
+- macOS: `~/Library/Application Support/OmniUsage`
+- Linux: `~/.config/OmniUsage`
+
+启动后日志第一行会写入实际日志文件路径：`Logging initialized: .../logs/app-YYYY-MM-DD.log`。
+刷新排查优先看 `refresh-service`、`runner`、`compiler`、`ipc:*`、`renderer:*` 模块；开发期 raw debug 日志会记录 config/cache/secrets/IPC/renderer/插件 stdout-stderr 的完整原始 payload（不脱敏），打包/非开发环境不写新增 full raw payload。
+
+### 4.2 AppConfiguration schema
+
+```typescript
+{
+    schemaVersion: 1,
+    language: "zh-Hans" | "en",
+    launchAtLogin: boolean,
+    plugins: PluginConfiguration[],
+    proxy?: { url: string, noProxy?: string[] },  // HTTP 代理，通过 OMNI_PLUGIN_PROXY 注入子进程
+    accentColor?: string,                // 强调色
+    theme?: "light" | "dark" | "system", // 主题模式
+    pinToTop?: boolean,                  // 窗口置顶
+    minimizeToTray?: boolean,            // 关闭时最小化到托盘
+    globalRefreshIntervalSeconds?: number, // 全局刷新间隔（覆盖插件级设置）
+    pauseAutoRefresh?: boolean,          // 暂停自动刷新
+    providerOrder?: string[],            // Provider 标签页排序
+    cacheMaxMb?: number,                 // 缓存大小上限
+    mainPanelMode?: "system" | "popup" | "floating",  // 主面板窗口模式
+    floatingHeightMode?: "fixed" | "followContent",   // 浮动窗口高度模式
+    usageBarColorScheme?: "risk-current" | "risk-projected" | "nine-cycle",  // 用量条颜色方案
+    usageBarStyle?: "thin" | "capsule",  // 用量条样式
+    providerLabelMaps?: Record<string, Record<string, string>>,   // Provider 自定义标签
+    accountLabelMaps?: Record<string, Record<string, string>>,    // 账号自定义标签
+    floatingBounds?: { x: number, y: number, width: number, height: number, displayId?: string },  // 浮动窗口上次位置
+    accountOverrides?: {
+        hidden?: Record<string, string[]>,    // 隐藏的账号（per provider）
+        disabled?: Record<string, string[]>   // 禁用的账号（per provider）
+    },
+    cookieRefreshHours?: number           // Cookie 自动刷新周期（0=关闭，6/12/24 小时）
+}
+```
+
+旧配置中的 `overviewDisplayMode` 会在 load/save 迁移时移除。
+
+### 4.3 PluginConfiguration schema
+
+```typescript
+{
+    instanceId: string,      // UUID，可选（auto-seed 自动生成）
+    stateId: string,         // UUID
+    name: string,            // 显示名
+    enabled: boolean,
+    executablePath: string,  // 插件脚本完整路径
+    refreshIntervalSeconds: number,  // 60–3600 秒（1–60 分钟）
+    parameterValues: Record<string, string>,
+    endpointOverrides: Record<string, string>  // 覆盖插件 metadata 中的 endpoints 默认 URL
+}
+```
+
+### 4.4 密钥存储
+
+- API Key 通过 Settings 表单输入，存入 `secrets.json`（Electron safeStorage 加密）
+- 存储 key 格式：`${instanceId}:${paramName}`
+- 插件执行前由 `RefreshService` 从 `secretsStore` 读取并注入 `parameterValues` 副本
+- `secretParamKeys` 映射：从插件 metadata 的 `parameters` 中 `type === "secret"` 构建
+- config 保存时防抖 500ms，避免频繁写盘
+
+---
+
+## 5. 调度与刷新
+
+### 5.1 生命周期
+
+```
+app.whenReady()
+  → discoverPlugins(bundledDir) + discoverPlugins(userDir)
+  → compilePlugin(...) (esbuild → cached JS per source SHA-256)
+  → auto-seed: 为新发现的插件创建默认 PluginConfiguration
+  → createRefreshService(...)
+  → createPluginScheduler(...)
+  → createSchedulerOrchestrator(...)
+  → orchestrator.startAll(config)
+```
+
+### 5.2 SchedulerOrchestrator
+
+- `startAll(config)` — 启动所有 enabled plugins 的定时调度
+- `rebuild(config)` — stopAll + restart enabled（config save 时调用）
+- `suspend()` — stopAll（系统休眠时）
+- `resume()` — cancel safety net + reload config + restart enabled（唤醒时）
+- `shutdown()` — cancel safety net + stopAll（退出时）
+
+### 5.3 RefreshService 单次刷新流程
+
+```
+refresh(instanceId)
+  → 从 configStore 查找 PluginConfiguration
+  → 检查缓存：如未过期则直接更新 runtimeStore（ready）并返回，跳过实际刷新
+  → 从 secretsStore 读取 secret 参数并注入 parameterValues 副本
+  → commandBuilder(executablePath, parameterValues, language, nodePath) → 构建命令
+  → resolveRuntimeEnv(metadataEndpoints, pluginConfig, appConfig) → OMNI_PLUGIN_ENDPOINTS + OMNI_PLUGIN_PROXY
+  → 注入环境变量（OMNI_SOURCE_INSTANCE_ID、OMNI_PLUGIN_ENDPOINTS、OMNI_PLUGIN_PROXY）到 command
+  → executePlugin(command + env, timeout=15s) → spawn Node 子进程（ELECTRON_RUN_AS_NODE=1）
+  → parsePluginResult(stdout) → Zod schema 校验
+  → 成功时写入 cacheStore + runtimeStore（ready）
+  → 失败时写入 runtimeStore（failed），保留上次成功缓存（stale data）
+  → 通过 eventIpc 广播状态变更给 renderer
+```
+
+### 5.4 缓存策略
+
+- 成功结果写入 `states/{stateId}.json`
+- 下次刷新如果失败，保留上次成功的数据（stale data）
+- failed 状态的 provider card 展示 stale 数据 + 错误信息
+
+---
+
+## 6. UI
+
+### 6.1 系统托盘
+
+- **左键点击**：打开 / 聚焦主面板。主面板实际使用 Popup 还是 Floating Window，由窗口模式配置决定。
+- **右键点击**：打开自绘托盘菜单窗口，不打开主面板。
+    - 菜单项：打开主面板、立即刷新全部、暂停 / 恢复自动刷新、开机自启、设置、检查更新、重启 OmniUsage、退出 OmniUsage。
+    - **设置**：打开或聚焦独立 Settings 窗口。
+    - **退出**：退出应用。
+    - 菜单窗口宽高由菜单内容决定；菜单项变多或变少时窗口尺寸跟随内容变化。
+    - 不给托盘菜单设置额外固定高度，不用内部滚动条承载正常菜单内容。
+    - 不复用 Popup / Floating Window 的高度策略；只有屏幕可用区域放不下完整菜单时，才做边界修正。
+- E2E 模式（`E2E=1`）跳过 Tray，自动打开主面板；`E2E_WITH_TRAY=1` 时保留真实 Tray。
+
+### 6.2 窗口配置
+
+| 窗口     | 路由        | 尺寸                                              | frame | 特殊行为                                                                                                             |
+| -------- | ----------- | ------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------- |
+| Popup    | `#popup`    | 482 × (初始 480，按内容动态调整，min 472 max 780) | 无    | 可水平 resize；点击托盘时定位到图标下方，内容填满窗口高度，高度自动跟随内容；Windows 下不显示任务栏图标（详见 §6.7） |
+| Settings | `#settings` | 820 × 660                                         | 无    | 独立 BrowserWindow（frameless + custom titlebar），与 Popup 互不阻塞；通过 IPC `settings:open` 打开或聚焦            |
+| TrayMenu | `#tray`     | 按菜单内容测量，随菜单内容变化而变化              | 无    | 右键托盘菜单；不使用主面板高度策略，不为正常菜单内容显示滚动条                                                       |
+
+### 6.3 PopupView
+
+- 主用量 UI 按 provider 展示，不按插件 / connector 展示。
+- provider 页聚合来自多个 source 的同类账号数据。
+- CPA 仅是聚合 connector，只出现在 Settings / 数据源配置中；主 UI 不显示 CPA provider tab。禁用的 provider 卡片在主面板不显示（仅在设置中可见）。
+- CPA 采集的 Claude / Codex / Gemini / Antigravity / Kimi 账号合并到对应 provider 页面。
+- 标题 "OmniUsage"
+- 智能空状态：无插件 / 缺 key
+- "设置"按钮 → 打开独立 Settings 窗口（`window.usageboard.settings.open()`）
+- "刷新"按钮 → 触发所有 enabled 插件刷新
+- ProviderCard 列表（支持多账号、多 item 进度条）
+
+### 6.4 ProviderCard
+
+- `idle` / `loading`：显示 Skeleton 占位
+- `ready`：显示 provider 名 + 账号分组 + 使用量进度条 + 百分比/分数值 + 相对时间（"刚刚" / "X 分钟前"，每秒更新）
+- `failed`：显示错误信息 + stale 数据（如有）+ 相对时间
+- **用量条颜色**：默认使用「风险色：仅当前用量」；可在设置中切换「风险色：带投影预测」或「彩色区分：九色循环」（`idx % 9`）。
+    - **风险色：仅当前用量**：只看当前用量百分比 `pct`。
+
+        | 条件        | 颜色 |
+        | ----------- | ---- |
+        | `pct >= 95` | 红   |
+        | `pct > 85`  | 橙   |
+        | `pct > 60`  | 黄   |
+        | 其他        | 绿   |
+
+    - **风险色：带投影预测**：先预测窗口结束时的用量比例。
+
+        ```text
+        projected = pct / 100 / elapsed
+        ```
+
+        - `pct`：当前用量百分比。
+        - `elapsed`：当前额度窗口已过时间比例（0..1）。
+
+        | 条件                              | 颜色 |
+        | --------------------------------- | ---- |
+        | `pct >= 95` 或 `projected >= 1`   | 红   |
+        | `pct > 85` 或 `projected >= 0.9`  | 橙   |
+        | `pct > 60` 或 `projected >= 0.75` | 黄   |
+        | 其他                              | 绿   |
+
+        缺少 `elapsed`、`elapsed <= 0`、无重置时间或无法识别窗口周期时，回退「风险色：仅当前用量」。
+
+- **数值显示**：`displayStyle: "percent"` 显示百分比；`displayStyle: "ratio"` 显示 `used/limit`，reset 列留空；数字列居中对齐。
+- **空用量条**：`used == null` 时进度条宽度为 0，不显示数字和 reset 时间。
+- **总览页就地展开**：总览 tab 下的 ProviderCard 支持 chevron 展开/折叠，展开后显示该 provider 的账号列表，折叠/展开驱动高度自适应。失败状态的卡片也支持折叠/展开。
+- **多账号 L2 segmented control**：多账号 provider 展开后显示 `概览` / `N账号` 切换。默认"概览"视图按额度周期独立聚合当前可显示账号：只纳入有效 `used/limit` 数据，优先用 `sum(used) / sum(limit)` 计算整体使用率；无有效数据的周期不显示伪造数值。点击"N账号"切换到账号明细视图（`.acct-detail`），显示状态点、账号名、脱敏 key、更新时间、进度条。单账号 provider 不显示 L2 控件。
+- **概览时间显示**：多账号概览的采集刷新时间和额度重置时间都不取均值；同一周期内有效账号时间差不超过 10 分钟时显示最新时间，超过 10 分钟则不显示该时间；投影预测颜色也不使用该周期的重置时间，退回当前用量颜色。
+- **卡片菜单**：编辑 / 启用或关闭 / 删除，相对卡片右上角定位，毛玻璃背景（`backdrop-filter: blur(28px) saturate(170%)`）。
+- **禁用状态**：`disabled` class 灰化卡片，显示"监控已关闭，不再刷新用量" + "启用"操作。
+- **账号级操作**：provider 展开后，每个账号行有独立菜单（编辑 / 隐藏或删除）。操作按来源区分：
+    - **CPA 来源账号**：菜单显示"编辑"+"隐藏"。隐藏只写入本地 `accountOverrides.hidden`，不调用远端删除；隐藏后从主面板消失，可在设置页恢复。
+    - **直接添加账号**：菜单显示"编辑"+"删除"。删除会移除本地插件配置及对应 secret。
+    - 账号操作只影响目标账号，不影响同 provider 下其他账号。
+    - 概览聚合自动排除已隐藏的账号。
+    - 编辑打开设置窗口（后续可扩展为定位到具体账号）。
+- **Tab 导航**：总览 tab `.pinned` + `.tabs-pin-divider` 分隔线 + `.tabs-fade.right` 渐隐 + `.tabs-chevron` 箭头。各 provider 使用品牌 SVG 图标。
+
+### 6.5 SettingsView
+
+- 独立 BrowserWindow（820×660，frameless + custom titlebar），通过 IPC `settings:open` 打开，与 Popup 互不阻塞
+- 左侧导航（176px）：常规、账号、数据源（CPA 才显示）、外观、通知、数据与隐私、关于
+- 数据源页：CPA Manager 卡片列表 + 详情页（复用 CpaConnectorSettings）
+- 添加账号：服务选择 picker（常用服务网格 + CPA Manager 高级入口）
+- CPA 来源账号显示"来自 CPA Manager" badge，操作为"隐藏"（非删除）
+- CPA connector 配置只在 Settings / 数据源页展示，包含启用开关、CPA-Manager URL、管理密钥、provider 采集开关。禁用状态下仍可保存密钥，但不会触发刷新。
+- 选中后显示参数表单（由 PluginMetadata 自动生成）
+- 参数类型映射：`secret` → password input，`choice` → select，`boolean` → checkbox
+- 刷新间隔输入框（number，1–60 分钟）
+- 保存按钮（带 "已保存" 反馈）
+- 复制按钮（duplicate）
+- **持久化设置**：开机自启、启动后最小化、刷新间隔、暂停自动刷新、窗口置顶、强调色、主题（浅色/深色/系统）均保存到 config store，重启后恢复
+
+### 6.6 路由
+
+- Popup 基于 `window.location.hash`：`#popup`（默认）
+- Settings 窗口使用独立 BrowserWindow，通过 IPC `settings:open` 打开
+- `useRoute()` hook 监听 `hashchange` 事件
+
+### 6.7 Popup 动态高度（Phase 20）
+
+Popup 窗口的高度跟随渲染内容自动调整，避免出现底部空白或滚动条以外的留白。
+
+- **测量**：渲染层在 `.window` 容器上挂一对离屏 `.popup-mirror`（一份展开、一份全部折叠），通过 `ResizeObserver` 上报两个值：
+    - `content_height`：当前可见状态下的真实高度。
+    - `collapsed_min_height`：若所有可折叠卡片都折叠后的最小高度。
+- **IPC**：渲染进程通过 `popup:reportContentHeight` 频道发送 `PopupContentHeightReport`（`window.usageboard.popup.report_content_height`）。该频道是单向的 popup 专用通道，**不属于插件协议**，不会写入 `docs/archive/plugin_contract.md`。
+- **主进程裁剪**：`src/main/core/popup/popup-height-controller.ts` 把目标高度限制在 `[collapsed_min_height, floor(workArea.height * 0.75)]`，并对差值 ≤ 1px 的上报做去抖。
+- **窗口锚定**：调整高度时保持宽度（460）不变。平台策略如下：
+    - **macOS**：窗口不可由用户拖动（titlebar 无 `-webkit-app-region: drag`），每次 resize 从托盘图标重新计算锚点位置，保持 popover 贴住图标。
+    - **Windows**：可拖动浮动窗口。用户移动后，后续 resize 只改高度不改顶部位置，不会重新吸回托盘。未移动时，首次打开由 tray click handler 完成定位，后续 resize 同样保留 `current.y`，避免顶部下跳。
+    - **Linux**：按 Windows 浮动窗口处理。tray bounds 可用时初始贴近托盘；不可靠时使用当前鼠标所在 display 的 work area 右下角兜底。窗口可拖动，高度变化不重置用户位置。
+- **重置语义**：`reset()` 在 popup 重新打开后被调用，使下一次上报必定触发一次 `setBounds`。
+
+### 6.8 主面板模式（MainPanelMode）
+
+主面板支持三种窗口模式，由 `mainPanelMode` 配置控制：
+
+- **`system`**：平台默认行为。macOS 使用 Popup（贴托盘图标），Windows/Linux 使用 Floating Window。
+- **`popup`**：强制 Popup 模式，类似 macOS 托盘 popover。
+- **`floating`**：强制浮动窗口模式，可自由拖动和 resize。
+
+Floating 窗口额外支持 `floatingHeightMode`：
+
+- **`followContent`**：高度跟随内容动态调整（同 Popup）。
+- **`fixed`**：固定高度，首次打开用配置中的 `floatingBounds`，用户 resize 后自动保存。
+
+Floating 窗口有独立标题栏（`-webkit-app-region: drag`）和拖拽手柄。
+
+---
+
+## 7. IPC 接口
+
+### 7.1 plugin:list
+
+返回 `ConnectorInfo[]`（代码中 `PluginInfo = ConnectorInfo`），每个包含：
+
+```typescript
+{
+    instanceId: string,
+    sourceInstanceId: string,
+    stateId: string,
+    name: string,
+    displayName: string,              // 去重后的显示名
+    enabled: boolean,
+    source: UsageSource,              // "cpa" | "direct" | "local" | "api_key" | "oauth"
+    supportedProviders: UsageProvider[],
+    activeProviders: UsageProvider[],
+    metadata: PluginMetadata | null,
+    snapshot: PluginSnapshotDTO       // idle | loading | ready | failed
+}
+```
+
+### 7.2 plugin:getState
+
+获取单个插件当前快照（`PluginSnapshotDTO`）。
+
+### 7.3 plugin:refresh / plugin:refreshAll
+
+- `plugin:refresh` — 触发指定实例手动刷新
+- `plugin:refreshAll` — 触发所有 enabled 插件刷新
+
+### 7.4 config:get / config:save / config:duplicate / config:export / config:import
+
+- `config:get` — 返回当前配置及 secret 存在状态 `{ config, hasSecrets }`
+- `config:save` — 接收完整 AppConfiguration，schema 校验后写入（防抖 500ms）
+- `config:duplicate` — 复制指定插件配置（含 secret）
+- `config:export` — 导出配置和密钥到文件
+- `config:import` — 从文件导入配置和密钥
+
+### 7.4.1 跨窗口配置同步
+
+Main 进程在 config save 成功后，通过 `config:changed` IPC 向所有窗口广播新配置。各 renderer 窗口监听该事件以保持配置同步：
+
+- **PopupView**：通过 `event.onConfigChange` 监听，收到后刷新插件列表
+- **SettingsView**（via `use_config` hook）：通过 `event.onConfigChange` 监听，收到后更新本地 config state
+- **自身 save 去重**：`save()` 乐观更新本地 state 并保存 `config_ref` 引用；收到 `config:changed` 时若引用相同则跳过，避免重复渲染
+
+### 7.5 config:saveSecrets
+
+批量写入 secrets（`{ instanceId, secrets: Record<string, string> }`），密钥在 main 进程通过 safeStorage 加密存储。
+
+### 7.6 event:stateChange / event:themeChange
+
+- `event:stateChange` — Main → Renderer 广播，当插件状态变更时推送 `instanceId + snapshot`
+- `event:themeChange` — Main → Renderer 广播，当系统主题变化时推送 `isDark: boolean`
+
+### 7.7 theme:set
+
+Renderer → Main，设置主题模式（`"light"` | `"dark"` | `"system"`）。
+
+### 7.8 popup:reportContentHeight
+
+Renderer → Main 单向通道，上报内容测量高度。Payload：
+
+```typescript
+{ content_height: number, collapsed_min_height: number }
+```
+
+### 7.9 settings:open / settings:navigate / settings:minimize / settings:maximize / settings:close
+
+独立 Settings 窗口控制通道：
+
+- `settings:open` — 打开或聚焦 Settings 窗口，可选传入 `SettingsOpenContext`（含 `instanceId`、`provider`、`accountId` 用于定位）
+- `settings:navigate` — 导航到指定设置页面
+- `settings:minimize` / `settings:maximize` / `settings:close` — 窗口控制
+
+### 7.10 mainPanel:hide / mainPanel:getMode
+
+主面板控制：
+
+- `mainPanel:hide` — 隐藏主面板
+- `mainPanel:getMode` — 返回当前主面板模式（`"popup"` | `"floating"`）
+
+### 7.11 tray:\* 托盘菜单通道
+
+| 通道                   | 方向            | 说明                           |
+| ---------------------- | --------------- | ------------------------------ |
+| `tray:openPanel`       | Renderer → Main | 打开主面板                     |
+| `tray:refreshAll`      | Renderer → Main | 立即刷新全部                   |
+| `tray:togglePause`     | Renderer → Main | 切换暂停/恢复自动刷新          |
+| `tray:toggleAutostart` | Renderer → Main | 切换开机自启                   |
+| `tray:openSettings`    | Renderer → Main | 打开设置窗口                   |
+| `tray:checkUpdate`     | Renderer → Main | 检查更新                       |
+| `tray:restart`         | Renderer → Main | 重启应用                       |
+| `tray:quit`            | Renderer → Main | 退出应用                       |
+| `tray:hide`            | Renderer → Main | 隐藏托盘菜单                   |
+| `tray:reportMenuSize`  | Renderer → Main | 上报菜单尺寸 `{width, height}` |
+| `tray:pauseState`      | Main → Renderer | 推送暂停状态                   |
+| `tray:autostartState`  | Main → Renderer | 推送开机自启状态               |
+
+### 7.12 auth:cookieLogin / auth:refreshCookies
+
+Cookie 认证相关（MiMo 等需要浏览器 Cookie 的插件）：
+
+- `auth:cookieLogin` — 打开浏览器登录窗口，拦截 Cookie 并保存
+- `auth:refreshCookies` — 触发所有已保存 Cookie 的刷新，返回 `{ refreshed, failed }`
+
+### 7.13 log:renderer / log:export
+
+- `log:renderer` — Renderer → Main，渲染进程日志转发。Payload：`{ level, module, message, meta? }`
+- `log:export` — 导出日志文件
+
+---
+
+## 8. 安全模型
+
+| 层级     | 措施                                                             |
+| -------- | ---------------------------------------------------------------- |
+| Electron | contextIsolation + sandbox + nodeIntegration=false               |
+| IPC      | contextBridge 白名单，不允许任意 channel                         |
+| 密钥     | Electron safeStorage 加密存储；开发期 raw debug 日志可记录明文值 |
+| 日志     | 新增 full raw payload 仅开发环境输出，不做脱敏                   |
+| Git      | secrets.json 在 .gitignore，pre-commit gitleaks 扫描             |
+| SAST     | Semgrep 自定义规则（no nodeIntegration、no eval、no remote）     |
+| 依赖     | dependency-cruiser 禁止 renderer import Node API                 |
+
+---
+
+## 9. 测试策略
+
+### 9.1 分层
+
+| 层级       | 目录                    | 框架             | 职责                                                             |
+| ---------- | ----------------------- | ---------------- | ---------------------------------------------------------------- |
+| 单元测试   | `tests/unit/`           | Vitest           | 纯函数、schema 校验、parser                                      |
+| 集成测试   | `tests/integration/`    | Vitest           | 主进程模块（config/cache/scheduler/runner）                      |
+| 烟雾测试   | `tests/smoke/`          | Vitest           | Renderer 组件（mock IPC，jsdom）                                 |
+| 端到端测试 | `tests/user_e2e/`       | Playwright       | 真实 Electron 实例，模拟用户操作                                 |
+| 打包 smoke | `tests/packaged_smoke/` | Playwright + CDP | 验证打包产物可启动、渲染正常、内置插件可发现；托盘显示需人工验收 |
+
+### 9.2 运行命令
+
+```bash
+pnpm check          # typecheck + lint + format + deadcode + arch
+pnpm test           # unit + integration + smoke
+pnpm test:e2e       # Playwright + Electron
+pnpm package        # 打包并启动
+```
+
+### 9.3 代码质量门禁
+
+| 工具                | 用途                           |
+| ------------------- | ------------------------------ |
+| TypeScript          | `strict: true` + 额外严格选项  |
+| ESLint              | type-aware，`--max-warnings=0` |
+| Prettier            | 格式化检查                     |
+| Knip                | 未使用文件/依赖检测            |
+| dependency-cruiser  | 循环依赖、层级约束             |
+| Husky + lint-staged | pre-commit: lint + format      |
+
+---
+
+## 10. 平台差异
+
+### 10.1 插件运行时
+
+无外部依赖。Electron 内置 Node 即为插件运行时（`process.execPath` + `ELECTRON_RUN_AS_NODE=1`），三平台一致，用户不需要安装任何额外运行时。
+
+### 10.2 数据目录
+
+| 平台    | 路径                                      |
+| ------- | ----------------------------------------- |
+| Windows | `%APPDATA%/OmniUsage`                     |
+| macOS   | `~/Library/Application Support/OmniUsage` |
+| Linux   | `~/.config/OmniUsage`                     |
+
+### 10.3 插件路径
+
+| 环境   | 路径                             |
+| ------ | -------------------------------- |
+| 开发   | `<project>/assets/plugins/`      |
+| 打包后 | `process.resourcesPath/plugins/` |
+
+### 10.4 已知限制
+
+- 打包产物从 `process.resourcesPath` 加载托盘图标、窗口图标、内置插件和 SDK；内置插件和 SDK 启动时做 SHA-256 完整性校验
+- 打包格式：electron-builder（Windows NSIS / macOS DMG+ZIP / Linux AppImage+DEB+RPM）
