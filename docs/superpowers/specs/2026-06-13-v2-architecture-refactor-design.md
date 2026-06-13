@@ -73,16 +73,18 @@ CREATE TABLE observations (
     last_error TEXT
 );
 
-CREATE UNIQUE INDEX idx_latest
-    ON observations(provider, account_id, metric_id, source_instance_id);
+-- append-only 历史表，同一 key 可有多行（v2 §4.2: 趋势图留口子）
+-- latest 语义由查询层实现：取 max(observed_at)
+CREATE INDEX idx_lookup
+    ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
 ```
 
-- `better-sqlite3`，同步 API，WAL 模式
-- 多来源存储：同一 `(provider, account_id, metric_id)` 可能被多个 `source_instance_id` 采集到，各自保留一条观测行
-- **latest 语义由查询层实现**：取同一 `(provider, account_id, metric_id)` 下 `observed_at` 最新的那条作为当前值
+- `better-sqlite3`，同步 API，WAL 模式（原生模块，需过 Electron ABI rebuild，见 §13 PoC）
+- **append-only 设计**：每条观测写一行，不做 upsert 覆盖；同 `(provider, account_id, metric_id, source_instance_id)` 可有多行历史
+- **latest 语义由查询层实现**：`SELECT ... WHERE (provider, account_id, metric_id, source_instance_id) = ... ORDER BY observed_at DESC LIMIT 1`
 - 采集失败不覆盖、不删除，保留最近成功观测，标记 `stale`
 - `observedAt` 由宿主盖章，不信任脚本自报
-- 历史裁剪：定期清理 90 天前的非 latest 观测（默认值，可配置）
+- 历史裁剪：定期清理 90 天前的非 latest 观测（默认 90 天，可配置）
 
 ### 2.3 聚合规则
 
@@ -98,9 +100,14 @@ CREATE UNIQUE INDEX idx_latest
 
 ```
 {userData}/
-  vault.key        # 32字节随机主密钥，首次启动生成，文件权限 0600
+  vault.key        # 32字节随机主密钥，首次启动生成
   secrets.vault    # JSON，每条 secret 以 AES-256-GCM 独立加密
 ```
+
+**vault.key 文件保护：**
+
+- Linux/macOS：文件权限 `0600`
+- Windows：NTFS ACL 仅当前用户可读（`icacls vault.key /inheritance:r /grant:r %USERNAME%:F`），`chmod 0600` 在 NTFS 上近乎 no-op，不够
 
 每条 secret 格式：`{ iv: 12字节, tag: 16字节, ciphertext: base64 }`
 
@@ -169,7 +176,23 @@ interface VaultBackend {
 | `session` | 网页后台登录态     | 受控登录窗口 + 凭据捕获 + 附加凭据发 HTTP |
 | `observe` | 响应头             | LocalAPI 收上报 + 按声明探测              |
 
-### 4.3 Connector Runtime（isolated-vm 沙箱）
+### 4.3 Connector Runtime（沙箱）
+
+**沙箱后端：isolated-vm 优先，node:vm 退路兜底。**
+
+两个后端共享同一 `ConnectorContext` 接口，宿主层不感知差异：
+
+| 后端                   | 隔离强度     | 依赖                                    | 风险                    |
+| ---------------------- | ------------ | --------------------------------------- | ----------------------- |
+| `isolated-vm`          | 强（独立堆） | 原生模块，三平台 + Electron ABI rebuild | 构建/维护成本，见 §13   |
+| `node:vm` + 冻结空全局 | 弱（共享堆） | 零依赖                                  | 需配合 SHA-256 + 仅内置 |
+
+**P2 必须先跑沙箱 PoC（§13）**，结论决定：
+
+- PoC 通过 → isolated-vm 为默认，开放 Tier 2 给第三方
+- PoC 不通过 → 退回 node:vm，第三方连接器只开放 Tier 1（纯声明），Tier 2 仅限内置
+
+**跨 isolate marshaling 注意事项**（isolated-vm）：`ctx.http.getJson` 是异步宿主调用，跨 isolate 需通过 `Reference` / `ExternalCopy` 做序列化桥接，async 回传不平凡。PoC 里必须验证：宿主函数注入、异步返回值传递、超时中断，而非只验证"能否编译"。
 
 ```ts
 interface ConnectorContext {
@@ -193,7 +216,7 @@ type ConnectorFunction = (ctx: ConnectorContext) => Promise<Observation[]>;
 
 约束：
 
-- 脚本经 esbuild 编译（SHA-256 缓存），在 isolated-vm 中执行
+- 脚本经 esbuild 编译（SHA-256 缓存），在沙箱中执行
 - 沙箱内没有 `require`、`process`、`fs`、`fetch`
 - 一切 I/O 通过 `ctx` 注入，由宿主按 manifest 约束代办
 - 超时 15 秒，同实例串行
@@ -210,6 +233,14 @@ type ConnectorFunction = (ctx: ConnectorContext) => Promise<Observation[]>;
 - 跨来源去重：同一 `(provider, accountId, metricId)` 的多条观测，`observedAt` 最新者胜
 - 错误归属到 account 级，不是 source 级：单账号失败不阻塞其他
 - CPA 账号只能隐藏（写 `accountOverrides.hidden`），直连账号才能删除
+
+### 4.6 单账号 provider 的 accountId
+
+CPA 多账号的 accountId 规则清晰（邮箱/UUID），但 Tavily/DeepSeek 等"一实例一账号"的 `accountId` 取什么？**统一规则**：
+
+- 多账号 provider（CPA）：使用聚合源返回的稳定账号标识
+- 单账号 provider（Tavily 等）：`accountId` 固定为 `"default"`（一个实例只对应一个账号，无需区分）
+- 该规则写入 manifest schema 的文档注释，确保所有连接器作者知晓
 
 ---
 
@@ -321,16 +352,20 @@ src/
       observation/     # 新增：SQLite store + types
       connector/       # 新增：替代现有 plugin/，含 runtime + manifest
       local-api/       # 新增：LocalAPI server
-      session/         # 新增：SessionManager
+      session/         # 新增：SessionManager（并入现有 cookie-refresh）
       scheduler/       # 改造：目标从 plugin 改为 connector
       cache/           # 删除：被 SQLite 替代
       plugin/          # 删除：被 connector 替代
       config/          # 改造：secrets-store → vault
+      cookie-refresh/  # 删除：并入 session/（续期是 session 能力的一部分）
+      popup/           # 保留：popup 窗口控制逻辑不变
+      main-panel/      # 保留：主面板窗口控制逻辑不变
+      storage/         # 保留：JSON 读写工具，config.json 仍用
     ipc/               # 改造：命令集对齐新架构
   shared/
     types/
       observation.ts   # 新增
-      config.ts        # 改造
+      config.ts        # 改造：PluginConfiguration → ConnectorConfiguration
     schemas/
       manifest.ts      # 新增：manifest Zod schema
       observation.ts   # 新增：observation Zod schema
@@ -345,6 +380,31 @@ src/
       manifest.json
     ...
 ```
+
+### 9.1 现有模块 → v2 去向
+
+| 现有模块                                   | v2 去向                                            | 说明                                   |
+| ------------------------------------------ | -------------------------------------------------- | -------------------------------------- |
+| `core/plugin/runner.ts`                    | `core/connector/runtime.ts`                        | spawn → 沙箱                           |
+| `core/plugin/command-builder.ts`           | 删除                                               | 能力注入取代 spawn 参数构建            |
+| `core/plugin/output-parser.ts`             | 删除                                               | 返回结构化数据，无需解析 stdout        |
+| `core/plugin/metadata-parser.ts`           | `core/connector/manifest-loader.ts`                | 注释块 → JSON + Zod                    |
+| `core/plugin/compiler.ts`                  | 保留并入 `core/connector/`                         | esbuild 编译逻辑不变                   |
+| `core/plugin/discovery.ts`                 | 保留并入 `core/connector/`                         | 发现逻辑不变，目标改为 manifest        |
+| `core/plugin/bundled_resource_verifier.ts` | 保留并入 `core/connector/`                         | SHA-256 完整性校验不变                 |
+| `core/plugin/types.ts`                     | `core/connector/types.ts`                          | PluginDefinition → ConnectorDefinition |
+| `core/config/secrets-store.ts`             | `core/vault/`                                      | safeStorage → 自管 Vault               |
+| `core/config/crypto-backend.ts`            | 删除                                               | Vault 统一处理加解密                   |
+| `core/config/safe-storage-crypto.ts`       | 删除                                               | 被 Vault 替代                          |
+| `core/cache/`                              | `core/observation/`                                | JSON → SQLite                          |
+| `core/cookie-refresh/`                     | `core/session/`                                    | 续期是 session 能力的一部分            |
+| `core/popup/`                              | 保留不变                                           | 窗口控制逻辑                           |
+| `core/main-panel/`                         | 保留不变                                           | 窗口控制逻辑                           |
+| `core/storage/write-json.ts`               | 保留不变                                           | config.json 读写                       |
+| `core/logging.ts`                          | 改造：删除 `should_log_raw_debug()`，加强 scrubber |                                        |
+| `plugins/sdk/`                             | 删除                                               | 被连接器 SDK 替代                      |
+| `shared/schemas/plugin-output.ts`          | `shared/schemas/observation.ts`                    |                                        |
+| `shared/schemas/plugin-metadata.ts`        | `shared/schemas/manifest.ts`                       |                                        |
 
 ---
 
@@ -372,12 +432,14 @@ src/
 
 - Observation 类型 + SQLite schema + Zod 校验
 - SecretsVault（FileVaultBackend）
-- 测试：Vault 加解密、SQLite 读写、observation upsert 语义
+- 测试：Vault 加解密、SQLite 读写、observation append 语义、latest 查询正确性
 
-### P2：连接器 Runtime
+### P2：沙箱 PoC + 连接器 Runtime
 
+- **沙箱 PoC（前置 gate）**：验证 isolated-vm 在 Windows + Electron ABI 下的编译、宿主函数注入、异步返回值传递、超时中断。见 §13
+- PoC 结论决定沙箱后端选择（isolated-vm vs node:vm）
 - Manifest schema + loader
-- Connector Runtime（isolated-vm 沙箱）
+- Connector Runtime（按 PoC 结论选后端）
 - Tier 1 声明式 poll 执行器
 - 迁移 Tavily（最简单的 Tier 1）
 - 测试：manifest 校验、沙箱隔离、HTTP 能力注入
@@ -389,12 +451,14 @@ src/
 - 迁移 DeepSeek/GLM/MiniMax（Tier 1）
 - 测试：调度生命周期、退避策略、自适应频率
 
-### P4：LocalAPI
+### P4：LocalAPI + Brave（observe 能力验收）
 
+- **前置决策**：LocalAPI 端口选择（固定默认值 `17863` 便于用户写死，或自动分配 + UI 展示。推荐固定默认值 + 端口冲突自动 fallback）
 - `http.createServer` + Bearer token
 - `/v1/health` + `/v1/ingest` + 可选网关
-- SDK wrapper 示例
-- 测试：token 校验、ingest 入库、网关白名单
+- Brave 连接器上线：走通 `observe` → `ingest` → UI 的完整链路，作为 observe 能力的验收点
+- SDK wrapper 示例（Python/Node）
+- 测试：token 校验、ingest 入库、网关白名单、Brave 探测 + 上报
 
 ### P5：SessionManager + Tier 2
 
@@ -419,11 +483,55 @@ src/
 
 ---
 
-## 12. 开放问题（继承自 v2 文档）
+## 12. 阶段映射（本 spec ↔ 源 v2 文档）
 
-1. isolated-vm 在三平台 + Electron ABI 下的构建/维护成本是否可接受？
-2. `exposeToScript` 例外第一版暂不实现，遇到第一个需要客户端签名的服务商再加
-3. SQLite 观测历史保留时长与裁剪策略（默认 90 天？）
-4. LocalAPI 端口：固定默认值还是自动分配？
-5. 可选主口令的排期
-6. 配置导入导出兼容性（clean break 场景下不适用）
+| 源 v2 阶段 | 本 spec 阶段        | 说明                                                    |
+| ---------- | ------------------- | ------------------------------------------------------- |
+| P1 地基    | P1                  | Observation + SQLite + Vault                            |
+| P2 沙箱    | P2（拆出 PoC gate） | 源文档说"PoC 定选型"，本 spec 把 PoC 提为 P2 前置 gate  |
+| P3 会话    | P5                  | SessionManager + Tier 2，本 spec 延后因为 Tier 1 可先上 |
+| P4 观测    | P4                  | LocalAPI + ingest + Brave 验收                          |
+| —          | P3                  | 本 spec 新增：Scheduler 改造（源文档没有单独阶段）      |
+| —          | P6                  | 本 spec 新增：UI 改造（源文档说"UI 细节不在范围"）      |
+| —          | P7                  | 本 spec 新增：旧代码清理                                |
+
+---
+
+## 13. 原生模块 PoC（P2 前置 gate）
+
+P2 动工前必须完成两个原生模块的 PoC，结论决定后续技术选型。
+
+### 13.1 isolated-vm PoC
+
+验证清单：
+
+- [ ] Windows + Electron 当前 ABI 版本下 `npm rebuild isolated-vm` 成功
+- [ ] 宿主函数注入：将 `ctx.http.getJson` 注入 isolate 并可调用
+- [ ] 异步返回值：`Reference` / `ExternalCopy` 序列化桥接，Promise 回传正确
+- [ ] 超时中断：`isolate.compileScript().run({ timeout: 15000 })` 可靠中断
+- [ ] 脚本隔离：无法访问 `require`、`process`、`fs`
+- [ ] 内存限制：isolate 堆限制设置生效
+
+**不通过时的退路**：`node:vm` + `vm.runInNewContext()` + 冻结空全局。第三方连接器只开放 Tier 1。
+
+### 13.2 better-sqlite3 PoC
+
+better-sqlite3 同为原生模块，需过 Electron ABI rebuild。验证清单：
+
+- [ ] Windows + Electron 当前 ABI 版本下 `npm rebuild better-sqlite3` 成功
+- [ ] WAL 模式在打包后可正常启用
+- [ ] 数据库文件路径在 `app.getPath('userData')` 下可正常读写
+- [ ] 大量观测写入（模拟 1000 条/秒）性能满足要求
+
+---
+
+## 14. 开放问题
+
+| #   | 问题                                       | 状态                                                |
+| --- | ------------------------------------------ | --------------------------------------------------- |
+| 1   | isolated-vm 三平台 + Electron ABI 构建成本 | **P2 前置 PoC 解决**                                |
+| 2   | `exposeToScript` 例外口子                  | 暂不实现，遇到第一个需要客户端签名的服务商再加      |
+| 3   | SQLite 历史保留时长                        | 默认 90 天，可配置                                  |
+| 4   | LocalAPI 端口                              | **P4 前置决策**：推荐固定默认值 + 端口冲突 fallback |
+| 5   | 可选主口令（用户口令参与主密钥派生）       | P7 后考虑，不阻塞任何阶段                           |
+| 6   | 配置导入导出兼容性                         | clean break 场景下不适用，已确认无需迁移            |
