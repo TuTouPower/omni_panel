@@ -90,4 +90,36 @@ describe("file-vault-backend", () => {
         const vault2 = await create_file_vault_backend(temp_dir);
         expect(await vault2.get("key")).toBeNull();
     });
+
+    it("does not leak full key name in logs on decrypt failure", async () => {
+        const { addTransport } = await import("../../../src/shared/lib/logger");
+        const logged_messages: string[] = [];
+        const remove_transport = addTransport({
+            write(_level, _module, message) {
+                logged_messages.push(message);
+            },
+        });
+        try {
+            await vault.set("tavily-1:super-secret-key", "value");
+            const { writeFile } = await import("node:fs/promises");
+            await writeFile(
+                join(temp_dir, "secrets.vault"),
+                '{"tavily-1:super-secret-key":{"iv":"bad","tag":"bad","ciphertext":"bad"}}',
+            );
+            await vault.get("tavily-1:super-secret-key");
+
+            const full_key = "tavily-1:super-secret-key";
+            for (const msg of logged_messages) {
+                expect(msg).not.toContain(full_key);
+            }
+        } finally {
+            remove_transport();
+        }
+    });
+
+    it("throws on corrupted vault JSON instead of silently returning empty", async () => {
+        const { writeFile } = await import("node:fs/promises");
+        await writeFile(join(temp_dir, "secrets.vault"), "not valid json {{{");
+        await expect(vault.get("any-key")).rejects.toThrow();
+    });
 });

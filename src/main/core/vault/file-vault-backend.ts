@@ -77,6 +77,16 @@ async function ensure_master_key(key_path: string): Promise<Buffer> {
     }
 }
 
+function redact_key(key: string): string {
+    const colon = key.indexOf(":");
+    if (colon < 0) {
+        return key.length <= 4 ? "***" : `${key.slice(0, 4)}***`;
+    }
+    const prefix = key.slice(0, colon + 1);
+    const rest = key.slice(colon + 1);
+    return `${prefix}${rest.length <= 4 ? "***" : `${rest.slice(0, 4)}***`}`;
+}
+
 export async function create_file_vault_backend(user_data_dir: string): Promise<VaultBackend> {
     const vault_path = join(user_data_dir, "secrets.vault");
     const key_path = join(user_data_dir, "vault.key");
@@ -100,8 +110,13 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
         try {
             const raw = await readFile(vault_path, "utf8");
             return JSON.parse(raw) as Record<string, VaultEntry>;
-        } catch {
-            return {};
+        } catch (error) {
+            if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+                return {};
+            }
+            throw new Error(
+                `Failed to parse vault file (possibly corrupted): ${(error as Error).message}`,
+            );
         }
     }
 
@@ -119,7 +134,7 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
             try {
                 return decrypt_value(master_key, entry);
             } catch {
-                log.warn(`Failed to decrypt vault key: ${key}`);
+                log.warn(`Failed to decrypt vault key: ${redact_key(key)}`);
                 return null;
             }
         },
