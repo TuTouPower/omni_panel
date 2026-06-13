@@ -152,6 +152,162 @@ describe("cpa connector", () => {
         expect(result.observations).toEqual([]);
     });
 
+    it("produces Codex observations via CPA api-call", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [{ name: "auth-codex-1.json", provider: "codex", auth_index: "codex-auth" }],
+            });
+        ctx.http.post_json = (_ep, _path, body) => {
+            const url = (body as { url?: string }).url ?? "";
+            if (url.includes("chatgpt.com")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: {
+                        rate_limit: {
+                            primary_window: {
+                                used_percent: 35.2,
+                                reset_at: "2026-06-14T12:00:00Z",
+                            },
+                            secondary_window: { used_percent: 12.5, reset_at: null },
+                        },
+                    },
+                });
+            }
+            return Promise.resolve({ status_code: 404, body: {} });
+        };
+        ctx.params = { cpa_mgmt_key: "management-key" };
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        const codex = result.observations.filter((o) => o.provider === "codex");
+        expect(codex.length).toBe(2);
+        expect(codex[0]).toEqual(
+            expect.objectContaining({
+                provider: "codex",
+                source_instance_id: "cpa",
+                source: "gateway",
+                window: "second",
+                display_style: "percent",
+            }),
+        );
+        expect(codex[0]?.used).toBeCloseTo(35.2, 0);
+        expect(codex[1]?.used).toBeCloseTo(12.5, 0);
+    });
+
+    it("produces Gemini observations via CPA api-call", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [
+                    {
+                        name: "auth-gemini-cli-1.json",
+                        provider: "gemini-cli",
+                        auth_index: "gem-auth",
+                    },
+                ],
+            });
+        ctx.http.post_json = (_ep, _path, body) => {
+            const url = (body as { url?: string }).url ?? "";
+            if (url.includes("loadCodeAssist")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: { cloudaicompanionProject: "proj-123" },
+                });
+            }
+            if (url.includes("retrieveUserQuota")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: {
+                        buckets: [
+                            {
+                                modelId: "gemini-2.5-pro",
+                                tokenType: "input_tokens",
+                                remainingFraction: 0.72,
+                                resetTime: "2026-06-15T00:00:00Z",
+                            },
+                            {
+                                modelId: "gemini-2.5-flash",
+                                tokenType: "output_tokens",
+                                remainingFraction: 0.95,
+                                resetTime: null,
+                            },
+                        ],
+                    },
+                });
+            }
+            return Promise.resolve({ status_code: 404, body: {} });
+        };
+        ctx.params = { cpa_mgmt_key: "management-key" };
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        const gemini = result.observations.filter((o) => o.provider === "gemini");
+        expect(gemini.length).toBe(2);
+        expect(gemini[0]).toEqual(
+            expect.objectContaining({
+                provider: "gemini",
+                source_instance_id: "cpa",
+                source: "gateway",
+                display_style: "percent",
+            }),
+        );
+        // remainingFraction 0.72 → used = 28%
+        expect(gemini[0]?.used).toBeCloseTo(28, 0);
+    });
+
+    it("produces Kimi observations via CPA api-call", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [{ name: "auth-kimi-1.json", provider: "kimi", auth_index: "kimi-auth" }],
+            });
+        ctx.http.post_json = (_ep, _path, body) => {
+            const url = (body as { url?: string }).url ?? "";
+            if (url.includes("kimi.com")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: {
+                        limits: [
+                            {
+                                name: "coding_5h",
+                                title: "5小时",
+                                used: 300,
+                                limit: 1000,
+                                duration: "5",
+                                timeUnit: "hours",
+                                reset_at: "2026-06-14T10:00:00Z",
+                            },
+                        ],
+                    },
+                });
+            }
+            return Promise.resolve({ status_code: 404, body: {} });
+        };
+        ctx.params = { cpa_mgmt_key: "management-key" };
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        const kimi = result.observations.filter((o) => o.provider === "kimi");
+        expect(kimi.length).toBe(1);
+        expect(kimi[0]).toEqual(
+            expect.objectContaining({
+                provider: "kimi",
+                source_instance_id: "cpa",
+                source: "gateway",
+                used: 30,
+                limit: 100,
+                display_style: "percent",
+            }),
+        );
+    });
+
     it("does not crash on non-claude auth files when monitor switches are on", async () => {
         const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
         const ctx = create_ctx();
