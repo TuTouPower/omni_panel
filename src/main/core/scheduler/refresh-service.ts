@@ -165,7 +165,18 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             try {
                 const observations = await execute_connector(plugin, definition, deps.vault);
                 for (const obs of observations) {
-                    deps.observationStore.insert(obs);
+                    try {
+                        deps.observationStore.insert(obs);
+                    } catch (insert_error: unknown) {
+                        const insert_message =
+                            insert_error instanceof Error
+                                ? insert_error.message
+                                : String(insert_error);
+                        log.error(
+                            `Failed to insert observation for ${instanceId} (${plugin.name}): ${insert_message}`,
+                        );
+                        throw insert_error;
+                    }
                 }
                 const items = observations
                     .map((obs) => observation_to_usage_item(obs, definition))
