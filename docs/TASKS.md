@@ -17,15 +17,15 @@
 - MiMo：Cookie 认证，usage/detail/balance 三端点，套餐额度/补偿/余额。`cf67435`
 - MiniMax：`/v1/token_plan/remains`，模型类别映射、周期检测、weekly 冗余过滤。`62910b8`
 - GLM：`/api/monitor/usage/quota/limit`，周期码(5h/week/month)、kind(text/tool) 映射。`a761202`
+- Codex：扩展 `ctx.files.list` 目录枚举（`1bf166d`）；JSONL session 解析、token diff、按(model,day)聚合。`6d0ca36`
 
-**待迁移：**
+**待处理：**
 
-- Codex：`assets/plugins/codex-usage-plugin.ts` → `connectors/codex/connector.ts`。旧逻辑需 glob 枚举 `~/.codex/sessions/**/*.jsonl` 多文件、逐行 JSONL 解析、token 累积值 diff、按(model,day)聚合。当前 `ctx.files.read` 只支持精确路径，不支持目录枚举。需先扩展 `ConnectorContext.files` 接口（加 `list` 方法 + manifest local.paths 目录前缀安全检查），再实现 connector。
 - Gemini/Kimi/Antigravity：`713a266^:assets/plugins/` 中无独立旧插件，原本只来自 CPA。若产品要求独立入口，需补真实 API 实现或移除独立入口。当前 CPA connector 已支持这些 provider 的 monitor 开关（`147ccc0`），但非 Claude auth file 的 observation 产出尚未实现。
 
 **迁移参考：** 查看 `713a266^:assets/plugins/<name>-usage-plugin.ts` 的旧实现；`713a266` 是删除点。迁移时不要恢复旧 plugin runtime/SDK，只把业务逻辑改写到新 connector `ctx.http` / `Observation[]` 输出模型，并补对应集成测试。
 
-**验收：** 已迁移的 5 个 provider 添加凭据后刷新能产生非空 Observation；`pnpm test` 通过。Codex/Gemini/Kimi/Antigravity 待后续处理。
+**验收：** 已迁移的 6 个 provider 添加凭据后刷新能产生非空 Observation；`pnpm test` 通过。Gemini/Kimi/Antigravity 待产品决策。
 
 ### 已完成：多个服务编辑账号缺少密钥/Cookie 设置
 
