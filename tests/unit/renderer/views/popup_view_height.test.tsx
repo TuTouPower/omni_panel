@@ -129,6 +129,13 @@ describe("PopupView collapse + height report", () => {
                 refresh: plugin_refresh,
                 refreshAll: plugin_refresh_all,
             },
+            connector: {
+                list: plugin_list,
+                getState: vi.fn(),
+                refresh: plugin_refresh,
+                refreshAll: plugin_refresh_all,
+                snapshot: vi.fn().mockResolvedValue({}),
+            },
             config: {
                 get: vi.fn().mockResolvedValue({
                     config: {

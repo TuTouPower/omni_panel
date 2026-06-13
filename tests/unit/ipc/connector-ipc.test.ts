@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type { PluginSnapshotDTO } from "../../../src/shared/types/ipc";
+import type { ConnectorSnapshotDTO } from "../../../src/shared/types/ipc";
 import type { AppConfiguration } from "../../../src/shared/types/config";
 import type { RuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
 
@@ -28,7 +28,7 @@ function createMockDeps() {
         hasPendingSave: vi.fn().mockReturnValue(false),
     };
 
-    const readyState: PluginSnapshotDTO = {
+    const readyState: ConnectorSnapshotDTO = {
         status: "ready",
         items: [
             {
@@ -68,11 +68,11 @@ function createMockDeps() {
     return { configStore, runtimeStore, refreshService, definitions: [] };
 }
 
-describe("plugin-ipc", () => {
-    it("handlePluginList returns PluginInfo[]", async () => {
+describe("connector-ipc", () => {
+    it("handleConnectorList returns ConnectorInfo[]", async () => {
         const deps = createMockDeps();
-        const { handlePluginList } = await import("../../../src/main/ipc/plugin-ipc");
-        const result = await handlePluginList(deps);
+        const { handleConnectorList } = await import("../../../src/main/ipc/connector-ipc");
+        const result = await handleConnectorList(deps);
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -83,20 +83,20 @@ describe("plugin-ipc", () => {
         expect(item?.snapshot.status).toBe("ready");
     });
 
-    it("handlePluginGetState returns DTO for valid stateId", async () => {
+    it("handleConnectorGetState returns DTO for valid stateId", async () => {
         const deps = createMockDeps();
-        const { handlePluginGetState } = await import("../../../src/main/ipc/plugin-ipc");
-        const result = handlePluginGetState(deps, "claude");
+        const { handleConnectorGetState } = await import("../../../src/main/ipc/connector-ipc");
+        const result = handleConnectorGetState(deps, "claude");
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.data.status).toBe("ready");
     });
 
-    it("handlePluginGetState rejects empty stateId", async () => {
+    it("handleConnectorGetState rejects empty stateId", async () => {
         const deps = createMockDeps();
-        const { handlePluginGetState } = await import("../../../src/main/ipc/plugin-ipc");
-        const result = handlePluginGetState(deps, "");
+        const { handleConnectorGetState } = await import("../../../src/main/ipc/connector-ipc");
+        const result = handleConnectorGetState(deps, "");
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
@@ -104,26 +104,48 @@ describe("plugin-ipc", () => {
         }
     });
 
-    it("handlePluginRefresh calls refreshService.refresh with force", async () => {
+    it("handleConnectorRefresh calls refreshService.refresh with force", async () => {
         const deps = createMockDeps();
-        const { handlePluginRefresh } = await import("../../../src/main/ipc/plugin-ipc");
-        const result = await handlePluginRefresh(deps, "claude");
+        const { handleConnectorRefresh } = await import("../../../src/main/ipc/connector-ipc");
+        const result = await handleConnectorRefresh(deps, "claude");
 
         expect(result.ok).toBe(true);
         expect(deps.refreshService.refresh).toHaveBeenCalledWith("claude", { force: true });
     });
 
-    it("handlePluginRefreshAll calls refreshService.refreshAll", async () => {
+    it("handleConnectorRefreshAll calls refreshService.refreshAll", async () => {
         const deps = createMockDeps();
-        const { handlePluginRefreshAll } = await import("../../../src/main/ipc/plugin-ipc");
-        const result = await handlePluginRefreshAll(deps);
+        const { handleConnectorRefreshAll } = await import("../../../src/main/ipc/connector-ipc");
+        const result = await handleConnectorRefreshAll(deps);
 
         expect(result.ok).toBe(true);
         expect(deps.refreshService.refreshAll).toHaveBeenCalled();
     });
 
-    it("handlePluginList resolves metadata on Windows backslash paths", async () => {
-        const { handlePluginList } = await import("../../../src/main/ipc/plugin-ipc");
+    it("handleConnectorSnapshot returns all runtime snapshots", async () => {
+        const deps = createMockDeps();
+        deps.runtimeStore.getAll = vi.fn().mockReturnValue(
+            new Map([
+                [
+                    "claude",
+                    {
+                        status: "ready",
+                        items: [],
+                        updatedAt: new Date("2026-05-24T14:00:00.000Z"),
+                    },
+                ],
+            ]),
+        );
+        const { handleConnectorSnapshot } = await import("../../../src/main/ipc/connector-ipc");
+        const result = handleConnectorSnapshot(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data["claude"]?.status).toBe("ready");
+    });
+
+    it("handleConnectorList resolves metadata on Windows backslash paths", async () => {
+        const { handleConnectorList } = await import("../../../src/main/ipc/connector-ipc");
         const configStore = {
             load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
                 schemaVersion: 1,
@@ -180,7 +202,7 @@ describe("plugin-ipc", () => {
             },
         ];
         const deps = { configStore, runtimeStore, refreshService, definitions };
-        const result = await handlePluginList(deps);
+        const result = await handleConnectorList(deps);
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -196,8 +218,8 @@ describe("plugin-ipc", () => {
         expect(params?.[0]?.name).toBe("API_KEY");
     });
 
-    it("handlePluginList exposes CPA connector provider switches", async () => {
-        const { handlePluginList } = await import("../../../src/main/ipc/plugin-ipc");
+    it("handleConnectorList exposes CPA connector provider switches", async () => {
+        const { handleConnectorList } = await import("../../../src/main/ipc/connector-ipc");
         const configStore = {
             load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
                 schemaVersion: 1,
@@ -303,7 +325,7 @@ describe("plugin-ipc", () => {
             },
         ];
         const deps = { configStore, runtimeStore, refreshService, definitions };
-        const result = await handlePluginList(deps);
+        const result = await handleConnectorList(deps);
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;

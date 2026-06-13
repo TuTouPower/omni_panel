@@ -178,6 +178,13 @@ describe("SettingsView", () => {
                 refresh: vi.fn(),
                 refreshAll: vi.fn(),
             },
+            connector: {
+                list: vi.fn().mockResolvedValue([]),
+                getState: vi.fn(),
+                refresh: vi.fn(),
+                refreshAll: vi.fn(),
+                snapshot: vi.fn().mockResolvedValue({}),
+            },
             config: {
                 get: vi.fn(),
                 save: vi.fn(),

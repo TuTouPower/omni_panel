@@ -34,22 +34,26 @@ type UnwrapPromise<T> = T extends Promise<infer U> ? U : never;
 const renderer_platform: RendererPlatform =
     process.platform === "darwin" ? "darwin" : process.platform === "win32" ? "win32" : "linux";
 
-// Shared plugin methods (all windows need read access)
-const plugin_methods = {
+// Shared connector methods (all windows need read access)
+const connector_methods = {
     list: () =>
-        invoke<UnwrapPromise<ReturnType<UsageboardApi["plugin"]["list"]>>>(
-            IPC_CHANNELS.PLUGIN_LIST,
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["connector"]["list"]>>>(
+            IPC_CHANNELS.CONNECTOR_LIST,
         ),
     getState: (instanceId: string) =>
-        invoke<PluginSnapshotDTO>(IPC_CHANNELS.PLUGIN_GET_STATE, instanceId),
+        invoke<PluginSnapshotDTO>(IPC_CHANNELS.CONNECTOR_GET_STATE, instanceId),
     refresh: (instanceId: string) =>
-        invoke<UnwrapPromise<ReturnType<UsageboardApi["plugin"]["refresh"]>>>(
-            IPC_CHANNELS.PLUGIN_REFRESH,
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["connector"]["refresh"]>>>(
+            IPC_CHANNELS.CONNECTOR_REFRESH,
             instanceId,
         ),
     refreshAll: () =>
-        invoke<UnwrapPromise<ReturnType<UsageboardApi["plugin"]["refreshAll"]>>>(
-            IPC_CHANNELS.PLUGIN_REFRESH_ALL,
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["connector"]["refreshAll"]>>>(
+            IPC_CHANNELS.CONNECTOR_REFRESH_ALL,
+        ),
+    snapshot: () =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["connector"]["snapshot"]>>>(
+            IPC_CHANNELS.CONNECTOR_SNAPSHOT,
         ),
 };
 
@@ -211,7 +215,8 @@ const api: UsageboardApi = (() => {
         case "settings":
             return {
                 platform: renderer_platform,
-                plugin: plugin_methods,
+                connector: connector_methods,
+                plugin: connector_methods,
                 config: config_full,
                 event: event_methods,
                 popup: popup_methods,
@@ -226,7 +231,8 @@ const api: UsageboardApi = (() => {
         case "tray":
             return {
                 platform: renderer_platform,
-                plugin: plugin_methods,
+                connector: connector_methods,
+                plugin: connector_methods,
                 config: config_readonly,
                 event: event_methods,
                 popup: popup_methods,
@@ -240,7 +246,8 @@ const api: UsageboardApi = (() => {
         default: // popup
             return {
                 platform: renderer_platform,
-                plugin: plugin_methods,
+                connector: connector_methods,
+                plugin: connector_methods,
                 config: config_full,
                 event: event_methods,
                 popup: popup_methods,

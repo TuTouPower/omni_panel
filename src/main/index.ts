@@ -36,7 +36,7 @@ import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestr
 import { executePlugin } from "./core/plugin/runner";
 import { parsePluginResult } from "./core/plugin/output-parser";
 import { buildPluginCommand } from "./core/plugin/command-builder";
-import { registerPluginIpc } from "./ipc/plugin-ipc";
+import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
 import { registerAuthIpc } from "./ipc/auth-ipc";
@@ -421,7 +421,7 @@ void app.whenReady().then(async () => {
     });
 
     // Register IPC handlers
-    await registerPluginIpc({
+    await registerConnectorIpc({
         configStore,
         runtimeStore,
         refreshService,

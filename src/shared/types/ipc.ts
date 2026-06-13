@@ -4,10 +4,11 @@ import type { AppConfiguration } from "./config";
 export type { AppConfiguration } from "./config";
 
 export const IPC_CHANNELS = {
-    PLUGIN_LIST: "plugin:list",
-    PLUGIN_GET_STATE: "plugin:getState",
-    PLUGIN_REFRESH: "plugin:refresh",
-    PLUGIN_REFRESH_ALL: "plugin:refreshAll",
+    CONNECTOR_LIST: "connector:list",
+    CONNECTOR_GET_STATE: "connector:getState",
+    CONNECTOR_REFRESH: "connector:refresh",
+    CONNECTOR_REFRESH_ALL: "connector:refreshAll",
+    CONNECTOR_SNAPSHOT: "connector:snapshot",
 
     CONFIG_GET: "config:get",
     CONFIG_SAVE: "config:save",
@@ -157,9 +158,16 @@ export interface SettingsOpenContext {
 export interface UsageboardApi {
     /** Host platform exposed to the renderer for platform-aware UI (e.g. titlebar drag). */
     platform: RendererPlatform;
+    connector: {
+        list(): Promise<ConnectorInfo[]>;
+        getState(instanceId: string): Promise<ConnectorSnapshotDTO>;
+        refresh(instanceId: string): Promise<void>;
+        refreshAll(): Promise<void>;
+        snapshot(): Promise<Record<string, ConnectorSnapshotDTO>>;
+    };
     plugin: {
-        list(): Promise<PluginInfo[]>;
-        getState(instanceId: string): Promise<PluginSnapshotDTO>;
+        list(): Promise<ConnectorInfo[]>;
+        getState(instanceId: string): Promise<ConnectorSnapshotDTO>;
         refresh(instanceId: string): Promise<void>;
         refreshAll(): Promise<void>;
     };

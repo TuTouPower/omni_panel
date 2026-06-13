@@ -1,6 +1,6 @@
 import { z } from "zod/v3";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
-import type { PluginInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
+import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail, toDTO, assert_valid_sender } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
@@ -33,14 +33,16 @@ function activeProvidersForConnector(
     });
 }
 
-export interface PluginIpcDeps {
+export interface ConnectorIpcDeps {
     configStore: AppConfigStore;
     runtimeStore: RuntimeStore;
     refreshService: PluginRefreshService;
     definitions: readonly PluginDefinition[];
 }
 
-export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<PluginInfo[]>> {
+export async function handleConnectorList(
+    deps: ConnectorIpcDeps,
+): Promise<IpcResult<ConnectorInfo[]>> {
     try {
         const config = await deps.configStore.load();
         const pluginEntries = config.plugins.map((plugin) => {
@@ -52,7 +54,7 @@ export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<P
         });
         const displayNames = resolveDisplayNames(pluginEntries);
 
-        const plugins: PluginInfo[] = config.plugins.map((plugin) => {
+        const plugins: ConnectorInfo[] = config.plugins.map((plugin) => {
             const snapshot = toDTO(deps.runtimeStore.getSnapshot(plugin.instanceId));
             const metadata =
                 pluginEntries.find((e) => e.config.instanceId === plugin.instanceId)?.metadata ??
@@ -74,35 +76,35 @@ export async function handlePluginList(deps: PluginIpcDeps): Promise<IpcResult<P
         });
         return ok(plugins);
     } catch {
-        return fail("INTERNAL_ERROR", "获取插件列表失败");
+        return fail("INTERNAL_ERROR", "获取连接器列表失败");
     }
 }
 
-export function handlePluginGetState(
-    deps: PluginIpcDeps,
+export function handleConnectorGetState(
+    deps: ConnectorIpcDeps,
     instanceId: string,
-): IpcResult<PluginSnapshotDTO> {
+): IpcResult<ConnectorSnapshotDTO> {
     try {
         const parsed = instanceIdSchema.safeParse(instanceId);
-        if (!parsed.success) return fail("VALIDATION_ERROR", "无效的插件 ID");
+        if (!parsed.success) return fail("VALIDATION_ERROR", "无效的连接器 ID");
         const state = deps.runtimeStore.getSnapshot(parsed.data);
         return ok(toDTO(state));
     } catch {
-        return fail("INTERNAL_ERROR", "获取插件状态失败");
+        return fail("INTERNAL_ERROR", "获取连接器状态失败");
     }
 }
 
-export async function handlePluginRefresh(
-    deps: PluginIpcDeps,
+export async function handleConnectorRefresh(
+    deps: ConnectorIpcDeps,
     instanceId: string,
 ): Promise<IpcResult<void>> {
     try {
         const parsed = instanceIdSchema.safeParse(instanceId);
-        if (!parsed.success) return fail("VALIDATION_ERROR", "无效的插件 ID");
+        if (!parsed.success) return fail("VALIDATION_ERROR", "无效的连接器 ID");
         const config = await deps.configStore.load();
         const plugin = config.plugins.find((p) => p.instanceId === parsed.data);
-        if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
-        if (!plugin.enabled) return fail("VALIDATION_ERROR", "插件未启用");
+        if (!plugin) return fail("VALIDATION_ERROR", "连接器不存在");
+        if (!plugin.enabled) return fail("VALIDATION_ERROR", "连接器未启用");
         await deps.refreshService.refresh(parsed.data, { force: true });
         return ok(undefined);
     } catch {
@@ -110,7 +112,7 @@ export async function handlePluginRefresh(
     }
 }
 
-export async function handlePluginRefreshAll(deps: PluginIpcDeps): Promise<IpcResult<void>> {
+export async function handleConnectorRefreshAll(deps: ConnectorIpcDeps): Promise<IpcResult<void>> {
     try {
         await deps.refreshService.refreshAll();
         return ok(undefined);
@@ -119,36 +121,56 @@ export async function handlePluginRefreshAll(deps: PluginIpcDeps): Promise<IpcRe
     }
 }
 
-export async function registerPluginIpc(deps: PluginIpcDeps): Promise<void> {
+export function handleConnectorSnapshot(
+    deps: ConnectorIpcDeps,
+): IpcResult<Record<string, ConnectorSnapshotDTO>> {
+    try {
+        const snapshot: Record<string, ConnectorSnapshotDTO> = {};
+        for (const [instance_id, state] of deps.runtimeStore.getAll()) {
+            snapshot[instance_id] = toDTO(state);
+        }
+        return ok(snapshot);
+    } catch {
+        return fail("INTERNAL_ERROR", "获取连接器快照失败");
+    }
+}
+
+export async function registerConnectorIpc(deps: ConnectorIpcDeps): Promise<void> {
     const { ipcMain } = await import("electron");
-    const log = createLogger("ipc:plugin");
+    const log = createLogger("ipc:connector");
 
     const logged = createLoggedIpcHandler(log);
 
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, (e) =>
-        logged(IPC_CHANNELS.PLUGIN_LIST, [], () => {
+    ipcMain.handle(IPC_CHANNELS.CONNECTOR_LIST, (e) =>
+        logged(IPC_CHANNELS.CONNECTOR_LIST, [], () => {
             assert_valid_sender(e);
-            return handlePluginList(deps);
+            return handleConnectorList(deps);
         }),
     );
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_GET_STATE, (e, instanceId: string) =>
-        logged(IPC_CHANNELS.PLUGIN_GET_STATE, [instanceId], () => {
+    ipcMain.handle(IPC_CHANNELS.CONNECTOR_GET_STATE, (e, instanceId: string) =>
+        logged(IPC_CHANNELS.CONNECTOR_GET_STATE, [instanceId], () => {
             assert_valid_sender(e);
-            return Promise.resolve(handlePluginGetState(deps, instanceId));
+            return Promise.resolve(handleConnectorGetState(deps, instanceId));
         }),
     );
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH, (e, instanceId: string) =>
-        logged(IPC_CHANNELS.PLUGIN_REFRESH, [instanceId], () => {
+    ipcMain.handle(IPC_CHANNELS.CONNECTOR_REFRESH, (e, instanceId: string) =>
+        logged(IPC_CHANNELS.CONNECTOR_REFRESH, [instanceId], () => {
             assert_valid_sender(e);
             log.info(`User requested refresh for ${instanceId}`);
-            return handlePluginRefresh(deps, instanceId);
+            return handleConnectorRefresh(deps, instanceId);
         }),
     );
-    ipcMain.handle(IPC_CHANNELS.PLUGIN_REFRESH_ALL, (e) =>
-        logged(IPC_CHANNELS.PLUGIN_REFRESH_ALL, [], () => {
+    ipcMain.handle(IPC_CHANNELS.CONNECTOR_REFRESH_ALL, (e) =>
+        logged(IPC_CHANNELS.CONNECTOR_REFRESH_ALL, [], () => {
             assert_valid_sender(e);
-            log.info("User requested refresh all plugins");
-            return handlePluginRefreshAll(deps);
+            log.info("User requested refresh all connectors");
+            return handleConnectorRefreshAll(deps);
+        }),
+    );
+    ipcMain.handle(IPC_CHANNELS.CONNECTOR_SNAPSHOT, (e) =>
+        logged(IPC_CHANNELS.CONNECTOR_SNAPSHOT, [], () => {
+            assert_valid_sender(e);
+            return Promise.resolve(handleConnectorSnapshot(deps));
         }),
     );
 }

@@ -62,6 +62,13 @@ describe("PopupView mirror isolation", () => {
                 refresh: vi.fn().mockResolvedValue(undefined),
                 refreshAll: vi.fn().mockResolvedValue(undefined),
             },
+            connector: {
+                list: plugin_list,
+                getState: vi.fn(),
+                refresh: vi.fn().mockResolvedValue(undefined),
+                refreshAll: vi.fn().mockResolvedValue(undefined),
+                snapshot: vi.fn().mockResolvedValue({}),
+            },
             config: {
                 get: vi.fn().mockResolvedValue({
                     config: {

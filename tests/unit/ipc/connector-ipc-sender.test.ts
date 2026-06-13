@@ -64,63 +64,79 @@ function good_event(): Electron.IpcMainInvokeEvent {
     return { senderFrame: { url: "file:///index.html" } } as unknown as Electron.IpcMainInvokeEvent;
 }
 
-describe("plugin-ipc sender validation", () => {
-    it("PLUGIN_LIST rejects unknown sender", async () => {
-        const { registerPluginIpc } = await import("../../../src/main/ipc/plugin-ipc");
-        await registerPluginIpc(createMockDeps());
+describe("connector-ipc sender validation", () => {
+    it("CONNECTOR_LIST rejects unknown sender", async () => {
+        const { registerConnectorIpc } = await import("../../../src/main/ipc/connector-ipc");
+        await registerConnectorIpc(createMockDeps());
 
-        const handler = ipc_main_mock.handle.mock.calls.find(([ch]) => ch === "plugin:list")?.[1];
-        if (!handler) throw new Error("missing plugin:list handler");
+        const handler = ipc_main_mock.handle.mock.calls.find(
+            ([ch]) => ch === "connector:list",
+        )?.[1];
+        if (!handler) throw new Error("missing connector:list handler");
 
         await expect(handler(bad_event())).rejects.toThrow("IPC not allowed from unknown origin");
     });
 
-    it("PLUGIN_GET_STATE rejects unknown sender", async () => {
-        const { registerPluginIpc } = await import("../../../src/main/ipc/plugin-ipc");
-        await registerPluginIpc(createMockDeps());
+    it("CONNECTOR_GET_STATE rejects unknown sender", async () => {
+        const { registerConnectorIpc } = await import("../../../src/main/ipc/connector-ipc");
+        await registerConnectorIpc(createMockDeps());
 
         const handler = ipc_main_mock.handle.mock.calls.find(
-            ([ch]) => ch === "plugin:getState",
+            ([ch]) => ch === "connector:getState",
         )?.[1];
-        if (!handler) throw new Error("missing plugin:getState handler");
+        if (!handler) throw new Error("missing connector:getState handler");
 
         await expect(handler(bad_event(), "claude")).rejects.toThrow(
             "IPC not allowed from unknown origin",
         );
     });
 
-    it("PLUGIN_REFRESH rejects unknown sender", async () => {
-        const { registerPluginIpc } = await import("../../../src/main/ipc/plugin-ipc");
-        await registerPluginIpc(createMockDeps());
+    it("CONNECTOR_REFRESH rejects unknown sender", async () => {
+        const { registerConnectorIpc } = await import("../../../src/main/ipc/connector-ipc");
+        await registerConnectorIpc(createMockDeps());
 
         const handler = ipc_main_mock.handle.mock.calls.find(
-            ([ch]) => ch === "plugin:refresh",
+            ([ch]) => ch === "connector:refresh",
         )?.[1];
-        if (!handler) throw new Error("missing plugin:refresh handler");
+        if (!handler) throw new Error("missing connector:refresh handler");
 
         await expect(handler(bad_event(), "claude")).rejects.toThrow(
             "IPC not allowed from unknown origin",
         );
     });
 
-    it("PLUGIN_REFRESH_ALL rejects unknown sender", async () => {
-        const { registerPluginIpc } = await import("../../../src/main/ipc/plugin-ipc");
-        await registerPluginIpc(createMockDeps());
+    it("CONNECTOR_REFRESH_ALL rejects unknown sender", async () => {
+        const { registerConnectorIpc } = await import("../../../src/main/ipc/connector-ipc");
+        await registerConnectorIpc(createMockDeps());
 
         const handler = ipc_main_mock.handle.mock.calls.find(
-            ([ch]) => ch === "plugin:refreshAll",
+            ([ch]) => ch === "connector:refreshAll",
         )?.[1];
-        if (!handler) throw new Error("missing plugin:refreshAll handler");
+        if (!handler) throw new Error("missing connector:refreshAll handler");
 
         await expect(handler(bad_event())).rejects.toThrow("IPC not allowed from unknown origin");
     });
 
-    it("PLUGIN_LIST allows valid sender", async () => {
-        const { registerPluginIpc } = await import("../../../src/main/ipc/plugin-ipc");
-        await registerPluginIpc(createMockDeps());
+    it("CONNECTOR_SNAPSHOT rejects unknown sender", async () => {
+        const { registerConnectorIpc } = await import("../../../src/main/ipc/connector-ipc");
+        await registerConnectorIpc(createMockDeps());
 
-        const handler = ipc_main_mock.handle.mock.calls.find(([ch]) => ch === "plugin:list")?.[1];
-        if (!handler) throw new Error("missing plugin:list handler");
+        const handler = ipc_main_mock.handle.mock.calls.find(
+            ([ch]) => ch === "connector:snapshot",
+        )?.[1];
+        if (!handler) throw new Error("missing connector:snapshot handler");
+
+        await expect(handler(bad_event())).rejects.toThrow("IPC not allowed from unknown origin");
+    });
+
+    it("CONNECTOR_LIST allows valid sender", async () => {
+        const { registerConnectorIpc } = await import("../../../src/main/ipc/connector-ipc");
+        await registerConnectorIpc(createMockDeps());
+
+        const handler = ipc_main_mock.handle.mock.calls.find(
+            ([ch]) => ch === "connector:list",
+        )?.[1];
+        if (!handler) throw new Error("missing connector:list handler");
 
         const result = await handler(good_event());
         expect(result).toBeDefined();
