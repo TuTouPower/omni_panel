@@ -93,7 +93,10 @@ export function create_connector_context(
             throw new Error(`HTTP ${String(response.statusCode)}`);
         }
 
-        const content_length = response.headers["content-length"];
+        const content_length_header = response.headers["content-length"];
+        const content_length = Array.isArray(content_length_header)
+            ? content_length_header[0]
+            : content_length_header;
         if (content_length) {
             const size = Number.parseInt(content_length, 10);
             if (size > MAX_RESPONSE_BYTES) {
