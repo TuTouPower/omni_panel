@@ -1,0 +1,103 @@
+import { request as undici_request, ProxyAgent } from "undici";
+import { createLogger } from "../../../shared/lib/logger";
+import type { Manifest } from "../../../shared/schemas/manifest";
+import type { VaultBackend } from "../vault/vault-backend";
+import type { ConnectorContext, HttpOpts } from "./host-io";
+
+const log = createLogger("net-client");
+
+export interface NetClientConfig {
+    readonly proxy_url?: string;
+    readonly endpoint_overrides?: Record<string, string>;
+    readonly timeout_ms?: number;
+}
+
+export function create_connector_context(
+    manifest: Manifest,
+    vault: VaultBackend,
+    instance_id: string,
+    config: NetClientConfig,
+): ConnectorContext {
+    const dispatcher = config.proxy_url ? new ProxyAgent(config.proxy_url) : undefined;
+    const timeout_ms = config.timeout_ms ?? 15_000;
+
+    function resolve_endpoint(endpoint_key: string): string {
+        const override = config.endpoint_overrides?.[endpoint_key];
+        if (override) return override;
+        const endpoint = manifest.endpoints?.[endpoint_key];
+        if (endpoint) return endpoint;
+        throw new Error(`Unknown endpoint key: ${endpoint_key}`);
+    }
+
+    async function apply_auth(url: URL, headers: Record<string, string>): Promise<void> {
+        const auth = manifest.poll?.request.auth;
+        if (!auth) return;
+        const value = await vault.get(`${instance_id}:${auth.secret}`);
+        if (!value) return;
+
+        if (auth.type === "bearer") {
+            headers["Authorization"] = `Bearer ${value}`;
+            return;
+        }
+        if (auth.type === "header" && auth.header_name) {
+            headers[auth.header_name] = value;
+            return;
+        }
+        if (auth.type === "query" && auth.query_param) {
+            url.searchParams.set(auth.query_param, value);
+        }
+    }
+
+    async function do_request(
+        method: "GET" | "POST",
+        endpoint_key: string,
+        path: string,
+        body?: unknown,
+        opts?: HttpOpts,
+    ): Promise<unknown> {
+        const url = new URL(path, resolve_endpoint(endpoint_key));
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+        };
+        await apply_auth(url, headers);
+
+        const all_headers = {
+            ...headers,
+            ...(opts?.headers ?? {}),
+        };
+
+        log.debug(`${method} ${url.origin}${url.pathname}`);
+        const response = await undici_request(url, {
+            method,
+            headers: all_headers,
+            body: body !== undefined ? JSON.stringify(body) : undefined,
+            dispatcher,
+            headersTimeout: opts?.timeout_ms ?? timeout_ms,
+            bodyTimeout: opts?.timeout_ms ?? timeout_ms,
+        });
+
+        if (response.statusCode >= 400) {
+            await response.body.text();
+            throw new Error(`HTTP ${String(response.statusCode)}`);
+        }
+
+        return response.body.json();
+    }
+
+    return {
+        http: {
+            get_json(endpoint_key: string, path: string, opts?: HttpOpts) {
+                return do_request("GET", endpoint_key, path, undefined, opts);
+            },
+            post_json(endpoint_key: string, path: string, body: unknown, opts?: HttpOpts) {
+                return do_request("POST", endpoint_key, path, body, opts);
+            },
+        },
+        files: {
+            read() {
+                return Promise.reject(new Error("files.read not yet implemented"));
+            },
+        },
+        params: {},
+    };
+}

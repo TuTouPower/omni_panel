@@ -1,0 +1,156 @@
+import { createServer, type IncomingMessage } from "node:http";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { create_connector_context } from "../../../src/main/core/connector/net-client";
+import { create_file_vault_backend } from "../../../src/main/core/vault/file-vault-backend";
+import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
+import type { Manifest } from "../../../src/shared/schemas/manifest";
+
+let temp_dir: string;
+let vault: VaultBackend;
+let server_port: number;
+let server: ReturnType<typeof createServer>;
+let last_request_body: unknown;
+
+function get_test_manifest(
+    auth: NonNullable<NonNullable<Manifest["poll"]>["request"]["auth"]> = {
+        type: "bearer",
+        secret: "api_key",
+    },
+): Manifest {
+    return {
+        id: "test",
+        provider: "test",
+        capabilities: ["poll"],
+        parameters: [{ name: "api_key", type: "secret", required: true }],
+        endpoints: { default: `http://127.0.0.1:${String(server_port)}` },
+        poll: {
+            request: {
+                endpoint: "default",
+                path: "/usage",
+                auth,
+            },
+            map: { used: "$.usage.month", limit: "$.plan.limit", window: "month" },
+        },
+    };
+}
+
+function read_request_body(req: IncomingMessage): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+        let body = "";
+        req.setEncoding("utf8");
+        req.on("data", (chunk: string) => {
+            body += chunk;
+        });
+        req.on("error", reject);
+        req.on("end", () => {
+            resolve(body ? (JSON.parse(body) as unknown) : null);
+        });
+    });
+}
+
+beforeAll(async () => {
+    temp_dir = await mkdtemp(join(tmpdir(), "net-client-test-"));
+    vault = await create_file_vault_backend(temp_dir);
+    await vault.set("test-1:api_key", "sk-test-secret");
+
+    server = createServer((req, res) => {
+        void (async () => {
+            last_request_body = await read_request_body(req);
+            const url = new URL(req.url ?? "/", `http://127.0.0.1:${String(server_port)}`);
+            const auth_is_valid =
+                (url.pathname === "/usage" &&
+                    req.headers.authorization === "Bearer sk-test-secret") ||
+                (url.pathname === "/header" && req.headers["x-api-key"] === "sk-test-secret") ||
+                (url.pathname === "/query" && url.searchParams.get("api_key") === "sk-test-secret");
+            if (!auth_is_valid) {
+                res.writeHead(401, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ error: "unauthorized" }));
+                return;
+            }
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ usage: { month: 42 }, plan: { limit: 1000 } }));
+        })().catch(() => {
+            res.writeHead(500);
+            res.end();
+        });
+    });
+
+    await new Promise<void>((resolve) => {
+        server.listen(0, "127.0.0.1", () => {
+            const addr = server.address();
+            if (addr && typeof addr === "object") server_port = addr.port;
+            resolve();
+        });
+    });
+});
+
+afterAll(async () => {
+    await new Promise<void>((resolve) => {
+        server.close(() => {
+            resolve();
+        });
+    });
+    await rm(temp_dir, { recursive: true, force: true });
+});
+
+describe("net-client", () => {
+    it("injects auth header from vault and returns JSON", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        const result = await ctx.http.get_json("default", "/usage");
+        expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+    });
+
+    it("injects custom header auth from vault", async () => {
+        const ctx = create_connector_context(
+            get_test_manifest({ type: "header", secret: "api_key", header_name: "x-api-key" }),
+            vault,
+            "test-1",
+            {},
+        );
+        const result = await ctx.http.get_json("default", "/header");
+        expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+    });
+
+    it("injects query auth from vault", async () => {
+        const ctx = create_connector_context(
+            get_test_manifest({ type: "query", secret: "api_key", query_param: "api_key" }),
+            vault,
+            "test-1",
+            {},
+        );
+        const result = await ctx.http.get_json("default", "/query");
+        expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+    });
+
+    it("rejects when vault has no secret", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "missing-instance", {});
+        await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow("401");
+    });
+
+    it("uses endpoint override", async () => {
+        const ctx = create_connector_context(
+            { ...get_test_manifest(), endpoints: { default: "http://127.0.0.1:1" } },
+            vault,
+            "test-1",
+            { endpoint_overrides: { default: `http://127.0.0.1:${String(server_port)}` } },
+        );
+        const result = await ctx.http.get_json("default", "/usage");
+        expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+    });
+
+    it("posts JSON body", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await ctx.http.post_json("default", "/usage", { hello: "world" });
+        expect(last_request_body).toEqual({ hello: "world" });
+    });
+
+    it("throws on unknown endpoint", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await expect(ctx.http.get_json("missing", "/usage")).rejects.toThrow(
+            "Unknown endpoint key: missing",
+        );
+    });
+});
