@@ -1,0 +1,177 @@
+import { EventEmitter } from "node:events";
+import { describe, expect, it, vi } from "vitest";
+import { create_session_manager } from "../../../src/main/core/session/session-manager";
+import type {
+    SessionCookie,
+    SessionManagerDeps,
+    SessionWindow,
+} from "../../../src/main/core/session/session-manager";
+import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
+
+class MockWindow extends EventEmitter implements SessionWindow {
+    readonly loaded_urls: string[] = [];
+    closed = false;
+
+    loadURL(url: string): Promise<void> {
+        this.loaded_urls.push(url);
+        return Promise.resolve();
+    }
+
+    close(): void {
+        this.closed = true;
+        this.emit("closed");
+    }
+
+    isDestroyed(): boolean {
+        return this.closed;
+    }
+}
+
+function create_vault(): VaultBackend & { values: Map<string, string> } {
+    const values = new Map<string, string>();
+    return {
+        values,
+        get(key: string) {
+            return Promise.resolve(values.get(key) ?? null);
+        },
+        set(key: string, value: string) {
+            values.set(key, value);
+            return Promise.resolve();
+        },
+        delete(key: string) {
+            values.delete(key);
+            return Promise.resolve();
+        },
+        has(key: string) {
+            return Promise.resolve(values.has(key));
+        },
+        list_keys(prefix?: string) {
+            return Promise.resolve(
+                [...values.keys()].filter((key) => (prefix ? key.startsWith(prefix) : true)),
+            );
+        },
+    };
+}
+
+interface TestDeps extends SessionManagerDeps {
+    readonly window: MockWindow;
+    emit_before_send_headers(url: string, requestHeaders: Record<string, string>): void;
+}
+
+function create_deps(cookies: SessionCookie[] = []): TestDeps {
+    const window = new MockWindow();
+    let before_send_headers:
+        | ((details: { url: string; requestHeaders: Record<string, string> }) => void)
+        | null = null;
+
+    return {
+        window,
+        vault: create_vault(),
+        create_window() {
+            return window;
+        },
+        create_session() {
+            return {
+                on_before_send_headers(handler) {
+                    before_send_headers = handler;
+                },
+                get_cookies() {
+                    return Promise.resolve(cookies);
+                },
+            };
+        },
+        emit_before_send_headers(url: string, requestHeaders: Record<string, string>) {
+            before_send_headers?.({ url, requestHeaders });
+        },
+    };
+}
+
+describe("session-manager", () => {
+    it("opens login URL in controlled window", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-1",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+        deps.window.close();
+        await promise;
+
+        expect(deps.window.loaded_urls).toEqual(["https://example.com/login"]);
+    });
+
+    it("saves captured Cookie header on window close", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-1",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+        deps.emit_before_send_headers("https://example.com/api/v1/user", {
+            Cookie: "token=abc; other=1",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc; other=1");
+    });
+
+    it("falls back to selected session cookies on close", async () => {
+        const deps = create_deps([
+            { name: "token", value: "abc" },
+            { name: "ignored", value: "no" },
+            { name: "userId", value: "42" },
+        ]);
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-1",
+            login_url: "https://example.com/login",
+            cookie_names: ["token", "userId"],
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc; userId=42");
+    });
+
+    it("returns saved false when no cookies are captured", async () => {
+        const deps = create_deps([{ name: "ignored", value: "no" }]);
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-1",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(deps.vault.has("mimo-1:SESSION_COOKIE")).resolves.toBe(false);
+    });
+
+    it("closes window and rejects on timeout", async () => {
+        vi.useFakeTimers();
+        try {
+            const deps = create_deps();
+            const manager = create_session_manager(deps, { timeout_ms: 100 });
+
+            const promise = manager.start_login({
+                instance_id: "mimo-1",
+                login_url: "https://example.com/login",
+                cookie_names: ["token"],
+            });
+            const expectation = expect(promise).rejects.toThrow("Login timed out");
+            await vi.advanceTimersByTimeAsync(100);
+
+            await expectation;
+            expect(deps.window.closed).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+});
