@@ -62,13 +62,18 @@ beforeAll(async () => {
             last_request_body = await read_request_body(req);
             const url = new URL(req.url ?? "/", `http://127.0.0.1:${String(server_port)}`);
             const auth_is_valid =
-                (url.pathname === "/usage" &&
+                ((url.pathname === "/usage" || url.pathname === "/server-error") &&
                     req.headers.authorization === "Bearer sk-test-secret") ||
                 (url.pathname === "/header" && req.headers["x-api-key"] === "sk-test-secret") ||
                 (url.pathname === "/query" && url.searchParams.get("api_key") === "sk-test-secret");
             if (!auth_is_valid) {
                 res.writeHead(401, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ error: "unauthorized" }));
+                return;
+            }
+            if (url.pathname === "/server-error") {
+                res.writeHead(500, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ error: "internal failure", trace: "abc-123" }));
                 return;
             }
             res.writeHead(200, { "Content-Type": "application/json" });
@@ -129,6 +134,13 @@ describe("net-client", () => {
     it("rejects when vault has no secret", async () => {
         const ctx = create_connector_context(get_test_manifest(), vault, "missing-instance", {});
         await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow("401");
+    });
+
+    it("includes response body snippet in HTTP error message", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await expect(ctx.http.get_json("default", "/server-error")).rejects.toThrow(
+            /HTTP 500: .{0,200}internal failure/,
+        );
     });
 
     it("uses endpoint override", async () => {

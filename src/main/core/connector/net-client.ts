@@ -89,8 +89,9 @@ export function create_connector_context(
         const response = await undici_request(url, request_options);
 
         if (response.statusCode >= 400) {
-            await response.body.text();
-            throw new Error(`HTTP ${String(response.statusCode)}`);
+            const body_text = await response.body.text();
+            const body_snippet = body_text.slice(0, 200);
+            throw new Error(`HTTP ${String(response.statusCode)}: ${body_snippet}`);
         }
 
         const content_length_header = response.headers["content-length"];
