@@ -347,9 +347,9 @@ interface VaultBackend {
 
 UI 细节不在本文范围,只定边界契约:
 
-- **快照读取**:`snapshot:list / snapshot:get` 返回 latest 视图 DTO(含 `observedAt / source / stale / lastError`),按 provider 聚合所需的全部维度都在观测模型里(provider / accountId / metricId)。
-- **命令**:`connector:refresh / refreshAll`、`config:get / save / export / import`、`secret:save`(单向写,无读明文通道)、`session:login / refresh`、`probe:setPolicy`。
-- **事件**:`snapshot:changed`、`config:changed`(跨窗口同步,沿用现有广播 + 自身保存去重思路)、`theme:changed`。
+- **快照读取**:`connector:list / connector:getState / connector:snapshot` 返回 latest 视图 DTO(含 `observedAt / source / stale / lastError`),按 provider 聚合所需的全部维度都在观测模型里(provider / accountId / metricId)。
+- **命令**:`connector:refresh / refreshAll`、`config:get / save / saveSecrets / export / import / duplicate`、`auth:cookieLogin / refreshCookies`。
+- **事件**:`event:stateChange`、`config:changed`(跨窗口同步,沿用现有广播 + 自身保存去重思路)、`event:themeChange`。
 - 全部走 contextBridge 白名单;renderer 不可发任意 channel。现有 spec 的这条边界是对的,原样保留。
 
 ---
