@@ -13,22 +13,15 @@
         }
     ],
     "endpoints": {
-        "default": "https://api.minimax.chat"
+        "default": "https://www.minimaxi.com"
     },
     "poll": {
         "request": {
             "endpoint": "default",
-            "path": "/usage",
-            "method": "GET",
-            "auth": {
-                "type": "bearer",
-                "secret": "API_KEY"
-            }
+            "path": "/v1/token_plan/remains",
+            "method": "GET"
         },
-        "map": {
-            "used": "$.usage.used",
-            "limit": "$.usage.limit"
-        }
+        "map": {}
     },
     "script": "connector.ts"
 }
