@@ -1,4 +1,5 @@
 import vm from "node:vm";
+import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { createLogger } from "../../../shared/lib/logger";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import { observation_schema } from "../../../shared/schemas/observation";
@@ -21,8 +22,22 @@ function create_sandbox_context(ctx: ConnectorContext): vm.Context {
     );
 }
 
-function wrap_script(script_code: string): string {
-    return `(async () => {\n${script_code}\n})()`;
+function compile_script(script_code: string): string {
+    const stripped_code = script_code
+        .replace(/^import\s+type\s+[^;]+;\s*$/gm, "")
+        .replace(/^declare\s+const\s+[^;]+;\s*$/gm, "");
+    if (/^\s*(?:import|export)\s/m.test(stripped_code)) {
+        throw new Error("Connector scripts cannot use import or export statements");
+    }
+    return transpileModule(
+        `(async () => {\n${stripped_code}\nif (typeof main === "function") return await main();\n})()`,
+        {
+            compilerOptions: {
+                module: ModuleKind.CommonJS,
+                target: ScriptTarget.ES2022,
+            },
+        },
+    ).outputText;
 }
 
 function get_error_message(error: unknown): string {
@@ -50,7 +65,7 @@ export async function run_connector(
 
     try {
         const context = create_sandbox_context(ctx);
-        const raw_result: unknown = vm.runInContext(wrap_script(script_code), context, {
+        const raw_result: unknown = vm.runInContext(compile_script(script_code), context, {
             timeout: timeout_ms,
         }) as unknown;
         const result: unknown = await Promise.resolve(raw_result);

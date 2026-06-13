@@ -1,0 +1,21 @@
+{
+    "id": "claude",
+    "provider": "claude",
+    "capabilities": ["local"],
+    "parameters": [
+        {
+            "name": "data_dir",
+            "type": "string",
+            "required": false,
+            "default": "~/.claude",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "anthropic": "https://api.anthropic.com"
+    },
+    "local": {
+        "paths": ["~/.claude/.credentials.json"]
+    },
+    "script": "connector.ts"
+}

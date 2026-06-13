@@ -24,9 +24,10 @@ const poll_manifest: Manifest = {
     id: "test",
     provider: "test",
     capabilities: ["poll"],
+    parameters: [],
     script: "connector.ts",
     poll: {
-        request: { endpoint: "default", path: "/usage" },
+        request: { endpoint: "default", path: "/usage", method: "GET" },
         map: { used: "$.usage.month", limit: "$.plan.limit", window: "month" },
     },
 };
@@ -64,6 +65,44 @@ describe("connector-runtime", () => {
         expect(result.error).toBeNull();
         expect(result.observations).toHaveLength(1);
         expect(result.observations[0]?.used).toBe(50);
+    });
+
+    it("transpiles TypeScript connector scripts", async () => {
+        const script = `
+            interface UsageResponse { usage: { month: number }; plan: { limit: number } }
+            const data = await ctx.http.get_json("default", "/usage") as UsageResponse;
+            const used: number = data.usage.month;
+            return [{
+                provider: "test",
+                source_instance_id: "test-1",
+                account_id: "default",
+                account_label: "Test",
+                metric_id: "test:monthly",
+                name: "Monthly",
+                window: "month",
+                used,
+                limit: data.plan.limit,
+                display_style: "ratio",
+                reset_at: null,
+                status: "normal",
+                observed_at: 1000,
+                source: "poll",
+                stale: false,
+                last_error: null,
+            }];
+        `;
+        const result = await run_connector(poll_manifest, script, stub_ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations[0]?.used).toBe(50);
+    });
+
+    it("rejects runtime imports in connector scripts", async () => {
+        const result = await run_connector(
+            poll_manifest,
+            `import { readFile } from "node:fs/promises";\nreturn [];`,
+            stub_ctx,
+        );
+        expect(result.error).toContain("Connector scripts cannot use import or export statements");
     });
 
     it("returns error when script returns malformed observation", async () => {

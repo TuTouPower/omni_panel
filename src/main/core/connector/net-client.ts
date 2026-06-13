@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { request as undici_request, ProxyAgent } from "undici";
 import { createLogger } from "../../../shared/lib/logger";
 import type { Manifest } from "../../../shared/schemas/manifest";
@@ -10,6 +13,12 @@ export interface NetClientConfig {
     readonly proxy_url?: string;
     readonly endpoint_overrides?: Record<string, string>;
     readonly timeout_ms?: number;
+}
+
+function expand_home(path_pattern: string): string {
+    if (path_pattern === "~") return homedir();
+    if (path_pattern.startsWith("~/")) return join(homedir(), path_pattern.slice(2));
+    return path_pattern;
 }
 
 export function create_connector_context(
@@ -67,14 +76,15 @@ export function create_connector_context(
         };
 
         log.debug(`${method} ${url.origin}${url.pathname}`);
-        const response = await undici_request(url, {
+        const request_options = {
             method,
             headers: all_headers,
-            body: body !== undefined ? JSON.stringify(body) : undefined,
-            dispatcher,
             headersTimeout: opts?.timeout_ms ?? timeout_ms,
             bodyTimeout: opts?.timeout_ms ?? timeout_ms,
-        });
+            ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+            ...(dispatcher ? { dispatcher } : {}),
+        };
+        const response = await undici_request(url, request_options);
 
         if (response.statusCode >= 400) {
             await response.body.text();
@@ -94,8 +104,12 @@ export function create_connector_context(
             },
         },
         files: {
-            read() {
-                return Promise.reject(new Error("files.read not yet implemented"));
+            read(path_pattern: string) {
+                const allowed_paths = manifest.local?.paths ?? [];
+                if (!allowed_paths.includes(path_pattern)) {
+                    return Promise.reject(new Error("Local file path is not allowed"));
+                }
+                return readFile(expand_home(path_pattern), "utf8");
             },
         },
         params: {},

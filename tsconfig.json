@@ -33,6 +33,6 @@
             "@omni-usage/plugin-sdk": ["src/plugins/sdk/index.ts"]
         }
     },
-    "include": ["src", "tests", "scripts", "*.ts", "*.mts"],
+    "include": ["src", "tests", "scripts", "connectors", "*.ts", "*.mts"],
     "exclude": ["node_modules", "assets/plugins"]
 }

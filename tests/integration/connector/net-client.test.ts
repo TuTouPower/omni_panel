@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -24,12 +24,13 @@ function get_test_manifest(
         id: "test",
         provider: "test",
         capabilities: ["poll"],
-        parameters: [{ name: "api_key", type: "secret", required: true }],
+        parameters: [{ name: "api_key", type: "secret", required: true, exposeToScript: false }],
         endpoints: { default: `http://127.0.0.1:${String(server_port)}` },
         poll: {
             request: {
                 endpoint: "default",
                 path: "/usage",
+                method: "GET",
                 auth,
             },
             map: { used: "$.usage.month", limit: "$.plan.limit", window: "month" },
@@ -147,10 +148,24 @@ describe("net-client", () => {
         expect(last_request_body).toEqual({ hello: "world" });
     });
 
-    it("throws on unknown endpoint", async () => {
+    it("reads allowlisted local files", async () => {
+        const file_path = join(temp_dir, "credentials.json");
+        await writeFile(file_path, "secret-file", "utf8");
+        const manifest = {
+            ...get_test_manifest(),
+            capabilities: ["poll", "local"],
+            local: { paths: [file_path] },
+        } satisfies Manifest;
+        const ctx = create_connector_context(manifest, vault, "test-1", {});
+
+        await expect(ctx.files.read(file_path)).resolves.toBe("secret-file");
+    });
+
+    it("rejects local file paths outside manifest allowlist", async () => {
         const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
-        await expect(ctx.http.get_json("missing", "/usage")).rejects.toThrow(
-            "Unknown endpoint key: missing",
+
+        await expect(ctx.files.read(join(temp_dir, "credentials.json"))).rejects.toThrow(
+            "Local file path is not allowed",
         );
     });
 });

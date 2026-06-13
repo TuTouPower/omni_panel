@@ -1,0 +1,32 @@
+{
+    "id": "cpa",
+    "provider": "cpa",
+    "capabilities": ["poll"],
+    "parameters": [
+        {
+            "name": "cpa_mgmt_key",
+            "type": "secret",
+            "required": true,
+            "exposeToScript": true
+        },
+        {
+            "name": "monitor_claude",
+            "type": "string",
+            "required": false,
+            "default": "true",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "http://127.0.0.1:17863"
+    },
+    "poll": {
+        "request": {
+            "endpoint": "default",
+            "path": "/v0/management/auth-files",
+            "method": "GET"
+        },
+        "map": {}
+    },
+    "script": "connector.ts"
+}
