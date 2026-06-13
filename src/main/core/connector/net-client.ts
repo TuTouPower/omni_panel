@@ -8,6 +8,7 @@ import type { VaultBackend } from "../vault/vault-backend";
 import type { ConnectorContext, HttpOpts } from "./host-io";
 
 const log = createLogger("net-client");
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10MB
 
 export interface NetClientConfig {
     readonly proxy_url?: string;
@@ -92,7 +93,24 @@ export function create_connector_context(
             throw new Error(`HTTP ${String(response.statusCode)}`);
         }
 
-        return response.body.json();
+        const content_length = response.headers["content-length"];
+        if (content_length) {
+            const size = Number.parseInt(content_length, 10);
+            if (size > MAX_RESPONSE_BYTES) {
+                response.body.destroy();
+                throw new Error(`Response body too large: ${String(size)} bytes`);
+            }
+        }
+
+        const text = await response.body.text();
+        if (text.length === 0) {
+            return null;
+        }
+        if (text.length > MAX_RESPONSE_BYTES) {
+            throw new Error(`Response body too large: ${String(text.length)} bytes`);
+        }
+
+        return JSON.parse(text) as unknown;
     }
 
     return {
