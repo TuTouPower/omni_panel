@@ -4,6 +4,8 @@
 
 ---
 
+已完成：主面板展开的卡片在上面切换厂商后就折叠了，且没有展开状态记忆。`6aa4130`：`structural_signature` 去掉 `activeTab`，tab 切换不再触发 `set_expanded_providers({})`。状态只在账号结构变化时重置。
+
 ## 待办
 
 ### 已完成：架构升级夹带的前端改动（commit 边界混乱 + 生硬 UI 文案）
