@@ -225,7 +225,7 @@ function CardMenu({ onEdit, onDelete, onToggle, onClose }) {
 }
 
 function UsageCard({ vendorId, name, updated, h5, week, r5, rw, e5, ew,
-                     balanceOnly, balance, mcp, metrics,
+                     balanceOnly, balance, mcp, metrics, authType,
                      accounts, l2open, onToggleL2,
                      state = 'normal', refreshing, onRefresh, limitMode,
                      collapsed, onToggleCollapse,
@@ -236,6 +236,9 @@ function UsageCard({ vendorId, name, updated, h5, week, r5, rw, e5, ew,
   const multi = accts.length > 1;
   const dH5 = limitMode && h5 >= 90, dWk = limitMode && week >= 90;
   const alert = state === 'normal' && (dH5 || dWk);
+  /* 网页登录类服务（MiMo / Kimi …）说「登录失效」，密钥/本地类说「凭证失效」 */
+  const authKind = (vendorId && window.VENDOR_AUTH && window.VENDOR_AUTH[vendorId]) || authType || 'apikey';
+  const authWord = authKind === 'session' ? '登录' : '凭证';
 
   return (
     <div className={'card' + (isAcct ? ' acct' : '') + (alert ? ' alert' : '')
@@ -294,7 +297,7 @@ function UsageCard({ vendorId, name, updated, h5, week, r5, rw, e5, ew,
        state === 'auth' ? (
          <div className="card-state auth">
            <span className="cs-ic"><Icon name="lock" size={16} /></span>
-           <span>凭证失效，请重新登录</span>
+           <span>{authWord}失效，请重新登录</span>
            <span className="cs-action">重新登录</span>
          </div>
        ) : (multi && l2open) ? (
@@ -424,7 +427,7 @@ function TokenPanel({ chartData, totals, collapsed, onToggleCollapse, onHandleDo
 
 function Tab({ active, onClick, vendorId, label }) {
   return (
-    <button className={'tab' + (active ? ' active' : '')} onClick={onClick}>
+    <button className={'tab' + (active ? ' active' : '')} onClick={onClick} title={label}>
       <span className="tab-ic">
         <VendorMark id={vendorId} size={24} />
       </span>

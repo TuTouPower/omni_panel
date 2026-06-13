@@ -85,7 +85,17 @@ const ST_META = {
   auth:  { dot: 'var(--risk-orange)', text: '凭证失效' },
 };
 function dotOf(status, on) { return on ? ((ST_META[status] || ST_META.ok).dot) : 'var(--text-3)'; }
-function textOf(status, on) { return on ? ((ST_META[status] || {}).text || null) : null; }
+function textOf(status, on, vendorId) {
+  if (!on) return null;
+  const m = ST_META[status];
+  if (!m) return null;
+  if (status === 'auth') {
+    // 网页登录类服务（MiMo / Kimi …）说「登录失效」，密钥/本地类说「凭证失效」
+    const auth = (window.VENDOR_AUTH && window.VENDOR_AUTH[vendorId]) || 'apikey';
+    return auth === 'session' ? '登录失效' : '凭证失效';
+  }
+  return m.text || null;
+}
 
 /* ---- one account row — identical layout for single-account vendors,
         multi-account vendors (GLM…), and CPA-discovered accounts.
@@ -96,7 +106,7 @@ function AccountRow({ mode, vendorId, account, on, onToggle, onEdit, hidden, onH
   const isCpa = mode === 'cpa';
   const removed = account.removed;
   const effOn = isCpa ? !hidden && !removed : on;
-  const stext = removed ? '来源已移除' : (isCpa && hidden) ? '已隐藏' : textOf(account.status, isCpa ? true : on);
+  const stext = removed ? '来源已移除' : (isCpa && hidden) ? '已隐藏' : textOf(account.status, isCpa ? true : on, vendorId);
   const sevCls = removed ? '' : account.status === 'error' ? ' err' : account.status === 'auth' ? ' warn' : '';
   const dot = removed ? 'var(--risk-orange)' : (isCpa && hidden) ? 'var(--text-3)' : dotOf(account.status, isCpa ? true : on);
   return (
@@ -186,12 +196,60 @@ function CpaCard({ conn, on, onToggle, onOpenDetail, hiddenSet, onHide, onEditAc
   );
 }
 
-/* ---- 编辑账号 dialog — holds 备注名 / 接口地址 / 数据标签映射 (per data source) ---- */
+/* ---- web-login session block (编辑态：已登录，可重新登录) ---- */
+function SessionEdit({ meta }) {
+  const [stage, setStage] = React.useState('done');   // done | open
+  if (stage === 'open') {
+    return (
+      <div className="aa-webview">
+        <div className="wv-bar">
+          <span className="wv-dots"><i /><i /><i /></span>
+          <span className="wv-addr"><Icon name="lock" size={11} strokeWidth={1.8} />{meta.loginUrl}</span>
+        </div>
+        <div className="wv-body">
+          <div className="wv-card">
+            <div className="wv-logo"><Icon name="user" size={22} color="var(--text-3)" /></div>
+            <div className="wv-h">登录 {meta.host}</div>
+            <div className="wv-inp" />
+            <div className="wv-inp" />
+            <button className="wv-go" onClick={() => setStage('done')}>登录</button>
+          </div>
+        </div>
+        <div className="wv-foot"><Icon name="info" size={12} />登录成功后将自动捕获会话 Cookie 并关闭窗口</div>
+      </div>
+    );
+  }
+  return (
+    <div className="aa-captured">
+      <span className="cap-dot"><Icon name="check" size={14} color="#fff" strokeWidth={2.4} /></span>
+      <div className="cap-text">
+        <div className="cap-title">已通过网页登录</div>
+        <div className="cap-sub">来自 {meta.host} · {meta.cookieKeys.join('、')}</div>
+      </div>
+      <button className="cap-redo" onClick={() => setStage('open')}>重新登录</button>
+    </div>
+  );
+}
+
+/* ---- 编辑账号 dialog — auth-aware: apikey 厂商显示密钥 (GLM / DeepSeek …)，
+        session 厂商显示网页登录 (MiMo …)，local 厂商显示本地凭证；
+        所有厂商共用「数据标签映射」(同源同步开关开启时该数据源共用)。 ---- */
 function EditAccountDialog({ vendorId, accountName, onClose }) {
   const meta = SV_META[vendorId] || { name: vendorId };
+  const auth = (window.VENDOR_AUTH && window.VENDOR_AUTH[vendorId]) || 'apikey';
+  const akMeta = (window.AUTH_APIKEY_META && window.AUTH_APIKEY_META[vendorId]) || {};
+  const seMeta = (window.AUTH_SESSION_META && window.AUTH_SESSION_META[vendorId]) || { host: '', loginUrl: '', cookieKeys: [] };
+  const lcScan = (window.AUTH_LOCAL_SCAN && window.AUTH_LOCAL_SCAN[vendorId]) || { paths: [] };
   const rows = (window.VENDOR_RAW_LABELS && window.VENDOR_RAW_LABELS[vendorId]) || [];
+  const refreshMeta = (window.VENDOR_REFRESH && window.VENDOR_REFRESH[vendorId]) || null;
+  const globalInterval = window.__omniRefreshInterval || '5 分钟';
+  const syncOn = window.__omniLabelSync !== false;   // 同源数据标签映射同步（默认开启）
   const [name, setName] = React.useState(accountName);
+  const [key, setKey] = React.useState(auth === 'apikey' ? (akMeta.prefix || 'sk-') + '••••••••••••' : '');
+  const [showKey, setShowKey] = React.useState(false);
   const [endpoint, setEndpoint] = React.useState('');
+  const [useGlobalRefresh, setUseGlobalRefresh] = React.useState(!(refreshMeta && refreshMeta.manualDefault));
+  const [acctInterval, setAcctInterval] = React.useState(refreshMeta && refreshMeta.manualDefault ? '仅手动' : '5 分钟');
   const [map, setMap] = React.useState({});
   const setLbl = (raw, v) => setMap((m) => ({ ...m, [raw]: v }));
   const resetLbl = (raw) => setMap((m) => { const n = { ...m }; delete n[raw]; return n; });
@@ -210,13 +268,74 @@ function EditAccountDialog({ vendorId, accountName, onClose }) {
           <label className="ad-label">备注名</label>
           <input className="ad-input" value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="例如：工作账号" />
         </div>
-        <div className="ad-field">
-          <label className="ad-label">接口地址<span className="ad-opt">可选</span></label>
-          <input className="ad-input mono" value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="默认（官方接口）" />
+
+        {auth === 'apikey' && (
+          <>
+            <div className="ad-field">
+              <label className="ad-label">API 密钥</label>
+              <div className="ad-key">
+                <input className="ad-input mono" type={showKey ? 'text' : 'password'} value={key}
+                  onChange={(e) => setKey(e.target.value)} placeholder={(akMeta.prefix || 'sk-') + '…'} />
+                <button className="ad-eye" onClick={() => setShowKey((v) => !v)} title={showKey ? '隐藏' : '显示'}>
+                  <Icon name={showKey ? 'eye_off' : 'eye'} size={16} />
+                </button>
+              </div>
+              <div className="ad-hint"><Icon name="lock" size={12} strokeWidth={1.8} />密钥仅加密保存在本地，用于读取用量数据{akMeta.docs ? ` · ${akMeta.docs}` : ''}</div>
+            </div>
+            <div className="ad-field">
+              <label className="ad-label">接口地址<span className="ad-opt">可选</span></label>
+              <input className="ad-input mono" value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder={akMeta.endpoint || '默认（官方接口）'} />
+            </div>
+          </>
+        )}
+
+        {auth === 'session' && (
+          <div className="ad-field">
+            <label className="ad-label">登录会话</label>
+            <SessionEdit meta={seMeta} />
+            <div className="ad-hint"><Icon name="shield" size={12} strokeWidth={1.8} />该服务通过网页登录获取用量，无需 API 密钥</div>
+          </div>
+        )}
+
+        {auth === 'local' && (
+          <div className="ad-field">
+            <label className="ad-label">凭证来源</label>
+            <div className="aa-captured">
+              <span className="cap-dot"><Icon name="check" size={14} color="#fff" strokeWidth={2.4} /></span>
+              <div className="cap-text">
+                <div className="cap-title">来自本地 CLI 授权文件</div>
+                <div className="cap-sub">{lcScan.paths[0] || '~/.config'}</div>
+              </div>
+              <button className="cap-redo">重新扫描</button>
+            </div>
+            <div className="ad-hint"><Icon name="shield" size={12} strokeWidth={1.8} />该服务读取本地登录文件获取用量，无需 API 密钥</div>
+          </div>
+        )}
+
+        {/* 账号级刷新间隔：跟随全局 / 独立设置（所有账号编辑均含） */}
+        <div className="ad-field ad-refresh">
+          <div className="ad-toggle-row">
+            <div className="atr-text">
+              <div className="atr-title">跟随全局自动刷新间隔</div>
+              <div className="atr-sub">{useGlobalRefresh ? `当前全局为「${globalInterval}」自动刷新` : '已为该账号单独设置刷新频率'}</div>
+            </div>
+            <SPToggle on={useGlobalRefresh} onClick={() => setUseGlobalRefresh((v) => !v)} />
+          </div>
+          {!useGlobalRefresh && (
+            <div className="ad-subfield">
+              <span className="ad-sublabel">该账号刷新频率</span>
+              <SPSelect value={acctInterval} onChange={setAcctInterval}
+                options={['1 分钟', '5 分钟', '15 分钟', '30 分钟', '仅手动']} />
+            </div>
+          )}
+          {refreshMeta && refreshMeta.note && (
+            <div className="ad-hint"><Icon name="info" size={12} strokeWidth={1.8} />{refreshMeta.note}</div>
+          )}
         </div>
+
         {rows.length > 0 && (
           <div className="ad-field">
-            <label className="ad-label">数据标签映射<span className="ad-opt">该数据源共用</span></label>
+            <label className="ad-label">数据标签映射<span className="ad-opt">{syncOn ? '该数据源共用' : '仅此账号'}</span></label>
             <div className="lm-cols"><span>原始标签（来自接口）</span><span>显示名称</span></div>
             <div className="lm-list">
               {rows.map((r) => {
@@ -599,8 +718,13 @@ function SettingsPanel({ theme, onTheme, accent, onAccent, barScheme, onBarSchem
   const [s, setS] = React.useState({
     interval: '5 分钟', lang: '简体中文', panelMode: '浮动窗口', pin: true, floatHeight: '保持窗口大小',
     notifyNear: true, notifyLimit: true, notifyFail: true, notifyWay: '系统通知', cacheMax: '100 MB',
+    labelMapSync: true,
   });
   const up = (k, v) => setS((p) => ({ ...p, [k]: v }));
+  // expose 同源数据标签映射同步 so the 编辑账号 dialog reflects the current setting
+  React.useEffect(() => { window.__omniLabelSync = s.labelMapSync; }, [s.labelMapSync]);
+  // expose 全局自动刷新间隔 so the 编辑账号 dialog can show the current value
+  React.useEffect(() => { window.__omniRefreshInterval = s.interval; }, [s.interval]);
 
   const nav = SP_NAV_BASE;
   // leave any open CPA detail when switching sections
@@ -684,6 +808,9 @@ function SettingsPanel({ theme, onTheme, accent, onAccent, barScheme, onBarSchem
                 <SPRow title="界面语言">
                   <SPSelect value={s.lang} onChange={(v) => up('lang', v)} options={['简体中文', 'English', '跟随系统']} />
                 </SPRow>
+                <SPRow title="同一数据源的数据标签映射同步" sub="同一数据源下的多个账号共用一套数据标签映射，编辑任一账号即同步到全部">
+                  <SPToggle on={s.labelMapSync} onClick={() => up('labelMapSync', !s.labelMapSync)} />
+                </SPRow>
               </>
             )}
 
@@ -759,17 +886,19 @@ function SettingsPanel({ theme, onTheme, accent, onAccent, barScheme, onBarSchem
             {section === 'about' && (
               <>
                 <div className="about-app">
-                  <img className="app-logo" src="logo.png" alt="" style={{ width: 56, height: 56, marginBottom: 12 }} />
+                  <img className="app-logo" src="logo.png" alt="" style={{ width: 60, height: 60, marginBottom: 14 }} />
                   <div className="aa-name">OmniUsage</div>
-                  <div className="aa-ver">版本 1.4.2 · 已是最新版本</div>
-                  <button className="btn-primary" style={{ marginTop: 14 }}><Icon name="refresh" size={15} color="#fff" />检查更新</button>
+                  <div className="aa-ver">version 1.4.2 · win32-x64</div>
+                  <div className="about-desc">一个跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex、Gemini 等各服务的用量限制与 Token 趋势。</div>
+                  <div className="about-actions">
+                    <button className="ab-btn"><Icon name="globe" size={15} strokeWidth={1.7} />官网</button>
+                    <button className="ab-btn"><Icon name="file" size={15} strokeWidth={1.7} />文档</button>
+                    <button className="ab-btn"><Icon name="feedback" size={15} strokeWidth={1.7} />问卷反馈</button>
+                    <button className="ab-btn primary"><Icon name="cloud" size={16} strokeWidth={1.7} color="#fff" />检查更新</button>
+                    <button className="ab-btn heart"><Icon name="heart" size={15} strokeWidth={1.7} />支持作者</button>
+                  </div>
                 </div>
-                <div className="about-links">
-                  <SPRow title="更新日志"><Icon name="chevron" size={16} color="var(--text-3)" /></SPRow>
-                  <SPRow title="开源许可"><Icon name="chevron" size={16} color="var(--text-3)" /></SPRow>
-                  <SPRow title="反馈问题"><Icon name="chevron" size={16} color="var(--text-3)" /></SPRow>
-                </div>
-                <div style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--text-3)', marginTop: 18 }}>© 2026 OmniUsage · 跨平台 AI 用量监控</div>
+                <div style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--text-3)', marginTop: 26 }}>© 2026 OmniUsage · 跨平台 AI 用量监控</div>
               </>
             )}
           </div>

@@ -83,6 +83,17 @@ const VENDORS = [
       },
     ],
   },
+  {
+    id: 'brave', name: 'Brave Search', updated: '手动 · 1 小时前',
+    accounts: [
+      { name: '个人账号', key: 'BSA****a1b2c3d4', updated: '手动 · 1 小时前',
+        metrics: [
+          { label: '本月查询', value: 38, reset: '6/1 00:00' },
+          { label: '今日查询', value: 24, reset: '今天 00:00' },
+        ],
+      },
+    ],
+  },
 ];
 
 /* chart datasets — values are relative (0..1 of 100M). No model breakdown. */
@@ -119,6 +130,7 @@ const TOTALS = {
   minimax:  { today: 28,  week: 164,  month: 620 },
   gemini:   { today: 88,  week: 520,  month: 1980 },
   tavily:   { today: 17,  week: 96,   month: 358 },
+  brave:    { today: 9,   week: 52,   month: 196 },
 };
 function fmtTokens(m) {
   if (m >= 1000) {

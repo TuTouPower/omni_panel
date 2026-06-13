@@ -257,6 +257,7 @@ function App() {
         const d = demo === 'limit' ? limitTransform(a, i) : a;
         items.push(<UsageCard key={key} name={a.name}
           balanceOnly={a.balanceOnly} balance={a.balance} mcp={a.mcp} metrics={a.metrics}
+          authType={window.VENDOR_AUTH && window.VENDOR_AUTH[currentVendor.id]}
           updated={getUpdated(key, a.updated)} h5={d.h5} week={d.week} r5={a.r5} rw={a.rw} e5={a.e5} ew={a.ew}
           state={demo === 'error' ? 'error' : demo === 'auth' ? 'auth' : 'normal'}
           refreshing={refreshing.has(key) || demo === 'refreshing'}
@@ -274,6 +275,8 @@ function App() {
 
   /* tabs */
   const tabsRef = React.useRef(null);
+  const tabWrapRef = React.useRef(null);
+  const wheelAt = React.useRef(0);
   React.useEffect(() => {
     // keep active vendor tab in view when switching
     const el = tabsRef.current && tabsRef.current.querySelector('.tab.active');
@@ -282,6 +285,31 @@ function App() {
       wrap.scrollLeft = Math.max(0, el.offsetLeft - 70);
     }
   }, [tab]);
+
+  /* wheel over the tab strip steps the selection one vendor at a time
+     (snaps the active-tab box to the next/previous tab, never free-scrolls). */
+  React.useEffect(() => {
+    const el = tabWrapRef.current;
+    if (!el) return;
+    const tabOrder = ['overview', ...VENDORS.map((v) => v.id)];
+    const onWheel = (e) => {
+      const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (!d) return;
+      e.preventDefault();
+      const now = Date.now();
+      if (now - wheelAt.current < 200) return;   // one step per gesture/tick
+      wheelAt.current = now;
+      const dir = d > 0 ? 1 : -1;
+      setTab((cur) => {
+        const i = tabOrder.indexOf(cur);
+        const n = tabOrder.length;
+        const ni = ((i + dir) % n + n) % n;   // wrap around: last → 总览, 总览 → last
+        return tabOrder[ni];
+      });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   const openCtx = (e) => { e.preventDefault(); };
 
@@ -306,12 +334,11 @@ function App() {
                   </div>
                 </div>
 
-                <div className="tabs-wrap">
-                  <button className={'tab pinned' + (tab === 'overview' ? ' active' : '')} onClick={() => setTab('overview')}>
-                    <span className="tab-ic"><Icon name="grid_nav" size={22} color={tab === 'overview' ? 'var(--blue)' : 'var(--text-2)'} strokeWidth={1.8} /></span>
+                <div className="tabs-wrap" ref={tabWrapRef}>
+                  <button className={'tab pinned' + (tab === 'overview' ? ' active' : '')} onClick={() => setTab('overview')} title="总览">
+                    <span className="tab-ic"><Icon name="grid_nav" size={22} color="var(--blue)" strokeWidth={1.8} /></span>
                     <span className="tab-lbl">总览</span>
                   </button>
-                  <div className="tabs-pin-divider" />
                   <div className="tabs" ref={tabsRef}>
                     {VENDORS.map((v) => (
                       <Tab key={v.id} active={tab === v.id} onClick={() => setTab(v.id)}

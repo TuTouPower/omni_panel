@@ -32,6 +32,8 @@ function TrayWindow({ onOpenPanel, onRefreshAll, onSettings,
 
         <CtxItem icon="gear" label="设置…" onClick={onSettings} />
         <CtxItem icon="download" label="检查更新" meta="v1.4.2" onClick={() => {}} />
+        <CtxItem icon="feedback" label="问卷反馈" onClick={() => {}} />
+        <CtxItem icon="heart" label="支持作者" onClick={() => {}} />
         <div className="ctx-sep" />
 
         <CtxItem icon="exit" label="退出 OmniUsage" danger onClick={onQuit} />

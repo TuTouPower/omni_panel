@@ -11,6 +11,7 @@ const SV_META = {
   antigravity: { name: 'Antigravity' },
   deepseek:    { name: 'DeepSeek' },
   tavily:      { name: 'Tavily' },
+  brave:       { name: 'Brave Search' },
   mimo:        { name: 'MiMo' },
   glm:         { name: 'GLM' },
   minimax:     { name: 'MiniMax' },
@@ -25,6 +26,7 @@ const VENDOR_AUTH = {
   glm:         'apikey',
   gemini:      'apikey',
   tavily:      'apikey',
+  brave:       'apikey',
   minimax:     'apikey',
   mimo:        'session',
   kimi:        'session',
@@ -39,6 +41,7 @@ const AUTH_APIKEY_META = {
   glm:      { prefix: '',           endpoint: 'https://open.bigmodel.cn', docs: 'bigmodel.cn → 接口密钥' },
   gemini:   { prefix: 'AIza',       endpoint: 'https://generativelanguage.googleapis.com', docs: 'aistudio.google.com → API Keys' },
   tavily:   { prefix: 'tvly-',      endpoint: 'https://api.tavily.com', docs: 'app.tavily.com → API Keys' },
+  brave:    { prefix: 'BSA',        endpoint: 'https://api.search.brave.com/res/v1', docs: 'brave.com/search/api → Subscriptions' },
   minimax:  { prefix: '',           endpoint: 'https://api.minimaxi.com', docs: 'minimaxi.com → 账户管理 → 接口密钥' },
 };
 
@@ -98,6 +101,10 @@ const VENDOR_RAW_LABELS = {
     { raw: 'total_credits', def: '总量' },
     { raw: 'search_calls',  def: '搜索' },
     { raw: 'extract_calls', def: '提取' },
+  ],
+  brave: [
+    { raw: 'monthly_queries', def: '本月查询' },
+    { raw: 'daily_queries',   def: '今日查询' },
   ],
   mimo: [
     { raw: 'window_5h',  def: '5 小时窗口' },
@@ -201,8 +208,17 @@ const CPA_DISCOVERED = [
 /* CPA sync scope — vendor list shown as toggles on the detail / add pages */
 const CPA_SCOPE = ['claude', 'codex', 'gemini', 'antigravity', 'kimi'];
 
+/* ---- 每个厂商的刷新策略 ----
+   manualDefault: 该服务默认仅手动刷新；note 解释原因，显示在添加/编辑弹窗。 */
+const VENDOR_REFRESH = {
+  brave: {
+    manualDefault: true,
+    note: '用量统计需向 Brave Search API 发送一次搜索请求才能获取，会占用配额，因此默认仅手动刷新。',
+  },
+};
+
 /* add-account picker */
-const ADD_COMMON = ['claude', 'codex', 'gemini', 'kimi', 'mimo', 'deepseek', 'tavily'];
+const ADD_COMMON = ['claude', 'codex', 'gemini', 'kimi', 'mimo', 'deepseek', 'tavily', 'brave'];
 
 /* ============================================================
    UNIFIED CONNECTIONS  (架构 v2 §5.5.6 — 展示边界)
@@ -246,6 +262,9 @@ const CONNECTIONS = [
   { type: 'vendor', id: 'tavily', accounts: [
     { id: 'tv-1', name: '个人账号', status: 'ok' },
   ] },
+  { type: 'vendor', id: 'brave', accounts: [
+    { id: 'br-1', name: '个人账号', status: 'ok' },
+  ] },
   { type: 'vendor', id: 'mimo', accounts: [
     { id: 'mm-1', name: '个人账号', status: 'auth' },
   ] },
@@ -271,5 +290,5 @@ const CONNECTIONS = [
 Object.assign(window, {
   SV_META, ACCT_NORMAL, ACCT_CPA, DATA_SOURCES, CPA_DISCOVERED, CPA_SCOPE, ADD_COMMON,
   CONNECTIONS,
-  VENDOR_AUTH, AUTH_APIKEY_META, AUTH_SESSION_META, AUTH_LOCAL_SCAN, VENDOR_RAW_LABELS,
+  VENDOR_AUTH, AUTH_APIKEY_META, AUTH_SESSION_META, AUTH_LOCAL_SCAN, VENDOR_RAW_LABELS, VENDOR_REFRESH,
 });

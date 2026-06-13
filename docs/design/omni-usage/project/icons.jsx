@@ -38,6 +38,9 @@ const UI_ICONS = {
   reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/>',
   link: '<path d="M9 15l6-6M10.5 6.5l1.8-1.8a4 4 0 0 1 5.7 5.7l-1.8 1.8M13.5 17.5l-1.8 1.8a4 4 0 0 1-5.7-5.7l1.8-1.8"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/>',
+  heart: '<path d="M12 20.5C5.5 16 2.5 12.6 2.5 8.9 2.5 6.2 4.6 4.2 7.2 4.2c1.7 0 3.3.9 4.1 2.3l.7 1.1.7-1.1c.8-1.4 2.4-2.3 4.1-2.3 2.6 0 4.7 2 4.7 4.7 0 3.7-3 7.1-9.5 11.6z"/>',
+  cloud: '<path d="M7 18.5a4.2 4.2 0 0 1-.6-8.36A6 6 0 0 1 18 9.8a3.6 3.6 0 0 1-.6 8.7H7z"/>',
+  feedback: '<path d="M21 11.5a7.5 7.5 0 0 1-10.8 6.74L4.5 20l1.27-4.16A7.5 7.5 0 1 1 21 11.5z"/>',
 };
 
 function Icon({ name, size = 18, strokeWidth = 1.7, color, style, className }) {
@@ -61,6 +64,8 @@ const VENDOR_ICONS = {
   deepseek: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none"><path d="M3 13c2.5 0 4-1.2 5-3 .8 2.4 3 4 6 4 2.2 0 4-.7 5.5-2-.3 4-3.8 6.8-8 6.8-3.7 0-6.8-2.4-8.5-5.8z" fill="#4d6bfe"/><circle cx="15.5" cy="10.5" r="1.1" fill="#fff"/></svg>`,
   minimax: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#e23744" stroke-width="2" stroke-linecap="round"><path d="M3 12c1.5 0 1.5-5 3-5s1.5 11 3 11 1.5-13 3-13 1.5 9 3 9 1.5-3 3-3"/></svg>`,
   tavily: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V8" stroke="#3d7afd"/><path d="M12 8l-4 4M12 8l4 4" stroke="#3d7afd"/><path d="M12 3l5 4" stroke="#f5a524"/><path d="M5 9l5-2.5" stroke="#22c55e"/></svg>`,
+  /* orange shield — Brave Search placeholder */
+  brave: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><path d="M12 2.6l6.2 2.1.7 7.7c.2 2.5-1.1 4.9-3.3 6.1L12 21.4l-3.6-2.9c-2.2-1.2-3.5-3.6-3.3-6.1l.7-7.7z" fill="#fb542b"/><path d="M12 8.1l2.3 2.5-2.3 4.2-2.3-4.2z" fill="#fff"/></svg>`,
   /* four-point sparkle */
   gemini: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><path d="M12 2.2c.5 4.6 2.6 7.2 7.6 7.8-5 .6-7.1 3.2-7.6 7.8-.5-4.6-2.6-7.2-7.6-7.8 5-.6 7.1-3.2 7.6-7.8z" transform="translate(0 2)" fill="#3a72f0"/></svg>`,
   /* dark rounded square w/ crescent — Kimi placeholder */

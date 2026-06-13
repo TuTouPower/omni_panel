@@ -50,6 +50,7 @@ function NameField({ value, onChange, placeholder, autoFocus }) {
    ================================================================= */
 function ApiKeyBody({ vendorId, name, setName }) {
   const meta = AUTH_APIKEY_META[vendorId] || {};
+  const refreshMeta = (window.VENDOR_REFRESH && window.VENDOR_REFRESH[vendorId]) || null;
   const [key, setKey] = React.useState('');
   const [endpoint, setEndpoint] = React.useState('');
   const [show, setShow] = React.useState(false);
@@ -72,6 +73,14 @@ function ApiKeyBody({ vendorId, name, setName }) {
         <input className="ad-input mono" value={endpoint} onChange={(e) => setEndpoint(e.target.value)}
           placeholder={meta.endpoint || '默认（官方接口）'} />
       </div>
+      {refreshMeta && refreshMeta.note && (
+        <div className="ad-field">
+          <div className="aa-refresh-note">
+            <span className="arn-ic"><Icon name="info" size={15} strokeWidth={1.9} /></span>
+            <span className="arn-text">{refreshMeta.note}</span>
+          </div>
+        </div>
+      )}
     </>
   );
 }

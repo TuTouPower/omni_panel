@@ -420,3 +420,25 @@
 
 /* label-map block inside the 编辑 dialog */
 .ad-body .lm-cols { margin-top: 4px; }
+
+/* ---- 编辑账号：账号级自动刷新间隔 ---- */
+.ad-refresh .ad-toggle-row { display: flex; align-items: flex-start; gap: 12px; }
+.ad-refresh .atr-text { flex: 1; min-width: 0; }
+.ad-refresh .atr-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.ad-refresh .atr-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; line-height: 1.45; }
+.ad-refresh .ad-toggle-row .sw { flex-shrink: 0; margin-top: 1px; }
+.ad-refresh .ad-subfield {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 11px; padding-top: 11px; border-top: .5px solid var(--hairline);
+}
+.ad-refresh .ad-subfield .ad-sublabel { font-size: 12.5px; font-weight: 550; color: var(--text-2); }
+.ad-refresh .ad-subfield .set-select { width: auto; min-width: 118px; }
+
+/* ---- 添加账号：手动刷新提示（Brave …） ---- */
+.aa-refresh-note {
+  display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px;
+  border: .5px solid color-mix(in srgb, var(--risk-orange) 34%, transparent);
+  background: color-mix(in srgb, var(--risk-orange) 9%, transparent); border-radius: 11px;
+}
+.aa-refresh-note .arn-ic { color: var(--risk-orange); flex-shrink: 0; margin-top: 1px; display: flex; }
+.aa-refresh-note .arn-text { font-size: 11.5px; line-height: 1.5; color: var(--text-2); }
