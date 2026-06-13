@@ -5,9 +5,9 @@ import { VendorMark, Icon } from "./Icon";
 
 // ── Auth method routing ──
 
-type AuthMethod = "apikey" | "session" | "local";
+export type AuthMethod = "apikey" | "session" | "local";
 
-const VENDOR_AUTH_MAP: Partial<Record<UsageProvider, AuthMethod>> = {
+export const VENDOR_AUTH_MAP: Partial<Record<UsageProvider, AuthMethod>> = {
     deepseek: "apikey",
     glm: "apikey",
     gemini: "apikey",

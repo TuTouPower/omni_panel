@@ -46,6 +46,8 @@ export const IPC_CHANNELS = {
     TRAY_TOGGLE_AUTOSTART: "tray:toggleAutostart",
     TRAY_OPEN_SETTINGS: "tray:openSettings",
     TRAY_CHECK_UPDATE: "tray:checkUpdate",
+    TRAY_SURVEY: "tray:survey",
+    TRAY_SPONSOR: "tray:sponsor",
     TRAY_QUIT: "tray:quit",
     TRAY_RESTART: "tray:restart",
     TRAY_HIDE: "tray:hide",
@@ -233,6 +235,8 @@ export interface UsageboardApi {
         toggle_autostart(): void;
         open_settings(): void;
         check_update(): void;
+        survey(): void;
+        sponsor(): void;
         restart(): void;
         quit(): void;
         hide(): void;

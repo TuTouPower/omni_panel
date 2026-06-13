@@ -22,11 +22,10 @@ export function ProviderNav({ activeTab, visibleProviders, onChange }: ProviderN
                 }}
             >
                 <span className="tab-ic">
-                    <VendorMark id="overview" size={22} />
+                    <VendorMark id="overview" size={22} color="var(--blue)" />
                 </span>
                 <span className="tab-lbl">总览</span>
             </button>
-            <div className="tabs-pin-divider" />
             <div className="tabs" ref={scrollRef}>
                 {visibleProviders.map((provider) => (
                     <button

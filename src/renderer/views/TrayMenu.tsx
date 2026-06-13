@@ -107,6 +107,22 @@ export function TrayMenu() {
                 },
             },
             {
+                icon: "clipboard",
+                label_zh: "问卷反馈",
+                label_en: "Survey",
+                action: () => {
+                    window.usageboard.tray.survey();
+                },
+            },
+            {
+                icon: "heart",
+                label_zh: "支持作者",
+                label_en: "Sponsor",
+                action: () => {
+                    window.usageboard.tray.sponsor();
+                },
+            },
+            {
                 icon: "refresh",
                 label_zh: "重启",
                 label_en: "Restart",
@@ -147,7 +163,7 @@ export function TrayMenu() {
 
     useResizeObserver(menu_ref, report_menu_size, [items]);
 
-    const sep_indexes = new Set([2, 4, 7]); // indexes where separators appear
+    const sep_indexes = new Set([2, 4, 9]); // indexes where separators appear
 
     return (
         <div className="tray-window" ref={menu_ref}>

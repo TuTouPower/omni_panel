@@ -15,6 +15,7 @@ import {
     apply_account_overrides,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
+import { VENDOR_AUTH_MAP } from "../components/AddAccountDialog";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import type {
     AccountOverrides,
@@ -65,6 +66,7 @@ function derive_status_bar(
     }
 
     // Check for credential failures (401/403/AUTH in error messages)
+    let has_session_auth_error = false;
     for (const p of plugins) {
         if (p.snapshot.status !== "failed") continue;
         const err_upper = p.snapshot.error.toUpperCase();
@@ -72,7 +74,15 @@ function derive_status_bar(
             AUTH_ERROR_PATTERNS.some((pat) => err_upper.includes(pat)) ||
             AUTH_WORD_RE.test(err_upper)
         ) {
-            return { dot: "amber", label: "凭证失效" };
+            for (const prov of p.activeProviders) {
+                if (VENDOR_AUTH_MAP[prov] === "session") {
+                    has_session_auth_error = true;
+                }
+            }
+            return {
+                dot: "amber",
+                label: has_session_auth_error ? "登录失效" : "凭证失效",
+            };
         }
     }
 
@@ -225,6 +235,7 @@ export function PopupView() {
             });
     }, [provider_order]);
     const tabsRef = useRef<HTMLDivElement>(null);
+    const wheel_at_ref = useRef(0);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
     const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
     const refresh_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -533,6 +544,32 @@ export function PopupView() {
             (el as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center" });
         }
     }, [activeTab]);
+
+    // wheel over the tab strip steps the selection one tab at a time (wraps around)
+    useEffect(() => {
+        const el = tabsRef.current;
+        if (!el) return;
+        const on_wheel = (e: WheelEvent) => {
+            const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+            if (!d) return;
+            e.preventDefault();
+            const now = Date.now();
+            if (now - wheel_at_ref.current < 200) return;
+            wheel_at_ref.current = now;
+            const dir = d > 0 ? 1 : -1;
+            setActiveTab((cur) => {
+                const tab_order: (UsageProvider | "overview")[] = ["overview", ...orderedProviders];
+                const i = tab_order.indexOf(cur);
+                const n = tab_order.length;
+                const ni = (((i + dir) % n) + n) % n;
+                return tab_order[ni];
+            });
+        };
+        el.addEventListener("wheel", on_wheel, { passive: false });
+        return () => {
+            el.removeEventListener("wheel", on_wheel);
+        };
+    }, [orderedProviders]);
 
     const statusBar = derive_status_bar(plugins, error);
     const statusDot = statusBar.dot;

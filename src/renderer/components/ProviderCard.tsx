@@ -11,6 +11,7 @@ import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/conf
 import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
+import { VENDOR_AUTH_MAP } from "./AddAccountDialog";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { CardActionMenu } from "./CardActionMenu";
 import type { CardActionMenuItem } from "./CardActionMenu";
@@ -126,12 +127,15 @@ export function ProviderCard({
     const render_state = () => {
         if (isFailed) {
             if (is_auth) {
+                const auth_method = VENDOR_AUTH_MAP[provider];
+                const auth_label =
+                    auth_method === "session" ? "登录失效，请重新登录" : "凭证失效，请重新登录";
                 return (
                     <div className="card-state auth">
                         <span className="cs-ic">
                             <Icon name="lock" size={15} />
                         </span>
-                        <span>凭证失效，请重新登录</span>
+                        <span>{auth_label}</span>
                         <span
                             className="cs-action"
                             onClick={() => {

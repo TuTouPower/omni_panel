@@ -46,6 +46,7 @@ const UI_ICONS: Record<string, string> = {
     globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 4 9 15 15 0 0 1-4 9 15 15 0 0 1-4-9A15 15 0 0 1 12 3z"/>',
     clipboard:
         '<rect x="8" y="4" width="8" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>',
+    heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
     folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
@@ -151,9 +152,10 @@ const VENDOR_MARKS: Record<string, (s: number) => string> = {
 interface VendorMarkProps {
     id: string;
     size?: number;
+    color?: string;
 }
 
-export function VendorMark({ id, size = 28 }: VendorMarkProps) {
+export function VendorMark({ id, size = 28, color }: VendorMarkProps) {
     const logo = VENDOR_LOGOS[id];
     if (logo) {
         return (
@@ -165,11 +167,12 @@ export function VendorMark({ id, size = 28 }: VendorMarkProps) {
 
     const render = VENDOR_MARKS[id] ?? VENDOR_MARKS["overview"];
     if (!render) return null;
+    const html = color ? render(size).replace(/stroke="[^"]*"/, `stroke="${color}"`) : render(size);
     return (
         <span
             className="vicon"
             style={{ width: size, height: size }}
-            dangerouslySetInnerHTML={{ __html: render(size) }}
+            dangerouslySetInnerHTML={{ __html: html }}
         />
     );
 }

@@ -605,6 +605,12 @@ void app.whenReady().then(async () => {
         ipcMain.handle("tray:checkUpdate", () => {
             log.info("Check for updates requested (not yet implemented)");
         });
+        ipcMain.handle("tray:survey", () => {
+            log.info("Survey/feedback requested (not yet implemented)");
+        });
+        ipcMain.handle("tray:sponsor", () => {
+            log.info("Sponsor/support author requested (not yet implemented)");
+        });
         ipcMain.handle("tray:quit", () => {
             app.quit();
         });
