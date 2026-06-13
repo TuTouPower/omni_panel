@@ -6,7 +6,7 @@
 
 ## 待办
 
-### 修复：架构升级夹带的前端改动（commit 边界混乱 + 生硬 UI 文案）
+### 已完成：架构升级夹带的前端改动（commit 边界混乱 + 生硬 UI 文案）
 
 **根因：** 架构升级本应只替换数据层（plugin runtime → connector runtime + Observation 数据模型），但实际有两个 commit 夹带了无关的前端改动和生硬文案，导致主面板出现莫名其妙的"观测 2 分钟前"和 `POLL`/`SESSION` 技术枚举 badge，以及设置页的产品交互重构混在架构 commit 里。已审查 `docs/architecture-refactor-commit-notes.md` 列出的 26 个架构 commit，只有 2 个动了 `src/renderer/`：`fd2b0f8`、`d2a2748`。
 
@@ -45,20 +45,15 @@
 - **问题：** 这是账号/数据源双视角合并成单列表的产品交互决策，和替换 plugin runtime 无因果关系。commit message 也没提架构升级，但被列入 `docs/architecture-refactor-commit-notes.md` 的提交表，当成架构升级一部分。
 - **该不该改：** ⚠️ 改动本身符合 `docs/omniusage-architecture-v2.md` §5.5.6 设计，但应独立成 feature branch，不混在架构升级 commit 序列里。
 
-**修复方案：**
+**修复结果：**
 
-- **立即修（低风险文案/样式）：**
-    - 问题 1：删除 `ProviderCard.tsx:222` 的 `观测 ` 前缀，只保留 `{observed_text}`；或和 `updated_text` 合并显示（如果两者语义重复）。
-    - 问题 2：删除 `source_label` 函数和 `source-badge` span（两处：`ProviderCard.tsx`、`SettingsView.tsx`），以及 `globals.css` 里 `.source-badge` 样式。`group.source` 字段保留在数据层，UI 不显示。
-    - 对应测试：`tests/unit/renderer/components/provider_card.test.tsx`、`tests/unit/renderer/provider-usage.test.ts` 需更新断言。
-- **文档修正（不改代码）：**
-    - 问题 3/4：在 `docs/architecture-refactor-commit-notes.md` 标注 `fd2b0f8` 和 `d2a2748` 为"夹带前端改动"，说明真实架构升级范围只含数据层（schema 字段透传 + stale badge），不含设置页重写和 source badge。
-    - 或把 `d2a2748` 从架构升级 commit 表移出，单独列为产品交互重构。
+- **问题 1/2 已修复（`3585b29`）：** 删除 `ProviderCard.tsx` 和 `ProviderAccountRow.tsx` 的 `source_label`/`source-badge`/`source.toUpperCase()`；删除 `ProviderCard.tsx` 的 `观测` 前缀；删除 `globals.css` 的 `.source-badge` 样式。stale badge 保留。测试 `provider_card.test.tsx` 已更新断言。
+- **问题 3/4 已文档化（`1184937`）：** `docs/architecture-refactor-commit-notes.md` 新增「夹带的前端改动说明」章节，标注 `fd2b0f8` 和 `d2a2748` 的真实范围。
 
 **验收：**
 
 - 主面板 provider 卡片不再显示 `观测 X 分钟前` 和 `POLL`/`SESSION` badge。
-- `pnpm test` 通过。
+- `pnpm test` 564 passed。
 - `docs/architecture-refactor-commit-notes.md` 如实反映哪些是架构改动、哪些是夹带。
 
 ### 部分完成：架构重构后独立采集器变成空实现
@@ -90,11 +85,13 @@
 
 **验收：** 打包后设置页编辑每个已添加 provider 都能看到密钥/Cookie 字段。
 
-### 修复：CPA 添加后只显示 Claude 数据
+### 已完成：CPA 添加后只显示 Claude 数据
 
 **根因：** `connectors/cpa/manifest.json` 只声明 `monitor_claude`；connector 过滤 `provider !== "claude"`；IPC `supported_providers()` 对 CPA 写死 `["claude"]`。
 
-**验收：** CPA 设置页有多 provider 开关；非 Claude auth file 不被静默丢弃。
+**修复（`147ccc0`）：** manifest 增加 `monitor_gemini`/`monitor_kimi`/`monitor_deepseek`/`monitor_codex`/`monitor_antigravity` 开关；connector 按 `monitor_<provider>` 过滤而非全局 `monitor_claude`；IPC `supported_providers()` 从 manifest 参数动态派生。
+
+**验收：** CPA 设置页有多 provider 开关；非 Claude auth file 不被静默丢弃。已通过 `tests/integration/connector/cpa-connector.test.ts` 4 个测试验证。
 
 ### 已完成：MiMo logo 深色模式不可见
 
