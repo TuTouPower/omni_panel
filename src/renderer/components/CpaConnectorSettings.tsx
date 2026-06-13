@@ -11,12 +11,12 @@ import {
     refresh_label_to_seconds,
 } from "../lib/refresh-intervals";
 
-const MONITORS: readonly { name: string; label: string }[] = [
-    { name: "monitor_claude", label: "监控 Claude" },
-    { name: "monitor_codex", label: "监控 Codex" },
-    { name: "monitor_gemini", label: "监控 Gemini" },
-    { name: "monitor_antigravity", label: "监控 Antigravity" },
-    { name: "monitor_kimi", label: "监控 Kimi" },
+const MONITORS: readonly { name: string; provider: UsageProvider }[] = [
+    { name: "monitor_claude", provider: "claude" },
+    { name: "monitor_codex", provider: "codex" },
+    { name: "monitor_gemini", provider: "gemini" },
+    { name: "monitor_antigravity", provider: "antigravity" },
+    { name: "monitor_kimi", provider: "kimi" },
 ];
 
 interface CpaConnectorSettingsProps {
@@ -88,14 +88,16 @@ export function CpaConnectorSettings({
     onRemove,
     providerLabelMaps: _providerLabelMaps,
     selectedProvider,
-    onEditLabelMap,
+    onEditLabelMap: _onEditLabelMap,
 }: CpaConnectorSettingsProps) {
+    void _onEditLabelMap;
     // onRefresh is part of the interface for future use
     void onRefresh;
     void _providerLabelMaps;
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [secret, setSecret] = useState(hasSecrets["cpa_mgmt_key"] ? "***" : "");
+    const [showKey, setShowKey] = useState(false);
     const [endpoint, setEndpoint] = useState(
         config.endpointOverrides["default"] ?? connector.metadata?.endpoints?.["default"] ?? "",
     );
@@ -250,16 +252,28 @@ export function CpaConnectorSettings({
                 </div>
                 <div className="cfg-field">
                     <div className="cfg-label">API 密钥</div>
-                    <input
-                        aria-label="管理密钥"
-                        className="ad-input mono"
-                        name="cpa_mgmt_key"
-                        onChange={(event) => {
-                            setSecret(event.target.value);
-                        }}
-                        type="password"
-                        value={secret}
-                    />
+                    <div className="ad-key">
+                        <input
+                            aria-label="管理密钥"
+                            className="ad-input mono"
+                            name="cpa_mgmt_key"
+                            onChange={(event) => {
+                                setSecret(event.target.value);
+                            }}
+                            type={showKey ? "text" : "password"}
+                            value={secret}
+                        />
+                        <button
+                            className="ad-eye"
+                            onClick={() => {
+                                setShowKey((v) => !v);
+                            }}
+                            title={showKey ? "隐藏" : "显示"}
+                            type="button"
+                        >
+                            <Icon name={showKey ? "eye_off" : "eye"} size={16} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="cfg-sec">连接状态</div>
@@ -331,11 +345,8 @@ export function CpaConnectorSettings({
                 {MONITORS.map((monitor) => (
                     <div className="cfg-row cfg-scope-row" key={monitor.name}>
                         <span className="cr-vendor">
-                            <VendorMark
-                                id={monitor.name.replace("monitor_", "") as UsageProvider}
-                                size={20}
-                            />
-                            {monitor.label}
+                            <VendorMark id={monitor.provider} size={20} />
+                            {PROVIDER_LABELS[monitor.provider]}
                         </span>
                         <div className="cr-ctrl">
                             <button
@@ -391,43 +402,27 @@ export function CpaConnectorSettings({
                 ) : (
                     accountGroups.map(([provider, acctItems]) => (
                         <div className="disc-grp" key={provider}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                <button
-                                    className="disc-head"
-                                    data-open={openGrps.has(provider) ? "true" : "false"}
-                                    onClick={() => {
-                                        toggleGrp(provider);
-                                    }}
-                                    type="button"
-                                >
-                                    <VendorMark id={provider} size={20} />
-                                    <span className="dh-name">{PROVIDER_LABELS[provider]}</span>
-                                    <span className="dh-count">{acctItems.length} 个</span>
-                                    <span className="dh-chev">
-                                        <Icon name="chevron" size={16} />
-                                    </span>
-                                </button>
-                                {onEditLabelMap && (
-                                    <button
-                                        className="icon-btn sp-ic"
-                                        title={`${PROVIDER_LABELS[provider]} 标签映射`}
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onEditLabelMap(provider);
-                                        }}
-                                    >
-                                        <Icon name="tag" size={14} />
-                                    </button>
-                                )}
-                            </div>
+                            <button
+                                className="disc-head"
+                                data-open={openGrps.has(provider) ? "true" : "false"}
+                                onClick={() => {
+                                    toggleGrp(provider);
+                                }}
+                                type="button"
+                            >
+                                <VendorMark id={provider} size={20} />
+                                <span className="dh-name">{PROVIDER_LABELS[provider]}</span>
+                                <span className="dh-count">{acctItems.length} 个</span>
+                                <span className="dh-chev">
+                                    <Icon name="chevron" size={16} />
+                                </span>
+                            </button>
                             {openGrps.has(provider) && (
                                 <div className="disc-rows">
                                     {acctItems.map((item) => (
                                         <div className="disc-row" key={item.id}>
                                             <span className="drd" />
                                             <span className="dr-note">{item.accountLabel}</span>
-                                            <span className="dr-key">{item.accountId}</span>
                                         </div>
                                     ))}
                                 </div>

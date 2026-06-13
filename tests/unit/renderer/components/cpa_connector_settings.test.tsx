@@ -183,8 +183,16 @@ describe("CpaConnectorSettings", () => {
         renderSettings({ onSave, onSaveSecrets });
 
         // Find monitor toggle buttons by their row text
-        const claudeRow = screen.getByText("监控 Claude").closest(".cfg-scope-row");
-        const antigravityRow = screen.getByText("监控 Antigravity").closest(".cfg-scope-row");
+        const claude_matches = screen.getAllByText("Claude");
+        const claude_vendor = claude_matches.find((el) => el.classList.contains("cr-vendor"));
+        if (!claude_vendor) throw new Error("missing Claude scope row");
+        const claudeRow = claude_vendor.closest(".cfg-scope-row");
+        const antigravity_matches = screen.getAllByText("Antigravity");
+        const antigravity_vendor = antigravity_matches.find((el) =>
+            el.classList.contains("cr-vendor"),
+        );
+        if (!antigravity_vendor) throw new Error("missing Antigravity scope row");
+        const antigravityRow = antigravity_vendor.closest(".cfg-scope-row");
         if (!claudeRow || !antigravityRow) throw new Error("missing monitor rows");
 
         // Toggle monitor_claude off
@@ -298,7 +306,7 @@ describe("CpaConnectorSettings", () => {
         expect(btn).toHaveAttribute("data-on", "0");
     });
 
-    it("shows label map button per provider when onEditLabelMap is provided", () => {
+    it("does not render label map button in discovered accounts", () => {
         const onEditLabelMap = vi.fn();
         renderSettings({
             onEditLabelMap,
@@ -314,27 +322,16 @@ describe("CpaConnectorSettings", () => {
             }),
         });
 
-        const tag_buttons = screen.getAllByTitle(/标签映射/);
-        expect(tag_buttons.length).toBeGreaterThanOrEqual(1);
+        const tag_buttons = screen.queryAllByTitle(/标签映射/);
+        expect(tag_buttons.length).toBe(0);
     });
 
-    it("calls onEditLabelMap with correct provider when tag button is clicked", async () => {
-        const user = userEvent.setup();
-        const onEditLabelMap = vi.fn();
-        renderSettings({
-            onEditLabelMap,
-            connector: connector({
-                snapshot: {
-                    status: "ready",
-                    updatedAt: "2026-05-31T00:00:00.000Z",
-                    items: [usageItem({ provider: "claude" })],
-                },
-            }),
-        });
+    it("does not show accountId in discovered account rows", () => {
+        renderSettings();
 
-        const tag_btn = screen.getByTitle(/标签映射/);
-        await user.click(tag_btn);
-        expect(onEditLabelMap).toHaveBeenCalledWith("claude");
+        expect(screen.queryByText("claude-account")).not.toBeInTheDocument();
+        expect(screen.queryByText("codex-account")).not.toBeInTheDocument();
+        expect(screen.getByText("Claude Account")).toBeInTheDocument();
     });
 
     it("filters discovered accounts to the selected provider", () => {

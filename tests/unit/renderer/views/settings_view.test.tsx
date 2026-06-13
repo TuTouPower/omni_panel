@@ -260,23 +260,22 @@ describe("SettingsView", () => {
         });
     });
 
-    it("renders CPA as an expandable connection row with account child rows", async () => {
+    it("renders CPA as a card with always-visible account child rows", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
-        const cpa_row = await screen.findByText("CPA");
-        const row = cpa_row.closest<HTMLElement>(".ao-item");
-        if (!row) throw new Error("missing CPA row");
-        expect(row).toHaveTextContent("1 个账号");
-        expect(screen.queryByText("Claude Account")).not.toBeInTheDocument();
+        const cpa_vendor = await screen.findByText("CPA Manager");
+        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        if (!card) throw new Error("missing CPA card");
+        expect(card).toHaveTextContent("1 账号");
+        expect(card).toHaveTextContent("1 服务商");
 
-        await user.click(within(row).getByTitle("展开账号"));
-
+        // Child rows are always visible (no expand button)
         expect(screen.getByText("Claude Account")).toBeInTheDocument();
-        const child_row = screen.getByText("Claude Account").closest<HTMLElement>(".acct-row");
+        const child_row = screen.getByText("Claude Account").closest<HTMLElement>(".acc-row");
         if (!child_row) throw new Error("missing CPA child row");
-        expect(within(child_row).queryByTitle("删除")).not.toBeInTheDocument();
+        expect(within(child_row).queryByTitle("删除账号")).not.toBeInTheDocument();
     });
 
     it("renders CPA connector settings page from accounts", async () => {
@@ -287,21 +286,18 @@ describe("SettingsView", () => {
         await waitFor(() => {
             expect(screen.getAllByText(/CPA/).length).toBeGreaterThan(0);
         });
-        const edit_buttons = screen.getAllByTitle("编辑");
-        const cpa_edit = edit_buttons.find((b) => {
-            const row_text =
-                b.closest(".ao-item")?.textContent ?? b.closest(".acct-row")?.textContent ?? "";
-            return row_text.includes("CPA");
-        });
-        if (!cpa_edit) throw new Error("missing CPA edit button");
-        await user.click(cpa_edit);
+        const edit_buttons = screen.getAllByTitle("编辑（连接设置）");
+        if (edit_buttons.length === 0) throw new Error("missing CPA edit button");
+        await user.click(edit_buttons[0]);
 
         await waitFor(() => {
             expect(screen.getByTestId("cpa-connector-settings")).toBeInTheDocument();
         });
         expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
         expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
-        expect(screen.getByText("Claude Account")).toBeInTheDocument();
+        expect(
+            within(screen.getByTestId("cpa-connector-settings")).getByText("Claude Account"),
+        ).toBeInTheDocument();
     });
 
     it("does not render a separate data source nav", async () => {
@@ -319,9 +315,10 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
-        const cpa_row = (await screen.findByText("CPA")).closest(".ao-item");
-        if (!cpa_row) throw new Error("missing CPA connection row");
-        const toggle = cpa_row.querySelector<HTMLButtonElement>(".sw");
+        const cpa_vendor = await screen.findByText("CPA Manager");
+        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        if (!card) throw new Error("missing CPA card");
+        const toggle = card.querySelector<HTMLButtonElement>(".sw");
         if (!toggle) throw new Error("missing CPA toggle");
 
         await user.click(toggle);

@@ -83,8 +83,11 @@ describe("Renderer smoke tests", () => {
             render(<SettingsView />);
 
             await user.click(await screen.findByTestId("settings-plugin-nav-accounts"));
-            const deepseek_row = (await screen.findByText("DeepSeek")).closest(".ao-item");
-            if (!deepseek_row) throw new Error("DeepSeek row not found");
+            const deepseek_vendors = await screen.findAllByText("DeepSeek");
+            const deepseek_row = deepseek_vendors
+                .find((el) => el.classList.contains("ar-vendor"))
+                ?.closest(".acc-card");
+            if (!deepseek_row) throw new Error("DeepSeek card not found");
             const edit_button =
                 deepseek_row.querySelector<HTMLButtonElement>('button[title="编辑"]');
             if (!edit_button) throw new Error("DeepSeek edit button not found");
