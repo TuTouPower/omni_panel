@@ -1,5 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { PluginParameterMetadata } from "../../shared/schemas/plugin-metadata";
+import { Icon } from "./Icon";
+
+interface LabelMapRow {
+    raw: string;
+    display: string;
+}
 
 interface SettingsFormProps {
     instanceId: string;
@@ -20,6 +26,8 @@ interface SettingsFormProps {
         refreshIntervalSeconds: number,
     ) => Promise<void>;
     onDuplicate?: (instanceId: string) => void;
+    existingLabelMap?: Readonly<Record<string, string>>;
+    onSaveLabelMap?: (instanceId: string, map: Record<string, string>) => Promise<void>;
 }
 
 export function SettingsForm({
@@ -35,10 +43,16 @@ export function SettingsForm({
     onCookieLogin,
     onSave,
     onDuplicate,
+    existingLabelMap,
+    onSaveLabelMap,
 }: SettingsFormProps) {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [loginLoading, setLoginLoading] = useState(false);
+    const [labelMapExpanded, setLabelMapExpanded] = useState(false);
+    const [labelRows, setLabelRows] = useState<LabelMapRow[]>([]);
+    const [labelLoading, setLabelLoading] = useState(false);
+    const [labelEdits, setLabelEdits] = useState<Record<string, string>>({});
     const mounted_ref = useRef(true);
     const saved_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -50,6 +64,44 @@ export function SettingsForm({
             }
         };
     }, []);
+
+    // Fetch raw labels when label map section is expanded
+    useEffect(() => {
+        if (!labelMapExpanded || !providerId || !onSaveLabelMap) return;
+        void (async () => {
+            setLabelLoading(true);
+            try {
+                const state = await window.usageboard.plugin.getState(instanceId);
+                const items =
+                    state.status === "ready" || state.status === "failed"
+                        ? (state.items ?? [])
+                        : [];
+                const filtered = items.filter(
+                    (item: { provider: string }) => item.provider === providerId,
+                );
+                const seen = new Set<string>();
+                const rows: LabelMapRow[] = [];
+                for (const item of filtered) {
+                    const raw: string = item.name;
+                    if (seen.has(raw)) continue;
+                    seen.add(raw);
+                    rows.push({
+                        raw,
+                        display: existingLabelMap?.[raw] ?? raw,
+                    });
+                }
+                if (mounted_ref.current) setLabelRows(rows);
+            } catch {
+                if (mounted_ref.current) setLabelRows([]);
+            } finally {
+                if (mounted_ref.current) setLabelLoading(false);
+            }
+        })();
+    }, [labelMapExpanded, instanceId, providerId, existingLabelMap, onSaveLabelMap]);
+
+    const handle_label_edit = (raw: string, value: string) => {
+        setLabelEdits((prev) => ({ ...prev, [raw]: value }));
+    };
 
     const handle_submit = useCallback(
         (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -93,7 +145,19 @@ export function SettingsForm({
             setSaving(true);
             setSaved(false);
             void onSave(instanceId, nonSecrets, secrets, endpointOverrides, intervalSeconds)
-                .then(() => {
+                .then(async () => {
+                    // Save label map changes if any
+                    if (onSaveLabelMap && Object.keys(labelEdits).length > 0) {
+                        const map: Record<string, string> = {};
+                        for (const [raw, display] of Object.entries(labelEdits)) {
+                            if (display !== (existingLabelMap?.[raw] ?? raw)) {
+                                map[raw] = display;
+                            }
+                        }
+                        if (Object.keys(map).length > 0) {
+                            await onSaveLabelMap(instanceId, map);
+                        }
+                    }
                     if (!mounted_ref.current) return;
                     setSaved(true);
                     saved_timeout_ref.current = setTimeout(() => {
@@ -108,7 +172,16 @@ export function SettingsForm({
                     }
                 });
         },
-        [endpoints, instanceId, onSave, parameters, saving],
+        [
+            endpoints,
+            instanceId,
+            onSave,
+            parameters,
+            saving,
+            existingLabelMap,
+            labelEdits,
+            onSaveLabelMap,
+        ],
     );
 
     return (
@@ -233,8 +306,67 @@ export function SettingsForm({
                     data-testid={`settings-refresh-interval-${instanceId}`}
                     className="ad-input"
                 />
-                <p className="ad-hint">范围 1–60 分钟</p>
+                <p className="ad-hint">范围 1–2880 分钟</p>
             </div>
+            {onSaveLabelMap && providerId && (
+                <div className="ad-field">
+                    <button
+                        type="button"
+                        className="cfg-label"
+                        style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                        onClick={() => {
+                            setLabelMapExpanded((v) => !v);
+                        }}
+                    >
+                        <Icon
+                            name="chevron"
+                            size={14}
+                            style={{
+                                transform: labelMapExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                                transition: "transform 0.15s",
+                            }}
+                        />
+                        数据标签映射
+                    </button>
+                    {labelMapExpanded && (
+                        <div style={{ marginTop: 8 }}>
+                            {labelLoading ? (
+                                <div className="text-sm text-[var(--text-3)]">加载标签数据…</div>
+                            ) : labelRows.length === 0 ? (
+                                <div className="text-sm text-[var(--text-3)]">
+                                    暂无可映射的数据标签
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="lm-cols">
+                                        <span>原始标签</span>
+                                        <span>显示名称</span>
+                                    </div>
+                                    {labelRows.map((r) => {
+                                        const v = labelEdits[r.raw] ?? r.display;
+                                        return (
+                                            <div className="lm-row" key={r.raw}>
+                                                <code className="lm-raw">{r.raw}</code>
+                                                <span className="lm-arrow">
+                                                    <Icon name="chevron" size={14} />
+                                                </span>
+                                                <input
+                                                    className="lm-input"
+                                                    value={v}
+                                                    placeholder={r.raw}
+                                                    onChange={(e) => {
+                                                        handle_label_edit(r.raw, e.target.value);
+                                                    }}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
             <div className="ad-foot">
                 <button
                     type="submit"

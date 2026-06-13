@@ -282,6 +282,8 @@ function AccountDialog({
     onToggleEnabled,
     onClose,
     selectedProvider,
+    existingLabelMap,
+    onSaveLabelMap,
 }: {
     mode: "add" | "edit";
     instanceId: string | undefined;
@@ -304,6 +306,8 @@ function AccountDialog({
     onToggleEnabled: (instanceId: string, enabled: boolean) => void;
     onClose: () => void;
     selectedProvider?: UsageProvider | undefined;
+    existingLabelMap?: Readonly<Record<string, string>>;
+    onSaveLabelMap?: (instanceId: string, map: Record<string, string>) => Promise<void>;
 }) {
     const isEdit = mode === "edit";
 
@@ -409,6 +413,8 @@ function AccountDialog({
                                     await onSave(...args);
                                     onClose();
                                 }}
+                                existingLabelMap={existingLabelMap}
+                                onSaveLabelMap={onSaveLabelMap}
                             />
                         )
                     ) : mode === "add" && !instanceId ? (
@@ -1742,6 +1748,23 @@ export function SettingsView() {
                         }}
                         onClose={() => {
                             setDialog(null);
+                        }}
+                        existingLabelMap={
+                            dialog.instanceId
+                                ? (config.accountLabelMaps?.[dialog.instanceId] ?? {})
+                                : undefined
+                        }
+                        onSaveLabelMap={async (id, map) => {
+                            await save_config({
+                                ...config,
+                                accountLabelMaps: {
+                                    ...(config.accountLabelMaps ?? {}),
+                                    [id]: {
+                                        ...(config.accountLabelMaps?.[id] ?? {}),
+                                        ...map,
+                                    },
+                                },
+                            });
                         }}
                     />
                 )}
