@@ -15,10 +15,20 @@ export interface ConnectorRunResult {
     readonly error: string | null;
 }
 
+function deep_freeze<T>(value: T): T {
+    if (value !== null && typeof value === "object") {
+        for (const child of Object.values(value as Record<string, unknown>)) {
+            deep_freeze(child);
+        }
+        Object.freeze(value);
+    }
+    return value;
+}
+
 function create_sandbox_context(ctx: ConnectorContext): vm.Context {
     return vm.createContext(
         Object.freeze({
-            ctx,
+            ctx: deep_freeze(ctx),
         }),
     );
 }

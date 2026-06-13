@@ -147,4 +147,20 @@ describe("connector-runtime", () => {
         expect(result.error).not.toBeNull();
         expect(result.error?.toLowerCase()).toContain("timeout");
     });
+
+    it("prevents scripts from mutating ctx.params", async () => {
+        const ctx_with_params: ConnectorContext = {
+            ...stub_ctx,
+            params: { token: "secret", region: "us" },
+        };
+        const script = `
+            ctx.params.token = "hacked";
+            ctx.params.injected = "new";
+            return [];
+        `;
+        const result = await run_connector(poll_manifest, script, ctx_with_params);
+        expect(result.error).toBeNull();
+        expect(ctx_with_params.params["token"]).toBe("secret");
+        expect(ctx_with_params.params["injected"]).toBeUndefined();
+    });
 });
