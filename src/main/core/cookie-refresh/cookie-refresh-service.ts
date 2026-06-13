@@ -22,7 +22,7 @@ function redact_secret_in_text(input: string): string {
     });
 }
 
-function redact_error(err: unknown): { name: string; message: string; stack?: string } {
+function redact_error(err: unknown): { name: string; message: string; stack?: string | undefined } {
     if (err instanceof Error) {
         return {
             name: err.name,
