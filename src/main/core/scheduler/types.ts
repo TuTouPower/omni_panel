@@ -7,7 +7,7 @@ export interface SnapshotSuccess {
     readonly chart?: PluginChart;
 }
 
-export type PluginSnapshotState =
+export type ConnectorSnapshotState =
     | { readonly status: "idle" }
     | { readonly status: "loading"; readonly lastSuccess?: SnapshotSuccess }
     | {
@@ -24,5 +24,5 @@ export type PluginSnapshotState =
       };
 
 export interface RuntimeStoreListener {
-    onStateChange(instanceId: string, state: PluginSnapshotState): void;
+    onStateChange(instanceId: string, state: ConnectorSnapshotState): void;
 }

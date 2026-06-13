@@ -36,7 +36,7 @@ import { registerEventIpc } from "./ipc/event-ipc";
 import { registerAuthIpc } from "./ipc/auth-ipc";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
-import { createCookieRefreshService } from "./core/cookie-refresh/cookie-refresh-service";
+import { createCookieRefreshService } from "./core/session/cookie-refresh-service";
 import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
@@ -165,13 +165,6 @@ let cleanupEventIpc: (() => void) | null = null;
 let cleanupPopupIpc: (() => void) | null = null;
 
 void app.whenReady().then(async () => {
-    // When ELECTRON_RUN_AS_NODE=1, Electron loads this entry but is used as a
-    // Node runtime for plugin scripts.  Skip all GUI initialization so each
-    // plugin spawn doesn't create its own window/tray.
-    if (process.env["ELECTRON_RUN_AS_NODE"] === "1") {
-        return;
-    }
-
     const dataRoot = getDataRoot();
     await initLogging(dataRoot);
     const log = createLogger("main");

@@ -1,6 +1,6 @@
 import type { IpcMainInvokeEvent } from "electron";
 import type { IpcResult, PluginSnapshotDTO } from "../../shared/types/ipc";
-import type { PluginSnapshotState } from "../core/scheduler/types";
+import type { ConnectorSnapshotState } from "../core/scheduler/types";
 
 export type { IpcResult };
 
@@ -19,7 +19,7 @@ export function assert_valid_sender(event: IpcMainInvokeEvent): void {
     }
 }
 
-export function toDTO(state: PluginSnapshotState): PluginSnapshotDTO {
+export function toDTO(state: ConnectorSnapshotState): PluginSnapshotDTO {
     switch (state.status) {
         case "idle":
             return { status: "idle" };

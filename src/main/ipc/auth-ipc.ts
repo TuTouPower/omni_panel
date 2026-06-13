@@ -5,7 +5,7 @@ import { ok, fail, assert_valid_sender } from "./helpers";
 import type { SecretsStore } from "../core/config/secrets-store";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
-import type { CookieRefreshService } from "../core/cookie-refresh/cookie-refresh-service";
+import type { CookieRefreshService } from "../core/session/cookie-refresh-service";
 import { createLogger } from "../../shared/lib/logger";
 
 const log = createLogger("ipc:auth");

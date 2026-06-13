@@ -6,7 +6,7 @@ import { ok, fail, toDTO, assert_valid_sender } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { PluginConfiguration } from "../../shared/types/config";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
-import type { PluginRefreshService } from "../core/scheduler/refresh-service";
+import type { ConnectorRefreshService } from "../core/scheduler/refresh-service";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import type { PluginMetadata } from "../../shared/schemas/plugin-metadata";
 import type { UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
@@ -84,7 +84,7 @@ function activeProvidersForConnector(
 export interface ConnectorIpcDeps {
     configStore: AppConfigStore;
     runtimeStore: RuntimeStore;
-    refreshService: PluginRefreshService;
+    refreshService: ConnectorRefreshService;
     definitions: readonly ConnectorDefinition[];
 }
 

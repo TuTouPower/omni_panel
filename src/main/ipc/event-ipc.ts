@@ -3,7 +3,7 @@ import { z } from "zod/v3";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import { toDTO, assert_valid_sender } from "./helpers";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
-import type { PluginSnapshotState } from "../core/scheduler/types";
+import type { ConnectorSnapshotState } from "../core/scheduler/types";
 import { createLogger } from "../../shared/lib/logger";
 
 const themeSchema = z.enum(["light", "dark", "system"]);
@@ -16,7 +16,7 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
     const log = createLogger("ipc:event");
 
     const unsubState = deps.runtimeStore.subscribe({
-        onStateChange(instanceId: string, state: PluginSnapshotState) {
+        onStateChange(instanceId: string, state: ConnectorSnapshotState) {
             const channel = IPC_CHANNELS.EVENT_STATE_CHANGE;
             const args = [instanceId, state];
             const is_development = process.env["NODE_ENV"] === "development";

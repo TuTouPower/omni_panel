@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createCookieRefreshService } from "../../../src/main/core/cookie-refresh/cookie-refresh-service";
+import { createCookieRefreshService } from "../../../src/main/core/session/cookie-refresh-service";
 import type { AppConfiguration, PluginConfiguration } from "../../../src/shared/types/config";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type { UsageProvider } from "../../../src/shared/schemas/plugin-output";

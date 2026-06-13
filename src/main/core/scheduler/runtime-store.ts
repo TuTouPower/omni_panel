@@ -1,30 +1,30 @@
-import type { PluginSnapshotState, RuntimeStoreListener } from "./types";
+import type { ConnectorSnapshotState, RuntimeStoreListener } from "./types";
 
 export interface RuntimeStore {
-    getSnapshot(instanceId: string): PluginSnapshotState;
-    updateState(instanceId: string, state: PluginSnapshotState): void;
-    getAll(): ReadonlyMap<string, PluginSnapshotState>;
+    getSnapshot(instanceId: string): ConnectorSnapshotState;
+    updateState(instanceId: string, state: ConnectorSnapshotState): void;
+    getAll(): ReadonlyMap<string, ConnectorSnapshotState>;
     subscribe(listener: RuntimeStoreListener): () => void;
     removeInstance(instanceId: string): void;
 }
 
 export function createRuntimeStore(): RuntimeStore {
-    const states = new Map<string, PluginSnapshotState>();
+    const states = new Map<string, ConnectorSnapshotState>();
     const listeners = new Set<RuntimeStoreListener>();
 
     return {
-        getSnapshot(instanceId: string): PluginSnapshotState {
+        getSnapshot(instanceId: string): ConnectorSnapshotState {
             return states.get(instanceId) ?? { status: "idle" };
         },
 
-        updateState(instanceId: string, state: PluginSnapshotState): void {
+        updateState(instanceId: string, state: ConnectorSnapshotState): void {
             states.set(instanceId, state);
             for (const listener of listeners) {
                 listener.onStateChange(instanceId, state);
             }
         },
 
-        getAll(): ReadonlyMap<string, PluginSnapshotState> {
+        getAll(): ReadonlyMap<string, ConnectorSnapshotState> {
             return new Map(states);
         },
 

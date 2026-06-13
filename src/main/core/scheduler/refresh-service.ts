@@ -13,7 +13,7 @@ import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";
 import { run_connector } from "../connector/runtime";
 import type { ObservationStore } from "../observation/observation-store";
-import type { PluginSnapshotState } from "./types";
+import type { ConnectorSnapshotState } from "./types";
 
 export interface RefreshServiceDeps {
     definitions: readonly ConnectorDefinition[];
@@ -23,12 +23,12 @@ export interface RefreshServiceDeps {
     vault: VaultBackend;
 }
 
-export interface PluginRefreshService {
+export interface ConnectorRefreshService {
     refresh(instanceId: string, options?: { force?: boolean }): Promise<void>;
     refreshAll(): Promise<void>;
 }
 
-function previous_ready(state: PluginSnapshotState) {
+function previous_ready(state: ConnectorSnapshotState) {
     if (state.status !== "ready") return undefined;
     return {
         updatedAt: state.updatedAt.toISOString(),
@@ -85,19 +85,19 @@ function observation_to_usage_item(
 }
 
 async function build_params(
-    plugin: PluginConfiguration,
+    connector_config: PluginConfiguration,
     definition: ConnectorDefinition,
     vault: VaultBackend,
 ): Promise<Record<string, string>> {
     const params: Record<string, string> = {};
     for (const param of definition.manifest.parameters) {
-        const configured = plugin.parameterValues[param.name] ?? param.default ?? "";
+        const configured = connector_config.parameterValues[param.name] ?? param.default ?? "";
         if (param.type !== "secret") {
             params[param.name] = configured;
             continue;
         }
         if (!param.exposeToScript) continue;
-        const stored = await vault.get(`${plugin.instanceId}:${param.name}`);
+        const stored = await vault.get(`${connector_config.instanceId}:${param.name}`);
         if (stored !== null) {
             params[param.name] = stored;
             continue;
@@ -114,7 +114,7 @@ async function build_params(
         // empty strings — some connectors have genuinely optional auth.
         if (param.required) {
             throw new Error(
-                `Missing required secret: ${param.name} (instance ${plugin.instanceId})`,
+                `Missing required secret: ${param.name} (instance ${connector_config.instanceId})`,
             );
         }
         params[param.name] = "";
@@ -123,13 +123,13 @@ async function build_params(
 }
 
 async function execute_connector(
-    plugin: PluginConfiguration,
+    connector_config: PluginConfiguration,
     definition: ConnectorDefinition,
     vault: VaultBackend,
 ): Promise<Observation[]> {
-    const params = await build_params(plugin, definition, vault);
-    const ctx = create_connector_context(definition.manifest, vault, plugin.instanceId, {
-        endpoint_overrides: { ...plugin.endpointOverrides },
+    const params = await build_params(connector_config, definition, vault);
+    const ctx = create_connector_context(definition.manifest, vault, connector_config.instanceId, {
+        endpoint_overrides: { ...connector_config.endpointOverrides },
         params,
     });
 
@@ -141,13 +141,13 @@ async function execute_connector(
     }
 
     if (definition.manifest.poll) {
-        return execute_poll(definition.manifest, plugin.instanceId, ctx);
+        return execute_poll(definition.manifest, connector_config.instanceId, ctx);
     }
 
     throw new Error(`Connector ${definition.manifest.id} has no executable capability`);
 }
 
-export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshService {
+export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefreshService {
     const log = createLogger("refresh-service");
     const locks = new Set<string>();
 
@@ -161,15 +161,15 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
 
         try {
             const config = await deps.configStore.load();
-            const plugin = config.plugins.find(
+            const connector_config = config.plugins.find(
                 (p: PluginConfiguration) => p.instanceId === instanceId,
             );
-            if (!plugin) {
+            if (!connector_config) {
                 log.warn(`Refresh requested for unknown instanceId: ${instanceId}`);
                 return;
             }
             const definition = deps.definitions.find(
-                (item) => item.executablePath === plugin.executablePath,
+                (item) => item.executablePath === connector_config.executablePath,
             );
             if (!definition) {
                 log.warn(`Refresh requested for connector without definition: ${instanceId}`);
@@ -183,7 +183,11 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
             });
 
             try {
-                const observations = await execute_connector(plugin, definition, deps.vault);
+                const observations = await execute_connector(
+                    connector_config,
+                    definition,
+                    deps.vault,
+                );
                 for (const obs of observations) {
                     try {
                         deps.observationStore.insert(obs);
@@ -193,7 +197,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                                 ? insert_error.message
                                 : String(insert_error);
                         log.error(
-                            `Failed to insert observation for ${instanceId} (${plugin.name}): ${insert_message}`,
+                            `Failed to insert observation for ${instanceId} (${connector_config.name}): ${insert_message}`,
                         );
                         throw insert_error;
                     }
@@ -211,11 +215,11 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                     updatedAt: new Date(updated_at),
                 });
                 log.info(
-                    `Connector ${instanceId} (${plugin.name}) refreshed: ${String(items.length)} items`,
+                    `Connector ${instanceId} (${connector_config.name}) refreshed: ${String(items.length)} items`,
                 );
             } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : String(error);
-                log.error(`Connector ${instanceId} (${plugin.name}) failed: ${message}`);
+                log.error(`Connector ${instanceId} (${connector_config.name}) failed: ${message}`);
                 deps.runtimeStore.updateState(instanceId, {
                     status: "failed",
                     error: message,
@@ -229,15 +233,15 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
 
     async function refreshAll(): Promise<void> {
         const config = await deps.configStore.load();
-        const enabledPlugins = config.plugins.filter((p: PluginConfiguration) => p.enabled);
-        log.info(`Refreshing all ${String(enabledPlugins.length)} enabled connectors`);
+        const enabled_connectors = config.plugins.filter((p: PluginConfiguration) => p.enabled);
+        log.info(`Refreshing all ${String(enabled_connectors.length)} enabled connectors`);
         const results = await Promise.allSettled(
-            enabledPlugins.map((p: PluginConfiguration) => refresh(p.instanceId)),
+            enabled_connectors.map((p: PluginConfiguration) => refresh(p.instanceId)),
         );
         const failed = results.filter((r) => r.status === "rejected").length;
         if (failed > 0) {
             log.warn(
-                `RefreshAll complete: ${String(enabledPlugins.length - failed)}/${String(enabledPlugins.length)} succeeded, ${String(failed)} rejected`,
+                `RefreshAll complete: ${String(enabled_connectors.length - failed)}/${String(enabled_connectors.length)} succeeded, ${String(failed)} rejected`,
             );
         }
     }
