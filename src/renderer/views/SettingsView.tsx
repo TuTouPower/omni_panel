@@ -789,7 +789,6 @@ export function SettingsView() {
             : mainPanelMode;
     const minimizeToTray = config?.minimizeToTray ?? true;
     const globalIntervalSeconds = config?.globalRefreshIntervalSeconds ?? 300;
-    const pauseAutoRefresh = config?.pauseAutoRefresh ?? false;
     const cacheMaxMb = config?.cacheMaxMb ?? 100;
     const usageBarColorScheme = config?.usageBarColorScheme ?? "risk-current";
     const usageBarStyle = config?.usageBarStyle ?? "thin";
@@ -1053,17 +1052,6 @@ export function SettingsView() {
                                             });
                                         }}
                                         options={REFRESH_INTERVAL_OPTIONS.map((opt) => opt.label)}
-                                    />
-                                </SetRow>
-                                <SetRow title="暂停自动刷新" sub="临时停止后台轮询">
-                                    <Toggle
-                                        on={pauseAutoRefresh}
-                                        onClick={() => {
-                                            void save_config({
-                                                ...config,
-                                                pauseAutoRefresh: !pauseAutoRefresh,
-                                            });
-                                        }}
                                     />
                                 </SetRow>
 
