@@ -8,6 +8,7 @@ import type { ConnectorContext } from "./host-io";
 
 const log = createLogger("connector-runtime");
 const DEFAULT_TIMEOUT_MS = 15_000;
+const TIMEOUT_ERROR = "Connector script execution timeout";
 
 export interface ConnectorRunResult {
     readonly observations: Observation[];
@@ -30,7 +31,7 @@ function compile_script(script_code: string): string {
         throw new Error("Connector scripts cannot use import or export statements");
     }
     return transpileModule(
-        `(async () => {\n${stripped_code}\nif (typeof main === "function") return await main();\n})()`,
+        `(async () =>{\n${stripped_code}\nif (typeof main === "function") return await main();\n})()`,
         {
             compilerOptions: {
                 module: ModuleKind.CommonJS,
@@ -41,16 +42,45 @@ function compile_script(script_code: string): string {
 }
 
 function get_error_message(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    if (
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error &&
-        typeof error.message === "string"
-    ) {
-        return error.message;
+    const raw =
+        error instanceof Error
+            ? error.message
+            : typeof error === "object" &&
+                error !== null &&
+                "message" in error &&
+                typeof error.message === "string"
+              ? error.message
+              : String(error);
+    return raw;
+}
+
+function is_timeout_error(message: string): boolean {
+    return /timed? out|execution timeout|script execution timeout/i.test(message);
+}
+
+class ConnectorTimeoutError extends Error {
+    constructor(timeout_ms: number) {
+        super(`${TIMEOUT_ERROR} after ${String(timeout_ms)}ms`);
+        this.name = "ConnectorTimeoutError";
     }
-    return String(error);
+}
+
+function race_with_timeout<T>(promise: Promise<T>, timeout_ms: number): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new ConnectorTimeoutError(timeout_ms));
+        }, timeout_ms);
+        promise.then(
+            (value) => {
+                clearTimeout(timer);
+                resolve(value);
+            },
+            (reason: unknown) => {
+                clearTimeout(timer);
+                reject(new Error(get_error_message(reason)));
+            },
+        );
+    });
 }
 
 export async function run_connector(
@@ -68,7 +98,7 @@ export async function run_connector(
         const raw_result: unknown = vm.runInContext(compile_script(script_code), context, {
             timeout: timeout_ms,
         }) as unknown;
-        const result: unknown = await Promise.resolve(raw_result);
+        const result: unknown = await race_with_timeout(Promise.resolve(raw_result), timeout_ms);
 
         if (!Array.isArray(result)) {
             return { observations: [], error: "Script did not return an array" };
@@ -87,7 +117,8 @@ export async function run_connector(
         return { observations, error: null };
     } catch (error) {
         const message = get_error_message(error);
-        log.error(`Connector execution failed: ${message}`);
-        return { observations: [], error: message };
+        const normalized = is_timeout_error(message) ? `${TIMEOUT_ERROR}: ${message}` : message;
+        log.error(`Connector execution failed: ${normalized}`);
+        return { observations: [], error: normalized };
     }
 }

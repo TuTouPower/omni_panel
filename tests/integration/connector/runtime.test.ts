@@ -122,5 +122,29 @@ describe("connector-runtime", () => {
         const script = `while(true){}`;
         const result = await run_connector(poll_manifest, script, stub_ctx, 100);
         expect(result.error).not.toBeNull();
+        expect(result.error?.toLowerCase()).toContain("timeout");
+    });
+
+    it("returns timeout error when async script exceeds timeout", async () => {
+        const slow_ctx: ConnectorContext = {
+            ...stub_ctx,
+            http: {
+                get_json() {
+                    return new Promise(() => {
+                        // never resolves; simulates an in-flight HTTP request that leaks
+                    });
+                },
+                post_json() {
+                    return Promise.resolve({});
+                },
+            },
+        };
+        const script = `
+            await ctx.http.get_json("default", "/usage");
+            return [];
+        `;
+        const result = await run_connector(poll_manifest, script, slow_ctx, 100);
+        expect(result.error).not.toBeNull();
+        expect(result.error?.toLowerCase()).toContain("timeout");
     });
 });
