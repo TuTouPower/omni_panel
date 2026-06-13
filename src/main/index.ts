@@ -31,7 +31,7 @@ import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
 import { createSafeStorageCrypto } from "./core/config/safe-storage-crypto";
 import { createRefreshService } from "./core/scheduler/refresh-service";
-import { createPluginScheduler } from "./core/scheduler/plugin-scheduler";
+import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
 import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestrator";
 import { executePlugin } from "./core/plugin/runner";
 import { parsePluginResult } from "./core/plugin/output-parser";
@@ -405,7 +405,7 @@ void app.whenReady().then(async () => {
     });
 
     // Scheduler orchestrator — centralises scheduling, suspend/resume, shutdown
-    const scheduler = createPluginScheduler({
+    const scheduler = createConnectorScheduler({
         refresh: (instanceId: string) => refreshService.refresh(instanceId),
     });
     const orchestrator = createSchedulerOrchestrator({ scheduler, configStore });

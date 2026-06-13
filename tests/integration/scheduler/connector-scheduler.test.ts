@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createPluginScheduler } from "../../../src/main/core/scheduler/plugin-scheduler";
+import { createConnectorScheduler } from "../../../src/main/core/scheduler/connector-scheduler";
 
-describe("plugin-scheduler", () => {
+describe("connector-scheduler", () => {
     beforeEach(() => {
         vi.useFakeTimers();
     });
@@ -12,7 +12,7 @@ describe("plugin-scheduler", () => {
 
     it("calls refresh immediately on start", () => {
         const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        const scheduler = createPluginScheduler({ refresh });
+        const scheduler = createConnectorScheduler({ refresh });
         scheduler.start("p1", 10);
         expect(refresh).toHaveBeenCalledTimes(1);
         expect(refresh).toHaveBeenCalledWith("p1");
@@ -20,7 +20,7 @@ describe("plugin-scheduler", () => {
 
     it("calls refresh on interval", async () => {
         const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        const scheduler = createPluginScheduler({ refresh });
+        const scheduler = createConnectorScheduler({ refresh });
         scheduler.start("p1", 10);
         expect(refresh).toHaveBeenCalledTimes(1);
 
@@ -33,7 +33,7 @@ describe("plugin-scheduler", () => {
 
     it("stops calling after stop", () => {
         const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        const scheduler = createPluginScheduler({ refresh });
+        const scheduler = createConnectorScheduler({ refresh });
         scheduler.start("p1", 10);
         scheduler.stop("p1");
         vi.advanceTimersByTime(20_000);
@@ -42,14 +42,14 @@ describe("plugin-scheduler", () => {
 
     it("enforces minimum interval of 5 seconds", () => {
         const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        const scheduler = createPluginScheduler({ refresh });
+        const scheduler = createConnectorScheduler({ refresh });
         scheduler.start("p1", 2);
         expect(refresh).toHaveBeenCalledTimes(1);
     });
 
     it("refreshNow calls refresh", () => {
         const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        const scheduler = createPluginScheduler({ refresh });
+        const scheduler = createConnectorScheduler({ refresh });
         scheduler.start("p1", 10);
         scheduler.refreshNow("p1");
         expect(refresh).toHaveBeenCalledTimes(2);
@@ -57,7 +57,7 @@ describe("plugin-scheduler", () => {
 
     it("stopAll stops all schedulers", () => {
         const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        const scheduler = createPluginScheduler({ refresh });
+        const scheduler = createConnectorScheduler({ refresh });
         scheduler.start("p1", 10);
         scheduler.start("p2", 10);
         scheduler.stopAll();
@@ -67,14 +67,14 @@ describe("plugin-scheduler", () => {
 
     it("does not call refresh immediately when immediate:false", () => {
         const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        const scheduler = createPluginScheduler({ refresh });
+        const scheduler = createConnectorScheduler({ refresh });
         scheduler.start("p1", 10, { immediate: false });
         expect(refresh).toHaveBeenCalledTimes(0);
     });
 
     it("still calls refresh on interval when immediate:false", async () => {
         const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        const scheduler = createPluginScheduler({ refresh });
+        const scheduler = createConnectorScheduler({ refresh });
         scheduler.start("p1", 10, { immediate: false });
         expect(refresh).toHaveBeenCalledTimes(0);
 

@@ -1,10 +1,10 @@
 import { createLogger } from "../../../shared/lib/logger";
-import type { PluginScheduler } from "./plugin-scheduler";
+import type { ConnectorScheduler } from "./connector-scheduler";
 import type { AppConfigStore } from "../config/config-store";
 
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 
-interface PluginListConfig {
+interface ConnectorListConfig {
     plugins: readonly {
         enabled: boolean;
         instanceId: string;
@@ -13,13 +13,13 @@ interface PluginListConfig {
 }
 
 interface SchedulerOrchestratorDeps {
-    scheduler: PluginScheduler;
+    scheduler: ConnectorScheduler;
     configStore: AppConfigStore;
 }
 
 interface SchedulerOrchestrator {
-    startAll(config: PluginListConfig): void;
-    rebuild(config: PluginListConfig): void;
+    startAll(config: ConnectorListConfig): void;
+    rebuild(config: ConnectorListConfig): void;
     suspend(): void;
     resume(): void;
     shutdown(): void;
@@ -32,30 +32,30 @@ export function createSchedulerOrchestrator(
     let safetyNetTimer: ReturnType<typeof setTimeout> | null = null;
     let generation = 0;
 
-    function startAll(config: PluginListConfig): void {
+    function startAll(config: ConnectorListConfig): void {
         let count = 0;
-        for (const plugin of config.plugins) {
-            if (plugin.enabled) {
-                deps.scheduler.start(plugin.instanceId, plugin.refreshIntervalSeconds);
+        for (const connector of config.plugins) {
+            if (connector.enabled) {
+                deps.scheduler.start(connector.instanceId, connector.refreshIntervalSeconds);
                 count++;
             }
         }
-        log.info(`startAll: ${String(count)} plugins`);
+        log.info(`startAll: ${String(count)} connectors`);
     }
 
-    function rebuild(config: PluginListConfig): void {
+    function rebuild(config: ConnectorListConfig): void {
         log.info("rebuild: stopping all and restarting enabled (no immediate refresh)");
         deps.scheduler.stopAll();
         let count = 0;
-        for (const plugin of config.plugins) {
-            if (plugin.enabled) {
-                deps.scheduler.start(plugin.instanceId, plugin.refreshIntervalSeconds, {
+        for (const connector of config.plugins) {
+            if (connector.enabled) {
+                deps.scheduler.start(connector.instanceId, connector.refreshIntervalSeconds, {
                     immediate: false,
                 });
                 count++;
             }
         }
-        log.info(`rebuild: restarted ${String(count)} plugins`);
+        log.info(`rebuild: restarted ${String(count)} connectors`);
     }
 
     function suspend(): void {
@@ -79,7 +79,7 @@ export function createSchedulerOrchestrator(
                 log.info("resume: generation mismatch, skipping startAll");
                 return;
             }
-            log.info("resume: restarting enabled plugins");
+            log.info("resume: restarting enabled connectors");
             startAll(latestConfig);
         });
     }

@@ -1,11 +1,11 @@
 import { MIN_REFRESH_INTERVAL_SECONDS } from "../../../shared/constants";
 import { createLogger } from "../../../shared/lib/logger";
 
-interface PluginSchedulerDeps {
+interface ConnectorSchedulerDeps {
     refresh: (instanceId: string) => Promise<void>;
 }
 
-export interface PluginScheduler {
+export interface ConnectorScheduler {
     start(instanceId: string, intervalSeconds: number, options?: { immediate?: boolean }): void;
     stop(instanceId: string): void;
     stopAll(): void;
@@ -13,7 +13,7 @@ export interface PluginScheduler {
     isRunning(instanceId: string): boolean;
 }
 
-export function createPluginScheduler(deps: PluginSchedulerDeps): PluginScheduler {
+export function createConnectorScheduler(deps: ConnectorSchedulerDeps): ConnectorScheduler {
     const log = createLogger("scheduler");
     const timers = new Map<string, { timer: ReturnType<typeof setInterval>; interval: number }>();
 

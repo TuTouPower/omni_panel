@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createSchedulerOrchestrator } from "../../../src/main/core/scheduler/scheduler-orchestrator";
-import type { PluginScheduler } from "../../../src/main/core/scheduler/plugin-scheduler";
+import type { ConnectorScheduler } from "../../../src/main/core/scheduler/connector-scheduler";
 import type { AppConfigStore } from "../../../src/main/core/config/config-store";
 import type { AppConfiguration } from "../../../src/main/core/config/types";
 
-function createMockScheduler(): PluginScheduler & { calls: string[] } {
+function createMockScheduler(): ConnectorScheduler & { calls: string[] } {
     const calls: string[] = [];
     return {
         calls,
@@ -97,7 +97,7 @@ describe("scheduler-orchestrator", () => {
         orchestrator = createSchedulerOrchestrator({ scheduler, configStore });
     });
 
-    it("startAll only starts enabled plugins", () => {
+    it("startAll only starts enabled connectors", () => {
         orchestrator.startAll(config);
         expect(scheduler.calls).toContain("start:a");
         expect(scheduler.calls).toContain("start:c");
