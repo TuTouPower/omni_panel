@@ -1,0 +1,16 @@
+{
+    "id": "test-observe",
+    "provider": "test-observe",
+    "capabilities": ["observe"],
+    "parameters": [],
+    "endpoints": {
+        "default": "https://httpbin.org"
+    },
+    "observe": {
+        "headers": ["x-ratelimit-remaining", "x-ratelimit-limit"],
+        "probe": {
+            "endpoint": "default",
+            "path": "/get"
+        }
+    }
+}

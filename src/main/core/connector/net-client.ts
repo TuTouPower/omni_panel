@@ -150,6 +150,49 @@ export function create_connector_context(
             post_json(endpoint_key: string, path: string, body: unknown, opts?: HttpOpts) {
                 return do_request("POST", endpoint_key, path, body, opts);
             },
+            async get_raw(endpoint_key: string, path: string, opts?: HttpOpts) {
+                const url = new URL(path, resolve_endpoint(endpoint_key));
+                const headers: Record<string, string> = {};
+                await apply_auth(url, headers);
+
+                const all_headers = {
+                    ...headers,
+                    ...(opts?.headers ?? {}),
+                };
+
+                log.debug(`GET RAW ${url.origin}${url.pathname}`);
+                const request_options = {
+                    method: "GET" as const,
+                    headers: all_headers,
+                    headersTimeout: opts?.timeout_ms ?? timeout_ms,
+                    bodyTimeout: opts?.timeout_ms ?? timeout_ms,
+                    ...(dispatcher ? { dispatcher } : {}),
+                };
+                const response = await undici_request(url, request_options);
+
+                if (response.statusCode >= 400) {
+                    const body_text = await response.body.text();
+                    const body_snippet = body_text.slice(0, 200);
+                    throw new Error(`HTTP ${String(response.statusCode)}: ${body_snippet}`);
+                }
+
+                const response_headers: Record<string, string> = {};
+                for (const [key, value] of Object.entries(response.headers)) {
+                    if (value !== undefined) {
+                        response_headers[key.toLowerCase()] = Array.isArray(value)
+                            ? value[0]
+                            : value;
+                    }
+                }
+
+                const text = await response.body.text();
+
+                return {
+                    status: response.statusCode,
+                    headers: response_headers,
+                    body: text,
+                };
+            },
         },
         files: {
             read(path_pattern: string) {

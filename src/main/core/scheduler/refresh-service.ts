@@ -11,6 +11,7 @@ import { createLogger } from "../../../shared/lib/logger";
 import type { ConnectorDefinition } from "../connector/manifest-loader";
 import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";
+import { execute_probe } from "../connector/probe-executor";
 import { run_connector } from "../connector/runtime";
 import type { ObservationStore } from "../observation/observation-store";
 import type { ConnectorSnapshotState } from "./types";
@@ -42,6 +43,7 @@ function source_for_observation(obs: Observation, definition: ConnectorDefinitio
     if (definition.manifest.id === "cpa" || obs.source === "gateway") return "cpa";
     if (obs.source === "local") return "local";
     if (obs.source === "session") return "oauth";
+    if (obs.source === "probe") return "direct";
     if (definition.manifest.parameters.some((param) => param.type === "secret")) return "api_key";
     return "direct";
 }
@@ -142,6 +144,10 @@ async function execute_connector(
 
     if (definition.manifest.poll) {
         return execute_poll(definition.manifest, connector_config.instanceId, ctx);
+    }
+
+    if (definition.manifest.observe?.probe) {
+        return execute_probe(definition.manifest, connector_config.instanceId, ctx);
     }
 
     throw new Error(`Connector ${definition.manifest.id} has no executable capability`);
