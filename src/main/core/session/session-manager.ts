@@ -136,7 +136,7 @@ export function create_session_manager(
 function extract_cookie_header(headers: Record<string, string>): string | null {
     for (const key of Object.keys(headers)) {
         if (key.toLowerCase() === "cookie") {
-            return headers[key];
+            return headers[key] ?? null;
         }
     }
     return null;

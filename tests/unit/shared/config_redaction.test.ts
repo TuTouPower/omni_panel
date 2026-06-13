@@ -7,7 +7,7 @@ describe("redact_config_raw", () => {
             string,
             unknown
         >;
-        expect(result.providerLabelMaps).toBe("[redacted]");
+        expect(result["providerLabelMaps"]).toBe("[redacted]");
     });
 
     it("redacts all values under a top-level secrets field", () => {
@@ -16,8 +16,8 @@ describe("redact_config_raw", () => {
             secrets: { API_KEY: "sk-live-123", SESSION_COOKIE: "sess-xyz" },
         };
         const result = redact_config_raw(input) as { secrets: Record<string, unknown> };
-        expect(result.secrets.API_KEY).toBe("***");
-        expect(result.secrets.SESSION_COOKIE).toBe("***");
+        expect(result.secrets["API_KEY"]).toBe("***");
+        expect(result.secrets["SESSION_COOKIE"]).toBe("***");
         expect(JSON.stringify(result)).not.toContain("sk-live-123");
         expect(JSON.stringify(result)).not.toContain("sess-xyz");
     });
@@ -35,12 +35,12 @@ describe("redact_config_raw", () => {
             },
         };
         const result = redact_config_raw(input) as { parameterValues: Record<string, unknown> };
-        expect(result.parameterValues.API_KEY).toBe("***");
-        expect(result.parameterValues.SESSION_COOKIE).toBe("***");
-        expect(result.parameterValues.ACCESS_TOKEN).toBe("***");
-        expect(result.parameterValues.PASSWORD).toBe("***");
-        expect(result.parameterValues.client_id).toBe("cid-123");
-        expect(result.parameterValues.base_url).toBe("https://api.example.com");
+        expect(result.parameterValues["API_KEY"]).toBe("***");
+        expect(result.parameterValues["SESSION_COOKIE"]).toBe("***");
+        expect(result.parameterValues["ACCESS_TOKEN"]).toBe("***");
+        expect(result.parameterValues["PASSWORD"]).toBe("***");
+        expect(result.parameterValues["client_id"]).toBe("cid-123");
+        expect(result.parameterValues["base_url"]).toBe("https://api.example.com");
         expect(JSON.stringify(result)).not.toContain("sk-secret-abc");
         expect(JSON.stringify(result)).not.toContain("cookie-abc");
         expect(JSON.stringify(result)).not.toContain("tok-abc");
@@ -52,8 +52,8 @@ describe("redact_config_raw", () => {
             parameterValues: { api_key: "lower-secret", myToken: "my-tok" },
         };
         const result = redact_config_raw(input) as { parameterValues: Record<string, unknown> };
-        expect(result.parameterValues.api_key).toBe("***");
-        expect(result.parameterValues.myToken).toBe("***");
+        expect(result.parameterValues["api_key"]).toBe("***");
+        expect(result.parameterValues["myToken"]).toBe("***");
     });
 
     it("preserves non-secret values and structure", () => {
@@ -64,10 +64,12 @@ describe("redact_config_raw", () => {
             parameterValues: { display_name: "My Account" },
         };
         const result = redact_config_raw(input) as Record<string, unknown>;
-        expect(result.instanceId).toBe("claude-1");
-        expect(result.enabled).toBe(true);
-        expect(result.refreshIntervalSeconds).toBe(300);
-        expect((result.parameterValues as Record<string, unknown>).display_name).toBe("My Account");
+        expect(result["instanceId"]).toBe("claude-1");
+        expect(result["enabled"]).toBe(true);
+        expect(result["refreshIntervalSeconds"]).toBe(300);
+        expect((result["parameterValues"] as Record<string, unknown>)["display_name"]).toBe(
+            "My Account",
+        );
     });
 
     it("handles nested secrets inside arrays", () => {
@@ -76,8 +78,8 @@ describe("redact_config_raw", () => {
             { parameterValues: { TOKEN: "arr-tok" } },
         ];
         const result = redact_config_raw(input) as Record<string, unknown>[];
-        expect((result[0].secrets as Record<string, unknown>).API_KEY).toBe("***");
-        expect((result[1].parameterValues as Record<string, unknown>).TOKEN).toBe("***");
+        expect((result[0]?.["secrets"] as Record<string, unknown>)["API_KEY"]).toBe("***");
+        expect((result[1]?.["parameterValues"] as Record<string, unknown>)["TOKEN"]).toBe("***");
         expect(JSON.stringify(result)).not.toContain("arr-secret");
         expect(JSON.stringify(result)).not.toContain("arr-tok");
     });
@@ -93,8 +95,8 @@ describe("redact_config_json", () => {
             secrets: Record<string, unknown>;
             parameterValues: Record<string, unknown>;
         };
-        expect(result.secrets.API_KEY).toBe("***");
-        expect(result.parameterValues.TOKEN).toBe("***");
+        expect(result.secrets["API_KEY"]).toBe("***");
+        expect(result.parameterValues["TOKEN"]).toBe("***");
         expect(JSON.stringify(result)).not.toContain("json-secret");
         expect(JSON.stringify(result)).not.toContain("json-tok");
     });
