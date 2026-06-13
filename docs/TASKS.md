@@ -69,9 +69,9 @@
 - GLM：`/api/monitor/usage/quota/limit`，周期码(5h/week/month)、kind(text/tool) 映射。`a761202`
 - Codex：扩展 `ctx.files.list` 目录枚举（`1bf166d`）；JSONL session 解析、token diff、按(model,day)聚合。`6d0ca36`
 
-**用户决定跳过：**
+**用户决定跳过（独立 connector）：**
 
-- Gemini/Kimi/Antigravity：`713a266^:assets/plugins/` 中无独立旧插件，原本只来自 CPA。用户明确决定不实现独立 connector。CPA connector 已支持这些 provider 的 monitor 开关（`147ccc0`），非 Claude auth file 不崩溃但无 observation 产出。
+- Gemini/Kimi/Antigravity 独立 connector：`713a266^:assets/plugins/` 中无独立旧插件，用户明确决定不做独立 connector。这些 provider 通过 CPA 采集（`c402787`），CPA auth-files 里有对应文件即产出 observation。
 
 **迁移参考：** 查看 `713a266^:assets/plugins/<name>-usage-plugin.ts` 的旧实现；`713a266` 是删除点。迁移时不要恢复旧 plugin runtime/SDK，只把业务逻辑改写到新 connector `ctx.http` / `Observation[]` 输出模型，并补对应集成测试。
 
@@ -87,11 +87,14 @@
 
 ### 已完成：CPA 添加后只显示 Claude 数据
 
-**根因：** `connectors/cpa/manifest.json` 只声明 `monitor_claude`；connector 过滤 `provider !== "claude"`；IPC `supported_providers()` 对 CPA 写死 `["claude"]`。
+**根因：** `connectors/cpa/manifest.json` 只声明 `monitor_claude`；connector 过滤 `provider !== "claude"`；IPC `supported_providers()` 对 CPA 写死 `["claude"]`；且 connector 只有 Claude 的 api-call + parse 逻辑，其他 provider 无 observation 产出。
 
-**修复（`147ccc0`）：** manifest 增加 `monitor_gemini`/`monitor_kimi`/`monitor_deepseek`/`monitor_codex`/`monitor_antigravity` 开关；connector 按 `monitor_<provider>` 过滤而非全局 `monitor_claude`；IPC `supported_providers()` 从 manifest 参数动态派生。
+**修复（`147ccc0` + `c402787`）：**
 
-**验收：** CPA 设置页有多 provider 开关；非 Claude auth file 不被静默丢弃。已通过 `tests/integration/connector/cpa-connector.test.ts` 4 个测试验证。
+- `147ccc0`：manifest 增加 `monitor_gemini`/`monitor_kimi`/`monitor_deepseek`/`monitor_codex`/`monitor_antigravity` 开关；connector 按 `monitor_<provider>` 过滤；IPC `supported_providers()` 从 manifest 参数动态派生。
+- `c402787`：从 `713a266^` 旧 CPA 插件迁移 Codex/Gemini/Antigravity/Kimi 的 fetch + parse 逻辑。Codex 调 `chatgpt.com/backend-api/wham/usage`，Gemini 调 `cloudcode-pa.googleapis.com`（loadCodeAssist + retrieveUserQuota），Antigravity 多 URL fallback，Kimi 调 `api.kimi.com/coding/v1/usages`。
+
+**验收：** CPA 设置页有多 provider 开关；Claude/Codex/Gemini/Antigravity/Kimi auth file 各产出对应 observation。已通过 `tests/integration/connector/cpa-connector.test.ts` 7 个测试验证（每个 provider 一个强断言测试 + 空 key/关闭/不崩溃测试）。
 
 ### 已完成：MiMo logo 深色模式不可见
 
