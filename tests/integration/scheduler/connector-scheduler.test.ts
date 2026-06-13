@@ -81,4 +81,25 @@ describe("connector-scheduler", () => {
         await vi.advanceTimersByTimeAsync(10_000);
         expect(refresh).toHaveBeenCalledTimes(1);
     });
+
+    it("multiple connectors run independently without cross-interference", async () => {
+        const refresh = vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+        const scheduler = createConnectorScheduler({ refresh });
+        scheduler.start("p1", 10);
+        scheduler.start("p2", 20);
+
+        expect(scheduler.isRunning("p1")).toBe(true);
+        expect(scheduler.isRunning("p2")).toBe(true);
+
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(refresh).toHaveBeenCalledWith("p1");
+        expect(refresh).toHaveBeenCalledWith("p2");
+
+        scheduler.stop("p1");
+        expect(scheduler.isRunning("p1")).toBe(false);
+        expect(scheduler.isRunning("p2")).toBe(true);
+
+        await vi.advanceTimersByTimeAsync(20_000);
+        expect(scheduler.isRunning("p2")).toBe(true);
+    });
 });

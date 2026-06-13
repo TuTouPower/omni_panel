@@ -85,10 +85,10 @@
 - [x] **F. refreshIntervalSeconds 范围 clamp** — `config types.ts` 用 z.preprocess 将超范围值 clamp 到 [60,3600]，避免整份配置被丢弃。`de2a8cc`
 - [x] **C. sandbox ctx 深 freeze** — `runtime.ts` deep_freeze 递归冻结 ctx 数据对象，防止 connector 脚本修改。`d4bf057`
 
-### 未修复（已知限制/推测性）
+### 已评估并关闭（已知限制/推测性）
 
-- **E. secrets 无迁移** — 从 safeStorage 切 file-vault，commit-notes 已文档化 clean break。
-- **G. scheduler 并发启动** — 无证据 connector 间有依赖，纯推测。
+- [x] **E. secrets 无迁移** — `docs/architecture-refactor-commit-notes.md:86` 已文档化 "目前没有数据迁移承诺；本轮按 clean break 方式替换旧 plugin runtime"。经评估为设计决策，非 bug，关闭。
+- [x] **G. scheduler 并发启动** — `src/main/core/scheduler/connector-scheduler.ts` 每个 connector 独立 `setInterval` timer，存储在独立 Map 中，无跨 connector 共享状态或依赖。`startAll`/`rebuild`/`stopAll` 遍历操作互不干扰。经代码审查确认无并发问题，关闭。
 
 ### 其他已完成
 
