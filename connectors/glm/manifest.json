@@ -18,12 +18,8 @@
     "poll": {
         "request": {
             "endpoint": "default",
-            "path": "/usage",
-            "method": "GET",
-            "auth": {
-                "type": "bearer",
-                "secret": "API_KEY"
-            }
+            "path": "/api/monitor/usage/quota/limit",
+            "method": "GET"
         },
         "map": {}
     },
