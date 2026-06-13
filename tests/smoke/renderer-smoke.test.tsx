@@ -76,6 +76,42 @@ describe("Renderer smoke tests", () => {
             });
             expect(screen.getByText("自动刷新间隔")).toBeInTheDocument();
         });
+
+        it("saves edited account settings through config and secret IPC", async () => {
+            const user = userEvent.setup();
+            const api = getMockApi();
+            render(<SettingsView />);
+
+            await user.click(await screen.findByTestId("settings-plugin-nav-accounts"));
+            const deepseek_row = (await screen.findByText("DeepSeek")).closest(".ao-item");
+            if (!deepseek_row) throw new Error("DeepSeek row not found");
+            const edit_button =
+                deepseek_row.querySelector<HTMLButtonElement>('button[title="编辑"]');
+            if (!edit_button) throw new Error("DeepSeek edit button not found");
+            await user.click(edit_button);
+
+            await user.type(await screen.findByLabelText("API Key"), "sk-smoke-test");
+            await user.selectOptions(screen.getByLabelText("Model"), "coder");
+            await user.click(screen.getByTestId("settings-save-btn-deepseek"));
+
+            await waitFor(() => {
+                expect(api.config.saveSecrets).toHaveBeenCalledWith({
+                    instanceId: "deepseek",
+                    secrets: { API_KEY: "sk-smoke-test" },
+                });
+                expect(api.config.save).toHaveBeenCalledWith({
+                    ...api._config,
+                    plugins: [
+                        {
+                            ...api._config.plugins[0],
+                            parameterValues: { MODEL: "coder" },
+                        },
+                        api._config.plugins[1],
+                    ],
+                });
+                expect(api.plugin.refresh).toHaveBeenCalledWith("deepseek");
+            });
+        });
     });
 
     describe("Empty state", () => {

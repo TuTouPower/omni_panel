@@ -40,7 +40,7 @@
 - [x] **provider_account_row 只断言负面**：已加正向断言。
 - [x] **refresh-service 不测试失败后恢复**：已加 failed→ready 恢复测试。
 - [x] **http_stub 绕过 TLS/DNS/重定向/gzip**：已加 HTTPS stub + 自签证书 + 5 个覆盖测试。
-- [ ] **Settings save 端到端从未测试**。`tests/smoke/renderer-smoke.test.tsx:61-79`
+- [x] **Settings save 端到端从未测试**：已在 renderer smoke 中覆盖设置页编辑账号保存链路，断言 `config.saveSecrets`、`config.save` 和刷新调用。`tests/smoke/renderer-smoke.test.tsx:61-112`
 - [x] **Hash 编码不一致**：已对齐为 Buffer。
 - [x] **config-store-debounce 全部 fs 函数被 mock**：已文档化 ENOSPC/EACCES 限制。
 
