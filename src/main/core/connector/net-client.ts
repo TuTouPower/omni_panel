@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { request as undici_request, ProxyAgent } from "undici";
 import { createLogger } from "../../../shared/lib/logger";
 import type { Manifest } from "../../../shared/schemas/manifest";
@@ -21,6 +21,31 @@ function expand_home(path_pattern: string): string {
     if (path_pattern === "~") return homedir();
     if (path_pattern.startsWith("~/")) return join(homedir(), path_pattern.slice(2));
     return path_pattern;
+}
+
+function is_within_allowed(path: string, allowed: readonly string[]): boolean {
+    const resolved = resolve(path);
+    for (const root of allowed) {
+        const resolved_root = resolve(root);
+        if (resolved === resolved_root) return true;
+        if (resolved.startsWith(resolved_root + sep)) return true;
+    }
+    return false;
+}
+
+async function list_dir_recursive(dir: string): Promise<string[]> {
+    const entries = await readdir(dir, { withFileTypes: true });
+    const results: string[] = [];
+    for (const entry of entries) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+            const sub = await list_dir_recursive(full);
+            results.push(...sub);
+        } else if (entry.isFile()) {
+            results.push(full);
+        }
+    }
+    return results;
 }
 
 export function create_connector_context(
@@ -128,11 +153,20 @@ export function create_connector_context(
         },
         files: {
             read(path_pattern: string) {
-                const allowed_paths = manifest.local?.paths ?? [];
-                if (!allowed_paths.includes(path_pattern)) {
+                const allowed = manifest.local?.paths ?? [];
+                const expanded = expand_home(path_pattern);
+                if (!is_within_allowed(expanded, allowed)) {
                     return Promise.reject(new Error("Local file path is not allowed"));
                 }
-                return readFile(expand_home(path_pattern), "utf8");
+                return readFile(expanded, "utf8");
+            },
+            async list(dir_pattern: string) {
+                const allowed = manifest.local?.paths ?? [];
+                const expanded = expand_home(dir_pattern);
+                if (!is_within_allowed(expanded, allowed)) {
+                    throw new Error("Local directory is not allowed");
+                }
+                return list_dir_recursive(expanded);
             },
         },
         params: config.params ?? {},

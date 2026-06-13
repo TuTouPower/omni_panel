@@ -15,6 +15,7 @@ export interface ConnectorContext {
     };
     readonly files: {
         read(path_pattern: string): Promise<string>;
+        list(dir_pattern: string): Promise<readonly string[]>;
     };
     readonly params: Record<string, string>;
 }

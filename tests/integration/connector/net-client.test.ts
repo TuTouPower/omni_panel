@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage } from "node:http";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -179,5 +179,44 @@ describe("net-client", () => {
         await expect(ctx.files.read(join(temp_dir, "credentials.json"))).rejects.toThrow(
             "Local file path is not allowed",
         );
+    });
+
+    it("reads files inside allowlisted directory prefix", async () => {
+        const dir = join(temp_dir, "codex-sessions");
+        await mkdir(dir, { recursive: true });
+        await writeFile(join(dir, "rollout-1.jsonl"), "line1\n", "utf8");
+        const manifest = {
+            ...get_test_manifest(),
+            capabilities: ["poll", "local"],
+            local: { paths: [dir] },
+        } satisfies Manifest;
+        const ctx = create_connector_context(manifest, vault, "test-1", {});
+
+        await expect(ctx.files.read(join(dir, "rollout-1.jsonl"))).resolves.toBe("line1\n");
+    });
+
+    it("lists files under allowlisted directory", async () => {
+        const dir = join(temp_dir, "sessions-root");
+        const sub = join(dir, "2026");
+        await mkdir(sub, { recursive: true });
+        await writeFile(join(sub, "a.jsonl"), "{}\n", "utf8");
+        await writeFile(join(sub, "b.jsonl"), "{}\n", "utf8");
+        const manifest = {
+            ...get_test_manifest(),
+            capabilities: ["poll", "local"],
+            local: { paths: [dir] },
+        } satisfies Manifest;
+        const ctx = create_connector_context(manifest, vault, "test-1", {});
+
+        const files = await ctx.files.list(dir);
+        expect(files.map((f) => f).sort()).toEqual(
+            [join(sub, "a.jsonl"), join(sub, "b.jsonl")].sort(),
+        );
+    });
+
+    it("rejects listing outside allowlisted directory", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+
+        await expect(ctx.files.list(temp_dir)).rejects.toThrow("not allowed");
     });
 });
