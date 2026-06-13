@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import { Icon, VendorMark } from "../../../../src/renderer/components/Icon";
@@ -59,6 +61,30 @@ describe("VendorMark", () => {
         const image = container.querySelector("span.vicon img");
         expect(image).toBeInTheDocument();
         expect(image?.getAttribute("src")).toContain("deepseek");
+    });
+
+    it("renders MiMo as inline SVG so currentColor can inherit", () => {
+        const { container } = render(<VendorMark id="mimo" />);
+        const svg = container.querySelector("span.vicon svg");
+        const image = container.querySelector("span.vicon img");
+
+        expect(svg).toBeInTheDocument();
+        expect(image).not.toBeInTheDocument();
+        expect(svg?.getAttribute("fill")).toBe("currentColor");
+        expect(svg?.querySelector("title")?.textContent).toBe("XiaomiMiMo");
+        expect(svg?.querySelector("rect")).not.toBeInTheDocument();
+    });
+
+    it("uses the official XiaomiMiMo logo asset without a fixed orange background", () => {
+        const svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/mimo.svg"),
+            "utf8",
+        );
+
+        expect(svg).toContain("<title>XiaomiMiMo</title>");
+        expect(svg).toContain('fill="currentColor"');
+        expect(svg).not.toContain("#ff6900");
+        expect(svg).not.toContain("<rect");
     });
 
     it("falls back to overview SVG for unknown vendor", () => {

@@ -20,9 +20,11 @@
 
 **验收：** CPA 设置页有多 provider 开关；非 Claude auth file 不被静默丢弃。
 
-### 修复：MiMo logo 深色模式不可见
+### 已完成：MiMo logo 深色模式不可见
 
-**根因：** logo 纯黑色，深色模式下与背景融合。需加浅灰色背景。
+**根因：** 旧 MiMo logo 资产不是官方 XiaomiMiMo 图标，且颜色/背景策略会在深色模式下失真。
+
+**修复：** 使用 WSL 官方 logo 目录中的 `lobehub_icons/svg/icons/xiaomimimo.svg`；SVG 使用 `currentColor`，不带硬编码橙色背景；MiMo 在 `VendorMark` 中内联渲染，避免 `<img>` 隔离导致 `currentColor` 不继承。
 
 ---
 
@@ -42,7 +44,7 @@
 - [x] **`UsageItem.used` schema 允许 null，UI `.toFixed()` 会崩溃**：已加 null used 渲染测试，生产代码已有防护。
 - [x] **文件 log transport 从未测试**：已加 createFileTransport 格式化和异常测试。
 - [x] **`configure_esbuild_binary_path()` 从未测试**：已导出函数，加 3 个 app.asar 路径解析测试。
-- [x] **icon 测试只检查 `<img src>` 属性含字符串，不验证图片实际加载**：MiMo logo 已修复为橙底白字，深色模式可见。
+- [x] **icon 测试只检查 `<img src>` 属性含字符串，不验证图片实际加载**：MiMo logo 已替换为官方 XiaomiMiMo SVG，使用 `currentColor` 且不带硬编码橙色背景；资产契约测试已覆盖。
 - [x] **`compiler.ts` 空文件被当有效 stale cache**：已修复，加 `.trim()` 检查。
 - [x] **worker_threads 无限挂起**：已加 force deadline 定时器，SIGKILL 后仍不退出则强制 reject。
 
