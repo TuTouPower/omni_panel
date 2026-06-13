@@ -10,6 +10,15 @@
             "label": "API Key",
             "label@zh-Hans": "API 密钥",
             "exposeToScript": true
+        },
+        {
+            "name": "LIMIT",
+            "type": "number",
+            "required": false,
+            "default": "100",
+            "label": "Amount Limit",
+            "label@zh-Hans": "金额上限",
+            "exposeToScript": true
         }
     ],
     "endpoints": {
@@ -18,12 +27,8 @@
     "poll": {
         "request": {
             "endpoint": "default",
-            "path": "/usage",
-            "method": "GET",
-            "auth": {
-                "type": "bearer",
-                "secret": "API_KEY"
-            }
+            "path": "/user/balance",
+            "method": "GET"
         },
         "map": {}
     },
