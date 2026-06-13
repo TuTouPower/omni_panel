@@ -78,7 +78,8 @@ export async function run_connector(
         for (const item of result) {
             const parsed = observation_schema.safeParse(item);
             if (!parsed.success) {
-                return { observations: [], error: `Invalid observation: ${parsed.error.message}` };
+                log.warn(`Skipping invalid observation: ${parsed.error.message}`);
+                continue;
             }
             observations.push(parsed.data);
         }

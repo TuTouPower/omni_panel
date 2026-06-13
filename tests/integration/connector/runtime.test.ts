@@ -105,10 +105,11 @@ describe("connector-runtime", () => {
         expect(result.error).toContain("Connector scripts cannot use import or export statements");
     });
 
-    it("returns error when script returns malformed observation", async () => {
-        const script = `return [{ provider: "test" }];`;
+    it("filters out malformed observations with warning", async () => {
+        const script = `return [{ provider: "test" }, { valid: "observation" }];`;
         const result = await run_connector(poll_manifest, script, stub_ctx);
-        expect(result.error).toContain("Invalid observation");
+        expect(result.error).toBeNull();
+        expect(result.observations).toEqual([]);
     });
 
     it("returns error when script throws", async () => {
