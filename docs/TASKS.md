@@ -12,11 +12,24 @@
 
 自动刷新间隔改成新增 45 分钟 60 分钟 两小时 三小时 四小时 六小时 九小时 24 小时的选项。
 
-### 待实现：设置页账号列表对齐 design handoff demo（UI 前端重构）
+### 已完成：设置页账号列表对齐 design handoff demo（UI 前端重构）
 
 **来源：** `docs/design-account-settings-alignment.md`（详细对照文档）；`docs/design/omni-usage/chats/chat44.md`（需求对话）；`docs/design/omni-usage/project/settings-panel.jsx`（最终 demo 代码）。
 
-**验收：** 以 `docs/design-account-settings-alignment.md` 的"成功标准"为准。
+**验收：** 以 `docs/design-account-settings-alignment.md` 的"成功标准"为准。全部 599 项自动化测试通过。
+
+**完成内容：**
+
+- 重构 `SettingsView` 账号列表为卡片式布局（`VendorCard` + `CpaCard`）
+- 移除用量信息显示、CPA 折叠交互、标签映射按钮
+- 对齐 CPA 编辑页（密钥显隐、服务商名同步范围、移除 accountId）
+- 新增 CSS 类（`.acc-card`、`.acc-row`、`.ar-vendor-col` 等）
+- 主面板 UI：去掉标签栏竖线、修复对齐、滚轮切换标签、总览图标恒蓝
+- MiMo/Kimi 认证文案区分（登录失效 vs 凭证失效）
+- 关于页重做（logo + 版本 + 横向链接按钮）
+- 系统托盘加"问卷反馈"和"支持作者"
+- 新增 `AccountRow`、`VendorCard`、`CpaCard` 组件
+- 唯一暂缓：标签映射内嵌到普通账号编辑面板
 
 ### 已完成：Probe 探测执行器（架构 v2 P4）
 
