@@ -19,6 +19,11 @@ export class AppFixture {
         return this.launched.app;
     }
 
+    get userDataDir(): string {
+        if (!this.savedUserDataDir) throw new Error("App not started");
+        return this.savedUserDataDir;
+    }
+
     configure(options: AppFixtureOptions): void {
         this.options = options;
     }

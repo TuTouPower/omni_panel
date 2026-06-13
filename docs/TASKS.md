@@ -40,7 +40,7 @@
 - [x] **provider_account_row 只断言负面**：已加正向断言。
 - [x] **refresh-service 不测试失败后恢复**：已加 failed→ready 恢复测试。
 - [x] **http_stub 绕过 TLS/DNS/重定向/gzip**：已加 HTTPS stub + 自签证书 + 5 个覆盖测试。
-- [x] **Settings save 端到端从未测试**：已在 renderer smoke 中覆盖设置页编辑账号保存链路，断言 `config.saveSecrets`、`config.save` 和刷新调用。`tests/smoke/renderer-smoke.test.tsx:61-112`
+- [x] **Settings save 端到端从未测试**：已覆盖设置页保存链路；renderer smoke 断言 `config.saveSecrets`、`config.save` 和刷新调用，Electron E2E 覆盖真实设置窗口保存密钥、重启后显示 `***`、`config.json` 不写入明文 secret。`tests/smoke/renderer-smoke.test.tsx:61-114`，`tests/user_e2e/specs/settings_provider_accounts.spec.ts`
 - [x] **Hash 编码不一致**：已对齐为 Buffer。
 - [x] **config-store-debounce 全部 fs 函数被 mock**：已文档化 ENOSPC/EACCES 限制。
 
