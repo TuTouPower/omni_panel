@@ -72,6 +72,7 @@
         "@testing-library/jest-dom": "^6.9.1",
         "@testing-library/react": "^16.3.2",
         "@testing-library/user-event": "^14.6.1",
+        "@types/better-sqlite3": "^7.6.13",
         "@types/react": "^19.2.15",
         "@types/react-dom": "^19.2.3",
         "@typescript-eslint/eslint-plugin": "^8.59.4",
@@ -108,6 +109,7 @@
         "vitest": "^3.2.4"
     },
     "dependencies": {
+        "better-sqlite3": "^12.10.0",
         "clsx": "^2.1.1",
         "esbuild": "^0.28.0",
         "lodash": "^4.18.1",
