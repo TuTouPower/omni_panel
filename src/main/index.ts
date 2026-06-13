@@ -25,6 +25,7 @@ import { createConfigStore } from "./core/config/config-store";
 import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
 import { create_file_vault_backend } from "./core/vault/file-vault-backend";
+import { create_session_manager } from "./core/session/session-manager";
 import { create_observation_store } from "./core/observation/observation-store";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
@@ -34,6 +35,7 @@ import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
 import { registerAuthIpc } from "./ipc/auth-ipc";
+import { registerSessionIpc } from "./ipc/session-ipc";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
 import { createCookieRefreshService } from "./core/session/cookie-refresh-service";
@@ -334,6 +336,39 @@ void app.whenReady().then(async () => {
         definitions: allDefinitions,
         cookieRefreshService,
     });
+
+    // Session manager — controlled login window + credential capture
+    const sessionManager = create_session_manager({
+        vault,
+        create_window: () => {
+            return new BrowserWindow({
+                width: 520,
+                height: 720,
+                webPreferences: {
+                    contextIsolation: true,
+                    nodeIntegration: false,
+                    sandbox: true,
+                },
+            });
+        },
+        create_session: () => {
+            const partition = "persist:session-login";
+            const ses = session.fromPartition(partition);
+            return {
+                on_before_send_headers(handler) {
+                    ses.webRequest.onBeforeSendHeaders((details, callback) => {
+                        handler({ url: details.url, requestHeaders: details.requestHeaders });
+                        callback({ requestHeaders: details.requestHeaders });
+                    });
+                },
+                async get_cookies() {
+                    const cookies = await ses.cookies.get({});
+                    return cookies.map((c) => ({ name: c.name, value: c.value }));
+                },
+            };
+        },
+    });
+    await registerSessionIpc({ sessionManager });
 
     // Window references — shared between tray and E2E mode
     /** Custom tray menu frameless window (replaces native context menu). */

@@ -5,6 +5,7 @@ import type {
     PluginSnapshotDTO,
     RendererLogPayload,
     RendererPlatform,
+    SessionLoginRequest,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
 import "./usageboard-api";
@@ -190,6 +191,13 @@ const auth_methods = {
         invoke<{ refreshed: number; failed: number }>(IPC_CHANNELS.AUTH_REFRESH_COOKIES),
 };
 
+const session_methods = {
+    login: (request: SessionLoginRequest) =>
+        invoke<{ saved: boolean }>(IPC_CHANNELS.SESSION_LOGIN, request),
+    refresh: (request: SessionLoginRequest) =>
+        invoke<{ saved: boolean }>(IPC_CHANNELS.SESSION_REFRESH, request),
+};
+
 const log_method = (payload: RendererLogPayload) => {
     const sanitized: RendererLogPayload = {
         level: payload.level,
@@ -225,6 +233,7 @@ const api: UsageboardApi = (() => {
                 settings: settings_methods,
                 tray: tray_methods,
                 auth: auth_methods,
+                session: session_methods,
                 logs: logs_methods,
                 log: log_method,
             };
@@ -240,6 +249,7 @@ const api: UsageboardApi = (() => {
                 theme: theme_methods,
                 settings: settings_methods,
                 tray: tray_methods,
+                session: session_methods,
                 logs: logs_methods,
                 log: log_method,
             } as unknown as UsageboardApi;
@@ -256,6 +266,7 @@ const api: UsageboardApi = (() => {
                 settings: settings_methods,
                 tray: tray_methods,
                 auth: auth_methods,
+                session: session_methods,
                 logs: logs_methods,
                 log: log_method,
             };

@@ -56,6 +56,9 @@ export const IPC_CHANNELS = {
     AUTH_COOKIE_LOGIN: "auth:cookieLogin",
     AUTH_REFRESH_COOKIES: "auth:refreshCookies",
 
+    SESSION_LOGIN: "session:login",
+    SESSION_REFRESH: "session:refresh",
+
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
 } as const;
@@ -132,6 +135,16 @@ export interface ConfigExportData {
 export interface IpcError {
     code: string;
     message: string;
+}
+
+export interface SessionLoginRequest {
+    readonly instance_id: string;
+    readonly login_url: string;
+    readonly cookie_names: readonly string[];
+}
+
+export interface SessionLoginResult {
+    readonly saved: boolean;
 }
 
 export type RendererLogLevel = "debug" | "info" | "warn" | "error";
@@ -230,6 +243,10 @@ export interface UsageboardApi {
     auth: {
         cookieLogin(instanceId: string): Promise<{ saved: boolean }>;
         refreshCookies(): Promise<{ refreshed: number; failed: number }>;
+    };
+    session: {
+        login(request: SessionLoginRequest): Promise<SessionLoginResult>;
+        refresh(request: SessionLoginRequest): Promise<SessionLoginResult>;
     };
     logs: {
         export(): Promise<{ saved: boolean }>;
