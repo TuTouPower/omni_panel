@@ -44,9 +44,10 @@ export async function execute_poll(
             request.method === "POST"
                 ? await ctx.http.post_json(request.endpoint, request.path, request.body)
                 : await ctx.http.get_json(request.endpoint, request.path);
-    } catch {
-        log.error(`Poll failed for ${manifest.id}`);
-        return [];
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error(`Poll failed for ${manifest.id}: ${message}`);
+        throw error;
     }
 
     const used = to_number(resolve_json_path(response, map["used"] ?? ""));

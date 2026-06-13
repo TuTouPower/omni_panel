@@ -102,7 +102,7 @@ describe("tier1-poll-executor", () => {
         expect(result[0]).toMatchObject({ used: 5, limit: 10, window: "day" });
     });
 
-    it("returns empty array on HTTP error", async () => {
+    it("throws on HTTP error instead of silently returning empty", async () => {
         const ctx: ConnectorContext = {
             http: {
                 get_json() {
@@ -119,8 +119,7 @@ describe("tier1-poll-executor", () => {
             },
             params: {},
         };
-        const result = await execute_poll(tavily_manifest, "tavily-1", ctx);
-        expect(result).toHaveLength(0);
+        await expect(execute_poll(tavily_manifest, "tavily-1", ctx)).rejects.toThrow("network");
     });
 
     it("returns empty array when used and limit are missing", async () => {
