@@ -52,10 +52,6 @@ function is_auth_error(error: string): boolean {
     );
 }
 
-function source_label(source: string): string {
-    return source.toUpperCase();
-}
-
 export function ProviderCard({
     provider,
     group,
@@ -100,8 +96,6 @@ export function ProviderCard({
     );
 
     const updated_text = overview_updated_at ? relative_time(overview_updated_at) : "";
-    const observed_text = group?.observedAt ? relative_time(group.observedAt) : "";
-    const source_text = group ? source_label(group.source ?? "direct") : "";
 
     // Provider-level menu items
     const menu_items: CardActionMenuItem[] = [
@@ -216,11 +210,9 @@ export function ProviderCard({
             )}
             {is_refreshing && <span className="rel-time">刷新中…</span>}
             {!is_refreshing && hasUsage && <span className="rel-time">{updated_text}</span>}
-            {!is_refreshing && hasUsage && group && (
+            {!is_refreshing && hasUsage && group && group.stale && (
                 <span className="freshness-meta">
-                    <span className="source-badge">{source_text}</span>
-                    {observed_text && <span>观测 {observed_text}</span>}
-                    {group.stale && <span className="stale-badge">已过期</span>}
+                    <span className="stale-badge">已过期</span>
                 </span>
             )}
         </>

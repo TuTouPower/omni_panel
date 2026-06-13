@@ -40,8 +40,6 @@ export function ProviderAccountRow({
     barStyle = "thin",
     labelMap,
 }: ProviderAccountRowProps) {
-    const source = account.periods[0]?.source ?? "direct";
-
     const menu_items: CardActionMenuItem[] = useMemo(() => {
         const items: CardActionMenuItem[] = [];
         if (onEditAccount) {
@@ -73,10 +71,7 @@ export function ProviderAccountRow({
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {onDragStart && <DragGrip onMouseDown={onDragStart} />}
             <div>
-                <div className="card-name">
-                    {account.accountLabel}
-                    <span className="source-badge">{source.toUpperCase()}</span>
-                </div>
+                <div className="card-name">{account.accountLabel}</div>
                 <div className="rel-time">
                     {account.updatedAt ? relative_time(account.updatedAt) : ""}
                     {account.stale && <span className="stale-badge">已过期</span>}

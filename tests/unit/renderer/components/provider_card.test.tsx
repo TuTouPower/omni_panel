@@ -146,7 +146,7 @@ describe("ProviderCard", () => {
         expect(document.querySelector(".rel-time")).toBeInTheDocument();
     });
 
-    it("shows provider source and observation freshness", () => {
+    it("shows stale badge without source badge or 观测 prefix", () => {
         const group = makeGroup({
             observedAt: "2026-06-02T09:59:00Z",
             source: "api_key",
@@ -154,8 +154,10 @@ describe("ProviderCard", () => {
         });
         render(<ProviderCard provider="deepseek" group={group} />);
 
-        expect(screen.getByText("API_KEY")).toBeInTheDocument();
-        expect(document.querySelector(".freshness-meta")?.textContent).toContain("观测");
+        expect(screen.queryByText("API_KEY")).not.toBeInTheDocument();
+        expect(screen.queryByText(/观测/)).not.toBeInTheDocument();
+        expect(document.querySelector(".source-badge")).not.toBeInTheDocument();
+        expect(document.querySelector(".stale-badge")).toBeInTheDocument();
         expect(document.querySelector(".card.stale")).toBeInTheDocument();
     });
 
