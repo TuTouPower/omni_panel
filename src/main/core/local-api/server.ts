@@ -31,6 +31,7 @@ function parse_body(req: IncomingMessage): Promise<Buffer> {
             total_size += chunk.byteLength;
             if (total_size > MAX_BODY_BYTES) {
                 too_large = true;
+                req.pause();
                 reject(new RequestBodyTooLargeError("Request body too large"));
                 return;
             }
