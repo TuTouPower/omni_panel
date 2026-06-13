@@ -4,7 +4,21 @@
 
 把设置页从“账号 / 数据源”双视角改成单一“已添加”列表，并让 CPA 作为可展开连接呈现。
 
-## 本次提交范围
+## 本次重构范围
+
+### 架构层
+
+- 建立 Observation 数据模型和 Zod schema，作为连接器观测结果的统一落点。
+- 新增 SQLite observation store，用 append-only 记录替代旧 JSON 缓存。
+- 新增 file-backed secrets vault，用本地文件和权限控制替代 `safeStorage` 依赖。
+- 新增 connector manifest schema、loader、runtime、node vm sandbox fallback 和 host IO。
+- 新增 connector net client 和 declarative poll executor，支持 endpoint override、auth 注入和代理。
+- 将 scheduler 从 legacy plugin runtime 切到 connector runtime。
+- 新增 local API ingest server 和 session login manager。
+- 迁移 Tier 2 connector scripts，并对齐 IPC commands、UI freshness 展示和 connector packaging pipeline。
+- 删除 legacy plugin runtime 相关代码。
+
+### 设置页展示层
 
 - 更新 `docs/omniusage-architecture-v2.md` §5.5.6：明确设置页只有一个“已添加”列表，不再分“账号区 / 数据源区”。
 - 重写 `SettingsView` 的已添加页：每一行代表一个用户配置的连接。
@@ -18,6 +32,8 @@
 ## 对应提交
 
 实施计划：`docs/superpowers/plans/2026-06-13-v2-architecture-refactor.md`
+
+下表列出本次架构重构对应的 24 个实现提交，不包含本文档后续维护提交（如 `2868952`）。
 
 | Commit    | 类型     | 内容                                                                         |
 | --------- | -------- | ---------------------------------------------------------------------------- |
@@ -55,6 +71,13 @@
 - UI 不再暴露“数据源视角 / 账号视角”两个独立区。
 - 删除操作只出现在连接层：普通连接行、CPA 主行。
 - CPA 子账号不是本地配置实体，不能删除，只能隐藏或改名。
+
+## 已知限制
+
+- Electron E2E 前需要把 `better-sqlite3` rebuild 到 Electron ABI；E2E 后需要 rebuild 回 Node ABI，才能继续跑 Vitest。
+- 本次手工 Electron E2E 只覆盖设置页账号管理和 plugin failure modes 两条关键路径，不等同于全量 UI 回归。
+- 未覆盖场景：所有 connector 的真实外部服务登录、代理环境、异常网络矩阵和长期定时采集稳定性。
+- 目前没有数据迁移承诺；本轮按 clean break 方式替换旧 plugin runtime。
 
 ## 验证
 
