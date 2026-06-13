@@ -128,7 +128,7 @@ import { describe, it, expect } from "vitest";
 import {
     observation_schema,
     observation_ingest_schema,
-} from "../../src/shared/schemas/observation";
+} from "../../../src/shared/schemas/observation";
 
 describe("observation_schema", () => {
     const valid_observation = {
@@ -448,6 +448,7 @@ beforeEach(async () => {
 
 afterEach(() => {
     store.close();
+    rm(temp_dir, { recursive: true, force: true }).catch(() => {});
 });
 
 describe("observation-store", () => {
@@ -923,6 +924,32 @@ describe("sandbox poc", () => {
         const result = await script.run(context);
         expect(result).toBe(3);
     });
+
+    it("script can return array that host can read (critical for runtime)", async () => {
+        const ivm = await import("isolated-vm");
+        const isolate = new ivm.Isolate({ memoryLimit: 128 });
+        const context = await isolate.createContext();
+
+        const script = await isolate.compileScript(`
+            (async () => {
+                return [{ provider: "test", used: 100 }];
+            })()
+        `);
+        const raw = await script.run(context, { timeout: 5000, promise: true });
+
+        // Must be able to copy result out of isolate
+        let result: unknown;
+        if (raw instanceof ivm.Reference) {
+            result = raw.copySync();
+        } else if (raw && typeof raw === "object" && "copy" in raw) {
+            result = (raw as { copy: () => unknown }).copy();
+        } else {
+            result = raw;
+        }
+
+        expect(Array.isArray(result)).toBe(true);
+        expect((result as { provider: string }[])[0].provider).toBe("test");
+    });
 });
 ```
 
@@ -1313,7 +1340,17 @@ export async function run_connector(
         `;
 
         const script = await isolate.compileScript(wrapped);
-        const result = await script.run(context, { timeout: timeout_ms, promise: true });
+        const raw_result = await script.run(context, { timeout: timeout_ms, promise: true });
+
+        // isolated-vm: non-primitive values must be copied out of the isolate
+        let result: unknown;
+        if (raw_result instanceof ivm.Reference) {
+            result = raw_result.copySync();
+        } else if (raw_result && typeof raw_result === "object" && "copy" in raw_result) {
+            result = (raw_result as { copy: () => unknown }).copy();
+        } else {
+            result = raw_result;
+        }
 
         // Validate result is an array of observations
         if (!Array.isArray(result)) {
@@ -1421,7 +1458,232 @@ git commit -m "feat: add connector runtime with sandbox execution (P2)"
 
 ---
 
-## Task 7: Tier 1 声明式 Poll 执行器
+## Task 7: NetClient — 真实 ctx.http 实现（undici + auth 注入）
+
+**Files:**
+
+- Create: `src/main/core/connector/net-client.ts`
+- Create: `tests/integration/connector/net-client.test.ts`
+
+**说明：** Task 6 只定义了 `ConnectorContext` 接口，所有测试用 stub。本任务实现真实的 `ctx.http`：undici 出网 + manifest auth 模板注入 + endpoint/proxy 解析。这是连接器能对真实服务发请求的承重墙。
+
+- [ ] **Step 1: 写 NetClient 实现**
+
+```ts
+// src/main/core/connector/net-client.ts
+
+import { request as undici_request, ProxyAgent } from "undici";
+import type { Manifest } from "../../../shared/schemas/manifest";
+import type { VaultBackend } from "../vault/vault-backend";
+import type { ConnectorContext, HttpOpts } from "./host-io";
+import { createLogger } from "../../../shared/lib/logger";
+
+const log = createLogger("net-client");
+
+export interface NetClientConfig {
+    readonly proxy_url?: string;
+    readonly endpoint_overrides?: Record<string, string>;
+    readonly timeout_ms?: number;
+}
+
+export function create_connector_context(
+    manifest: Manifest,
+    vault: VaultBackend,
+    instance_id: string,
+    config: NetClientConfig,
+): ConnectorContext {
+    const dispatcher = config.proxy_url ? new ProxyAgent(config.proxy_url) : undefined;
+    const timeout_ms = config.timeout_ms ?? 15_000;
+
+    function resolve_endpoint(endpoint_key: string): string {
+        const override = config.endpoint_overrides?.[endpoint_key];
+        if (override) return override;
+        const default_ep = manifest.endpoints?.[endpoint_key];
+        if (default_ep) return default_ep;
+        throw new Error(`Unknown endpoint key: ${endpoint_key}`);
+    }
+
+    async function build_auth_headers(): Promise<Record<string, string>> {
+        const headers: Record<string, string> = {};
+        for (const param of manifest.parameters ?? []) {
+            if (param.type !== "secret") continue;
+            const value = await vault.get(`${instance_id}:${param.name}`);
+            if (!value) continue;
+            // Find which auth config uses this secret
+            const poll_auth = manifest.poll?.request?.auth;
+            if (poll_auth && poll_auth.secret === param.name) {
+                if (poll_auth.type === "bearer") {
+                    headers["Authorization"] = `Bearer ${value}`;
+                } else if (poll_auth.type === "header" && poll_auth.header_name) {
+                    headers[poll_auth.header_name] = value;
+                }
+            }
+        }
+        return headers;
+    }
+
+    async function do_request(
+        method: "GET" | "POST",
+        endpoint_key: string,
+        path: string,
+        body?: unknown,
+        opts?: HttpOpts,
+    ): Promise<unknown> {
+        const base = resolve_endpoint(endpoint_key);
+        const url = `${base}${path}`;
+        const auth_headers = await build_auth_headers();
+        const all_headers: Record<string, string> = {
+            "Content-Type": "application/json",
+            ...auth_headers,
+            ...(opts?.headers ?? {}),
+        };
+
+        log.debug(`${method} ${url}`);
+        const response = await undici_request(url, {
+            method,
+            headers: all_headers,
+            body: body !== undefined ? JSON.stringify(body) : undefined,
+            dispatcher,
+            headersTimeout: opts?.timeout_ms ?? timeout_ms,
+            bodyTimeout: opts?.timeout_ms ?? timeout_ms,
+        });
+
+        if (response.statusCode >= 400) {
+            const text = await response.body.text();
+            throw new Error(`HTTP ${String(response.statusCode)}: ${text.slice(0, 200)}`);
+        }
+
+        return response.body.json();
+    }
+
+    return {
+        http: {
+            async get_json(endpoint_key: string, path: string, opts?: HttpOpts) {
+                return do_request("GET", endpoint_key, path, undefined, opts);
+            },
+            async post_json(endpoint_key: string, path: string, body: unknown, opts?: HttpOpts) {
+                return do_request("POST", endpoint_key, path, body, opts);
+            },
+        },
+        files: {
+            async read(_path_pattern: string): Promise<string> {
+                // Tier 2 local 能力，后续实现
+                throw new Error("files.read not yet implemented");
+            },
+        },
+        params: {},
+    };
+}
+```
+
+- [ ] **Step 2: 写集成测试（用 HTTPS stub 模拟真实请求）**
+
+```ts
+// tests/integration/connector/net-client.test.ts
+
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { createServer } from "node:https";
+import { generateKeyPairSync } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { create_connector_context } from "../../../src/main/core/connector/net-client";
+import { create_file_vault_backend } from "../../../src/main/core/vault/file-vault-backend";
+import type { Manifest } from "../../../src/shared/schemas/manifest";
+import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
+
+let temp_dir: string;
+let vault: VaultBackend;
+let server_port: number;
+let server: ReturnType<typeof createServer>;
+
+beforeAll(async () => {
+    temp_dir = await mkdtemp(join(tmpdir(), "net-client-test-"));
+    vault = await create_file_vault_backend(temp_dir);
+    await vault.set("test-1:api_key", "sk-test-secret");
+
+    // Minimal HTTPS stub
+    const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const cert = ""; // self-signed cert for test
+    // Use HTTP stub instead for simplicity in CI
+    const http = await import("node:http");
+    server = http.createServer((req, res) => {
+        const auth = req.headers["authorization"];
+        if (auth !== "Bearer sk-test-secret") {
+            res.writeHead(401);
+            res.end(JSON.stringify({ error: "unauthorized" }));
+            return;
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ usage: { month: 42 }, plan: { limit: 1000 } }));
+    });
+    await new Promise<void>((resolve) => {
+        server.listen(0, "127.0.0.1", () => {
+            const addr = server.address();
+            if (addr && typeof addr === "object") server_port = addr.port;
+            resolve();
+        });
+    });
+});
+
+afterAll(async () => {
+    if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(temp_dir, { recursive: true, force: true });
+});
+
+const test_manifest: Manifest = {
+    id: "test",
+    provider: "test",
+    capabilities: ["poll"],
+    parameters: [{ name: "api_key", type: "secret", required: true }],
+    endpoints: { default: `http://127.0.0.1:${String(server_port)}` },
+    poll: {
+        request: {
+            endpoint: "default",
+            path: "/usage",
+            auth: { type: "bearer", secret: "api_key" },
+        },
+        map: { used: "$.usage.month", limit: "$.plan.limit", window: "month" },
+    },
+};
+
+describe("net-client", () => {
+    it("injects auth header from vault and returns JSON", async () => {
+        const ctx = create_connector_context(test_manifest, vault, "test-1", {});
+        const result = await ctx.http.get_json("default", "/usage");
+        expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+    });
+
+    it("rejects when vault has no secret", async () => {
+        const ctx = create_connector_context(test_manifest, vault, "missing-instance", {});
+        await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow("401");
+    });
+
+    it("endpoint override takes precedence", async () => {
+        const ctx = create_connector_context(test_manifest, vault, "test-1", {
+            endpoint_overrides: { default: `http://127.0.0.1:${String(server_port)}` },
+        });
+        const result = await ctx.http.get_json("default", "/usage");
+        expect(result).toBeDefined();
+    });
+});
+```
+
+- [ ] **Step 3: 跑测试**
+
+Run: `pnpm vitest run tests/integration/connector/net-client.test.ts`
+Expected: PASS
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/main/core/connector/net-client.ts tests/integration/connector/net-client.test.ts
+git commit -m "feat: add NetClient with undici, auth injection, endpoint/proxy resolution (P2)"
+```
+
+---
+
+## Task 8: Tier 1 声明式 Poll 执行器
 
 **Files:**
 
@@ -1488,7 +1750,6 @@ export async function execute_poll(
         const is_limit = metric_name === "limit";
 
         // Build one observation per metric
-        const existing = observations[0];
         if (is_used || is_limit) {
             if (!observations.length) {
                 observations.push({
@@ -1620,7 +1881,7 @@ git commit -m "feat: add Tier 1 declarative poll executor (P2)"
 
 # P3：Scheduler 改造
 
-## Task 8: Scheduler 改造为 Connector 调度
+## Task 9: Scheduler 改造为 Connector 调度
 
 **Files:**
 
@@ -1632,7 +1893,7 @@ git commit -m "feat: add Tier 1 declarative poll executor (P2)"
 
 - `PluginListConfig` → `ConnectorListConfig`（字段：`enabled / instance_id / refresh_interval_seconds`）
 - scheduler 接口不变，只改类型名
-- 新增探测自适应策略（可后续迭代，先保持固定间隔）
+- **本期不做**：探测自适应策略（spec §6.1），先用固定间隔，后续迭代再说
 
 - [ ] **Step 1: 读现有 scheduler 和测试，理解当前行为**
 - [ ] **Step 2: 重命名 plugin → connector（类型和函数名）**
@@ -1647,7 +1908,7 @@ git commit -m "refactor: scheduler targets connectors instead of plugins (P3)"
 
 # P4：LocalAPI
 
-## Task 9: LocalAPI Server
+## Task 10: LocalAPI Server
 
 **Files:**
 
@@ -1655,6 +1916,7 @@ git commit -m "refactor: scheduler targets connectors instead of plugins (P3)"
 - Create: `tests/integration/local-api/server.test.ts`
 
 **前置决策：** 端口固定默认 `17863`，端口冲突时自动 fallback 到随机端口。
+**本期不做**：`/v1/:provider/*` 网关转发（spec §5.1），默认关闭功能，后续按需求反馈决定。本 Task 只实现 health + ingest。
 
 - [ ] **Step 1: 写 LocalAPI server**
 
@@ -1662,6 +1924,7 @@ git commit -m "refactor: scheduler targets connectors instead of plugins (P3)"
 // src/main/core/local-api/server.ts
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { randomBytes } from "node:crypto";
 import { createLogger } from "../../../shared/lib/logger";
 import type { ObservationStore } from "../observation/observation-store";
 import { observation_ingest_schema } from "../../../shared/schemas/observation";
@@ -1678,7 +1941,6 @@ export interface LocalAPIServer {
 }
 
 function generate_token(): string {
-    const { randomBytes } = require("node:crypto");
     return randomBytes(32).toString("hex");
 }
 
@@ -1908,7 +2170,7 @@ git commit -m "feat: add LocalAPI server with ingest and health endpoints (P4)"
 
 # P5：SessionManager + Tier 2
 
-## Task 10: SessionManager（受控登录窗口 + 凭据捕获）
+## Task 11: SessionManager（受控登录窗口 + 凭据捕获）
 
 **Files:**
 
@@ -1928,7 +2190,7 @@ git commit -m "feat: add SessionManager for web login capture (P5)"
 
 ---
 
-## Task 11: Tier 2 脚本连接器（Claude local + CPA poll）
+## Task 12: Tier 2 脚本连接器（Claude local + CPA poll）
 
 **Files:**
 
@@ -1937,7 +2199,7 @@ git commit -m "feat: add SessionManager for web login capture (P5)"
 - Create: `tests/integration/connector/claude-connector.test.ts`
 - Create: `tests/integration/connector/cpa-connector.test.ts`
 
-**说明：** Tier 2 需要真实文件/网络环境，测试用 fixtures + HTTPS stub（复用现有 `tests/integration/plugin/https_stub.ts`）。
+**说明：** Tier 2 需要真实文件/网络环境，测试用 fixtures + HTTPS stub（从 `tests/integration/plugin/_helpers/https_stub.ts` 复制到 `tests/integration/connector/_helpers/https_stub.ts`，不在 P7 删除范围内）。
 
 - [ ] **Step 1: 写 Claude 连接器（local 能力，读 `~/.claude` 文件）**
 - [ ] **Step 2: 写 CPA 连接器（poll 能力，多账号聚合）**
@@ -1952,7 +2214,7 @@ git commit -m "feat: add Tier 2 connectors — Claude local + CPA poll (P5)"
 
 # P6：IPC + UI 改造
 
-## Task 12: IPC 命令集对齐
+## Task 13: IPC 命令集对齐
 
 **Files:**
 
@@ -1973,7 +2235,7 @@ git commit -m "refactor: align IPC commands with v2 architecture (P6)"
 
 ---
 
-## Task 13: UI 消费层改造
+## Task 14: UI 消费层改造
 
 **Files:**
 
@@ -1996,7 +2258,7 @@ git commit -m "feat: UI consumes observation model with freshness display (P6)"
 
 # P7：清理
 
-## Task 14: 删除旧代码
+## Task 15: 删除旧代码
 
 **Files:**
 
@@ -2005,7 +2267,8 @@ git commit -m "feat: UI consumes observation model with freshness display (P6)"
 - Delete: `src/plugins/sdk/`（全部）
 - Delete: `tests/unit/plugin/`（全部）
 - Delete: `tests/integration/plugin/`（全部）
-- Modify: `src/main/core/logging.ts`（删除 `should_log_raw_debug()`）
+- Modify: `src/main/core/runner.ts`（删除 `should_log_raw_debug()` + 全部 raw 日志，整个文件将随 plugin/ 删除）
+- Modify: `src/main/core/scheduler/refresh-service.ts`（删除 `should_log_raw_debug()` + 全部 raw 调试日志 `refresh config raw`/`merged plugin params raw`/`runtime env raw`/`plugin stdout raw`/`plugin stderr raw`/`parsed plugin output raw`/`cache save payload raw`/`runtime ready payload raw`，共 7 处）
 - Delete: `src/main/core/config/crypto-backend.ts`
 - Delete: `src/main/core/config/safe-storage-crypto.ts`
 
@@ -2029,4 +2292,5 @@ git commit -m "chore: remove old plugin/cache/sdk code after v2 migration (P7)"
 - [ ] 类型名、函数名在各任务间一致（observation、connector、vault）
 - [ ] 每个任务有完整代码、测试、commit 指令
 - [ ] PoC gate（Task 4）在 Runtime（Task 6）之前
-- [ ] 遵循 snake_case 命名规范（CLAUDE.md）
+- [ ] 文件名沿用项目现有 kebab-case（`observation-store.ts`），与 `scheduler-orchestrator.ts` 等一致
+- [ ] Observation 字段用 snake_case（`source_instance_id`）、Config/renderer 字段用 camelCase（`refreshIntervalSeconds`），IPC 边界上两套命名并存，不做统一——核心数据层是 snake_case，UI 消费层（已有）是 camelCase

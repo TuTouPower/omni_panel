@@ -132,7 +132,7 @@ interface VaultBackend {
 - 渲染进程只拿 `hasSecret` 布尔，表单回显用占位符
 - 连接器刷新时，主进程 just-in-time 解密，明文默认不进沙箱
 - 日志 scrubber：每个解密的 secret 注册进 Logger，开发期同样生效
-- 删除 `runner.ts:10-12` 的 `should_log_raw_debug()` 豁免
+- 删除 `runner.ts:10-12` 和 `refresh-service.ts:49` 的 `should_log_raw_debug()` 豁免
 - 导出/导入：配置明文导出，密钥部分用户输入口令，scrypt + AES-GCM 加密
 
 ### 3.4 威胁模型
