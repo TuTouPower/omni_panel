@@ -74,14 +74,20 @@ export function createSchedulerOrchestrator(
             safetyNetTimer = null;
         }
         const resumeGen = generation;
-        void deps.configStore.load().then((latestConfig) => {
-            if (generation !== resumeGen) {
-                log.info("resume: generation mismatch, skipping startAll");
-                return;
-            }
-            log.info("resume: restarting enabled connectors");
-            startAll(latestConfig);
-        });
+        void deps.configStore
+            .load()
+            .then((latestConfig) => {
+                if (generation !== resumeGen) {
+                    log.info("resume: generation mismatch, skipping startAll");
+                    return;
+                }
+                log.info("resume: restarting enabled connectors");
+                startAll(latestConfig);
+            })
+            .catch((error: unknown) => {
+                const message = error instanceof Error ? error.message : String(error);
+                log.error(`resume: failed to load config: ${message}`);
+            });
     }
 
     function shutdown(): void {
