@@ -28,11 +28,8 @@
         "esModuleInterop": true,
         "skipLibCheck": true,
         "jsx": "react-jsx",
-        "baseUrl": ".",
-        "paths": {
-            "@omni-usage/plugin-sdk": ["src/plugins/sdk/index.ts"]
-        }
+        "baseUrl": "."
     },
     "include": ["src", "tests", "scripts", "connectors", "*.ts", "*.mts"],
-    "exclude": ["node_modules", "assets/plugins"]
+    "exclude": ["node_modules"]
 }

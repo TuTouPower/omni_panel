@@ -8,13 +8,18 @@ overrides:
   tar: '>=6.2.1'
   tmp: '>=0.2.4'
 
+patchedDependencies:
+  better-sqlite3:
+    hash: 6cnmd2aig73uggcgssufvjhyzi
+    path: patches/better-sqlite3.patch
+
 importers:
 
   .:
     dependencies:
       better-sqlite3:
         specifier: ^12.10.0
-        version: 12.10.0
+        version: 12.10.0(patch_hash=6cnmd2aig73uggcgssufvjhyzi)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -6162,7 +6167,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.32: {}
 
-  better-sqlite3@12.10.0:
+  better-sqlite3@12.10.0(patch_hash=6cnmd2aig73uggcgssufvjhyzi):
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3

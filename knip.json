@@ -3,10 +3,9 @@
         "src/main/index.ts",
         "src/preload/index.ts",
         "src/renderer/index.tsx",
-        "electron.vite.config.ts",
-        "assets/plugins/*.ts"
+        "electron.vite.config.ts"
     ],
-    "project": ["src/**/*.ts", "src/**/*.tsx", "assets/plugins/**/*.ts", "*.config.ts"],
+    "project": ["src/**/*.ts", "src/**/*.tsx", "connectors/**/*.ts", "*.config.ts"],
     "ignoreDependencies": [
         "@typescript-eslint/eslint-plugin",
         "@typescript-eslint/parser",

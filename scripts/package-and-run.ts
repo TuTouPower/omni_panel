@@ -65,7 +65,7 @@ function wait_for_exit(max_ms = 5000): void {
     }
 }
 
-function clear_plugin_cache(): void {
+function clear_runtime_state(): void {
     const is_win = platform() === "win32";
     const app_data = is_win
         ? process.env["APPDATA"]
@@ -73,10 +73,10 @@ function clear_plugin_cache(): void {
           ? resolve(process.env["HOME"], ".config")
           : undefined;
     if (!app_data) return;
-    const cache_dir = resolve(app_data, "OmniUsage", "states");
-    if (existsSync(cache_dir)) {
-        rmSync(cache_dir, { recursive: true, force: true });
-        log(`cleared plugin cache: ${cache_dir}`);
+    const state_dir = resolve(app_data, "OmniUsage", "states");
+    if (existsSync(state_dir)) {
+        rmSync(state_dir, { recursive: true, force: true });
+        log(`cleared runtime state: ${state_dir}`);
     }
 }
 
@@ -109,16 +109,11 @@ function main(): void {
     // Step 2: wait for processes to fully exit
     wait_for_exit();
 
-    // Step 3: clear plugin cache (avoids stale garbled data after encoding changes)
-    clear_plugin_cache();
+    // Step 3: clear runtime state
+    clear_runtime_state();
 
     // Step 4: package (skip if --no-build)
     if (!no_build) {
-        log("updating bundled resource hashes...");
-        execSync("npx tsx scripts/update-bundled-hashes.ts", {
-            cwd: ROOT,
-            stdio: "inherit",
-        });
         log("running electron-vite build...");
         execSync("electron-vite build", {
             cwd: ROOT,

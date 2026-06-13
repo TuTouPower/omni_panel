@@ -6,16 +6,13 @@ files:
     - out/**
     - package.json
 extraResources:
-    - from: assets/plugins
-      to: plugins
-    - from: src/plugins/sdk
-      to: sdk
+    - from: connectors
+      to: connectors
     - from: assets/tray-icon.png
       to: tray-icon.png
     - from: assets/icon.png
       to: icon.png
 asar: true
-afterPack: build_hooks/precompile-bundled-plugins.cjs
 electronFuses:
     enableEmbeddedAsarIntegrityValidation: true
     onlyLoadAppFromAsar: true

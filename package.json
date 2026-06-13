@@ -7,9 +7,6 @@
     "private": true,
     "scripts": {
         "start": "electron-vite dev",
-        "hash:update": "tsx scripts/update-bundled-hashes.ts",
-        "prebuild": "tsx scripts/update-bundled-hashes.ts",
-        "pretest": "tsx scripts/update-bundled-hashes.ts",
         "build": "electron-vite build",
         "package": "tsx scripts/package-and-run.ts",
         "package:build": "tsx scripts/package-and-run.ts",
@@ -26,17 +23,15 @@
         "arch": "depcruise src --validate .dependency-cruiser.cjs",
         "schema:export": "tsx scripts/export-schemas.ts",
         "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch",
-        "typecheck:plugins": "tsc --noEmit --strict --moduleResolution bundler --esModuleInterop --skipLibCheck assets/plugins/*.ts",
         "security:js": "gitleaks detect --source .",
         "security:sast": "semgrep scan --config=auto src/",
-        "test": "vitest run --exclude tests/integration/plugin && vitest run tests/integration/plugin --no-file-parallelism",
-        "test:coverage": "vitest run --coverage --exclude tests/integration/plugin && vitest run tests/integration/plugin --no-file-parallelism",
+        "test": "vitest run",
+        "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
         "test:e2e": "playwright test --config=playwright.config.ts --project=default",
         "test:visual": "playwright test --config=playwright.config.ts --project=visual",
         "test:visual:update": "playwright test --config=playwright.config.ts --project=visual --update-snapshots",
         "test:packaged": "playwright test --config=playwright.config.ts --project=packaged",
-        "test:packaged:vitest": "vitest run tests/packaged_smoke/plugin_execution.test.ts",
         "test:contract:live": "vitest run --config vitest.contract_live.config.mts",
         "test:full": "pnpm test && pnpm test:contract:live",
         "prepare": "husky"
@@ -58,12 +53,16 @@
     },
     "pnpm": {
         "onlyBuiltDependencies": [
+            "better-sqlite3",
             "electron",
             "electron-winstaller"
         ],
         "overrides": {
             "tar": ">=6.2.1",
             "tmp": ">=0.2.4"
+        },
+        "patchedDependencies": {
+            "better-sqlite3": "patches/better-sqlite3.patch"
         }
     },
     "devDependencies": {
