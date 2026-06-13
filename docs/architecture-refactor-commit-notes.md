@@ -33,7 +33,7 @@
 
 实施计划：`docs/superpowers/plans/2026-06-13-v2-architecture-refactor.md`
 
-下表列出本次架构重构对应的 24 个实现提交，不包含本文档后续维护提交（如 `2868952`）。
+下表列出本次架构重构及后续说明、测试补充对应的 30 个提交。
 
 | Commit    | 类型     | 内容                                                                         |
 | --------- | -------- | ---------------------------------------------------------------------------- |
@@ -59,9 +59,48 @@
 | `122f76c` | build    | update connector packaging pipeline                                          |
 | `713a266` | refactor | remove legacy plugin runtime                                                 |
 | `fe86e21` | docs     | add architecture reference notes                                             |
+| `669f0de` | docs     | remove lowercase spec and test duplicates                                    |
 | `899c133` | docs     | document settings architecture refactor                                      |
 | `d2a2748` | refactor | unify settings added list                                                    |
 | `fba21c9` | test     | cover unified settings list                                                  |
+| `2868952` | docs     | list architecture refactor commits                                           |
+| `3f834b0` | test     | cover settings save smoke path                                               |
+| `58c923f` | test     | cover settings save electron e2e                                             |
+| `f34993a` | docs     | record provider settings gaps                                                |
+| `13e1a5c` | docs     | clarify architecture refactor scope                                          |
+
+## 夹带的前端改动说明
+
+> 本节如实记录架构重构 commit 序列中两个夹带前端改动的 commit，区分"数据层必需改动"与"产品交互重构/生硬文案"。详细问题清单见 `docs/TASKS.md`「修复：架构升级夹带的前端改动」。
+
+### `fd2b0f8` feat: surface connector freshness in UI
+
+名义是"surface connector freshness"，实际混合了两类改动：
+
+**数据层必需（符合主题）：**
+
+- `src/shared/schemas/plugin-output.ts` 加 `observedAt`/`stale` 字段
+- `src/renderer/lib/provider-usage.ts` 透传 `observedAt`/`stale`/`source`
+- `src/renderer/components/ProviderAccountRow.tsx` stale badge
+- `src/renderer/styles/globals.css` stale 样式
+
+**夹带的产品交互重写（不符合主题）：**
+
+- `src/renderer/views/SettingsView.tsx` +129/-126：重写 `DataSourceList`，和 freshness 无关，是 `d2a2748` 的预演
+- `src/renderer/components/ProviderCard.tsx` 引入 `source_label` = `source.toUpperCase()`，把内部 `UsageSource` 枚举暴露为 `POLL`/`SESSION`/`GATEWAY` badge
+- `src/renderer/components/ProviderCard.tsx` 硬编码 `观测 {observed_text}` 前缀，导致"观测 2 分钟前"
+
+后两项已于 `3585b29` 修复（删除 source badge 和观测前缀）。
+
+### `d2a2748` refactor: unify settings added list
+
+这是账号/数据源双视角合并成单列表的**产品交互重构**，不是数据层替换。改动本身符合 `docs/omniusage-architecture-v2.md` §5.5.6 设计，但和替换 plugin runtime 无因果关系，不应混在架构重构 commit 序列里。应独立成 feature branch。
+
+### 教训
+
+- 架构升级 commit 应严格只含数据层改动（schema、store、runtime、host IO、scheduler、IPC 数据通道）。
+- 产品交互重构（设置页结构、文案、badge）应独立 commit 序列，单独 review。
+- "surface freshness"这类小特性 commit 不应夹带设置页大规模重写。
 
 ## 架构规则
 
@@ -85,7 +124,7 @@
 
 - `pnpm typecheck`
 - `pnpm lint`
-- `pnpm test`：65 files / 505 tests passed
+- `pnpm test`：65 files / 506 tests passed
 - Electron E2E：
     - `tests/user_e2e/specs/settings_provider_accounts.spec.ts`
     - `tests/user_e2e/specs/plugin_failure_modes.spec.ts`
