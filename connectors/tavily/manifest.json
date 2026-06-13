@@ -19,16 +19,9 @@
         "request": {
             "endpoint": "default",
             "path": "/usage",
-            "method": "GET",
-            "auth": {
-                "type": "bearer",
-                "secret": "API_KEY"
-            }
+            "method": "GET"
         },
-        "map": {
-            "used": "$.usage.used",
-            "limit": "$.usage.limit"
-        }
+        "map": {}
     },
     "script": "connector.ts"
 }
