@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { access, chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createLogger } from "../../../shared/lib/logger";
+import { createLogger, scrubber } from "../../../shared/lib/logger";
 import type { VaultBackend } from "./vault-backend";
 
 const log = createLogger("vault");
@@ -132,7 +132,9 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
             const entry = data[key];
             if (!entry) return null;
             try {
-                return decrypt_value(master_key, entry);
+                const plaintext = decrypt_value(master_key, entry);
+                scrubber.register(plaintext);
+                return plaintext;
             } catch {
                 log.warn(`Failed to decrypt vault key: ${redact_key(key)}`);
                 return null;

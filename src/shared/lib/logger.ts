@@ -7,6 +7,56 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
     error: 3,
 };
 
+const MIN_SCRUB_LENGTH = 4;
+const REPLACEMENT = "***";
+const registered_values = new Set<string>();
+let scrub_dirty = true;
+let combined_pattern: RegExp | null = null;
+
+function rebuild_pattern(): void {
+    if (registered_values.size === 0) {
+        combined_pattern = null;
+    } else {
+        const escaped = Array.from(registered_values).map((v) =>
+            v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        );
+        combined_pattern = new RegExp(escaped.join("|"), "g");
+    }
+    scrub_dirty = false;
+}
+
+export const scrubber = {
+    register(value: string): void {
+        if (value.length < MIN_SCRUB_LENGTH) return;
+        registered_values.add(value);
+        scrub_dirty = true;
+    },
+
+    unregister(value: string): void {
+        if (registered_values.delete(value)) {
+            scrub_dirty = true;
+        }
+    },
+
+    scrub_text(text: string): string {
+        if (registered_values.size === 0) return text;
+        if (scrub_dirty) rebuild_pattern();
+        if (!combined_pattern) return text;
+        combined_pattern.lastIndex = 0;
+        return text.replace(combined_pattern, REPLACEMENT);
+    },
+
+    get_values(): ReadonlySet<string> {
+        return registered_values;
+    },
+
+    clear(): void {
+        registered_values.clear();
+        scrub_dirty = true;
+        combined_pattern = null;
+    },
+};
+
 interface LogTransport {
     write(level: LogLevel, module: string, message: string, meta?: unknown): void;
 }
@@ -77,11 +127,24 @@ function serialize_meta(meta: unknown): unknown {
     return visit(meta);
 }
 
+function scrub_meta(meta: unknown): unknown {
+    if (meta === undefined || meta === null) return meta;
+    if (typeof meta === "string") return scrubber.scrub_text(meta);
+    try {
+        const raw = JSON.stringify(meta);
+        return JSON.parse(scrubber.scrub_text(raw));
+    } catch {
+        return meta;
+    }
+}
+
 function emit(level: LogLevel, module: string, message: string, meta?: unknown): void {
     if (!shouldLog(level)) return;
+    const scrubbed_message = scrubber.scrub_text(message);
     const safe_meta = serialize_meta(meta);
+    const scrubbed_meta = scrub_meta(safe_meta);
     for (const t of transports) {
-        t.write(level, module, message, safe_meta);
+        t.write(level, module, scrubbed_message, scrubbed_meta);
     }
 }
 

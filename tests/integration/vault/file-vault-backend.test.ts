@@ -4,11 +4,13 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { create_file_vault_backend } from "../../../src/main/core/vault/file-vault-backend";
 import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
+import { scrubber } from "../../../src/shared/lib/logger";
 
 let temp_dir: string;
 let vault: VaultBackend;
 
 beforeEach(async () => {
+    scrubber.clear();
     temp_dir = await mkdtemp(join(tmpdir(), "vault-test-"));
     vault = await create_file_vault_backend(temp_dir);
 });
@@ -121,5 +123,16 @@ describe("file-vault-backend", () => {
         const { writeFile } = await import("node:fs/promises");
         await writeFile(join(temp_dir, "secrets.vault"), "not valid json {{{");
         await expect(vault.get("any-key")).rejects.toThrow();
+    });
+
+    it("auto-registers decrypted value in scrubber", async () => {
+        const secret_value = "sk-my-super-secret-api-key";
+        await vault.set("test-key", secret_value);
+
+        expect(scrubber.get_values().has(secret_value)).toBe(false);
+
+        const result = await vault.get("test-key");
+        expect(result).toBe(secret_value);
+        expect(scrubber.get_values().has(secret_value)).toBe(true);
     });
 });
