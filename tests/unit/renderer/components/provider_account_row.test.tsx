@@ -15,6 +15,8 @@ function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUs
         accountLabel: "Account A",
         status: "normal",
         updatedAt: "2026-01-01T12:00:00Z",
+        observedAt: "2026-01-01T12:00:00Z",
+        stale: false,
         periods: [
             {
                 id: "claude-a-5h",
@@ -31,6 +33,8 @@ function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUs
                 displayStyle: "percent",
                 status: "normal",
                 updatedAt: "2026-01-01T12:00:00Z",
+                observedAt: "2026-01-01T12:00:00Z",
+                stale: false,
             },
         ],
         ...overrides,
@@ -53,6 +57,15 @@ describe("ProviderAccountRow account menu", () => {
         render(<ProviderAccountRow account={make_account()} />);
 
         expect(screen.queryByLabelText("账号操作")).not.toBeInTheDocument();
+    });
+
+    it("marks stale accounts", () => {
+        const { container } = render(
+            <ProviderAccountRow account={make_account({ stale: true })} />,
+        );
+
+        expect(screen.getByText("已过期")).toBeInTheDocument();
+        expect(container.querySelector(".card.stale")).toBeInTheDocument();
     });
 
     it("shows account menu button when handlers are provided", () => {

@@ -20,6 +20,8 @@ export interface ProviderUsagePeriod {
     status: UsageItem["status"];
     color?: UsageItem["color"] | undefined;
     updatedAt: string;
+    observedAt?: string | undefined;
+    stale?: boolean | undefined;
 }
 
 export interface ProviderUsageAccount {
@@ -29,6 +31,8 @@ export interface ProviderUsageAccount {
     accountLabel: string;
     status: UsageItem["status"];
     updatedAt: string;
+    observedAt?: string | undefined;
+    stale?: boolean | undefined;
     periods: ProviderUsagePeriod[];
 }
 
@@ -38,6 +42,9 @@ export interface ProviderUsageGroup {
     accountCount: number;
     status: UsageItem["status"];
     updatedAt: string;
+    observedAt?: string | undefined;
+    source?: UsageSource | "mixed" | undefined;
+    stale?: boolean | undefined;
     periods: ProviderUsagePeriod[];
     accounts: ProviderUsageAccount[];
 }
@@ -112,6 +119,8 @@ function toPeriod(
         status: item.status,
         color: item.color,
         updatedAt,
+        observedAt: item.observedAt ?? updatedAt,
+        stale: item.stale ?? false,
     };
 }
 
@@ -175,17 +184,27 @@ export function build_provider_usage_groups(
             const accountsByKey = new Map<string, ProviderUsageAccount>();
             let groupStatus: UsageItem["status"] = "normal";
             let groupUpdatedAt = periods[0]?.updatedAt ?? "";
+            let groupObservedAt = periods[0]?.observedAt ?? groupUpdatedAt;
+            let groupStale = false;
 
             for (const period of periods) {
                 const accountKey = accountKeyForPeriod(period);
                 const account = accountsByKey.get(accountKey);
+                const periodObservedAt = period.observedAt ?? period.updatedAt;
                 groupStatus = worstStatus(groupStatus, period.status);
                 groupUpdatedAt = latestTimestamp(groupUpdatedAt, period.updatedAt);
+                groupObservedAt = latestTimestamp(groupObservedAt, periodObservedAt);
+                groupStale = groupStale || (period.stale ?? false);
 
                 if (account) {
                     account.periods.push(period);
                     account.status = worstStatus(account.status, period.status);
                     account.updatedAt = latestTimestamp(account.updatedAt, period.updatedAt);
+                    account.observedAt = latestTimestamp(
+                        account.observedAt ?? account.updatedAt,
+                        periodObservedAt,
+                    );
+                    account.stale = (account.stale ?? false) || (period.stale ?? false);
                     continue;
                 }
 
@@ -196,9 +215,15 @@ export function build_provider_usage_groups(
                     accountLabel: period.accountLabel,
                     status: period.status,
                     updatedAt: period.updatedAt,
+                    observedAt: period.observedAt,
+                    stale: period.stale,
                     periods: [period],
                 });
             }
+
+            const sources = new Set(periods.map((period) => period.source));
+            const groupSource: ProviderUsageGroup["source"] =
+                sources.size === 1 ? (periods[0]?.source ?? "direct") : "mixed";
 
             return {
                 provider,
@@ -206,6 +231,9 @@ export function build_provider_usage_groups(
                 accountCount: accountsByKey.size,
                 status: groupStatus,
                 updatedAt: groupUpdatedAt,
+                observedAt: groupObservedAt,
+                source: groupSource,
+                stale: groupStale,
                 periods,
                 accounts: [...accountsByKey.values()],
             };

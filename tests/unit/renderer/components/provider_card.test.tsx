@@ -26,6 +26,9 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
         accountCount: 1,
         status: "normal",
         updatedAt: "2026-06-02T10:00:00Z",
+        observedAt: "2026-06-02T10:00:00Z",
+        source: "api_key",
+        stale: false,
         periods: [
             {
                 id: "w1",
@@ -43,6 +46,8 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
                 resetAt: null,
                 status: "normal",
                 updatedAt: "2026-06-02T10:00:00Z",
+                observedAt: "2026-06-02T10:00:00Z",
+                stale: false,
             },
         ],
         accounts: [
@@ -53,6 +58,8 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
                 accountLabel: "Account 1",
                 status: "normal",
                 updatedAt: "2026-06-02T10:00:00Z",
+                observedAt: "2026-06-02T10:00:00Z",
+                stale: false,
                 periods: [
                     {
                         id: "w1",
@@ -137,6 +144,19 @@ describe("ProviderCard", () => {
         expect(screen.queryByText("预警")).not.toBeInTheDocument();
         // rel-time element should exist
         expect(document.querySelector(".rel-time")).toBeInTheDocument();
+    });
+
+    it("shows provider source and observation freshness", () => {
+        const group = makeGroup({
+            observedAt: "2026-06-02T09:59:00Z",
+            source: "api_key",
+            stale: true,
+        });
+        render(<ProviderCard provider="deepseek" group={group} />);
+
+        expect(screen.getByText("API_KEY")).toBeInTheDocument();
+        expect(document.querySelector(".freshness-meta")?.textContent).toContain("观测");
+        expect(document.querySelector(".card.stale")).toBeInTheDocument();
     });
 
     it("does not render disabled card state", () => {

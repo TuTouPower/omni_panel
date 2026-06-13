@@ -328,6 +328,32 @@ describe("provider usage aggregation", () => {
         expect(groups[0]?.periods[0]?.limit).toBe(100);
     });
 
+    it("propagates latest observation freshness to periods, accounts, and groups", () => {
+        const connectors = [
+            connectorInfo({
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            observedAt: "2026-01-01T11:59:00Z",
+                            stale: true,
+                        }),
+                    ],
+                },
+            }),
+        ];
+
+        const [group] = build_provider_usage_groups(connectors);
+
+        expect(group?.stale).toBe(true);
+        expect(group?.observedAt).toBe("2026-01-01T11:59:00Z");
+        expect(group?.accounts[0]?.stale).toBe(true);
+        expect(group?.accounts[0]?.observedAt).toBe("2026-01-01T11:59:00Z");
+        expect(group?.periods[0]?.stale).toBe(true);
+        expect(group?.periods[0]?.observedAt).toBe("2026-01-01T11:59:00Z");
+    });
+
     it("excludes null-used periods from overview aggregation", () => {
         const connectors = [
             connectorInfo({

@@ -33,6 +33,8 @@ const usageItemSchema = z.object({
     resetAt: z.string().nullable().optional(),
     status: usageStatusSchema.default("unknown"),
     color: usageColorSchema.optional(),
+    observedAt: z.string().optional(),
+    stale: z.boolean().optional(),
 });
 
 const pluginChartSegmentSchema = z.object({

@@ -408,6 +408,25 @@ html[data-window="tray"] #root {
     padding: 2px 8px;
     border-radius: 6px;
 }
+.freshness-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-3);
+    white-space: nowrap;
+}
+.freshness-meta .source-badge {
+    margin-left: 0;
+}
+.stale-badge {
+    margin-left: 6px;
+    color: var(--amber);
+    font-weight: 650;
+}
+.card.stale {
+    border-color: color-mix(in srgb, var(--amber) 34%, var(--card-border));
+}
 
 /* card more-menu */
 .card-menu-wrap {

@@ -79,6 +79,7 @@ export function ProviderAccountRow({
                 </div>
                 <div className="rel-time">
                     {account.updatedAt ? relative_time(account.updatedAt) : ""}
+                    {account.stale && <span className="stale-badge">已过期</span>}
                 </div>
             </div>
             {menu_items.length > 0 && (
@@ -94,7 +95,10 @@ export function ProviderAccountRow({
         </div>
     );
 
-    const card_class = (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "");
+    const card_class =
+        (dragging ? " dragging" : "") +
+        (dragOver ? " drag-over" : "") +
+        (account.stale ? " stale" : "");
 
     const drag_root_props = onDragStart
         ? {

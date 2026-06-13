@@ -299,6 +299,42 @@ describe("SettingsView", () => {
         expect(screen.getByText("Claude Account")).toBeInTheDocument();
     });
 
+    it("renders all connectors in data source view", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(await screen.findByTestId("settings-plugin-nav-datasource"));
+
+        await waitFor(() => {
+            expect(screen.getByText("DeepSeek")).toBeInTheDocument();
+        });
+        expect(screen.getByText("CPA")).toBeInTheDocument();
+        expect(screen.getByText("来源：API_KEY")).toBeInTheDocument();
+        expect(screen.getByText("来源：CPA")).toBeInTheDocument();
+    });
+
+    it("does not open CPA detail when toggling data source", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(await screen.findByTestId("settings-plugin-nav-datasource"));
+        await waitFor(() => {
+            expect(screen.getByText("CPA")).toBeInTheDocument();
+        });
+        const cpa_card = screen.getByText("CPA").closest(".ds-card");
+        if (!cpa_card) throw new Error("missing CPA data source card");
+        const toggle = cpa_card.querySelector<HTMLButtonElement>(".sw");
+        if (!toggle) throw new Error("missing CPA toggle");
+
+        await user.click(toggle);
+
+        expect(screen.queryByTestId("cpa-connector-settings")).not.toBeInTheDocument();
+        expect(save).toHaveBeenCalledWith({
+            ...base_config,
+            plugins: [base_config.plugins[0], { ...base_config.plugins[1], enabled: false }],
+        });
+    });
+
     it("calls window.close when back button is clicked", async () => {
         const closeSpy = vi.spyOn(window, "close").mockImplementation(() => undefined);
         const user = userEvent.setup();

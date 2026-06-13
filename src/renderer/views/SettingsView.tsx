@@ -141,6 +141,10 @@ function override_account_label(key: string): string {
     return parts.length >= 3 ? parts.slice(2).join(":") : "账号";
 }
 
+function source_label(source: string): string {
+    return source.toUpperCase();
+}
+
 /* ── helpers ── */
 function Toggle({
     on,
@@ -148,7 +152,7 @@ function Toggle({
     disabled,
 }: {
     on: boolean;
-    onClick?: () => void;
+    onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
     disabled?: boolean;
 }) {
     return (
@@ -503,31 +507,126 @@ function DataSourceList({
     onAdd: () => void;
     saveConfig: (config: AppConfiguration) => void | Promise<void>;
 }) {
-    const cpaPlugin = pluginInfos.find((p) => p.source === "cpa");
-    const cpaConfig = cpaPlugin
-        ? config.plugins.find((p) => p.instanceId === cpaPlugin.instanceId)
-        : undefined;
-    const enabled = cpaConfig?.enabled ?? true;
-    const url = cpaConfig?.endpointOverrides["default"] ?? "";
-    const snapshot = cpaPlugin?.snapshot;
-    const accountsCount = snapshot?.status === "ready" ? snapshot.items.length : 0;
-    const providers = cpaPlugin?.activeProviders ?? [];
-    const lastSync =
-        snapshot?.status === "ready"
-            ? relative_time(snapshot.updatedAt)
-            : snapshot?.status === "failed" && snapshot.updatedAt
-              ? relative_time(snapshot.updatedAt)
-              : "未同步";
+    const connector_rows = pluginInfos.map((pluginInfo) => {
+        const pluginConfig = config.plugins.find((p) => p.instanceId === pluginInfo.instanceId);
+        const enabled = pluginConfig?.enabled ?? pluginInfo.enabled;
+        const snapshot = pluginInfo.snapshot;
+        const accountsCount = snapshot.status === "ready" ? snapshot.items.length : 0;
+        const providers = pluginInfo.activeProviders;
+        const lastSync =
+            snapshot.status === "ready"
+                ? relative_time(snapshot.updatedAt)
+                : snapshot.status === "failed" && snapshot.updatedAt
+                  ? relative_time(snapshot.updatedAt)
+                  : "未同步";
+        const url = pluginConfig?.endpointOverrides["default"] ?? "";
+        const canOpenDetail = pluginInfo.source === "cpa";
+        const primaryProvider = pluginInfo.activeProviders[0];
+        const openDetail = () => {
+            if (canOpenDetail) onOpenDetail();
+        };
 
-    const toggleEnabled = () => {
-        if (!cpaPlugin) return;
-        void saveConfig({
-            ...config,
-            plugins: config.plugins.map((pl) =>
-                pl.instanceId === cpaPlugin.instanceId ? { ...pl, enabled: !enabled } : pl,
-            ),
-        });
-    };
+        return (
+            <div
+                key={pluginInfo.instanceId}
+                className="ds-card"
+                data-off={enabled ? undefined : "true"}
+                onClick={openDetail}
+                onKeyDown={(e) => {
+                    if (canOpenDetail && (e.key === "Enter" || e.key === " ")) {
+                        e.preventDefault();
+                        onOpenDetail();
+                    }
+                }}
+                role={canOpenDetail ? "button" : undefined}
+                tabIndex={canOpenDetail ? 0 : undefined}
+            >
+                <div className="ds-top">
+                    <span className="ds-icon">
+                        {pluginInfo.source === "cpa" ? (
+                            <VendorMark id="cpa" size={26} />
+                        ) : primaryProvider ? (
+                            <VendorMark id={primaryProvider} size={26} />
+                        ) : (
+                            <Icon name="globe" size={24} />
+                        )}
+                    </span>
+                    <div className="ds-head-text">
+                        <div className="ds-title">{pluginInfo.displayName}</div>
+                        <div className="ds-status">
+                            <span className="dsd" />
+                            状态：
+                            {enabled
+                                ? snapshot.status === "ready"
+                                    ? "正常"
+                                    : snapshot.status === "failed"
+                                      ? "异常"
+                                      : "未连接"
+                                : "已停用"}
+                        </div>
+                    </div>
+                    <div className="ds-actions">
+                        <Toggle
+                            on={enabled}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                void saveConfig({
+                                    ...config,
+                                    plugins: config.plugins.map((pl) =>
+                                        pl.instanceId === pluginInfo.instanceId
+                                            ? { ...pl, enabled: !enabled }
+                                            : pl,
+                                    ),
+                                });
+                            }}
+                        />
+                        <button
+                            className="ds-btn"
+                            disabled={!enabled}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                void window.usageboard.connector.refresh(pluginInfo.instanceId);
+                            }}
+                            type="button"
+                        >
+                            同步
+                        </button>
+                        {canOpenDetail && (
+                            <button
+                                className="ds-btn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenDetail();
+                                }}
+                                type="button"
+                            >
+                                编辑
+                            </button>
+                        )}
+                    </div>
+                </div>
+                <div className="ds-meta">
+                    {url && <div className="dm-line mono">{url}</div>}
+                    <div className="dm-line">来源：{source_label(pluginInfo.source)}</div>
+                    <div className="dm-line">
+                        发现 <b>{String(accountsCount)}</b> 个账号，覆盖{" "}
+                        <b>{String(providers.length)}</b> 个服务商
+                    </div>
+                    <div className="dm-line dm-faint">上次同步：{lastSync}</div>
+                </div>
+                {providers.length > 0 && (
+                    <div className="ds-covers">
+                        <span className="dc-label">覆盖服务商</span>
+                        <span className="dc-icons">
+                            {providers.map((id) => (
+                                <VendorMark key={id} id={id} size={16} />
+                            ))}
+                        </span>
+                    </div>
+                )}
+            </div>
+        );
+    });
 
     return (
         <>
@@ -539,106 +638,11 @@ function DataSourceList({
                 </button>
             </div>
             <div className="ds-list">
-                {cpaPlugin ? (
-                    <div
-                        className="ds-card"
-                        data-off={enabled ? undefined : "true"}
-                        onClick={onOpenDetail}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                onOpenDetail();
-                            }
-                        }}
-                        role="button"
-                        tabIndex={0}
-                    >
-                        <div className="ds-top">
-                            <span className="ds-icon">
-                                <VendorMark id="cpa" size={26} />
-                            </span>
-                            <div className="ds-head-text">
-                                <div className="ds-title">CPA Manager</div>
-                                <div className="ds-status">
-                                    <span className="dsd" />
-                                    状态：
-                                    {enabled
-                                        ? snapshot?.status === "ready"
-                                            ? "正常"
-                                            : snapshot?.status === "failed"
-                                              ? "异常"
-                                              : "未连接"
-                                        : "已停用"}
-                                </div>
-                            </div>
-                            <div className="ds-actions">
-                                <button
-                                    className="sw"
-                                    data-on={enabled ? "1" : "0"}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleEnabled();
-                                    }}
-                                    type="button"
-                                >
-                                    <i />
-                                </button>
-                                <button
-                                    className="ds-btn"
-                                    disabled={!enabled}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        void window.usageboard.plugin.refresh(cpaPlugin.instanceId);
-                                    }}
-                                    type="button"
-                                >
-                                    同步
-                                </button>
-                                <button
-                                    className="ds-btn"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onOpenDetail();
-                                    }}
-                                    type="button"
-                                >
-                                    编辑
-                                </button>
-                                <button
-                                    className="ds-btn"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onOpenDetail();
-                                    }}
-                                    type="button"
-                                    title="更多"
-                                >
-                                    <Icon name="more" size={15} />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="ds-meta">
-                            {url && <div className="dm-line mono">{url}</div>}
-                            <div className="dm-line">
-                                发现 <b>{String(accountsCount)}</b> 个账号，覆盖{" "}
-                                <b>{String(providers.length)}</b> 个服务商
-                            </div>
-                            <div className="dm-line dm-faint">上次同步：{lastSync}</div>
-                        </div>
-                        {providers.length > 0 && (
-                            <div className="ds-covers">
-                                <span className="dc-label">覆盖服务商</span>
-                                <span className="dc-icons">
-                                    {providers.map((id) => (
-                                        <VendorMark key={id} id={id} size={16} />
-                                    ))}
-                                </span>
-                            </div>
-                        )}
-                    </div>
+                {connector_rows.length > 0 ? (
+                    connector_rows
                 ) : (
                     <div className="text-sm text-[var(--text-3)] py-4">
-                        暂无数据源。点击上方按钮添加 CPA Manager。
+                        暂无数据源。点击上方按钮添加数据源。
                     </div>
                 )}
             </div>
