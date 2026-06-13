@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile, chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createConfigStore } from "../../../src/main/core/config/config-store";
@@ -90,6 +90,64 @@ describe("config-store", () => {
         const parsed = JSON.parse(raw) as Record<string, unknown>;
         const plugins = parsed["plugins"] as Record<string, unknown>[];
         expect(plugins[0]?.["stateId"]).toBe("abc-123");
+    });
+
+    it("serializes concurrent saves so final state is consistent", async () => {
+        const configPath = join(tempDir, "config.json");
+        const store = createConfigStore(configPath);
+
+        const configs: AppConfiguration[] = [];
+        for (let i = 0; i < 20; i++) {
+            configs.push({
+                schemaVersion: 1,
+                language: i % 2 === 0 ? "en" : "zh-Hans",
+                plugins: [],
+                launchAtLogin: i % 3 === 0,
+            });
+        }
+
+        await Promise.all(configs.map((c) => store.save(c)));
+
+        // All saves serialized: file must be valid JSON and parse as a valid config.
+        const final = await store.load();
+        expect(final.schemaVersion).toBe(1);
+        expect(final.plugins).toEqual([]);
+
+        // The last-resolved save must win. Because Promise.all preserves submission
+        // order for the microtask queue but save() appends to a serial queue, the
+        // final persisted config should match the last config submitted.
+        const last = configs[configs.length - 1];
+        if (last) {
+            expect(final.language).toBe(last.language);
+            expect(final.launchAtLogin).toBe(last.launchAtLogin);
+        }
+    });
+
+    it("recovers save chain after a transient failure so later saves still persist", async () => {
+        // The config-store serializes saves via an internal queue. A transient write
+        // failure on one save must NOT poison the queue and block subsequent saves.
+        const configPath = join(tempDir, "config.json");
+        const store = createConfigStore(configPath);
+
+        const valid: AppConfiguration = {
+            schemaVersion: 1,
+            language: "en",
+            plugins: [],
+            launchAtLogin: false,
+        };
+        await store.save(valid);
+
+        // Make the file unwritable to force a transient write failure on next save.
+        await chmod(configPath, 0o444);
+        const failing: AppConfiguration = { ...valid, language: "zh-Hans" };
+        await expect(store.save(failing)).rejects.toThrow();
+
+        // Restore writability — a subsequent save must succeed and persist.
+        await chmod(configPath, 0o644);
+        const recovered: AppConfiguration = { ...valid, launchAtLogin: true };
+        await store.save(recovered);
+        const reloaded = await store.load();
+        expect(reloaded.launchAtLogin).toBe(true);
     });
 
     it("returns default config on schema-invalid JSON", async () => {

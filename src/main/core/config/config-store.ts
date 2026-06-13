@@ -39,7 +39,12 @@ function stripRemovedConfigFields(config: Record<string, unknown>): Record<strin
 export function createConfigStore(configPath: string): AppConfigStore {
     let pendingTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingConfig: AppConfiguration | null = null;
-    let saveQueue: Promise<void> = Promise.resolve();
+    // Serializes saves so concurrent save() calls cannot interleave reads/writes
+    // or lose the final state to a torn write. Modeled on vault-backend's lock:
+    // each save awaits the prior tail, and a rejection on one save MUST NOT poison
+    // the chain — otherwise a single transient write failure would block every
+    // subsequent save until process restart.
+    let saveTail: Promise<void> = Promise.resolve();
 
     async function doSave(config: AppConfiguration): Promise<void> {
         const sorted = sortKeys(config);
@@ -54,6 +59,19 @@ export function createConfigStore(configPath: string): AppConfigStore {
             log.debug("config save complete raw", { filePath: configPath });
         }
         log.debug(`Config saved to ${configPath} (${String(config.plugins.length)} plugins)`);
+    }
+
+    function enqueueSave(config: AppConfiguration): Promise<void> {
+        const run = saveTail.then(
+            () => doSave(config),
+            () => doSave(config),
+        );
+        // Swallow rejection at the chain level so a failed save does not break
+        // the queue. The original caller still sees the rejection via `run`.
+        saveTail = run.catch(() => {
+            /* chain continues regardless of individual save failures */
+        });
+        return run;
     }
 
     return {
@@ -115,8 +133,7 @@ export function createConfigStore(configPath: string): AppConfigStore {
         },
 
         async save(config: AppConfiguration): Promise<void> {
-            saveQueue = saveQueue.then(() => doSave(config));
-            await saveQueue;
+            await enqueueSave(config);
         },
 
         scheduleSave(config: AppConfiguration, delayMs = 500): void {
