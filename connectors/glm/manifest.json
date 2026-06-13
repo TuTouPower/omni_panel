@@ -1,0 +1,30 @@
+{
+    "id": "glm",
+    "provider": "glm",
+    "capabilities": ["poll"],
+    "parameters": [
+        {
+            "name": "API_KEY",
+            "type": "secret",
+            "required": true,
+            "label": "API 密钥",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://open.bigmodel.cn"
+    },
+    "poll": {
+        "request": {
+            "endpoint": "default",
+            "path": "/usage",
+            "method": "GET",
+            "auth": {
+                "type": "bearer",
+                "secret": "API_KEY"
+            }
+        },
+        "map": {}
+    },
+    "script": "connector.ts"
+}

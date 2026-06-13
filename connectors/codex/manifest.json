@@ -1,0 +1,11 @@
+{
+    "id": "codex",
+    "provider": "codex",
+    "capabilities": ["local"],
+    "parameters": [],
+    "endpoints": {},
+    "local": {
+        "paths": ["~/.codex/auth.json"]
+    },
+    "script": "connector.ts"
+}

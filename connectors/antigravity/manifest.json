@@ -1,0 +1,11 @@
+{
+    "id": "antigravity",
+    "provider": "antigravity",
+    "capabilities": ["local"],
+    "parameters": [],
+    "endpoints": {},
+    "local": {
+        "paths": ["~/.antigravity/session.json"]
+    },
+    "script": "connector.ts"
+}

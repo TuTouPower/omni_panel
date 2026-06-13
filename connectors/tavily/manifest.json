@@ -1,0 +1,34 @@
+{
+    "id": "tavily",
+    "provider": "tavily",
+    "capabilities": ["poll"],
+    "parameters": [
+        {
+            "name": "API_KEY",
+            "type": "secret",
+            "required": true,
+            "label": "API Key",
+            "label@zh-Hans": "API 密钥",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://api.tavily.com"
+    },
+    "poll": {
+        "request": {
+            "endpoint": "default",
+            "path": "/usage",
+            "method": "GET",
+            "auth": {
+                "type": "bearer",
+                "secret": "API_KEY"
+            }
+        },
+        "map": {
+            "used": "$.usage.used",
+            "limit": "$.usage.limit"
+        }
+    },
+    "script": "connector.ts"
+}

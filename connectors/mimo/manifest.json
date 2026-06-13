@@ -1,0 +1,19 @@
+{
+    "id": "mimo",
+    "provider": "mimo",
+    "capabilities": ["session"],
+    "parameters": [
+        {
+            "name": "SESSION_COOKIE",
+            "type": "secret",
+            "required": true,
+            "label": "Session Cookie",
+            "label@zh-Hans": "登录 Cookie",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://platform.xiaomimimo.com"
+    },
+    "script": "connector.ts"
+}
