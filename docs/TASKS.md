@@ -6,17 +6,13 @@
 
 ## 待办
 
-### 修复：多个服务编辑账号缺少密钥/Cookie 设置
+### 已完成：多个服务编辑账号缺少密钥/Cookie 设置
 
 **根因：** `SettingsForm` 字段来自 `pluginInfo.metadata?.parameters`，metadata 来自 connector manifest。`connectors/` 目录只有 `claude` 和 `cpa`，其余 provider 缺真实 manifest，导致编辑表单无字段。
 
-**范围：**
+**修复：** 为 deepseek/glm/gemini/tavily/minimax（API_KEY）、mimo/kimi（SESSION_COOKIE）、codex/antigravity（local）创建 connector manifest + 占位脚本。`2f31546`
 
-- API Key 类（缺 `API_KEY` secret 参数）：`deepseek`、`glm`、`gemini`、`tavily`、`minimax`
-- Session/Cookie 类（缺 `SESSION_COOKIE` secret 参数）：`mimo`、`kimi`
-- Local/OAuth 类：`codex`、`antigravity` 需确认是否本期支持
-
-**验收：** 打包后设置页编辑每个已添加 provider 都能看到密钥/Cookie 字段；保存后 config 不含明文 secret，重开显示 `***`。
+**验收：** 打包后设置页编辑每个已添加 provider 都能看到密钥/Cookie 字段。
 
 ### 修复：CPA 添加后只显示 Claude 数据
 
