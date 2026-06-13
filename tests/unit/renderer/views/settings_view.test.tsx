@@ -260,18 +260,23 @@ describe("SettingsView", () => {
         });
     });
 
-    it("does not render connector-level toggle for CPA account rows", async () => {
+    it("renders CPA as an expandable connection row with account child rows", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
-        await waitFor(() => {
-            expect(screen.getByText("在数据源中管理")).toBeInTheDocument();
-        });
+        const cpa_row = await screen.findByText("CPA");
+        const row = cpa_row.closest<HTMLElement>(".ao-item");
+        if (!row) throw new Error("missing CPA row");
+        expect(row).toHaveTextContent("1 个账号");
+        expect(screen.queryByText("Claude Account")).not.toBeInTheDocument();
 
-        const cpa_row = screen.getByText("在数据源中管理").closest(".ao-item");
-        if (!cpa_row) throw new Error("missing CPA row");
-        expect(cpa_row.querySelector(".sw")).toBeNull();
+        await user.click(within(row).getByTitle("展开账号"));
+
+        expect(screen.getByText("Claude Account")).toBeInTheDocument();
+        const child_row = screen.getByText("Claude Account").closest<HTMLElement>(".acct-row");
+        if (!child_row) throw new Error("missing CPA child row");
+        expect(within(child_row).queryByTitle("删除")).not.toBeInTheDocument();
     });
 
     it("renders CPA connector settings page from accounts", async () => {
@@ -299,31 +304,24 @@ describe("SettingsView", () => {
         expect(screen.getByText("Claude Account")).toBeInTheDocument();
     });
 
-    it("renders all connectors in data source view", async () => {
-        const user = userEvent.setup();
+    it("does not render a separate data source nav", async () => {
         render(<SettingsView />);
 
-        await user.click(await screen.findByTestId("settings-plugin-nav-datasource"));
-
         await waitFor(() => {
-            expect(screen.getByText("DeepSeek")).toBeInTheDocument();
+            expect(screen.getByTestId("settings-plugin-nav-accounts")).toBeInTheDocument();
         });
-        expect(screen.getByText("CPA")).toBeInTheDocument();
-        expect(screen.getByText("来源：API_KEY")).toBeInTheDocument();
-        expect(screen.getByText("来源：CPA")).toBeInTheDocument();
+        expect(screen.queryByTestId("settings-plugin-nav-datasource")).not.toBeInTheDocument();
+        expect(screen.queryByText("数据源")).not.toBeInTheDocument();
     });
 
-    it("does not open CPA detail when toggling data source", async () => {
+    it("toggles CPA connection row without opening settings", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
 
-        await user.click(await screen.findByTestId("settings-plugin-nav-datasource"));
-        await waitFor(() => {
-            expect(screen.getByText("CPA")).toBeInTheDocument();
-        });
-        const cpa_card = screen.getByText("CPA").closest(".ds-card");
-        if (!cpa_card) throw new Error("missing CPA data source card");
-        const toggle = cpa_card.querySelector<HTMLButtonElement>(".sw");
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        const cpa_row = (await screen.findByText("CPA")).closest(".ao-item");
+        if (!cpa_row) throw new Error("missing CPA connection row");
+        const toggle = cpa_row.querySelector<HTMLButtonElement>(".sw");
         if (!toggle) throw new Error("missing CPA toggle");
 
         await user.click(toggle);

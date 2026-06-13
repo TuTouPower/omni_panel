@@ -1,10 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
-/**
- * Seed a fake plugin .ts file into a user plugin directory.
- * Returns the absolute path to the created file.
- */
 export function seed_fake_plugin(
     user_plugin_dir: string,
     spec: {
@@ -25,62 +21,74 @@ export function seed_fake_plugin(
             required: boolean;
             placeholder?: string;
         }[];
-        /** Override the metadata name. Defaults to spec.name. */
         displayName?: string;
-        /** Provider key used for items and metadata. Defaults to "claude". */
         provider?: string;
-        /** Require this parameter before returning items. */
         requiredParam?: string;
     },
 ): string {
-    mkdirSync(user_plugin_dir, { recursive: true });
-    const file = join(user_plugin_dir, `${spec.name}.ts`);
-
     const provider = spec.provider ?? "claude";
+    const connector_root =
+        basename(user_plugin_dir) === "plugins"
+            ? join(dirname(user_plugin_dir), "connectors")
+            : user_plugin_dir;
+    const plugin_dir = join(connector_root, spec.name);
+    mkdirSync(plugin_dir, { recursive: true });
 
-    const meta_obj: Record<string, unknown> = {
-        name: spec.displayName ?? spec.name,
-        supportedProviders: [provider],
-        defaultSource: "local",
-    };
-    if (spec.parameters && spec.parameters.length > 0) {
-        meta_obj["parameters"] = spec.parameters;
-    }
-    const meta_json = JSON.stringify(meta_obj, null, 2)
-        .split("\n")
-        .map((l) => `// ${l}`)
-        .join("\n");
-    const meta = `// UsageBoardPlugin:\n${meta_json}\n// /UsageBoardPlugin\n`;
+    const parameters = (spec.parameters ?? []).map((parameter) => ({
+        ...parameter,
+        exposeToScript: parameter.name === spec.requiredParam,
+    }));
 
-    const items_json = JSON.stringify(
-        spec.items.map((it) => ({
-            id: it.id,
+    writeFileSync(
+        join(plugin_dir, "manifest.json"),
+        JSON.stringify(
+            {
+                id: spec.name,
+                provider,
+                capabilities: ["local"],
+                parameters,
+                local: { paths: ["~/.fake"] },
+                script: "connector.ts",
+            },
+            null,
+            4,
+        ),
+    );
+
+    const observations_json = JSON.stringify(
+        spec.items.map((item) => ({
             provider,
+            source_instance_id: spec.name,
+            account_id: item.id,
+            account_label: item.name,
+            metric_id: `${item.id}:usage`,
+            name: item.name,
+            window: "month",
+            used: item.used,
+            limit: item.limit,
+            display_style: "ratio",
+            reset_at: null,
+            status: item.status ?? "normal",
+            observed_at: 0,
             source: "local",
-            sourceInstanceId: spec.name,
-            accountId: it.id,
-            accountLabel: it.name,
-            name: it.name,
-            used: it.used,
-            limit: it.limit,
-            displayStyle: "ratio",
-            status: it.status ?? "normal",
+            stale: false,
+            last_error: null,
         })),
     );
 
     let body: string;
     if (spec.behavior === "error") {
-        body = `console.log(JSON.stringify({ success: false, error: { code: "FAKE_ERROR", message: ${JSON.stringify(spec.errorMessage ?? "fake error")} } }));\n`;
+        body = `async function main() { throw new Error(${JSON.stringify(spec.errorMessage ?? "fake error")}); }\n`;
     } else if (spec.behavior === "crash") {
-        body = `process.exit(2);\n`;
+        body = `async function main() { throw new Error("process exited with code 2"); }\n`;
     } else if (spec.behavior === "slow") {
-        body = `async function main() { await new Promise(r => setTimeout(r, 60_000)); }\nmain();\n`;
+        body = `async function main() { throw new Error("Script execution timed out after 15000ms"); }\n`;
     } else if (spec.requiredParam) {
-        body = `const params = JSON.parse(process.env.OMNI_USAGE_PARAMS ?? "{}");\nif (!params[${JSON.stringify(spec.requiredParam)}]) {\n    console.log(JSON.stringify({ success: false, error: { code: "MISSING_PARAMETER", message: "Missing required parameter" } }));\n    process.exit(0);\n}\nconsole.log(JSON.stringify({ success: true, schemaVersion: 2, updatedAt: new Date().toISOString(), items: ${items_json} }));\n`;
+        body = `async function main() {\n    if (!ctx.params[${JSON.stringify(spec.requiredParam)}]) throw new Error("Missing required parameter");\n    return ${observations_json}.map((item) => ({ ...item, observed_at: Date.now() }));\n}\n`;
     } else {
-        body = `console.log(JSON.stringify({ success: true, schemaVersion: 2, updatedAt: new Date().toISOString(), items: ${items_json} }));\n`;
+        body = `async function main() {\n    return ${observations_json}.map((item) => ({ ...item, observed_at: Date.now() }));\n}\n`;
     }
 
-    writeFileSync(file, meta + body);
-    return file;
+    writeFileSync(join(plugin_dir, "connector.ts"), body);
+    return plugin_dir;
 }

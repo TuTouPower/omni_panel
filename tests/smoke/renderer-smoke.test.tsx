@@ -66,7 +66,7 @@ describe("Renderer smoke tests", () => {
             });
             // nav items present
             expect(screen.getByText("常规")).toBeInTheDocument();
-            expect(screen.getByText("账号")).toBeInTheDocument();
+            expect(screen.getByText("已添加")).toBeInTheDocument();
         });
 
         it("renders general settings with global options", async () => {

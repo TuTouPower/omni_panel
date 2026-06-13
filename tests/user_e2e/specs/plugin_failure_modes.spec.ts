@@ -77,8 +77,9 @@ error_crash_setup.test.describe("plugin failure modes", () => {
         await popup.waitReady();
 
         const live = page.locator('[data-popup="live"]');
-        const errCard = live.locator('[data-provider="kimi"]');
-        await error_crash_setup.expect(errCard).toHaveClass(/alert/, { timeout: 20_000 });
+        const errCard = live.locator(".card").filter({ hasText: "FAKE-ERROR-PLUGIN" });
+        await error_crash_setup.expect(errCard).toBeVisible({ timeout: 20_000 });
+        await errCard.getByTitle("展开").click();
         await error_crash_setup.expect(errCard.locator(".card-state.err")).toBeVisible();
         await error_crash_setup
             .expect(errCard.locator(".card-state.err"))
@@ -91,8 +92,9 @@ error_crash_setup.test.describe("plugin failure modes", () => {
         await popup.waitReady();
 
         const live = page.locator('[data-popup="live"]');
-        const crashCard = live.locator('[data-provider="antigravity"]');
-        await error_crash_setup.expect(crashCard).toHaveClass(/alert/, { timeout: 20_000 });
+        const crashCard = live.locator(".card").filter({ hasText: "FAKE-CRASH-PLUGIN" });
+        await error_crash_setup.expect(crashCard).toBeVisible({ timeout: 20_000 });
+        await crashCard.getByTitle("展开").click();
         await error_crash_setup.expect(crashCard.locator(".card-state.err")).toBeVisible();
     });
 });
@@ -104,8 +106,9 @@ slow_setup.test.describe("plugin timeout failure mode", () => {
         await popup.waitReady();
 
         const live = page.locator('[data-popup="live"]');
-        const slowCard = live.locator('[data-provider="gemini"]');
-        await slow_setup.expect(slowCard).toHaveClass(/alert/, { timeout: 45_000 });
+        const slowCard = live.locator(".card").filter({ hasText: "FAKE-SLOW-PLUGIN" });
+        await slow_setup.expect(slowCard).toBeVisible({ timeout: 20_000 });
+        await slowCard.getByTitle("展开").click();
         await slow_setup.expect(slowCard.locator(".card-state.err")).toBeVisible();
     });
 });
