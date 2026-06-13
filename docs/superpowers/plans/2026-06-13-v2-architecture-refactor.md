@@ -1582,8 +1582,7 @@ export function create_connector_context(
 // tests/integration/connector/net-client.test.ts
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { createServer } from "node:https";
-import { generateKeyPairSync } from "node:crypto";
+import { createServer } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -1597,17 +1596,30 @@ let vault: VaultBackend;
 let server_port: number;
 let server: ReturnType<typeof createServer>;
 
+function get_test_manifest(): Manifest {
+    return {
+        id: "test",
+        provider: "test",
+        capabilities: ["poll"],
+        parameters: [{ name: "api_key", type: "secret", required: true }],
+        endpoints: { default: `http://127.0.0.1:${String(server_port)}` },
+        poll: {
+            request: {
+                endpoint: "default",
+                path: "/usage",
+                auth: { type: "bearer", secret: "api_key" },
+            },
+            map: { used: "$.usage.month", limit: "$.plan.limit", window: "month" },
+        },
+    };
+}
+
 beforeAll(async () => {
     temp_dir = await mkdtemp(join(tmpdir(), "net-client-test-"));
     vault = await create_file_vault_backend(temp_dir);
     await vault.set("test-1:api_key", "sk-test-secret");
 
-    // Minimal HTTPS stub
-    const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-    const cert = ""; // self-signed cert for test
-    // Use HTTP stub instead for simplicity in CI
-    const http = await import("node:http");
-    server = http.createServer((req, res) => {
+    server = createServer((req, res) => {
         const auth = req.headers["authorization"];
         if (auth !== "Bearer sk-test-secret") {
             res.writeHead(401);
@@ -1631,36 +1643,20 @@ afterAll(async () => {
     await rm(temp_dir, { recursive: true, force: true });
 });
 
-const test_manifest: Manifest = {
-    id: "test",
-    provider: "test",
-    capabilities: ["poll"],
-    parameters: [{ name: "api_key", type: "secret", required: true }],
-    endpoints: { default: `http://127.0.0.1:${String(server_port)}` },
-    poll: {
-        request: {
-            endpoint: "default",
-            path: "/usage",
-            auth: { type: "bearer", secret: "api_key" },
-        },
-        map: { used: "$.usage.month", limit: "$.plan.limit", window: "month" },
-    },
-};
-
 describe("net-client", () => {
     it("injects auth header from vault and returns JSON", async () => {
-        const ctx = create_connector_context(test_manifest, vault, "test-1", {});
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
         const result = await ctx.http.get_json("default", "/usage");
         expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
     });
 
     it("rejects when vault has no secret", async () => {
-        const ctx = create_connector_context(test_manifest, vault, "missing-instance", {});
+        const ctx = create_connector_context(get_test_manifest(), vault, "missing-instance", {});
         await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow("401");
     });
 
     it("endpoint override takes precedence", async () => {
-        const ctx = create_connector_context(test_manifest, vault, "test-1", {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {
             endpoint_overrides: { default: `http://127.0.0.1:${String(server_port)}` },
         });
         const result = await ctx.http.get_json("default", "/usage");

@@ -32,21 +32,21 @@
 
 interface Observation {
     provider: string; // "claude" | "brave_search" | ...
-    sourceInstanceId: string; // 连接器实例 ID
-    accountId: string; // 稳定账号 ID（邮箱/UUID，非序号）
-    accountLabel: string; // 显示名，不含 secret
-    metricId: string; // 连接器名+指标名
+    source_instance_id: string; // 连接器实例 ID
+    account_id: string; // 稳定账号 ID（邮箱/UUID，非序号）
+    account_label: string; // 显示名，不含 secret
+    metric_id: string; // 连接器名+指标名
     name: string; // 指标显示名
     window: "second" | "day" | "month" | "total";
     used: number | null;
     limit: number | null;
-    displayStyle: "percent" | "ratio";
-    resetAt: number | null; // epoch ms
+    display_style: "percent" | "ratio";
+    reset_at: number | null; // epoch ms
     status: "normal" | "warning" | "critical" | "unknown";
-    observedAt: number; // epoch ms，宿主盖章
+    observed_at: number; // epoch ms，宿主盖章
     source: "poll" | "local" | "session" | "wrapper" | "probe" | "gateway";
     stale: boolean;
-    lastError: string | null;
+    last_error: string | null;
 }
 ```
 
@@ -419,7 +419,7 @@ src/
 | `command-builder.ts`（构建 spawn 参数） | `host-io.ts`（能力注入 ctx）       | 同上                                                  |
 | `output-parser.ts`（解析 stdout）       | 无（返回结构化数据）               | 删除                                                  |
 | `plugin-scheduler.ts`                   | `connector-scheduler.ts`           | `src/main/core/scheduler/`                            |
-| `should_log_raw_debug()`                | 删除，scrubber 强制                | `runner.ts:10-12`                                     |
+| `should_log_raw_debug()`                | 删除，scrubber 强制                | `runner.ts:10-12`, `refresh-service.ts:49`            |
 | `ELECTRON_RUN_AS_NODE` 子进程           | isolated-vm 沙箱                   | `runner.ts:101`                                       |
 
 ---
