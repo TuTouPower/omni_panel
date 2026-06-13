@@ -27,7 +27,7 @@ class MockWindow extends EventEmitter implements SessionWindow {
     }
 }
 
-function create_vault(): VaultBackend & { values: Map<string, string> } {
+function create_vault(): VaultBackend & { values: Map<string, string>; fail_next_set?: boolean } {
     const values = new Map<string, string>();
     return {
         values,
@@ -35,6 +35,10 @@ function create_vault(): VaultBackend & { values: Map<string, string> } {
             return Promise.resolve(values.get(key) ?? null);
         },
         set(key: string, value: string) {
+            if (this.fail_next_set) {
+                this.fail_next_set = false;
+                return Promise.reject(new Error("vault write failed"));
+            }
             values.set(key, value);
             return Promise.resolve();
         },
@@ -173,5 +177,72 @@ describe("session-manager", () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it("clears captured cookie from memory after vault.set fails (E6)", async () => {
+        const deps = create_deps();
+        const vault = deps.vault as VaultBackend & {
+            values: Map<string, string>;
+            fail_next_set?: boolean;
+        };
+        vault.fail_next_set = true;
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-1",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+        deps.emit_before_send_headers("https://example.com/api/v1/user", {
+            Cookie: "token=secret",
+        });
+        deps.window.close();
+
+        await expect(promise).rejects.toThrow("vault write failed");
+        await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe(null);
+    });
+
+    it("finds Cookie header case-insensitively across variants (B)", async () => {
+        const variants = ["cookie", "Cookie", "COOKIE", "CoOkIe"];
+        for (const header_key of variants) {
+            const deps = create_deps();
+            const manager = create_session_manager(deps);
+
+            const promise = manager.start_login({
+                instance_id: "mimo-1",
+                login_url: "https://example.com/login",
+                cookie_names: ["token"],
+            });
+            deps.emit_before_send_headers("https://example.com/api/v1/user", {
+                [header_key]: "token=abc",
+            });
+            deps.window.close();
+
+            await expect(promise).resolves.toEqual({ saved: true });
+            await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc");
+        }
+    });
+
+    it("rejects concurrent login for same instance_id without opening a second window (R4)", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const first = manager.start_login({
+            instance_id: "mimo-1",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+
+        const second = manager.start_login({
+            instance_id: "mimo-1",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+
+        await expect(second).rejects.toThrow(/already in progress/i);
+        expect(deps.window.loaded_urls).toEqual(["https://example.com/login"]);
+
+        deps.window.close();
+        await first;
     });
 });

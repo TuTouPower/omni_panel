@@ -47,9 +47,17 @@ export function create_session_manager(
     options?: { timeout_ms?: number },
 ): SessionManager {
     const timeout_ms = options?.timeout_ms ?? DEFAULT_TIMEOUT_MS;
+    const in_progress = new Set<string>();
 
     return {
         start_login(request: LoginRequest): Promise<LoginResult> {
+            if (in_progress.has(request.instance_id)) {
+                return Promise.reject(
+                    new Error(`Login already in progress for instance: ${request.instance_id}`),
+                );
+            }
+            in_progress.add(request.instance_id);
+
             const window = deps.create_window();
             const session = deps.create_session();
             let captured_cookie: string | null = null;
@@ -64,10 +72,16 @@ export function create_session_manager(
                     }
                 }
 
+                function release_lock(): void {
+                    in_progress.delete(request.instance_id);
+                }
+
                 function finish_with_error(error: Error): void {
                     if (completed) return;
                     completed = true;
                     clear_timeout();
+                    captured_cookie = null;
+                    release_lock();
                     reject(error);
                 }
 
@@ -75,30 +89,35 @@ export function create_session_manager(
                     if (completed) return;
                     completed = true;
                     clear_timeout();
-                    const cookie =
-                        captured_cookie ??
-                        (await select_session_cookies(session, request.cookie_names));
-                    if (!cookie) {
-                        resolve({ saved: false });
-                        return;
-                    }
+                    try {
+                        const cookie =
+                            captured_cookie ??
+                            (await select_session_cookies(session, request.cookie_names));
+                        if (!cookie) {
+                            resolve({ saved: false });
+                            return;
+                        }
 
-                    await deps.vault.set(`${request.instance_id}:${SESSION_COOKIE_KEY}`, cookie);
-                    resolve({ saved: true });
+                        await deps.vault.set(
+                            `${request.instance_id}:${SESSION_COOKIE_KEY}`,
+                            cookie,
+                        );
+                        resolve({ saved: true });
+                    } catch (error) {
+                        reject(to_error(error));
+                    } finally {
+                        captured_cookie = null;
+                        release_lock();
+                    }
                 }
 
                 session.on_before_send_headers((details) => {
                     if (!details.url.includes("/api/v1/")) return;
-                    captured_cookie =
-                        details.requestHeaders["Cookie"] ??
-                        details.requestHeaders["cookie"] ??
-                        null;
+                    captured_cookie = extract_cookie_header(details.requestHeaders);
                 });
 
                 window.on("closed", () => {
-                    void save_cookie_on_close().catch((error: unknown) => {
-                        finish_with_error(to_error(error));
-                    });
+                    void save_cookie_on_close();
                 });
 
                 timeout = setTimeout(() => {
@@ -112,6 +131,15 @@ export function create_session_manager(
             });
         },
     };
+}
+
+function extract_cookie_header(headers: Record<string, string>): string | null {
+    for (const key of Object.keys(headers)) {
+        if (key.toLowerCase() === "cookie") {
+            return headers[key];
+        }
+    }
+    return null;
 }
 
 function to_error(error: unknown): Error {
