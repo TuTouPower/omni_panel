@@ -5,6 +5,12 @@ import { manifest_schema, type Manifest } from "../../../shared/schemas/manifest
 
 const log = createLogger("manifest-loader");
 
+export interface ConnectorDefinition {
+    readonly directory: string;
+    readonly executablePath: string;
+    readonly manifest: Manifest;
+}
+
 export async function load_manifest(connector_dir: string): Promise<Manifest | null> {
     const path = join(connector_dir, "manifest.json");
     try {
@@ -22,23 +28,37 @@ export async function load_manifest(connector_dir: string): Promise<Manifest | n
     }
 }
 
-export async function discover_connectors(
+export async function discover_connector_definitions(
     builtin_dir: string,
     user_dir: string,
-): Promise<Manifest[]> {
-    const manifests: Manifest[] = [];
+): Promise<ConnectorDefinition[]> {
+    const definitions: ConnectorDefinition[] = [];
 
     for (const dir of [builtin_dir, user_dir]) {
         try {
             const entries = await readdir(dir, { withFileTypes: true });
             for (const entry of entries) {
-                if (entry.isDirectory()) {
-                    const manifest = await load_manifest(join(dir, entry.name));
-                    if (manifest) manifests.push(manifest);
-                }
+                if (!entry.isDirectory()) continue;
+                const directory = join(dir, entry.name);
+                const manifest = await load_manifest(directory);
+                if (!manifest) continue;
+                definitions.push({
+                    directory,
+                    executablePath: directory,
+                    manifest,
+                });
             }
         } catch {}
     }
 
-    return manifests;
+    return definitions;
+}
+
+export async function discover_connectors(
+    builtin_dir: string,
+    user_dir: string,
+): Promise<Manifest[]> {
+    return (await discover_connector_definitions(builtin_dir, user_dir)).map(
+        (definition) => definition.manifest,
+    );
 }

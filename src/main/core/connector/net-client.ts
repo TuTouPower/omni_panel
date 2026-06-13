@@ -13,6 +13,7 @@ export interface NetClientConfig {
     readonly proxy_url?: string;
     readonly endpoint_overrides?: Record<string, string>;
     readonly timeout_ms?: number;
+    readonly params?: Record<string, string>;
 }
 
 function expand_home(path_pattern: string): string {
@@ -112,6 +113,6 @@ export function create_connector_context(
                 return readFile(expand_home(path_pattern), "utf8");
             },
         },
-        params: {},
+        params: config.params ?? {},
     };
 }

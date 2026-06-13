@@ -1,11 +1,4 @@
-import { readFile, chmod } from "node:fs/promises";
-import type { CryptoBackend } from "./crypto-backend";
-import { createLogger } from "../../../shared/lib/logger";
-import { writeJsonAtomic } from "../storage/write-json";
-
-function shouldLogRawStorage(): boolean {
-    return process.env["NODE_ENV"] === "development";
-}
+import type { VaultBackend } from "../vault/vault-backend";
 
 export interface SecretsStore {
     get(key: string): Promise<string | null>;
@@ -15,112 +8,38 @@ export interface SecretsStore {
     importAll(decrypted: Record<string, string>): Promise<void>;
 }
 
-export function createSecretsStore(filePath: string, crypto: CryptoBackend): SecretsStore {
-    const log = createLogger("secrets-store");
-    let writeQueue: Promise<void> = Promise.resolve();
-
-    async function readAll(): Promise<Record<string, string>> {
-        try {
-            const raw = await readFile(filePath, "utf8");
-            return JSON.parse(raw) as Record<string, string>;
-        } catch (err: unknown) {
-            if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-                log.error(`Failed to read secrets file (${filePath}): ${String(err)}`);
-            }
-            return {};
-        }
-    }
-
-    async function doWriteAll(data: Record<string, string>): Promise<void> {
-        await writeJsonAtomic(filePath, data, { chmod: 0o600 });
-        await chmod(filePath, 0o600);
-    }
-
-    async function queuedWrite(data: Record<string, string>): Promise<void> {
-        writeQueue = writeQueue.then(() => doWriteAll(data));
-        await writeQueue;
-    }
-
+export function createSecretsStore(vault: VaultBackend): SecretsStore {
     return {
-        async get(key: string): Promise<string | null> {
-            const data = await readAll();
-            const encrypted = data[key];
-            if (encrypted === undefined) {
-                return null;
-            }
-            try {
-                const value = crypto.decrypt(encrypted);
-                if (shouldLogRawStorage()) {
-                    log.debug("secret get raw", { key, encrypted, value });
-                }
-                return value;
-            } catch {
-                log.warn(
-                    `Failed to decrypt secret ${key.split(":")[0] ?? key}:***, treating as missing`,
-                );
-                return null;
-            }
+        get(key: string): Promise<string | null> {
+            return vault.get(key);
         },
 
-        async set(key: string, value: string): Promise<void> {
-            const data = await readAll();
-            const isNew = !(key in data);
-            data[key] = crypto.encrypt(value);
-            if (shouldLogRawStorage()) {
-                log.debug("secret set raw", { key, value, encrypted: data[key] });
-            }
-            await queuedWrite(data);
-            if (isNew) {
-                log.info(`Secret stored: ${key.split(":")[0] ?? key}:***`);
-            }
+        set(key: string, value: string): Promise<void> {
+            return vault.set(key, value);
         },
 
-        async delete(key: string): Promise<void> {
-            const data = await readAll();
-            const encrypted = data[key];
-            if (encrypted === undefined) {
-                log.debug(`Secret delete requested but not found: ${key}`);
-                return;
-            }
-            if (shouldLogRawStorage()) {
-                try {
-                    const value = crypto.decrypt(encrypted);
-                    log.debug("secret delete raw", { key, encrypted, value });
-                } catch (err: unknown) {
-                    log.debug("secret delete raw", { key, encrypted, error: err });
-                }
-            }
-            const filtered = Object.fromEntries(Object.entries(data).filter(([k]) => k !== key));
-            await queuedWrite(filtered);
-            log.info(`Secret deleted: ${key}`);
+        delete(key: string): Promise<void> {
+            return vault.delete(key);
         },
 
         async exportAll(): Promise<Record<string, string>> {
-            const data = await readAll();
-            const result: Record<string, string> = {};
-            for (const [key, encrypted] of Object.entries(data)) {
-                try {
-                    result[key] = crypto.decrypt(encrypted);
-                } catch {
-                    log.warn(`Failed to decrypt secret ${key.split(":")[0] ?? key}:***, skipping`);
-                }
-            }
-            if (shouldLogRawStorage()) {
-                log.debug("secret export raw", { result });
-            }
-            return result;
+            const keys = await vault.list_keys();
+            const entries = await Promise.all(
+                keys.map(async (key) => [key, await vault.get(key)] as const),
+            );
+            return Object.fromEntries(
+                entries.filter((entry): entry is readonly [string, string] => entry[1] !== null),
+            );
         },
 
         async importAll(decrypted: Record<string, string>): Promise<void> {
-            const data: Record<string, string> = {};
+            const existing_keys = await vault.list_keys();
+            for (const key of existing_keys) {
+                await vault.delete(key);
+            }
             for (const [key, value] of Object.entries(decrypted)) {
-                data[key] = crypto.encrypt(value);
+                await vault.set(key, value);
             }
-            if (shouldLogRawStorage()) {
-                log.debug("secret import raw", { decrypted, encrypted: data });
-            }
-            await queuedWrite(data);
-            log.info(`Imported ${String(Object.keys(data).length)} secrets`);
         },
     };
 }

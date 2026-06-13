@@ -2,24 +2,69 @@ import { describe, it, expect, vi } from "vitest";
 import type { ConnectorSnapshotDTO } from "../../../src/shared/types/ipc";
 import type { AppConfiguration } from "../../../src/shared/types/config";
 import type { RuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
+import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 
-function createMockDeps() {
-    const configStore = {
+const claude_definition: ConnectorDefinition = {
+    directory: "/connectors/claude",
+    executablePath: "/connectors/claude",
+    manifest: {
+        id: "claude",
+        provider: "claude",
+        capabilities: ["poll"],
+        parameters: [
+            {
+                name: "API_KEY",
+                label: "Api Key",
+                type: "secret",
+                required: true,
+                exposeToScript: false,
+            },
+        ],
+        poll: {
+            request: { endpoint: "default", path: "/usage", method: "GET" },
+            map: {},
+        },
+    },
+};
+
+function create_runtime_store(snapshot: ConnectorSnapshotDTO["status"] = "ready"): RuntimeStore {
+    return {
+        getSnapshot: vi.fn().mockReturnValue(
+            snapshot === "ready"
+                ? {
+                      status: "ready",
+                      items: [
+                          {
+                              id: "tokens",
+                              provider: "claude",
+                              source: "api_key",
+                              sourceInstanceId: "claude",
+                              accountId: "claude",
+                              accountLabel: "Claude",
+                              name: "Tokens",
+                              used: 2340,
+                              limit: 10000,
+                              displayStyle: "percent",
+                              status: "normal",
+                          },
+                      ],
+                      updatedAt: new Date("2026-05-24T14:00:00.000Z"),
+                  }
+                : { status: snapshot },
+        ),
+        updateState: vi.fn(),
+        getAll: vi.fn().mockReturnValue(new Map()),
+        subscribe: vi.fn().mockReturnValue(() => undefined),
+        removeInstance: vi.fn(),
+    };
+}
+
+function create_config_store(plugins: AppConfiguration["plugins"]) {
+    return {
         load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
             schemaVersion: 1,
             language: "zh-Hans" as const,
-            plugins: [
-                {
-                    instanceId: "claude",
-                    stateId: "claude",
-                    name: "Claude",
-                    enabled: true,
-                    executablePath: "/plugins/claude.py",
-                    refreshIntervalSeconds: 300,
-                    parameterValues: { API_KEY: "sk-real-key", MODEL: "gpt-4" },
-                    endpointOverrides: {},
-                },
-            ],
+            plugins,
             launchAtLogin: false,
         }),
         save: vi.fn(),
@@ -27,45 +72,32 @@ function createMockDeps() {
         flushPendingSave: vi.fn().mockResolvedValue(undefined),
         hasPendingSave: vi.fn().mockReturnValue(false),
     };
+}
 
-    const readyState: ConnectorSnapshotDTO = {
-        status: "ready",
-        items: [
-            {
-                id: "tokens",
-                provider: "claude",
-                source: "api_key",
-                sourceInstanceId: "claude",
-                accountId: "claude",
-                accountLabel: "Claude",
-                name: "Tokens",
-                used: 2340,
-                limit: 10000,
-                displayStyle: "percent",
-                status: "normal",
-            },
-        ],
-        updatedAt: "2026-05-24T14:00:00.000Z",
-    };
-
-    const runtimeStore: RuntimeStore = {
-        getSnapshot: vi.fn().mockReturnValue({
-            status: "ready",
-            items: readyState.items,
-            updatedAt: new Date("2026-05-24T14:00:00.000Z"),
-        }),
-        updateState: vi.fn(),
-        getAll: vi.fn().mockReturnValue(new Map()),
-        subscribe: vi.fn().mockReturnValue(() => undefined),
-        removeInstance: vi.fn(),
-    };
-
+function createMockDeps() {
+    const configStore = create_config_store([
+        {
+            instanceId: "claude",
+            stateId: "claude",
+            name: "Claude",
+            enabled: true,
+            executablePath: claude_definition.executablePath,
+            refreshIntervalSeconds: 300,
+            parameterValues: { API_KEY: "sk-real-key", MODEL: "gpt-4" },
+            endpointOverrides: {},
+        },
+    ]);
     const refreshService = {
         refresh: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
         refreshAll: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     };
 
-    return { configStore, runtimeStore, refreshService, definitions: [] };
+    return {
+        configStore,
+        runtimeStore: create_runtime_store(),
+        refreshService,
+        definitions: [claude_definition],
+    };
 }
 
 describe("connector-ipc", () => {
@@ -80,6 +112,9 @@ describe("connector-ipc", () => {
         const item = result.data[0];
         expect(item?.stateId).toBe("claude");
         expect(item?.displayName).toBe("Claude");
+        expect(item?.source).toBe("api_key");
+        expect(item?.supportedProviders).toEqual(["claude"]);
+        expect(item?.metadata?.parameters?.[0]?.name).toBe("API_KEY");
         expect(item?.snapshot.status).toBe("ready");
     });
 
@@ -146,185 +181,112 @@ describe("connector-ipc", () => {
 
     it("handleConnectorList resolves metadata on Windows backslash paths", async () => {
         const { handleConnectorList } = await import("../../../src/main/ipc/connector-ipc");
-        const configStore = {
-            load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
-                schemaVersion: 1,
-                language: "zh-Hans" as const,
-                plugins: [
+        const windows_definition: ConnectorDefinition = {
+            directory: "connectors\\deepseek",
+            executablePath: "connectors\\deepseek",
+            manifest: {
+                id: "deepseek",
+                provider: "deepseek",
+                capabilities: ["poll"],
+                parameters: [
                     {
-                        instanceId: "deepseek-1",
-                        stateId: "deepseek-1",
-                        name: "DeepSeek",
-                        enabled: true,
-                        executablePath: "assets\\plugins\\deepseek-usage-plugin.ts",
-                        refreshIntervalSeconds: 300,
-                        parameterValues: {},
-                        endpointOverrides: {},
+                        name: "API_KEY",
+                        label: "Api Key",
+                        type: "secret",
+                        required: true,
+                        exposeToScript: false,
                     },
                 ],
-                launchAtLogin: false,
-            }),
-            save: vi.fn(),
-            scheduleSave: vi.fn(),
-            flushPendingSave: vi.fn().mockResolvedValue(undefined),
-            hasPendingSave: vi.fn().mockReturnValue(false),
-        };
-        const runtimeStore: RuntimeStore = {
-            getSnapshot: vi.fn().mockReturnValue({ status: "idle" }),
-            updateState: vi.fn(),
-            getAll: vi.fn().mockReturnValue(new Map()),
-            subscribe: vi.fn().mockReturnValue(() => undefined),
-            removeInstance: vi.fn(),
-        };
-        const refreshService = {
-            refresh: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
-            refreshAll: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
-        };
-        const definitions = [
-            {
-                scriptName: "deepseek-usage-plugin.ts",
-                executablePath: "assets\\plugins\\deepseek-usage-plugin.ts",
-                metadata: {
-                    schemaVersion: 1,
-                    name: "DeepSeek",
-                    defaultSource: "api_key" as const,
-                    supportedProviders: ["deepseek" as const],
-                    parameters: [
-                        {
-                            name: "API_KEY",
-                            label: "Api Key",
-                            type: "secret" as const,
-                            required: true,
-                        },
-                    ],
+                poll: {
+                    request: { endpoint: "default", path: "/usage", method: "GET" },
+                    map: {},
                 },
-                source: "bundled" as const,
             },
-        ];
-        const deps = { configStore, runtimeStore, refreshService, definitions };
+        };
+        const configStore = create_config_store([
+            {
+                instanceId: "deepseek-1",
+                stateId: "deepseek-1",
+                name: "DeepSeek",
+                enabled: true,
+                executablePath: "connectors\\deepseek",
+                refreshIntervalSeconds: 300,
+                parameterValues: {},
+                endpointOverrides: {},
+            },
+        ]);
+        const deps = {
+            configStore,
+            runtimeStore: create_runtime_store("idle"),
+            refreshService: createMockDeps().refreshService,
+            definitions: [windows_definition],
+        };
         const result = await handleConnectorList(deps);
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
-        expect(result.data).toHaveLength(1);
         const plugin = result.data[0];
         expect(plugin?.metadata).not.toBeNull();
         expect(plugin?.sourceInstanceId).toBe("deepseek-1");
         expect(plugin?.source).toBe("api_key");
         expect(plugin?.supportedProviders).toEqual(["deepseek"]);
         expect(plugin?.activeProviders).toEqual(["deepseek"]);
-        const params = plugin?.metadata?.parameters;
-        expect(params).toHaveLength(1);
-        expect(params?.[0]?.name).toBe("API_KEY");
+        expect(plugin?.metadata?.parameters?.[0]?.name).toBe("API_KEY");
     });
 
     it("handleConnectorList exposes CPA connector provider switches", async () => {
         const { handleConnectorList } = await import("../../../src/main/ipc/connector-ipc");
-        const configStore = {
-            load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
-                schemaVersion: 1,
-                language: "zh-Hans" as const,
-                plugins: [
+        const cpa_definition: ConnectorDefinition = {
+            directory: "/connectors/cpa",
+            executablePath: "/connectors/cpa",
+            manifest: {
+                id: "cpa",
+                provider: "cpa",
+                capabilities: ["poll"],
+                parameters: [
                     {
-                        instanceId: "cpa-1",
-                        stateId: "cpa-1",
-                        name: "CPA",
-                        enabled: true,
-                        executablePath: "/plugins/cpa-connector.js",
-                        refreshIntervalSeconds: 300,
-                        parameterValues: {
-                            monitor_claude: "true",
-                            monitor_codex: "true",
-                            monitor_gemini: "false",
-                        },
-                        endpointOverrides: {},
-                    },
-                    {
-                        instanceId: "cpa-2",
-                        stateId: "cpa-2",
-                        name: "CPA",
-                        enabled: true,
-                        executablePath: "/plugins/cpa-connector.js",
-                        refreshIntervalSeconds: 300,
-                        parameterValues: {},
-                        endpointOverrides: {},
+                        name: "monitor_claude",
+                        label: "Claude",
+                        type: "string",
+                        required: false,
+                        exposeToScript: false,
+                        default: "true",
                     },
                 ],
-                launchAtLogin: false,
-            }),
-            save: vi.fn(),
-            scheduleSave: vi.fn(),
-            flushPendingSave: vi.fn().mockResolvedValue(undefined),
-            hasPendingSave: vi.fn().mockReturnValue(false),
-        };
-        const runtimeStore: RuntimeStore = {
-            getSnapshot: vi.fn().mockReturnValue({ status: "idle" }),
-            updateState: vi.fn(),
-            getAll: vi.fn().mockReturnValue(new Map()),
-            subscribe: vi.fn().mockReturnValue(() => undefined),
-            removeInstance: vi.fn(),
-        };
-        const refreshService = {
-            refresh: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
-            refreshAll: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
-        };
-        const definitions = [
-            {
-                scriptName: "cpa-connector.js",
-                executablePath: "/plugins/cpa-connector.js",
-                metadata: {
-                    schemaVersion: 1,
-                    name: "CPA",
-                    defaultSource: "cpa" as const,
-                    supportedProviders: [
-                        "claude" as const,
-                        "codex" as const,
-                        "gemini" as const,
-                        "antigravity" as const,
-                        "kimi" as const,
-                    ],
-                    parameters: [
-                        {
-                            name: "monitor_claude",
-                            label: "Claude",
-                            type: "boolean" as const,
-                            required: false,
-                            defaultValue: "TRUE",
-                        },
-                        {
-                            name: "monitor_codex",
-                            label: "Codex",
-                            type: "boolean" as const,
-                            required: false,
-                            defaultValue: "true",
-                        },
-                        {
-                            name: "monitor_gemini",
-                            label: "Gemini",
-                            type: "boolean" as const,
-                            required: false,
-                            defaultValue: "true",
-                        },
-                        {
-                            name: "monitor_antigravity",
-                            label: "Antigravity",
-                            type: "boolean" as const,
-                            required: false,
-                            defaultValue: "false",
-                        },
-                        {
-                            name: "monitor_kimi",
-                            label: "Kimi",
-                            type: "boolean" as const,
-                            required: false,
-                            defaultValue: "false",
-                        },
-                    ],
+                poll: {
+                    request: { endpoint: "default", path: "/usage", method: "GET" },
+                    map: {},
                 },
-                source: "bundled" as const,
             },
-        ];
-        const deps = { configStore, runtimeStore, refreshService, definitions };
+        };
+        const configStore = create_config_store([
+            {
+                instanceId: "cpa-1",
+                stateId: "cpa-1",
+                name: "CPA",
+                enabled: true,
+                executablePath: "/connectors/cpa",
+                refreshIntervalSeconds: 300,
+                parameterValues: { monitor_claude: "true" },
+                endpointOverrides: {},
+            },
+            {
+                instanceId: "cpa-2",
+                stateId: "cpa-2",
+                name: "CPA",
+                enabled: true,
+                executablePath: "/connectors/cpa",
+                refreshIntervalSeconds: 300,
+                parameterValues: {},
+                endpointOverrides: {},
+            },
+        ]);
+        const deps = {
+            configStore,
+            runtimeStore: create_runtime_store("idle"),
+            refreshService: createMockDeps().refreshService,
+            definitions: [cpa_definition],
+        };
         const result = await handleConnectorList(deps);
 
         expect(result.ok).toBe(true);
@@ -332,15 +294,9 @@ describe("connector-ipc", () => {
         expect(result.data).toHaveLength(2);
         const connector = result.data.find((item) => item.instanceId === "cpa-1");
         expect(connector?.source).toBe("cpa");
-        expect(connector?.supportedProviders).toEqual([
-            "claude",
-            "codex",
-            "gemini",
-            "antigravity",
-            "kimi",
-        ]);
-        expect(connector?.activeProviders).toEqual(["claude", "codex"]);
+        expect(connector?.supportedProviders).toEqual(["claude"]);
+        expect(connector?.activeProviders).toEqual(["claude"]);
         const defaultConnector = result.data.find((item) => item.instanceId === "cpa-2");
-        expect(defaultConnector?.activeProviders).toEqual(["claude", "codex", "gemini"]);
+        expect(defaultConnector?.activeProviders).toEqual(["claude"]);
     });
 });

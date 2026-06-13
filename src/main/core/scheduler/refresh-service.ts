@@ -1,38 +1,26 @@
+import { readFile } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
 import type { PluginConfiguration } from "../config/types";
 import type { AppConfigStore } from "../config/config-store";
-import type { CacheStore } from "../cache/cache-store";
 import type { RuntimeStore } from "./runtime-store";
-import type { PluginExecutionResult } from "../plugin/runner";
-import type { PluginCommand } from "../plugin/command-builder";
-import type { PluginResult } from "../../../shared/schemas/plugin-output";
-import type { AppLanguage } from "../../../shared/types/plugin";
-import type { SecretsStore } from "../config/secrets-store";
+import type { VaultBackend } from "../vault/vault-backend";
+import type { Observation } from "../../../shared/types/observation";
+import type { UsageItem, UsageSource } from "../../../shared/schemas/plugin-output";
+import { usageProviderSchema } from "../../../shared/schemas/plugin-output";
 import { createLogger } from "../../../shared/lib/logger";
-import { redact_config_raw } from "../../../shared/lib/config_redaction";
-import { resolveRuntimeEnv } from "./endpoint-resolver";
-import {
-    PluginOutputParseError,
-    PluginSchemaError,
-    PluginExecutionError,
-} from "../../../shared/errors/plugin-errors";
+import type { ConnectorDefinition } from "../connector/manifest-loader";
+import { create_connector_context } from "../connector/net-client";
+import { execute_poll } from "../connector/tier1-poll-executor";
+import { run_connector } from "../connector/runtime";
+import type { ObservationStore } from "../observation/observation-store";
+import type { PluginSnapshotState } from "./types";
 
 export interface RefreshServiceDeps {
-    runner: (
-        command: PluginCommand,
-        options?: { timeoutMs?: number },
-    ) => Promise<PluginExecutionResult>;
-    outputParser: (stdout: string) => PluginResult;
-    commandBuilder: (
-        executablePath: string,
-        parameterValues: Record<string, string>,
-        language: AppLanguage,
-    ) => PluginCommand;
-    cacheStore: CacheStore;
+    definitions: readonly ConnectorDefinition[];
+    observationStore: ObservationStore;
     runtimeStore: RuntimeStore;
     configStore: AppConfigStore;
-    secretsStore: SecretsStore;
-    secretParamKeys: ReadonlyMap<string, ReadonlySet<string>>;
-    getMetadataEndpoints: (instanceId: string) => Record<string, string | null> | undefined;
+    vault: VaultBackend;
 }
 
 export interface PluginRefreshService {
@@ -40,46 +28,108 @@ export interface PluginRefreshService {
     refreshAll(): Promise<void>;
 }
 
-function isCacheExpired(updatedAt: string, intervalSeconds: number): boolean {
-    const interval = Math.max(intervalSeconds, 5);
-    const elapsed = (Date.now() - new Date(updatedAt).getTime()) / 1000;
-    return elapsed > interval;
+function previous_ready(state: PluginSnapshotState) {
+    if (state.status !== "ready") return undefined;
+    return {
+        updatedAt: state.updatedAt.toISOString(),
+        items: state.items,
+        ...(state.badge !== undefined && { badge: state.badge }),
+        ...(state.chart !== undefined && { chart: state.chart }),
+    };
 }
 
-function should_log_raw_debug(): boolean {
-    return process.env["NODE_ENV"] === "development";
+function source_for_observation(obs: Observation, definition: ConnectorDefinition): UsageSource {
+    if (definition.manifest.id === "cpa" || obs.source === "gateway") return "cpa";
+    if (obs.source === "local") return "local";
+    if (obs.source === "session") return "oauth";
+    if (definition.manifest.parameters.some((param) => param.type === "secret")) return "api_key";
+    return "direct";
+}
+
+function resolve_script_path(definition: ConnectorDefinition): string {
+    if (!definition.manifest.script) throw new Error("Connector script is missing");
+    const connector_dir = resolve(definition.directory);
+    const script_path = resolve(connector_dir, definition.manifest.script);
+    const relative_path = relative(connector_dir, script_path);
+    if (relative_path.startsWith("..") || isAbsolute(relative_path)) {
+        throw new Error(
+            `Connector ${definition.manifest.id} script path escapes connector directory`,
+        );
+    }
+    return script_path;
+}
+
+function observation_to_usage_item(
+    obs: Observation,
+    definition: ConnectorDefinition,
+): UsageItem | null {
+    const provider = usageProviderSchema.safeParse(obs.provider);
+    if (!provider.success) return null;
+
+    return {
+        id: `${obs.source_instance_id}:${obs.account_id}:${obs.metric_id}`,
+        provider: provider.data,
+        source: source_for_observation(obs, definition),
+        sourceInstanceId: obs.source_instance_id,
+        accountId: obs.account_id,
+        accountLabel: obs.account_label,
+        name: obs.name,
+        used: obs.used,
+        limit: obs.limit ?? 0,
+        displayStyle: obs.display_style,
+        resetAt: obs.reset_at === null ? null : new Date(obs.reset_at).toISOString(),
+        status: obs.status,
+        observedAt: new Date(obs.observed_at).toISOString(),
+        stale: obs.stale,
+    };
+}
+
+async function build_params(
+    plugin: PluginConfiguration,
+    definition: ConnectorDefinition,
+    vault: VaultBackend,
+): Promise<Record<string, string>> {
+    const params: Record<string, string> = {};
+    for (const param of definition.manifest.parameters) {
+        const configured = plugin.parameterValues[param.name] ?? param.default ?? "";
+        if (param.type !== "secret") {
+            params[param.name] = configured;
+            continue;
+        }
+        if (!param.exposeToScript) continue;
+        params[param.name] = (await vault.get(`${plugin.instanceId}:${param.name}`)) ?? configured;
+    }
+    return params;
+}
+
+async function execute_connector(
+    plugin: PluginConfiguration,
+    definition: ConnectorDefinition,
+    vault: VaultBackend,
+): Promise<Observation[]> {
+    const params = await build_params(plugin, definition, vault);
+    const ctx = create_connector_context(definition.manifest, vault, plugin.instanceId, {
+        endpoint_overrides: { ...plugin.endpointOverrides },
+        params,
+    });
+
+    if (definition.manifest.script) {
+        const script_code = await readFile(resolve_script_path(definition), "utf8");
+        const result = await run_connector(definition.manifest, script_code, ctx);
+        if (result.error) throw new Error(result.error);
+        return result.observations;
+    }
+
+    if (definition.manifest.poll) {
+        return execute_poll(definition.manifest, plugin.instanceId, ctx);
+    }
+
+    throw new Error(`Connector ${definition.manifest.id} has no executable capability`);
 }
 
 export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshService {
     const log = createLogger("refresh-service");
     const locks = new Set<string>();
-
-    async function mergeSecrets(
-        instanceId: string,
-        parameterValues: Readonly<Record<string, string>>,
-    ): Promise<Record<string, string>> {
-        const secretKeys = deps.secretParamKeys.get(instanceId);
-        if (!secretKeys || secretKeys.size === 0) {
-            return { ...parameterValues };
-        }
-        const merged = { ...parameterValues };
-        const foundKeys: string[] = [];
-        const missingKeys: string[] = [];
-        for (const key of secretKeys) {
-            const value = await deps.secretsStore.get(`${instanceId}:${key}`);
-            if (value !== null) {
-                foundKeys.push(key);
-                merged[key] = value;
-            } else {
-                missingKeys.push(key);
-                log.debug(`Secret not found: ${instanceId}:${key}`);
-            }
-        }
-        log.debug(
-            `Secret merge for ${instanceId}: found=${foundKeys.join(",") || "none"} missing=${missingKeys.join(",") || "none"}`,
-        );
-        return merged;
-    }
 
     async function refresh(instanceId: string, options?: { force?: boolean }): Promise<void> {
         log.debug(`Refresh start: ${instanceId} (force=${String(options?.force === true)})`);
@@ -91,10 +141,6 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
 
         try {
             const config = await deps.configStore.load();
-            log.debug(`Config loaded for ${instanceId}: ${String(config.plugins.length)} plugins`);
-            if (should_log_raw_debug()) {
-                log.debug("refresh config raw", { config: redact_config_raw(config) });
-            }
             const plugin = config.plugins.find(
                 (p: PluginConfiguration) => p.instanceId === instanceId,
             );
@@ -102,172 +148,48 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
                 log.warn(`Refresh requested for unknown instanceId: ${instanceId}`);
                 return;
             }
-            if (should_log_raw_debug()) {
-                log.debug("refresh plugin config raw", { plugin });
+            const definition = deps.definitions.find(
+                (item) => item.executablePath === plugin.executablePath,
+            );
+            if (!definition) {
+                log.warn(`Refresh requested for connector without definition: ${instanceId}`);
+                return;
             }
 
-            if (!options?.force) {
-                const cached = await deps.cacheStore.load(instanceId);
-                if (cached) {
-                    const expired = isCacheExpired(cached.updatedAt, plugin.refreshIntervalSeconds);
-                    log.debug(
-                        `Cache check for ${instanceId}: updatedAt=${cached.updatedAt} interval=${String(plugin.refreshIntervalSeconds)}s expired=${String(expired)}`,
-                    );
-                    if (!expired) {
-                        log.debug(`Cache hit for ${instanceId} (${plugin.name}), skipping refresh`);
-                        deps.runtimeStore.updateState(instanceId, {
-                            status: "ready",
-                            items: cached.items,
-                            updatedAt: new Date(cached.updatedAt),
-                            ...(cached.badge !== undefined && { badge: cached.badge }),
-                            ...(cached.chart !== undefined && { chart: cached.chart }),
-                        });
-                        log.debug(`Runtime state ready for ${instanceId} from cache`);
-                        return;
-                    }
-                } else {
-                    log.debug(`Cache miss for ${instanceId}`);
-                }
-            } else {
-                log.debug(`Cache skipped for ${instanceId}: force refresh`);
-            }
-
-            const lastSuccessBeforeRefresh = await deps.cacheStore.load(instanceId);
+            const prior = previous_ready(deps.runtimeStore.getSnapshot(instanceId));
             deps.runtimeStore.updateState(instanceId, {
                 status: "loading",
-                ...(lastSuccessBeforeRefresh !== null && { lastSuccess: lastSuccessBeforeRefresh }),
+                ...(prior !== undefined && { lastSuccess: prior }),
             });
-            log.debug(`Runtime state loading for ${instanceId}`);
-
-            const mergedParams = await mergeSecrets(instanceId, plugin.parameterValues);
-            if (should_log_raw_debug()) {
-                log.debug("merged plugin params raw", { mergedParams });
-            }
-            const command = deps.commandBuilder(
-                plugin.executablePath,
-                mergedParams,
-                config.language,
-            );
-
-            const metadataEndpoints = deps.getMetadataEndpoints(instanceId);
-            const runtimeEnv = resolveRuntimeEnv(metadataEndpoints, plugin, config);
-            if (should_log_raw_debug()) {
-                log.debug("runtime env raw", { runtimeEnv, command });
-            }
-            const commandWithEnv: PluginCommand = {
-                ...command,
-                env: {
-                    ...(command.env ?? {}),
-                    OMNI_SOURCE_INSTANCE_ID: plugin.instanceId,
-                    ...(runtimeEnv.endpoints
-                        ? { OMNI_PLUGIN_ENDPOINTS: runtimeEnv.endpoints }
-                        : {}),
-                    ...(runtimeEnv.proxy ? { OMNI_PLUGIN_PROXY: runtimeEnv.proxy } : {}),
-                },
-            };
-            log.debug(
-                `Command built for ${instanceId}: args=${String(commandWithEnv.args.length)} env=${String(Object.keys(commandWithEnv.env ?? {}).length)}`,
-            );
 
             try {
-                log.debug(`Executing plugin ${instanceId} (${plugin.name})`);
-                const result = await deps.runner(commandWithEnv, { timeoutMs: 15_000 });
-
-                if (result.exitCode !== 0) {
-                    throw new PluginExecutionError(
-                        `Plugin exited with code ${String(result.exitCode)}`,
-                        result.exitCode,
-                        result.stderr,
-                    );
+                const observations = await execute_connector(plugin, definition, deps.vault);
+                for (const obs of observations) {
+                    deps.observationStore.insert(obs);
                 }
-
-                log.debug(
-                    `Plugin ${instanceId} (${plugin.name}) stdout [${String(result.stdout.length)}B]`,
+                const items = observations
+                    .map((obs) => observation_to_usage_item(obs, definition))
+                    .filter((item): item is UsageItem => item !== null);
+                const updated_at = observations.reduce(
+                    (latest, obs) => Math.max(latest, obs.observed_at),
+                    Date.now(),
                 );
-                if (should_log_raw_debug()) {
-                    log.debug("plugin stdout raw", { stdout: result.stdout });
-                    log.debug("plugin stderr raw", { stderr: result.stderr });
-                }
-                if (result.stderr.length > 0) {
-                    log.debug(
-                        `Plugin ${instanceId} (${plugin.name}) stderr [${String(result.stderr.length)}B]`,
-                    );
-                }
-                log.debug(`Parsing plugin output for ${instanceId}`);
-                const output = deps.outputParser(result.stdout);
-                if (should_log_raw_debug()) {
-                    log.debug("parsed plugin output raw", { output });
-                }
-                if (!output.success) {
-                    log.warn(
-                        `Plugin ${instanceId} (${plugin.name}) reported error: ${output.error.code} - ${output.error.message}`,
-                    );
-                    deps.runtimeStore.updateState(instanceId, {
-                        status: "failed",
-                        error: output.error.message,
-                        ...(lastSuccessBeforeRefresh !== null && {
-                            lastSuccess: lastSuccessBeforeRefresh,
-                        }),
-                    });
-                    log.debug(`Runtime state failed for ${instanceId}`);
-                    return;
-                }
+                deps.runtimeStore.updateState(instanceId, {
+                    status: "ready",
+                    items,
+                    updatedAt: new Date(updated_at),
+                });
                 log.info(
-                    `Plugin ${instanceId} (${plugin.name}) refreshed: ${String(output.items.length)} items in ${String(result.durationMs)}ms`,
+                    `Connector ${instanceId} (${plugin.name}) refreshed: ${String(items.length)} items`,
                 );
-
-                log.debug(`Saving cache for ${instanceId}`);
-                const cachePayload = {
-                    updatedAt: output.updatedAt,
-                    items: output.items,
-                    ...(output.badge !== undefined && { badge: output.badge }),
-                    ...(output.chart !== undefined && { chart: output.chart }),
-                };
-                if (should_log_raw_debug()) {
-                    log.debug("cache save payload raw", { cachePayload });
-                }
-                await deps.cacheStore.save(instanceId, cachePayload);
-                log.debug(`Cache saved for ${instanceId}`);
-
-                const readyPayload = {
-                    status: "ready" as const,
-                    items: output.items,
-                    updatedAt: new Date(output.updatedAt),
-                    ...(output.badge !== undefined && { badge: output.badge }),
-                    ...(output.chart !== undefined && { chart: output.chart }),
-                };
-                if (should_log_raw_debug()) {
-                    log.debug("runtime ready payload raw", { readyPayload });
-                }
-                deps.runtimeStore.updateState(instanceId, readyPayload);
-                log.debug(`Runtime state ready for ${instanceId}`);
             } catch (error: unknown) {
-                let message: string;
-                if (error instanceof PluginExecutionError) {
-                    message = error.message;
-                    log.error(
-                        `Plugin ${instanceId} (${plugin.name}) failed (exit ${String(error.exitCode)}, stderr=${String(error.stderr.length)}B): ${message}`,
-                    );
-                } else {
-                    message = error instanceof Error ? error.message : String(error);
-                    if (error instanceof PluginSchemaError) {
-                        log.error(
-                            `Plugin ${instanceId} (${plugin.name}) schema mismatch: ${message}`,
-                            { issues: error.issues },
-                        );
-                    } else if (error instanceof PluginOutputParseError) {
-                        log.error(`Plugin ${instanceId} (${plugin.name}) parse error: ${message}`);
-                    } else {
-                        log.error(`Plugin ${instanceId} (${plugin.name}) failed: ${message}`);
-                    }
-                }
-                const lastSuccess = await deps.cacheStore.load(instanceId);
+                const message = error instanceof Error ? error.message : String(error);
+                log.error(`Connector ${instanceId} (${plugin.name}) failed: ${message}`);
                 deps.runtimeStore.updateState(instanceId, {
                     status: "failed",
                     error: message,
-                    ...(lastSuccess !== null && { lastSuccess }),
+                    ...(prior !== undefined && { lastSuccess: prior }),
                 });
-                log.debug(`Runtime state failed for ${instanceId}`);
             }
         } finally {
             locks.delete(instanceId);
@@ -277,7 +199,7 @@ export function createRefreshService(deps: RefreshServiceDeps): PluginRefreshSer
     async function refreshAll(): Promise<void> {
         const config = await deps.configStore.load();
         const enabledPlugins = config.plugins.filter((p: PluginConfiguration) => p.enabled);
-        log.info(`Refreshing all ${String(enabledPlugins.length)} enabled plugins`);
+        log.info(`Refreshing all ${String(enabledPlugins.length)} enabled connectors`);
         const results = await Promise.allSettled(
             enabledPlugins.map((p: PluginConfiguration) => refresh(p.instanceId)),
         );

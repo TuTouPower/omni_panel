@@ -1,13 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createCookieRefreshService } from "../../../src/main/core/cookie-refresh/cookie-refresh-service";
-import type { AppConfiguration } from "../../../src/shared/types/config";
-import type { PluginDefinition } from "../../../src/main/core/plugin/types";
-import type { PluginConfiguration } from "../../../src/shared/types/config";
+import type { AppConfiguration, PluginConfiguration } from "../../../src/shared/types/config";
+import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type { UsageProvider } from "../../../src/shared/schemas/plugin-output";
 
 const { mock_browser_window, mock_session, mock_cookies } = vi.hoisted(() => {
     const mock_cookies = {
-        get: vi.fn<() => Promise<{ name: string; value: string }[]>>(),
+        get: vi.fn<() => Promise<{ name: string; value: string; domain?: string }[]>>(),
     };
     return {
         mock_cookies,
@@ -23,24 +22,21 @@ vi.mock("electron", () => ({
     session: mock_session,
 }));
 
-function make_plugin_def(
-    script_name: string,
-    providers: UsageProvider[],
+function make_connector_def(
+    id: string,
+    provider: UsageProvider,
     opts?: {
-        default_source?: "cpa" | "direct";
         has_secret?: boolean;
         login_url?: string;
     },
-): PluginDefinition {
+): ConnectorDefinition {
     return {
-        scriptName: script_name,
-        executablePath: `/plugins/${script_name}`,
-        source: "bundled" as const,
-        metadata: {
-            schemaVersion: 1,
-            name: script_name,
-            supportedProviders: providers,
-            defaultSource: opts?.default_source ?? "direct",
+        directory: `/connectors/${id}`,
+        executablePath: `/connectors/${id}`,
+        manifest: {
+            id,
+            provider,
+            capabilities: ["poll"],
             parameters: opts?.has_secret
                 ? [
                       {
@@ -48,10 +44,15 @@ function make_plugin_def(
                           label: "Cookie",
                           type: "secret" as const,
                           required: true,
+                          exposeToScript: false,
                       },
                   ]
                 : [],
             endpoints: opts?.login_url ? { login: opts.login_url } : undefined,
+            poll: {
+                request: { endpoint: "default", path: "/usage", method: "GET" },
+                map: {},
+            },
         },
     };
 }
@@ -121,7 +122,6 @@ describe("createCookieRefreshService", () => {
         });
     });
 
-    // Test 1: No plugins
     it("returns zeros when plugins array is empty", async () => {
         config_store_mock.load.mockResolvedValue(make_config([]));
 
@@ -135,15 +135,11 @@ describe("createCookieRefreshService", () => {
         expect(result).toEqual({ refreshed: 0, failed: 0 });
     });
 
-    // Test 2: No secret params
-    it("skips plugin with no secret-type parameters", async () => {
-        const def = make_plugin_def("mimo_plugin", ["mimo"], {
-            has_secret: false,
-            login_url: "https://mimo.example.com/login",
-        });
+    it("skips connector with no secret-type parameters", async () => {
+        const def = make_connector_def("mimo", "mimo", { has_secret: false });
 
         config_store_mock.load.mockResolvedValue(
-            make_config([make_plugin_config("inst1", "/plugins/mimo_plugin")]),
+            make_config([make_plugin_config("inst1", def.executablePath)]),
         );
 
         const service = createCookieRefreshService({
@@ -156,16 +152,11 @@ describe("createCookieRefreshService", () => {
         expect(result).toEqual({ refreshed: 0, failed: 0 });
     });
 
-    // Test 3: CPA source
-    it("skips plugin where defaultSource is cpa", async () => {
-        const def = make_plugin_def("mimo_plugin", ["mimo"], {
-            default_source: "cpa",
-            has_secret: true,
-            login_url: "https://mimo.example.com/login",
-        });
+    it("skips CPA connector", async () => {
+        const def = make_connector_def("cpa", "mimo", { has_secret: true });
 
         config_store_mock.load.mockResolvedValue(
-            make_config([make_plugin_config("inst1", "/plugins/mimo_plugin")]),
+            make_config([make_plugin_config("inst1", def.executablePath)]),
         );
 
         const service = createCookieRefreshService({
@@ -178,15 +169,11 @@ describe("createCookieRefreshService", () => {
         expect(result).toEqual({ refreshed: 0, failed: 0 });
     });
 
-    // Test 4: Vendor not in map
     it("skips provider not in vendor cookie map", async () => {
-        const def = make_plugin_def("claude_plugin", ["claude"], {
-            has_secret: true,
-            login_url: "https://claude.example.com/login",
-        });
+        const def = make_connector_def("claude", "claude", { has_secret: true });
 
         config_store_mock.load.mockResolvedValue(
-            make_config([make_plugin_config("inst1", "/plugins/claude_plugin")]),
+            make_config([make_plugin_config("inst1", def.executablePath)]),
         );
 
         const service = createCookieRefreshService({
@@ -199,17 +186,14 @@ describe("createCookieRefreshService", () => {
         expect(result).toEqual({ refreshed: 0, failed: 0 });
     });
 
-    // Test 5: Plugin eligible but no cookie in session
     it("returns zero refreshed when persistent session has no cookie", async () => {
-        const def = make_plugin_def("mimo_plugin", ["mimo"], {
-            has_secret: true,
-        });
+        const def = make_connector_def("mimo", "mimo", { has_secret: true });
 
         config_store_mock.load.mockResolvedValue(
-            make_config([make_plugin_config("inst1", "/plugins/mimo_plugin")]),
+            make_config([make_plugin_config("inst1", def.executablePath)]),
         );
 
-        mock_cookies.get.mockResolvedValue([]); // no cookies
+        mock_cookies.get.mockResolvedValue([]);
 
         const service = createCookieRefreshService({
             configStore: config_store_mock,
@@ -221,25 +205,21 @@ describe("createCookieRefreshService", () => {
         expect(result).toEqual({ refreshed: 0, failed: 1 });
     });
 
-    // Test 6: Deduplication — multi-cookie joining
-    it("groups two instances and saves joined multi-cookie string", async () => {
-        const mimo_def = make_plugin_def("mimo_plugin", ["mimo"], {
-            has_secret: true,
-            login_url: "https://mimo.example.com/login",
-        });
+    it("groups two instances and saves joined domain cookies", async () => {
+        const mimo_def = make_connector_def("mimo", "mimo", { has_secret: true });
 
         config_store_mock.load.mockResolvedValue(
             make_config([
-                make_plugin_config("inst1", "/plugins/mimo_plugin"),
-                make_plugin_config("inst2", "/plugins/mimo_plugin"),
+                make_plugin_config("inst1", mimo_def.executablePath),
+                make_plugin_config("inst2", mimo_def.executablePath),
             ]),
         );
 
         mock_cookies.get.mockResolvedValue([
-            { name: "api-platform_serviceToken", value: "tok123" },
-            { name: "api-platform_slh", value: "slh456" },
-            { name: "api-platform_ph", value: "ph789" },
-            { name: "other", value: "ignored" },
+            { name: "api-platform_serviceToken", value: "tok123", domain: ".xiaomimimo.com" },
+            { name: "api-platform_slh", value: "slh456", domain: ".xiaomimimo.com" },
+            { name: "api-platform_ph", value: "ph789", domain: ".xiaomimimo.com" },
+            { name: "other", value: "included", domain: ".xiaomimimo.com" },
         ]);
 
         const service = createCookieRefreshService({
@@ -253,7 +233,7 @@ describe("createCookieRefreshService", () => {
         expect(result).toEqual({ refreshed: 1, failed: 0 });
         expect(secrets_store_mock.set).toHaveBeenCalledTimes(2);
         const expected_cookie =
-            "api-platform_serviceToken=tok123; api-platform_slh=slh456; api-platform_ph=ph789; other=ignored";
+            "api-platform_serviceToken=tok123; api-platform_slh=slh456; api-platform_ph=ph789; other=included";
         expect(secrets_store_mock.set).toHaveBeenCalledWith(
             "inst1:SESSION_COOKIE",
             expected_cookie,
@@ -264,18 +244,13 @@ describe("createCookieRefreshService", () => {
         );
     });
 
-    // Test 7: Concurrency guard
     it("skips vendors already in progress on concurrent refreshAll", async () => {
-        const mimo_def = make_plugin_def("mimo_plugin", ["mimo"], {
-            has_secret: true,
-            login_url: "https://mimo.example.com/login",
-        });
+        const mimo_def = make_connector_def("mimo", "mimo", { has_secret: true });
 
         config_store_mock.load.mockResolvedValue(
-            make_config([make_plugin_config("inst1", "/plugins/mimo_plugin")]),
+            make_config([make_plugin_config("inst1", mimo_def.executablePath)]),
         );
 
-        // Deferred promise so the first refresh_vendor hangs
         let resolve_get: ((value: { name: string; value: string }[]) => void) | undefined;
         const get_promise = new Promise<{ name: string; value: string }[]>((resolve) => {
             resolve_get = resolve;
@@ -288,48 +263,31 @@ describe("createCookieRefreshService", () => {
             definitions: [mimo_def],
         });
 
-        // Start first refresh (don't await - it will hang on cookies.get)
         void service.refreshAll();
-
-        // Yield so the first call processes past `await configStore.load()`
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
-
-        // Second concurrent call should skip mimo (already in progress)
         const result2 = await service.refreshAll();
 
         expect(result2).toEqual({ refreshed: 0, failed: 0 });
         expect(service.inProgress.has("mimo")).toBe(true);
 
-        // Clean up: resolve the first call
-        if (resolve_get) {
-            resolve_get([{ name: "api-platform_serviceToken", value: "token" }]);
-        }
+        resolve_get?.([{ name: "api-platform_serviceToken", value: "token" }]);
         await Promise.resolve();
     });
 
-    // Test 8: Mixed eligibility — only mimo via no_login_def is eligible
-    it("returns zeros when no eligible plugins have cookies in session", async () => {
-        // Some plugins are ineligible: CPA source, no secret, unknown vendor
-        const cpa_def = make_plugin_def("cpa_plugin", ["mimo"], {
-            default_source: "cpa",
-            has_secret: true,
-        });
-        const no_secret_def = make_plugin_def("nosecret_plugin", ["kimi"], {
-            has_secret: false,
-        });
-        const unknown_vendor_def = make_plugin_def("unknown_plugin", ["claude"], {
-            has_secret: true,
-        });
+    it("returns zeros when no eligible connectors have cookies in session", async () => {
+        const cpa_def = make_connector_def("cpa", "mimo", { has_secret: true });
+        const no_secret_def = make_connector_def("kimi", "kimi", { has_secret: false });
+        const unknown_vendor_def = make_connector_def("claude", "claude", { has_secret: true });
 
         config_store_mock.load.mockResolvedValue(
             make_config([
-                make_plugin_config("cpa", "/plugins/cpa_plugin"),
-                make_plugin_config("nosecret", "/plugins/nosecret_plugin"),
-                make_plugin_config("unknown", "/plugins/unknown_plugin"),
+                make_plugin_config("cpa", cpa_def.executablePath),
+                make_plugin_config("nosecret", no_secret_def.executablePath),
+                make_plugin_config("unknown", unknown_vendor_def.executablePath),
             ]),
         );
 
-        mock_cookies.get.mockResolvedValue([]); // no cookies
+        mock_cookies.get.mockResolvedValue([]);
 
         const service = createCookieRefreshService({
             configStore: config_store_mock,

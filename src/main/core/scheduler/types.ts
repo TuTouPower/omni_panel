@@ -1,9 +1,15 @@
 import type { UsageItem, PluginChart } from "../../../shared/schemas/plugin-output";
-import type { PluginCachedState } from "../cache/types";
+
+export interface SnapshotSuccess {
+    readonly updatedAt: string;
+    readonly items: readonly UsageItem[];
+    readonly badge?: string;
+    readonly chart?: PluginChart;
+}
 
 export type PluginSnapshotState =
     | { readonly status: "idle" }
-    | { readonly status: "loading"; readonly lastSuccess?: PluginCachedState }
+    | { readonly status: "loading"; readonly lastSuccess?: SnapshotSuccess }
     | {
           readonly status: "ready";
           readonly items: readonly UsageItem[];
@@ -14,7 +20,7 @@ export type PluginSnapshotState =
     | {
           readonly status: "failed";
           readonly error: string;
-          readonly lastSuccess?: PluginCachedState;
+          readonly lastSuccess?: SnapshotSuccess;
       };
 
 export interface RuntimeStoreListener {

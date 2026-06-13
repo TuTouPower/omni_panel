@@ -4,7 +4,7 @@ import type { IpcResult } from "./helpers";
 import { ok, fail, assert_valid_sender } from "./helpers";
 import type { SecretsStore } from "../core/config/secrets-store";
 import type { AppConfigStore } from "../core/config/config-store";
-import type { PluginDefinition } from "../core/plugin/types";
+import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import type { CookieRefreshService } from "../core/cookie-refresh/cookie-refresh-service";
 import { createLogger } from "../../shared/lib/logger";
 
@@ -15,7 +15,7 @@ const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 export interface AuthIpcDeps {
     configStore: AppConfigStore;
     secretsStore: SecretsStore;
-    definitions: readonly PluginDefinition[];
+    definitions: readonly ConnectorDefinition[];
     cookieRefreshService: CookieRefreshService;
 }
 
@@ -28,7 +28,7 @@ export async function handleCookieLogin(
     if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
 
     const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
-    const endpoints = def?.metadata?.endpoints;
+    const endpoints = def?.manifest.endpoints;
     const loginUrl = endpoints?.["login"] ?? endpoints?.["default"];
     if (!loginUrl || typeof loginUrl !== "string") {
         return fail("VALIDATION_ERROR", "该插件未配置登录地址");

@@ -19,15 +19,15 @@ export function getStatesDir(): string {
     return join(getDataRoot(), "states");
 }
 
-export function getBundledPluginsDir(): string {
+export function getBundledConnectorsDir(): string {
     if (app.isPackaged) {
-        return join(process.resourcesPath, "plugins");
+        return join(process.resourcesPath, "connectors");
     }
-    return join(PROJECT_ROOT, "assets", "plugins");
+    return join(PROJECT_ROOT, "connectors");
 }
 
-export function getUserPluginsDir(): string {
-    return join(getDataRoot(), "plugins");
+export function getUserConnectorsDir(): string {
+    return join(getDataRoot(), "connectors");
 }
 
 export function get_tray_icon_path(): string {
@@ -42,19 +42,4 @@ export function get_app_icon_path(): string {
         return join(process.resourcesPath, "icon.png");
     }
     return join(PROJECT_ROOT, "assets", "icon.png");
-}
-
-export function getPluginCacheDir(): string {
-    return join(getDataRoot(), "plugin-cache");
-}
-
-export function getBundledPluginCacheDir(): string {
-    return join(process.resourcesPath, "plugin-cache");
-}
-
-export function getSdkDir(): string {
-    if (app.isPackaged) {
-        return join(process.resourcesPath, "sdk");
-    }
-    return join(PROJECT_ROOT, "src", "plugins", "sdk");
 }

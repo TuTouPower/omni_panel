@@ -7,28 +7,68 @@ import type { AppConfigStore } from "../core/config/config-store";
 import type { PluginConfiguration } from "../../shared/types/config";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
 import type { PluginRefreshService } from "../core/scheduler/refresh-service";
-import type { PluginDefinition } from "../core/plugin/types";
+import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import type { PluginMetadata } from "../../shared/schemas/plugin-metadata";
 import type { UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
-import { resolveDisplayNames } from "../core/plugin/display-names";
+import { usageProviderSchema } from "../../shared/schemas/plugin-output";
 import { createLogger } from "../../shared/lib/logger";
 import { createLoggedIpcHandler } from "./logged";
 
 const instanceIdSchema = z.string().min(1);
 
-function sourceFromMetadata(metadata: PluginMetadata | null): UsageSource {
-    return metadata?.defaultSource ?? "direct";
+function source_from_definition(definition: ConnectorDefinition | undefined): UsageSource {
+    if (!definition) return "direct";
+    if (definition.manifest.id === "cpa") return "cpa";
+    if (definition.manifest.capabilities.includes("local")) return "local";
+    if (definition.manifest.capabilities.includes("session")) return "oauth";
+    if (definition.manifest.parameters.some((param) => param.type === "secret")) return "api_key";
+    return "direct";
+}
+
+function supported_providers(
+    definition: ConnectorDefinition | undefined,
+): readonly UsageProvider[] {
+    if (!definition) return [];
+    if (definition.manifest.id === "cpa") return ["claude"];
+    const provider = usageProviderSchema.safeParse(definition.manifest.provider);
+    return provider.success ? [provider.data] : [];
+}
+
+function metadata_from_definition(
+    definition: ConnectorDefinition | undefined,
+): PluginMetadata | null {
+    if (!definition) return null;
+    return {
+        name: definition.manifest.id,
+        parameters: definition.manifest.parameters.map((param) => ({
+            name: param.name,
+            label: param.label ?? param.name,
+            type: param.type === "number" ? "integer" : param.type,
+            required: param.required,
+            ...(param.default !== undefined && { defaultValue: param.default }),
+            ...(param["label@zh-Hans"] !== undefined && {
+                "label@zh-Hans": param["label@zh-Hans"],
+            }),
+        })),
+        endpoints: Object.fromEntries(
+            Object.entries(definition.manifest.endpoints ?? {}).map(([key, value]) => [key, value]),
+        ),
+        supportedProviders: [...supported_providers(definition)],
+        defaultSource: source_from_definition(definition),
+    };
 }
 
 function activeProvidersForConnector(
     plugin: PluginConfiguration,
-    metadata: PluginMetadata | null,
+    definition: ConnectorDefinition | undefined,
 ): readonly UsageProvider[] {
-    const supportedProviders = metadata?.supportedProviders ?? [];
-    if (metadata?.defaultSource !== "cpa") return supportedProviders;
-    return supportedProviders.filter((provider) => {
+    const providers = supported_providers(definition);
+    if (source_from_definition(definition) !== "cpa") return providers;
+    return providers.filter((provider) => {
         const key = `monitor_${provider}`;
-        const metadataDefault = metadata.parameters?.find((p) => p.name === key)?.defaultValue;
+        const metadataDefault = definition?.manifest.parameters.find(
+            (p) => p.name === key,
+        )?.default;
         return (plugin.parameterValues[key] ?? metadataDefault ?? "").toLowerCase() === "true";
     });
 }
@@ -37,7 +77,7 @@ export interface ConnectorIpcDeps {
     configStore: AppConfigStore;
     runtimeStore: RuntimeStore;
     refreshService: PluginRefreshService;
-    definitions: readonly PluginDefinition[];
+    definitions: readonly ConnectorDefinition[];
 }
 
 export async function handleConnectorList(
@@ -45,31 +85,23 @@ export async function handleConnectorList(
 ): Promise<IpcResult<ConnectorInfo[]>> {
     try {
         const config = await deps.configStore.load();
-        const pluginEntries = config.plugins.map((plugin) => {
-            const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
-            return {
-                config: plugin,
-                metadata: def?.metadata ?? null,
-            };
-        });
-        const displayNames = resolveDisplayNames(pluginEntries);
-
         const plugins: ConnectorInfo[] = config.plugins.map((plugin) => {
+            const definition = deps.definitions.find(
+                (d) => d.executablePath === plugin.executablePath,
+            );
             const snapshot = toDTO(deps.runtimeStore.getSnapshot(plugin.instanceId));
-            const metadata =
-                pluginEntries.find((e) => e.config.instanceId === plugin.instanceId)?.metadata ??
-                null;
-            const supportedProviders = metadata?.supportedProviders ?? [];
+            const metadata = metadata_from_definition(definition);
+            const providers = supported_providers(definition);
             return {
                 instanceId: plugin.instanceId,
                 sourceInstanceId: plugin.instanceId,
                 stateId: plugin.stateId,
                 name: plugin.name,
-                displayName: displayNames.get(plugin.instanceId) ?? plugin.name,
+                displayName: plugin.name,
                 enabled: plugin.enabled,
-                source: sourceFromMetadata(metadata),
-                supportedProviders,
-                activeProviders: activeProvidersForConnector(plugin, metadata),
+                source: source_from_definition(definition),
+                supportedProviders: providers,
+                activeProviders: activeProvidersForConnector(plugin, definition),
                 metadata,
                 snapshot,
             };

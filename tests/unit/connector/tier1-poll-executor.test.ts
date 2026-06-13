@@ -7,6 +7,7 @@ const tavily_manifest: Manifest = {
     id: "tavily",
     provider: "tavily",
     capabilities: ["poll"],
+    parameters: [],
     endpoints: { default: "https://api.tavily.com" },
     poll: {
         request: {

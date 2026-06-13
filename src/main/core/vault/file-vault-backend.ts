@@ -94,6 +94,7 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
     async function write_vault(data: Record<string, VaultEntry>): Promise<void> {
         await mkdir(dirname(vault_path), { recursive: true });
         await writeFile(vault_path, JSON.stringify(data, null, 2), "utf8");
+        await set_file_permissions(vault_path);
     }
 
     return {

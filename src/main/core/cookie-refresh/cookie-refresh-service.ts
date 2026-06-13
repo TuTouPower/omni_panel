@@ -1,8 +1,9 @@
 import { session } from "electron";
 import type { AppConfigStore } from "../config/config-store";
 import type { SecretsStore } from "../config/secrets-store";
-import type { PluginDefinition } from "../plugin/types";
+import type { ConnectorDefinition } from "../connector/manifest-loader";
 import type { UsageProvider } from "../../../shared/schemas/plugin-output";
+import { usageProviderSchema } from "../../../shared/schemas/plugin-output";
 import { createLogger } from "../../../shared/lib/logger";
 
 const log = createLogger("cookie-refresh");
@@ -25,7 +26,7 @@ const VENDOR_COOKIE_MAP: Partial<Record<UsageProvider, VendorCookieConfig>> = {
 export interface CookieRefreshDeps {
     configStore: AppConfigStore;
     secretsStore: SecretsStore;
-    definitions: readonly PluginDefinition[];
+    definitions: readonly ConnectorDefinition[];
 }
 
 export type CookieRefreshService = ReturnType<typeof createCookieRefreshService>;
@@ -115,31 +116,26 @@ export function createCookieRefreshService(deps: CookieRefreshDeps) {
 
         for (const plugin of plugins) {
             const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
-            if (!def?.metadata) continue;
+            if (!def) continue;
 
-            const meta = def.metadata;
+            const manifest = def.manifest;
+            if (manifest.id === "cpa") continue;
 
-            // Requirement: defaultSource !== "cpa"
-            if (meta.defaultSource === "cpa") continue;
-
-            // Requirement: has at least one secret type parameter
-            const has_secret_param = meta.parameters?.some((p) => p.type === "secret");
+            const has_secret_param = manifest.parameters.some((p) => p.type === "secret");
             if (!has_secret_param) continue;
 
-            // Requirement: at least one supportedProvider is in vendor cookie map
-            const providers = meta.supportedProviders ?? [];
-            for (const provider of providers) {
-                const cookie_config = VENDOR_COOKIE_MAP[provider];
-                if (!cookie_config) continue;
+            const parsed_provider = usageProviderSchema.safeParse(manifest.provider);
+            if (!parsed_provider.success) continue;
+            const cookie_config = VENDOR_COOKIE_MAP[parsed_provider.data];
+            if (!cookie_config) continue;
 
-                let group = vendor_groups.get(provider);
-                if (!group) {
-                    group = { instance_ids: [] };
-                    vendor_groups.set(provider, group);
-                }
-                if (!group.instance_ids.includes(plugin.instanceId)) {
-                    group.instance_ids.push(plugin.instanceId);
-                }
+            let group = vendor_groups.get(parsed_provider.data);
+            if (!group) {
+                group = { instance_ids: [] };
+                vendor_groups.set(parsed_provider.data, group);
+            }
+            if (!group.instance_ids.includes(plugin.instanceId)) {
+                group.instance_ids.push(plugin.instanceId);
             }
         }
 

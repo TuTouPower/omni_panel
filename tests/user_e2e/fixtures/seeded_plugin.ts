@@ -29,7 +29,7 @@ export function seed_fake_plugin(
         displayName?: string;
         /** Provider key used for items and metadata. Defaults to "claude". */
         provider?: string;
-        /** Require this parameter through the real plugin SDK before returning items. */
+        /** Require this parameter before returning items. */
         requiredParam?: string;
     },
 ): string {
@@ -76,7 +76,7 @@ export function seed_fake_plugin(
     } else if (spec.behavior === "slow") {
         body = `async function main() { await new Promise(r => setTimeout(r, 60_000)); }\nmain();\n`;
     } else if (spec.requiredParam) {
-        body = `import { definePlugin, requireParam, ok } from "@omni-usage/plugin-sdk";\ndefinePlugin(async (ctx) => {\n    requireParam(ctx.params, ${JSON.stringify(spec.requiredParam)});\n    return ok({ items: ${items_json} });\n});\n`;
+        body = `const params = JSON.parse(process.env.OMNI_USAGE_PARAMS ?? "{}");\nif (!params[${JSON.stringify(spec.requiredParam)}]) {\n    console.log(JSON.stringify({ success: false, error: { code: "MISSING_PARAMETER", message: "Missing required parameter" } }));\n    process.exit(0);\n}\nconsole.log(JSON.stringify({ success: true, schemaVersion: 2, updatedAt: new Date().toISOString(), items: ${items_json} }));\n`;
     } else {
         body = `console.log(JSON.stringify({ success: true, schemaVersion: 2, updatedAt: new Date().toISOString(), items: ${items_json} }));\n`;
     }

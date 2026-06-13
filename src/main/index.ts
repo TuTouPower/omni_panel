@@ -14,28 +14,22 @@ import { randomUUID } from "node:crypto";
 import {
     getConfigPath,
     getDataRoot,
-    getStatesDir,
-    getBundledPluginsDir,
-    getUserPluginsDir,
-    getPluginCacheDir,
-    getBundledPluginCacheDir,
-    getSdkDir,
+    getBundledConnectorsDir,
+    getUserConnectorsDir,
     get_tray_icon_path,
     get_app_icon_path,
 } from "./core/paths";
 import { initLogging } from "./core/logging";
 import { createLogger } from "../shared/lib/logger";
 import { createConfigStore } from "./core/config/config-store";
-import { createCacheStore } from "./core/cache/cache-store";
 import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
-import { createSafeStorageCrypto } from "./core/config/safe-storage-crypto";
+import { create_file_vault_backend } from "./core/vault/file-vault-backend";
+import { create_observation_store } from "./core/observation/observation-store";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
 import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestrator";
-import { executePlugin } from "./core/plugin/runner";
-import { parsePluginResult } from "./core/plugin/output-parser";
-import { buildPluginCommand } from "./core/plugin/command-builder";
+import { discover_connector_definitions } from "./core/connector/manifest-loader";
 import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
@@ -47,14 +41,6 @@ import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
-import { discoverPlugins } from "./core/plugin/discovery";
-import { compilePlugin } from "./core/plugin/compiler";
-import {
-    BundledResourceIntegrityError,
-    verify_bundled_resources,
-} from "./core/plugin/bundled_resource_verifier";
-import type { PluginConfiguration } from "../shared/types/config";
-import type { PluginDefinition } from "./core/plugin/types";
 
 // Suppress EPIPE when stdout pipe is closed (e.g. launched from script with broken pipe)
 process.on("uncaughtException", (err: NodeJS.ErrnoException) => {
@@ -78,8 +64,6 @@ const SECURE_WEB_PREFS = {
     webSecurity: true,
     allowRunningInsecureContent: false,
 } as const;
-
-const PLUGIN_NODE = process.execPath;
 
 interface WindowConfig {
     route: string;
@@ -210,198 +194,94 @@ void app.whenReady().then(async () => {
         });
     });
     const configPath = getConfigPath();
-    const statesDir = getStatesDir();
 
-    const crypto =
-        process.env["E2E"] === "1"
-            ? {
-                  encrypt(plaintext: string): string {
-                      return Buffer.from(plaintext, "utf8").toString("base64");
-                  },
-                  decrypt(ciphertext: string): string {
-                      return Buffer.from(ciphertext, "base64").toString("utf8");
-                  },
-              }
-            : createSafeStorageCrypto();
     const configStore = createConfigStore(configPath);
-    const cacheStore = createCacheStore(statesDir);
     const runtimeStore = createRuntimeStore();
-    const secretsStore = createSecretsStore(join(dataRoot, "secrets.json"), crypto);
+    const vault = await create_file_vault_backend(dataRoot);
+    const secretsStore = createSecretsStore(vault);
+    const observationStore = create_observation_store(join(dataRoot, "observations.sqlite"));
 
-    // Discover bundled + user plugins
-    const bundledDir = getBundledPluginsDir();
-    const userDir = getUserPluginsDir();
-    const sdkDir = getSdkDir();
-    let bundledDefs: readonly PluginDefinition[] = [];
-    if (app.isPackaged) {
-        try {
-            await verify_bundled_resources(bundledDir, sdkDir);
-            bundledDefs = await discoverPlugins(bundledDir, "bundled");
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            if (error instanceof BundledResourceIntegrityError) {
-                log.error(`Bundled plugin integrity check failed: ${message}`);
-            } else {
-                log.error(`Bundled plugin integrity check could not run: ${message}`);
-            }
-        }
-    } else {
-        bundledDefs = await discoverPlugins(bundledDir, "bundled");
-    }
-    const userDefs = await discoverPlugins(userDir, "user");
-    const allDefinitions: readonly PluginDefinition[] = [...bundledDefs, ...userDefs];
-    log.info(
-        `Discovered ${String(allDefinitions.length)} plugins (${String(bundledDefs.length)} bundled, ${String(userDefs.length)} user)`,
-    );
+    const bundledDir = getBundledConnectorsDir();
+    const userDir = getUserConnectorsDir();
+    const allDefinitions = await discover_connector_definitions(bundledDir, userDir);
+    log.info(`Discovered ${String(allDefinitions.length)} connectors`);
 
-    // Compile TS plugins to JS
-    const cacheDir = getPluginCacheDir();
-    const compiledPaths = new Map<string, string>();
-
-    for (const def of allDefinitions) {
-        const fallbackCacheDir =
-            app.isPackaged && def.source === "bundled" ? getBundledPluginCacheDir() : undefined;
-        const result = await compilePlugin(
-            def,
-            cacheDir,
-            sdkDir,
-            fallbackCacheDir ? { fallbackCacheDir } : {},
-        );
-        if (result.executablePath) {
-            compiledPaths.set(def.executablePath, result.executablePath);
-            if (result.status === "stale_cache") {
-                log.warn(`Plugin ${def.scriptName} using stale cache: ${result.error}`);
-            }
-        } else if (result.status === "compile_error") {
-            log.warn(`Plugin ${def.scriptName} failed to compile: ${result.error}`);
-        }
-    }
-
-    const buildCommand = (
-        executablePath: string,
-        parameterValues: Record<string, string>,
-        language: "zh-Hans" | "en",
-    ) => {
-        const compiledPath = compiledPaths.get(executablePath) ?? executablePath;
-        return buildPluginCommand(compiledPath, parameterValues, language, PLUGIN_NODE);
-    };
-
-    // Build secretParamKeys from plugin metadata
     const config = await configStore.load();
-
-    // Auto-seed: create default plugin instances for missing definitions.
-    // Match by script base name (without extension) to handle renames (e.g. .py → .ts).
-    const existingByName = new Map<string, (typeof config.plugins)[number]>();
-    for (const p of config.plugins) {
-        const baseName =
-            p.executablePath
-                .replace(/\.[^.]+$/, "")
-                .split(/[/\\]/)
-                .pop() ?? "";
-        existingByName.set(baseName, p);
-    }
-
-    const { newDefs, renamedPlugins } = (() => {
-        const newDefs: PluginDefinition[] = [];
-        const renamedPlugins: { oldPath: string; newPath: string }[] = [];
+    const existingById = new Map<string, (typeof config.plugins)[number]>();
+    for (const plugin of config.plugins) {
+        const baseName = plugin.executablePath.split(/[/\\]/).pop() ?? plugin.name;
         for (const def of allDefinitions) {
-            const baseName = def.scriptName.replace(/\.[^.]+$/, "");
-            const existing = existingByName.get(baseName);
-            if (existing) {
-                if (existing.executablePath !== def.executablePath) {
-                    renamedPlugins.push({
-                        oldPath: existing.executablePath,
-                        newPath: def.executablePath,
-                    });
-                    (existing as { executablePath: string }).executablePath = def.executablePath;
-                }
-            } else {
-                newDefs.push(def);
+            if (
+                baseName.includes(def.manifest.id) ||
+                plugin.name.toLowerCase() === def.manifest.id
+            ) {
+                existingById.set(def.manifest.id, plugin);
             }
         }
-        return { newDefs, renamedPlugins };
-    })();
-
-    if (renamedPlugins.length > 0) {
-        log.info(
-            `Updated ${String(renamedPlugins.length)} plugin paths: ${renamedPlugins.map((r) => r.oldPath.split(/[/\\]/).pop()).join(", ")}`,
-        );
-        await configStore.save(config);
     }
 
-    if (newDefs.length > 0) {
-        log.info(`Auto-seeding ${String(newDefs.length)} missing plugin instances`);
-        const seededPlugins = newDefs.map((def) => {
-            const meta = def.metadata;
-            const zhName = meta ? (meta as Record<string, unknown>)["name@zh-Hans"] : undefined;
-            const name =
-                (typeof zhName === "string" ? zhName : undefined) ??
-                meta?.name ??
-                def.scriptName.replace(/\.ts$/, "");
-            return {
-                instanceId: randomUUID(),
-                stateId: randomUUID(),
-                name,
-                enabled: true,
-                executablePath: def.executablePath,
-                refreshIntervalSeconds: 300,
-                parameterValues: {},
-                endpointOverrides: {},
-            };
+    const seededPlugins = [];
+    let configChanged = false;
+    for (const def of allDefinitions) {
+        const existing = existingById.get(def.manifest.id);
+        if (existing) {
+            if (existing.executablePath !== def.executablePath) {
+                (existing as { executablePath: string }).executablePath = def.executablePath;
+                configChanged = true;
+            }
+            continue;
+        }
+        seededPlugins.push({
+            instanceId: randomUUID(),
+            stateId: randomUUID(),
+            name: def.manifest.id.toUpperCase(),
+            enabled: true,
+            executablePath: def.executablePath,
+            refreshIntervalSeconds: 300,
+            parameterValues: Object.fromEntries(
+                def.manifest.parameters
+                    .filter((param) => param.type !== "secret" && param.default !== undefined)
+                    .map((param) => [param.name, param.default ?? ""]),
+            ),
+            endpointOverrides: {},
         });
+    }
+    if (seededPlugins.length > 0 || configChanged) {
         await configStore.save({ ...config, plugins: [...config.plugins, ...seededPlugins] });
-        log.info(
-            `Auto-seeded ${String(seededPlugins.length)} plugins: ${seededPlugins.map((p) => p.name).join(", ")}`,
-        );
+        if (seededPlugins.length > 0) {
+            log.info(`Auto-seeded ${String(seededPlugins.length)} connectors`);
+        }
     }
 
-    // Reload config after potential seeding
     const currentConfig = await configStore.load();
     let currentConfigSnapshot = currentConfig;
 
-    // Apply saved theme so nativeTheme.shouldUseDarkColors is correct from the start
-    nativeTheme.themeSource = currentConfig.theme ?? "system";
-
-    function buildSecretParamKeys(cfg: {
-        plugins: readonly PluginConfiguration[];
-    }): Map<string, ReadonlySet<string>> {
+    function buildSecretParamKeys(cfg: typeof currentConfig): Map<string, ReadonlySet<string>> {
         const map = new Map<string, ReadonlySet<string>>();
         for (const plugin of cfg.plugins) {
             const def = allDefinitions.find((d) => d.executablePath === plugin.executablePath);
-            const secretKeys = new Set<string>();
-            if (def?.metadata?.parameters) {
-                for (const param of def.metadata.parameters) {
-                    if (param.type === "secret") {
-                        secretKeys.add(param.name);
-                    }
-                }
-            }
-            map.set(plugin.instanceId, secretKeys);
+            map.set(
+                plugin.instanceId,
+                new Set(
+                    def?.manifest.parameters
+                        .filter((param) => param.type === "secret")
+                        .map((param) => param.name) ?? [],
+                ),
+            );
         }
         return map;
     }
 
     const secretParamKeys = buildSecretParamKeys(currentConfig);
 
-    // Build metadataEndpoints map from plugin definitions
-    function getMetadataEndpoints(instanceId: string): Record<string, string | null> | undefined {
-        const plugin = currentConfigSnapshot.plugins.find((p) => p.instanceId === instanceId);
-        if (!plugin) return undefined;
-        const def = allDefinitions.find((d) => d.executablePath === plugin.executablePath);
-        return def?.metadata?.endpoints;
-    }
+    nativeTheme.themeSource = currentConfig.theme ?? "system";
 
-    // Wire real refresh service
     const refreshService = createRefreshService({
-        runner: executePlugin,
-        outputParser: parsePluginResult,
-        commandBuilder: buildCommand,
-        cacheStore,
+        definitions: allDefinitions,
+        observationStore,
         runtimeStore,
         configStore,
-        secretsStore,
-        secretParamKeys,
-        getMetadataEndpoints,
+        vault,
     });
 
     // Scheduler orchestrator — centralises scheduling, suspend/resume, shutdown

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 
 const mock_window_events: Record<string, (() => void) | undefined> = {};
 let mock_cookie_get_result: { name: string; value: string }[] = [];
@@ -30,6 +31,32 @@ vi.mock("electron", () => ({
     },
 }));
 
+const mimo_definition: ConnectorDefinition = {
+    directory: "connectors/mimo",
+    executablePath: "connectors/mimo",
+    manifest: {
+        id: "mimo",
+        provider: "mimo",
+        capabilities: ["poll"],
+        parameters: [
+            {
+                name: "SESSION_COOKIE",
+                type: "secret",
+                required: true,
+                exposeToScript: false,
+            },
+        ],
+        endpoints: {
+            default: "https://platform.xiaomimimo.com",
+            login: "https://platform.xiaomimimo.com/console/plan-manage",
+        },
+        poll: {
+            request: { endpoint: "default", path: "/usage", method: "GET" },
+            map: {},
+        },
+    },
+};
+
 describe("handleCookieLogin", () => {
     let secrets_store: Record<string, string>;
 
@@ -54,7 +81,7 @@ describe("handleCookieLogin", () => {
                             stateId: instance_id,
                             name: "MiMo",
                             enabled: true,
-                            executablePath: "plugins/mimo-usage-plugin.ts",
+                            executablePath: mimo_definition.executablePath,
                             refreshIntervalSeconds: 300,
                             parameterValues: {},
                             endpointOverrides: {},
@@ -77,23 +104,7 @@ describe("handleCookieLogin", () => {
                 exportAll: vi.fn(),
                 importAll: vi.fn(),
             },
-            definitions: [
-                {
-                    scriptName: "mimo-usage-plugin",
-                    executablePath: "plugins/mimo-usage-plugin.ts",
-                    source: "bundled" as const,
-                    metadata: {
-                        schemaVersion: 1,
-                        name: "MiMo",
-                        supportedProviders: ["mimo"],
-                        defaultSource: "direct" as const,
-                        endpoints: {
-                            default: "https://platform.xiaomimimo.com",
-                            login: "https://platform.xiaomimimo.com/console/plan-manage",
-                        },
-                    },
-                },
-            ],
+            definitions: [mimo_definition],
             cookieRefreshService: {
                 refreshAll: vi.fn(),
                 inProgress: new Set() as ReadonlySet<string>,
@@ -110,14 +121,13 @@ describe("handleCookieLogin", () => {
         ];
 
         const mod = await import("../../../src/main/ipc/auth-ipc");
-        const promise = mod.handleCookieLogin(build_deps("mimo-test-1") as never, "mimo-test-1");
+        const promise = mod.handleCookieLogin(build_deps("mimo-test-1"), "mimo-test-1");
 
         await vi.waitFor(() => {
             if (!mock_window_events["closed"]) throw new Error("not ready");
         });
 
-        const closed = mock_window_events["closed"];
-        if (closed) closed();
+        mock_window_events["closed"]?.();
         await Promise.resolve();
 
         const result = await promise;
@@ -137,14 +147,13 @@ describe("handleCookieLogin", () => {
         ];
 
         const mod = await import("../../../src/main/ipc/auth-ipc");
-        const promise = mod.handleCookieLogin(build_deps("mimo-test-1") as never, "mimo-test-1");
+        const promise = mod.handleCookieLogin(build_deps("mimo-test-1"), "mimo-test-1");
 
         await vi.waitFor(() => {
             if (!mock_window_events["closed"]) throw new Error("not ready");
         });
 
-        const closed = mock_window_events["closed"];
-        if (closed) closed();
+        mock_window_events["closed"]?.();
         await Promise.resolve();
 
         const result = await promise;
@@ -161,14 +170,13 @@ describe("handleCookieLogin", () => {
         mock_cookie_get_result = [];
 
         const mod = await import("../../../src/main/ipc/auth-ipc");
-        const promise = mod.handleCookieLogin(build_deps("mimo-test-1") as never, "mimo-test-1");
+        const promise = mod.handleCookieLogin(build_deps("mimo-test-1"), "mimo-test-1");
 
         await vi.waitFor(() => {
             if (!mock_window_events["closed"]) throw new Error("not ready");
         });
 
-        const closed = mock_window_events["closed"];
-        if (closed) closed();
+        mock_window_events["closed"]?.();
         await Promise.resolve();
 
         const result = await promise;
