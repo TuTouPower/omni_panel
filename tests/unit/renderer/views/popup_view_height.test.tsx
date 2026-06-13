@@ -236,7 +236,7 @@ describe("PopupView collapse + height report", () => {
         expect(live_b_card?.querySelector(".bars")).not.toBeNull();
     });
 
-    it("resets collapse state when switching tabs", async () => {
+    it("preserves collapse state when switching tabs without structure change", async () => {
         render(<PopupView />);
 
         fireEvent.click(await screen.findByRole("button", { name: /^Claude$/ }));
@@ -253,17 +253,17 @@ describe("PopupView collapse + height report", () => {
             expect(expand_a).toBeDefined();
         });
 
-        // Switch to overview, then back to Claude
+        // Switch to overview, then back to Claude — collapse preserved
         const overview_tab = find_live_button(/总览/);
         fireEvent.click(overview_tab);
         const claude_tab = find_live_button(/^Claude$/);
         fireEvent.click(claude_tab);
 
         await waitFor(() => {
-            const fold_a = screen
-                .getAllByRole("button", { name: /^折叠 Account A$/ })
+            const expand_a = screen
+                .getAllByRole("button", { name: /^展开 Account A$/ })
                 .find((b) => !b.closest('[aria-hidden="true"]'));
-            expect(fold_a).toBeDefined();
+            expect(expand_a).toBeDefined();
         });
     });
 
@@ -325,7 +325,7 @@ describe("PopupView collapse + height report", () => {
         });
     });
 
-    it("resets overview expand state when structure changes via tab switch", async () => {
+    it("preserves expand state when switching tabs without structure change", async () => {
         render(<PopupView />);
 
         // Expand Claude in overview
@@ -339,15 +339,14 @@ describe("PopupView collapse + height report", () => {
             expect(find_live_button(/折叠/)).toBeInTheDocument();
         });
 
-        // Switch to Claude tab and back — structure signature changes, collapse resets
+        // Switch to Claude tab and back — structure unchanged, expand preserved
         const claude_tab = find_live_button(/^Claude$/);
         fireEvent.click(claude_tab);
         const overview_tab = find_live_button(/总览/);
         fireEvent.click(overview_tab);
 
         await waitFor(() => {
-            const expand_btns = screen.getAllByRole("button", { name: /展开/ });
-            expect(expand_btns.length).toBeGreaterThan(0);
+            expect(find_live_button(/折叠/)).toBeInTheDocument();
         });
     });
 });

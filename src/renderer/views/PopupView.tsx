@@ -98,16 +98,8 @@ function errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
-function structural_signature(
-    activeTab: UsageProvider | "overview",
-    groups: ReturnType<typeof build_provider_usage_groups>,
-): string {
-    if (activeTab === "overview") {
-        return "overview:" + groups.map((g) => g.provider).join(",");
-    }
-    const group = groups.find((g) => g.provider === activeTab);
-    if (!group) return `tab:${activeTab}:none`;
-    return `tab:${activeTab}:` + group.accounts.map((a) => a.id).join(",");
+function structural_signature(groups: ReturnType<typeof build_provider_usage_groups>): string {
+    return groups.map((g) => g.provider + ":" + g.accounts.map((a) => a.id).join(",")).join("|");
 }
 
 function arrays_equal<T>(left: readonly T[] | undefined, right: readonly T[]): boolean {
@@ -296,10 +288,9 @@ export function PopupView() {
             ? undefined
             : providerGroups.find((group) => group.provider === activeTab);
 
-    // Phase 20.6: reset collapse/expand state when provider/account structure changes
-    // or when the active tab switches. Refreshes that preserve the structure
-    // (same provider set, same account IDs) keep the user's collapse choices.
-    const signature = structural_signature(activeTab, providerGroups);
+    // Reset collapse/expand state only when provider/account structure changes
+    // (same provider set, same account IDs). Tab switches keep the user's choices.
+    const signature = structural_signature(providerGroups);
     const last_signature_ref = useRef<string>(signature);
     useEffect(() => {
         if (last_signature_ref.current !== signature) {
