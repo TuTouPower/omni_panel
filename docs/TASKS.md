@@ -8,6 +8,90 @@
 
 ## 待办
 
+删掉取消自动刷新这个开关
+
+自动刷新间隔改成新增 45 分钟 60 分钟 两小时 三小时 四小时 六小时 九小时 24 小时的选项。
+
+### 待实现：设置页账号列表对齐 design handoff demo（UI 前端重构）
+
+**来源：** `docs/design-account-settings-alignment.md`（详细对照文档）；`docs/design/omni-usage/chats/chat44.md`（需求对话）；`docs/design/omni-usage/project/settings-panel.jsx`（最终 demo 代码）。
+
+**验收：** 以 `docs/design-account-settings-alignment.md` 的"成功标准"为准。
+
+### 已完成：Probe 探测执行器（架构 v2 P4）
+
+**背景：** `observe` 能力的 probe 功能——按 manifest `observe.probe` 声明发最小请求，从响应头提取用量数据。manifest schema 已支持 `observe` + `probe` 字段定义，但无执行器代码。
+
+**需要：**
+
+- 新增 probe 执行器（`src/main/core/connector/probe-executor.ts` 或类似），读取 manifest `observe.probe` 配置，发 HTTP 请求，按 `observe.headers` 声明提取响应头值，映射为 Observation。
+- 集成到 scheduler：按自适应策略调度探测（目前只有固定间隔，自适应策略暂不做）。
+- 需要一个 observe 类型的 connector 作为验收点。
+
+**验收：** 一个含 `observe` 能力的 connector 能通过 probe 产出 observation。
+
+**实现（`2026-06-14`）：**
+
+- `src/main/core/connector/probe-executor.ts`：读取 manifest `observe.probe` 配置，发 HTTP GET，从响应头提取数值，返回 `Observation[]`。
+- `src/main/core/connector/net-client.ts`：新增 `get_raw` 方法获取原始响应头。
+- `src/main/core/scheduler/refresh-service.ts`：当 connector 有 `observe.probe` 时自动调用 probe-executor。
+- `connectors/test-observe/manifest.json`：测试用 observe connector。
+- 6 个集成测试覆盖成功提取、空 header、请求失败、无配置等场景。`d1dd131`
+
+### 已完成：SessionManager IPC 接入（架构 v2 P5）
+
+**背景：** `src/main/core/session/session-manager.ts` 已实现受控登录窗口 + 凭据捕获 + 写入 Vault，但未暴露 IPC 接口给渲染进程。UI 上的"网页登录"按钮无法触发 SessionManager。
+
+**实现（`2026-06-14`）：**
+
+- `src/shared/types/ipc.ts`：添加 `SESSION_LOGIN` / `SESSION_REFRESH` channel 常量、`SessionLoginRequest` / `SessionLoginResult` 类型、`UsageboardApi.session` 接口。
+- `src/main/ipc/session-ipc.ts`：`handleSessionLogin` + `registerSessionIpc`，参考 `auth-ipc.ts` 模式，含 `assert_valid_sender` 安全校验。
+- `src/main/index.ts`：创建 `SessionManager` 实例并注册 IPC。
+- `src/preload/index.ts`：`session_methods` 暴露到 `contextBridge`，三个路由（settings / tray / popup）均可用。
+- `tests/unit/ipc/session-ipc.test.ts`：8 个测试覆盖成功、无 cookie、冲突、超时、参数校验、未知错误。
+
+**验收：** 渲染进程可通过 `window.usageboard.session.login(request)` 触发 SessionManager 登录流程。
+
+### 已完成：IPC 命名对齐 spec（架构 v2 §7）
+
+**背景：** 当前 IPC 用 `connector:*` 命名（`connector:list`、`connector:getState`、`connector:snapshot`），spec 设计用 `snapshot:*` 体系（`snapshot:list`、`snapshot:get`）。功能有替代但命名不一致。
+
+**决策（`2026-06-14`）：** 更新 spec 匹配代码。`connector:*` 命名已贯穿全栈，纯 rename 无行为收益。`docs/omniusage-architecture-v2.md` §7 已更新。
+
+**验收：** IPC 命名与 spec 一致。
+
+### 已完成：旧代码残留清理（架构 v2 P7）
+
+**背景：** 架构升级遗留的旧命名和守卫代码。
+
+**需要清理：**
+
+- ~~`src/main/index.ts:168-173`：`ELECTRON_RUN_AS_NODE` 守卫（旧插件子进程模型产物，新架构不用子进程）。~~ **已完成**
+- ~~`src/main/core/cookie-refresh/` 目录：应并入 `session/`（cookie 刷新现在是 session 管理的一部分）。~~ **已完成**
+- ~~`src/main/core/scheduler/refresh-service.ts`：`PluginRefreshService`→`ConnectorRefreshService`、`PluginSnapshotState`→`ConnectorSnapshotState`、`plugin` 局部变量→`connector_config`。~~ **已完成**
+- `PluginConfiguration` 保留原名（定义在 `shared/types/config.ts`，属于外部共享类型）。
+
+**验收：** 无 `ELECTRON_RUN_AS_NODE` 守卫、无 `cookie-refresh/` 目录、refresh-service 无 `Plugin` 前缀类型名。
+
+### 已完成：Logger 全局 scrubber 注册机制（架构 v2 §6.3）
+
+**背景：** spec 要求"scrubber 强制内联，不可绕过"+"每个解密的 secret 注册进 Logger"。当前各模块各自做局部 redaction（正则匹配），无全局注册机制。新模块忘记脱敏会泄露密钥。
+
+**需要：**
+
+- Logger 提供 `scrubber.register(value)` 接口，注册后所有日志输出自动替换该值。
+- Vault get 时自动注册到 scrubber。
+- 移除各模块的局部 redaction 正则，统一用全局 scrubber。
+
+**验收：** 新模块不需要手动写脱敏逻辑，注册的 secret 值在所有日志中自动替换为 `***`。
+
+**实现（`2026-06-14`）：**
+
+- `src/shared/lib/logger.ts`：新增 `scrubber.register/unregister/scrub_text/clear`，emit 时自动 scrub message 和 meta。
+- `src/main/core/vault/file-vault-backend.ts`：`get()` 解密成功后自动注册到 scrubber。
+- 局部 redaction 审查：`config_redaction.ts` 和 `cookie-refresh-service.ts` 的结构性脱敏保留，无 value-based 局部脱敏需移除。
+- 18 个测试（17 unit + 1 integration）。`9dea195`
+
 ### 已完成：架构升级夹带的前端改动（commit 边界混乱 + 生硬 UI 文案）
 
 **根因：** 架构升级本应只替换数据层（plugin runtime → connector runtime + Observation 数据模型），但实际有两个 commit 夹带了无关的前端改动和生硬文案，导致主面板出现莫名其妙的"观测 2 分钟前"和 `POLL`/`SESSION` 技术枚举 badge，以及设置页的产品交互重构混在架构 commit 里。已审查 `docs/architecture-refactor-commit-notes.md` 列出的 26 个架构 commit，只有 2 个动了 `src/renderer/`：`fd2b0f8`、`d2a2748`。
