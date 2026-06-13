@@ -25,7 +25,7 @@
         "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch",
         "security:js": "gitleaks detect --source .",
         "security:sast": "semgrep scan --config=auto src/",
-        "test": "vitest run",
+        "test": "node scripts/ensure_node_abi.mjs && vitest run",
         "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
         "test:e2e": "playwright test --config=playwright.config.ts --project=default",
