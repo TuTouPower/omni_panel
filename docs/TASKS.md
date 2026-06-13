@@ -6,6 +6,61 @@
 
 ## 待办
 
+### 修复：架构升级夹带的前端改动（commit 边界混乱 + 生硬 UI 文案）
+
+**根因：** 架构升级本应只替换数据层（plugin runtime → connector runtime + Observation 数据模型），但实际有两个 commit 夹带了无关的前端改动和生硬文案，导致主面板出现莫名其妙的"观测 2 分钟前"和 `POLL`/`SESSION` 技术枚举 badge，以及设置页的产品交互重构混在架构 commit 里。已审查 `docs/architecture-refactor-commit-notes.md` 列出的 26 个架构 commit，只有 2 个动了 `src/renderer/`：`fd2b0f8`、`d2a2748`。
+
+**来源定位：**
+
+#### 问题 1：`观测` 中文前缀（`fd2b0f8`）
+
+- **位置：** `src/renderer/components/ProviderCard.tsx:222` `{observed_text && <span>观测 {observed_text}</span>}`
+- **来源 commit：** `fd2b0f8 feat: surface connector freshness in UI`（2026-06-13）
+- **问题：** `observed_text` 是 `relative_time(group.observedAt)`，本身已返回"2 分钟前"，前面再加"观测"变成"观测 2 分钟前"，语义生硬。应去掉前缀，直接显示相对时间，或和上方的 `updated_text` 合并。
+- **该不该改：** ❌ 不该。这是文案夹带，和数据层 freshness 字段透传无关。
+
+#### 问题 2：`source.toUpperCase()` 技术枚举 badge（`fd2b0f8`）
+
+- **位置：** `src/renderer/components/ProviderCard.tsx:55-57` `source_label` 函数；第 100 行 `source_text = source_label(group.source ?? "direct")`；第 220 行 `<span className="source-badge">{source_text}</span>`。同样函数在 `src/renderer/views/SettingsView.tsx:144` 重复定义。
+- **来源 commit：** `fd2b0f8`
+- **问题：** 把内部 `UsageSource` 枚举（`poll`/`local`/`session`/`gateway`/`direct`）直接 `.toUpperCase()` 显示为 `POLL`/`LOCAL`/`SESSION`/`GATEWAY`/`DIRECT`。用户看不懂这些技术词，且设计 demo 里没有这个 badge。
+- **该不该改：** ❌ 不该。暴露内部枚举给用户。
+
+#### 问题 3：`fd2b0f8` commit 名实不符，夹带设置页重写
+
+- **commit message：** `feat: surface connector freshness in UI`
+- **实际改动：**
+    - `src/shared/schemas/plugin-output.ts` +2（加 `observedAt`/`stale` 字段）— ✅ 符合 freshness 主题
+    - `src/renderer/lib/provider-usage.ts` +28（透传新字段）— ✅ 符合
+    - `src/renderer/components/ProviderAccountRow.tsx` ±6（stale badge）— ✅ 符合
+    - `src/renderer/components/ProviderCard.tsx` ±18（freshness + 上述问题 1/2）— ⚠️ 部分符合
+    - `src/renderer/styles/globals.css` +19（freshness 样式）— ✅ 符合
+    - **`src/renderer/views/SettingsView.tsx` +129/-126** — ❌ 完全不符合。重写了 `DataSourceList`，把 CPA-only 列表改成所有 connector 列表，和 freshness 无关。这是 `d2a2748` 的预演。
+- **该不该改：** ❌ 不该混在 freshness commit 里。应拆分。
+
+#### 问题 4：`d2a2748` 整个 commit 是产品交互重构，不是架构升级
+
+- **commit message：** `refactor: unify settings added list`
+- **实际改动：** `SettingsView.tsx` -700/+253（删除 `DataSourceList`/`CpaDetailPage`/`datasource` 导航，改成单一"已添加"列表 + CPA 可展开子行）；`globals.css` +37（配套样式）。
+- **问题：** 这是账号/数据源双视角合并成单列表的产品交互决策，和替换 plugin runtime 无因果关系。commit message 也没提架构升级，但被列入 `docs/architecture-refactor-commit-notes.md` 的提交表，当成架构升级一部分。
+- **该不该改：** ⚠️ 改动本身符合 `docs/omniusage-architecture-v2.md` §5.5.6 设计，但应独立成 feature branch，不混在架构升级 commit 序列里。
+
+**修复方案：**
+
+- **立即修（低风险文案/样式）：**
+    - 问题 1：删除 `ProviderCard.tsx:222` 的 `观测 ` 前缀，只保留 `{observed_text}`；或和 `updated_text` 合并显示（如果两者语义重复）。
+    - 问题 2：删除 `source_label` 函数和 `source-badge` span（两处：`ProviderCard.tsx`、`SettingsView.tsx`），以及 `globals.css` 里 `.source-badge` 样式。`group.source` 字段保留在数据层，UI 不显示。
+    - 对应测试：`tests/unit/renderer/components/provider_card.test.tsx`、`tests/unit/renderer/provider-usage.test.ts` 需更新断言。
+- **文档修正（不改代码）：**
+    - 问题 3/4：在 `docs/architecture-refactor-commit-notes.md` 标注 `fd2b0f8` 和 `d2a2748` 为"夹带前端改动"，说明真实架构升级范围只含数据层（schema 字段透传 + stale badge），不含设置页重写和 source badge。
+    - 或把 `d2a2748` 从架构升级 commit 表移出，单独列为产品交互重构。
+
+**验收：**
+
+- 主面板 provider 卡片不再显示 `观测 X 分钟前` 和 `POLL`/`SESSION` badge。
+- `pnpm test` 通过。
+- `docs/architecture-refactor-commit-notes.md` 如实反映哪些是架构改动、哪些是夹带。
+
 ### 部分完成：架构重构后独立采集器变成空实现
 
 **根因：** `713a266` 删除 legacy plugin runtime 时，一并删除了 `assets/plugins/*-usage-plugin.ts` 的真实采集逻辑；`2f31546` 只为 UI 暴露 provider 补了 connector manifest 和 12 行占位 `connector.ts`，未迁移旧插件的数据获取逻辑，导致添加密钥后仍返回空数据，设置页显示“暂无账号”。
