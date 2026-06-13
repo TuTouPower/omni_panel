@@ -85,7 +85,10 @@ export function SettingsForm({
             }
 
             const intervalMinutes = Number(formData.get("refreshIntervalMinutes"));
-            const intervalSeconds = Math.max(60, Math.min(3600, Math.round(intervalMinutes) * 60));
+            const intervalSeconds = Math.max(
+                60,
+                Math.min(172800, Math.round(intervalMinutes) * 60),
+            );
 
             setSaving(true);
             setSaved(false);

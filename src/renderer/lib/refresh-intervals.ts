@@ -3,7 +3,15 @@ export const REFRESH_INTERVAL_OPTIONS = [
     { label: "5 分钟", seconds: 300 },
     { label: "15 分钟", seconds: 900 },
     { label: "30 分钟", seconds: 1800 },
-    { label: "仅手动", seconds: 86400 },
+    { label: "45 分钟", seconds: 2700 },
+    { label: "60 分钟", seconds: 3600 },
+    { label: "2 小时", seconds: 7200 },
+    { label: "3 小时", seconds: 10800 },
+    { label: "4 小时", seconds: 14400 },
+    { label: "6 小时", seconds: 21600 },
+    { label: "9 小时", seconds: 32400 },
+    { label: "24 小时", seconds: 86400 },
+    { label: "仅手动", seconds: 172800 },
 ] as const;
 
 export type RefreshIntervalLabel = (typeof REFRESH_INTERVAL_OPTIONS)[number]["label"];

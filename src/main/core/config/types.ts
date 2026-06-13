@@ -7,9 +7,9 @@ export type { AppConfiguration, PluginConfiguration } from "../../../shared/type
 const appLanguageSchema = z.enum(["zh-Hans", "en"]) as z.ZodType<AppLanguage>;
 
 const REFRESH_INTERVAL_MIN = 60;
-const REFRESH_INTERVAL_MAX = 3600;
+const REFRESH_INTERVAL_MAX = 172800;
 
-// Migration guard: clamp out-of-range refreshIntervalSeconds into [60, 3600]
+// Migration guard: clamp out-of-range refreshIntervalSeconds into [60, 172800]
 // instead of rejecting the whole plugin (and, transitively, the whole config
 // file). Older builds wrote values like 30 or 7200; without clamping those
 // entries caused load() to fall back to DEFAULT_CONFIGURATION and silently

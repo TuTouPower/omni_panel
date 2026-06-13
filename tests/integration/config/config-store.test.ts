@@ -161,7 +161,7 @@ describe("config-store", () => {
 
     it("clamps out-of-range refreshIntervalSeconds instead of discarding the whole config", async () => {
         // Regression: previously an old config with a plugin whose
-        // refreshIntervalSeconds fell outside [60, 3600] failed schema parse,
+        // refreshIntervalSeconds fell outside [60, 172800] failed schema parse,
         // which caused load() to back up the file and silently fall back to
         // DEFAULT_CONFIGURATION — wiping every plugin the user had configured.
         //
@@ -188,7 +188,7 @@ describe("config-store", () => {
                         name: "OpenAI",
                         enabled: true,
                         executablePath: "/connectors/openai",
-                        refreshIntervalSeconds: 7200,
+                        refreshIntervalSeconds: 200000,
                         parameterValues: {},
                         endpointOverrides: {},
                     },
@@ -207,7 +207,7 @@ describe("config-store", () => {
         expect(deepseek).toBeDefined();
         expect(deepseek?.refreshIntervalSeconds).toBe(60);
         expect(openai).toBeDefined();
-        expect(openai?.refreshIntervalSeconds).toBe(3600);
+        expect(openai?.refreshIntervalSeconds).toBe(172800);
         // Non-interval plugin data is preserved.
         expect(deepseek?.name).toBe("DeepSeek");
         expect(deepseek?.parameterValues["API_KEY"]).toBe("k");
