@@ -69,6 +69,27 @@
 - [x] **E3. HTTP 请求失败错误处理** — `tier1-poll-executor.ts` 网络错误抛出而非静默返回空数组，使 connector 状态正确标记 failed。`387f1d5`
 - [x] **E4. configStore.load() 错误处理** — `scheduler-orchestrator.ts` resume 路径增加 catch，防止 unhandled rejection。`3d0f7a2`
 
+### 架构重构审查第二批修复（2026-06-13）
+
+> 并行子代理修复的剩余审查问题：
+
+- [x] **E2. cookie 值日志脱敏** — `cookie-refresh-service.ts` 对 Error message/stack 中的 `key=VALUE` 模式脱敏。`50514f2`
+- [x] **R2/B3. observation store busy_timeout** — `observation-store.ts` 显式设置 `busy_timeout=5000`，多连接并发不丢数据。`a9ed1cb`
+- [x] **R3. config store 串行化** — `config-store.ts` 已有 saveTail 队列，补测试验证并发 save 一致性。`5572887`
+- [x] **B2. connector 超时错误处理** — `runtime.ts` async 脚本超时返回明确 "timeout" 错误而非静默挂起。`1d9d300`
+- [x] **E5/B5. vault key 名脱敏 + JSON 损坏处理** — `file-vault-backend.ts` 日志 key 脱敏，损坏 JSON 抛错而非静默返回 `{}`。`a102bf0`
+- [x] **D2. config 日志 secret 脱敏** — `config_redaction.ts` 对 secrets 字段和 secret-like 参数名值脱敏为 `***`。`25f6da0`
+- [x] **E6/B/R4. session manager** — cookie 内存清理、大小写不敏感 header 查找、并发登录 guard。`a102bf0`
+- [x] **B6. HTTP 错误响应体** — `net-client.ts` >= 400 时 body 前 200 字符加入错误消息。`0664781`
+- [x] **D4. secret 缺失抛错** — `refresh-service.ts` required secret 缺失时抛 `Missing required secret` 而非空字符串。`5438c07`
+- [x] **F. refreshIntervalSeconds 范围 clamp** — `config types.ts` 用 z.preprocess 将超范围值 clamp 到 [60,3600]，避免整份配置被丢弃。`0800426`
+- [x] **C. sandbox ctx 深 freeze** — `runtime.ts` deep_freeze 递归冻结 ctx 数据对象，防止 connector 脚本修改。`f3af5a4`
+
+### 未修复（已知限制/推测性）
+
+- **E. secrets 无迁移** — 从 safeStorage 切 file-vault，commit-notes 已文档化 clean break。
+- **G. scheduler 并发启动** — 无证据 connector 间有依赖，纯推测。
+
 ### 其他已完成
 
 - [x] 使用 WSL 目录 `\\wsl.localhost\Ubuntu-22.04\home\testuser\testuser_ubuntu\get_official_logo\lobehub_icons` 中的 AI logo，替换当前应用使用的 logo。
