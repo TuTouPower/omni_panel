@@ -122,7 +122,6 @@ async function cpa_api_call(mgmt_key: string, auth_index: string): Promise<ApiCa
 async function main(): Promise<Observation[]> {
     const mgmt_key = (ctx.params["cpa_mgmt_key"] ?? "").trim();
     if (!mgmt_key) return [];
-    if ((ctx.params["monitor_claude"] ?? "true").toLowerCase() !== "true") return [];
 
     const auth_files_response = (await ctx.http.get_json("default", "/v0/management/auth-files", {
         headers: { Authorization: `Bearer ${mgmt_key}` },
@@ -131,13 +130,19 @@ async function main(): Promise<Observation[]> {
     const observations: Observation[] = [];
 
     for (const auth_file of auth_files_response.files ?? []) {
-        if (auth_file.disabled || auth_file.provider !== "claude") continue;
-        const result = await cpa_api_call(mgmt_key, auth_file.auth_index);
-        if (result.status_code < 200 || result.status_code >= 300) continue;
-        const body = (
-            typeof result.body === "string" ? JSON.parse(result.body) : result.body
-        ) as ClaudeUsageBody;
-        observations.push(...parse_claude(body, account_from_auth_file(auth_file), now));
+        if (auth_file.disabled) continue;
+
+        const monitor_key = `monitor_${auth_file.provider}`;
+        if ((ctx.params[monitor_key] ?? "true").toLowerCase() !== "true") continue;
+
+        if (auth_file.provider === "claude") {
+            const result = await cpa_api_call(mgmt_key, auth_file.auth_index);
+            if (result.status_code < 200 || result.status_code >= 300) continue;
+            const body = (
+                typeof result.body === "string" ? JSON.parse(result.body) : result.body
+            ) as ClaudeUsageBody;
+            observations.push(...parse_claude(body, account_from_auth_file(auth_file), now));
+        }
     }
 
     return observations;

@@ -29,7 +29,15 @@ function supported_providers(
     definition: ConnectorDefinition | undefined,
 ): readonly UsageProvider[] {
     if (!definition) return [];
-    if (definition.manifest.id === "cpa") return ["claude"];
+    if (definition.manifest.id === "cpa") {
+        return definition.manifest.parameters
+            .filter((p) => p.name.startsWith("monitor_"))
+            .map((p) => p.name.replace("monitor_", ""))
+            .filter((p): p is UsageProvider => {
+                const result = usageProviderSchema.safeParse(p);
+                return result.success;
+            });
+    }
     const provider = usageProviderSchema.safeParse(definition.manifest.provider);
     return provider.success ? [provider.data] : [];
 }

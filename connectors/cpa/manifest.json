@@ -14,7 +14,54 @@
             "type": "string",
             "required": false,
             "default": "true",
-            "exposeToScript": true
+            "exposeToScript": true,
+            "label": "Monitor Claude",
+            "label@zh-Hans": "监控 Claude"
+        },
+        {
+            "name": "monitor_gemini",
+            "type": "string",
+            "required": false,
+            "default": "true",
+            "exposeToScript": true,
+            "label": "Monitor Gemini",
+            "label@zh-Hans": "监控 Gemini"
+        },
+        {
+            "name": "monitor_kimi",
+            "type": "string",
+            "required": false,
+            "default": "true",
+            "exposeToScript": true,
+            "label": "Monitor Kimi",
+            "label@zh-Hans": "监控 Kimi"
+        },
+        {
+            "name": "monitor_deepseek",
+            "type": "string",
+            "required": false,
+            "default": "true",
+            "exposeToScript": true,
+            "label": "Monitor DeepSeek",
+            "label@zh-Hans": "监控 DeepSeek"
+        },
+        {
+            "name": "monitor_codex",
+            "type": "string",
+            "required": false,
+            "default": "true",
+            "exposeToScript": true,
+            "label": "Monitor Codex",
+            "label@zh-Hans": "监控 Codex"
+        },
+        {
+            "name": "monitor_antigravity",
+            "type": "string",
+            "required": false,
+            "default": "true",
+            "exposeToScript": true,
+            "label": "Monitor Antigravity",
+            "label@zh-Hans": "监控 Antigravity"
         }
     ],
     "endpoints": {

@@ -23,6 +23,20 @@ const manifest: Manifest = {
             exposeToScript: true,
             default: "true",
         },
+        {
+            name: "monitor_gemini",
+            type: "string",
+            required: false,
+            exposeToScript: true,
+            default: "true",
+        },
+        {
+            name: "monitor_kimi",
+            type: "string",
+            required: false,
+            exposeToScript: true,
+            default: "true",
+        },
     ],
     endpoints: { default: "http://127.0.0.1:17863" },
     poll: {
@@ -125,5 +139,40 @@ describe("cpa connector", () => {
 
         expect(result.error).toBeNull();
         expect(result.observations).toEqual([]);
+    });
+
+    it("skips claude accounts when monitor_claude is false", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.params["monitor_claude"] = "false";
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toEqual([]);
+    });
+
+    it("does not crash on non-claude auth files when monitor switches are on", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [
+                    {
+                        name: "auth-gemini-1.json",
+                        provider: "gemini",
+                        auth_index: "gemini-auth",
+                    },
+                    {
+                        name: "auth-kimi-1.json",
+                        provider: "kimi",
+                        auth_index: "kimi-auth",
+                    },
+                ],
+            });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
     });
 });
