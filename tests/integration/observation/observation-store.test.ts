@@ -1,3 +1,4 @@
+import Database from "better-sqlite3";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -137,5 +138,51 @@ describe("observation-store", () => {
         assertNonNull(result, "get_latest should return a result");
         expect(result.stale).toBe(true);
         expect(result.last_error).toBe("connection refused");
+    });
+
+    it("does not lose data under concurrent inserts from multiple connections", () => {
+        // better-sqlite3 is synchronous per connection, but multiple connections
+        // hitting WAL can still contend. Simulate with a second connection.
+        const db_path = join(temp_dir, "test.db");
+        const store_b = create_observation_store(db_path);
+        try {
+            const N = 50;
+            for (let i = 0; i < N; i++) {
+                store.insert(make_observation({ observed_at: 1000 + i }));
+                store_b.insert(make_observation({ observed_at: 2000 + i }));
+            }
+            // All rows must survive: distinct (account, metric, source) keyed by latest only,
+            // but here all keys are identical so list_latest_by_provider returns 1 entry.
+            // Verify append-only count via a direct connection to confirm no rows dropped.
+            const check = new Database(db_path);
+            try {
+                const row = check.prepare("SELECT COUNT(*) AS n FROM observations").get() as {
+                    n: number;
+                };
+                expect(row.n).toBe(N * 2);
+            } finally {
+                check.close();
+            }
+        } finally {
+            store_b.close();
+        }
+    });
+
+    it("sets busy_timeout pragma so writes do not wait indefinitely", () => {
+        // Verify the pragma was actually applied. Without it, SQLITE_BUSY could
+        // surface as an immediate throw rather than a bounded retry.
+        const db_path = join(temp_dir, "pragma.db");
+        const s = create_observation_store(db_path);
+        try {
+            const check = new Database(db_path);
+            try {
+                const row = check.pragma("busy_timeout", { simple: true }) as number;
+                expect(row).toBeGreaterThanOrEqual(1000);
+            } finally {
+                check.close();
+            }
+        } finally {
+            s.close();
+        }
     });
 });

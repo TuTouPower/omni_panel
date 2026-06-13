@@ -64,6 +64,10 @@ function row_to_observation(row: Record<string, unknown>): Observation {
 export function create_observation_store(db_path: string): ObservationStore {
     const db = new Database(db_path);
     db.pragma("journal_mode = WAL");
+    // Bound write-lock contention: under WAL, concurrent writers will retry for
+    // up to this many ms before throwing SQLITE_BUSY. Avoids indefinite waits
+    // when another connection holds the write lock.
+    db.pragma("busy_timeout = 5000");
     db.exec(INIT_SQL);
 
     const insert_stmt = db.prepare(`
