@@ -8,6 +8,41 @@ import { createLogger } from "../../../shared/lib/logger";
 
 const log = createLogger("cookie-refresh");
 
+// Cookie / token values are frequently echoed into Error messages when a
+// parser, validator, or HTTP layer rejects a payload that embeds them.
+// Strip anything that looks like `key=<long-value>` before logging so we
+// never persist a raw secret, even when the upstream library is careless.
+const SECRET_VALUE_PATTERN = /([A-Za-z_][\w-]*)=([^\s;,"'`<>]{8,})/g;
+
+function redact_secret_in_text(input: string): string {
+    if (!input) return input;
+    return input.replace(SECRET_VALUE_PATTERN, (_match, key: string, value: string) => {
+        const head = value.slice(0, 8);
+        return `${key}=${head}***`;
+    });
+}
+
+function redact_error(err: unknown): { name: string; message: string; stack?: string } {
+    if (err instanceof Error) {
+        return {
+            name: err.name,
+            message: redact_secret_in_text(err.message),
+            stack: err.stack ? redact_secret_in_text(err.stack) : undefined,
+        };
+    }
+    if (typeof err === "string") {
+        return { name: "Error", message: redact_secret_in_text(err) };
+    }
+    // For non-Error objects we can't safely stringify without risking
+    // `[object Object]` or recursing into unknown shapes. Record the
+    // constructor name only.
+    const ctor_name =
+        err !== null && typeof err === "object" && "constructor" in err
+            ? String((err as { constructor: { name?: unknown } }).constructor.name)
+            : "unknown";
+    return { name: "Error", message: `non-Error throw: ${ctor_name}` };
+}
+
 interface VendorCookieConfig {
     cookieNames: string[];
     secretParamName: string;
@@ -96,7 +131,7 @@ export function createCookieRefreshService(deps: CookieRefreshDeps) {
             );
             return succeeded > 0;
         } catch (err: unknown) {
-            log.error(`Failed to refresh cookies for ${vendor_id}`, err);
+            log.error(`Failed to refresh cookies for ${vendor_id}`, redact_error(err));
             return false;
         } finally {
             in_progress.delete(vendor_id);

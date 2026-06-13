@@ -3,6 +3,7 @@ import { createCookieRefreshService } from "../../../src/main/core/cookie-refres
 import type { AppConfiguration, PluginConfiguration } from "../../../src/shared/types/config";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type { UsageProvider } from "../../../src/shared/schemas/plugin-output";
+import { addTransport, setLogLevel } from "../../../src/shared/lib/logger";
 
 const { mock_browser_window, mock_session, mock_cookies } = vi.hoisted(() => {
     const mock_cookies = {
@@ -297,5 +298,47 @@ describe("createCookieRefreshService", () => {
 
         const result = await service.refreshAll();
         expect(result).toEqual({ refreshed: 0, failed: 0 });
+    });
+
+    it("does not leak cookie values into logs when cookies.get fails with cookie in error", async () => {
+        const mimo_def = make_connector_def("mimo", "mimo", { has_secret: true });
+        const secret_cookie_value = "super-secret-cookie-value-1234567890";
+
+        config_store_mock.load.mockResolvedValue(
+            make_config([make_plugin_config("inst1", mimo_def.executablePath)]),
+        );
+
+        // cookies.get throws an Error whose message references the cookie value
+        // (e.g. a validation error that echoes the offending payload).
+        mock_cookies.get.mockRejectedValue(
+            new Error(`cookie read aborted near=${secret_cookie_value}`),
+        );
+
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(
+                    `${level}:${module}:${message}:${typeof meta === "string" ? meta : JSON.stringify(meta)}`,
+                );
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            const service = createCookieRefreshService({
+                configStore: config_store_mock,
+                secretsStore: secrets_store_mock,
+                definitions: [mimo_def],
+            });
+
+            const result = await service.refreshAll();
+            expect(result).toEqual({ refreshed: 0, failed: 1 });
+
+            const output = lines.join("\n");
+            // Full cookie value must never appear in any log line.
+            expect(output).not.toContain(secret_cookie_value);
+        } finally {
+            remove_transport();
+        }
     });
 });
