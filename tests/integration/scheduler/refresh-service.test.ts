@@ -44,6 +44,16 @@ function plugin_config(instance_id = "deepseek-1", enabled = true): PluginConfig
     };
 }
 
+// Variant with no configured API_KEY — simulates a user who added the plugin
+// but never entered a secret. Vault is also empty, so the required secret is
+// genuinely missing.
+function plugin_config_no_secret(instance_id = "deepseek-1"): PluginConfiguration {
+    return {
+        ...plugin_config(instance_id),
+        parameterValues: { INSTANCE_ID: instance_id },
+    };
+}
+
 function definition(directory: string, script = "connector.js"): ConnectorDefinition {
     return {
         directory,
@@ -218,6 +228,29 @@ describe("refresh-service", () => {
         try {
             await service.refreshAll();
             expect(observationStore.inserted).toHaveLength(2);
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("fails refresh when a required secret is missing instead of sending empty credentials", async () => {
+        // Regression: previously build_params fell back to `configured` when the
+        // vault had no secret, and `configured` was "" when parameterValues had
+        // no entry. That silently produced an unauthenticated API request.
+        // Required secret missing MUST surface as a failed state with an
+        // explicit error, not a quiet empty-string fallback.
+        const { tempDir, service, observationStore, runtimeStore } = await create_service([
+            plugin_config_no_secret("deepseek-1"),
+        ]);
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            expect(observationStore.inserted).toHaveLength(0);
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            expect(state.status).toBe("failed");
+            if (state.status !== "failed") throw new Error("expected failed state");
+            expect(state.error).toMatch(/API_KEY/i);
         } finally {
             await rm(tempDir, { recursive: true, force: true });
         }

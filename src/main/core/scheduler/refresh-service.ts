@@ -97,7 +97,27 @@ async function build_params(
             continue;
         }
         if (!param.exposeToScript) continue;
-        params[param.name] = (await vault.get(`${plugin.instanceId}:${param.name}`)) ?? configured;
+        const stored = await vault.get(`${plugin.instanceId}:${param.name}`);
+        if (stored !== null) {
+            params[param.name] = stored;
+            continue;
+        }
+        if (configured !== "") {
+            params[param.name] = configured;
+            continue;
+        }
+        // Required secret is genuinely missing (no vault entry, no configured
+        // value, no default). Failing here is deliberate: silently sending an
+        // empty credential would produce an unauthenticated API request that
+        // usually returns a misleading 401/403 instead of a clear "missing
+        // secret" error. Optional secrets with no value are allowed through as
+        // empty strings — some connectors have genuinely optional auth.
+        if (param.required) {
+            throw new Error(
+                `Missing required secret: ${param.name} (instance ${plugin.instanceId})`,
+            );
+        }
+        params[param.name] = "";
     }
     return params;
 }
