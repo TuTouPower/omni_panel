@@ -10,6 +10,15 @@
             "label": "Session Cookie",
             "label@zh-Hans": "登录 Cookie",
             "exposeToScript": true
+        },
+        {
+            "name": "LIMIT",
+            "type": "number",
+            "required": false,
+            "default": "100",
+            "label": "Amount Limit",
+            "label@zh-Hans": "金额上限",
+            "exposeToScript": true
         }
     ],
     "endpoints": {

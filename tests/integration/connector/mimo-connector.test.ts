@@ -1,0 +1,144 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { run_connector } from "../../../src/main/core/connector/runtime";
+import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
+import type { Manifest } from "../../../src/shared/schemas/manifest";
+
+const manifest: Manifest = {
+    id: "mimo",
+    provider: "mimo",
+    capabilities: ["session"],
+    parameters: [
+        {
+            name: "SESSION_COOKIE",
+            type: "secret",
+            required: true,
+            exposeToScript: true,
+        },
+        {
+            name: "LIMIT",
+            type: "number",
+            required: false,
+            exposeToScript: true,
+            default: "100",
+        },
+    ],
+    endpoints: { default: "https://platform.xiaomimimo.com" },
+    script: "connector.ts",
+};
+
+function create_ctx(usage: unknown, detail: unknown, balance: unknown): ConnectorContext {
+    return {
+        http: {
+            get_json(_endpoint, path) {
+                if (path === "/api/v1/tokenPlan/usage") return Promise.resolve(usage);
+                if (path === "/api/v1/tokenPlan/detail") return Promise.resolve(detail);
+                if (path === "/api/v1/balance") return Promise.resolve(balance);
+                return Promise.reject(new Error(`unexpected path ${path}`));
+            },
+            post_json: () => Promise.resolve({}),
+        },
+        files: { read: () => Promise.resolve("") },
+        params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
+    };
+}
+
+describe("mimo connector", () => {
+    it("maps plan quota items and balance to observations", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx(
+                {
+                    code: 0,
+                    data: {
+                        usage: {
+                            items: [
+                                {
+                                    name: "plan_total_token",
+                                    used: 40,
+                                    limit: 100,
+                                    percent: 40,
+                                },
+                                {
+                                    name: "compensation_total_token",
+                                    used: 10,
+                                    limit: 50,
+                                    percent: 20,
+                                },
+                            ],
+                        },
+                    },
+                },
+                {
+                    code: 0,
+                    data: {
+                        planName: "Pro Plan",
+                        currentPeriodEnd: "2026-07-01T00:00:00Z",
+                    },
+                },
+                { code: 0, data: { balance: "75.5" } },
+            ),
+        );
+
+        expect(result.error).toBeNull();
+        const ids = result.observations.map((o) => o.metric_id);
+        expect(ids).toEqual([
+            "mimo:plan_total_token",
+            "mimo:compensation_total_token",
+            "mimo:balance",
+        ]);
+
+        expect(result.observations[0]).toEqual(
+            expect.objectContaining({
+                provider: "mimo",
+                account_label: "Pro Plan",
+                name: "套餐额度",
+                used: 40,
+                limit: 100,
+                display_style: "percent",
+                status: "normal",
+                reset_at: Date.parse("2026-07-01T00:00:00Z"),
+            }),
+        );
+        expect(result.observations[1]?.name).toBe("补偿积分");
+        expect(result.observations[2]?.name).toBe("余额");
+        expect(result.observations[2]?.used).toBe(75.5);
+    });
+
+    it("returns empty when usage code is non-zero", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx({ code: 401, message: "expired" }, { code: 0, data: {} }, { code: 0 }),
+        );
+
+        expect(result.error).not.toBeNull();
+        expect(result.observations).toEqual([]);
+    });
+
+    it("still returns usage items when balance endpoint fails", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx(
+                {
+                    code: 0,
+                    data: {
+                        usage: {
+                            items: [{ name: "plan_total_token", used: 1, limit: 10, percent: 10 }],
+                        },
+                    },
+                },
+                { code: 0, data: { planName: "Basic" } },
+                { code: 500 },
+            ),
+        );
+
+        expect(result.observations.map((o) => o.metric_id)).toEqual(["mimo:plan_total_token"]);
+    });
+});
