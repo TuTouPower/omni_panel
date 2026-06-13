@@ -15,6 +15,38 @@
 - 更新单测、烟测和 E2E：测试新的“已添加”导航、CPA 展开子行、子行无删除按钮。
 - 升级 E2E fake connector 夹具：从旧单文件 `.ts` 插件改为当前 `manifest.json + connector.ts` 目录格式。
 
+## 对应提交
+
+实施计划：`docs/superpowers/plans/2026-06-13-v2-architecture-refactor.md`
+
+| Commit    | 类型     | 内容                                                                         |
+| --------- | -------- | ---------------------------------------------------------------------------- |
+| `796fb74` | docs     | add v2 architecture refactor design spec                                     |
+| `87cca38` | docs     | address review findings in v2 refactor spec                                  |
+| `98dab1e` | docs     | add v2 architecture refactor implementation plan                             |
+| `6a5b3d5` | fix      | address second review — 6 bugs, 2 missing capabilities, 4 consistency issues |
+| `10cc35b` | fix      | final review polish — spec/plan alignment and test correctness               |
+| `2635afc` | feat     | add Observation types and Zod schema for v2 architecture                     |
+| `128b996` | feat     | add SQLite observation store                                                 |
+| `6757f49` | feat     | add file-backed secrets vault                                                |
+| `63034a2` | test     | select node vm sandbox fallback                                              |
+| `7c93963` | feat     | add connector manifest schema and loader                                     |
+| `be1f800` | feat     | add connector runtime with node vm sandbox                                   |
+| `139ff5e` | feat     | add connector net client                                                     |
+| `2be045f` | feat     | add declarative poll executor                                                |
+| `85031a7` | refactor | schedule connectors instead of plugins                                       |
+| `2a84895` | feat     | add local API ingest server                                                  |
+| `7bd7a0c` | feat     | add session login manager                                                    |
+| `5c65428` | feat     | add Tier 2 connector scripts                                                 |
+| `99e4b86` | refactor | align IPC commands with connectors                                           |
+| `fd2b0f8` | feat     | surface connector freshness in UI                                            |
+| `122f76c` | build    | update connector packaging pipeline                                          |
+| `713a266` | refactor | remove legacy plugin runtime                                                 |
+| `fe86e21` | docs     | add architecture reference notes                                             |
+| `899c133` | docs     | document settings architecture refactor                                      |
+| `d2a2748` | refactor | unify settings added list                                                    |
+| `fba21c9` | test     | cover unified settings list                                                  |
+
 ## 架构规则
 
 - 主面板仍然没有 CPA provider tab。
