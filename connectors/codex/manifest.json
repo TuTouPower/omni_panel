@@ -5,7 +5,7 @@
     "parameters": [],
     "endpoints": {},
     "local": {
-        "paths": ["~/.codex/auth.json"]
+        "paths": ["~/.codex/sessions", "~/.codex/archived_sessions"]
     },
     "script": "connector.ts"
 }
