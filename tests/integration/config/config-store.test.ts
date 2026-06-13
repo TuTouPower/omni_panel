@@ -159,6 +159,60 @@ describe("config-store", () => {
         expect(config.plugins).toEqual([]);
     });
 
+    it("clamps out-of-range refreshIntervalSeconds instead of discarding the whole config", async () => {
+        // Regression: previously an old config with a plugin whose
+        // refreshIntervalSeconds fell outside [60, 3600] failed schema parse,
+        // which caused load() to back up the file and silently fall back to
+        // DEFAULT_CONFIGURATION — wiping every plugin the user had configured.
+        //
+        // Migration must clamp the interval into range and preserve the rest
+        // of the plugin entry (and any sibling plugins).
+        const configPath = join(tempDir, "config.json");
+        await writeFile(
+            configPath,
+            JSON.stringify({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [
+                    {
+                        stateId: "deepseek-1",
+                        name: "DeepSeek",
+                        enabled: true,
+                        executablePath: "/connectors/deepseek",
+                        refreshIntervalSeconds: 30,
+                        parameterValues: { API_KEY: "k" },
+                        endpointOverrides: {},
+                    },
+                    {
+                        stateId: "openai-1",
+                        name: "OpenAI",
+                        enabled: true,
+                        executablePath: "/connectors/openai",
+                        refreshIntervalSeconds: 7200,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+                launchAtLogin: false,
+            }),
+            "utf8",
+        );
+        const store = createConfigStore(configPath);
+        const config = await store.load();
+
+        // Both plugins survive; intervals clamped into range.
+        expect(config.plugins).toHaveLength(2);
+        const deepseek = config.plugins.find((p) => p.stateId === "deepseek-1");
+        const openai = config.plugins.find((p) => p.stateId === "openai-1");
+        expect(deepseek).toBeDefined();
+        expect(deepseek?.refreshIntervalSeconds).toBe(60);
+        expect(openai).toBeDefined();
+        expect(openai?.refreshIntervalSeconds).toBe(3600);
+        // Non-interval plugin data is preserved.
+        expect(deepseek?.name).toBe("DeepSeek");
+        expect(deepseek?.parameterValues["API_KEY"]).toBe("k");
+    });
+
     it("logs raw config load and save payloads only in development", async () => {
         const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
         const original_node_env = process.env["NODE_ENV"];

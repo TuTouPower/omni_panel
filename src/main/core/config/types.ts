@@ -6,13 +6,28 @@ export type { AppConfiguration, PluginConfiguration } from "../../../shared/type
 
 const appLanguageSchema = z.enum(["zh-Hans", "en"]) as z.ZodType<AppLanguage>;
 
+const REFRESH_INTERVAL_MIN = 60;
+const REFRESH_INTERVAL_MAX = 3600;
+
+// Migration guard: clamp out-of-range refreshIntervalSeconds into [60, 3600]
+// instead of rejecting the whole plugin (and, transitively, the whole config
+// file). Older builds wrote values like 30 or 7200; without clamping those
+// entries caused load() to fall back to DEFAULT_CONFIGURATION and silently
+// wipe every plugin the user had configured.
+const refreshIntervalSecondsSchema = z.preprocess((value) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return Math.min(REFRESH_INTERVAL_MAX, Math.max(REFRESH_INTERVAL_MIN, Math.trunc(value)));
+    }
+    return value;
+}, z.number().int().min(REFRESH_INTERVAL_MIN).max(REFRESH_INTERVAL_MAX));
+
 const pluginConfigurationSchema = z.object({
     instanceId: z.string().min(1).optional(),
     stateId: z.string().min(1),
     name: z.string().min(1),
     enabled: z.boolean(),
     executablePath: z.string().min(1),
-    refreshIntervalSeconds: z.number().int().min(60).max(3600),
+    refreshIntervalSeconds: refreshIntervalSecondsSchema,
     parameterValues: z.record(z.string()),
     endpointOverrides: z.record(z.string()).default({}),
 });
