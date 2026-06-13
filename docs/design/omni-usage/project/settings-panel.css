@@ -353,3 +353,70 @@
 .acct-dialog.wide { max-width: 420px; }
 /* keep dialog action labels on one line */
 .acct-dialog .ad-btn, .acct-dialog .ad-test { white-space: nowrap; }
+
+/* ============================================================
+   账号列表  (架构 v2 §5.5.6)
+   按数据源(厂商)组织，每个数据源 = 一张卡片，内含一条或多条账号行
+   （logo + 厂商 + 指示灯 + 备注 + 操作），行格式完全一致：
+     · 单账号厂商 = 一张卡 + 一行
+     · GLM 等多账号厂商 = 一张卡 + 多行（无分组头、无拖动手柄）
+     · CPA = 一张卡：数据源行(开关/刷新/编辑/删除，无折叠) + 各账号行
+   账号行操作：直连 = 开关/刷新/编辑/删除；CPA 账号 = 改名/隐藏(§5.5.6)。
+   标签映射并入「编辑」面板，列表里不再有独立按钮。不显示用量。
+   ============================================================ */
+.acct-list { display: flex; flex-direction: column; gap: 10px; }
+
+.acc-card {
+  border: .5px solid var(--card-border); border-radius: 14px; background: var(--card-bg);
+  box-shadow: var(--card-shadow); overflow: hidden;
+  transition: opacity .16s, box-shadow .16s;
+}
+.acc-card.off { opacity: .56; }
+
+/* one account row (shared layout) */
+.acc-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  transition: opacity .16s, background .12s;
+}
+.acc-row + .acc-row { border-top: .5px solid var(--hairline); }
+.acc-row.off { opacity: .56; }
+.acc-row.hidden { opacity: .5; }
+.acc-row.removed { opacity: .72; }
+
+.ar-vendor-col { display: flex; align-items: center; gap: 10px; width: 168px; flex-shrink: 0; }
+.ar-vendor { font-size: 14px; font-weight: 650; color: var(--text); letter-spacing: -.01em; white-space: nowrap; }
+.ar-acct-col { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.ar-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ar-note { font-size: 13.5px; font-weight: 550; color: var(--text); white-space: nowrap; }
+.ar-stat { font-size: 11.5px; font-weight: 600; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
+.ar-stat.err { color: var(--risk-red); }
+.ar-stat.warn { color: var(--risk-orange); }
+.ar-actions { display: flex; align-items: center; gap: 3px; flex-shrink: 0; margin-left: auto; }
+.ar-actions .sw { margin: 0 3px 0 2px; }
+
+/* CPA data-source row (the card's top row) */
+.acc-row.ds-row { background: color-mix(in srgb, var(--desktop) 4%, var(--card-bg)); }
+.acc-row.ds-row .ds-vendor { width: auto; }
+
+/* active (hidden) eye toggle */
+.sp-ic.on { color: var(--blue); }
+.sp-ic.on:hover { background: var(--tab-active); color: var(--blue); }
+
+.cr-srctag {
+  font-size: 10px; font-weight: 600; color: var(--text-3); background: var(--chip-bg);
+  padding: 2px 7px; border-radius: 6px; letter-spacing: .02em; flex-shrink: 0;
+}
+.cpa-fail {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; color: var(--risk-red); white-space: nowrap; flex-shrink: 0;
+}
+
+.sub-clear {
+  border: .5px solid var(--field-border); background: var(--win-bg); color: var(--text-2);
+  font-family: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 8px;
+  cursor: pointer; white-space: nowrap; transition: background .12s, color .12s;
+}
+.sub-clear:hover { background: var(--field-bg); color: var(--text); }
+
+/* label-map block inside the 编辑 dialog */
+.ad-body .lm-cols { margin-top: 4px; }

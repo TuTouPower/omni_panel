@@ -5,8 +5,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "accent": "#3d7afd",
   "barScheme": "risk-current",
   "barStyle": "thin",
-  "demoState": "default",
-  "settingsMode": "normal"
+  "demoState": "default"
 }/*EDITMODE-END*/;
 
 const DEMO_LABELS = [
@@ -361,7 +360,6 @@ function App() {
       {settingsOpen && (
         <div className="sp-stage">
           <SettingsPanel
-            mode={t.settingsMode}
             theme={t.theme} onTheme={(v) => setTweak('theme', v)}
             accent={t.accent} onAccent={(v) => setTweak('accent', v)}
             barScheme={t.barScheme} onBarScheme={(v) => setTweak('barScheme', v)}
@@ -391,10 +389,6 @@ function App() {
         <TweakSection label="状态预览" />
         <TweakSelect label="演示状态" value={t.demoState} options={DEMO_LABELS}
           onChange={(v) => setTweak('demoState', v)} />
-        <TweakSection label="设置窗口" />
-        <TweakRadio label="账号来源" value={t.settingsMode} options={[
-          { value: 'normal', label: '普通用户' }, { value: 'cpa', label: 'CPA 用户' }]}
-          onChange={(v) => setTweak('settingsMode', v)} />
       </TweaksPanel>
     </div>
     </BarStyleContext.Provider>

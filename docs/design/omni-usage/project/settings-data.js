@@ -204,7 +204,72 @@ const CPA_SCOPE = ['claude', 'codex', 'gemini', 'antigravity', 'kimi'];
 /* add-account picker */
 const ADD_COMMON = ['claude', 'codex', 'gemini', 'kimi', 'mimo', 'deepseek', 'tavily'];
 
+/* ============================================================
+   UNIFIED CONNECTIONS  (架构 v2 §5.5.6 — 展示边界)
+   设置页只有一个「已添加」列表，不分区。列表里每个条目 = 用户配置的
+   一个连接(数据源)：
+     · type:'direct'  N=1，绝大多数。普通一行，直接显示状态 + 用量。
+                      行菜单含 刷新 / 改名 / 删除（破坏性操作在数据源层级）。
+     · type:'cpa'     N>1。行首带展开箭头；不展开时与普通行无异。
+                      主行菜单含 同步 / 连接设置 / 改名 / 移除数据源。
+                      展开后的账号子行只有 隐藏 / 改名，无删除（§5.5.5）。
+   三层 ID 解耦(provider / accountId / sourceInstanceId)只活在数据层，
+   不投射成 UI 导航结构——99% 不用 CPA 的用户看到的就是自己的账号列表。
+
+   字段：
+     status  'ok' | 'error' | 'auth' | 'paused'
+     usage   { pct, label }           百分比型（峰值）
+             { used, limit, label }   分数型（余额 / 额度）
+             null                     无可用数据
+   ============================================================ */
+
+/* ---- 账号列表：按数据源(厂商)组织 ----
+   架构 v2 §5.5.6。单账号厂商 = 一行；多账号厂商（如 GLM 两个账号）= 分组；
+   CPA = 一行可展开的一对多分组。不显示用量。
+     status  'ok' | 'auth' | 'error'
+     直连分组里每个账号自带 status；CPA 账号可带 hidden / removed 标记。 */
+const CONNECTIONS = [
+  { type: 'vendor', id: 'claude', accounts: [
+    { id: 'cl-1', name: '个人账号', status: 'ok' },
+  ] },
+  { type: 'vendor', id: 'glm', accounts: [
+    { id: 'glm-1', name: '个人账号', status: 'ok' },
+    { id: 'glm-2', name: '研究账号', status: 'ok' },
+  ] },
+  { type: 'vendor', id: 'codex', accounts: [
+    { id: 'cx-1', name: '主力账号', status: 'ok' },
+    { id: 'cx-2', name: '团队账号', status: 'ok' },
+  ] },
+  { type: 'vendor', id: 'deepseek', accounts: [
+    { id: 'ds-1', name: '个人账号', status: 'ok' },
+  ] },
+  { type: 'vendor', id: 'tavily', accounts: [
+    { id: 'tv-1', name: '个人账号', status: 'ok' },
+  ] },
+  { type: 'vendor', id: 'mimo', accounts: [
+    { id: 'mm-1', name: '个人账号', status: 'auth' },
+  ] },
+
+  /* CPA Manager：一行可展开的一对多连接，始终就在这个列表里 */
+  { type: 'cpa', id: 'src-cpa', name: 'CPA Manager', status: 'ok', synced: '2 分钟前',
+    accounts: [
+      { id: 'cpa-cl-1', vendor: 'claude', name: '个人账号', status: 'ok' },
+      { id: 'cpa-cl-2', vendor: 'claude', name: '工作账号', status: 'ok' },
+      // 账号级失败（§5.5.3）：只这一行进 stale，同源其他账号照常刷新
+      { id: 'cpa-cl-3', vendor: 'claude', name: '测试账号', status: 'error' },
+      { id: 'cpa-cx-1', vendor: 'codex', name: '主力账号', status: 'ok' },
+      // 本地隐藏（§5.5.5）：只写 accountOverrides.hidden，不调远端删除
+      { id: 'cpa-cx-2', vendor: 'codex', name: '团队账号', status: 'ok', hidden: true },
+      { id: 'cpa-gm-1', vendor: 'gemini', name: '个人账号', status: 'ok' },
+      { id: 'cpa-ag-1', vendor: 'antigravity', name: '个人账号', status: 'ok' },
+      // 来源已移除（§5.5.3）：用户在 CPA-Manager 那侧删了号，保留有限历史后清理
+      { id: 'cpa-ag-2', vendor: 'antigravity', name: '工作账号', status: 'ok', removed: true },
+      { id: 'cpa-km-1', vendor: 'kimi', name: '个人账号', status: 'ok' },
+    ] },
+];
+
 Object.assign(window, {
   SV_META, ACCT_NORMAL, ACCT_CPA, DATA_SOURCES, CPA_DISCOVERED, CPA_SCOPE, ADD_COMMON,
+  CONNECTIONS,
   VENDOR_AUTH, AUTH_APIKEY_META, AUTH_SESSION_META, AUTH_LOCAL_SCAN, VENDOR_RAW_LABELS,
 });

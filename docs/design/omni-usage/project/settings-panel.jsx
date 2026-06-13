@@ -33,10 +33,11 @@ function SrcTag({ source }) {
 }
 
 /* ---------- nav ---------- */
+/* §5.5.6 单一「已添加」列表 — 不再有独立的「数据源」导航区；
+   CPA 数据源以可展开行的形式并入「账号」列表。 */
 const SP_NAV_BASE = [
   { id: 'general', label: '常规', icon: 'gear' },
   { id: 'accounts', label: '账号', icon: 'inbox' },
-  { id: 'datasource', label: '数据源', icon: 'globe', cpaOnly: true },
   { id: 'appearance', label: '外观', icon: 'palette' },
   { id: 'notify', label: '通知', icon: 'bell' },
   { id: 'data', label: '数据与隐私', icon: 'shield' },
@@ -77,141 +78,205 @@ function ConfirmDelete({ name, onCancel, onConfirm }) {
   );
 }
 
-function AccountActions({ source, on, onToggle, mode, name, vendorId, onMap }) {
-  // cpa account → hide (no delete); direct account → delete (with confirm)
-  const isCpa = mode === 'cpa' && source === 'cpa';
+/* ---- status dot + optional problem text (no usage shown here) ---- */
+const ST_META = {
+  ok:    { dot: 'var(--green)' },
+  error: { dot: 'var(--risk-red)',    text: '采集失败' },
+  auth:  { dot: 'var(--risk-orange)', text: '凭证失效' },
+};
+function dotOf(status, on) { return on ? ((ST_META[status] || ST_META.ok).dot) : 'var(--text-3)'; }
+function textOf(status, on) { return on ? ((ST_META[status] || {}).text || null) : null; }
+
+/* ---- one account row — identical layout for single-account vendors,
+        multi-account vendors (GLM…), and CPA-discovered accounts.
+        logo + 厂商 + 指示灯 + 备注 + actions; rows stack inside one card.
+   mode 'direct' → 开关/刷新/编辑/删除 ; mode 'cpa' → 改名/隐藏 (§5.5.6). ---- */
+function AccountRow({ mode, vendorId, account, on, onToggle, onEdit, hidden, onHide }) {
   const [confirm, setConfirm] = React.useState(false);
-  const mappable = (window.VENDOR_RAW_LABELS && window.VENDOR_RAW_LABELS[vendorId]);
+  const isCpa = mode === 'cpa';
+  const removed = account.removed;
+  const effOn = isCpa ? !hidden && !removed : on;
+  const stext = removed ? '来源已移除' : (isCpa && hidden) ? '已隐藏' : textOf(account.status, isCpa ? true : on);
+  const sevCls = removed ? '' : account.status === 'error' ? ' err' : account.status === 'auth' ? ' warn' : '';
+  const dot = removed ? 'var(--risk-orange)' : (isCpa && hidden) ? 'var(--text-3)' : dotOf(account.status, isCpa ? true : on);
   return (
-    <div className="ao-actions" onClick={(e) => e.stopPropagation()}>
-      {mode === 'cpa' && <SrcTag source={source} />}
-      <SPToggle on={on} onClick={onToggle} />
-      {mappable && <button className="sp-ic" title="数据标签映射" onClick={onMap}><Icon name="tag" size={15} /></button>}
-      <button className="sp-ic" title="编辑备注名"><Icon name="edit" size={15} /></button>
-      {isCpa
-        ? <button className="sp-ic" title="隐藏账号"><Icon name="eye_off" size={15} /></button>
-        : <button className="sp-ic danger" title="删除账号" onClick={() => setConfirm(true)}><Icon name="trash" size={15} /></button>}
-      {confirm && <ConfirmDelete name={name} onCancel={() => setConfirm(false)} onConfirm={() => setConfirm(false)} />}
+    <div className={'acc-row' + (effOn ? '' : ' off') + (isCpa && hidden ? ' hidden' : '') + (removed ? ' removed' : '')}>
+      <span className="ar-vendor-col">
+        <VendorMark id={vendorId} size={24} />
+        <span className="ar-vendor">{SV_META[vendorId].name}</span>
+      </span>
+      <div className="ar-acct-col">
+        <span className="ar-dot" style={{ background: dot }} />
+        <span className="ar-note">{account.name}</span>
+        {stext && <span className={'ar-stat' + sevCls}>{stext}</span>}
+      </div>
+      <div className="ar-actions">
+        {isCpa ? (
+          removed ? (
+            <button className="sub-clear" title="清除该来源已移除的账号">清除</button>
+          ) : (
+            <>
+              <button className="sp-ic" title="改名" onClick={onEdit}><Icon name="edit" size={15} /></button>
+              <button className={'sp-ic' + (hidden ? ' on' : '')} title={hidden ? '取消隐藏' : '隐藏账号'} onClick={onHide}>
+                <Icon name={hidden ? 'eye' : 'eye_off'} size={15} />
+              </button>
+            </>
+          )
+        ) : (
+          <>
+            <SPToggle on={on} onClick={onToggle} />
+            <button className="sp-ic" title="刷新"><Icon name="refresh" size={15} /></button>
+            <button className="sp-ic" title="编辑" onClick={onEdit}><Icon name="edit" size={15} /></button>
+            <button className="sp-ic danger" title="删除账号" onClick={() => setConfirm(true)}><Icon name="trash" size={15} /></button>
+          </>
+        )}
+      </div>
+      {confirm && <ConfirmDelete name={account.name} onCancel={() => setConfirm(false)} onConfirm={() => setConfirm(false)} />}
     </div>
   );
 }
 
-function OneRowAccount({ vendor, account, on, onToggle, mode, onMap }) {
+/* ---- direct vendor card: 1+ account rows in one card, no header / no handle.
+        single-account vendor = a card with one row; GLM (N accounts) = a card
+        with N identical rows. ---- */
+function VendorCard({ vendor, accounts, isOn, onToggle, onEditAcct }) {
   return (
-    <div className={'ao-item' + (on ? '' : ' off')}>
-      <div className="ao-vendor">
-        <VendorMark id={vendor.id} size={24} />
-        <span className="ao-name">{vendor.name}</span>
-      </div>
-      <div className="ao-acct">
-        <span className={'ao-dot' + (on ? '' : ' off')} />
-        <span className="ao-note">{account.name}</span>
-      </div>
-      <AccountActions source={account.source} on={on} onToggle={onToggle} mode={mode} name={account.name}
-        vendorId={vendor.id} onMap={() => onMap(vendor.id, account.name)} />
+    <div className="acc-card">
+      {accounts.map((a) => (
+        <AccountRow key={a.id} mode="direct" vendorId={vendor.id} account={a}
+          on={isOn(a.id)} onToggle={() => onToggle(a.id)} onEdit={() => onEditAcct(vendor.id, a.name)} />
+      ))}
     </div>
   );
 }
 
-function MultiGroup({ vendor, accounts, isOn, onToggle, mode, onMap }) {
+/* ---- CPA card: a data-source row (开关/刷新/编辑/删除, no collapse) followed
+        by its discovered account rows, always visible (§5.5.6). ---- */
+function CpaCard({ conn, on, onToggle, onOpenDetail, hiddenSet, onHide, onEditAcct }) {
+  const [confirm, setConfirm] = React.useState(false);
+  const live = conn.accounts.filter((a) => !a.removed);
+  const providers = new Set(live.map((a) => a.vendor));
+  const failing = conn.accounts.filter((a) => a.status === 'error' && !a.removed).length;
   return (
-    <div className="grp">
-      <div className="grp-head">
-        <VendorMark id={vendor.id} size={22} />
-        <span className="grp-name">{vendor.name}</span>
-        <span className="grp-count">{accounts.length} 个账号</span>
+    <div className={'acc-card' + (on ? '' : ' off')}>
+      <div className="acc-row ds-row">
+        <span className="ar-vendor-col ds-vendor">
+          <VendorMark id="cpa" size={24} />
+          <span className="ar-vendor">CPA Manager</span>
+          <span className="cr-srctag">数据源</span>
+        </span>
+        <div className="ar-acct-col">
+          <span className="ar-dot" style={{ background: dotOf(conn.status, on) }} />
+          <span className="ar-note">{live.length} 账号 · {providers.size} 服务商</span>
+          {failing > 0 && <span className="cpa-fail"><Icon name="cloud_off" size={12} strokeWidth={1.9} />{failing} 个采集失败</span>}
+        </div>
+        <div className="ar-actions">
+          <SPToggle on={on} onClick={onToggle} />
+          <button className="sp-ic" title="刷新"><Icon name="refresh" size={15} /></button>
+          <button className="sp-ic" title="编辑（连接设置）" onClick={onOpenDetail}><Icon name="edit" size={15} /></button>
+          <button className="sp-ic danger" title="移除数据源" onClick={() => setConfirm(true)}><Icon name="trash" size={15} /></button>
+        </div>
       </div>
-      <div className="grp-rows">
-        {accounts.map((a) => {
-          const on = isOn(a.key);
-          return (
-            <div className={'gr-row' + (on ? '' : ' off')} key={a.key}>
-              <span className="gr-handle" title="拖动排序"><Icon name="grip" size={16} strokeWidth={2} /></span>
-              <span className={'gr-dot' + (on ? '' : ' off')} />
-              <span className="gr-note">{a.name}</span>
-              <AccountActions source={a.source} on={on} onToggle={() => onToggle(a.key)} mode={mode} name={a.name}
-                vendorId={vendor.id} onMap={() => onMap(vendor.id, a.name)} />
+      {conn.accounts.map((a) => (
+        <AccountRow key={a.id} mode="cpa" vendorId={a.vendor} account={a}
+          hidden={hiddenSet.has(a.id)} onHide={() => onHide(a.id)} onEdit={() => onEditAcct(a.vendor, a.name)} />
+      ))}
+      {confirm && <ConfirmDelete name={conn.name + ' 数据源'} onCancel={() => setConfirm(false)} onConfirm={() => setConfirm(false)} />}
+    </div>
+  );
+}
+
+/* ---- 编辑账号 dialog — holds 备注名 / 接口地址 / 数据标签映射 (per data source) ---- */
+function EditAccountDialog({ vendorId, accountName, onClose }) {
+  const meta = SV_META[vendorId] || { name: vendorId };
+  const rows = (window.VENDOR_RAW_LABELS && window.VENDOR_RAW_LABELS[vendorId]) || [];
+  const [name, setName] = React.useState(accountName);
+  const [endpoint, setEndpoint] = React.useState('');
+  const [map, setMap] = React.useState({});
+  const setLbl = (raw, v) => setMap((m) => ({ ...m, [raw]: v }));
+  const resetLbl = (raw) => setMap((m) => { const n = { ...m }; delete n[raw]; return n; });
+  return (
+    <Dialog onClose={onClose}>
+      <div className="ad-head">
+        <span className="ad-mark"><VendorMark id={vendorId} size={24} /></span>
+        <div className="ad-htext">
+          <div className="ad-title">编辑账号</div>
+          <div className="ad-sub">{meta.name}</div>
+        </div>
+        <button className="ad-close" onClick={onClose} title="关闭"><Icon name="close" size={17} strokeWidth={2} /></button>
+      </div>
+      <div className="ad-body">
+        <div className="ad-field">
+          <label className="ad-label">备注名</label>
+          <input className="ad-input" value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="例如：工作账号" />
+        </div>
+        <div className="ad-field">
+          <label className="ad-label">接口地址<span className="ad-opt">可选</span></label>
+          <input className="ad-input mono" value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="默认（官方接口）" />
+        </div>
+        {rows.length > 0 && (
+          <div className="ad-field">
+            <label className="ad-label">数据标签映射<span className="ad-opt">该数据源共用</span></label>
+            <div className="lm-cols"><span>原始标签（来自接口）</span><span>显示名称</span></div>
+            <div className="lm-list">
+              {rows.map((r) => {
+                const v = map[r.raw] ?? r.def;
+                const changed = v !== r.def;
+                return (
+                  <div className="lm-row" key={r.raw}>
+                    <code className="lm-raw" title={r.raw}>{r.raw}</code>
+                    <span className="lm-arrow"><Icon name="chevron" size={14} /></span>
+                    <div className="lm-inwrap">
+                      <input className="lm-input" value={v} placeholder={r.def} onChange={(e) => setLbl(r.raw, e.target.value)} />
+                      {changed && (
+                        <button className="lm-reset" title="恢复默认" onClick={() => resetLbl(r.raw)}>
+                          <Icon name="reset" size={13} strokeWidth={1.8} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        )}
       </div>
-    </div>
+      <div className="ad-foot">
+        <div className="ad-foot-r">
+          <button className="ad-btn ghost" onClick={onClose}>取消</button>
+          <button className="ad-btn primary" onClick={onClose}>保存</button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
 
-function AccountsPage({ mode }) {
-  const { LabelMapDialog } = window;
-  const dataset = mode === 'cpa' ? ACCT_CPA : ACCT_NORMAL;
+/* ---- the single 「账号」 list (§5.5.6) — vendor cards + the CPA card ---- */
+function AccountsPage({ onOpenDetail }) {
   const [off, setOff] = React.useState(() => new Set());
-  const [mapFor, setMapFor] = React.useState(null);   // { vendorId, name }
-  const toggle = (k) => setOff((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
-  const openMap = (vendorId, name) => setMapFor({ vendorId, name });
+  const [hidden, setHidden] = React.useState(() => {
+    const s = new Set();
+    CONNECTIONS.forEach((c) => (c.accounts || []).forEach((a) => { if (a.hidden) s.add(a.id); }));
+    return s;
+  });
+  const [edit, setEdit] = React.useState(null);   // { vendorId, name }
+
+  const toggle = (id) => setOff((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleHide = (id) => setHidden((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const openEdit = (vendorId, name) => setEdit({ vendorId, name });
 
   return (
     <div className="acct-list">
-      {dataset.map((v) => {
-        const vendor = { id: v.id, name: SV_META[v.id].name };
-        if (v.accounts.length === 1) {
-          const a = v.accounts[0];
-          const key = v.id + ':' + a.key;
-          return (
-            <OneRowAccount key={v.id} vendor={vendor} account={a}
-              on={!off.has(key)} onToggle={() => toggle(key)} mode={mode} onMap={openMap} />
-          );
+      {CONNECTIONS.map((c) => {
+        if (c.type === 'cpa') {
+          return <CpaCard key={c.id} conn={c} on={!off.has(c.id)} onToggle={() => toggle(c.id)}
+            onOpenDetail={() => onOpenDetail(c.id)} hiddenSet={hidden} onHide={toggleHide} onEditAcct={openEdit} />;
         }
-        return (
-          <MultiGroup key={v.id} vendor={vendor} accounts={v.accounts} mode={mode} onMap={openMap}
-            isOn={(k) => !off.has(v.id + ':' + k)}
-            onToggle={(k) => toggle(v.id + ':' + k)} />
-        );
+        const vendor = { id: c.id, name: SV_META[c.id].name };
+        return <VendorCard key={c.id} vendor={vendor} accounts={c.accounts}
+          isOn={(id) => !off.has(id)} onToggle={toggle} onEditAcct={openEdit} />;
       })}
-      {mapFor && (
-        <LabelMapDialog vendorId={mapFor.vendorId} accountName={mapFor.name}
-          synced="5 分钟前" onClose={() => setMapFor(null)} />
-      )}
-    </div>
-  );
-}
-
-/* =================================================================
-   DATA SOURCE PAGE
-   ================================================================= */
-function DataSourcePage({ onOpen }) {
-  const [enabled, setEnabled] = React.useState(() => new Set(DATA_SOURCES.map((d) => d.id)));
-  const toggle = (id) => setEnabled((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  return (
-    <div className="ds-list">
-      {DATA_SOURCES.map((d) => {
-        const on = enabled.has(d.id);
-        return (
-        <div className="ds-card" key={d.id} data-off={on ? undefined : 'true'} onClick={() => onOpen(d.id)}>
-          <div className="ds-top">
-            <span className="ds-icon"><VendorMark id="cpa" size={26} /></span>
-            <div className="ds-head-text">
-              <div className="ds-title">{d.name}</div>
-              <div className="ds-status"><span className="dsd" />状态：{on ? d.status : '已停用'}</div>
-            </div>
-            <div className="ds-actions">
-              <SPToggle on={on} onClick={(e) => { e.stopPropagation(); toggle(d.id); }} />
-              <button className="ds-btn" disabled={!on} onClick={(e) => e.stopPropagation()}><Icon name="refresh" size={14} />同步</button>
-              <button className="ds-btn" onClick={(e) => { e.stopPropagation(); onOpen(d.id); }}><Icon name="edit" size={14} />编辑</button>
-              <button className="ds-btn icon" title="更多" onClick={(e) => e.stopPropagation()}><Icon name="more" size={16} /></button>
-            </div>
-          </div>
-          <div className="ds-meta">
-            <div className="dm-line mono">{d.url}</div>
-            <div className="dm-line">发现 <b>{d.accountsFound}</b> 个账号，覆盖 <b>{d.vendorsCovered}</b> 个服务商</div>
-            <div className="dm-line dm-faint">上次同步：{d.lastSync}</div>
-          </div>
-          <div className="ds-covers">
-            <span className="dc-label">覆盖服务商</span>
-            <span className="dc-icons">
-              {d.covers.map((id) => <VendorMark key={id} id={id} size={16} />)}
-            </span>
-          </div>
-        </div>
-        );
-      })}
+      {edit && <EditAccountDialog vendorId={edit.vendorId} accountName={edit.name} onClose={() => setEdit(null)} />}
     </div>
   );
 }
@@ -526,10 +591,10 @@ function BarSchemeField({ value, onChange }) {
   );
 }
 
-function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBarScheme, barStyle, onBarStyle, onBack }) {
+function SettingsPanel({ theme, onTheme, accent, onAccent, barScheme, onBarScheme, barStyle, onBarStyle, onBack }) {
   const { AddAccountDialog } = window;   // routed add-account dialogs (add-account.jsx)
   const [section, setSection] = React.useState('accounts');
-  const [dsView, setDsView] = React.useState('list');   // list | cpa
+  const [detail, setDetail] = React.useState(null);      // connectionId of an open CPA 连接设置, or null
   const [dialog, setDialog] = React.useState(null);      // {type:'picker'|'vendor'|'cpa', vendorId?}
   const [s, setS] = React.useState({
     interval: '5 分钟', lang: '简体中文', panelMode: '浮动窗口', pin: true, floatHeight: '保持窗口大小',
@@ -537,14 +602,11 @@ function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBa
   });
   const up = (k, v) => setS((p) => ({ ...p, [k]: v }));
 
-  const nav = SP_NAV_BASE.filter((n) => !n.cpaOnly || mode === 'cpa');
-  // when leaving cpa mode while on datasource, fall back to accounts
-  React.useEffect(() => {
-    if (mode !== 'cpa' && section === 'datasource') setSection('accounts');
-  }, [mode]);
-  React.useEffect(() => { setDsView('list'); }, [section]);
+  const nav = SP_NAV_BASE;
+  // leave any open CPA detail when switching sections
+  React.useEffect(() => { setDetail(null); }, [section]);
 
-  const inDetail = section === 'datasource' && dsView === 'cpa';
+  const inDetail = section === 'accounts' && detail != null;
 
   /* header */
   const headers = {
@@ -574,24 +636,17 @@ function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBa
         {inDetail ? (
           <div className="sp-head">
             <div className="sp-crumb">
-              <span style={{ cursor: 'pointer' }} onClick={() => setDsView('list')}>数据源</span>
+              <span style={{ cursor: 'pointer' }} onClick={() => setDetail(null)}>账号</span>
               <span className="cc-sep"><Icon name="chevron" size={15} /></span>
               <span className="cc-cur">CPA Manager</span>
             </div>
           </div>
         ) : (
           <div className="sp-head">
-            {section === 'datasource'
-              ? <span className="sp-title">数据源</span>
-              : <span className="sp-title">{headers[section]}</span>}
+            <span className="sp-title">{headers[section]}</span>
             {section === 'accounts' && (
               <button className="sp-action" onClick={() => setDialog({ type: 'picker' })}>
-                <Icon name="plus" size={15} color="#fff" strokeWidth={2.1} />添加账号
-              </button>
-            )}
-            {section === 'datasource' && (
-              <button className="sp-action" onClick={() => setDialog({ type: 'cpa' })}>
-                <Icon name="plus" size={15} color="#fff" strokeWidth={2.1} />添加数据源
+                <Icon name="plus" size={15} color="#fff" strokeWidth={2.1} />添加
               </button>
             )}
           </div>
@@ -604,8 +659,7 @@ function SettingsPanel({ mode, theme, onTheme, accent, onAccent, barScheme, onBa
           </div>
         ) : (
           <div className="sp-content">
-            {section === 'accounts' && <AccountsPage mode={mode} />}
-            {section === 'datasource' && <DataSourcePage onOpen={() => setDsView('cpa')} />}
+            {section === 'accounts' && <AccountsPage onOpenDetail={(id) => setDetail(id)} />}
 
             {section === 'general' && (
               <>
