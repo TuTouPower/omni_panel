@@ -296,7 +296,7 @@ export function SettingsForm({
                     type="number"
                     name="refreshIntervalMinutes"
                     min={1}
-                    max={60}
+                    max={2880}
                     defaultValue={Math.round(refreshIntervalSeconds / 60)}
                     data-testid={`settings-refresh-interval-${instanceId}`}
                     className="ad-input"

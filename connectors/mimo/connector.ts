@@ -93,7 +93,11 @@ async function main(): Promise<Observation[]> {
         ctx.http
             .get_json("default", "/api/v1/tokenPlan/usage", { headers })
             .then((v) => v as UsagePayload | null)
-            .catch(() => null),
+            .catch((e: unknown) => {
+                throw new Error(
+                    `MiMo usage request failed: ${e instanceof Error ? e.message : String(e)}`,
+                );
+            }),
         ctx.http
             .get_json("default", "/api/v1/tokenPlan/detail", { headers })
             .then((v) => v as DetailPayload | null)

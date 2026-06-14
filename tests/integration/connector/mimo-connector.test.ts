@@ -120,6 +120,29 @@ describe("mimo connector", () => {
         expect(result.observations).toEqual([]);
     });
 
+    it("preserves HTTP error message when usage request rejects", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const error_ctx: ConnectorContext = {
+            http: {
+                get_json(_endpoint, path) {
+                    if (path === "/api/v1/tokenPlan/usage")
+                        return Promise.reject(new Error("HTTP 401 Unauthorized"));
+                    if (path === "/api/v1/tokenPlan/detail")
+                        return Promise.resolve({ code: 0, data: {} });
+                    if (path === "/api/v1/balance") return Promise.resolve({ code: 0 });
+                    return Promise.reject(new Error(`unexpected path ${path}`));
+                },
+                post_json: () => Promise.resolve({}),
+            },
+            files: { read: () => Promise.resolve("") },
+            params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
+        };
+        const result = await run_connector(manifest, script, error_ctx);
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("HTTP 401 Unauthorized");
+        expect(result.observations).toEqual([]);
+    });
+
     it("still returns usage items when balance endpoint fails", async () => {
         const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
         const result = await run_connector(
