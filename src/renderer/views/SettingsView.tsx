@@ -1699,72 +1699,130 @@ export function SettingsView() {
 
                         {/* ── About ── */}
                         {section === "about" && (
-                            <>
-                                <div className="about-app">
-                                    <img
-                                        src={logo}
-                                        alt="OmniUsage"
-                                        className="aa-logo"
-                                        width="56"
-                                        height="56"
-                                        style={{ borderRadius: 12 }}
-                                    />
-                                    <div className="aa-name">OmniUsage</div>
-                                    <div className="aa-ver">版本 {version}</div>
-                                    <button className="btn-primary" type="button">
-                                        <Icon name="refresh" size={15} color="#fff" />
-                                        检查更新
-                                    </button>
+                            <div className="about-wrap">
+                                <div className="about-hero">
+                                    <div className="ah-logo-wrap">
+                                        <img
+                                            className="ah-logo"
+                                            src={logo}
+                                            alt="OmniUsage"
+                                            width="96"
+                                            height="96"
+                                        />
+                                    </div>
+                                    <div className="ah-name">OmniUsage</div>
+                                    <div className="ah-ver">版本 {version}</div>
+                                    <div className="ah-meta">
+                                        {window.usageboard.platform === "darwin"
+                                            ? "macOS"
+                                            : "Windows"}{" "}
+                                        · x64
+                                    </div>
+                                    <hr className="ah-rule" />
+                                    <div className="ah-desc">
+                                        跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex、Gemini
+                                        等各服务的用量限制与 Token 趋势。
+                                    </div>
+                                    <div className="ah-copyright">
+                                        © 2026 OmniUsage · 保留所有权利
+                                    </div>
                                 </div>
-                                <div className="about-links">
-                                    <button
-                                        className="about-link-btn"
-                                        type="button"
-                                        onClick={() => {
-                                            window.open("https://omniusage.app", "_blank");
-                                        }}
-                                    >
-                                        官网
-                                    </button>
-                                    <button
-                                        className="about-link-btn"
-                                        type="button"
-                                        onClick={() => {
-                                            window.open("https://omniusage.app/docs", "_blank");
-                                        }}
-                                    >
-                                        文档
-                                    </button>
-                                    <button
-                                        className="about-link-btn"
-                                        type="button"
-                                        onClick={() => {
-                                            window.open("https://omniusage.app/feedback", "_blank");
-                                        }}
-                                    >
-                                        问卷反馈
-                                    </button>
-                                    <button
-                                        className="about-link-btn"
-                                        type="button"
-                                        onClick={() => {
-                                            window.open("https://omniusage.app/sponsor", "_blank");
-                                        }}
-                                    >
-                                        支持作者
-                                    </button>
+                                <div className="about-grid">
+                                    {(
+                                        [
+                                            {
+                                                id: "update",
+                                                icon: "refresh",
+                                                label: "检查更新",
+                                                sub: "当前已是最新",
+                                                tint: "#3d7afd",
+                                            },
+                                            {
+                                                id: "site",
+                                                icon: "globe",
+                                                label: "官网",
+                                                sub: "omniusage.app",
+                                                tint: "#3d7afd",
+                                            },
+                                            {
+                                                id: "docs",
+                                                icon: "book",
+                                                label: "文档与帮助",
+                                                sub: "使用指南、常见问题",
+                                                tint: "#6f5cf6",
+                                            },
+                                            {
+                                                id: "contact",
+                                                icon: "feedback",
+                                                label: "反馈与联系",
+                                                sub: "提交建议、报告问题",
+                                                tint: "#0ea5a3",
+                                            },
+                                            {
+                                                id: "donate",
+                                                icon: "heart",
+                                                label: "支持作者",
+                                                sub: "请作者喝杯咖啡",
+                                                tint: "#e23744",
+                                            },
+                                            {
+                                                id: "privacy",
+                                                icon: "shield",
+                                                label: "隐私政策",
+                                                sub: "我们如何处理数据",
+                                                tint: "#6f5cf6",
+                                            },
+                                            {
+                                                id: "terms",
+                                                icon: "file",
+                                                label: "服务条款",
+                                                sub: "使用本软件的约定",
+                                                tint: "#3d7afd",
+                                            },
+                                            {
+                                                id: "oss",
+                                                icon: "code",
+                                                label: "开源许可",
+                                                sub: "第三方组件与协议",
+                                                tint: "#0ea5a3",
+                                            },
+                                        ] as const
+                                    ).map((c) => (
+                                        <button
+                                            key={c.id}
+                                            className={
+                                                "ab-card" + (c.id === "update" ? " primary" : "")
+                                            }
+                                            style={{ ["--tint" as string]: c.tint }}
+                                            type="button"
+                                            onClick={() => {
+                                                const urls: Record<string, string> = {
+                                                    site: "https://omniusage.app",
+                                                    docs: "https://omniusage.app/docs",
+                                                    contact: "https://omniusage.app/feedback",
+                                                    donate: "https://omniusage.app/sponsor",
+                                                    privacy: "https://omniusage.app/privacy",
+                                                    terms: "https://omniusage.app/terms",
+                                                    oss: "https://omniusage.app/oss",
+                                                };
+                                                const url = urls[c.id];
+                                                if (url) window.open(url, "_blank");
+                                            }}
+                                        >
+                                            <span className="ab-tile">
+                                                <Icon
+                                                    name={c.icon}
+                                                    size={23}
+                                                    strokeWidth={1.7}
+                                                    color={c.id === "update" ? "#fff" : c.tint}
+                                                />
+                                            </span>
+                                            <span className="ab-label">{c.label}</span>
+                                            <span className="ab-sub">{c.sub}</span>
+                                        </button>
+                                    ))}
                                 </div>
-                                <div
-                                    style={{
-                                        textAlign: "center",
-                                        fontSize: 11.5,
-                                        color: "var(--text-3)",
-                                        marginTop: 18,
-                                    }}
-                                >
-                                    © 2026 OmniUsage · 跨平台 AI 用量监控
-                                </div>
-                            </>
+                            </div>
                         )}
                     </div>
                 </div>

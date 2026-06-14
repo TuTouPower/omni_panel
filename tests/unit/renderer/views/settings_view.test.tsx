@@ -292,7 +292,7 @@ describe("SettingsView", () => {
         expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
         expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
         expect(
-            within(screen.getByTestId("cpa-connector-settings")).getByText("Claude Account"),
+            within(screen.getByTestId("cpa-connector-settings")).getByText("同步范围"),
         ).toBeInTheDocument();
     });
 
@@ -708,6 +708,41 @@ describe("SettingsView", () => {
             save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
         )?.[0];
         expect(saved_config?.proxy).toEqual({ url: "http://127.0.0.1:7897" });
+    });
+
+    it("renders 8 action cards in about section", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-about"));
+        const cards = document.querySelectorAll(".ab-card");
+        expect(cards).toHaveLength(8);
+    });
+
+    it("shows platform info in separate meta line", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-about"));
+        const meta = document.querySelector(".ah-meta");
+        expect(meta).not.toBeNull();
+        expect(meta?.textContent).toMatch(/Windows.*x64/);
+    });
+
+    it("shows omniusage.app as site card subtitle", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-about"));
+        expect(screen.getByText("omniusage.app")).toBeInTheDocument();
+    });
+
+    it("shows '当前已是最新' as update card subtitle", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-about"));
+        expect(screen.getByText("当前已是最新")).toBeInTheDocument();
     });
 
     it("removes proxy config when proxy URL is cleared", async () => {

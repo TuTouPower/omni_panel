@@ -1221,7 +1221,7 @@ html[data-window="tray"] #root {
     scrollbar-width: thin;
     scrollbar-color: rgba(120, 130, 150, 0.3) transparent;
 }
-.cpa-disc {
+.cpa-scope {
     flex: 1;
     min-width: 0;
     overflow-y: auto;
@@ -1230,11 +1230,11 @@ html[data-window="tray"] #root {
     scrollbar-color: rgba(120, 130, 150, 0.3) transparent;
 }
 .cpa-cfg::-webkit-scrollbar,
-.cpa-disc::-webkit-scrollbar {
+.cpa-scope::-webkit-scrollbar {
     width: 8px;
 }
 .cpa-cfg::-webkit-scrollbar-thumb,
-.cpa-disc::-webkit-scrollbar-thumb {
+.cpa-scope::-webkit-scrollbar-thumb {
     background: rgba(120, 130, 150, 0.26);
     border-radius: 5px;
     border: 2px solid transparent;
@@ -1800,48 +1800,171 @@ html[data-window="tray"] #root {
 }
 
 /* about */
-.about-app {
+.about-wrap {
+    display: grid;
+    grid-template-columns: 244px 1fr;
+    gap: 16px;
+    align-items: stretch;
+    padding: 2px 0 6px;
+}
+.about-hero {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 14px 0 20px;
+    border: 0.5px solid var(--card-border);
+    border-radius: 20px;
+    background: var(--card-bg);
+    box-shadow: var(--card-shadow);
+    padding: 32px 24px 22px;
 }
-.about-app .aa-name {
-    font-size: 17px;
-    font-weight: 700;
+.ah-logo-wrap {
+    position: relative;
+    margin-bottom: 20px;
+}
+.ah-logo-wrap::before {
+    content: "";
+    position: absolute;
+    inset: -16px;
+    border-radius: 32px;
+    z-index: 0;
+    background: radial-gradient(
+        circle at 50% 42%,
+        color-mix(in srgb, var(--blue) 34%, transparent),
+        transparent 70%
+    );
+    filter: blur(15px);
+}
+.ah-logo {
+    position: relative;
+    z-index: 1;
+    width: 96px;
+    height: 96px;
+    border-radius: 23px;
+    box-shadow: 0 12px 28px -8px rgba(22, 33, 66, 0.36);
+}
+.ah-name {
+    font-size: 27px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
     color: var(--text);
 }
-.about-app .aa-ver {
+.ah-ver {
+    margin-top: 14px;
     font-size: 12.5px;
-    color: var(--text-3);
-    margin-top: 3px;
-}
-.about-links {
-    display: flex;
-    flex-direction: row;
-    gap: 8px;
-    justify-content: center;
-    padding: 0 16px;
-}
-.about-link-btn {
-    border: 0.5px solid var(--field-border);
-    background: var(--win-bg);
-    color: var(--text-2);
-    font-family: inherit;
-    font-size: 13px;
     font-weight: 600;
-    padding: 8px 16px;
-    border-radius: 9px;
-    cursor: default;
-    transition:
-        background 0.12s,
-        color 0.12s;
+    color: var(--text-2);
     white-space: nowrap;
-}
-.about-link-btn:hover {
+    font-variant-numeric: tabular-nums;
     background: var(--field-bg);
+    border: 0.5px solid var(--field-border);
+    padding: 4px 13px;
+    border-radius: 99px;
+}
+.ah-meta {
+    margin-top: 14px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-3);
+    letter-spacing: 0.01em;
+}
+.ah-rule {
+    width: 60%;
+    height: 0;
+    border: 0;
+    border-top: 0.5px solid var(--hairline);
+    margin: 22px 0;
+}
+.ah-desc {
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--text-2);
+    text-wrap: pretty;
+}
+.ah-copyright {
+    margin-top: auto;
+    padding-top: 24px;
+    font-size: 11px;
+    color: var(--text-3);
+}
+.about-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-content: start;
+}
+.ab-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    border: 0.5px solid var(--card-border);
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: var(--card-shadow);
+    padding: 17px 17px 16px;
+    min-height: 118px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition:
+        transform 0.14s,
+        box-shadow 0.16s,
+        border-color 0.16s;
+}
+.ab-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 2px 4px rgba(22, 33, 66, 0.05),
+        0 16px 34px -12px rgba(22, 33, 66, 0.22);
+    border-color: color-mix(in srgb, var(--tint) 26%, var(--card-border));
+}
+.ab-card:active {
+    transform: translateY(0);
+}
+.ab-tile {
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: auto;
+    background: color-mix(in srgb, var(--tint) 13%, transparent);
+    transition: background 0.16s;
+}
+.ab-card:hover .ab-tile {
+    background: color-mix(in srgb, var(--tint) 19%, transparent);
+}
+.ab-card.primary .ab-tile {
+    background: linear-gradient(
+        150deg,
+        color-mix(in srgb, var(--tint) 92%, #fff),
+        color-mix(in srgb, var(--tint) 78%, #000)
+    );
+    box-shadow: 0 6px 16px -5px color-mix(in srgb, var(--tint) 55%, transparent);
+}
+.ab-card.primary:hover .ab-tile {
+    background: linear-gradient(
+        150deg,
+        color-mix(in srgb, var(--tint) 96%, #fff),
+        color-mix(in srgb, var(--tint) 82%, #000)
+    );
+}
+.ab-label {
+    margin-top: 16px;
+    font-size: 14.5px;
+    font-weight: 650;
     color: var(--text);
+    letter-spacing: -0.01em;
+}
+.ab-sub {
+    margin-top: 3px;
+    font-size: 11px;
+    font-weight: 550;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
 }
 
 /* @keyframes for menu animations */
@@ -1995,16 +2118,6 @@ html[data-window="tray"] #root {
     padding: 2px 7px;
     border-radius: 6px;
     letter-spacing: 0.02em;
-    flex-shrink: 0;
-}
-.cpa-fail {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--risk-red);
-    white-space: nowrap;
     flex-shrink: 0;
 }
 

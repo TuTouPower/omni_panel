@@ -8,6 +8,157 @@
 
 ## 待办
 
+### 设置页 CPA 重新对齐最新 design demo（顶层平铺 + 详情页去掉“已发现账号”列）
+
+**来源：** `docs/design/omni-usage/project/settings-panel.jsx:158-189, 481-569`、`docs/design/omni-usage/project/settings-panel.css:236-307, 397-419`、`docs/design/omni-usage/chats/chat50.md:57-88`。
+
+**问题：** 当前实现把两版 demo 混在一起了：
+
+1. **顶层 CPA 卡片仍错用详情页分组样式**
+    - `src/renderer/components/CpaCard.tsx:60-81,117-156` 先按 provider 分组，再渲染 `disc-grp / disc-head / disc-rows`
+    - `show_vendor={false}`，顶层子行丢了厂商图标和厂商名
+    - `SettingsView.tsx:1414-1425` 把每条 CPA 子行的 `status` 硬编码成 `"ok"`、`is_removed` 硬编码成 `false`
+2. **CPA 详情页仍是旧版“两栏：左配置 + 右已发现账号”**
+    - `src/renderer/components/CpaConnectorSettings.tsx:378-478` 左栏里还有“同步范围”，右栏还是 `cpa-disc` / `disc-grp` / `disc-head` 的“已发现账号”列表
+    - 但 chat50 最终确认已经改成：**左侧只保留连接配置，右侧只保留可滚动的同步范围，整列“已发现账号”删除**
+3. **顶层 CPA 卡片还夹带错误摘要**
+    - `CpaCard.tsx:95-99` 显示 `{fail_count} 个采集失败`
+    - `SettingsView.tsx:1398-1400` 用 `item.status === "critical"` 算 `fail_count`
+    - 这里的 `critical` 是用量告急，不是采集失败；demo 也没有这条摘要
+
+**Demo 最终形态：**
+
+1. **设置 → 账号 → 顶层 CPA 卡片**
+    - 第一行是 CPA 数据源行：开关 / 刷新 / 编辑 / 删除
+    - 下面直接 `conn.accounts.map(...)` 平铺多条完整账号行
+    - 每条账号行都保留厂商图标、厂商名、账号名、状态文案、右侧开关/清除按钮
+    - 不分组、不折叠、不显示 `disc-head`、不显示“X 个采集失败”摘要
+2. **CPA 编辑详情页**
+    - 左侧 `cpa-cfg`：别名、URL、密钥、连接状态、刷新、保存/移除
+    - 右侧 `cpa-scope`：标题“同步范围” + 说明文案 + 每个服务商一行（编辑标签映射 + 开关）
+    - **不再有 `已发现账号` 列，不再有 `disc-grp / disc-head / disc-rows`**
+
+**改法：**
+
+1. **`src/renderer/components/CpaCard.tsx`**
+    - 删除 `fail_count` props 和整段 `cpa-fail` JSX
+    - 删除顶层 `disc-grp / disc-head / disc-rows` 渲染
+    - 改成直接 `rows.map(...)` 输出 `AccountRow mode="cpa-child"`
+    - `show_vendor` 改回 `true`
+2. **`src/renderer/views/SettingsView.tsx`**
+    - 删除 `fail_count` 计算和传参
+    - 先构建 CPA 顶层卡片专用 rows：按 `(provider, account_id)` 去重，但只用于“账号行数”，不要再转成 UI 分组
+    - 合并 snapshot + `config.accountOverrides.hidden` + 当前源缺失但历史仍存在的账号，正确映射 `status / is_hidden / is_removed`
+3. **`src/renderer/components/CpaConnectorSettings.tsx`**
+    - 左栏只留连接配置，不再渲染“同步范围”列表
+    - 右栏改成 `cpa-scope`，承接现有 monitor toggle + 标签映射编辑入口
+    - 删除 `cpa-disc` / `disc-grp` / `disc-head` / `disc-rows` / `disc-row` 这套“已发现账号” UI
+4. **`src/renderer/styles/globals.css`**
+    - 删除顶层 CPA 卡片对 `disc-*` 的依赖和 `.cpa-fail`
+    - 把 CPA 详情页样式改成 demo 的 `cpa-detail / cpa-cfg / cpa-scope / cfg-scope-row`
+
+**需要补的测试：**
+
+1. `tests/unit/renderer/components/cpa_card.test.tsx`
+    - 断言顶层 CPA 卡片不出现 `disc-head`
+    - 断言顶层子行直接显示厂商名、账号名、状态文案
+    - 断言不出现“X 个采集失败”摘要
+2. `tests/unit/renderer/views/settings_view.test.tsx`
+    - 构造同一账号多 metric，断言顶层只显示 1 行账号，不出现分组块
+    - 构造 hidden / removed / auth / error 账号，断言分别显示 `已关闭` / `来源已移除` / `凭证失效` / `采集失败`
+3. `tests/unit/renderer/components/cpa_connector_settings.test.tsx`
+    - 断言右栏标题为“同步范围”而不是“已发现账号”
+    - 断言不再渲染 discovered accounts 分组列表
+
+**验收：**
+
+- 设置 → 账号：CPA 卡片头下面直接跟完整账号行
+- 每条 CPA 子行都显示厂商图标、厂商名、账号名、状态
+- 顶层 CPA 卡片不出现 `disc-head`，也不出现“X 个采集失败”
+- 打开任一 CPA 编辑：左栏只有连接配置；右栏只有同步范围；不再有“已发现账号”列
+- `pnpm test` 通过
+
+### 已完成：设置页”关于”重新对齐最新 demo（两栏 hero + 8 张 action card）
+
+**来源：** `docs/design/omni-usage/project/settings-panel.jsx:965-1002`、`docs/design/omni-usage/chats/chat48.md:95-176`、`docs/design/omni-usage/chats/chat49.md:9-29`。
+
+**已实现：**
+
+- `src/renderer/views/SettingsView.tsx`：重写 `{section === “about”}` 为 `about-wrap`（左 hero + 右 2×4 grid）；8 张 `ab-card` 用数组 `.map()` 渲染；平台信息从 `window.usageboard.platform` 获取放到独立 `ah-meta` 行
+- `src/renderer/components/Icon.tsx`：新增 `book`、`code`、`feedback` 三个 UI 图标
+- `src/renderer/styles/globals.css`：删除旧 `.about-app / .about-links / .about-link-btn`，替换为 demo 的 `.about-wrap / .about-hero / .ah-* / .about-grid / .ab-card / .ab-*`
+- 测试：`settings_view.test.tsx` 新增 4 个用例（8 action cards、platform meta、omniusage.app subtitle、当前已是最新 subtitle）
+
+**验收：**
+
+- 设置 → 关于：左侧 hero，右侧 8 张彩色卡片
+- 官网卡片显示 `omniusage.app`，没有右上角外链箭头
+- 文档与帮助图标不再有中间灰色竖线
+- 检查更新卡片直接显示 `当前已是最新`
+- 深浅色模式都正常
+- `pnpm test` 通过
+
+### 测试 connector 泄漏到生产包 + provider 白名单守卫
+
+**问题：** `connectors/test-observe/` 被 `electron-builder.yml:8-10` 的 `extraResources: [{from: connectors, to: connectors}]` 无差别打包进生产资源。启动时 `src/main/index.ts:219-245` 自动发现并 seed 所有 connector，无白名单过滤。结果 `test-observe` 进入用户 `config.json`，provider `"test-observe"` 不在 `usageProviderSchema` 枚举中，UI fallback 显示 `"unknown TEST-OBSERVE"` 账号。
+
+**根因（测试缺口）：**
+
+- `manifest.ts:55`：`provider: z.string().min(1)` 允许任意字符串，不校验正式枚举
+- `auto_seed.spec.ts:31`：`expect(count).>= N`，多 seed 测试 connector 不失败
+- `manifest-contract.test.ts:7`：只验证正式 connector 存在，不验证没有额外 connector
+- `smoke.spec.ts`：不检查 packaged resources/connectors 内容
+- CI/nightly：不跑 `test:packaged`，不查 resources
+
+**TDD 修复顺序：**
+
+1. **先补测试：** `tests/integration/connector/manifest-contract.test.ts` 新增——扫描 `connectors/` 真实目录，断言所有 connector 的 `provider` 必须属于 `usageProviderSchema` 枚举（当前 `test-observe` 会失败）
+2. **先补测试：** `tests/integration/connector/manifest-contract.test.ts` 新增——断言 `connectors/` 目录下不存在 ID 以 `test-` 开头的 connector
+3. **先补测试：** `tests/packaged_smoke/smoke.spec.ts` 新增——packaged app 启动后读取 `process.resourcesPath/connectors`，断言不含 `test-observe`
+4. **先补测试：** manifest schema 或 discovery 层测试——provider 不在正式枚举时应拒绝或有明确标记
+5. **改代码让测试通过：**
+    - `electron-builder.yml`：`extraResources` 排除 `test-observe`（或移到 `tests/fixtures/`）
+    - `manifest-loader.ts:37-50`：discovery 层过滤 `test-*` connector，或用 provider 枚举校验
+    - `src/main/index.ts:219-245`：auto-seed 前校验 provider 合法性
+6. **清理用户 config：** 提供迁移逻辑删除已 seed 的非法 connector
+
+**验收：** `pnpm test` 全部通过；`pnpm package` 后 `artifacts/win-unpacked/resources/connectors/` 不含 `test-observe`；用户 config.json 不再有 `test-observe` 条目。
+
+### Brave provider 完整接入（PROVIDER_ORDER / 添加账号入口 / 历史数据恢复）
+
+**问题：** Brave connector 层已实现（`connectors/brave/`），`usageProviderSchema` 和 `PROVIDER_LABELS` 已含 `brave`，但 renderer 层多个硬编码列表漏更新：
+
+| 列表                              | 位置                      | Brave |
+| --------------------------------- | ------------------------- | ----- |
+| `PROVIDER_ORDER`                  | `provider-usage.ts:52`    | ❌ 缺 |
+| `VENDOR_AUTH_MAP`                 | `AddAccountDialog.tsx:10` | ❌ 缺 |
+| `ADD_COMMON_SERVICES`（dialog）   | `AddAccountDialog.tsx:23` | ❌ 缺 |
+| `ADD_COMMON_SERVICES`（settings） | `SettingsView.tsx:386`    | ❌ 缺 |
+
+此外 Brave 是 `manualRefreshOnly` connector，`runtime-store` 是纯内存 Map 不从 sqlite 恢复历史数据，重启后 Brave 数据消失。
+
+**根因（测试缺口）：**
+
+- 没有 `PROVIDER_ORDER` 覆盖 `usageProviderSchema` 全量 provider 的测试
+- AddAccountDialog 测试只覆盖 MiMo/Kimi/DeepSeek/CPA，不覆盖 Brave
+- 没有 manualRefreshOnly connector 重启后从 observation history 恢复 runtime snapshot 的测试
+- `VENDOR_AUTH_MAP` 的 `?? "apikey"` fallback 掩盖了缺项
+
+**TDD 修复顺序：**
+
+1. **先补测试：** `tests/unit/renderer/provider-usage.test.ts` 新增——断言 `PROVIDER_ORDER` 包含 `usageProviderSchema` 中所有 provider（当前缺 brave，会失败）
+2. **先补测试：** `tests/unit/renderer/provider-usage.test.ts` 新增——断言 `PROVIDER_LABELS` 包含所有 `usageProviderSchema` provider
+3. **先补测试：** `tests/unit/renderer/components/add_account_dialog.test.tsx` 新增——断言 `VENDOR_AUTH_MAP` 包含所有非 local provider；断言 `ADD_COMMON_SERVICES` 包含所有可添加 provider
+4. **先补测试：** `tests/integration/scheduler/runtime-store.test.ts` 新增——手动刷新 provider 成功后，新 runtime store 实例应能从 observation store 恢复 ready 数据
+5. **改代码让测试通过：**
+    - `provider-usage.ts:52`：`PROVIDER_ORDER` 加 `"brave"`
+    - `AddAccountDialog.tsx:10`：`VENDOR_AUTH_MAP` 加 `brave: "apikey"`
+    - `AddAccountDialog.tsx:23` + `SettingsView.tsx:386`：`ADD_COMMON_SERVICES` 加 `{ id: "brave", label: "Brave Search" }`
+    - `runtime-store.ts` 或 `index.ts`：启动时从 observation store hydrate 手动刷新 connector 的最近数据
+6. **同步文档：** `docs/glossary.md` 确认 Brave 条目
+
+**验收：** `pnpm test` 全部通过；添加账号弹窗可见 Brave；Brave 标签页有数据（手动刷新后）；重启后 Brave 数据仍可见。
+
 ### 状态栏相对时间不自动更新 ✅
 
 **问题：** `relative_time()` 仅在组件 render 时调用一次，弹窗打开后显示冻结（如"13 秒前"），用户交互触发 re-render 后才跳变（如直接变"4 分钟前"）。主面板 `ProviderAccountRow` 和底部状态栏 `PopupView:583` 均受影响。
