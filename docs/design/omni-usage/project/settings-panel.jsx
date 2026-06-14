@@ -954,22 +954,43 @@ function SettingsPanel({ theme, onTheme, accent, onAccent, barScheme, onBarSchem
             )}
 
             {section === 'about' && (
-              <>
-                <div className="about-app">
-                  <img className="app-logo" src="logo.png" alt="" style={{ width: 60, height: 60, marginBottom: 14 }} />
-                  <div className="aa-name">OmniUsage</div>
-                  <div className="aa-ver">version 1.4.2 · win32-x64</div>
-                  <div className="about-desc">一个跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex、Gemini 等各服务的用量限制与 Token 趋势。</div>
-                  <div className="about-actions">
-                    <button className="ab-btn"><Icon name="globe" size={15} strokeWidth={1.7} />官网</button>
-                    <button className="ab-btn"><Icon name="file" size={15} strokeWidth={1.7} />文档</button>
-                    <button className="ab-btn"><Icon name="feedback" size={15} strokeWidth={1.7} />问卷反馈</button>
-                    <button className="ab-btn primary"><Icon name="cloud" size={16} strokeWidth={1.7} color="#fff" />检查更新</button>
-                    <button className="ab-btn heart"><Icon name="heart" size={15} strokeWidth={1.7} />支持作者</button>
+              <div className="about-wrap">
+                <div className="about-hero">
+                  <div className="ah-logo-wrap">
+                    <img className="ah-logo" src="logo.png" alt="OmniUsage" />
                   </div>
+                  <div className="ah-name">OmniUsage</div>
+                  <div className="ah-ver">版本 1.4.2</div>
+                  <div className="ah-meta">Windows · x64</div>
+                  <hr className="ah-rule" />
+                  <div className="ah-desc">跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex、Gemini 等各服务的用量限制与 Token 趋势。</div>
+                  <div className="ah-copyright">© 2026 OmniUsage · 保留所有权利</div>
                 </div>
-                <div style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--text-3)', marginTop: 26 }}>© 2026 OmniUsage · 跨平台 AI 用量监控</div>
-              </>
+
+                <div className="about-grid">
+                  {[
+                    { id: 'update',  icon: 'refresh',  label: '检查更新', sub: '当前已是最新', tint: '#3d7afd' },
+                    { id: 'site',    icon: 'globe',    label: '官网',     sub: 'omniusage.app', tint: '#3d7afd' },
+                    { id: 'docs',    icon: 'book',     label: '文档与帮助', sub: '使用指南、常见问题', tint: '#6f5cf6' },
+                    { id: 'contact', icon: 'feedback', label: '反馈与联系', sub: '提交建议、报告问题', tint: '#0ea5a3' },
+                    { id: 'donate',  icon: 'heart',    label: '支持作者',  sub: '请作者喝杯咖啡', tint: '#e23744' },
+                    { id: 'privacy', icon: 'shield',   label: '隐私政策',  sub: '我们如何处理数据', tint: '#6f5cf6' },
+                    { id: 'terms',   icon: 'file',     label: '服务条款',  sub: '使用本软件的约定', tint: '#3d7afd' },
+                    { id: 'oss',     icon: 'code',     label: '开源许可',  sub: '第三方组件与协议', tint: '#0ea5a3' },
+                  ].map((c) => (
+                    <button key={c.id} className={'ab-card' + (c.id === 'update' ? ' primary' : '')}
+                      style={{ ['--tint']: c.tint }}>
+                      {c.ext && <span className="ab-ext"><Icon name="arrow_ur" size={14} strokeWidth={1.9} /></span>}
+                      <span className="ab-tile">
+                        <Icon name={c.icon} size={23} strokeWidth={1.7}
+                          color={c.id === 'update' ? '#fff' : c.tint} />
+                      </span>
+                      <span className="ab-label">{c.label}</span>
+                      {c.sub && <span className="ab-sub">{c.sub}</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
