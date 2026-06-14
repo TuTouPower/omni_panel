@@ -132,7 +132,7 @@ describe("CpaConnectorSettings", () => {
         } as unknown as typeof window.usageboard;
     });
 
-    it("renders two-column layout with config fields, connection status, sync settings, and discovered accounts", () => {
+    it("renders config fields, connection status, and sync scope toggles in right panel", () => {
         renderSettings();
 
         // Config fields
@@ -142,9 +142,9 @@ describe("CpaConnectorSettings", () => {
         // Connection status
         expect(screen.getByText("已连接")).toBeInTheDocument();
 
-        // Discovered accounts
-        expect(screen.getByText("Claude Account")).toBeInTheDocument();
-        expect(screen.getByText("Codex Account")).toBeInTheDocument();
+        // Sync scope in right panel
+        expect(screen.getByText("同步范围")).toBeInTheDocument();
+        expect(screen.queryByText("已发现账号")).not.toBeInTheDocument();
     });
 
     it("renders partial failure and disconnected statuses", () => {
@@ -331,24 +331,18 @@ describe("CpaConnectorSettings", () => {
         // Label map buttons in sync scope rows (one per MONITOR)
         const tag_buttons = screen.getAllByTitle("编辑数据标签映射");
         expect(tag_buttons.length).toBe(5);
-
-        // No label map buttons in discovered accounts section
-        const disc_section = screen.getByText("已发现账号").closest(".cpa-disc");
-        const disc_tag_buttons = disc_section?.querySelectorAll('[title="编辑数据标签映射"]');
-        expect(disc_tag_buttons?.length ?? 0).toBe(0);
     });
 
-    it("does not show accountId in discovered account rows", () => {
+    it("does not render discovered accounts section", () => {
         renderSettings();
 
-        expect(screen.queryByText("claude-account")).not.toBeInTheDocument();
-        expect(screen.queryByText("codex-account")).not.toBeInTheDocument();
-        expect(screen.getByText("Claude Account")).toBeInTheDocument();
+        expect(screen.queryByText("已发现账号")).not.toBeInTheDocument();
     });
 
-    it("filters discovered accounts to the selected provider", () => {
+    it("renders all monitor toggles in sync scope regardless of selectedProvider", () => {
         renderSettings({
             selectedProvider: "gemini",
+            onEditLabelMap: vi.fn(),
             connector: connector({
                 snapshot: {
                     status: "ready",
@@ -362,9 +356,10 @@ describe("CpaConnectorSettings", () => {
             }),
         });
 
-        expect(screen.getByText("Gemini Account")).toBeInTheDocument();
-        expect(screen.queryByText("Claude Account")).not.toBeInTheDocument();
-        expect(screen.queryByText("Codex Account")).not.toBeInTheDocument();
+        // All 5 monitor toggles should be present in sync scope
+        expect(screen.getByText("同步范围")).toBeInTheDocument();
+        const tag_buttons = screen.getAllByTitle("编辑数据标签映射");
+        expect(tag_buttons.length).toBe(5);
     });
 
     it("renders alias field with display name", () => {

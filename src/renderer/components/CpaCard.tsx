@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import { Icon, VendorMark } from "./Icon";
 import { AccountRow } from "./AccountRow";
-import { PROVIDER_LABELS } from "../lib/provider-usage";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 
 interface CpaCardRow {
     provider: string;
@@ -45,7 +43,6 @@ export function CpaCard({
     status,
     source_count,
     account_count,
-    fail_count = 0,
     rows,
     on_toggle,
     on_refresh,
@@ -57,27 +54,15 @@ export function CpaCard({
 }: CpaCardProps) {
     const dot = enabled ? (CPA_STATUS_DOT[status] ?? CPA_STATUS_DOT.unknown) : "var(--text-3)";
 
-    const groups = useMemo(() => {
-        // First group by provider, then deduplicate by account_id within each provider
-        const provider_map = new Map<string, CpaCardRow[]>();
+    const unique_accounts = useMemo(() => {
+        const seen = new Map<string, CpaCardRow>();
         for (const row of rows) {
-            const existing = provider_map.get(row.provider);
-            if (existing) {
-                existing.push(row);
-            } else {
-                provider_map.set(row.provider, [row]);
+            const key = `${row.provider}:${row.account_id}`;
+            if (!seen.has(key)) {
+                seen.set(key, row);
             }
         }
-        // Within each provider, aggregate by account_id
-        return Array.from(provider_map.entries()).map(([provider, provider_rows]) => {
-            const account_map = new Map<string, CpaCardRow>();
-            for (const row of provider_rows) {
-                if (!account_map.has(row.account_id)) {
-                    account_map.set(row.account_id, row);
-                }
-            }
-            return [provider, Array.from(account_map.values())] as const;
-        });
+        return Array.from(seen.values());
     }, [rows]);
 
     return (
@@ -92,12 +77,6 @@ export function CpaCard({
                     <span className="ar-note">
                         {account_count} 账号 · {source_count} 服务商
                     </span>
-                    {fail_count > 0 && (
-                        <span className="cpa-fail">
-                            <Icon name="cloud_off" size={12} strokeWidth={1.9} />
-                            {fail_count} 个采集失败
-                        </span>
-                    )}
                 </div>
                 <div className="ar-actions">
                     <button className="sw" data-on={enabled ? "1" : "0"} onClick={on_toggle}>
@@ -114,46 +93,33 @@ export function CpaCard({
                     </button>
                 </div>
             </div>
-            {groups.map(([provider, accounts]) => (
-                <div className="disc-grp" key={provider} role="group">
-                    <div className="disc-head">
-                        <VendorMark id={provider as UsageProvider} size={20} />
-                        <span className="dh-name">
-                            {PROVIDER_LABELS[provider as UsageProvider]}
-                        </span>
-                        <span className="dh-count">{accounts.length} 个</span>
-                    </div>
-                    <div className="disc-rows">
-                        {accounts.map((row) => (
-                            <AccountRow
-                                key={`${row.provider}-${row.account_id}`}
-                                mode="cpa-child"
-                                provider={row.provider}
-                                account_label={row.account_label}
-                                enabled={!row.is_hidden && !row.is_removed}
-                                status={row.status}
-                                is_hidden={row.is_hidden}
-                                is_removed={row.is_removed}
-                                show_vendor={false}
-                                on_hide={() => {
-                                    on_hide({ provider: row.provider, account_id: row.account_id });
-                                }}
-                                on_unhide={() => {
-                                    on_unhide({
-                                        provider: row.provider,
-                                        account_id: row.account_id,
-                                    });
-                                }}
-                                on_clear={() => {
-                                    on_clear({
-                                        provider: row.provider,
-                                        account_id: row.account_id,
-                                    });
-                                }}
-                            />
-                        ))}
-                    </div>
-                </div>
+            {unique_accounts.map((row) => (
+                <AccountRow
+                    key={`${row.provider}-${row.account_id}`}
+                    mode="cpa-child"
+                    provider={row.provider}
+                    account_label={row.account_label}
+                    enabled={!row.is_hidden && !row.is_removed}
+                    status={row.status}
+                    is_hidden={row.is_hidden}
+                    is_removed={row.is_removed}
+                    show_vendor={true}
+                    on_hide={() => {
+                        on_hide({ provider: row.provider, account_id: row.account_id });
+                    }}
+                    on_unhide={() => {
+                        on_unhide({
+                            provider: row.provider,
+                            account_id: row.account_id,
+                        });
+                    }}
+                    on_clear={() => {
+                        on_clear({
+                            provider: row.provider,
+                            account_id: row.account_id,
+                        });
+                    }}
+                />
             ))}
         </div>
     );

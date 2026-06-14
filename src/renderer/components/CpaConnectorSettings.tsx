@@ -1,9 +1,9 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Icon, VendorMark } from "./Icon";
 import { ConfirmDelete } from "./ConfirmDelete";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { ConnectorConfiguration } from "../../shared/types/config";
-import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
+import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
 import {
@@ -55,12 +55,6 @@ function is_enabled_value(value: string | undefined) {
     return value?.toLowerCase() === "true";
 }
 
-function get_snapshot_items(connector: ConnectorInfo): readonly MetricRecord[] {
-    if (connector.snapshot.status === "ready") return connector.snapshot.items;
-    if (connector.snapshot.status === "failed") return connector.snapshot.items ?? [];
-    return [];
-}
-
 function get_status(connector: ConnectorInfo) {
     if (connector.snapshot.status === "ready" && connector.snapshot.items.length > 0)
         return "已连接";
@@ -68,16 +62,6 @@ function get_status(connector: ConnectorInfo) {
         return "部分失败";
     }
     return "未连接";
-}
-
-function group_accounts(items: readonly MetricRecord[]) {
-    const groups = new Map<UsageProvider, MetricRecord[]>();
-    for (const item of items) {
-        const list = groups.get(item.provider) ?? [];
-        list.push(item);
-        groups.set(item.provider, list);
-    }
-    return Array.from(groups.entries());
 }
 
 export function CpaConnectorSettings({
@@ -93,11 +77,12 @@ export function CpaConnectorSettings({
     onRefresh,
     onRemove,
     providerLabelMaps: _providerLabelMaps,
-    selectedProvider,
+    selectedProvider: _selectedProvider,
     onEditLabelMap,
 }: CpaConnectorSettingsProps) {
     void onRefresh;
     void _providerLabelMaps;
+    void _selectedProvider;
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [alias, setAlias] = useState(displayName);
@@ -116,18 +101,12 @@ export function CpaConnectorSettings({
         return values;
     });
     const [followGlobal, setFollowGlobal] = useState(() => {
-        // If plugin has no custom interval (0 or same as global default), follow global
         return config.refreshIntervalSeconds <= 0;
     });
     const [syncInterval, setSyncInterval] = useState(
         refresh_seconds_to_label(config.refreshIntervalSeconds || 300),
     );
     const [confirmRemove, setConfirmRemove] = useState(false);
-    const [openGrps, setOpenGrps] = useState<Set<string>>(() => {
-        const items = get_snapshot_items(connector);
-        const grps = group_accounts(items);
-        return new Set(grps.map(([p]) => p));
-    });
 
     // Sync state when connector changes (e.g. parent refreshes connector data)
     useEffect(() => {
@@ -145,19 +124,9 @@ export function CpaConnectorSettings({
         setMonitors(values);
         setFollowGlobal(config.refreshIntervalSeconds <= 0);
         setSyncInterval(refresh_seconds_to_label(config.refreshIntervalSeconds || 300));
-        const items = get_snapshot_items(connector);
-        const grps = group_accounts(items);
-        setOpenGrps(new Set(grps.map(([p]) => p)));
         // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset on any external data change
     }, [connector.instanceId, config, hasSecrets, displayName]);
 
-    const items = useMemo(() => {
-        const snapshot_items = get_snapshot_items(connector);
-        return selectedProvider
-            ? snapshot_items.filter((item) => item.provider === selectedProvider)
-            : snapshot_items;
-    }, [connector, selectedProvider]);
-    const accountGroups = useMemo(() => group_accounts(items), [items]);
     const status = get_status(connector);
     const isConnected = status === "已连接";
     const lastSync =
@@ -234,15 +203,6 @@ export function CpaConnectorSettings({
         if (!onRemove) return;
         setConfirmRemove(true);
     }, [onRemove]);
-
-    const toggleGrp = (id: string) => {
-        setOpenGrps((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
-    };
 
     return (
         <form className="cpa-detail" data-testid="cpa-connector-settings" onSubmit={handle_submit}>
@@ -375,7 +335,35 @@ export function CpaConnectorSettings({
                     </div>
                 )}
 
-                <div className="cfg-sec">同步范围</div>
+                {error && (
+                    <div className="text-xs" style={{ color: "var(--red)" }} role="alert">
+                        {error}
+                    </div>
+                )}
+
+                <div className="cpa-foot">
+                    <button
+                        className="cf-save"
+                        data-testid="cpa-settings-save-btn"
+                        disabled={saving}
+                        type="submit"
+                    >
+                        <Icon name="check" size={15} color="#fff" />
+                        {saving ? "保存中..." : "保存"}
+                    </button>
+                    <button className="cf-remove" type="button" onClick={handle_remove}>
+                        <Icon name="trash" size={14} />
+                        移除数据源
+                    </button>
+                </div>
+            </div>
+
+            {/* right column: sync scope */}
+            <div className="cpa-scope">
+                <div className="cfg-sec" style={{ marginTop: 0 }}>
+                    同步范围
+                </div>
+                <div className="disc-desc">选择要同步的服务商，开启后将自动采集对应账号用量。</div>
                 {MONITORS.map((monitor) => (
                     <div className="cfg-row cfg-scope-row" key={monitor.name}>
                         <span className="cr-vendor">
@@ -411,71 +399,6 @@ export function CpaConnectorSettings({
                         </div>
                     </div>
                 ))}
-
-                {error && (
-                    <div className="text-xs" style={{ color: "var(--red)" }} role="alert">
-                        {error}
-                    </div>
-                )}
-
-                <div className="cpa-foot">
-                    <button
-                        className="cf-save"
-                        data-testid="cpa-settings-save-btn"
-                        disabled={saving}
-                        type="submit"
-                    >
-                        <Icon name="check" size={15} color="#fff" />
-                        {saving ? "保存中..." : "保存"}
-                    </button>
-                    <button className="cf-remove" type="button" onClick={handle_remove}>
-                        <Icon name="trash" size={14} />
-                        移除数据源
-                    </button>
-                </div>
-            </div>
-
-            {/* right column: discovered accounts */}
-            <div className="cpa-disc">
-                <div className="cfg-sec" style={{ marginTop: 0 }}>
-                    已发现账号
-                </div>
-                <div className="disc-desc">由 CPA Manager 发现的账号，将显示在主面板中。</div>
-                {accountGroups.length === 0 ? (
-                    <div className="text-xs" style={{ color: "var(--text-3)" }}>
-                        暂无账号
-                    </div>
-                ) : (
-                    accountGroups.map(([provider, acctItems]) => (
-                        <div className="disc-grp" key={provider}>
-                            <button
-                                className="disc-head"
-                                data-open={openGrps.has(provider) ? "true" : "false"}
-                                onClick={() => {
-                                    toggleGrp(provider);
-                                }}
-                                type="button"
-                            >
-                                <VendorMark id={provider} size={20} />
-                                <span className="dh-name">{PROVIDER_LABELS[provider]}</span>
-                                <span className="dh-count">{acctItems.length} 个</span>
-                                <span className="dh-chev">
-                                    <Icon name="chevron" size={16} />
-                                </span>
-                            </button>
-                            {openGrps.has(provider) && (
-                                <div className="disc-rows">
-                                    {acctItems.map((item) => (
-                                        <div className="disc-row" key={item.id}>
-                                            <span className="drd" />
-                                            <span className="dr-note">{item.accountLabel}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    ))
-                )}
             </div>
             {confirmRemove && (
                 <ConfirmDelete

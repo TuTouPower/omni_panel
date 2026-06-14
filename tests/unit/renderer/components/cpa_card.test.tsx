@@ -124,7 +124,7 @@ describe("CpaCard", () => {
         expect(screen.getByText("个人 CPA")).toBeInTheDocument();
     });
 
-    it("groups rows by provider with sub-headers", () => {
+    it("renders flat AccountRow per unique account with vendor visible", () => {
         render_card({
             rows: [
                 {
@@ -153,30 +153,23 @@ describe("CpaCard", () => {
                 },
             ],
         });
-        // Each provider group should have a sub-header with count
-        expect(screen.getByText("2 个")).toBeInTheDocument();
-        expect(screen.getByText("1 个")).toBeInTheDocument();
-        // All accounts should still be rendered
+        // All accounts should be rendered
         expect(screen.getByText("Claude A")).toBeInTheDocument();
         expect(screen.getByText("Claude B")).toBeInTheDocument();
         expect(screen.getByText("Codex A")).toBeInTheDocument();
+        // No disc-head group headers (flat layout)
+        expect(screen.queryByText("2 个")).not.toBeInTheDocument();
+        expect(screen.queryByText("1 个")).not.toBeInTheDocument();
+        // Vendor name visible in each row (show_vendor=true)
+        const vendorClaude = screen.getAllByText("Claude");
+        expect(vendorClaude.length).toBeGreaterThanOrEqual(2);
+        const vendorCodex = screen.getAllByText("Codex");
+        expect(vendorCodex.length).toBeGreaterThanOrEqual(1);
     });
 
-    it("renders provider group headers with vendor icon", () => {
-        render_card({
-            rows: [
-                {
-                    provider: "claude",
-                    account_id: "a-1",
-                    account_label: "A",
-                    status: "ok",
-                    is_hidden: false,
-                    is_removed: false,
-                },
-            ],
-        });
-        const groups = screen.queryAllByRole("group");
-        expect(groups.length).toBeGreaterThanOrEqual(1);
+    it("does not render fail_count summary", () => {
+        render_card({ fail_count: 5 });
+        expect(screen.queryByText(/采集失败/)).not.toBeInTheDocument();
     });
 
     it("aggregates same account_id with multiple metrics into one row", () => {
@@ -204,7 +197,7 @@ describe("CpaCard", () => {
         expect(labels.length).toBe(1);
     });
 
-    it("group header shows unique account count, not metric count", () => {
+    it("deduplicates rows with same account_id into single row", () => {
         render_card({
             rows: [
                 {
@@ -225,8 +218,8 @@ describe("CpaCard", () => {
                 },
             ],
         });
-        expect(screen.getByText("1 个")).toBeInTheDocument();
-        expect(screen.queryByText("2 个")).not.toBeInTheDocument();
+        const labels = screen.getAllByText("user@example.com");
+        expect(labels.length).toBe(1);
     });
 
     it("shows separate rows for different account_ids under same provider", () => {
@@ -260,6 +253,7 @@ describe("CpaCard", () => {
         });
         expect(screen.getByText("alice@example.com")).toBeInTheDocument();
         expect(screen.getByText("bob@example.com")).toBeInTheDocument();
-        expect(screen.getByText("2 个")).toBeInTheDocument();
+        // No group headers in flat layout
+        expect(screen.queryByText("2 个")).not.toBeInTheDocument();
     });
 });
