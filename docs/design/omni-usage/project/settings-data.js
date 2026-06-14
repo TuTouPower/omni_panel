@@ -205,6 +205,19 @@ const CPA_DISCOVERED = [
   ] },
 ];
 
+/* 第二个 CPA Manager 的已发现账号（覆盖面更小） */
+const CPA_DISCOVERED_2 = [
+  { id: 'claude', accounts: [
+    { name: '私人账号', key: 'sk-ant-****7777' },
+  ] },
+  { id: 'gemini', accounts: [
+    { name: '个人账号', key: 'sk-gem-****7777' },
+  ] },
+  { id: 'deepseek', accounts: [
+    { name: '个人账号', key: 'sk-ds-****7777' },
+  ] },
+];
+
 /* CPA sync scope — vendor list shown as toggles on the detail / add pages */
 const CPA_SCOPE = ['claude', 'codex', 'gemini', 'antigravity', 'kimi'];
 
@@ -269,8 +282,12 @@ const CONNECTIONS = [
     { id: 'mm-1', name: '个人账号', status: 'auth' },
   ] },
 
-  /* CPA Manager：一行可展开的一对多连接，始终就在这个列表里 */
-  { type: 'cpa', id: 'src-cpa', name: 'CPA Manager', status: 'ok', synced: '2 分钟前',
+  /* CPA Manager：一行可展开的一对多连接，始终就在这个列表里。
+     可同时配置多个 CPA Manager —— 每个是独立的一行，带各自别名/URL/范围。 */
+  { type: 'cpa', id: 'src-cpa', name: '公司 CPA', url: 'https://cpa.company.com',
+    status: 'ok', synced: '2 分钟前',
+    scope: ['claude', 'codex', 'gemini', 'antigravity', 'kimi'],
+    discovered: CPA_DISCOVERED,
     accounts: [
       { id: 'cpa-cl-1', vendor: 'claude', name: '个人账号', status: 'ok' },
       { id: 'cpa-cl-2', vendor: 'claude', name: '工作账号', status: 'ok' },
@@ -284,6 +301,17 @@ const CONNECTIONS = [
       // 来源已移除（§5.5.3）：用户在 CPA-Manager 那侧删了号，保留有限历史后清理
       { id: 'cpa-ag-2', vendor: 'antigravity', name: '工作账号', status: 'ok', removed: true },
       { id: 'cpa-km-1', vendor: 'kimi', name: '个人账号', status: 'ok' },
+    ] },
+
+  /* 第二个 CPA Manager：另一套别名 / URL / 范围，覆盖面更小 */
+  { type: 'cpa', id: 'src-cpa-2', name: '个人 CPA', url: 'https://cpa.mystudio.io',
+    status: 'ok', synced: '6 分钟前',
+    scope: ['claude', 'gemini', 'deepseek'],
+    discovered: CPA_DISCOVERED_2,
+    accounts: [
+      { id: 'cpa2-cl-1', vendor: 'claude', name: '私人账号', status: 'ok' },
+      { id: 'cpa2-gm-1', vendor: 'gemini', name: '个人账号', status: 'ok' },
+      { id: 'cpa2-ds-1', vendor: 'deepseek', name: '个人账号', status: 'ok' },
     ] },
 ];
 

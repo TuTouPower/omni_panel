@@ -106,7 +106,7 @@ function AccountRow({ mode, vendorId, account, on, onToggle, onEdit, hidden, onH
   const isCpa = mode === 'cpa';
   const removed = account.removed;
   const effOn = isCpa ? !hidden && !removed : on;
-  const stext = removed ? '来源已移除' : (isCpa && hidden) ? '已隐藏' : textOf(account.status, isCpa ? true : on, vendorId);
+  const stext = removed ? '来源已移除' : (isCpa && hidden) ? '已关闭' : textOf(account.status, isCpa ? true : on, vendorId);
   const sevCls = removed ? '' : account.status === 'error' ? ' err' : account.status === 'auth' ? ' warn' : '';
   const dot = removed ? 'var(--risk-orange)' : (isCpa && hidden) ? 'var(--text-3)' : dotOf(account.status, isCpa ? true : on);
   return (
@@ -125,12 +125,7 @@ function AccountRow({ mode, vendorId, account, on, onToggle, onEdit, hidden, onH
           removed ? (
             <button className="sub-clear" title="清除该来源已移除的账号">清除</button>
           ) : (
-            <>
-              <button className="sp-ic" title="改名" onClick={onEdit}><Icon name="edit" size={15} /></button>
-              <button className={'sp-ic' + (hidden ? ' on' : '')} title={hidden ? '取消隐藏' : '隐藏账号'} onClick={onHide}>
-                <Icon name={hidden ? 'eye' : 'eye_off'} size={15} />
-              </button>
-            </>
+            <SPToggle on={!hidden} onClick={onHide} />
           )
         ) : (
           <>
@@ -172,8 +167,7 @@ function CpaCard({ conn, on, onToggle, onOpenDetail, hiddenSet, onHide, onEditAc
       <div className="acc-row ds-row">
         <span className="ar-vendor-col ds-vendor">
           <VendorMark id="cpa" size={24} />
-          <span className="ar-vendor">CPA Manager</span>
-          <span className="cr-srctag">数据源</span>
+          <span className="ar-vendor">{conn.name}</span>
         </span>
         <div className="ar-acct-col">
           <span className="ar-dot" style={{ background: dotOf(conn.status, on) }} />
@@ -426,15 +420,78 @@ function DiscoveredGroup({ vendor, accounts, open, onToggle }) {
   );
 }
 
-function CpaDetailPage() {
-  const [url, setUrl] = React.useState('https://cpa.example.com');
+/* ---- 数据标签映射 dialog — 同步范围里每个厂商可单独编辑标签映射 ---- */
+function LabelMapDialog({ vendorId, onClose }) {
+  const meta = SV_META[vendorId] || { name: vendorId };
+  const rows = (window.VENDOR_RAW_LABELS && window.VENDOR_RAW_LABELS[vendorId]) || [];
+  const syncOn = window.__omniLabelSync !== false;
+  const [map, setMap] = React.useState({});
+  const setLbl = (raw, v) => setMap((m) => ({ ...m, [raw]: v }));
+  const resetLbl = (raw) => setMap((m) => { const n = { ...m }; delete n[raw]; return n; });
+  return (
+    <Dialog onClose={onClose}>
+      <div className="ad-head">
+        <span className="ad-mark"><VendorMark id={vendorId} size={24} /></span>
+        <div className="ad-htext">
+          <div className="ad-title">数据标签映射</div>
+          <div className="ad-sub">{meta.name}</div>
+        </div>
+        <button className="ad-close" onClick={onClose} title="关闭"><Icon name="close" size={17} strokeWidth={2} /></button>
+      </div>
+      <div className="ad-body">
+        {rows.length > 0 ? (
+          <div className="ad-field">
+            <label className="ad-label">数据标签映射<span className="ad-opt">{syncOn ? '该数据源共用' : '仅此账号'}</span></label>
+            <div className="lm-cols"><span>原始标签（来自接口）</span><span>显示名称</span></div>
+            <div className="lm-list">
+              {rows.map((r) => {
+                const v = map[r.raw] ?? r.def;
+                const changed = v !== r.def;
+                return (
+                  <div className="lm-row" key={r.raw}>
+                    <code className="lm-raw" title={r.raw}>{r.raw}</code>
+                    <span className="lm-arrow"><Icon name="chevron" size={14} /></span>
+                    <div className="lm-inwrap">
+                      <input className="lm-input" value={v} placeholder={r.def} onChange={(e) => setLbl(r.raw, e.target.value)} />
+                      {changed && (
+                        <button className="lm-reset" title="恢复默认" onClick={() => resetLbl(r.raw)}>
+                          <Icon name="reset" size={13} strokeWidth={1.8} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="ad-hint"><Icon name="info" size={12} strokeWidth={1.8} />该服务商暂无可映射的数据标签。</div>
+        )}
+      </div>
+      <div className="ad-foot">
+        <div className="ad-foot-r">
+          <button className="ad-btn ghost" onClick={onClose}>取消</button>
+          <button className="ad-btn primary" onClick={onClose}>保存</button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+function CpaDetailPage({ conn }) {
+  conn = conn || {};
+  const discovered = conn.discovered || CPA_DISCOVERED;
+  const scopeList = conn.scope || CPA_SCOPE;
+  const globalInterval = window.__omniRefreshInterval || '5 分钟';
+  const [alias, setAlias] = React.useState(conn.name || 'CPA Manager');
+  const [url, setUrl] = React.useState(conn.url || 'https://cpa.example.com');
   const [key, setKey] = React.useState('cpa_sk_9f3a2b7c1d8e');
   const [showKey, setShowKey] = React.useState(false);
-  const [interval, setInterval] = React.useState('5 分钟');
-  const [autoSync, setAutoSync] = React.useState(true);
-  const [failNotify, setFailNotify] = React.useState(true);
-  const [scope, setScope] = React.useState(() => new Set(CPA_SCOPE));
-  const [openGrps, setOpenGrps] = React.useState(() => new Set(CPA_DISCOVERED.map((g) => g.id)));
+  const [useGlobalRefresh, setUseGlobalRefresh] = React.useState(true);
+  const [acctInterval, setAcctInterval] = React.useState('5 分钟');
+  const [scope, setScope] = React.useState(() => new Set(scopeList));
+  const [openGrps, setOpenGrps] = React.useState(() => new Set(discovered.map((g) => g.id)));
+  const [labelEdit, setLabelEdit] = React.useState(null);   // vendorId of open 标签映射, or null
 
   const toggleScope = (id) => setScope((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleGrp = (id) => setOpenGrps((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -444,6 +501,10 @@ function CpaDetailPage() {
       {/* ---- config ---- */}
       <div className="cpa-cfg">
         <div className="cfg-sec">连接配置</div>
+        <div className="cfg-field">
+          <label className="cfg-label">别名</label>
+          <input className="ad-input" value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="例如：公司 CPA" />
+        </div>
         <div className="cfg-field">
           <label className="cfg-label">CPA-Manager URL</label>
           <input className="ad-input mono" value={url} onChange={(e) => setUrl(e.target.value)} />
@@ -465,26 +526,32 @@ function CpaDetailPage() {
           <span className="cs-sync">上次同步：2 分钟前</span>
         </div>
 
-        <div className="cfg-sec">同步设置</div>
-        <div className="cfg-row">
-          <div className="cr-text"><div className="cr-title">同步间隔</div></div>
-          <div className="cr-ctrl"><SPSelect value={interval} onChange={setInterval}
-            options={['1 分钟', '5 分钟', '15 分钟', '30 分钟', '仅手动']} /></div>
-        </div>
-        <div className="cfg-row">
-          <div className="cr-text"><div className="cr-title">自动同步</div></div>
-          <div className="cr-ctrl"><SPToggle on={autoSync} onClick={() => setAutoSync((v) => !v)} /></div>
-        </div>
-        <div className="cfg-row">
-          <div className="cr-text"><div className="cr-title">同步失败通知</div></div>
-          <div className="cr-ctrl"><SPToggle on={failNotify} onClick={() => setFailNotify((v) => !v)} /></div>
+        <div className="cfg-sec">刷新</div>
+        <div className="ad-refresh">
+          <div className="ad-toggle-row">
+            <div className="atr-text">
+              <div className="atr-title">跟随全局自动刷新间隔</div>
+              <div className="atr-sub">{useGlobalRefresh ? `当前全局为「${globalInterval}」自动刷新` : '已为该数据源单独设置刷新频率'}</div>
+            </div>
+            <SPToggle on={useGlobalRefresh} onClick={() => setUseGlobalRefresh((v) => !v)} />
+          </div>
+          {!useGlobalRefresh && (
+            <div className="ad-subfield">
+              <span className="ad-sublabel">该数据源刷新频率</span>
+              <SPSelect value={acctInterval} onChange={setAcctInterval}
+                options={['1 分钟', '5 分钟', '15 分钟', '30 分钟', '仅手动']} />
+            </div>
+          )}
         </div>
 
         <div className="cfg-sec">同步范围</div>
-        {CPA_SCOPE.map((id) => (
+        {scopeList.map((id) => (
           <div className="cfg-row cfg-scope-row" key={id}>
             <span className="cr-vendor"><VendorMark id={id} size={20} />{SV_META[id].name}</span>
-            <div className="cr-ctrl"><SPToggle on={scope.has(id)} onClick={() => toggleScope(id)} /></div>
+            <div className="cr-ctrl" style={{ gap: 6 }}>
+              <button className="sp-ic" title="编辑数据标签映射" onClick={() => setLabelEdit(id)}><Icon name="edit" size={15} /></button>
+              <SPToggle on={scope.has(id)} onClick={() => toggleScope(id)} />
+            </div>
           </div>
         ))}
 
@@ -498,11 +565,13 @@ function CpaDetailPage() {
       <div className="cpa-disc">
         <div className="cfg-sec" style={{ marginTop: 0 }}>已发现账号</div>
         <div className="disc-desc">由 CPA Manager 发现的账号，将显示在主面板中。</div>
-        {CPA_DISCOVERED.map((g) => (
+        {discovered.map((g) => (
           <DiscoveredGroup key={g.id} vendor={{ id: g.id, name: SV_META[g.id].name }}
             accounts={g.accounts} open={openGrps.has(g.id)} onToggle={() => toggleGrp(g.id)} />
         ))}
       </div>
+
+      {labelEdit && <LabelMapDialog vendorId={labelEdit} onClose={() => setLabelEdit(null)} />}
     </div>
   );
 }
@@ -731,6 +800,7 @@ function SettingsPanel({ theme, onTheme, accent, onAccent, barScheme, onBarSchem
   React.useEffect(() => { setDetail(null); }, [section]);
 
   const inDetail = section === 'accounts' && detail != null;
+  const detailConn = detail != null ? CONNECTIONS.find((c) => c.id === detail) : null;
 
   /* header */
   const headers = {
@@ -762,7 +832,7 @@ function SettingsPanel({ theme, onTheme, accent, onAccent, barScheme, onBarSchem
             <div className="sp-crumb">
               <span style={{ cursor: 'pointer' }} onClick={() => setDetail(null)}>账号</span>
               <span className="cc-sep"><Icon name="chevron" size={15} /></span>
-              <span className="cc-cur">CPA Manager</span>
+              <span className="cc-cur">{detailConn ? detailConn.name : 'CPA Manager'}</span>
             </div>
           </div>
         ) : (
@@ -779,7 +849,7 @@ function SettingsPanel({ theme, onTheme, accent, onAccent, barScheme, onBarSchem
         {/* ---- body ---- */}
         {inDetail ? (
           <div className="sp-content" style={{ display: 'flex', paddingRight: 0 }}>
-            <CpaDetailPage />
+            <CpaDetailPage key={detail} conn={detailConn} />
           </div>
         ) : (
           <div className="sp-content">
