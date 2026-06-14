@@ -7,6 +7,8 @@ import {
 } from "../lib/refresh-intervals";
 import { Icon } from "./Icon";
 
+const SECRET_PLACEHOLDER = "•".repeat(12);
+
 interface LabelMapRow {
     raw: string;
     display: string;
@@ -131,7 +133,7 @@ export function SettingsForm({
                     const val = formData.get(param.name) as string | null;
                     if (val === null) continue;
                     if (param.type === "secret") {
-                        if (val !== "•".repeat(20) && val !== "") {
+                        if (val !== SECRET_PLACEHOLDER && val !== "") {
                             secrets[param.name] = val;
                         }
                     } else {
@@ -241,7 +243,7 @@ export function SettingsForm({
                                 defaultValue={
                                     param.type === "secret"
                                         ? hasSecrets?.[param.name]
-                                            ? "•".repeat(20)
+                                            ? SECRET_PLACEHOLDER
                                             : ""
                                         : (values[param.name] ?? param.defaultValue ?? "")
                                 }
@@ -264,7 +266,7 @@ export function SettingsForm({
                                                     const el = document.getElementById(
                                                         param.name,
                                                     ) as HTMLInputElement | null;
-                                                    if (el) el.value = "•".repeat(20);
+                                                    if (el) el.value = SECRET_PLACEHOLDER;
                                                 }
                                             });
                                         }}
