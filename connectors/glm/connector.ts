@@ -70,7 +70,7 @@ function reset_at_from(limit: QuotaLimit): number | null {
     for (const candidate of candidates) {
         const raw = to_number(candidate);
         if (raw <= 0) continue;
-        return raw > 1e10 ? raw : raw * 1000;
+        return raw > 1e12 ? raw : raw * 1000;
     }
     return null;
 }
