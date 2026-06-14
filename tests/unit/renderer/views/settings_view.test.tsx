@@ -330,6 +330,52 @@ describe("SettingsView", () => {
         });
     });
 
+    it("opens CPA editing as inline panel with breadcrumb, not dialog", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        const cpa_vendor = await screen.findByText("CPA");
+        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        if (!card) throw new Error("missing CPA card");
+        const edit_btn = card.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
+        if (!edit_btn) throw new Error("missing CPA edit button");
+
+        await user.click(edit_btn);
+
+        // Should render CPA settings inline (not in a dialog overlay)
+        expect(screen.getByTestId("cpa-connector-settings")).toBeInTheDocument();
+        // Should show breadcrumb
+        expect(document.querySelector(".sp-crumb")).toBeInTheDocument();
+        // Should NOT render inside an acct-dialog overlay
+        const dialog = document.querySelector(".acct-dialog");
+        expect(dialog).toBeNull();
+    });
+
+    it("returns to accounts list when breadcrumb back link is clicked", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        const cpa_vendor = await screen.findByText("CPA");
+        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        if (!card) throw new Error("missing CPA card");
+        const edit_btn = card.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
+        if (!edit_btn) throw new Error("missing CPA edit button");
+
+        await user.click(edit_btn);
+        expect(screen.getByTestId("cpa-connector-settings")).toBeInTheDocument();
+
+        // Click breadcrumb link to go back
+        const crumb_link = document.querySelector(".sp-crumb-link");
+        if (!crumb_link) throw new Error("missing breadcrumb link");
+        await user.click(crumb_link);
+
+        // Should be back to accounts list, no inline CPA settings
+        expect(screen.queryByTestId("cpa-connector-settings")).not.toBeInTheDocument();
+        expect(screen.getByText("CPA")).toBeInTheDocument();
+    });
+
     it("calls window.close when back button is clicked", async () => {
         const closeSpy = vi.spyOn(window, "close").mockImplementation(() => undefined);
         const user = userEvent.setup();

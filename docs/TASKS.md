@@ -8,6 +8,8 @@
 
 ## 待办
 
+设置 cpa 里面的多个子账号没有按照账号聚类。
+
 ### 已完成：设置页 CPA Manager 对齐最新 design handoff demo
 
 **来源：** `docs/demo_cpa_alignment_2026_06_14.md`。

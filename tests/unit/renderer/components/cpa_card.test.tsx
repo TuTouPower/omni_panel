@@ -114,4 +114,55 @@ describe("CpaCard", () => {
         render_card({ display_name: "个人 CPA" });
         expect(screen.getByText("个人 CPA")).toBeInTheDocument();
     });
+
+    it("groups rows by provider with sub-headers", () => {
+        render_card({
+            rows: [
+                {
+                    provider: "claude",
+                    account_label: "Claude A",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+                {
+                    provider: "claude",
+                    account_label: "Claude B",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+                {
+                    provider: "codex",
+                    account_label: "Codex A",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+            ],
+        });
+        // Each provider group should have a sub-header with count
+        expect(screen.getByText("2 个")).toBeInTheDocument();
+        expect(screen.getByText("1 个")).toBeInTheDocument();
+        // All accounts should still be rendered
+        expect(screen.getByText("Claude A")).toBeInTheDocument();
+        expect(screen.getByText("Claude B")).toBeInTheDocument();
+        expect(screen.getByText("Codex A")).toBeInTheDocument();
+    });
+
+    it("renders provider group headers with vendor icon", () => {
+        render_card({
+            rows: [
+                {
+                    provider: "claude",
+                    account_label: "A",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+            ],
+        });
+        const groups = screen.queryAllByRole("group");
+        expect(groups.length).toBeGreaterThanOrEqual(1);
+    });
 });

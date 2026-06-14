@@ -275,19 +275,11 @@ function AccountDialog({
     pluginInfos,
     hasSecrets,
     onSave,
-    onSaveSecrets,
-    onRefresh,
     onSelectService,
     onCpa,
-    onToggleEnabled,
     onClose,
-    selectedProvider,
     existingLabelMap,
     onSaveLabelMap,
-    onSaveCpaDisplayName,
-    onOpenLabelMap,
-    globalIntervalLabel,
-    providerLabelMaps,
 }: {
     mode: "add" | "edit";
     instanceId: string | undefined;
@@ -303,21 +295,11 @@ function AccountDialog({
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
     ) => Promise<void>;
-    onSaveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
-    onRefresh: (instanceId: string) => Promise<void>;
     onSelectService: (instanceId: string, pluginName: string) => void;
     onCpa: () => void;
-    onToggleEnabled: (instanceId: string, enabled: boolean) => void;
     onClose: () => void;
-    selectedProvider?: UsageProvider | undefined;
     existingLabelMap?: Readonly<Record<string, string>>;
     onSaveLabelMap?: (instanceId: string, map: Record<string, string>) => Promise<void>;
-    onSaveCpaDisplayName?: (instanceId: string, name: string) => Promise<void>;
-    onOpenLabelMap?: (instanceId: string, provider: UsageProvider) => void;
-    globalIntervalLabel: string;
-    providerLabelMaps?:
-        | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
-        | undefined;
 }) {
     const isEdit = mode === "edit";
 
@@ -363,89 +345,36 @@ function AccountDialog({
 
                 <div className="ad-body">
                     {instanceId && pluginInfo && pluginConfig ? (
-                        pluginInfo.source === "cpa" ? (
-                            <CpaConnectorSettings
-                                connector={pluginInfo}
-                                config={{
-                                    endpointOverrides: pluginConfig.endpointOverrides,
-                                    parameterValues: pluginConfig.parameterValues,
-                                    refreshIntervalSeconds: pluginConfig.refreshIntervalSeconds,
-                                    enabled: pluginConfig.enabled,
-                                }}
-                                enabled={pluginConfig.enabled}
-                                displayName={pluginConfig.name}
-                                globalIntervalLabel={globalIntervalLabel}
-                                hasSecrets={hasSecrets ?? {}}
-                                onSave={async (
-                                    nonSecrets,
-                                    endpointOverrides,
-                                    refreshIntervalSeconds,
-                                    newDisplayName,
-                                ) => {
-                                    // Save display name if changed
-                                    if (
-                                        newDisplayName !== pluginConfig.name &&
-                                        onSaveCpaDisplayName
-                                    ) {
-                                        await onSaveCpaDisplayName(instanceId, newDisplayName);
+                        <SettingsForm
+                            instanceId={instanceId}
+                            parameters={pluginInfo.metadata?.parameters ?? []}
+                            values={pluginConfig.parameterValues}
+                            hasSecrets={hasSecrets ?? {}}
+                            endpoints={pluginInfo.metadata?.endpoints ?? {}}
+                            endpointValues={pluginConfig.endpointOverrides}
+                            refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
+                            {...(pluginInfo.activeProviders[0]
+                                ? { providerId: pluginInfo.activeProviders[0] }
+                                : {})}
+                            onCookieLogin={async (id) => {
+                                try {
+                                    const result = await window.usageboard.auth.cookieLogin(id);
+                                    if (result.saved) {
+                                        await window.usageboard.plugin.refresh(id);
+                                        await window.usageboard.config.get();
                                     }
-                                    await onSave(
-                                        instanceId,
-                                        nonSecrets,
-                                        {},
-                                        endpointOverrides,
-                                        refreshIntervalSeconds,
-                                    );
-                                    onClose();
-                                }}
-                                onSaveSecrets={async (secrets) => {
-                                    await onSaveSecrets(instanceId, secrets);
-                                }}
-                                onToggleEnabled={(nextEnabled) => {
-                                    onToggleEnabled(instanceId, nextEnabled);
-                                }}
-                                onRefresh={async () => {
-                                    await onRefresh(instanceId);
-                                }}
-                                onEditLabelMap={(provider) => {
-                                    if (!instanceId || !onOpenLabelMap) return;
-                                    onOpenLabelMap(instanceId, provider);
-                                }}
-                                providerLabelMaps={providerLabelMaps}
-                                selectedProvider={selectedProvider}
-                            />
-                        ) : (
-                            <SettingsForm
-                                instanceId={instanceId}
-                                parameters={pluginInfo.metadata?.parameters ?? []}
-                                values={pluginConfig.parameterValues}
-                                hasSecrets={hasSecrets ?? {}}
-                                endpoints={pluginInfo.metadata?.endpoints ?? {}}
-                                endpointValues={pluginConfig.endpointOverrides}
-                                refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
-                                {...(pluginInfo.activeProviders[0]
-                                    ? { providerId: pluginInfo.activeProviders[0] }
-                                    : {})}
-                                onCookieLogin={async (id) => {
-                                    try {
-                                        const result = await window.usageboard.auth.cookieLogin(id);
-                                        if (result.saved) {
-                                            await window.usageboard.plugin.refresh(id);
-                                            await window.usageboard.config.get();
-                                        }
-                                        return result.saved;
-                                    } catch {
-                                        return false;
-                                    }
-                                }}
-                                onSave={async (...args) => {
-                                    await onSave(...args);
-                                    onClose();
-                                }}
-                                existingLabelMap={existingLabelMap}
-                                onSaveLabelMap={onSaveLabelMap}
-                            />
-                        )
+                                    return result.saved;
+                                } catch {
+                                    return false;
+                                }
+                            }}
+                            onSave={async (...args) => {
+                                await onSave(...args);
+                                onClose();
+                            }}
+                            existingLabelMap={existingLabelMap}
+                            onSaveLabelMap={onSaveLabelMap}
+                        />
                     ) : mode === "add" && !instanceId ? (
                         <AddAccountPicker
                             pluginInfos={pluginInfos}
@@ -728,6 +657,7 @@ export function SettingsView() {
         account_name: string;
         save_target: "account" | "provider";
     } | null>(null);
+    const [editingCpaId, setEditingCpaId] = useState<string | null>(null);
 
     useEffect(() => {
         if (should_log_raw && config) {
@@ -1034,6 +964,7 @@ export function SettingsView() {
                                 className={`set-nav-item${section === n.id ? " on" : ""}`}
                                 onClick={() => {
                                     setSection(n.id);
+                                    setEditingCpaId(null);
                                 }}
                                 data-testid={`settings-plugin-nav-${n.id}`}
                                 type="button"
@@ -1161,8 +1092,130 @@ export function SettingsView() {
                             </>
                         )}
 
-                        {/* ── Added Connections ── */}
-                        {section === "accounts" && (
+                        {/* ── Added Connections / CPA Detail ── */}
+                        {section === "accounts" &&
+                            editingCpaId &&
+                            (() => {
+                                const editingPlugin = config.plugins.find(
+                                    (p) => p.instanceId === editingCpaId,
+                                );
+                                const editingInfo = pluginInfos.find(
+                                    (p) => p.instanceId === editingCpaId,
+                                );
+                                if (!editingPlugin || !editingInfo) return null;
+                                const editingPluginConfig = editingPlugin;
+                                return (
+                                    <>
+                                        <div className="sp-head">
+                                            <div className="sp-crumb">
+                                                <span
+                                                    className="sp-crumb-link"
+                                                    onClick={() => {
+                                                        setEditingCpaId(null);
+                                                    }}
+                                                >
+                                                    账号
+                                                </span>
+                                                <span className="cc-sep">
+                                                    <Icon name="chevron" size={15} />
+                                                </span>
+                                                <span className="cc-cur">
+                                                    {editingInfo.displayName}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: "flex", flex: 1 }}>
+                                            <CpaConnectorSettings
+                                                connector={editingInfo}
+                                                config={{
+                                                    endpointOverrides:
+                                                        editingPluginConfig.endpointOverrides,
+                                                    parameterValues:
+                                                        editingPluginConfig.parameterValues,
+                                                    refreshIntervalSeconds:
+                                                        editingPluginConfig.refreshIntervalSeconds,
+                                                    enabled: editingPluginConfig.enabled,
+                                                }}
+                                                enabled={editingPluginConfig.enabled}
+                                                displayName={editingPluginConfig.name}
+                                                globalIntervalLabel={interval_label}
+                                                hasSecrets={hasSecrets[editingCpaId] ?? {}}
+                                                onSave={async (
+                                                    nonSecrets,
+                                                    endpointOverrides,
+                                                    refreshIntervalSeconds,
+                                                    newDisplayName,
+                                                ) => {
+                                                    if (
+                                                        newDisplayName !== editingPluginConfig.name
+                                                    ) {
+                                                        await save_config({
+                                                            ...config,
+                                                            plugins: config.plugins.map((pl) =>
+                                                                pl.instanceId === editingCpaId
+                                                                    ? {
+                                                                          ...pl,
+                                                                          name: newDisplayName,
+                                                                      }
+                                                                    : pl,
+                                                            ),
+                                                        });
+                                                    }
+                                                    await savePluginSettings(
+                                                        editingCpaId,
+                                                        nonSecrets,
+                                                        {},
+                                                        endpointOverrides,
+                                                        refreshIntervalSeconds,
+                                                    );
+                                                }}
+                                                onSaveSecrets={async (secrets) => {
+                                                    await savePluginSecrets(editingCpaId, secrets);
+                                                }}
+                                                onToggleEnabled={(nextEnabled) => {
+                                                    void save_config({
+                                                        ...config,
+                                                        plugins: config.plugins.map((pl) =>
+                                                            pl.instanceId === editingCpaId
+                                                                ? { ...pl, enabled: nextEnabled }
+                                                                : pl,
+                                                        ),
+                                                    });
+                                                }}
+                                                onRefresh={async () => {
+                                                    await refreshPlugin(editingCpaId);
+                                                }}
+                                                onRemove={() => {
+                                                    const name = editingInfo.displayName;
+                                                    if (
+                                                        !window.confirm(
+                                                            `确定删除 "${name}"？此操作不可撤销。`,
+                                                        )
+                                                    )
+                                                        return;
+                                                    void save_config({
+                                                        ...config,
+                                                        plugins: config.plugins.filter(
+                                                            (pl) => pl.instanceId !== editingCpaId,
+                                                        ),
+                                                    });
+                                                    setEditingCpaId(null);
+                                                }}
+                                                onEditLabelMap={(provider) => {
+                                                    set_label_map_dialog({
+                                                        instance_id: editingCpaId,
+                                                        vendor_id: provider,
+                                                        account_name: PROVIDER_LABELS[provider],
+                                                        save_target: "provider",
+                                                    });
+                                                }}
+                                                providerLabelMaps={config.accountLabelMaps}
+                                            />
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        {section === "accounts" && !editingCpaId && (
                             <>
                                 <div className="sp-head">
                                     <span className="sp-title">已添加</span>
@@ -1411,11 +1464,7 @@ export function SettingsView() {
                                                                 );
                                                             }}
                                                             on_edit={() => {
-                                                                setDialog({
-                                                                    mode: "edit",
-                                                                    instanceId: plugin.instanceId,
-                                                                    pluginName: info?.displayName,
-                                                                });
+                                                                setEditingCpaId(plugin.instanceId);
                                                             }}
                                                             on_delete={() => {
                                                                 const name =
@@ -1759,28 +1808,15 @@ export function SettingsView() {
                         pluginConfig={config.plugins.find(
                             (p) => p.instanceId === dialog.instanceId,
                         )}
-                        selectedProvider={dialog.providerId}
                         pluginInfos={pluginInfos}
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
-                        onSaveSecrets={savePluginSecrets}
-                        onRefresh={refreshPlugin}
                         onSelectService={(id, name) => {
                             setDialog({ mode: "edit", instanceId: id, pluginName: name });
                         }}
                         onCpa={() => {
                             setDialog(null);
                             setShowCpaAdd(true);
-                        }}
-                        onToggleEnabled={(instanceId, nextEnabled) => {
-                            void save_config({
-                                ...config,
-                                plugins: config.plugins.map((pl) =>
-                                    pl.instanceId === instanceId
-                                        ? { ...pl, enabled: nextEnabled }
-                                        : pl,
-                                ),
-                            });
                         }}
                         onClose={() => {
                             setDialog(null);
@@ -1802,24 +1838,6 @@ export function SettingsView() {
                                 },
                             });
                         }}
-                        onSaveCpaDisplayName={async (id, name) => {
-                            await save_config({
-                                ...config,
-                                plugins: config.plugins.map((pl) =>
-                                    pl.instanceId === id ? { ...pl, name } : pl,
-                                ),
-                            });
-                        }}
-                        onOpenLabelMap={(id, provider) => {
-                            set_label_map_dialog({
-                                instance_id: id,
-                                vendor_id: provider,
-                                account_name: PROVIDER_LABELS[provider],
-                                save_target: "provider",
-                            });
-                        }}
-                        globalIntervalLabel={interval_label}
-                        providerLabelMaps={config.accountLabelMaps}
                     />
                 )}
                 {showCpaAdd && (

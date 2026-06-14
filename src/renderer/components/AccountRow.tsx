@@ -17,6 +17,7 @@ interface AccountRowProps {
     on_hide?: () => void;
     on_unhide?: () => void;
     on_clear?: () => void;
+    show_vendor?: boolean;
 }
 
 const STATUS_DOT_COLOR: Record<string, string> = {
@@ -76,6 +77,7 @@ export function AccountRow({
     on_hide,
     on_unhide,
     on_clear,
+    show_vendor = true,
 }: AccountRowProps) {
     const is_cpa_child = mode === "cpa-child";
     const effective_on = is_cpa_child ? !is_hidden && !is_removed : enabled;
@@ -98,10 +100,12 @@ export function AccountRow({
 
     return (
         <div className={row_class}>
-            <span className="ar-vendor-col">
-                <VendorMark id={provider} size={24} />
-                <span className="ar-vendor">{get_vendor_name(provider)}</span>
-            </span>
+            {show_vendor && (
+                <span className="ar-vendor-col">
+                    <VendorMark id={provider} size={24} />
+                    <span className="ar-vendor">{get_vendor_name(provider)}</span>
+                </span>
+            )}
             <div className="ar-acct-col">
                 <span className="ar-dot" style={{ background: dot }} />
                 <span className="ar-note">{account_label}</span>
