@@ -125,6 +125,9 @@ CPA 子账号不应有删除按钮。
 11. AccountDialog header 缺少 VendorMark 图标（demo 在标题前显示厂商 logo）。
 12. SettingsForm 顶部冗余显示插件名（AccountDialog header 已有），且字段标签用 `cfg-label` 而非 `ad-label`。
 13. SettingsForm footer 用 `cf-save` 而非 demo 的 `ad-btn primary` + `ad-btn ghost` 取消按钮。
+14. SettingsForm 未使用 `label@zh-Hans` 本地化标签，导致"Amount Limit"等英文显示。
+15. SettingsForm 密码字段已有密钥时显示固定 `"***"`，应按实际密钥长度显示对应数量的点。
+16. 数据标签映射 `.lm-raw` 列宽度不足，原始标签被挤占。
 
 ### 建议实施范围
 

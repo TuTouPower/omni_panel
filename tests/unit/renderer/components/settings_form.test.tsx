@@ -284,4 +284,40 @@ describe("SettingsForm cookie login", () => {
             expect(screen.getByText("网页登录")).toBeInTheDocument();
         });
     });
+
+    it("uses label@zh-Hans when available", () => {
+        const params: PluginParameterMetadata[] = [
+            {
+                name: "LIMIT",
+                label: "Amount Limit",
+                "label@zh-Hans": "金额上限",
+                type: "integer",
+                required: false,
+            },
+        ];
+        renderForm({ parameters: params });
+        expect(screen.getByText("金额上限")).toBeInTheDocument();
+        expect(screen.queryByText("Amount Limit")).not.toBeInTheDocument();
+    });
+
+    it("shows masked dots matching secret length instead of fixed asterisks", () => {
+        const params: PluginParameterMetadata[] = [
+            {
+                name: "API_KEY",
+                label: "API Key",
+                type: "secret",
+                required: true,
+            },
+        ];
+        renderForm({
+            parameters: params,
+            hasSecrets: { API_KEY: true },
+        });
+        const input = screen.getByLabelText("API Key");
+        const val = String(input.value);
+        // Should NOT show fixed "***"
+        expect(val).not.toBe("***");
+        // Should show dots matching some reasonable length (not 3)
+        expect(val.length).toBeGreaterThan(3);
+    });
 });

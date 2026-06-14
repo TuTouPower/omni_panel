@@ -2964,6 +2964,7 @@ html[data-window="tray"] #root {
     border-radius: 6px;
     color: var(--text-2);
     flex: 1;
+    min-width: 120px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

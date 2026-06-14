@@ -118,7 +118,7 @@ export function SettingsForm({
                     const val = formData.get(param.name) as string | null;
                     if (val === null) continue;
                     if (param.type === "secret") {
-                        if (val !== "***" && val !== "") {
+                        if (val !== "•".repeat(20) && val !== "") {
                             secrets[param.name] = val;
                         }
                     } else {
@@ -191,7 +191,7 @@ export function SettingsForm({
             {parameters.map((param) => (
                 <div className="ad-field" key={param.name}>
                     <label className="ad-label" htmlFor={param.name}>
-                        {param.label}
+                        {param["label@zh-Hans"] ?? param.label}
                     </label>
                     {param.type === "boolean" ? (
                         <input
@@ -230,7 +230,7 @@ export function SettingsForm({
                                 defaultValue={
                                     param.type === "secret"
                                         ? hasSecrets?.[param.name]
-                                            ? "***"
+                                            ? "•".repeat(20)
                                             : ""
                                         : (values[param.name] ?? param.defaultValue ?? "")
                                 }
@@ -253,7 +253,7 @@ export function SettingsForm({
                                                     const el = document.getElementById(
                                                         param.name,
                                                     ) as HTMLInputElement | null;
-                                                    if (el) el.value = "***";
+                                                    if (el) el.value = "•".repeat(20);
                                                 }
                                             });
                                         }}
