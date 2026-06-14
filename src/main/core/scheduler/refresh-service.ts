@@ -128,11 +128,13 @@ async function execute_connector(
     connector_config: ConnectorConfiguration,
     definition: ConnectorDefinition,
     vault: VaultBackend,
+    proxy_url?: string,
 ): Promise<Observation[]> {
     const params = await build_params(connector_config, definition, vault);
     const ctx = create_connector_context(definition.manifest, vault, connector_config.instanceId, {
         endpoint_overrides: { ...connector_config.endpointOverrides },
         params,
+        ...(proxy_url ? { proxy_url } : {}),
     });
 
     if (definition.manifest.script) {
@@ -193,6 +195,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     connector_config,
                     definition,
                     deps.vault,
+                    config.proxy?.url,
                 );
                 for (const obs of observations) {
                     try {

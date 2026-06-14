@@ -1019,6 +1019,22 @@ export function SettingsView() {
                                     />
                                 </SetRow>
 
+                                <div className="set-group-label">网络</div>
+                                <SetRow title="代理地址" sub="HTTP/HTTPS 代理，留空直连">
+                                    <input
+                                        className="ad-input mono"
+                                        value={config.proxy?.url ?? ""}
+                                        onChange={(e) => {
+                                            const val = e.target.value.trim();
+                                            void save_config({
+                                                ...config,
+                                                proxy: val ? { url: val } : undefined,
+                                            });
+                                        }}
+                                        placeholder="留空表示直连"
+                                    />
+                                </SetRow>
+
                                 <div className="set-group-label">窗口</div>
                                 <SetRow
                                     title="主面板打开方式"

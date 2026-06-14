@@ -677,4 +677,56 @@ describe("SettingsView", () => {
             expect(mark).not.toBeNull();
         }
     });
+
+    it("shows proxy URL input in general section", async () => {
+        current_config = { ...base_config, proxy: { url: "http://127.0.0.1:7897" } };
+        render(<SettingsView />);
+        await waitFor(() => {
+            expect(screen.getByPlaceholderText("留空表示直连")).toBeInTheDocument();
+        });
+        expect(screen.getByPlaceholderText("留空表示直连")).toHaveValue("http://127.0.0.1:7897");
+    });
+
+    it("saves proxy config when proxy URL is entered", async () => {
+        const user = userEvent.setup();
+        current_config = { ...base_config };
+        render(<SettingsView />);
+        await waitFor(() => {
+            expect(screen.getByPlaceholderText("留空表示直连")).toBeInTheDocument();
+        });
+
+        const input = screen.getByPlaceholderText("留空表示直连");
+        await user.clear(input);
+        // Use paste to insert full URL in one event (type fires per-character).
+        await user.click(input);
+        await user.paste("http://127.0.0.1:7897");
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalled();
+        });
+        const saved_config = (
+            save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
+        )?.[0];
+        expect(saved_config?.proxy).toEqual({ url: "http://127.0.0.1:7897" });
+    });
+
+    it("removes proxy config when proxy URL is cleared", async () => {
+        const user = userEvent.setup();
+        current_config = { ...base_config, proxy: { url: "http://127.0.0.1:7897" } };
+        render(<SettingsView />);
+        await waitFor(() => {
+            expect(screen.getByPlaceholderText("留空表示直连")).toBeInTheDocument();
+        });
+
+        const input = screen.getByPlaceholderText("留空表示直连");
+        await user.clear(input);
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalled();
+        });
+        const saved_config = (
+            save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
+        )?.[0];
+        expect(saved_config?.proxy).toBeUndefined();
+    });
 });

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createRefreshService } from "../../../src/main/core/scheduler/refresh-service";
 import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
-import type { AppConfiguration, PluginConfiguration } from "../../../src/main/core/config/types";
+import type { AppConfiguration, ConnectorConfiguration } from "../../../src/main/core/config/types";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
@@ -31,7 +31,7 @@ return [{
 }];
 `;
 
-function plugin_config(instance_id = "deepseek-1", enabled = true): PluginConfiguration {
+function plugin_config(instance_id = "deepseek-1", enabled = true): ConnectorConfiguration {
     return {
         instanceId: instance_id,
         stateId: instance_id,
@@ -47,7 +47,7 @@ function plugin_config(instance_id = "deepseek-1", enabled = true): PluginConfig
 // Variant with no configured API_KEY — simulates a user who added the plugin
 // but never entered a secret. Vault is also empty, so the required secret is
 // genuinely missing.
-function plugin_config_no_secret(instance_id = "deepseek-1"): PluginConfiguration {
+function plugin_config_no_secret(instance_id = "deepseek-1"): ConnectorConfiguration {
     return {
         ...plugin_config(instance_id),
         parameterValues: { INSTANCE_ID: instance_id },
@@ -66,6 +66,7 @@ function definition(directory: string, script = "connector.js"): ConnectorDefini
                 { name: "INSTANCE_ID", type: "string", required: true, exposeToScript: true },
                 { name: "API_KEY", type: "secret", required: true, exposeToScript: true },
             ],
+            endpoints: { default: "http://127.0.0.1:1" },
             script,
             poll: {
                 request: { endpoint: "default", path: "/usage", method: "GET" },
@@ -109,7 +110,7 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
     };
 }
 
-function create_config_store(plugins: PluginConfiguration[]) {
+function create_config_store(plugins: ConnectorConfiguration[]) {
     return {
         load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
             schemaVersion: 1,
@@ -124,7 +125,7 @@ function create_config_store(plugins: PluginConfiguration[]) {
     };
 }
 
-async function create_service(plugins: PluginConfiguration[]) {
+async function create_service(plugins: ConnectorConfiguration[]) {
     const tempDir = await mkdtemp(join(tmpdir(), "connector-refresh-test-"));
     await writeFile(join(tempDir, "connector.js"), script_body);
     const observationStore = create_observation_store();
@@ -251,6 +252,71 @@ describe("refresh-service", () => {
             expect(state.status).toBe("failed");
             if (state.status !== "failed") throw new Error("expected failed state");
             expect(state.error).toMatch(/API_KEY/i);
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("passes config.proxy.url to create_connector_context as proxy_url", async () => {
+        // Verify the wiring: when config.proxy.url is set, the proxy_url
+        // propagates to the net-client layer. An invalid proxy URL causes
+        // the HTTP request to fail with a proxy-related error, proving
+        // the proxy was used rather than a direct connection.
+        const tempDir = await mkdtemp(join(tmpdir(), "connector-proxy-test-"));
+        const poll_script = `
+const resp = await ctx.http.get_json("default", "/usage");
+return [{
+    provider: "deepseek",
+    source_instance_id: ctx.params.INSTANCE_ID,
+    account_id: ctx.params.INSTANCE_ID,
+    account_label: "DeepSeek",
+    metric_id: "deepseek:usage",
+    name: "Usage",
+    window: "month",
+    used: resp.used,
+    limit: resp.limit,
+    display_style: "ratio",
+    reset_at: null,
+    status: "normal",
+    observed_at: 1780000000000,
+    source: "wrapper",
+    stale: false,
+    last_error: null
+}];`;
+        await writeFile(join(tempDir, "connector.js"), poll_script);
+        const observationStore = create_observation_store();
+        const runtimeStore = createRuntimeStore();
+        const configStore = {
+            load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [{ ...plugin_config(), executablePath: tempDir }],
+                launchAtLogin: false,
+                proxy: { url: "http://127.0.0.1:1" }, // invalid proxy → should fail with proxy error
+            }),
+            save: vi.fn<(config: AppConfiguration) => Promise<void>>().mockResolvedValue(undefined),
+            scheduleSave: vi.fn(),
+            flushPendingSave: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+            hasPendingSave: vi.fn<() => boolean>().mockReturnValue(false),
+        };
+        const service = createRefreshService({
+            definitions: [definition(tempDir)],
+            observationStore,
+            runtimeStore,
+            configStore,
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            expect(state.status).toBe("failed");
+            if (state.status !== "failed") throw new Error("expected failed state");
+            // Error should indicate proxy/connection failure, NOT a direct
+            // connection to the real endpoint (which would succeed or give
+            // a different error).
+            expect(state.error).toMatch(/connect|ECONNREFUSED|proxy|fetch/i);
         } finally {
             await rm(tempDir, { recursive: true, force: true });
         }

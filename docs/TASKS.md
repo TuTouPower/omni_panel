@@ -20,6 +20,26 @@
 - `src/renderer/views/PopupView.tsx:122`：调用 `useNowTick()`
 - 测试：`tests/unit/renderer/hooks/use_now_tick.test.ts`（3 cases）、`popup_view.test.tsx` 新增 status bar 时间更新用例
 
+### 全局代理接线 ✅
+
+**问题：** `AppConfiguration.proxy`（`{ url, noProxy? }`）和 `proxyConfigurationSchema` 已存在，`net-client.ts` 也支持 `proxy_url`。但 `refresh-service.ts` 从未把 `config.proxy?.url` 传给 `create_connector_context`，所有 connector 直连，不走代理。Brave Search 等被墙的 API 无法访问。
+
+**方案：** 接线已有字段 + 设置页加输入框。
+
+**已完成：**
+
+- `src/main/core/scheduler/refresh-service.ts`：`execute_connector` 加 `proxy_url` 参数，`refresh()` 传 `config.proxy?.url`
+- `src/renderer/views/SettingsView.tsx`："网络"设置组，代理地址输入框，保存 `proxy` 配置
+- 测试：`refresh-service.test.ts` 新增 proxy 传递用例（invalid proxy → 连接失败）、`settings_view.test.tsx` 新增 3 个用例（渲染/输入保存/清空删除）
+
+**不需要改：** `config.ts` 类型、`types.ts` schema、`net-client.ts`
+
+### 主面板展开/折叠状态重启丢失
+
+**问题：** `collapsed_accounts` 和 `expanded_providers`（`PopupView.tsx:124-125`）是纯 React state，无持久化。每次重启应用，所有账号卡片的展开/折叠状态重置为默认折叠。
+
+**待定：** 持久化方案选型——存入 `config.json`（类似 `accountOverrides`）还是 `localStorage` 等轻量存储。
+
 ### ~~删除 Cookie 刷新周期功能 + 账号页多余文案~~
 
 已完成（`16b4303`）。删除 timer、cookieRefreshService、AUTH_REFRESH_COOKIES IPC、schema 字段、UI section、辅助函数。
