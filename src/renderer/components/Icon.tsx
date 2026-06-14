@@ -99,16 +99,16 @@ const VENDOR_LOGOS: Record<string, string> = {
 
 const VENDOR_MARKS: Record<string, (s: number) => string> = {
     overview: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="#3d7afd" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">` +
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">` +
         `<rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="2"/>` +
         `<rect x="3.5" y="13" width="7.5" height="7.5" rx="2"/><rect x="13" y="13" width="7.5" height="7.5" rx="2"/></svg>`,
     claude: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24"><g stroke="#d97757" stroke-width="2" stroke-linecap="round">` +
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="2" stroke-linecap="round">` +
         `<line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>` +
         `<line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/><line x1="18.4" y1="5.6" x2="5.6" y2="18.4"/>` +
         `<line x1="12" y1="2.5" x2="12" y2="21.5" transform="rotate(22.5 12 12)"/>` +
         `<line x1="12" y1="2.5" x2="12" y2="21.5" transform="rotate(67.5 12 12)"/></g>` +
-        `<circle cx="12" cy="12" r="2.4" fill="#d97757"/></svg>`,
+        `<circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>`,
     codex: (s) =>
         `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none">` +
         `<path d="M12 2.6l8 4.4v9.9l-8 4.5-8-4.5V7z" fill="#eef1ff" stroke="#6172f3" stroke-width="1.4"/>` +
@@ -118,8 +118,8 @@ const VENDOR_MARKS: Record<string, (s: number) => string> = {
         `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none">` +
         `<path d="M12 3c1.2 4.8 4.2 7.8 9 9-4.8 1.2-7.8 4.2-9 9-1.2-4.8-4.2-7.8-9-9 4.8-1.2 7.8-4.2 9-9z" fill="#7c8cff"/></svg>`,
     antigravity: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="#7b5cf6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">` +
-        `<circle cx="12" cy="12" r="3" fill="#7b5cf6"/><path d="M4 12c2-5 14-5 16 0M4 12c2 5 14 5 16 0"/>` +
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">` +
+        `<circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M4 12c2-5 14-5 16 0M4 12c2 5 14 5 16 0"/>` +
         `<path d="M12 4c5 2 5 14 0 16M12 4c-5 2-5 14 0 16"/></svg>`,
     kimi: (s) =>
         `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none">` +
@@ -136,21 +136,21 @@ const VENDOR_MARKS: Record<string, (s: number) => string> = {
         `<path d="M3 13c2.5 0 4-1.2 5-3 .8 2.4 3 4 6 4 2.2 0 4-.7 5.5-2-.3 4-3.8 6.8-8 6.8-3.7 0-6.8-2.4-8.5-5.8z" fill="#4d6bfe"/>` +
         `<circle cx="15.5" cy="10.5" r="1.1" fill="#fff"/></svg>`,
     minimax: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="#e23744" stroke-width="2" stroke-linecap="round">` +
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">` +
         `<path d="M3 12c1.5 0 1.5-5 3-5s1.5 11 3 11 1.5-13 3-13 1.5 9 3 9 1.5-3 3-3"/></svg>`,
     tavily: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">` +
-        `<path d="M12 21V8" stroke="#3d7afd"/><path d="M12 8l-4 4M12 8l4 4" stroke="#3d7afd"/>` +
-        `<path d="M12 3l5 4" stroke="#f5a524"/><path d="M5 9l5-2.5" stroke="#22c55e"/></svg>`,
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">` +
+        `<path d="M12 21V8"/><path d="M12 8l-4 4M12 8l4 4"/>` +
+        `<path d="M12 3l5 4"/><path d="M5 9l5-2.5"/></svg>`,
     mimo: (s) =>
         `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="currentColor">` +
         `<title>XiaomiMiMo</title><path d="M.958 15.936a.459.459 0 01.459.44v2.729a.46.46 0 01-.918 0v-2.729a.459.459 0 01.459-.44zm4.814-2.035a.46.46 0 01.553.45v4.754a.458.458 0 11-.918 0V15.48L3.74 17.202a.462.462 0 01-.655.016.462.462 0 01-.065-.082L.628 14.67a.459.459 0 01.658-.637l2.124 2.187 2.127-2.188a.46.46 0 01.235-.13zm2.068.004a.46.46 0 01.458.445v4.755a.46.46 0 01-.458.458.459.459 0 01-.458-.458V14.35a.459.459 0 01.458-.445zm1.973 2.014a.46.46 0 01.46.457v2.729a.46.46 0 01-.784.324.46.46 0 01-.134-.324v-2.729a.46.46 0 01.458-.458zm.002-2.045a.458.458 0 01.328.157l2.127 2.19 2.125-2.19a.459.459 0 01.784.318v4.756a.46.46 0 01-.455.458.46.46 0 01-.458-.458V15.48l-1.667 1.723a.46.46 0 01-.65.008l-.005-.005c0-.002-.002-.002-.004-.003l-2.455-2.534a.46.46 0 01-.008-.667.461.461 0 01.338-.128zm6.797 1.206a.46.46 0 01.53.651A1.966 1.966 0 0019.81 18.4a.462.462 0 01.623.18.46.46 0 01-.181.624 2.863 2.863 0 01-1.38.353l-.142-.004a2.88 2.88 0 01-2.393-4.263.461.461 0 01.274-.21zm.864-.931a2.884 2.884 0 013.915 3.914.46.46 0 01-.402.24l-.057-.004a.458.458 0 01-.164-.055.46.46 0 01-.182-.622 1.967 1.967 0 00-2.669-2.67.459.459 0 11-.441-.803zM9.59 6.368c1.481 0 1.696 1.202 1.696 1.654v2.648h-.917v-.432c-.26.346-.792.535-1.36.535-.133 0-1.289-.03-1.384-1.136-.082-.932.675-1.61 2.053-1.61h.691c0-.563-.367-.886-.983-.886-.44.013-.864.174-1.2.458l-.36-.664c.484-.379 1.012-.567 1.764-.567zm4.427.1c1.263 0 2.082.97 2.083 2.15 0 1.181-.824 2.154-2.083 2.154-1.26 0-2.084-.972-2.084-2.152 0-1.18.82-2.153 2.084-2.153zm6.801.015c.68 0 1.202.465 1.197 1.548v2.642H21.1V8.29c0-.312-.002-.98-.63-.98s-.628.667-.628.838v2.524h-.89V8.148c0-.17-.001-.838-.63-.838-.628 0-.628.668-.628.98v2.383h-.917v-4.03h.917V7a1.22 1.22 0 01.947-.516c.398 0 .76.193.982.686a1.321 1.321 0 011.195-.686zm-18.093.872l1.457-1.772H5.32L3.311 8.07l2.14 2.602H4.24L2.725 8.796 1.21 10.672H0L2.138 8.07.13 5.583h1.138l1.458 1.772zm4.149 3.317h-.916V6.644h.916v4.028zm16.99 0h-.916V6.644h.916v4.028zM9.925 8.71c-1.055 0-1.359.412-1.326.742.032.329.324.537.757.537a1.013 1.013 0 001.014-.968l.002-.31h-.447zM14.018 7.3c-.663 0-1.184.487-1.184 1.32 0 .832.52 1.32 1.184 1.32.662 0 1.182-.49 1.182-1.32 0-.832-.52-1.32-1.182-1.32zM6.417 5.001a.568.568 0 01.587.582.588.588 0 01-1.175 0A.57.57 0 016.417 5zm16.991 0a.57.57 0 01.592.582.588.588 0 01-1.174 0 .57.57 0 01.357-.542.572.572 0 01.225-.04z"></path></svg>`,
     cpa: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke-width="4.2">` +
-        `<path d="M12 5A7 7 0 0 1 19 12" stroke="#3d7afd"/>` +
-        `<path d="M19 12A7 7 0 0 1 12 19" stroke="#22c55e"/>` +
-        `<path d="M12 19A7 7 0 0 1 5 12" stroke="#f5a524"/>` +
-        `<path d="M5 12A7 7 0 0 1 12 5" stroke="#d97757"/></svg>`,
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4.2">` +
+        `<path d="M12 5A7 7 0 0 1 19 12"/>` +
+        `<path d="M19 12A7 7 0 0 1 12 19"/>` +
+        `<path d="M12 19A7 7 0 0 1 5 12"/>` +
+        `<path d="M5 12A7 7 0 0 1 12 5"/></svg>`,
 };
 
 interface VendorMarkProps {
@@ -171,12 +171,11 @@ export function VendorMark({ id, size = 28, color }: VendorMarkProps) {
 
     const render = VENDOR_MARKS[id] ?? VENDOR_MARKS["overview"];
     if (!render) return null;
-    const html = color ? render(size).replace(/stroke="[^"]*"/, `stroke="${color}"`) : render(size);
     return (
         <span
             className="vicon"
-            style={{ width: size, height: size }}
-            dangerouslySetInnerHTML={{ __html: html }}
+            style={{ width: size, height: size, color: color ?? undefined }}
+            dangerouslySetInnerHTML={{ __html: render(size) }}
         />
     );
 }

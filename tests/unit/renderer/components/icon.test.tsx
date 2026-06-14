@@ -87,6 +87,22 @@ describe("VendorMark", () => {
         expect(svg).not.toContain("<rect");
     });
 
+    it("applies color via currentColor instead of hardcoded hex", () => {
+        const { container } = render(<VendorMark id="cpa" color="red" />);
+        const svg = container.querySelector("span.vicon svg");
+        expect(svg).toBeTruthy();
+        if (!svg) return;
+        // SVG should use currentColor, not hardcoded hex colors
+        expect(svg.outerHTML).toContain("currentColor");
+        expect(svg.outerHTML).not.toContain("#3d7afd");
+        expect(svg.outerHTML).not.toContain("#22c55e");
+        // Wrapper should apply color via CSS
+        const wrapper = container.querySelector("span.vicon");
+        expect(wrapper).toBeTruthy();
+        if (!wrapper) return;
+        expect(wrapper.getAttribute("style")).toContain("color");
+    });
+
     it("falls back to overview SVG for unknown vendor", () => {
         const { container } = render(<VendorMark id="unknown-vendor" />);
         const inner = container.querySelector("span.vicon svg");
