@@ -28,6 +28,7 @@ const pluginConfigurationSchema = z.object({
     enabled: z.boolean(),
     executablePath: z.string().min(1),
     refreshIntervalSeconds: refreshIntervalSecondsSchema,
+    manualRefreshOnly: z.boolean().optional(),
     parameterValues: z.record(z.string()),
     endpointOverrides: z.record(z.string()).default({}),
 });
@@ -71,13 +72,6 @@ export const appConfigurationSchema = z.object({
     accountLabelMaps: z.record(z.record(z.string())).optional(),
     labelMapSync: z.boolean().optional(),
     floatingBounds: floatingBoundsSchema.optional(),
-    cookieRefreshHours: z
-        .number()
-        .int()
-        .refine((v) => [0, 6, 12, 24].includes(v), {
-            message: "cookieRefreshHours must be 0, 6, 12, or 24",
-        })
-        .optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {
@@ -85,5 +79,4 @@ export const DEFAULT_CONFIGURATION: AppConfiguration = {
     language: "zh-Hans",
     plugins: [],
     launchAtLogin: false,
-    cookieRefreshHours: 24,
 };

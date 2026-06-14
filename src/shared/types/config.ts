@@ -49,7 +49,6 @@ export interface AppConfiguration {
     readonly labelMapSync?: boolean;
     readonly floatingBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;
-    readonly cookieRefreshHours?: number;
 }
 
 export interface PluginConfiguration {
@@ -59,6 +58,7 @@ export interface PluginConfiguration {
     readonly enabled: boolean;
     readonly executablePath: string;
     readonly refreshIntervalSeconds: number;
+    readonly manualRefreshOnly?: boolean;
     readonly parameterValues: Readonly<Record<string, string>>;
     readonly endpointOverrides: Readonly<Record<string, string>>;
 }

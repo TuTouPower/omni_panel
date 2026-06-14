@@ -38,7 +38,6 @@ import { registerAuthIpc } from "./ipc/auth-ipc";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
-import { createCookieRefreshService } from "./core/session/cookie-refresh-service";
 import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
@@ -233,6 +232,7 @@ void app.whenReady().then(async () => {
             enabled: true,
             executablePath: def.executablePath,
             refreshIntervalSeconds: 300,
+            ...(def.manifest.manualDefault === true && { manualRefreshOnly: true }),
             parameterValues: Object.fromEntries(
                 def.manifest.parameters
                     .filter((param) => param.type !== "secret" && param.default !== undefined)
@@ -288,13 +288,6 @@ void app.whenReady().then(async () => {
     let main_panel_controller: MainPanelController | null = null;
     let tray_ref: Tray | null = null;
 
-    // Cookie refresh service — background session cookie renewal
-    const cookieRefreshService = createCookieRefreshService({
-        configStore,
-        secretsStore,
-        definitions: allDefinitions,
-    });
-
     // Register IPC handlers
     await registerConnectorIpc({
         configStore,
@@ -315,11 +308,6 @@ void app.whenReady().then(async () => {
                 secretParamKeys.set(k, v);
             }
             orchestrator.rebuild(updatedConfig);
-            const new_hours = updatedConfig.cookieRefreshHours;
-            const old_hours = currentConfigSnapshot.cookieRefreshHours;
-            if (new_hours !== old_hours) {
-                start_cookie_refresh_timer(new_hours);
-            }
             for (const win of BrowserWindow.getAllWindows()) {
                 if (!win.isDestroyed()) {
                     win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
@@ -334,7 +322,6 @@ void app.whenReady().then(async () => {
         configStore,
         secretsStore,
         definitions: allDefinitions,
-        cookieRefreshService,
     });
 
     // Session manager — controlled login window + credential capture
@@ -461,28 +448,6 @@ void app.whenReady().then(async () => {
 
     // Start periodic refresh for enabled plugins
     orchestrator.startAll(currentConfig);
-
-    // Cookie refresh timer
-    let cookie_refresh_timer: ReturnType<typeof setInterval> | null = null;
-
-    function start_cookie_refresh_timer(hours: number | undefined) {
-        if (cookie_refresh_timer) {
-            clearInterval(cookie_refresh_timer);
-            cookie_refresh_timer = null;
-        }
-        if (!hours || hours === 0) {
-            log.info("Cookie refresh timer disabled (cookieRefreshHours=0)");
-            return;
-        }
-        const ms = hours * 3_600 * 1_000;
-        log.info(`Starting cookie refresh timer every ${String(hours)}h`);
-        cookie_refresh_timer = setInterval(() => {
-            log.info("Cookie refresh timer triggered");
-            void cookieRefreshService.refreshAll();
-        }, ms);
-    }
-
-    start_cookie_refresh_timer(currentConfig.cookieRefreshHours ?? 24);
 
     // Sleep/wake handling
     powerMonitor.on("suspend", () => {
@@ -707,10 +672,6 @@ void app.whenReady().then(async () => {
         }
         main_panel_controller?.close_for_mode_switch();
         main_panel_controller = null;
-        if (cookie_refresh_timer) {
-            clearInterval(cookie_refresh_timer);
-            cookie_refresh_timer = null;
-        }
         orchestrator.shutdown();
         cleanupEventIpc?.();
         cleanupEventIpc = null;

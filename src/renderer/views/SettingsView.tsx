@@ -14,6 +14,7 @@ import { CpaCard } from "../components/CpaCard";
 import { AddAccountDialog } from "../components/AddAccountDialog";
 import type { AddAccountParams } from "../components/AddAccountDialog";
 import { LabelMapDialog } from "../components/LabelMapDialog";
+import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon, VendorMark } from "../components/Icon";
 import type { PluginInfo } from "../../shared/types/ipc";
 import type {
@@ -89,20 +90,6 @@ const BAR_COLOR_SCHEMES: {
 const MAIN_PANEL_MODE_LABELS = ["跟随系统推荐", "弹出面板", "浮动窗口"] as const;
 const FLOATING_HEIGHT_MODE_LABELS = ["保持窗口大小", "跟随内容变化"] as const;
 const BAR_STYLE_LABELS = ["细线型", "粗胶囊型"] as const;
-const COOKIE_REFRESH_HOUR_OPTIONS = ["从不", "6 小时", "12 小时", "24 小时"] as const;
-
-function cookie_refresh_hours_to_label(h: number | undefined): string {
-    if (!h || h === 0) return "从不";
-    return `${String(h)} 小时`;
-}
-
-function cookie_refresh_label_to_hours(label: string): number {
-    if (label === "从不") return 0;
-    if (label === "6 小时") return 6;
-    if (label === "12 小时") return 12;
-    return 24;
-}
-
 const log = createLogger("renderer:settings-view");
 const should_log_raw = import.meta.env.DEV;
 
@@ -280,6 +267,7 @@ function AccountDialog({
     onClose,
     existingLabelMap,
     onSaveLabelMap,
+    globalIntervalLabel,
 }: {
     mode: "add" | "edit";
     instanceId: string | undefined;
@@ -300,6 +288,7 @@ function AccountDialog({
     onClose: () => void;
     existingLabelMap?: Readonly<Record<string, string>>;
     onSaveLabelMap?: (instanceId: string, map: Record<string, string>) => Promise<void>;
+    globalIntervalLabel: string;
 }) {
     const isEdit = mode === "edit";
 
@@ -353,7 +342,8 @@ function AccountDialog({
                             endpoints={pluginInfo.metadata?.endpoints ?? {}}
                             endpointValues={pluginConfig.endpointOverrides}
                             refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
-                            manualRefreshOnly={pluginConfig.manualRefreshOnly}
+                            globalIntervalLabel={globalIntervalLabel}
+                            {...(pluginConfig.manualRefreshOnly ? { manualRefreshOnly: true } : {})}
                             {...(pluginInfo.activeProviders[0]
                                 ? { providerId: pluginInfo.activeProviders[0] }
                                 : {})}
@@ -659,6 +649,13 @@ export function SettingsView() {
         save_target: "account" | "provider";
     } | null>(null);
     const [editingCpaId, setEditingCpaId] = useState<string | null>(null);
+
+    // Confirm-delete state for direct account deletion
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [deleteConfirmName, setDeleteConfirmName] = useState("");
+    // Confirm-delete state for CPA data-source removal
+    const [removeCpaConfirmId, setRemoveCpaConfirmId] = useState<string | null>(null);
+    const [removeCpaConfirmName, setRemoveCpaConfirmName] = useState("");
 
     useEffect(() => {
         if (should_log_raw && config) {
@@ -1187,20 +1184,10 @@ export function SettingsView() {
                                                     await refreshPlugin(editingCpaId);
                                                 }}
                                                 onRemove={() => {
-                                                    const name = editingInfo.displayName;
-                                                    if (
-                                                        !window.confirm(
-                                                            `确定删除 "${name}"？此操作不可撤销。`,
-                                                        )
-                                                    )
-                                                        return;
-                                                    void save_config({
-                                                        ...config,
-                                                        plugins: config.plugins.filter(
-                                                            (pl) => pl.instanceId !== editingCpaId,
-                                                        ),
-                                                    });
-                                                    setEditingCpaId(null);
+                                                    setRemoveCpaConfirmId(editingCpaId);
+                                                    setRemoveCpaConfirmName(
+                                                        editingInfo.displayName,
+                                                    );
                                                 }}
                                                 onEditLabelMap={(provider) => {
                                                     set_label_map_dialog({
@@ -1231,28 +1218,6 @@ export function SettingsView() {
                                         添加
                                     </button>
                                 </div>
-                                <div className="acct-intro">
-                                    直连厂商以卡片展示；CPA Manager 自动聚合多个服务商账号。
-                                </div>
-                                <div className="set-group-label">Cookie 刷新</div>
-                                <SetRow
-                                    title="Cookie 刷新周期"
-                                    sub="定时用已保存的登录会话自动刷新 Cookie，避免频繁手动登录"
-                                >
-                                    <Select
-                                        value={cookie_refresh_hours_to_label(
-                                            config.cookieRefreshHours,
-                                        )}
-                                        onChange={(v) => {
-                                            void save_config({
-                                                ...config,
-                                                cookieRefreshHours:
-                                                    cookie_refresh_label_to_hours(v),
-                                            });
-                                        }}
-                                        options={[...COOKIE_REFRESH_HOUR_OPTIONS]}
-                                    />
-                                </SetRow>
                                 <div className="set-group-label" style={{ marginTop: 16 }}>
                                     已添加
                                 </div>
@@ -1367,24 +1332,11 @@ export function SettingsView() {
                                                                         p.instanceId ===
                                                                         instance_id,
                                                                 );
-                                                                const name =
+                                                                setDeleteConfirmId(instance_id);
+                                                                setDeleteConfirmName(
                                                                     info?.displayName ??
-                                                                    instance_id;
-                                                                if (
-                                                                    !window.confirm(
-                                                                        `确定删除 "${name}"？此操作不可撤销。`,
-                                                                    )
-                                                                ) {
-                                                                    return;
-                                                                }
-                                                                void save_config({
-                                                                    ...config,
-                                                                    plugins: config.plugins.filter(
-                                                                        (pl) =>
-                                                                            pl.instanceId !==
-                                                                            instance_id,
-                                                                    ),
-                                                                });
+                                                                        instance_id,
+                                                                );
                                                             }}
                                                         />
                                                     ),
@@ -1475,24 +1427,13 @@ export function SettingsView() {
                                                                 setEditingCpaId(plugin.instanceId);
                                                             }}
                                                             on_delete={() => {
-                                                                const name =
+                                                                setRemoveCpaConfirmId(
+                                                                    plugin.instanceId,
+                                                                );
+                                                                setRemoveCpaConfirmName(
                                                                     info?.displayName ??
-                                                                    plugin.instanceId;
-                                                                if (
-                                                                    !window.confirm(
-                                                                        `确定删除 "${name}"？此操作不可撤销。`,
-                                                                    )
-                                                                ) {
-                                                                    return;
-                                                                }
-                                                                void save_config({
-                                                                    ...config,
-                                                                    plugins: config.plugins.filter(
-                                                                        (pl) =>
-                                                                            pl.instanceId !==
-                                                                            plugin.instanceId,
-                                                                    ),
-                                                                });
+                                                                        plugin.instanceId,
+                                                                );
                                                             }}
                                                             on_hide={(target) => {
                                                                 const item = items.find(
@@ -1848,6 +1789,7 @@ export function SettingsView() {
                                 },
                             });
                         }}
+                        globalIntervalLabel={interval_label}
                     />
                 )}
                 {showCpaAdd && (
@@ -1903,6 +1845,45 @@ export function SettingsView() {
                         }}
                         on_close={() => {
                             set_label_map_dialog(null);
+                        }}
+                    />
+                )}
+                {deleteConfirmId && (
+                    <ConfirmDelete
+                        name={deleteConfirmName}
+                        onCancel={() => {
+                            setDeleteConfirmId(null);
+                        }}
+                        onConfirm={() => {
+                            void save_config({
+                                ...config,
+                                plugins: config.plugins.filter(
+                                    (pl) => pl.instanceId !== deleteConfirmId,
+                                ),
+                            });
+                            setDeleteConfirmId(null);
+                        }}
+                    />
+                )}
+                {removeCpaConfirmId && (
+                    <ConfirmDelete
+                        name={removeCpaConfirmName}
+                        title="移除数据源"
+                        confirmLabel="移除数据源"
+                        onCancel={() => {
+                            setRemoveCpaConfirmId(null);
+                        }}
+                        onConfirm={() => {
+                            void save_config({
+                                ...config,
+                                plugins: config.plugins.filter(
+                                    (pl) => pl.instanceId !== removeCpaConfirmId,
+                                ),
+                            });
+                            setRemoveCpaConfirmId(null);
+                            if (editingCpaId === removeCpaConfirmId) {
+                                setEditingCpaId(null);
+                            }
                         }}
                     />
                 )}

@@ -189,8 +189,6 @@ const tray_methods = {
 const auth_methods = {
     cookieLogin: (instanceId: string) =>
         invoke<{ saved: boolean }>(IPC_CHANNELS.AUTH_COOKIE_LOGIN, instanceId),
-    refreshCookies: () =>
-        invoke<{ refreshed: number; failed: number }>(IPC_CHANNELS.AUTH_REFRESH_COOKIES),
 };
 
 const session_methods = {

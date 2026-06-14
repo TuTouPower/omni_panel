@@ -56,7 +56,6 @@ export const IPC_CHANNELS = {
     TRAY_AUTOSTART_STATE: "tray:autostartState",
 
     AUTH_COOKIE_LOGIN: "auth:cookieLogin",
-    AUTH_REFRESH_COOKIES: "auth:refreshCookies",
 
     SESSION_LOGIN: "session:login",
     SESSION_REFRESH: "session:refresh",
@@ -246,7 +245,6 @@ export interface UsageboardApi {
     };
     auth: {
         cookieLogin(instanceId: string): Promise<{ saved: boolean }>;
-        refreshCookies(): Promise<{ refreshed: number; failed: number }>;
     };
     session: {
         login(request: SessionLoginRequest): Promise<SessionLoginResult>;

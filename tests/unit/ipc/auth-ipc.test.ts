@@ -105,10 +105,6 @@ describe("handleCookieLogin", () => {
                 importAll: vi.fn(),
             },
             definitions: [mimo_definition],
-            cookieRefreshService: {
-                refreshAll: vi.fn(),
-                inProgress: new Set() as ReadonlySet<string>,
-            },
         };
     }
 
