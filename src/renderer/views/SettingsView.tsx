@@ -1021,12 +1021,25 @@ export function SettingsView() {
                                 </SetRow>
 
                                 <div className="set-group-label">网络</div>
-                                <SetRow title="代理地址" sub="HTTP/HTTPS 代理，留空直连">
+                                <SetRow title="代理地址" sub="HTTP/HTTPS/SOCKS 代理，留空直连">
                                     <input
                                         className="ad-input mono"
                                         value={config.proxy?.url ?? ""}
                                         onChange={(e) => {
                                             const val = e.target.value.trim();
+                                            if (val) {
+                                                try {
+                                                    const parsed = new URL(val);
+                                                    if (
+                                                        !["http:", "https:", "socks:"].includes(
+                                                            parsed.protocol,
+                                                        )
+                                                    )
+                                                        return;
+                                                } catch {
+                                                    return;
+                                                }
+                                            }
                                             const base = Object.fromEntries(
                                                 Object.entries(config).filter(
                                                     ([k]) => k !== "proxy",
