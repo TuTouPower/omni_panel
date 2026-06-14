@@ -1,0 +1,27 @@
+{
+    "id": "brave",
+    "provider": "brave",
+    "capabilities": ["observe"],
+    "manualDefault": true,
+    "parameters": [
+        {
+            "name": "API_KEY",
+            "type": "secret",
+            "required": true,
+            "label": "API Key",
+            "label@zh-Hans": "API 密钥",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://api.search.brave.com"
+    },
+    "observe": {
+        "headers": ["x-ratelimit-limit", "x-ratelimit-remaining"],
+        "probe": {
+            "endpoint": "default",
+            "path": "/res/v1/web/search?q=test&count=1"
+        }
+    },
+    "script": "connector.ts"
+}

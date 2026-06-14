@@ -9,6 +9,7 @@ interface ConnectorListConfig {
         enabled: boolean;
         instanceId: string;
         refreshIntervalSeconds: number;
+        manualRefreshOnly?: boolean;
     }[];
 }
 
@@ -35,7 +36,7 @@ export function createSchedulerOrchestrator(
     function startAll(config: ConnectorListConfig): void {
         let count = 0;
         for (const connector of config.plugins) {
-            if (connector.enabled) {
+            if (connector.enabled && !connector.manualRefreshOnly) {
                 deps.scheduler.start(connector.instanceId, connector.refreshIntervalSeconds);
                 count++;
             }
@@ -48,7 +49,7 @@ export function createSchedulerOrchestrator(
         deps.scheduler.stopAll();
         let count = 0;
         for (const connector of config.plugins) {
-            if (connector.enabled) {
+            if (connector.enabled && !connector.manualRefreshOnly) {
                 deps.scheduler.start(connector.instanceId, connector.refreshIntervalSeconds, {
                     immediate: false,
                 });

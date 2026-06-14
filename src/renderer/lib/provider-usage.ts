@@ -73,6 +73,7 @@ export const PROVIDER_LABELS: Record<UsageProvider, string> = {
     deepseek: "DeepSeek",
     tavily: "Tavily",
     mimo: "MiMo",
+    brave: "Brave Search",
 };
 
 const log = createLogger("renderer:provider-usage");

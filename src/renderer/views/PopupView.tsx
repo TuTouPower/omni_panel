@@ -561,8 +561,9 @@ export function PopupView() {
                 const tab_order: (UsageProvider | "overview")[] = ["overview", ...orderedProviders];
                 const i = tab_order.indexOf(cur);
                 const n = tab_order.length;
+                if (n === 0) return cur;
                 const ni = (((i + dir) % n) + n) % n;
-                return tab_order[ni];
+                return tab_order[ni] ?? cur;
             });
         };
         el.addEventListener("wheel", on_wheel, { passive: false });
