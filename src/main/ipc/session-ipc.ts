@@ -16,6 +16,14 @@ export async function handleSessionLogin(
     if (!request.instance_id) return fail("VALIDATION_ERROR", "缺少 instance_id");
     if (!request.login_url) return fail("VALIDATION_ERROR", "缺少 login_url");
     if (!request.cookie_names.length) return fail("VALIDATION_ERROR", "缺少 cookie_names");
+    try {
+        const parsed = new URL(request.login_url);
+        if (parsed.protocol !== "https:") {
+            return fail("VALIDATION_ERROR", "login_url 必须使用 HTTPS 协议");
+        }
+    } catch {
+        return fail("VALIDATION_ERROR", "login_url 格式无效");
+    }
 
     try {
         const result = await deps.sessionManager.start_login({
