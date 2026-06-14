@@ -38,6 +38,15 @@ describe("scrubber", () => {
             expect(scrubber.get_values().has("secret-val")).toBe(false);
         });
 
+        it("stops accepting new values at MAX_SCRUB_VALUES (10000)", () => {
+            for (let i = 0; i < 10005; i++) {
+                scrubber.register(`val-${String(i).padStart(5, "0")}-secret`);
+            }
+            expect(scrubber.get_values().size).toBeLessThanOrEqual(10000);
+            // Values registered after the limit should be ignored
+            expect(scrubber.get_values().has("val-10004-secret")).toBe(false);
+        });
+
         it("unregister is a no-op for unknown values", () => {
             expect(() => {
                 scrubber.unregister("not-registered");
