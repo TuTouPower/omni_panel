@@ -564,6 +564,39 @@ describe("PopupView", () => {
         expect(config_save).not.toHaveBeenCalled();
     });
 
+    it("status bar relative time updates automatically via useNowTick", async () => {
+        vi.useFakeTimers();
+        try {
+            const start = new Date("2026-01-01T12:05:30Z");
+            vi.setSystemTime(start);
+
+            // Capture the useNowTick timer callback to manually invoke it.
+            const setInterval_spy = vi.spyOn(globalThis, "setInterval");
+            render(<PopupView />);
+            const tick = setInterval_spy.mock.calls[0]?.[0];
+            setInterval_spy.mockRestore();
+
+            // Flush initial async work and render.
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+
+            // Latest connector updatedAt: "2026-01-01T12:05:00Z" (DeepSeek).
+            // At t=12:05:30 → "30 秒前".
+            expect(tick).toBeDefined();
+            expect(screen.queryAllByText("30 秒前").length).toBeGreaterThan(0);
+
+            // Simulate 30s tick → "1 分钟前"
+            vi.setSystemTime(new Date("2026-01-01T12:06:00Z"));
+            act(() => {
+                tick();
+            });
+            expect(screen.queryAllByText("1 分钟前").length).toBeGreaterThan(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("shows empty state with add service prompt when no plugins configured", async () => {
         plugin_list.mockResolvedValue([]);
         render(<PopupView />);

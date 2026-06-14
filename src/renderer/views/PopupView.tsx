@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback, type CSSProperties }
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { use_plugins } from "../hooks/use-plugins";
 import { use_popup_height_report } from "../hooks/use-popup-height-report";
+import { useNowTick } from "../hooks/use-now-tick";
 import { useTheme } from "../lib/theme";
 import { Icon } from "../components/Icon";
 import { ProviderAccountList } from "../components/ProviderAccountList";
@@ -118,6 +119,7 @@ function arrays_equal<T>(left: readonly T[] | undefined, right: readonly T[]): b
 
 export function PopupView() {
     useTheme();
+    useNowTick();
     const { plugins, loading, error, refreshAll, reload } = use_plugins();
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
