@@ -121,8 +121,13 @@ export function create_connector_context(
 
         if (response.statusCode >= 400) {
             const body_text = await response.body.text();
-            const body_snippet = body_text.slice(0, 200);
-            throw new Error(`HTTP ${String(response.statusCode)}: ${body_snippet}`);
+            log.debug(`HTTP ${String(response.statusCode)} response body`, {
+                body: body_text.slice(0, 200),
+                url,
+            });
+            throw new Error(
+                `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
+            );
         }
 
         const content_length_header = response.headers["content-length"];

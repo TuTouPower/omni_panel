@@ -136,10 +136,11 @@ describe("net-client", () => {
         await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow("401");
     });
 
-    it("includes response body snippet in HTTP error message", async () => {
+    it("HTTP error message includes status code but not body content", async () => {
         const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
-        await expect(ctx.http.get_json("default", "/server-error")).rejects.toThrow(
-            /HTTP 500: .{0,200}internal failure/,
+        await expect(ctx.http.get_json("default", "/server-error")).rejects.toThrow(/HTTP 500/);
+        await expect(ctx.http.get_json("default", "/server-error")).rejects.not.toThrow(
+            /internal failure/,
         );
     });
 

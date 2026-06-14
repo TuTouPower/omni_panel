@@ -92,18 +92,20 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
     const key_path = join(user_data_dir, "vault.key");
     const master_key = await ensure_master_key(key_path);
 
-    const locks = new Map<string, Promise<void>>();
+    let mutex: Promise<void> = Promise.resolve();
 
-    async function acquire_lock(key: string): Promise<() => void> {
-        const prior = locks.get(key);
-        if (prior) await prior;
-        let release: (() => void) | undefined;
-        const next = new Promise<void>((resolve) => {
-            release = resolve;
+    async function with_lock<T>(fn: () => Promise<T>): Promise<T> {
+        const prev = mutex;
+        let release_fn: (() => void) | undefined;
+        mutex = new Promise<void>((resolve) => {
+            release_fn = resolve;
         });
-        locks.set(key, next);
-        if (!release) throw new Error("Lock release function not initialized");
-        return release;
+        await prev;
+        try {
+            return await fn();
+        } finally {
+            if (release_fn) release_fn();
+        }
     }
 
     async function read_vault(): Promise<Record<string, VaultEntry>> {
@@ -142,28 +144,22 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
         },
 
         async set(key: string, value: string): Promise<void> {
-            const release = await acquire_lock(key);
-            try {
+            await with_lock(async () => {
                 const data = await read_vault();
                 data[key] = encrypt_value(master_key, value);
                 await write_vault(data);
-            } finally {
-                release();
-            }
+            });
         },
 
         async delete(key: string): Promise<void> {
-            const release = await acquire_lock(key);
-            try {
+            await with_lock(async () => {
                 const data = await read_vault();
                 if (!(key in data)) return;
                 const next_data = Object.fromEntries(
                     Object.entries(data).filter(([entry_key]) => entry_key !== key),
                 );
                 await write_vault(next_data);
-            } finally {
-                release();
-            }
+            });
         },
 
         async has(key: string): Promise<boolean> {

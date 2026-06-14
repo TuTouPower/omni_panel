@@ -135,4 +135,15 @@ describe("file-vault-backend", () => {
         expect(result).toBe(secret_value);
         expect(scrubber.get_values().has(secret_value)).toBe(true);
     });
+
+    it("concurrent set on different keys preserves all values", async () => {
+        await Promise.all(
+            Array.from({ length: 10 }, (_, i) =>
+                vault.set(`key-${String(i)}`, `value-${String(i)}`),
+            ),
+        );
+        for (let i = 0; i < 10; i++) {
+            expect(await vault.get(`key-${String(i)}`)).toBe(`value-${String(i)}`);
+        }
+    });
 });
