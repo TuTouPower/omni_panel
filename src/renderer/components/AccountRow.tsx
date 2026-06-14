@@ -14,7 +14,6 @@ interface AccountRowProps {
     on_refresh?: () => void;
     on_edit?: () => void;
     on_delete?: () => void;
-    on_rename?: () => void;
     on_hide?: () => void;
     on_unhide?: () => void;
     on_clear?: () => void;
@@ -52,7 +51,7 @@ function get_status_text(
     is_removed: boolean,
 ): string | null {
     if (is_removed) return "来源已移除";
-    if (is_hidden) return "已隐藏";
+    if (is_hidden) return "已关闭";
     if (!enabled) return null;
     return STATUS_TEXT[status] ?? null;
 }
@@ -74,7 +73,6 @@ export function AccountRow({
     on_refresh,
     on_edit,
     on_delete,
-    on_rename,
     on_hide,
     on_unhide,
     on_clear,
@@ -103,7 +101,6 @@ export function AccountRow({
             <span className="ar-vendor-col">
                 <VendorMark id={provider} size={24} />
                 <span className="ar-vendor">{get_vendor_name(provider)}</span>
-                {mode === "cpa-source" && <span className="cr-srctag">数据源</span>}
             </span>
             <div className="ar-acct-col">
                 <span className="ar-dot" style={{ background: dot }} />
@@ -121,18 +118,13 @@ export function AccountRow({
                             清除
                         </button>
                     ) : (
-                        <>
-                            <button className="sp-ic" title="改名" onClick={on_rename}>
-                                <Icon name="edit" size={15} />
-                            </button>
-                            <button
-                                className={"sp-ic" + (is_hidden ? " on" : "")}
-                                title={is_hidden ? "取消隐藏" : "隐藏账号"}
-                                onClick={is_hidden ? on_unhide : on_hide}
-                            >
-                                <Icon name={is_hidden ? "eye" : "eye_off"} size={15} />
-                            </button>
-                        </>
+                        <button
+                            className="sw"
+                            data-on={effective_on ? "1" : "0"}
+                            onClick={is_hidden ? on_unhide : on_hide}
+                        >
+                            <i />
+                        </button>
                     )
                 ) : (
                     <>

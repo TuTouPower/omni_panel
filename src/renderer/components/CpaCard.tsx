@@ -11,6 +11,7 @@ interface CpaCardRow {
 
 interface CpaCardProps {
     instance_id: string;
+    display_name: string;
     enabled: boolean;
     status: "ok" | "partial" | "error" | "disabled" | "unknown";
     source_count: number;
@@ -21,7 +22,6 @@ interface CpaCardProps {
     on_refresh: () => void;
     on_edit: () => void;
     on_delete: () => void;
-    on_rename: (index: number) => void;
     on_hide: (index: number) => void;
     on_unhide: (index: number) => void;
     on_clear: (index: number) => void;
@@ -36,6 +36,7 @@ const CPA_STATUS_DOT: Record<string, string> = {
 };
 
 export function CpaCard({
+    display_name,
     enabled,
     status,
     source_count,
@@ -46,7 +47,6 @@ export function CpaCard({
     on_refresh,
     on_edit,
     on_delete,
-    on_rename,
     on_hide,
     on_unhide,
     on_clear,
@@ -58,8 +58,7 @@ export function CpaCard({
             <div className="acc-row ds-row">
                 <span className="ar-vendor-col ds-vendor">
                     <VendorMark id="cpa" size={24} />
-                    <span className="ar-vendor">CPA Manager</span>
-                    <span className="cr-srctag">数据源</span>
+                    <span className="ar-vendor">{display_name}</span>
                 </span>
                 <div className="ar-acct-col">
                     <span className="ar-dot" style={{ background: dot }} />
@@ -98,9 +97,6 @@ export function CpaCard({
                     status={row.status}
                     is_hidden={row.is_hidden}
                     is_removed={row.is_removed}
-                    on_rename={() => {
-                        on_rename(index);
-                    }}
                     on_hide={() => {
                         on_hide(index);
                     }}

@@ -1345,6 +1345,9 @@ export function SettingsView() {
                                                         <CpaCard
                                                             key={plugin.instanceId}
                                                             instance_id={plugin.instanceId}
+                                                            display_name={
+                                                                info?.displayName ?? "CPA Manager"
+                                                            }
                                                             enabled={plugin.enabled}
                                                             status={connector_status}
                                                             source_count={provider_set.size}
@@ -1407,17 +1410,6 @@ export function SettingsView() {
                                                                             pl.instanceId !==
                                                                             plugin.instanceId,
                                                                     ),
-                                                                });
-                                                            }}
-                                                            on_rename={(index) => {
-                                                                const item = items[index];
-                                                                if (!item) return;
-                                                                set_label_map_dialog({
-                                                                    instance_id:
-                                                                        item.sourceInstanceId,
-                                                                    vendor_id: item.provider,
-                                                                    account_name: item.accountLabel,
-                                                                    save_target: "account",
                                                                 });
                                                             }}
                                                             on_hide={(index) => {
