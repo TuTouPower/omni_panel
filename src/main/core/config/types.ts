@@ -69,6 +69,7 @@ export const appConfigurationSchema = z.object({
     usageBarStyle: usageBarStyleSchema.optional(),
     providerLabelMaps: z.record(z.record(z.string())).optional(),
     accountLabelMaps: z.record(z.record(z.string())).optional(),
+    labelMapSync: z.boolean().optional(),
     floatingBounds: floatingBoundsSchema.optional(),
     cookieRefreshHours: z
         .number()

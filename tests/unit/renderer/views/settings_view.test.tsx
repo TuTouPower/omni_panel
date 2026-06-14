@@ -573,4 +573,33 @@ describe("SettingsView", () => {
         const deepseek_plugin = saved_config.plugins.find((p) => p.instanceId === "deepseek-1");
         expect(deepseek_plugin?.enabled).toBe(false);
     });
+
+    it("shows label map sync toggle in general section", async () => {
+        render(<SettingsView />);
+        await waitFor(() => {
+            expect(screen.getByText("同一数据源的数据标签映射同步")).toBeInTheDocument();
+        });
+    });
+
+    it("toggles labelMapSync config on click", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+        await waitFor(() => {
+            expect(screen.getByText("同一数据源的数据标签映射同步")).toBeInTheDocument();
+        });
+
+        // Find the toggle near the label map sync row
+        const syncRow = screen.getByText("同一数据源的数据标签映射同步").closest(".set-row");
+        if (!syncRow) throw new Error("sync row not found");
+        const toggle = within(syncRow).getByRole("button");
+        await user.click(toggle);
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalled();
+        });
+        const saved_config = (
+            save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
+        )?.[0];
+        expect(saved_config?.labelMapSync).toBe(true);
+    });
 });

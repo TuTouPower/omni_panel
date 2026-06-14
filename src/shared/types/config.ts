@@ -46,6 +46,7 @@ export interface AppConfiguration {
         Partial<Record<UsageProvider, Readonly<Record<string, string>>>>
     >;
     readonly accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+    readonly labelMapSync?: boolean;
     readonly floatingBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;
     readonly cookieRefreshHours?: number;

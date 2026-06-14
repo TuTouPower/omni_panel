@@ -1114,6 +1114,21 @@ export function SettingsView() {
                                         options={["简体中文", "English", "跟随系统"]}
                                     />
                                 </SetRow>
+                                <div className="set-group-label">其他</div>
+                                <SetRow
+                                    title="同一数据源的数据标签映射同步"
+                                    sub="同一数据源下的多个账号共用一套数据标签映射，编辑任一账号即同步到全部"
+                                >
+                                    <Toggle
+                                        on={config.labelMapSync ?? false}
+                                        onClick={() => {
+                                            void save_config({
+                                                ...config,
+                                                labelMapSync: !(config.labelMapSync ?? false),
+                                            });
+                                        }}
+                                    />
+                                </SetRow>
                             </>
                         )}
 
