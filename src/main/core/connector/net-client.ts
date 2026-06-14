@@ -1,4 +1,4 @@
-import { readFile, readdir } from "node:fs/promises";
+import { lstat, readFile, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { request as undici_request, ProxyAgent } from "undici";
@@ -33,15 +33,18 @@ function is_within_allowed(path: string, allowed: readonly string[]): boolean {
     return false;
 }
 
-async function list_dir_recursive(dir: string): Promise<string[]> {
+async function list_dir_recursive(dir: string, depth = 0, max_depth = 10): Promise<string[]> {
+    if (depth > max_depth) return [];
     const entries = await readdir(dir, { withFileTypes: true });
     const results: string[] = [];
     for (const entry of entries) {
         const full = join(dir, entry.name);
-        if (entry.isDirectory()) {
-            const sub = await list_dir_recursive(full);
+        const stat = await lstat(full);
+        if (stat.isSymbolicLink()) continue;
+        if (stat.isDirectory()) {
+            const sub = await list_dir_recursive(full, depth + 1, max_depth);
             results.push(...sub);
-        } else if (entry.isFile()) {
+        } else if (stat.isFile()) {
             results.push(full);
         }
     }
@@ -183,8 +186,13 @@ export function create_connector_context(
 
                 if (response.statusCode >= 400) {
                     const body_text = await response.body.text();
-                    const body_snippet = body_text.slice(0, 200);
-                    throw new Error(`HTTP ${String(response.statusCode)}: ${body_snippet}`);
+                    log.debug(`HTTP ${String(response.statusCode)} get_raw response body`, {
+                        body: body_text.slice(0, 200),
+                        url: url.toString(),
+                    });
+                    throw new Error(
+                        `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
+                    );
                 }
 
                 const response_headers: Record<string, string> = {};

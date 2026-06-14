@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage } from "node:http";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -220,6 +220,50 @@ describe("net-client", () => {
 
         await expect(ctx.files.list(temp_dir)).rejects.toThrow("not allowed");
     });
+
+    it.skipIf(process.platform === "win32")(
+        "files.list skips symlinks to prevent directory traversal",
+        async () => {
+            const dir = join(temp_dir, "symlink-test-list");
+            const outside = join(temp_dir, "outside-secrets");
+            await mkdir(dir, { recursive: true });
+            await mkdir(outside, { recursive: true });
+            await writeFile(join(outside, "secret.txt"), "TOP SECRET", "utf8");
+            await symlink(outside, join(dir, "escape-link"), "dir");
+
+            const manifest = {
+                ...get_test_manifest(),
+                capabilities: ["poll", "local"],
+                local: { paths: [dir] },
+            } satisfies Manifest;
+            const ctx = create_connector_context(manifest, vault, "test-1", {});
+
+            const files = await ctx.files.list(dir);
+            expect(files).toEqual([]);
+        },
+    );
+
+    it.skipIf(process.platform === "win32")(
+        "files.list skips file symlinks pointing outside allowed dir",
+        async () => {
+            const dir = join(temp_dir, "symlink-test-file");
+            const outside = join(temp_dir, "outside-file");
+            await mkdir(dir, { recursive: true });
+            await mkdir(outside, { recursive: true });
+            await writeFile(join(outside, "data.json"), '{"secret":true}', "utf8");
+            await symlink(join(outside, "data.json"), join(dir, "link.json"), "file");
+
+            const manifest = {
+                ...get_test_manifest(),
+                capabilities: ["poll", "local"],
+                local: { paths: [dir] },
+            } satisfies Manifest;
+            const ctx = create_connector_context(manifest, vault, "test-1", {});
+
+            const files = await ctx.files.list(dir);
+            expect(files).toEqual([]);
+        },
+    );
 
     describe("requireExplicitEndpoints", () => {
         it("throws when flag is true and no override provided", async () => {
