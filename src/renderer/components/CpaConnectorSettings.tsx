@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { Icon, VendorMark } from "./Icon";
+import { ConfirmDelete } from "./ConfirmDelete";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { PluginConfiguration } from "../../shared/types/config";
 import type { UsageItem, UsageProvider } from "../../shared/schemas/plugin-output";
@@ -121,6 +122,7 @@ export function CpaConnectorSettings({
     const [syncInterval, setSyncInterval] = useState(
         refresh_seconds_to_label(config.refreshIntervalSeconds || 300),
     );
+    const [confirmRemove, setConfirmRemove] = useState(false);
     const [openGrps, setOpenGrps] = useState<Set<string>>(() => {
         const items = get_snapshot_items(connector);
         const grps = group_accounts(items);
@@ -230,8 +232,7 @@ export function CpaConnectorSettings({
 
     const handle_remove = useCallback(() => {
         if (!onRemove) return;
-        if (!window.confirm("确定移除该数据源？已发现的账号将被清除。")) return;
-        void onRemove();
+        setConfirmRemove(true);
     }, [onRemove]);
 
     const toggleGrp = (id: string) => {
@@ -476,6 +477,20 @@ export function CpaConnectorSettings({
                     ))
                 )}
             </div>
+            {confirmRemove && (
+                <ConfirmDelete
+                    name={displayName}
+                    title="移除数据源"
+                    confirmLabel="移除数据源"
+                    onCancel={() => {
+                        setConfirmRemove(false);
+                    }}
+                    onConfirm={() => {
+                        setConfirmRemove(false);
+                        void onRemove?.();
+                    }}
+                />
+            )}
         </form>
     );
 }

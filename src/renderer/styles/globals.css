@@ -2523,6 +2523,37 @@ html[data-window="tray"] #root {
 .acct-dialog.wide {
     max-width: 420px;
 }
+.ad-mark.danger {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--red) 12%, transparent);
+    color: var(--red);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.ad-btn.danger {
+    background: var(--red);
+    color: #fff;
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--red) 32%, transparent);
+}
+.ad-btn.danger:hover {
+    background: color-mix(in srgb, var(--red) 85%, #000);
+}
+.confirm-msg {
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.55;
+}
+.confirm-msg b {
+    color: var(--text);
+    font-weight: 600;
+}
+.acct-dialog.confirm {
+    max-width: 372px;
+}
 .ad-opt {
     font-weight: 400;
     color: var(--text-3);

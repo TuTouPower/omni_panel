@@ -450,22 +450,25 @@ describe("CpaConnectorSettings", () => {
 
     it("calls onRemove when remove button is clicked and confirmed", async () => {
         const user = userEvent.setup();
-        window.confirm = vi.fn().mockReturnValue(true);
         const onRemove = vi.fn();
         renderSettings({ onRemove });
 
         await user.click(screen.getByText("移除数据源"));
-        expect(window.confirm).toHaveBeenCalled();
+        // ConfirmDelete dialog should appear
+        const confirmBtns = screen.getAllByText("移除数据源");
+        // Click the button inside the dialog (not the footer button)
+        await user.click(confirmBtns[confirmBtns.length - 1]);
         expect(onRemove).toHaveBeenCalled();
     });
 
     it("does not call onRemove when remove is cancelled", async () => {
         const user = userEvent.setup();
-        window.confirm = vi.fn().mockReturnValue(false);
         const onRemove = vi.fn();
         renderSettings({ onRemove });
 
         await user.click(screen.getByText("移除数据源"));
+        // Click cancel in the ConfirmDelete dialog
+        await user.click(screen.getByText("取消"));
         expect(onRemove).not.toHaveBeenCalled();
     });
 
