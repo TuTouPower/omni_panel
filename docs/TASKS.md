@@ -8,6 +8,175 @@
 
 ## 待办
 
+### 删除 Cookie 刷新周期功能 + 账号页多余文案
+
+**需要删除的内容：**
+
+1. **`SettingsView.tsx:1233-1235`**：账号页 intro 文案 `直连厂商以卡片展示；CPA Manager 自动聚合多个服务商账号。`
+2. **`SettingsView.tsx:1236-1254`**：整个「Cookie 刷新」section（标题 + 「Cookie 刷新周期」下拉 + 说明文案）
+3. **`SettingsView.tsx:92`**：`COOKIE_REFRESH_HOUR_OPTIONS` 常量
+4. **`SettingsView.tsx:94-104`**：`cookie_refresh_hours_to_label` / `cookie_refresh_label_to_hours` 两个辅助函数
+5. **`config/types.ts:74-78,88`**：schema 中 `cookieRefreshHours` 字段定义和默认值
+6. **`index.ts:318-321,466-485,710-712`**：`cookie_refresh_timer` 定时器 + `start_cookie_refresh_timer()` + config change 里的 timer 重建逻辑
+7. **`index.ts:292`**：`cookieRefreshService` 实例化（确认 `auth-ipc.ts` 的 `AUTH_REFRESH_COOKIES` IPC 是否仍需要，不需要则一并删除）
+8. **`auth-ipc.ts:171`**：`AUTH_REFRESH_COOKIES` handler（如无其他调用方）
+
+**原因：** Cookie 自动刷新周期功能不再需要。session 类账号的 cookie 保鲜改为其他策略。
+
+### Brave Search 用量统计：手动探测刷新
+
+**来源：** `docs/brave_search_usage_proxy_discussion.md`（方案讨论文档）；design demo `settings-data.js` 中的 `VENDOR_REFRESH.brave`。
+
+**问题：** Brave Search API 没有独立 usage 端点。用量数据（`X-RateLimit-*` 响应头）只在真实搜索请求的响应中返回。
+
+**选定方案：** 方案 C — 手动触发探测。不搞代理服务。用户手动点击刷新时，connector 发一个最小探测请求（`q=test&count=1`），从 `X-RateLimit-*` header 提取剩余额度。
+
+**Demo 行为（`settings-data.js`）：**
+
+```js
+const VENDOR_REFRESH = {
+    brave: {
+        manualDefault: true,
+        note: "用量统计需向 Brave Search API 发送一次搜索请求才能获取，会占用配额，因此默认仅手动刷新。",
+    },
+};
+```
+
+- Brave 的「跟随全局自动刷新间隔」开关**默认关闭**，默认设为「仅手动」。
+- 编辑界面显示 info 提示：`用量统计需向 Brave Search API 发送一次搜索请求才能获取，会占用配额，因此默认仅手动刷新。`
+- 用户手动点刷新按钮时才触发探测。
+
+**需要：**
+
+1. **Brave connector manifest**：`connectors/brave/manifest.json`，`provider: "brave"`，参数含 `API_KEY`，`capabilities` 含 `session` 或新建探测类型。
+2. **Brave connector 脚本**：发 `GET https://api.search.brave.com/res/v1/web/search?q=test&count=1` + `X-Subscription-Token` header，从响应头提取 `X-RateLimit-Limit`、`X-RateLimit-Remaining`、`X-RateLimit-Reset`，转为 Observation（`used = limit - remaining`）。
+3. **`VENDOR_REFRESH` 注册**：renderer 端注册 `brave: { manualDefault: true, note: '...' }`，使「跟随全局自动刷新间隔」开关默认关闭 + 显示提示文案。
+4. **调度器行为**：`manualDefault` 的 connector 默认不自动调度，仅响应手动 `refreshNow`。
+5. **测试**：connector 集成测试覆盖成功探测、API key 缺失、rate limit header 解析。
+
+**第一版不做：** 本地代理服务、局域网共享、完整账单、历史趋势图。
+
+**验收：** 用户填 Brave API key → 默认仅手动 → 点刷新 → OmniUsage 展示月度剩余额度。每次刷新消耗 1 次 Brave 搜索配额。
+
+### 删除账号确认弹窗未对齐 demo
+
+**现状：** 普通账号和 CPA 数据源的删除按钮都用 `window.confirm()` 浏览器原生弹窗。
+
+**Demo 行为（`settings-panel.jsx` `ConfirmDelete` 组件）：**
+
+- 自定义模态弹窗：`acct-dialog-scrim` 遮罩 + `acct-dialog confirm` 容器。
+- 顶部：`danger` 色 trash 图标 + 标题「删除账号」/「移除数据源」+ 副标题「此操作无法撤销」。
+- 内容：`确定要删除账号 <b>{name}</b> 吗？删除后该账号的所有本地用量记录将一并移除。`
+- 底部按钮：「取消」(ghost) + 「删除账号」(danger)。
+- 点击遮罩或按 Escape 关闭。
+
+**需要：**
+
+- 新增 `ConfirmDelete` 组件替代所有 `window.confirm()` 删除确认。
+- 普通账号行删除和 CPA 数据源删除都用此组件。
+- CPA 编辑页底部的「移除数据源」按钮也用此组件。
+- 补充测试。
+
+**验收：** 删除确认弹窗样式与 demo 一致。
+
+### 检查：网页登录类账号的刷新间隔语义（cookie 刷新 vs 用量刷新）
+
+**背景：**
+
+对 MiMo、Kimi 等基于 cookie/session 的账号，应用内存在**两个完全独立的定时器**：
+
+|          | Cookie 刷新（凭证保鲜）                                                | 用量刷新（数据拉取）                                  |
+| -------- | ---------------------------------------------------------------------- | ----------------------------------------------------- |
+| 定时器   | `cookieRefreshHours`（全局，默认 24h）                                 | `refreshIntervalSeconds`（per-connector）             |
+| 作用     | 打开隐藏 Electron Session 窗口，访问厂商网站，抓取新 cookie 写入 vault | 用已存储的 cookie 调厂商 API 获取用量数据             |
+| 控制入口 | 全局配置 `cookieRefreshHours`（`index.ts:466-483`）                    | 账号编辑界面「刷新间隔」/「跟随全局自动刷新间隔」开关 |
+| 代码位置 | `cookie-refresh-service.ts` + `index.ts` cookie_refresh_timer          | `connector-scheduler.ts` + `refresh-service.ts`       |
+
+**问题：** 用户在账号编辑界面看到的「刷新间隔」实际只控制**用量刷新频率**，不控制 cookie 刷新频率。如果用户把用量刷新设为 1 分钟，cookie 仍按 24h 刷新。cookie 过期后，所有用量刷新会持续失败直到下次 cookie 刷新。这个语义差异目前没有对用户说明。
+
+**需要检查：**
+
+1. 代码里 session 类 connector（MiMo/Kimi）用量刷新失败时（cookie 过期 401），是否有正确的错误提示和状态标记（而非静默失败）。
+2. 测试是否覆盖了"cookie 有效 → 用量刷新成功"和"cookie 过期 → 用量刷新失败并报错"两种路径。
+3. `cookie-refresh-service.test.ts` 和 `mimo-connector.test.ts` 现有测试是否验证了这两个定时器的独立性。
+4. 是否需要在 UI 上为 session 类账号的「刷新间隔」加说明文案，提示用户这只是用量刷新频率、cookie 刷新另有全局定时器。
+
+### 普通账号编辑界面添加"跟随全局自动刷新间隔"开关
+
+**来源：** design demo `settings-panel.jsx` 的编辑账号弹窗。
+
+**现状：**
+
+- CPA 数据源编辑（`CpaConnectorSettings`）已有此功能：`跟随全局自动刷新间隔` 开关 + 关闭后显示独立频率选择器（`dea3f5a`）。
+- 普通账号编辑（`SettingsForm`）没有此开关，用户无法为单个账号设置独立刷新频率。
+- 后端已支持：`PluginConfiguration.refreshIntervalSeconds` 字段 + `scheduler-orchestrator` 按 per-connector 间隔调度，无需后端改动。
+
+**Demo 行为（`settings-panel.jsx` 编辑账号弹窗）：**
+
+1. 所有账号编辑弹窗（普通账号 + CPA 数据源）均含「跟随全局自动刷新间隔」开关，带副标题。
+2. 开关 **开启** 时：副标题显示 `当前全局为「{全局间隔}」自动刷新`，不显示频率选择器。
+3. 开关 **关闭** 时：副标题变为 `已为该账号单独设置刷新频率`，下方出现频率下拉选择器（`1 分钟 / 5 分钟 / 15 分钟 / 30 分钟 / 仅手动`）。
+4. 某些厂商可在 `VENDOR_REFRESH` 配置 `manualDefault: true`，新添加时默认关闭此开关并设为「仅手动」（如 Brave）。目前无厂商使用此配置。
+
+**需要：**
+
+- `SettingsForm` 组件新增「跟随全局自动刷新间隔」开关 UI。
+- 根据当前 connector 的 `refreshIntervalSeconds` 是否等于全局值来决定开关初始状态。
+- 关闭开关后显示独立频率选择器，保存时写入 `PluginConfiguration.refreshIntervalSeconds`。
+- 传递 `globalIntervalLabel` 给 `SettingsForm`（`SettingsView` 已有此值）。
+- 补充对应测试。
+
+### 待修复：CPA 子行按用量条（metric）渲染，未按账号（accountId）聚合
+
+**术语**（见 `docs/glossary.md`）：账号 = `accountId`；用量条 = `metricId`（一账号多条，如 Claude 的 `5 小时` + `一周`）。本 bug = UI 把用量条当账号渲染。
+
+**图证据（`data/now.png` / `data/now2.png`，`2026-06-14` packaged 复测）：**
+
+- Claude「2 个」实为 `user@example.com` 同一账号重复 2 次（5h + week 两条用量条）。
+- Codex「12 个」实为 6 个真实账号 × 各 2 条用量条。
+- CPA 卡片头「22 账号 · 3 服务商」的账号数是用量条总数，真实账号约 11 个。
+
+**目标（`data/demo.png` / `data/demo2.png`）：**
+
+- 一账号一行，行上显示账号名（邮箱/别名）；同账号的多条用量条归并到该行内（或展开后列出），不拆成多行。
+- 厂商分组计数、CPA 卡片头「N 账号」均用**去重后的 accountId 数**。
+
+**根因：** CpaCard 子行渲染键是 `metricId` 粒度。需改为先按 `(provider, accountId)` 聚合成账号行，再在账号内列多条用量条；同 `(provider, accountId)` 的不同 `metricId` 不得产生多行。上游 `SettingsView` 逐 item 渲染、`refresh-service` item id 含 metric，需在渲染层按 accountId 分组。
+
+**修复顺序（TDD）：**
+
+1. 先写失败测试：CpaCard 收到同一 `accountId` 的 `5 小时` + `一周` 两条用量条，应渲染 **1 个账号行**，厂商计数为 1。
+2. 改 CpaCard 聚合键 metric → account；卡片头/分组计数用去重 accountId。
+3. 复查 `SettingsView` 传入数据结构，必要时在渲染层补 accountId 分组。
+
+**验收：** 同 provider 下同一真实账号只出现一次；`data/now.png` 场景 Claude 显示 1 个、Codex 显示 6 个；卡片头账号数 = 真实账号数。`pnpm test` 通过 + packaged 真实启动验证。
+
+### 待办：统一全项目中英文术语到 `docs/glossary.md`
+
+**背景：** 已建权威术语表 `docs/glossary.md`（连接器/数据源/厂商/账号/用量/用量条/观测 + 四采集能力 poll/local/session/observe）。代码与文档大量沿用落后词（插件/plugin、旧 defaultSource 分类、子账号、usage item），需系统性统一。用户明确：术语落后即更新，无屎山包袱，要最好的。
+
+**扫描结果（`2026-06-14` 只读扫描）：**
+
+低风险先行批（文档 + UI 文案 + 日志 + 测试描述，可直接 rename + 改文案）：
+
+- `docs/SPEC.md`：旧插件体系约 85 处（`:65-236,267-353,504-530,666-687`）、旧 `defaultSource/api_key/cpa/direct/oauth` 约 9 处 → connector + 四能力。
+- `docs/TASKS.md`：plugin/子账号混用约 36 处。
+- `docs/design-account-settings-alignment.md:49-227`、`docs/demo_cpa_alignment_2026_06_14.md:29-148`：子账号约 20 处 → 账号 / CPA 展开子行。
+- UI 文案：`src/renderer/hooks/use-plugins.ts:38`「加载插件失败」→「连接器」。
+- 测试描述/夹具：`tests/smoke/renderer-smoke.test.tsx`、`tests/user_e2e/specs/plugin_config.spec.ts`、`tests/fixtures/plugin-*`。
+
+高风险隔离批（schema / IPC / 配置 key 改名会破坏已存配置与序列化，需迁移方案，分 PR）：
+
+- `src/shared/types/config.ts:30,55`：`plugins` / `PluginConfiguration`（序列化 key）。
+- `src/shared/types/ipc.ts:80-122,183-201`：历史 IPC `plugin` channel 与 `PluginInfo` alias。
+- `src/shared/schemas/plugin-output.ts:18-25,65,87-91`：旧 source enum + `UsageItem` 核心 schema。
+- `src/shared/errors/plugin-errors.ts`：错误类命名（中风险）。
+- 代码总量：`src/**` 约 398 处（`Plugin` 106 / `plugin` 214 / `defaultSource` 2 / `api_key` 8 / `usageItem` 4）；`tests/**` 约 550 处。
+
+**执行原则：** 低风险批直接改；高风险批先定迁移策略（配置 key 兼容读取、schema 版本化）再分 PR。每批跑 `pnpm test`，涉及打包真实启动验证。
+
+**验收：** 全项目术语与 `docs/glossary.md` 一致；废弃对照表落后词清零（外部共享类型例外需在 glossary 标注）。
+
 ### 已完成：CPA 编辑改为内联面板 + 子账号按厂商聚类
 
 **需求：** CPA 编辑界面不应用弹窗，改为内联面板替换（demo 用面包屑导航 + 同容器内容切换）。CPA 卡片子账号按厂商分组展示。
