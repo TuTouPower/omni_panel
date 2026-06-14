@@ -8,7 +8,15 @@
 
 ## 待办
 
-### 设置页 CPA 重新对齐最新 design demo（顶层平铺 + 详情页去掉“已发现账号”列）
+### 已完成：设置页 CPA 重新对齐最新 design demo（顶层平铺 + 详情页去掉”已发现账号”列）
+
+**已实现（`20f59e4` + `8e5a9af` + `d796fc4`）：**
+
+- `CpaCard.tsx`：删除 `fail_count` props、`disc-grp/disc-head` 分组，改为平铺 `AccountRow`（`show_vendor=true`）
+- `CpaConnectorSettings.tsx`：删除 `cpa-disc` 右栏（已发现账号），同步范围移至 `cpa-scope` 右栏
+- `SettingsView.tsx`：删除 `fail_count` 硬编码，CPA 子行状态映射（`critical→error`, `normal/warning→ok`）
+- `globals.css`：`cpa-disc→cpa-scope`，删除 `.cpa-fail`
+- 测试：`cpa_card.test.tsx`、`cpa_connector_settings.test.tsx` 更新断言适配新布局
 
 **来源：** `docs/design/omni-usage/project/settings-panel.jsx:158-189, 481-569`、`docs/design/omni-usage/project/settings-panel.css:236-307, 397-419`、`docs/design/omni-usage/chats/chat50.md:57-88`。
 
@@ -98,7 +106,14 @@
 - 深浅色模式都正常
 - `pnpm test` 通过
 
-### 测试 connector 泄漏到生产包 + provider 白名单守卫
+### 已完成：测试 connector 泄漏到生产包 + provider 白名单守卫
+
+**已实现（`6607e36`）：**
+
+- `connectors/test-observe/` → `tests/fixtures/connectors/test-observe/`（移出生产打包路径）
+- `manifest.ts`：新增 `connectorProviderSchema = usageProviderSchema.or(z.literal("cpa"))`，`manifest_schema.provider` 从 `z.string()` 收窄为枚举白名单
+- `manifest-loader.ts`：`discover_connector_definitions()` 加载后校验 provider 枚举
+- `manifest-contract.test.ts`：3 条新守卫（provider 白名单、无 test-\* 目录、枚举正反向）
 
 **问题：** `connectors/test-observe/` 被 `electron-builder.yml:8-10` 的 `extraResources: [{from: connectors, to: connectors}]` 无差别打包进生产资源。启动时 `src/main/index.ts:219-245` 自动发现并 seed 所有 connector，无白名单过滤。结果 `test-observe` 进入用户 `config.json`，provider `"test-observe"` 不在 `usageProviderSchema` 枚举中，UI fallback 显示 `"unknown TEST-OBSERVE"` 账号。
 
@@ -124,7 +139,19 @@
 
 **验收：** `pnpm test` 全部通过；`pnpm package` 后 `artifacts/win-unpacked/resources/connectors/` 不含 `test-observe`；用户 config.json 不再有 `test-observe` 条目。
 
-### Brave provider 完整接入（PROVIDER_ORDER / 添加账号入口 / 历史数据恢复）
+### 已完成：Brave provider 完整接入（PROVIDER_ORDER / 添加账号入口 / 历史数据恢复）
+
+**已实现（`ae0c3fa` + `daba027`）：**
+
+- `provider-usage.ts`：`PROVIDER_ORDER` 加 `"brave"`
+- `AddAccountDialog.tsx`：`VENDOR_AUTH_MAP` 加 `brave: "apikey"`，`ADD_COMMON_SERVICES` 加 `Brave Search`
+- `SettingsView.tsx`：`ADD_COMMON_SERVICES` 加 `Brave Search`
+- `observation-store.ts`：新增 `list_by_source_instance_id()` 查询方法
+- `hydrate-runtime-store.ts`：启动时从 observation store 恢复 manualRefreshOnly connector 数据
+- `index.ts`：`orchestrator.startAll()` 前调用 hydration
+- 测试：`provider-usage.test.ts`、`add_account_dialog.test.tsx`、`runtime-store.test.ts`（3 hydration 用例）
+
+**验收：** `pnpm test` 全部通过；添加账号弹窗可见 Brave；Brave 标签页有数据（手动刷新后）；重启后 Brave 数据仍可见。
 
 **问题：** Brave connector 层已实现（`connectors/brave/`），`usageProviderSchema` 和 `PROVIDER_LABELS` 已含 `brave`，但 renderer 层多个硬编码列表漏更新：
 
