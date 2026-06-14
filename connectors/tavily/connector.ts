@@ -99,8 +99,8 @@ async function main(): Promise<Observation[]> {
             metric_id,
             name,
             used,
-            limit: plan_usage,
-            status: status_for_usage(used, plan_usage),
+            limit: plan_limit,
+            status: status_for_usage(used, plan_limit),
         });
     }
 

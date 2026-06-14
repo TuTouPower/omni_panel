@@ -81,7 +81,7 @@ describe("tavily connector", () => {
                 metric_id: "tavily:search",
                 name: "搜索",
                 used: 300,
-                limit: 400,
+                limit: 1000,
             }),
         );
     });
