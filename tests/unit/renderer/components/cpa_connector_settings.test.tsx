@@ -9,6 +9,7 @@ type SaveHandler = (
     nonSecrets: Record<string, string>,
     endpointOverrides: Record<string, string>,
     refreshIntervalSeconds: number,
+    displayName: string,
 ) => Promise<void>;
 
 function usageItem(overrides: Partial<UsageItem> = {}): UsageItem {
@@ -110,6 +111,8 @@ function renderSettings(overrides: Partial<Parameters<typeof CpaConnectorSetting
             enabled: true,
         },
         enabled: true,
+        displayName: "CPA",
+        globalIntervalLabel: "5 分钟",
         hasSecrets: { cpa_mgmt_key: true },
         onSave: vi.fn<SaveHandler>().mockResolvedValue(undefined),
         onSaveSecrets: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -166,6 +169,8 @@ describe("CpaConnectorSettings", () => {
                     enabled: true,
                 }}
                 enabled={true}
+                displayName="CPA"
+                globalIntervalLabel="5 分钟"
                 hasSecrets={{}}
                 onSave={vi.fn()}
                 onSaveSecrets={vi.fn()}
@@ -219,6 +224,7 @@ describe("CpaConnectorSettings", () => {
             },
             { default: "http://new-cpa.example" },
             300,
+            "CPA",
         );
         expect(onSaveSecrets).not.toHaveBeenCalled();
     });
@@ -306,7 +312,7 @@ describe("CpaConnectorSettings", () => {
         expect(btn).toHaveAttribute("data-on", "0");
     });
 
-    it("does not render label map button in discovered accounts", () => {
+    it("renders label map edit buttons in sync scope rows", () => {
         const onEditLabelMap = vi.fn();
         renderSettings({
             onEditLabelMap,
@@ -322,8 +328,14 @@ describe("CpaConnectorSettings", () => {
             }),
         });
 
-        const tag_buttons = screen.queryAllByTitle(/标签映射/);
-        expect(tag_buttons.length).toBe(0);
+        // Label map buttons in sync scope rows (one per MONITOR)
+        const tag_buttons = screen.getAllByTitle("编辑数据标签映射");
+        expect(tag_buttons.length).toBe(5);
+
+        // No label map buttons in discovered accounts section
+        const disc_section = screen.getByText("已发现账号").closest(".cpa-disc");
+        const disc_tag_buttons = disc_section?.querySelectorAll('[title="编辑数据标签映射"]');
+        expect(disc_tag_buttons?.length ?? 0).toBe(0);
     });
 
     it("does not show accountId in discovered account rows", () => {
@@ -353,6 +365,87 @@ describe("CpaConnectorSettings", () => {
         expect(screen.getByText("Gemini Account")).toBeInTheDocument();
         expect(screen.queryByText("Claude Account")).not.toBeInTheDocument();
         expect(screen.queryByText("Codex Account")).not.toBeInTheDocument();
+    });
+
+    it("renders alias field with display name", () => {
+        renderSettings({ displayName: "公司 CPA" });
+        expect(screen.getByLabelText("别名")).toHaveValue("公司 CPA");
+    });
+
+    it("renders follow-global refresh toggle", () => {
+        renderSettings();
+        expect(screen.getByText("跟随全局自动刷新间隔")).toBeInTheDocument();
+    });
+
+    it("shows global interval label when follow-global is on", () => {
+        renderSettings({
+            config: {
+                endpointOverrides: { default: "http://cpa.example" },
+                parameterValues: {},
+                refreshIntervalSeconds: 0,
+                enabled: true,
+            },
+            globalIntervalLabel: "5 分钟",
+        });
+        expect(screen.getByText(/当前全局为.*5 分钟.*自动刷新/)).toBeInTheDocument();
+    });
+
+    it("shows frequency selector when follow-global is off", () => {
+        renderSettings({
+            config: {
+                endpointOverrides: { default: "http://cpa.example" },
+                parameterValues: {},
+                refreshIntervalSeconds: 300,
+                enabled: true,
+            },
+        });
+        expect(screen.getByText("该数据源刷新频率")).toBeInTheDocument();
+    });
+
+    it("calls onEditLabelMap when clicking sync scope edit button", async () => {
+        const user = userEvent.setup();
+        const onEditLabelMap = vi.fn();
+        renderSettings({ onEditLabelMap });
+
+        const claude_btn = screen.getAllByTitle("编辑数据标签映射")[0];
+        await user.click(claude_btn);
+        expect(onEditLabelMap).toHaveBeenCalledWith("claude");
+    });
+
+    it("does not render '自动同步' or '同步失败通知'", () => {
+        renderSettings();
+        expect(screen.queryByText("自动同步")).not.toBeInTheDocument();
+        expect(screen.queryByText("同步失败通知")).not.toBeInTheDocument();
+    });
+
+    it("saves with follow-global interval as 0", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        renderSettings({
+            onSave,
+            config: {
+                endpointOverrides: { default: "http://cpa.example" },
+                parameterValues: {},
+                refreshIntervalSeconds: 300,
+                enabled: true,
+            },
+        });
+
+        // Toggle follow-global on
+        const followRow = screen.getByText("跟随全局自动刷新间隔").closest(".cfg-row");
+        const btn = followRow?.querySelector(".sw");
+        if (!btn) throw new Error("missing follow-global toggle");
+        await user.click(btn);
+
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(onSave).toHaveBeenCalledTimes(1);
+        });
+        const call = onSave.mock.calls[0];
+        expect(call).toBeDefined();
+        if (!call) return;
+        expect(call[2]).toBe(0); // follow-global saves interval as 0
     });
 
     it("calls onRemove when remove button is clicked and confirmed", async () => {

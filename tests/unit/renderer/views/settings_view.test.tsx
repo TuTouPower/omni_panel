@@ -265,7 +265,7 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
-        const cpa_vendor = await screen.findByText("CPA Manager");
+        const cpa_vendor = await screen.findByText("CPA");
         const card = cpa_vendor.closest<HTMLElement>(".acc-card");
         if (!card) throw new Error("missing CPA card");
         expect(card).toHaveTextContent("1 账号");
@@ -315,7 +315,7 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
-        const cpa_vendor = await screen.findByText("CPA Manager");
+        const cpa_vendor = await screen.findByText("CPA");
         const card = cpa_vendor.closest<HTMLElement>(".acc-card");
         if (!card) throw new Error("missing CPA card");
         const toggle = card.querySelector<HTMLButtonElement>(".sw");

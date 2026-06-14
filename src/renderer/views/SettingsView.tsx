@@ -284,6 +284,10 @@ function AccountDialog({
     selectedProvider,
     existingLabelMap,
     onSaveLabelMap,
+    onSaveCpaDisplayName,
+    onOpenLabelMap,
+    globalIntervalLabel,
+    providerLabelMaps,
 }: {
     mode: "add" | "edit";
     instanceId: string | undefined;
@@ -308,6 +312,12 @@ function AccountDialog({
     selectedProvider?: UsageProvider | undefined;
     existingLabelMap?: Readonly<Record<string, string>>;
     onSaveLabelMap?: (instanceId: string, map: Record<string, string>) => Promise<void>;
+    onSaveCpaDisplayName?: (instanceId: string, name: string) => Promise<void>;
+    onOpenLabelMap?: (instanceId: string, provider: UsageProvider) => void;
+    globalIntervalLabel: string;
+    providerLabelMaps?:
+        | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
+        | undefined;
 }) {
     const isEdit = mode === "edit";
 
@@ -363,12 +373,22 @@ function AccountDialog({
                                     enabled: pluginConfig.enabled,
                                 }}
                                 enabled={pluginConfig.enabled}
+                                displayName={pluginConfig.name}
+                                globalIntervalLabel={globalIntervalLabel}
                                 hasSecrets={hasSecrets ?? {}}
                                 onSave={async (
                                     nonSecrets,
                                     endpointOverrides,
                                     refreshIntervalSeconds,
+                                    newDisplayName,
                                 ) => {
+                                    // Save display name if changed
+                                    if (
+                                        newDisplayName !== pluginConfig.name &&
+                                        onSaveCpaDisplayName
+                                    ) {
+                                        await onSaveCpaDisplayName(instanceId, newDisplayName);
+                                    }
                                     await onSave(
                                         instanceId,
                                         nonSecrets,
@@ -387,6 +407,11 @@ function AccountDialog({
                                 onRefresh={async () => {
                                     await onRefresh(instanceId);
                                 }}
+                                onEditLabelMap={(provider) => {
+                                    if (!instanceId || !onOpenLabelMap) return;
+                                    onOpenLabelMap(instanceId, provider);
+                                }}
+                                providerLabelMaps={providerLabelMaps}
                                 selectedProvider={selectedProvider}
                             />
                         ) : (
@@ -1777,6 +1802,24 @@ export function SettingsView() {
                                 },
                             });
                         }}
+                        onSaveCpaDisplayName={async (id, name) => {
+                            await save_config({
+                                ...config,
+                                plugins: config.plugins.map((pl) =>
+                                    pl.instanceId === id ? { ...pl, name } : pl,
+                                ),
+                            });
+                        }}
+                        onOpenLabelMap={(id, provider) => {
+                            set_label_map_dialog({
+                                instance_id: id,
+                                vendor_id: provider,
+                                account_name: PROVIDER_LABELS[provider],
+                                save_target: "provider",
+                            });
+                        }}
+                        globalIntervalLabel={interval_label}
+                        providerLabelMaps={config.accountLabelMaps}
                     />
                 )}
                 {showCpaAdd && (

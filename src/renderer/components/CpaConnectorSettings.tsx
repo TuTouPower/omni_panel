@@ -27,10 +27,13 @@ interface CpaConnectorSettingsProps {
     >;
     hasSecrets: Record<string, boolean>;
     enabled: boolean;
+    displayName: string;
+    globalIntervalLabel: string;
     onSave: (
         nonSecrets: Record<string, string>,
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
+        displayName: string,
     ) => Promise<void> | void;
     onSaveSecrets: (secrets: Record<string, string>) => Promise<void> | void;
     onToggleEnabled: (enabled: boolean) => void;
@@ -81,6 +84,8 @@ export function CpaConnectorSettings({
     config,
     hasSecrets,
     enabled,
+    displayName,
+    globalIntervalLabel,
     onSave,
     onSaveSecrets,
     onToggleEnabled,
@@ -88,14 +93,13 @@ export function CpaConnectorSettings({
     onRemove,
     providerLabelMaps: _providerLabelMaps,
     selectedProvider,
-    onEditLabelMap: _onEditLabelMap,
+    onEditLabelMap,
 }: CpaConnectorSettingsProps) {
-    void _onEditLabelMap;
-    // onRefresh is part of the interface for future use
     void onRefresh;
     void _providerLabelMaps;
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [alias, setAlias] = useState(displayName);
     const [secret, setSecret] = useState(hasSecrets["cpa_mgmt_key"] ? "***" : "");
     const [showKey, setShowKey] = useState(false);
     const [endpoint, setEndpoint] = useState(
@@ -110,10 +114,12 @@ export function CpaConnectorSettings({
         }
         return values;
     });
-    const [autoSync, setAutoSync] = useState(true);
-    const [failNotify, setFailNotify] = useState(true);
+    const [followGlobal, setFollowGlobal] = useState(() => {
+        // If plugin has no custom interval (0 or same as global default), follow global
+        return config.refreshIntervalSeconds <= 0;
+    });
     const [syncInterval, setSyncInterval] = useState(
-        refresh_seconds_to_label(config.refreshIntervalSeconds),
+        refresh_seconds_to_label(config.refreshIntervalSeconds || 300),
     );
     const [openGrps, setOpenGrps] = useState<Set<string>>(() => {
         const items = get_snapshot_items(connector);
@@ -123,6 +129,7 @@ export function CpaConnectorSettings({
 
     // Sync state when connector changes (e.g. parent refreshes connector data)
     useEffect(() => {
+        setAlias(displayName);
         setSecret(hasSecrets["cpa_mgmt_key"] ? "***" : "");
         setEndpoint(
             config.endpointOverrides["default"] ?? connector.metadata?.endpoints?.["default"] ?? "",
@@ -134,12 +141,13 @@ export function CpaConnectorSettings({
             );
         }
         setMonitors(values);
-        setSyncInterval(refresh_seconds_to_label(config.refreshIntervalSeconds));
+        setFollowGlobal(config.refreshIntervalSeconds <= 0);
+        setSyncInterval(refresh_seconds_to_label(config.refreshIntervalSeconds || 300));
         const items = get_snapshot_items(connector);
         const grps = group_accounts(items);
         setOpenGrps(new Set(grps.map(([p]) => p)));
         // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset on any external data change
-    }, [connector.instanceId, config, hasSecrets]);
+    }, [connector.instanceId, config, hasSecrets, displayName]);
 
     const items = useMemo(() => {
         const snapshot_items = get_snapshot_items(connector);
@@ -177,6 +185,8 @@ export function CpaConnectorSettings({
                 secrets["cpa_mgmt_key"] = secret;
             }
 
+            const effectiveInterval = followGlobal ? 0 : refresh_label_to_seconds(syncInterval);
+
             setSaving(true);
             setError(null);
             void Promise.resolve()
@@ -187,7 +197,8 @@ export function CpaConnectorSettings({
                     await onSave(
                         nonSecrets,
                         endpointOverrides,
-                        refresh_label_to_seconds(syncInterval),
+                        effectiveInterval,
+                        alias.trim() || displayName,
                     );
                 })
                 .catch(() => {
@@ -197,7 +208,19 @@ export function CpaConnectorSettings({
                     setSaving(false);
                 });
         },
-        [config, endpoint, monitors, onSave, onSaveSecrets, saving, secret, syncInterval],
+        [
+            config,
+            endpoint,
+            monitors,
+            onSave,
+            onSaveSecrets,
+            saving,
+            secret,
+            syncInterval,
+            followGlobal,
+            alias,
+            displayName,
+        ],
     );
 
     const handle_remove = useCallback(() => {
@@ -237,6 +260,18 @@ export function CpaConnectorSettings({
                     </div>
                 </div>
                 <div className="cfg-sec">连接配置</div>
+                <div className="cfg-field">
+                    <div className="cfg-label">别名</div>
+                    <input
+                        aria-label="别名"
+                        className="ad-input"
+                        onChange={(event) => {
+                            setAlias(event.target.value);
+                        }}
+                        type="text"
+                        value={alias}
+                    />
+                </div>
                 <div className="cfg-field">
                     <div className="cfg-label">CPA-Manager URL</div>
                     <input
@@ -283,63 +318,56 @@ export function CpaConnectorSettings({
                     <span className="cs-sync">上次同步：{lastSync}</span>
                 </div>
 
-                <div className="cfg-sec">同步设置</div>
+                <div className="cfg-sec">刷新</div>
                 <div className="cfg-row">
                     <div className="cr-text">
-                        <div className="cr-title">同步间隔</div>
-                    </div>
-                    <div className="cr-ctrl">
-                        <select
-                            className="ad-input"
-                            style={{ width: "auto", padding: "6px 10px" }}
-                            value={syncInterval}
-                            onChange={(e) => {
-                                setSyncInterval(
-                                    e.target
-                                        .value as (typeof REFRESH_INTERVAL_OPTIONS)[number]["label"],
-                                );
-                            }}
-                        >
-                            {REFRESH_INTERVAL_OPTIONS.map((opt) => (
-                                <option key={opt.label}>{opt.label}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-                <div className="cfg-row">
-                    <div className="cr-text">
-                        <div className="cr-title">自动同步</div>
+                        <div className="cr-title">跟随全局自动刷新间隔</div>
                     </div>
                     <div className="cr-ctrl">
                         <button
                             className="sw"
-                            data-on={autoSync ? "1" : "0"}
+                            data-on={followGlobal ? "1" : "0"}
                             type="button"
                             onClick={() => {
-                                setAutoSync((v) => !v);
+                                setFollowGlobal((v) => !v);
                             }}
                         >
                             <i />
                         </button>
                     </div>
                 </div>
-                <div className="cfg-row">
-                    <div className="cr-text">
-                        <div className="cr-title">同步失败通知</div>
+                {followGlobal ? (
+                    <div className="cfg-row">
+                        <div className="cr-text">
+                            <div className="cr-note" style={{ color: "var(--text-3)" }}>
+                                当前全局为「{globalIntervalLabel}」自动刷新
+                            </div>
+                        </div>
                     </div>
-                    <div className="cr-ctrl">
-                        <button
-                            className="sw"
-                            data-on={failNotify ? "1" : "0"}
-                            type="button"
-                            onClick={() => {
-                                setFailNotify((v) => !v);
-                            }}
-                        >
-                            <i />
-                        </button>
+                ) : (
+                    <div className="cfg-row">
+                        <div className="cr-text">
+                            <div className="cr-title">该数据源刷新频率</div>
+                        </div>
+                        <div className="cr-ctrl">
+                            <select
+                                className="ad-input"
+                                style={{ width: "auto", padding: "6px 10px" }}
+                                value={syncInterval}
+                                onChange={(e) => {
+                                    setSyncInterval(
+                                        e.target
+                                            .value as (typeof REFRESH_INTERVAL_OPTIONS)[number]["label"],
+                                    );
+                                }}
+                            >
+                                {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                                    <option key={opt.label}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <div className="cfg-sec">同步范围</div>
                 {MONITORS.map((monitor) => (
@@ -349,6 +377,18 @@ export function CpaConnectorSettings({
                             {PROVIDER_LABELS[monitor.provider]}
                         </span>
                         <div className="cr-ctrl">
+                            {onEditLabelMap && (
+                                <button
+                                    className="sp-ic"
+                                    title="编辑数据标签映射"
+                                    type="button"
+                                    onClick={() => {
+                                        onEditLabelMap(monitor.provider);
+                                    }}
+                                >
+                                    <Icon name="tag" size={14} />
+                                </button>
+                            )}
                             <button
                                 className="sw"
                                 data-on={monitors[monitor.name] ? "1" : "0"}
