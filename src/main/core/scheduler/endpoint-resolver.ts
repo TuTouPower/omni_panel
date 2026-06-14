@@ -1,4 +1,4 @@
-import type { PluginConfiguration, AppConfiguration } from "../../../shared/types/config";
+import type { ConnectorConfiguration, AppConfiguration } from "../../../shared/types/config";
 
 export interface ResolvedRuntimeEnv {
     readonly endpoints?: string | undefined; // JSON serialized OMNI_PLUGIN_ENDPOINTS
@@ -11,7 +11,7 @@ export interface ResolvedRuntimeEnv {
  */
 export function resolveRuntimeEnv(
     metadataEndpoints: Record<string, string | null> | undefined,
-    pluginConfig: PluginConfiguration,
+    pluginConfig: ConnectorConfiguration,
     appConfig: AppConfiguration,
 ): ResolvedRuntimeEnv {
     const merged: Record<string, string> = {};

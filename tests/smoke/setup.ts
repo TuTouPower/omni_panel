@@ -108,14 +108,17 @@ function createMockApi() {
         launchAtLogin: false,
     };
 
+    const pluginMock = {
+        list: vi.fn<() => Promise<PluginInfo[]>>().mockResolvedValue(plugins),
+        getState: vi.fn().mockResolvedValue({ status: "idle" } satisfies PluginSnapshotDTO),
+        refresh: vi.fn().mockResolvedValue(undefined),
+        refreshAll: vi.fn().mockResolvedValue(undefined),
+    };
+
     return {
         platform: "win32" as const,
-        plugin: {
-            list: vi.fn<() => Promise<PluginInfo[]>>().mockResolvedValue(plugins),
-            getState: vi.fn().mockResolvedValue({ status: "idle" } satisfies PluginSnapshotDTO),
-            refresh: vi.fn().mockResolvedValue(undefined),
-            refreshAll: vi.fn().mockResolvedValue(undefined),
-        },
+        connector: pluginMock,
+        plugin: pluginMock,
         config: {
             get: vi
                 .fn<

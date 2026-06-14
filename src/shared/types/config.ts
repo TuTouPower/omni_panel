@@ -27,7 +27,7 @@ export interface AccountOverrides {
 export interface AppConfiguration {
     readonly schemaVersion: number;
     readonly language: AppLanguage;
-    readonly plugins: readonly PluginConfiguration[];
+    readonly plugins: readonly ConnectorConfiguration[];
     readonly launchAtLogin: boolean;
     readonly proxy?: ProxyConfiguration;
     readonly accentColor?: string;
@@ -51,7 +51,7 @@ export interface AppConfiguration {
     readonly accountOverrides?: AccountOverrides;
 }
 
-export interface PluginConfiguration {
+export interface ConnectorConfiguration {
     readonly instanceId: string;
     readonly stateId: string;
     readonly name: string;
@@ -62,3 +62,6 @@ export interface PluginConfiguration {
     readonly parameterValues: Readonly<Record<string, string>>;
     readonly endpointOverrides: Readonly<Record<string, string>>;
 }
+
+/** @deprecated Use ConnectorConfiguration */
+export type PluginConfiguration = ConnectorConfiguration;

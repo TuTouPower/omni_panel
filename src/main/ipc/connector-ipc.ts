@@ -4,7 +4,7 @@ import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc
 import type { IpcResult } from "./helpers";
 import { ok, fail, toDTO, assert_valid_sender } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
-import type { PluginConfiguration } from "../../shared/types/config";
+import type { ConnectorConfiguration } from "../../shared/types/config";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
 import type { ConnectorRefreshService } from "../core/scheduler/refresh-service";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
@@ -67,7 +67,7 @@ function metadata_from_definition(
 }
 
 function activeProvidersForConnector(
-    plugin: PluginConfiguration,
+    plugin: ConnectorConfiguration,
     definition: ConnectorDefinition | undefined,
 ): readonly UsageProvider[] {
     const providers = supported_providers(definition);

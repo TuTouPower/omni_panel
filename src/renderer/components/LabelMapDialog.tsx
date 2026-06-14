@@ -46,7 +46,7 @@ export function LabelMapDialog({
         void (async () => {
             set_loading(true);
             try {
-                const state = await window.usageboard.plugin.getState(instance_id);
+                const state = await window.usageboard.connector.getState(instance_id);
                 const items =
                     state.status === "ready" || state.status === "failed"
                         ? (state.items ?? [])

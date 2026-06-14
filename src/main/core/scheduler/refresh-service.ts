@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
-import type { PluginConfiguration } from "../config/types";
+import type { ConnectorConfiguration } from "../config/types";
 import type { AppConfigStore } from "../config/config-store";
 import type { RuntimeStore } from "./runtime-store";
 import type { VaultBackend } from "../vault/vault-backend";
@@ -87,7 +87,7 @@ function observation_to_usage_item(
 }
 
 async function build_params(
-    connector_config: PluginConfiguration,
+    connector_config: ConnectorConfiguration,
     definition: ConnectorDefinition,
     vault: VaultBackend,
 ): Promise<Record<string, string>> {
@@ -125,7 +125,7 @@ async function build_params(
 }
 
 async function execute_connector(
-    connector_config: PluginConfiguration,
+    connector_config: ConnectorConfiguration,
     definition: ConnectorDefinition,
     vault: VaultBackend,
 ): Promise<Observation[]> {
@@ -168,7 +168,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
         try {
             const config = await deps.configStore.load();
             const connector_config = config.plugins.find(
-                (p: PluginConfiguration) => p.instanceId === instanceId,
+                (p: ConnectorConfiguration) => p.instanceId === instanceId,
             );
             if (!connector_config) {
                 log.warn(`Refresh requested for unknown instanceId: ${instanceId}`);
@@ -239,10 +239,10 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
 
     async function refreshAll(): Promise<void> {
         const config = await deps.configStore.load();
-        const enabled_connectors = config.plugins.filter((p: PluginConfiguration) => p.enabled);
+        const enabled_connectors = config.plugins.filter((p: ConnectorConfiguration) => p.enabled);
         log.info(`Refreshing all ${String(enabled_connectors.length)} enabled connectors`);
         const results = await Promise.allSettled(
-            enabled_connectors.map((p: PluginConfiguration) => refresh(p.instanceId)),
+            enabled_connectors.map((p: ConnectorConfiguration) => refresh(p.instanceId)),
         );
         const failed = results.filter((r) => r.status === "rejected").length;
         if (failed > 0) {

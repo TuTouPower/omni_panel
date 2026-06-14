@@ -179,6 +179,13 @@ export interface UsageboardApi {
         refreshAll(): Promise<void>;
         snapshot(): Promise<Record<string, ConnectorSnapshotDTO>>;
     };
+    connector: {
+        list(): Promise<ConnectorInfo[]>;
+        getState(instanceId: string): Promise<ConnectorSnapshotDTO>;
+        refresh(instanceId: string): Promise<void>;
+        refreshAll(): Promise<void>;
+    };
+    /** @deprecated Use connector */
     plugin: {
         list(): Promise<ConnectorInfo[]>;
         getState(instanceId: string): Promise<ConnectorSnapshotDTO>;

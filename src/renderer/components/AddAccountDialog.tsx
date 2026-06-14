@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PluginInfo } from "../../shared/types/ipc";
+import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { VendorMark, Icon } from "./Icon";
 
@@ -83,7 +83,7 @@ export interface AddAccountParams {
 }
 
 interface AddAccountDialogProps {
-    plugin_infos: PluginInfo[];
+    plugin_infos: ConnectorInfo[];
     has_cpa: boolean;
     on_close: () => void;
     on_save: (params: AddAccountParams) => Promise<void>;
@@ -98,7 +98,7 @@ function VendorPicker({
     on_select,
     on_cpa,
 }: {
-    plugin_infos: PluginInfo[];
+    plugin_infos: ConnectorInfo[];
     has_cpa: boolean;
     on_select: (vendor_id: UsageProvider) => void;
     on_cpa: () => void;

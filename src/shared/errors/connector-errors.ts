@@ -1,37 +1,37 @@
-export class PluginOutputParseError extends Error {
+export class ConnectorOutputParseError extends Error {
     constructor(
         message: string,
         public readonly raw: string,
     ) {
         super(message);
-        this.name = "PluginOutputParseError";
+        this.name = "ConnectorOutputParseError";
     }
 }
 
-export class PluginSchemaError extends Error {
+export class ConnectorSchemaError extends Error {
     constructor(
         message: string,
         public readonly issues: readonly unknown[],
     ) {
         super(message);
-        this.name = "PluginSchemaError";
+        this.name = "ConnectorSchemaError";
     }
 }
 
-export class PluginExecutionError extends Error {
+export class ConnectorExecutionError extends Error {
     constructor(
         message: string,
         public readonly exitCode: number,
         public readonly stderr: string,
     ) {
         super(message);
-        this.name = "PluginExecutionError";
+        this.name = "ConnectorExecutionError";
     }
 }
 
-export class PluginTimeoutError extends Error {
+export class ConnectorTimeoutError extends Error {
     constructor(public readonly timeoutMs: number) {
-        super(`Plugin execution timed out after ${String(timeoutMs)}ms`);
-        this.name = "PluginTimeoutError";
+        super(`Connector execution timed out after ${String(timeoutMs)}ms`);
+        this.name = "ConnectorTimeoutError";
     }
 }

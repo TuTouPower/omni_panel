@@ -23,6 +23,12 @@ describe("LabelMapDialog", () => {
         on_close = vi.fn();
         window.usageboard = {
             platform: "win32",
+            connector: {
+                list: vi.fn(),
+                getState: mock_get_state,
+                refresh: vi.fn(),
+                refreshAll: vi.fn(),
+            },
             plugin: {
                 list: vi.fn(),
                 getState: mock_get_state,

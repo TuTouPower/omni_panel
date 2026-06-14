@@ -16,9 +16,9 @@ import type { AddAccountParams } from "../components/AddAccountDialog";
 import { LabelMapDialog } from "../components/LabelMapDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon, VendorMark } from "../components/Icon";
-import type { PluginInfo } from "../../shared/types/ipc";
+import type { ConnectorInfo } from "../../shared/types/ipc";
 import type {
-    PluginConfiguration,
+    ConnectorConfiguration,
     AppConfiguration,
     MainPanelMode,
     FloatingHeightMode,
@@ -117,13 +117,13 @@ function bar_style_label_to_value(label: string): UsageBarStyle {
     return label === "粗胶囊型" ? "capsule" : "thin";
 }
 
-function snapshot_items(pluginInfo: PluginInfo): readonly UsageItem[] {
+function snapshot_items(pluginInfo: ConnectorInfo): readonly UsageItem[] {
     if (pluginInfo.snapshot.status === "ready") return pluginInfo.snapshot.items;
     if (pluginInfo.snapshot.status === "failed") return pluginInfo.snapshot.items ?? [];
     return [];
 }
 
-function connection_status(pluginInfo: PluginInfo, enabled: boolean): string {
+function connection_status(pluginInfo: ConnectorInfo, enabled: boolean): string {
     if (!enabled) return "已停用";
     if (pluginInfo.snapshot.status === "ready") return "正常";
     if (pluginInfo.snapshot.status === "failed") return "异常";
@@ -272,9 +272,9 @@ function AccountDialog({
     mode: "add" | "edit";
     instanceId: string | undefined;
     pluginName: string | undefined;
-    pluginInfo: PluginInfo | undefined;
-    pluginConfig: PluginConfiguration | undefined;
-    pluginInfos: PluginInfo[];
+    pluginInfo: ConnectorInfo | undefined;
+    pluginConfig: ConnectorConfiguration | undefined;
+    pluginInfos: ConnectorInfo[];
     hasSecrets: Record<string, boolean> | undefined;
     onSave: (
         instanceId: string,
@@ -351,7 +351,7 @@ function AccountDialog({
                                 try {
                                     const result = await window.usageboard.auth.cookieLogin(id);
                                     if (result.saved) {
-                                        await window.usageboard.plugin.refresh(id);
+                                        await window.usageboard.connector.refresh(id);
                                         await window.usageboard.config.get();
                                     }
                                     return result.saved;
@@ -399,7 +399,7 @@ function AddAccountPicker({
     onSelect,
     onCpa,
 }: {
-    pluginInfos: PluginInfo[];
+    pluginInfos: ConnectorInfo[];
     onSelect: (instanceId: string, pluginName: string) => void;
     onCpa: () => void;
 }) {
@@ -637,7 +637,7 @@ export function SettingsView() {
     useTheme();
     const version = package_json.version;
     const { config, hasSecrets, loading, error, save, saveSecrets } = use_config();
-    const [pluginInfos, setPluginInfos] = useState<PluginInfo[]>([]);
+    const [pluginInfos, setConnectorInfos] = useState<ConnectorInfo[]>([]);
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);
     const [showCpaAdd, setShowCpaAdd] = useState(false);
@@ -691,8 +691,8 @@ export function SettingsView() {
                     });
                 } else {
                     // pluginInfos may not be loaded yet — fetch fresh and retry
-                    void window.usageboard.plugin.list().then((plugins) => {
-                        setPluginInfos(plugins);
+                    void window.usageboard.connector.list().then((plugins) => {
+                        setConnectorInfos(plugins);
                         match = plugins.find((p) =>
                             p.activeProviders.includes(context.provider as UsageProvider),
                         );
@@ -823,8 +823,8 @@ export function SettingsView() {
     useEffect(() => {
         if (!config) return;
         let cancelled = false;
-        void window.usageboard.plugin.list().then((plugins) => {
-            if (!cancelled) setPluginInfos(plugins);
+        void window.usageboard.connector.list().then((plugins) => {
+            if (!cancelled) setConnectorInfos(plugins);
         });
         return () => {
             cancelled = true;
@@ -856,7 +856,7 @@ export function SettingsView() {
                         : plugin,
                 ),
             });
-            await window.usageboard.plugin.refresh(instanceId);
+            await window.usageboard.connector.refresh(instanceId);
         },
         [config, save_config, saveSecrets],
     );
@@ -904,13 +904,13 @@ export function SettingsView() {
             if (Object.keys(params.secrets).length > 0) {
                 await saveSecrets(new_id, params.secrets);
             }
-            await window.usageboard.plugin.refresh(new_id);
+            await window.usageboard.connector.refresh(new_id);
         },
         [config, pluginInfos, save_config, saveSecrets],
     );
 
     const refreshPlugin = useCallback(async (instanceId: string) => {
-        await window.usageboard.plugin.refresh(instanceId);
+        await window.usageboard.connector.refresh(instanceId);
     }, []);
 
     const goBack = () => {
@@ -1310,7 +1310,7 @@ export function SettingsView() {
                                                                 });
                                                             }}
                                                             on_refresh={(instance_id) => {
-                                                                void window.usageboard.plugin.refresh(
+                                                                void window.usageboard.connector.refresh(
                                                                     instance_id,
                                                                 );
                                                             }}
@@ -1419,7 +1419,7 @@ export function SettingsView() {
                                                                 });
                                                             }}
                                                             on_refresh={() => {
-                                                                void window.usageboard.plugin.refresh(
+                                                                void window.usageboard.connector.refresh(
                                                                     plugin.instanceId,
                                                                 );
                                                             }}

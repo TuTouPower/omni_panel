@@ -6,7 +6,7 @@ import type { IpcResult } from "./helpers";
 import { ok, fail, assert_valid_sender } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { SecretsStore } from "../core/config/secrets-store";
-import type { AppConfiguration, PluginConfiguration } from "../../shared/types/config";
+import type { AppConfiguration, ConnectorConfiguration } from "../../shared/types/config";
 import { appConfigurationSchema } from "../core/config/types";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
@@ -133,7 +133,9 @@ export async function handleConfigSaveSecrets(
         const { instanceId, secrets } = parsed.data;
 
         const config = await deps.configStore.load();
-        const plugin = config.plugins.find((p: PluginConfiguration) => p.instanceId === instanceId);
+        const plugin = config.plugins.find(
+            (p: ConnectorConfiguration) => p.instanceId === instanceId,
+        );
         if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
 
         const allowedKeys = deps.secretParamKeys.get(instanceId);
@@ -162,12 +164,12 @@ async function handleConfigDuplicate(
 
         const config = await deps.configStore.load();
         const source = config.plugins.find(
-            (p: PluginConfiguration) => p.instanceId === sourceInstanceId,
+            (p: ConnectorConfiguration) => p.instanceId === sourceInstanceId,
         );
         if (!source) return fail("VALIDATION_ERROR", "源插件不存在");
 
         const suffix = String(Date.now());
-        const newInstance: PluginConfiguration = {
+        const newInstance: ConnectorConfiguration = {
             instanceId: `${source.instanceId}-${suffix}`,
             stateId: `${source.stateId}-${suffix}`,
             name: `${source.name} (副本)`,

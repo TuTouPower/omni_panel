@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from "react";
 import { Icon, VendorMark } from "./Icon";
 import { ConfirmDelete } from "./ConfirmDelete";
 import type { ConnectorInfo } from "../../shared/types/ipc";
-import type { PluginConfiguration } from "../../shared/types/config";
+import type { ConnectorConfiguration } from "../../shared/types/config";
 import type { UsageItem, UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
@@ -23,7 +23,7 @@ const MONITORS: readonly { name: string; provider: UsageProvider }[] = [
 interface CpaConnectorSettingsProps {
     connector: ConnectorInfo;
     config: Pick<
-        PluginConfiguration,
+        ConnectorConfiguration,
         "endpointOverrides" | "parameterValues" | "refreshIntervalSeconds" | "enabled"
     >;
     hasSecrets: Record<string, boolean>;

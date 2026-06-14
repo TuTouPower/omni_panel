@@ -1,11 +1,11 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useState, useEffect, useCallback } from "react";
-import type { PluginInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
+import type { ConnectorInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
 
 const MODULE = "use-plugins";
 
 interface UsePluginsResult {
-    plugins: PluginInfo[];
+    plugins: ConnectorInfo[];
     loading: boolean;
     error: string | null;
     refresh: (instanceId: string) => Promise<void>;
@@ -14,7 +14,7 @@ interface UsePluginsResult {
 }
 
 export function use_plugins(): UsePluginsResult {
-    const [plugins, setPlugins] = useState<PluginInfo[]>([]);
+    const [plugins, setPlugins] = useState<ConnectorInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +25,7 @@ export function use_plugins(): UsePluginsResult {
             message: "Reloading plugin list",
         });
         try {
-            const list = await window.usageboard.plugin.list();
+            const list = await window.usageboard.connector.list();
             window.usageboard.log({
                 level: "info",
                 module: MODULE,
@@ -67,7 +67,7 @@ export function use_plugins(): UsePluginsResult {
             module: MODULE,
             message: `Refreshing plugin ${instanceId}`,
         });
-        await window.usageboard.plugin.refresh(instanceId);
+        await window.usageboard.connector.refresh(instanceId);
     }, []);
 
     const refreshAllFn = useCallback(async () => {
@@ -76,7 +76,7 @@ export function use_plugins(): UsePluginsResult {
             module: MODULE,
             message: "Refreshing all plugins",
         });
-        await window.usageboard.plugin.refreshAll();
+        await window.usageboard.connector.refreshAll();
     }, []);
 
     return { plugins, loading, error, refresh, refreshAll: refreshAllFn, reload };

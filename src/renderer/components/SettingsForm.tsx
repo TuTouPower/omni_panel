@@ -82,7 +82,7 @@ export function SettingsForm({
         void (async () => {
             setLabelLoading(true);
             try {
-                const state = await window.usageboard.plugin.getState(instanceId);
+                const state = await window.usageboard.connector.getState(instanceId);
                 const items =
                     state.status === "ready" || state.status === "failed"
                         ? (state.items ?? [])

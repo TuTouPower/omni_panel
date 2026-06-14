@@ -341,7 +341,7 @@ export function PopupView() {
         );
         void Promise.all(
             connectors.map((connector) =>
-                window.usageboard.plugin.refresh(connector.sourceInstanceId),
+                window.usageboard.connector.refresh(connector.sourceInstanceId),
             ),
         ).catch((err: unknown) => {
             window.usageboard.log({

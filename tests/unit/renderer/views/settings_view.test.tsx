@@ -66,125 +66,121 @@ describe("SettingsView", () => {
             addEventListener: vi.fn(),
             removeEventListener: vi.fn(),
         });
+        const connectorMock = {
+            list: vi.fn().mockResolvedValue([
+                {
+                    instanceId: "deepseek-1",
+                    sourceInstanceId: "deepseek-1",
+                    stateId: "deepseek-1",
+                    name: "DeepSeek",
+                    displayName: "DeepSeek",
+                    enabled: true,
+                    source: "api_key",
+                    supportedProviders: ["deepseek"],
+                    activeProviders: ["deepseek"],
+                    metadata: {
+                        parameters: [
+                            {
+                                name: "API_KEY",
+                                label: "API 密钥",
+                                type: "secret",
+                                required: true,
+                            },
+                        ],
+                        endpoints: {
+                            default: null,
+                        },
+                    },
+                    snapshot: { status: "idle" },
+                },
+                {
+                    instanceId: "cpa-1",
+                    sourceInstanceId: "cpa-1",
+                    stateId: "cpa-1",
+                    name: "CPA",
+                    displayName: "CPA",
+                    enabled: true,
+                    source: "cpa",
+                    supportedProviders: ["claude", "codex", "gemini", "antigravity", "kimi"],
+                    activeProviders: ["claude"],
+                    metadata: {
+                        parameters: [
+                            {
+                                name: "cpa_mgmt_key",
+                                label: "管理密钥",
+                                type: "secret",
+                                required: true,
+                            },
+                            {
+                                name: "monitor_claude",
+                                label: "Claude",
+                                type: "boolean",
+                                required: false,
+                                defaultValue: "true",
+                            },
+                            {
+                                name: "monitor_codex",
+                                label: "Codex",
+                                type: "boolean",
+                                required: false,
+                                defaultValue: "false",
+                            },
+                            {
+                                name: "monitor_gemini",
+                                label: "Gemini",
+                                type: "boolean",
+                                required: false,
+                                defaultValue: "false",
+                            },
+                            {
+                                name: "monitor_antigravity",
+                                label: "Antigravity",
+                                type: "boolean",
+                                required: false,
+                                defaultValue: "false",
+                            },
+                            {
+                                name: "monitor_kimi",
+                                label: "Kimi",
+                                type: "boolean",
+                                required: false,
+                                defaultValue: "false",
+                            },
+                        ],
+                        endpoints: {
+                            default: "http://localhost:8080",
+                        },
+                    },
+                    snapshot: {
+                        status: "ready",
+                        updatedAt: "2026-05-31T00:00:00.000Z",
+                        items: [
+                            {
+                                id: "claude-main",
+                                provider: "claude",
+                                source: "cpa",
+                                sourceInstanceId: "cpa-1",
+                                accountId: "claude-main",
+                                accountLabel: "Claude Account",
+                                name: "Claude 额度",
+                                used: 10,
+                                limit: 100,
+                                displayStyle: "percent",
+                                status: "normal",
+                            },
+                        ],
+                    },
+                },
+            ]),
+            getState: vi.fn(),
+            refresh: vi.fn(),
+            refreshAll: vi.fn(),
+        };
         window.usageboard = {
             platform: "win32",
-            plugin: {
-                list: vi.fn().mockResolvedValue([
-                    {
-                        instanceId: "deepseek-1",
-                        sourceInstanceId: "deepseek-1",
-                        stateId: "deepseek-1",
-                        name: "DeepSeek",
-                        displayName: "DeepSeek",
-                        enabled: true,
-                        source: "api_key",
-                        supportedProviders: ["deepseek"],
-                        activeProviders: ["deepseek"],
-                        metadata: {
-                            parameters: [
-                                {
-                                    name: "API_KEY",
-                                    label: "API 密钥",
-                                    type: "secret",
-                                    required: true,
-                                },
-                            ],
-                            endpoints: {
-                                default: null,
-                            },
-                        },
-                        snapshot: { status: "idle" },
-                    },
-                    {
-                        instanceId: "cpa-1",
-                        sourceInstanceId: "cpa-1",
-                        stateId: "cpa-1",
-                        name: "CPA",
-                        displayName: "CPA",
-                        enabled: true,
-                        source: "cpa",
-                        supportedProviders: ["claude", "codex", "gemini", "antigravity", "kimi"],
-                        activeProviders: ["claude"],
-                        metadata: {
-                            parameters: [
-                                {
-                                    name: "cpa_mgmt_key",
-                                    label: "管理密钥",
-                                    type: "secret",
-                                    required: true,
-                                },
-                                {
-                                    name: "monitor_claude",
-                                    label: "Claude",
-                                    type: "boolean",
-                                    required: false,
-                                    defaultValue: "true",
-                                },
-                                {
-                                    name: "monitor_codex",
-                                    label: "Codex",
-                                    type: "boolean",
-                                    required: false,
-                                    defaultValue: "false",
-                                },
-                                {
-                                    name: "monitor_gemini",
-                                    label: "Gemini",
-                                    type: "boolean",
-                                    required: false,
-                                    defaultValue: "false",
-                                },
-                                {
-                                    name: "monitor_antigravity",
-                                    label: "Antigravity",
-                                    type: "boolean",
-                                    required: false,
-                                    defaultValue: "false",
-                                },
-                                {
-                                    name: "monitor_kimi",
-                                    label: "Kimi",
-                                    type: "boolean",
-                                    required: false,
-                                    defaultValue: "false",
-                                },
-                            ],
-                            endpoints: {
-                                default: "http://localhost:8080",
-                            },
-                        },
-                        snapshot: {
-                            status: "ready",
-                            updatedAt: "2026-05-31T00:00:00.000Z",
-                            items: [
-                                {
-                                    id: "claude-main",
-                                    provider: "claude",
-                                    source: "cpa",
-                                    sourceInstanceId: "cpa-1",
-                                    accountId: "claude-main",
-                                    accountLabel: "Claude Account",
-                                    name: "Claude 额度",
-                                    used: 10,
-                                    limit: 100,
-                                    displayStyle: "percent",
-                                    status: "normal",
-                                },
-                            ],
-                        },
-                    },
-                ]),
-                getState: vi.fn(),
-                refresh: vi.fn(),
-                refreshAll: vi.fn(),
-            },
-            connector: {
-                list: vi.fn().mockResolvedValue([]),
-                getState: vi.fn(),
-                refresh: vi.fn(),
-                refreshAll: vi.fn(),
-                snapshot: vi.fn().mockResolvedValue({}),
-            },
+            connector: connectorMock,
+
+            plugin: connectorMock,
             config: {
                 get: vi.fn(),
                 save: vi.fn(),
@@ -569,7 +565,7 @@ describe("SettingsView", () => {
             .mockResolvedValue({ saved: true });
         const mock_refresh = vi.fn();
         window.usageboard.auth.cookieLogin = mock_cookie_login;
-        window.usageboard.plugin.refresh = mock_refresh;
+        window.usageboard.connector.refresh = mock_refresh;
 
         const result = await mock_cookie_login(instance_id);
         if (result.saved) {
@@ -586,7 +582,7 @@ describe("SettingsView", () => {
             .mockResolvedValue({ saved: false });
         const mock_refresh = vi.fn();
         window.usageboard.auth.cookieLogin = mock_cookie_login;
-        window.usageboard.plugin.refresh = mock_refresh;
+        window.usageboard.connector.refresh = mock_refresh;
 
         const result = await mock_cookie_login("mimo-1");
         if (result.saved) {
