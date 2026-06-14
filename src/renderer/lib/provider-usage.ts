@@ -1,5 +1,5 @@
 import { createLogger } from "../../shared/lib/logger";
-import type { UsageItem, UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
+import type { MetricRecord, UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
 import type { AccountOverrides } from "../../shared/types/config";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 
@@ -15,10 +15,10 @@ export interface ProviderUsagePeriod {
     name: string;
     used: number | null;
     limit: number;
-    displayStyle: UsageItem["displayStyle"];
+    displayStyle: MetricRecord["displayStyle"];
     resetAt?: string | null | undefined;
-    status: UsageItem["status"];
-    color?: UsageItem["color"] | undefined;
+    status: MetricRecord["status"];
+    color?: MetricRecord["color"] | undefined;
     updatedAt: string;
     observedAt?: string | undefined;
     stale?: boolean | undefined;
@@ -29,7 +29,7 @@ export interface ProviderUsageAccount {
     sourceInstanceId: string;
     accountId: string;
     accountLabel: string;
-    status: UsageItem["status"];
+    status: MetricRecord["status"];
     updatedAt: string;
     observedAt?: string | undefined;
     stale?: boolean | undefined;
@@ -40,7 +40,7 @@ export interface ProviderUsageGroup {
     provider: UsageProvider;
     label: string;
     accountCount: number;
-    status: UsageItem["status"];
+    status: MetricRecord["status"];
     updatedAt: string;
     observedAt?: string | undefined;
     source?: UsageSource | "mixed" | undefined;
@@ -79,7 +79,7 @@ export const PROVIDER_LABELS: Record<UsageProvider, string> = {
 const log = createLogger("renderer:provider-usage");
 const should_log_raw = import.meta.env.DEV;
 
-const STATUS_RANK: Record<UsageItem["status"], number> = {
+const STATUS_RANK: Record<MetricRecord["status"], number> = {
     normal: 0,
     unknown: 1,
     warning: 2,
@@ -94,12 +94,12 @@ function latestTimestamp(a: string, b: string): string {
     return new Date(a).getTime() >= new Date(b).getTime() ? a : b;
 }
 
-function worstStatus(a: UsageItem["status"], b: UsageItem["status"]): UsageItem["status"] {
+function worstStatus(a: MetricRecord["status"], b: MetricRecord["status"]): MetricRecord["status"] {
     return STATUS_RANK[a] >= STATUS_RANK[b] ? a : b;
 }
 
 function toPeriod(
-    item: UsageItem,
+    item: MetricRecord,
     connector: ConnectorInfo,
     updatedAt: string,
 ): ProviderUsagePeriod {
@@ -183,7 +183,7 @@ export function build_provider_usage_groups(
         .sort(([a], [b]) => compareProviders(a, b))
         .map(([provider, periods]) => {
             const accountsByKey = new Map<string, ProviderUsageAccount>();
-            let groupStatus: UsageItem["status"] = "normal";
+            let groupStatus: MetricRecord["status"] = "normal";
             let groupUpdatedAt = periods[0]?.updatedAt ?? "";
             let groupObservedAt = periods[0]?.observedAt ?? groupUpdatedAt;
             let groupStale = false;
@@ -324,11 +324,11 @@ export interface OverviewWindow {
     percent: number;
     used: number;
     limit: number;
-    displayStyle: UsageItem["displayStyle"];
-    status: UsageItem["status"];
+    displayStyle: MetricRecord["displayStyle"];
+    status: MetricRecord["status"];
     updatedAt: string | null;
     resetAt: string | null;
-    color?: UsageItem["color"];
+    color?: MetricRecord["color"];
 }
 
 export function build_overview_for_group(group: ProviderUsageGroup): OverviewWindow[] {
@@ -350,7 +350,7 @@ export function build_overview_for_group(group: ProviderUsageGroup): OverviewWin
         const totalUsed = validPeriods.reduce((sum, period) => sum + (period.used ?? 0), 0);
         const totalLimit = validPeriods.reduce((sum, period) => sum + period.limit, 0);
         const percent = Math.round((totalUsed / totalLimit) * 100);
-        const periodWorstStatus = validPeriods.reduce<UsageItem["status"]>(
+        const periodWorstStatus = validPeriods.reduce<MetricRecord["status"]>(
             (worst, period) => worstStatus(period.status, worst),
             "normal",
         );

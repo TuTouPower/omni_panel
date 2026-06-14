@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CpaConnectorSettings } from "../../../../src/renderer/components/CpaConnectorSettings";
 import type { ConnectorInfo } from "../../../../src/shared/types/ipc";
-import type { UsageItem } from "../../../../src/shared/schemas/plugin-output";
+import type { MetricRecord } from "../../../../src/shared/schemas/plugin-output";
 
 type SaveHandler = (
     nonSecrets: Record<string, string>,
@@ -12,7 +12,7 @@ type SaveHandler = (
     displayName: string,
 ) => Promise<void>;
 
-function usageItem(overrides: Partial<UsageItem> = {}): UsageItem {
+function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
     return {
         id: "claude-main",
         provider: "claude",

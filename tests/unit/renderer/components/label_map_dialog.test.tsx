@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LabelMapDialog } from "../../../../src/renderer/components/LabelMapDialog";
-import type { UsageItem } from "../../../../src/shared/schemas/plugin-output";
+import type { MetricRecord } from "../../../../src/shared/schemas/plugin-output";
 
-function mock_ready_state(items: readonly UsageItem[]) {
+function mock_ready_state(items: readonly MetricRecord[]) {
     return {
         status: "ready" as const,
         items,
@@ -72,7 +72,7 @@ describe("LabelMapDialog", () => {
         } as unknown as typeof window.usageboard;
     });
 
-    function sample_items(): readonly UsageItem[] {
+    function sample_items(): readonly MetricRecord[] {
         return [
             {
                 id: "item-1",

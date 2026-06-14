@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { UsageItem } from "../../../src/shared/schemas/plugin-output";
+import type { MetricRecord } from "../../../src/shared/schemas/plugin-output";
 import type { ConnectorInfo } from "../../../src/shared/types/ipc";
 import {
     apply_account_overrides,
@@ -10,7 +10,7 @@ import {
     get_visible_providers,
 } from "../../../src/renderer/lib/provider-usage";
 
-function usageItem(overrides: Partial<UsageItem> = {}): UsageItem {
+function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
     return {
         id: "claude-window",
         provider: "claude",
@@ -188,7 +188,7 @@ describe("provider usage aggregation", () => {
     });
 
     it("groups CPA rows by account label", () => {
-        const items: UsageItem[] = Array.from({ length: 5 }).flatMap((_, index) => {
+        const items: MetricRecord[] = Array.from({ length: 5 }).flatMap((_, index) => {
             const account_index = String(index);
             const account_label = `Codex Account ${String(index + 1)}`;
             return [

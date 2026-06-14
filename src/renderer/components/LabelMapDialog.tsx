@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { UsageItem, UsageProvider } from "../../shared/schemas/plugin-output";
+import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { Icon } from "./Icon";
 
 interface LabelMapRow {
@@ -7,7 +7,7 @@ interface LabelMapRow {
     def: string;
 }
 
-function normalize_cpa_label(item: UsageItem): string {
+function normalize_cpa_label(item: MetricRecord): string {
     if (item.source !== "cpa") return item.name;
     if (!item.accountLabel) return item.name;
     const escaped_label = item.accountLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

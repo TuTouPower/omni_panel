@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
-import type { UsageItem } from "../../shared/schemas/plugin-output";
+import type { MetricRecord } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageAccount, ProviderUsagePeriod } from "../lib/provider-usage";
 import { format_usage_period_label } from "../lib/provider-usage";
 import { format_reset_time, relative_time } from "../lib/utils";
@@ -148,4 +148,4 @@ export function AccountUsageRow({
     );
 }
 
-export type UsageBarDisplayStyle = UsageItem["displayStyle"];
+export type UsageBarDisplayStyle = MetricRecord["displayStyle"];

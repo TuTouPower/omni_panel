@@ -85,7 +85,9 @@ export const pluginResultSchema = z.discriminatedUnion("success", [
 
 export type UsageProvider = z.infer<typeof usageProviderSchema>;
 export type UsageSource = z.infer<typeof usageSourceSchema>;
-export type UsageItem = z.infer<typeof usageItemSchema>;
+export type MetricRecord = z.infer<typeof usageItemSchema>;
+/** @deprecated Use MetricRecord */
+export type UsageItem = MetricRecord;
 export type PluginChart = z.infer<typeof pluginChartSchema>;
 export type PluginSuccessOutput = z.infer<typeof pluginSuccessOutputSchema>;
 export type PluginFailureOutput = z.infer<typeof pluginFailureOutputSchema>;

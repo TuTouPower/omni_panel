@@ -5,5 +5,5 @@ export type {
     PluginSuccessOutput,
     PluginFailureOutput,
     PluginResult,
-    UsageItem,
+    MetricRecord,
 } from "../schemas/plugin-output";

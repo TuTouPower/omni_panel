@@ -5,7 +5,7 @@ import type { AppConfigStore } from "../config/config-store";
 import type { RuntimeStore } from "./runtime-store";
 import type { VaultBackend } from "../vault/vault-backend";
 import type { Observation } from "../../../shared/types/observation";
-import type { UsageItem, UsageSource } from "../../../shared/schemas/plugin-output";
+import type { MetricRecord, UsageSource } from "../../../shared/schemas/plugin-output";
 import { usageProviderSchema } from "../../../shared/schemas/plugin-output";
 import { createLogger } from "../../../shared/lib/logger";
 import type { ConnectorDefinition } from "../connector/manifest-loader";
@@ -64,7 +64,7 @@ function resolve_script_path(definition: ConnectorDefinition): string {
 function observation_to_usage_item(
     obs: Observation,
     definition: ConnectorDefinition,
-): UsageItem | null {
+): MetricRecord | null {
     const provider = usageProviderSchema.safeParse(obs.provider);
     if (!provider.success) return null;
 
@@ -210,7 +210,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 }
                 const items = observations
                     .map((obs) => observation_to_usage_item(obs, definition))
-                    .filter((item): item is UsageItem => item !== null);
+                    .filter((item): item is MetricRecord => item !== null);
                 const updated_at = observations.reduce(
                     (latest, obs) => Math.max(latest, obs.observed_at),
                     Date.now(),

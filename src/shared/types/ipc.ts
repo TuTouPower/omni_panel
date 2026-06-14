@@ -1,4 +1,9 @@
-import type { UsageItem, PluginChart, UsageProvider, UsageSource } from "../schemas/plugin-output";
+import type {
+    MetricRecord,
+    PluginChart,
+    UsageProvider,
+    UsageSource,
+} from "../schemas/plugin-output";
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
 export type { AppConfiguration } from "./config";
@@ -81,13 +86,13 @@ export type PluginSnapshotDTO =
     | {
           status: "loading";
           updatedAt?: string;
-          items?: readonly UsageItem[];
+          items?: readonly MetricRecord[];
           badge?: string;
           chart?: PluginChart;
       }
     | {
           status: "ready";
-          items: readonly UsageItem[];
+          items: readonly MetricRecord[];
           updatedAt: string;
           badge?: string;
           chart?: PluginChart;
@@ -96,7 +101,7 @@ export type PluginSnapshotDTO =
           status: "failed";
           error: string;
           updatedAt?: string;
-          items?: readonly UsageItem[];
+          items?: readonly MetricRecord[];
           badge?: string;
           chart?: PluginChart;
       };

@@ -56,6 +56,6 @@
 | `PluginScheduler`                                 | `ConnectorScheduler`                      | 已部分完成                  |
 | 子账号                                            | 账号（CPA 下为展开子行）                  | UI 文案、TASKS.md           |
 | `defaultSource`：`api_key`/`cpa`/`direct`/`oauth` | 四能力 `poll`/`local`/`session`/`observe` | SPEC.md §3.2、manifest      |
-| 用量项 / usage item                               | 用量条 / metric                           | 不一致处统一                |
+| 用量项 / usage item / `UsageItem`                 | 用量条 / metric / `MetricRecord`          | 不一致处统一                |
 
 > 维护规则：发现新落后词，先更新本表，再改代码/文档。本表与 `docs/omniusage-architecture-v2.md` 数据模型章节必须一致，冲突以本表为准。

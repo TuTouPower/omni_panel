@@ -1,8 +1,8 @@
-import type { UsageItem, PluginChart } from "../../../shared/schemas/plugin-output";
+import type { MetricRecord, PluginChart } from "../../../shared/schemas/plugin-output";
 
 export interface SnapshotSuccess {
     readonly updatedAt: string;
-    readonly items: readonly UsageItem[];
+    readonly items: readonly MetricRecord[];
     readonly badge?: string;
     readonly chart?: PluginChart;
 }
@@ -12,7 +12,7 @@ export type ConnectorSnapshotState =
     | { readonly status: "loading"; readonly lastSuccess?: SnapshotSuccess }
     | {
           readonly status: "ready";
-          readonly items: readonly UsageItem[];
+          readonly items: readonly MetricRecord[];
           readonly updatedAt: Date;
           readonly badge?: string;
           readonly chart?: PluginChart;

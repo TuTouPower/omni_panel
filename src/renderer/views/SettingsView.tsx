@@ -25,7 +25,7 @@ import type {
     UsageBarColorScheme,
     UsageBarStyle,
 } from "../../shared/types/config";
-import type { UsageItem, UsageProvider } from "../../shared/schemas/plugin-output";
+import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
@@ -117,7 +117,7 @@ function bar_style_label_to_value(label: string): UsageBarStyle {
     return label === "粗胶囊型" ? "capsule" : "thin";
 }
 
-function snapshot_items(pluginInfo: ConnectorInfo): readonly UsageItem[] {
+function snapshot_items(pluginInfo: ConnectorInfo): readonly MetricRecord[] {
     if (pluginInfo.snapshot.status === "ready") return pluginInfo.snapshot.items;
     if (pluginInfo.snapshot.status === "failed") return pluginInfo.snapshot.items ?? [];
     return [];
@@ -725,7 +725,7 @@ export function SettingsView() {
     );
 
     const hide_account = useCallback(
-        (item: UsageItem) => {
+        (item: MetricRecord) => {
             if (!config) return;
             const newOverrides = add_account_override(
                 config.accountOverrides,

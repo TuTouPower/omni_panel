@@ -3,7 +3,7 @@ import { Icon, VendorMark } from "./Icon";
 import { ConfirmDelete } from "./ConfirmDelete";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { ConnectorConfiguration } from "../../shared/types/config";
-import type { UsageItem, UsageProvider } from "../../shared/schemas/plugin-output";
+import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
 import {
@@ -55,7 +55,7 @@ function is_enabled_value(value: string | undefined) {
     return value?.toLowerCase() === "true";
 }
 
-function get_snapshot_items(connector: ConnectorInfo): readonly UsageItem[] {
+function get_snapshot_items(connector: ConnectorInfo): readonly MetricRecord[] {
     if (connector.snapshot.status === "ready") return connector.snapshot.items;
     if (connector.snapshot.status === "failed") return connector.snapshot.items ?? [];
     return [];
@@ -70,8 +70,8 @@ function get_status(connector: ConnectorInfo) {
     return "未连接";
 }
 
-function group_accounts(items: readonly UsageItem[]) {
-    const groups = new Map<UsageProvider, UsageItem[]>();
+function group_accounts(items: readonly MetricRecord[]) {
+    const groups = new Map<UsageProvider, MetricRecord[]>();
     for (const item of items) {
         const list = groups.get(item.provider) ?? [];
         list.push(item);
