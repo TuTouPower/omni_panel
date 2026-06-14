@@ -23,7 +23,7 @@
 
 **原因：** Cookie 自动刷新周期功能不再需要。session 类账号的 cookie 保鲜改为其他策略。
 
-### Brave Search 用量统计：手动探测刷新
+### Brave Search 用量统计：手动探测刷新 ✅
 
 **来源：** `docs/brave_search_usage_proxy_discussion.md`（方案讨论文档）；design demo `settings-data.js` 中的 `VENDOR_REFRESH.brave`。
 
@@ -31,34 +31,23 @@
 
 **选定方案：** 方案 C — 手动触发探测。不搞代理服务。用户手动点击刷新时，connector 发一个最小探测请求（`q=test&count=1`），从 `X-RateLimit-*` header 提取剩余额度。
 
-**Demo 行为（`settings-data.js`）：**
+**已完成（`6b8a2f3`）：**
 
-```js
-const VENDOR_REFRESH = {
-    brave: {
-        manualDefault: true,
-        note: "用量统计需向 Brave Search API 发送一次搜索请求才能获取，会占用配额，因此默认仅手动刷新。",
-    },
-};
-```
-
-- Brave 的「跟随全局自动刷新间隔」开关**默认关闭**，默认设为「仅手动」。
-- 编辑界面显示 info 提示：`用量统计需向 Brave Search API 发送一次搜索请求才能获取，会占用配额，因此默认仅手动刷新。`
-- 用户手动点刷新按钮时才触发探测。
-
-**需要：**
-
-1. **Brave connector manifest**：`connectors/brave/manifest.json`，`provider: "brave"`，参数含 `API_KEY`，`capabilities` 含 `session` 或新建探测类型。
-2. **Brave connector 脚本**：发 `GET https://api.search.brave.com/res/v1/web/search?q=test&count=1` + `X-Subscription-Token` header，从响应头提取 `X-RateLimit-Limit`、`X-RateLimit-Remaining`、`X-RateLimit-Reset`，转为 Observation（`used = limit - remaining`）。
-3. **`VENDOR_REFRESH` 注册**：renderer 端注册 `brave: { manualDefault: true, note: '...' }`，使「跟随全局自动刷新间隔」开关默认关闭 + 显示提示文案。
-4. **调度器行为**：`manualDefault` 的 connector 默认不自动调度，仅响应手动 `refreshNow`。
-5. **测试**：connector 集成测试覆盖成功探测、API key 缺失、rate limit header 解析。
+- `connectors/brave/manifest.json` + `connectors/brave/connector.ts`
+- `src/shared/schemas/manifest.ts`：`manualDefault` 可选字段
+- `src/shared/schemas/plugin-output.ts`：`usageProviderSchema` 新增 `"brave"`
+- `src/shared/types/config.ts` + `src/main/core/config/types.ts`：`PluginConfiguration.manualRefreshOnly`
+- `src/main/core/scheduler/scheduler-orchestrator.ts`：跳过 `manualRefreshOnly` connector 的定时调度
+- `src/main/index.ts`：auto-seed 时对 `manualDefault` connector 设置 `manualRefreshOnly: true`
+- `src/renderer/components/SettingsForm.tsx`：`manualRefreshOnly` 时隐藏刷新间隔输入，显示提示
+- `src/renderer/views/SettingsView.tsx`：传递 `manualRefreshOnly` 到 `SettingsForm`
+- 测试：`tests/integration/connector/brave-connector.test.ts`（5 cases）、`manifest-contract.test.ts` 新增 brave
 
 **第一版不做：** 本地代理服务、局域网共享、完整账单、历史趋势图。
 
-**验收：** 用户填 Brave API key → 默认仅手动 → 点刷新 → OmniUsage 展示月度剩余额度。每次刷新消耗 1 次 Brave 搜索配额。
+### ~~删除账号确认弹窗未对齐 demo~~
 
-### 删除账号确认弹窗未对齐 demo
+已完成。新增 `ConfirmDelete` 组件（`src/renderer/components/ConfirmDelete.tsx`），替换所有 `window.confirm()` 删除确认。
 
 **现状：** 普通账号和 CPA 数据源的删除按钮都用 `window.confirm()` 浏览器原生弹窗。
 
