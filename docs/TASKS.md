@@ -8,7 +8,9 @@
 
 ## 待办
 
-### 删除 Cookie 刷新周期功能 + 账号页多余文案
+### ~~删除 Cookie 刷新周期功能 + 账号页多余文案~~
+
+已完成（`16b4303`）。删除 timer、cookieRefreshService、AUTH_REFRESH_COOKIES IPC、schema 字段、UI section、辅助函数。
 
 **需要删除的内容：**
 
@@ -68,7 +70,9 @@
 
 **验收：** 删除确认弹窗样式与 demo 一致。
 
-### 检查：网页登录类账号的刷新间隔语义（cookie 刷新 vs 用量刷新）
+### ~~检查：网页登录类账号的刷新间隔语义（cookie 刷新 vs 用量刷新）~~
+
+已完成（`8347bf4`）。MiMo connector `.catch(() => null)` 改为抛出含 HTTP 错误信息的 Error；SettingsForm input max 修正；新增 HTTP 401 reject 测试。Cookie 刷新定时器已在 Task #1 中删除。
 
 **背景：**
 
@@ -90,7 +94,9 @@
 3. `cookie-refresh-service.test.ts` 和 `mimo-connector.test.ts` 现有测试是否验证了这两个定时器的独立性。
 4. 是否需要在 UI 上为 session 类账号的「刷新间隔」加说明文案，提示用户这只是用量刷新频率、cookie 刷新另有全局定时器。
 
-### 普通账号编辑界面添加"跟随全局自动刷新间隔"开关
+### ~~普通账号编辑界面添加"跟随全局自动刷新间隔"开关~~
+
+已完成（`a1a22dc`）。SettingsForm 新增 followGlobal 开关 + 条件频率选择器；传递 globalIntervalLabel。
 
 **来源：** design demo `settings-panel.jsx` 的编辑账号弹窗。
 
@@ -115,7 +121,9 @@
 - 传递 `globalIntervalLabel` 给 `SettingsForm`（`SettingsView` 已有此值）。
 - 补充对应测试。
 
-### 待修复：CPA 子行按用量条（metric）渲染，未按账号（accountId）聚合
+### ~~待修复：CPA 子行按用量条（metric）渲染，未按账号（accountId）聚合~~
+
+已完成（`47f915d`）。CpaCard 按 (provider, account_id) 分组，同账号多条用量条合并为一行；计数用去重 accountId 数。
 
 **术语**（见 `docs/glossary.md`）：账号 = `accountId`；用量条 = `metricId`（一账号多条，如 Claude 的 `5 小时` + `一周`）。本 bug = UI 把用量条当账号渲染。
 
@@ -140,7 +148,9 @@
 
 **验收：** 同 provider 下同一真实账号只出现一次；`data/now.png` 场景 Claude 显示 1 个、Codex 显示 6 个；卡片头账号数 = 真实账号数。`pnpm test` 通过 + packaged 真实启动验证。
 
-### 待办：统一全项目中英文术语到 `docs/glossary.md`
+### ~~待办：统一全项目中英文术语到 `docs/glossary.md`~~（低风险批已完成）
+
+已完成低风险批（`5159292`）。SPEC.md ~30 处、TASKS.md 7 处、设计文档 24 处、UI 文案 1 处。高风险批（PluginConfiguration 等序列化 key）需单独迁移方案。
 
 **背景：** 已建权威术语表 `docs/glossary.md`（连接器/数据源/厂商/账号/用量/用量条/观测 + 四采集能力 poll/local/session/observe）。代码与文档大量沿用落后词（插件/plugin、旧 defaultSource 分类、子账号、usage item），需系统性统一。用户明确：术语落后即更新，无屎山包袱，要最好的。
 
@@ -411,7 +421,7 @@
 
 ---
 
-## 待办（测试盲区审查 — 2026-06-12，27 项中已完成 26 项）
+## 待办（全部已完成 2026-06-14）（测试盲区审查 — 2026-06-12，27 项中已完成 26 项）
 
 > 全部 26 个问题已详细记录至 `docs/review-issues.md`。
 
