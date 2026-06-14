@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { VendorMark, Icon } from "./Icon";
+import { ADD_COMMON_SERVICES } from "../lib/common-services";
 
 // ── Auth method routing ──
 
@@ -20,17 +21,6 @@ export const VENDOR_AUTH_MAP: Partial<Record<UsageProvider, AuthMethod>> = {
     antigravity: "local",
     brave: "apikey",
 };
-
-const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
-    { id: "claude", label: "Claude" },
-    { id: "codex", label: "Codex" },
-    { id: "gemini", label: "Gemini" },
-    { id: "kimi", label: "Kimi" },
-    { id: "deepseek", label: "DeepSeek" },
-    { id: "tavily", label: "Tavily" },
-    { id: "mimo", label: "MiMo" },
-    { id: "brave", label: "Brave Search" },
-];
 
 const AUTH_APIKEY_META: Partial<
     Record<UsageProvider, { prefix: string; endpoint: string; docs: string }>

@@ -27,6 +27,7 @@ import type {
 } from "../../shared/types/config";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
+import { ADD_COMMON_SERVICES } from "../lib/common-services";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
 import logo from "../assets/logo.png";
@@ -382,17 +383,6 @@ function AccountDialog({
         </div>
     );
 }
-
-const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
-    { id: "claude", label: "Claude" },
-    { id: "codex", label: "Codex" },
-    { id: "gemini", label: "Gemini" },
-    { id: "kimi", label: "Kimi" },
-    { id: "deepseek", label: "DeepSeek" },
-    { id: "tavily", label: "Tavily" },
-    { id: "mimo", label: "MiMo" },
-    { id: "brave", label: "Brave Search" },
-];
 
 /* ── Add Account Picker ── */
 function AddAccountPicker({
