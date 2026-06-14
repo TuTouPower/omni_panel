@@ -60,6 +60,12 @@ export function create_connector_context(
     function resolve_endpoint(endpoint_key: string): string {
         const override = config.endpoint_overrides?.[endpoint_key];
         if (override) return override;
+        if (manifest.requireExplicitEndpoints) {
+            throw new Error(
+                `Endpoint "${endpoint_key}" requires explicit configuration; ` +
+                    `no user-provided override found for connector "${manifest.id}"`,
+            );
+        }
         const endpoint = manifest.endpoints?.[endpoint_key];
         if (endpoint) return endpoint;
         throw new Error(`Unknown endpoint key: ${endpoint_key}`);

@@ -219,4 +219,36 @@ describe("net-client", () => {
 
         await expect(ctx.files.list(temp_dir)).rejects.toThrow("not allowed");
     });
+
+    describe("requireExplicitEndpoints", () => {
+        it("throws when flag is true and no override provided", async () => {
+            const manifest = {
+                ...get_test_manifest(),
+                requireExplicitEndpoints: true,
+            };
+            const ctx = create_connector_context(manifest, vault, "test-1", {});
+            await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow(
+                /requires explicit configuration/,
+            );
+        });
+
+        it("uses override when flag is true and override is provided", async () => {
+            const manifest = {
+                ...get_test_manifest(),
+                requireExplicitEndpoints: true,
+            };
+            const ctx = create_connector_context(manifest, vault, "test-1", {
+                endpoint_overrides: { default: `http://127.0.0.1:${String(server_port)}` },
+            });
+            const result = await ctx.http.get_json("default", "/usage");
+            expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+        });
+
+        it("falls back to manifest default when flag is false/undefined", async () => {
+            const manifest = get_test_manifest();
+            const ctx = create_connector_context(manifest, vault, "test-1", {});
+            const result = await ctx.http.get_json("default", "/usage");
+            expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+        });
+    });
 });

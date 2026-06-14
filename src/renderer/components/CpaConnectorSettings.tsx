@@ -170,6 +170,11 @@ export function CpaConnectorSettings({
             event.preventDefault();
             if (saving) return;
 
+            if (!endpoint.trim()) {
+                setError("CPA-Manager URL 不能为空");
+                return;
+            }
+
             const nonSecrets: Record<string, string> = { ...config.parameterValues };
             delete nonSecrets["cpa_mgmt_key"];
             for (const monitor of MONITORS) {

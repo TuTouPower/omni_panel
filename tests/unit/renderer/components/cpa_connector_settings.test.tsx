@@ -468,4 +468,16 @@ describe("CpaConnectorSettings", () => {
         await user.click(screen.getByText("移除数据源"));
         expect(onRemove).not.toHaveBeenCalled();
     });
+
+    it("shows error when CPA-Manager URL is empty on save", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        renderSettings({ onSave });
+
+        await user.clear(screen.getByLabelText("CPA-Manager URL"));
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        expect(screen.getByRole("alert")).toHaveTextContent("CPA-Manager URL 不能为空");
+        expect(onSave).not.toHaveBeenCalled();
+    });
 });

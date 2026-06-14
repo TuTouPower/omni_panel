@@ -56,6 +56,7 @@ export const manifest_schema = z
         capabilities: z.array(capability_schema).min(1),
         parameters: z.array(parameter_schema).default([]),
         endpoints: z.record(z.string(), z.string().url()).optional(),
+        requireExplicitEndpoints: z.boolean().optional(),
         script: z.string().optional(),
         poll: poll_config_schema.optional(),
         observe: observe_config_schema.optional(),
