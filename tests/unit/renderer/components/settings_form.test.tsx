@@ -34,7 +34,6 @@ const baseParams: PluginParameterMetadata[] = [
 function renderForm(overrides: Record<string, unknown> = {}) {
     const defaults = {
         instanceId: "deepseek",
-        name: "DeepSeek",
         parameters: baseParams,
         values: { MODEL: "chat" },
         hasSecrets: { API_KEY: true },
@@ -46,9 +45,9 @@ function renderForm(overrides: Record<string, unknown> = {}) {
 }
 
 describe("SettingsForm", () => {
-    it("renders form with plugin name", () => {
+    it("renders form fields", () => {
         renderForm();
-        expect(screen.getByText("DeepSeek")).toBeInTheDocument();
+        expect(screen.getByText("API Key")).toBeInTheDocument();
     });
 
     it("renders parameter labels", () => {

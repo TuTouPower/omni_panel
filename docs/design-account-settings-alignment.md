@@ -121,6 +121,10 @@ CPA 子账号不应有删除按钮。
 7. ~~多账号厂商 UI 当前是每个 plugin 一张连接卡~~ → 已按 provider 聚合为 `VendorCard`。
 8. CPA Manager 详情页里的"已发现账号"仍按服务商折叠分组。demo 详情页也保留折叠；账号列表取消折叠。（保留，见暂缓项）
 9. ~~CPA 编辑页和 demo 仍有明显差异~~ → 已对齐：密钥补显示/隐藏按钮、同步范围用服务商名、移除标签映射按钮、账号行不展示 accountId。
+10. 导航标签"已添加"应改为"账号"（demo 用"账号"）。
+11. AccountDialog header 缺少 VendorMark 图标（demo 在标题前显示厂商 logo）。
+12. SettingsForm 顶部冗余显示插件名（AccountDialog header 已有），且字段标签用 `cfg-label` 而非 `ad-label`。
+13. SettingsForm footer 用 `cf-save` 而非 demo 的 `ad-btn primary` + `ad-btn ghost` 取消按钮。
 
 ### 建议实施范围
 

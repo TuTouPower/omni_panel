@@ -9,7 +9,6 @@ interface LabelMapRow {
 
 interface SettingsFormProps {
     instanceId: string;
-    name: string;
     parameters: PluginParameterMetadata[];
     values: Record<string, string>;
     hasSecrets?: Record<string, boolean>;
@@ -32,7 +31,6 @@ interface SettingsFormProps {
 
 export function SettingsForm({
     instanceId,
-    name,
     parameters,
     values,
     hasSecrets,
@@ -190,12 +188,9 @@ export function SettingsForm({
             className="ad-body-form"
             data-testid={`settings-form-${instanceId}`}
         >
-            <div className="cfg-label" style={{ fontSize: 14, marginBottom: 8 }}>
-                {name}
-            </div>
             {parameters.map((param) => (
                 <div className="ad-field" key={param.name}>
-                    <label className="cfg-label" htmlFor={param.name}>
+                    <label className="ad-label" htmlFor={param.name}>
                         {param.label}
                     </label>
                     {param.type === "boolean" ? (
@@ -275,7 +270,7 @@ export function SettingsForm({
             ))}
             {Object.keys(endpoints ?? {}).map((endpointName) => (
                 <div className="ad-field" key={endpointName}>
-                    <label className="cfg-label">
+                    <label className="ad-label">
                         {endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`}
                     </label>
                     <input
@@ -296,7 +291,7 @@ export function SettingsForm({
                 </div>
             ))}
             <div className="ad-field">
-                <label className="cfg-label">刷新间隔（分钟）</label>
+                <label className="ad-label">刷新间隔（分钟）</label>
                 <input
                     type="number"
                     name="refreshIntervalMinutes"
@@ -312,7 +307,7 @@ export function SettingsForm({
                 <div className="ad-field">
                     <button
                         type="button"
-                        className="cfg-label"
+                        className="ad-label"
                         style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
                         onClick={() => {
                             setLabelMapExpanded((v) => !v);
@@ -368,26 +363,28 @@ export function SettingsForm({
                 </div>
             )}
             <div className="ad-foot">
-                <button
-                    type="submit"
-                    disabled={saving}
-                    data-testid={`settings-save-btn-${instanceId}`}
-                    className={"cf-save" + (saved ? " saved" : "")}
-                >
-                    {saving ? "保存中..." : saved ? "已保存" : "保存"}
-                </button>
-                {onDuplicate && (
+                <div className="ad-foot-r">
+                    {onDuplicate && (
+                        <button
+                            type="button"
+                            data-testid={`settings-duplicate-btn-${instanceId}`}
+                            onClick={() => {
+                                onDuplicate(instanceId);
+                            }}
+                            className="cf-secondary"
+                        >
+                            复制
+                        </button>
+                    )}
                     <button
-                        type="button"
-                        data-testid={`settings-duplicate-btn-${instanceId}`}
-                        onClick={() => {
-                            onDuplicate(instanceId);
-                        }}
-                        className="cf-secondary"
+                        type="submit"
+                        disabled={saving}
+                        data-testid={`settings-save-btn-${instanceId}`}
+                        className={"ad-btn primary" + (saved ? " saved" : "")}
                     >
-                        复制
+                        {saving ? "保存中..." : saved ? "已保存" : "保存"}
                     </button>
-                )}
+                </div>
             </div>
         </form>
     );

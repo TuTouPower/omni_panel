@@ -602,4 +602,37 @@ describe("SettingsView", () => {
         )?.[0];
         expect(saved_config?.labelMapSync).toBe(true);
     });
+
+    it("shows '账号' nav label instead of '已添加'", async () => {
+        render(<SettingsView />);
+        await waitFor(() => {
+            expect(screen.getByText("账号")).toBeInTheDocument();
+        });
+        expect(screen.queryByText("已添加")).not.toBeInTheDocument();
+    });
+
+    it("shows VendorMark in edit dialog header", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+        // Navigate to accounts section
+        await waitFor(() => {
+            expect(screen.getByText("账号")).toBeInTheDocument();
+        });
+        await user.click(screen.getByText("账号"));
+        await waitFor(() => {
+            expect(screen.getAllByText("DeepSeek").length).toBeGreaterThan(0);
+        });
+        // Click edit button on DeepSeek card
+        const editButtons = screen.getAllByTitle("编辑");
+        if (editButtons.length > 0) {
+            await user.click(editButtons[0]);
+            await waitFor(() => {
+                expect(screen.getByText("编辑账号")).toBeInTheDocument();
+            });
+            // Check VendorMark is present in the dialog header
+            const dialog = screen.getByRole("dialog");
+            const mark = dialog.querySelector(".ad-mark");
+            expect(mark).not.toBeNull();
+        }
+    });
 });

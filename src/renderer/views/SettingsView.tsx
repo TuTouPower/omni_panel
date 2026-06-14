@@ -42,7 +42,7 @@ interface DialogState {
 /* ── constants ── */
 const NAV_ITEMS = [
     { id: "general", label: "常规", icon: "gear" },
-    { id: "accounts", label: "已添加", icon: "inbox" },
+    { id: "accounts", label: "账号", icon: "inbox" },
     { id: "appearance", label: "外观", icon: "palette" },
     { id: "data", label: "数据与隐私", icon: "shield" },
     { id: "about", label: "关于", icon: "info" },
@@ -333,6 +333,11 @@ function AccountDialog({
                 aria-labelledby="acct-dialog-title"
             >
                 <div className="ad-head">
+                    {isEdit && pluginInfo && (
+                        <span className="ad-mark">
+                            <VendorMark id={pluginInfo.activeProviders[0] ?? "unknown"} size={24} />
+                        </span>
+                    )}
                     <div className="ad-htext">
                         <div className="ad-title" id="acct-dialog-title">
                             {isEdit ? "编辑账号" : "添加账号"}
@@ -387,7 +392,6 @@ function AccountDialog({
                         ) : (
                             <SettingsForm
                                 instanceId={instanceId}
-                                name={pluginName ?? pluginInfo.displayName}
                                 parameters={pluginInfo.metadata?.parameters ?? []}
                                 values={pluginConfig.parameterValues}
                                 hasSecrets={hasSecrets ?? {}}
