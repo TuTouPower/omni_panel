@@ -35,7 +35,7 @@ export function use_plugins(): UsePluginsResult {
             setError(null);
             setLoading(false);
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "加载插件失败";
+            const message = err instanceof Error ? err.message : "加载连接器失败";
             window.usageboard.log({
                 level: "error",
                 module: MODULE,

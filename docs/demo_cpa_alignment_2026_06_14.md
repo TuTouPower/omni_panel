@@ -26,10 +26,10 @@
 Demo 变更：
 
 - CPA Manager 行不再显示“数据源”标签。
-- CPA 子账号行不再有“编辑”按钮。
-- CPA 子账号行不再用“隐藏”眼睛按钮，改成和主面板一致的开关。
-- CPA 子账号关闭后显示“已关闭”。
-- CPA 子账号来源移除时保留“清除”按钮。
+- CPA 账号行不再有“编辑”按钮。
+- CPA 账号行不再用“隐藏”眼睛按钮，改成和主面板一致的开关。
+- CPA 账号关闭后显示“已关闭”。
+- CPA 账号来源移除时保留“清除”按钮。
 - 支持多个 CPA Manager，每个 CPA Manager 作为独立数据源卡片展示，名称来自自身别名，例如“公司 CPA”“个人 CPA”。
 
 当前实现差距：
@@ -37,19 +37,19 @@ Demo 变更：
 - `src/renderer/components/CpaCard.tsx:61` 固定显示 `CPA Manager`，没有使用实例别名。
 - `src/renderer/components/CpaCard.tsx:62` 仍显示 `数据源` 标签。
 - `src/renderer/components/AccountRow.tsx:106` 对 `cpa-source` 也会显示 `数据源` 标签。
-- `src/renderer/components/AccountRow.tsx:124-135` CPA 子账号仍是“改名 + 隐藏眼睛”两个图标。
+- `src/renderer/components/AccountRow.tsx:124-135` CPA 账号仍是“改名 + 隐藏眼睛”两个图标。
 - `src/renderer/components/AccountRow.tsx:55` 隐藏状态文案是“已隐藏”，demo 要“已关闭”。
-- `src/renderer/views/SettingsView.tsx:1412-1422` 当前把 CPA 子账号的 `on_rename` 接到了标签映射弹窗，这与 demo 的“子账号行不要编辑按钮”冲突。
+- `src/renderer/views/SettingsView.tsx:1412-1422` 当前把 CPA 账号的 `on_rename` 接到了标签映射弹窗，这与 demo 的”账号行不要编辑按钮”冲突。
 
 对齐要求：
 
 - CPA 卡片标题使用插件实例显示名 / 配置名，不固定写死 `CPA Manager`。
 - 删除 CPA 卡片和 `cpa-source` 行里的“数据源”标签。
-- CPA 子账号行只保留：
+- CPA 账号行只保留：
     - 正常/关闭：一个 `sw` 开关；
     - 来源已移除：一个“清除”按钮。
-- 子账号开关继续写入 `accountOverrides.hidden`，只是 UI 文案和控件从“隐藏”改成“关闭”。
-- 移除 CPA 子账号行级标签映射入口；标签映射入口移动到 CPA 详情的“同步范围”。
+- 账号开关继续写入 `accountOverrides.hidden`，只是 UI 文案和控件从”隐藏”改成”关闭”。
+- 移除 CPA 账号行级标签映射入口；标签映射入口移动到 CPA 详情的“同步范围”。
 
 ### 2. CPA Manager 编辑界面
 
@@ -94,7 +94,7 @@ Demo 变更：
 Demo 变更：
 
 - 普通账号编辑里仍可编辑数据标签映射。
-- CPA Manager 的标签映射入口不在子账号行，而在 CPA 详情的“同步范围”厂商行。
+- CPA Manager 的标签映射入口不在账号行，而在 CPA 详情的”同步范围”厂商行。
 - 弹窗文案是“数据标签映射”，副标题为服务商名称。
 - 有数据时显示两列：`原始标签（来自接口）` / `显示名称`。
 - 无数据时显示“该服务商暂无可映射的数据标签”。
@@ -113,7 +113,7 @@ Demo 变更：
     - `vendor_id`: 对应同步范围厂商；
     - `account_name`: 服务商显示名；
     - `save_target`: `provider`。
-- 不再从 CPA 子账号行打开标签映射。
+- 不再从 CPA 账号行打开标签映射。
 
 ### 4. 两个 CPA Manager 场景
 
@@ -136,12 +136,12 @@ Demo 变更：
 
 ## 建议实施顺序
 
-1. 更新 CPA 卡片和子账号行：去标签、标题用别名、子账号按钮改开关、文案改“已关闭”。
+1. 更新 CPA 卡片和账号行：去标签、标题用别名、账号按钮改开关、文案改”已关闭”。
 2. 更新 CPA 详情表单：加别名，删除自动同步/失败通知，刷新设置改为“跟随全局”。
 3. 打通 CPA 同步范围的标签映射编辑按钮，复用 `LabelMapDialog`。
 4. 补测试：
     - CPA 卡片不显示“数据源”；
-    - CPA 子账号只显示开关，不显示编辑/隐藏按钮；
+    - CPA 账号只显示开关，不显示编辑/隐藏按钮；
     - CPA 详情显示别名和跟随全局刷新开关；
     - 关闭跟随全局后才显示数据源刷新频率；
     - 同步范围编辑按钮打开 provider 级标签映射；

@@ -148,9 +148,9 @@
 
 低风险先行批（文档 + UI 文案 + 日志 + 测试描述，可直接 rename + 改文案）：
 
-- `docs/SPEC.md`：旧插件体系约 85 处（`:65-236,267-353,504-530,666-687`）、旧 `defaultSource/api_key/cpa/direct/oauth` 约 9 处 → connector + 四能力。
-- `docs/TASKS.md`：plugin/子账号混用约 36 处。
-- `docs/design-account-settings-alignment.md:49-227`、`docs/demo_cpa_alignment_2026_06_14.md:29-148`：子账号约 20 处 → 账号 / CPA 展开子行。
+- `docs/SPEC.md`：旧连接器体系约 85 处（`:65-236,267-353,504-530,666-687`）、旧 `defaultSource/api_key/cpa/direct/oauth` 约 9 处 → connector + 四能力。
+- `docs/TASKS.md`：连接器/账号混用约 36 处。
+- `docs/design-account-settings-alignment.md:49-227`、`docs/demo_cpa_alignment_2026_06_14.md:29-148`：账号约 20 处 → 账号 / CPA 展开子行。
 - UI 文案：`src/renderer/hooks/use-plugins.ts:38`「加载插件失败」→「连接器」。
 - 测试描述/夹具：`tests/smoke/renderer-smoke.test.tsx`、`tests/user_e2e/specs/plugin_config.spec.ts`、`tests/fixtures/plugin-*`。
 
@@ -166,9 +166,9 @@
 
 **验收：** 全项目术语与 `docs/glossary.md` 一致；废弃对照表落后词清零（外部共享类型例外需在 glossary 标注）。
 
-### 已完成：CPA 编辑改为内联面板 + 子账号按厂商聚类
+### 已完成：CPA 编辑改为内联面板 + 账号按厂商聚类
 
-**需求：** CPA 编辑界面不应用弹窗，改为内联面板替换（demo 用面包屑导航 + 同容器内容切换）。CPA 卡片子账号按厂商分组展示。
+**需求：** CPA 编辑界面不应用弹窗，改为内联面板替换（demo 用面包屑导航 + 同容器内容切换）。CPA 卡片账号按厂商分组展示。
 
 **实现（`2026-06-14`，`74bd20f`）：**
 
@@ -183,7 +183,7 @@
 
 **来源：** `docs/demo_cpa_alignment_2026_06_14.md`。
 
-**需求：** 按最新 demo 对齐 CPA Manager 账号卡片、子账号行、编辑界面、同步范围标签映射入口和多 CPA Manager 场景。
+**需求：** 按最新 demo 对齐 CPA Manager 账号卡片、账号行、编辑界面、同步范围标签映射入口和多 CPA Manager 场景。
 
 **验收：** 以 `docs/demo_cpa_alignment_2026_06_14.md` 的”对齐要求”和”建议实施顺序”作为实现与测试清单。
 
@@ -287,7 +287,7 @@
 
 **需要清理：**
 
-- ~~`src/main/index.ts:168-173`：`ELECTRON_RUN_AS_NODE` 守卫（旧插件子进程模型产物，新架构不用子进程）。~~ **已完成**
+- ~~`src/main/index.ts:168-173`：`ELECTRON_RUN_AS_NODE` 守卫（旧连接器子进程模型产物，新架构不用子进程）。~~ **已完成**
 - ~~`src/main/core/cookie-refresh/` 目录：应并入 `session/`（cookie 刷新现在是 session 管理的一部分）。~~ **已完成**
 - ~~`src/main/core/scheduler/refresh-service.ts`：`PluginRefreshService`→`ConnectorRefreshService`、`PluginSnapshotState`→`ConnectorSnapshotState`、`plugin` 局部变量→`connector_config`。~~ **已完成**
 - `PluginConfiguration` 保留原名（定义在 `shared/types/config.ts`，属于外部共享类型）。
@@ -365,7 +365,7 @@
 
 ### 已完成：架构重构后独立采集器变成空实现
 
-**根因：** `713a266` 删除 legacy plugin runtime 时，一并删除了 `assets/plugins/*-usage-plugin.ts` 的真实采集逻辑；`2f31546` 只为 UI 暴露 provider 补了 connector manifest 和 12 行占位 `connector.ts`，未迁移旧插件的数据获取逻辑，导致添加密钥后仍返回空数据，设置页显示”暂无账号”。
+**根因：** `713a266` 删除 legacy plugin runtime 时，一并删除了 `assets/plugins/*-usage-plugin.ts` 的真实采集逻辑；`2f31546` 只为 UI 暴露 provider 补了 connector manifest 和 12 行占位 `connector.ts`，未迁移旧连接器的数据获取逻辑，导致添加密钥后仍返回空数据，设置页显示”暂无账号”。
 
 **已迁移（commit）：**
 
@@ -378,7 +378,7 @@
 
 **用户决定跳过（独立 connector）：**
 
-- Gemini/Kimi/Antigravity 独立 connector：`713a266^:assets/plugins/` 中无独立旧插件，用户明确决定不做独立 connector。这些 provider 通过 CPA 采集（`c402787`），CPA auth-files 里有对应文件即产出 observation。
+- Gemini/Kimi/Antigravity 独立 connector：`713a266^:assets/plugins/` 中无独立旧连接器，用户明确决定不做独立 connector。这些 provider 通过 CPA 采集（`c402787`），CPA auth-files 里有对应文件即产出 observation。
 
 **迁移参考：** 查看 `713a266^:assets/plugins/<name>-usage-plugin.ts` 的旧实现；`713a266` 是删除点。迁移时不要恢复旧 plugin runtime/SDK，只把业务逻辑改写到新 connector `ctx.http` / `Observation[]` 输出模型，并补对应集成测试。
 
@@ -399,7 +399,7 @@
 **修复（`147ccc0` + `c402787`）：**
 
 - `147ccc0`：manifest 增加 `monitor_gemini`/`monitor_kimi`/`monitor_deepseek`/`monitor_codex`/`monitor_antigravity` 开关；connector 按 `monitor_<provider>` 过滤；IPC `supported_providers()` 从 manifest 参数动态派生。
-- `c402787`：从 `713a266^` 旧 CPA 插件迁移 Codex/Gemini/Antigravity/Kimi 的 fetch + parse 逻辑。Codex 调 `chatgpt.com/backend-api/wham/usage`，Gemini 调 `cloudcode-pa.googleapis.com`（loadCodeAssist + retrieveUserQuota），Antigravity 多 URL fallback，Kimi 调 `api.kimi.com/coding/v1/usages`。
+- `c402787`：从 `713a266^` 旧 CPA 连接器迁移 Codex/Gemini/Antigravity/Kimi 的 fetch + parse 逻辑。Codex 调 `chatgpt.com/backend-api/wham/usage`，Gemini 调 `cloudcode-pa.googleapis.com`（loadCodeAssist + retrieveUserQuota），Antigravity 多 URL fallback，Kimi 调 `api.kimi.com/coding/v1/usages`。
 
 **验收：** CPA 设置页有多 provider 开关；Claude/Codex/Gemini/Antigravity/Kimi auth file 各产出对应 observation。已通过 `tests/integration/connector/cpa-connector.test.ts` 7 个测试验证（每个 provider 一个强断言测试 + 空 key/关闭/不崩溃测试）。
 
