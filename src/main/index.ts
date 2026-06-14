@@ -30,6 +30,7 @@ import { create_observation_store } from "./core/observation/observation-store";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
 import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestrator";
+import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
 import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
@@ -444,6 +445,14 @@ void app.whenReady().then(async () => {
     cleanupPopupIpc = registerPopupIpc({
         report_content_height: (report) =>
             main_panel_controller?.report_content_height(report) ?? null,
+    });
+
+    // Hydrate runtime store from observation history for manualRefreshOnly connectors
+    hydrate_runtime_store({
+        runtimeStore,
+        observationStore,
+        connectorConfigs: currentConfig.plugins,
+        definitions: allDefinitions,
     });
 
     // Start periodic refresh for enabled plugins

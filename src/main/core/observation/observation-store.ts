@@ -11,6 +11,7 @@ export interface ObservationStore {
     ): Observation | null;
     list_latest_by_provider(provider: string): Observation[];
     list_all_providers(): string[];
+    list_by_source_instance_id(source_instance_id: string): Observation[];
     prune(older_than_ms: number): number;
     close(): void;
 }
@@ -102,6 +103,17 @@ export function create_observation_store(db_path: string): ObservationStore {
 
     const list_providers_stmt = db.prepare("SELECT DISTINCT provider FROM observations");
 
+    const list_by_instance_stmt = db.prepare(`
+        SELECT * FROM observations o1
+        WHERE o1.source_instance_id = ?
+        AND o1.observed_at = (
+            SELECT MAX(o2.observed_at) FROM observations o2
+            WHERE o2.source_instance_id = o1.source_instance_id
+            AND o2.account_id = o1.account_id
+            AND o2.metric_id = o1.metric_id
+        )
+    `);
+
     const prune_stmt = db.prepare(
         "DELETE FROM observations WHERE observed_at < ? AND id NOT IN (" +
             "SELECT id FROM observations o1 WHERE o1.observed_at = (" +
@@ -146,6 +158,11 @@ export function create_observation_store(db_path: string): ObservationStore {
         list_all_providers() {
             const rows = list_providers_stmt.all() as { provider: string }[];
             return rows.map((r) => r.provider);
+        },
+
+        list_by_source_instance_id(source_instance_id: string) {
+            const rows = list_by_instance_stmt.all(source_instance_id) as Record<string, unknown>[];
+            return rows.map(row_to_observation);
         },
 
         prune(older_than_ms) {
