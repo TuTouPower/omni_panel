@@ -35,15 +35,11 @@ export function ConfirmDelete({
     }, []);
 
     return (
-        <div
-            className="acct-dialog-scrim"
-            onMouseDown={onCancel}
-            data-testid="confirm-delete-scrim"
-        >
+        <div className="acct-dialog-scrim" onClick={onCancel} data-testid="confirm-delete-scrim">
             <div
                 ref={containerRef}
                 className="acct-dialog confirm"
-                onMouseDown={(e) => {
+                onClick={(e) => {
                     e.stopPropagation();
                 }}
                 role="alertdialog"
