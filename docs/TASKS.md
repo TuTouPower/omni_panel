@@ -303,7 +303,7 @@
 - ~~`src/main/index.ts:168-173`：`ELECTRON_RUN_AS_NODE` 守卫（旧连接器子进程模型产物，新架构不用子进程）。~~ **已完成**
 - ~~`src/main/core/cookie-refresh/` 目录：应并入 `session/`（cookie 刷新现在是 session 管理的一部分）。~~ **已完成**
 - ~~`src/main/core/scheduler/refresh-service.ts`：`PluginRefreshService`→`ConnectorRefreshService`、`PluginSnapshotState`→`ConnectorSnapshotState`、`plugin` 局部变量→`connector_config`。~~ **已完成**
-- `PluginConfiguration` 保留原名（定义在 `shared/types/config.ts`，属于外部共享类型）。
+- ~~`PluginConfiguration` 保留原名（定义在 `shared/types/config.ts`，属于外部共享类型）。~~ **已完成**（`9faf1fd`：重命名为 `ConnectorConfiguration`，保留 deprecated 别名）
 
 **验收：** 无 `ELECTRON_RUN_AS_NODE` 守卫、无 `cookie-refresh/` 目录、refresh-service 无 `Plugin` 前缀类型名。
 
