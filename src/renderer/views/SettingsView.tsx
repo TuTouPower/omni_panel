@@ -1821,7 +1821,10 @@ export function SettingsView() {
                                                     oss: "https://omniusage.app/oss",
                                                 };
                                                 const url = urls[c.id];
-                                                if (url) window.open(url, "_blank");
+                                                if (url) {
+                                                    const win = window.open(url, "_blank");
+                                                    if (!win) window.location.href = url;
+                                                }
                                             }}
                                         >
                                             <span className="ab-tile">
