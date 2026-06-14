@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { MetricRecord } from "../../../src/shared/schemas/plugin-output";
+import { usageProviderSchema } from "../../../src/shared/schemas/plugin-output";
 import type { ConnectorInfo } from "../../../src/shared/types/ipc";
 import {
     apply_account_overrides,
@@ -8,7 +9,35 @@ import {
     build_overview_for_group,
     format_usage_period_label,
     get_visible_providers,
+    PROVIDER_ORDER,
+    PROVIDER_LABELS,
 } from "../../../src/renderer/lib/provider-usage";
+
+const ALL_PROVIDERS = usageProviderSchema.options;
+
+describe("PROVIDER_ORDER", () => {
+    it("contains all providers from usageProviderSchema", () => {
+        for (const provider of ALL_PROVIDERS) {
+            expect(PROVIDER_ORDER, `PROVIDER_ORDER missing "${provider}"`).toContain(provider);
+        }
+    });
+
+    it("does not contain duplicates", () => {
+        expect(new Set(PROVIDER_ORDER).size).toBe(PROVIDER_ORDER.length);
+    });
+});
+
+describe("PROVIDER_LABELS", () => {
+    it("has a label for every provider in usageProviderSchema", () => {
+        for (const provider of ALL_PROVIDERS) {
+            expect(
+                PROVIDER_LABELS[provider],
+                `PROVIDER_LABELS missing "${provider}"`,
+            ).toBeDefined();
+            expect(PROVIDER_LABELS[provider].length).toBeGreaterThan(0);
+        }
+    });
+});
 
 function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
     return {

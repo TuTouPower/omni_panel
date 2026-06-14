@@ -60,6 +60,7 @@ export const PROVIDER_ORDER: readonly UsageProvider[] = [
     "deepseek",
     "tavily",
     "mimo",
+    "brave",
 ];
 
 export const PROVIDER_LABELS: Record<UsageProvider, string> = {

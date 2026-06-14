@@ -18,6 +18,7 @@ export const VENDOR_AUTH_MAP: Partial<Record<UsageProvider, AuthMethod>> = {
     claude: "local",
     codex: "local",
     antigravity: "local",
+    brave: "apikey",
 };
 
 const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
@@ -28,6 +29,7 @@ const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
     { id: "deepseek", label: "DeepSeek" },
     { id: "tavily", label: "Tavily" },
     { id: "mimo", label: "MiMo" },
+    { id: "brave", label: "Brave Search" },
 ];
 
 const AUTH_APIKEY_META: Partial<
