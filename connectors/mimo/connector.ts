@@ -68,9 +68,10 @@ function label_for(name: string | undefined): string {
     return name ?? "用量";
 }
 
+const CHROME_VERSION = "149.0.0.0";
+
 const HEADERS = {
-    "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+    "User-Agent": `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION} Safari/537.36`,
     Referer: "https://platform.xiaomimimo.com/console/plan-manage",
     Origin: "https://platform.xiaomimimo.com",
     "x-timeZone": "Asia/Shanghai",
