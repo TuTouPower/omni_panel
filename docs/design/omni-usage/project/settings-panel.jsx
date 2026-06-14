@@ -544,7 +544,16 @@ function CpaDetailPage({ conn }) {
           )}
         </div>
 
-        <div className="cfg-sec">同步范围</div>
+        <div className="cpa-foot">
+          <button className="cf-save"><Icon name="check" size={15} color="#fff" />保存</button>
+          <button className="cf-remove"><Icon name="trash" size={14} />移除数据源</button>
+        </div>
+      </div>
+
+      {/* ---- sync scope (right) ---- */}
+      <div className="cpa-scope">
+        <div className="cfg-sec" style={{ marginTop: 0 }}>同步范围</div>
+        <div className="disc-desc">仅同步已勾选服务商的账号，其用量将显示在主面板。点击编辑可调整该服务商的数据标签映射。</div>
         {scopeList.map((id) => (
           <div className="cfg-row cfg-scope-row" key={id}>
             <span className="cr-vendor"><VendorMark id={id} size={20} />{SV_META[id].name}</span>
@@ -553,21 +562,6 @@ function CpaDetailPage({ conn }) {
               <SPToggle on={scope.has(id)} onClick={() => toggleScope(id)} />
             </div>
           </div>
-        ))}
-
-        <div className="cpa-foot">
-          <button className="cf-save"><Icon name="check" size={15} color="#fff" />保存</button>
-          <button className="cf-remove"><Icon name="trash" size={14} />移除数据源</button>
-        </div>
-      </div>
-
-      {/* ---- discovered ---- */}
-      <div className="cpa-disc">
-        <div className="cfg-sec" style={{ marginTop: 0 }}>已发现账号</div>
-        <div className="disc-desc">由 CPA Manager 发现的账号，将显示在主面板中。</div>
-        {discovered.map((g) => (
-          <DiscoveredGroup key={g.id} vendor={{ id: g.id, name: SV_META[g.id].name }}
-            accounts={g.accounts} open={openGrps.has(g.id)} onToggle={() => toggleGrp(g.id)} />
         ))}
       </div>
 
@@ -787,7 +781,7 @@ function SettingsPanel({ theme, onTheme, accent, onAccent, barScheme, onBarSchem
   const [s, setS] = React.useState({
     interval: '5 分钟', lang: '简体中文', panelMode: '浮动窗口', pin: true, floatHeight: '保持窗口大小',
     notifyNear: true, notifyLimit: true, notifyFail: true, notifyWay: '系统通知', cacheMax: '100 MB',
-    labelMapSync: true,
+    labelMapSync: true, proxyOn: false, proxyAddr: '',
   });
   const up = (k, v) => setS((p) => ({ ...p, [k]: v }));
   // expose 同源数据标签映射同步 so the 编辑账号 dialog reflects the current setting
@@ -864,6 +858,21 @@ function SettingsPanel({ theme, onTheme, accent, onAccent, barScheme, onBarSchem
                 <SPRow title="自动刷新间隔" sub="后台轮询各服务用量的频率">
                   <SPSelect value={s.interval} onChange={(v) => up('interval', v)} options={['1 分钟', '5 分钟', '15 分钟', '30 分钟', '仅手动']} />
                 </SPRow>
+                <div className="set-group-label">网络</div>
+                <SPRow title="使用代理服务器" sub="通过代理访问各服务的接口与登录页面">
+                  <SPToggle on={s.proxyOn} onClick={() => up('proxyOn', !s.proxyOn)} />
+                </SPRow>
+                {s.proxyOn && (
+                  <div className="set-row set-row-stack">
+                    <div className="sr-text">
+                      <div className="sr-title">代理地址</div>
+                      <div className="sr-sub">支持 HTTP / HTTPS / SOCKS5，例如 http://127.0.0.1:7890</div>
+                    </div>
+                    <input className="ad-input mono" value={s.proxyAddr}
+                      onChange={(e) => up('proxyAddr', e.target.value)}
+                      placeholder="http://127.0.0.1:7890" autoFocus />
+                  </div>
+                )}
                 <div className="set-group-label">窗口</div>
                 <SPRow title="主面板打开方式" sub="左键托盘图标永远打开主面板，外壳由这里决定">
                   <SPSelect value={s.panelMode} onChange={(v) => up('panelMode', v)} options={['跟随系统推荐', '弹出面板', '浮动窗口']} />

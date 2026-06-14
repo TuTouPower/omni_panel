@@ -358,7 +358,6 @@ function App() {
                   </div>
                 </div>
               </>
-              <div className="win-resize" onPointerDown={onResizeDown} title="拖动调整面板宽度" />
           </div>
       )}
 
