@@ -38,6 +38,7 @@ function renderForm(overrides: Record<string, unknown> = {}) {
         values: { MODEL: "chat" },
         hasSecrets: { API_KEY: true },
         refreshIntervalSeconds: 300,
+        globalIntervalLabel: "5 分钟",
         onSave: vi.fn<SaveHandler>().mockResolvedValue(undefined),
         ...overrides,
     };
@@ -56,10 +57,20 @@ describe("SettingsForm", () => {
         expect(screen.getByText("Model")).toBeInTheDocument();
     });
 
-    it("renders refresh interval input with correct default", () => {
-        renderForm({ refreshIntervalSeconds: 600 });
-        const input = screen.getByTestId("settings-refresh-interval-deepseek");
-        expect(input).toHaveValue(10);
+    it("renders follow-global switch with correct initial state", () => {
+        renderForm({ refreshIntervalSeconds: 300 });
+        const btn = screen.getByTestId("settings-follow-global-deepseek");
+        expect(btn).toHaveAttribute("data-on", "0");
+        expect(screen.getByTestId("settings-sync-interval-deepseek")).toBeInTheDocument();
+    });
+
+    it("defaults to follow-global when refreshIntervalSeconds is 0", () => {
+        renderForm({ refreshIntervalSeconds: 0 });
+        const btn = screen.getByTestId("settings-follow-global-deepseek");
+        expect(btn).toHaveAttribute("data-on", "1");
+        expect(screen.getByTestId("settings-global-label-deepseek")).toHaveTextContent(
+            "当前全局为「5 分钟」自动刷新",
+        );
     });
 
     it("renders save button with default text", () => {

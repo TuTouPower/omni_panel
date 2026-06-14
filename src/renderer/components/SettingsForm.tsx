@@ -1,5 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { PluginParameterMetadata } from "../../shared/schemas/plugin-metadata";
+import {
+    REFRESH_INTERVAL_OPTIONS,
+    refresh_seconds_to_label,
+    refresh_label_to_seconds,
+} from "../lib/refresh-intervals";
 import { Icon } from "./Icon";
 
 interface LabelMapRow {
@@ -15,6 +20,8 @@ interface SettingsFormProps {
     endpoints?: Record<string, string | null>;
     endpointValues?: Record<string, string>;
     refreshIntervalSeconds: number;
+    globalIntervalLabel: string;
+    manualRefreshOnly?: boolean;
     providerId?: string;
     onCookieLogin?: (instanceId: string) => Promise<boolean>;
     onSave: (
@@ -37,6 +44,8 @@ export function SettingsForm({
     endpoints,
     endpointValues,
     refreshIntervalSeconds,
+    globalIntervalLabel,
+    manualRefreshOnly,
     providerId,
     onCookieLogin,
     onSave,
@@ -51,6 +60,10 @@ export function SettingsForm({
     const [labelRows, setLabelRows] = useState<LabelMapRow[]>([]);
     const [labelLoading, setLabelLoading] = useState(false);
     const [labelEdits, setLabelEdits] = useState<Record<string, string>>({});
+    const [followGlobal, setFollowGlobal] = useState(() => refreshIntervalSeconds <= 0);
+    const [syncInterval, setSyncInterval] = useState(
+        refresh_seconds_to_label(refreshIntervalSeconds || 300),
+    );
     const mounted_ref = useRef(true);
     const saved_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -134,11 +147,7 @@ export function SettingsForm({
                 }
             }
 
-            const intervalMinutes = Number(formData.get("refreshIntervalMinutes"));
-            const intervalSeconds = Math.max(
-                60,
-                Math.min(172800, Math.round(intervalMinutes) * 60),
-            );
+            const intervalSeconds = followGlobal ? 0 : refresh_label_to_seconds(syncInterval);
 
             setSaving(true);
             setSaved(false);
@@ -172,10 +181,12 @@ export function SettingsForm({
         },
         [
             endpoints,
+            followGlobal,
             instanceId,
             onSave,
             parameters,
             saving,
+            syncInterval,
             existingLabelMap,
             labelEdits,
             onSaveLabelMap,
@@ -291,17 +302,58 @@ export function SettingsForm({
                 </div>
             ))}
             <div className="ad-field">
-                <label className="ad-label">刷新间隔（分钟）</label>
-                <input
-                    type="number"
-                    name="refreshIntervalMinutes"
-                    min={1}
-                    max={2880}
-                    defaultValue={Math.round(refreshIntervalSeconds / 60)}
-                    data-testid={`settings-refresh-interval-${instanceId}`}
-                    className="ad-input"
-                />
-                <p className="ad-hint">范围 1–2880 分钟</p>
+                <label className="ad-label">刷新</label>
+                {manualRefreshOnly ? (
+                    <p className="ad-hint" data-testid={`settings-manual-only-${instanceId}`}>
+                        仅手动刷新（刷新时会消耗一次 API 配额）
+                    </p>
+                ) : (
+                    <>
+                        <div
+                            style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}
+                        >
+                            <span style={{ fontSize: 13 }}>跟随全局自动刷新间隔</span>
+                            <button
+                                className="sw"
+                                data-on={followGlobal ? "1" : "0"}
+                                type="button"
+                                onClick={() => {
+                                    setFollowGlobal((v) => !v);
+                                }}
+                                data-testid={`settings-follow-global-${instanceId}`}
+                            >
+                                <i />
+                            </button>
+                        </div>
+                        {followGlobal ? (
+                            <p
+                                className="ad-hint"
+                                data-testid={`settings-global-label-${instanceId}`}
+                            >
+                                当前全局为「{globalIntervalLabel}」自动刷新
+                            </p>
+                        ) : (
+                            <div style={{ marginTop: 4 }}>
+                                <select
+                                    className="ad-input"
+                                    style={{ width: "auto", padding: "6px 10px" }}
+                                    value={syncInterval}
+                                    onChange={(e) => {
+                                        setSyncInterval(
+                                            e.target
+                                                .value as (typeof REFRESH_INTERVAL_OPTIONS)[number]["label"],
+                                        );
+                                    }}
+                                    data-testid={`settings-sync-interval-${instanceId}`}
+                                >
+                                    {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                                        <option key={opt.label}>{opt.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </>
+                )}
             </div>
             {onSaveLabelMap && providerId && (
                 <div className="ad-field">
