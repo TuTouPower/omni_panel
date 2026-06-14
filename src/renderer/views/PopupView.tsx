@@ -186,6 +186,12 @@ export function PopupView() {
             set_account_label_maps(config.accountLabelMaps);
             set_provider_label_maps(config.providerLabelMaps);
             set_account_overrides(config.accountOverrides);
+            if (config.collapsedAccounts) {
+                set_collapsed_accounts(config.collapsedAccounts);
+            }
+            if (config.expandedProviders) {
+                set_expanded_providers(config.expandedProviders);
+            }
         },
         [valid_providers],
     );
@@ -236,6 +242,43 @@ export function PopupView() {
                 // ignore save errors
             });
     }, [provider_order]);
+
+    // Persist collapsed/expanded state to config
+    const prev_collapsed_ref = useRef<Record<string, boolean>>({});
+    const prev_expanded_ref = useRef<Record<string, boolean>>({});
+    useEffect(() => {
+        const prev_c = prev_collapsed_ref.current;
+        const prev_e = prev_expanded_ref.current;
+        if (
+            JSON.stringify(prev_c) === JSON.stringify(collapsed_accounts) &&
+            JSON.stringify(prev_e) === JSON.stringify(expanded_providers)
+        ) {
+            return;
+        }
+        prev_collapsed_ref.current = collapsed_accounts;
+        prev_expanded_ref.current = expanded_providers;
+        save_queue_ref.current = save_queue_ref.current
+            .then(async () => {
+                const result = await window.usageboard.config.get();
+                const base = Object.fromEntries(
+                    Object.entries(result.config).filter(
+                        ([k]) => k !== "collapsedAccounts" && k !== "expandedProviders",
+                    ),
+                );
+                const to_save: Record<string, unknown> = { ...base };
+                if (Object.keys(collapsed_accounts).length > 0) {
+                    to_save["collapsedAccounts"] = collapsed_accounts;
+                }
+                if (Object.keys(expanded_providers).length > 0) {
+                    to_save["expandedProviders"] = expanded_providers;
+                }
+                await window.usageboard.config.save(to_save as unknown as AppConfiguration);
+            })
+            .catch(() => {
+                // ignore save errors
+            });
+    }, [collapsed_accounts, expanded_providers]);
+
     const tabsRef = useRef<HTMLDivElement>(null);
     const wheel_at_ref = useRef(0);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);

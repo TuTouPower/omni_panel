@@ -1026,9 +1026,14 @@ export function SettingsView() {
                                         value={config.proxy?.url ?? ""}
                                         onChange={(e) => {
                                             const val = e.target.value.trim();
+                                            const base = Object.fromEntries(
+                                                Object.entries(config).filter(
+                                                    ([k]) => k !== "proxy",
+                                                ),
+                                            );
                                             void save_config({
-                                                ...config,
-                                                proxy: val ? { url: val } : undefined,
+                                                ...(base as typeof config),
+                                                ...(val ? { proxy: { url: val } } : {}),
                                             });
                                         }}
                                         placeholder="留空表示直连"

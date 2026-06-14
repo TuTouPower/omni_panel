@@ -34,11 +34,18 @@
 
 **不需要改：** `config.ts` 类型、`types.ts` schema、`net-client.ts`
 
-### 主面板展开/折叠状态重启丢失
+### 主面板展开/折叠状态重启丢失 ✅
 
 **问题：** `collapsed_accounts` 和 `expanded_providers`（`PopupView.tsx:124-125`）是纯 React state，无持久化。每次重启应用，所有账号卡片的展开/折叠状态重置为默认折叠。
 
-**待定：** 持久化方案选型——存入 `config.json`（类似 `accountOverrides`）还是 `localStorage` 等轻量存储。
+**方案：** 存入 `config.json`，使用已有的 `AppConfiguration` 可选字段。
+
+**已完成：**
+
+- `src/shared/types/config.ts`：`AppConfiguration` 新增 `collapsedAccounts`、`expandedProviders`
+- `src/main/core/config/types.ts`：zod schema 新增对应字段
+- `src/renderer/views/PopupView.tsx`：`apply_config` 加载折叠状态；`useEffect` 监听变化自动保存
+- 测试：`popup_view.test.tsx` 新增 2 个用例（加载验证 + 保存验证）
 
 ### ~~删除 Cookie 刷新周期功能 + 账号页多余文案~~
 

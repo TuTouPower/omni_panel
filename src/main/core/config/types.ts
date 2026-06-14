@@ -2,12 +2,9 @@ import { z } from "zod/v3";
 import type { AppLanguage } from "../../../shared/types/plugin";
 import type { AppConfiguration } from "../../../shared/types/config";
 
+export type { AppConfiguration, ConnectorConfiguration } from "../../../shared/types/config";
 // eslint-disable-next-line @typescript-eslint/no-deprecated -- backward-compatible re-export
-export type {
-    AppConfiguration,
-    ConnectorConfiguration,
-    PluginConfiguration,
-} from "../../../shared/types/config";
+export type { PluginConfiguration } from "../../../shared/types/config";
 
 const appLanguageSchema = z.enum(["zh-Hans", "en"]) as z.ZodType<AppLanguage>;
 
@@ -77,6 +74,8 @@ export const appConfigurationSchema = z.object({
     accountLabelMaps: z.record(z.record(z.string())).optional(),
     labelMapSync: z.boolean().optional(),
     floatingBounds: floatingBoundsSchema.optional(),
+    collapsedAccounts: z.record(z.boolean()).optional(),
+    expandedProviders: z.record(z.boolean()).optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {
