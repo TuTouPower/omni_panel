@@ -6,6 +6,7 @@ import type { UsageProvider } from "../../shared/schemas/plugin-output";
 
 interface CpaCardRow {
     provider: string;
+    account_id: string;
     account_label: string;
     status: "ok" | "error" | "auth" | "disabled" | "unknown";
     is_hidden: boolean;
@@ -25,9 +26,9 @@ interface CpaCardProps {
     on_refresh: () => void;
     on_edit: () => void;
     on_delete: () => void;
-    on_hide: (index: number) => void;
-    on_unhide: (index: number) => void;
-    on_clear: (index: number) => void;
+    on_hide: (target: { provider: string; account_id: string }) => void;
+    on_unhide: (target: { provider: string; account_id: string }) => void;
+    on_clear: (target: { provider: string; account_id: string }) => void;
 }
 
 const CPA_STATUS_DOT: Record<string, string> = {
@@ -57,18 +58,26 @@ export function CpaCard({
     const dot = enabled ? (CPA_STATUS_DOT[status] ?? CPA_STATUS_DOT.unknown) : "var(--text-3)";
 
     const groups = useMemo(() => {
-        const map = new Map<string, { rows: typeof rows; indices: number[] }>();
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const existing = map.get(row.provider);
+        // First group by provider, then deduplicate by account_id within each provider
+        const provider_map = new Map<string, CpaCardRow[]>();
+        for (const row of rows) {
+            const existing = provider_map.get(row.provider);
             if (existing) {
-                existing.rows.push(row);
-                existing.indices.push(i);
+                existing.push(row);
             } else {
-                map.set(row.provider, { rows: [row], indices: [i] });
+                provider_map.set(row.provider, [row]);
             }
         }
-        return Array.from(map.entries());
+        // Within each provider, aggregate by account_id
+        return Array.from(provider_map.entries()).map(([provider, provider_rows]) => {
+            const account_map = new Map<string, CpaCardRow>();
+            for (const row of provider_rows) {
+                if (!account_map.has(row.account_id)) {
+                    account_map.set(row.account_id, row);
+                }
+            }
+            return [provider, Array.from(account_map.values())] as const;
+        });
     }, [rows]);
 
     return (
@@ -105,19 +114,19 @@ export function CpaCard({
                     </button>
                 </div>
             </div>
-            {groups.map(([provider, group]) => (
+            {groups.map(([provider, accounts]) => (
                 <div className="disc-grp" key={provider} role="group">
                     <div className="disc-head">
                         <VendorMark id={provider as UsageProvider} size={20} />
                         <span className="dh-name">
                             {PROVIDER_LABELS[provider as UsageProvider]}
                         </span>
-                        <span className="dh-count">{group.rows.length} 个</span>
+                        <span className="dh-count">{accounts.length} 个</span>
                     </div>
                     <div className="disc-rows">
-                        {group.rows.map((row, gi) => (
+                        {accounts.map((row) => (
                             <AccountRow
-                                key={`${row.provider}-${row.account_label}`}
+                                key={`${row.provider}-${row.account_id}`}
                                 mode="cpa-child"
                                 provider={row.provider}
                                 account_label={row.account_label}
@@ -127,13 +136,19 @@ export function CpaCard({
                                 is_removed={row.is_removed}
                                 show_vendor={false}
                                 on_hide={() => {
-                                    on_hide(group.indices[gi]);
+                                    on_hide({ provider: row.provider, account_id: row.account_id });
                                 }}
                                 on_unhide={() => {
-                                    on_unhide(group.indices[gi]);
+                                    on_unhide({
+                                        provider: row.provider,
+                                        account_id: row.account_id,
+                                    });
                                 }}
                                 on_clear={() => {
-                                    on_clear(group.indices[gi]);
+                                    on_clear({
+                                        provider: row.provider,
+                                        account_id: row.account_id,
+                                    });
                                 }}
                             />
                         ))}

@@ -18,6 +18,7 @@ function render_card(overrides: Partial<Parameters<typeof CpaCard>[0]> = {}) {
         rows: [
             {
                 provider: "claude",
+                account_id: "claude-account",
                 account_label: "Claude Account",
                 status: "ok" as const,
                 is_hidden: false,
@@ -25,6 +26,7 @@ function render_card(overrides: Partial<Parameters<typeof CpaCard>[0]> = {}) {
             },
             {
                 provider: "codex",
+                account_id: "codex-account",
                 account_label: "Codex Account",
                 status: "ok" as const,
                 is_hidden: true,
@@ -32,6 +34,7 @@ function render_card(overrides: Partial<Parameters<typeof CpaCard>[0]> = {}) {
             },
             {
                 provider: "gemini",
+                account_id: "gemini-old",
                 account_label: "Old Gemini",
                 status: "ok" as const,
                 is_hidden: false,
@@ -88,7 +91,7 @@ describe("CpaCard", () => {
         expect(screen.getByText("清除")).toBeInTheDocument();
     });
 
-    it("calls on_hide when toggling a normal child row off", async () => {
+    it("calls on_hide with account_id when toggling a normal child row off", async () => {
         const user = userEvent.setup();
         const on_hide = vi.fn();
         render_card({ on_hide });
@@ -96,10 +99,13 @@ describe("CpaCard", () => {
         const btn = claude_row?.querySelector(".sw");
         if (!btn) throw new Error("missing toggle");
         await user.click(btn);
-        expect(on_hide).toHaveBeenCalled();
+        expect(on_hide).toHaveBeenCalledWith({
+            provider: "claude",
+            account_id: "claude-account",
+        });
     });
 
-    it("calls on_unhide when toggling a hidden child row on", async () => {
+    it("calls on_unhide with account_id when toggling a hidden child row on", async () => {
         const user = userEvent.setup();
         const on_unhide = vi.fn();
         render_card({ on_unhide });
@@ -107,7 +113,10 @@ describe("CpaCard", () => {
         const btn = codex_row?.querySelector(".sw");
         if (!btn) throw new Error("missing toggle");
         await user.click(btn);
-        expect(on_unhide).toHaveBeenCalled();
+        expect(on_unhide).toHaveBeenCalledWith({
+            provider: "codex",
+            account_id: "codex-account",
+        });
     });
 
     it("renders with second CPA instance name", () => {
@@ -120,6 +129,7 @@ describe("CpaCard", () => {
             rows: [
                 {
                     provider: "claude",
+                    account_id: "claude-a",
                     account_label: "Claude A",
                     status: "ok",
                     is_hidden: false,
@@ -127,6 +137,7 @@ describe("CpaCard", () => {
                 },
                 {
                     provider: "claude",
+                    account_id: "claude-b",
                     account_label: "Claude B",
                     status: "ok",
                     is_hidden: false,
@@ -134,6 +145,7 @@ describe("CpaCard", () => {
                 },
                 {
                     provider: "codex",
+                    account_id: "codex-a",
                     account_label: "Codex A",
                     status: "ok",
                     is_hidden: false,
@@ -155,6 +167,7 @@ describe("CpaCard", () => {
             rows: [
                 {
                     provider: "claude",
+                    account_id: "a-1",
                     account_label: "A",
                     status: "ok",
                     is_hidden: false,
@@ -164,5 +177,89 @@ describe("CpaCard", () => {
         });
         const groups = screen.queryAllByRole("group");
         expect(groups.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("aggregates same account_id with multiple metrics into one row", () => {
+        render_card({
+            rows: [
+                {
+                    provider: "claude",
+                    account_id: "user@example.com",
+                    account_label: "user@example.com",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+                {
+                    provider: "claude",
+                    account_id: "user@example.com",
+                    account_label: "user@example.com",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+            ],
+        });
+        const labels = screen.getAllByText("user@example.com");
+        expect(labels.length).toBe(1);
+    });
+
+    it("group header shows unique account count, not metric count", () => {
+        render_card({
+            rows: [
+                {
+                    provider: "claude",
+                    account_id: "user@example.com",
+                    account_label: "user@example.com",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+                {
+                    provider: "claude",
+                    account_id: "user@example.com",
+                    account_label: "user@example.com",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+            ],
+        });
+        expect(screen.getByText("1 个")).toBeInTheDocument();
+        expect(screen.queryByText("2 个")).not.toBeInTheDocument();
+    });
+
+    it("shows separate rows for different account_ids under same provider", () => {
+        render_card({
+            rows: [
+                {
+                    provider: "claude",
+                    account_id: "alice@example.com",
+                    account_label: "alice@example.com",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+                {
+                    provider: "claude",
+                    account_id: "alice@example.com",
+                    account_label: "alice@example.com",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+                {
+                    provider: "claude",
+                    account_id: "bob@example.com",
+                    account_label: "bob@example.com",
+                    status: "ok",
+                    is_hidden: false,
+                    is_removed: false,
+                },
+            ],
+        });
+        expect(screen.getByText("alice@example.com")).toBeInTheDocument();
+        expect(screen.getByText("bob@example.com")).toBeInTheDocument();
+        expect(screen.getByText("2 个")).toBeInTheDocument();
     });
 });

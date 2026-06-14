@@ -353,6 +353,7 @@ function AccountDialog({
                             endpoints={pluginInfo.metadata?.endpoints ?? {}}
                             endpointValues={pluginConfig.endpointOverrides}
                             refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
+                            manualRefreshOnly={pluginConfig.manualRefreshOnly}
                             {...(pluginInfo.activeProviders[0]
                                 ? { providerId: pluginInfo.activeProviders[0] }
                                 : {})}
@@ -1397,6 +1398,12 @@ export function SettingsView() {
                                                     const provider_set = new Set(
                                                         items.map((item) => item.provider),
                                                     );
+                                                    const account_set = new Set(
+                                                        items.map(
+                                                            (item) =>
+                                                                `${item.provider}:${item.accountId}`,
+                                                        ),
+                                                    );
 
                                                     const connector_status:
                                                         | "ok"
@@ -1429,10 +1436,11 @@ export function SettingsView() {
                                                             enabled={plugin.enabled}
                                                             status={connector_status}
                                                             source_count={provider_set.size}
-                                                            account_count={items.length}
+                                                            account_count={account_set.size}
                                                             fail_count={fail_count}
                                                             rows={items.map((item) => ({
                                                                 provider: item.provider,
+                                                                account_id: item.accountId,
                                                                 account_label: item.accountLabel,
                                                                 status: "ok" as const,
                                                                 is_hidden:
@@ -1486,26 +1494,28 @@ export function SettingsView() {
                                                                     ),
                                                                 });
                                                             }}
-                                                            on_hide={(index) => {
-                                                                const item = items[index];
+                                                            on_hide={(target) => {
+                                                                const item = items.find(
+                                                                    (it) =>
+                                                                        it.provider ===
+                                                                            target.provider &&
+                                                                        it.accountId ===
+                                                                            target.account_id,
+                                                                );
                                                                 if (!item) return;
                                                                 hide_account(item);
                                                             }}
-                                                            on_unhide={(index) => {
-                                                                const item = items[index];
-                                                                if (!item) return;
+                                                            on_unhide={(target) => {
                                                                 restoreOverrideAccount(
-                                                                    item.provider,
-                                                                    item.accountId,
+                                                                    target.provider as UsageProvider,
+                                                                    target.account_id,
                                                                     "hidden",
                                                                 );
                                                             }}
-                                                            on_clear={(index) => {
-                                                                const item = items[index];
-                                                                if (!item) return;
+                                                            on_clear={(target) => {
                                                                 restoreOverrideAccount(
-                                                                    item.provider,
-                                                                    item.accountId,
+                                                                    target.provider as UsageProvider,
+                                                                    target.account_id,
                                                                     "hidden",
                                                                 );
                                                             }}
