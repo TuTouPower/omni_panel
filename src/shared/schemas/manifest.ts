@@ -1,4 +1,14 @@
 import { z } from "zod/v3";
+import { usageProviderSchema } from "./plugin-output";
+
+/**
+ * Connector-level provider whitelist.
+ *
+ * Extends `usageProviderSchema` with meta-providers that exist only at the
+ * connector layer (e.g. "cpa" aggregates claude/gemini/… but never appears
+ * as a runtime usage provider).
+ */
+export const connectorProviderSchema = usageProviderSchema.or(z.literal("cpa"));
 
 const capability_schema = z.enum(["poll", "local", "session", "observe"]);
 
@@ -52,7 +62,7 @@ const local_config_schema = z.object({
 export const manifest_schema = z
     .object({
         id: z.string().min(1),
-        provider: z.string().min(1),
+        provider: connectorProviderSchema,
         capabilities: z.array(capability_schema).min(1),
         parameters: z.array(parameter_schema).default([]),
         endpoints: z.record(z.string(), z.string().url()).optional(),

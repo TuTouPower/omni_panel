@@ -63,7 +63,7 @@ describe("manifest-loader", () => {
     it("loads observe manifest", async () => {
         const manifest = {
             id: "brave_search",
-            provider: "brave_search",
+            provider: "brave",
             capabilities: ["observe"],
             endpoints: { default: "https://api.search.brave.com" },
             observe: {

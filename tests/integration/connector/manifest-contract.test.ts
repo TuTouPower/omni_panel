@@ -1,6 +1,8 @@
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { load_manifest } from "../../../src/main/core/connector/manifest-loader";
+import { connectorProviderSchema } from "../../../src/shared/schemas/manifest";
 
 const CONNECTORS_DIR = join(process.cwd(), "connectors");
 
@@ -65,5 +67,35 @@ describe("connector manifest contract", () => {
             expect(manifest.capabilities).toContain("local");
             expect(manifest.local?.paths.length).toBeGreaterThan(0);
         }
+    });
+
+    it("all connector providers must belong to connectorProviderSchema", async () => {
+        const entries = await readdir(CONNECTORS_DIR, { withFileTypes: true });
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const manifest = await load_manifest(join(CONNECTORS_DIR, entry.name));
+            if (!manifest) continue;
+            expect(
+                connectorProviderSchema.safeParse(manifest.provider).success,
+                `Connector ${entry.name} has invalid provider "${manifest.provider}"`,
+            ).toBe(true);
+        }
+    });
+
+    it("no test-* connectors exist in connectors directory", async () => {
+        const entries = await readdir(CONNECTORS_DIR, { withFileTypes: true });
+        const test_dirs = entries.filter((e) => e.isDirectory() && e.name.startsWith("test-"));
+        expect(test_dirs, "test-* connectors must not exist in connectors/").toHaveLength(0);
+    });
+
+    it("manifest provider string is validated against connectorProviderSchema", () => {
+        const invalid = connectorProviderSchema.safeParse("test-observe");
+        expect(invalid.success).toBe(false);
+
+        const valid_claude = connectorProviderSchema.safeParse("claude");
+        expect(valid_claude.success).toBe(true);
+
+        const valid_cpa = connectorProviderSchema.safeParse("cpa");
+        expect(valid_cpa.success).toBe(true);
     });
 });

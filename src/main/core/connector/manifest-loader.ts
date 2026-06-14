@@ -1,7 +1,11 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { createLogger } from "../../../shared/lib/logger";
-import { manifest_schema, type Manifest } from "../../../shared/schemas/manifest";
+import {
+    manifest_schema,
+    connectorProviderSchema,
+    type Manifest,
+} from "../../../shared/schemas/manifest";
 
 const log = createLogger("manifest-loader");
 
@@ -42,6 +46,12 @@ export async function discover_connector_definitions(
                 const directory = join(dir, entry.name);
                 const manifest = await load_manifest(directory);
                 if (!manifest) continue;
+                if (!connectorProviderSchema.safeParse(manifest.provider).success) {
+                    log.warn(
+                        `Skipping connector ${entry.name}: provider "${manifest.provider}" not in connectorProviderSchema`,
+                    );
+                    continue;
+                }
                 definitions.push({
                     directory,
                     executablePath: directory,
