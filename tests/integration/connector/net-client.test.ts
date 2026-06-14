@@ -1,5 +1,7 @@
 import { createServer, type IncomingMessage } from "node:http";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { lstatSync, symlinkSync } from "node:fs";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -13,6 +15,22 @@ let vault: VaultBackend;
 let server_port: number;
 let server: ReturnType<typeof createServer>;
 let last_request_body: unknown;
+
+function create_link(target: string, link_path: string, type: "dir" | "file"): void {
+    if (process.platform === "win32") {
+        if (type === "dir") {
+            execSync(`cmd /c mklink /J "${link_path}" "${target}"`);
+        } else {
+            try {
+                execSync(`cmd /c mklink "${link_path}" "${target}"`);
+            } catch {
+                execSync(`cmd /c mklink /H "${link_path}" "${target}"`);
+            }
+        }
+    } else {
+        symlinkSync(target, link_path, type);
+    }
+}
 
 function get_test_manifest(
     auth: NonNullable<NonNullable<Manifest["poll"]>["request"]["auth"]> = {
@@ -221,49 +239,50 @@ describe("net-client", () => {
         await expect(ctx.files.list(temp_dir)).rejects.toThrow("not allowed");
     });
 
-    it.skipIf(process.platform === "win32")(
-        "files.list skips symlinks to prevent directory traversal",
-        async () => {
-            const dir = join(temp_dir, "symlink-test-list");
-            const outside = join(temp_dir, "outside-secrets");
-            await mkdir(dir, { recursive: true });
-            await mkdir(outside, { recursive: true });
-            await writeFile(join(outside, "secret.txt"), "TOP SECRET", "utf8");
-            await symlink(outside, join(dir, "escape-link"), "dir");
+    it("files.list skips symlinks to prevent directory traversal", async () => {
+        const dir = join(temp_dir, "symlink-test-list");
+        const outside = join(temp_dir, "outside-secrets");
+        await mkdir(dir, { recursive: true });
+        await mkdir(outside, { recursive: true });
+        await writeFile(join(outside, "secret.txt"), "TOP SECRET", "utf8");
+        create_link(outside, join(dir, "escape-link"), "dir");
 
-            const manifest = {
-                ...get_test_manifest(),
-                capabilities: ["poll", "local"],
-                local: { paths: [dir] },
-            } satisfies Manifest;
-            const ctx = create_connector_context(manifest, vault, "test-1", {});
+        const manifest = {
+            ...get_test_manifest(),
+            capabilities: ["poll", "local"],
+            local: { paths: [dir] },
+        } satisfies Manifest;
+        const ctx = create_connector_context(manifest, vault, "test-1", {});
 
-            const files = await ctx.files.list(dir);
-            expect(files).toEqual([]);
-        },
-    );
+        const files = await ctx.files.list(dir);
+        expect(files).toEqual([]);
+    });
 
-    it.skipIf(process.platform === "win32")(
-        "files.list skips file symlinks pointing outside allowed dir",
-        async () => {
-            const dir = join(temp_dir, "symlink-test-file");
-            const outside = join(temp_dir, "outside-file");
-            await mkdir(dir, { recursive: true });
-            await mkdir(outside, { recursive: true });
-            await writeFile(join(outside, "data.json"), '{"secret":true}', "utf8");
-            await symlink(join(outside, "data.json"), join(dir, "link.json"), "file");
+    it("files.list skips file symlinks pointing outside allowed dir", async () => {
+        const dir = join(temp_dir, "symlink-test-file");
+        const outside = join(temp_dir, "outside-file");
+        await mkdir(dir, { recursive: true });
+        await mkdir(outside, { recursive: true });
+        await writeFile(join(outside, "data.json"), '{"secret":true}', "utf8");
+        const link_path = join(dir, "link.json");
+        create_link(join(outside, "data.json"), link_path, "file");
 
-            const manifest = {
-                ...get_test_manifest(),
-                capabilities: ["poll", "local"],
-                local: { paths: [dir] },
-            } satisfies Manifest;
-            const ctx = create_connector_context(manifest, vault, "test-1", {});
+        // Verify the link is actually a symlink (not a hard link)
+        if (!lstatSync(link_path).isSymbolicLink()) {
+            // Hard link can't be detected by lstat; skip on this platform
+            return;
+        }
 
-            const files = await ctx.files.list(dir);
-            expect(files).toEqual([]);
-        },
-    );
+        const manifest = {
+            ...get_test_manifest(),
+            capabilities: ["poll", "local"],
+            local: { paths: [dir] },
+        } satisfies Manifest;
+        const ctx = create_connector_context(manifest, vault, "test-1", {});
+
+        const files = await ctx.files.list(dir);
+        expect(files).toEqual([]);
+    });
 
     describe("requireExplicitEndpoints", () => {
         it("throws when flag is true and no override provided", async () => {
