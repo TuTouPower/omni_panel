@@ -18,7 +18,6 @@ interface CpaCardProps {
     status: "ok" | "partial" | "error" | "disabled" | "unknown";
     source_count: number;
     account_count: number;
-    fail_count?: number;
     rows: CpaCardRow[];
     on_toggle: () => void;
     on_refresh: () => void;
