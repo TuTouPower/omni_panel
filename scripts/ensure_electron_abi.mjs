@@ -42,16 +42,18 @@ if (electron_check.status !== 0) {
             "--dist-url=https://electronjs.org/headers",
             "--build-from-source",
         ],
-        { stdio: "inherit", shell: process.platform === "win32", cwd: better_sqlite3_dir },
+        { stdio: "inherit", shell: process.platform === "win32", cwd: better_sqlite3_dir, timeout: 300_000 },
     );
     if (rebuild.status !== 0) {
         process.exit(rebuild.status ?? 1);
     }
 
     if (process.platform === "win32") {
+        // Use project directory path for precise matching instead of process name wildcard
+        const project_dir = process.cwd().replace(/\\/g, "\\\\");
         try {
             execSync(
-                `powershell -Command "Get-CimInstance Win32_Process -Filter \\"Name='electron.exe'\\" | Where-Object { $_.CommandLine -match 'OmniUsage' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
+                `powershell -Command "Get-CimInstance Win32_Process -Filter \\"Name='electron.exe'\\" | Where-Object { $_.CommandLine -match '${project_dir}' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
                 { timeout: 5000, stdio: "ignore" },
             );
         } catch { /* no leftover processes */ }
