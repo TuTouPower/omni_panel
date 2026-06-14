@@ -8,7 +8,18 @@
 
 ## 待办
 
-设置 cpa 里面的多个子账号没有按照账号聚类。
+### 已完成：CPA 编辑改为内联面板 + 子账号按厂商聚类
+
+**需求：** CPA 编辑界面不应用弹窗，改为内联面板替换（demo 用面包屑导航 + 同容器内容切换）。CPA 卡片子账号按厂商分组展示。
+
+**实现（`2026-06-14`，`74bd20f`）：**
+
+- `SettingsView`：新增 `editingCpaId` 状态；CpaCard `on_edit` 改为 `setEditingCpaId`；accounts section 条件渲染内联 CPA 设置 + 面包屑导航；切换 section 时重置；删除 AccountDialog CPA 分支及无用 props
+- `CpaCard`：按 `provider` 分组 rows，每组渲染厂商子标题（VendorMark + PROVIDER_LABELS + 计数）
+- `AccountRow`：新增 `show_vendor` prop，分组模式下隐藏每行的厂商图标
+- 新增 2 个 inline panel 测试（打开 + 面包屑返回）、2 个 grouping 测试
+
+**测试：** 77 文件 / 629 测试全部通过。
 
 ### 已完成：设置页 CPA Manager 对齐最新 design handoff demo
 
