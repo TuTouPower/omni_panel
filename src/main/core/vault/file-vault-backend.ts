@@ -80,11 +80,11 @@ async function ensure_master_key(key_path: string): Promise<Buffer> {
 function redact_key(key: string): string {
     const colon = key.indexOf(":");
     if (colon < 0) {
-        return key.length <= 4 ? "***" : `${key.slice(0, 4)}***`;
+        return key.length <= 2 ? "***" : `${key.slice(0, 2)}***`;
     }
     const prefix = key.slice(0, colon + 1);
     const rest = key.slice(colon + 1);
-    return `${prefix}${rest.length <= 4 ? "***" : `${rest.slice(0, 4)}***`}`;
+    return `${prefix}${rest.length <= 2 ? "***" : `${rest.slice(0, 2)}***`}`;
 }
 
 export async function create_file_vault_backend(user_data_dir: string): Promise<VaultBackend> {
@@ -116,9 +116,7 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
             if (error instanceof Error && "code" in error && error.code === "ENOENT") {
                 return {};
             }
-            throw new Error(
-                `Failed to parse vault file (possibly corrupted): ${(error as Error).message}`,
-            );
+            throw new Error("Failed to parse vault file (possibly corrupted)");
         }
     }
 

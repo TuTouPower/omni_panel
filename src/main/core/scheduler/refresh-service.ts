@@ -115,9 +115,7 @@ async function build_params(
         // secret" error. Optional secrets with no value are allowed through as
         // empty strings — some connectors have genuinely optional auth.
         if (param.required) {
-            throw new Error(
-                `Missing required secret: ${param.name} (instance ${connector_config.instanceId})`,
-            );
+            throw new Error(`Missing required secret: ${param.name}`);
         }
         params[param.name] = "";
     }

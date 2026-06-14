@@ -7,6 +7,13 @@ const SECRET_KEY_PATTERNS = [
     /password/i,
     /passwd/i,
     /credential/i,
+    /auth/i,
+    /private/i,
+    /certificate/i,
+    /passphrase/i,
+    /refresh_token/i,
+    /access_key/i,
+    /secret_key/i,
 ];
 
 function is_secret_param_name(name: string): boolean {
