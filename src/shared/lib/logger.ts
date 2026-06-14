@@ -8,6 +8,7 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 const MIN_SCRUB_LENGTH = 4;
+const MAX_SCRUB_VALUES = 10000;
 const REPLACEMENT = "***";
 const registered_values = new Set<string>();
 let scrub_dirty = true;
@@ -28,6 +29,7 @@ function rebuild_pattern(): void {
 export const scrubber = {
     register(value: string): void {
         if (value.length < MIN_SCRUB_LENGTH) return;
+        if (registered_values.size >= MAX_SCRUB_VALUES) return;
         registered_values.add(value);
         scrub_dirty = true;
     },
