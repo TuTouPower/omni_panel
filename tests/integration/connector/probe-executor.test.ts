@@ -72,6 +72,16 @@ beforeAll(async () => {
             return;
         }
 
+        if (url.pathname === "/probe-remaining") {
+            res.writeHead(200, {
+                "Content-Type": "application/json",
+                "x-ratelimit-remaining": "50",
+                "x-ratelimit-limit": "100",
+            });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+        }
+
         if (url.pathname === "/probe-no-numeric") {
             res.writeHead(200, {
                 "Content-Type": "application/json",
@@ -130,9 +140,26 @@ describe("probe-executor", () => {
                 last_error: null,
             }),
         );
-        expect(observations[0].used).toBe(100);
+        expect(observations[0].used).toBe(900);
         expect(observations[0].limit).toBe(1000);
         expect(observations[0].observed_at).toBeGreaterThan(0);
+    });
+
+    it("computes used = limit - remaining from headers", async () => {
+        const manifest = {
+            ...create_manifest(),
+            observe: {
+                headers: ["x-ratelimit-remaining", "x-ratelimit-limit"],
+                probe: { endpoint: "default", path: "/probe-remaining" },
+            },
+        };
+        const ctx = create_ctx();
+        const observations = await execute_probe(manifest, "test-remaining", ctx);
+
+        expect(observations).toHaveLength(1);
+        // remaining=50, limit=100 → used = 100 - 50 = 50
+        expect(observations[0].used).toBe(50);
+        expect(observations[0].limit).toBe(100);
     });
 
     it("returns empty array when no numeric headers found", async () => {

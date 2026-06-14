@@ -22,11 +22,11 @@ function extract_numeric_headers(
     return result;
 }
 
-function detect_metric_type(header_name: string): "used" | "limit" | "unknown" {
+function detect_metric_type(header_name: string): "remaining" | "used" | "limit" | "unknown" {
     const lower = header_name.toLowerCase();
     // Check for "remaining" first (more specific than "limit")
     if (lower.includes("remaining")) {
-        return "used";
+        return "remaining";
     }
     // Check for "limit" but not as part of "ratelimit"
     if (lower.endsWith("-limit") || lower.endsWith("_limit") || lower === "limit") {
@@ -71,14 +71,22 @@ export async function execute_probe(
 
     let used: number | null = null;
     let limit: number | null = null;
+    let remaining: number | null = null;
 
     for (const [name, value] of numeric_headers) {
         const type = detect_metric_type(name);
-        if (type === "used" && used === null) {
+        if (type === "remaining" && remaining === null) {
+            remaining = value;
+        } else if (type === "used" && used === null) {
             used = value;
         } else if (type === "limit" && limit === null) {
             limit = value;
         }
+    }
+
+    // remaining means "left", not "used"; derive used from the two
+    if (used === null && remaining !== null && limit !== null) {
+        used = limit - remaining;
     }
 
     if (used === null && limit === null) {
