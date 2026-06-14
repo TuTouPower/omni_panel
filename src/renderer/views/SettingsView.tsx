@@ -1396,10 +1396,6 @@ export function SettingsView() {
                                                               : "unknown"
                                                         : "disabled";
 
-                                                    const fail_count = items.filter(
-                                                        (item) => item.status === "critical",
-                                                    ).length;
-
                                                     return (
                                                         <CpaCard
                                                             key={plugin.instanceId}
@@ -1411,19 +1407,34 @@ export function SettingsView() {
                                                             status={connector_status}
                                                             source_count={provider_set.size}
                                                             account_count={account_set.size}
-                                                            fail_count={fail_count}
-                                                            rows={items.map((item) => ({
-                                                                provider: item.provider,
-                                                                account_id: item.accountId,
-                                                                account_label: item.accountLabel,
-                                                                status: "ok" as const,
-                                                                is_hidden:
+                                                            rows={items.map((item) => {
+                                                                const is_hidden =
                                                                     config.accountOverrides?.hidden?.[
                                                                         item.provider
                                                                     ]?.includes(item.accountId) ??
-                                                                    false,
-                                                                is_removed: false,
-                                                            }))}
+                                                                    false;
+                                                                const mapped_status:
+                                                                    | "ok"
+                                                                    | "error"
+                                                                    | "unknown" =
+                                                                    item.status === "critical"
+                                                                        ? "error"
+                                                                        : item.status ===
+                                                                                "normal" ||
+                                                                            item.status ===
+                                                                                "warning"
+                                                                          ? "ok"
+                                                                          : "unknown";
+                                                                return {
+                                                                    provider: item.provider,
+                                                                    account_id: item.accountId,
+                                                                    account_label:
+                                                                        item.accountLabel,
+                                                                    status: mapped_status,
+                                                                    is_hidden,
+                                                                    is_removed: false,
+                                                                };
+                                                            })}
                                                             on_toggle={() => {
                                                                 void save_config({
                                                                     ...config,
