@@ -146,4 +146,18 @@ describe("file-vault-backend", () => {
             expect(await vault.get(`key-${String(i)}`)).toBe(`value-${String(i)}`);
         }
     });
+
+    it("global mutex completes 20 concurrent writes within 2 seconds", async () => {
+        const start = Date.now();
+        await Promise.all(
+            Array.from({ length: 20 }, (_, i) =>
+                vault.set(`perf-${String(i)}`, `val-${String(i)}`),
+            ),
+        );
+        const elapsed = Date.now() - start;
+        expect(elapsed).toBeLessThan(2000);
+        for (let i = 0; i < 20; i++) {
+            expect(await vault.get(`perf-${String(i)}`)).toBe(`val-${String(i)}`);
+        }
+    });
 });
