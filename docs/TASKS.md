@@ -8,30 +8,40 @@
 
 ## 待办
 
-### 新增：设置页 CPA Manager 对齐最新 design handoff demo
+### 已完成：设置页 CPA Manager 对齐最新 design handoff demo
 
 **来源：** `docs/demo_cpa_alignment_2026_06_14.md`。
 
 **需求：** 按最新 demo 对齐 CPA Manager 账号卡片、子账号行、编辑界面、同步范围标签映射入口和多 CPA Manager 场景。
 
-**验收：** 以 `docs/demo_cpa_alignment_2026_06_14.md` 的“对齐要求”和“建议实施顺序”作为实现与测试清单。
+**验收：** 以 `docs/demo_cpa_alignment_2026_06_14.md` 的”对齐要求”和”建议实施顺序”作为实现与测试清单。
 
-### 新增：CPA endpoint 禁止回退到 manifest 默认值
+**实现（`2026-06-14`）：**
+
+- `CpaCard`：标题使用实例 `display_name` 替代固定 `CPA Manager`；删除 `数据源` 标签（`2c8c50b`）
+- `AccountRow`：cpa-child 用 `sw` 开关替代 edit/hide 按钮；`已隐藏`→`已关闭`；删除 cpa-source `数据源` 标签（`2c8c50b`）
+- `CpaConnectorSettings`：加别名字段；删除 `自动同步`/`同步失败通知`；刷新设置改为 `跟随全局自动刷新间隔` 开关 + 条件频率选择；同步范围行加编辑标签映射按钮；打通 `onEditLabelMap`（`dea3f5a`）
+- `SettingsView`：传 `displayName`/`globalIntervalLabel`/`providerLabelMaps`/`onEditLabelMap`/`onOpenLabelMap`/`onSaveCpaDisplayName` 到 `AccountDialog` 和 `CpaConnectorSettings`；CPA 标签映射 `save_target: “provider”`（`dea3f5a`）
+- 新增 `cpa_card.test.tsx`（9 测试）；扩展 `cpa_connector_settings.test.tsx`（7 新测试）；更新 `settings_view.test.tsx` 适配新 display_name
+
+**测试：** 77 文件 / 625 测试全部通过。
+
+### 已完成：CPA endpoint 禁止回退到 manifest 默认值
 
 **需求：** CPA connector 的 endpoint 必须严格使用用户在设置里填写的值。用户填什么就用什么；不要在运行时静默回退到 `connectors/cpa/manifest.json` 的默认 `default` endpoint。
 
 **原因：** 当前实现里 `net-client` 会在 `endpointOverrides.default` 为空时回退到 manifest 默认值，容易把内置地址误当成用户当前配置，造成取数目标错误和排查混乱。
 
-**需要：**
+**实现（`2026-06-14`）：**
 
-- 修改运行时 endpoint 解析逻辑：对 CPA connector 来说，`default` endpoint 必须来自用户配置；未填写时应明确报错，不允许静默回退。
-- 检查设置页保存链路，确保 CPA endpoint 为空时给出可见反馈，不要保存成看似可用但实际走默认值的状态。
-- 补测试覆盖：
-    - 用户填写远程 endpoint 时，实际请求必须命中该地址。
-    - 用户未填写 endpoint 时，connector/刷新流程应失败并给出明确错误。
-    - 非 CPA connector 维持现有 fallback 行为，避免误伤其他 provider。
+- manifest schema：新增 `requireExplicitEndpoints: z.boolean().optional()`（`3445df5`）
+- `connectors/cpa/manifest.json`：设置 `requireExplicitEndpoints: true`（`3445df5`）
+- `net-client.ts`：`resolve_endpoint()` 检查标志，为 true 且无用户覆盖时抛错（`3445df5`）
+- `CpaConnectorSettings.tsx`：endpoint 为空时保存前显示 `CPA-Manager URL 不能为空`（`3445df5`）
+- 3 个 net-client 集成测试（requireExplicit + 有覆盖 + 无标志 fallback）
+- 1 个 UI 验证测试（空 URL 保存报错）
 
-**验收：** 以后排查 CPA 取数时，运行时目标地址与用户设置完全一致；不会再出现“代码默认 localhost 覆盖/冒充用户远程配置”的行为。
+**验收：** CPA 运行时目标地址与用户设置完全一致；不再静默回退到 localhost 默认值。
 
 ### 已完成：删除暂停自动刷新开关 + 扩展刷新间隔选项
 
