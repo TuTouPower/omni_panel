@@ -148,9 +148,12 @@
 
 **验收：** 同 provider 下同一真实账号只出现一次；`data/now.png` 场景 Claude 显示 1 个、Codex 显示 6 个；卡片头账号数 = 真实账号数。`pnpm test` 通过 + packaged 真实启动验证。
 
-### ~~待办：统一全项目中英文术语到 `docs/glossary.md`~~（低风险批已完成）
+### ~~待办：统一全项目中英文术语到 `docs/glossary.md`~~
 
-已完成低风险批（`5159292`）。SPEC.md ~30 处、TASKS.md 7 处、设计文档 24 处、UI 文案 1 处。高风险批（PluginConfiguration 等序列化 key）需单独迁移方案。
+已完成（`5159292` 低风险批 + `9faf1fd` 高风险批）。
+
+- 低风险批：SPEC.md ~30 处、TASKS.md 7 处、设计文档 24 处、UI 文案 1 处
+- 高风险批：PluginConfiguration→ConnectorConfiguration、PluginInfo→ConnectorInfo、plugin-errors→connector-errors、usageboard.plugin→usageboard.connector（JSON key `plugins` 保持向后兼容）
 
 **背景：** 已建权威术语表 `docs/glossary.md`（连接器/数据源/厂商/账号/用量/用量条/观测 + 四采集能力 poll/local/session/observe）。代码与文档大量沿用落后词（插件/plugin、旧 defaultSource 分类、子账号、usage item），需系统性统一。用户明确：术语落后即更新，无屎山包袱，要最好的。
 
