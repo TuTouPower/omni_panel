@@ -199,7 +199,7 @@ export function create_connector_context(
                 for (const [key, value] of Object.entries(response.headers)) {
                     if (value !== undefined) {
                         response_headers[key.toLowerCase()] = Array.isArray(value)
-                            ? value[0]
+                            ? (value[0] ?? "")
                             : value;
                     }
                 }

@@ -18,14 +18,14 @@ interface SettingsFormProps {
     instanceId: string;
     parameters: PluginParameterMetadata[];
     values: Record<string, string>;
-    hasSecrets?: Record<string, boolean>;
-    endpoints?: Record<string, string | null>;
-    endpointValues?: Record<string, string>;
+    hasSecrets?: Record<string, boolean> | undefined;
+    endpoints?: Record<string, string | null> | undefined;
+    endpointValues?: Record<string, string> | undefined;
     refreshIntervalSeconds: number;
     globalIntervalLabel: string;
-    manualRefreshOnly?: boolean;
-    providerId?: string;
-    onCookieLogin?: (instanceId: string) => Promise<boolean>;
+    manualRefreshOnly?: boolean | undefined;
+    providerId?: string | undefined;
+    onCookieLogin?: ((instanceId: string) => Promise<boolean>) | undefined;
     onSave: (
         instanceId: string,
         nonSecrets: Record<string, string>,
@@ -33,9 +33,11 @@ interface SettingsFormProps {
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
     ) => Promise<void>;
-    onDuplicate?: (instanceId: string) => void;
-    existingLabelMap?: Readonly<Record<string, string>>;
-    onSaveLabelMap?: (instanceId: string, map: Record<string, string>) => Promise<void>;
+    onDuplicate?: ((instanceId: string) => void) | undefined;
+    existingLabelMap?: Readonly<Record<string, string>> | undefined;
+    onSaveLabelMap?:
+        | ((instanceId: string, map: Record<string, string>) => Promise<void>)
+        | undefined;
 }
 
 export function SettingsForm({

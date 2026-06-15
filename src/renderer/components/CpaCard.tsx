@@ -51,7 +51,7 @@ export function CpaCard({
     on_unhide,
     on_clear,
 }: CpaCardProps) {
-    const dot = enabled ? (CPA_STATUS_DOT[status] ?? CPA_STATUS_DOT.unknown) : "var(--text-3)";
+    const dot = enabled ? (CPA_STATUS_DOT[status] ?? CPA_STATUS_DOT["unknown"]) : "var(--text-3)";
 
     const unique_accounts = useMemo(() => {
         const seen = new Map<string, CpaCardRow>();

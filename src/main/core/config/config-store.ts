@@ -122,7 +122,7 @@ export function createConfigStore(configPath: string): AppConfigStore {
                         : parsed;
                 const result = appConfigurationSchema.safeParse(normalized);
                 if (result.success) {
-                    const migrated = {
+                    let migrated = {
                         ...result.data,
                         plugins: result.data.plugins.map((p) => ({
                             ...p,
@@ -138,16 +138,21 @@ export function createConfigStore(configPath: string): AppConfigStore {
                     if (keep_indices.length !== migrated.plugins.length) {
                         const dropped = migrated.plugins.length - keep_indices.length;
                         log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath}`);
-                        migrated.plugins = keep_indices
+                        const pruned_plugins = keep_indices
                             .map((i) => migrated.plugins[i])
                             .filter((p): p is NonNullable<typeof p> => p !== undefined);
+                        const pruned = {
+                            ...migrated,
+                            plugins: pruned_plugins,
+                        };
                         // Persist the cleaned config so the prune is durable
                         // and does not repeat on every load.
                         try {
-                            await writeJsonAtomic(configPath, sortKeys(migrated));
+                            await writeJsonAtomic(configPath, sortKeys(pruned));
                         } catch (err) {
                             log.warn(`Failed to persist pruned config at ${configPath}`, err);
                         }
+                        migrated = pruned;
                     }
 
                     if (shouldLogRawStorage()) {

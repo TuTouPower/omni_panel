@@ -327,6 +327,7 @@ function hasValidQuota(period: ProviderUsagePeriod): boolean {
 export interface OverviewWindow {
     id: string;
     name: string;
+    raw_label: string;
     percent: number;
     used: number;
     limit: number;
@@ -364,6 +365,7 @@ export function build_overview_for_group(group: ProviderUsageGroup): OverviewWin
         result.push({
             id: `overview-${name}`,
             name,
+            raw_label: validPeriods[0]?.raw_label ?? name,
             percent: Math.min(100, Math.max(0, percent)),
             used: totalUsed,
             limit: totalLimit,

@@ -302,8 +302,10 @@ function AccountDialog({
     onSelectService: (instanceId: string, pluginName: string) => void;
     onCpa: () => void;
     onClose: () => void;
-    existingLabelMap?: Readonly<Record<string, string>>;
-    onSaveLabelMap?: (instanceId: string, map: Record<string, string>) => Promise<void>;
+    existingLabelMap?: Readonly<Record<string, string>> | undefined;
+    onSaveLabelMap?:
+        | ((instanceId: string, map: Record<string, string>) => Promise<void>)
+        | undefined;
     globalIntervalLabel: string;
 }) {
     const isEdit = mode === "edit";

@@ -42,7 +42,7 @@ function get_status_dot(
     if (is_removed) return "var(--risk-orange)";
     if (is_hidden) return "var(--text-3)";
     if (!enabled && status !== "error" && status !== "auth") return "var(--text-3)";
-    return STATUS_DOT_COLOR[status] ?? STATUS_DOT_COLOR.unknown;
+    return STATUS_DOT_COLOR[status] ?? STATUS_DOT_COLOR["unknown"] ?? "var(--text-3)";
 }
 
 function get_status_text(
