@@ -256,6 +256,50 @@ describe("SettingsView", () => {
         });
     });
 
+    it("does not await connector.refresh during save (fire-and-forget)", async () => {
+        const user = userEvent.setup();
+
+        // refresh never resolves; if save path awaited it, the AccountDialog would
+        // stay open (button text "保存中...") because onSave wrapper
+        // (await onSave(...); onClose()) would never complete.
+        const refresh_spy = vi.fn(
+            () =>
+                new Promise<void>(() => {
+                    /* never resolves */
+                }),
+        );
+        window.usageboard.connector.refresh = refresh_spy;
+
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        const editButtons = screen.getAllByTitle("编辑");
+        const deepseekEditButton = editButtons[0];
+        if (!deepseekEditButton) throw new Error("missing DeepSeek edit button");
+        await user.click(deepseekEditButton);
+        await waitFor(() => expect(screen.getByLabelText("API 密钥")).toBeInTheDocument());
+
+        await user.type(screen.getByLabelText("API 密钥"), "sk-test");
+        await user.type(screen.getByLabelText("接口地址"), "https://api.deepseek.example ");
+        await user.click(screen.getByTestId("settings-save-btn-deepseek-1"));
+
+        // save must complete (saveSecrets + save called) and refresh must be
+        // triggered as fire-and-forget.
+        await waitFor(() => {
+            expect(saveSecrets).toHaveBeenCalledWith("deepseek-1", { API_KEY: "sk-test" });
+        });
+        expect(save).toHaveBeenCalled();
+        expect(refresh_spy).toHaveBeenCalledWith("deepseek-1");
+
+        // onSave wrapper resolves once savePluginSettings returns (fire-and-forget
+        // refresh), then onClose unmounts the dialog. If implementation awaited
+        // refresh, the dialog would stay mounted and button text would stay
+        // "保存中..." forever.
+        await waitFor(() => {
+            expect(screen.queryByTestId("settings-save-btn-deepseek-1")).not.toBeInTheDocument();
+        });
+    });
+
     it("renders CPA as a card with always-visible account child rows", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);

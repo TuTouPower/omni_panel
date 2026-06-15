@@ -94,6 +94,21 @@ const BAR_STYLE_LABELS = ["细线型", "粗胶囊型"] as const;
 const log = createLogger("renderer:settings-view");
 const should_log_raw = import.meta.env.DEV;
 
+/**
+ * Fire-and-forget background refresh after save. Never blocks the save path,
+ * never throws to the caller. Logs errors instead.
+ */
+function trigger_background_refresh(instance_id: string): void {
+    try {
+        const result = window.usageboard.connector.refresh(instance_id);
+        Promise.resolve(result).catch((err: unknown) => {
+            log.error("background refresh failed", { instanceId: instance_id, err });
+        });
+    } catch (err) {
+        log.error("background refresh threw", { instanceId: instance_id, err });
+    }
+}
+
 function main_panel_mode_label_to_value(label: string): MainPanelMode {
     if (label === "弹出面板") return "popup";
     if (label === "浮动窗口") return "floating";
@@ -847,7 +862,7 @@ export function SettingsView() {
                         : plugin,
                 ),
             });
-            await window.usageboard.connector.refresh(instanceId);
+            trigger_background_refresh(instanceId);
         },
         [config, save_config, saveSecrets],
     );
@@ -895,7 +910,7 @@ export function SettingsView() {
             if (Object.keys(params.secrets).length > 0) {
                 await saveSecrets(new_id, params.secrets);
             }
-            await window.usageboard.connector.refresh(new_id);
+            trigger_background_refresh(new_id);
         },
         [config, pluginInfos, save_config, saveSecrets],
     );
