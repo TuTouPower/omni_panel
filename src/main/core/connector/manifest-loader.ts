@@ -37,8 +37,9 @@ export async function discover_connector_definitions(
     user_dir: string,
 ): Promise<ConnectorDefinition[]> {
     const definitions: ConnectorDefinition[] = [];
+    const dirs = process.env["E2E_SKIP_BUNDLED"] === "1" ? [user_dir] : [builtin_dir, user_dir];
 
-    for (const dir of [builtin_dir, user_dir]) {
+    for (const dir of dirs) {
         try {
             const entries = await readdir(dir, { withFileTypes: true });
             for (const entry of entries) {

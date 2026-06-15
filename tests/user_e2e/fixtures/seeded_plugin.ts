@@ -62,6 +62,8 @@ export function seed_fake_plugin(
             account_id: item.id,
             account_label: item.name,
             metric_id: `${item.id}:usage`,
+            raw_label: item.name,
+            normalized_label: item.name,
             name: item.name,
             window: "month",
             used: item.used,

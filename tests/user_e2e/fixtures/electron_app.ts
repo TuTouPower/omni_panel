@@ -51,6 +51,7 @@ export async function launchApp(options?: LaunchAppOptions): Promise<LaunchedApp
         env: {
             ...process.env,
             E2E: "1",
+            E2E_SKIP_BUNDLED: "1",
             ...(options?.enableTray ? { E2E_WITH_TRAY: "1" } : {}),
         },
     });
