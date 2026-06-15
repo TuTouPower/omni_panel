@@ -14,7 +14,7 @@ import {
 interface UsageBarRowProps {
     period: Pick<
         ProviderUsagePeriod,
-        "id" | "name" | "used" | "limit" | "displayStyle" | "resetAt"
+        "id" | "name" | "raw_label" | "used" | "limit" | "displayStyle" | "resetAt"
     >;
     index: number;
     colorScheme?: UsageBarColorScheme | undefined;
@@ -52,7 +52,7 @@ export function UsageBarRow({
     barStyle = "thin",
     labelMap,
 }: UsageBarRowProps) {
-    const label = format_usage_period_label(period.name, labelMap);
+    const label = format_usage_period_label(period.raw_label, period.name, labelMap);
     const elapsed = usage_window_elapsed(period.name, period.resetAt);
     const used = period.used;
     const has_value = used !== null;

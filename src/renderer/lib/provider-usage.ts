@@ -12,7 +12,9 @@ export interface ProviderUsagePeriod {
     connectorDisplayName: string;
     accountId: string;
     accountLabel: string;
+    raw_label: string;
     name: string;
+    display_label?: string | undefined;
     used: number | null;
     limit: number;
     displayStyle: MetricRecord["displayStyle"];
@@ -113,7 +115,9 @@ function toPeriod(
         connectorDisplayName: connector.displayName,
         accountId: item.accountId,
         accountLabel: item.accountLabel,
-        name: item.name,
+        name: item.normalized_label,
+        raw_label: item.raw_label,
+        display_label: item.display_label,
         used: item.used,
         limit: item.limit,
         displayStyle: item.displayStyle,
@@ -141,13 +145,14 @@ const LABEL_MAP: Record<string, string> = {
 };
 
 export function format_usage_period_label(
+    raw_label: string,
     name: string,
     overrides?: Readonly<Record<string, string>>,
 ): string {
-    const normalized = name.trim();
-    const custom = overrides?.[normalized];
+    const custom = overrides?.[raw_label];
     if (custom) return custom;
 
+    const normalized = name.trim();
     const mapped = LABEL_MAP[normalized];
     if (mapped) return mapped;
 
@@ -336,7 +341,7 @@ export function build_overview_for_group(group: ProviderUsageGroup): OverviewWin
     const byPeriod = new Map<string, ProviderUsagePeriod[]>();
 
     for (const period of group.periods) {
-        const label = format_usage_period_label(period.name);
+        const label = format_usage_period_label(period.raw_label, period.name);
         const existing = byPeriod.get(label) ?? [];
         existing.push(period);
         byPeriod.set(label, existing);

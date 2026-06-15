@@ -47,7 +47,8 @@ function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
         sourceInstanceId: "cpa-main",
         accountId: "account-1",
         accountLabel: "Claude Account",
-        name: "Claude Pro",
+        raw_label: "claude-window",
+        normalized_label: "Claude Pro",
         used: 10,
         limit: 100,
         displayStyle: "percent",
@@ -84,17 +85,36 @@ function connectorInfo(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
 
 describe("format_usage_period_label", () => {
     it("shortens known long model labels", () => {
-        expect(format_usage_period_label("gemini-3.1-flash-lite-preview")).toBe(
-            "3.1 Flash-Lite·Pv",
-        );
+        expect(
+            format_usage_period_label(
+                "gemini-3.1-flash-lite-preview",
+                "gemini-3.1-flash-lite-preview",
+            ),
+        ).toBe("3.1 Flash-Lite·Pv");
     });
 
     it("lets custom label map override built-in labels", () => {
         expect(
-            format_usage_period_label("gemini-3.1-flash-lite-preview", {
-                "gemini-3.1-flash-lite-preview": "Gemini Custom",
-            }),
+            format_usage_period_label(
+                "gemini-3.1-flash-lite-preview",
+                "gemini-3.1-flash-lite-preview",
+                {
+                    "gemini-3.1-flash-lite-preview": "Gemini Custom",
+                },
+            ),
         ).toBe("Gemini Custom");
+    });
+
+    it("resolves label map by raw_label, not display name", () => {
+        expect(
+            format_usage_period_label("five_hour", "5小时", {
+                five_hour: "我的5h",
+            }),
+        ).toBe("我的5h");
+    });
+
+    it("shows normalized_label when no mapping exists", () => {
+        expect(format_usage_period_label("five_hour", "5小时")).toBe("5小时");
     });
 });
 

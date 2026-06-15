@@ -15,6 +15,7 @@ function make_period(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsag
         accountId: "gemini-main",
         accountLabel: "Gemini Account",
         name: "gemini-3.1-flash-lite-preview",
+        raw_label: "gemini-3.1-flash-lite-preview",
         used: 10,
         limit: 100,
         displayStyle: "percent",
