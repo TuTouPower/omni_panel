@@ -38,8 +38,9 @@ function create_ctx(usage: unknown, detail: unknown, balance: unknown): Connecto
                 return Promise.reject(new Error(`unexpected path ${path}`));
             },
             post_json: () => Promise.resolve({}),
+            get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
         },
-        files: { read: () => Promise.resolve("") },
+        files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
     };
 }
@@ -136,8 +137,9 @@ describe("mimo connector", () => {
                     return Promise.reject(new Error(`unexpected path ${path}`));
                 },
                 post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
             },
-            files: { read: () => Promise.resolve("") },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
             params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
         };
         const result = await run_connector(manifest, script, error_ctx);

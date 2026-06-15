@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { resolveRuntimeEnv } from "../../../src/main/core/scheduler/endpoint-resolver";
-import type { PluginConfiguration, AppConfiguration } from "../../../src/shared/types/config";
+import type { ConnectorConfiguration, AppConfiguration } from "../../../src/shared/types/config";
 
-function make_plugin(overrides: Record<string, string> = {}): PluginConfiguration {
+function make_plugin(overrides: Record<string, string> = {}): ConnectorConfiguration {
     return {
         instanceId: "p1",
         stateId: "p1",

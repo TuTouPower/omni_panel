@@ -103,9 +103,10 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
         insert(obs: Observation) {
             inserted.push(obs);
         },
-        get_latest: vi.fn(() => null),
-        list_latest_by_provider: vi.fn(() => []),
-        list_all_providers: vi.fn(() => []),
+        get_latest: vi.fn(() => null as Observation | null),
+        list_latest_by_provider: vi.fn(() => [] as Observation[]),
+        list_all_providers: vi.fn(() => [] as string[]),
+        list_by_source_instance_id: vi.fn(() => [] as Observation[]),
         prune: vi.fn(() => 0),
         close: vi.fn(),
     };

@@ -11,18 +11,20 @@ const stub_ctx: ConnectorContext = {
         post_json() {
             return Promise.resolve({});
         },
+        get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
     },
     files: {
         read() {
             return Promise.resolve("");
         },
+        list: () => Promise.resolve([]),
     },
     params: {},
 };
 
 const poll_manifest: Manifest = {
     id: "test",
-    provider: "test",
+    provider: "claude",
     capabilities: ["poll"],
     parameters: [],
     script: "connector.ts",
@@ -139,6 +141,7 @@ describe("connector-runtime", () => {
                 post_json() {
                     return Promise.resolve({});
                 },
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
             },
         };
         const script = `

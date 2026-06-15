@@ -405,6 +405,7 @@ describe("CpaConnectorSettings", () => {
         renderSettings({ onEditLabelMap });
 
         const claude_btn = screen.getAllByTitle("编辑数据标签映射")[0];
+        if (!claude_btn) return;
         await user.click(claude_btn);
         expect(onEditLabelMap).toHaveBeenCalledWith("claude");
     });
@@ -454,7 +455,9 @@ describe("CpaConnectorSettings", () => {
         // ConfirmDelete dialog should appear
         const confirmBtns = screen.getAllByText("移除数据源");
         // Click the button inside the dialog (not the footer button)
-        await user.click(confirmBtns[confirmBtns.length - 1]);
+        const last_btn = confirmBtns[confirmBtns.length - 1];
+        if (!last_btn) return;
+        await user.click(last_btn);
         expect(onRemove).toHaveBeenCalled();
     });
 

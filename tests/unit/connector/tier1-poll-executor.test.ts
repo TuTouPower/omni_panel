@@ -29,11 +29,13 @@ function make_ctx(response: unknown): ConnectorContext {
             post_json() {
                 return Promise.resolve(response);
             },
+            get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
         },
         files: {
             read() {
                 return Promise.resolve("");
             },
+            list: () => Promise.resolve([]),
         },
         params: {},
     };
@@ -88,11 +90,13 @@ describe("tier1-poll-executor", () => {
                     posted_body = body;
                     return Promise.resolve({ used: 5, limit: 10, window: "day" });
                 },
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
             },
             files: {
                 read() {
                     return Promise.resolve("");
                 },
+                list: () => Promise.resolve([]),
             },
             params: {},
         };
@@ -111,11 +115,13 @@ describe("tier1-poll-executor", () => {
                 post_json() {
                     return Promise.reject(new Error("network"));
                 },
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
             },
             files: {
                 read() {
                     return Promise.resolve("");
                 },
+                list: () => Promise.resolve([]),
             },
             params: {},
         };

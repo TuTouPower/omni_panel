@@ -103,6 +103,8 @@ describe("PopupView mirror isolation", () => {
                 toggle_autostart: vi.fn(),
                 open_settings: vi.fn(),
                 check_update: vi.fn(),
+                survey: vi.fn(),
+                sponsor: vi.fn(),
                 restart: vi.fn(),
                 quit: vi.fn(),
                 hide: vi.fn(),
@@ -110,7 +112,8 @@ describe("PopupView mirror isolation", () => {
                 on_pause_state: vi.fn(() => vi.fn()),
                 on_autostart_state: vi.fn(() => vi.fn()),
             },
-            auth: { cookieLogin: vi.fn(), refreshCookies: vi.fn() },
+            auth: { cookieLogin: vi.fn() },
+            session: { login: vi.fn(), refresh: vi.fn() },
             logs: { export: vi.fn() },
             log: vi.fn(),
         };

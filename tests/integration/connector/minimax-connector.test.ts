@@ -38,8 +38,9 @@ function create_ctx(model_remains: unknown[], base_resp?: unknown): ConnectorCon
                 });
             },
             post_json: () => Promise.resolve({}),
+            get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
         },
-        files: { read: () => Promise.resolve("") },
+        files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: { API_KEY: "test-key" },
     };
 }

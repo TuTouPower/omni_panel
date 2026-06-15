@@ -40,7 +40,7 @@ function get_test_manifest(
 ): Manifest {
     return {
         id: "test",
-        provider: "test",
+        provider: "brave",
         capabilities: ["poll"],
         parameters: [{ name: "api_key", type: "secret", required: true, exposeToScript: false }],
         endpoints: { default: `http://127.0.0.1:${String(server_port)}` },

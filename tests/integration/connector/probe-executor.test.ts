@@ -12,7 +12,7 @@ function create_manifest(
 ): Manifest {
     return {
         id: "test-probe",
-        provider: "test",
+        provider: "brave",
         capabilities: ["observe"],
         parameters: [],
         endpoints: { default: `http://127.0.0.1:${String(server_port)}` },
@@ -31,7 +31,7 @@ function create_ctx(): ConnectorContext {
         http: {
             get_json: () => Promise.resolve({}),
             post_json: () => Promise.resolve({}),
-            get_raw(endpoint_key, path, opts) {
+            get_raw(_endpoint_key, path, opts) {
                 const url = new URL(path, `http://127.0.0.1:${String(server_port)}`);
                 return fetch(url.toString(), {
                     method: "GET",
@@ -127,7 +127,7 @@ describe("probe-executor", () => {
         expect(observations).toHaveLength(1);
         expect(observations[0]).toEqual(
             expect.objectContaining({
-                provider: "test",
+                provider: "brave",
                 source_instance_id: "test-1",
                 account_id: "default",
                 metric_id: "test-probe:usage",
@@ -140,9 +140,11 @@ describe("probe-executor", () => {
                 last_error: null,
             }),
         );
-        expect(observations[0].used).toBe(900);
-        expect(observations[0].limit).toBe(1000);
-        expect(observations[0].observed_at).toBeGreaterThan(0);
+        const first1 = observations[0];
+        if (!first1) return;
+        expect(first1.used).toBe(900);
+        expect(first1.limit).toBe(1000);
+        expect(first1.observed_at).toBeGreaterThan(0);
     });
 
     it("computes used = limit - remaining from headers", async () => {
@@ -158,8 +160,10 @@ describe("probe-executor", () => {
 
         expect(observations).toHaveLength(1);
         // remaining=50, limit=100 → used = 100 - 50 = 50
-        expect(observations[0].used).toBe(50);
-        expect(observations[0].limit).toBe(100);
+        const first2 = observations[0];
+        if (!first2) return;
+        expect(first2.used).toBe(50);
+        expect(first2.limit).toBe(100);
     });
 
     it("returns empty array when no numeric headers found", async () => {
@@ -192,7 +196,7 @@ describe("probe-executor", () => {
     it("throws error when manifest has no observe.probe config", async () => {
         const manifest: Manifest = {
             id: "test-no-probe",
-            provider: "test",
+            provider: "brave",
             capabilities: ["observe"],
             parameters: [],
             observe: { headers: ["x-ratelimit-remaining"] },

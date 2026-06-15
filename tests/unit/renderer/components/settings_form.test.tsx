@@ -325,7 +325,8 @@ describe("SettingsForm cookie login", () => {
             hasSecrets: { API_KEY: true },
         });
         const input = screen.getByLabelText("API Key");
-        const val = String(input.value);
+
+        const val = (input as HTMLInputElement).value;
         // Should NOT show fixed "***"
         expect(val).not.toBe("***");
         // Should show dots matching some reasonable length (not 3)

@@ -79,10 +79,9 @@ describe("CpaCard", () => {
         const on_hide = vi.fn();
         render_card({ on_hide });
         // Normal child row should have a toggle switch
-        const switches = screen
-            .getAllByText("Claude Account")[0]
-            .closest(".acc-row")
-            ?.querySelectorAll(".sw");
+        const claude_el = screen.getAllByText("Claude Account")[0];
+        if (!claude_el) return;
+        const switches = claude_el.closest(".acc-row")?.querySelectorAll(".sw");
         expect(switches?.length).toBe(1);
     });
 
@@ -168,7 +167,8 @@ describe("CpaCard", () => {
     });
 
     it("does not render fail_count summary", () => {
-        render_card({ fail_count: 5 });
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+        render_card({ fail_count: 5 } as any);
         expect(screen.queryByText(/采集失败/)).not.toBeInTheDocument();
     });
 

@@ -180,7 +180,7 @@ describe("brave connector", () => {
         expect(result.observations).toEqual([]);
     });
 
-    const real_api_key = process.env.BRAVE_SEARCH_API_KEY?.trim();
+    const real_api_key = process.env["BRAVE_SEARCH_API_KEY"]?.trim();
     const has_real_key = Boolean(real_api_key);
 
     const it_real = has_real_key ? it : it.skip;
@@ -188,12 +188,12 @@ describe("brave connector", () => {
     it_real(
         "parses REAL brave API response headers (live integration)",
         async () => {
-            const endpoint = manifest.endpoints.default ?? "";
+            const endpoint = manifest.endpoints?.["default"] ?? "";
             const path = manifest.observe?.probe?.path ?? "/res/v1/web/search?q=test&count=1";
             const full_url = `${endpoint}${path}`;
-            const proxy_url = process.env.HTTPS_PROXY ?? process.env.HTTP_PROXY;
+            const proxy_url = process.env["HTTPS_PROXY"] ?? process.env["HTTP_PROXY"];
 
-            let response: Response;
+            let response: Response | undefined;
             try {
                 const fetch_opts: RequestInit = {
                     headers: { "X-Subscription-Token": real_api_key ?? "" },
@@ -231,6 +231,8 @@ describe("brave connector", () => {
                 }
             }
 
+            if (!response) return; // unreachable: either try or retry sets it
+
             expect(response.status).toBe(200);
             const limit_header = response.headers.get("x-ratelimit-limit");
             const remaining_header = response.headers.get("x-ratelimit-remaining");
@@ -259,7 +261,7 @@ describe("brave connector", () => {
             // Only assert limit >= 0; used must be <= limit.
             expect(obs.limit).toBeGreaterThanOrEqual(0);
             expect(obs.used).toBeGreaterThanOrEqual(0);
-            expect(obs.used).toBeLessThanOrEqual(obs.limit);
+            expect(obs.used).toBeLessThanOrEqual(obs.limit ?? 0);
         },
         30_000,
     );

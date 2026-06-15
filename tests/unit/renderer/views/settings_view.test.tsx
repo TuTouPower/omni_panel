@@ -175,6 +175,7 @@ describe("SettingsView", () => {
             getState: vi.fn(),
             refresh: vi.fn(),
             refreshAll: vi.fn(),
+            snapshot: vi.fn(),
         };
         window.usageboard = {
             platform: "win32",
@@ -212,6 +213,8 @@ describe("SettingsView", () => {
                 toggle_autostart: vi.fn(),
                 open_settings: vi.fn(),
                 check_update: vi.fn(),
+                survey: vi.fn(),
+                sponsor: vi.fn(),
                 restart: vi.fn(),
                 quit: vi.fn(),
                 hide: vi.fn(),
@@ -219,7 +222,8 @@ describe("SettingsView", () => {
                 on_pause_state: vi.fn(() => vi.fn()),
                 on_autostart_state: vi.fn(() => vi.fn()),
             },
-            auth: { cookieLogin: vi.fn(), refreshCookies: vi.fn() },
+            auth: { cookieLogin: vi.fn() },
+            session: { login: vi.fn(), refresh: vi.fn() },
             logs: { export: vi.fn() },
             log: vi.fn(),
         };
@@ -328,6 +332,7 @@ describe("SettingsView", () => {
         });
         const edit_buttons = screen.getAllByTitle("编辑（连接设置）");
         if (edit_buttons.length === 0) throw new Error("missing CPA edit button");
+        if (!edit_buttons[0]) return;
         await user.click(edit_buttons[0]);
 
         await waitFor(() => {
@@ -677,7 +682,7 @@ describe("SettingsView", () => {
         // Find the toggle near the label map sync row
         const syncRow = screen.getByText("同一数据源的数据标签映射同步").closest(".set-row");
         if (!syncRow) throw new Error("sync row not found");
-        const toggle = within(syncRow).getByRole("button");
+        const toggle = within(syncRow as HTMLElement).getByRole("button");
         await user.click(toggle);
 
         await waitFor(() => {
@@ -711,6 +716,7 @@ describe("SettingsView", () => {
         // Click edit button on DeepSeek card
         const editButtons = screen.getAllByTitle("编辑");
         if (editButtons.length > 0) {
+            if (!editButtons[0]) return;
             await user.click(editButtons[0]);
             await waitFor(() => {
                 expect(screen.getByText("编辑账号")).toBeInTheDocument();

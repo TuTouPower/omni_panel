@@ -35,8 +35,9 @@ function create_ctx(account: unknown): ConnectorContext {
                 return Promise.resolve({ account });
             },
             post_json: () => Promise.resolve({}),
+            get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
         },
-        files: { read: () => Promise.resolve("") },
+        files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: { API_KEY: "test-key" },
     };
 }

@@ -89,11 +89,13 @@ function create_ctx(): ConnectorContext {
                     },
                 });
             },
+            get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
         },
         files: {
             read() {
                 return Promise.resolve("");
             },
+            list: () => Promise.resolve([]),
         },
         params: { cpa_mgmt_key: "management-key", monitor_claude: "true" },
     };
@@ -179,12 +181,13 @@ describe("cpa connector", () => {
             }
             return Promise.resolve({ status_code: 404, body: {} });
         };
-        ctx.params = { cpa_mgmt_key: "management-key" };
+        const codex_result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
 
-        const result = await run_connector(manifest, script, ctx);
-
-        expect(result.error).toBeNull();
-        const codex = result.observations.filter((o) => o.provider === "codex");
+        expect(codex_result.error).toBeNull();
+        const codex = codex_result.observations.filter((o) => o.provider === "codex");
         expect(codex.length).toBe(2);
         expect(codex[0]).toEqual(
             expect.objectContaining({
@@ -251,12 +254,13 @@ describe("cpa connector", () => {
             }
             return Promise.resolve({ status_code: 404, body: {} });
         };
-        ctx.params = { cpa_mgmt_key: "management-key" };
+        const gemini_result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
 
-        const result = await run_connector(manifest, script, ctx);
-
-        expect(result.error).toBeNull();
-        const gemini = result.observations.filter((o) => o.provider === "gemini");
+        expect(gemini_result.error).toBeNull();
+        const gemini = gemini_result.observations.filter((o) => o.provider === "gemini");
         expect(gemini.length).toBe(2);
         expect(gemini[0]).toEqual(
             expect.objectContaining({
@@ -301,12 +305,13 @@ describe("cpa connector", () => {
             }
             return Promise.resolve({ status_code: 404, body: {} });
         };
-        ctx.params = { cpa_mgmt_key: "management-key" };
+        const kimi_result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
 
-        const result = await run_connector(manifest, script, ctx);
-
-        expect(result.error).toBeNull();
-        const kimi = result.observations.filter((o) => o.provider === "kimi");
+        expect(kimi_result.error).toBeNull();
+        const kimi = kimi_result.observations.filter((o) => o.provider === "kimi");
         expect(kimi.length).toBe(1);
         expect(kimi[0]).toEqual(
             expect.objectContaining({

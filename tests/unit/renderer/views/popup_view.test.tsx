@@ -167,6 +167,8 @@ describe("PopupView", () => {
                 toggle_autostart: vi.fn(),
                 open_settings: vi.fn(),
                 check_update: vi.fn(),
+                survey: vi.fn(),
+                sponsor: vi.fn(),
                 restart: vi.fn(),
                 quit: vi.fn(),
                 hide: vi.fn(),
@@ -174,7 +176,8 @@ describe("PopupView", () => {
                 on_pause_state: vi.fn(() => vi.fn()),
                 on_autostart_state: vi.fn(() => vi.fn()),
             },
-            auth: { cookieLogin: vi.fn(), refreshCookies: vi.fn() },
+            auth: { cookieLogin: vi.fn() },
+            session: { login: vi.fn(), refresh: vi.fn() },
             logs: { export: vi.fn() },
             log: usage_log,
         };
@@ -593,7 +596,7 @@ describe("PopupView", () => {
             // Simulate 30s tick → "1 分钟前"
             vi.setSystemTime(new Date("2026-01-01T12:06:00Z"));
             act(() => {
-                tick();
+                if (tick) tick();
             });
             expect(screen.queryAllByText("1 分钟前").length).toBeGreaterThan(0);
         } finally {
@@ -657,9 +660,9 @@ describe("PopupView", () => {
         await waitFor(() => {
             expect(config_save).toHaveBeenCalled();
         });
-        const saved = (
-            config_save.mock.calls[config_save.mock.calls.length - 1][0] as Record<string, unknown>
-        )["collapsedAccounts"];
+        const last_call = config_save.mock.calls[config_save.mock.calls.length - 1];
+        if (!last_call) return;
+        const saved = (last_call[0] as Record<string, unknown>)["collapsedAccounts"];
         expect(saved).toEqual({ "cpa-main:label:Claude Account": true });
     });
 });

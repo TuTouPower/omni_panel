@@ -27,6 +27,7 @@ function create_ctx(files: Record<string, string>): ConnectorContext {
         http: {
             get_json: () => Promise.resolve({}),
             post_json: () => Promise.resolve({}),
+            get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
         },
         files: {
             list(dir_pattern: string) {

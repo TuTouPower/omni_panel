@@ -42,8 +42,9 @@ function create_ctx(balance_infos: unknown[]): ConnectorContext {
                 return Promise.resolve({ balance_infos });
             },
             post_json: () => Promise.resolve({}),
+            get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
         },
-        files: { read: () => Promise.resolve("") },
+        files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: { API_KEY: "test-key", LIMIT: "100" },
     };
 }

@@ -37,6 +37,7 @@ function create_ctx(): ConnectorContext {
             post_json() {
                 return Promise.resolve({});
             },
+            get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
         },
         files: {
             read(path_pattern: string) {
@@ -45,6 +46,7 @@ function create_ctx(): ConnectorContext {
                     JSON.stringify({ claudeAiOauth: { accessToken: "fake-token" } }),
                 );
             },
+            list: () => Promise.resolve([]),
         },
         params: {},
     };
