@@ -23,6 +23,14 @@ export class PopupPage {
         await this.live.getByRole("button", { name: "设置" }).click();
     }
 
+    refresh_all_button() {
+        return this.live.getByTitle("刷新全部");
+    }
+
+    provider_refresh_button(label: string) {
+        return this.live.getByRole("button", { name: `刷新 ${label}` });
+    }
+
     errorBanner() {
         return this.live.locator(".net-banner");
     }

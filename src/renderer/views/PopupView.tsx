@@ -122,6 +122,9 @@ export function PopupView() {
     useNowTick();
     const { plugins, loading, error, refreshAll, reload } = use_plugins();
     const [refreshing, setRefreshing] = useState(false);
+    const [refreshing_providers, set_refreshing_providers] = useState<Set<UsageProvider>>(
+        new Set(),
+    );
     const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
@@ -283,16 +286,6 @@ export function PopupView() {
     const wheel_at_ref = useRef(0);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
     const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
-    const refresh_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    // Cleanup refresh timeout on unmount
-    useEffect(() => {
-        return () => {
-            if (refresh_timeout_ref.current !== null) {
-                clearTimeout(refresh_timeout_ref.current);
-            }
-        };
-    }, []);
 
     const rawGroups = useMemo(() => build_provider_usage_groups(plugins), [plugins]);
     const providerGroups = useMemo(
@@ -374,27 +367,38 @@ export function PopupView() {
                 });
             })
             .finally(() => {
-                refresh_timeout_ref.current = setTimeout(() => {
-                    setRefreshing(false);
-                }, 800);
+                setRefreshing(false);
             });
     };
 
     const refreshProvider = (provider: UsageProvider) => {
+        if (refreshing_providers.has(provider)) return;
+
         const connectors = plugins.filter(
             (connector) => connector.enabled && connector.activeProviders.includes(provider),
         );
+
+        set_refreshing_providers((prev) => new Set(prev).add(provider));
+
         void Promise.all(
             connectors.map((connector) =>
                 window.usageboard.connector.refresh(connector.sourceInstanceId),
             ),
-        ).catch((err: unknown) => {
-            window.usageboard.log({
-                level: "error",
-                module: MODULE,
-                message: `刷新 ${provider} 失败: ${errorMessage(err)}`,
+        )
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: MODULE,
+                    message: `刷新 ${provider} 失败: ${errorMessage(err)}`,
+                });
+            })
+            .finally(() => {
+                set_refreshing_providers((prev) => {
+                    const next = new Set(prev);
+                    next.delete(provider);
+                    return next;
+                });
             });
-        });
     };
 
     const toggle_account = (id: string) => {
@@ -860,10 +864,7 @@ export function PopupView() {
     // Mirrors are only useful for live height measurement; skip them in
     // environments without ResizeObserver (jsdom in vitest by default) so the
     // duplicate DOM does not confuse `screen.getByText` queries in tests.
-    const refresh_providers = useMemo(
-        () => (refreshing ? new Set(orderedProviders) : new Set<string>()),
-        [refreshing, orderedProviders],
-    );
+    const refresh_providers = useMemo(() => new Set(refreshing_providers), [refreshing_providers]);
 
     const should_render_mirrors = typeof ResizeObserver !== "undefined";
 

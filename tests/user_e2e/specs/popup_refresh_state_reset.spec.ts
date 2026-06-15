@@ -50,4 +50,22 @@ test.describe("popup refresh state reset", () => {
 
         await expect(live.getByRole("button", { name: /折叠 Refresh Account A/ })).toBeVisible();
     });
+
+    test("manual refresh keeps popup interactive and clears spinner after completion", async ({
+        omni,
+    }) => {
+        const page = await omni.app.firstWindow();
+        const popup = new PopupPage(page);
+        await popup.waitReady();
+        await page.waitForTimeout(5000);
+
+        const live = popup.root();
+        await live.getByRole("button", { name: /^Claude$/ }).click();
+
+        const refresh_button = popup.provider_refresh_button("Claude");
+        await refresh_button.click();
+
+        await expect(refresh_button).not.toHaveClass(/spinning/, { timeout: 10_000 });
+        await expect(live.getByRole("button", { name: /折叠 Refresh Account A/ })).toBeVisible();
+    });
 });

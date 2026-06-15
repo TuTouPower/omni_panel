@@ -5,6 +5,16 @@ import { App } from "../../src/renderer/App";
 import { SettingsView } from "../../src/renderer/views/SettingsView";
 import { getMockApi } from "./setup";
 
+function deferred_promise<T>() {
+    let resolve!: (value: T | PromiseLike<T>) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+}
+
 describe("Renderer smoke tests", () => {
     describe("PopupView", () => {
         it("renders OmniUsage header", async () => {
@@ -55,6 +65,56 @@ describe("Renderer smoke tests", () => {
             await user.click(btn);
             const api = getMockApi();
             expect(api.plugin.refreshAll).toHaveBeenCalled();
+        });
+
+        it("keeps refresh-all button spinning while refreshAll is pending", async () => {
+            const user = userEvent.setup();
+            const api = getMockApi();
+            const refresh_all_deferred = deferred_promise<undefined>();
+            api.plugin.refreshAll.mockReturnValueOnce(refresh_all_deferred.promise);
+
+            render(<App />);
+
+            const button = await screen.findByTitle("刷新全部");
+            expect(button).not.toHaveClass("spinning");
+
+            await user.click(button);
+
+            expect(api.plugin.refreshAll).toHaveBeenCalledTimes(1);
+            expect(button).toHaveClass("spinning");
+            await Promise.resolve();
+            expect(button).toHaveClass("spinning");
+
+            refresh_all_deferred.resolve(undefined);
+
+            await waitFor(() => {
+                expect(button).not.toHaveClass("spinning");
+            });
+        });
+
+        it("keeps provider refresh button spinning while provider refresh is pending", async () => {
+            const user = userEvent.setup();
+            const api = getMockApi();
+            const provider_refresh_deferred = deferred_promise<undefined>();
+            api.plugin.refresh.mockReturnValueOnce(provider_refresh_deferred.promise);
+
+            render(<App />);
+
+            const button = await screen.findByRole("button", { name: "刷新 DeepSeek" });
+            expect(button).not.toHaveClass("spinning");
+
+            await user.click(button);
+
+            expect(api.plugin.refresh).toHaveBeenCalledWith("deepseek");
+            expect(button).toHaveClass("spinning");
+            await Promise.resolve();
+            expect(button).toHaveClass("spinning");
+
+            provider_refresh_deferred.resolve(undefined);
+
+            await waitFor(() => {
+                expect(button).not.toHaveClass("spinning");
+            });
         });
     });
 
