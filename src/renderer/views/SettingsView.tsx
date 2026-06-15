@@ -1437,12 +1437,14 @@ export function SettingsView() {
                                                                     | "ok"
                                                                     | "error"
                                                                     | "unknown" =
-                                                                    item.status === "ok" ||
-                                                                    item.status === "normal" ||
-                                                                    item.status === "warning" ||
                                                                     item.status === "critical"
-                                                                        ? "ok"
-                                                                        : "unknown";
+                                                                        ? "error"
+                                                                        : item.status ===
+                                                                                "normal" ||
+                                                                            item.status ===
+                                                                                "warning"
+                                                                          ? "ok"
+                                                                          : "unknown";
                                                                 return {
                                                                     provider: item.provider,
                                                                     account_id: item.accountId,
