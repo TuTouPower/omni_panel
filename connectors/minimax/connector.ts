@@ -174,7 +174,8 @@ async function main(): Promise<Observation[]> {
             intermediate.push({
                 ...base,
                 metric_id: `minimax:${model_slug}-interval`,
-                name: `${label} (${period_label(pk)})`,
+                raw_label: `${model_slug}-interval`,
+                normalized_label: `${label} (${period_label(pk)})`,
                 used: Math.max(interval_used, 0),
                 limit: Math.max(interval_total, 0),
                 reset_at: reset_from_ms(model.remains_time),
@@ -188,7 +189,8 @@ async function main(): Promise<Observation[]> {
             intermediate.push({
                 ...base,
                 metric_id: `minimax:${model_slug}-week`,
-                name: `${label} (${period_label("period_week")})`,
+                raw_label: `${model_slug}-week`,
+                normalized_label: `${label} (${period_label("period_week")})`,
                 used: Math.max(weekly_used, 0),
                 limit: Math.max(weekly_total, 0),
                 reset_at: reset_from_ms(model.weekly_remains_time),

@@ -5,7 +5,8 @@
     "items": [
         {
             "id": "token-usage",
-            "name": "Token 用量",
+            "raw_label": "token-usage",
+            "normalized_label": "Token 用量",
             "used": 50000.0,
             "limit": 100000.0,
             "displayStyle": "percent",

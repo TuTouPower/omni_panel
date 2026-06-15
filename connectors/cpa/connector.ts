@@ -119,11 +119,11 @@ function parse_claude(
     account: CpaAccount,
     now: number,
 ): Observation[] {
-    const periods: [string, string, "second" | "day"][] = [
-        ["five_hour", "5小时", "second"],
-        ["seven_day", "每周", "day"],
+    const periods: [string, string, string, "second" | "day"][] = [
+        ["five_hour", "five_hour", "5小时", "second"],
+        ["seven_day", "seven_day", "一周", "day"],
     ];
-    return periods.map(([key, label, window]) => {
+    return periods.map(([key, raw_label, normalized_label, window]) => {
         const period = body[key];
         const pct = is_record(period) ? to_pct(period["utilization"]) : 0;
         const reset_at = is_record(period) ? to_reset_at(period["resets_at"]) : null;
@@ -133,7 +133,8 @@ function parse_claude(
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `claude:${account.account_id}:${key}`,
-            name: `Claude (${account.account_label}) · ${label}`,
+            raw_label,
+            normalized_label,
             window,
             used: pct,
             limit: 100,
@@ -157,12 +158,12 @@ function parse_codex(
 ): Observation[] {
     const rl = body["rate_limit"];
     if (!is_record(rl)) return [];
-    const windows: [string, string, "second" | "day"][] = [
-        ["primary_window", "5小时", "second"],
-        ["secondary_window", "每周", "day"],
+    const windows: [string, string, string, "second" | "day"][] = [
+        ["primary_window", "primary_window", "5小时", "second"],
+        ["secondary_window", "secondary_window", "一周", "day"],
     ];
     const observations: Observation[] = [];
-    for (const [key, label, window] of windows) {
+    for (const [key, raw_label, normalized_label, window] of windows) {
         const w = rl[key] ?? rl[key.replace(/_/g, "")];
         if (!is_record(w)) continue;
         const pct = to_pct(w["used_percent"] ?? w["usedPercent"]);
@@ -181,7 +182,8 @@ function parse_codex(
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `codex:${account.account_id}:${key}`,
-            name: `Codex (${account.account_label}) · ${label}`,
+            raw_label,
+            normalized_label,
             window,
             used: pct,
             limit: 100,
@@ -246,7 +248,8 @@ function parse_gemini(
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `gemini:${account.account_id}:${model_id}:${token_type}`,
-            name: `Gemini (${account.account_label}) · ${label}`,
+            raw_label: `${model_id}:${token_type}`,
+            normalized_label: label,
             window: "day",
             used,
             limit: 100,
@@ -294,7 +297,8 @@ function parse_antigravity(
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `antigravity:${account.account_id}:${model_id}`,
-            name: `Antigravity (${account.account_label}) · ${display_name}`,
+            raw_label: model_id,
+            normalized_label: display_name,
             window: "day",
             used,
             limit: 100,
@@ -326,15 +330,12 @@ function parse_kimi(
         if (total <= 0) continue;
         const used = to_number(entry["used"]);
         const pct = Math.round((used / total) * 1000) / 10;
-        const name =
-            typeof entry["title"] === "string"
-                ? entry["title"]
-                : typeof entry["name"] === "string"
-                  ? entry["name"]
-                  : "";
+        const name_field = typeof entry["name"] === "string" ? entry["name"] : "";
+        const title_field = typeof entry["title"] === "string" ? entry["title"] : "";
         const duration = typeof entry["duration"] === "string" ? entry["duration"] : "";
         const time_unit = typeof entry["timeUnit"] === "string" ? entry["timeUnit"] : "";
-        const period_label = duration && time_unit ? `${duration} ${time_unit}` : name;
+        const period_label =
+            duration && time_unit ? `${duration} ${time_unit}` : title_field || name_field;
         const reset_at = to_reset_at(entry["reset_at"] ?? entry["resetAt"]);
         observations.push({
             provider: "kimi",
@@ -342,7 +343,8 @@ function parse_kimi(
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `kimi:${account.account_id}:${period_label}`,
-            name: `Kimi (${account.account_label}) · ${period_label}`,
+            raw_label: name_field || period_label,
+            normalized_label: period_label,
             window: "day",
             used: pct,
             limit: 100,

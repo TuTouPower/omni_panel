@@ -76,28 +76,30 @@ async function main(): Promise<Observation[]> {
         {
             ...base,
             metric_id: "tavily:total-month",
-            name: "总用量",
+            raw_label: "total-month",
+            normalized_label: "总用量",
             used: plan_usage,
             limit: plan_limit,
             status: status_for_usage(plan_usage, plan_limit),
         },
     ];
 
-    const details: readonly (readonly [string, string, keyof AccountPayload])[] = [
-        ["tavily:search", "搜索", "search_usage"],
-        ["tavily:crawl", "爬取", "crawl_usage"],
-        ["tavily:extract", "提取", "extract_usage"],
-        ["tavily:map", "地图", "map_usage"],
-        ["tavily:research", "研究", "research_usage"],
+    const details: readonly (readonly [string, string, string, keyof AccountPayload])[] = [
+        ["tavily:search", "search", "搜索", "search_usage"],
+        ["tavily:crawl", "crawl", "爬取", "crawl_usage"],
+        ["tavily:extract", "extract", "提取", "extract_usage"],
+        ["tavily:map", "map", "地图", "map_usage"],
+        ["tavily:research", "research", "研究", "research_usage"],
     ];
 
-    for (const [metric_id, name, key] of details) {
+    for (const [metric_id, raw_label, normalized_label, key] of details) {
         const used = Math.max(to_number(account[key]), 0);
         if (used <= 0) continue;
         observations.push({
             ...base,
             metric_id,
-            name,
+            raw_label,
+            normalized_label,
             used,
             limit: plan_limit,
             status: status_for_usage(used, plan_limit),

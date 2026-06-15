@@ -5,7 +5,8 @@
     "items": [
         {
             "id": "usage-pct",
-            "name": "用量",
+            "raw_label": "usage",
+            "normalized_label": "用量",
             "used": 90.0,
             "limit": 100.0,
             "displayStyle": "percent",

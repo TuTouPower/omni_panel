@@ -108,6 +108,8 @@ describe("codex connector", () => {
                 source_instance_id: "codex",
                 account_id: "codex",
                 metric_id: "codex:gpt-5",
+                raw_label: "gpt-5",
+                normalized_label: "gpt-5",
                 window: "day",
                 used: 3000,
                 limit: null,
@@ -116,7 +118,6 @@ describe("codex connector", () => {
                 source: "local",
             }),
         );
-        expect(obs?.name).toContain("gpt-5");
     });
 
     it("returns empty when sessions directory is empty", async () => {

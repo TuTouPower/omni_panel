@@ -86,7 +86,8 @@ describe("minimax connector", () => {
         );
         expect(text_interval).toEqual(
             expect.objectContaining({
-                name: "文本 (5小时)",
+                raw_label: "minimax-m*-interval",
+                normalized_label: "文本 (5小时)",
                 used: 40,
                 limit: 100,
                 display_style: "ratio",

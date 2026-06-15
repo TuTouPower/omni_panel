@@ -95,7 +95,8 @@ describe("mimo connector", () => {
             expect.objectContaining({
                 provider: "mimo",
                 account_label: "Pro Plan",
-                name: "套餐额度",
+                raw_label: "plan_total_token",
+                normalized_label: "套餐额度",
                 used: 40,
                 limit: 100,
                 display_style: "percent",
@@ -103,8 +104,10 @@ describe("mimo connector", () => {
                 reset_at: Date.parse("2026-07-01T00:00:00Z"),
             }),
         );
-        expect(result.observations[1]?.name).toBe("补偿积分");
-        expect(result.observations[2]?.name).toBe("余额");
+        expect(result.observations[1]?.normalized_label).toBe("补偿积分");
+        expect(result.observations[1]?.raw_label).toBe("compensation_total_token");
+        expect(result.observations[2]?.normalized_label).toBe("余额");
+        expect(result.observations[2]?.raw_label).toBe("balance");
         expect(result.observations[2]?.used).toBe(75.5);
     });
 

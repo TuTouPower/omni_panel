@@ -79,7 +79,8 @@ describe("tavily connector", () => {
         expect(search).toEqual(
             expect.objectContaining({
                 metric_id: "tavily:search",
-                name: "搜索",
+                raw_label: "search",
+                normalized_label: "搜索",
                 used: 300,
                 limit: 1000,
             }),

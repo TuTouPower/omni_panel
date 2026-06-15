@@ -87,7 +87,8 @@ describe("glm connector", () => {
         expect(text_5h).toEqual(
             expect.objectContaining({
                 provider: "glm",
-                name: "5 小时用量",
+                raw_label: "text-5h",
+                normalized_label: "5 小时用量",
                 window: "second",
                 display_style: "percent",
                 used: 30,
@@ -96,10 +97,19 @@ describe("glm connector", () => {
         );
         expect(text_5h?.reset_at).not.toBeNull();
 
+        const text_week = result.observations[1];
+        expect(text_week).toEqual(
+            expect.objectContaining({
+                raw_label: "text-week",
+                normalized_label: "周用量",
+            }),
+        );
+
         const tool_month = result.observations[2];
         expect(tool_month).toEqual(
             expect.objectContaining({
-                name: "MCP 月用量",
+                raw_label: "tool-month",
+                normalized_label: "MCP 月用量",
                 window: "month",
                 display_style: "ratio",
                 used: 200,

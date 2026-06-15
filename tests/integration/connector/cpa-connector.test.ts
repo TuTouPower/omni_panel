@@ -112,7 +112,8 @@ describe("cpa connector", () => {
                 account_id: "claude-auth",
                 account_label: "user@example.com",
                 metric_id: "claude:claude-auth:five_hour",
-                name: "Claude (user@example.com) · 5小时",
+                raw_label: "five_hour",
+                normalized_label: "5小时",
                 window: "second",
                 used: 25,
                 limit: 100,
@@ -121,7 +122,8 @@ describe("cpa connector", () => {
             expect.objectContaining({
                 provider: "claude",
                 metric_id: "claude:claude-auth:seven_day",
-                name: "Claude (user@example.com) · 每周",
+                raw_label: "seven_day",
+                normalized_label: "一周",
                 window: "day",
                 used: 50,
                 limit: 100,
@@ -191,6 +193,14 @@ describe("cpa connector", () => {
                 source: "gateway",
                 window: "second",
                 display_style: "percent",
+                raw_label: "primary_window",
+                normalized_label: "5小时",
+            }),
+        );
+        expect(codex[1]).toEqual(
+            expect.objectContaining({
+                raw_label: "secondary_window",
+                normalized_label: "一周",
             }),
         );
         expect(codex[0]?.used).toBeCloseTo(35.2, 0);
@@ -254,6 +264,8 @@ describe("cpa connector", () => {
                 source_instance_id: "cpa",
                 source: "gateway",
                 display_style: "percent",
+                raw_label: "gemini-2.5-pro:input_tokens",
+                normalized_label: "2.5 Pro 输入",
             }),
         );
         // remainingFraction 0.72 → used = 28%
@@ -304,6 +316,8 @@ describe("cpa connector", () => {
                 used: 30,
                 limit: 100,
                 display_style: "percent",
+                raw_label: "coding_5h",
+                normalized_label: "5 hours",
             }),
         );
     });

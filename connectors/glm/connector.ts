@@ -112,14 +112,15 @@ async function main(): Promise<Observation[]> {
         if (kind === "tool") {
             const current = to_number(record["currentValue"]);
             if (total <= 0) continue;
-            const label = pk === "month" ? "MCP 月用量" : `${kind}(${pk})`;
+            const normalized_label = pk === "month" ? "MCP 月用量" : `${kind}(${pk})`;
             observations.push({
                 provider: "glm",
                 source_instance_id: "glm",
                 account_id: "glm",
                 account_label: "智谱 GLM",
                 metric_id: `glm:${kind}-${pk}`,
-                name: label,
+                raw_label: `${kind}-${pk}`,
+                normalized_label,
                 window: pk === "month" ? "month" : pk === "week" ? "day" : "second",
                 used: current,
                 limit: total,
@@ -133,14 +134,16 @@ async function main(): Promise<Observation[]> {
             });
         } else {
             const percentage = Math.min(Math.max(to_number(record["percentage"]), 0), 100);
-            const name = pk === "5h" ? "5 小时用量" : pk === "week" ? "周用量" : `${kind}(${pk})`;
+            const normalized_label =
+                pk === "5h" ? "5 小时用量" : pk === "week" ? "周用量" : `${kind}(${pk})`;
             observations.push({
                 provider: "glm",
                 source_instance_id: "glm",
                 account_id: "glm",
                 account_label: "智谱 GLM",
                 metric_id: `glm:${kind}-${pk}`,
-                name,
+                raw_label: `${kind}-${pk}`,
+                normalized_label,
                 window: pk === "5h" ? "second" : "day",
                 used: percentage,
                 limit: 100,

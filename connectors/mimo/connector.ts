@@ -135,7 +135,8 @@ async function main(): Promise<Observation[]> {
     const observations: Observation[] = usage_result.data.usage.items.map((item) => ({
         ...base,
         metric_id: `mimo:${item.name ?? "unknown"}`,
-        name: label_for(item.name),
+        raw_label: item.name ?? "unknown",
+        normalized_label: label_for(item.name),
         used: to_number(item.used),
         limit: to_number(item.limit),
         reset_at,
@@ -148,7 +149,8 @@ async function main(): Promise<Observation[]> {
             observations.push({
                 ...base,
                 metric_id: "mimo:balance",
-                name: "余额",
+                raw_label: "balance",
+                normalized_label: "余额",
                 used: Math.round(balance * 100) / 100,
                 limit: Math.round(limit * 100) / 100,
                 window: "total",
