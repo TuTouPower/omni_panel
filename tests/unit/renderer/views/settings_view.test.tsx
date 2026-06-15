@@ -814,4 +814,71 @@ describe("SettingsView", () => {
         )?.[0];
         expect(saved_config?.proxy).toBeUndefined();
     });
+
+    it("does not show 采集失败 for CPA accounts with critical usage status", async () => {
+        // Regression: status "critical" (usage at 100%) was mapped to "error"
+        // → "采集失败", even though data was collected successfully.
+        const connectorMock = window.usageboard.connector as unknown as {
+            list: ReturnType<typeof vi.fn>;
+        };
+        connectorMock.list = vi.fn().mockResolvedValue([
+            {
+                instanceId: "cpa-1",
+                sourceInstanceId: "cpa-1",
+                stateId: "cpa-1",
+                name: "CPA",
+                displayName: "CPA",
+                enabled: true,
+                source: "cpa",
+                supportedProviders: ["codex"],
+                activeProviders: ["codex"],
+                metadata: {
+                    parameters: [],
+                    endpoints: { default: "http://localhost:8080" },
+                },
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-06-15T12:00:00.000Z",
+                    items: [
+                        {
+                            id: "codex-full",
+                            provider: "codex",
+                            source: "cpa",
+                            sourceInstanceId: "cpa-1",
+                            accountId: "codex-full",
+                            accountLabel: "Codex Account Full",
+                            used: 100,
+                            limit: 100,
+                            displayStyle: "percent",
+                            status: "critical",
+                        },
+                        {
+                            id: "codex-ok",
+                            provider: "codex",
+                            source: "cpa",
+                            sourceInstanceId: "cpa-1",
+                            accountId: "codex-ok",
+                            accountLabel: "Codex Account OK",
+                            used: 10,
+                            limit: 100,
+                            displayStyle: "percent",
+                            status: "normal",
+                        },
+                    ],
+                },
+            },
+        ]);
+
+        render(<SettingsView />);
+        await screen.findByTestId("settings-plugin-nav-accounts");
+        const user = userEvent.setup();
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+
+        await waitFor(() => {
+            expect(screen.getByText("Codex Account Full")).toBeInTheDocument();
+        });
+
+        // Neither account should show "采集失败"
+        expect(screen.queryByText("采集失败")).not.toBeInTheDocument();
+    });
 });
