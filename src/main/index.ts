@@ -191,7 +191,8 @@ void app.whenReady().then(async () => {
     const configPath = getConfigPath();
 
     const configStore = createConfigStore(configPath);
-    const runtimeStore = createRuntimeStore();
+    const runtimeStore = createRuntimeStore(join(dataRoot, "snapshot-cache.json"));
+    await runtimeStore.hydrateFromCache();
     const vault = await create_file_vault_backend(dataRoot);
     const secretsStore = createSecretsStore(vault);
     const observationStore = create_observation_store(join(dataRoot, "observations.sqlite"));
@@ -646,6 +647,7 @@ void app.whenReady().then(async () => {
         main_panel_controller?.close_for_mode_switch();
         main_panel_controller = null;
         orchestrator.shutdown();
+        void runtimeStore.flushPendingCache();
         cleanupEventIpc?.();
         cleanupEventIpc = null;
         cleanupPopupIpc?.();
