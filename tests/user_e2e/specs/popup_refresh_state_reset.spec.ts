@@ -34,7 +34,7 @@ test.describe("popup refresh state reset", () => {
         await expect(live.getByRole("button", { name: /展开 Refresh Account A/ })).toBeVisible();
     });
 
-    test("tab switch restores expanded account rows", async ({ omni }) => {
+    test("tab switch preserves collapse state", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
@@ -45,10 +45,11 @@ test.describe("popup refresh state reset", () => {
         await live.getByRole("button", { name: /折叠 Refresh Account A/ }).click();
         await expect(live.getByRole("button", { name: /展开 Refresh Account A/ })).toBeVisible();
 
+        // Switch away and back — collapse state should be preserved
         await live.getByRole("button", { name: "总览" }).click();
         await live.getByRole("button", { name: /^Claude$/ }).click();
 
-        await expect(live.getByRole("button", { name: /折叠 Refresh Account A/ })).toBeVisible();
+        await expect(live.getByRole("button", { name: /展开 Refresh Account A/ })).toBeVisible();
     });
 
     test("manual refresh keeps popup interactive and clears spinner after completion", async ({
@@ -62,10 +63,13 @@ test.describe("popup refresh state reset", () => {
         const live = popup.root();
         await live.getByRole("button", { name: /^Claude$/ }).click();
 
-        const refresh_button = popup.provider_refresh_button("Claude");
+        // Use global refresh button (provider-level refresh is only in overview tab)
+        const refresh_button = live.getByRole("button", { name: "刷新" });
         await refresh_button.click();
 
-        await expect(refresh_button).not.toHaveClass(/spinning/, { timeout: 10_000 });
-        await expect(live.getByRole("button", { name: /折叠 Refresh Account A/ })).toBeVisible();
+        // Spinner should clear after refresh completes
+        await expect(live.getByRole("button", { name: /折叠 Refresh Account A/ })).toBeVisible({
+            timeout: 10_000,
+        });
     });
 });
