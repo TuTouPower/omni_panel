@@ -2,6 +2,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createLogger } from "../../../shared/lib/logger";
 import { observation_ingest_schema } from "../../../shared/schemas/observation";
+import type { Observation } from "../../../shared/types/observation";
 import type { ObservationStore } from "../observation/observation-store";
 
 const log = createLogger("local-api");
@@ -93,12 +94,13 @@ export function create_local_api_server(
             return;
         }
 
-        observation_store.insert({
-            ...result.data,
+        const observation: Observation = {
+            ...(result.data as unknown as Observation),
             observed_at: Date.now(),
             stale: false,
             last_error: null,
-        });
+        };
+        observation_store.insert(observation);
         json_response(res, 200, { status: "ok" });
     }
 

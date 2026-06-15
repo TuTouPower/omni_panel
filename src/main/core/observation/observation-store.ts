@@ -24,7 +24,10 @@ CREATE TABLE IF NOT EXISTS observations (
     account_id TEXT NOT NULL,
     account_label TEXT NOT NULL,
     metric_id TEXT NOT NULL,
-    name TEXT NOT NULL,
+    raw_label TEXT NOT NULL,
+    normalized_label TEXT NOT NULL,
+    display_label TEXT,
+    name TEXT,
     window TEXT NOT NULL,
     used REAL,
     "limit" REAL,
@@ -41,14 +44,26 @@ CREATE INDEX IF NOT EXISTS idx_lookup
     ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
 `;
 
+const MIGRATE_ADD_LABEL_COLUMNS_SQL = `
+ALTER TABLE observations ADD COLUMN raw_label TEXT;
+ALTER TABLE observations ADD COLUMN normalized_label TEXT;
+ALTER TABLE observations ADD COLUMN display_label TEXT;
+`;
+
 function row_to_observation(row: Record<string, unknown>): Observation {
-    return {
+    const normalized = (row["normalized_label"] as string | undefined) ?? (row["name"] as string);
+    const display_label = row["display_label"] as string | undefined;
+    const name = row["name"] as string | undefined;
+    const obs: Observation = {
         provider: row["provider"] as string,
         source_instance_id: row["source_instance_id"] as string,
         account_id: row["account_id"] as string,
         account_label: row["account_label"] as string,
         metric_id: row["metric_id"] as string,
-        name: row["name"] as string,
+        raw_label: (row["raw_label"] as string | undefined) ?? normalized,
+        normalized_label: normalized,
+        ...(display_label !== undefined && { display_label }),
+        ...(name !== undefined && { name }),
         window: row["window"] as Observation["window"],
         used: row["used"] as number | null,
         limit: row["limit"] as number | null,
@@ -60,6 +75,7 @@ function row_to_observation(row: Record<string, unknown>): Observation {
         stale: (row["stale"] as number) === 1,
         last_error: row["last_error"] as string | null,
     };
+    return obs;
 }
 
 export function create_observation_store(db_path: string): ObservationStore {
@@ -71,14 +87,25 @@ export function create_observation_store(db_path: string): ObservationStore {
     db.pragma("busy_timeout = 5000");
     db.exec(INIT_SQL);
 
+    // Migrate older databases that predate the raw/normalized/display label
+    // columns. The columns are added without NOT NULL constraints so existing
+    // rows survive; row_to_observation backfills missing values from `name`.
+    const columns = db.prepare("PRAGMA table_info(observations)").all() as { name: string }[];
+    const column_names = new Set(columns.map((c) => c.name));
+    if (!column_names.has("raw_label")) {
+        db.exec(MIGRATE_ADD_LABEL_COLUMNS_SQL);
+    }
+
     const insert_stmt = db.prepare(`
         INSERT INTO observations (
             provider, source_instance_id, account_id, account_label,
-            metric_id, name, window, used, "limit", display_style,
+            metric_id, raw_label, normalized_label, display_label, name,
+            window, used, "limit", display_style,
             reset_at, status, observed_at, source, stale, last_error
         ) VALUES (
             @provider, @source_instance_id, @account_id, @account_label,
-            @metric_id, @name, @window, @used, @limit, @display_style,
+            @metric_id, @raw_label, @normalized_label, @display_label, @name,
+            @window, @used, @limit, @display_style,
             @reset_at, @status, @observed_at, @source, @stale, @last_error
         )
     `);
@@ -131,7 +158,10 @@ export function create_observation_store(db_path: string): ObservationStore {
                 account_id: obs.account_id,
                 account_label: obs.account_label,
                 metric_id: obs.metric_id,
-                name: obs.name,
+                raw_label: obs.raw_label,
+                normalized_label: obs.normalized_label,
+                display_label: obs.display_label ?? null,
+                name: obs.normalized_label,
                 window: obs.window,
                 used: obs.used,
                 limit: obs.limit,

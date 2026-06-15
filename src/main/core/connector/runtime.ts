@@ -121,7 +121,7 @@ export async function run_connector(
                 log.warn(`Skipping invalid observation: ${parsed.error.message}`);
                 continue;
             }
-            observations.push(parsed.data);
+            observations.push(parsed.data as unknown as Observation);
         }
 
         return { observations, error: null };

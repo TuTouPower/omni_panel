@@ -20,7 +20,15 @@ export const observation_schema = z.object({
     account_id: z.string().min(1),
     account_label: z.string(),
     metric_id: z.string().min(1),
-    name: z.string().min(1),
+    raw_label: z.string().min(1),
+    normalized_label: z.string().min(1),
+    display_label: z.string().optional(),
+    /**
+     * @deprecated Retained as an optional alias of normalized_label while the
+     * codebase migrates. New connectors should emit raw_label +
+     * normalized_label.
+     */
+    name: z.string().optional(),
     window: observation_window_schema,
     used: finite_number.nullable(),
     limit: finite_number.nullable(),

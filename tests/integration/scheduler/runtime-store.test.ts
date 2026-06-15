@@ -95,7 +95,8 @@ function make_observation(overrides: Partial<Observation> = {}): Observation {
         account_id: "default",
         account_label: "Brave Search",
         metric_id: "brave:monthly_search",
-        name: "月度搜索",
+        raw_label: "monthly_search",
+        normalized_label: "月度搜索",
         window: "month",
         used: 50,
         limit: 1000,
@@ -166,7 +167,8 @@ describe("hydrate_runtime_store", () => {
         obsStore.insert(
             make_observation({
                 metric_id: "brave:daily_search",
-                name: "日搜索",
+                raw_label: "daily_search",
+                normalized_label: "日搜索",
                 observed_at: Date.now(),
             }),
         );
