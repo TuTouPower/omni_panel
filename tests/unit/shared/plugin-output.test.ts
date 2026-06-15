@@ -13,7 +13,8 @@ const validOutput = {
             sourceInstanceId: "claude-direct",
             accountId: "account-1",
             accountLabel: "Claude Account",
-            name: "Tokens",
+            raw_label: "tokens",
+            normalized_label: "Tokens",
             used: 100,
             limit: 1000,
             displayStyle: "percent",
@@ -61,6 +62,88 @@ describe("pluginSuccessOutputSchema", () => {
                 {
                     ...validOutput.items[0],
                     provider: "cpa",
+                },
+            ],
+        });
+
+        expect(result.success).toBe(false);
+    });
+
+    it("accepts raw_label and normalized_label on usage items", () => {
+        const result = pluginSuccessOutputSchema.safeParse({
+            ...validOutput,
+            items: [
+                {
+                    ...validOutput.items[0],
+                    raw_label: "five_hour",
+                    normalized_label: "5小时",
+                },
+            ],
+        });
+
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.items[0]?.raw_label).toBe("five_hour");
+            expect(result.data.items[0]?.normalized_label).toBe("5小时");
+        }
+    });
+
+    it("accepts optional display_label on usage items", () => {
+        const result = pluginSuccessOutputSchema.safeParse({
+            ...validOutput,
+            items: [
+                {
+                    ...validOutput.items[0],
+                    raw_label: "five_hour",
+                    normalized_label: "5小时",
+                    display_label: "我的 5h",
+                },
+            ],
+        });
+
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.items[0]?.display_label).toBe("我的 5h");
+        }
+    });
+
+    it("rejects item missing normalized_label", () => {
+        const result = pluginSuccessOutputSchema.safeParse({
+            ...validOutput,
+            items: [
+                {
+                    id: "tokens",
+                    provider: "claude",
+                    source: "direct",
+                    sourceInstanceId: "claude-direct",
+                    accountId: "account-1",
+                    accountLabel: "Claude Account",
+                    raw_label: "five_hour",
+                    used: 100,
+                    limit: 1000,
+                    displayStyle: "percent",
+                },
+            ],
+        });
+
+        expect(result.success).toBe(false);
+    });
+
+    it("rejects item missing raw_label", () => {
+        const result = pluginSuccessOutputSchema.safeParse({
+            ...validOutput,
+            items: [
+                {
+                    id: "tokens",
+                    provider: "claude",
+                    source: "direct",
+                    sourceInstanceId: "claude-direct",
+                    accountId: "account-1",
+                    accountLabel: "Claude Account",
+                    normalized_label: "5小时",
+                    used: 100,
+                    limit: 1000,
+                    displayStyle: "percent",
                 },
             ],
         });

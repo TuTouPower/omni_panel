@@ -9,7 +9,26 @@ export interface Observation {
     readonly account_id: string;
     readonly account_label: string;
     readonly metric_id: string;
-    readonly name: string;
+    /**
+     * Stable raw key / raw label for this metric (e.g. `five_hour`,
+     * `primary_window`, `balance`). The label-map uses this as its key.
+     */
+    readonly raw_label: string;
+    /**
+     * Connector-normalized intermediate label (e.g. `5小时`, `余额`).
+     * Default display value when no mapping exists.
+     */
+    readonly normalized_label: string;
+    /**
+     * Optional user-configured display label. When set, the UI shows it
+     * verbatim without any built-in shortening.
+     */
+    readonly display_label?: string;
+    /**
+     * @deprecated Use `normalized_label`. Retained as an alias while the
+     * codebase migrates to the new three-layer label model.
+     */
+    readonly name?: string;
     readonly window: ObservationWindow;
     readonly used: number | null;
     readonly limit: number | null;

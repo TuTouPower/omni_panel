@@ -133,6 +133,21 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 - GLM、DeepSeek、CPA 三类路径语义一致
 - `pnpm test` 通过；相关 UI 手工验证通过
 
+### 已完成：数据标签映射三层分离（raw_label / normalized_label / display_label）
+
+**已实现（commit A~E）：**
+
+- `src/shared/schemas/plugin-output.ts`：`usageItemSchema` 新增三字段：
+    - `raw_label: string`（必填）—— connector 输出的稳定 raw key（如 `five_hour`、`primary_window`、`balance`），标签映射以此为键
+    - `normalized_label: string`（必填）—— connector 归一化后的中间 label（如 `5小时`、`余额`），无映射时的默认显示值
+    - `display_label?: string`（可选）—— 用户自定义映射后的最终显示值
+    - `name` 字段保留为 deprecated 别名（可选），保持向后兼容
+- `src/shared/types/observation.ts`：`Observation` 接口同步新增三字段
+- connector 层（`connectors/cpa/connector.ts`、`connectors/glm/connector.ts`、`connectors/deepseek/connector.ts` 等）：移除 provider 前缀 / 账号名拼装，改为输出 `raw_label` + `normalized_label`（CPA Claude: `five_hour`/`seven_day` → `5小时`/`一周`；CPA Codex: `primary_window`/`secondary_window` → `5小时`/`一周`；GLM: `5h`/`week` → `5 小时用量`/`周用量`；DeepSeek: `balance` → `余额`）
+- 运行态（`refresh-service.ts`、`hydrate-runtime-store.ts`）：透传 `raw_label` / `normalized_label` / `display_label`
+- 标签映射 UI（`LabelMapDialog.tsx`、`SettingsForm.tsx`）：用 `item.raw_label` 作键，不再调 `normalize_cpa_label`
+- 渲染层（`provider-usage.ts` `format_usage_period_label`）：优先 `display_label` → `normalized_label` → 内建短化（基于 `raw_label` 关键字回退），用户映射不再被覆盖
+
 ### 已完成：设置页 CPA 重新对齐最新 design demo（顶层平铺 + 详情页去掉”已发现账号”列）
 
 **已实现（`20f59e4` + `8e5a9af` + `d796fc4`）：**

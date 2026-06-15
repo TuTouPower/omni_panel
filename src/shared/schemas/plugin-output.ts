@@ -27,7 +27,28 @@ const usageItemSchema = z.object({
     sourceInstanceId: z.string(),
     accountId: z.string(),
     accountLabel: z.string(),
-    name: z.string(),
+    /**
+     * Stable raw key / raw label emitted by the connector. Used as the key
+     * for label-map configuration. Examples: `five_hour`, `primary_window`,
+     * `balance`.
+     */
+    raw_label: z.string(),
+    /**
+     * Connector-normalized intermediate label. Used as the default display
+     * value when the user has not configured a mapping. Examples: `5小时`,
+     * `余额`.
+     */
+    normalized_label: z.string(),
+    /**
+     * User-configured final display label. When present, the UI shows it
+     * verbatim without any built-in shortening.
+     */
+    display_label: z.string().optional(),
+    /**
+     * @deprecated Use `normalized_label`. Retained as an alias so existing
+     * serialized snapshots keep working while the runtime migrates over.
+     */
+    name: z.string().optional(),
     used: finiteNumber.nullable(),
     limit: finiteNumber,
     displayStyle: usageDisplayStyleSchema,
