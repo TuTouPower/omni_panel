@@ -8,15 +8,16 @@ interface LabelMapRow {
 }
 
 function normalize_cpa_label(item: MetricRecord): string {
-    if (item.source !== "cpa") return item.name;
-    if (!item.accountLabel) return item.name;
+    const fallback = item.normalized_label;
+    if (item.source !== "cpa") return fallback;
+    if (!item.accountLabel) return fallback;
     const escaped_label = item.accountLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const without_account = item.name
+    const without_account = fallback
         .replace(new RegExp(`\\s*\\(${escaped_label}\\)`, "g"), "")
         .replace(new RegExp(`\\s*${escaped_label}\\s*`, "g"), " ")
         .replace(/\s+/g, " ")
         .trim();
-    return without_account.length > 0 ? without_account : item.name;
+    return without_account.length > 0 ? without_account : fallback;
 }
 
 interface LabelMapDialogProps {

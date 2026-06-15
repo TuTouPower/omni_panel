@@ -95,7 +95,7 @@ export function SettingsForm({
                 const seen = new Set<string>();
                 const rows: LabelMapRow[] = [];
                 for (const item of filtered) {
-                    const raw: string = item.name;
+                    const raw: string = item.raw_label;
                     if (seen.has(raw)) continue;
                     seen.add(raw);
                     rows.push({
