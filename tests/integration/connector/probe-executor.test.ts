@@ -12,7 +12,7 @@ function create_manifest(
 ): Manifest {
     return {
         id: "test-probe",
-        provider: "brave",
+        provider: "claude",
         capabilities: ["observe"],
         parameters: [],
         endpoints: { default: `http://127.0.0.1:${String(server_port)}` },
@@ -127,7 +127,7 @@ describe("probe-executor", () => {
         expect(observations).toHaveLength(1);
         expect(observations[0]).toEqual(
             expect.objectContaining({
-                provider: "brave",
+                provider: "claude",
                 source_instance_id: "test-1",
                 account_id: "default",
                 metric_id: "test-probe:usage",
@@ -196,7 +196,7 @@ describe("probe-executor", () => {
     it("throws error when manifest has no observe.probe config", async () => {
         const manifest: Manifest = {
             id: "test-no-probe",
-            provider: "brave",
+            provider: "claude",
             capabilities: ["observe"],
             parameters: [],
             observe: { headers: ["x-ratelimit-remaining"] },

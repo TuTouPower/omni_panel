@@ -72,7 +72,7 @@ describe("auto_seed_connectors", () => {
     it("sets manualRefreshOnly when manifest declares manualDefault", () => {
         const result = auto_seed_connectors(
             [],
-            [make_definition("brave", { manualDefault: true })],
+            [make_definition("claude", { manualDefault: true })],
         );
         expect(result.seeded[0]?.manualRefreshOnly).toBe(true);
     });

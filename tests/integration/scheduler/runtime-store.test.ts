@@ -90,11 +90,11 @@ describe("runtime-store", () => {
 
 function make_observation(overrides: Partial<Observation> = {}): Observation {
     return {
-        provider: "brave",
-        source_instance_id: "brave-1",
+        provider: "claude",
+        source_instance_id: "claude-1",
         account_id: "default",
-        account_label: "Brave Search",
-        metric_id: "brave:monthly_search",
+        account_label: "Claude",
+        metric_id: "claude:monthly_search",
         raw_label: "monthly_search",
         normalized_label: "月度搜索",
         window: "month",
@@ -113,8 +113,8 @@ function make_observation(overrides: Partial<Observation> = {}): Observation {
 
 function make_manifest(overrides: Partial<Manifest> = {}): Manifest {
     return {
-        id: "brave",
-        name: "Brave Search",
+        id: "claude",
+        name: "Claude",
         version: "1.0.0",
         capabilities: ["observe"],
         parameters: [],
@@ -124,8 +124,8 @@ function make_manifest(overrides: Partial<Manifest> = {}): Manifest {
 
 function make_definition(overrides: Partial<ConnectorDefinition> = {}): ConnectorDefinition {
     return {
-        directory: "/connectors/brave",
-        executablePath: "/connectors/brave",
+        directory: "/connectors/claude",
+        executablePath: "/connectors/claude",
         manifest: make_manifest(),
         ...overrides,
     };
@@ -135,11 +135,11 @@ function make_connector_config(
     overrides: Partial<ConnectorConfiguration> = {},
 ): ConnectorConfiguration {
     return {
-        instanceId: "brave-1",
-        stateId: "brave-1",
-        name: "Brave Search",
+        instanceId: "claude-1",
+        stateId: "claude-1",
+        name: "Claude",
         enabled: true,
-        executablePath: "/connectors/brave",
+        executablePath: "/connectors/claude",
         refreshIntervalSeconds: 0,
         manualRefreshOnly: true,
         parameterValues: {},
@@ -166,7 +166,7 @@ describe("hydrate_runtime_store", () => {
         obsStore.insert(make_observation({ observed_at: Date.now() - 60000 }));
         obsStore.insert(
             make_observation({
-                metric_id: "brave:daily_search",
+                metric_id: "claude:daily_search",
                 raw_label: "daily_search",
                 normalized_label: "日搜索",
                 observed_at: Date.now(),
@@ -183,11 +183,11 @@ describe("hydrate_runtime_store", () => {
             definitions: [definition],
         });
 
-        const snap = runtimeStore.getSnapshot("brave-1");
+        const snap = runtimeStore.getSnapshot("claude-1");
         expect(snap.status).toBe("ready");
         if (snap.status === "ready") {
             expect(snap.items.length).toBe(2);
-            expect(snap.items[0]?.provider).toBe("brave");
+            expect(snap.items[0]?.provider).toBe("claude");
             expect(snap.updatedAt).toBeInstanceOf(Date);
         }
 
@@ -210,7 +210,7 @@ describe("hydrate_runtime_store", () => {
             definitions: [definition],
         });
 
-        expect(runtimeStore.getSnapshot("brave-1").status).toBe("idle");
+        expect(runtimeStore.getSnapshot("claude-1").status).toBe("idle");
         obsStore.close();
     });
 
@@ -228,7 +228,7 @@ describe("hydrate_runtime_store", () => {
             definitions: [definition],
         });
 
-        expect(runtimeStore.getSnapshot("brave-1").status).toBe("idle");
+        expect(runtimeStore.getSnapshot("claude-1").status).toBe("idle");
         obsStore.close();
     });
 });

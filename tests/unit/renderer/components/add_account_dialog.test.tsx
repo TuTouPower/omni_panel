@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AddAccountDialog } from "../../../../src/renderer/components/AddAccountDialog";
 import type { AddAccountParams } from "../../../../src/renderer/components/AddAccountDialog";
-import { VENDOR_AUTH_MAP } from "../../../../src/renderer/components/AddAccountDialog";
 import type { PluginInfo } from "../../../../src/shared/types/ipc";
 
 const base_plugin: PluginInfo = {
@@ -305,30 +304,5 @@ describe("AddAccountDialog API key", () => {
 
         await user.click(screen.getByText("CPA Manager"));
         expect(on_cpa).toHaveBeenCalled();
-    });
-});
-
-describe("VENDOR_AUTH_MAP", () => {
-    it("contains an auth method for brave", () => {
-        expect(VENDOR_AUTH_MAP.brave).toBeDefined();
-        expect(VENDOR_AUTH_MAP.brave).toBe("apikey");
-    });
-});
-
-describe("ADD_COMMON_SERVICES includes brave", () => {
-    it("shows brave in the vendor picker", () => {
-        const on_save = vi.fn();
-        const on_close = vi.fn();
-        const on_cpa = vi.fn();
-        render(
-            <AddAccountDialog
-                plugin_infos={[]}
-                has_cpa={false}
-                on_close={on_close}
-                on_save={on_save}
-                on_cpa={on_cpa}
-            />,
-        );
-        expect(screen.getByText("Brave Search")).toBeInTheDocument();
     });
 });

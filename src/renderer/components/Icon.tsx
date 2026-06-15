@@ -1,6 +1,5 @@
 import { type CSSProperties } from "react";
 import antigravity_svg from "../assets/vendor_logos/antigravity.svg";
-import brave_png from "../assets/vendor_logos/brave.png";
 import claude_svg from "../assets/vendor_logos/claude.svg";
 import codex_svg from "../assets/vendor_logos/codex.svg";
 import deepseek_svg from "../assets/vendor_logos/deepseek.svg";
@@ -96,7 +95,6 @@ const VENDOR_LOGOS: Record<string, string> = {
     deepseek: deepseek_svg,
     minimax: minimax_svg,
     tavily: tavily_svg,
-    brave: brave_png,
 };
 
 const VENDOR_MARKS: Record<string, (s: number) => string> = {

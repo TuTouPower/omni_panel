@@ -12,7 +12,6 @@ const EXPECTED_PROVIDERS = {
     gemini: { secret_param: "API_KEY", label: "API 密钥" },
     tavily: { secret_param: "API_KEY", label: "API 密钥" },
     minimax: { secret_param: "API_KEY", label: "API 密钥" },
-    brave: { secret_param: "API_KEY", label: "API 密钥" },
     mimo: { secret_param: "SESSION_COOKIE", label: "登录 Cookie" },
     kimi: { secret_param: "SESSION_COOKIE", label: "登录 Cookie" },
 } as const;
@@ -43,7 +42,7 @@ describe("connector manifest contract", () => {
     }
 
     it("all UI-exposed API key providers have connectors", async () => {
-        const api_key_providers = ["deepseek", "glm", "gemini", "tavily", "minimax", "brave"];
+        const api_key_providers = ["deepseek", "glm", "gemini", "tavily", "minimax"];
         for (const provider of api_key_providers) {
             const manifest = await load_manifest(join(CONNECTORS_DIR, provider));
             expect(manifest, `${provider} connector missing`).not.toBeNull();

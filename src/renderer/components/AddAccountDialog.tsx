@@ -19,7 +19,6 @@ export const VENDOR_AUTH_MAP: Partial<Record<UsageProvider, AuthMethod>> = {
     claude: "local",
     codex: "local",
     antigravity: "local",
-    brave: "apikey",
 };
 
 const AUTH_APIKEY_META: Partial<

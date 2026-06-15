@@ -62,7 +62,6 @@ export const PROVIDER_ORDER: readonly UsageProvider[] = [
     "deepseek",
     "tavily",
     "mimo",
-    "brave",
 ];
 
 export const PROVIDER_LABELS: Record<UsageProvider, string> = {
@@ -76,7 +75,6 @@ export const PROVIDER_LABELS: Record<UsageProvider, string> = {
     deepseek: "DeepSeek",
     tavily: "Tavily",
     mimo: "MiMo",
-    brave: "Brave Search",
 };
 
 const log = createLogger("renderer:provider-usage");
