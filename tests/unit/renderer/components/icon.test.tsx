@@ -102,6 +102,17 @@ describe("VendorMark", () => {
         expect(svg).not.toContain("<rect");
     });
 
+    it("stores the official Zhipu logo asset for glm", () => {
+        const svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/glm.svg"),
+            "utf8",
+        );
+
+        expect(svg).toContain("<title>Zhipu</title>");
+        expect(svg).not.toContain("<title>ChatGLM</title>");
+        expect(svg).toContain('fill="#3859FF"');
+    });
+
     it("applies color via currentColor instead of hardcoded hex", () => {
         const { container } = render(<VendorMark id="cpa" color="red" />);
         const svg = container.querySelector("span.vicon svg");

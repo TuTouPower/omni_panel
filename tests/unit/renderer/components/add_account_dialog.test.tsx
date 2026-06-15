@@ -253,6 +253,30 @@ describe("AddAccountDialog API key", () => {
         expect(btn?.className).toContain("disabled");
     });
 
+    it("shows GLM in the vendor picker when GLM plugin is available", () => {
+        const glm_plugin = apikey_plugin({
+            instanceId: "glm-1",
+            name: "GLM",
+            displayName: "GLM",
+            activeProviders: ["glm"],
+            supportedProviders: ["glm"],
+        });
+
+        render(
+            <AddAccountDialog
+                plugin_infos={[glm_plugin]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        const button = screen.getByText("GLM").closest("button");
+        expect(button).toBeInTheDocument();
+        expect(button?.className).not.toContain("disabled");
+    });
+
     it("shows CPA button when has_cpa is true", () => {
         render(
             <AddAccountDialog

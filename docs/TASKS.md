@@ -279,6 +279,19 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 
 **验收：** `pnpm test` 全部通过；`pnpm package` 后 `artifacts/win-unpacked/resources/connectors/` 不含 `test-observe`；用户 config.json 不再有 `test-observe` 条目。
 
+### 已完成：添加账号缺少 GLM 入口
+
+**现象：** 设置页「添加账号」常用服务网格里没有 GLM，导致用户无法从 UI 直接添加智谱账号，虽然 `VENDOR_AUTH_MAP` 已支持 `glm: "apikey"`。
+
+**根因：** 公共常用服务列表 `src/renderer/lib/common-services.ts` 漏了 `{ id: "glm", label: "GLM" }`，`AddAccountDialog` 和 `SettingsView` 都复用这份列表，所以两个入口同时缺失。
+
+**已完成：**
+
+- `common-services.ts`：补 `GLM`
+- `add_account_dialog.test.tsx`：新增回归测试，断言 GLM plugin 可用时 vendor picker 显示 `GLM`
+
+**验收：** `pnpm test -- tests/unit/renderer/components/add_account_dialog.test.tsx` 先红后绿；`pnpm test` 全部通过。
+
 ### 已完成：Brave provider 完整接入（PROVIDER_ORDER / 添加账号入口 / 历史数据恢复）
 
 **已实现（`ae0c3fa` + `daba027`）：**
