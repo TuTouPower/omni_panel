@@ -72,7 +72,7 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 
 **修复方向：** 在 `config-store.ts` load migration 或 `index.ts` seed 前，按 `usageProviderSchema` 白名单过滤并持久化剔除 plugins（含 executablePath 指向不存在目录的孤儿）。
 
-### 待修复：数据标签映射把本地显示名当原始标签，CPA / GLM / DeepSeek 全部串层
+### 已完成：数据标签映射把本地显示名当原始标签，CPA / GLM / DeepSeek 全部串层
 
 **现象：**
 
