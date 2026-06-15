@@ -6,8 +6,7 @@
     "main": "out/main/index.js",
     "private": true,
     "scripts": {
-        "start": "node scripts/ensure_electron_abi.mjs && electron-vite dev",
-        "poststart": "node scripts/ensure_node_abi.mjs",
+        "start": "electron-vite dev",
         "build": "electron-vite build",
         "package": "tsx scripts/package-and-run.ts",
         "package:build": "tsx scripts/package-and-run.ts",
@@ -26,7 +25,7 @@
         "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch",
         "security:js": "gitleaks detect --source .",
         "security:sast": "semgrep scan --config=auto src/",
-        "test": "node scripts/ensure_node_abi.mjs && vitest run",
+        "test": "pnpm rebuild better-sqlite3 && vitest run",
         "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
         "test:e2e": "playwright test --config=playwright.config.ts --project=default",
@@ -35,6 +34,7 @@
         "test:packaged": "playwright test --config=playwright.config.ts --project=packaged",
         "test:contract:live": "vitest run --config vitest.contract_live.config.mts",
         "test:full": "pnpm test && pnpm test:contract:live",
+        "postinstall": "npx electron-rebuild -f -w better-sqlite3",
         "prepare": "husky"
     },
     "keywords": [],
@@ -67,6 +67,7 @@
         }
     },
     "devDependencies": {
+        "@electron/rebuild": "^4.0.4",
         "@playwright/test": "^1.60.0",
         "@tailwindcss/postcss": "^4.3.0",
         "@testing-library/jest-dom": "^6.9.1",
