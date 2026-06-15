@@ -6,7 +6,8 @@
     "main": "out/main/index.js",
     "private": true,
     "scripts": {
-        "start": "electron-vite dev",
+        "start": "node scripts/ensure_electron_abi.mjs && electron-vite dev",
+        "poststart": "node scripts/ensure_node_abi.mjs",
         "build": "electron-vite build",
         "package": "tsx scripts/package-and-run.ts",
         "package:build": "tsx scripts/package-and-run.ts",
