@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, readFile, writeFile, chmod } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile, chmod, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createConfigStore } from "../../../src/main/core/config/config-store";
@@ -167,50 +167,62 @@ describe("config-store", () => {
         //
         // Migration must clamp the interval into range and preserve the rest
         // of the plugin entry (and any sibling plugins).
-        const configPath = join(tempDir, "config.json");
-        await writeFile(
-            configPath,
-            JSON.stringify({
-                schemaVersion: 1,
-                language: "zh-Hans",
-                plugins: [
-                    {
-                        stateId: "deepseek-1",
-                        name: "DeepSeek",
-                        enabled: true,
-                        executablePath: "/connectors/deepseek",
-                        refreshIntervalSeconds: 30,
-                        parameterValues: { API_KEY: "k" },
-                        endpointOverrides: {},
-                    },
-                    {
-                        stateId: "openai-1",
-                        name: "OpenAI",
-                        enabled: true,
-                        executablePath: "/connectors/openai",
-                        refreshIntervalSeconds: 200000,
-                        parameterValues: {},
-                        endpointOverrides: {},
-                    },
-                ],
-                launchAtLogin: false,
-            }),
-            "utf8",
-        );
-        const store = createConfigStore(configPath);
-        const config = await store.load();
+        //
+        // Note: since load() now prunes plugins whose connector manifest is
+        // missing or invalid, the fixture must point at real on-disk connector
+        // dirs; otherwise the prune migration would remove them and this test
+        // would no longer verify the clamp path.
+        const connector_root = await mkdtemp(join(tmpdir(), "cfg-clamp-root-"));
+        try {
+            const deepseek_dir = await write_connector_dir(connector_root, "deepseek", "deepseek");
+            const openai_dir = await write_connector_dir(connector_root, "openai", "codex");
+            const configPath = join(tempDir, "config.json");
+            await writeFile(
+                configPath,
+                JSON.stringify({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            stateId: "deepseek-1",
+                            name: "DeepSeek",
+                            enabled: true,
+                            executablePath: deepseek_dir,
+                            refreshIntervalSeconds: 30,
+                            parameterValues: { API_KEY: "k" },
+                            endpointOverrides: {},
+                        },
+                        {
+                            stateId: "openai-1",
+                            name: "OpenAI",
+                            enabled: true,
+                            executablePath: openai_dir,
+                            refreshIntervalSeconds: 200000,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+                "utf8",
+            );
+            const store = createConfigStore(configPath);
+            const config = await store.load();
 
-        // Both plugins survive; intervals clamped into range.
-        expect(config.plugins).toHaveLength(2);
-        const deepseek = config.plugins.find((p) => p.stateId === "deepseek-1");
-        const openai = config.plugins.find((p) => p.stateId === "openai-1");
-        expect(deepseek).toBeDefined();
-        expect(deepseek?.refreshIntervalSeconds).toBe(60);
-        expect(openai).toBeDefined();
-        expect(openai?.refreshIntervalSeconds).toBe(172800);
-        // Non-interval plugin data is preserved.
-        expect(deepseek?.name).toBe("DeepSeek");
-        expect(deepseek?.parameterValues["API_KEY"]).toBe("k");
+            // Both plugins survive; intervals clamped into range.
+            expect(config.plugins).toHaveLength(2);
+            const deepseek = config.plugins.find((p) => p.stateId === "deepseek-1");
+            const openai = config.plugins.find((p) => p.stateId === "openai-1");
+            expect(deepseek).toBeDefined();
+            expect(deepseek?.refreshIntervalSeconds).toBe(60);
+            expect(openai).toBeDefined();
+            expect(openai?.refreshIntervalSeconds).toBe(172800);
+            // Non-interval plugin data is preserved.
+            expect(deepseek?.name).toBe("DeepSeek");
+            expect(deepseek?.parameterValues["API_KEY"]).toBe("k");
+        } finally {
+            await rm(connector_root, { recursive: true, force: true });
+        }
     });
 
     it("logs raw config load and save payloads only in development", async () => {
@@ -226,65 +238,71 @@ describe("config-store", () => {
 
         try {
             process.env["NODE_ENV"] = "development";
-            const configPath = join(tempDir, "config.json");
-            const store = createConfigStore(configPath);
-            const config: AppConfiguration = {
-                schemaVersion: 1,
-                language: "zh-Hans",
-                plugins: [],
-                launchAtLogin: false,
-                usageBarColorScheme: "risk-projected",
-                usageBarStyle: "capsule",
-                providerLabelMaps: { gemini: { "gemini-long": "Gemini Short" } },
-            };
-            await store.save(config);
-            await writeFile(
-                configPath,
-                JSON.stringify({
+            const connector_root = await mkdtemp(join(tmpdir(), "cfg-logs-root-"));
+            const claude_dir = await write_connector_dir(connector_root, "claude", "claude");
+            try {
+                const configPath = join(tempDir, "config.json");
+                const store = createConfigStore(configPath);
+                const config: AppConfiguration = {
                     schemaVersion: 1,
                     language: "zh-Hans",
-                    overviewDisplayMode: "tabs",
-                    plugins: [
-                        {
-                            stateId: "state-1",
-                            name: "test",
-                            enabled: true,
-                            executablePath: "/path",
-                            refreshIntervalSeconds: 300,
-                            parameterValues: {},
-                            endpointOverrides: {},
-                        },
-                    ],
+                    plugins: [],
                     launchAtLogin: false,
                     usageBarColorScheme: "risk-projected",
                     usageBarStyle: "capsule",
                     providerLabelMaps: { gemini: { "gemini-long": "Gemini Short" } },
-                }),
-                "utf8",
-            );
-            await store.load();
+                };
+                await store.save(config);
+                await writeFile(
+                    configPath,
+                    JSON.stringify({
+                        schemaVersion: 1,
+                        language: "zh-Hans",
+                        overviewDisplayMode: "tabs",
+                        plugins: [
+                            {
+                                stateId: "state-1",
+                                name: "test",
+                                enabled: true,
+                                executablePath: claude_dir,
+                                refreshIntervalSeconds: 300,
+                                parameterValues: {},
+                                endpointOverrides: {},
+                            },
+                        ],
+                        launchAtLogin: false,
+                        usageBarColorScheme: "risk-projected",
+                        usageBarStyle: "capsule",
+                        providerLabelMaps: { gemini: { "gemini-long": "Gemini Short" } },
+                    }),
+                    "utf8",
+                );
+                await store.load();
 
-            let joined = lines.join("\n");
-            expect(joined).toContain("config save payload raw");
-            expect(joined).toContain("config save complete raw");
-            expect(joined).toContain("config load raw");
-            expect(joined).toContain("config parsed raw");
-            expect(joined).toContain("risk-projected");
-            expect(joined).toContain("[redacted]");
-            expect(joined).not.toContain("Gemini Short");
-            const parsedLine = lines.find((line) => line.includes("config parsed raw")) ?? "";
-            expect(parsedLine).toContain('"instanceId":"state-1"');
-            expect(parsedLine).not.toContain("overviewDisplayMode");
+                let joined = lines.join("\n");
+                expect(joined).toContain("config save payload raw");
+                expect(joined).toContain("config save complete raw");
+                expect(joined).toContain("config load raw");
+                expect(joined).toContain("config parsed raw");
+                expect(joined).toContain("risk-projected");
+                expect(joined).toContain("[redacted]");
+                expect(joined).not.toContain("Gemini Short");
+                const parsedLine = lines.find((line) => line.includes("config parsed raw")) ?? "";
+                expect(parsedLine).toContain('"instanceId":"state-1"');
+                expect(parsedLine).not.toContain("overviewDisplayMode");
 
-            lines.length = 0;
-            process.env["NODE_ENV"] = "production";
-            await store.save(config);
-            await store.load();
+                lines.length = 0;
+                process.env["NODE_ENV"] = "production";
+                await store.save(config);
+                await store.load();
 
-            joined = lines.join("\n");
-            expect(joined).not.toContain("config save payload raw");
-            expect(joined).not.toContain("config load raw");
-            expect(joined).not.toContain("risk-projected");
+                joined = lines.join("\n");
+                expect(joined).not.toContain("config save payload raw");
+                expect(joined).not.toContain("config load raw");
+                expect(joined).not.toContain("risk-projected");
+            } finally {
+                await rm(connector_root, { recursive: true, force: true });
+            }
         } finally {
             if (original_node_env === undefined) {
                 delete process.env["NODE_ENV"];
@@ -292,6 +310,219 @@ describe("config-store", () => {
                 process.env["NODE_ENV"] = original_node_env;
             }
             remove_transport();
+        }
+    });
+
+    // Helper: write a fake connector directory with a manifest.json.
+    async function write_connector_dir(
+        parent: string,
+        id: string,
+        provider: string,
+    ): Promise<string> {
+        const dir = join(parent, id);
+        await mkdir(dir, { recursive: true });
+        await writeFile(
+            join(dir, "manifest.json"),
+            JSON.stringify({
+                id,
+                provider,
+                capabilities: ["local"],
+                parameters: [],
+                local: { paths: ["~/foo"] },
+            }),
+            "utf8",
+        );
+        return dir;
+    }
+
+    it("prunes plugins whose connector manifest has a provider outside usageProviderSchema", async () => {
+        // Regression: connectors/test-observe was previously bundled and
+        // auto-seeded into config.json. After moving the fixture out and adding
+        // a provider whitelist to manifest-loader, NEW loads would skip it, but
+        // EXISTING config.json entries with `executablePath` pointing at a
+        // directory whose manifest.json has `provider: "test-observe"` (or
+        // similar) would survive forever, showing as `unknown TEST-OBSERVE` in
+        // the UI. load() must prune such plugins and persist the cleaned config.
+        const connector_root = await mkdtemp(join(tmpdir(), "cfg-prune-root-"));
+        try {
+            // legit connector with provider in usageProviderSchema.
+            const claude_dir = await write_connector_dir(connector_root, "claude", "claude");
+            // illegal provider "test-observe" not in usageProviderSchema.
+            const test_observe_dir = await write_connector_dir(
+                connector_root,
+                "test-observe",
+                "test-observe",
+            );
+
+            const config_path = join(tempDir, "config.json");
+            await writeFile(
+                config_path,
+                JSON.stringify({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            instanceId: "claude-1",
+                            stateId: "claude-1",
+                            name: "Claude",
+                            enabled: true,
+                            executablePath: claude_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                        {
+                            instanceId: "test-1",
+                            stateId: "test-1",
+                            name: "TEST-OBSERVE",
+                            enabled: true,
+                            executablePath: test_observe_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+                "utf8",
+            );
+
+            const store = createConfigStore(config_path);
+            const loaded = await store.load();
+
+            // test-observe pruned; claude retained.
+            expect(loaded.plugins).toHaveLength(1);
+            expect(loaded.plugins[0]?.instanceId).toBe("claude-1");
+
+            // Persistence: reloading from disk shows the pruned state.
+            const raw_after = JSON.parse(await readFile(config_path, "utf8")) as {
+                plugins: { instanceId: string }[];
+            };
+            const ids_after = raw_after.plugins.map((p) => p.instanceId);
+            expect(ids_after).toEqual(["claude-1"]);
+        } finally {
+            await rm(connector_root, { recursive: true, force: true });
+        }
+    });
+
+    it("prunes orphan plugins whose executablePath no longer exists", async () => {
+        // If a connector directory has been deleted (or moved away, as
+        // happened to test-observe), plugin entries pointing at it become
+        // orphans. load() should drop them and persist.
+        const connector_root = await mkdtemp(join(tmpdir(), "cfg-orphan-root-"));
+        try {
+            const claude_dir = await write_connector_dir(connector_root, "claude", "claude");
+            // Point at a directory that has no manifest.json at all.
+            const orphan_dir = join(connector_root, "does-not-exist");
+
+            const config_path = join(tempDir, "config.json");
+            await writeFile(
+                config_path,
+                JSON.stringify({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            instanceId: "claude-1",
+                            stateId: "claude-1",
+                            name: "Claude",
+                            enabled: true,
+                            executablePath: claude_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                        {
+                            instanceId: "orphan-1",
+                            stateId: "orphan-1",
+                            name: "ORPHAN",
+                            enabled: true,
+                            executablePath: orphan_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+                "utf8",
+            );
+
+            const store = createConfigStore(config_path);
+            const loaded = await store.load();
+
+            expect(loaded.plugins).toHaveLength(1);
+            expect(loaded.plugins[0]?.instanceId).toBe("claude-1");
+
+            const raw_after = JSON.parse(await readFile(config_path, "utf8")) as {
+                plugins: { instanceId: string }[];
+            };
+            const ids_after = raw_after.plugins.map((p) => p.instanceId);
+            expect(ids_after).toEqual(["claude-1"]);
+        } finally {
+            await rm(connector_root, { recursive: true, force: true });
+        }
+    });
+
+    it("keeps plugins whose connector manifest has a valid provider and existing path", async () => {
+        // Negative control: legitimate providers must survive the migration.
+        const connector_root = await mkdtemp(join(tmpdir(), "cfg-keep-root-"));
+        try {
+            const claude_dir = await write_connector_dir(connector_root, "claude", "claude");
+            const deepseek_dir = await write_connector_dir(connector_root, "deepseek", "deepseek");
+            const cpa_dir = await write_connector_dir(connector_root, "cpa", "cpa");
+
+            const config_path = join(tempDir, "config.json");
+            await writeFile(
+                config_path,
+                JSON.stringify({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            instanceId: "claude-1",
+                            stateId: "claude-1",
+                            name: "Claude",
+                            enabled: true,
+                            executablePath: claude_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                        {
+                            instanceId: "deepseek-1",
+                            stateId: "deepseek-1",
+                            name: "DeepSeek",
+                            enabled: true,
+                            executablePath: deepseek_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                        {
+                            instanceId: "cpa-1",
+                            stateId: "cpa-1",
+                            name: "CPA",
+                            enabled: true,
+                            executablePath: cpa_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+                "utf8",
+            );
+
+            const store = createConfigStore(config_path);
+            const loaded = await store.load();
+
+            expect(loaded.plugins).toHaveLength(3);
+            const ids = loaded.plugins.map((p) => p.instanceId).sort();
+            expect(ids).toEqual(["claude-1", "cpa-1", "deepseek-1"]);
+        } finally {
+            await rm(connector_root, { recursive: true, force: true });
         }
     });
 });

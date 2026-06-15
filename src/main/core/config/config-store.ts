@@ -1,8 +1,10 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { type AppConfiguration, DEFAULT_CONFIGURATION, appConfigurationSchema } from "./types";
 import { createLogger } from "../../../shared/lib/logger";
 import { redact_config_json, redact_config_raw } from "../../../shared/lib/config_redaction";
 import { writeJsonAtomic } from "../storage/write-json";
+import { connectorProviderSchema, manifest_schema } from "../../../shared/schemas/manifest";
 
 export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
@@ -34,6 +36,35 @@ function stripRemovedConfigFields(config: Record<string, unknown>): Record<strin
     const { overviewDisplayMode: _overviewDisplayMode, ...rest } = config;
     void _overviewDisplayMode;
     return rest;
+}
+
+// Returns true when the plugin's connector manifest exists and declares a
+// provider that survives the connectorProviderSchema whitelist
+// (usageProviderSchema ∪ {"cpa"}). Returns false for orphan plugins (no
+// manifest at the path) and for plugins whose manifest provider is no longer
+// allowed — e.g. leftover `test-observe` entries from when the fixture was
+// bundled and auto-seeded into config.json.
+async function is_plugin_healthy(executable_path: string): Promise<boolean> {
+    try {
+        const raw = await readFile(join(executable_path, "manifest.json"), "utf8");
+        const parsed = JSON.parse(raw) as unknown;
+        const result = manifest_schema.safeParse(parsed);
+        if (!result.success) return false;
+        return connectorProviderSchema.safeParse(result.data.provider).success;
+    } catch {
+        return false;
+    }
+}
+
+async function prune_invalid_plugins(
+    plugins: readonly { executablePath: string }[],
+): Promise<number[]> {
+    const keep_indices: number[] = [];
+    const verdicts = await Promise.all(plugins.map((p) => is_plugin_healthy(p.executablePath)));
+    verdicts.forEach((healthy, idx) => {
+        if (healthy) keep_indices.push(idx);
+    });
+    return keep_indices;
 }
 
 export function createConfigStore(configPath: string): AppConfigStore {
@@ -98,6 +129,27 @@ export function createConfigStore(configPath: string): AppConfigStore {
                             instanceId: p.instanceId ?? p.stateId,
                         })),
                     } as AppConfiguration;
+
+                    // Prune plugins whose connector manifest is missing or
+                    // declares a provider that is no longer whitelisted
+                    // (e.g. leftover `test-observe` entries from before the
+                    // fixture was moved out of the bundled connectors dir).
+                    const keep_indices = await prune_invalid_plugins(migrated.plugins);
+                    if (keep_indices.length !== migrated.plugins.length) {
+                        const dropped = migrated.plugins.length - keep_indices.length;
+                        log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath}`);
+                        migrated.plugins = keep_indices
+                            .map((i) => migrated.plugins[i])
+                            .filter((p): p is NonNullable<typeof p> => p !== undefined);
+                        // Persist the cleaned config so the prune is durable
+                        // and does not repeat on every load.
+                        try {
+                            await writeJsonAtomic(configPath, sortKeys(migrated));
+                        } catch (err) {
+                            log.warn(`Failed to persist pruned config at ${configPath}`, err);
+                        }
+                    }
+
                     if (shouldLogRawStorage()) {
                         log.debug("config parsed raw", {
                             filePath: configPath,
