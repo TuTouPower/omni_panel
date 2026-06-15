@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { load_manifest } from "../../../src/main/core/connector/manifest-loader";
@@ -79,5 +79,23 @@ describe("manifest-loader", () => {
         const result = await load_manifest(temp_dir);
         expect(result).not.toBeNull();
         expect(result?.observe?.headers).toHaveLength(2);
+    });
+
+    it("keeps brave manifest limit default in sync with connector default", async () => {
+        const manifest_path = join(process.cwd(), "connectors", "brave", "manifest.json");
+        const connector_path = join(process.cwd(), "connectors", "brave", "connector.ts");
+        const manifest = JSON.parse(await readFile(manifest_path, "utf8")) as {
+            parameters?: { name?: string; default?: string }[];
+        };
+        const connector_source = await readFile(connector_path, "utf8");
+        const default_limit_match = /const DEFAULT_LIMIT = (\d+);/.exec(connector_source);
+
+        expect(default_limit_match?.[1]).toBeDefined();
+
+        const limit_parameter = manifest.parameters?.find(
+            (parameter) => parameter.name === "LIMIT",
+        );
+
+        expect(limit_parameter?.default).toBe(default_limit_match?.[1]);
     });
 });

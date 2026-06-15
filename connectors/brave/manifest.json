@@ -16,7 +16,7 @@
             "name": "LIMIT",
             "type": "number",
             "required": false,
-            "default": "2000",
+            "default": "1000",
             "label": "Monthly Query Limit",
             "label@zh-Hans": "月度查询上限",
             "exposeToScript": true
