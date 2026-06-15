@@ -337,17 +337,35 @@ export function PopupView() {
             ? undefined
             : providerGroups.find((group) => group.provider === activeTab);
 
-    // Reset collapse/expand state only when provider/account structure changes
-    // (same provider set, same account IDs). Tab switches keep the user's choices.
+    // Prune collapse/expand state when provider/account structure changes,
+    // removing entries for accounts/providers that no longer exist.
+    // Do NOT reset when transitioning from empty (first data load) —
+    // config-restored state would be wiped.
     const signature = structural_signature(providerGroups);
     const last_signature_ref = useRef<string>(signature);
     useEffect(() => {
-        if (last_signature_ref.current !== signature) {
-            last_signature_ref.current = signature;
-            set_collapsed_accounts({});
-            set_expanded_providers({});
-        }
-    }, [signature]);
+        const prev = last_signature_ref.current;
+        last_signature_ref.current = signature;
+        if (prev === signature || prev === "") return;
+        const live_account_ids = new Set(
+            providerGroups.flatMap((g) => g.accounts.map((a) => a.id)),
+        );
+        set_collapsed_accounts((prev_c) => {
+            const next: Record<string, boolean> = {};
+            for (const [id, v] of Object.entries(prev_c)) {
+                if (live_account_ids.has(id)) next[id] = v;
+            }
+            return next;
+        });
+        const live_providers = new Set(providerGroups.map((g) => g.provider));
+        set_expanded_providers((prev_e) => {
+            const next: Record<string, boolean> = {};
+            for (const [p, v] of Object.entries(prev_e)) {
+                if (live_providers.has(p)) next[p] = v;
+            }
+            return next;
+        });
+    }, [signature, providerGroups]);
 
     use_popup_height_report(content_mirror_ref, collapsed_mirror_ref);
 

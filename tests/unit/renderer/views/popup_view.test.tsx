@@ -640,6 +640,35 @@ describe("PopupView", () => {
         expect(await screen.findByText("总览")).toBeInTheDocument();
     });
 
+    it("preserves collapsedAccounts from config after plugin data loads", async () => {
+        // Regression: structural_signature changed from "" → real when
+        // plugin data arrived, which triggered a full reset of
+        // collapsed_accounts, wiping the config-restored state.
+        const config_get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                collapsedAccounts: { "cpa-main:label:Claude Account": true },
+            },
+            hasSecrets: {},
+        });
+        window.usageboard.config.get = config_get;
+
+        render(<PopupView />);
+
+        // Switch to Claude tab to see the account row
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        // The account should be collapsed (as restored from config),
+        // so we should see an "展开" button, not "折叠"
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /展开 Claude Account/ })).toBeInTheDocument();
+        });
+    });
+
     it("saves collapsedAccounts to config when user toggles", async () => {
         const config_save = vi.fn().mockResolvedValue(undefined);
         window.usageboard.config.save = config_save;
