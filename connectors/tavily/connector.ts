@@ -52,9 +52,9 @@ async function main(): Promise<Observation[]> {
     const account = response?.account;
     if (!is_record(account)) return [];
 
-    const plan_limit = to_number(account.plan_limit);
+    const plan_limit = to_number(account["plan_limit"]);
     if (plan_limit <= 0) return [];
-    const plan_usage = Math.max(to_number(account.plan_usage), 0);
+    const plan_usage = Math.max(to_number(account["plan_usage"]), 0);
     const now = Date.now();
     const reset_at = next_month_start();
 

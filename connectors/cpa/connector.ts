@@ -93,7 +93,7 @@ async function cpa_api_call(
     body?: unknown,
 ): Promise<ApiCallResult> {
     const payload: Record<string, unknown> = { method, url, auth_index, header: headers };
-    if (body !== undefined) payload.data = JSON.stringify(body);
+    if (body !== undefined) payload["data"] = JSON.stringify(body);
     return (await ctx.http.post_json("default", "/v0/management/api-call", payload, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${mgmt_key}` },
     })) as ApiCallResult;
@@ -419,7 +419,7 @@ async function fetch_provider(
     if (provider === "gemini-cli") {
         const project = await load_code_assist_project(mgmt_key, auth_index);
         const body: Record<string, unknown> = {};
-        if (project) body.project = project;
+        if (project) body["project"] = project;
         const result = await cpa_api_call(
             mgmt_key,
             "POST",
@@ -436,7 +436,7 @@ async function fetch_provider(
     if (provider === "antigravity") {
         const project = await load_code_assist_project(mgmt_key, auth_index);
         const body: Record<string, unknown> = {};
-        if (project) body.project = project;
+        if (project) body["project"] = project;
         let last_error: Error | null = null;
         for (const url of ANTIGRAVITY_URLS) {
             try {
