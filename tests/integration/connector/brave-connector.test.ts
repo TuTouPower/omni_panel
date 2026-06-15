@@ -50,14 +50,14 @@ function create_ctx(headers: Record<string, string>, api_key = "test-key"): Conn
 }
 
 describe("brave connector", () => {
-    it("maps rate limit headers to observation with used = limit - remaining", async () => {
+    it("maps compound rate limit headers (monthly window) to observation", async () => {
         const script = await readFile(join("connectors", "brave", "connector.ts"), "utf8");
         const result = await run_connector(
             manifest,
             script,
             create_ctx({
-                "x-ratelimit-limit": "2000",
-                "x-ratelimit-remaining": "1500",
+                "x-ratelimit-limit": "1, 15000",
+                "x-ratelimit-remaining": "1, 14999",
             }),
         );
 
@@ -76,8 +76,8 @@ describe("brave connector", () => {
                 metric_id: "brave:monthly-queries",
                 name: "本月查询",
                 window: "month",
-                used: 500,
-                limit: 2000,
+                used: 1,
+                limit: 15000,
                 display_style: "ratio",
                 source: "probe",
                 stale: false,
@@ -88,14 +88,35 @@ describe("brave connector", () => {
         expect(obs.observed_at).toBeGreaterThan(0);
     });
 
-    it("returns critical status when usage exceeds 90% of limit", async () => {
+    it("still accepts plain numeric headers (backward compatibility)", async () => {
         const script = await readFile(join("connectors", "brave", "connector.ts"), "utf8");
         const result = await run_connector(
             manifest,
             script,
             create_ctx({
                 "x-ratelimit-limit": "2000",
-                "x-ratelimit-remaining": "100",
+                "x-ratelimit-remaining": "1500",
+            }),
+        );
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(1);
+
+        const obs = result.observations[0];
+        expect(obs).toBeDefined();
+        if (!obs) return;
+        expect(obs.used).toBe(500);
+        expect(obs.limit).toBe(2000);
+    });
+
+    it("returns critical status when usage exceeds 90% of limit", async () => {
+        const script = await readFile(join("connectors", "brave", "connector.ts"), "utf8");
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx({
+                "x-ratelimit-limit": "1, 2000",
+                "x-ratelimit-remaining": "1, 100",
             }),
         );
 
@@ -114,8 +135,8 @@ describe("brave connector", () => {
             manifest,
             script,
             create_ctx({
-                "x-ratelimit-limit": "2000",
-                "x-ratelimit-remaining": "400",
+                "x-ratelimit-limit": "1, 2000",
+                "x-ratelimit-remaining": "1, 400",
             }),
         );
 
@@ -135,8 +156,8 @@ describe("brave connector", () => {
             script,
             create_ctx(
                 {
-                    "x-ratelimit-limit": "2000",
-                    "x-ratelimit-remaining": "1500",
+                    "x-ratelimit-limit": "1, 2000",
+                    "x-ratelimit-remaining": "1, 1500",
                 },
                 "",
             ),
@@ -146,7 +167,7 @@ describe("brave connector", () => {
         expect(result.observations).toEqual([]);
     });
 
-    it("returns empty when rate limit headers are missing", async () => {
+    it("throws when rate limit headers are missing (no silent empty success)", async () => {
         const script = await readFile(join("connectors", "brave", "connector.ts"), "utf8");
         const result = await run_connector(
             manifest,
@@ -154,7 +175,7 @@ describe("brave connector", () => {
             create_ctx({ "content-type": "application/json" }),
         );
 
-        expect(result.error).toBeNull();
+        expect(result.error).not.toBeNull();
         expect(result.observations).toEqual([]);
     });
 });

@@ -8,7 +8,7 @@
 
 ## 待办
 
-### 待修复：保存慢 — `await refresh` 阻塞 renderer
+### 已完成：保存慢 — `await refresh` 阻塞 renderer
 
 **现象：** 账户设置里点保存按钮，保存过程很慢/卡顿。
 
@@ -16,9 +16,9 @@
 
 **次要因素：** vault `set`/`delete` 走全局锁 `with_lock`（`file-vault-backend.ts:97-109,144`），每次 read+解析+写整个 vault 文件并 `icacls` 设权限（Windows 上 `execFile icacls` 慢，line 43-55），多 secret 时串行叠加。
 
-**修复方向：** 保存与刷新解耦（refresh 不 await / 后台触发）。
+**方案（已完成）：** 保存与刷新解耦 — `create_plugin_instance`、`savePluginSettings` 末尾的 `await refresh` 改为 fire-and-forget（`void refresh(...).catch(err => log(...))`），refresh 仍在保存后触发但不再阻塞 renderer 返回。错误吞掉但记日志。
 
-### 待修复：保存不生效 — secret 被静默丢弃
+### 已完成：保存不生效 — secret 被静默丢弃
 
 **现象：** 点完保存之后重新打开设置，看到的还是修改前的旧值，保存没有真正持久化。
 
@@ -29,9 +29,9 @@ const allowedKeys = deps.secretParamKeys.get(instanceId);
 if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 ```
 
-新建账号时（`create_plugin_instance:879-896`）先 `save_config` 再 `saveSecrets`，依赖 `onConfigSaved` 回调（`index.ts:303-318`）同步重建 `secretParamKeys`。`buildSecretParamKeys`（`index.ts:255-268`）按 `plugin.instanceId` 建 key，取连接器 `def.manifest.parameters` 中 `type==="secret"`。若新实例对应的连接器 def 未匹配/无 secret 参数，或 instanceId 未进 map → `allowedKeys` 为 undefined → secret 被丢弃，但 IPC 返回 ok。前端 `saveSecrets`（`use-config.ts:99-106`）随即把 `hasSecrets` 标记为 true（乐观更新，未校验后端），UI 误以为成功。重开设置时 `config.get` 从持久层读回，secret 根本没写入 → 回显旧值/空值。
+新建账号时（`create_plugin_instance:879-896`）先 `save_config` 再 `saveSecrets`，依赖 `onConfigSaved` 回调（`index.ts:303-318`）同步重建 `secretParamKeys`。若新实例对应的 secretParamKeys 未进 map → `allowedKeys` 为 undefined → secret 被丢弃，但 IPC 返回 ok。前端 `saveSecrets`（`use-config.ts:99-106`）随即把 `hasSecrets` 标记为 true（乐观更新，未校验后端），UI 误以为成功。重开设置时 `config.get` 从持久层读回，secret 根本没写入 → 回显旧值/空值。
 
-**修复方向：** `saveSecrets` allowedKeys 缺失时应报错而非静默 ok，或确保新实例 secretParamKeys 重建可靠。
+**修复方案：** `handleConfigSaveSecrets` 在 `secretParamKeys` map 中无对应 `instanceId` 时返回错误（而非静默 `ok`），错误信息明确说明 secretParamKeys 未注册：`secret param keys not registered for instance: ${instanceId}`。暴露问题而非掩盖。`onConfigSaved` 回调仍在 `save_config` 时同步重建 secretParamKeys，正常新建场景不受影响。
 
 ### 待修复：默认跟随全局自动刷新间隔 — 三链路全断
 
@@ -49,28 +49,28 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 
 **修复方向：** 统一用 nullable/特殊值表「跟随全局」语义；schema 允许 0 或 null 且不做 clamp；调度器读全局值做回退。
 
-### 待修复：Brave 用量拿不到 — 响应头格式假设错误，测试 mock 掩盖
+### 已完成：Brave 用量拿不到 — 响应头复合策略头解析修复
 
 **现象：** Brave 用量数据获取不到，显示为空或失败。反复修过多次（`f734659` 方案 C 初版、`890666d` 修 remaining→used 语义反转），但一直没解决。
 
-**根因（反复修不好的真因）：** `connectors/brave/connector.ts:35-36` 硬取 `x-ratelimit-limit` / `x-ratelimit-remaining`，但 Brave 真实返回的是复合策略头：`X-RateLimit-Limit: "1, 15000"`、`X-RateLimit-Remaining: "1, 14999"`（按 `X-RateLimit-Policy` 的「秒;月」两个窗口逗号分隔）。`Number("1, 15000")` → `NaN` → `connector.ts:38` 命中 `return []` → **静默返回空，不报错，status=ready，0 items → UI 空白**。
+**已修复：** `connectors/brave/connector.ts` 按 `,` 分割 `X-RateLimit-Limit` / `X-RateLimit-Remaining` 响应头，取第二段（月度窗口）；保留纯数字头的兼容路径。解析失败时抛错而非静默 `return []`，避免 status=ready + 0 items 的假成功。测试改用真实复合头字符串 `"1, 15000"` / `"1, 14999"`，断言解析出月度窗口值。
 
-**测试掩盖：** `tests/integration/connector/brave-connector.test.ts` 和 `probe-executor.test.ts` 全部 mock 形如 `"2000"` 的纯数字头，API_KEY 写死 `"test-key"`，从未读真实环境变量，永远不会触发逗号分隔分支。自动化全绿 ≠ 真实可用。每次「修复」只在动 mock 解析逻辑，从未对真实 Brave 响应头取证 → 问题循环复发。
+**历史根因（已消除）：** Brave 真实返回 `X-RateLimit-Limit: "1, 15000"`、`X-RateLimit-Remaining: "1, 14999"`（按 `X-RateLimit-Policy` 的「秒;月」两个窗口逗号分隔）。旧代码 `Number("1, 15000")` → `NaN` → 静默返回空。测试 mock 全部用纯数字头掩盖了此分支。
 
-**次要风险（即使头解析修好）：**
+**次要风险（已记录，非本任务范围）：**
 
 - `manifest.json:5` `manualDefault:true` → `index.ts:236` 设 `manualRefreshOnly:true`。Brave 永不自动刷新，必须用户手动点。
 - `get_raw` 对 4xx 直接 throw（`net-client.ts:187`）：key 错/限流时 status=failed。
 
-**修复方向：** 改 `connector.ts:35-36` 按 `,` 分割取月度窗口（第二段）；测试须用真实复合头字符串；增加真实 API 测试用真 key 验证。
+### 已完成：unknown TEST-OBSERVE 仍在设置账户里 — 旧 config 已清理
 
-### 待修复：unknown TEST-OBSERVE 仍在设置账户里 — 旧 config 未清理
+**状态：** 已完成。
 
-**现象：** 设置的账户列表里出现类型为 `unknown` 且带 `TEST-OBSERVE` 标记的账户条目。反复修过但一直存在。
+**现象：** 设置的账户列表里出现类型为 `unknown` 且带 `TEST-OBSERVE` 标记的账户条目。
 
-**根因：** `6607e36` 做了三件事——移目录、`manifest-loader.ts:49` 加 provider 枚举守卫、收窄 manifest schema。但这三处只阻止「再次发现并 seed」，对**已经写进用户 `config.json` 的旧条目无效**。
+**根因回顾：** `6607e36` 的目录移动 + provider 枚举守卫只阻止「再次 seed」，对已写入 `config.json` 的旧 plugin 无效；`config-store.load()` 也只做 `instanceId` migration，不剔除孤儿/非法条目。
 
-**来源路径：** `tests/fixtures/connectors/test-observe/manifest.json` → `electron-builder.yml:8-10` 把整个 `connectors/` 无差别打包 → `src/main/index.ts:220-244` auto-seed 写入 `config.json` 的 `plugins[]`（`name: "TEST-OBSERVE"`）。`provider: "test-observe"` 不在 `usageProviderSchema` 枚举 → UI fallback 显示 `unknown TEST-OBSERVE`。
+**方案：** 在 `config-store.ts` 的 `load()` migration 中按 plugin 的 `executablePath` 加载 `manifest.json`，凡解析失败或 `manifest.provider` 不在 `connectorProviderSchema` 白名单（`usageProviderSchema ∪ {"cpa"}`）的 plugin 一律剔除，并立即持久化干净后的 config。先写失败测试，再实现。
 
 **为何反复出现：**
 

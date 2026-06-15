@@ -24,6 +24,18 @@ function to_number(value: string | undefined): number {
     return Number.isFinite(parsed) ? parsed : NaN;
 }
 
+function parse_rate_limit_header(value: string | undefined): number {
+    if (value === undefined) return NaN;
+    const trimmed = value.trim();
+    if (trimmed === "") return NaN;
+    if (trimmed.includes(",")) {
+        const segments = trimmed.split(",");
+        const monthly = segments[segments.length - 1]?.trim();
+        return to_number(monthly);
+    }
+    return to_number(trimmed);
+}
+
 async function main(): Promise<Observation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
     if (!api_key) return [];
@@ -32,10 +44,14 @@ async function main(): Promise<Observation[]> {
         headers: { "X-Subscription-Token": api_key },
     });
 
-    const limit = to_number(response.headers["x-ratelimit-limit"]);
-    const remaining = to_number(response.headers["x-ratelimit-remaining"]);
+    const limit = parse_rate_limit_header(response.headers["x-ratelimit-limit"]);
+    const remaining = parse_rate_limit_header(response.headers["x-ratelimit-remaining"]);
 
-    if (Number.isNaN(limit) || Number.isNaN(remaining)) return [];
+    if (Number.isNaN(limit) || Number.isNaN(remaining)) {
+        throw new Error(
+            `brave: missing or invalid rate-limit headers (limit=${JSON.stringify(response.headers["x-ratelimit-limit"])}, remaining=${JSON.stringify(response.headers["x-ratelimit-remaining"])})`,
+        );
+    }
 
     const used = Math.max(limit - remaining, 0);
     const now = Date.now();
