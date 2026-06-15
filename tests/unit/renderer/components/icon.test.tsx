@@ -63,6 +63,21 @@ describe("VendorMark", () => {
         expect(image?.getAttribute("src")).toContain("deepseek");
     });
 
+    it("renders the official Brave logo image", () => {
+        const { container } = render(<VendorMark id="brave" />);
+        const image = container.querySelector("span.vicon img");
+        expect(image).toBeInTheDocument();
+        expect(image?.getAttribute("src")).toContain("brave");
+    });
+
+    it("stores the official Brave brand asset in vendor_logos", () => {
+        const png = readFileSync(join(process.cwd(), "src/renderer/assets/vendor_logos/brave.png"));
+
+        expect(Array.from(png.subarray(0, 8))).toEqual([
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        ]);
+    });
+
     it("renders MiMo as inline SVG so currentColor can inherit", () => {
         const { container } = render(<VendorMark id="mimo" />);
         const svg = container.querySelector("span.vicon svg");

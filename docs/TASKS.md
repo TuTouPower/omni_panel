@@ -8,6 +8,139 @@
 
 ## 待办
 
+### 待修复：保存慢 — `await refresh` 阻塞 renderer
+
+**现象：** 账户设置里点保存按钮，保存过程很慢/卡顿。
+
+**根因：** `handle_save`（`AddAccountDialog.tsx:452`）→ `create_plugin_instance`（`SettingsView.tsx:864-899`）末尾 `await window.usageboard.connector.refresh(new_id)`（line 898）。`refresh({force:true})` 真实启动连接器子进程 + 网络抓用量（`connector-ipc.ts:148`），renderer `await` 全程阻塞。保存本身（写 config/vault）很快，慢的是被强制拼在后面的全量刷新。`savePluginSettings:850`、`duplicate` 等保存路径同样尾随 refresh。
+
+**次要因素：** vault `set`/`delete` 走全局锁 `with_lock`（`file-vault-backend.ts:97-109,144`），每次 read+解析+写整个 vault 文件并 `icacls` 设权限（Windows 上 `execFile icacls` 慢，line 43-55），多 secret 时串行叠加。
+
+**修复方向：** 保存与刷新解耦（refresh 不 await / 后台触发）。
+
+### 待修复：保存不生效 — secret 被静默丢弃
+
+**现象：** 点完保存之后重新打开设置，看到的还是修改前的旧值，保存没有真正持久化。
+
+**根因：** `handleConfigSaveSecrets`（`config-ipc.ts:141-142`）：
+
+```
+const allowedKeys = deps.secretParamKeys.get(instanceId);
+if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
+```
+
+新建账号时（`create_plugin_instance:879-896`）先 `save_config` 再 `saveSecrets`，依赖 `onConfigSaved` 回调（`index.ts:303-318`）同步重建 `secretParamKeys`。`buildSecretParamKeys`（`index.ts:255-268`）按 `plugin.instanceId` 建 key，取连接器 `def.manifest.parameters` 中 `type==="secret"`。若新实例对应的连接器 def 未匹配/无 secret 参数，或 instanceId 未进 map → `allowedKeys` 为 undefined → secret 被丢弃，但 IPC 返回 ok。前端 `saveSecrets`（`use-config.ts:99-106`）随即把 `hasSecrets` 标记为 true（乐观更新，未校验后端），UI 误以为成功。重开设置时 `config.get` 从持久层读回，secret 根本没写入 → 回显旧值/空值。
+
+**修复方向：** `saveSecrets` allowedKeys 缺失时应报错而非静默 ok，或确保新实例 secretParamKeys 重建可靠。
+
+### 待修复：默认跟随全局自动刷新间隔 — 三链路全断
+
+**现象：** 新建账户的「自动刷新间隔」开关默认没有设为「跟随全局」；勾选后保存会丢失，重开又变回关闭。
+
+**根因：** 「跟随全局」用 `refreshIntervalSeconds <= 0`（值 0）表达，但数据模型不支持这个语义，且调度器从不读全局值。三处全写死 300：
+
+1. `src/main/index.ts:235` — 自动播种新连接器：`refreshIntervalSeconds: 300`（硬编码，非 0）
+2. `src/renderer/components/SettingsForm.tsx:65` / `CpaConnectorSettings.tsx:104` — `followGlobal = refreshIntervalSeconds <= 0`。播种值 300，新账户开关默认关闭
+3. `src/renderer/views/SettingsView.tsx:745` — 全局值默认 `?? 300`
+
+**类型/持久化矛盾：** `src/shared/types/config.ts:62` `refreshIntervalSeconds: number` 必填，无 0/null 表「跟随」语义。`src/main/core/config/types.ts:11-24,32` schema 强制 `min(60)`，preprocess 把 **0 clamp 成 60**。用户即便开了「跟随全局」（前端发 0），保存后被改写成 60，下次打开开关又变回关闭。「跟随全局」无法持久化。
+
+**调度器从不消费全局值：** `scheduler-orchestrator.ts:40,53` 直接传 `connector.refreshIntervalSeconds`；`connector-scheduler.ts:26` 再 `Math.max(..., MIN)`。全流程没有任何地方读 `globalRefreshIntervalSeconds` 做回退。`globalRefreshIntervalSeconds` 只在 renderer 用作显示标签。
+
+**修复方向：** 统一用 nullable/特殊值表「跟随全局」语义；schema 允许 0 或 null 且不做 clamp；调度器读全局值做回退。
+
+### 待修复：Brave 用量拿不到 — 响应头格式假设错误，测试 mock 掩盖
+
+**现象：** Brave 用量数据获取不到，显示为空或失败。反复修过多次（`f734659` 方案 C 初版、`890666d` 修 remaining→used 语义反转），但一直没解决。
+
+**根因（反复修不好的真因）：** `connectors/brave/connector.ts:35-36` 硬取 `x-ratelimit-limit` / `x-ratelimit-remaining`，但 Brave 真实返回的是复合策略头：`X-RateLimit-Limit: "1, 15000"`、`X-RateLimit-Remaining: "1, 14999"`（按 `X-RateLimit-Policy` 的「秒;月」两个窗口逗号分隔）。`Number("1, 15000")` → `NaN` → `connector.ts:38` 命中 `return []` → **静默返回空，不报错，status=ready，0 items → UI 空白**。
+
+**测试掩盖：** `tests/integration/connector/brave-connector.test.ts` 和 `probe-executor.test.ts` 全部 mock 形如 `"2000"` 的纯数字头，API_KEY 写死 `"test-key"`，从未读真实环境变量，永远不会触发逗号分隔分支。自动化全绿 ≠ 真实可用。每次「修复」只在动 mock 解析逻辑，从未对真实 Brave 响应头取证 → 问题循环复发。
+
+**次要风险（即使头解析修好）：**
+
+- `manifest.json:5` `manualDefault:true` → `index.ts:236` 设 `manualRefreshOnly:true`。Brave 永不自动刷新，必须用户手动点。
+- `get_raw` 对 4xx 直接 throw（`net-client.ts:187`）：key 错/限流时 status=failed。
+
+**修复方向：** 改 `connector.ts:35-36` 按 `,` 分割取月度窗口（第二段）；测试须用真实复合头字符串；增加真实 API 测试用真 key 验证。
+
+### 待修复：unknown TEST-OBSERVE 仍在设置账户里 — 旧 config 未清理
+
+**现象：** 设置的账户列表里出现类型为 `unknown` 且带 `TEST-OBSERVE` 标记的账户条目。反复修过但一直存在。
+
+**根因：** `6607e36` 做了三件事——移目录、`manifest-loader.ts:49` 加 provider 枚举守卫、收窄 manifest schema。但这三处只阻止「再次发现并 seed」，对**已经写进用户 `config.json` 的旧条目无效**。
+
+**来源路径：** `tests/fixtures/connectors/test-observe/manifest.json` → `electron-builder.yml:8-10` 把整个 `connectors/` 无差别打包 → `src/main/index.ts:220-244` auto-seed 写入 `config.json` 的 `plugins[]`（`name: "TEST-OBSERVE"`）。`provider: "test-observe"` 不在 `usageProviderSchema` 枚举 → UI fallback 显示 `unknown TEST-OBSERVE`。
+
+**为何反复出现：**
+
+1. `config-store.ts:78-119` 的 `load()` 只做 `instanceId` migration（line 94-100），没有任何逻辑剔除非法 provider 的 plugin
+2. `index.ts:205-216` 的去重靠 `executablePath` 匹配，不删目录已消失的孤儿 plugin
+3. `docs/TASKS.md:205` 第 6 步「清理用户 config 的迁移逻辑」**从未实现**
+
+**修复方向：** 在 `config-store.ts` load migration 或 `index.ts` seed 前，按 `usageProviderSchema` 白名单过滤并持久化剔除 plugins（含 executablePath 指向不存在目录的孤儿）。
+
+### 待修复：数据标签映射把本地显示名当原始标签，CPA / GLM / DeepSeek 全部串层
+
+**现象：**
+
+- CPA 标签映射里看到的是 `Claude · 5小时`、`Codex · 5小时` 这类值，而不是接口原始字段。
+- 映射目标即使填成 `Claude · 5小时`，最终主界面显示仍会被压成 `5小时`，前面的 `Claude` 前缀消失。
+- GLM、DeepSeek 也是同类问题：映射系统拿到的是本地拼出来的 `5 小时用量`、`周用量`、`余额`，不是上游接口原始 label/key。
+
+**已确认根因：**
+
+1. **CPA connector 在源头就把原始 key 翻译并拼成显示名，未保留 raw label**
+    - `connectors/cpa/connector.ts:123-148`：Claude 原始 key 是 `five_hour` / `seven_day`，但输出 Observation 时直接写成 `Claude (${account.account_label}) · 5小时` / `... · 每周`
+    - `connectors/cpa/connector.ts:161-196`：Codex 原始 key 是 `primary_window` / `secondary_window`，也直接翻成 `Codex (...) · 5小时` / `... · 每周`
+    - Gemini / Antigravity / Kimi 同文件也是直接输出本地化后的 `name`
+2. **运行态 schema 只有 `name`，没有独立 raw label 字段**
+    - `src/shared/schemas/plugin-output.ts:23-39` 的 `usageItemSchema` 只有 `name`，没有 `rawLabel` / `metricLabel` 之类字段
+    - `src/main/core/scheduler/refresh-service.ts:72-86`、`src/main/core/scheduler/hydrate-runtime-store.ts:27-41` 都只是把 `obs.name` 原样塞进 `item.name`
+3. **标签映射 UI 把 `item.name` 当“原始标签”展示**
+    - `src/renderer/components/LabelMapDialog.tsx:44-66`：`raw = normalize_cpa_label(item)`；所谓 normalize 只去账号名，不去 provider 前缀
+    - 所以 Claude/Codex CPA 最终展示成 `Claude · 5小时` / `Codex · 5小时`
+    - `src/renderer/components/SettingsForm.tsx:81-113` 更直接，普通 connector 直接 `raw = item.name`
+4. **真正渲染条目时又做了一次内建短化，覆盖了映射语义**
+    - `src/renderer/lib/provider-usage.ts:143-160`：只要名字里包含 `5小时` / `5 小时` 就强制显示 `5小时`；包含 `每周` / `week` 就强制显示 `一周`
+    - `src/renderer/components/UsageRows.tsx:55` 渲染时统一走 `format_usage_period_label(period.name, labelMap)`
+    - 结果：映射系统保存的是“显示名→显示名”，渲染层又把它二次归一化，用户以为自己在映射 raw label，实际映射的是中间产物
+5. **GLM / DeepSeek 同源，不只是 CPA 特例**
+    - `connectors/glm/connector.ts:136-154`：直接造 `5 小时用量` / `周用量`
+    - `connectors/deepseek/connector.ts:49-70`：直接造 `余额` / `余额(CURRENCY)`
+    - 这些 provider 进入标签映射时，同样没有 raw 字段可用
+
+**本质问题：**
+
+- 当前“数据标签映射”混淆了三层概念：
+    1. 上游接口原始 key / raw label
+    2. connector 归一化后的中间 label
+    3. UI 最终显示短名
+- 现在代码把 **2** 冒充 **1**，又让 **3** 覆盖 **2**，所以用户看到和修改的都不是自己以为的那层。
+
+**影响：**
+
+- 标签映射对用户不可解释：UI 说“原始标签”，实际不是原始值。
+- 同一映射在不同渲染路径下可能被再次短化，保存结果不稳定。
+- CPA / GLM / DeepSeek / 其他 connector 无法建立一致的标签映射语义。
+
+**修复方向：**
+
+1. `Observation` / `MetricRecord` 新增独立字段，明确区分：`raw_label`、`normalized_label`、`display_label`（命名可再定，但语义必须拆开）
+2. connector 层保留上游原始 key 或原始 label，不要只留下拼装后的 `name`
+3. 标签映射配置必须以稳定的 raw/normalized key 为键，不能再用最终显示名做键
+4. `format_usage_period_label()` 只能负责默认显示短化；一旦用户有映射，应严格尊重用户映射结果，不能再把它压回 `5小时` / `一周`
+5. CPA 专项：原始标签展示里不应混入 provider 前缀和账号名；provider/account 应属于上下文，不属于标签本体
+6. GLM / DeepSeek 一并修，不要只修 CPA
+
+**验收：**
+
+- 标签映射面板“原始标签”列展示的确实是稳定 raw key / raw label，而不是本地拼装显示名
+- CPA `five_hour` / `primary_window` 这类原始值可以被映射到任意用户自定义显示名
+- 用户把标签映射成 `我的 5h` 后，主界面最终就显示 `我的 5h`，不会再被内建逻辑改回 `5小时`
+- GLM、DeepSeek、CPA 三类路径语义一致
+- `pnpm test` 通过；相关 UI 手工验证通过
+
 ### 已完成：设置页 CPA 重新对齐最新 design demo（顶层平铺 + 详情页去掉”已发现账号”列）
 
 **已实现（`20f59e4` + `8e5a9af` + `d796fc4`）：**
