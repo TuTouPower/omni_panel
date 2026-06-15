@@ -4,11 +4,24 @@ import type { ConnectorScheduler } from "../../../src/main/core/scheduler/connec
 import type { AppConfigStore } from "../../../src/main/core/config/config-store";
 import type { AppConfiguration } from "../../../src/main/core/config/types";
 
-function createMockScheduler(): ConnectorScheduler & { calls: string[] } {
+interface SchedulerStart {
+    instanceId: string;
+    interval: number;
+    immediate: boolean;
+}
+
+function createMockScheduler(): ConnectorScheduler & { starts: SchedulerStart[]; calls: string[] } {
+    const starts: SchedulerStart[] = [];
     const calls: string[] = [];
     return {
+        starts,
         calls,
-        start: (instanceId: string, _interval?: number, options?: { immediate?: boolean }) => {
+        start: (instanceId: string, interval, options?: { immediate?: boolean }) => {
+            starts.push({
+                instanceId,
+                interval,
+                immediate: options?.immediate !== false,
+            });
             calls.push(`start:${instanceId}${options?.immediate === false ? ":deferred" : ""}`);
         },
         stop: (instanceId: string) => {
@@ -129,5 +142,98 @@ describe("scheduler-orchestrator", () => {
     it("shutdown stops all", () => {
         orchestrator.shutdown();
         expect(scheduler.calls).toContain("stopAll");
+    });
+
+    describe("follow-global refresh interval (sentinel 0)", () => {
+        it("startAll resolves connector interval 0 to globalRefreshIntervalSeconds", () => {
+            const follow_global_config: AppConfiguration = {
+                schemaVersion: 1,
+                language: "en",
+                launchAtLogin: false,
+                globalRefreshIntervalSeconds: 600,
+                plugins: [
+                    {
+                        instanceId: "follow",
+                        stateId: "follow",
+                        name: "Follow",
+                        enabled: true,
+                        executablePath: "/f",
+                        refreshIntervalSeconds: 0,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+            };
+            const s = createMockScheduler();
+            const cs = createMockConfigStore(follow_global_config);
+            const o = createSchedulerOrchestrator({ scheduler: s, configStore: cs });
+            o.startAll(follow_global_config);
+            const started = s.starts.find((entry) => entry.instanceId === "follow");
+            expect(started).toBeDefined();
+            expect(started?.interval).toBe(600);
+        });
+
+        it("startAll falls back to 300 when both connector and global are <= 0", () => {
+            const follow_global_config: AppConfiguration = {
+                schemaVersion: 1,
+                language: "en",
+                launchAtLogin: false,
+                plugins: [
+                    {
+                        instanceId: "follow",
+                        stateId: "follow",
+                        name: "Follow",
+                        enabled: true,
+                        executablePath: "/f",
+                        refreshIntervalSeconds: 0,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+            };
+            const s = createMockScheduler();
+            const cs = createMockConfigStore(follow_global_config);
+            const o = createSchedulerOrchestrator({ scheduler: s, configStore: cs });
+            o.startAll(follow_global_config);
+            const started = s.starts.find((entry) => entry.instanceId === "follow");
+            expect(started?.interval).toBe(300);
+        });
+
+        it("startAll uses connector-specific interval when refreshIntervalSeconds > 0", () => {
+            const s = createMockScheduler();
+            const cs = createMockConfigStore(config);
+            const o = createSchedulerOrchestrator({ scheduler: s, configStore: cs });
+            o.startAll(config);
+            const c = s.starts.find((entry) => entry.instanceId === "c");
+            expect(c?.interval).toBe(120);
+        });
+
+        it("rebuild resolves connector interval 0 to globalRefreshIntervalSeconds", () => {
+            const follow_global_config: AppConfiguration = {
+                schemaVersion: 1,
+                language: "en",
+                launchAtLogin: false,
+                globalRefreshIntervalSeconds: 900,
+                plugins: [
+                    {
+                        instanceId: "follow",
+                        stateId: "follow",
+                        name: "Follow",
+                        enabled: true,
+                        executablePath: "/f",
+                        refreshIntervalSeconds: 0,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+            };
+            const s = createMockScheduler();
+            const cs = createMockConfigStore(follow_global_config);
+            const o = createSchedulerOrchestrator({ scheduler: s, configStore: cs });
+            o.rebuild(follow_global_config);
+            const started = s.starts.find((entry) => entry.instanceId === "follow");
+            expect(started?.interval).toBe(900);
+            expect(started?.immediate).toBe(false);
+        });
     });
 });

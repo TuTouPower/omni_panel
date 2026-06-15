@@ -33,21 +33,13 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 
 **修复方案：** `handleConfigSaveSecrets` 在 `secretParamKeys` map 中无对应 `instanceId` 时返回错误（而非静默 `ok`），错误信息明确说明 secretParamKeys 未注册：`secret param keys not registered for instance: ${instanceId}`。暴露问题而非掩盖。`onConfigSaved` 回调仍在 `save_config` 时同步重建 secretParamKeys，正常新建场景不受影响。
 
-### 待修复：默认跟随全局自动刷新间隔 — 三链路全断
+### 已完成：默认跟随全局自动刷新间隔 — 三链路全断
 
-**现象：** 新建账户的「自动刷新间隔」开关默认没有设为「跟随全局」；勾选后保存会丢失，重开又变回关闭。
+**状态：** 已完成。
 
-**根因：** 「跟随全局」用 `refreshIntervalSeconds <= 0`（值 0）表达，但数据模型不支持这个语义，且调度器从不读全局值。三处全写死 300：
+**方案：** 统一用 `0` 作 sentinel 表「跟随全局」（保留 `refreshIntervalSeconds: number` 非空类型，避免序列化兼容问题）。schema 允许 0 或 [60,172800]，preprocess 不再把 0 clamp 成 60。auto-seed 新连接器写 0。orchestrator 在 connector 间隔 <= 0 时回退到 `globalRefreshIntervalSeconds`，全局也 <= 0 时用 300 default。前端 `followGlobal = refreshIntervalSeconds <= 0` 已正确，开关切换保存 0 / 具体值逻辑保留。
 
-1. `src/main/index.ts:235` — 自动播种新连接器：`refreshIntervalSeconds: 300`（硬编码，非 0）
-2. `src/renderer/components/SettingsForm.tsx:65` / `CpaConnectorSettings.tsx:104` — `followGlobal = refreshIntervalSeconds <= 0`。播种值 300，新账户开关默认关闭
-3. `src/renderer/views/SettingsView.tsx:745` — 全局值默认 `?? 300`
-
-**类型/持久化矛盾：** `src/shared/types/config.ts:62` `refreshIntervalSeconds: number` 必填，无 0/null 表「跟随」语义。`src/main/core/config/types.ts:11-24,32` schema 强制 `min(60)`，preprocess 把 **0 clamp 成 60**。用户即便开了「跟随全局」（前端发 0），保存后被改写成 60，下次打开开关又变回关闭。「跟随全局」无法持久化。
-
-**调度器从不消费全局值：** `scheduler-orchestrator.ts:40,53` 直接传 `connector.refreshIntervalSeconds`；`connector-scheduler.ts:26` 再 `Math.max(..., MIN)`。全流程没有任何地方读 `globalRefreshIntervalSeconds` 做回退。`globalRefreshIntervalSeconds` 只在 renderer 用作显示标签。
-
-**修复方向：** 统一用 nullable/特殊值表「跟随全局」语义；schema 允许 0 或 null 且不做 clamp；调度器读全局值做回退。
+**改动：** `src/main/core/config/types.ts` schema 放行 0；`src/main/index.ts:235` auto-seed 改 0；`src/main/core/scheduler/scheduler-orchestrator.ts` startAll/rebuild 用 global 回退；`src/main/core/scheduler/connector-scheduler.ts` 在 orchestrator 已 resolve 出最终值的前提下保留 MIN floor。测试覆盖 schema 放行 0、orchestrator 全局回退、auto-seed 默认 0。
 
 ### 已完成：Brave 用量拿不到 — 响应头复合策略头解析修复
 

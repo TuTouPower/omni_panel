@@ -11,17 +11,27 @@ const appLanguageSchema = z.enum(["zh-Hans", "en"]) as z.ZodType<AppLanguage>;
 const REFRESH_INTERVAL_MIN = 60;
 const REFRESH_INTERVAL_MAX = 172800;
 
-// Migration guard: clamp out-of-range refreshIntervalSeconds into [60, 172800]
-// instead of rejecting the whole connector (and, transitively, the whole config
-// file). Older builds wrote values like 30 or 7200; without clamping those
-// entries caused load() to fall back to DEFAULT_CONFIGURATION and silently
-// wipe every connector the user had configured.
-const refreshIntervalSecondsSchema = z.preprocess((value) => {
-    if (typeof value === "number" && Number.isFinite(value)) {
-        return Math.min(REFRESH_INTERVAL_MAX, Math.max(REFRESH_INTERVAL_MIN, Math.trunc(value)));
-    }
-    return value;
-}, z.number().int().min(REFRESH_INTERVAL_MIN).max(REFRESH_INTERVAL_MAX));
+// 「跟随全局」用 0 作 sentinel。schema 必须放行 0，且 preprocess 不能把它
+// clamp 成 60，否则「跟随全局」开关一旦保存就被改写，重开又变回关闭。
+// 非 sentinel 值仍然 clamp 到 [60, 172800]，保护历史损坏配置不导致整份
+// config 被丢弃。
+const refreshIntervalSecondsSchema = z.preprocess(
+    (value) => {
+        if (typeof value === "number" && Number.isFinite(value)) {
+            const truncated = Math.trunc(value);
+            if (truncated === 0) return 0;
+            return Math.min(REFRESH_INTERVAL_MAX, Math.max(REFRESH_INTERVAL_MIN, truncated));
+        }
+        return value;
+    },
+    z
+        .number()
+        .int()
+        .refine(
+            (n) => n === 0 || (n >= REFRESH_INTERVAL_MIN && n <= REFRESH_INTERVAL_MAX),
+            "must be 0 (follow global) or in [60, 172800]",
+        ),
+);
 
 const connectorConfigurationSchema = z.object({
     instanceId: z.string().min(1).optional(),

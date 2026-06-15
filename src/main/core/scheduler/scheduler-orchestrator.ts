@@ -1,4 +1,5 @@
 import { createLogger } from "../../../shared/lib/logger";
+import { resolve_refresh_interval } from "../config/auto-seed";
 import type { ConnectorScheduler } from "./connector-scheduler";
 import type { AppConfigStore } from "../config/config-store";
 
@@ -11,6 +12,7 @@ interface ConnectorListConfig {
         refreshIntervalSeconds: number;
         manualRefreshOnly?: boolean;
     }[];
+    globalRefreshIntervalSeconds?: number;
 }
 
 interface SchedulerOrchestratorDeps {
@@ -37,7 +39,11 @@ export function createSchedulerOrchestrator(
         let count = 0;
         for (const connector of config.plugins) {
             if (connector.enabled && !connector.manualRefreshOnly) {
-                deps.scheduler.start(connector.instanceId, connector.refreshIntervalSeconds);
+                const interval = resolve_refresh_interval(
+                    connector.refreshIntervalSeconds,
+                    config.globalRefreshIntervalSeconds,
+                );
+                deps.scheduler.start(connector.instanceId, interval);
                 count++;
             }
         }
@@ -50,7 +56,11 @@ export function createSchedulerOrchestrator(
         let count = 0;
         for (const connector of config.plugins) {
             if (connector.enabled && !connector.manualRefreshOnly) {
-                deps.scheduler.start(connector.instanceId, connector.refreshIntervalSeconds, {
+                const interval = resolve_refresh_interval(
+                    connector.refreshIntervalSeconds,
+                    config.globalRefreshIntervalSeconds,
+                );
+                deps.scheduler.start(connector.instanceId, interval, {
                     immediate: false,
                 });
                 count++;

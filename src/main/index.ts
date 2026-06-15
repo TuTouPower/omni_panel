@@ -10,7 +10,8 @@ import {
     ipcMain,
 } from "electron";
 import { join, resolve } from "node:path";
-import { randomUUID } from "node:crypto";
+import { createConfigStore } from "./core/config/config-store";
+import { auto_seed_connectors } from "./core/config/auto-seed";
 import {
     getConfigPath,
     getDataRoot,
@@ -21,7 +22,6 @@ import {
 } from "./core/paths";
 import { initLogging } from "./core/logging";
 import { createLogger } from "../shared/lib/logger";
-import { createConfigStore } from "./core/config/config-store";
 import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
 import { create_file_vault_backend } from "./core/vault/file-vault-backend";
@@ -202,47 +202,11 @@ void app.whenReady().then(async () => {
     log.info(`Discovered ${String(allDefinitions.length)} connectors`);
 
     const config = await configStore.load();
-    const existingById = new Map<string, (typeof config.plugins)[number]>();
-    for (const plugin of config.plugins) {
-        const baseName = plugin.executablePath.split(/[/\\]/).pop() ?? plugin.name;
-        for (const def of allDefinitions) {
-            if (
-                baseName.includes(def.manifest.id) ||
-                plugin.name.toLowerCase() === def.manifest.id
-            ) {
-                existingById.set(def.manifest.id, plugin);
-            }
-        }
-    }
-
-    const seededPlugins = [];
-    let configChanged = false;
-    for (const def of allDefinitions) {
-        const existing = existingById.get(def.manifest.id);
-        if (existing) {
-            if (existing.executablePath !== def.executablePath) {
-                (existing as { executablePath: string }).executablePath = def.executablePath;
-                configChanged = true;
-            }
-            continue;
-        }
-        seededPlugins.push({
-            instanceId: randomUUID(),
-            stateId: randomUUID(),
-            name: def.manifest.id.toUpperCase(),
-            enabled: true,
-            executablePath: def.executablePath,
-            refreshIntervalSeconds: 300,
-            ...(def.manifest.manualDefault === true && { manualRefreshOnly: true }),
-            parameterValues: Object.fromEntries(
-                def.manifest.parameters
-                    .filter((param) => param.type !== "secret" && param.default !== undefined)
-                    .map((param) => [param.name, param.default ?? ""]),
-            ),
-            endpointOverrides: {},
-        });
-    }
-    if (seededPlugins.length > 0 || configChanged) {
+    const { seeded: seededPlugins, changed: seedChanged } = auto_seed_connectors(
+        config.plugins,
+        allDefinitions,
+    );
+    if (seededPlugins.length > 0 || seedChanged) {
         await configStore.save({ ...config, plugins: [...config.plugins, ...seededPlugins] });
         if (seededPlugins.length > 0) {
             log.info(`Auto-seeded ${String(seededPlugins.length)} connectors`);

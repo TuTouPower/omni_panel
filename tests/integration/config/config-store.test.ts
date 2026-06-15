@@ -313,6 +313,41 @@ describe("config-store", () => {
         }
     });
 
+    it("preserves refreshIntervalSeconds 0 as follow-global sentinel (no clamp)", async () => {
+        // 「跟随全局」用 0 表达，schema 必须放行 0，preprocess 不能把它 clamp 成 60。
+        const connector_root = await mkdtemp(join(tmpdir(), "cfg-zero-root-"));
+        try {
+            const claude_dir = await write_connector_dir(connector_root, "claude", "claude");
+            const configPath = join(tempDir, "config.json");
+            await writeFile(
+                configPath,
+                JSON.stringify({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            stateId: "claude-1",
+                            name: "Claude",
+                            enabled: true,
+                            executablePath: claude_dir,
+                            refreshIntervalSeconds: 0,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+                "utf8",
+            );
+            const store = createConfigStore(configPath);
+            const loaded = await store.load();
+            expect(loaded.plugins).toHaveLength(1);
+            expect(loaded.plugins[0]?.refreshIntervalSeconds).toBe(0);
+        } finally {
+            await rm(connector_root, { recursive: true, force: true });
+        }
+    });
+
     // Helper: write a fake connector directory with a manifest.json.
     async function write_connector_dir(
         parent: string,
