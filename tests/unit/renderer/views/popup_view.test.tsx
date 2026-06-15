@@ -640,6 +640,41 @@ describe("PopupView", () => {
         expect(await screen.findByText("总览")).toBeInTheDocument();
     });
 
+    it("preserves collapse state on disk when settings saves without the field", async () => {
+        // Regression: if the popup saves collapsedAccounts then settings saves
+        // a config that does NOT contain collapsedAccounts (because it never
+        // received the popup's CONFIG_CHANGED), the disk must still retain
+        // collapsedAccounts from the popup's earlier save.
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        await waitFor(() => {
+            expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
+        });
+
+        // Collapse the account
+        const collapse_btn = screen.getByRole("button", { name: /折叠 Claude Account/ });
+        fireEvent.click(collapse_btn);
+
+        await waitFor(() => {
+            expect(config_save).toHaveBeenCalled();
+        });
+
+        // The saved payload MUST always include collapsedAccounts key,
+        // even when it's the first toggle (state not yet on disk).
+        const last_call = config_save.mock.calls[config_save.mock.calls.length - 1];
+        expect(last_call).toBeDefined();
+        if (!last_call) return;
+        const saved = last_call[0] as Record<string, unknown>;
+        expect(saved).toHaveProperty("collapsedAccounts");
+        expect(saved).toHaveProperty("expandedProviders");
+    });
+
     it("preserves collapsedAccounts from config after plugin data loads", async () => {
         // Regression: structural_signature changed from "" → real when
         // plugin data arrived, which triggered a full reset of

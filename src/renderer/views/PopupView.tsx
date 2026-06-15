@@ -263,19 +263,11 @@ export function PopupView() {
         save_queue_ref.current = save_queue_ref.current
             .then(async () => {
                 const result = await window.usageboard.config.get();
-                const base = Object.fromEntries(
-                    Object.entries(result.config).filter(
-                        ([k]) => k !== "collapsedAccounts" && k !== "expandedProviders",
-                    ),
-                );
-                const to_save: Record<string, unknown> = { ...base };
-                if (Object.keys(collapsed_accounts).length > 0) {
-                    to_save["collapsedAccounts"] = collapsed_accounts;
-                }
-                if (Object.keys(expanded_providers).length > 0) {
-                    to_save["expandedProviders"] = expanded_providers;
-                }
-                await window.usageboard.config.save(to_save as unknown as AppConfiguration);
+                await window.usageboard.config.save({
+                    ...result.config,
+                    collapsedAccounts: collapsed_accounts,
+                    expandedProviders: expanded_providers,
+                });
             })
             .catch(() => {
                 // ignore save errors

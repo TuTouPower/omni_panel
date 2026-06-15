@@ -100,6 +100,16 @@ export async function handleConfigSave(
         const current = await deps.configStore.load();
         const incoming = parsed.data as AppConfiguration;
 
+        // Merge: incoming fields override current; fields absent from incoming
+        // are preserved from disk. This prevents one renderer window from
+        // accidentally overwriting another window's fields (e.g. popup's
+        // collapsedAccounts wiped by settings save).
+        const incomingKeys = new Set(Object.keys(incoming));
+        const merged = { ...current } as Record<string, unknown>;
+        for (const key of incomingKeys) {
+            merged[key] = (incoming as Record<string, unknown>)[key];
+        }
+
         // Validate: every incoming plugin instanceId must already exist
         const currentByInstanceId = new Map(current.plugins.map((p) => [p.instanceId, p]));
         for (const plugin of incoming.plugins) {
@@ -112,7 +122,7 @@ export async function handleConfigSave(
             }
         }
 
-        const stripped = stripSecrets(incoming, deps.secretParamKeys);
+        const stripped = stripSecrets(merged as AppConfiguration, deps.secretParamKeys);
         await deps.configStore.save(stripped);
         deps.onConfigSaved?.(stripped);
         return ok(undefined);

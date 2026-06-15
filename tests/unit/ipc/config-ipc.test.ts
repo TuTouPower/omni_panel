@@ -470,4 +470,39 @@ describe("config-ipc", () => {
         if (!result.ok) return;
         expect(result.data.imported).toBe(false);
     });
+
+    it("handleConfigSave merges incoming with current on disk", async () => {
+        // Regression: settings window may save a config that lacks
+        // collapsedAccounts (because it loaded before the popup saved them).
+        // The merged result must retain the on-disk collapsedAccounts.
+        const deps = createMockDeps();
+        // Pretend disk already has collapsedAccounts from a popup save
+        const currentOnDisk = structuredClone(await deps.configStore.load()) as AppConfiguration;
+        (currentOnDisk as Record<string, unknown>)["collapsedAccounts"] = {
+            "cpa-main:label:Claude Account": true,
+        };
+        deps.configStore.load = vi.fn().mockResolvedValue(currentOnDisk);
+
+        const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
+
+        // Settings sends config WITHOUT collapsedAccounts
+        const incoming: AppConfiguration = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            plugins: currentOnDisk.plugins,
+            launchAtLogin: true,
+        };
+
+        const result = await handleConfigSave(deps, incoming);
+        expect(result.ok).toBe(true);
+
+        const saved = deps.configStore.save.mock.calls[0]?.[0] as Record<string, unknown>;
+        expect(saved).toBeDefined();
+        // collapsedAccounts must be preserved from disk, not wiped
+        expect(saved["collapsedAccounts"]).toEqual({
+            "cpa-main:label:Claude Account": true,
+        });
+        // incoming field override works
+        expect(saved["launchAtLogin"]).toBe(true);
+    });
 });
