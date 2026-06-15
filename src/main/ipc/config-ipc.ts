@@ -139,7 +139,12 @@ export async function handleConfigSaveSecrets(
         if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
 
         const allowedKeys = deps.secretParamKeys.get(instanceId);
-        if (!allowedKeys) return ok(undefined);
+        if (!allowedKeys) {
+            return fail(
+                "INTERNAL_ERROR",
+                `secret param keys not registered for instance: ${instanceId}`,
+            );
+        }
 
         for (const [paramName, value] of Object.entries(secrets)) {
             if (allowedKeys.has(paramName)) {

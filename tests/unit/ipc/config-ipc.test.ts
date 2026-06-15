@@ -311,6 +311,62 @@ describe("config-ipc", () => {
         expect(deps.secretsStore.set).toHaveBeenCalledWith("claude:API_KEY", "new-key");
     });
 
+    it("handleConfigSaveSecrets fails when instanceId missing from secretParamKeys", async () => {
+        const deps = createMockDeps();
+        const loaded = structuredClone(await deps.configStore.load()) as AppConfiguration;
+        // Plugin exists in config, but secretParamKeys map lacks this instance
+        const configWithExtra: AppConfiguration = {
+            ...loaded,
+            plugins: [
+                ...loaded.plugins,
+                {
+                    instanceId: "new-instance",
+                    stateId: "new-instance",
+                    name: "New",
+                    enabled: true,
+                    executablePath: "/plugins/new.py",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        deps.configStore.load = vi.fn().mockResolvedValue(configWithExtra);
+        // secretParamKeys only has "claude", not "new-instance"
+        const { handleConfigSaveSecrets } = await import("../../../src/main/ipc/config-ipc");
+
+        const result = await handleConfigSaveSecrets(deps, {
+            instanceId: "new-instance",
+            secrets: { API_KEY: "new-key" },
+        });
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe("INTERNAL_ERROR");
+            expect(result.error.message).toContain("new-instance");
+            expect(result.error.message).toContain("secret param keys");
+        }
+        expect(deps.secretsStore.set).not.toHaveBeenCalled();
+    });
+
+    it("handleConfigSaveSecrets writes secrets when allowedKeys registered", async () => {
+        const deps = createMockDeps();
+        const { handleConfigSaveSecrets } = await import("../../../src/main/ipc/config-ipc");
+
+        const result = await handleConfigSaveSecrets(deps, {
+            instanceId: "claude",
+            secrets: { API_KEY: "new-key", NON_SECRET: "ignored" },
+        });
+
+        expect(result.ok).toBe(true);
+        expect(deps.secretsStore.set).toHaveBeenCalledTimes(1);
+        expect(deps.secretsStore.set).toHaveBeenCalledWith("claude:API_KEY", "new-key");
+        expect(deps.secretsStore.set).not.toHaveBeenCalledWith(
+            "claude:NON_SECRET",
+            expect.anything(),
+        );
+    });
+
     it("handleConfigExport writes JSON file via dialog", async () => {
         const { dialog } = await import("electron");
         const exportPath = await tempFile("export.json");
