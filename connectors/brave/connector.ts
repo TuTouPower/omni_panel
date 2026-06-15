@@ -3,6 +3,13 @@ import type { Observation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
+const DEFAULT_LIMIT = 1000;
+
+function parse_user_limit(raw: string | undefined): number {
+    const value = Number(raw);
+    return value > 0 ? value : DEFAULT_LIMIT;
+}
+
 function status_for_usage(used: number, limit: number): Observation["status"] {
     if (limit <= 0) return "normal";
     const ratio = used / limit;
@@ -40,20 +47,23 @@ async function main(): Promise<Observation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
     if (!api_key) return [];
 
+    const user_limit = parse_user_limit(ctx.params["LIMIT"]);
+
     const response = await ctx.http.get_raw("default", "/res/v1/web/search?q=test&count=1", {
         headers: { "X-Subscription-Token": api_key },
     });
 
-    const limit = parse_rate_limit_header(response.headers["x-ratelimit-limit"]);
-    const remaining = parse_rate_limit_header(response.headers["x-ratelimit-remaining"]);
+    const api_limit = parse_rate_limit_header(response.headers["x-ratelimit-limit"]);
+    const api_remaining = parse_rate_limit_header(response.headers["x-ratelimit-remaining"]);
 
-    if (Number.isNaN(limit) || Number.isNaN(remaining)) {
+    if (Number.isNaN(api_limit) || Number.isNaN(api_remaining)) {
         throw new Error(
             `brave: missing or invalid rate-limit headers (limit=${JSON.stringify(response.headers["x-ratelimit-limit"])}, remaining=${JSON.stringify(response.headers["x-ratelimit-remaining"])})`,
         );
     }
 
-    const used = Math.max(limit - remaining, 0);
+    const effective_limit = api_limit > 0 ? api_limit : user_limit;
+    const used = api_limit > 0 ? Math.max(api_limit - api_remaining, 0) : 0;
     const now = Date.now();
     const reset_at = next_month_start();
 
@@ -68,10 +78,10 @@ async function main(): Promise<Observation[]> {
             normalized_label: "本月查询",
             window: "month",
             used,
-            limit,
+            limit: effective_limit,
             display_style: "ratio",
             reset_at,
-            status: status_for_usage(used, limit),
+            status: status_for_usage(used, effective_limit),
             observed_at: now,
             source: "probe",
             stale: false,
