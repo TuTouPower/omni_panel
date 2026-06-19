@@ -206,7 +206,7 @@ describe("cpa connector", () => {
                 normalized_label: "一周",
             }),
         );
-        expect(codex[0]?.used).toBeCloseTo(35.2, 0);
+        expect(codex[0]?.used).toBeCloseTo(64.8, 0);
         expect(codex[1]?.used).toBeCloseTo(12.5, 0);
     });
 

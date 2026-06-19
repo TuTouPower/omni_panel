@@ -127,6 +127,10 @@ function parse_claude(
         const period = body[key];
         const pct = is_record(period) ? to_pct(period["utilization"]) : 0;
         const reset_at = is_record(period) ? to_reset_at(period["resets_at"]) : null;
+        console.debug(`claude ${account.account_label} ${key}`, {
+            utilization: is_record(period) ? period["utilization"] : undefined,
+            final_pct: pct,
+        });
         return {
             provider: "claude",
             source_instance_id: "cpa",
@@ -158,15 +162,20 @@ function parse_codex(
 ): Observation[] {
     const rl = body["rate_limit"];
     if (!is_record(rl)) return [];
-    const windows: [string, string, string, "second" | "day"][] = [
-        ["primary_window", "primary_window", "5小时", "second"],
-        ["secondary_window", "secondary_window", "一周", "day"],
+    // primary_window (5h): used_percent = fraction remaining (1.0 = untouched)
+    // secondary_window (week): used_percent = fraction used (0 = untouched)
+    const windows: [string, string, string, "second" | "day", boolean][] = [
+        ["primary_window", "primary_window", "5小时", "second", true],
+        ["secondary_window", "secondary_window", "一周", "day", false],
     ];
     const observations: Observation[] = [];
-    for (const [key, raw_label, normalized_label, window] of windows) {
+    for (const [key, raw_label, normalized_label, window, invert] of windows) {
         const w = rl[key] ?? rl[key.replace(/_/g, "")];
         if (!is_record(w)) continue;
-        const pct = to_pct(w["used_percent"] ?? w["usedPercent"]);
+        const raw_pct = to_pct(w["used_percent"] ?? w["usedPercent"]);
+        // secondary_window (week): API returns 1.0 for unused accounts,
+        // to_pct converts to 100. Treat as 0 (no usage).
+        const pct = invert ? 100 - raw_pct : raw_pct >= 100 ? 0 : raw_pct;
         const raw_reset = w["reset_at"] ?? w["resetAt"];
         let reset_at: number | null = null;
         if (raw_reset != null) {
@@ -235,9 +244,15 @@ function parse_gemini(
         if (!is_record(bucket)) continue;
         const model_id = typeof bucket["modelId"] === "string" ? bucket["modelId"] : "unknown";
         const token_type = typeof bucket["tokenType"] === "string" ? bucket["tokenType"] : "";
-        let remaining = to_number(bucket["remainingFraction"]);
+        const remaining_raw = bucket["remainingFraction"];
+        let remaining = to_number(remaining_raw);
         if (remaining <= 1) remaining *= 100;
         const used = Math.round(Math.min(Math.max(0, 100 - remaining), 100) * 10) / 10;
+        console.debug(`gemini ${account.account_label} ${model_id}:${token_type}`, {
+            remainingFraction: remaining_raw,
+            remaining,
+            final_used: used,
+        });
         const reset_at = to_reset_at(bucket["resetTime"] ?? bucket["reset_time"]);
         const model_label = gemini_model_label(model_id);
         const token_label = gemini_token_label(token_type);
@@ -330,6 +345,11 @@ function parse_kimi(
         if (total <= 0) continue;
         const used = to_number(entry["used"]);
         const pct = Math.round((used / total) * 1000) / 10;
+        console.debug(`kimi ${account.account_label}`, {
+            used: entry["used"],
+            limit: entry["limit"],
+            final_pct: pct,
+        });
         const name_field = typeof entry["name"] === "string" ? entry["name"] : "";
         const title_field = typeof entry["title"] === "string" ? entry["title"] : "";
         const duration = typeof entry["duration"] === "string" ? entry["duration"] : "";
