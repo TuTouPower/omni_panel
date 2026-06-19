@@ -388,6 +388,9 @@ export function PopupView() {
             (connector) => connector.enabled && connector.activeProviders.includes(provider),
         );
 
+        const started_at = Date.now();
+        const MIN_SPINNER_MS = 500;
+
         set_refreshing_providers((prev) => new Set(prev).add(provider));
 
         void Promise.all(
@@ -403,11 +406,15 @@ export function PopupView() {
                 });
             })
             .finally(() => {
-                set_refreshing_providers((prev) => {
-                    const next = new Set(prev);
-                    next.delete(provider);
-                    return next;
-                });
+                const elapsed = Date.now() - started_at;
+                const remaining = Math.max(0, MIN_SPINNER_MS - elapsed);
+                setTimeout(() => {
+                    set_refreshing_providers((prev) => {
+                        const next = new Set(prev);
+                        next.delete(provider);
+                        return next;
+                    });
+                }, remaining);
             });
     };
 

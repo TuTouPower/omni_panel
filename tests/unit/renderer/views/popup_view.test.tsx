@@ -704,6 +704,187 @@ describe("PopupView", () => {
         });
     });
 
+    it("preserves collapse state when onStateChange updates data with same accounts", async () => {
+        // Regression: per-provider refresh triggered onStateChange which changed
+        // structural_signature, causing collapsed_accounts to be wiped.
+        let on_state_change_cb: ((instanceId: string, state: unknown) => void) | undefined;
+        window.usageboard.event.onStateChange = vi.fn(
+            (cb: (instanceId: string, state: unknown) => void) => {
+                on_state_change_cb = cb;
+                return vi.fn();
+            },
+        );
+        const config_get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                collapsedAccounts: { "cpa-main:label:Claude Account": true },
+            },
+            hasSecrets: {},
+        });
+        window.usageboard.config.get = config_get;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        // Account starts collapsed (from config)
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /展开 Claude Account/ })).toBeInTheDocument();
+        });
+
+        // Simulate onStateChange with updated data — same accounts, different usage
+        expect(on_state_change_cb).toBeDefined();
+        act(() => {
+            on_state_change_cb?.("cpa-connector", {
+                status: "ready",
+                updatedAt: "2026-01-01T12:10:00Z",
+                items: [
+                    {
+                        id: "claude-pro",
+                        provider: "claude",
+                        source: "cpa",
+                        sourceInstanceId: "cpa-main",
+                        accountId: "claude-account",
+                        accountLabel: "Claude Account",
+                        raw_label: "claude-pro",
+                        normalized_label: "Claude Pro",
+                        used: 50,
+                        limit: 100,
+                        displayStyle: "percent",
+                        resetAt: null,
+                        status: "warning",
+                    },
+                ],
+            });
+        });
+
+        // Collapse state MUST be preserved — account still collapsed
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /展开 Claude Account/ })).toBeInTheDocument();
+        });
+        expect(
+            screen.queryByRole("button", { name: /折叠 Claude Account/ }),
+        ).not.toBeInTheDocument();
+    });
+
+    it("prunes collapse state only for accounts removed by onStateChange", async () => {
+        // Regression: structural_signature effect used to reset ALL collapse state
+        // on any data change. Now it should only prune entries for accounts that
+        // no longer exist.
+        let on_state_change_cb: ((instanceId: string, state: unknown) => void) | undefined;
+        window.usageboard.event.onStateChange = vi.fn(
+            (cb: (instanceId: string, state: unknown) => void) => {
+                on_state_change_cb = cb;
+                return vi.fn();
+            },
+        );
+        plugin_list.mockResolvedValue([
+            connectorInfo({
+                source: "cpa",
+                sourceInstanceId: "cpa-main",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        {
+                            id: "acc-a",
+                            provider: "claude",
+                            source: "cpa",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "auth-a",
+                            accountLabel: "Account A",
+                            raw_label: "5h",
+                            normalized_label: "5小时",
+                            used: 10,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: null,
+                            status: "normal",
+                        },
+                        {
+                            id: "acc-b",
+                            provider: "claude",
+                            source: "cpa",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "auth-b",
+                            accountLabel: "Account B",
+                            raw_label: "5h",
+                            normalized_label: "5小时",
+                            used: 20,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: null,
+                            status: "normal",
+                        },
+                    ],
+                },
+            }),
+        ]);
+        const config_get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                collapsedAccounts: {
+                    "cpa-main:label:Account A": true,
+                    "cpa-main:label:Account B": true,
+                },
+            },
+            hasSecrets: {},
+        });
+        window.usageboard.config.get = config_get;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        // Both accounts start collapsed
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /展开 Account A/ })).toBeInTheDocument();
+            expect(screen.getByRole("button", { name: /展开 Account B/ })).toBeInTheDocument();
+        });
+
+        // Simulate onStateChange removing Account B
+        expect(on_state_change_cb).toBeDefined();
+        act(() => {
+            on_state_change_cb?.("cpa-connector", {
+                status: "ready",
+                updatedAt: "2026-01-01T12:10:00Z",
+                items: [
+                    {
+                        id: "acc-a",
+                        provider: "claude",
+                        source: "cpa",
+                        sourceInstanceId: "cpa-main",
+                        accountId: "auth-a",
+                        accountLabel: "Account A",
+                        raw_label: "5h",
+                        normalized_label: "5小时",
+                        used: 10,
+                        limit: 100,
+                        displayStyle: "percent",
+                        resetAt: null,
+                        status: "normal",
+                    },
+                ],
+            });
+        });
+
+        // Account A should still be collapsed; Account B gone from DOM
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /展开 Account A/ })).toBeInTheDocument();
+        });
+        expect(screen.queryByText("Account B")).not.toBeInTheDocument();
+    });
+
     it("saves collapsedAccounts to config when user toggles", async () => {
         const config_save = vi.fn().mockResolvedValue(undefined);
         window.usageboard.config.save = config_save;
