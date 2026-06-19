@@ -17,6 +17,7 @@ interface ProviderOverviewProps {
     onToggleExpandProvider?: ((provider: UsageProvider) => void) | undefined;
     onToggleDisableProvider?: ((provider: UsageProvider) => void) | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
+    onReLogin?: ((provider: UsageProvider) => void) | undefined;
     draggingProvider?: UsageProvider | null | undefined;
     overProvider?: UsageProvider | null | undefined;
     onDragStart?: ((provider: UsageProvider) => void) | undefined;
@@ -41,6 +42,7 @@ export function ProviderOverview({
     onToggleExpandProvider,
     onToggleDisableProvider,
     onEditAccount,
+    onReLogin,
     draggingProvider,
     overProvider,
     onDragStart,
@@ -77,6 +79,7 @@ export function ProviderOverview({
                         onToggleExpand={onToggleExpandProvider}
                         onToggleDisable={onToggleDisableProvider}
                         onEditAccount={onEditAccount}
+                        onReLogin={onReLogin}
                         dragging={draggingProvider === provider}
                         dragOver={overProvider === provider && draggingProvider !== provider}
                         onDragStart={onDragStart}

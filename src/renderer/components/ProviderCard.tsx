@@ -38,6 +38,7 @@ interface ProviderCardProps {
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
+    onReLogin?: ((provider: UsageProvider) => void) | undefined;
 }
 
 function is_auth_error(error: string): boolean {
@@ -72,6 +73,7 @@ export function ProviderCard({
     barStyle = "thin",
     labelMap,
     onEditAccount,
+    onReLogin,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
@@ -139,7 +141,11 @@ export function ProviderCard({
                         <span
                             className="cs-action"
                             onClick={() => {
-                                window.usageboard.settings.open({ provider });
+                                if (onReLogin) {
+                                    onReLogin(provider);
+                                } else {
+                                    window.usageboard.settings.open({ provider });
+                                }
                             }}
                         >
                             重新登录

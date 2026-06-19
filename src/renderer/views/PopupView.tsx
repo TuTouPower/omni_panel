@@ -472,6 +472,23 @@ export function PopupView() {
             });
     };
 
+    const handle_re_login = async (provider: UsageProvider) => {
+        const connector = plugins.find((c) => c.enabled && c.activeProviders.includes(provider));
+        if (!connector) return;
+        try {
+            const result = await window.usageboard.auth.cookieLogin(connector.instanceId);
+            if (result.saved) {
+                await window.usageboard.connector.refresh(connector.sourceInstanceId);
+            }
+        } catch (err: unknown) {
+            window.usageboard.log({
+                level: "error",
+                module: MODULE,
+                message: `重新登录 ${provider} 失败: ${err instanceof Error ? err.message : String(err)}`,
+            });
+        }
+    };
+
     const edit_account = (account: ProviderUsageAccount) => {
         const first_period = account.periods[0];
         if (!first_period) return;
@@ -796,6 +813,13 @@ export function PopupView() {
                                     is_live ? toggle_disable_provider : undefined
                                 }
                                 onEditAccount={is_live ? edit_account : undefined}
+                                onReLogin={
+                                    is_live
+                                        ? (p) => {
+                                              void handle_re_login(p);
+                                          }
+                                        : undefined
+                                }
                                 draggingProvider={is_live ? drag_id : null}
                                 overProvider={is_live ? over_id : null}
                                 onDragStart={is_live ? handle_drag_start : undefined}
@@ -823,6 +847,13 @@ export function PopupView() {
                                     onDragEnter={is_live ? handle_account_drag_enter : undefined}
                                     onDragEnd={is_live ? handle_account_drag_end : undefined}
                                     onEditAccount={is_live ? edit_account : undefined}
+                                    onReLogin={
+                                        is_live
+                                            ? (p: UsageProvider) => {
+                                                  void handle_re_login(p);
+                                              }
+                                            : undefined
+                                    }
                                     onDisableAccount={is_live ? disable_account : undefined}
                                     barColorScheme={usage_bar_color_scheme}
                                     barStyle={usage_bar_style}
