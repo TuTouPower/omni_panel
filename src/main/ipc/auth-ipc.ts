@@ -52,6 +52,8 @@ export async function handleCookieLogin(
             resolve(result);
         }
 
+        let auto_close_id: ReturnType<typeof setTimeout> | null = null;
+
         // Intercept API requests to capture the exact Cookie header the browser sends.
         // This is more reliable than reading cookies from the session because the
         // browser may send cookies that session.cookies.get({}) doesn't return, or
@@ -64,6 +66,14 @@ export async function handleCookieLogin(
                     log.info(
                         `Captured Cookie header from browser API request to ${details.url.slice(0, 80)}`,
                     );
+                    // Auto-close after a short delay so the page finishes loading.
+                    auto_close_id ??= setTimeout(() => {
+                        auto_close_id = null;
+                        if (!resolved && !loginWin.isDestroyed()) {
+                            log.info("Auto-closing login window after cookie capture");
+                            loginWin.close();
+                        }
+                    }, 1500);
                 }
             }
             callback({ requestHeaders: details.requestHeaders });
@@ -72,7 +82,7 @@ export async function handleCookieLogin(
         const loginWin = new BrowserWindow({
             width: 520,
             height: 720,
-            title: "MiMo 登录 — 登录完成后关闭此窗口",
+            title: "MiMo 登录 — 登录后将自动关闭",
             webPreferences: {
                 contextIsolation: true,
                 nodeIntegration: false,
@@ -84,6 +94,10 @@ export async function handleCookieLogin(
         });
 
         loginWin.on("closed", () => {
+            if (auto_close_id) {
+                clearTimeout(auto_close_id);
+                auto_close_id = null;
+            }
             if (resolved) return;
             if (captured_cookie) {
                 log.info("Saving cookie captured from browser API request");
@@ -141,6 +155,10 @@ export async function handleCookieLogin(
         });
 
         timeoutId = setTimeout(() => {
+            if (auto_close_id) {
+                clearTimeout(auto_close_id);
+                auto_close_id = null;
+            }
             if (!resolved) {
                 log.warn("Login window timed out");
                 if (!loginWin.isDestroyed()) {
