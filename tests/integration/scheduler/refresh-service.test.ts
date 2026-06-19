@@ -324,4 +324,170 @@ return [{
             await rm(tempDir, { recursive: true, force: true });
         }
     });
+
+    it("auto re-login session connector on auth error and retries", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "connector-session-relogin-"));
+        // Script behavior controlled by SESSION_COOKIE value in vault
+        const session_script = `
+if (ctx.params.SESSION_COOKIE === "expired") {
+    throw new Error("HTTP 401: request failed");
+}
+return [{
+    provider: "mimo",
+    source_instance_id: "mimo-1",
+    account_id: "mimo-1",
+    account_label: "MiMo",
+    metric_id: "mimo:usage",
+    raw_label: "usage",
+    normalized_label: "Usage",
+    window: "month",
+    used: 50,
+    limit: 100,
+    display_style: "percent",
+    reset_at: null,
+    status: "normal",
+    observed_at: 1780000000000,
+    source: "session",
+    stale: false,
+    last_error: null
+}];`;
+        await writeFile(join(tempDir, "connector.js"), session_script);
+        const observationStore = create_observation_store();
+        const runtimeStore = createRuntimeStore();
+        const vault = create_vault();
+        await vault.set("mimo-1:SESSION_COOKIE", "expired");
+        const sessionLogin = vi.fn().mockImplementation(async () => {
+            await vault.set("mimo-1:SESSION_COOKIE", "valid");
+            return { saved: true };
+        });
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "mimo",
+                        provider: "mimo",
+                        capabilities: ["session"],
+                        parameters: [
+                            {
+                                name: "SESSION_COOKIE",
+                                type: "secret",
+                                required: true,
+                                exposeToScript: true,
+                            },
+                        ],
+                        endpoints: { default: "https://platform.xiaomimimo.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([
+                {
+                    ...plugin_config("mimo-1"),
+                    executablePath: tempDir,
+                    name: "MiMo",
+                },
+            ]),
+            vault,
+            sessionLogin,
+        });
+
+        try {
+            await service.refresh("mimo-1", { force: true });
+
+            expect(sessionLogin).toHaveBeenCalledWith("mimo-1");
+            const state = runtimeStore.getSnapshot("mimo-1");
+            expect(state.status).toBe("ready");
+            if (state.status === "ready") {
+                expect(state.items).toHaveLength(1);
+                expect(state.items[0]?.used).toBe(50);
+            }
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("falls back to failed state when sessionLogin fails", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "connector-session-relogin-fail-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("HTTP 401: request failed");`,
+        );
+        const runtimeStore = createRuntimeStore();
+        const sessionLogin = vi.fn().mockRejectedValue(new Error("Login timeout"));
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "mimo",
+                        provider: "mimo",
+                        capabilities: ["session"],
+                        parameters: [],
+                        endpoints: { default: "https://platform.xiaomimimo.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore: create_observation_store(),
+            runtimeStore,
+            configStore: create_config_store([
+                {
+                    ...plugin_config("mimo-1"),
+                    executablePath: tempDir,
+                    name: "MiMo",
+                    parameterValues: {},
+                },
+            ]),
+            vault: create_vault(),
+            sessionLogin,
+        });
+
+        try {
+            await service.refresh("mimo-1", { force: true });
+
+            expect(sessionLogin).toHaveBeenCalledWith("mimo-1");
+            const state = runtimeStore.getSnapshot("mimo-1");
+            expect(state.status).toBe("failed");
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("does not auto re-login for non-session connectors", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "connector-no-relogin-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("HTTP 401: request failed");`,
+        );
+        const runtimeStore = createRuntimeStore();
+        const sessionLogin = vi.fn();
+        const service = createRefreshService({
+            definitions: [definition(tempDir)],
+            observationStore: create_observation_store(),
+            runtimeStore,
+            configStore: create_config_store([
+                {
+                    ...plugin_config("deepseek-1"),
+                    executablePath: tempDir,
+                },
+            ]),
+            vault: create_vault(),
+            sessionLogin,
+        });
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            expect(sessionLogin).not.toHaveBeenCalled();
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            expect(state.status).toBe("failed");
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
 });
