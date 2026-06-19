@@ -22,6 +22,7 @@ export interface RefreshServiceDeps {
     runtimeStore: RuntimeStore;
     configStore: AppConfigStore;
     vault: VaultBackend;
+    sessionLogin?: (instanceId: string) => Promise<{ saved: boolean }>;
 }
 
 export interface ConnectorRefreshService {
@@ -37,6 +38,17 @@ function previous_ready(state: ConnectorSnapshotState) {
         ...(state.badge !== undefined && { badge: state.badge }),
         ...(state.chart !== undefined && { chart: state.chart }),
     };
+}
+
+function is_auth_error(message: string): boolean {
+    const lower = message.toLowerCase();
+    return (
+        lower.includes("401") ||
+        lower.includes("unauthorized") ||
+        lower.includes("token") ||
+        lower.includes("credential") ||
+        lower.includes("auth")
+    );
 }
 
 function source_for_observation(obs: Observation, definition: ConnectorDefinition): UsageSource {
@@ -228,6 +240,54 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
             } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : String(error);
                 log.error(`Connector ${instanceId} (${connector_config.name}) failed: ${message}`);
+
+                // Auto re-login for session-based connectors on auth errors
+                if (
+                    deps.sessionLogin &&
+                    definition.manifest.capabilities.includes("session") &&
+                    is_auth_error(message)
+                ) {
+                    log.info(`Auto-triggering re-login for ${connector_config.name}`);
+                    try {
+                        const result = await deps.sessionLogin(instanceId);
+                        if (result.saved) {
+                            log.info(
+                                `Re-login succeeded for ${connector_config.name}, retrying refresh`,
+                            );
+                            // Re-run the connector with fresh cookies
+                            const retry_observations = await execute_connector(
+                                connector_config,
+                                definition,
+                                deps.vault,
+                                config.proxy?.url,
+                            );
+                            for (const obs of retry_observations) {
+                                deps.observationStore.insert(obs);
+                            }
+                            const retry_items = retry_observations
+                                .map((obs) => observation_to_usage_item(obs, definition))
+                                .filter((item): item is MetricRecord => item !== null);
+                            const retry_updated_at = retry_observations.reduce(
+                                (latest, obs) => Math.max(latest, obs.observed_at),
+                                Date.now(),
+                            );
+                            deps.runtimeStore.updateState(instanceId, {
+                                status: "ready",
+                                items: retry_items,
+                                updatedAt: new Date(retry_updated_at),
+                            });
+                            log.info(
+                                `Connector ${connector_config.name} refreshed after re-login: ${String(retry_items.length)} items`,
+                            );
+                            return;
+                        }
+                    } catch (login_error: unknown) {
+                        log.error(
+                            `Auto re-login failed for ${connector_config.name}: ${login_error instanceof Error ? login_error.message : String(login_error)}`,
+                        );
+                    }
+                }
+
                 deps.runtimeStore.updateState(instanceId, {
                     status: "failed",
                     error: message,
