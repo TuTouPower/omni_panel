@@ -110,4 +110,40 @@ describe("tavily connector", () => {
         expect(result.error).toBeNull();
         expect(result.observations).toEqual([]);
     });
+
+    it("throws when API returns error field", async () => {
+        const script = await readFile(join("connectors", "tavily", "connector.ts"), "utf8");
+        const ctx: ConnectorContext = {
+            http: {
+                get_json: () => Promise.resolve({ error: "Invalid API key" }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { API_KEY: "test-key" },
+        };
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("Invalid API key");
+        expect(result.observations).toEqual([]);
+    });
+
+    it("throws when API response lacks account", async () => {
+        const script = await readFile(join("connectors", "tavily", "connector.ts"), "utf8");
+        const ctx: ConnectorContext = {
+            http: {
+                get_json: () => Promise.resolve({}),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { API_KEY: "test-key" },
+        };
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("account");
+        expect(result.observations).toEqual([]);
+    });
 });

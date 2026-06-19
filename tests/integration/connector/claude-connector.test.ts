@@ -94,4 +94,16 @@ describe("claude connector", () => {
         expect(result.error).toBeNull();
         expect(result.observations).toEqual([]);
     });
+
+    it("throws when API returns neither five_hour nor seven_day", async () => {
+        const script = await readFile(join("connectors", "claude", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () => Promise.resolve({ error: "invalid token" });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("five_hour");
+        expect(result.observations).toEqual([]);
+    });
 });

@@ -106,4 +106,40 @@ describe("deepseek connector", () => {
 
         expect(result.observations[0]?.status).toBe("normal");
     });
+
+    it("throws when API returns error code", async () => {
+        const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
+        const ctx: ConnectorContext = {
+            http: {
+                get_json: () => Promise.resolve({ code: 401, message: "Unauthorized" }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { API_KEY: "test-key", LIMIT: "100" },
+        };
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("Unauthorized");
+        expect(result.observations).toEqual([]);
+    });
+
+    it("throws when API response lacks balance_infos", async () => {
+        const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
+        const ctx: ConnectorContext = {
+            http: {
+                get_json: () => Promise.resolve({ error: "invalid key" }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { API_KEY: "test-key", LIMIT: "100" },
+        };
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("balance_infos");
+        expect(result.observations).toEqual([]);
+    });
 });

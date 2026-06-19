@@ -126,4 +126,41 @@ describe("glm connector", () => {
         expect(result.error).toBeNull();
         expect(result.observations).toEqual([]);
     });
+
+    it("throws when API returns error code", async () => {
+        const script = await readFile(join("connectors", "glm", "connector.ts"), "utf8");
+        const ctx: ConnectorContext = {
+            http: {
+                get_json: () =>
+                    Promise.resolve({ code: 401, msg: "令牌已过期或验证不正确", success: false }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { API_KEY: "test-key" },
+        };
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("令牌已过期");
+        expect(result.observations).toEqual([]);
+    });
+
+    it("throws when API response lacks limits field", async () => {
+        const script = await readFile(join("connectors", "glm", "connector.ts"), "utf8");
+        const ctx: ConnectorContext = {
+            http: {
+                get_json: () => Promise.resolve({ code: 200, data: {} }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { API_KEY: "test-key" },
+        };
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("limits");
+        expect(result.observations).toEqual([]);
+    });
 });

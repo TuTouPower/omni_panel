@@ -19,6 +19,9 @@ interface QuotaLimit {
 }
 
 interface QuotaResponse {
+    readonly code?: number;
+    readonly msg?: string;
+    readonly success?: boolean;
     readonly data?: {
         readonly limits?: QuotaLimit[];
     };
@@ -96,7 +99,14 @@ async function main(): Promise<Observation[]> {
         headers: { "Content-Type": "application/json", Authorization: api_key },
     })) as QuotaResponse | null;
 
+    if (response?.code !== undefined && response.code !== 200) {
+        throw new Error(`智谱 API 错误: ${response.msg ?? String(response.code)}`);
+    }
+
     const limits = response?.data?.limits;
+    if (!Array.isArray(limits)) {
+        throw new Error("智谱 API 返回格式异常: 缺少 limits");
+    }
     if (!Array.isArray(limits)) return [];
 
     const now = Date.now();

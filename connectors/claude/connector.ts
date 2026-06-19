@@ -63,6 +63,10 @@ async function main(): Promise<Observation[]> {
         },
     })) as OAuthUsageResponse;
 
+    if (!data.five_hour && !data.seven_day) {
+        throw new Error("Claude API 返回格式异常: 缺少 five_hour 和 seven_day");
+    }
+
     const now = Date.now();
     return [
         {

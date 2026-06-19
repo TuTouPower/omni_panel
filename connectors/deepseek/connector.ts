@@ -9,6 +9,8 @@ interface BalanceInfo {
 }
 
 interface BalanceResponse {
+    readonly code?: number;
+    readonly message?: string;
     readonly balance_infos?: BalanceInfo[];
 }
 
@@ -43,7 +45,15 @@ async function main(): Promise<Observation[]> {
         headers: { Accept: "application/json", Authorization: `Bearer ${api_key}` },
     })) as BalanceResponse | null;
 
-    const infos = response?.balance_infos ?? [];
+    if (response?.code !== undefined && response.code !== 200) {
+        throw new Error(`DeepSeek API 错误: ${response.message ?? String(response.code)}`);
+    }
+
+    const infos = response?.balance_infos;
+    if (!Array.isArray(infos)) {
+        throw new Error("DeepSeek API 返回格式异常: 缺少 balance_infos");
+    }
+
     const now = Date.now();
 
     return infos.map((info) => {

@@ -14,6 +14,7 @@ interface AccountPayload {
 }
 
 interface UsagePayload {
+    readonly error?: string;
     readonly account?: AccountPayload;
 }
 
@@ -49,8 +50,14 @@ async function main(): Promise<Observation[]> {
         headers: { Authorization: `Bearer ${api_key}` },
     })) as UsagePayload | null;
 
+    if (response?.error) {
+        throw new Error(`Tavily API 错误: ${response.error}`);
+    }
+
     const account = response?.account;
-    if (!is_record(account)) return [];
+    if (!is_record(account)) {
+        throw new Error("Tavily API 返回格式异常: 缺少 account");
+    }
 
     const plan_limit = to_number(account["plan_limit"]);
     if (plan_limit <= 0) return [];
