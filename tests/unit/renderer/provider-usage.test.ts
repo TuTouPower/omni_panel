@@ -508,6 +508,45 @@ describe("provider usage aggregation", () => {
     });
 });
 
+describe("loading state preserves previous data (anti-flicker)", () => {
+    it("includes items from lastSuccess when snapshot status is loading", () => {
+        const items = [usageItem({ provider: "mimo", id: "mimo-window" })];
+        const connectors = [
+            connectorInfo({
+                source: "session",
+                supportedProviders: ["mimo"],
+                activeProviders: ["mimo"],
+                snapshot: {
+                    status: "loading",
+                    items,
+                    updatedAt: "2026-01-01T12:00:00Z",
+                },
+            }),
+        ];
+
+        const groups = build_provider_usage_groups(connectors);
+
+        expect(groups).toHaveLength(1);
+        expect(groups[0]?.provider).toBe("mimo");
+        expect(groups[0]?.accounts[0]?.periods).toHaveLength(1);
+    });
+
+    it("returns empty when loading and no previous items", () => {
+        const connectors = [
+            connectorInfo({
+                source: "session",
+                supportedProviders: ["mimo"],
+                activeProviders: ["mimo"],
+                snapshot: { status: "loading" },
+            }),
+        ];
+
+        const groups = build_provider_usage_groups(connectors);
+
+        expect(groups).toHaveLength(0);
+    });
+});
+
 describe("apply_account_overrides", () => {
     const two_account_connectors = [
         connectorInfo({

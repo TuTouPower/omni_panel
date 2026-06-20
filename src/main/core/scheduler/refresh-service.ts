@@ -14,7 +14,7 @@ import { execute_poll } from "../connector/tier1-poll-executor";
 import { execute_probe } from "../connector/probe-executor";
 import { run_connector } from "../connector/runtime";
 import type { ObservationStore } from "../observation/observation-store";
-import type { ConnectorSnapshotState } from "./types";
+import type { ConnectorSnapshotState, SnapshotSuccess } from "./types";
 
 export interface RefreshServiceDeps {
     definitions: readonly ConnectorDefinition[];
@@ -30,14 +30,20 @@ export interface ConnectorRefreshService {
     refreshAll(): Promise<void>;
 }
 
-function previous_ready(state: ConnectorSnapshotState) {
-    if (state.status !== "ready") return undefined;
-    return {
-        updatedAt: state.updatedAt.toISOString(),
-        items: state.items,
-        ...(state.badge !== undefined && { badge: state.badge }),
-        ...(state.chart !== undefined && { chart: state.chart }),
-    };
+/** Extract the last known-good data from any state (ready or failed with lastSuccess). */
+function last_success_snapshot(state: ConnectorSnapshotState): SnapshotSuccess | undefined {
+    if (state.status === "ready") {
+        return {
+            updatedAt: state.updatedAt.toISOString(),
+            items: state.items,
+            ...(state.badge !== undefined && { badge: state.badge }),
+            ...(state.chart !== undefined && { chart: state.chart }),
+        };
+    }
+    if (state.status === "loading" || state.status === "failed") {
+        return state.lastSuccess;
+    }
+    return undefined;
 }
 
 function is_auth_error(message: string): boolean {
@@ -195,7 +201,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 return;
             }
 
-            const prior = previous_ready(deps.runtimeStore.getSnapshot(instanceId));
+            const prior = last_success_snapshot(deps.runtimeStore.getSnapshot(instanceId));
             deps.runtimeStore.updateState(instanceId, {
                 status: "loading",
                 ...(prior !== undefined && { lastSuccess: prior }),

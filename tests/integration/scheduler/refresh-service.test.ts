@@ -458,6 +458,81 @@ return [{
         }
     });
 
+    it("preserves lastSuccess across consecutive failures (anti-flicker)", async () => {
+        // Scenario: connector was "ready", fails once (lastSuccess preserved),
+        // fails again — second refresh MUST still carry lastSuccess so the
+        // renderer can show stale data during loading instead of flickering.
+        const tempDir = await mkdtemp(join(tmpdir(), "refresh-anti-flicker-"));
+        await writeFile(join(tempDir, "connector.js"), `throw new Error("boom");`);
+        const runtimeStore = createRuntimeStore();
+        const items = [
+            {
+                id: "mimo:mimo:mimo:usage",
+                provider: "mimo" as const,
+                source: "session" as const,
+                sourceInstanceId: "mimo-1",
+                accountId: "mimo-1",
+                accountLabel: "MiMo",
+                raw_label: "usage",
+                normalized_label: "Usage",
+                used: 50,
+                limit: 100,
+                displayStyle: "percent" as const,
+                resetAt: null,
+                status: "normal" as const,
+                observedAt: "2026-06-06T12:00:00Z",
+                stale: false,
+            },
+        ];
+        runtimeStore.updateState("mimo-1", {
+            status: "ready",
+            items,
+            updatedAt: new Date("2026-06-06T12:00:00Z"),
+        });
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "mimo",
+                        provider: "mimo",
+                        capabilities: ["session"],
+                        parameters: [],
+                        endpoints: { default: "https://platform.xiaomimimo.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore: create_observation_store(),
+            runtimeStore,
+            configStore: create_config_store([
+                { ...plugin_config("mimo-1"), executablePath: tempDir, name: "MiMo" },
+            ]),
+            vault: create_vault(),
+        });
+
+        try {
+            // First failure: lastSuccess preserved from "ready"
+            await service.refresh("mimo-1", { force: true });
+            let state = runtimeStore.getSnapshot("mimo-1");
+            expect(state.status).toBe("failed");
+            if (state.status === "failed") {
+                expect(state.lastSuccess?.items).toHaveLength(1);
+            }
+
+            // Second failure: lastSuccess MUST survive from the "failed" state
+            await service.refresh("mimo-1", { force: true });
+            state = runtimeStore.getSnapshot("mimo-1");
+            expect(state.status).toBe("failed");
+            if (state.status === "failed") {
+                expect(state.lastSuccess?.items).toHaveLength(1);
+            }
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
     it("does not auto re-login for non-session connectors", async () => {
         const tempDir = await mkdtemp(join(tmpdir(), "connector-no-relogin-"));
         await writeFile(
