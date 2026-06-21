@@ -72,41 +72,71 @@
 - 打包后宿主在发现内置连接器前校验 `process.resourcesPath/plugins` 和 `process.resourcesPath/sdk` 的 asar 内置 SHA-256 清单；不匹配则跳过内置连接器
 - `.` 开头的文件名（隐藏文件）跳过（如 `.DS_Store`）
 
-### 3.2 元数据注释块
+### 3.2 清单文件（manifest.json）
 
-连接器脚本头部用 `//` 注释块声明元数据，宿主只解析前 **80 行**。
+每个连接器目录包含 `manifest.json`，声明元数据和采集能力。宿主用 Zod schema（`src/shared/schemas/manifest.ts`）校验，校验失败不阻塞启动。
 
+**示例**：
+
+```json
+{
+    "id": "claude",
+    "provider": "claude",
+    "capabilities": ["local"],
+    "parameters": [
+        {
+            "name": "data_dir",
+            "type": "string",
+            "required": false,
+            "default": "~/.claude",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": { "anthropic": "https://api.anthropic.com" },
+    "local": { "paths": ["~/.claude/.credentials.json"] },
+    "script": "connector.ts"
+}
 ```
-// UsageBoardPlugin:
-// {
-//   "name": "Claude",
-//   "supportedProviders": ["claude"],
-//   "defaultSource": "local",
-//   "name@zh-Hans": "Claude",
-//   "parameters": [
-//     { "name": "api_key", "label": "API Key", "type": "secret", "required": true }
-//   ]
-// }
-// /UsageBoardPlugin
-```
 
-**解析规则**：
+**顶层字段**：
 
-- `UsageBoardPlugin:` 为开始标记（前缀匹配，`//` 前缀先被剥离）
-- `/UsageBoardPlugin` 为结束标记
-- 每行去除 `// ` 前缀后拼接，做 JSON 解析
-- 缺少标记或 JSON 无效 → 返回 `null`，不阻塞启动
-- 多语言 key：`name@zh-Hans`、`label@en` 等
+| 字段                       | 类型                                        | 必填 | 说明                                                  |
+| -------------------------- | ------------------------------------------- | ---- | ----------------------------------------------------- |
+| `id`                       | `string`                                    | 是   | 连接器唯一标识                                        |
+| `provider`                 | `UsageProvider \| "cpa"`                    | 是   | 归属 provider，用于 UI 聚合；`"cpa"` 仅出现在连接器层 |
+| `capabilities`             | `("poll"\|"local"\|"session"\|"observe")[]` | 是   | 采集能力（至少一个）                                  |
+| `parameters`               | `Parameter[]`                               | 否   | 参数定义（默认 `[]`）                                 |
+| `endpoints`                | `Record<string, string>`                    | 否   | 依赖的 HTTP 端点，值为默认 URL                        |
+| `requireExplicitEndpoints` | `boolean`                                   | 否   | 为 `true` 时端点必填无默认（如 CPA）                  |
+| `manualDefault`            | `boolean`                                   | 否   | 标记需手动配置的连接器                                |
+| `script`                   | `string`                                    | 否   | 连接器脚本文件名（相对于 manifest 目录）              |
+| `poll`                     | `PollConfig`                                | 条件 | `capabilities` 含 `"poll"` 时必填                     |
+| `observe`                  | `ObserveConfig`                             | 条件 | `capabilities` 含 `"observe"` 时必填                  |
+| `local`                    | `LocalConfig`                               | 条件 | `capabilities` 含 `"local"` 时必填                    |
 
-**参数类型**：`string` | `secret` | `integer` | `boolean` | `choice` | `directory` | `file`
+**Parameter 字段**：
 
-**`endpoints` 字段**（可选）：`Record<string, string | null>`，声明连接器依赖的 HTTP 端点。`string` 值 = 默认 URL，`null` = 必填无默认（如 CPA），省略 = 不依赖外部 HTTP。
+| 字段             | 类型                               | 必填 | 说明                           |
+| ---------------- | ---------------------------------- | ---- | ------------------------------ |
+| `name`           | `string`                           | 是   | 参数名                         |
+| `type`           | `"secret" \| "string" \| "number"` | 是   | 参数类型                       |
+| `required`       | `boolean`                          | 否   | 是否必填（默认 `false`）       |
+| `label`          | `string`                           | 否   | 英文显示名                     |
+| `label@zh-Hans`  | `string`                           | 否   | 中文显示名                     |
+| `default`        | `string`                           | 否   | 默认值                         |
+| `exposeToScript` | `boolean`                          | 否   | 是否注入子进程（默认 `false`） |
 
-**`supportedProviders` 字段**（可选）：声明连接器支持的 UsageProvider 列表，用于 UI 聚合和 CPA 连接器 provider 过滤。
+**能力配置**：
 
-**`defaultSource` 字段**（可选）：声明连接器的默认采集能力（`poll` | `local` | `session` | `observe`），用于 UI 中的来源分类。
+- **PollConfig**：`{ request: { endpoint, path, method?, auth?, body? }, map: Record<string, string> }`
+- **ObserveConfig**：`{ headers: string[], probe?: { endpoint, path, params? } }`
+- **LocalConfig**：`{ paths: string[] }`
 
-**`icon` 字段**（可选）：连接器图标 URL。
+**校验规则**：
+
+- Schema 使用 `.strict()` 模式，禁止未知字段
+- 每个 capability 必须有对应的配置段（`poll`→`PollConfig`，`observe`→`ObserveConfig`，`local`→`LocalConfig`）
+- `session` 能力无额外配置段，仅由连接器脚本自行处理
 
 ### 3.3 参数传递
 
