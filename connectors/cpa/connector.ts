@@ -127,10 +127,6 @@ function parse_claude(
         const period = body[key];
         const pct = is_record(period) ? to_pct(period["utilization"]) : 0;
         const reset_at = is_record(period) ? to_reset_at(period["resets_at"]) : null;
-        console.debug(`claude ${account.account_label} ${key}`, {
-            utilization: is_record(period) ? period["utilization"] : undefined,
-            final_pct: pct,
-        });
         return {
             provider: "claude",
             source_instance_id: "cpa",
@@ -246,11 +242,6 @@ function parse_gemini(
         let remaining = to_number(remaining_raw);
         if (remaining <= 1) remaining *= 100;
         const used = Math.round(Math.min(Math.max(0, 100 - remaining), 100) * 10) / 10;
-        console.debug(`gemini ${account.account_label} ${model_id}:${token_type}`, {
-            remainingFraction: remaining_raw,
-            remaining,
-            final_used: used,
-        });
         const reset_at = to_reset_at(bucket["resetTime"] ?? bucket["reset_time"]);
         const model_label = gemini_model_label(model_id);
         const token_label = gemini_token_label(token_type);
@@ -343,11 +334,6 @@ function parse_kimi(
         if (total <= 0) continue;
         const used = to_number(entry["used"]);
         const pct = Math.round((used / total) * 1000) / 10;
-        console.debug(`kimi ${account.account_label}`, {
-            used: entry["used"],
-            limit: entry["limit"],
-            final_pct: pct,
-        });
         const name_field = typeof entry["name"] === "string" ? entry["name"] : "";
         const title_field = typeof entry["title"] === "string" ? entry["title"] : "";
         const duration = typeof entry["duration"] === "string" ? entry["duration"] : "";
