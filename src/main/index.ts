@@ -454,7 +454,7 @@ void app.whenReady().then(async () => {
         log.info("System tray created");
         if (process.env["E2E"] === "1") {
             // Expose tray click for E2E tests via IPC
-            ipcMain.handle("test:tray-click", () => {
+            ipcMain.handle(IPC_CHANNELS.TEST_TRAY_CLICK, () => {
                 log.info("[E2E test] test:tray-click received, emitting tray click");
                 tray.emit("click");
                 log.info("[E2E test] tray click emitted");
@@ -501,9 +501,9 @@ void app.whenReady().then(async () => {
         const send_tray_state = (): void => {
             if (trayMenuWin && !trayMenuWin.isDestroyed()) {
                 try {
-                    trayMenuWin.webContents.send("tray:pauseState", is_paused);
+                    trayMenuWin.webContents.send(IPC_CHANNELS.TRAY_PAUSE_STATE, is_paused);
                     trayMenuWin.webContents.send(
-                        "tray:autostartState",
+                        IPC_CHANNELS.TRAY_AUTOSTART_STATE,
                         hasLoginItemApi ? app.getLoginItemSettings().openAtLogin : false,
                     );
                 } catch {
@@ -519,16 +519,16 @@ void app.whenReady().then(async () => {
         });
 
         // Tray menu IPC handlers
-        ipcMain.handle("tray:openPanel", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_OPEN_PANEL, () => {
             hideTrayMenu();
             tray.emit("click");
         });
-        ipcMain.handle("tray:refreshAll", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_REFRESH_ALL, () => {
             for (const p of currentConfigSnapshot.plugins) {
                 if (p.enabled) void refreshService.refresh(p.instanceId);
             }
         });
-        ipcMain.handle("tray:togglePause", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_PAUSE, () => {
             is_paused = !is_paused;
             if (is_paused) {
                 orchestrator.suspend();
@@ -539,33 +539,33 @@ void app.whenReady().then(async () => {
             }
             send_tray_state();
         });
-        ipcMain.handle("tray:toggleAutostart", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_AUTOSTART, () => {
             if (!hasLoginItemApi) return;
             const current = app.getLoginItemSettings().openAtLogin;
             app.setLoginItemSettings({ openAtLogin: !current });
             send_tray_state();
         });
-        ipcMain.handle("tray:openSettings", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_OPEN_SETTINGS, () => {
             hideTrayMenu();
             createOrFocusSettings();
         });
-        ipcMain.handle("tray:checkUpdate", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_CHECK_UPDATE, () => {
             log.info("Check for updates requested (not yet implemented)");
         });
-        ipcMain.handle("tray:survey", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_SURVEY, () => {
             log.info("Survey/feedback requested (not yet implemented)");
         });
-        ipcMain.handle("tray:sponsor", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_SPONSOR, () => {
             log.info("Sponsor/support author requested (not yet implemented)");
         });
-        ipcMain.handle("tray:quit", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_QUIT, () => {
             app.quit();
         });
-        ipcMain.handle("tray:restart", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_RESTART, () => {
             app.relaunch();
             app.quit();
         });
-        ipcMain.handle("tray:hide", () => {
+        ipcMain.handle(IPC_CHANNELS.TRAY_HIDE, () => {
             hideTrayMenu();
         });
         ipcMain.handle(IPC_CHANNELS.TRAY_REPORT_MENU_SIZE, (_event, report: unknown) => {
