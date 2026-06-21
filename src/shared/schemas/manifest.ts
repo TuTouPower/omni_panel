@@ -73,6 +73,7 @@ export const manifest_schema = z
         observe: observe_config_schema.optional(),
         local: local_config_schema.optional(),
     })
+    .strict()
     .refine(
         (manifest) =>
             manifest.capabilities.every((capability) => {
