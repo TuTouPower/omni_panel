@@ -249,10 +249,11 @@ const api: UsageboardApi = (() => {
                 theme: theme_methods,
                 settings: settings_methods,
                 tray: tray_methods,
+                auth: auth_methods,
                 session: session_methods,
                 logs: logs_methods,
                 log: log_method,
-            } as unknown as UsageboardApi;
+            };
         default: // popup
             return {
                 platform: renderer_platform,
