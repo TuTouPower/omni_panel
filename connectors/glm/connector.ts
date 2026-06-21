@@ -107,7 +107,6 @@ async function main(): Promise<Observation[]> {
     if (!Array.isArray(limits)) {
         throw new Error("智谱 API 返回格式异常: 缺少 limits");
     }
-    if (!Array.isArray(limits)) return [];
 
     const now = Date.now();
     const observations: Observation[] = [];
@@ -154,7 +153,7 @@ async function main(): Promise<Observation[]> {
                 metric_id: `glm:${kind}-${pk}`,
                 raw_label: `${kind}-${pk}`,
                 normalized_label,
-                window: pk === "5h" ? "second" : "day",
+                window: pk === "5h" ? "second" : pk === "month" ? "month" : "day",
                 used: percentage,
                 limit: 100,
                 display_style: "percent",
