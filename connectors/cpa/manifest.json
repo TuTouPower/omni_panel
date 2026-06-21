@@ -37,15 +37,6 @@
             "label@zh-Hans": "监控 Kimi"
         },
         {
-            "name": "monitor_deepseek",
-            "type": "string",
-            "required": false,
-            "default": "true",
-            "exposeToScript": true,
-            "label": "Monitor DeepSeek",
-            "label@zh-Hans": "监控 DeepSeek"
-        },
-        {
             "name": "monitor_codex",
             "type": "string",
             "required": false,
