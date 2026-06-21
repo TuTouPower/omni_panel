@@ -4,6 +4,7 @@ export const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
     { id: "claude", label: "Claude" },
     { id: "codex", label: "Codex" },
     { id: "gemini", label: "Gemini" },
+    { id: "antigravity", label: "Antigravity" },
     { id: "glm", label: "GLM" },
     { id: "kimi", label: "Kimi" },
     { id: "deepseek", label: "DeepSeek" },
