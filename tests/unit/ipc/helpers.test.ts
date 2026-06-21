@@ -35,7 +35,7 @@ describe("IPC helpers", () => {
                     {
                         id: "item-1",
                         provider: "claude",
-                        source: "cpa",
+                        source: "gateway",
                         sourceInstanceId: "cpa-1",
                         accountId: "acct-1",
                         accountLabel: "Claude Account",

@@ -27,13 +27,13 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
         status: "normal",
         updatedAt: "2026-06-02T10:00:00Z",
         observedAt: 1748858400000,
-        source: "api_key",
+        source: "poll",
         stale: false,
         periods: [
             {
                 id: "w1",
                 provider: "deepseek",
-                source: "api_key",
+                source: "poll",
                 sourceInstanceId: "ds-1",
                 connectorInstanceId: "ds-1",
                 connectorDisplayName: "DeepSeek",
@@ -65,7 +65,7 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
                     {
                         id: "w1",
                         provider: "deepseek",
-                        source: "api_key",
+                        source: "poll",
                         sourceInstanceId: "ds-1",
                         connectorInstanceId: "ds-1",
                         connectorDisplayName: "DeepSeek",
@@ -93,7 +93,7 @@ function makePeriod(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsage
     return {
         id: "w-overview",
         provider: "deepseek",
-        source: "api_key",
+        source: "poll",
         sourceInstanceId: "ds-overview",
         connectorInstanceId: "ds-overview",
         connectorDisplayName: "DeepSeek",
@@ -156,7 +156,7 @@ describe("ProviderCard", () => {
     it("shows stale badge without source badge or 观测 prefix", () => {
         const group = makeGroup({
             observedAt: 1748857740000,
-            source: "api_key",
+            source: "poll",
             stale: true,
         });
         render(<ProviderCard provider="deepseek" group={group} />);

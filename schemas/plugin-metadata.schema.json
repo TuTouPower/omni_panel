@@ -2,6 +2,9 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "properties": {
+        "schemaVersion": {
+            "type": "number"
+        },
         "name": {
             "type": "string"
         },
@@ -40,6 +43,9 @@
                     "placeholder": {
                         "type": "string"
                     },
+                    "description": {
+                        "type": "string"
+                    },
                     "defaultValue": {
                         "type": "string"
                     },
@@ -53,15 +59,33 @@
                                 },
                                 "value": {
                                     "type": "string"
+                                },
+                                "label@zh-Hans": {
+                                    "type": "string"
+                                },
+                                "label@en": {
+                                    "type": "string"
                                 }
                             },
                             "required": ["label", "value"],
-                            "additionalProperties": true
+                            "additionalProperties": false
                         }
+                    },
+                    "label@zh-Hans": {
+                        "type": "string"
+                    },
+                    "label@en": {
+                        "type": "string"
+                    },
+                    "description@zh-Hans": {
+                        "type": "string"
+                    },
+                    "description@en": {
+                        "type": "string"
                     }
                 },
                 "required": ["name", "label", "type", "required"],
-                "additionalProperties": true
+                "additionalProperties": false
             }
         },
         "endpoints": {
@@ -91,14 +115,27 @@
                     "glm",
                     "minimax",
                     "deepseek",
-                    "tavily"
+                    "tavily",
+                    "mimo"
                 ]
             }
         },
         "defaultSource": {
             "type": "string",
-            "enum": ["cpa", "direct", "local", "api_key", "oauth"]
+            "enum": ["poll", "local", "session", "wrapper", "probe", "gateway"]
+        },
+        "name@zh-Hans": {
+            "type": "string"
+        },
+        "name@en": {
+            "type": "string"
+        },
+        "description@zh-Hans": {
+            "type": "string"
+        },
+        "description@en": {
+            "type": "string"
         }
     },
-    "additionalProperties": true
+    "additionalProperties": false
 }

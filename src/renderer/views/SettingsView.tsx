@@ -1302,7 +1302,7 @@ export function SettingsView() {
                                             const info = pluginInfos.find(
                                                 (item) => item.instanceId === plugin.instanceId,
                                             );
-                                            const is_cpa = info?.source === "cpa";
+                                            const is_cpa = info?.source === "gateway";
                                             if (is_cpa) {
                                                 cpa_plugins.push(plugin);
                                             } else {
@@ -1919,7 +1919,7 @@ export function SettingsView() {
                 {show_add_account_dialog && (
                     <AddAccountDialog
                         plugin_infos={pluginInfos}
-                        has_cpa={pluginInfos.some((item) => item.source === "cpa")}
+                        has_cpa={pluginInfos.some((item) => item.source === "gateway")}
                         on_close={() => {
                             set_show_add_account_dialog(false);
                         }}

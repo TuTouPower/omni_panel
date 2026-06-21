@@ -70,7 +70,7 @@ function connector(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
 }
 
 const claude_with_accounts = connector({
-    source: "cpa",
+    source: "gateway",
     sourceInstanceId: "cpa-main",
     supportedProviders: ["claude"],
     activeProviders: ["claude"],
@@ -81,7 +81,7 @@ const claude_with_accounts = connector({
             {
                 id: "claude-pro-a",
                 provider: "claude",
-                source: "cpa",
+                source: "gateway",
                 sourceInstanceId: "cpa-main",
                 accountId: "acc-a",
                 accountLabel: "Account A",
@@ -98,7 +98,7 @@ const claude_with_accounts = connector({
             {
                 id: "claude-pro-b",
                 provider: "claude",
-                source: "cpa",
+                source: "gateway",
                 sourceInstanceId: "cpa-main",
                 accountId: "acc-b",
                 accountLabel: "Account B",

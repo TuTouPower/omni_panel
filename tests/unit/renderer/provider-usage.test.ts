@@ -43,7 +43,7 @@ function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
     return {
         id: "claude-window",
         provider: "claude",
-        source: "cpa",
+        source: "gateway",
         sourceInstanceId: "cpa-main",
         accountId: "account-1",
         accountLabel: "Claude Account",
@@ -61,7 +61,7 @@ function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
 }
 
 function connectorInfo(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
-    const source = overrides.source ?? "cpa";
+    const source = overrides.source ?? "gateway";
     const supportedProviders = overrides.supportedProviders ?? ["claude"];
     const activeProviders = overrides.activeProviders ?? supportedProviders;
 
@@ -124,7 +124,7 @@ describe("provider usage aggregation", () => {
     it("groups CPA Claude items under provider claude without creating cpa provider", () => {
         const connectors = [
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 supportedProviders: ["claude", "gemini", "kimi"],
                 activeProviders: ["claude"],
                 snapshot: {
@@ -148,7 +148,7 @@ describe("provider usage aggregation", () => {
     it("keeps provider groups from loading snapshots with last successful items", () => {
         const connectors = [
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 supportedProviders: ["claude", "codex"],
                 activeProviders: ["claude", "codex"],
                 snapshot: {
@@ -169,7 +169,7 @@ describe("provider usage aggregation", () => {
     it("keeps provider groups from failed snapshots with last successful items", () => {
         const connectors = [
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 supportedProviders: ["claude"],
                 activeProviders: ["claude"],
                 snapshot: {
@@ -191,7 +191,7 @@ describe("provider usage aggregation", () => {
     it("keeps GLM and MiniMax as ordered provider groups", () => {
         const connectors = [
             connectorInfo({
-                source: "direct",
+                source: "poll",
                 sourceInstanceId: "glm-direct",
                 supportedProviders: ["glm"],
                 activeProviders: ["glm"],
@@ -202,7 +202,7 @@ describe("provider usage aggregation", () => {
                         usageItem({
                             id: "glm-window",
                             provider: "glm",
-                            source: "direct",
+                            source: "poll",
                             sourceInstanceId: "glm-direct",
                             accountId: "glm-account",
                             accountLabel: "GLM Account",
@@ -211,7 +211,7 @@ describe("provider usage aggregation", () => {
                 },
             }),
             connectorInfo({
-                source: "api_key",
+                source: "poll",
                 sourceInstanceId: "minimax-api-key",
                 supportedProviders: ["minimax"],
                 activeProviders: ["minimax"],
@@ -222,7 +222,7 @@ describe("provider usage aggregation", () => {
                         usageItem({
                             id: "minimax-window",
                             provider: "minimax",
-                            source: "api_key",
+                            source: "poll",
                             sourceInstanceId: "minimax-api-key",
                             accountId: "minimax-account",
                             accountLabel: "MiniMax Account",
@@ -246,7 +246,7 @@ describe("provider usage aggregation", () => {
                 usageItem({
                     id: `codex-${account_index}-5h`,
                     provider: "codex",
-                    source: "cpa",
+                    source: "gateway",
                     sourceInstanceId: "cpa-main",
                     accountId: `auth-${account_index}-5h`,
                     accountLabel: account_label,
@@ -255,7 +255,7 @@ describe("provider usage aggregation", () => {
                 usageItem({
                     id: `codex-${account_index}-week`,
                     provider: "codex",
-                    source: "cpa",
+                    source: "gateway",
                     sourceInstanceId: "cpa-main",
                     accountId: `auth-${account_index}-week`,
                     accountLabel: account_label,
@@ -265,7 +265,7 @@ describe("provider usage aggregation", () => {
         });
         const connectors = [
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 supportedProviders: ["codex"],
                 activeProviders: ["codex"],
                 snapshot: {
@@ -287,7 +287,7 @@ describe("provider usage aggregation", () => {
     it("keeps non-CPA rows grouped by account id", () => {
         const connectors = [
             connectorInfo({
-                source: "api_key",
+                source: "poll",
                 sourceInstanceId: "codex-direct",
                 supportedProviders: ["codex"],
                 activeProviders: ["codex"],
@@ -298,7 +298,7 @@ describe("provider usage aggregation", () => {
                         usageItem({
                             id: "codex-direct-1",
                             provider: "codex",
-                            source: "api_key",
+                            source: "poll",
                             sourceInstanceId: "codex-direct",
                             accountId: "auth-1",
                             accountLabel: "Same Label",
@@ -306,7 +306,7 @@ describe("provider usage aggregation", () => {
                         usageItem({
                             id: "codex-direct-2",
                             provider: "codex",
-                            source: "api_key",
+                            source: "poll",
                             sourceInstanceId: "codex-direct",
                             accountId: "auth-2",
                             accountLabel: "Same Label",
@@ -324,7 +324,7 @@ describe("provider usage aggregation", () => {
     it("uses active CPA providers for visibility instead of all supported providers", () => {
         const connectors = [
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 supportedProviders: ["claude", "gemini", "antigravity", "kimi"],
                 activeProviders: ["claude"],
                 snapshot: {
@@ -363,7 +363,7 @@ describe("provider usage aggregation", () => {
     it("preserves null used values in periods", () => {
         const connectors = [
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 activeProviders: ["claude"],
                 snapshot: {
                     status: "ready",
@@ -408,7 +408,7 @@ describe("provider usage aggregation", () => {
     it("excludes null-used periods from overview aggregation", () => {
         const connectors = [
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 activeProviders: ["claude"],
                 snapshot: {
                     status: "ready",
@@ -428,7 +428,7 @@ describe("provider usage aggregation", () => {
     it("hides overview reset time when account reset times are too far apart", () => {
         const connectors = [
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 activeProviders: ["claude"],
                 snapshot: {
                     status: "ready",
@@ -463,7 +463,7 @@ describe("provider usage aggregation", () => {
     it("separates CPA accounts with same label from different sourceInstanceId", () => {
         const connectors = [
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 sourceInstanceId: "cpa-main",
                 instanceId: "cpa-main-connector",
                 supportedProviders: ["claude"],
@@ -473,7 +473,7 @@ describe("provider usage aggregation", () => {
                     updatedAt: "2026-01-01T12:00:00Z",
                     items: [
                         usageItem({
-                            source: "cpa",
+                            source: "gateway",
                             sourceInstanceId: "cpa-main",
                             accountId: "auth-1",
                             accountLabel: "Same Label",
@@ -482,7 +482,7 @@ describe("provider usage aggregation", () => {
                 },
             }),
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 sourceInstanceId: "cpa-secondary",
                 instanceId: "cpa-secondary-connector",
                 supportedProviders: ["claude"],
@@ -492,7 +492,7 @@ describe("provider usage aggregation", () => {
                     updatedAt: "2026-01-01T12:00:00Z",
                     items: [
                         usageItem({
-                            source: "cpa",
+                            source: "gateway",
                             sourceInstanceId: "cpa-secondary",
                             accountId: "auth-2",
                             accountLabel: "Same Label",
@@ -515,7 +515,7 @@ describe("loading state preserves previous data (anti-flicker)", () => {
         const items = [usageItem({ provider: "mimo", id: "mimo-window" })];
         const connectors = [
             connectorInfo({
-                source: "oauth",
+                source: "session",
                 supportedProviders: ["mimo"],
                 activeProviders: ["mimo"],
                 snapshot: {
@@ -536,7 +536,7 @@ describe("loading state preserves previous data (anti-flicker)", () => {
     it("returns empty when loading and no previous items", () => {
         const connectors = [
             connectorInfo({
-                source: "oauth",
+                source: "session",
                 supportedProviders: ["mimo"],
                 activeProviders: ["mimo"],
                 snapshot: { status: "loading" },
@@ -552,7 +552,7 @@ describe("loading state preserves previous data (anti-flicker)", () => {
 describe("apply_account_overrides", () => {
     const two_account_connectors = [
         connectorInfo({
-            source: "cpa",
+            source: "gateway",
             supportedProviders: ["claude"],
             activeProviders: ["claude"],
             snapshot: {
@@ -562,7 +562,7 @@ describe("apply_account_overrides", () => {
                     usageItem({
                         id: "claude-a-5h",
                         provider: "claude",
-                        source: "cpa",
+                        source: "gateway",
                         sourceInstanceId: "cpa-main",
                         accountId: "auth-a",
                         accountLabel: "Account A",
@@ -571,7 +571,7 @@ describe("apply_account_overrides", () => {
                     usageItem({
                         id: "claude-a-week",
                         provider: "claude",
-                        source: "cpa",
+                        source: "gateway",
                         sourceInstanceId: "cpa-main",
                         accountId: "auth-a",
                         accountLabel: "Account A",
@@ -580,7 +580,7 @@ describe("apply_account_overrides", () => {
                     usageItem({
                         id: "claude-b-5h",
                         provider: "claude",
-                        source: "cpa",
+                        source: "gateway",
                         sourceInstanceId: "cpa-main",
                         accountId: "auth-b",
                         accountLabel: "Account B",
@@ -642,7 +642,7 @@ describe("apply_account_overrides", () => {
     it("applies overrides only to the matching provider group", () => {
         const connectors = [
             connectorInfo({
-                source: "api_key",
+                source: "poll",
                 sourceInstanceId: "shared-source",
                 supportedProviders: ["claude"],
                 activeProviders: ["claude"],
@@ -652,7 +652,7 @@ describe("apply_account_overrides", () => {
                     items: [
                         usageItem({
                             provider: "claude",
-                            source: "api_key",
+                            source: "poll",
                             sourceInstanceId: "shared-source",
                             accountId: "shared-account",
                             accountLabel: "Shared Account",
@@ -661,7 +661,7 @@ describe("apply_account_overrides", () => {
                 },
             }),
             connectorInfo({
-                source: "api_key",
+                source: "poll",
                 sourceInstanceId: "shared-source",
                 supportedProviders: ["gemini"],
                 activeProviders: ["gemini"],
@@ -671,7 +671,7 @@ describe("apply_account_overrides", () => {
                     items: [
                         usageItem({
                             provider: "gemini",
-                            source: "api_key",
+                            source: "poll",
                             sourceInstanceId: "shared-source",
                             accountId: "shared-account",
                             accountLabel: "Shared Account",

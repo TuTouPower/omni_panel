@@ -21,7 +21,7 @@ function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUs
             {
                 id: "claude-a-5h",
                 provider: "claude",
-                source: "cpa",
+                source: "gateway",
                 sourceInstanceId: "cpa-main",
                 connectorInstanceId: "cpa-connector",
                 connectorDisplayName: "CPA",
@@ -166,7 +166,7 @@ describe("ProviderAccountRow account menu", () => {
                 {
                     id: "claude-a-5h",
                     provider: "claude" as const,
-                    source: "cpa" as const,
+                    source: "gateway" as const,
                     sourceInstanceId: "cpa-main",
                     connectorInstanceId: "cpa-connector",
                     connectorDisplayName: "CPA",

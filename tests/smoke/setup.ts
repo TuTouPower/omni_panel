@@ -20,7 +20,7 @@ function createMockApi() {
             name: "DeepSeek",
             displayName: "DeepSeek",
             enabled: true,
-            source: "api_key",
+            source: "poll",
             supportedProviders: ["deepseek"],
             activeProviders: ["deepseek"],
             metadata: {
@@ -51,7 +51,7 @@ function createMockApi() {
                     {
                         id: "tokens",
                         provider: "deepseek" as const,
-                        source: "api_key" as const,
+                        source: "poll" as const,
                         sourceInstanceId: "deepseek",
                         accountId: "deepseek",
                         accountLabel: "DeepSeek",
@@ -76,7 +76,7 @@ function createMockApi() {
             name: "Claude",
             displayName: "Claude",
             enabled: true,
-            source: "direct",
+            source: "poll",
             supportedProviders: ["claude"],
             activeProviders: ["claude"],
             metadata: null,

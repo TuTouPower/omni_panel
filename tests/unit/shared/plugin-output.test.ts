@@ -9,8 +9,8 @@ const validOutput = {
         {
             id: "tokens",
             provider: "claude",
-            source: "direct",
-            sourceInstanceId: "claude-direct",
+            source: "poll",
+            sourceInstanceId: "claude-poll",
             accountId: "account-1",
             accountLabel: "Claude Account",
             raw_label: "tokens",
@@ -117,8 +117,8 @@ describe("pluginSuccessOutputSchema", () => {
                 {
                     id: "tokens",
                     provider: "claude",
-                    source: "direct",
-                    sourceInstanceId: "claude-direct",
+                    source: "poll",
+                    sourceInstanceId: "claude-poll",
                     accountId: "account-1",
                     accountLabel: "Claude Account",
                     raw_label: "five_hour",
@@ -139,8 +139,8 @@ describe("pluginSuccessOutputSchema", () => {
                 {
                     id: "tokens",
                     provider: "claude",
-                    source: "direct",
-                    sourceInstanceId: "claude-direct",
+                    source: "poll",
+                    sourceInstanceId: "claude-poll",
                     accountId: "account-1",
                     accountLabel: "Claude Account",
                     normalized_label: "5小时",

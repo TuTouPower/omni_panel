@@ -26,7 +26,7 @@ function observation_to_metric_record(
     return {
         id: `${obs.source_instance_id}:${obs.account_id}:${obs.metric_id}`,
         provider: provider.data,
-        source: definition.manifest.id === "cpa" ? "cpa" : "direct",
+        source: definition.manifest.id === "cpa" ? "gateway" : "poll",
         sourceInstanceId: obs.source_instance_id,
         accountId: obs.account_id,
         accountLabel: obs.account_label,

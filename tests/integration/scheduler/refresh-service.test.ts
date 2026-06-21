@@ -165,7 +165,7 @@ describe("refresh-service", () => {
             if (state.status !== "ready") throw new Error("expected ready state");
             expect(state.items[0]).toMatchObject({
                 provider: "deepseek",
-                source: "api_key",
+                source: "wrapper",
                 sourceInstanceId: "deepseek-1",
                 accountId: "deepseek-1",
                 used: 100,
@@ -469,7 +469,7 @@ return [{
             {
                 id: "mimo:mimo:mimo:usage",
                 provider: "mimo" as const,
-                source: "oauth" as const,
+                source: "session" as const,
                 sourceInstanceId: "mimo-1",
                 accountId: "mimo-1",
                 accountLabel: "MiMo",

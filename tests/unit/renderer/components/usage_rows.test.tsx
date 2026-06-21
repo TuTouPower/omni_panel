@@ -8,7 +8,7 @@ function make_period(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsag
     return {
         id: "period-1",
         provider: "gemini",
-        source: "cpa",
+        source: "gateway",
         sourceInstanceId: "cpa-main",
         connectorInstanceId: "cpa-main",
         connectorDisplayName: "CPA",

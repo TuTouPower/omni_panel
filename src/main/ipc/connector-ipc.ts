@@ -17,12 +17,12 @@ import { createLoggedIpcHandler } from "./logged";
 const instanceIdSchema = z.string().min(1);
 
 function source_from_definition(definition: ConnectorDefinition | undefined): UsageSource {
-    if (!definition) return "direct";
-    if (definition.manifest.id === "cpa") return "cpa";
-    if (definition.manifest.capabilities.includes("local")) return "local";
-    if (definition.manifest.capabilities.includes("session")) return "oauth";
-    if (definition.manifest.parameters.some((param) => param.type === "secret")) return "api_key";
-    return "direct";
+    if (!definition) return "poll";
+    const capabilities = definition.manifest.capabilities;
+    if (capabilities.includes("session")) return "session";
+    if (capabilities.includes("local")) return "local";
+    if (capabilities.includes("observe")) return "probe";
+    return "poll";
 }
 
 function supported_providers(
@@ -71,12 +71,10 @@ function activeProvidersForConnector(
     definition: ConnectorDefinition | undefined,
 ): readonly UsageProvider[] {
     const providers = supported_providers(definition);
-    if (source_from_definition(definition) !== "cpa") return providers;
+    if (definition.manifest.id !== "cpa") return providers;
     return providers.filter((provider) => {
         const key = `monitor_${provider}`;
-        const metadataDefault = definition?.manifest.parameters.find(
-            (p) => p.name === key,
-        )?.default;
+        const metadataDefault = definition.manifest.parameters.find((p) => p.name === key)?.default;
         return (
             String(plugin.parameterValues[key] ?? metadataDefault ?? "").toLowerCase() === "true"
         );

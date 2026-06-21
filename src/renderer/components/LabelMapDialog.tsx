@@ -9,7 +9,7 @@ interface LabelMapRow {
 
 function normalize_cpa_label(item: MetricRecord): string {
     const fallback = item.normalized_label;
-    if (item.source !== "cpa") return fallback;
+    if (item.source !== "gateway") return fallback;
     if (!item.accountLabel) return fallback;
     const escaped_label = item.accountLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const without_account = fallback

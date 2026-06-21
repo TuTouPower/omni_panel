@@ -77,7 +77,7 @@ describe("LabelMapDialog", () => {
             {
                 id: "item-1",
                 provider: "claude",
-                source: "cpa",
+                source: "gateway",
                 sourceInstanceId: "cpa-1",
                 accountId: "acc-1",
                 accountLabel: "Account 1",
@@ -95,7 +95,7 @@ describe("LabelMapDialog", () => {
             {
                 id: "item-2",
                 provider: "claude",
-                source: "cpa",
+                source: "gateway",
                 sourceInstanceId: "cpa-1",
                 accountId: "acc-1",
                 accountLabel: "Account 1",
@@ -191,7 +191,7 @@ describe("LabelMapDialog", () => {
                 {
                     id: "item-3",
                     provider: "codex",
-                    source: "cpa",
+                    source: "gateway",
                     sourceInstanceId: "cpa-1",
                     accountId: "acc-2",
                     accountLabel: "Account 2",
@@ -230,7 +230,7 @@ describe("LabelMapDialog", () => {
                 {
                     id: "codex-a-5h",
                     provider: "codex",
-                    source: "cpa",
+                    source: "gateway",
                     sourceInstanceId: "cpa-1",
                     accountId: "acc-a",
                     accountLabel: "Account A",
@@ -248,7 +248,7 @@ describe("LabelMapDialog", () => {
                 {
                     id: "codex-b-5h",
                     provider: "codex",
-                    source: "cpa",
+                    source: "gateway",
                     sourceInstanceId: "cpa-1",
                     accountId: "acc-b",
                     accountLabel: "Account B",
@@ -266,7 +266,7 @@ describe("LabelMapDialog", () => {
                 {
                     id: "codex-b-week",
                     provider: "codex",
-                    source: "cpa",
+                    source: "gateway",
                     sourceInstanceId: "cpa-1",
                     accountId: "acc-b",
                     accountLabel: "Account B",

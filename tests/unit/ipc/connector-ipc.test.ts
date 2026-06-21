@@ -37,7 +37,7 @@ function create_runtime_store(snapshot: ConnectorSnapshotDTO["status"] = "ready"
                           {
                               id: "tokens",
                               provider: "claude",
-                              source: "api_key",
+                              source: "poll",
                               sourceInstanceId: "claude",
                               accountId: "claude",
                               accountLabel: "Claude",
@@ -112,7 +112,7 @@ describe("connector-ipc", () => {
         const item = result.data[0];
         expect(item?.stateId).toBe("claude");
         expect(item?.displayName).toBe("Claude");
-        expect(item?.source).toBe("api_key");
+        expect(item?.source).toBe("poll");
         expect(item?.supportedProviders).toEqual(["claude"]);
         expect(item?.metadata?.parameters?.[0]?.name).toBe("API_KEY");
         expect(item?.snapshot.status).toBe("ready");
@@ -228,7 +228,7 @@ describe("connector-ipc", () => {
         const plugin = result.data[0];
         expect(plugin?.metadata).not.toBeNull();
         expect(plugin?.sourceInstanceId).toBe("deepseek-1");
-        expect(plugin?.source).toBe("api_key");
+        expect(plugin?.source).toBe("poll");
         expect(plugin?.supportedProviders).toEqual(["deepseek"]);
         expect(plugin?.activeProviders).toEqual(["deepseek"]);
         expect(plugin?.metadata?.parameters?.[0]?.name).toBe("API_KEY");
@@ -293,7 +293,7 @@ describe("connector-ipc", () => {
         if (!result.ok) return;
         expect(result.data).toHaveLength(2);
         const connector = result.data.find((item) => item.instanceId === "cpa-1");
-        expect(connector?.source).toBe("cpa");
+        expect(connector?.source).toBe("poll");
         expect(connector?.supportedProviders).toEqual(["claude"]);
         expect(connector?.activeProviders).toEqual(["claude"]);
         const defaultConnector = result.data.find((item) => item.instanceId === "cpa-2");

@@ -75,7 +75,7 @@ describe("SettingsView", () => {
                     name: "DeepSeek",
                     displayName: "DeepSeek",
                     enabled: true,
-                    source: "api_key",
+                    source: "poll",
                     supportedProviders: ["deepseek"],
                     activeProviders: ["deepseek"],
                     metadata: {
@@ -100,7 +100,7 @@ describe("SettingsView", () => {
                     name: "CPA",
                     displayName: "CPA",
                     enabled: true,
-                    source: "cpa",
+                    source: "gateway",
                     supportedProviders: ["claude", "codex", "gemini", "antigravity", "kimi"],
                     activeProviders: ["claude"],
                     metadata: {
@@ -158,7 +158,7 @@ describe("SettingsView", () => {
                             {
                                 id: "claude-main",
                                 provider: "claude",
-                                source: "cpa",
+                                source: "gateway",
                                 sourceInstanceId: "cpa-1",
                                 accountId: "claude-main",
                                 accountLabel: "Claude Account",
@@ -829,7 +829,7 @@ describe("SettingsView", () => {
                 name: "CPA",
                 displayName: "CPA",
                 enabled: true,
-                source: "cpa",
+                source: "gateway",
                 supportedProviders: ["codex"],
                 activeProviders: ["codex"],
                 metadata: {
@@ -843,7 +843,7 @@ describe("SettingsView", () => {
                         {
                             id: "codex-full",
                             provider: "codex",
-                            source: "cpa",
+                            source: "gateway",
                             sourceInstanceId: "cpa-1",
                             accountId: "codex-full",
                             accountLabel: "Codex Account Full",
@@ -855,7 +855,7 @@ describe("SettingsView", () => {
                         {
                             id: "codex-ok",
                             provider: "codex",
-                            source: "cpa",
+                            source: "gateway",
                             sourceInstanceId: "cpa-1",
                             accountId: "codex-ok",
                             accountLabel: "Codex Account OK",

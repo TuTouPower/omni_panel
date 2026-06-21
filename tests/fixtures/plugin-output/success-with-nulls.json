@@ -15,7 +15,7 @@
             "color": "blue",
             "resetAt": null,
             "provider": "claude",
-            "source": "api_key",
+            "source": "poll",
             "sourceInstanceId": "fixture-claude",
             "accountId": "fixture-claude",
             "accountLabel": "Claude Fixture",

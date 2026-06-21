@@ -56,7 +56,7 @@ describe("pluginResultSchema (discriminated union)", () => {
                 {
                     id: "test",
                     provider: "claude",
-                    source: "api_key",
+                    source: "poll",
                     sourceInstanceId: "fixture-claude",
                     accountId: "fixture-claude",
                     accountLabel: "Claude Fixture",

@@ -13,7 +13,7 @@ describe("snapshot-cache serialization", () => {
                 {
                     id: "acc:1",
                     provider: "claude",
-                    source: "cpa",
+                    source: "gateway",
                     sourceInstanceId: "cpa-main",
                     accountId: "acc-1",
                     accountLabel: "Pro",
@@ -83,7 +83,7 @@ describe("snapshot-cache serialization", () => {
                     {
                         id: "i",
                         provider: "deepseek",
-                        source: "direct",
+                        source: "poll",
                         sourceInstanceId: "s",
                         accountId: "a",
                         accountLabel: "L",

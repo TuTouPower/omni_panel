@@ -57,13 +57,8 @@ function is_auth_error(message: string): boolean {
     );
 }
 
-function source_for_observation(obs: Observation, definition: ConnectorDefinition): UsageSource {
-    if (definition.manifest.id === "cpa" || obs.source === "gateway") return "cpa";
-    if (obs.source === "local") return "local";
-    if (obs.source === "session") return "oauth";
-    if (obs.source === "probe") return "direct";
-    if (definition.manifest.parameters.some((param) => param.type === "secret")) return "api_key";
-    return "direct";
+function source_for_observation(obs: Observation): UsageSource {
+    return obs.source;
 }
 
 function resolve_script_path(definition: ConnectorDefinition): string {
@@ -79,17 +74,14 @@ function resolve_script_path(definition: ConnectorDefinition): string {
     return script_path;
 }
 
-function observation_to_usage_item(
-    obs: Observation,
-    definition: ConnectorDefinition,
-): MetricRecord | null {
+function observation_to_usage_item(obs: Observation): MetricRecord | null {
     const provider = usageProviderSchema.safeParse(obs.provider);
     if (!provider.success) return null;
 
     return {
         id: `${obs.source_instance_id}:${obs.account_id}:${obs.metric_id}`,
         provider: provider.data,
-        source: source_for_observation(obs, definition),
+        source: source_for_observation(obs),
         sourceInstanceId: obs.source_instance_id,
         accountId: obs.account_id,
         accountLabel: obs.account_label,
@@ -231,7 +223,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     }
                 }
                 const items = observations
-                    .map((obs) => observation_to_usage_item(obs, definition))
+                    .map((obs) => observation_to_usage_item(obs))
                     .filter((item): item is MetricRecord => item !== null);
                 const updated_at = observations.reduce(
                     (latest, obs) => Math.max(latest, obs.observed_at),
@@ -273,7 +265,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                 deps.observationStore.insert(obs);
                             }
                             const retry_items = retry_observations
-                                .map((obs) => observation_to_usage_item(obs, definition))
+                                .map((obs) => observation_to_usage_item(obs))
                                 .filter((item): item is MetricRecord => item !== null);
                             const retry_updated_at = retry_observations.reduce(
                                 (latest, obs) => Math.max(latest, obs.observed_at),

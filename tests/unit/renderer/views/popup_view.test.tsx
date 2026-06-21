@@ -22,7 +22,7 @@ class FakeResizeObserver {
 }
 
 function connectorInfo(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
-    const source = overrides.source ?? "cpa";
+    const source = overrides.source ?? "gateway";
     const supportedProviders = overrides.supportedProviders ?? ["claude"];
     const activeProviders = overrides.activeProviders ?? supportedProviders;
 
@@ -61,7 +61,7 @@ describe("PopupView", () => {
         plugin_refresh_all.mockResolvedValue(undefined);
         plugin_list.mockResolvedValue([
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 sourceInstanceId: "cpa-main",
                 supportedProviders: ["claude", "gemini", "kimi"],
                 activeProviders: ["claude"],
@@ -72,7 +72,7 @@ describe("PopupView", () => {
                         {
                             id: "claude-pro",
                             provider: "claude",
-                            source: "cpa",
+                            source: "gateway",
                             sourceInstanceId: "cpa-main",
                             accountId: "claude-account",
                             accountLabel: "Claude Account",
@@ -90,7 +90,7 @@ describe("PopupView", () => {
                 },
             }),
             connectorInfo({
-                source: "api_key",
+                source: "poll",
                 sourceInstanceId: "deepseek-key",
                 name: "deepseek",
                 displayName: "DeepSeek API Key",
@@ -103,7 +103,7 @@ describe("PopupView", () => {
                         {
                             id: "deepseek-window",
                             provider: "deepseek",
-                            source: "api_key",
+                            source: "poll",
                             sourceInstanceId: "deepseek-key",
                             accountId: "deepseek-account",
                             accountLabel: "DeepSeek Account",
@@ -201,7 +201,7 @@ describe("PopupView", () => {
     it("refreshes every enabled connector for a provider", async () => {
         plugin_list.mockResolvedValue([
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 sourceInstanceId: "cpa-1",
                 supportedProviders: ["claude", "gemini"],
                 activeProviders: ["claude"],
@@ -212,7 +212,7 @@ describe("PopupView", () => {
                         {
                             id: "claude-pro",
                             provider: "claude",
-                            source: "cpa",
+                            source: "gateway",
                             sourceInstanceId: "cpa-1",
                             accountId: "claude-account",
                             accountLabel: "Claude Account",
@@ -230,7 +230,7 @@ describe("PopupView", () => {
                 },
             }),
             connectorInfo({
-                source: "api_key",
+                source: "poll",
                 sourceInstanceId: "claude-direct-1",
                 supportedProviders: ["claude"],
                 activeProviders: ["claude"],
@@ -241,14 +241,14 @@ describe("PopupView", () => {
                 },
             }),
             connectorInfo({
-                source: "api_key",
+                source: "poll",
                 sourceInstanceId: "claude-disabled-1",
                 supportedProviders: ["claude"],
                 activeProviders: ["claude"],
                 enabled: false,
             }),
             connectorInfo({
-                source: "api_key",
+                source: "poll",
                 sourceInstanceId: "gemini-direct-1",
                 supportedProviders: ["gemini"],
                 activeProviders: ["gemini"],
@@ -745,14 +745,14 @@ describe("PopupView", () => {
         // Simulate onStateChange with updated data — same accounts, different usage
         expect(on_state_change_cb).toBeDefined();
         act(() => {
-            on_state_change_cb?.("cpa-connector", {
+            on_state_change_cb?.("gateway-connector", {
                 status: "ready",
                 updatedAt: "2026-01-01T12:10:00Z",
                 items: [
                     {
                         id: "claude-pro",
                         provider: "claude",
-                        source: "cpa",
+                        source: "gateway",
                         sourceInstanceId: "cpa-main",
                         accountId: "claude-account",
                         accountLabel: "Claude Account",
@@ -790,7 +790,7 @@ describe("PopupView", () => {
         );
         plugin_list.mockResolvedValue([
             connectorInfo({
-                source: "cpa",
+                source: "gateway",
                 sourceInstanceId: "cpa-main",
                 supportedProviders: ["claude"],
                 activeProviders: ["claude"],
@@ -801,7 +801,7 @@ describe("PopupView", () => {
                         {
                             id: "acc-a",
                             provider: "claude",
-                            source: "cpa",
+                            source: "gateway",
                             sourceInstanceId: "cpa-main",
                             accountId: "auth-a",
                             accountLabel: "Account A",
@@ -818,7 +818,7 @@ describe("PopupView", () => {
                         {
                             id: "acc-b",
                             provider: "claude",
-                            source: "cpa",
+                            source: "gateway",
                             sourceInstanceId: "cpa-main",
                             accountId: "auth-b",
                             accountLabel: "Account B",
@@ -865,14 +865,14 @@ describe("PopupView", () => {
         // Simulate onStateChange removing Account B
         expect(on_state_change_cb).toBeDefined();
         act(() => {
-            on_state_change_cb?.("cpa-connector", {
+            on_state_change_cb?.("gateway-connector", {
                 status: "ready",
                 updatedAt: "2026-01-01T12:10:00Z",
                 items: [
                     {
                         id: "acc-a",
                         provider: "claude",
-                        source: "cpa",
+                        source: "gateway",
                         sourceInstanceId: "cpa-main",
                         accountId: "auth-a",
                         accountLabel: "Account A",

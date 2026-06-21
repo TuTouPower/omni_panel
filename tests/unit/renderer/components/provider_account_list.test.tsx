@@ -8,7 +8,7 @@ function make_group(): ProviderUsageGroup {
     const period = {
         id: "codex-a-5h",
         provider: "codex" as const,
-        source: "cpa" as const,
+        source: "gateway" as const,
         sourceInstanceId: "cpa-main",
         connectorInstanceId: "cpa-connector",
         connectorDisplayName: "CPA",

@@ -133,7 +133,7 @@ function toPeriod(
 }
 
 function accountKeyForPeriod(period: ProviderUsagePeriod): string {
-    if (period.source === "cpa") {
+    if (period.source === "gateway") {
         return `${period.sourceInstanceId}:label:${period.accountLabel}`;
     }
     return `${period.sourceInstanceId}:${period.accountId}`;
@@ -228,7 +228,7 @@ export function build_provider_usage_groups(
 
             const sources = new Set(periods.map((period) => period.source));
             const groupSource: ProviderUsageGroup["source"] =
-                sources.size === 1 ? (periods[0]?.source ?? "direct") : "mixed";
+                sources.size === 1 ? (periods[0]?.source ?? "poll") : "mixed";
 
             return {
                 provider,

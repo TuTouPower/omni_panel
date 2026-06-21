@@ -35,7 +35,7 @@ function connector(): ConnectorInfo {
         name: "cpa-name",
         displayName: "CPA",
         enabled: true,
-        source: "cpa",
+        source: "gateway",
         supportedProviders: ["claude"],
         activeProviders: ["claude"],
         metadata: null,

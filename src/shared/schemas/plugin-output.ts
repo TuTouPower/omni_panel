@@ -15,7 +15,14 @@ export const usageProviderSchema = z.enum([
     "tavily",
     "mimo",
 ]);
-export const usageSourceSchema = z.enum(["cpa", "direct", "local", "api_key", "oauth"]);
+export const usageSourceSchema = z.enum([
+    "poll",
+    "local",
+    "session",
+    "wrapper",
+    "probe",
+    "gateway",
+]);
 
 const finiteNumber = z.number().finite();
 

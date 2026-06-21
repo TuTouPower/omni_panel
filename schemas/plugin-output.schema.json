@@ -34,12 +34,13 @@
                                     "glm",
                                     "minimax",
                                     "deepseek",
-                                    "tavily"
+                                    "tavily",
+                                    "mimo"
                                 ]
                             },
                             "source": {
                                 "type": "string",
-                                "enum": ["cpa", "direct", "local", "api_key", "oauth"]
+                                "enum": ["poll", "local", "session", "wrapper", "probe", "gateway"]
                             },
                             "sourceInstanceId": {
                                 "type": "string"
@@ -50,21 +51,51 @@
                             "accountLabel": {
                                 "type": "string"
                             },
+                            "raw_label": {
+                                "type": "string"
+                            },
+                            "normalized_label": {
+                                "type": "string"
+                            },
+                            "display_label": {
+                                "type": "string"
+                            },
                             "name": {
                                 "type": "string"
                             },
                             "used": {
-                                "type": "number"
+                                "anyOf": [
+                                    {
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
                             },
                             "limit": {
-                                "type": ["number", "null"]
+                                "anyOf": [
+                                    {
+                                        "$ref": "#/anyOf/0/properties/items/items/properties/used/anyOf/0"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
                             },
                             "displayStyle": {
                                 "type": "string",
                                 "enum": ["percent", "ratio"]
                             },
                             "resetAt": {
-                                "type": ["number", "null"]
+                                "anyOf": [
+                                    {
+                                        "$ref": "#/anyOf/0/properties/items/items/properties/used/anyOf/0"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
                             },
                             "status": {
                                 "type": "string",
@@ -76,7 +107,7 @@
                                 "enum": ["blue", "green", "yellow", "orange", "red"]
                             },
                             "observedAt": {
-                                "type": "number"
+                                "$ref": "#/anyOf/0/properties/items/items/properties/used/anyOf/0"
                             },
                             "stale": {
                                 "type": "boolean"
@@ -89,10 +120,12 @@
                             "sourceInstanceId",
                             "accountId",
                             "accountLabel",
-                            "name",
+                            "raw_label",
+                            "normalized_label",
                             "used",
                             "limit",
                             "displayStyle",
+                            "resetAt",
                             "observedAt",
                             "stale"
                         ],
@@ -135,7 +168,7 @@
                                                     "type": "string"
                                                 },
                                                 "tokens": {
-                                                    "type": "number"
+                                                    "$ref": "#/anyOf/0/properties/items/items/properties/used/anyOf/0"
                                                 }
                                             },
                                             "required": ["model", "tokens"],

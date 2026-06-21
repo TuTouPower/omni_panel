@@ -16,7 +16,7 @@ function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
     return {
         id: "claude-main",
         provider: "claude",
-        source: "cpa",
+        source: "gateway",
         sourceInstanceId: "cpa-1",
         accountId: "claude-account",
         accountLabel: "Claude Account",
@@ -41,7 +41,7 @@ function connector(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
         name: "CPA",
         displayName: "CPA",
         enabled: true,
-        source: "cpa",
+        source: "gateway",
         supportedProviders: ["claude", "codex", "gemini", "antigravity", "kimi"],
         activeProviders: ["claude", "codex"],
         metadata: {

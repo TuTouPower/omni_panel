@@ -442,7 +442,7 @@ export function PopupView() {
                     }
                     const info = plugins.find((pi) => pi.instanceId === p.instanceId);
                     // CPA connector: toggle monitor param per provider, don't disable entire connector
-                    if (info?.source === "cpa") {
+                    if (info?.source === "gateway") {
                         const monitor_key = `monitor_${provider}`;
                         const current_val = p.parameterValues[monitor_key];
                         const is_off = String(current_val) === "false";

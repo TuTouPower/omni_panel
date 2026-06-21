@@ -12,7 +12,7 @@ const base_plugin: PluginInfo = {
     name: "MiMo",
     displayName: "MiMo",
     enabled: true,
-    source: "direct",
+    source: "poll",
     supportedProviders: ["mimo"],
     activeProviders: ["mimo"],
     metadata: {
@@ -131,7 +131,7 @@ describe("AddAccountDialog API key", () => {
             name: "DeepSeek",
             displayName: "DeepSeek",
             enabled: true,
-            source: "api_key",
+            source: "poll",
             supportedProviders: ["deepseek"],
             activeProviders: ["deepseek"],
             metadata: {
