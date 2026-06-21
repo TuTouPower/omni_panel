@@ -200,6 +200,56 @@ describe("net-client", () => {
         );
     });
 
+    it("rejects reading symlink pointing outside allowed directories", async () => {
+        const dir = join(temp_dir, "symlink-read-test");
+        const outside = join(temp_dir, "outside-read");
+        await mkdir(dir, { recursive: true });
+        await mkdir(outside, { recursive: true });
+        await writeFile(join(outside, "secret.txt"), "TOP SECRET", "utf8");
+        const link_path = join(dir, "escape-link.txt");
+        create_link(join(outside, "secret.txt"), link_path, "file");
+
+        // Verify the link is actually a symlink (not a hard link)
+        if (!lstatSync(link_path).isSymbolicLink()) {
+            // Hard link can't be detected by lstat; skip on this platform
+            return;
+        }
+
+        const manifest = {
+            ...get_test_manifest(),
+            capabilities: ["poll", "local"],
+            local: { paths: [dir] },
+        } satisfies Manifest;
+        const ctx = create_connector_context(manifest, vault, "test-1", {});
+
+        await expect(ctx.files.read(link_path)).rejects.toThrow(
+            "symlink target outside allowed directories",
+        );
+    });
+
+    it("allows reading symlink pointing inside allowed directories", async () => {
+        const dir = join(temp_dir, "symlink-read-ok");
+        const sub = join(dir, "data");
+        await mkdir(sub, { recursive: true });
+        await writeFile(join(sub, "file.txt"), "hello", "utf8");
+        const link_path = join(dir, "link.txt");
+        create_link(join(sub, "file.txt"), link_path, "file");
+
+        // Verify the link is actually a symlink (not a hard link)
+        if (!lstatSync(link_path).isSymbolicLink()) {
+            return;
+        }
+
+        const manifest = {
+            ...get_test_manifest(),
+            capabilities: ["poll", "local"],
+            local: { paths: [dir] },
+        } satisfies Manifest;
+        const ctx = create_connector_context(manifest, vault, "test-1", {});
+
+        await expect(ctx.files.read(link_path)).resolves.toBe("hello");
+    });
+
     it("reads files inside allowlisted directory prefix", async () => {
         const dir = join(temp_dir, "codex-sessions");
         await mkdir(dir, { recursive: true });

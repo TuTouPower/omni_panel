@@ -1,4 +1,4 @@
-import { lstat, readFile, readdir } from "node:fs/promises";
+import { lstat, readFile, realpath, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { request as undici_request, ProxyAgent } from "undici";
@@ -236,10 +236,20 @@ export function create_connector_context(
             read(path_pattern: string) {
                 const allowed = manifest.local?.paths ?? [];
                 const expanded = expand_home(path_pattern);
-                if (!is_within_allowed(expanded, allowed)) {
+                const resolved_path = resolve(expanded);
+                if (!is_within_allowed(resolved_path, allowed)) {
                     return Promise.reject(new Error("Local file path is not allowed"));
                 }
-                return readFile(expanded, "utf8");
+                return (async () => {
+                    const stat = await lstat(resolved_path);
+                    if (stat.isSymbolicLink()) {
+                        const real = await realpath(resolved_path);
+                        if (!is_within_allowed(real, allowed)) {
+                            throw new Error("symlink target outside allowed directories");
+                        }
+                    }
+                    return readFile(resolved_path, "utf8");
+                })();
             },
             async list(dir_pattern: string) {
                 const allowed = manifest.local?.paths ?? [];
