@@ -168,15 +168,27 @@ async function execute_connector(
 
 export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefreshService {
     const log = createLogger("refresh-service");
-    const locks = new Set<string>();
+    const locks = new Map<string, number>();
+    const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+
+    function is_locked(instanceId: string): boolean {
+        const locked_at = locks.get(instanceId);
+        if (locked_at === undefined) return false;
+        if (Date.now() - locked_at < LOCK_TIMEOUT_MS) return true;
+        log.warn(
+            `Stale lock removed for ${instanceId} (held for ${String(Math.round((Date.now() - locked_at) / 1000))}s)`,
+        );
+        locks.delete(instanceId);
+        return false;
+    }
 
     async function refresh(instanceId: string, options?: { force?: boolean }): Promise<void> {
         log.debug(`Refresh start: ${instanceId} (force=${String(options?.force === true)})`);
-        if (locks.has(instanceId)) {
+        if (is_locked(instanceId)) {
             log.debug(`Refresh skipped for ${instanceId} (already in progress)`);
             return;
         }
-        locks.add(instanceId);
+        locks.set(instanceId, Date.now());
 
         try {
             const config = await deps.configStore.load();
@@ -299,19 +311,33 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
         }
     }
 
+    async function with_concurrency<T>(
+        items: T[],
+        fn: (item: T) => Promise<void>,
+        limit: number,
+    ): Promise<void> {
+        const executing = new Set<Promise<void>>();
+        for (const item of items) {
+            const p = fn(item).then(() => {
+                executing.delete(p);
+            });
+            executing.add(p);
+            if (executing.size >= limit) {
+                await Promise.race(executing);
+            }
+        }
+        await Promise.allSettled(executing);
+    }
+
     async function refreshAll(): Promise<void> {
         const config = await deps.configStore.load();
         const enabled_connectors = config.plugins.filter((p: ConnectorConfiguration) => p.enabled);
         log.info(`Refreshing all ${String(enabled_connectors.length)} enabled connectors`);
-        const results = await Promise.allSettled(
-            enabled_connectors.map((p: ConnectorConfiguration) => refresh(p.instanceId)),
+        await with_concurrency(
+            enabled_connectors,
+            (p: ConnectorConfiguration) => refresh(p.instanceId),
+            5,
         );
-        const failed = results.filter((r) => r.status === "rejected").length;
-        if (failed > 0) {
-            log.warn(
-                `RefreshAll complete: ${String(enabled_connectors.length - failed)}/${String(enabled_connectors.length)} succeeded, ${String(failed)} rejected`,
-            );
-        }
     }
 
     return { refresh, refreshAll };
