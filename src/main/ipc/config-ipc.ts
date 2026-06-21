@@ -101,16 +101,6 @@ export async function handleConfigSave(
         const current = await deps.configStore.load();
         const incoming = parsed.data as AppConfiguration;
 
-        // Merge: incoming fields override current; fields absent from incoming
-        // are preserved from disk. This prevents one renderer window from
-        // accidentally overwriting another window's fields (e.g. popup's
-        // collapsedAccounts wiped by settings save).
-        const incomingKeys = new Set(Object.keys(incoming));
-        const merged = { ...current } as Record<string, unknown>;
-        for (const key of incomingKeys) {
-            merged[key] = (incoming as Record<string, unknown>)[key];
-        }
-
         // Validate: every incoming plugin instanceId must already exist
         const currentByInstanceId = new Map(current.plugins.map((p) => [p.instanceId, p]));
         for (const plugin of incoming.plugins) {
@@ -121,6 +111,26 @@ export async function handleConfigSave(
             if (existing.executablePath !== plugin.executablePath) {
                 return fail("VALIDATION_ERROR", `不允许修改插件的可执行路径: ${plugin.name}`);
             }
+        }
+
+        // Merge: incoming fields override current; fields absent from incoming
+        // are preserved from disk. This prevents one renderer window from
+        // accidentally overwriting another window's fields (e.g. popup's
+        // collapsedAccounts wiped by settings save).
+        const incomingKeys = new Set(Object.keys(incoming));
+        const merged = { ...current } as Record<string, unknown>;
+        for (const key of incomingKeys) {
+            merged[key] = (incoming as Record<string, unknown>)[key];
+        }
+
+        // Re-load to detect concurrent writes from another window between
+        // our initial load and save. If the on-disk config changed, abort
+        // and ask the caller to retry — silently overwriting would lose
+        // the other window's changes.
+        const reloaded = await deps.configStore.load();
+        if (JSON.stringify(reloaded) !== JSON.stringify(current)) {
+            log.warn("Config changed on disk during save — aborting to avoid overwrite");
+            return fail("CONFLICT", "配置已被其他窗口修改，请重试");
         }
 
         const stripped = stripSecrets(merged as AppConfiguration, deps.secretParamKeys);

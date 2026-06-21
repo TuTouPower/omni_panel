@@ -505,4 +505,28 @@ describe("config-ipc", () => {
         // incoming field override works
         expect(saved["launchAtLogin"]).toBe(true);
     });
+
+    it("handleConfigSave detects concurrent modification and returns CONFLICT", async () => {
+        const deps = createMockDeps();
+        const originalConfig = structuredClone(await deps.configStore.load()) as AppConfiguration;
+
+        let loadCount = 0;
+        deps.configStore.load = vi.fn().mockImplementation(() => {
+            loadCount++;
+            if (loadCount === 1) return Promise.resolve(originalConfig);
+            // Second load returns a modified config (simulating another window's save)
+            const modified = structuredClone(originalConfig) as Record<string, unknown>;
+            modified["launchAtLogin"] = true;
+            return Promise.resolve(modified as AppConfiguration);
+        });
+
+        const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
+
+        const result = await handleConfigSave(deps, originalConfig);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe("CONFLICT");
+        }
+        expect(deps.configStore.save).not.toHaveBeenCalled();
+    });
 });
