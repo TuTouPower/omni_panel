@@ -109,6 +109,31 @@ describe("minimax connector", () => {
         expect(result.observations).toEqual([]);
     });
 
+    it("returns null reset_at when remains_time would produce a reset over 1 year away", async () => {
+        const script = await readFile(join("connectors", "minimax", "connector.ts"), "utf8");
+        // 400 days in milliseconds — exceeds 1-year sanity threshold
+        const huge_remains = 400 * 24 * 3600 * 1000;
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx([
+                {
+                    model_name: "MiniMax-M*",
+                    start_time: 1000,
+                    end_time: 1000 + 4 * 3600 * 1000,
+                    current_interval_total_count: 100,
+                    current_interval_usage_count: 40,
+                    remains_time: huge_remains,
+                },
+            ]),
+        );
+
+        expect(result.error).toBeNull();
+        const obs = result.observations.find((o) => o.metric_id === "minimax:minimax-m*-interval");
+        expect(obs).toBeDefined();
+        expect(obs?.reset_at).toBeNull();
+    });
+
     it("returns empty when no model_remains provided", async () => {
         const script = await readFile(join("connectors", "minimax", "connector.ts"), "utf8");
         const result = await run_connector(manifest, script, create_ctx([]));

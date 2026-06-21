@@ -98,10 +98,17 @@ function status_for(used: number, limit: number): Observation["status"] {
     return "normal";
 }
 
+// Assumes `remains_time` is remaining milliseconds until reset.
+// If the API actually returns seconds or another unit, reset_at will be wildly wrong.
+// Sanity check: if reset_at would be more than 1 year in the future, treat it as
+// a misinterpreted value and return null instead.
+const ONE_YEAR_MS = 365 * 24 * 3600 * 1000;
+
 function reset_from_ms(value: unknown): number | null {
     const ms = to_number(value);
     if (ms <= 0) return null;
-    return Date.now() + ms;
+    const reset_at = Date.now() + ms;
+    return reset_at - Date.now() > ONE_YEAR_MS ? null : reset_at;
 }
 
 function slug(name: string): string {
