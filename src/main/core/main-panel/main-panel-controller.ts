@@ -1,4 +1,4 @@
-import type { BrowserWindow, Rectangle } from "electron";
+import type { Rectangle } from "electron";
 import { createLogger } from "../../../shared/lib/logger";
 import type { AppConfiguration } from "../../../shared/types/config";
 import type { PopupContentHeightReport } from "../../../shared/types/ipc";
@@ -13,6 +13,7 @@ import type {
     MainPanelController,
     MainPanelPlatform,
     MainPanelShellMode,
+    WindowLike,
 } from "./main-panel-types";
 
 const log = createLogger("main-panel");
@@ -30,25 +31,6 @@ interface DisplayLike {
     readonly id?: string | number;
     readonly workArea: Rectangle;
 }
-
-type WindowLike = Pick<
-    BrowserWindow,
-    | "close"
-    | "destroy"
-    | "focus"
-    | "getBounds"
-    | "hide"
-    | "isDestroyed"
-    | "isVisible"
-    | "loadURL"
-    | "on"
-    | "setAlwaysOnTop"
-    | "setBounds"
-    | "setMinimumSize"
-    | "setResizable"
-    | "setSkipTaskbar"
-    | "show"
->;
 
 export interface MainPanelControllerDeps {
     readonly platform: MainPanelPlatform;
@@ -247,7 +229,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             return height_controller.report_content_height(report);
         },
         get_window() {
-            return (win as unknown as BrowserWindow | null) ?? null;
+            return win;
         },
         get_mode() {
             return mode;
