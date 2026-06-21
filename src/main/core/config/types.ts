@@ -41,7 +41,7 @@ const connectorConfigurationSchema = z.object({
     executablePath: z.string().min(1),
     refreshIntervalSeconds: refreshIntervalSecondsSchema,
     manualRefreshOnly: z.boolean().optional(),
-    parameterValues: z.record(z.string()),
+    parameterValues: z.record(z.string().or(z.number())),
     endpointOverrides: z.record(z.string()).default({}),
 });
 

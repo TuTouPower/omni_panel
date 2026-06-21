@@ -61,7 +61,7 @@ export interface ConnectorConfiguration {
     readonly executablePath: string;
     readonly refreshIntervalSeconds: number;
     readonly manualRefreshOnly?: boolean;
-    readonly parameterValues: Readonly<Record<string, string>>;
+    readonly parameterValues: Readonly<Record<string, string | number>>;
     readonly endpointOverrides: Readonly<Record<string, string>>;
 }
 

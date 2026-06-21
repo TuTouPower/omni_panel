@@ -146,7 +146,7 @@ export function CpaConnectorSettings({
                 return;
             }
 
-            const nonSecrets: Record<string, string> = { ...config.parameterValues };
+            const nonSecrets: Record<string, string | number> = { ...config.parameterValues };
             delete nonSecrets["cpa_mgmt_key"];
             for (const monitor of MONITORS) {
                 nonSecrets[monitor.name] = monitors[monitor.name] ? "true" : "false";

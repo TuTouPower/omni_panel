@@ -77,7 +77,9 @@ function activeProvidersForConnector(
         const metadataDefault = definition?.manifest.parameters.find(
             (p) => p.name === key,
         )?.default;
-        return (plugin.parameterValues[key] ?? metadataDefault ?? "").toLowerCase() === "true";
+        return (
+            String(plugin.parameterValues[key] ?? metadataDefault ?? "").toLowerCase() === "true"
+        );
     });
 }
 

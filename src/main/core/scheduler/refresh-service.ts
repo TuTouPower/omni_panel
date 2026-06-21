@@ -112,7 +112,9 @@ async function build_params(
 ): Promise<Record<string, string>> {
     const params: Record<string, string> = {};
     for (const param of definition.manifest.parameters) {
-        const configured = connector_config.parameterValues[param.name] ?? param.default ?? "";
+        const configured = String(
+            connector_config.parameterValues[param.name] ?? param.default ?? "",
+        );
         if (param.type !== "secret") {
             params[param.name] = configured;
             continue;
