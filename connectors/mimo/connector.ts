@@ -112,12 +112,12 @@ async function main(): Promise<Observation[]> {
     if (usage_result?.code !== 0 || !usage_result.data?.usage?.items) {
         throw new Error(usage_result?.message ?? "MiMo usage response invalid");
     }
-    if (detail_result?.code !== 0) {
-        throw new Error(detail_result?.message ?? "MiMo detail response invalid");
+    if (detail_result && detail_result.code !== 0) {
+        throw new Error(detail_result.message ?? "MiMo detail response invalid");
     }
 
-    const plan_name = detail_result.data?.planName ?? "MiMo";
-    const reset_at = to_reset_at(detail_result.data?.currentPeriodEnd);
+    const plan_name = detail_result?.data?.planName ?? "MiMo";
+    const reset_at = to_reset_at(detail_result?.data?.currentPeriodEnd);
 
     const base = {
         provider: "mimo",

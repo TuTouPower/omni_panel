@@ -22,7 +22,7 @@ function parse_timestamp(value: unknown): number | null {
 
 function day_key(ts_ms: number): string {
     const d = new Date(ts_ms);
-    return `${String(d.getUTCFullYear())}-${String(d.getUTCMonth())}-${String(d.getUTCDate())}`;
+    return `${String(d.getUTCFullYear())}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
 function extract_model(event: Record<string, unknown>): string | null {

@@ -169,4 +169,43 @@ describe("mimo connector", () => {
 
         expect(result.observations.map((o) => o.metric_id)).toEqual(["mimo:plan_total_token"]);
     });
+
+    it("still returns usage items when detail API returns null", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const detail_null_ctx: ConnectorContext = {
+            http: {
+                get_json(_endpoint, path) {
+                    if (path === "/api/v1/tokenPlan/usage")
+                        return Promise.resolve({
+                            code: 0,
+                            data: {
+                                usage: {
+                                    items: [
+                                        {
+                                            name: "plan_total_token",
+                                            used: 5,
+                                            limit: 50,
+                                            percent: 10,
+                                        },
+                                    ],
+                                },
+                            },
+                        });
+                    if (path === "/api/v1/tokenPlan/detail")
+                        return Promise.reject(new Error("network error"));
+                    if (path === "/api/v1/balance") return Promise.resolve({ code: 0 });
+                    return Promise.reject(new Error(`unexpected path ${path}`));
+                },
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
+        };
+        const result = await run_connector(manifest, script, detail_null_ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations.map((o) => o.metric_id)).toEqual(["mimo:plan_total_token"]);
+        expect(result.observations[0]?.account_label).toBe("MiMo");
+    });
 });
