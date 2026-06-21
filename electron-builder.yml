@@ -16,7 +16,7 @@ asar: true
 electronFuses:
     enableEmbeddedAsarIntegrityValidation: true
     onlyLoadAppFromAsar: true
-    runAsNode: true
+    runAsNode: false
     enableCookieEncryption: true
     enableNodeOptionsEnvironmentVariable: false
     enableNodeCliInspectArguments: false
