@@ -10,6 +10,28 @@ import type { ConnectorContext, HttpOpts } from "./host-io";
 const log = createLogger("net-client");
 const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10MB
 
+async function read_body_with_limit(
+    body: Awaited<ReturnType<typeof undici_request>>["body"],
+    max_bytes: number,
+): Promise<string> {
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for await (const chunk of body) {
+        const buf: Uint8Array = Buffer.isBuffer(chunk)
+            ? new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength)
+            : typeof chunk === "string"
+              ? Buffer.from(chunk)
+              : new Uint8Array(chunk as ArrayBuffer);
+        total += buf.byteLength;
+        if (total > max_bytes) {
+            body.destroy();
+            throw new Error(`Response body exceeds ${String(max_bytes)} bytes`);
+        }
+        chunks.push(buf);
+    }
+    return Buffer.concat(chunks).toString("utf8");
+}
+
 export interface NetClientConfig {
     readonly proxy_url?: string;
     readonly endpoint_overrides?: Record<string, string>;
@@ -123,7 +145,7 @@ export function create_connector_context(
         const response = await undici_request(url, request_options);
 
         if (response.statusCode >= 400) {
-            const body_text = await response.body.text();
+            const body_text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
             log.debug(`HTTP ${String(response.statusCode)} response body`, {
                 body: body_text.slice(0, 200),
                 url,
@@ -145,12 +167,9 @@ export function create_connector_context(
             }
         }
 
-        const text = await response.body.text();
+        const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
         if (text.length === 0) {
             return null;
-        }
-        if (text.length > MAX_RESPONSE_BYTES) {
-            throw new Error(`Response body too large: ${String(text.length)} bytes`);
         }
 
         return JSON.parse(text) as unknown;
@@ -185,7 +204,7 @@ export function create_connector_context(
                 const response = await undici_request(url, request_options);
 
                 if (response.statusCode >= 400) {
-                    const body_text = await response.body.text();
+                    const body_text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
                     log.debug(`HTTP ${String(response.statusCode)} get_raw response body`, {
                         body: body_text.slice(0, 200),
                         url: url.toString(),
@@ -204,7 +223,7 @@ export function create_connector_context(
                     }
                 }
 
-                const text = await response.body.text();
+                const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
 
                 return {
                     status: response.statusCode,
