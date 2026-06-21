@@ -15,10 +15,12 @@ export interface ConnectorRunResult {
     readonly error: string | null;
 }
 
-function deep_freeze<T>(value: T): T {
+function deep_freeze<T>(value: T, seen: WeakSet<object> = new WeakSet()): T {
     if (value !== null && typeof value === "object") {
+        if (seen.has(value as object)) return value;
+        seen.add(value as object);
         for (const child of Object.values(value as Record<string, unknown>)) {
-            deep_freeze(child);
+            deep_freeze(child, seen);
         }
         Object.freeze(value);
     }

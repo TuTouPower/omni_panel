@@ -39,6 +39,16 @@ describe("log-ipc", () => {
         }
     });
 
+    it("returns ok without crashing when module is not a string", () => {
+        const result = handleRendererLog({ level: "info", module: 42, message: "hello" });
+        expect(result.ok).toBe(true);
+    });
+
+    it("returns ok without crashing when message is not a string", () => {
+        const result = handleRendererLog({ level: "info", module: "test", message: null });
+        expect(result.ok).toBe(true);
+    });
+
     it("drops renderer log metadata outside development", () => {
         const original_node_env = process.env["NODE_ENV"];
         process.env["NODE_ENV"] = "production";

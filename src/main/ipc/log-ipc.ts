@@ -10,6 +10,7 @@ export function handleRendererLog(payload: unknown): IpcResult<void> {
     if (!payload || typeof payload !== "object") return ok(undefined);
 
     const { level, module, message } = payload as RendererLogPayload;
+    if (typeof module !== "string" || typeof message !== "string") return ok(undefined);
     const meta =
         process.env["NODE_ENV"] === "development"
             ? (payload as RendererLogPayload).meta
