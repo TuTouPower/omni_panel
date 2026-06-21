@@ -264,8 +264,9 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         const result = await deps.sessionLogin(instanceId);
                         if (result.saved) {
                             log.info(
-                                `Re-login succeeded for ${connector_config.name}, retrying refresh`,
+                                `Re-login succeeded for ${connector_config.name}, waiting before retry`,
                             );
+                            await new Promise((resolve) => setTimeout(resolve, 2000));
                             // Re-run the connector with fresh cookies
                             const retry_observations = await execute_connector(
                                 connector_config,
