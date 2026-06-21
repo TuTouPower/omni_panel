@@ -15,7 +15,8 @@ export async function handleSessionLogin(
 ): Promise<IpcResult<SessionLoginResult>> {
     if (!request.instance_id) return fail("VALIDATION_ERROR", "缺少 instance_id");
     if (!request.login_url) return fail("VALIDATION_ERROR", "缺少 login_url");
-    if (!request.cookie_names.length) return fail("VALIDATION_ERROR", "缺少 cookie_names");
+    if (!Array.isArray(request.cookie_names) || !request.cookie_names.length)
+        return fail("VALIDATION_ERROR", "缺少 cookie_names");
     try {
         const parsed = new URL(request.login_url);
         if (parsed.protocol !== "https:") {

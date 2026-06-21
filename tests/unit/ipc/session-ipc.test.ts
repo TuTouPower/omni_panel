@@ -136,6 +136,24 @@ describe("handleSessionLogin", () => {
         }
     });
 
+    it("returns VALIDATION_ERROR when cookie_names is not an array", async () => {
+        const mod = await import("../../../src/main/ipc/session-ipc");
+        const result = await mod.handleSessionLogin(
+            { sessionManager: mock_session_manager },
+            {
+                instance_id: "test-instance",
+                login_url: "https://example.com/login",
+                cookie_names: "not-an-array" as unknown as string[],
+            },
+        );
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe("VALIDATION_ERROR");
+        }
+        expect(mock_session_manager.start_login).not.toHaveBeenCalled();
+    });
+
     it("returns VALIDATION_ERROR when cookie_names is empty", async () => {
         const mod = await import("../../../src/main/ipc/session-ipc");
         const result = await mod.handleSessionLogin(
