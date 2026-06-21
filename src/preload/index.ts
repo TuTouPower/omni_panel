@@ -258,7 +258,7 @@ const api: UsageboardApi = (() => {
                 platform: renderer_platform,
                 connector: connector_methods,
                 plugin: connector_methods,
-                config: config_full,
+                config: config_readonly,
                 event: event_methods,
                 popup: popup_methods,
                 main_panel: main_panel_methods,

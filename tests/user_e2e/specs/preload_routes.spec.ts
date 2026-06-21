@@ -19,17 +19,12 @@ async function getConfigApiKeys(page: Page): Promise<string[]> {
 }
 
 test.describe("preload route API restriction", () => {
-    test("popup window has config_full (get + save + saveSecrets + duplicate)", async ({
-        omni,
-    }) => {
+    test("popup window has config_readonly (only get)", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         // Open the popup (default route)
         await page.waitForLoadState("domcontentloaded");
         const keys = await getConfigApiKeys(page);
-        // config_full: get, save, saveSecrets, duplicate, export, import
-        expect(keys).toContain("get");
-        expect(keys).toContain("save");
-        expect(keys).toContain("saveSecrets");
-        expect(keys).toContain("duplicate");
+        // config_readonly: only get
+        expect(keys).toEqual(["get"]);
     });
 });
