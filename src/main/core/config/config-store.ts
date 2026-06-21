@@ -163,14 +163,45 @@ export function createConfigStore(configPath: string): AppConfigStore {
                     }
                     return migrated;
                 }
-                // Backup corrupted file before falling back to defaults
+                // Try recovering from .bak before backing up corrupted file
+                let recovered_from_bak: AppConfiguration | null = null;
+                try {
+                    const bak_raw = await readFile(`${configPath}.bak`, "utf8");
+                    const bak_parsed = JSON.parse(bak_raw) as unknown;
+                    const bak_normalized =
+                        bak_parsed !== null &&
+                        typeof bak_parsed === "object" &&
+                        !Array.isArray(bak_parsed)
+                            ? stripRemovedConfigFields(bak_parsed as Record<string, unknown>)
+                            : bak_parsed;
+                    const bak_result = appConfigurationSchema.safeParse(bak_normalized);
+                    if (bak_result.success) {
+                        recovered_from_bak = {
+                            ...bak_result.data,
+                            plugins: bak_result.data.plugins.map((p) => ({
+                                ...p,
+                                instanceId: p.instanceId ?? p.stateId,
+                            })),
+                        };
+                    }
+                } catch {
+                    // .bak not available or also corrupt
+                }
+                // Backup corrupted file (after reading .bak so we don't overwrite it)
                 try {
                     await writeFile(`${configPath}.bak`, raw, "utf8");
                 } catch {
                     // non-critical
                 }
+                if (recovered_from_bak) {
+                    log.warn(
+                        `Config schema mismatch at ${configPath}, recovered from backup`,
+                        result.error.issues,
+                    );
+                    return recovered_from_bak;
+                }
                 log.warn(
-                    `Config schema mismatch at ${configPath}, backed up and using defaults`,
+                    `Config schema mismatch at ${configPath}, backup also invalid, using defaults`,
                     result.error.issues,
                 );
                 return { ...DEFAULT_CONFIGURATION };

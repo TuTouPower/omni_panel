@@ -150,6 +150,37 @@ describe("config-store", () => {
         expect(reloaded.launchAtLogin).toBe(true);
     });
 
+    it("recovers from .bak when schema validation fails", async () => {
+        const configPath = join(tempDir, "config.json");
+        // Write a valid .bak first
+        const valid_config = {
+            schemaVersion: 1,
+            language: "en",
+            plugins: [],
+            launchAtLogin: true,
+        };
+        await writeFile(`${configPath}.bak`, JSON.stringify(valid_config), "utf8");
+        // Write an invalid main config (missing required fields)
+        await writeFile(configPath, '{"schemaVersion":1}', "utf8");
+        const store = createConfigStore(configPath);
+        const config = await store.load();
+        // Should recover from .bak instead of using defaults
+        expect(config.language).toBe("en");
+        expect(config.launchAtLogin).toBe(true);
+    });
+
+    it("falls back to defaults when both main and .bak are schema-invalid", async () => {
+        const configPath = join(tempDir, "config.json");
+        // Write invalid .bak
+        await writeFile(`${configPath}.bak`, '{"schemaVersion":1}', "utf8");
+        // Write invalid main config
+        await writeFile(configPath, '{"schemaVersion":1}', "utf8");
+        const store = createConfigStore(configPath);
+        const config = await store.load();
+        expect(config.language).toBe("zh-Hans");
+        expect(config.plugins).toEqual([]);
+    });
+
     it("returns default config on schema-invalid JSON", async () => {
         await writeFile(join(tempDir, "config.json"), '{"schemaVersion":1}');
         const store = createConfigStore(join(tempDir, "config.json"));
