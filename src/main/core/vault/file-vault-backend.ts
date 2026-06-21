@@ -116,13 +116,29 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
             if (error instanceof Error && "code" in error && error.code === "ENOENT") {
                 return {};
             }
+            // Try recovering from .bak before throwing
+            try {
+                const bak_raw = await readFile(`${vault_path}.bak`, "utf8");
+                const bak_data = JSON.parse(bak_raw) as Record<string, VaultEntry>;
+                log.warn("Vault corrupted, recovered from backup");
+                return bak_data;
+            } catch {
+                // .bak not available or also corrupt
+            }
             throw new Error("Failed to parse vault file (possibly corrupted)");
         }
     }
 
     async function write_vault(data: Record<string, VaultEntry>): Promise<void> {
         await mkdir(dirname(vault_path), { recursive: true });
-        await writeFile(vault_path, JSON.stringify(data, null, 2), "utf8");
+        const json = JSON.stringify(data, null, 2);
+        // Write .bak first (best-effort previous good state), then main file
+        try {
+            await writeFile(`${vault_path}.bak`, json, "utf8");
+        } catch {
+            // non-critical
+        }
+        await writeFile(vault_path, json, "utf8");
         await set_file_permissions(vault_path);
     }
 

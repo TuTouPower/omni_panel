@@ -119,6 +119,30 @@ describe("file-vault-backend", () => {
         }
     });
 
+    it("recovers from .bak when vault JSON is corrupted", async () => {
+        const { writeFile, readFile } = await import("node:fs/promises");
+        // Write a valid vault entry — write_vault creates .bak automatically
+        await vault.set("recover-key", "recover-value");
+        // Read the valid vault content that was also written to .bak
+        const valid_raw = await readFile(join(temp_dir, "secrets.vault"), "utf8");
+        // Corrupt the main vault file
+        await writeFile(join(temp_dir, "secrets.vault"), "corrupted{{{");
+        // Ensure .bak has the valid content
+        await writeFile(join(temp_dir, "secrets.vault.bak"), valid_raw, "utf8");
+        // Should recover from .bak
+        const vault2 = await create_file_vault_backend(temp_dir);
+        const result = await vault2.get("recover-key");
+        expect(result).toBe("recover-value");
+    });
+
+    it("throws when both main vault and .bak are corrupted", async () => {
+        const { writeFile } = await import("node:fs/promises");
+        await writeFile(join(temp_dir, "secrets.vault"), "corrupted{{{");
+        await writeFile(join(temp_dir, "secrets.vault.bak"), "also-corrupted{{{");
+        const vault2 = await create_file_vault_backend(temp_dir);
+        await expect(vault2.get("any-key")).rejects.toThrow("possibly corrupted");
+    });
+
     it("throws on corrupted vault JSON instead of silently returning empty", async () => {
         const { writeFile } = await import("node:fs/promises");
         await writeFile(join(temp_dir, "secrets.vault"), "not valid json {{{");
