@@ -122,7 +122,8 @@ export function create_local_api_server(
             }
 
             json_response(res, 404, { error: "Not found" });
-        })().catch(() => {
+        })().catch((err: unknown) => {
+            log.error("request failed", err);
             json_response(res, 500, { error: "Internal server error" });
         });
     }
