@@ -15,7 +15,7 @@ export interface ConnectorScheduler {
 
 export function createConnectorScheduler(deps: ConnectorSchedulerDeps): ConnectorScheduler {
     const log = createLogger("scheduler");
-    const timers = new Map<string, { timer: ReturnType<typeof setInterval>; interval: number }>();
+    const timers = new Map<string, { timer: ReturnType<typeof setTimeout>; interval: number }>();
 
     function start(
         instanceId: string,
@@ -30,17 +30,22 @@ export function createConnectorScheduler(deps: ConnectorSchedulerDeps): Connecto
             void deps.refresh(instanceId);
         }
 
-        const timer = setInterval(() => {
-            void deps.refresh(instanceId);
-        }, interval);
+        function schedule_next(): void {
+            const timer = setTimeout(() => {
+                void deps.refresh(instanceId).then(() => {
+                    schedule_next();
+                });
+            }, interval);
+            timers.set(instanceId, { timer, interval });
+        }
 
-        timers.set(instanceId, { timer, interval });
+        schedule_next();
     }
 
     function stop(instanceId: string): void {
         const entry = timers.get(instanceId);
         if (entry) {
-            clearInterval(entry.timer);
+            clearTimeout(entry.timer);
             timers.delete(instanceId);
             log.debug(`Stopped scheduler for ${instanceId}`);
         }

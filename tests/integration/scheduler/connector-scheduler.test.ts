@@ -102,4 +102,35 @@ describe("connector-scheduler", () => {
         await vi.advanceTimersByTimeAsync(20_000);
         expect(scheduler.isRunning("p2")).toBe(true);
     });
+
+    it("does not stack calls when refresh takes longer than interval", async () => {
+        // With setInterval, a slow refresh would cause calls to pile up.
+        // With recursive setTimeout, the next call is scheduled only after
+        // the current one completes, so no stacking occurs.
+        let resolveRefresh: () => void = () => undefined;
+        const refresh = vi.fn<() => Promise<void>>().mockImplementation(() => {
+            return new Promise<void>((resolve) => {
+                resolveRefresh = resolve;
+            });
+        });
+        const scheduler = createConnectorScheduler({ refresh });
+        scheduler.start("p1", 10, { immediate: false });
+
+        // Advance past one interval — first scheduled call fires
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(refresh).toHaveBeenCalledTimes(1);
+
+        // Advance past another interval while first refresh is still running.
+        // With setInterval this would have already queued a second call.
+        // With setTimeout, the next call isn't scheduled yet.
+        await vi.advanceTimersByTimeAsync(15_000);
+        expect(refresh).toHaveBeenCalledTimes(1); // still 1 — no stacking
+
+        // Now resolve the first refresh — next call should be scheduled
+        resolveRefresh();
+        await vi.advanceTimersByTimeAsync(0); // let microtasks settle
+        // The next refresh is now scheduled after the interval
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(refresh).toHaveBeenCalledTimes(2);
+    });
 });
