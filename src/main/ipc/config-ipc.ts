@@ -85,7 +85,8 @@ export async function handleConfigGet(
         return ok({ config: masked, hasSecrets });
     } catch (error: unknown) {
         log.error("handleConfigGet failed", error);
-        return fail("INTERNAL_ERROR", "获取配置失败");
+        const msg = error instanceof Error ? error.message : String(error);
+        return fail("INTERNAL_ERROR", `获取配置失败: ${msg}`);
     }
 }
 
@@ -126,8 +127,9 @@ export async function handleConfigSave(
         await deps.configStore.save(stripped);
         deps.onConfigSaved?.(stripped);
         return ok(undefined);
-    } catch {
-        return fail("INTERNAL_ERROR", "保存配置失败");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `保存配置失败: ${msg}`);
     }
 }
 
@@ -162,8 +164,9 @@ export async function handleConfigSaveSecrets(
             }
         }
         return ok(undefined);
-    } catch {
-        return fail("INTERNAL_ERROR", "保存密钥失败");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `保存密钥失败: ${msg}`);
     }
 }
 
@@ -202,8 +205,9 @@ async function handleConfigDuplicate(
         await deps.configStore.save(updated);
         deps.onConfigSaved?.(updated);
         return ok(undefined);
-    } catch {
-        return fail("INTERNAL_ERROR", "复制插件失败");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `复制插件失败: ${msg}`);
     }
 }
 
@@ -237,8 +241,9 @@ export async function handleConfigExport(
 
         await writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
         return ok({ saved: true });
-    } catch {
-        return fail("INTERNAL_ERROR", "导出设置失败");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `导出设置失败: ${msg}`);
     }
 }
 
@@ -286,8 +291,9 @@ export async function handleConfigImport(
         await deps.secretsStore.importAll(secrets);
         deps.onConfigSaved?.(parsed.data as AppConfiguration);
         return ok({ imported: true });
-    } catch {
-        return fail("INTERNAL_ERROR", "导入设置失败");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `导入设置失败: ${msg}`);
     }
 }
 

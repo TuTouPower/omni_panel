@@ -117,8 +117,9 @@ export async function handleConnectorList(
             };
         });
         return ok(plugins);
-    } catch {
-        return fail("INTERNAL_ERROR", "获取连接器列表失败");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `获取连接器列表失败: ${msg}`);
     }
 }
 
@@ -131,8 +132,9 @@ export function handleConnectorGetState(
         if (!parsed.success) return fail("VALIDATION_ERROR", "无效的连接器 ID");
         const state = deps.runtimeStore.getSnapshot(parsed.data);
         return ok(toDTO(state));
-    } catch {
-        return fail("INTERNAL_ERROR", "获取连接器状态失败");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `获取连接器状态失败: ${msg}`);
     }
 }
 
@@ -149,8 +151,9 @@ export async function handleConnectorRefresh(
         if (!plugin.enabled) return fail("VALIDATION_ERROR", "连接器未启用");
         await deps.refreshService.refresh(parsed.data, { force: true });
         return ok(undefined);
-    } catch {
-        return fail("INTERNAL_ERROR", "刷新失败");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `刷新失败: ${msg}`);
     }
 }
 
@@ -158,8 +161,9 @@ export async function handleConnectorRefreshAll(deps: ConnectorIpcDeps): Promise
     try {
         await deps.refreshService.refreshAll();
         return ok(undefined);
-    } catch {
-        return fail("INTERNAL_ERROR", "刷新全部失败");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `刷新全部失败: ${msg}`);
     }
 }
 
@@ -172,8 +176,9 @@ export function handleConnectorSnapshot(
             snapshot[instance_id] = toDTO(state);
         }
         return ok(snapshot);
-    } catch {
-        return fail("INTERNAL_ERROR", "获取连接器快照失败");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `获取连接器快照失败: ${msg}`);
     }
 }
 

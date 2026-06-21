@@ -22,8 +22,9 @@ export async function handleSessionLogin(
         if (parsed.protocol !== "https:") {
             return fail("VALIDATION_ERROR", "login_url 必须使用 HTTPS 协议");
         }
-    } catch {
-        return fail("VALIDATION_ERROR", "login_url 格式无效");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("VALIDATION_ERROR", `login_url 格式无效: ${msg}`);
     }
 
     try {
