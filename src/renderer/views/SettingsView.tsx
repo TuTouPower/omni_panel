@@ -355,7 +355,12 @@ function AccountDialog({
                         <SettingsForm
                             instanceId={instanceId}
                             parameters={pluginInfo.metadata?.parameters ?? []}
-                            values={pluginConfig.parameterValues}
+                            values={Object.fromEntries(
+                                Object.entries(pluginConfig.parameterValues).map(([k, v]) => [
+                                    k,
+                                    String(v),
+                                ]),
+                            )}
                             hasSecrets={hasSecrets ?? {}}
                             endpoints={pluginInfo.metadata?.endpoints ?? {}}
                             endpointValues={pluginConfig.endpointOverrides}

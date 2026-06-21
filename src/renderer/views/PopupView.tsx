@@ -353,7 +353,7 @@ export function PopupView() {
         set_expanded_providers((prev_e) => {
             const next: Record<string, boolean> = {};
             for (const [p, v] of Object.entries(prev_e)) {
-                if (live_providers.has(p)) next[p] = v;
+                if (live_providers.has(p as UsageProvider)) next[p] = v;
             }
             return next;
         });

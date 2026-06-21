@@ -315,7 +315,9 @@ export function resolve_convergent_time(timestamps: (string | null | undefined)[
 export function resolve_convergent_epoch(epochs: (number | null)[]): number | null {
     const valid = epochs.filter((t): t is number => t !== null);
     if (valid.length === 0) return null;
-    const [first, ...rest] = valid;
+    const first = valid[0];
+    if (first === undefined) return null;
+    const rest = valid.slice(1);
     if (rest.length === 0) return first;
 
     const earliest = rest.reduce((min, item) => Math.min(min, item), first);

@@ -51,8 +51,8 @@ function get_default_value(connector: ConnectorInfo, name: string) {
     return connector.metadata?.parameters?.find((param) => param.name === name)?.defaultValue;
 }
 
-function is_enabled_value(value: string | undefined) {
-    return value?.toLowerCase() === "true";
+function is_enabled_value(value: string | number | undefined) {
+    return String(value ?? "").toLowerCase() === "true";
 }
 
 function get_status(connector: ConnectorInfo) {
@@ -146,7 +146,11 @@ export function CpaConnectorSettings({
                 return;
             }
 
-            const nonSecrets: Record<string, string | number> = { ...config.parameterValues };
+            const nonSecrets: Record<string, string> = {
+                ...Object.fromEntries(
+                    Object.entries(config.parameterValues).map(([k, v]) => [k, String(v)]),
+                ),
+            };
             delete nonSecrets["cpa_mgmt_key"];
             for (const monitor of MONITORS) {
                 nonSecrets[monitor.name] = monitors[monitor.name] ? "true" : "false";

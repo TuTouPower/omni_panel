@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
+import type { UsageProvider } from "../../../src/shared/schemas/plugin-output";
 
 const mock_window_events: Record<string, (() => void) | undefined> = {};
 let mock_cookie_get_result: { name: string; value: string }[] = [];
@@ -168,7 +169,7 @@ describe("handleCookieLogin", () => {
             executablePath: "connectors/evil",
             manifest: {
                 id: "evil",
-                provider: "evil",
+                provider: "evil" as unknown as UsageProvider,
                 capabilities: ["poll"],
                 parameters: [],
                 endpoints: {

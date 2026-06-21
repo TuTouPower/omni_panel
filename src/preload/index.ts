@@ -242,7 +242,22 @@ const api: UsageboardApi = (() => {
                 platform: renderer_platform,
                 connector: connector_methods,
                 plugin: connector_methods,
-                config: config_readonly,
+                // Popup/tray: read-only config — write methods are present but no-op stubs
+                // so the UsageboardApi type is satisfied without exposing write capability.
+                config: {
+                    ...config_readonly,
+                    save: async () => {
+                        /* no-op: popup/tray cannot save config */
+                    },
+                    saveSecrets: async () => {
+                        /* no-op: popup/tray cannot save secrets */
+                    },
+                    duplicate: async () => {
+                        /* no-op: popup/tray cannot duplicate */
+                    },
+                    export: () => Promise.resolve({ saved: false }),
+                    import: () => Promise.resolve({ imported: false }),
+                },
                 event: event_methods,
                 popup: popup_methods,
                 main_panel: main_panel_methods,
@@ -259,7 +274,20 @@ const api: UsageboardApi = (() => {
                 platform: renderer_platform,
                 connector: connector_methods,
                 plugin: connector_methods,
-                config: config_readonly,
+                config: {
+                    ...config_readonly,
+                    save: async () => {
+                        /* no-op: popup/tray cannot save config */
+                    },
+                    saveSecrets: async () => {
+                        /* no-op: popup/tray cannot save secrets */
+                    },
+                    duplicate: async () => {
+                        /* no-op: popup/tray cannot duplicate */
+                    },
+                    export: () => Promise.resolve({ saved: false }),
+                    import: () => Promise.resolve({ imported: false }),
+                },
                 event: event_methods,
                 popup: popup_methods,
                 main_panel: main_panel_methods,

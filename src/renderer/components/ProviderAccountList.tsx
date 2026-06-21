@@ -14,6 +14,7 @@ interface ProviderAccountListProps {
     onDragEnd?: (() => void) | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onDisableAccount?: ((account: ProviderUsageAccount) => void) | undefined;
+    onReLogin?: ((provider: UsageProvider) => void) | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
@@ -34,12 +35,14 @@ export function ProviderAccountList({
     onDragEnd,
     onEditAccount,
     onDisableAccount,
+    onReLogin: _onReLogin,
     barColorScheme,
     barStyle,
     labelMap,
     accountLabelMaps,
     providerLabelMaps,
 }: ProviderAccountListProps) {
+    void _onReLogin;
     const per_provider_map = providerLabelMaps?.[group.provider] ?? {};
 
     return (
