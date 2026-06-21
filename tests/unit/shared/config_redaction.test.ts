@@ -56,6 +56,22 @@ describe("redact_config_raw", () => {
         expect(result.parameterValues["myToken"]).toBe("***");
     });
 
+    it("does not redact parameter names that merely contain 'key' as a substring", () => {
+        const input = {
+            parameterValues: {
+                keywords: "some keywords",
+                monkey: "primate data",
+                keynote: "presentation",
+                api_key: "should-be-redacted",
+            },
+        };
+        const result = redact_config_raw(input) as { parameterValues: Record<string, unknown> };
+        expect(result.parameterValues["keywords"]).toBe("some keywords");
+        expect(result.parameterValues["monkey"]).toBe("primate data");
+        expect(result.parameterValues["keynote"]).toBe("presentation");
+        expect(result.parameterValues["api_key"]).toBe("***");
+    });
+
     it("preserves non-secret values and structure", () => {
         const input = {
             instanceId: "claude-1",

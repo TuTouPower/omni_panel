@@ -1,6 +1,6 @@
 const REDACTED_VALUE = "***";
 const SECRET_KEY_PATTERNS = [
-    /key/i,
+    /[_-]key\b|^key\b/i,
     /secret/i,
     /cookie/i,
     /token/i,
