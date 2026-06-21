@@ -60,7 +60,9 @@ async function main(): Promise<Observation[]> {
     }
 
     const plan_limit = to_number(account["plan_limit"]);
-    if (plan_limit <= 0) return [];
+    if (plan_limit <= 0) {
+        throw new Error("Tavily plan limit is 0 or negative — check your API key and subscription");
+    }
     const plan_usage = Math.max(to_number(account["plan_usage"]), 0);
     const now = Date.now();
     const reset_at = next_month_start();

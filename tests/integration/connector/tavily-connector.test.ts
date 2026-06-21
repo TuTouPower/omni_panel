@@ -99,7 +99,7 @@ describe("tavily connector", () => {
         expect(result.observations[0]?.status).toBe("critical");
     });
 
-    it("returns empty when plan_limit is missing or zero", async () => {
+    it("throws error when plan_limit is zero or negative", async () => {
         const script = await readFile(join("connectors", "tavily", "connector.ts"), "utf8");
         const result = await run_connector(
             manifest,
@@ -107,7 +107,8 @@ describe("tavily connector", () => {
             create_ctx({ plan_limit: "0", plan_usage: "10" }),
         );
 
-        expect(result.error).toBeNull();
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("plan limit is 0 or negative");
         expect(result.observations).toEqual([]);
     });
 
