@@ -138,10 +138,10 @@ xdg-open coverage/index.html
 
 | 指标       | 阈值 |
 | ---------- | ---- |
-| Statements | 1%   |
-| Branches   | 22%  |
-| Functions  | 20%  |
-| Lines      | 1%   |
+| Statements | 15%  |
+| Branches   | 25%  |
+| Functions  | 25%  |
+| Lines      | 15%  |
 
 > 基线日期：2026-05-30。阈值 = 基线 - 5%。
 > 详细基线数据见 `docs/archive/coverage_baseline.md`。
