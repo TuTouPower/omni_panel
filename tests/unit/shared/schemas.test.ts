@@ -68,6 +68,8 @@ describe("pluginResultSchema (discriminated union)", () => {
                     status: "normal",
                     color: "red",
                     resetAt: null,
+                    observedAt: 1748049600000,
+                    stale: false,
                 },
             ],
         };

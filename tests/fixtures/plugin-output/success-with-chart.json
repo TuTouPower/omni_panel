@@ -12,11 +12,14 @@
             "displayStyle": "percent",
             "status": "normal",
             "color": "blue",
+            "resetAt": null,
             "provider": "claude",
             "source": "api_key",
             "sourceInstanceId": "fixture-claude",
             "accountId": "fixture-claude",
-            "accountLabel": "Claude Fixture"
+            "accountLabel": "Claude Fixture",
+            "observedAt": 1748049600000,
+            "stale": false
         }
     ],
     "chart": {

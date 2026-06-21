@@ -16,14 +16,14 @@ export interface ProviderUsagePeriod {
     name: string;
     display_label?: string | undefined;
     used: number | null;
-    limit: number;
+    limit: number | null;
     displayStyle: MetricRecord["displayStyle"];
-    resetAt?: string | null | undefined;
+    resetAt: number | null;
     status: MetricRecord["status"];
     color?: MetricRecord["color"] | undefined;
     updatedAt: string;
-    observedAt?: string | undefined;
-    stale?: boolean | undefined;
+    observedAt: number;
+    stale: boolean;
 }
 
 export interface ProviderUsageAccount {
@@ -33,8 +33,8 @@ export interface ProviderUsageAccount {
     accountLabel: string;
     status: MetricRecord["status"];
     updatedAt: string;
-    observedAt?: string | undefined;
-    stale?: boolean | undefined;
+    observedAt: number;
+    stale: boolean;
     periods: ProviderUsagePeriod[];
 }
 
@@ -44,9 +44,9 @@ export interface ProviderUsageGroup {
     accountCount: number;
     status: MetricRecord["status"];
     updatedAt: string;
-    observedAt?: string | undefined;
+    observedAt: number;
     source?: UsageSource | "mixed" | undefined;
-    stale?: boolean | undefined;
+    stale: boolean;
     periods: ProviderUsagePeriod[];
     accounts: ProviderUsageAccount[];
 }
@@ -95,6 +95,10 @@ function latestTimestamp(a: string, b: string): string {
     return new Date(a).getTime() >= new Date(b).getTime() ? a : b;
 }
 
+function latestEpoch(a: number, b: number): number {
+    return Math.max(a, b);
+}
+
 function worstStatus(a: MetricRecord["status"], b: MetricRecord["status"]): MetricRecord["status"] {
     return STATUS_RANK[a] >= STATUS_RANK[b] ? a : b;
 }
@@ -123,8 +127,8 @@ function toPeriod(
         status: item.status,
         color: item.color,
         updatedAt,
-        observedAt: item.observedAt ?? updatedAt,
-        stale: item.stale ?? false,
+        observedAt: item.observedAt,
+        stale: item.stale,
     };
 }
 
@@ -189,27 +193,23 @@ export function build_provider_usage_groups(
             const accountsByKey = new Map<string, ProviderUsageAccount>();
             let groupStatus: MetricRecord["status"] = "normal";
             let groupUpdatedAt = periods[0]?.updatedAt ?? "";
-            let groupObservedAt = periods[0]?.observedAt ?? groupUpdatedAt;
+            let groupObservedAt = periods[0]?.observedAt ?? 0;
             let groupStale = false;
 
             for (const period of periods) {
                 const accountKey = accountKeyForPeriod(period);
                 const account = accountsByKey.get(accountKey);
-                const periodObservedAt = period.observedAt ?? period.updatedAt;
                 groupStatus = worstStatus(groupStatus, period.status);
                 groupUpdatedAt = latestTimestamp(groupUpdatedAt, period.updatedAt);
-                groupObservedAt = latestTimestamp(groupObservedAt, periodObservedAt);
-                groupStale = groupStale || (period.stale ?? false);
+                groupObservedAt = latestEpoch(groupObservedAt, period.observedAt);
+                groupStale = groupStale || period.stale;
 
                 if (account) {
                     account.periods.push(period);
                     account.status = worstStatus(account.status, period.status);
                     account.updatedAt = latestTimestamp(account.updatedAt, period.updatedAt);
-                    account.observedAt = latestTimestamp(
-                        account.observedAt ?? account.updatedAt,
-                        periodObservedAt,
-                    );
-                    account.stale = (account.stale ?? false) || (period.stale ?? false);
+                    account.observedAt = latestEpoch(account.observedAt, period.observedAt);
+                    account.stale = account.stale || period.stale;
                     continue;
                 }
 
@@ -312,10 +312,25 @@ export function resolve_convergent_time(timestamps: (string | null | undefined)[
     return valid.find((t) => t.time === latest)?.raw ?? null;
 }
 
+export function resolve_convergent_epoch(epochs: (number | null)[]): number | null {
+    const valid = epochs.filter((t): t is number => t !== null);
+    if (valid.length === 0) return null;
+    const [first, ...rest] = valid;
+    if (rest.length === 0) return first;
+
+    const earliest = rest.reduce((min, item) => Math.min(min, item), first);
+    const latest = rest.reduce((max, item) => Math.max(max, item), first);
+
+    if (latest - earliest > TEN_MINUTES_MS) return null;
+
+    return latest;
+}
+
 function hasValidQuota(period: ProviderUsagePeriod): boolean {
     return (
         period.used !== null &&
         Number.isFinite(period.used) &&
+        period.limit !== null &&
         Number.isFinite(period.limit) &&
         period.used >= 0 &&
         period.limit > 0
@@ -328,11 +343,11 @@ export interface OverviewWindow {
     raw_label: string;
     percent: number;
     used: number;
-    limit: number;
+    limit: number | null;
     displayStyle: MetricRecord["displayStyle"];
     status: MetricRecord["status"];
     updatedAt: string | null;
-    resetAt: string | null;
+    resetAt: number | null;
     color?: MetricRecord["color"];
 }
 
@@ -353,7 +368,7 @@ export function build_overview_for_group(group: ProviderUsageGroup): OverviewWin
         if (validPeriods.length === 0) continue;
 
         const totalUsed = validPeriods.reduce((sum, period) => sum + (period.used ?? 0), 0);
-        const totalLimit = validPeriods.reduce((sum, period) => sum + period.limit, 0);
+        const totalLimit = validPeriods.reduce((sum, period) => sum + (period.limit ?? 0), 0);
         const percent = Math.round((totalUsed / totalLimit) * 100);
         const periodWorstStatus = validPeriods.reduce<MetricRecord["status"]>(
             (worst, period) => worstStatus(period.status, worst),
@@ -370,7 +385,7 @@ export function build_overview_for_group(group: ProviderUsageGroup): OverviewWin
             displayStyle: validPeriods[0]?.displayStyle ?? "percent",
             status: periodWorstStatus,
             updatedAt: resolve_convergent_time(validPeriods.map((period) => period.updatedAt)),
-            resetAt: resolve_convergent_time(validPeriods.map((period) => period.resetAt)),
+            resetAt: resolve_convergent_epoch(validPeriods.map((period) => period.resetAt)),
             color: validPeriods.find((period) => period.color)?.color,
         });
     }

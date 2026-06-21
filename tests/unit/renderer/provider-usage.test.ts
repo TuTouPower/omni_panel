@@ -54,6 +54,8 @@ function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
         displayStyle: "percent",
         resetAt: null,
         status: "normal",
+        observedAt: 1735689600000,
+        stale: false,
         ...overrides,
     };
 }
@@ -385,7 +387,7 @@ describe("provider usage aggregation", () => {
                     updatedAt: "2026-01-01T12:00:00Z",
                     items: [
                         usageItem({
-                            observedAt: "2026-01-01T11:59:00Z",
+                            observedAt: 1735689540000,
                             stale: true,
                         }),
                     ],
@@ -396,11 +398,11 @@ describe("provider usage aggregation", () => {
         const [group] = build_provider_usage_groups(connectors);
 
         expect(group?.stale).toBe(true);
-        expect(group?.observedAt).toBe("2026-01-01T11:59:00Z");
+        expect(group?.observedAt).toBe(1735689540000);
         expect(group?.accounts[0]?.stale).toBe(true);
-        expect(group?.accounts[0]?.observedAt).toBe("2026-01-01T11:59:00Z");
+        expect(group?.accounts[0]?.observedAt).toBe(1735689540000);
         expect(group?.periods[0]?.stale).toBe(true);
-        expect(group?.periods[0]?.observedAt).toBe("2026-01-01T11:59:00Z");
+        expect(group?.periods[0]?.observedAt).toBe(1735689540000);
     });
 
     it("excludes null-used periods from overview aggregation", () => {
@@ -437,14 +439,14 @@ describe("provider usage aggregation", () => {
                             accountId: "auth-a",
                             accountLabel: "Account A",
                             name: "Claude Pro · 5小时",
-                            resetAt: "2026-01-01T17:00:00Z",
+                            resetAt: 1735707600000,
                         }),
                         usageItem({
                             id: "claude-b-5h",
                             accountId: "auth-b",
                             accountLabel: "Account B",
                             name: "Claude Pro · 5小时",
-                            resetAt: "2026-01-01T17:30:00Z",
+                            resetAt: 1735709400000,
                         }),
                     ],
                 },
@@ -513,7 +515,7 @@ describe("loading state preserves previous data (anti-flicker)", () => {
         const items = [usageItem({ provider: "mimo", id: "mimo-window" })];
         const connectors = [
             connectorInfo({
-                source: "session",
+                source: "oauth",
                 supportedProviders: ["mimo"],
                 activeProviders: ["mimo"],
                 snapshot: {
@@ -534,7 +536,7 @@ describe("loading state preserves previous data (anti-flicker)", () => {
     it("returns empty when loading and no previous items", () => {
         const connectors = [
             connectorInfo({
-                source: "session",
+                source: "oauth",
                 supportedProviders: ["mimo"],
                 activeProviders: ["mimo"],
                 snapshot: { status: "loading" },

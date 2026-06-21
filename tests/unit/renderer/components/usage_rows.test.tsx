@@ -19,9 +19,11 @@ function make_period(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsag
         used: 10,
         limit: 100,
         displayStyle: "percent",
-        resetAt: "2026-05-18T13:10:00Z",
+        resetAt: 1747571400000,
         status: "normal",
         updatedAt: "2026-05-18T12:00:00Z",
+        observedAt: 1747567200000,
+        stale: false,
         ...overrides,
     };
 }

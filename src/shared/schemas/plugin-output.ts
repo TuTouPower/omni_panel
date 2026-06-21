@@ -49,13 +49,13 @@ const usageItemSchema = z.object({
      */
     name: z.string().optional(),
     used: finiteNumber.nullable(),
-    limit: finiteNumber,
+    limit: finiteNumber.nullable(),
     displayStyle: usageDisplayStyleSchema,
-    resetAt: z.string().nullable().optional(),
+    resetAt: finiteNumber.nullable(),
     status: usageStatusSchema.default("unknown"),
     color: usageColorSchema.optional(),
-    observedAt: z.string().optional(),
-    stale: z.boolean().optional(),
+    observedAt: finiteNumber,
+    stale: z.boolean(),
 });
 
 const pluginChartSegmentSchema = z.object({

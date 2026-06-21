@@ -15,7 +15,7 @@ function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUs
         accountLabel: "Account A",
         status: "normal",
         updatedAt: "2026-01-01T12:00:00Z",
-        observedAt: "2026-01-01T12:00:00Z",
+        observedAt: 1735689600000,
         stale: false,
         periods: [
             {
@@ -34,7 +34,7 @@ function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUs
                 displayStyle: "percent",
                 status: "normal",
                 updatedAt: "2026-01-01T12:00:00Z",
-                observedAt: "2026-01-01T12:00:00Z",
+                observedAt: 1735689600000,
                 stale: false,
             },
         ],
@@ -176,8 +176,11 @@ describe("ProviderAccountRow account menu", () => {
                     used: 95,
                     limit: 100,
                     displayStyle: "percent" as const,
+                    resetAt: null,
                     status: "critical" as const,
                     updatedAt: "2026-01-01T12:00:00Z",
+                    observedAt: 1735689600000,
+                    stale: false,
                 },
             ],
         });

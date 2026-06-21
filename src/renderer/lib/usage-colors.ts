@@ -44,7 +44,7 @@ function risk_projected_level(
 
 export function usage_window_elapsed(
     period_name: string,
-    reset_at: string | null | undefined,
+    reset_at: number | null | undefined,
     now_ms = Date.now(),
 ): number | undefined {
     if (!reset_at) {
@@ -59,7 +59,7 @@ export function usage_window_elapsed(
         }
         return undefined;
     }
-    const reset_ms = Date.parse(reset_at);
+    const reset_ms = reset_at;
     if (!Number.isFinite(reset_ms)) {
         if (should_log_raw) {
             log.debug("usage window elapsed raw", {

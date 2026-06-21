@@ -92,6 +92,8 @@ const claude_with_accounts = connector({
                 displayStyle: "percent",
                 resetAt: null,
                 status: "normal",
+                observedAt: 1735689600000,
+                stale: false,
             },
             {
                 id: "claude-pro-b",
@@ -107,6 +109,8 @@ const claude_with_accounts = connector({
                 displayStyle: "percent",
                 resetAt: null,
                 status: "normal",
+                observedAt: 1735689600000,
+                stale: false,
             },
         ],
     },

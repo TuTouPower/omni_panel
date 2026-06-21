@@ -18,6 +18,9 @@ const validOutput = {
             used: 100,
             limit: 1000,
             displayStyle: "percent",
+            resetAt: null,
+            observedAt: 1748131200000,
+            stale: false,
         },
     ],
 };

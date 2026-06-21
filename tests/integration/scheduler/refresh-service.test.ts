@@ -469,7 +469,7 @@ return [{
             {
                 id: "mimo:mimo:mimo:usage",
                 provider: "mimo" as const,
-                source: "session" as const,
+                source: "oauth" as const,
                 sourceInstanceId: "mimo-1",
                 accountId: "mimo-1",
                 accountLabel: "MiMo",
@@ -480,7 +480,7 @@ return [{
                 displayStyle: "percent" as const,
                 resetAt: null,
                 status: "normal" as const,
-                observedAt: "2026-06-06T12:00:00Z",
+                observedAt: 1749211200000,
                 stale: false,
             },
         ];

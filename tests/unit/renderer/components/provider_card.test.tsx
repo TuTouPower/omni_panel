@@ -26,7 +26,7 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
         accountCount: 1,
         status: "normal",
         updatedAt: "2026-06-02T10:00:00Z",
-        observedAt: "2026-06-02T10:00:00Z",
+        observedAt: 1748858400000,
         source: "api_key",
         stale: false,
         periods: [
@@ -47,7 +47,7 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
                 resetAt: null,
                 status: "normal",
                 updatedAt: "2026-06-02T10:00:00Z",
-                observedAt: "2026-06-02T10:00:00Z",
+                observedAt: 1748858400000,
                 stale: false,
             },
         ],
@@ -59,7 +59,7 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
                 accountLabel: "Account 1",
                 status: "normal",
                 updatedAt: "2026-06-02T10:00:00Z",
-                observedAt: "2026-06-02T10:00:00Z",
+                observedAt: 1748858400000,
                 stale: false,
                 periods: [
                     {
@@ -79,6 +79,8 @@ function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): ProviderUsageGr
                         resetAt: null,
                         status: "normal",
                         updatedAt: "2026-06-02T10:00:00Z",
+                        observedAt: 1748858400000,
+                        stale: false,
                     },
                 ],
             },
@@ -105,6 +107,8 @@ function makePeriod(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsage
         resetAt: null,
         status: "normal",
         updatedAt: "2026-06-02T10:00:00Z",
+        observedAt: 1748858400000,
+        stale: false,
         ...overrides,
     };
 }
@@ -151,7 +155,7 @@ describe("ProviderCard", () => {
 
     it("shows stale badge without source badge or 观测 prefix", () => {
         const group = makeGroup({
-            observedAt: "2026-06-02T09:59:00Z",
+            observedAt: 1748857740000,
             source: "api_key",
             stale: true,
         });
@@ -338,6 +342,8 @@ describe("ProviderCard", () => {
                     accountLabel: "A1",
                     status: "normal",
                     updatedAt: "2026-06-02T10:00:00Z",
+                    observedAt: 1748858400000,
+                    stale: false,
                     periods: [
                         makePeriod({
                             id: "w1",
@@ -355,6 +361,8 @@ describe("ProviderCard", () => {
                     accountLabel: "A2",
                     status: "normal",
                     updatedAt: "2026-06-02T10:00:00Z",
+                    observedAt: 1748858400000,
+                    stale: false,
                     periods: [
                         makePeriod({
                             id: "w2",
@@ -372,6 +380,8 @@ describe("ProviderCard", () => {
                     accountLabel: "A3",
                     status: "normal",
                     updatedAt: "2026-06-02T10:00:00Z",
+                    observedAt: 1748858400000,
+                    stale: false,
                     periods: [
                         makePeriod({
                             id: "w3",
@@ -413,6 +423,8 @@ describe("ProviderCard", () => {
                     accountLabel: "A1",
                     status: "normal",
                     updatedAt: "2026-06-02T10:00:00Z",
+                    observedAt: 1748858400000,
+                    stale: false,
                     periods: [makePeriod({ id: "warn", name: "5小时", used: 61, limit: 100 })],
                 },
             ],
@@ -443,7 +455,7 @@ describe("ProviderCard", () => {
             used: 50,
             limit: 100,
             displayStyle: "percent",
-            resetAt: "2026-01-01T17:00:00Z",
+            resetAt: 1735750800000,
         });
         const second_period = makePeriod({
             id: "b-5h",
@@ -453,7 +465,7 @@ describe("ProviderCard", () => {
             used: 50,
             limit: 100,
             displayStyle: "percent",
-            resetAt: "2026-01-01T17:30:00Z",
+            resetAt: 1735752600000,
         });
         const group = makeGroup({
             accountCount: 2,
@@ -466,6 +478,8 @@ describe("ProviderCard", () => {
                     accountLabel: "A",
                     status: "normal",
                     updatedAt: "2026-01-01T15:00:00Z",
+                    observedAt: 1735689600000,
+                    stale: false,
                     periods: [first_period],
                 },
                 {
@@ -475,6 +489,8 @@ describe("ProviderCard", () => {
                     accountLabel: "B",
                     status: "normal",
                     updatedAt: "2026-01-01T15:00:00Z",
+                    observedAt: 1735689600000,
+                    stale: false,
                     periods: [second_period],
                 },
             ],
@@ -509,6 +525,8 @@ describe("ProviderCard", () => {
                     accountLabel: "A1",
                     status: "normal",
                     updatedAt: "2026-06-02T10:00:00Z",
+                    observedAt: 1748858400000,
+                    stale: false,
                     periods: [makePeriod({ id: "first", name: "5小时", used: 95, limit: 100 })],
                 },
             ],
@@ -543,6 +561,8 @@ describe("ProviderCard", () => {
                     accountLabel: "A1",
                     status: "normal",
                     updatedAt: "2026-06-02T10:00:00Z",
+                    observedAt: 1748858400000,
+                    stale: false,
                     periods: [
                         makePeriod({ id: "w1", name: "5小时", used: 10, limit: 100 }),
                         makePeriod({
@@ -599,7 +619,7 @@ describe("ProviderCard", () => {
                     used: null,
                     limit: 100,
                     displayStyle: "percent",
-                    resetAt: "2026-06-02T12:00:00Z",
+                    resetAt: 1748872800000,
                 }),
             ],
             accounts: [
@@ -610,6 +630,8 @@ describe("ProviderCard", () => {
                     accountLabel: "A1",
                     status: "normal",
                     updatedAt: "2026-06-02T10:00:00Z",
+                    observedAt: 1748858400000,
+                    stale: false,
                     periods: [
                         makePeriod({
                             id: "empty",
@@ -617,7 +639,7 @@ describe("ProviderCard", () => {
                             used: null,
                             limit: 100,
                             displayStyle: "percent",
-                            resetAt: "2026-06-02T12:00:00Z",
+                            resetAt: 1748872800000,
                         }),
                     ],
                 },
@@ -670,6 +692,8 @@ describe("ProviderCard", () => {
                     accountLabel: "MiniMax Account",
                     status: "critical",
                     updatedAt: "2026-06-02T10:00:00Z",
+                    observedAt: 1748858400000,
+                    stale: false,
                     periods: [],
                 },
             ],

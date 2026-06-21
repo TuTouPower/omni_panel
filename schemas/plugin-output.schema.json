@@ -57,14 +57,14 @@
                                 "type": "number"
                             },
                             "limit": {
-                                "type": "number"
+                                "type": ["number", "null"]
                             },
                             "displayStyle": {
                                 "type": "string",
                                 "enum": ["percent", "ratio"]
                             },
                             "resetAt": {
-                                "type": ["string", "null"]
+                                "type": ["number", "null"]
                             },
                             "status": {
                                 "type": "string",
@@ -74,6 +74,12 @@
                             "color": {
                                 "type": "string",
                                 "enum": ["blue", "green", "yellow", "orange", "red"]
+                            },
+                            "observedAt": {
+                                "type": "number"
+                            },
+                            "stale": {
+                                "type": "boolean"
                             }
                         },
                         "required": [
@@ -86,7 +92,9 @@
                             "name",
                             "used",
                             "limit",
-                            "displayStyle"
+                            "displayStyle",
+                            "observedAt",
+                            "stale"
                         ],
                         "additionalProperties": false
                     }

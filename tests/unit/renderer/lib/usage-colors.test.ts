@@ -39,15 +39,23 @@ describe("usage_window_elapsed", () => {
     it("derives elapsed fraction from reset time and known period label", () => {
         const now = Date.parse("2026-06-06T10:00:00Z");
 
-        expect(usage_window_elapsed("5小时", "2026-06-06T12:00:00Z", now)).toBeCloseTo(0.6);
-        expect(usage_window_elapsed("5 小时用量", "2026-06-06T12:00:00Z", now)).toBeCloseTo(0.6);
-        expect(usage_window_elapsed("一周", "2026-06-09T10:00:00Z", now)).toBeCloseTo(4 / 7);
-        expect(usage_window_elapsed("周用量", "2026-06-09T10:00:00Z", now)).toBeCloseTo(4 / 7);
+        expect(usage_window_elapsed("5小时", Date.parse("2026-06-06T12:00:00Z"), now)).toBeCloseTo(
+            0.6,
+        );
+        expect(
+            usage_window_elapsed("5 小时用量", Date.parse("2026-06-06T12:00:00Z"), now),
+        ).toBeCloseTo(0.6);
+        expect(usage_window_elapsed("一周", Date.parse("2026-06-09T10:00:00Z"), now)).toBeCloseTo(
+            4 / 7,
+        );
+        expect(usage_window_elapsed("周用量", Date.parse("2026-06-09T10:00:00Z"), now)).toBeCloseTo(
+            4 / 7,
+        );
     });
 
     it("lets projected risk colors use derived elapsed", () => {
         const now = Date.parse("2026-06-06T10:00:00Z");
-        const elapsed = usage_window_elapsed("5小时", "2026-06-06T12:00:00Z", now);
+        const elapsed = usage_window_elapsed("5小时", Date.parse("2026-06-06T12:00:00Z"), now);
 
         if (elapsed === undefined) throw new Error("missing elapsed");
 
@@ -70,15 +78,19 @@ describe("usage color debug logs", () => {
 
         try {
             const now = Date.parse("2026-06-06T10:00:00Z");
-            const elapsed = usage_window_elapsed("5 小时用量", "2026-06-06T12:00:00Z", now);
+            const elapsed = usage_window_elapsed(
+                "5 小时用量",
+                Date.parse("2026-06-06T12:00:00Z"),
+                now,
+            );
             const color = bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed });
 
             const joined = lines.join("\n");
             expect(color).toBe("var(--risk-yellow)");
             expect(joined).toContain("usage window elapsed raw");
             expect(joined).toContain("bar fill color raw");
-            expect(joined).toContain('"reset_at":"2026-06-06T12:00:00Z"');
-            expect(joined).toContain("2026-06-06T12:00:00Z");
+            expect(joined).toContain('"reset_at":1780747200000');
+            expect(joined).toContain("1780747200000");
             expect(joined).toContain("risk-projected");
             expect(joined).toContain('"elapsed":0.6');
             expect(joined).toContain('"result":"var(--risk-yellow)"');

@@ -40,8 +40,8 @@ export function split_reset_time(value: string): { date: string; clock: string }
     return { date, clock };
 }
 
-function percent(used: number, limit: number): number {
-    if (limit <= 0) return 0;
+function percent(used: number, limit: number | null): number {
+    if (limit === null || limit <= 0) return 0;
     return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
 }
 
@@ -60,7 +60,8 @@ export function UsageBarRow({
     const fill_color = bar_fill_color(colorScheme, { pct, idx: index, elapsed });
     const track_style =
         barStyle === "capsule" ? ({ "--bar-fill": fill_color } as CSSProperties) : undefined;
-    const is_ratio = has_value && period.displayStyle === "ratio" && period.limit > 0;
+    const is_ratio =
+        has_value && period.displayStyle === "ratio" && period.limit !== null && period.limit > 0;
     const value = has_value
         ? is_ratio
             ? `${String(used)}/${String(period.limit)}`

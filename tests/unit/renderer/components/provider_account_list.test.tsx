@@ -19,9 +19,11 @@ function make_group(): ProviderUsageGroup {
         used: 50,
         limit: 100,
         displayStyle: "percent" as const,
-        resetAt: "2026-01-01T17:00:00Z",
+        resetAt: 1767286800000,
         status: "normal" as const,
         updatedAt: "2026-01-01T15:00:00Z",
+        observedAt: 1735689600000,
+        stale: false,
     };
     return {
         provider: "codex",
@@ -29,6 +31,8 @@ function make_group(): ProviderUsageGroup {
         accountCount: 1,
         status: "normal",
         updatedAt: "2026-01-01T15:00:00Z",
+        observedAt: 1735689600000,
+        stale: false,
         periods: [period],
         accounts: [
             {
@@ -38,6 +42,8 @@ function make_group(): ProviderUsageGroup {
                 accountLabel: "Account A",
                 status: "normal",
                 updatedAt: "2026-01-01T15:00:00Z",
+                observedAt: 1735689600000,
+                stale: false,
                 periods: [period],
             },
         ],

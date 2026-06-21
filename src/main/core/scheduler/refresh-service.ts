@@ -96,11 +96,11 @@ function observation_to_usage_item(
         raw_label: obs.raw_label,
         normalized_label: obs.normalized_label,
         used: obs.used,
-        limit: obs.limit ?? 0,
+        limit: obs.limit,
         displayStyle: obs.display_style,
-        resetAt: obs.reset_at === null ? null : new Date(obs.reset_at).toISOString(),
+        resetAt: obs.reset_at,
         status: obs.status,
-        observedAt: new Date(obs.observed_at).toISOString(),
+        observedAt: obs.observed_at,
         stale: obs.stale,
     };
 }

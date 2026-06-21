@@ -5,9 +5,9 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-export function relative_time(isoDate: string): string {
-    if (!isoDate) return "";
-    const ts = new Date(isoDate).getTime();
+export function relative_time(timestamp: string | number): string {
+    if (!timestamp) return "";
+    const ts = typeof timestamp === "number" ? timestamp : new Date(timestamp).getTime();
     if (!Number.isFinite(ts)) return "";
     const diff = Date.now() - ts;
     if (diff < 0) return "刚刚";
@@ -22,9 +22,9 @@ export function relative_time(isoDate: string): string {
     return `${String(days)} 天前`;
 }
 
-/** Format resetAt ISO string as "今天 13:10" or "5/18 21:00". */
-export function format_reset_time(isoDate: string): string {
-    const d = new Date(isoDate);
+/** Format resetAt epoch-ms or ISO string as "今天 13:10" or "5/18 21:00". */
+export function format_reset_time(timestamp: string | number): string {
+    const d = typeof timestamp === "number" ? new Date(timestamp) : new Date(timestamp);
     const now = new Date();
     const hh = String(d.getHours()).padStart(2, "0");
     const mm = String(d.getMinutes()).padStart(2, "0");
