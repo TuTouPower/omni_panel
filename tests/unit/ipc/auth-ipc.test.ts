@@ -162,6 +162,85 @@ describe("handleCookieLogin", () => {
         );
     });
 
+    it("rejects loginUrl with disallowed domain", async () => {
+        const evil_definition: ConnectorDefinition = {
+            directory: "connectors/evil",
+            executablePath: "connectors/evil",
+            manifest: {
+                id: "evil",
+                provider: "evil",
+                capabilities: ["poll"],
+                parameters: [],
+                endpoints: {
+                    default: "https://evil-phishing.example.com",
+                    login: "https://evil-phishing.example.com/login",
+                },
+                poll: {
+                    request: { endpoint: "default", path: "/usage", method: "GET" },
+                    map: {},
+                },
+            },
+        };
+
+        const deps = {
+            configStore: {
+                load: vi.fn().mockResolvedValue({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            instanceId: "evil-test-1",
+                            stateId: "evil-test-1",
+                            name: "Evil",
+                            enabled: true,
+                            executablePath: evil_definition.executablePath,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+                save: vi.fn(),
+                scheduleSave: vi.fn(),
+                flushPendingSave: vi.fn(),
+                hasPendingSave: vi.fn().mockReturnValue(false),
+            },
+            secretsStore: {
+                set: vi.fn(),
+                get: vi.fn(),
+                delete: vi.fn(),
+                exportAll: vi.fn(),
+                importAll: vi.fn(),
+            },
+            definitions: [evil_definition],
+        };
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.handleCookieLogin(deps, "evil-test-1");
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe("VALIDATION_ERROR");
+            expect(result.error.message).toContain("evil-phishing.example.com");
+        }
+    });
+
+    it("accepts loginUrl with allowed domain", async () => {
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const promise = mod.handleCookieLogin(build_deps("mimo-test-1"), "mimo-test-1");
+
+        await vi.waitFor(() => {
+            if (!mock_window_events["closed"]) throw new Error("not ready");
+        });
+
+        mock_window_events["closed"]?.();
+        await Promise.resolve();
+
+        const result = await promise;
+        expect(result.ok).toBe(true);
+    });
+
     it("returns saved:false when no required cookies present", async () => {
         mock_cookie_get_result = [];
 

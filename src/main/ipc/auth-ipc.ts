@@ -11,6 +11,20 @@ const log = createLogger("ipc:auth");
 
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 
+const ALLOWED_LOGIN_DOMAINS = new Set([
+    "kimi.com",
+    "mimo.com",
+    "platform.xiaomimimo.com",
+    "minimaxi.com",
+    "www.minimaxi.com",
+    "open.bigmodel.cn",
+    "api.deepseek.com",
+    "api.tavily.com",
+    "generativelanguage.googleapis.com",
+    "api.anthropic.com",
+    "127.0.0.1",
+]);
+
 export interface AuthIpcDeps {
     configStore: AppConfigStore;
     secretsStore: SecretsStore;
@@ -30,6 +44,15 @@ export async function handleCookieLogin(
     const loginUrl = endpoints?.["login"] ?? endpoints?.["default"];
     if (!loginUrl || typeof loginUrl !== "string") {
         return fail("VALIDATION_ERROR", "该插件未配置登录地址");
+    }
+
+    const parsed = new URL(loginUrl);
+    const hostname = parsed.hostname;
+    if (
+        !ALLOWED_LOGIN_DOMAINS.has(hostname) &&
+        !ALLOWED_LOGIN_DOMAINS.has(hostname.replace(/^www\./, ""))
+    ) {
+        return fail("VALIDATION_ERROR", `登录域名不被允许: ${hostname}`);
     }
 
     // Fixed persistent partition keeps the session alive across window opens/closes.
