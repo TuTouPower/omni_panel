@@ -30,7 +30,7 @@ describe("deep_freeze", () => {
 
     it("handles circular references without stack overflow", () => {
         const obj: Record<string, unknown> = { a: 1 };
-        obj.self = obj;
+        obj["self"] = obj;
         expect(() => deep_freeze(obj)).not.toThrow();
         expect(Object.isFrozen(obj)).toBe(true);
     });
@@ -38,8 +38,8 @@ describe("deep_freeze", () => {
     it("handles mutual circular references", () => {
         const a: Record<string, unknown> = { name: "a" };
         const b: Record<string, unknown> = { name: "b" };
-        a.ref = b;
-        b.ref = a;
+        a["ref"] = b;
+        b["ref"] = a;
         expect(() => deep_freeze(a)).not.toThrow();
         expect(Object.isFrozen(a)).toBe(true);
         expect(Object.isFrozen(b)).toBe(true);

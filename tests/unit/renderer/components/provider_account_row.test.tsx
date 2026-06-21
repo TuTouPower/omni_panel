@@ -32,6 +32,7 @@ function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUs
                 used: 10,
                 limit: 100,
                 displayStyle: "percent",
+                resetAt: null,
                 status: "normal",
                 updatedAt: "2026-01-01T12:00:00Z",
                 observedAt: 1735689600000,
