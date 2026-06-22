@@ -1,5 +1,5 @@
-import { writeFile, mkdir, rename } from "node:fs/promises";
-import { dirname } from "node:path";
+import { writeFile, mkdir, rename, readdir, unlink } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 export async function writeJsonAtomic(
     filePath: string,
@@ -14,4 +14,26 @@ export async function writeJsonAtomic(
         options?.chmod ? { mode: options.chmod } : undefined,
     );
     await rename(tmpPath, filePath);
+}
+
+/**
+ * Remove stale `.tmp` files left by interrupted atomic writes.
+ * Call once on startup for each directory that uses writeJsonAtomic.
+ */
+export async function cleanup_temp_files(dir: string): Promise<void> {
+    let entries: string[];
+    try {
+        entries = await readdir(dir);
+    } catch {
+        // Directory may not exist yet — nothing to clean
+        return;
+    }
+    const tmp_files = entries.filter((name) => name.endsWith(".tmp"));
+    await Promise.all(
+        tmp_files.map((name) =>
+            unlink(join(dir, name)).catch(() => {
+                /* already gone */
+            }),
+        ),
+    );
 }

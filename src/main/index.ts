@@ -43,6 +43,7 @@ import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
+import { cleanup_temp_files } from "./core/storage/write-json";
 
 // Suppress EPIPE when stdout pipe is closed (e.g. launched from script with broken pipe)
 process.on("uncaughtException", (err: NodeJS.ErrnoException) => {
@@ -168,6 +169,7 @@ let cleanupPopupIpc: (() => void) | null = null;
 
 void app.whenReady().then(async () => {
     const dataRoot = getDataRoot();
+    await cleanup_temp_files(dataRoot);
     await initLogging(dataRoot);
     const log = createLogger("main");
 
@@ -569,7 +571,7 @@ void app.whenReady().then(async () => {
             hideTrayMenu();
         });
         ipcMain.handle(IPC_CHANNELS.TRAY_REPORT_MENU_SIZE, (_event, report: unknown) => {
-            const parsed = parseSizeReport(report, ["width", "height"]);
+            const parsed = parseSizeReport(report, ["width", "height"], 10000);
             if (!parsed) return;
 
             const width = parsed["width"];
