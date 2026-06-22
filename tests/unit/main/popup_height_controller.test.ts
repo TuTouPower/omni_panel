@@ -109,6 +109,17 @@ describe("apply_locked_size", () => {
         expect(out.y).toBe(28);
     });
 
+    it("preserves current position on Windows when tray_bounds is null and user_moved is true", () => {
+        const out = apply_locked_size(current, 600, display_1080, "win32", {
+            tray_bounds: null,
+            user_moved: true,
+        });
+        expect(out.x).toBe(100);
+        expect(out.y).toBe(100);
+        expect(out.width).toBe(460);
+        expect(out.height).toBe(600);
+    });
+
     it("preserves current top-left on Windows when user has moved the window", () => {
         const out = apply_locked_size(current, 600, display_1080, "win32", {
             tray_bounds: { x: 1700, y: 1040, width: 32, height: 24 },
