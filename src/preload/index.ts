@@ -15,7 +15,14 @@ function is_ipc_result(
 ): val is { ok: boolean; data?: unknown; error?: { code: string; message: string } } {
     if (typeof val !== "object" || val === null) return false;
     const obj = val as Record<string, unknown>;
-    return typeof obj["ok"] === "boolean";
+    if (typeof obj["ok"] !== "boolean") return false;
+    if (!obj["ok"] && obj["error"]) {
+        if (typeof obj["error"] !== "object") return false;
+        const err = obj["error"] as Record<string, unknown>;
+        if (typeof err["code"] !== "string") return false;
+        if (typeof err["message"] !== "string") return false;
+    }
+    return true;
 }
 
 async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
