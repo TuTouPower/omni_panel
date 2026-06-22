@@ -194,15 +194,19 @@ definePlugin(
         {
             "id": "string",
             "provider": "claude",
-            "source": "cpa",
+            "source": "poll",
             "sourceInstanceId": "string",
             "accountId": "string",
             "accountLabel": "string",
+            "raw_label": "five_hour",
+            "normalized_label": "5小时",
             "name": "string",
             "used": 50.0,
             "limit": 100.0,
             "displayStyle": "percent",
-            "resetAt": "2026-06-01T00:00:00Z",
+            "resetAt": 1748736000000,
+            "observedAt": 1748736000000,
+            "stale": false,
             "status": "normal",
             "color": "blue"
         }
@@ -223,21 +227,26 @@ definePlugin(
 
 **字段说明**：
 
-| 字段               | 类型    | 说明                                                   |
-| ------------------ | ------- | ------------------------------------------------------ |
-| `provider`         | string  | 归属 provider，用于主 UI 聚合                          |
-| `source`           | string  | 数据采集能力：`poll` / `local` / `session` / `observe` |
-| `sourceInstanceId` | string  | 来源实例 ID                                            |
-| `accountId`        | string  | 账号稳定 ID                                            |
-| `accountLabel`     | string  | 账号显示名，不得包含 secret                            |
-| `id`               | string  | 唯一标识（推荐包含连接器名+指标名）                    |
-| `name`             | string  | 显示名称                                               |
-| `used`             | number? | 已用量；可为 null 表示从未使用，UI 渲染为空用量条      |
-| `limit`            | number  | 总额度                                                 |
-| `displayStyle`     | string  | `percent` 或 `ratio`                                   |
-| `resetAt`          | string? | 额度重置时间（ISO 8601，可为 null）                    |
-| `status`           | string  | `normal` / `warning` / `critical` / `unknown`          |
-| `color`            | string? | `blue` / `green` / `yellow` / `orange` / `red`（可选） |
+| 字段               | 类型    | 说明                                                                         |
+| ------------------ | ------- | ---------------------------------------------------------------------------- |
+| `provider`         | string  | 归属 provider，用于主 UI 聚合                                                |
+| `source`           | string  | 数据采集来源：`poll` / `local` / `session` / `wrapper` / `probe` / `gateway` |
+| `sourceInstanceId` | string  | 来源实例 ID                                                                  |
+| `accountId`        | string  | 账号稳定 ID                                                                  |
+| `accountLabel`     | string  | 账号显示名，不得包含 secret                                                  |
+| `id`               | string  | 唯一标识（推荐包含连接器名+指标名）                                          |
+| `raw_label`        | string  | 连接器原始标签，用于 label-map 配置 key                                      |
+| `normalized_label` | string  | 连接器归一化标签，用作默认显示名                                             |
+| `display_label`    | string? | 用户自定义最终显示标签（可选）                                               |
+| `name`             | string? | 显示名称（已弃用，用 `normalized_label`）                                    |
+| `used`             | number? | 已用量；可为 null 表示从未使用，UI 渲染为空用量条                            |
+| `limit`            | number? | 总额度；可为 null 表示无额度限制                                             |
+| `displayStyle`     | string  | `percent` 或 `ratio`                                                         |
+| `resetAt`          | number? | 额度重置时间（epoch ms，可为 null）                                          |
+| `observedAt`       | number  | 数据观测时间（epoch ms）                                                     |
+| `stale`            | boolean | 是否为缓存过期数据（必填）                                                   |
+| `status`           | string  | `normal` / `warning` / `critical` / `unknown`                                |
+| `color`            | string? | `blue` / `green` / `yellow` / `orange` / `red`（可选）                       |
 
 ### 3.5 执行规则
 
@@ -543,7 +552,7 @@ Floating 窗口有独立标题栏（`-webkit-app-region: drag`）和拖拽手柄
     name: string,
     displayName: string,              // 去重后的显示名
     enabled: boolean,
-    source: UsageSource,              // "cpa" | "direct" | "local" | "api_key" | "oauth"
+    source: UsageSource,              // "poll" | "local" | "session" | "wrapper" | "probe" | "gateway"
     supportedProviders: UsageProvider[],
     activeProviders: UsageProvider[],
     metadata: PluginMetadata | null,
