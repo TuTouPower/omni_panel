@@ -1,7 +1,8 @@
 import type { VaultBackend } from "../vault/vault-backend";
 
 const SESSION_COOKIE_KEY = "SESSION_COOKIE";
-const DEFAULT_TIMEOUT_MS = 120_000;
+/** Session login timeout — longer than connector timeout because user interaction is required. */
+const SESSION_LOGIN_TIMEOUT_MS = 120_000;
 
 export interface SessionCookie {
     readonly name: string;
@@ -46,7 +47,7 @@ export function create_session_manager(
     deps: SessionManagerDeps,
     options?: { timeout_ms?: number },
 ): SessionManager {
-    const timeout_ms = options?.timeout_ms ?? DEFAULT_TIMEOUT_MS;
+    const timeout_ms = options?.timeout_ms ?? SESSION_LOGIN_TIMEOUT_MS;
     const in_progress = new Set<string>();
 
     return {

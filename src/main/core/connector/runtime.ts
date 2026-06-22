@@ -1,13 +1,13 @@
 import vm from "node:vm";
 import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { createLogger } from "../../../shared/lib/logger";
+import { DEFAULT_TIMEOUT_MS } from "../../../shared/constants";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import { observation_schema } from "../../../shared/schemas/observation";
 import type { Observation } from "../../../shared/types/observation";
 import type { ConnectorContext } from "./host-io";
 
 const log = createLogger("connector-runtime");
-const DEFAULT_TIMEOUT_MS = 15_000;
 const TIMEOUT_ERROR = "Connector script execution timeout";
 
 export interface ConnectorRunResult {
@@ -15,10 +15,10 @@ export interface ConnectorRunResult {
     readonly error: string | null;
 }
 
-function deep_freeze<T>(value: T, seen: WeakSet<object> = new WeakSet()): T {
+function deep_freeze<T>(value: T, seen = new WeakSet<object>()): T {
     if (value !== null && typeof value === "object") {
-        if (seen.has(value as object)) return value;
-        seen.add(value as object);
+        if (seen.has(value)) return value;
+        seen.add(value);
         for (const child of Object.values(value as Record<string, unknown>)) {
             deep_freeze(child, seen);
         }
