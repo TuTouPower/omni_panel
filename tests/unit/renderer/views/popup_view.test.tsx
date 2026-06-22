@@ -438,7 +438,7 @@ describe("PopupView", () => {
                 expect.objectContaining({
                     accountOverrides: {
                         disabled: {
-                            claude: ["cpa-main:label:Claude Account"],
+                            claude: ["cpa-main|label|Claude Account"],
                         },
                     },
                 }),
@@ -630,7 +630,7 @@ describe("PopupView", () => {
                 language: "zh-Hans",
                 plugins: [],
                 launchAtLogin: false,
-                collapsedAccounts: { "cpa-main:label:Claude Account": true },
+                collapsedAccounts: { "cpa-main|label|Claude Account": true },
                 expandedProviders: { claude: true },
             },
             hasSecrets: {},
@@ -691,7 +691,7 @@ describe("PopupView", () => {
                 language: "zh-Hans",
                 plugins: [],
                 launchAtLogin: false,
-                collapsedAccounts: { "cpa-main:label:Claude Account": true },
+                collapsedAccounts: { "cpa-main|label|Claude Account": true },
             },
             hasSecrets: {},
         });
@@ -726,7 +726,7 @@ describe("PopupView", () => {
                 language: "zh-Hans",
                 plugins: [],
                 launchAtLogin: false,
-                collapsedAccounts: { "cpa-main:label:Claude Account": true },
+                collapsedAccounts: { "cpa-main|label|Claude Account": true },
             },
             hasSecrets: {},
         });
@@ -843,8 +843,8 @@ describe("PopupView", () => {
                 plugins: [],
                 launchAtLogin: false,
                 collapsedAccounts: {
-                    "cpa-main:label:Account A": true,
-                    "cpa-main:label:Account B": true,
+                    "cpa-main|label|Account A": true,
+                    "cpa-main|label|Account B": true,
                 },
             },
             hasSecrets: {},
@@ -918,6 +918,6 @@ describe("PopupView", () => {
         const last_call = config_save.mock.calls[config_save.mock.calls.length - 1];
         if (!last_call) return;
         const saved = (last_call[0] as Record<string, unknown>)["collapsedAccounts"];
-        expect(saved).toEqual({ "cpa-main:label:Claude Account": true });
+        expect(saved).toEqual({ "cpa-main|label|Claude Account": true });
     });
 });

@@ -134,9 +134,9 @@ function toPeriod(
 
 function accountKeyForPeriod(period: ProviderUsagePeriod): string {
     if (period.source === "gateway") {
-        return `${period.sourceInstanceId}\x00label\x00${period.accountLabel}`;
+        return `${period.sourceInstanceId}|label|${period.accountLabel}`;
     }
-    return `${period.sourceInstanceId}\x00${period.accountId}`;
+    return `${period.sourceInstanceId}|${period.accountId}`;
 }
 
 const LABEL_MAP: Record<string, string> = {
