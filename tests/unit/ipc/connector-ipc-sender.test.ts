@@ -46,6 +46,8 @@ function createMockDeps() {
         getAll: vi.fn().mockReturnValue(new Map()),
         subscribe: vi.fn().mockReturnValue(() => undefined),
         removeInstance: vi.fn(),
+        hydrateFromCache: vi.fn().mockResolvedValue(undefined),
+        flushPendingCache: vi.fn().mockResolvedValue(undefined),
     };
 
     const refreshService = {

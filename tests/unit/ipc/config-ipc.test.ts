@@ -478,7 +478,7 @@ describe("config-ipc", () => {
         const deps = createMockDeps();
         // Pretend disk already has collapsedAccounts from a popup save
         const currentOnDisk = structuredClone(await deps.configStore.load()) as AppConfiguration;
-        (currentOnDisk as Record<string, unknown>)["collapsedAccounts"] = {
+        (currentOnDisk as unknown as Record<string, unknown>)["collapsedAccounts"] = {
             "cpa-main:label:Claude Account": true,
         };
         deps.configStore.load = vi.fn().mockResolvedValue(currentOnDisk);
@@ -515,9 +515,9 @@ describe("config-ipc", () => {
             loadCount++;
             if (loadCount === 1) return Promise.resolve(originalConfig);
             // Second load returns a modified config (simulating another window's save)
-            const modified = structuredClone(originalConfig) as Record<string, unknown>;
+            const modified = structuredClone(originalConfig) as unknown as Record<string, unknown>;
             modified["launchAtLogin"] = true;
-            return Promise.resolve(modified as AppConfiguration);
+            return Promise.resolve(modified as unknown as AppConfiguration);
         });
 
         const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");

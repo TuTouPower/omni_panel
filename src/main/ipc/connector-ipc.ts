@@ -71,6 +71,7 @@ function activeProvidersForConnector(
     definition: ConnectorDefinition | undefined,
 ): readonly UsageProvider[] {
     const providers = supported_providers(definition);
+    if (!definition) return providers;
     if (definition.manifest.id !== "cpa") return providers;
     return providers.filter((provider) => {
         const key = `monitor_${provider}`;

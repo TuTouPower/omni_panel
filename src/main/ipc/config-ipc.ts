@@ -118,9 +118,9 @@ export async function handleConfigSave(
         // accidentally overwriting another window's fields (e.g. popup's
         // collapsedAccounts wiped by settings save).
         const incomingKeys = new Set(Object.keys(incoming));
-        const merged = { ...current } as Record<string, unknown>;
+        const merged = { ...current } as unknown as Record<string, unknown>;
         for (const key of incomingKeys) {
-            merged[key] = (incoming as Record<string, unknown>)[key];
+            merged[key] = (incoming as unknown as Record<string, unknown>)[key];
         }
 
         // Re-load to detect concurrent writes from another window between
@@ -133,7 +133,7 @@ export async function handleConfigSave(
             return fail("CONFLICT", "配置已被其他窗口修改，请重试");
         }
 
-        const stripped = stripSecrets(merged as AppConfiguration, deps.secretParamKeys);
+        const stripped = stripSecrets(merged as unknown as AppConfiguration, deps.secretParamKeys);
         await deps.configStore.save(stripped);
         deps.onConfigSaved?.(stripped);
         return ok(undefined);

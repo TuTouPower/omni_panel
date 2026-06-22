@@ -1445,7 +1445,6 @@ export function SettingsView() {
                                                                     | "ok"
                                                                     | "error"
                                                                     | "unknown" =
-                                                                    item.status === "ok" ||
                                                                     item.status === "normal" ||
                                                                     item.status === "warning" ||
                                                                     item.status === "critical"
