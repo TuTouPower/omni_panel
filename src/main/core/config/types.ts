@@ -75,11 +75,14 @@ export const appConfigurationSchema = z.object({
     globalRefreshIntervalSeconds: z.number().int().min(1).optional(),
     pauseAutoRefresh: z.boolean().optional(),
     providerOrder: z.array(z.string()).optional(),
-    cacheMaxMb: z.number().positive().optional(),
+    cacheMaxMb: z.number().int().min(1).max(10000).optional(),
     mainPanelMode: mainPanelModeSchema.optional(),
     floatingHeightMode: floatingHeightModeSchema.optional(),
     usageBarColorScheme: usageBarColorSchemeSchema.optional(),
     usageBarStyle: usageBarStyleSchema.optional(),
+    // Nested records have no depth/size limit. A malicious config import with
+    // extremely deep or wide label maps could cause memory issues. Acceptable
+    // for now because config is user-authored locally, not from untrusted input.
     providerLabelMaps: z.record(z.record(z.string())).optional(),
     accountLabelMaps: z.record(z.record(z.string())).optional(),
     labelMapSync: z.boolean().optional(),
