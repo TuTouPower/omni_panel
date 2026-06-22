@@ -81,10 +81,13 @@ export function ProviderCard({
     const isFailed = connectorError !== undefined && !hasUsage;
     const is_auth = connectorError !== undefined && is_auth_error(connectorError.error);
     const hasAccounts = group !== undefined && group.accounts.length > 0;
+    const has_alert_status =
+        group !== undefined && (group.status === "warning" || group.status === "critical");
     const card_class =
         (dragging ? " dragging" : "") +
         (dragOver ? " drag-over" : "") +
-        (group?.stale ? " stale" : "");
+        (group?.stale ? " stale" : "") +
+        (has_alert_status ? " alert" : "");
 
     const [l2open, set_l2open] = useState(false);
 
