@@ -9,6 +9,7 @@ import {
 } from "../../shared/lib/logger";
 
 const MAX_LOG_AGE_DAYS = 7;
+const MAX_LOG_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 export function getLogDir(userDataPath: string): string {
     return join(userDataPath, "logs");
@@ -47,11 +48,29 @@ export async function initLogging(userDataPath: string): Promise<() => void> {
 
     const logFile = getLogFilePath(logDir);
 
+    const size_warned_files = new Set<string>();
+
     setLogLevel("debug");
 
     const removeFileTransport = addTransport(
         createFileTransport((line) => {
-            void appendFile(logFile, line + "\n", "utf8").catch(() => undefined);
+            void (async () => {
+                try {
+                    const s = await stat(logFile).catch(() => undefined);
+                    if (s && s.size >= MAX_LOG_FILE_BYTES) {
+                        if (!size_warned_files.has(logFile)) {
+                            size_warned_files.add(logFile);
+                            createLogger("logging").warn(
+                                `Log file exceeded ${String(MAX_LOG_FILE_BYTES / 1024 / 1024)}MB, skipping further writes: ${logFile}`,
+                            );
+                        }
+                        return;
+                    }
+                    await appendFile(logFile, line + "\n", "utf8");
+                } catch {
+                    // Ignore write errors
+                }
+            })();
         }),
     );
 
