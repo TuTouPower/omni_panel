@@ -11,7 +11,7 @@ export interface PopupIpcDeps {
 
 export function registerPopupIpc(deps: PopupIpcDeps): () => void {
     const handler = (_event: unknown, payload: unknown): IpcResult<null> => {
-        const report = parseSizeReport(payload, ["content_height", "collapsed_min_height"]);
+        const report = parseSizeReport(payload, ["content_height", "collapsed_min_height"], 10000);
         if (!report) {
             return fail("invalid_payload", "popup height report must include numeric heights");
         }
