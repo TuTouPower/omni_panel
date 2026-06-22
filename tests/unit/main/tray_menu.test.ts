@@ -1,72 +1,97 @@
 import { describe, it, expect } from "vitest";
+import { IPC_CHANNELS } from "../../../src/shared/types/ipc";
 
 /**
  * Phase 26.11: Tray menu labels and structure verification.
  *
  * The native context menu has been replaced with a custom frameless
  * BrowserWindow tray menu. This test verifies the label constants and
- * expected IPC channel names.
+ * expected IPC channel names against actual source code.
  */
+
+const ZH_LABELS = [
+    "打开主面板",
+    "立即刷新全部",
+    "暂停自动刷新",
+    "恢复自动刷新",
+    "开机自启",
+    "设置…",
+    "检查更新",
+    "退出 OmniUsage",
+] as const;
+
+const EN_LABELS = [
+    "Open Panel",
+    "Refresh All",
+    "Pause Auto-Refresh",
+    "Resume Auto-Refresh",
+    "Launch at Login",
+    "Settings…",
+    "Check for Updates",
+    "Quit OmniUsage",
+] as const;
+
 describe("tray menu", () => {
-    const zh_labels = {
-        open: "打开主面板",
-        refresh: "立即刷新全部",
-        pauseOn: "暂停自动刷新",
-        pauseOff: "恢复自动刷新",
-        autostart: "开机自启",
-        settings: "设置…",
-        checkUpdate: "检查更新",
-        quit: "退出 OmniUsage",
-    };
-
-    const en_labels = {
-        open: "Open Panel",
-        refresh: "Refresh All",
-        pauseOn: "Pause Auto-Refresh",
-        pauseOff: "Resume Auto-Refresh",
-        autostart: "Launch at Login",
-        settings: "Settings…",
-        checkUpdate: "Check for Updates",
-        quit: "Quit OmniUsage",
-    };
-
-    const IPC_CHANNELS = [
-        "tray:openPanel",
-        "tray:refreshAll",
-        "tray:togglePause",
-        "tray:toggleAutostart",
-        "tray:openSettings",
-        "tray:checkUpdate",
-        "tray:quit",
-        "tray:hide",
-        "tray:pauseState",
-        "tray:autostartState",
-    ];
-
     it("has all 8 required menu item labels in Chinese", () => {
-        const keys = Object.keys(zh_labels);
-        expect(keys).toHaveLength(8);
-        expect(zh_labels.open).toBe("打开主面板");
-        expect(zh_labels.refresh).toBe("立即刷新全部");
-        expect(zh_labels.quit).toBe("退出 OmniUsage");
+        expect(ZH_LABELS).toHaveLength(8);
+        expect(ZH_LABELS).toContain("打开主面板");
+        expect(ZH_LABELS).toContain("立即刷新全部");
+        expect(ZH_LABELS).toContain("退出 OmniUsage");
     });
 
     it("has all 8 required menu item labels in English", () => {
-        expect(en_labels.open).toBe("Open Panel");
-        expect(en_labels.refresh).toBe("Refresh All");
-        expect(en_labels.quit).toBe("Quit OmniUsage");
+        expect(EN_LABELS).toHaveLength(8);
+        expect(EN_LABELS).toContain("Open Panel");
+        expect(EN_LABELS).toContain("Refresh All");
+        expect(EN_LABELS).toContain("Quit OmniUsage");
     });
 
     it("pause labels are distinct", () => {
-        expect(zh_labels.pauseOn).not.toBe(zh_labels.pauseOff);
-        expect(en_labels.pauseOn).not.toBe(en_labels.pauseOff);
+        expect(ZH_LABELS[2]).not.toBe(ZH_LABELS[3]);
+        expect(EN_LABELS[2]).not.toBe(EN_LABELS[3]);
     });
 
     it("tray IPC channels cover all actions", () => {
-        expect(IPC_CHANNELS).toHaveLength(10);
-        // verify naming convention: capsule prefix + pascal case action
-        for (const ch of IPC_CHANNELS) {
+        const tray_channels = Object.values(IPC_CHANNELS).filter((ch) => ch.startsWith("tray:"));
+        expect(tray_channels.length).toBeGreaterThanOrEqual(10);
+        // verify naming convention: tray prefix + camelCase action
+        for (const ch of tray_channels) {
             expect(ch).toMatch(/^tray:[a-zA-Z]+$/u);
+        }
+        // verify all expected actions exist
+        const required_actions = [
+            "openPanel",
+            "refreshAll",
+            "togglePause",
+            "toggleAutostart",
+            "openSettings",
+            "checkUpdate",
+            "quit",
+            "hide",
+            "pauseState",
+            "autostartState",
+        ];
+        for (const action of required_actions) {
+            expect(tray_channels).toContain(`tray:${action}`);
+        }
+    });
+
+    it("TrayMenu component source contains all zh labels", async () => {
+        // Read the TrayMenu source to verify labels exist in actual code
+        const source = await import("../../../src/renderer/views/TrayMenu?raw").then(
+            (m) => m.default,
+        );
+        for (const label of ZH_LABELS) {
+            expect(source).toContain(label);
+        }
+    });
+
+    it("TrayMenu component source contains all en labels", async () => {
+        const source = await import("../../../src/renderer/views/TrayMenu?raw").then(
+            (m) => m.default,
+        );
+        for (const label of EN_LABELS) {
+            expect(source).toContain(label);
         }
     });
 });
