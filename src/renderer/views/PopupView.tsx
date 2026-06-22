@@ -655,7 +655,7 @@ export function PopupView() {
         };
     }, [orderedProviders]);
 
-    const statusBar = derive_status_bar(plugins, error);
+    const statusBar = useMemo(() => derive_status_bar(plugins, error), [plugins, error]);
     const statusDot = statusBar.dot;
     const statusLabel = statusBar.label;
     const lastUpdated = plugins.reduce<string | null>((latest, p) => {
