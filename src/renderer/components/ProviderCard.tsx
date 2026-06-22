@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { memo, useState, useMemo } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
 import {
@@ -54,7 +54,7 @@ function is_auth_error(error: string): boolean {
     );
 }
 
-export function ProviderCard({
+export const ProviderCard = memo(function ProviderCard({
     provider,
     group,
     connectorError,
@@ -184,14 +184,7 @@ export function ProviderCard({
 
     const header = (
         <>
-            {onDragStart && (
-                <DragGrip
-                    onMouseDown={() => {
-                        onDragStart(provider);
-                    }}
-                    iconSize={18}
-                />
-            )}
+            {onDragStart && <DragGrip iconSize={18} />}
             <VendorMark id={provider} size={26} />
             <span className="card-name">{label}</span>
             {accountCount > 1 && expanded === false && (
@@ -355,4 +348,4 @@ export function ProviderCard({
             {collapse_children}
         </CollapsibleCard>
     );
-}
+});
