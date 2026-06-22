@@ -60,6 +60,10 @@ async function prune_invalid_plugins(
     plugins: readonly { executablePath: string }[],
 ): Promise<number[]> {
     const keep_indices: number[] = [];
+    // Health checks run in parallel via Promise.all. With a very large plugin
+    // count (>50) this could saturate the I/O thread pool; acceptable for now
+    // because typical installs have <20 plugins. If that changes, add a
+    // concurrency limiter (e.g. p-limit) here.
     const verdicts = await Promise.all(plugins.map((p) => is_plugin_healthy(p.executablePath)));
     verdicts.forEach((healthy, idx) => {
         if (healthy) keep_indices.push(idx);
