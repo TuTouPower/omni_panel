@@ -5,11 +5,13 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { create_local_api_server } from "../../../src/main/core/local-api/server";
 import { create_observation_store } from "../../../src/main/core/observation/observation-store";
+import { wrap_sync_as_async } from "../../../src/main/core/observation/observation-store-async";
 import type { LocalAPIServer } from "../../../src/main/core/local-api/server";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
 
 let temp_dir: string;
-let store: ObservationStore;
+let sync_store: ObservationStore;
+let store: ReturnType<typeof wrap_sync_as_async>;
 let api: LocalAPIServer;
 
 function assert_non_null<T>(
@@ -40,13 +42,14 @@ function valid_ingest_body() {
 
 beforeEach(async () => {
     temp_dir = await mkdtemp(join(tmpdir(), "local-api-test-"));
-    store = create_observation_store(join(temp_dir, "test.db"));
+    sync_store = create_observation_store(join(temp_dir, "test.db"));
+    store = wrap_sync_as_async(sync_store);
     api = create_local_api_server(store, { port: 0 });
 });
 
 afterEach(async () => {
     await api.stop();
-    store.close();
+    await store.close();
     await rm(temp_dir, { recursive: true, force: true });
 });
 
@@ -80,7 +83,7 @@ describe("local-api", () => {
         });
         expect(res.status).toBe(200);
 
-        const stored = store.get_latest("tavily", "default", "tavily:monthly", "tavily-1");
+        const stored = sync_store.get_latest("tavily", "default", "tavily:monthly", "tavily-1");
         assert_non_null(stored);
         expect(stored.used).toBe(100);
         expect(stored.stale).toBe(false);

@@ -3,6 +3,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createLogger } from "../../../shared/lib/logger";
 import type { Observation } from "../../../shared/types/observation";
+import type { ObservationStore } from "./observation-store";
 
 const log = createLogger("observation-store-async");
 
@@ -31,7 +32,9 @@ export function create_async_observation_store(db_path: string): AsyncObservatio
         dirname(fileURLToPath(import.meta.url)),
         "observation-store-worker.ts",
     );
-    const worker = new Worker(worker_script, { type: "module" });
+    const worker = new Worker(worker_script, { type: "module" } as ConstructorParameters<
+        typeof Worker
+    >[1]);
 
     let request_counter = 0;
     const pending = new Map<string, PendingRequest>();
@@ -150,4 +153,39 @@ export function create_async_observation_store(db_path: string): AsyncObservatio
     };
 
     return store;
+}
+
+export function wrap_sync_as_async(sync: ObservationStore): AsyncObservationStore {
+    return {
+        insert(obs: Observation): Promise<void> {
+            sync.insert(obs);
+            return Promise.resolve();
+        },
+        get_latest(
+            provider: string,
+            account_id: string,
+            metric_id: string,
+            source_instance_id: string,
+        ): Promise<Observation | null> {
+            return Promise.resolve(
+                sync.get_latest(provider, account_id, metric_id, source_instance_id),
+            );
+        },
+        list_latest_by_provider(provider: string): Promise<Observation[]> {
+            return Promise.resolve(sync.list_latest_by_provider(provider));
+        },
+        list_all_providers(): Promise<string[]> {
+            return Promise.resolve(sync.list_all_providers());
+        },
+        list_by_source_instance_id(source_instance_id: string): Promise<Observation[]> {
+            return Promise.resolve(sync.list_by_source_instance_id(source_instance_id));
+        },
+        prune(older_than_ms: number): Promise<number> {
+            return Promise.resolve(sync.prune(older_than_ms));
+        },
+        close(): Promise<void> {
+            sync.close();
+            return Promise.resolve();
+        },
+    };
 }

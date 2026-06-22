@@ -67,7 +67,8 @@ interface WorkerResult {
 }
 
 let store: ObservationStore | null = null;
-const port: NonNullable<typeof parentPort> = parentPort;
+if (!parentPort) throw new Error("observation-store-worker must run inside a Worker thread");
+const port = parentPort;
 
 port.on("message", (msg: WorkerMessage) => {
     try {
