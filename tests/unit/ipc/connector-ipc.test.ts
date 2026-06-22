@@ -295,7 +295,7 @@ describe("connector-ipc", () => {
         if (!result.ok) return;
         expect(result.data).toHaveLength(2);
         const connector = result.data.find((item) => item.instanceId === "cpa-1");
-        expect(connector?.source).toBe("poll");
+        expect(connector?.source).toBe("gateway");
         expect(connector?.supportedProviders).toEqual(["claude"]);
         expect(connector?.activeProviders).toEqual(["claude"]);
         const defaultConnector = result.data.find((item) => item.instanceId === "cpa-2");

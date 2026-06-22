@@ -18,6 +18,7 @@ const instanceIdSchema = z.string().min(1);
 
 function source_from_definition(definition: ConnectorDefinition | undefined): UsageSource {
     if (!definition) return "poll";
+    if (definition.manifest.id === "cpa") return "gateway";
     const capabilities = definition.manifest.capabilities;
     if (capabilities.includes("session")) return "session";
     if (capabilities.includes("local")) return "local";
