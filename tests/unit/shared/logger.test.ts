@@ -1,13 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, afterEach } from "vitest";
 import {
     addTransport,
     createFileTransport,
     createLogger,
+    scrubber,
     setLogLevel,
 } from "../../../src/shared/lib/logger";
 
 describe("logger", () => {
-    it("logs raw message and metadata values in debug mode", () => {
+    afterEach(() => {
+        scrubber.clear();
+    });
+
+    it("redacts registered secrets in debug output", () => {
         const lines: string[] = [];
         const remove_transport = addTransport({
             write(level, module, message, meta) {
@@ -15,6 +20,11 @@ describe("logger", () => {
             },
         });
         setLogLevel("debug");
+
+        // Register secrets with the scrubber so they get redacted
+        scrubber.register("secret-token");
+        scrubber.register("real-token");
+        scrubber.register("real-password");
 
         try {
             const log = createLogger("test");
@@ -25,9 +35,13 @@ describe("logger", () => {
             });
 
             const output = lines.join("\n");
-            expect(output).toContain("api_key=secret-token");
-            expect(output).toContain('"Authorization":"Bearer real-token"');
-            expect(output).toContain('"password":"real-password"');
+            // Secrets should be replaced with "***"
+            expect(output).not.toContain("secret-token");
+            expect(output).not.toContain("real-token");
+            expect(output).not.toContain("real-password");
+            // Scrubbed placeholders should appear
+            expect(output).toContain("***");
+            // Non-secret values should remain visible
             expect(output).toContain("visible");
         } finally {
             remove_transport();

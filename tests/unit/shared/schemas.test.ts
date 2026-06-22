@@ -103,9 +103,8 @@ describe("pluginResultSchema (discriminated union)", () => {
 });
 
 describe("pluginMetadataSchema", () => {
-    it("accepts basic metadata", () => {
-        const raw = readFileSync(resolve(metadataFixturesDir, "metadata-basic.ts"), "utf8");
-        const lines = raw.split("\n").slice(0, 80);
+    function extract_metadata_json(raw: string, max_lines = 80): string {
+        const lines = raw.split("\n").slice(0, max_lines);
         const collected: string[] = [];
         let collecting = false;
         for (const line of lines) {
@@ -122,8 +121,48 @@ describe("pluginMetadataSchema", () => {
             if (trimmed.startsWith("/UsageBoardPlugin")) break;
             if (collecting) collected.push(trimmed);
         }
-        const data: unknown = JSON.parse(collected.join("\n"));
+        return collected.join("\n");
+    }
+
+    function parse_fixture(filename: string, max_lines = 80): unknown {
+        const raw = readFileSync(resolve(metadataFixturesDir, filename), "utf8");
+        const json = extract_metadata_json(raw, max_lines);
+        return JSON.parse(json);
+    }
+
+    it("accepts basic metadata", () => {
+        const data = parse_fixture("metadata-basic.ts");
         const result = pluginMetadataSchema.safeParse(data);
         expect(result.success).toBe(true);
+    });
+
+    it("accepts metadata with choice parameter", () => {
+        const data = parse_fixture("metadata-with-choice.ts");
+        const result = pluginMetadataSchema.safeParse(data);
+        expect(result.success).toBe(true);
+    });
+
+    it("accepts metadata with secret parameter", () => {
+        const data = parse_fixture("metadata-with-secret.ts");
+        const result = pluginMetadataSchema.safeParse(data);
+        expect(result.success).toBe(true);
+    });
+
+    it("accepts metadata that starts after line 80 when reading enough lines", () => {
+        const data = parse_fixture("metadata-after-line-80.ts", 90);
+        const result = pluginMetadataSchema.safeParse(data);
+        expect(result.success).toBe(true);
+    });
+
+    it("fails when metadata starts after line 80 with default line limit", () => {
+        expect(() => parse_fixture("metadata-after-line-80.ts")).toThrow();
+    });
+
+    it("rejects invalid JSON in metadata", () => {
+        expect(() => parse_fixture("metadata-invalid-json.ts")).toThrow();
+    });
+
+    it("fails to extract metadata with missing end marker", () => {
+        expect(() => parse_fixture("metadata-missing-end-marker.ts")).toThrow();
     });
 });
