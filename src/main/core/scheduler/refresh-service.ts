@@ -97,11 +97,16 @@ function observation_to_usage_item(obs: Observation): MetricRecord | null {
     };
 }
 
+const build_params_log = createLogger("refresh-service");
+
 async function build_params(
     connector_config: ConnectorConfiguration,
     definition: ConnectorDefinition,
     vault: VaultBackend,
 ): Promise<Record<string, string>> {
+    const secret_names = new Set(
+        definition.manifest.parameters.filter((p) => p.type === "secret").map((p) => p.name),
+    );
     const params: Record<string, string> = {};
     for (const param of definition.manifest.parameters) {
         const configured = String(
@@ -132,6 +137,13 @@ async function build_params(
         }
         params[param.name] = "";
     }
+    const safe_params: Record<string, string> = {};
+    for (const [key, value] of Object.entries(params)) {
+        safe_params[key] = secret_names.has(key) ? "***" : value;
+    }
+    build_params_log.debug(
+        `Params for ${connector_config.instanceId}: ${JSON.stringify(safe_params)}`,
+    );
     return params;
 }
 
@@ -237,14 +249,14 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 const items = observations
                     .map((obs) => observation_to_usage_item(obs))
                     .filter((item): item is MetricRecord => item !== null);
-                const updated_at = observations.reduce(
-                    (latest, obs) => Math.max(latest, obs.observed_at),
-                    Date.now(),
-                );
+                const updated_at =
+                    observations.length > 0
+                        ? observations.reduce((latest, obs) => Math.max(latest, obs.observed_at), 0)
+                        : undefined;
                 deps.runtimeStore.updateState(instanceId, {
                     status: "ready",
                     items,
-                    updatedAt: new Date(updated_at),
+                    ...(updated_at !== undefined && { updatedAt: new Date(updated_at) }),
                 });
                 log.info(
                     `Connector ${instanceId} (${connector_config.name}) refreshed: ${String(items.length)} items`,
@@ -280,14 +292,19 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                             const retry_items = retry_observations
                                 .map((obs) => observation_to_usage_item(obs))
                                 .filter((item): item is MetricRecord => item !== null);
-                            const retry_updated_at = retry_observations.reduce(
-                                (latest, obs) => Math.max(latest, obs.observed_at),
-                                Date.now(),
-                            );
+                            const retry_updated_at =
+                                retry_observations.length > 0
+                                    ? retry_observations.reduce(
+                                          (latest, obs) => Math.max(latest, obs.observed_at),
+                                          0,
+                                      )
+                                    : undefined;
                             deps.runtimeStore.updateState(instanceId, {
                                 status: "ready",
                                 items: retry_items,
-                                updatedAt: new Date(retry_updated_at),
+                                ...(retry_updated_at !== undefined && {
+                                    updatedAt: new Date(retry_updated_at),
+                                }),
                             });
                             log.info(
                                 `Connector ${connector_config.name} refreshed after re-login: ${String(retry_items.length)} items`,
