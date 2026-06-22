@@ -172,6 +172,12 @@ export function create_connector_context(
             return null;
         }
 
+        const ct = response.headers["content-type"];
+        const content_type = Array.isArray(ct) ? ct[0] : ct;
+        if (typeof content_type === "string" && content_type.toLowerCase().includes("text/html")) {
+            throw new Error(`Received HTML response instead of JSON (possible interception page)`);
+        }
+
         return JSON.parse(text) as unknown;
     }
 
