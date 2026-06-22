@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CpaCard } from "../../../../src/renderer/components/CpaCard";
+import type { VendorId } from "../../../../src/renderer/components/Icon";
 
 function noop() {
     /* noop */
@@ -17,7 +18,7 @@ function render_card(overrides: Partial<Parameters<typeof CpaCard>[0]> = {}) {
         account_count: 5,
         rows: [
             {
-                provider: "claude",
+                provider: "claude" as VendorId,
                 account_id: "claude-account",
                 account_label: "Claude Account",
                 status: "ok" as const,
@@ -25,7 +26,7 @@ function render_card(overrides: Partial<Parameters<typeof CpaCard>[0]> = {}) {
                 is_removed: false,
             },
             {
-                provider: "codex",
+                provider: "codex" as VendorId,
                 account_id: "codex-account",
                 account_label: "Codex Account",
                 status: "ok" as const,
@@ -33,7 +34,7 @@ function render_card(overrides: Partial<Parameters<typeof CpaCard>[0]> = {}) {
                 is_removed: false,
             },
             {
-                provider: "gemini",
+                provider: "gemini" as VendorId,
                 account_id: "gemini-old",
                 account_label: "Old Gemini",
                 status: "ok" as const,

@@ -1,4 +1,5 @@
 import { AccountRow } from "./AccountRow";
+import type { VendorId } from "./Icon";
 
 interface VendorCardRow {
     instance_id: string;
@@ -8,7 +9,7 @@ interface VendorCardRow {
 }
 
 interface VendorCardProps {
-    provider: string;
+    provider: VendorId;
     rows: VendorCardRow[];
     on_toggle: (instance_id: string) => void;
     on_refresh: (instance_id: string) => void;

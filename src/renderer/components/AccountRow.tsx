@@ -1,10 +1,9 @@
-import { Icon, VendorMark } from "./Icon";
+import { Icon, VendorMark, type VendorId } from "./Icon";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 
 interface AccountRowProps {
     mode: "direct" | "cpa-source" | "cpa-child";
-    provider: string;
+    provider: VendorId;
     account_label: string;
     enabled: boolean;
     status: "ok" | "error" | "auth" | "disabled" | "unknown";
@@ -57,9 +56,10 @@ function get_status_text(
     return STATUS_TEXT[status] ?? null;
 }
 
-function get_vendor_name(provider: string): string {
+function get_vendor_name(provider: VendorId): string {
     if (provider === "cpa") return "CPA Manager";
-    return provider in PROVIDER_LABELS ? PROVIDER_LABELS[provider as UsageProvider] : provider;
+    if (provider === "overview") return "总览";
+    return provider in PROVIDER_LABELS ? PROVIDER_LABELS[provider] : provider;
 }
 
 export function AccountRow({

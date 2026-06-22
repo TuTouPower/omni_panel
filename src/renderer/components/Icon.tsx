@@ -1,4 +1,5 @@
 import { type CSSProperties } from "react";
+import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import antigravity_svg from "../assets/vendor_logos/antigravity.svg";
 import claude_svg from "../assets/vendor_logos/claude.svg";
 import codex_svg from "../assets/vendor_logos/codex.svg";
@@ -153,8 +154,10 @@ const VENDOR_MARKS: Record<string, (s: number) => string> = {
         `<path d="M5 12A7 7 0 0 1 12 5"/></svg>`,
 };
 
+export type VendorId = UsageProvider | "overview" | "cpa";
+
 interface VendorMarkProps {
-    id: string;
+    id: VendorId;
     size?: number;
     color?: string;
 }

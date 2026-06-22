@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { Icon, VendorMark } from "./Icon";
+import { Icon, VendorMark, type VendorId } from "./Icon";
 import { AccountRow } from "./AccountRow";
 
 interface CpaCardRow {
-    provider: string;
+    provider: VendorId;
     account_id: string;
     account_label: string;
     status: "ok" | "error" | "auth" | "disabled" | "unknown";

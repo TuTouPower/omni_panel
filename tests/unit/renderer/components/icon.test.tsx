@@ -114,8 +114,8 @@ describe("VendorMark", () => {
         expect(wrapper.getAttribute("style")).toContain("color");
     });
 
-    it("falls back to overview SVG for unknown vendor", () => {
-        const { container } = render(<VendorMark id="unknown-vendor" />);
+    it("renders overview SVG as default for overview id", () => {
+        const { container } = render(<VendorMark id="overview" />);
         const inner = container.querySelector("span.vicon svg");
         expect(inner).toBeInTheDocument();
     });

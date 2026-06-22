@@ -15,7 +15,7 @@ import { AddAccountDialog } from "../components/AddAccountDialog";
 import type { AddAccountParams } from "../components/AddAccountDialog";
 import { LabelMapDialog } from "../components/LabelMapDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
-import { Icon, VendorMark } from "../components/Icon";
+import { Icon, VendorMark, type VendorId } from "../components/Icon";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type {
     ConnectorConfiguration,
@@ -334,7 +334,10 @@ function AccountDialog({
                 <div className="ad-head">
                     {isEdit && pluginInfo && (
                         <span className="ad-mark">
-                            <VendorMark id={pluginInfo.activeProviders[0] ?? "unknown"} size={24} />
+                            <VendorMark
+                                id={pluginInfo.activeProviders[0] ?? "overview"}
+                                size={24}
+                            />
                         </span>
                     )}
                     <div className="ad-htext">
@@ -1280,7 +1283,7 @@ export function SettingsView() {
                                     (() => {
                                         /* ── build view model ── */
                                         const direct_groups = new Map<
-                                            string,
+                                            VendorId,
                                             {
                                                 instance_ids: string[];
                                                 rows: {
@@ -1307,7 +1310,7 @@ export function SettingsView() {
                                                 cpa_plugins.push(plugin);
                                             } else {
                                                 const provider_id =
-                                                    info?.activeProviders[0] ?? "unknown";
+                                                    info?.activeProviders[0] ?? "overview";
                                                 const existing = direct_groups.get(provider_id);
                                                 const status_label = info
                                                     ? connection_status(info, plugin.enabled)
