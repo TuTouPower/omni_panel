@@ -13,12 +13,12 @@ import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";
 import { execute_probe } from "../connector/probe-executor";
 import { run_connector } from "../connector/runtime";
-import type { ObservationStore } from "../observation/observation-store";
+import type { AsyncObservationStore } from "../observation/observation-store-async";
 import type { ConnectorSnapshotState, SnapshotSuccess } from "./types";
 
 export interface RefreshServiceDeps {
     definitions: readonly ConnectorDefinition[];
-    observationStore: ObservationStore;
+    observationStore: AsyncObservationStore;
     runtimeStore: RuntimeStore;
     configStore: AppConfigStore;
     vault: VaultBackend;
@@ -234,7 +234,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 );
                 for (const obs of observations) {
                     try {
-                        deps.observationStore.insert(obs);
+                        await deps.observationStore.insert(obs);
                     } catch (insert_error: unknown) {
                         const insert_message =
                             insert_error instanceof Error
@@ -287,7 +287,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                 config.proxy?.url,
                             );
                             for (const obs of retry_observations) {
-                                deps.observationStore.insert(obs);
+                                await deps.observationStore.insert(obs);
                             }
                             const retry_items = retry_observations
                                 .map((obs) => observation_to_usage_item(obs))

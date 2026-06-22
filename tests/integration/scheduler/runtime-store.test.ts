@@ -3,7 +3,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
-import { create_observation_store } from "../../../src/main/core/observation/observation-store";
+import {
+    create_observation_store,
+    type ObservationStore,
+} from "../../../src/main/core/observation/observation-store";
+import type { AsyncObservationStore } from "../../../src/main/core/observation/observation-store-async";
 import { hydrate_runtime_store } from "../../../src/main/core/scheduler/hydrate-runtime-store";
 import type { Observation } from "../../../src/shared/types/observation";
 import type { ConnectorConfiguration } from "../../../src/shared/types/config";
@@ -148,6 +152,36 @@ function make_connector_config(
     };
 }
 
+function wrap_sync_as_async(store: ObservationStore): AsyncObservationStore {
+    return {
+        insert(obs) {
+            store.insert(obs);
+            return Promise.resolve();
+        },
+        get_latest(provider, account_id, metric_id, source_instance_id) {
+            return Promise.resolve(
+                store.get_latest(provider, account_id, metric_id, source_instance_id),
+            );
+        },
+        list_latest_by_provider(provider) {
+            return Promise.resolve(store.list_latest_by_provider(provider));
+        },
+        list_all_providers() {
+            return Promise.resolve(store.list_all_providers());
+        },
+        list_by_source_instance_id(source_instance_id) {
+            return Promise.resolve(store.list_by_source_instance_id(source_instance_id));
+        },
+        prune(older_than_ms) {
+            return Promise.resolve(store.prune(older_than_ms));
+        },
+        close() {
+            store.close();
+            return Promise.resolve();
+        },
+    };
+}
+
 describe("hydrate_runtime_store", () => {
     let temp_dir: string;
 
@@ -159,7 +193,7 @@ describe("hydrate_runtime_store", () => {
         rm(temp_dir, { recursive: true, force: true }).catch(() => undefined);
     });
 
-    it("restores ready state from observation store for manualRefreshOnly connectors", () => {
+    it("restores ready state from observation store for manualRefreshOnly connectors", async () => {
         const obsStore = create_observation_store(join(temp_dir, "test.db"));
         const runtimeStore = createRuntimeStore();
 
@@ -176,25 +210,27 @@ describe("hydrate_runtime_store", () => {
         const config = make_connector_config();
         const definition = make_definition();
 
-        hydrate_runtime_store({
-            runtimeStore,
-            observationStore: obsStore,
-            connectorConfigs: [config],
-            definitions: [definition],
-        });
+        try {
+            await hydrate_runtime_store({
+                runtimeStore,
+                observationStore: wrap_sync_as_async(obsStore),
+                connectorConfigs: [config],
+                definitions: [definition],
+            });
 
-        const snap = runtimeStore.getSnapshot("claude-1");
-        expect(snap.status).toBe("ready");
-        if (snap.status === "ready") {
-            expect(snap.items.length).toBe(2);
-            expect(snap.items[0]?.provider).toBe("claude");
-            expect(snap.updatedAt).toBeInstanceOf(Date);
+            const snap = runtimeStore.getSnapshot("claude-1");
+            expect(snap.status).toBe("ready");
+            if (snap.status === "ready") {
+                expect(snap.items.length).toBe(2);
+                expect(snap.items[0]?.provider).toBe("claude");
+                expect(snap.updatedAt).toBeInstanceOf(Date);
+            }
+        } finally {
+            obsStore.close();
         }
-
-        obsStore.close();
     });
 
-    it("does not hydrate non-manualRefreshOnly connectors", () => {
+    it("does not hydrate non-manualRefreshOnly connectors", async () => {
         const obsStore = create_observation_store(join(temp_dir, "test.db"));
         const runtimeStore = createRuntimeStore();
 
@@ -203,32 +239,38 @@ describe("hydrate_runtime_store", () => {
         const config = make_connector_config({ manualRefreshOnly: false });
         const definition = make_definition();
 
-        hydrate_runtime_store({
-            runtimeStore,
-            observationStore: obsStore,
-            connectorConfigs: [config],
-            definitions: [definition],
-        });
+        try {
+            await hydrate_runtime_store({
+                runtimeStore,
+                observationStore: wrap_sync_as_async(obsStore),
+                connectorConfigs: [config],
+                definitions: [definition],
+            });
 
-        expect(runtimeStore.getSnapshot("claude-1").status).toBe("idle");
-        obsStore.close();
+            expect(runtimeStore.getSnapshot("claude-1").status).toBe("idle");
+        } finally {
+            obsStore.close();
+        }
     });
 
-    it("leaves connector idle when no observations exist", () => {
+    it("leaves connector idle when no observations exist", async () => {
         const obsStore = create_observation_store(join(temp_dir, "test.db"));
         const runtimeStore = createRuntimeStore();
 
         const config = make_connector_config();
         const definition = make_definition();
 
-        hydrate_runtime_store({
-            runtimeStore,
-            observationStore: obsStore,
-            connectorConfigs: [config],
-            definitions: [definition],
-        });
+        try {
+            await hydrate_runtime_store({
+                runtimeStore,
+                observationStore: wrap_sync_as_async(obsStore),
+                connectorConfigs: [config],
+                definitions: [definition],
+            });
 
-        expect(runtimeStore.getSnapshot("claude-1").status).toBe("idle");
-        obsStore.close();
+            expect(runtimeStore.getSnapshot("claude-1").status).toBe("idle");
+        } finally {
+            obsStore.close();
+        }
     });
 });

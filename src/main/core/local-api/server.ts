@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { createLogger } from "../../../shared/lib/logger";
 import { observation_ingest_schema } from "../../../shared/schemas/observation";
 import type { Observation } from "../../../shared/types/observation";
-import type { ObservationStore } from "../observation/observation-store";
+import type { AsyncObservationStore } from "../observation/observation-store-async";
 
 const log = createLogger("local-api");
 const DEFAULT_PORT = 17863;
@@ -68,7 +68,7 @@ function is_address_in_use(error: unknown): boolean {
 }
 
 export function create_local_api_server(
-    observation_store: ObservationStore,
+    observation_store: AsyncObservationStore,
     options?: { port?: number },
 ): LocalAPIServer {
     const token = generate_token();
@@ -100,7 +100,7 @@ export function create_local_api_server(
             stale: false,
             last_error: null,
         };
-        observation_store.insert(observation);
+        await observation_store.insert(observation);
         json_response(res, 200, { status: "ok" });
     }
 
