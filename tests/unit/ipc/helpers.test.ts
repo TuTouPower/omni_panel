@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { ok, fail, toDTO, assert_valid_sender } from "../../../src/main/ipc/helpers";
 
 describe("IPC helpers", () => {
