@@ -41,14 +41,10 @@ export const observation_schema = z.object({
     last_error: z.string().nullable(),
 });
 
-export const observation_ingest_schema = observation_schema
-    .omit({
-        observed_at: true,
-        stale: true,
-        last_error: true,
-    })
-    .extend({
-        source: observation_source_schema,
-    });
+export const observation_ingest_schema = observation_schema.omit({
+    observed_at: true,
+    stale: true,
+    last_error: true,
+});
 
 export type ObservationInput = z.infer<typeof observation_ingest_schema>;
