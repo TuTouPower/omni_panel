@@ -47,7 +47,7 @@ class FakeResizeObserver {
 }
 
 function connector(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
-    const source = overrides.source ?? "cpa";
+    const source = overrides.source ?? "gateway";
     const supportedProviders = overrides.supportedProviders ?? ["claude"];
     const activeProviders = overrides.activeProviders ?? supportedProviders;
     return {

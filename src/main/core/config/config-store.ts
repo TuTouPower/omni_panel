@@ -180,13 +180,7 @@ export function createConfigStore(configPath: string): AppConfigStore {
                             : bak_parsed;
                     const bak_result = appConfigurationSchema.safeParse(bak_normalized);
                     if (bak_result.success) {
-                        recovered_from_bak = {
-                            ...bak_result.data,
-                            plugins: bak_result.data.plugins.map((p) => ({
-                                ...p,
-                                instanceId: p.instanceId ?? p.stateId,
-                            })),
-                        };
+                        recovered_from_bak = bak_result.data as AppConfiguration;
                     }
                 } catch {
                     // .bak not available or also corrupt

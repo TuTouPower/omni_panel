@@ -86,10 +86,10 @@ describe("IPC helpers", () => {
 });
 
 describe("assert_valid_sender", () => {
-    const original_node_env = process.env.NODE_ENV;
+    const original_node_env = process.env["NODE_ENV"];
 
     afterEach(() => {
-        process.env.NODE_ENV = original_node_env;
+        process.env["NODE_ENV"] = original_node_env;
     });
 
     it("rejects empty sender URL", () => {
@@ -109,7 +109,7 @@ describe("assert_valid_sender", () => {
     });
 
     it("allows file:// sender in development", () => {
-        process.env.NODE_ENV = "development";
+        process.env["NODE_ENV"] = "development";
         const event = {
             senderFrame: { url: "file:///index.html" },
         } as unknown as Electron.IpcMainInvokeEvent;
@@ -119,7 +119,7 @@ describe("assert_valid_sender", () => {
     });
 
     it("allows http:// sender in development", () => {
-        process.env.NODE_ENV = "development";
+        process.env["NODE_ENV"] = "development";
         const event = {
             senderFrame: { url: "http://localhost:3000" },
         } as unknown as Electron.IpcMainInvokeEvent;
@@ -129,7 +129,7 @@ describe("assert_valid_sender", () => {
     });
 
     it("rejects non-file:// sender in production", () => {
-        process.env.NODE_ENV = "production";
+        process.env["NODE_ENV"] = "production";
         const event = {
             senderFrame: { url: "http://evil.com" },
         } as unknown as Electron.IpcMainInvokeEvent;
@@ -139,7 +139,7 @@ describe("assert_valid_sender", () => {
     });
 
     it("allows file:// sender in production", () => {
-        process.env.NODE_ENV = "production";
+        process.env["NODE_ENV"] = "production";
         const event = {
             senderFrame: { url: "file:///index.html" },
         } as unknown as Electron.IpcMainInvokeEvent;

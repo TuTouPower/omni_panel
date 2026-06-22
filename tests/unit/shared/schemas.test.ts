@@ -17,18 +17,19 @@ describe("pluginResultSchema (discriminated union)", () => {
         const data: unknown = JSON.parse(raw);
         const result = pluginResultSchema.safeParse(data);
         expect(result.success).toBe(true);
-        if (result.success) {
-            const parsed = result.data;
-            expect(parsed.success).toBe(true);
-            expect(parsed.schemaVersion).toBe(2);
-            expect(parsed.items).toHaveLength(1);
-            const item = parsed.items[0];
-            expect(item.provider).toBe("claude");
-            expect(item.source).toBe("poll");
-            expect(item.used).toBe(50);
-            expect(item.limit).toBe(100);
-            expect(item.accountId).toBe("fixture-claude");
-        }
+        if (!result.success) return;
+        const parsed = result.data;
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(parsed.schemaVersion).toBe(2);
+        expect(parsed.items).toHaveLength(1);
+        const item = parsed.items[0];
+        if (!item) return;
+        expect(item.provider).toBe("claude");
+        expect(item.source).toBe("poll");
+        expect(item.used).toBe(50);
+        expect(item.limit).toBe(100);
+        expect(item.accountId).toBe("fixture-claude");
     });
 
     it("accepts success-with-badge.json", () => {

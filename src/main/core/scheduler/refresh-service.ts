@@ -252,11 +252,11 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 const updated_at =
                     observations.length > 0
                         ? observations.reduce((latest, obs) => Math.max(latest, obs.observed_at), 0)
-                        : undefined;
+                        : Date.now();
                 deps.runtimeStore.updateState(instanceId, {
                     status: "ready",
                     items,
-                    ...(updated_at !== undefined && { updatedAt: new Date(updated_at) }),
+                    updatedAt: new Date(updated_at),
                 });
                 log.info(
                     `Connector ${instanceId} (${connector_config.name}) refreshed: ${String(items.length)} items`,
@@ -298,13 +298,11 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                           (latest, obs) => Math.max(latest, obs.observed_at),
                                           0,
                                       )
-                                    : undefined;
+                                    : Date.now();
                             deps.runtimeStore.updateState(instanceId, {
                                 status: "ready",
                                 items: retry_items,
-                                ...(retry_updated_at !== undefined && {
-                                    updatedAt: new Date(retry_updated_at),
-                                }),
+                                updatedAt: new Date(retry_updated_at),
                             });
                             log.info(
                                 `Connector ${connector_config.name} refreshed after re-login: ${String(retry_items.length)} items`,

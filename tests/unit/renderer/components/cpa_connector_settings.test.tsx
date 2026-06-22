@@ -46,7 +46,7 @@ function connector(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
         activeProviders: ["claude", "codex"],
         metadata: {
             name: "CPA",
-            defaultSource: "cpa",
+            defaultSource: "gateway",
             endpoints: { default: "http://localhost:8080" },
             parameters: [
                 { name: "cpa_mgmt_key", label: "管理密钥", type: "secret", required: true },

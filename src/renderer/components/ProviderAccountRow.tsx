@@ -69,7 +69,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
 
     const header = (
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {onDragStart && <DragGrip onMouseDown={onDragStart} />}
+            {onDragStart && <DragGrip />}
             <div>
                 <div className="card-name">{account.accountLabel}</div>
                 <div className="rel-time">

@@ -17,7 +17,7 @@ export function assert_valid_sender(event: IpcMainInvokeEvent): void {
     if (!url || url === "about:blank") {
         throw new Error("IPC not allowed from unknown origin");
     }
-    if (process.env.NODE_ENV === "production") {
+    if (process.env["NODE_ENV"] === "production") {
         if (!url.startsWith("file://")) {
             throw new Error(`Invalid sender protocol: ${url}`);
         }
