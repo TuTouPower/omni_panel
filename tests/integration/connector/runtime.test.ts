@@ -110,10 +110,23 @@ describe("connector-runtime", () => {
     });
 
     it("filters out malformed observations with warning", async () => {
+        const { addTransport } = await import("../../../src/shared/lib/logger");
+        const warn_messages: string[] = [];
+        const remove = addTransport({
+            write(level, _module, message) {
+                if (level === "warn") {
+                    warn_messages.push(message);
+                }
+            },
+        });
+
         const script = `return [{ provider: "test" }, { valid: "observation" }];`;
         const result = await run_connector(poll_manifest, script, stub_ctx);
         expect(result.error).toBeNull();
         expect(result.observations).toEqual([]);
+        expect(warn_messages.some((m) => m.includes("Skipping invalid observation"))).toBe(true);
+
+        remove();
     });
 
     it("returns error when script throws", async () => {
