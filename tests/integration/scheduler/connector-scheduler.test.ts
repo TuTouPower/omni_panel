@@ -143,4 +143,41 @@ describe("connector-scheduler", () => {
         await vi.advanceTimersByTimeAsync(10_000);
         expect(refresh).toHaveBeenCalledTimes(3);
     });
+
+    it("survives a refresh that never resolves (regression: scheduler death)", async () => {
+        // Regression: previously, schedule_next() was inside refresh().then(),
+        // so a hanging refresh killed the scheduler permanently.
+        const refresh = vi.fn<() => Promise<void>>().mockReturnValue(new Promise(() => undefined));
+        const scheduler = createConnectorScheduler({ refresh });
+        scheduler.start("p1", 10, { immediate: false });
+
+        // Advance through 5 intervals — none should block
+        await vi.advanceTimersByTimeAsync(50_000);
+        expect(refresh).toHaveBeenCalledTimes(5);
+    });
+
+    it("survives a refresh that rejects (regression: unhandled rejection)", async () => {
+        const refresh = vi.fn<() => Promise<void>>().mockRejectedValue(new Error("boom"));
+        const scheduler = createConnectorScheduler({ refresh });
+        scheduler.start("p1", 10, { immediate: false });
+
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(refresh).toHaveBeenCalledTimes(3);
+    });
+
+    it("one hanging connector does not block other connectors (regression: all accounts stop)", async () => {
+        const hangRefresh = vi
+            .fn<() => Promise<void>>()
+            .mockReturnValue(new Promise(() => undefined));
+        const normalRefresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+        const scheduler = createConnectorScheduler({
+            refresh: (id: string) => (id === "hanger" ? hangRefresh() : normalRefresh()),
+        });
+        scheduler.start("hanger", 10, { immediate: false });
+        scheduler.start("normal", 10, { immediate: false });
+
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(hangRefresh).toHaveBeenCalledTimes(3);
+        expect(normalRefresh).toHaveBeenCalledTimes(3);
+    });
 });

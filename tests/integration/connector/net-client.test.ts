@@ -84,7 +84,7 @@ beforeAll(async () => {
                     req.headers.authorization === "Bearer sk-test-secret") ||
                 (url.pathname === "/header" && req.headers["x-api-key"] === "sk-test-secret") ||
                 (url.pathname === "/query" && url.searchParams.get("api_key") === "sk-test-secret");
-            if (!auth_is_valid) {
+            if (!auth_is_valid && url.pathname !== "/hang" && url.pathname !== "/slow-body") {
                 res.writeHead(401, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ error: "unauthorized" }));
                 return;
@@ -92,6 +92,17 @@ beforeAll(async () => {
             if (url.pathname === "/server-error") {
                 res.writeHead(500, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ error: "internal failure", trace: "abc-123" }));
+                return;
+            }
+            if (url.pathname === "/hang") {
+                // Never respond — used to test total timeout
+                return;
+            }
+            if (url.pathname === "/slow-body") {
+                // Send headers immediately, then drip body slowly
+                res.writeHead(200, { "Content-Type": "application/json" });
+                res.write("{");
+                // Never finish the body
                 return;
             }
             res.writeHead(200, { "Content-Type": "application/json" });
@@ -363,6 +374,64 @@ describe("net-client", () => {
             const ctx = create_connector_context(manifest, vault, "test-1", {});
             const result = await ctx.http.get_json("default", "/usage");
             expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+        });
+    });
+
+    describe("total timeout (regression: HTTP requests hang forever)", () => {
+        it("aborts request when total timeout elapses on hanging server", async () => {
+            const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {
+                endpoint_overrides: { default: `http://127.0.0.1:${String(server_port)}` },
+                timeout_ms: 500,
+            });
+            const start = Date.now();
+            await expect(ctx.http.get_json("default", "/hang")).rejects.toThrow();
+            expect(Date.now() - start).toBeLessThan(5000);
+        });
+
+        it("per-request timeout_ms overrides default timeout", async () => {
+            const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {
+                endpoint_overrides: { default: `http://127.0.0.1:${String(server_port)}` },
+                timeout_ms: 30_000,
+            });
+            const start = Date.now();
+            await expect(
+                ctx.http.get_json("default", "/hang", { timeout_ms: 300 }),
+            ).rejects.toThrow();
+            expect(Date.now() - start).toBeLessThan(5000);
+        });
+
+        it("timeout is cleaned up after successful request", async () => {
+            const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {
+                endpoint_overrides: { default: `http://127.0.0.1:${String(server_port)}` },
+                timeout_ms: 500,
+            });
+            // First request succeeds — timer should be cleared
+            const result = await ctx.http.get_json("default", "/usage");
+            expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+            // Wait past the timeout — no spurious abort should occur
+            await new Promise((r) => setTimeout(r, 700));
+            const result2 = await ctx.http.get_json("default", "/usage");
+            expect(result2).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+        });
+
+        it("get_raw also respects total timeout", async () => {
+            const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {
+                endpoint_overrides: { default: `http://127.0.0.1:${String(server_port)}` },
+                timeout_ms: 500,
+            });
+            const start = Date.now();
+            await expect(ctx.http.get_raw("default", "/hang")).rejects.toThrow();
+            expect(Date.now() - start).toBeLessThan(5000);
+        });
+
+        it("aborts slow body stream after total timeout", async () => {
+            const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {
+                endpoint_overrides: { default: `http://127.0.0.1:${String(server_port)}` },
+                timeout_ms: 500,
+            });
+            const start = Date.now();
+            await expect(ctx.http.get_json("default", "/slow-body")).rejects.toThrow();
+            expect(Date.now() - start).toBeLessThan(5000);
         });
     });
 });
