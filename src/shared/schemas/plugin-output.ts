@@ -109,6 +109,9 @@ export const pluginResultSchema = z.discriminatedUnion("success", [
 ]);
 
 // --- Types ---
+// TypeScript type/interface names use PascalCase per TS ecosystem convention.
+// The project's snake_case naming rule applies to variables, functions, files,
+// and directories — not type names, which universally follow PascalCase.
 
 export type UsageProvider = z.infer<typeof usageProviderSchema>;
 export type UsageSource = z.infer<typeof usageSourceSchema>;
