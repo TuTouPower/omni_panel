@@ -29,16 +29,20 @@ test.describe("scheduler", () => {
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        // Wait for scheduler to complete initial refreshes (up to 30s for all plugins)
-        await page.waitForTimeout(5000);
+        // Wait for scheduler to complete initial refreshes
+        const pluginCards = popup.root().locator(".card[data-status]");
+        await expect(pluginCards.first()).toBeVisible({ timeout: 30_000 });
 
-        // Check that plugin cards exist and have some state
-        const pluginCards = popup.root().locator(".card");
         const count = await pluginCards.count();
-        if (count > 0) {
-            const firstCard = pluginCards.first();
-            await expect(firstCard).toBeVisible();
-        }
+        expect(count).toBeGreaterThan(0);
+
+        // Every card should have reached a terminal state (not "loading")
+        const terminalCards = popup
+            .root()
+            .locator(
+                '.card[data-status="ready"], .card[data-status="failed"], .card[data-status="empty"]',
+            );
+        await expect(terminalCards.first()).toBeVisible({ timeout: 30_000 });
     });
 
     test("manual refresh button triggers refresh", async ({ omni }) => {

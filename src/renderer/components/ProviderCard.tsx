@@ -41,6 +41,8 @@ interface ProviderCardProps {
     onReLogin?: ((provider: UsageProvider) => void) | undefined;
 }
 
+type CardStatus = "loading" | "ready" | "failed" | "empty";
+
 function is_auth_error(error: string): boolean {
     const lower = error.toLowerCase();
     return (
@@ -83,6 +85,13 @@ export const ProviderCard = memo(function ProviderCard({
     const hasAccounts = group !== undefined && group.accounts.length > 0;
     const has_alert_status =
         group !== undefined && (group.status === "warning" || group.status === "critical");
+    const card_status: CardStatus = isFailed
+        ? "failed"
+        : is_refreshing && !hasUsage
+          ? "loading"
+          : hasUsage
+            ? "ready"
+            : "empty";
     const card_class =
         (dragging ? " dragging" : "") +
         (dragOver ? " drag-over" : "") +
@@ -343,6 +352,7 @@ export const ProviderCard = memo(function ProviderCard({
                     : () => undefined
             }
             className={card_class || undefined}
+            dataStatus={card_status}
             rootProps={drag_root_props}
         >
             {collapse_children}
