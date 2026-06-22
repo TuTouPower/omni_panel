@@ -134,51 +134,68 @@ export function create_connector_context(
         };
 
         log.debug(`${method} ${url.origin}${url.pathname}`);
+        const effective_timeout = opts?.timeout_ms ?? timeout_ms;
+        const ac = new AbortController();
+        const total_timer = setTimeout(() => {
+            ac.abort();
+        }, effective_timeout);
         const request_options = {
             method,
             headers: all_headers,
-            headersTimeout: opts?.timeout_ms ?? timeout_ms,
-            bodyTimeout: opts?.timeout_ms ?? timeout_ms,
+            headersTimeout: effective_timeout,
+            bodyTimeout: effective_timeout,
+            signal: ac.signal,
             ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
             ...(dispatcher ? { dispatcher } : {}),
         };
-        const response = await undici_request(url, request_options);
+        try {
+            const response = await undici_request(url, request_options);
+            log.debug(`${method} ${url.origin}${url.pathname} → ${String(response.statusCode)}`);
 
-        if (response.statusCode >= 400) {
-            const body_text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
-            log.debug(`HTTP ${String(response.statusCode)} response body`, {
-                body: body_text.slice(0, 200),
-                url,
-            });
-            throw new Error(
-                `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
-            );
-        }
-
-        const content_length_header = response.headers["content-length"];
-        const content_length = Array.isArray(content_length_header)
-            ? content_length_header[0]
-            : content_length_header;
-        if (content_length) {
-            const size = Number.parseInt(content_length, 10);
-            if (size > MAX_RESPONSE_BYTES) {
-                response.body.destroy();
-                throw new Error(`Response body too large: ${String(size)} bytes`);
+            if (response.statusCode >= 400) {
+                const body_text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
+                log.debug(`HTTP ${String(response.statusCode)} response body`, {
+                    body: body_text.slice(0, 200),
+                    url,
+                });
+                throw new Error(
+                    `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
+                );
             }
-        }
 
-        const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
-        if (text.length === 0) {
-            return null;
-        }
+            const content_length_header = response.headers["content-length"];
+            const content_length = Array.isArray(content_length_header)
+                ? content_length_header[0]
+                : content_length_header;
+            if (content_length) {
+                const size = Number.parseInt(content_length, 10);
+                if (size > MAX_RESPONSE_BYTES) {
+                    response.body.destroy();
+                    throw new Error(`Response body too large: ${String(size)} bytes`);
+                }
+            }
 
-        const ct = response.headers["content-type"];
-        const content_type = Array.isArray(ct) ? ct[0] : ct;
-        if (typeof content_type === "string" && content_type.toLowerCase().includes("text/html")) {
-            throw new Error(`Received HTML response instead of JSON (possible interception page)`);
-        }
+            const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
+            log.debug(`${method} ${url.origin}${url.pathname} body=${String(text.length)} bytes`);
+            if (text.length === 0) {
+                return null;
+            }
 
-        return JSON.parse(text) as unknown;
+            const ct = response.headers["content-type"];
+            const content_type = Array.isArray(ct) ? ct[0] : ct;
+            if (
+                typeof content_type === "string" &&
+                content_type.toLowerCase().includes("text/html")
+            ) {
+                throw new Error(
+                    `Received HTML response instead of JSON (possible interception page)`,
+                );
+            }
+
+            return JSON.parse(text) as unknown;
+        } finally {
+            clearTimeout(total_timer);
+        }
     }
 
     return {
@@ -200,42 +217,55 @@ export function create_connector_context(
                 };
 
                 log.debug(`GET RAW ${url.origin}${url.pathname}`);
+                const effective_timeout = opts?.timeout_ms ?? timeout_ms;
+                const ac = new AbortController();
+                const total_timer = setTimeout(() => {
+                    ac.abort();
+                }, effective_timeout);
                 const request_options = {
                     method: "GET" as const,
                     headers: all_headers,
-                    headersTimeout: opts?.timeout_ms ?? timeout_ms,
-                    bodyTimeout: opts?.timeout_ms ?? timeout_ms,
+                    headersTimeout: effective_timeout,
+                    bodyTimeout: effective_timeout,
+                    signal: ac.signal,
                     ...(dispatcher ? { dispatcher } : {}),
                 };
-                const response = await undici_request(url, request_options);
+                try {
+                    const response = await undici_request(url, request_options);
 
-                if (response.statusCode >= 400) {
-                    const body_text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
-                    log.debug(`HTTP ${String(response.statusCode)} get_raw response body`, {
-                        body: body_text.slice(0, 200),
-                        url: url.toString(),
-                    });
-                    throw new Error(
-                        `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
-                    );
-                }
-
-                const response_headers: Record<string, string> = {};
-                for (const [key, value] of Object.entries(response.headers)) {
-                    if (value !== undefined) {
-                        response_headers[key.toLowerCase()] = Array.isArray(value)
-                            ? (value[0] ?? "")
-                            : value;
+                    if (response.statusCode >= 400) {
+                        const body_text = await read_body_with_limit(
+                            response.body,
+                            MAX_RESPONSE_BYTES,
+                        );
+                        log.debug(`HTTP ${String(response.statusCode)} get_raw response body`, {
+                            body: body_text.slice(0, 200),
+                            url: url.toString(),
+                        });
+                        throw new Error(
+                            `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
+                        );
                     }
+
+                    const response_headers: Record<string, string> = {};
+                    for (const [key, value] of Object.entries(response.headers)) {
+                        if (value !== undefined) {
+                            response_headers[key.toLowerCase()] = Array.isArray(value)
+                                ? (value[0] ?? "")
+                                : value;
+                        }
+                    }
+
+                    const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
+
+                    return {
+                        status: response.statusCode,
+                        headers: response_headers,
+                        body: text,
+                    };
+                } finally {
+                    clearTimeout(total_timer);
                 }
-
-                const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
-
-                return {
-                    status: response.statusCode,
-                    headers: response_headers,
-                    body: text,
-                };
             },
         },
         files: {

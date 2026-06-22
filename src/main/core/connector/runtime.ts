@@ -107,10 +107,18 @@ export async function run_connector(
 
     try {
         const context = create_sandbox_context(ctx);
-        const raw_result: unknown = vm.runInContext(compile_script(script_code), context, {
+        const compiled = compile_script(script_code);
+        log.debug(
+            `Connector ${manifest.id}: compiled, running in VM (timeout=${String(timeout_ms)}ms)`,
+        );
+        const raw_result: unknown = vm.runInContext(compiled, context, {
             timeout: timeout_ms,
         }) as unknown;
+        log.debug(
+            `Connector ${manifest.id}: vm.runInContext returned type=${typeof raw_result}, isPromise=${String(raw_result instanceof Promise)}`,
+        );
         const result: unknown = await race_with_timeout(Promise.resolve(raw_result), timeout_ms);
+        log.debug(`Connector ${manifest.id}: race_with_timeout resolved`);
 
         if (!Array.isArray(result)) {
             return { observations: [], error: "Script did not return an array" };

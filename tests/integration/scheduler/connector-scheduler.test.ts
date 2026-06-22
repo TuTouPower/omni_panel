@@ -113,10 +113,10 @@ describe("connector-scheduler", () => {
         expect(scheduler.isRunning("p2")).toBe(true);
     });
 
-    it("does not stack calls when refresh takes longer than interval", async () => {
-        // With setInterval, a slow refresh would cause calls to pile up.
-        // With recursive setTimeout, the next call is scheduled only after
-        // the current one completes, so no stacking occurs.
+    it("fires refresh on each interval regardless of previous completion", async () => {
+        // The scheduler fires refresh on every interval (fire-and-forget).
+        // Concurrent protection is handled by the refresh service's lock,
+        // not by the scheduler waiting for completion.
         let resolveRefresh: () => void = () => undefined;
         const refresh = vi.fn<() => Promise<void>>().mockImplementation(() => {
             return new Promise<void>((resolve) => {
@@ -131,16 +131,16 @@ describe("connector-scheduler", () => {
         expect(refresh).toHaveBeenCalledTimes(1);
 
         // Advance past another interval while first refresh is still running.
-        // With setInterval this would have already queued a second call.
-        // With setTimeout, the next call isn't scheduled yet.
+        // The scheduler fires a second attempt (the refresh service lock
+        // prevents actual concurrent execution).
         await vi.advanceTimersByTimeAsync(15_000);
-        expect(refresh).toHaveBeenCalledTimes(1); // still 1 — no stacking
+        expect(refresh).toHaveBeenCalledTimes(2);
 
-        // Now resolve the first refresh — next call should be scheduled
+        // Resolve the first refresh — no effect on scheduling
         resolveRefresh();
         await vi.advanceTimersByTimeAsync(0); // let microtasks settle
-        // The next refresh is now scheduled after the interval
+        // The next refresh is still scheduled after the interval
         await vi.advanceTimersByTimeAsync(10_000);
-        expect(refresh).toHaveBeenCalledTimes(2);
+        expect(refresh).toHaveBeenCalledTimes(3);
     });
 });

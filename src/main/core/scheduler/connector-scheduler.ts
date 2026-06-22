@@ -32,9 +32,10 @@ export function createConnectorScheduler(deps: ConnectorSchedulerDeps): Connecto
 
         function schedule_next(): void {
             const timer = setTimeout(() => {
-                void deps.refresh(instanceId).then(() => {
-                    schedule_next();
-                });
+                // Fire refresh without waiting for completion.
+                // Decoupled so a hanging connector never kills the scheduler.
+                void deps.refresh(instanceId);
+                schedule_next();
             }, interval);
             timers.set(instanceId, { timer, interval });
         }
