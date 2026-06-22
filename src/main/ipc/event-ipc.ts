@@ -41,6 +41,7 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
                     });
                 }
             } catch (error: unknown) {
+                // catch-log-rethrow: ensure errors are observed even if callers don't handle them
                 if (is_development) log.debug("ipc error raw", { channel, error });
                 throw error;
             }
@@ -61,6 +62,7 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
             }
             if (is_development) log.debug("ipc response raw", { channel, result: isDark });
         } catch (error: unknown) {
+            // catch-log-rethrow: ensure errors are observed even if callers don't handle them
             if (is_development) log.debug("ipc error raw", { channel, error });
             throw error;
         }
@@ -87,6 +89,7 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
             nativeTheme.themeSource = parsed.data;
             if (is_development) log.debug("ipc response raw", { channel, result: undefined });
         } catch (error: unknown) {
+            // catch-log-rethrow: ensure errors are observed even if callers don't handle them
             if (is_development) log.debug("ipc error raw", { channel, error });
             throw error;
         }
