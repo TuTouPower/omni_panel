@@ -50,7 +50,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
     let win: WindowLike | null = null;
     let mode: MainPanelShellMode = resolve_main_panel_mode(deps.get_config(), deps.platform);
     let height_controller: PopupHeightController | null = null;
-    let suppress_bounds_save = false;
+    let suppress_bounds_save = 0;
 
     const current_mode = () => resolve_main_panel_mode(deps.get_config(), deps.platform);
 
@@ -63,10 +63,10 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                     isDestroyed: () => target.isDestroyed(),
                     getBounds: () => target.getBounds(),
                     setBounds: (bounds) => {
-                        suppress_bounds_save = true;
+                        suppress_bounds_save++;
                         target.setBounds(bounds);
                         setImmediate(() => {
-                            suppress_bounds_save = false;
+                            suppress_bounds_save--;
                         });
                     },
                 };
@@ -80,7 +80,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
     }
 
     function save_floating_bounds(target: WindowLike): void {
-        if (mode !== "floating" || suppress_bounds_save || target.isDestroyed()) return;
+        if (mode !== "floating" || suppress_bounds_save > 0 || target.isDestroyed()) return;
         const bounds = target.getBounds();
         const display = deps.get_display_for_bounds(bounds);
         const display_id = display.id === undefined ? undefined : String(display.id);
