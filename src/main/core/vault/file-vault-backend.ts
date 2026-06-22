@@ -57,7 +57,7 @@ async function set_file_permissions(path: string): Promise<void> {
         }
         await chmod(path, 0o600);
     } catch (error) {
-        log.warn(`Failed to set file permissions on ${path}`, error);
+        log.error(`Failed to set file permissions on ${path}`, error);
     }
 }
 
@@ -144,17 +144,19 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
 
     return {
         async get(key: string): Promise<string | null> {
-            const data = await read_vault();
-            const entry = data[key];
-            if (!entry) return null;
-            try {
-                const plaintext = decrypt_value(master_key, entry);
-                scrubber.register(plaintext);
-                return plaintext;
-            } catch {
-                log.warn(`Failed to decrypt vault key: ${redact_key(key)}`);
-                return null;
-            }
+            return with_lock(async () => {
+                const data = await read_vault();
+                const entry = data[key];
+                if (!entry) return null;
+                try {
+                    const plaintext = decrypt_value(master_key, entry);
+                    scrubber.register(plaintext);
+                    return plaintext;
+                } catch {
+                    log.warn(`Failed to decrypt vault key: ${redact_key(key)}`);
+                    return null;
+                }
+            });
         },
 
         async set(key: string, value: string): Promise<void> {
@@ -177,15 +179,19 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
         },
 
         async has(key: string): Promise<boolean> {
-            const data = await read_vault();
-            return key in data;
+            return with_lock(async () => {
+                const data = await read_vault();
+                return key in data;
+            });
         },
 
         async list_keys(prefix?: string): Promise<string[]> {
-            const data = await read_vault();
-            const keys = Object.keys(data);
-            if (!prefix) return keys;
-            return keys.filter((key) => key.startsWith(prefix));
+            return with_lock(async () => {
+                const data = await read_vault();
+                const keys = Object.keys(data);
+                if (!prefix) return keys;
+                return keys.filter((key) => key.startsWith(prefix));
+            });
         },
     };
 }

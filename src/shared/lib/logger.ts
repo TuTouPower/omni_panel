@@ -179,6 +179,11 @@ export function createConsoleTransport(): LogTransport {
     };
 }
 
+// DESIGN: createFileTransport accepts a writeLine callback that is typically
+// backed by async I/O (e.g. appendFile).  Because the transport write() method
+// is synchronous, rapid logging may cause I/O to queue up without back-pressure.
+// This is acceptable for a desktop app with modest log volume, but a
+// high-throughput scenario would need a buffered / dedicated writer.
 export function createFileTransport(writeLine: (line: string) => void): LogTransport {
     return {
         write(level, module, message, meta) {

@@ -12,11 +12,23 @@ const fixturesDir = resolve(__dirname, "../../fixtures/plugin-output");
 const metadataFixturesDir = resolve(__dirname, "../../fixtures/plugin-metadata");
 
 describe("pluginResultSchema (discriminated union)", () => {
-    it("accepts success-basic.json", () => {
+    it("accepts success-basic.json and parses key fields", () => {
         const raw = readFileSync(resolve(fixturesDir, "success-basic.json"), "utf8");
         const data: unknown = JSON.parse(raw);
         const result = pluginResultSchema.safeParse(data);
         expect(result.success).toBe(true);
+        if (result.success) {
+            const parsed = result.data;
+            expect(parsed.success).toBe(true);
+            expect(parsed.schemaVersion).toBe(2);
+            expect(parsed.items).toHaveLength(1);
+            const item = parsed.items[0];
+            expect(item.provider).toBe("claude");
+            expect(item.source).toBe("poll");
+            expect(item.used).toBe(50);
+            expect(item.limit).toBe(100);
+            expect(item.accountId).toBe("fixture-claude");
+        }
     });
 
     it("accepts success-with-badge.json", () => {

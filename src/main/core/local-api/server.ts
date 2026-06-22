@@ -185,6 +185,9 @@ export function create_local_api_server(
             return port;
         },
 
+        // DESIGN: get_token() returns plaintext by necessity — callers (e.g. IPC
+        // to renderer, bearer-token validation) need the raw value.  Callers must
+        // redact before logging or persisting.
         get_token() {
             return token;
         },

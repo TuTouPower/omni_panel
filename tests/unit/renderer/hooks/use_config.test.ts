@@ -155,7 +155,9 @@ describe("use_config", () => {
             captured_callback?.(new_config);
         });
 
-        // config should still be the same object (no unnecessary setState)
+        // INTENTIONAL: reference equality check confirms the hook skips
+        // unnecessary setState when the incoming config is the same object
+        // (i.e. an echo of the local save).
         expect(result.current.config).toBe(new_config);
     });
 });

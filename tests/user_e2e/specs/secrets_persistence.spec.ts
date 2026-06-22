@@ -125,6 +125,10 @@ test.describe("secrets persistence", () => {
         await expect(popup.root().getByText("10/100")).toBeVisible();
     });
 
+    // LIMITATION: this test infers that the secret was passed to the plugin
+    // subprocess by observing the UI output, rather than directly intercepting
+    // the subprocess stdin/env.  A more direct verification would require
+    // instrumenting the plugin host.
     test("secret value is masked in UI, not shown in plain text", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });

@@ -43,6 +43,10 @@ function observation_to_metric_record(
 }
 
 export function hydrate_runtime_store(deps: HydrateDeps): void {
+    // DESIGN: only manualRefreshOnly connectors are restored from the
+    // observation store on startup.  Auto-refresh connectors will re-populate
+    // on their next scheduled run, so showing stale data for them would be
+    // misleading.  This is an intentional trade-off, not a bug.
     for (const config of deps.connectorConfigs) {
         if (!config.manualRefreshOnly) continue;
 

@@ -222,7 +222,7 @@ describe("probe-executor", () => {
         expect(observations).toEqual([]);
     });
 
-    it("uses first numeric header as used when no pattern match", async () => {
+    it("returns empty when header not present in response", async () => {
         const manifest = {
             ...create_manifest(),
             observe: {
