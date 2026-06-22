@@ -5,6 +5,9 @@ import type { ConnectorContext } from "./host-io";
 
 const log = createLogger("tier1-poll");
 
+// NOTE: resolve_json_path only supports dot-separated object paths like $.a.b.c.
+// Array index access (e.g. $.items[0].value) is not supported. Adding array
+// index support would require manifest schema changes and is a feature request.
 function resolve_json_path(data: unknown, path: string): unknown {
     if (!path.startsWith("$")) return path;
 

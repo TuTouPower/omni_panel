@@ -22,6 +22,11 @@ function extract_numeric_headers(
     return result;
 }
 
+// NOTE: detect_metric_type uses simple substring matching on header names.
+// This is intentionally fragile — it may misclassify headers with ambiguous
+// names (e.g. "x-rate-limit-remaining" could match "remaining" or "limit").
+// The trade-off is acceptable because probe manifests explicitly list the
+// headers they care about, and the heuristic only classifies those.
 function detect_metric_type(header_name: string): "remaining" | "used" | "limit" | "unknown" {
     const lower = header_name.toLowerCase();
     // Check for "remaining" first (more specific than "limit")
