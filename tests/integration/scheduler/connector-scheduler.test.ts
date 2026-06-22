@@ -40,11 +40,21 @@ describe("connector-scheduler", () => {
         expect(refresh).toHaveBeenCalledTimes(1);
     });
 
-    it("enforces minimum interval of 5 seconds", () => {
+    it("enforces minimum interval of 5 seconds", async () => {
         const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
         const scheduler = createConnectorScheduler({ refresh });
+        // Request interval of 2s — should be clamped to 5s (MIN_REFRESH_INTERVAL_SECONDS)
         scheduler.start("p1", 2);
         expect(refresh).toHaveBeenCalledTimes(1);
+
+        // Advance 2s (the requested interval) — should NOT have ticked yet
+        await vi.advanceTimersByTimeAsync(2_000);
+        expect(refresh).toHaveBeenCalledTimes(1);
+
+        // Advance 3s more (total 5s) — now the clamped interval has elapsed
+        await vi.advanceTimersByTimeAsync(3_000);
+        expect(refresh).toHaveBeenCalledTimes(2);
+        expect(refresh).toHaveBeenLastCalledWith("p1");
     });
 
     it("refreshNow calls refresh", () => {
