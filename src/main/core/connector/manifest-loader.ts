@@ -59,7 +59,9 @@ export async function discover_connector_definitions(
                     manifest,
                 });
             }
-        } catch {}
+        } catch (err) {
+            log.error("Failed to read connector directory", err);
+        }
     }
 
     return definitions;

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
@@ -45,7 +46,7 @@ function percent(used: number, limit: number | null): number {
     return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
 }
 
-export function UsageBarRow({
+export const UsageBarRow = memo(function UsageBarRow({
     period,
     index,
     colorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
@@ -103,7 +104,7 @@ export function UsageBarRow({
             <span className="bar-clock">{clock}</span>
         </div>
     );
-}
+});
 
 interface AccountUsageRowProps {
     account: ProviderUsageAccount;

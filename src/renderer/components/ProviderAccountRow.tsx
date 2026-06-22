@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
@@ -25,7 +25,7 @@ interface ProviderAccountRowProps {
     labelMap?: Readonly<Record<string, string>> | undefined;
 }
 
-export function ProviderAccountRow({
+export const ProviderAccountRow = memo(function ProviderAccountRow({
     account,
     collapsed = false,
     onToggleCollapsed,
@@ -128,4 +128,4 @@ export function ProviderAccountRow({
             />
         </CollapsibleCard>
     );
-}
+});
