@@ -48,13 +48,21 @@ test.describe("tray menu actions", () => {
     });
 
     test("quit command is available in menu labels", async ({ omni }) => {
-        // Verify the quit label exists in the menu constants
-        // (actual tray menu click via Playwright is not possible for native menus)
-        const page = await omni.app.firstWindow();
-        const popup = new PopupPage(page);
-        await popup.waitReady();
+        // The tray menu is rendered as a React component in a separate window.
+        // Verify the quit menu item text exists in the rendered tray menu.
+        const windows = omni.app.windows();
+        const tray_page =
+            windows.find((w) => w.url().includes("tray")) ?? (await omni.app.firstWindow());
 
-        // Sanity: app is running
-        expect(await page.title()).toBeTruthy();
+        // Wait for the tray menu body to render
+        await tray_page.waitForSelector(".tray-menu-body", { timeout: 10_000 });
+
+        // The quit item contains "退出" (zh) or "Quit" (en)
+        const quit_item = tray_page
+            .locator(".ctx-item.danger, .ctx-item:has-text('退出'), .ctx-item:has-text('Quit')")
+            .last();
+        await expect(quit_item).toBeVisible();
+        const text = await quit_item.textContent();
+        expect(text).toMatch(/退出|Quit/);
     });
 });
