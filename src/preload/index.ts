@@ -152,13 +152,13 @@ const settings_methods = {
         void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_OPEN, context);
     },
     minimize: () => {
-        ipcRenderer.send(IPC_CHANNELS.SETTINGS_MINIMIZE);
+        void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_MINIMIZE);
     },
     maximize: () => {
-        ipcRenderer.send(IPC_CHANNELS.SETTINGS_MAXIMIZE);
+        void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_MAXIMIZE);
     },
     close: () => {
-        ipcRenderer.send(IPC_CHANNELS.SETTINGS_CLOSE);
+        void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CLOSE);
     },
 };
 

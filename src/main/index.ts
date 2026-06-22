@@ -374,10 +374,10 @@ void app.whenReady().then(async () => {
     );
 
     // Settings window frameless controls
-    ipcMain.on(IPC_CHANNELS.SETTINGS_MINIMIZE, () => {
+    ipcMain.handle(IPC_CHANNELS.SETTINGS_MINIMIZE, () => {
         if (settingsWin && !settingsWin.isDestroyed()) settingsWin.minimize();
     });
-    ipcMain.on(IPC_CHANNELS.SETTINGS_MAXIMIZE, () => {
+    ipcMain.handle(IPC_CHANNELS.SETTINGS_MAXIMIZE, () => {
         if (!settingsWin || settingsWin.isDestroyed()) return;
         if (settingsWin.isMaximized()) {
             settingsWin.unmaximize();
@@ -385,7 +385,7 @@ void app.whenReady().then(async () => {
             settingsWin.maximize();
         }
     });
-    ipcMain.on(IPC_CHANNELS.SETTINGS_CLOSE, () => {
+    ipcMain.handle(IPC_CHANNELS.SETTINGS_CLOSE, () => {
         if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
     });
 
