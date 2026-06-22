@@ -28,8 +28,33 @@ test.describe("popup height debounce", () => {
         await live.getByRole("button", { name: /^Claude$/ }).click();
 
         for (const label of ["Debounce Account A", "Debounce Account B"]) {
+            // Measure height before collapse
+            const height_before = await page.evaluate(() => {
+                const el = document.querySelector('[data-popup="live"]');
+                return el instanceof HTMLElement ? el.getBoundingClientRect().height : 0;
+            });
+
+            // Collapse
             await live.getByRole("button", { name: new RegExp(`折叠 ${label}`) }).click();
+            await page.waitForTimeout(200);
+
+            // Height should be reduced after collapse
+            const height_collapsed = await page.evaluate(() => {
+                const el = document.querySelector('[data-popup="live"]');
+                return el instanceof HTMLElement ? el.getBoundingClientRect().height : 0;
+            });
+            expect(height_collapsed).toBeLessThan(height_before);
+
+            // Expand
             await live.getByRole("button", { name: new RegExp(`展开 ${label}`) }).click();
+            await page.waitForTimeout(200);
+
+            // Height should return after expand
+            const height_expanded = await page.evaluate(() => {
+                const el = document.querySelector('[data-popup="live"]');
+                return el instanceof HTMLElement ? el.getBoundingClientRect().height : 0;
+            });
+            expect(height_expanded).toBeGreaterThan(height_collapsed);
         }
 
         await expect(
