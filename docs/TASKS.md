@@ -339,17 +339,11 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 
 **验收：** `pnpm test` 全部通过；添加账号弹窗可见 Brave；Brave 标签页有数据（手动刷新后）；重启后 Brave 数据仍可见。
 
-### 状态栏相对时间不自动更新 ✅
+### ~~状态栏相对时间不自动更新~~ ✅ 已废弃
 
-**问题：** `relative_time()` 仅在组件 render 时调用一次，弹窗打开后显示冻结（如"13 秒前"），用户交互触发 re-render 后才跳变（如直接变"4 分钟前"）。主面板 `ProviderAccountRow` 和底部状态栏 `PopupView:583` 均受影响。
+**已移除：** 底部状态栏已删除，更新时间移至标题栏刷新按钮左侧（`.tb-time`）。`derive_status_bar` 已删除。
 
-**方案：** 新增 `useNowTick` hook，每 30 秒 setState 触发 re-render，`relative_time()` 随之重算。集成到 `PopupView` 顶层，子组件自动刷新。hook 独立可测。
-
-**已完成：**
-
-- `src/renderer/hooks/use-now-tick.ts`：hook 实现
-- `src/renderer/views/PopupView.tsx:122`：调用 `useNowTick()`
-- 测试：`tests/unit/renderer/hooks/use_now_tick.test.ts`（3 cases）、`popup_view.test.tsx` 新增 status bar 时间更新用例
+**历史方案：** `useNowTick` hook 每 30 秒触发 re-render，`relative_time()` 随之重算。
 
 ### 全局代理接线 ✅
 

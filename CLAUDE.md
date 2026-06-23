@@ -20,3 +20,17 @@
 - **涉及 UI 的任务**：必须手工点击操作验证关键路径。
 - 自动化通过 ≠ 产物可用。打包 smoke 未验证时不能说"已修复"，只能说"自动化路径通过，packaged 行为未验证"。
 - 详细规范见 `docs/test.md`。
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues (`TuTouPower/omni_usage`), external PRs not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (needs-triage / needs-info / ready-for-agent / ready-for-human / wontfix). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.

@@ -280,7 +280,7 @@ const authWord = authKind === "session" ? "登录" : "凭证";
 - `session` 类（MiMo / Kimi）→ "登录失效，请重新登录"
 - `apikey` / `local` 类 → "凭证失效，请重新登录"
 
-当前项目 `AddAccountDialog.tsx` 已有 `VENDOR_AUTH_MAP` 区分 auth method（`mimo: "session"`, `kimi: "session"`）。但 `ProviderCard.tsx` 和 `PopupView.tsx` 状态栏仍统一写"凭证失效"，没有根据 auth method 区分。
+当前项目 `AddAccountDialog.tsx` 已有 `VENDOR_AUTH_MAP` 区分 auth method（`mimo: "session"`, `kimi: "session"`）。但 `ProviderCard.tsx` 仍统一写"凭证失效"，没有根据 auth method 区分。
 
 #### 关于页
 
@@ -347,7 +347,7 @@ demo 的 `tray.jsx` 菜单项顺序：
     - `ProviderCard.tsx` 的 auth 状态文案根据 `VENDOR_AUTH_MAP[provider]` 判断：
         - `session` → "登录失效，请重新登录"
         - `apikey` / `local` / 其他 → "凭证失效，请重新登录"
-    - `PopupView.tsx` 状态栏 `derive_status_bar` 里的 "凭证失效" 也需要考虑：如果是 session 类服务失效，状态文案改为"登录失效"。
+    - ~~`PopupView.tsx` 状态栏 `derive_status_bar` 里的 "凭证失效"~~（底部状态栏已移除，`derive_status_bar` 已删除）
 
 6. 关于页重做。
     - 改为 demo 的布局：logo / 名称 / 版本 / 检查更新按钮，下方一排按钮：官网 / 文档 / 问卷反馈 / 检查更新 / 支持作者。
