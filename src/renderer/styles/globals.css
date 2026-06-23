@@ -178,6 +178,12 @@ html[data-window="tray"] #root {
     gap: 2px;
     -webkit-app-region: no-drag;
 }
+.titlebar .tb-time {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-right: 4px;
+    white-space: nowrap;
+}
 
 /* ── icon button ── */
 .icon-btn {

@@ -16,7 +16,6 @@ import {
     apply_account_overrides,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
-import { VENDOR_AUTH_MAP } from "../components/AddAccountDialog";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import type {
     AccountOverrides,
@@ -35,75 +34,6 @@ const MODULE = "PopupView";
 const log = createLogger("renderer:popup-view");
 const should_log_raw = import.meta.env.DEV;
 const token_panel_enabled = import.meta.env["VITE_ENABLE_TOKEN_PANEL"] === "1";
-
-/** Auth-related error patterns for credential failure detection. */
-const AUTH_ERROR_PATTERNS = [
-    "401",
-    "403",
-    "UNAUTHORIZED",
-    "FORBIDDEN",
-    "INVALID_TOKEN",
-    "EXPIRED_TOKEN",
-];
-const AUTH_WORD_RE = /\bAUTH\b/u;
-
-type StatusBarDot = "green" | "red" | "amber";
-
-interface StatusBarState {
-    dot: StatusBarDot;
-    label: string;
-}
-
-/**
- * Determine status bar state with priority:
- * 未配置 > 凭证失效 > 网络异常 > 接近限制 > 数据正常
- */
-function derive_status_bar(
-    plugins: ReturnType<typeof use_plugins>["plugins"],
-    global_error: unknown,
-): StatusBarState {
-    if (plugins.length === 0) {
-        return { dot: "amber", label: "尚未配置" };
-    }
-
-    // Check for credential failures (401/403/AUTH in error messages)
-    let has_session_auth_error = false;
-    for (const p of plugins) {
-        if (p.snapshot.status !== "failed") continue;
-        const err_upper = p.snapshot.error.toUpperCase();
-        if (
-            AUTH_ERROR_PATTERNS.some((pat) => err_upper.includes(pat)) ||
-            AUTH_WORD_RE.test(err_upper)
-        ) {
-            for (const prov of p.activeProviders) {
-                if (VENDOR_AUTH_MAP[prov] === "session") {
-                    has_session_auth_error = true;
-                }
-            }
-            return {
-                dot: "amber",
-                label: has_session_auth_error ? "登录失效" : "凭证失效",
-            };
-        }
-    }
-
-    // Network / other errors
-    if (global_error || plugins.some((p) => p.snapshot.status === "failed")) {
-        return { dot: "red", label: "网络异常" };
-    }
-
-    // Check for warning/critical usage items
-    for (const p of plugins) {
-        if (p.snapshot.status !== "ready") continue;
-        for (const item of p.snapshot.items) {
-            if (item.status === "warning" || item.status === "critical") {
-                return { dot: "amber", label: "接近限制" };
-            }
-        }
-    }
-
-    return { dot: "green", label: "数据正常" };
-}
 
 function errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
@@ -655,9 +585,6 @@ export function PopupView() {
         };
     }, [orderedProviders]);
 
-    const statusBar = useMemo(() => derive_status_bar(plugins, error), [plugins, error]);
-    const statusDot = statusBar.dot;
-    const statusLabel = statusBar.label;
     const lastUpdated = plugins.reduce<string | null>((latest, p) => {
         if (p.snapshot.status !== "ready" && p.snapshot.status !== "failed") return latest;
         if (!p.snapshot.updatedAt) return latest;
@@ -694,6 +621,11 @@ export function PopupView() {
                     />
                     <span className="app-title">OmniUsage</span>
                     <div className="tb-actions">
+                        {footerTime && (
+                            <span className="tb-time" title="上次更新时间">
+                                {footerTime}
+                            </span>
+                        )}
                         <button
                             className={"icon-btn" + (refreshing ? " spinning" : "")}
                             title="刷新全部"
@@ -892,17 +824,6 @@ export function PopupView() {
                                 <TokenPanel has_real_data={false} />
                             </CollapsibleCard>
                         )}
-                    </div>
-                </div>
-
-                {/* status bar */}
-                <div className="statusbar">
-                    <div className="sb-left">
-                        <span className={`dot ${statusDot}`} />
-                        <span>{statusLabel}</span>
-                    </div>
-                    <div className="sb-right">
-                        <span>{footerTime}</span>
                     </div>
                 </div>
             </>
