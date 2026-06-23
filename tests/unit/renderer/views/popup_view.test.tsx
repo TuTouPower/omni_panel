@@ -198,6 +198,16 @@ describe("PopupView", () => {
         expect(screen.queryByRole("button", { name: /^CPA$/ })).not.toBeInTheDocument();
     });
 
+    it("shows update time in title bar instead of statusbar", async () => {
+        render(<PopupView />);
+
+        await waitFor(() => {
+            expect(document.querySelector(".tb-time")).not.toBeNull();
+        });
+        expect(document.querySelector(".tb-time")?.textContent).toBeTruthy();
+        expect(document.querySelector(".statusbar")).toBeNull();
+    });
+
     it("refreshes every enabled connector for a provider", async () => {
         plugin_list.mockResolvedValue([
             connectorInfo({

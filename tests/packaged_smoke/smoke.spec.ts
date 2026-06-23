@@ -146,29 +146,20 @@ test.describe("packaged binary smoke", () => {
             const layout = await app.page.evaluate(() => {
                 const root = document.querySelector(".window");
                 const scroll = document.querySelector(".scroll");
-                const statusbar = document.querySelector(".statusbar");
                 if (!(root instanceof HTMLElement)) throw new Error("Popup root not found");
                 if (!(scroll instanceof HTMLElement))
                     throw new Error("Popup scroll area not found");
-                if (!(statusbar instanceof HTMLElement))
-                    throw new Error("Popup statusbar not found");
                 const root_rect = root.getBoundingClientRect();
                 const scroll_rect = scroll.getBoundingClientRect();
-                const statusbar_rect = statusbar.getBoundingClientRect();
                 return {
                     root_height: root_rect.height,
                     scroll_bottom: scroll_rect.bottom,
-                    statusbar_bottom: statusbar_rect.bottom,
-                    statusbar_top: statusbar_rect.top,
                     viewport_height: window.innerHeight,
                 };
             });
 
             expect(Math.abs(layout.root_height - layout.viewport_height)).toBeLessThanOrEqual(1);
-            expect(Math.abs(layout.statusbar_bottom - layout.viewport_height)).toBeLessThanOrEqual(
-                1,
-            );
-            expect(layout.scroll_bottom).toBeLessThanOrEqual(layout.statusbar_top + 1);
+            expect(layout.scroll_bottom).toBeLessThanOrEqual(layout.root_height + 1);
         } finally {
             await closePackagedApp(app);
         }

@@ -25,13 +25,12 @@ test.describe("popup demo alignment", () => {
         expect(await cards.count()).toBeGreaterThan(0);
     });
 
-    test("status bar shows status dot and update time", async ({ omni }) => {
+    test("title bar shows update time", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        const statusbar = page.locator(".statusbar").first();
-        await expect(statusbar).toBeVisible();
-        await expect(statusbar.locator(".dot")).toBeVisible();
+        const timeLabel = page.locator(".tb-time").first();
+        await expect(timeLabel).toBeVisible();
     });
 });

@@ -60,7 +60,7 @@ test.describe("popup height debounce", () => {
         await expect(
             live.locator(".card-name").filter({ hasText: "Debounce Account A" }),
         ).toBeVisible();
-        await expect(live.locator(".statusbar")).toBeVisible();
+        await expect(live.locator(".titlebar")).toBeVisible();
     });
 
     test("mirror trees stay hidden while live popup remains measurable", async ({ omni }) => {

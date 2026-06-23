@@ -46,15 +46,15 @@ test.describe("popup window constraints", () => {
             btns = page.locator('[aria-label="折叠"]');
         }
 
-        // Statusbar should be at the bottom with minimal gap
+        // Scroll area should fill the window with minimal gap
         const gap = await page.evaluate(() => {
-            const sb = document.querySelector(".statusbar");
-            if (!(sb instanceof HTMLElement)) return -1;
+            const scroll = document.querySelector(".scroll");
+            if (!(scroll instanceof HTMLElement)) return -1;
             const root = document.querySelector(".window");
             if (!(root instanceof HTMLElement)) return -1;
             const root_rect = root.getBoundingClientRect();
-            const sb_rect = sb.getBoundingClientRect();
-            return root_rect.bottom - sb_rect.bottom;
+            const scroll_rect = scroll.getBoundingClientRect();
+            return root_rect.bottom - scroll_rect.bottom;
         });
         expect(gap).toBeLessThan(30);
     });

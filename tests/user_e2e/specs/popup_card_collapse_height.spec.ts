@@ -55,7 +55,7 @@ test.describe("popup card collapse height", () => {
         expect(height_expanded).toBeGreaterThan(height_collapsed);
     });
 
-    test("collapse all cards keeps statusbar attached to content", async ({ omni }) => {
+    test("collapse all cards keeps scroll attached to content", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
@@ -66,11 +66,11 @@ test.describe("popup card collapse height", () => {
         await live.getByRole("button", { name: /折叠 Height Account A/ }).click();
         await live.getByRole("button", { name: /折叠 Height Account B/ }).click();
 
-        await expect(live.locator(".statusbar")).toBeVisible();
+        await expect(live.locator(".scroll")).toBeVisible();
         const space = await live.evaluate((node) => {
-            const sb = node.querySelector(".statusbar");
-            if (!(sb instanceof HTMLElement)) return Number.POSITIVE_INFINITY;
-            return node.getBoundingClientRect().bottom - sb.getBoundingClientRect().bottom;
+            const scroll = node.querySelector(".scroll");
+            if (!(scroll instanceof HTMLElement)) return Number.POSITIVE_INFINITY;
+            return node.getBoundingClientRect().bottom - scroll.getBoundingClientRect().bottom;
         });
         expect(space).toBeLessThan(20);
     });
