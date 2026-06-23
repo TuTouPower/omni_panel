@@ -47,6 +47,7 @@ export interface AppConfiguration {
     >;
     readonly accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>>;
     readonly labelMapSync?: boolean;
+    readonly settingsBounds?: FloatingBoundsConfiguration;
     readonly floatingBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;
     readonly collapsedAccounts?: Readonly<Record<string, boolean>>;

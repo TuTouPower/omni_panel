@@ -87,6 +87,7 @@ export const appConfigurationSchema = z.object({
     accountLabelMaps: z.record(z.record(z.string())).optional(),
     labelMapSync: z.boolean().optional(),
     floatingBounds: floatingBoundsSchema.optional(),
+    settingsBounds: floatingBoundsSchema.optional(),
     collapsedAccounts: z.record(z.boolean()).optional(),
     expandedProviders: z.record(z.boolean()).optional(),
 });

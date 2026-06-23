@@ -340,14 +340,51 @@ void app.whenReady().then(async () => {
     // Settings window singleton
     let settingsWin: BrowserWindow | null = null;
 
+    function save_settings_bounds(): void {
+        if (!settingsWin || settingsWin.isDestroyed()) return;
+        if (settingsWin.isMinimized() || settingsWin.isMaximized()) return;
+        const bounds = settingsWin.getBounds();
+        const display = screen.getDisplayMatching(bounds);
+        const display_id = String(display.id);
+        const saved = {
+            x: bounds.x,
+            y: bounds.y,
+            width: Math.max(480, bounds.width),
+            height: Math.max(360, bounds.height),
+        };
+        currentConfigSnapshot = {
+            ...currentConfigSnapshot,
+            settingsBounds: { ...saved, displayId: display_id },
+        };
+        configStore.scheduleSave(currentConfigSnapshot);
+    }
+
     function createOrFocusSettings(): { created: boolean } {
         if (settingsWin && !settingsWin.isDestroyed()) {
             settingsWin.show();
             settingsWin.focus();
             return { created: false };
         }
-        settingsWin = createWindowFor("settings");
-        settingsWin.center();
+        const saved = currentConfigSnapshot.settingsBounds;
+        if (saved) {
+            const displays = screen.getAllDisplays();
+            const preferred = screen.getPrimaryDisplay();
+            const target_display = saved.displayId
+                ? (displays.find((d) => String(d.id) === saved.displayId) ?? preferred)
+                : preferred;
+            const work = target_display.workArea;
+            const width = Math.min(Math.max(480, saved.width), work.width);
+            const height = Math.min(Math.max(360, saved.height), work.height);
+            const x = Math.max(work.x, Math.min(saved.x, work.x + work.width - width));
+            const y = Math.max(work.y, Math.min(saved.y, work.y + work.height - height));
+            settingsWin = createWindowFor("settings");
+            settingsWin.setBounds({ x, y, width, height });
+        } else {
+            settingsWin = createWindowFor("settings");
+            settingsWin.center();
+        }
+        settingsWin.on("resize", save_settings_bounds);
+        settingsWin.on("move", save_settings_bounds);
         settingsWin.on("closed", () => {
             settingsWin = null;
         });
