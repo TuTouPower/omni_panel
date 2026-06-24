@@ -312,6 +312,7 @@ CPA 连接器特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key
     globalRefreshIntervalSeconds?: number, // 全局刷新间隔（覆盖连接器级设置）
     pauseAutoRefresh?: boolean,          // 暂停自动刷新
     providerOrder?: string[],            // Provider 标签页排序
+    accountOrders?: Record<string, string[]>, // 单 Provider 内账号卡片排序
     cacheMaxMb?: number,                 // 缓存大小上限
     mainPanelMode?: "system" | "popup" | "floating",  // 主面板窗口模式
     floatingHeightMode?: "fixed" | "followContent",   // 浮动窗口高度模式

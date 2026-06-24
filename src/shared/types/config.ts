@@ -37,6 +37,7 @@ export interface AppConfiguration {
     readonly globalRefreshIntervalSeconds?: number;
     readonly pauseAutoRefresh?: boolean;
     readonly providerOrder?: readonly string[];
+    readonly accountOrders?: Readonly<Record<string, readonly string[]>>;
     readonly cacheMaxMb?: number;
     readonly mainPanelMode?: MainPanelMode;
     readonly floatingHeightMode?: FloatingHeightMode;

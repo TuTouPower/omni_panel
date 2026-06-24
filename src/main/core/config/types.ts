@@ -75,6 +75,7 @@ export const appConfigurationSchema = z.object({
     globalRefreshIntervalSeconds: z.number().int().min(1).optional(),
     pauseAutoRefresh: z.boolean().optional(),
     providerOrder: z.array(z.string()).optional(),
+    accountOrders: z.record(z.array(z.string())).optional(),
     cacheMaxMb: z.number().int().min(1).max(10000).optional(),
     mainPanelMode: mainPanelModeSchema.optional(),
     floatingHeightMode: floatingHeightModeSchema.optional(),

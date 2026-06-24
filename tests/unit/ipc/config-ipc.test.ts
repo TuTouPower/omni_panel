@@ -214,6 +214,27 @@ describe("config-ipc", () => {
         expect(savedPlugin?.parameterValues["MODEL"]).toBe("gpt-4o");
     });
 
+    it("handleConfigSave accepts accountOrders", async () => {
+        const deps = createMockDeps();
+        const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
+
+        const loaded = structuredClone(await deps.configStore.load()) as AppConfiguration;
+        const modified = {
+            ...loaded,
+            accountOrders: {
+                claude: ["cpa-main|label|Account B", "cpa-main|label|Account A"],
+            },
+        } as unknown as AppConfiguration;
+
+        const result = await handleConfigSave(deps, modified);
+
+        expect(result.ok).toBe(true);
+        const savedArgs = deps.configStore.save.mock.calls as [Record<string, unknown>][];
+        expect(savedArgs[0]?.[0]["accountOrders"]).toEqual({
+            claude: ["cpa-main|label|Account B", "cpa-main|label|Account A"],
+        });
+    });
+
     it("handleConfigSave rejects unknown instanceId", async () => {
         const deps = createMockDeps();
         const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
