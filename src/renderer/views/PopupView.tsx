@@ -47,6 +47,19 @@ function arrays_equal<T>(left: readonly T[] | undefined, right: readonly T[]): b
     return left?.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+function account_orders_equal(
+    left: Readonly<Record<string, readonly string[]>>,
+    right: Readonly<Record<string, readonly string[]>>,
+): boolean {
+    const left_keys = Object.keys(left);
+    const right_keys = Object.keys(right);
+    if (left_keys.length !== right_keys.length) return false;
+    return left_keys.every((key) => {
+        const right_order = right[key];
+        return right_order !== undefined && arrays_equal(left[key], right_order);
+    });
+}
+
 export function PopupView() {
     useTheme();
     useNowTick();
@@ -66,6 +79,7 @@ export function PopupView() {
     const [account_drag_id, set_account_drag_id] = useState<string | null>(null);
     const [account_over_id, set_account_over_id] = useState<string | null>(null);
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
+    const synced_account_orders_ref = useRef<Record<string, string[]>>({});
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
     const [main_panel_mode, set_main_panel_mode] = useState<"popup" | "floating">("popup");
     const [usage_bar_color_scheme, set_usage_bar_color_scheme] =
@@ -119,6 +133,15 @@ export function PopupView() {
             set_account_label_maps(config.accountLabelMaps);
             set_provider_label_maps(config.providerLabelMaps);
             set_account_overrides(config.accountOverrides);
+            if (config.accountOrders) {
+                const next_orders = Object.fromEntries(
+                    Object.entries(config.accountOrders).map(([key, value]) => [key, [...value]]),
+                );
+                synced_account_orders_ref.current = next_orders;
+                set_account_orders((current) =>
+                    account_orders_equal(current, next_orders) ? current : next_orders,
+                );
+            }
             if (config.collapsedAccounts) {
                 set_collapsed_accounts(config.collapsedAccounts);
             }
@@ -175,6 +198,23 @@ export function PopupView() {
                 // ignore save errors
             });
     }, [provider_order]);
+
+    useEffect(() => {
+        const prev = synced_account_orders_ref.current;
+        if (account_orders_equal(prev, account_orders)) return;
+        synced_account_orders_ref.current = account_orders;
+        save_queue_ref.current = save_queue_ref.current
+            .then(async () => {
+                const result = await window.usageboard.config.get();
+                await window.usageboard.config.save({
+                    ...result.config,
+                    accountOrders: account_orders,
+                });
+            })
+            .catch(() => {
+                // ignore save errors
+            });
+    }, [account_orders]);
 
     // Persist collapsed/expanded state to config
     const prev_collapsed_ref = useRef<Record<string, boolean>>({});

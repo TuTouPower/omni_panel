@@ -905,6 +905,161 @@ describe("PopupView", () => {
         expect(screen.queryByText("Account B")).not.toBeInTheDocument();
     });
 
+    it("loads accountOrders from config on startup", async () => {
+        plugin_list.mockResolvedValue([
+            connectorInfo({
+                source: "gateway",
+                sourceInstanceId: "cpa-main",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        {
+                            id: "acc-a",
+                            provider: "claude",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "auth-a",
+                            accountLabel: "Account A",
+                            raw_label: "5h",
+                            normalized_label: "5小时",
+                            used: 10,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: null,
+                            observedAt: 1735689600000,
+                            stale: false,
+                            status: "normal",
+                        },
+                        {
+                            id: "acc-b",
+                            provider: "claude",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "auth-b",
+                            accountLabel: "Account B",
+                            raw_label: "5h",
+                            normalized_label: "5小时",
+                            used: 20,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: null,
+                            observedAt: 1735689600000,
+                            stale: false,
+                            status: "normal",
+                        },
+                    ],
+                },
+            }),
+        ]);
+        window.usageboard.config.get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                accountOrders: {
+                    claude: ["cpa-main|label|Account B", "cpa-main|label|Account A"],
+                },
+            },
+            hasSecrets: {},
+        });
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        const account_b = await screen.findByText("Account B");
+        const account_a = screen.getByText("Account A");
+        expect(
+            account_b.compareDocumentPosition(account_a) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+
+    it("saves accountOrders to config when user reorders accounts", async () => {
+        plugin_list.mockResolvedValue([
+            connectorInfo({
+                source: "gateway",
+                sourceInstanceId: "cpa-main",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        {
+                            id: "acc-a",
+                            provider: "claude",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "auth-a",
+                            accountLabel: "Account A",
+                            raw_label: "5h",
+                            normalized_label: "5小时",
+                            used: 10,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: null,
+                            observedAt: 1735689600000,
+                            stale: false,
+                            status: "normal",
+                        },
+                        {
+                            id: "acc-b",
+                            provider: "claude",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "auth-b",
+                            accountLabel: "Account B",
+                            raw_label: "5h",
+                            normalized_label: "5小时",
+                            used: 20,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: null,
+                            observedAt: 1735689600000,
+                            stale: false,
+                            status: "normal",
+                        },
+                    ],
+                },
+            }),
+        ]);
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        await waitFor(() => {
+            expect(screen.getByText("Account A")).toBeInTheDocument();
+            expect(screen.getByText("Account B")).toBeInTheDocument();
+        });
+
+        const account_a = screen.getByText("Account A").closest(".card");
+        const account_b = screen.getByText("Account B").closest(".card");
+        if (!account_a || !account_b) throw new Error("account cards not found");
+
+        fireEvent.dragStart(account_b);
+        fireEvent.dragEnter(account_a);
+        fireEvent.dragEnd(account_b);
+
+        await waitFor(() => {
+            expect(config_save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    accountOrders: {
+                        claude: ["cpa-main|label|Account B", "cpa-main|label|Account A"],
+                    },
+                }),
+            );
+        });
+    });
+
     it("saves collapsedAccounts to config when user toggles", async () => {
         const config_save = vi.fn().mockResolvedValue(undefined);
         window.usageboard.config.save = config_save;
