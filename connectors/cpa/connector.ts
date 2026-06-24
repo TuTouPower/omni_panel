@@ -125,10 +125,8 @@ function parse_claude(
     ];
     return periods.map(([key, raw_label, normalized_label, window]) => {
         const period = body[key];
-        // utilization is fraction remaining (0.99 = 1% used, 0.0 = fully used).
-        // API returns 1.0 as special "exhausted" sentinel → treat as 100%.
-        const raw_pct = is_record(period) ? to_pct(period["utilization"]) : 0;
-        const pct = raw_pct >= 100 ? 100 : 100 - raw_pct;
+        // utilization is fraction used (0.35 = 35% used, 1.0 = fully used).
+        const pct = is_record(period) ? to_pct(period["utilization"]) : 0;
         const reset_at = is_record(period) ? to_reset_at(period["resets_at"]) : null;
         return {
             provider: "claude",
