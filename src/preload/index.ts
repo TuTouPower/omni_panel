@@ -249,7 +249,7 @@ const api: UsageboardApi = (() => {
                 platform: renderer_platform,
                 connector: connector_methods,
                 plugin: connector_methods,
-                // Popup/tray: read-only config — write methods are present but no-op stubs
+                // Tray: read-only config — write methods are present but no-op stubs
                 // so the UsageboardApi type is satisfied without exposing write capability.
                 config: {
                     ...config_readonly,
@@ -283,9 +283,7 @@ const api: UsageboardApi = (() => {
                 plugin: connector_methods,
                 config: {
                     ...config_readonly,
-                    save: async () => {
-                        /* no-op: popup/tray cannot save config */
-                    },
+                    save: config_full.save,
                     saveSecrets: async () => {
                         /* no-op: popup/tray cannot save secrets */
                     },
