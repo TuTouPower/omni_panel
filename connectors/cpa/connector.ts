@@ -125,7 +125,7 @@ function parse_claude(
     ];
     return periods.map(([key, raw_label, normalized_label, window]) => {
         const period = body[key];
-        // utilization is fraction used (0.35 = 35% used, 1.0 = fully used).
+        // utilization is fraction used (0.34 = 34% used).
         const pct = is_record(period) ? to_pct(period["utilization"]) : 0;
         const reset_at = is_record(period) ? to_reset_at(period["resets_at"]) : null;
         return {
