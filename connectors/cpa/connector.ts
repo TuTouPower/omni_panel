@@ -158,8 +158,7 @@ function parse_codex(
 ): Observation[] {
     const rl = body["rate_limit"];
     if (!is_record(rl)) return [];
-    // Both windows: used_percent is fraction used (0.07 = 7%).
-    // API returns 1.0 for unused accounts → to_pct = 100 → clamp to 0.
+    // used_percent is integer percent USED (100 = fully consumed, 18 = 18%).
     const windows: [string, string, string, "second" | "day"][] = [
         ["primary_window", "primary_window", "5小时", "second"],
         ["secondary_window", "secondary_window", "一周", "day"],
@@ -168,8 +167,7 @@ function parse_codex(
     for (const [key, raw_label, normalized_label, window] of windows) {
         const w = rl[key] ?? rl[key.replace(/_/g, "")];
         if (!is_record(w)) continue;
-        const raw_pct = to_pct(w["used_percent"] ?? w["usedPercent"]);
-        const pct = raw_pct >= 100 ? 0 : raw_pct;
+        const pct = to_pct(w["used_percent"] ?? w["usedPercent"]);
         const raw_reset = w["reset_at"] ?? w["resetAt"];
         let reset_at: number | null = null;
         if (raw_reset != null) {

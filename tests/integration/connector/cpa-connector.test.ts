@@ -171,10 +171,10 @@ describe("cpa connector", () => {
                     body: {
                         rate_limit: {
                             primary_window: {
-                                used_percent: 35.2,
+                                used_percent: 35,
                                 reset_at: "2026-06-14T12:00:00Z",
                             },
-                            secondary_window: { used_percent: 12.5, reset_at: null },
+                            secondary_window: { used_percent: 13, reset_at: null },
                         },
                     },
                 });
@@ -206,14 +206,12 @@ describe("cpa connector", () => {
                 normalized_label: "一周",
             }),
         );
-        expect(codex[0]?.used).toBeCloseTo(35.2, 0);
-        expect(codex[1]?.used).toBeCloseTo(12.5, 0);
+        expect(codex[0]?.used).toBeCloseTo(35, 0);
+        expect(codex[1]?.used).toBeCloseTo(13, 0);
     });
 
-    it("shows 0 for unused Codex accounts (used_percent = 1.0)", async () => {
-        // Regression: API returns used_percent 1.0 for unused accounts.
-        // 5h window: 1.0 = fraction remaining → 100 - 100 = 0
-        // week window: 1.0 = fraction used, but to_pct(1.0) = 100 → clamp to 0
+    it("shows 0 for unused Codex accounts (used_percent = 0)", async () => {
+        // API returns used_percent 0 for unused accounts (0% used).
         const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
         const ctx = create_ctx();
         ctx.http.get_json = () =>
@@ -227,8 +225,8 @@ describe("cpa connector", () => {
                     status_code: 200,
                     body: {
                         rate_limit: {
-                            primary_window: { used_percent: 1.0, reset_at: null },
-                            secondary_window: { used_percent: 1.0, reset_at: null },
+                            primary_window: { used_percent: 0, reset_at: null },
+                            secondary_window: { used_percent: 0, reset_at: null },
                         },
                     },
                 });
@@ -246,6 +244,42 @@ describe("cpa connector", () => {
         expect(codex[0]?.used).toBe(0);
         expect(codex[0]?.raw_label).toBe("primary_window");
         expect(codex[1]?.used).toBe(0);
+        expect(codex[1]?.raw_label).toBe("secondary_window");
+    });
+
+    it("shows 100 for exhausted 5h window (used_percent = 100)", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [{ name: "auth-codex-1.json", provider: "codex", auth_index: "codex-auth" }],
+            });
+        ctx.http.post_json = (_ep, _path, body) => {
+            const url = (body as { url?: string }).url ?? "";
+            if (url.includes("chatgpt.com")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: {
+                        rate_limit: {
+                            primary_window: { used_percent: 100, reset_at: null },
+                            secondary_window: { used_percent: 20, reset_at: null },
+                        },
+                    },
+                });
+            }
+            return Promise.resolve({ status_code: 404, body: {} });
+        };
+        const result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
+
+        expect(result.error).toBeNull();
+        const codex = result.observations.filter((o) => o.provider === "codex");
+        expect(codex.length).toBe(2);
+        expect(codex[0]?.used).toBe(100);
+        expect(codex[0]?.raw_label).toBe("primary_window");
+        expect(codex[1]?.used).toBe(20);
         expect(codex[1]?.raw_label).toBe("secondary_window");
     });
 
