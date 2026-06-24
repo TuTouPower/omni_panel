@@ -270,51 +270,68 @@ function parse_gemini(
 
 // ─── Antigravity ───────────────────────────────────────
 
-const ANTIGRAVITY_URLS = [
-    "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
-    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
-    "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
-];
+function add_antigravity_detail(
+    totals: Map<string, number>,
+    model_id: string,
+    detail: unknown,
+    account: CpaAccount,
+): void {
+    if (!is_record(detail)) return;
+    const auth_index = typeof detail["auth_index"] === "string" ? detail["auth_index"] : "";
+    if (auth_index !== account.account_id) return;
+
+    const tokens = detail["tokens"];
+    const total_tokens = is_record(tokens)
+        ? to_number(tokens["total_tokens"] ?? tokens["totalTokens"])
+        : to_number(detail["total_tokens"] ?? detail["totalTokens"]);
+    if (total_tokens <= 0) return;
+    totals.set(model_id, (totals.get(model_id) ?? 0) + total_tokens);
+}
 
 function parse_antigravity(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
 ): Observation[] {
-    const models = body["models"];
-    if (!is_record(models)) return [];
-    const observations: Observation[] = [];
-    for (const [model_id, model_info] of Object.entries(models)) {
-        if (!is_record(model_info)) continue;
-        const quota = model_info["quotaInfo"] ?? model_info["quota_info"];
-        if (!is_record(quota)) continue;
-        let remaining = to_number(quota["remainingFraction"]);
-        if (remaining <= 1) remaining *= 100;
-        const used = Math.round(Math.min(Math.max(0, 100 - remaining), 100) * 10) / 10;
-        const reset_at = to_reset_at(quota["resetTime"] ?? quota["reset_time"]);
-        const display_name =
-            typeof model_info["displayName"] === "string" ? model_info["displayName"] : model_id;
-        observations.push({
-            provider: "antigravity",
-            source_instance_id: "cpa",
-            account_id: account.account_id,
-            account_label: account.account_label,
-            metric_id: `antigravity:${account.account_id}:${model_id}`,
-            raw_label: model_id,
-            normalized_label: display_name,
-            window: "day",
-            used,
-            limit: 100,
-            display_style: "percent",
-            reset_at,
-            status: status_for_pct(used),
-            observed_at: now,
-            source: "gateway",
-            stale: false,
-            last_error: null,
-        });
+    const apis = body["apis"];
+    if (!is_record(apis)) return [];
+
+    const totals = new Map<string, number>();
+    for (const api of Object.values(apis)) {
+        if (!is_record(api)) continue;
+        const models = api["models"];
+        if (!is_record(models)) continue;
+        for (const [model_id, model_info] of Object.entries(models)) {
+            if (!is_record(model_info)) continue;
+            const details = model_info["details"];
+            if (!Array.isArray(details)) continue;
+            for (const detail of details) {
+                add_antigravity_detail(totals, model_id, detail, account);
+            }
+        }
     }
-    return observations;
+
+    const top_models = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const max_tokens = Math.max(1, ...top_models.map(([, total]) => total));
+    return top_models.map(([model_id, total_tokens]) => ({
+        provider: "antigravity",
+        source_instance_id: "cpa",
+        account_id: account.account_id,
+        account_label: account.account_label,
+        metric_id: `antigravity:${account.account_id}:${model_id}`,
+        raw_label: model_id,
+        normalized_label: model_id,
+        window: "total",
+        used: total_tokens,
+        limit: max_tokens,
+        display_style: "ratio",
+        reset_at: null,
+        status: "normal",
+        observed_at: now,
+        source: "gateway",
+        stale: false,
+        last_error: null,
+    }));
 }
 
 // ─── Kimi ──────────────────────────────────────────────
@@ -437,30 +454,10 @@ async function fetch_provider(
         return parse_api_body(result);
     }
     if (provider === "antigravity") {
-        const project = await load_code_assist_project(mgmt_key, auth_index);
-        const body: Record<string, unknown> = {};
-        if (project) body["project"] = project;
-        let last_error: Error | null = null;
-        for (const url of ANTIGRAVITY_URLS) {
-            try {
-                const result = await cpa_api_call(
-                    mgmt_key,
-                    "POST",
-                    url,
-                    auth_index,
-                    {
-                        Authorization: "Bearer $TOKEN$",
-                        "Content-Type": "application/json",
-                        "User-Agent": "antigravity/1.11.5 windows/amd64",
-                    },
-                    body,
-                );
-                return parse_api_body(result);
-            } catch (err) {
-                last_error = err instanceof Error ? err : new Error(String(err));
-            }
-        }
-        throw last_error ?? new Error("All Antigravity URLs failed");
+        const response = await ctx.http.get_json("default", "/v0/management/usage", {
+            headers: { Authorization: `Bearer ${mgmt_key}` },
+        });
+        return is_record(response) ? response : {};
     }
     if (provider === "kimi") {
         const result = await cpa_api_call(
@@ -502,6 +499,7 @@ async function main(): Promise<Observation[]> {
     })) as AuthFilesResponse;
     const now = Date.now();
     const observations: Observation[] = [];
+    let antigravity_body: Record<string, unknown> | null = null;
 
     for (const auth_file of auth_files_response.files ?? []) {
         if (auth_file.disabled) continue;
@@ -510,7 +508,17 @@ async function main(): Promise<Observation[]> {
         if ((ctx.params[monitor_key] ?? "true").toLowerCase() !== "true") continue;
 
         try {
-            const body = await fetch_provider(auth_file.provider, mgmt_key, auth_file.auth_index);
+            let body: Record<string, unknown>;
+            if (auth_file.provider === "antigravity") {
+                antigravity_body ??= await fetch_provider(
+                    auth_file.provider,
+                    mgmt_key,
+                    auth_file.auth_index,
+                );
+                body = antigravity_body;
+            } else {
+                body = await fetch_provider(auth_file.provider, mgmt_key, auth_file.auth_index);
+            }
             observations.push(
                 ...parse_provider(auth_file.provider, body, account_from_auth_file(auth_file), now),
             );
