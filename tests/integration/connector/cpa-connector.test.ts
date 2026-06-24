@@ -117,7 +117,7 @@ describe("cpa connector", () => {
                 raw_label: "five_hour",
                 normalized_label: "5小时",
                 window: "second",
-                used: 25,
+                used: 75,
                 limit: 100,
                 source: "gateway",
             }),
