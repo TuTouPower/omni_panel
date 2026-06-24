@@ -362,9 +362,6 @@ html[data-window="tray"] #root {
     box-shadow: var(--card-shadow);
     padding: 14px 16px;
 }
-.card.alert {
-    border-color: color-mix(in srgb, var(--red) 38%, var(--card-border));
-}
 .card-head {
     display: flex;
     align-items: center;

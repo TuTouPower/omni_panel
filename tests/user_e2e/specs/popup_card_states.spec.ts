@@ -95,7 +95,7 @@ test.describe("popup card states", () => {
         );
     });
 
-    test("critical usage shows alert border and filled usage bar", async ({ omni }) => {
+    test("critical usage shows filled usage bar", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
@@ -103,7 +103,6 @@ test.describe("popup card states", () => {
 
         const live = popup.root();
         await live.getByRole("button", { name: /^Gemini$/ }).click();
-        await expect(live.locator(".card.alert")).toHaveCount(1);
         await expect(live.locator(".bar-row .fill")).toHaveAttribute("style", /width:\s*99%/);
     });
 });
