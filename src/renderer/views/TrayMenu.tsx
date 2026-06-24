@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { Icon } from "../components/Icon";
-import logo from "../assets/logo.png";
+import logo from "../assets/logo.svg";
 import { useResizeObserver } from "../hooks/use-resize-observer";
 
 interface TrayMenuItem {

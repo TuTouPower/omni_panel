@@ -26,7 +26,7 @@ import type {
 import { relative_time } from "../lib/utils";
 import { add_account_override } from "../lib/account-overrides";
 import { compute_drag_reorder, build_reorder_base } from "../lib/drag-reorder";
-import logo from "../assets/logo.png";
+import logo from "../assets/logo.svg";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
 

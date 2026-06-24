@@ -30,7 +30,7 @@ import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { ADD_COMMON_SERVICES } from "../lib/common-services";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
-import logo from "../assets/logo.png";
+import logo from "../assets/logo.svg";
 import package_json from "../../../package.json";
 
 /* ── types ── */
