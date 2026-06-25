@@ -168,7 +168,7 @@ function parse_codex(
     for (const [key, raw_label, normalized_label, window] of windows) {
         const w = rl[key] ?? rl[key.replace(/_/g, "")];
         if (!is_record(w)) continue;
-        const pct = to_pct(w["used_percent"] ?? w["usedPercent"]);
+        const pct = Math.min(to_number(w["used_percent"] ?? w["usedPercent"]), 100);
         const raw_reset = w["reset_at"] ?? w["resetAt"];
         let reset_at: number | null = null;
         if (raw_reset != null) {
