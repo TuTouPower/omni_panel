@@ -9,7 +9,7 @@ import type { ConnectorContext, HttpOpts } from "./host-io";
 
 const log = createLogger("net-client");
 const sandbox_log = createLogger("connector-sandbox");
-const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_RESPONSE_BYTES = 50 * 1024 * 1024; // 50MB
 
 async function read_body_with_limit(
     body: Awaited<ReturnType<typeof undici_request>>["body"],
