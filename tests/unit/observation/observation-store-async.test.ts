@@ -69,7 +69,7 @@ describe("wrap_sync_as_async", () => {
 
         const alpha = await store.list_latest_by_provider("alpha");
         expect(alpha).toHaveLength(1);
-        expect(alpha[0].provider).toBe("alpha");
+        expect(alpha[0]?.provider).toBe("alpha");
 
         sync.close();
     });
@@ -99,7 +99,7 @@ describe("wrap_sync_as_async", () => {
 
         const items = await store.list_by_source_instance_id("a");
         expect(items).toHaveLength(1);
-        expect(items[0].source_instance_id).toBe("a");
+        expect(items[0]?.source_instance_id).toBe("a");
 
         sync.close();
     });
