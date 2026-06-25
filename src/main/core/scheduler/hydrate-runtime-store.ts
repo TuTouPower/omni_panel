@@ -63,7 +63,12 @@ export async function hydrate_runtime_store(deps: HydrateDeps): Promise<void> {
             const record = observation_to_metric_record(obs, definition);
             if (record) items.push(record);
         }
-        if (items.length === 0) continue;
+        if (items.length === 0) {
+            log.warn(
+                `Hydrate ${config.instanceId}: all ${String(observations.length)} observations failed provider validation`,
+            );
+            continue;
+        }
 
         const updatedAt = new Date(
             observations.reduce((max, obs) => Math.max(max, obs.observed_at), 0),

@@ -27,6 +27,7 @@ const manifest: Manifest = {
 
 function create_ctx(model_remains: unknown[], base_resp?: unknown): ConnectorContext {
     return {
+        log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json(endpoint_key, path, opts) {
                 expect(endpoint_key).toBe("default");

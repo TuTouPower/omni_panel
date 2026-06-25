@@ -27,6 +27,7 @@ const manifest: Manifest = {
 
 function create_ctx(limits: unknown[]): ConnectorContext {
     return {
+        log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json(endpoint_key, path, opts) {
                 expect(endpoint_key).toBe("default");
@@ -130,6 +131,7 @@ describe("glm connector", () => {
     it("throws when API returns error code", async () => {
         const script = await readFile(join("connectors", "glm", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () =>
                     Promise.resolve({ code: 401, msg: "令牌已过期或验证不正确", success: false }),
@@ -149,6 +151,7 @@ describe("glm connector", () => {
     it("throws when API response lacks limits field", async () => {
         const script = await readFile(join("connectors", "glm", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.resolve({ code: 200, data: {} }),
                 post_json: () => Promise.resolve({}),

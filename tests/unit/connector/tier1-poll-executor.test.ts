@@ -22,6 +22,7 @@ const tavily_manifest: Manifest = {
 
 function make_ctx(response: unknown): ConnectorContext {
     return {
+        log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json() {
                 return Promise.resolve(response);
@@ -82,6 +83,7 @@ describe("tier1-poll-executor", () => {
             },
         };
         const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json() {
                     return Promise.reject(new Error("unexpected GET"));
@@ -108,6 +110,7 @@ describe("tier1-poll-executor", () => {
 
     it("throws on HTTP error instead of silently returning empty", async () => {
         const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json() {
                     return Promise.reject(new Error("network"));

@@ -497,16 +497,19 @@ async function main(): Promise<Observation[]> {
     const auth_files_response = (await ctx.http.get_json("default", "/v0/management/auth-files", {
         headers: { Authorization: `Bearer ${mgmt_key}` },
     })) as AuthFilesResponse;
+    const files = auth_files_response.files ?? [];
+    ctx.log.debug(`CPA fetching ${String(files.length)} auth files`);
     const now = Date.now();
     const observations: Observation[] = [];
     let antigravity_body: Record<string, unknown> | null = null;
 
-    for (const auth_file of auth_files_response.files ?? []) {
+    for (const auth_file of files) {
         if (auth_file.disabled) continue;
 
         const monitor_key = `monitor_${auth_file.provider === "gemini-cli" ? "gemini" : auth_file.provider}`;
         if ((ctx.params[monitor_key] ?? "true").toLowerCase() !== "true") continue;
 
+        const account = account_from_auth_file(auth_file);
         try {
             let body: Record<string, unknown>;
             if (auth_file.provider === "antigravity") {
@@ -519,10 +522,14 @@ async function main(): Promise<Observation[]> {
             } else {
                 body = await fetch_provider(auth_file.provider, mgmt_key, auth_file.auth_index);
             }
-            observations.push(
-                ...parse_provider(auth_file.provider, body, account_from_auth_file(auth_file), now),
-            );
-        } catch {
+            const keys = Object.keys(body);
+            if (keys.length > 0) {
+                ctx.log.debug(`CPA ${auth_file.provider} response: ${JSON.stringify(body)}`);
+            }
+            observations.push(...parse_provider(auth_file.provider, body, account, now));
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            ctx.log.warn(`CPA ${auth_file.provider} (${account.account_label}) failed: ${msg}`);
             continue;
         }
     }

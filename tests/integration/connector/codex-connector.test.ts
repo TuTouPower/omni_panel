@@ -24,6 +24,7 @@ function make_jsonl(events: unknown[]): string {
 function create_ctx(files: Record<string, string>): ConnectorContext {
     const listed_dirs = new Set<string>();
     return {
+        log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json: () => Promise.resolve({}),
             post_json: () => Promise.resolve({}),

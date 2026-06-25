@@ -1,4 +1,7 @@
+import { createLogger } from "../../../shared/lib/logger";
 import type { VaultBackend } from "../vault/vault-backend";
+
+const log = createLogger("session-manager");
 
 const SESSION_COOKIE_KEY = "SESSION_COOKIE";
 /** Session login timeout — longer than connector timeout because user interaction is required. */
@@ -52,7 +55,9 @@ export function create_session_manager(
 
     return {
         start_login(request: LoginRequest): Promise<LoginResult> {
+            log.info(`start_login: ${request.instance_id}`);
             if (in_progress.has(request.instance_id)) {
+                log.warn(`Concurrent login rejected for ${request.instance_id}`);
                 return Promise.reject(
                     new Error(`Login already in progress for instance: ${request.instance_id}`),
                 );
@@ -114,14 +119,20 @@ export function create_session_manager(
 
                 session.on_before_send_headers((details) => {
                     if (!details.url.includes("/api/v1/")) return;
-                    captured_cookie = extract_cookie_header(details.requestHeaders);
+                    const cookie = extract_cookie_header(details.requestHeaders);
+                    if (cookie) {
+                        log.info(`Cookie captured for ${request.instance_id}`);
+                    }
+                    captured_cookie = cookie;
                 });
 
                 window.on("closed", () => {
+                    log.debug(`Login window closed for ${request.instance_id}`);
                     void save_cookie_on_close();
                 });
 
                 timeout = setTimeout(() => {
+                    log.warn(`Login timed out for ${request.instance_id}`);
                     finish_with_error(new Error("Login timed out"));
                     if (!window.isDestroyed()) window.close();
                 }, timeout_ms);

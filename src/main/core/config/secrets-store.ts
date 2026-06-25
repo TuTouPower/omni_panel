@@ -1,4 +1,7 @@
+import { createLogger } from "../../../shared/lib/logger";
 import type { VaultBackend } from "../vault/vault-backend";
+
+const log = createLogger("secrets-store");
 
 export interface SecretsStore {
     get(key: string): Promise<string | null>;
@@ -14,12 +17,14 @@ export function createSecretsStore(vault: VaultBackend): SecretsStore {
             return vault.get(key);
         },
 
-        set(key: string, value: string): Promise<void> {
-            return vault.set(key, value);
+        async set(key: string, value: string): Promise<void> {
+            await vault.set(key, value);
+            log.debug(`set: ${key}`);
         },
 
-        delete(key: string): Promise<void> {
-            return vault.delete(key);
+        async delete(key: string): Promise<void> {
+            await vault.delete(key);
+            log.debug(`delete: ${key}`);
         },
 
         async exportAll(): Promise<Record<string, string>> {
@@ -33,6 +38,9 @@ export function createSecretsStore(vault: VaultBackend): SecretsStore {
         },
 
         async importAll(decrypted: Record<string, string>): Promise<void> {
+            log.warn(
+                `importAll: deleting all existing keys then importing ${String(Object.keys(decrypted).length)} keys`,
+            );
             const existing_keys = await vault.list_keys();
             for (const key of existing_keys) {
                 await vault.delete(key);
@@ -40,6 +48,7 @@ export function createSecretsStore(vault: VaultBackend): SecretsStore {
             for (const [key, value] of Object.entries(decrypted)) {
                 await vault.set(key, value);
             }
+            log.info(`importAll: imported ${String(Object.keys(decrypted).length)} keys`);
         },
     };
 }

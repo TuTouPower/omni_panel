@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import type { Observation } from "../../../shared/types/observation";
+import { createLogger } from "../../../shared/lib/logger";
 
 export interface ObservationStore {
     insert(obs: Observation): void;
@@ -79,6 +80,7 @@ function row_to_observation(row: Record<string, unknown>): Observation {
 }
 
 export function create_observation_store(db_path: string): ObservationStore {
+    const log = createLogger("observation-store");
     const db = new Database(db_path);
     db.pragma("journal_mode = WAL");
     db.pragma("wal_autocheckpoint = 1000");
@@ -87,6 +89,7 @@ export function create_observation_store(db_path: string): ObservationStore {
     // when another connection holds the write lock.
     db.pragma("busy_timeout = 5000");
     db.exec(INIT_SQL);
+    log.debug(`Observation store initialized: ${db_path}`);
 
     // Migrate older databases that predate the raw/normalized/display label
     // columns. The columns are added without NOT NULL constraints so existing
@@ -95,6 +98,9 @@ export function create_observation_store(db_path: string): ObservationStore {
     const column_names = new Set(columns.map((c) => c.name));
     if (!column_names.has("raw_label")) {
         db.exec(MIGRATE_ADD_LABEL_COLUMNS_SQL);
+        log.info(
+            "Observation store migrated: added raw_label/normalized_label/display_label columns",
+        );
     }
 
     const insert_stmt = db.prepare(`
@@ -174,6 +180,7 @@ export function create_observation_store(db_path: string): ObservationStore {
                 stale: obs.stale ? 1 : 0,
                 last_error: obs.last_error,
             });
+            log.debug(`Inserted observation: ${obs.provider}/${obs.account_id}/${obs.metric_id}`);
         },
 
         get_latest(provider, account_id, metric_id, source_instance_id) {
@@ -198,10 +205,16 @@ export function create_observation_store(db_path: string): ObservationStore {
 
         prune(older_than_ms) {
             const result = prune_stmt.run(older_than_ms);
+            if (result.changes > 0) {
+                log.debug(
+                    `Pruned ${String(result.changes)} observations older than ${String(older_than_ms)}ms`,
+                );
+            }
             return result.changes;
         },
 
         close() {
+            log.debug("Closing observation store");
             db.close();
         },
     };

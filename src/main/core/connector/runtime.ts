@@ -134,6 +134,9 @@ export async function run_connector(
             observations.push(parsed.data as unknown as Observation);
         }
 
+        log.info(
+            `Connector ${manifest.id}: ${String(observations.length)} valid observations (from ${String(result.length)} raw)`,
+        );
         return { observations, error: null };
     } catch (error) {
         const message = get_error_message(error);

@@ -45,10 +45,19 @@ import { create_main_panel_controller } from "./core/main-panel/main-panel-contr
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
 import { cleanup_temp_files } from "./core/storage/write-json";
 
+const process_log = createLogger("process");
+
 // Suppress EPIPE when stdout pipe is closed (e.g. launched from script with broken pipe)
 process.on("uncaughtException", (err: NodeJS.ErrnoException) => {
     if (err.code === "EPIPE") return;
-    throw err;
+    process_log.error("Uncaught exception", err);
+});
+
+process.on("unhandledRejection", (reason: unknown) => {
+    process_log.error(
+        "Unhandled promise rejection",
+        reason instanceof Error ? reason : String(reason),
+    );
 });
 
 // Prevent white screen on systems where GPU process crashes

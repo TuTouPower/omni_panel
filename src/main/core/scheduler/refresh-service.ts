@@ -74,9 +74,16 @@ function resolve_script_path(definition: ConnectorDefinition): string {
     return script_path;
 }
 
+const observation_to_usage_log = createLogger("refresh-service");
+
 function observation_to_usage_item(obs: Observation): MetricRecord | null {
     const provider = usageProviderSchema.safeParse(obs.provider);
-    if (!provider.success) return null;
+    if (!provider.success) {
+        observation_to_usage_log.warn(
+            `Skipping observation with invalid provider: ${obs.provider} (${obs.metric_id})`,
+        );
+        return null;
+    }
 
     return {
         id: `${obs.source_instance_id}:${obs.account_id}:${obs.metric_id}`,

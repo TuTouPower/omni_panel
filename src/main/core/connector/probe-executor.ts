@@ -105,6 +105,7 @@ export async function execute_probe(
         return [];
     }
 
+    log.debug(`Probe for ${manifest.id}: used=${String(used)}, limit=${String(limit)}`);
     return [
         {
             provider: manifest.provider,

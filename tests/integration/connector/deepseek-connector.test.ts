@@ -34,6 +34,7 @@ const manifest: Manifest = {
 
 function create_ctx(balance_infos: unknown[]): ConnectorContext {
     return {
+        log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json(endpoint_key, path, opts) {
                 expect(endpoint_key).toBe("default");
@@ -110,6 +111,7 @@ describe("deepseek connector", () => {
     it("throws when API returns error code", async () => {
         const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.resolve({ code: 401, message: "Unauthorized" }),
                 post_json: () => Promise.resolve({}),
@@ -128,6 +130,7 @@ describe("deepseek connector", () => {
     it("throws when API response lacks balance_infos", async () => {
         const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.resolve({ error: "invalid key" }),
                 post_json: () => Promise.resolve({}),

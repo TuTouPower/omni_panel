@@ -4,6 +4,7 @@ import type { ConnectorContext } from "../../../src/main/core/connector/host-io"
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
 const stub_ctx: ConnectorContext = {
+    log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     http: {
         get_json() {
             return Promise.resolve({ usage: { month: 50 }, plan: { limit: 1000 } });

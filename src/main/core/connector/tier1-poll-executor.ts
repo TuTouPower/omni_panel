@@ -55,9 +55,15 @@ export async function execute_poll(
 
     const used = to_number(resolve_json_path(response, map["used"] ?? ""));
     const limit = to_number(resolve_json_path(response, map["limit"] ?? ""));
-    if (used === null && limit === null) return [];
+    if (used === null && limit === null) {
+        log.debug(`Poll for ${manifest.id}: no usable data (used=null, limit=null)`);
+        return [];
+    }
 
     const window = to_window(resolve_json_path(response, map["window"] ?? "month"));
+    log.debug(
+        `Poll for ${manifest.id}: 1 observation (used=${String(used)}, limit=${String(limit)})`,
+    );
 
     return [
         {

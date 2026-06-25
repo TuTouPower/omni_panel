@@ -27,6 +27,7 @@ const manifest: Manifest = {
 
 function create_ctx(account: unknown): ConnectorContext {
     return {
+        log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json(endpoint_key, path, opts) {
                 expect(endpoint_key).toBe("default");
@@ -115,6 +116,7 @@ describe("tavily connector", () => {
     it("throws when API returns error field", async () => {
         const script = await readFile(join("connectors", "tavily", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.resolve({ error: "Invalid API key" }),
                 post_json: () => Promise.resolve({}),
@@ -133,6 +135,7 @@ describe("tavily connector", () => {
     it("throws when API response lacks account", async () => {
         const script = await readFile(join("connectors", "tavily", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.resolve({}),
                 post_json: () => Promise.resolve({}),

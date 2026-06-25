@@ -49,6 +49,7 @@ const manifest: Manifest = {
 function create_ctx(): ConnectorContext {
     const requests: string[] = [];
     return {
+        log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json(endpoint_key: string, path: string, opts) {
                 requests.push(`GET ${path} ${opts?.headers?.["Authorization"] ?? ""}`);

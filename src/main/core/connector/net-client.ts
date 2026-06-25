@@ -8,6 +8,7 @@ import type { VaultBackend } from "../vault/vault-backend";
 import type { ConnectorContext, HttpOpts } from "./host-io";
 
 const log = createLogger("net-client");
+const sandbox_log = createLogger("connector-sandbox");
 const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10MB
 
 async function read_body_with_limit(
@@ -192,13 +193,32 @@ export function create_connector_context(
                 );
             }
 
-            return JSON.parse(text) as unknown;
+            try {
+                return JSON.parse(text) as unknown;
+            } catch (parse_error) {
+                log.warn(`JSON parse failed for ${url.origin}${url.pathname}: ${text}`);
+                throw parse_error;
+            }
         } finally {
             clearTimeout(total_timer);
         }
     }
 
     return {
+        log: {
+            debug: (message: string, meta?: unknown) => {
+                sandbox_log.debug(`[${manifest.id}] ${message}`, meta);
+            },
+            info: (message: string, meta?: unknown) => {
+                sandbox_log.info(`[${manifest.id}] ${message}`, meta);
+            },
+            warn: (message: string, meta?: unknown) => {
+                sandbox_log.warn(`[${manifest.id}] ${message}`, meta);
+            },
+            error: (message: string, meta?: unknown) => {
+                sandbox_log.error(`[${manifest.id}] ${message}`, meta);
+            },
+        },
         http: {
             get_json(endpoint_key: string, path: string, opts?: HttpOpts) {
                 return do_request("GET", endpoint_key, path, undefined, opts);

@@ -24,6 +24,7 @@ const manifest: Manifest = {
 
 function create_ctx(): ConnectorContext {
     return {
+        log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json(endpoint_key: string, path: string, opts) {
                 expect(endpoint_key).toBe("anthropic");

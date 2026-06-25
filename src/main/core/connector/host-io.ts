@@ -10,6 +10,12 @@ export interface RawHttpResponse {
 }
 
 export interface ConnectorContext {
+    readonly log: {
+        debug(message: string, meta?: unknown): void;
+        info(message: string, meta?: unknown): void;
+        warn(message: string, meta?: unknown): void;
+        error(message: string, meta?: unknown): void;
+    };
     readonly http: {
         get_json(endpoint_key: string, path: string, opts?: HttpOpts): Promise<unknown>;
         post_json(
