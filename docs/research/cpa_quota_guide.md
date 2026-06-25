@@ -3,6 +3,8 @@
 > 本文档解释 ai_monitor 如何通过 CPA-Manager 获取 Claude / Codex / Gemini 的用量配额数据。
 > 目标读者：AI 助手或开发者，需要理解或复用这套逻辑。
 
+**参考项目**：CPA 面板实现参考 `/home/testuser/github_repo/ai_relay/cliproxyapi-usage-dashboard`
+
 ---
 
 ## 整体架构

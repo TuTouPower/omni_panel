@@ -270,68 +270,97 @@ function parse_gemini(
 
 // ─── Antigravity ───────────────────────────────────────
 
-function add_antigravity_detail(
-    totals: Map<string, number>,
-    model_id: string,
-    detail: unknown,
-    account: CpaAccount,
-): void {
-    if (!is_record(detail)) return;
-    const auth_index = typeof detail["auth_index"] === "string" ? detail["auth_index"] : "";
-    if (auth_index !== account.account_id) return;
+const ANTIGRAVITY_URLS = [
+    "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
+    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
+    "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
+];
 
-    const tokens = detail["tokens"];
-    const total_tokens = is_record(tokens)
-        ? to_number(tokens["total_tokens"] ?? tokens["totalTokens"])
-        : to_number(detail["total_tokens"] ?? detail["totalTokens"]);
-    if (total_tokens <= 0) return;
-    totals.set(model_id, (totals.get(model_id) ?? 0) + total_tokens);
-}
+const ANTIGRAVITY_QUOTA_GROUPS = [
+    {
+        id: "claude-gpt",
+        label: "Claude/GPT",
+        identifiers: ["claude-sonnet-4-6", "claude-opus-4-6-thinking", "gpt-oss-120b-medium"],
+    },
+    {
+        id: "gemini-3-pro",
+        label: "Gemini 3 Pro",
+        identifiers: ["gemini-3-pro-high", "gemini-3-pro-low"],
+    },
+    {
+        id: "gemini-3-1-pro-series",
+        label: "Gemini 3.1 Pro Series",
+        identifiers: ["gemini-3.1-pro-high", "gemini-3.1-pro-low"],
+    },
+    {
+        id: "gemini-2-5-flash",
+        label: "Gemini 2.5 Flash",
+        identifiers: ["gemini-2.5-flash", "gemini-2.5-flash-thinking"],
+    },
+    {
+        id: "gemini-2-5-flash-lite",
+        label: "Gemini 2.5 Flash Lite",
+        identifiers: ["gemini-2.5-flash-lite"],
+    },
+    { id: "gemini-2-5-cu", label: "Gemini 2.5 CU", identifiers: ["rev19-uic3-1p"] },
+    { id: "gemini-3-flash", label: "Gemini 3 Flash", identifiers: ["gemini-3-flash"] },
+    {
+        id: "gemini-image",
+        label: "gemini-3.1-flash-image",
+        identifiers: ["gemini-3.1-flash-image"],
+    },
+];
 
 function parse_antigravity(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
 ): Observation[] {
-    const apis = body["apis"];
-    if (!is_record(apis)) return [];
+    const models = body["models"];
+    if (!is_record(models)) return [];
+    const observations: Observation[] = [];
 
-    const totals = new Map<string, number>();
-    for (const api of Object.values(apis)) {
-        if (!is_record(api)) continue;
-        const models = api["models"];
-        if (!is_record(models)) continue;
-        for (const [model_id, model_info] of Object.entries(models)) {
+    for (const group of ANTIGRAVITY_QUOTA_GROUPS) {
+        let min_remaining = 100;
+        let reset_at: number | null = null;
+        let found = false;
+
+        for (const identifier of group.identifiers) {
+            const model_info = models[identifier];
             if (!is_record(model_info)) continue;
-            const details = model_info["details"];
-            if (!Array.isArray(details)) continue;
-            for (const detail of details) {
-                add_antigravity_detail(totals, model_id, detail, account);
-            }
+            const quota = model_info["quotaInfo"] ?? model_info["quota_info"];
+            if (!is_record(quota)) continue;
+            let remaining = to_number(quota["remainingFraction"]);
+            if (remaining <= 1) remaining *= 100;
+            min_remaining = Math.min(min_remaining, remaining);
+            const model_reset = to_reset_at(quota["resetTime"] ?? quota["reset_time"]);
+            if (model_reset) reset_at = model_reset;
+            found = true;
         }
-    }
 
-    const top_models = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-    const max_tokens = Math.max(1, ...top_models.map(([, total]) => total));
-    return top_models.map(([model_id, total_tokens]) => ({
-        provider: "antigravity",
-        source_instance_id: "cpa",
-        account_id: account.account_id,
-        account_label: account.account_label,
-        metric_id: `antigravity:${account.account_id}:${model_id}`,
-        raw_label: model_id,
-        normalized_label: model_id,
-        window: "total",
-        used: total_tokens,
-        limit: max_tokens,
-        display_style: "ratio",
-        reset_at: null,
-        status: "normal",
-        observed_at: now,
-        source: "gateway",
-        stale: false,
-        last_error: null,
-    }));
+        if (!found) continue;
+        const used = Math.round(Math.min(Math.max(0, 100 - min_remaining), 100) * 10) / 10;
+        observations.push({
+            provider: "antigravity",
+            source_instance_id: "cpa",
+            account_id: account.account_id,
+            account_label: account.account_label,
+            metric_id: `antigravity:${account.account_id}:${group.id}`,
+            raw_label: group.id,
+            normalized_label: group.label,
+            window: "day",
+            used,
+            limit: 100,
+            display_style: "percent",
+            reset_at,
+            status: status_for_pct(used),
+            observed_at: now,
+            source: "gateway",
+            stale: false,
+            last_error: null,
+        });
+    }
+    return observations;
 }
 
 // ─── Kimi ──────────────────────────────────────────────
@@ -454,10 +483,30 @@ async function fetch_provider(
         return parse_api_body(result);
     }
     if (provider === "antigravity") {
-        const response = await ctx.http.get_json("default", "/v0/management/usage", {
-            headers: { Authorization: `Bearer ${mgmt_key}` },
-        });
-        return is_record(response) ? response : {};
+        const project = await load_code_assist_project(mgmt_key, auth_index);
+        const body: Record<string, unknown> = {};
+        if (project) body["project"] = project;
+        let last_error: Error | null = null;
+        for (const url of ANTIGRAVITY_URLS) {
+            try {
+                const result = await cpa_api_call(
+                    mgmt_key,
+                    "POST",
+                    url,
+                    auth_index,
+                    {
+                        Authorization: "Bearer $TOKEN$",
+                        "Content-Type": "application/json",
+                        "User-Agent": "antigravity/1.11.5 windows/amd64",
+                    },
+                    body,
+                );
+                return parse_api_body(result);
+            } catch (err) {
+                last_error = err instanceof Error ? err : new Error(String(err));
+            }
+        }
+        throw last_error ?? new Error("All Antigravity URLs failed");
     }
     if (provider === "kimi") {
         const result = await cpa_api_call(
@@ -501,7 +550,6 @@ async function main(): Promise<Observation[]> {
     ctx.log.debug(`CPA fetching ${String(files.length)} auth files`);
     const now = Date.now();
     const observations: Observation[] = [];
-    let antigravity_body: Record<string, unknown> | null = null;
 
     for (const auth_file of files) {
         if (auth_file.disabled) continue;
@@ -511,17 +559,7 @@ async function main(): Promise<Observation[]> {
 
         const account = account_from_auth_file(auth_file);
         try {
-            let body: Record<string, unknown>;
-            if (auth_file.provider === "antigravity") {
-                antigravity_body ??= await fetch_provider(
-                    auth_file.provider,
-                    mgmt_key,
-                    auth_file.auth_index,
-                );
-                body = antigravity_body;
-            } else {
-                body = await fetch_provider(auth_file.provider, mgmt_key, auth_file.auth_index);
-            }
+            const body = await fetch_provider(auth_file.provider, mgmt_key, auth_file.auth_index);
             const keys = Object.keys(body);
             if (keys.length > 0) {
                 ctx.log.debug(`CPA ${auth_file.provider} response: ${JSON.stringify(body)}`);
