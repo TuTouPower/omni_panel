@@ -53,6 +53,7 @@ export interface AppConfiguration {
     readonly accountOverrides?: AccountOverrides;
     readonly collapsedAccounts?: Readonly<Record<string, boolean>>;
     readonly expandedProviders?: Readonly<Record<string, boolean>>;
+    readonly convergentTimeMinutes?: number;
 }
 
 export interface ConnectorConfiguration {

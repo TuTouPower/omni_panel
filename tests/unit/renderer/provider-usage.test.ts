@@ -9,6 +9,8 @@ import {
     build_overview_for_group,
     format_usage_period_label,
     get_visible_providers,
+    resolve_convergent_epoch,
+    resolve_convergent_time,
     PROVIDER_ORDER,
     PROVIDER_LABELS,
 } from "../../../src/renderer/lib/provider-usage";
@@ -425,7 +427,8 @@ describe("provider usage aggregation", () => {
         expect(overview).toHaveLength(0);
     });
 
-    it("hides overview reset time when account reset times are too far apart", () => {
+    it("hides overview reset time when account reset times are too far apart (default 10min)", () => {
+        const base = 1735707600000;
         const connectors = [
             connectorInfo({
                 source: "gateway",
@@ -439,14 +442,14 @@ describe("provider usage aggregation", () => {
                             accountId: "auth-a",
                             accountLabel: "Account A",
                             name: "Claude Pro · 5小时",
-                            resetAt: 1735707600000,
+                            resetAt: base,
                         }),
                         usageItem({
                             id: "claude-b-5h",
                             accountId: "auth-b",
                             accountLabel: "Account B",
                             name: "Claude Pro · 5小时",
-                            resetAt: 1735709400000,
+                            resetAt: base + 30 * 60 * 1000,
                         }),
                     ],
                 },
@@ -458,6 +461,42 @@ describe("provider usage aggregation", () => {
         const [overview] = build_overview_for_group(group);
 
         expect(overview?.resetAt).toBeNull();
+    });
+
+    it("shows overview reset time when convergentTimeMinutes covers the spread", () => {
+        const base = 1735707600000;
+        const connectors = [
+            connectorInfo({
+                source: "gateway",
+                activeProviders: ["codex"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: Array.from({ length: 5 }).map((_, i) =>
+                        usageItem({
+                            id: `codex-${String(i)}-week`,
+                            provider: "codex",
+                            accountId: `auth-${String(i)}`,
+                            accountLabel: `Account ${String(i)}`,
+                            name: "一周",
+                            normalized_label: "一周",
+                            resetAt: base + i * 5 * 60 * 1000, // 0, 5, 10, 15, 20 min apart
+                        }),
+                    ),
+                },
+            }),
+        ];
+
+        const [group] = build_provider_usage_groups(connectors);
+        if (!group) throw new Error("Expected provider usage group");
+
+        // default 10min: spread is 20min, should hide
+        const [default_overview] = build_overview_for_group(group);
+        expect(default_overview?.resetAt).toBeNull();
+
+        // convergentTimeMinutes=60: spread is 20min < 60min, should show
+        const [custom_overview] = build_overview_for_group(group, 60);
+        expect(custom_overview?.resetAt).toBe(base + 20 * 60 * 1000);
     });
 
     it("separates CPA accounts with same label from different sourceInstanceId", () => {
@@ -690,5 +729,88 @@ describe("apply_account_overrides", () => {
 
         expect(result.map((group) => group.provider)).toEqual(["gemini"]);
         expect(result[0]?.accounts[0]?.accountLabel).toBe("Shared Account");
+    });
+});
+
+describe("resolve_convergent_epoch", () => {
+    it("returns null when epochs differ by more than default 10min threshold", () => {
+        const a = 1735707600000;
+        const b = a + 30 * 60 * 1000;
+        expect(resolve_convergent_epoch([a, b])).toBeNull();
+    });
+
+    it("returns latest when epochs differ by less than default threshold", () => {
+        const a = 1735707600000;
+        const b = a + 5 * 60 * 1000;
+        expect(resolve_convergent_epoch([a, b])).toBe(b);
+    });
+
+    it("returns latest when epochs differ by 30min but threshold is 60min", () => {
+        const a = 1735707600000;
+        const b = a + 30 * 60 * 1000;
+        expect(resolve_convergent_epoch([a, b], 60 * 60 * 1000)).toBe(b);
+    });
+
+    it("returns null for empty input", () => {
+        expect(resolve_convergent_epoch([])).toBeNull();
+    });
+
+    it("returns single epoch when only one valid", () => {
+        expect(resolve_convergent_epoch([null, 1735707600000, null])).toBe(1735707600000);
+    });
+});
+
+describe("resolve_convergent_time", () => {
+    it("returns null when timestamps differ by more than default 10min threshold", () => {
+        const base = "2026-01-01T12:00:00Z";
+        const late = "2026-01-01T12:30:00Z";
+        expect(resolve_convergent_time([base, late])).toBeNull();
+    });
+
+    it("returns latest when timestamps differ by 30min but threshold is 60min", () => {
+        const base = "2026-01-01T12:00:00Z";
+        const late = "2026-01-01T12:30:00Z";
+        expect(resolve_convergent_time([base, late], 60 * 60 * 1000)).toBe(late);
+    });
+});
+
+describe("build_overview_for_group with convergentTimeMinutes", () => {
+    it("shows resetAt when accounts differ by 30min and convergentTimeMinutes is 60", () => {
+        const base = 1735707600000;
+        const connectors = [
+            connectorInfo({
+                source: "gateway",
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            id: "claude-a-5h",
+                            accountId: "auth-a",
+                            accountLabel: "Account A",
+                            name: "Claude Pro · 5小时",
+                            resetAt: base,
+                        }),
+                        usageItem({
+                            id: "claude-b-5h",
+                            accountId: "auth-b",
+                            accountLabel: "Account B",
+                            name: "Claude Pro · 5小时",
+                            resetAt: base + 30 * 60 * 1000,
+                        }),
+                    ],
+                },
+            }),
+        ];
+
+        const [group] = build_provider_usage_groups(connectors);
+        if (!group) throw new Error("Expected provider usage group");
+
+        const [default_overview] = build_overview_for_group(group);
+        expect(default_overview?.resetAt).toBeNull();
+
+        const [custom_overview] = build_overview_for_group(group, 60);
+        expect(custom_overview?.resetAt).toBe(base + 30 * 60 * 1000);
     });
 });

@@ -31,6 +31,7 @@ interface ProviderOverviewProps {
     providerLabelMaps?:
         | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
         | undefined;
+    convergentTimeMinutes?: number | undefined;
 }
 
 export function ProviderOverview({
@@ -54,6 +55,7 @@ export function ProviderOverview({
     barStyle,
     labelMap,
     providerLabelMaps,
+    convergentTimeMinutes,
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
 
@@ -90,6 +92,7 @@ export function ProviderOverview({
                         barColorScheme={barColorScheme}
                         barStyle={barStyle}
                         labelMap={merged_label_map(provider)}
+                        convergentTimeMinutes={convergentTimeMinutes}
                     />
                 );
             })}

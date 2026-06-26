@@ -296,7 +296,10 @@ export function get_visible_providers(connectors: readonly ConnectorInfo[]): Usa
 
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 
-export function resolve_convergent_time(timestamps: (string | null | undefined)[]): string | null {
+export function resolve_convergent_time(
+    timestamps: (string | null | undefined)[],
+    thresholdMs?: number,
+): string | null {
     const valid = timestamps
         .map((t) => (t ? { raw: t, time: new Date(t).getTime() } : null))
         .filter((t): t is { raw: string; time: number } => t !== null && Number.isFinite(t.time));
@@ -307,12 +310,15 @@ export function resolve_convergent_time(timestamps: (string | null | undefined)[
     const earliest = valid.reduce((min, item) => Math.min(min, item.time), first.time);
     const latest = valid.reduce((max, item) => Math.max(max, item.time), first.time);
 
-    if (latest - earliest > TEN_MINUTES_MS) return null;
+    if (latest - earliest > (thresholdMs ?? TEN_MINUTES_MS)) return null;
 
     return valid.find((t) => t.time === latest)?.raw ?? null;
 }
 
-export function resolve_convergent_epoch(epochs: (number | null)[]): number | null {
+export function resolve_convergent_epoch(
+    epochs: (number | null)[],
+    thresholdMs?: number,
+): number | null {
     const valid = epochs.filter((t): t is number => t !== null);
     if (valid.length === 0) return null;
     const first = valid[0];
@@ -323,7 +329,7 @@ export function resolve_convergent_epoch(epochs: (number | null)[]): number | nu
     const earliest = rest.reduce((min, item) => Math.min(min, item), first);
     const latest = rest.reduce((max, item) => Math.max(max, item), first);
 
-    if (latest - earliest > TEN_MINUTES_MS) return null;
+    if (latest - earliest > (thresholdMs ?? TEN_MINUTES_MS)) return null;
 
     return latest;
 }
@@ -353,7 +359,10 @@ export interface OverviewWindow {
     color?: MetricRecord["color"];
 }
 
-export function build_overview_for_group(group: ProviderUsageGroup): OverviewWindow[] {
+export function build_overview_for_group(
+    group: ProviderUsageGroup,
+    convergentTimeMinutes?: number,
+): OverviewWindow[] {
     const byPeriod = new Map<string, ProviderUsagePeriod[]>();
 
     for (const period of group.periods) {
@@ -386,8 +395,14 @@ export function build_overview_for_group(group: ProviderUsageGroup): OverviewWin
             limit: totalLimit,
             displayStyle: validPeriods[0]?.displayStyle ?? "percent",
             status: periodWorstStatus,
-            updatedAt: resolve_convergent_time(validPeriods.map((period) => period.updatedAt)),
-            resetAt: resolve_convergent_epoch(validPeriods.map((period) => period.resetAt)),
+            updatedAt: resolve_convergent_time(
+                validPeriods.map((period) => period.updatedAt),
+                convergentTimeMinutes !== undefined ? convergentTimeMinutes * 60 * 1000 : undefined,
+            ),
+            resetAt: resolve_convergent_epoch(
+                validPeriods.map((period) => period.resetAt),
+                convergentTimeMinutes !== undefined ? convergentTimeMinutes * 60 * 1000 : undefined,
+            ),
             color: validPeriods.find((period) => period.color)?.color,
         });
     }

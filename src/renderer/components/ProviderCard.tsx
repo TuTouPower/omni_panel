@@ -39,6 +39,7 @@ interface ProviderCardProps {
     labelMap?: Readonly<Record<string, string>> | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onReLogin?: ((provider: UsageProvider) => void) | undefined;
+    convergentTimeMinutes?: number | undefined;
 }
 
 type CardStatus = "loading" | "ready" | "failed" | "empty";
@@ -76,6 +77,7 @@ export const ProviderCard = memo(function ProviderCard({
     labelMap,
     onEditAccount,
     onReLogin,
+    convergentTimeMinutes,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
@@ -98,13 +100,21 @@ export const ProviderCard = memo(function ProviderCard({
     const [l2open, set_l2open] = useState(false);
 
     const is_multi = accountCount > 1;
-    const overview_periods = useMemo(() => (group ? build_overview_for_group(group) : []), [group]);
+    const overview_periods = useMemo(
+        () => (group ? build_overview_for_group(group, convergentTimeMinutes) : []),
+        [group, convergentTimeMinutes],
+    );
     const overview_updated_at = useMemo(
         () =>
             is_multi
-                ? resolve_convergent_time(overview_periods.map((period) => period.updatedAt))
+                ? resolve_convergent_time(
+                      overview_periods.map((period) => period.updatedAt),
+                      convergentTimeMinutes !== undefined
+                          ? convergentTimeMinutes * 60 * 1000
+                          : undefined,
+                  )
                 : (group?.updatedAt ?? null),
-        [group?.updatedAt, is_multi, overview_periods],
+        [group?.updatedAt, is_multi, overview_periods, convergentTimeMinutes],
     );
 
     const updated_text = overview_updated_at ? relative_time(overview_updated_at) : "";

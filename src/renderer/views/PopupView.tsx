@@ -85,6 +85,9 @@ export function PopupView() {
     const [usage_bar_color_scheme, set_usage_bar_color_scheme] =
         useState<UsageBarColorScheme>("risk-current");
     const [usage_bar_style, set_usage_bar_style] = useState<UsageBarStyle>("thin");
+    const [convergent_time_minutes, set_convergent_time_minutes] = useState<number | undefined>(
+        undefined,
+    );
     const [account_overrides, set_account_overrides] = useState<AccountOverrides | undefined>(
         undefined,
     );
@@ -130,6 +133,7 @@ export function PopupView() {
             if (config.usageBarStyle) {
                 set_usage_bar_style(config.usageBarStyle);
             }
+            set_convergent_time_minutes(config.convergentTimeMinutes);
             set_account_label_maps(config.accountLabelMaps);
             set_provider_label_maps(config.providerLabelMaps);
             set_account_overrides(config.accountOverrides);
@@ -802,6 +806,7 @@ export function PopupView() {
                                 barColorScheme={usage_bar_color_scheme}
                                 barStyle={usage_bar_style}
                                 providerLabelMaps={provider_label_maps}
+                                convergentTimeMinutes={convergent_time_minutes}
                             />
                         )}
 

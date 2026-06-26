@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import {
@@ -772,6 +772,18 @@ export function SettingsView() {
     const usageBarColorScheme = config?.usageBarColorScheme ?? "risk-current";
     const usageBarStyle = config?.usageBarStyle ?? "thin";
 
+    const has_multi_account = useMemo(() => {
+        const accounts_by_provider = new Map<string, Set<string>>();
+        for (const info of pluginInfos) {
+            for (const item of snapshot_items(info)) {
+                const set = accounts_by_provider.get(item.provider) ?? new Set();
+                set.add(item.accountId);
+                accounts_by_provider.set(item.provider, set);
+            }
+        }
+        return [...accounts_by_provider.values()].some((set) => set.size > 1);
+    }, [pluginInfos]);
+
     useEffect(() => {
         if (should_log_raw) {
             log.debug("settings usage bar color scheme raw", { value: usageBarColorScheme });
@@ -1137,6 +1149,32 @@ export function SettingsView() {
                                         }}
                                     />
                                 </SetRow>
+                                {has_multi_account && (
+                                    <SetRow
+                                        title="概览时间窗口"
+                                        sub="多账号服务概览中，各账号采集时间差在此范围内才显示更新时间"
+                                    >
+                                        <Select
+                                            value={`${String(config.convergentTimeMinutes ?? 30)} 分钟`}
+                                            onChange={(v) => {
+                                                const min = parseInt(v, 10);
+                                                if (!isNaN(min)) {
+                                                    void save_config({
+                                                        ...config,
+                                                        convergentTimeMinutes: min,
+                                                    });
+                                                }
+                                            }}
+                                            options={[
+                                                "10 分钟",
+                                                "20 分钟",
+                                                "30 分钟",
+                                                "60 分钟",
+                                                "120 分钟",
+                                            ]}
+                                        />
+                                    </SetRow>
+                                )}
                             </>
                         )}
 

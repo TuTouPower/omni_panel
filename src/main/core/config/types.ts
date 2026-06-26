@@ -91,6 +91,7 @@ export const appConfigurationSchema = z.object({
     settingsBounds: floatingBoundsSchema.optional(),
     collapsedAccounts: z.record(z.boolean()).optional(),
     expandedProviders: z.record(z.boolean()).optional(),
+    convergentTimeMinutes: z.number().int().min(1).max(1440).optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {
