@@ -195,6 +195,44 @@ export async function handleCookieLogin(
     });
 }
 
+/**
+ * Try to silently refresh cookies from the persisted login session
+ * without opening a login window. Returns the cookie string if the
+ * session still has valid cookies, or null if not.
+ */
+export async function trySilentCookieRefresh(
+    secretsStore: SecretsStore,
+    instanceId: string,
+): Promise<boolean> {
+    const partition = "persist:mimo-login";
+    const loginSession = session.fromPartition(partition);
+    try {
+        const allCookies = await loginSession.cookies.get({});
+        const targetNames = new Set([
+            "api-platform_serviceToken",
+            "api-platform_slh",
+            "api-platform_ph",
+            "userId",
+        ]);
+        const matched = allCookies.filter((c) => targetNames.has(c.name));
+        if (matched.length < targetNames.size) {
+            log.debug(
+                `Silent refresh: only ${String(matched.length)}/${String(targetNames.size)} cookies found, skipping`,
+            );
+            return false;
+        }
+        const cookieHeader = matched.map((c) => `${c.name}=${c.value}`).join("; ");
+        await secretsStore.set(`${instanceId}:SESSION_COOKIE`, cookieHeader);
+        log.info(`Silent cookie refresh succeeded for ${instanceId}`);
+        return true;
+    } catch (err: unknown) {
+        log.warn(
+            `Silent cookie refresh failed for ${instanceId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return false;
+    }
+}
+
 export function registerAuthIpc(deps: AuthIpcDeps): void {
     ipcMain.handle(
         IPC_CHANNELS.AUTH_COOKIE_LOGIN,

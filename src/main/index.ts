@@ -35,7 +35,7 @@ import { discover_connector_definitions } from "./core/connector/manifest-loader
 import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
-import { registerAuthIpc, handleCookieLogin } from "./ipc/auth-ipc";
+import { registerAuthIpc, handleCookieLogin, trySilentCookieRefresh } from "./ipc/auth-ipc";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
@@ -254,14 +254,20 @@ void app.whenReady().then(async () => {
         runtimeStore,
         configStore,
         vault,
-        sessionLogin: (instanceId: string) =>
-            handleCookieLogin(
+        sessionLogin: async (instanceId: string) => {
+            // Try silent cookie refresh first (no window popup)
+            const silent = await trySilentCookieRefresh(secretsStore, instanceId);
+            if (silent) {
+                return { saved: true };
+            }
+            // Fall back to interactive login window
+            const result = await handleCookieLogin(
                 { configStore, secretsStore, definitions: allDefinitions },
                 instanceId,
-            ).then((result) => {
-                if (!result.ok) throw new Error(result.error.message);
-                return result.data;
-            }),
+            );
+            if (!result.ok) throw new Error(result.error.message);
+            return result.data;
+        },
     });
 
     // Scheduler orchestrator — centralises scheduling, suspend/resume, shutdown
