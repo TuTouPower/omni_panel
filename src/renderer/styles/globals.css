@@ -377,6 +377,11 @@ html[data-window="tray"] #root {
 .vicon img {
     display: block;
 }
+.vicon .vendor-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
 .vicon .vendor-logo-dark {
     display: none;
 }

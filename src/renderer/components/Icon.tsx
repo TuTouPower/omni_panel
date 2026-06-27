@@ -176,20 +176,8 @@ export function VendorMark({ id, size = 28, color }: VendorMarkProps) {
     if (theme_logo) {
         return (
             <span className="vicon" style={{ width: size, height: size }}>
-                <img
-                    className="vendor-logo-light"
-                    src={theme_logo.light}
-                    alt=""
-                    width={size}
-                    height={size}
-                />
-                <img
-                    className="vendor-logo-dark"
-                    src={theme_logo.dark}
-                    alt=""
-                    width={size}
-                    height={size}
-                />
+                <img className="vendor-logo-img vendor-logo-light" src={theme_logo.light} alt="" />
+                <img className="vendor-logo-img vendor-logo-dark" src={theme_logo.dark} alt="" />
             </span>
         );
     }
@@ -198,7 +186,7 @@ export function VendorMark({ id, size = 28, color }: VendorMarkProps) {
     if (logo) {
         return (
             <span className="vicon" style={{ width: size, height: size }}>
-                <img src={logo} alt="" width={size} height={size} />
+                <img className="vendor-logo-img" src={logo} alt="" />
             </span>
         );
     }
