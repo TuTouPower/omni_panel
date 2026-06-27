@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AddAccountDialog } from "../../../../src/renderer/components/AddAccountDialog";
 import type { AddAccountParams } from "../../../../src/renderer/components/AddAccountDialog";
@@ -115,6 +115,134 @@ describe("AddAccountDialog MIMO session cookie", () => {
         expect(get_saved_params(on_save).secrets).toEqual({
             SESSION_COOKIE: "access_token=kimikimi",
         });
+    });
+
+    function opencode_go_plugin(): PluginInfo {
+        return {
+            ...base_plugin,
+            instanceId: "opencode-go-1",
+            name: "OpenCode Go",
+            displayName: "OpenCode Go",
+            activeProviders: ["opencode_go"],
+            supportedProviders: ["opencode_go"],
+        };
+    }
+
+    it("selecting OpenCode Go supports cookie/session form", async () => {
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[opencode_go_plugin()]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        await user.click(screen.getByText("OpenCode Go"));
+
+        expect(
+            screen.getByPlaceholderText("支持 JSON、EditThisCookie、Netscape、k=v; k=v"),
+        ).toBeInTheDocument();
+        expect(screen.queryByPlaceholderText(/sk-/)).not.toBeInTheDocument();
+    });
+
+    it("parses OpenCode Go JSON cookie before save", async () => {
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[opencode_go_plugin()]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        await user.click(screen.getByText("OpenCode Go"));
+        fireEvent.change(
+            screen.getByPlaceholderText("支持 JSON、EditThisCookie、Netscape、k=v; k=v"),
+            {
+                target: { value: JSON.stringify([{ name: "session", value: "abc" }]) },
+            },
+        );
+        await user.click(screen.getByText("添加账号"));
+
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        expect(get_saved_params(on_save).secrets).toEqual({
+            SESSION_COOKIE: "session=abc",
+        });
+    });
+
+    it("does not save OpenCode Go without a pasted Cookie", async () => {
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[opencode_go_plugin()]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        await user.click(screen.getByText("OpenCode Go"));
+        await user.click(screen.getByText("添加账号"));
+
+        expect(on_save).not.toHaveBeenCalled();
+        expect(screen.getByText("请粘贴 Cookie 或先网页登录")).toBeInTheDocument();
+    });
+
+    it("copies OpenCode Go browser cookie script", async () => {
+        const write_text = vi.fn().mockResolvedValue(undefined);
+        const user = userEvent.setup();
+        Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: { writeText: write_text },
+        });
+        render(
+            <AddAccountDialog
+                plugin_infos={[opencode_go_plugin()]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        await user.click(screen.getByText("OpenCode Go"));
+        await user.click(screen.getByText("复制脚本"));
+
+        expect(write_text).toHaveBeenCalledTimes(1);
+        const script = write_text.mock.calls[0]?.[0] as string;
+        expect(script).toContain("opencode.ai");
+        expect(script).toContain("navigator.clipboard.writeText");
+    });
+
+    it("shows feedback when OpenCode Go browser cookie script cannot be copied", async () => {
+        const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+        const user = userEvent.setup();
+        Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: undefined,
+        });
+        render(
+            <AddAccountDialog
+                plugin_infos={[opencode_go_plugin()]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        await user.click(screen.getByText("OpenCode Go"));
+        await user.click(screen.getByText("复制脚本"));
+
+        expect(alert).toHaveBeenCalledWith("当前环境无法写入剪贴板，请手动复制脚本");
     });
 });
 

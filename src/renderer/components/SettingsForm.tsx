@@ -253,29 +253,27 @@ export function SettingsForm({
                                 required={param.required}
                                 className={"ad-input" + (param.type === "secret" ? " mono" : "")}
                             />
-                            {providerId === "mimo" &&
-                                param.name === "SESSION_COOKIE" &&
-                                onCookieLogin && (
-                                    <button
-                                        type="button"
-                                        className="cf-secondary"
-                                        disabled={loginLoading}
-                                        onClick={() => {
-                                            setLoginLoading(true);
-                                            void onCookieLogin(instanceId).then((ok) => {
-                                                setLoginLoading(false);
-                                                if (ok) {
-                                                    const el = document.getElementById(
-                                                        param.name,
-                                                    ) as HTMLInputElement | null;
-                                                    if (el) el.value = SECRET_PLACEHOLDER;
-                                                }
-                                            });
-                                        }}
-                                    >
-                                        {loginLoading ? "登录中..." : "网页登录"}
-                                    </button>
-                                )}
+                            {providerId && param.name === "SESSION_COOKIE" && onCookieLogin && (
+                                <button
+                                    type="button"
+                                    className="cf-secondary"
+                                    disabled={loginLoading}
+                                    onClick={() => {
+                                        setLoginLoading(true);
+                                        void onCookieLogin(instanceId).then((ok) => {
+                                            setLoginLoading(false);
+                                            if (ok) {
+                                                const el = document.getElementById(
+                                                    param.name,
+                                                ) as HTMLInputElement | null;
+                                                if (el) el.value = SECRET_PLACEHOLDER;
+                                            }
+                                        });
+                                    }}
+                                >
+                                    {loginLoading ? "登录中..." : "网页登录"}
+                                </button>
+                            )}
                         </div>
                     )}
                     {typeof param.description === "string" && (

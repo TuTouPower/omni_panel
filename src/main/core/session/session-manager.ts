@@ -66,6 +66,7 @@ export function create_session_manager(
 
             const window = deps.create_window();
             const session = deps.create_session();
+            const login_origin = new URL(request.login_url).origin;
             let captured_cookie: string | null = null;
             let timeout: ReturnType<typeof setTimeout> | null = null;
             let completed = false;
@@ -118,7 +119,7 @@ export function create_session_manager(
                 }
 
                 session.on_before_send_headers((details) => {
-                    if (!details.url.includes("/api/v1/")) return;
+                    if (!should_capture_cookie(details.url, login_origin)) return;
                     const cookie = extract_cookie_header(details.requestHeaders);
                     if (cookie) {
                         log.info(`Cookie captured for ${request.instance_id}`);
@@ -143,6 +144,16 @@ export function create_session_manager(
             });
         },
     };
+}
+
+function should_capture_cookie(url: string, login_origin: string): boolean {
+    try {
+        const parsed_url = new URL(url);
+        if (parsed_url.origin !== login_origin) return false;
+        return parsed_url.pathname.includes("/api/v1/") || parsed_url.pathname === "/_server";
+    } catch {
+        return false;
+    }
 }
 
 function extract_cookie_header(headers: Record<string, string>): string | null {

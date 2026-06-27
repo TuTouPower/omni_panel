@@ -93,6 +93,20 @@ const FLOATING_HEIGHT_MODE_LABELS = ["保持窗口大小", "跟随内容变化"]
 const BAR_STYLE_LABELS = ["细线型", "粗胶囊型"] as const;
 const log = createLogger("renderer:settings-view");
 const should_log_raw = import.meta.env.DEV;
+const session_meta: Record<string, { login_url: string; cookie_names: string[] }> = {
+    mimo: {
+        login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+        cookie_names: ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph"],
+    },
+    kimi: {
+        login_url: "https://www.kimi.com/login",
+        cookie_names: ["access_token", "refresh_token"],
+    },
+    opencode_go: {
+        login_url: "https://opencode.ai/auth",
+        cookie_names: ["session", "__Host-session", "__Secure-session"],
+    },
+};
 
 /**
  * Fire-and-forget background refresh after save. Never blocks the save path,
@@ -375,7 +389,15 @@ function AccountDialog({
                                 : {})}
                             onCookieLogin={async (id) => {
                                 try {
-                                    const result = await window.usageboard.auth.cookieLogin(id);
+                                    const provider = pluginInfo.activeProviders[0];
+                                    const meta = provider ? session_meta[provider] : undefined;
+                                    const result = meta
+                                        ? await window.usageboard.session.login({
+                                              instance_id: id,
+                                              login_url: meta.login_url,
+                                              cookie_names: meta.cookie_names,
+                                          })
+                                        : await window.usageboard.auth.cookieLogin(id);
                                     if (result.saved) {
                                         await window.usageboard.connector.refresh(id);
                                         await window.usageboard.config.get();

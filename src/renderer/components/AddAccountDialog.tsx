@@ -3,6 +3,7 @@ import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { VendorMark, Icon } from "./Icon";
 import { ADD_COMMON_SERVICES } from "../lib/common-services";
+import { parse_cookie_text } from "../../shared/lib/cookie_parser";
 
 // ── Auth method routing ──
 
@@ -15,6 +16,7 @@ export const VENDOR_AUTH_MAP: Partial<Record<UsageProvider, AuthMethod>> = {
     tavily: "apikey",
     minimax: "apikey",
     mimo: "session",
+    opencode_go: "session",
     kimi: "session",
     claude: "local",
     codex: "local",
@@ -54,7 +56,28 @@ const AUTH_SESSION_META: Partial<
         login_url: "https://www.kimi.com/login",
         cookie_keys: ["access_token", "refresh_token"],
     },
+    opencode_go: {
+        host: "opencode.ai",
+        login_url: "https://opencode.ai/auth",
+        cookie_keys: ["session", "__Host-session", "__Secure-session"],
+    },
 };
+
+const OPENCODE_GO_COOKIE_SCRIPT = `(() => {
+    if (!location.hostname.endsWith("opencode.ai")) {
+        alert("请先打开 opencode.ai 后再运行脚本");
+        return;
+    }
+    const cookie = document.cookie;
+    if (!cookie) {
+        alert("未读取到 Cookie。可能是 HttpOnly 限制，请改用浏览器导出的 Cookie JSON 或 Netscape 格式。");
+        return;
+    }
+    navigator.clipboard.writeText(cookie).then(
+        () => alert("Cookie 已复制"),
+        () => alert("复制失败，请手动复制 document.cookie"),
+    );
+})();`;
 
 const AUTH_LOCAL_PATHS: Partial<Record<UsageProvider, string[]>> = {
     claude: ["~/.claude/.credentials.json", "~/.config/claude/auth.json"],
@@ -243,10 +266,25 @@ function SessionForm({
         cookie_keys: [],
     };
     const [cookie, set_cookie] = useState("");
+    const is_opencode_go = vendor_id === "opencode_go";
+    const placeholder = is_opencode_go
+        ? "支持 JSON、EditThisCookie、Netscape、k=v; k=v"
+        : "在浏览器登录 " + meta.host + " 后，从开发者工具复制完整 Cookie…";
 
     useEffect(() => {
         form_ref.current = { cookie };
     }, [cookie, form_ref]);
+
+    const handle_copy_script = useCallback(() => {
+        const clipboard = "clipboard" in navigator ? navigator.clipboard : null;
+        if (!clipboard) {
+            alert("当前环境无法写入剪贴板，请手动复制脚本");
+            return;
+        }
+        void clipboard.writeText(OPENCODE_GO_COOKIE_SCRIPT).catch(() => {
+            alert("复制失败，请手动复制脚本");
+        });
+    }, []);
 
     return (
         <>
@@ -265,13 +303,18 @@ function SessionForm({
             </div>
             <div className="ad-field">
                 <label className="ad-label">Cookie 字符串</label>
+                {is_opencode_go && (
+                    <button className="ad-test" type="button" onClick={handle_copy_script}>
+                        复制脚本
+                    </button>
+                )}
                 <textarea
                     className="aa-textarea mono"
                     value={cookie}
                     onChange={(e) => {
                         set_cookie(e.target.value);
                     }}
-                    placeholder={"在浏览器登录 " + meta.host + " 后，从开发者工具复制完整 Cookie…"}
+                    placeholder={placeholder}
                 />
                 <div className="cookie-keys">
                     <span className="ck-label">需包含</span>
@@ -382,6 +425,7 @@ export function AddAccountDialog({
     const [vendor_id, set_vendor_id] = useState<UsageProvider | null>(null);
     const [account_name, set_account_name] = useState("");
     const [saving, set_saving] = useState(false);
+    const [error_message, set_error_message] = useState<string | null>(null);
     const api_form_ref = useRef<{ api_key: string; endpoint_override?: string }>({
         api_key: "",
     });
@@ -418,6 +462,7 @@ export function AddAccountDialog({
     const handle_select_vendor = useCallback((id: UsageProvider) => {
         set_vendor_id(id);
         set_account_name("");
+        set_error_message(null);
         set_step("auth");
     }, []);
 
@@ -425,10 +470,12 @@ export function AddAccountDialog({
         set_step("vendor");
         set_vendor_id(null);
         set_account_name("");
+        set_error_message(null);
     }, []);
 
     const handle_save = useCallback(async () => {
         if (!vendor_id || saving) return;
+        set_error_message(null);
         set_saving(true);
         try {
             const params: AddAccountParams = {
@@ -451,8 +498,21 @@ export function AddAccountDialog({
             } else if (auth_method === "session") {
                 const data = session_form_ref.current;
                 const cookie = data.cookie.trim();
+                if (vendor_id === "opencode_go" && !cookie) {
+                    set_error_message("请粘贴 Cookie 或先网页登录");
+                    return;
+                }
                 if (cookie) {
-                    params.secrets = { SESSION_COOKIE: cookie };
+                    let session_cookie = cookie;
+                    if (vendor_id === "opencode_go") {
+                        try {
+                            session_cookie = parse_cookie_text(cookie).header;
+                        } catch (error) {
+                            alert(error instanceof Error ? error.message : "无法识别 Cookie 格式");
+                            return;
+                        }
+                    }
+                    params.secrets = { SESSION_COOKIE: session_cookie };
                 }
             }
 
@@ -537,6 +597,7 @@ export function AddAccountDialog({
                 {/* Footer */}
                 {step === "auth" && (
                     <div className="ad-foot">
+                        {error_message && <div className="ad-hint">{error_message}</div>}
                         {auth_method !== "local" && (
                             <button className="ad-test" type="button" disabled>
                                 <Icon name="refresh" size={14} strokeWidth={1.9} />

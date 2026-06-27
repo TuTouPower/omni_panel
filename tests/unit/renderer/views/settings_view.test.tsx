@@ -607,38 +607,125 @@ describe("SettingsView", () => {
         expect(match[1]).toContain("auto");
     });
 
-    it("calls plugin.refresh after cookieLogin succeeds", async () => {
-        const instance_id = "mimo-1";
-        const mock_cookie_login = vi
-            .fn<(_id: string) => Promise<{ saved: boolean }>>()
-            .mockResolvedValue({ saved: true });
+    it("calls session.login and plugin.refresh after cookie login succeeds", async () => {
+        const user = userEvent.setup();
+        current_config = {
+            ...base_config,
+            plugins: [
+                {
+                    instanceId: "mimo-1",
+                    stateId: "mimo-1",
+                    name: "MiMo",
+                    enabled: true,
+                    executablePath: "plugins/mimo.ts",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        const mock_session_login = vi.fn().mockResolvedValue({ saved: true });
         const mock_refresh = vi.fn();
-        window.usageboard.auth.cookieLogin = mock_cookie_login;
+        window.usageboard.session.login = mock_session_login;
         window.usageboard.connector.refresh = mock_refresh;
+        window.usageboard.connector.list = vi.fn().mockResolvedValue([
+            {
+                instanceId: "mimo-1",
+                sourceInstanceId: "mimo-1",
+                stateId: "mimo-1",
+                name: "MiMo",
+                displayName: "MiMo",
+                enabled: true,
+                source: "poll",
+                supportedProviders: ["mimo"],
+                activeProviders: ["mimo"],
+                metadata: {
+                    parameters: [
+                        {
+                            name: "SESSION_COOKIE",
+                            label: "Cookie",
+                            type: "secret",
+                            required: true,
+                        },
+                    ],
+                    endpoints: {},
+                },
+                snapshot: { status: "idle" },
+            },
+        ]);
 
-        const result = await mock_cookie_login(instance_id);
-        if (result.saved) {
-            await mock_refresh(instance_id);
-        }
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        await user.click(await screen.findByTitle("编辑"));
+        await user.click(await screen.findByText("网页登录"));
 
-        expect(mock_cookie_login).toHaveBeenCalledWith("mimo-1");
+        await waitFor(() => {
+            expect(mock_session_login).toHaveBeenCalledWith({
+                instance_id: "mimo-1",
+                login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+                cookie_names: ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph"],
+            });
+        });
         expect(mock_refresh).toHaveBeenCalledWith("mimo-1");
+        const config_get = Reflect.get(window.usageboard.config, "get") as ReturnType<typeof vi.fn>;
+        expect(config_get).toHaveBeenCalled();
     });
 
-    it("does not call plugin.refresh when cookieLogin fails", async () => {
-        const mock_cookie_login = vi
-            .fn<(_id: string) => Promise<{ saved: boolean }>>()
-            .mockResolvedValue({ saved: false });
+    it("does not call plugin.refresh when cookie login fails", async () => {
+        const user = userEvent.setup();
+        current_config = {
+            ...base_config,
+            plugins: [
+                {
+                    instanceId: "mimo-1",
+                    stateId: "mimo-1",
+                    name: "MiMo",
+                    enabled: true,
+                    executablePath: "plugins/mimo.ts",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        const mock_session_login = vi.fn().mockResolvedValue({ saved: false });
         const mock_refresh = vi.fn();
-        window.usageboard.auth.cookieLogin = mock_cookie_login;
+        window.usageboard.session.login = mock_session_login;
         window.usageboard.connector.refresh = mock_refresh;
+        window.usageboard.connector.list = vi.fn().mockResolvedValue([
+            {
+                instanceId: "mimo-1",
+                sourceInstanceId: "mimo-1",
+                stateId: "mimo-1",
+                name: "MiMo",
+                displayName: "MiMo",
+                enabled: true,
+                source: "poll",
+                supportedProviders: ["mimo"],
+                activeProviders: ["mimo"],
+                metadata: {
+                    parameters: [
+                        {
+                            name: "SESSION_COOKIE",
+                            label: "Cookie",
+                            type: "secret",
+                            required: true,
+                        },
+                    ],
+                    endpoints: {},
+                },
+                snapshot: { status: "idle" },
+            },
+        ]);
 
-        const result = await mock_cookie_login("mimo-1");
-        if (result.saved) {
-            await mock_refresh("mimo-1");
-        }
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        await user.click(await screen.findByTitle("编辑"));
+        await user.click(await screen.findByText("网页登录"));
 
-        expect(mock_cookie_login).toHaveBeenCalledWith("mimo-1");
+        await waitFor(() => {
+            expect(mock_session_login).toHaveBeenCalled();
+        });
         expect(mock_refresh).not.toHaveBeenCalled();
     });
 

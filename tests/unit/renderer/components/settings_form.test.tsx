@@ -234,7 +234,27 @@ describe("SettingsForm cookie login", () => {
         expect(screen.getByText("网页登录")).toBeInTheDocument();
     });
 
-    it("does not render 网页登录 for non-MiMo providers", () => {
+    it("renders 网页登录 for OpenCode Go SESSION_COOKIE parameter", () => {
+        renderForm({
+            instanceId: "opencode-go-1",
+            name: "OpenCode Go",
+            providerId: "opencode_go",
+            parameters: [
+                {
+                    name: "SESSION_COOKIE",
+                    label: "Cookie",
+                    type: "secret",
+                    required: true,
+                },
+            ],
+            values: {},
+            hasSecrets: {},
+            onCookieLogin: vi.fn().mockResolvedValue(true),
+        });
+        expect(screen.getByText("网页登录")).toBeInTheDocument();
+    });
+
+    it("does not render 网页登录 without login handler", () => {
         renderForm({
             instanceId: "kimi-1",
             name: "Kimi",
@@ -249,7 +269,6 @@ describe("SettingsForm cookie login", () => {
             ],
             values: {},
             hasSecrets: {},
-            onCookieLogin: vi.fn(),
         });
         expect(screen.queryByText("网页登录")).not.toBeInTheDocument();
     });

@@ -124,6 +124,68 @@ describe("session-manager", () => {
         await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc; other=1");
     });
 
+    it("captures OpenCode Go _server Cookie header", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "opencode-go-1",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["session"],
+        });
+        deps.emit_before_send_headers("https://opencode.ai/_server?id=abc", {
+            Cookie: "session=abc",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("opencode-go-1:SESSION_COOKIE")).resolves.toBe("session=abc");
+    });
+
+    it("ignores third-party OpenCode Go _server Cookie headers", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "opencode-go-1",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["session"],
+        });
+        deps.emit_before_send_headers("https://opencode.ai/_server?id=abc", {
+            Cookie: "session=abc",
+        });
+        deps.emit_before_send_headers("https://tracker.example/_server/ping", {
+            Cookie: "tid=secret",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("opencode-go-1:SESSION_COOKIE")).resolves.toBe("session=abc");
+    });
+
+    it("ignores third-party api/v1 Cookie headers after capturing login origin cookie", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "opencode-go-1",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["session"],
+        });
+        deps.emit_before_send_headers("https://opencode.ai/api/v1/user", {
+            Cookie: "session=first-party",
+        });
+        deps.emit_before_send_headers("https://tracker.example/api/v1/pixel", {
+            Cookie: "tracker=third-party",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("opencode-go-1:SESSION_COOKIE")).resolves.toBe(
+            "session=first-party",
+        );
+    });
+
     it("falls back to selected session cookies on close", async () => {
         const deps = create_deps([
             { name: "token", value: "abc" },
