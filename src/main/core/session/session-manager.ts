@@ -121,10 +121,13 @@ export function create_session_manager(
                 session.on_before_send_headers((details) => {
                     if (!should_capture_cookie(details.url, login_origin)) return;
                     const cookie = extract_cookie_header(details.requestHeaders);
-                    if (cookie) {
+                    const selected_cookie = cookie
+                        ? select_cookie_header_values(cookie, request.cookie_names)
+                        : null;
+                    if (selected_cookie) {
                         log.info(`Cookie captured for ${request.instance_id}`);
+                        captured_cookie = selected_cookie;
                     }
-                    captured_cookie = cookie;
                 });
 
                 window.on("closed", () => {
@@ -167,6 +170,23 @@ function extract_cookie_header(headers: Record<string, string>): string | null {
 
 function to_error(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
+}
+
+function select_cookie_header_values(
+    header: string,
+    cookie_names: readonly string[],
+): string | null {
+    const allowed = new Set(cookie_names);
+    const selected = header
+        .split(";")
+        .map((part) => part.trim())
+        .filter((part) => {
+            const equals_index = part.indexOf("=");
+            if (equals_index <= 0) return false;
+            return allowed.has(part.slice(0, equals_index));
+        });
+
+    return selected.length > 0 ? selected.join("; ") : null;
 }
 
 async function select_session_cookies(

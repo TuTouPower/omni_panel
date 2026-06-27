@@ -41,6 +41,27 @@ describe("parse_cookie_text", () => {
         });
     });
 
+    it("parses EditThisCookie exports with extra fields", () => {
+        const raw = JSON.stringify([
+            {
+                domain: ".opencode.ai",
+                expirationDate: 2147483647,
+                hostOnly: false,
+                httpOnly: true,
+                name: "session",
+                path: "/",
+                sameSite: "lax",
+                secure: true,
+                value: "abc",
+            },
+        ]);
+
+        expect(parse_cookie_text(raw)).toEqual({
+            header: "session=abc",
+            names: ["session"],
+        });
+    });
+
     it("rejects JSON cookie values that cannot be represented as cookie values", () => {
         expect(() =>
             parse_cookie_text(JSON.stringify({ name: "session", value: { token: "abc" } })),

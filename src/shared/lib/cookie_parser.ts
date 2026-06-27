@@ -60,7 +60,7 @@ function parse_json_cookie_text(raw: string): ParsedCookieText | null {
         const pairs = entries.flatMap((entry) => {
             if (entry === null || typeof entry !== "object" || Array.isArray(entry)) return [];
             const record = entry as Record<string, unknown>;
-            const pair = create_cookie_pair(record.name, record.value);
+            const pair = create_cookie_pair(record["name"], record["value"]);
             return pair ? [pair] : [];
         });
         return build_parsed_cookie_text(pairs);

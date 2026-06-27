@@ -121,7 +121,7 @@ describe("session-manager", () => {
         deps.window.close();
 
         await expect(promise).resolves.toEqual({ saved: true });
-        await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc; other=1");
+        await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc");
     });
 
     it("captures OpenCode Go _server Cookie header", async () => {
@@ -134,7 +134,7 @@ describe("session-manager", () => {
             cookie_names: ["session"],
         });
         deps.emit_before_send_headers("https://opencode.ai/_server?id=abc", {
-            Cookie: "session=abc",
+            Cookie: "session=abc; other=1",
         });
         deps.window.close();
 
@@ -184,6 +184,24 @@ describe("session-manager", () => {
         await expect(deps.vault.get("opencode-go-1:SESSION_COOKIE")).resolves.toBe(
             "session=first-party",
         );
+    });
+
+    it("falls back to selected session cookies when captured header has no requested cookies", async () => {
+        const deps = create_deps([{ name: "token", value: "from-jar" }]);
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-1",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+        deps.emit_before_send_headers("https://example.com/api/v1/user", {
+            Cookie: "tracker=third-party",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=from-jar");
     });
 
     it("falls back to selected session cookies on close", async () => {
