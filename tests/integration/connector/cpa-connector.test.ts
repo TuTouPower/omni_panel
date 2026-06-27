@@ -350,6 +350,108 @@ describe("cpa connector", () => {
         expect(gemini[0]?.used).toBeCloseTo(28, 0);
     });
 
+    it("produces two Antigravity five-hour observations via CPA api-call", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [
+                    {
+                        name: "auth-antigravity-1.json",
+                        provider: "antigravity",
+                        auth_index: "ag-auth",
+                    },
+                ],
+            });
+        ctx.http.post_json = (_ep, _path, body) => {
+            const url = (body as { url?: string }).url ?? "";
+            if (url.includes("loadCodeAssist")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: { cloudaicompanionProject: "proj-123" },
+                });
+            }
+            if (url.includes("fetchAvailableModels")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: {
+                        models: {
+                            "gemini-3-flash": {
+                                quotaInfo: {
+                                    remainingFraction: 0.8,
+                                    resetTime: "2026-06-15T05:00:00Z",
+                                },
+                                apiProvider: "API_PROVIDER_GOOGLE_GEMINI",
+                                modelProvider: "MODEL_PROVIDER_GOOGLE",
+                            },
+                            "gemini-pro-agent": {
+                                quotaInfo: {
+                                    remainingFraction: 0.7,
+                                    resetTime: "2026-06-15T05:10:00Z",
+                                },
+                                apiProvider: "API_PROVIDER_GOOGLE_GEMINI",
+                                modelProvider: "MODEL_PROVIDER_GOOGLE",
+                            },
+                            "claude-sonnet-4-6": {
+                                quotaInfo: {
+                                    remainingFraction: 0.6,
+                                    resetTime: "2026-06-15T05:20:00Z",
+                                },
+                                apiProvider: "API_PROVIDER_ANTHROPIC_VERTEX",
+                                modelProvider: "MODEL_PROVIDER_ANTHROPIC",
+                            },
+                            "gpt-oss-120b-medium": {
+                                quotaInfo: {
+                                    remainingFraction: 0.9,
+                                    resetTime: "2026-06-15T05:30:00Z",
+                                },
+                                apiProvider: "API_PROVIDER_OPENAI_VERTEX",
+                                modelProvider: "MODEL_PROVIDER_OPENAI",
+                            },
+                            "ambiguous-provider-name": {
+                                quotaInfo: {
+                                    remainingFraction: 0.1,
+                                    resetTime: "2026-06-15T05:40:00Z",
+                                },
+                                apiProvider: "API_PROVIDER_VENDOR_GOOGLE_GEMINI_ANTHROPIC",
+                                modelProvider: "MODEL_PROVIDER_VENDOR_OPENAI_ALIAS",
+                            },
+                        },
+                    },
+                });
+            }
+            return Promise.resolve({ status_code: 404, body: {} });
+        };
+        const antigravity_result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
+
+        expect(antigravity_result.error).toBeNull();
+        const antigravity = antigravity_result.observations.filter(
+            (o) => o.provider === "antigravity",
+        );
+        expect(antigravity).toHaveLength(2);
+        expect(antigravity).toEqual([
+            expect.objectContaining({
+                metric_id: "antigravity:ag-auth:gemini-models",
+                raw_label: "gemini-models",
+                normalized_label: "Gemini Models",
+                window: "second",
+                used: 30,
+                reset_at: Date.parse("2026-06-15T05:10:00Z"),
+            }),
+            expect.objectContaining({
+                metric_id: "antigravity:ag-auth:claude-gpt",
+                raw_label: "claude-gpt",
+                normalized_label: "Claude/GPT",
+                window: "second",
+                used: 40,
+                reset_at: Date.parse("2026-06-15T05:20:00Z"),
+            }),
+        ]);
+    });
+
     it("produces Kimi observations via CPA api-call", async () => {
         const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
         const ctx = create_ctx();

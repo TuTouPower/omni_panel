@@ -276,40 +276,43 @@ const ANTIGRAVITY_URLS = [
     "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
 ];
 
-const ANTIGRAVITY_QUOTA_GROUPS = [
+interface AntigravityQuotaGroup {
+    readonly id: string;
+    readonly label: string;
+    readonly provider_values: readonly string[];
+}
+
+const ANTIGRAVITY_QUOTA_GROUPS: readonly AntigravityQuotaGroup[] = [
+    {
+        id: "gemini-models",
+        label: "Gemini Models",
+        provider_values: ["API_PROVIDER_GOOGLE_GEMINI"],
+    },
     {
         id: "claude-gpt",
         label: "Claude/GPT",
-        identifiers: ["claude-sonnet-4-6", "claude-opus-4-6-thinking", "gpt-oss-120b-medium"],
-    },
-    {
-        id: "gemini-3-pro",
-        label: "Gemini 3 Pro",
-        identifiers: ["gemini-3-pro-high", "gemini-3-pro-low"],
-    },
-    {
-        id: "gemini-3-1-pro-series",
-        label: "Gemini 3.1 Pro Series",
-        identifiers: ["gemini-3.1-pro-high", "gemini-3.1-pro-low"],
-    },
-    {
-        id: "gemini-2-5-flash",
-        label: "Gemini 2.5 Flash",
-        identifiers: ["gemini-2.5-flash", "gemini-2.5-flash-thinking"],
-    },
-    {
-        id: "gemini-2-5-flash-lite",
-        label: "Gemini 2.5 Flash Lite",
-        identifiers: ["gemini-2.5-flash-lite"],
-    },
-    { id: "gemini-2-5-cu", label: "Gemini 2.5 CU", identifiers: ["rev19-uic3-1p"] },
-    { id: "gemini-3-flash", label: "Gemini 3 Flash", identifiers: ["gemini-3-flash"] },
-    {
-        id: "gemini-image",
-        label: "gemini-3.1-flash-image",
-        identifiers: ["gemini-3.1-flash-image"],
+        provider_values: [
+            "API_PROVIDER_ANTHROPIC_VERTEX",
+            "MODEL_PROVIDER_ANTHROPIC",
+            "API_PROVIDER_OPENAI_VERTEX",
+            "MODEL_PROVIDER_OPENAI",
+        ],
     },
 ];
+
+function matches_antigravity_group(
+    model_info: Record<string, unknown>,
+    group: AntigravityQuotaGroup,
+): boolean {
+    const api_provider =
+        typeof model_info["apiProvider"] === "string" ? model_info["apiProvider"] : "";
+    const model_provider =
+        typeof model_info["modelProvider"] === "string" ? model_info["modelProvider"] : "";
+    return (
+        group.provider_values.includes(api_provider) ||
+        group.provider_values.includes(model_provider)
+    );
+}
 
 function parse_antigravity(
     body: Record<string, unknown>,
@@ -325,16 +328,19 @@ function parse_antigravity(
         let reset_at: number | null = null;
         let found = false;
 
-        for (const identifier of group.identifiers) {
-            const model_info = models[identifier];
+        for (const model_info of Object.values(models)) {
             if (!is_record(model_info)) continue;
+            if (!matches_antigravity_group(model_info, group)) continue;
+
             const quota = model_info["quotaInfo"] ?? model_info["quota_info"];
             if (!is_record(quota)) continue;
             let remaining = to_number(quota["remainingFraction"]);
             if (remaining <= 1) remaining *= 100;
-            min_remaining = Math.min(min_remaining, remaining);
             const model_reset = to_reset_at(quota["resetTime"] ?? quota["reset_time"]);
-            if (model_reset) reset_at = model_reset;
+            if (!found || remaining < min_remaining) {
+                min_remaining = remaining;
+                reset_at = model_reset;
+            }
             found = true;
         }
 
@@ -348,7 +354,7 @@ function parse_antigravity(
             metric_id: `antigravity:${account.account_id}:${group.id}`,
             raw_label: group.id,
             normalized_label: group.label,
-            window: "day",
+            window: "second",
             used,
             limit: 100,
             display_style: "percent",
