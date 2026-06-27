@@ -1287,6 +1287,20 @@ export function SettingsView() {
                             <>
                                 <div className="sp-head">
                                     <span className="sp-title">已添加</span>
+                                    <button
+                                        className="sp-action"
+                                        onClick={() => {
+                                            setDialog({
+                                                mode: "add",
+                                                instanceId: undefined,
+                                                pluginName: undefined,
+                                            });
+                                        }}
+                                        type="button"
+                                    >
+                                        <Icon name="plus" size={15} strokeWidth={2} />
+                                        添加
+                                    </button>
                                 </div>
                                 <div className="set-group-label" style={{ marginTop: 16 }}>
                                     已添加

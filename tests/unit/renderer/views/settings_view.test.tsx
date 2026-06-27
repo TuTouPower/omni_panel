@@ -916,14 +916,14 @@ describe("SettingsView", () => {
         expect(screen.queryByText("添加账号")).not.toBeInTheDocument();
     });
 
-    it("does not render the standalone generic add account dialog from accounts page", async () => {
+    it("add account button opens service picker in AccountDialog", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
 
-        expect(screen.queryByRole("button", { name: /^添加$/ })).not.toBeInTheDocument();
-        expect(screen.queryByText("添加账号")).not.toBeInTheDocument();
+        // The "添加" button now opens AccountDialog (add mode) with AddAccountPicker
+        expect(screen.getByRole("button", { name: /^添加$/ })).toBeInTheDocument();
     });
 
     it("shows VendorMark in edit dialog header", async () => {
