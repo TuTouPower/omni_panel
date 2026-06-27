@@ -4,6 +4,7 @@ import type { Readable } from "node:stream";
 import { resolve, join } from "node:path";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { scrubber } from "../../src/shared/lib/logger";
 
 const ROOT = process.cwd();
 
@@ -31,6 +32,12 @@ function wait(ms: number): Promise<void> {
     return new Promise((resolveWait) => setTimeout(resolveWait, ms));
 }
 
+function scrub_log_text(text: string): string {
+    return scrubber
+        .scrub_text(text)
+        .replace(/(Cookie|SESSION_COOKIE|API_KEY|token|password)=([^\s;&]+)/gi, "$1=***");
+}
+
 async function connectToDebugPort(port: number, logs: string[]): Promise<Browser> {
     const deadline = Date.now() + 20_000;
     let lastError: unknown;
@@ -43,7 +50,7 @@ async function connectToDebugPort(port: number, logs: string[]): Promise<Browser
         }
     }
     throw new Error(
-        `Timed out connecting to packaged app CDP: ${String(lastError)}\n${logs.join("")}`,
+        `Timed out connecting to packaged app CDP: ${scrub_log_text(String(lastError))}\n${logs.join("")}`,
     );
 }
 
@@ -75,14 +82,10 @@ async function launchPackagedApp(port: number): Promise<PackagedAppHandle> {
     );
 
     child.stdout.on("data", (data: Buffer) => {
-        const text = data.toString();
-        logs.push(text);
-        console.log("[packaged stdout]", text);
+        logs.push(scrub_log_text(data.toString()));
     });
     child.stderr.on("data", (data: Buffer) => {
-        const text = data.toString();
-        logs.push(text);
-        console.log("[packaged stderr]", text);
+        logs.push(scrub_log_text(data.toString()));
     });
 
     const browser = await connectToDebugPort(port, logs);
