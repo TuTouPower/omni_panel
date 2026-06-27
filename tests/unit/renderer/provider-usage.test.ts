@@ -117,6 +117,14 @@ describe("format_usage_period_label", () => {
         ).toBe("我的5h");
     });
 
+    it("lets OpenCode Go raw labels override connector labels", () => {
+        expect(
+            format_usage_period_label("rolling", "滚动", {
+                rolling: "五小时",
+            }),
+        ).toBe("五小时");
+    });
+
     it("shows normalized_label when no mapping exists", () => {
         expect(format_usage_period_label("five_hour", "5小时")).toBe("5小时");
     });
@@ -425,6 +433,41 @@ describe("provider usage aggregation", () => {
         if (!group) throw new Error("Expected provider usage group");
         const overview = build_overview_for_group(group);
         expect(overview).toHaveLength(0);
+    });
+
+    it("applies label map while building overview rows", () => {
+        const connectors = [
+            connectorInfo({
+                source: "session",
+                supportedProviders: ["opencode_go"],
+                activeProviders: ["opencode_go"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            id: "opencode-rolling",
+                            provider: "opencode_go",
+                            source: "session",
+                            sourceInstanceId: "workspace-1",
+                            accountId: "workspace-1",
+                            accountLabel: "OpenCode",
+                            raw_label: "rolling",
+                            normalized_label: "滚动",
+                            used: 12,
+                            limit: 100,
+                        }),
+                    ],
+                },
+            }),
+        ];
+
+        const [group] = build_provider_usage_groups(connectors);
+        if (!group) throw new Error("Expected provider usage group");
+
+        const [overview] = build_overview_for_group(group, undefined, { rolling: "五小时" });
+        expect(overview?.name).toBe("五小时");
+        expect(overview?.id).toBe("overview-五小时");
     });
 
     it("hides overview reset time when account reset times are too far apart (default 10min)", () => {

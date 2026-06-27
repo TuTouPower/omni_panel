@@ -1,4 +1,4 @@
-import { memo, useState, useMemo } from "react";
+import { memo, useState, useMemo, useCallback } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
 import {
@@ -37,6 +37,7 @@ interface ProviderCardProps {
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
+    accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>> | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onReLogin?: ((provider: UsageProvider) => void) | undefined;
     convergentTimeMinutes?: number | undefined;
@@ -75,6 +76,7 @@ export const ProviderCard = memo(function ProviderCard({
     barColorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
     barStyle = "thin",
     labelMap,
+    accountLabelMaps,
     onEditAccount,
     onReLogin,
     convergentTimeMinutes,
@@ -100,9 +102,27 @@ export const ProviderCard = memo(function ProviderCard({
     const [l2open, set_l2open] = useState(false);
 
     const is_multi = accountCount > 1;
+    const label_map_for_connector = useCallback(
+        (connector_instance_id: string | undefined) => {
+            const per_account = connector_instance_id
+                ? accountLabelMaps?.[connector_instance_id]
+                : undefined;
+            return per_account ? { ...(labelMap ?? {}), ...per_account } : labelMap;
+        },
+        [labelMap, accountLabelMaps],
+    );
+
+    const label_map_for_account = (account: ProviderUsageAccount) =>
+        label_map_for_connector(account.periods[0]?.connectorInstanceId);
+
     const overview_periods = useMemo(
-        () => (group ? build_overview_for_group(group, convergentTimeMinutes) : []),
-        [group, convergentTimeMinutes],
+        () =>
+            group
+                ? build_overview_for_group(group, convergentTimeMinutes, labelMap, (period) =>
+                      label_map_for_connector(period.connectorInstanceId),
+                  )
+                : [],
+        [group, convergentTimeMinutes, labelMap, label_map_for_connector],
     );
     const overview_updated_at = useMemo(
         () =>
@@ -295,7 +315,7 @@ export const ProviderCard = memo(function ProviderCard({
                         account={account}
                         barColorScheme={barColorScheme}
                         barStyle={barStyle}
-                        labelMap={labelMap}
+                        labelMap={label_map_for_account(account)}
                     />
                 ))}
             </div>
@@ -338,7 +358,7 @@ export const ProviderCard = memo(function ProviderCard({
                             periods={account.periods}
                             colorScheme={barColorScheme}
                             barStyle={barStyle}
-                            labelMap={labelMap}
+                            labelMap={label_map_for_account(account)}
                         />
                     ))
                   : null;

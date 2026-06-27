@@ -8,6 +8,7 @@ import gemini_svg from "../assets/vendor_logos/gemini.svg";
 import glm_svg from "../assets/vendor_logos/glm.svg";
 import kimi_svg from "../assets/vendor_logos/kimi.svg";
 import minimax_svg from "../assets/vendor_logos/minimax.svg";
+import opencode_go_svg from "../assets/vendor_logos/opencode_go.svg";
 import tavily_svg from "../assets/vendor_logos/tavily.svg";
 
 const UI_ICONS: Record<string, string> = {
@@ -95,6 +96,7 @@ const VENDOR_LOGOS: Record<string, string> = {
     glm: glm_svg,
     deepseek: deepseek_svg,
     minimax: minimax_svg,
+    opencode_go: opencode_go_svg,
     tavily: tavily_svg,
 };
 

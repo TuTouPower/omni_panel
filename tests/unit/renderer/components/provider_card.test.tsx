@@ -712,6 +712,78 @@ describe("ProviderCard", () => {
         expect(toggle).toBeInTheDocument();
     });
 
+    it("applies account label maps to multi-account overview", () => {
+        const rolling_a = makePeriod({
+            id: "opencode-a-rolling",
+            provider: "opencode_go",
+            raw_label: "rolling",
+            name: "滚动",
+            used: 10,
+            limit: 100,
+            connectorInstanceId: "opencode-go-1",
+            accountId: "workspace-a",
+            accountLabel: "Workspace A",
+        });
+        const rolling_b = makePeriod({
+            id: "opencode-b-rolling",
+            provider: "opencode_go",
+            raw_label: "rolling",
+            name: "滚动",
+            used: 20,
+            limit: 100,
+            connectorInstanceId: "opencode-go-2",
+            accountId: "workspace-b",
+            accountLabel: "Workspace B",
+        });
+        const group = makeGroup({
+            provider: "opencode_go",
+            label: "OpenCode Go",
+            accountCount: 2,
+            periods: [rolling_a, rolling_b],
+            accounts: [
+                {
+                    id: "workspace-a",
+                    sourceInstanceId: "workspace-a",
+                    accountId: "workspace-a",
+                    accountLabel: "Workspace A",
+                    status: "normal",
+                    updatedAt: "2026-06-02T10:00:00Z",
+                    observedAt: 1748858400000,
+                    stale: false,
+                    periods: [rolling_a],
+                },
+                {
+                    id: "workspace-b",
+                    sourceInstanceId: "workspace-b",
+                    accountId: "workspace-b",
+                    accountLabel: "Workspace B",
+                    status: "normal",
+                    updatedAt: "2026-06-02T10:00:00Z",
+                    observedAt: 1748858400000,
+                    stale: false,
+                    periods: [rolling_b],
+                },
+            ],
+        });
+
+        render(
+            <ProviderCard
+                provider="opencode_go"
+                group={group}
+                expanded
+                onToggleExpand={vi.fn()}
+                accountLabelMaps={{
+                    "opencode-go-1": { rolling: "五小时" },
+                    "opencode-go-2": { rolling: "本周" },
+                }}
+            />,
+        );
+
+        expect(screen.getByText("五小时")).toBeInTheDocument();
+        expect(screen.getByText("本周")).toBeInTheDocument();
+        expect(screen.queryByText("滚动")).not.toBeInTheDocument();
+    });
+
     it("calls onEditAccount with first account when edit is clicked", () => {
         const onEditAccount = vi.fn();
         const group = makeGroup();

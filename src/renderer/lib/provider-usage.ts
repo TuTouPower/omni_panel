@@ -364,11 +364,19 @@ export interface OverviewWindow {
 export function build_overview_for_group(
     group: ProviderUsageGroup,
     convergentTimeMinutes?: number,
+    labelMap?: Readonly<Record<string, string>>,
+    labelMapForPeriod?: (
+        period: ProviderUsagePeriod,
+    ) => Readonly<Record<string, string>> | undefined,
 ): OverviewWindow[] {
     const byPeriod = new Map<string, ProviderUsagePeriod[]>();
 
     for (const period of group.periods) {
-        const label = format_usage_period_label(period.raw_label, period.name);
+        const label = format_usage_period_label(
+            period.raw_label,
+            period.name,
+            labelMapForPeriod?.(period) ?? labelMap,
+        );
         const existing = byPeriod.get(label) ?? [];
         existing.push(period);
         byPeriod.set(label, existing);

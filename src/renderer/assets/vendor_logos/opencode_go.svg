@@ -1,0 +1,7 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'>
+    <title>OpenCode</title>
+    <rect width='300' height='300' rx='64' fill='#211E1E'/>
+    <path d='M92 111L53 150L92 189' fill='none' stroke='#FFFFFF' stroke-width='24' stroke-linecap='round' stroke-linejoin='round'/>
+    <path d='M208 111L247 150L208 189' fill='none' stroke='#FFFFFF' stroke-width='24' stroke-linecap='round' stroke-linejoin='round'/>
+    <path d='M171 86L129 214' fill='none' stroke='#FFFFFF' stroke-width='24' stroke-linecap='round'/>
+</svg>

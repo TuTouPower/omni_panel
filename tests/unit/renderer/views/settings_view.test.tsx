@@ -851,6 +851,81 @@ describe("SettingsView", () => {
         expect(screen.queryByText("已添加")).not.toBeInTheDocument();
     });
 
+    it("opens edit form after settings navigate when connector info loads later", async () => {
+        let navigate_callback:
+            | ((context: { instanceId?: string; provider?: string; accountId?: string }) => void)
+            | undefined;
+        window.usageboard.event.onSettingsNavigate = vi.fn((cb: unknown) => {
+            navigate_callback = cb as typeof navigate_callback;
+            return vi.fn();
+        });
+        const connector_list = vi.fn().mockResolvedValueOnce([]);
+        window.usageboard.connector.list = connector_list;
+        connector_list.mockResolvedValue([
+            {
+                instanceId: "opencode-go-1",
+                sourceInstanceId: "workspace-1",
+                stateId: "opencode-go-1",
+                name: "OpenCode Go",
+                displayName: "OpenCode Go",
+                enabled: true,
+                source: "session",
+                supportedProviders: ["opencode_go"],
+                activeProviders: ["opencode_go"],
+                metadata: {
+                    parameters: [],
+                    endpoints: { default: "https://opencode.ai", login: "https://opencode.ai" },
+                },
+                snapshot: { status: "idle" },
+            },
+        ]);
+        current_config = {
+            ...base_config,
+            plugins: [
+                {
+                    instanceId: "opencode-go-1",
+                    stateId: "opencode-go-1",
+                    name: "OpenCode Go",
+                    enabled: true,
+                    executablePath: "connectors/opencode_go/connector.ts",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+
+        render(<SettingsView />);
+        await waitFor(() => {
+            expect(navigate_callback).toBeDefined();
+        });
+
+        act(() => {
+            navigate_callback?.({
+                instanceId: "opencode-go-1",
+                provider: "opencode_go",
+                accountId: "workspace-1",
+            });
+        });
+
+        await waitFor(() => {
+            const dialog = screen.getByRole("dialog");
+            expect(within(dialog).getByText("编辑账号")).toBeInTheDocument();
+            expect(within(dialog).getByText("OpenCode Go")).toBeInTheDocument();
+        });
+        expect(screen.queryByText("添加账号")).not.toBeInTheDocument();
+    });
+
+    it("does not render the standalone generic add account dialog from accounts page", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+
+        expect(screen.queryByRole("button", { name: /^添加$/ })).not.toBeInTheDocument();
+        expect(screen.queryByText("添加账号")).not.toBeInTheDocument();
+    });
+
     it("shows VendorMark in edit dialog header", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);

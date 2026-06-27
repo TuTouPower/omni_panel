@@ -105,10 +105,10 @@ CPA 账号不应有删除按钮。
 #### 已接近
 
 - 设置页左侧已经没有独立"数据源"导航。
-- "已添加"页里已有添加按钮。
-- 已有 `AddAccountDialog`，支持 api key / session / local 三类接入。
+- "已添加"页不再渲染通用新增账号弹窗；账号编辑只打开对应连接器的编辑面板。
+- `AddAccountDialog` 组件仍保留给独立新增流程测试，但设置页账号列表不再直接入口。
 - 已有 `CpaConnectorSettings`，支持 CPA URL、管理密钥、同步范围、已发现账号。
-- 已有 `LabelMapDialog` 和 `providerLabelMaps` / `accountLabelMaps` 配置字段。
+- 已有 `LabelMapDialog` 和 `providerLabelMaps` / `accountLabelMaps` 配置字段；主面板显示按用户映射覆盖连接器默认标签。
 
 #### 主要不一致
 

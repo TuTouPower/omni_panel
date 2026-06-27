@@ -11,8 +11,6 @@ import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { VendorCard } from "../components/VendorCard";
 import { CpaCard } from "../components/CpaCard";
-import { AddAccountDialog } from "../components/AddAccountDialog";
-import type { AddAccountParams } from "../components/AddAccountDialog";
 import { LabelMapDialog } from "../components/LabelMapDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon, VendorMark, type VendorId } from "../components/Icon";
@@ -670,6 +668,41 @@ function TitleBar() {
     );
 }
 
+// Listen for navigate events from main panel (edit account)
+function open_settings_account_dialog(
+    context: { instanceId?: string; provider?: string },
+    plugins: readonly ConnectorInfo[],
+    setDialog: (dialog: DialogState) => void,
+): boolean {
+    if (context.instanceId) {
+        const match = plugins.find((p) => p.instanceId === context.instanceId);
+        if (match) {
+            setDialog({
+                mode: "edit",
+                instanceId: match.instanceId,
+                pluginName: match.displayName,
+            });
+            return true;
+        }
+    }
+
+    if (context.provider) {
+        const match = plugins.find((p) =>
+            p.activeProviders.includes(context.provider as UsageProvider),
+        );
+        if (match) {
+            setDialog({
+                mode: "edit",
+                instanceId: match.instanceId,
+                pluginName: match.displayName,
+            });
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /* ── Main View ── */
 export function SettingsView() {
     useTheme();
@@ -679,7 +712,6 @@ export function SettingsView() {
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);
     const [showCpaAdd, setShowCpaAdd] = useState(false);
-    const [show_add_account_dialog, set_show_add_account_dialog] = useState(false);
     const [label_map_dialog, set_label_map_dialog] = useState<{
         instance_id: string;
         vendor_id: UsageProvider;
@@ -715,35 +747,12 @@ export function SettingsView() {
     useEffect(() => {
         const unsub = window.usageboard.event.onSettingsNavigate((context) => {
             setSection("accounts");
-            if (context.instanceId) {
-                setDialog({ mode: "edit", instanceId: context.instanceId, pluginName: undefined });
-            } else if (context.provider) {
-                let match = pluginInfos.find((p) =>
-                    p.activeProviders.includes(context.provider as UsageProvider),
-                );
-                if (match) {
-                    setDialog({
-                        mode: "edit",
-                        instanceId: match.instanceId,
-                        pluginName: match.displayName,
-                    });
-                } else {
-                    // pluginInfos may not be loaded yet — fetch fresh and retry
-                    void window.usageboard.connector.list().then((plugins) => {
-                        setConnectorInfos(plugins);
-                        match = plugins.find((p) =>
-                            p.activeProviders.includes(context.provider as UsageProvider),
-                        );
-                        if (match) {
-                            setDialog({
-                                mode: "edit",
-                                instanceId: match.instanceId,
-                                pluginName: match.displayName,
-                            });
-                        }
-                    });
-                }
-            }
+            if (open_settings_account_dialog(context, pluginInfos, setDialog)) return;
+
+            void window.usageboard.connector.list().then((plugins) => {
+                setConnectorInfos(plugins);
+                open_settings_account_dialog(context, plugins, setDialog);
+            });
         });
         return unsub;
     }, [pluginInfos]);
@@ -918,45 +927,6 @@ export function SettingsView() {
             }
         },
         [saveSecrets],
-    );
-
-    const create_plugin_instance = useCallback(
-        async (params: AddAccountParams) => {
-            if (!config) return;
-            const template = pluginInfos.find(
-                (p) => p.activeProviders.includes(params.vendor_id) && p.enabled,
-            );
-            if (!template) return;
-
-            const template_plugin = config.plugins.find(
-                (p) => p.instanceId === template.instanceId,
-            );
-            if (!template_plugin) return;
-
-            const new_id = crypto.randomUUID();
-            // Save config FIRST so secretParamKeys is rebuilt before saving secrets
-            await save_config({
-                ...config,
-                plugins: [
-                    ...config.plugins,
-                    {
-                        instanceId: new_id,
-                        stateId: new_id,
-                        name: params.account_name,
-                        enabled: true,
-                        executablePath: template_plugin.executablePath,
-                        refreshIntervalSeconds: template_plugin.refreshIntervalSeconds,
-                        parameterValues: params.parameter_values,
-                        endpointOverrides: params.endpoint_overrides ?? {},
-                    },
-                ],
-            });
-            if (Object.keys(params.secrets).length > 0) {
-                await saveSecrets(new_id, params.secrets);
-            }
-            trigger_background_refresh(new_id);
-        },
-        [config, pluginInfos, save_config, saveSecrets],
     );
 
     const refreshPlugin = useCallback(async (instanceId: string) => {
@@ -1317,16 +1287,6 @@ export function SettingsView() {
                             <>
                                 <div className="sp-head">
                                     <span className="sp-title">已添加</span>
-                                    <button
-                                        className="sp-action"
-                                        onClick={() => {
-                                            set_show_add_account_dialog(true);
-                                        }}
-                                        type="button"
-                                    >
-                                        <Icon name="plus" size={15} strokeWidth={2} />
-                                        添加
-                                    </button>
                                 </div>
                                 <div className="set-group-label" style={{ marginTop: 16 }}>
                                     已添加
@@ -1975,20 +1935,6 @@ export function SettingsView() {
                     <CpaAddDialog
                         onClose={() => {
                             setShowCpaAdd(false);
-                        }}
-                    />
-                )}
-                {show_add_account_dialog && (
-                    <AddAccountDialog
-                        plugin_infos={pluginInfos}
-                        has_cpa={pluginInfos.some((item) => item.source === "gateway")}
-                        on_close={() => {
-                            set_show_add_account_dialog(false);
-                        }}
-                        on_save={create_plugin_instance}
-                        on_cpa={() => {
-                            set_show_add_account_dialog(false);
-                            setShowCpaAdd(true);
                         }}
                     />
                 )}

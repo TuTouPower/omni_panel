@@ -87,6 +87,21 @@ describe("VendorMark", () => {
         expect(svg).not.toContain("<rect");
     });
 
+    it("stores the official opencode logo asset", () => {
+        const { container } = render(<VendorMark id="opencode_go" />);
+        const image = container.querySelector("span.vicon img");
+        const svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/opencode_go.svg"),
+            "utf8",
+        );
+
+        expect(image).toBeInTheDocument();
+        expect(image?.getAttribute("src")).toContain("opencode_go");
+        expect(svg).toContain("viewBox='0 0 300 300'");
+        expect(svg).toContain("fill='#211E1E'");
+        expect(svg).not.toContain('stroke="currentColor"');
+    });
+
     it("stores the official Zhipu logo asset for glm", () => {
         const svg = readFileSync(
             join(process.cwd(), "src/renderer/assets/vendor_logos/glm.svg"),

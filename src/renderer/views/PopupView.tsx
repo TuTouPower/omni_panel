@@ -467,7 +467,7 @@ export function PopupView() {
         const first_period = account.periods[0];
         if (!first_period) return;
         window.usageboard.settings.open({
-            instanceId: account.sourceInstanceId,
+            instanceId: first_period.connectorInstanceId,
             provider: first_period.provider,
             accountId: account.id,
         });
@@ -806,6 +806,7 @@ export function PopupView() {
                                 barColorScheme={usage_bar_color_scheme}
                                 barStyle={usage_bar_style}
                                 providerLabelMaps={provider_label_maps}
+                                accountLabelMaps={account_label_maps}
                                 convergentTimeMinutes={convergent_time_minutes}
                             />
                         )}

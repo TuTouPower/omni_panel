@@ -51,7 +51,10 @@ export function ProviderAccountList({
                 const collapsed = collapsedAccounts?.[account.id] ?? false;
                 const isDragging = draggingId === account.id;
                 const isDragOver = overId === account.id && draggingId !== account.id;
-                const per_account_map = accountLabelMaps?.[account.sourceInstanceId] ?? {};
+                const connector_instance_id = account.periods[0]?.connectorInstanceId;
+                const per_account_map = connector_instance_id
+                    ? (accountLabelMaps?.[connector_instance_id] ?? {})
+                    : {};
                 const merged_label_map: Readonly<Record<string, string>> | undefined =
                     Object.keys(per_provider_map).length > 0 ||
                     Object.keys(per_account_map).length > 0

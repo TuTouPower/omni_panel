@@ -74,4 +74,16 @@ describe("ProviderAccountList", () => {
         if (!fill) throw new Error("missing fill");
         expect(fill.style.background).toBe("var(--risk-yellow)");
     });
+
+    it("uses account label maps keyed by connector instance id", () => {
+        render(
+            <ProviderAccountList
+                group={make_group()}
+                accountLabelMaps={{ "cpa-connector": { "5h": "五小时自定义" } }}
+            />,
+        );
+
+        expect(screen.getByText("五小时自定义")).toBeInTheDocument();
+        expect(screen.queryByText("5小时")).not.toBeInTheDocument();
+    });
 });
