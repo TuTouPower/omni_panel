@@ -61,11 +61,6 @@ export function ProviderOverview({
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
 
-    const merged_label_map = (provider: UsageProvider) => {
-        const per_provider = providerLabelMaps?.[provider];
-        return per_provider ? { ...(labelMap ?? {}), ...per_provider } : labelMap;
-    };
-
     return (
         <>
             {visibleProviders.map((provider) => {
@@ -92,8 +87,9 @@ export function ProviderOverview({
                         refreshing={refreshingProviders?.has(provider)}
                         barColorScheme={barColorScheme}
                         barStyle={barStyle}
-                        labelMap={merged_label_map(provider)}
+                        labelMap={labelMap}
                         accountLabelMaps={accountLabelMaps}
+                        providerLabelMaps={providerLabelMaps}
                         convergentTimeMinutes={convergentTimeMinutes}
                     />
                 );

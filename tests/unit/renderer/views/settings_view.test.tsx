@@ -308,6 +308,46 @@ describe("SettingsView", () => {
         });
     });
 
+    it("saves account label edits as vendor-level label maps", async () => {
+        const user = userEvent.setup();
+        window.usageboard.connector.getState = vi.fn().mockResolvedValue({
+            status: "ready",
+            items: [
+                {
+                    provider: "deepseek",
+                    raw_label: "rolling",
+                    normalized_label: "滚动",
+                },
+            ],
+        });
+
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        const editButtons = screen.getAllByTitle("编辑");
+        const deepseekEditButton = editButtons[0];
+        if (!deepseekEditButton) throw new Error("missing DeepSeek edit button");
+        await user.click(deepseekEditButton);
+        await waitFor(() => expect(screen.getByText("数据标签映射")).toBeInTheDocument());
+
+        await user.click(screen.getByText("数据标签映射"));
+        const input = await screen.findByDisplayValue("滚动");
+        await user.clear(input);
+        await user.type(input, "5 小时");
+        await user.type(screen.getByLabelText("API 密钥"), "sk-test");
+        await user.type(screen.getByLabelText("接口地址"), "https://api.deepseek.example");
+        await user.click(screen.getByTestId("settings-save-btn-deepseek-1"));
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalledWith({
+                ...base_config,
+                providerLabelMaps: {
+                    deepseek: { rolling: "5 小时" },
+                },
+            });
+        });
+    });
+
     it("renders CPA as a card with always-visible account child rows", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
@@ -818,33 +858,14 @@ describe("SettingsView", () => {
         expect(deepseek_plugin?.enabled).toBe(false);
     });
 
-    it("shows label map sync toggle in general section", async () => {
+    it("shows label map sync behavior in general section", async () => {
         render(<SettingsView />);
         await waitFor(() => {
-            expect(screen.getByText("同一数据源的数据标签映射同步")).toBeInTheDocument();
+            expect(screen.getByText("同一厂商的数据标签映射同步")).toBeInTheDocument();
         });
-    });
-
-    it("toggles labelMapSync config on click", async () => {
-        const user = userEvent.setup();
-        render(<SettingsView />);
-        await waitFor(() => {
-            expect(screen.getByText("同一数据源的数据标签映射同步")).toBeInTheDocument();
-        });
-
-        // Find the toggle near the label map sync row
-        const syncRow = screen.getByText("同一数据源的数据标签映射同步").closest(".set-row");
+        const syncRow = screen.getByText("同一厂商的数据标签映射同步").closest(".set-row");
         if (!syncRow) throw new Error("sync row not found");
-        const toggle = within(syncRow as HTMLElement).getByRole("button");
-        await user.click(toggle);
-
-        await waitFor(() => {
-            expect(save).toHaveBeenCalled();
-        });
-        const saved_config = (
-            save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
-        )?.[0];
-        expect(saved_config?.labelMapSync).toBe(true);
+        expect(within(syncRow as HTMLElement).queryByRole("button")).not.toBeInTheDocument();
     });
 
     it("shows '账号' nav label instead of '已添加'", async () => {

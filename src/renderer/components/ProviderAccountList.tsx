@@ -58,7 +58,7 @@ export function ProviderAccountList({
                 const merged_label_map: Readonly<Record<string, string>> | undefined =
                     Object.keys(per_provider_map).length > 0 ||
                     Object.keys(per_account_map).length > 0
-                        ? { ...labelMap, ...per_provider_map, ...per_account_map }
+                        ? { ...labelMap, ...per_account_map, ...per_provider_map }
                         : labelMap;
 
                 if (!onToggleAccount) {

@@ -1127,18 +1127,10 @@ export function SettingsView() {
                                 </SetRow>
                                 <div className="set-group-label">其他</div>
                                 <SetRow
-                                    title="同一数据源的数据标签映射同步"
-                                    sub="同一数据源下的多个账号共用一套数据标签映射，编辑任一账号即同步到全部"
+                                    title="同一厂商的数据标签映射同步"
+                                    sub="同一厂商下的多个账号共用一套数据标签映射，编辑任一账号即同步到全部"
                                 >
-                                    <Toggle
-                                        on={config.labelMapSync ?? false}
-                                        onClick={() => {
-                                            void save_config({
-                                                ...config,
-                                                labelMapSync: !(config.labelMapSync ?? false),
-                                            });
-                                        }}
-                                    />
+                                    <span aria-hidden="true" />
                                 </SetRow>
                                 {has_multi_account && (
                                     <SetRow
@@ -1276,7 +1268,7 @@ export function SettingsView() {
                                                         save_target: "provider",
                                                     });
                                                 }}
-                                                providerLabelMaps={config.accountLabelMaps}
+                                                providerLabelMaps={config.providerLabelMaps}
                                             />
                                         </div>
                                     </>
@@ -1929,12 +1921,34 @@ export function SettingsView() {
                         onClose={() => {
                             setDialog(null);
                         }}
-                        existingLabelMap={
-                            dialog.instanceId
-                                ? (config.accountLabelMaps?.[dialog.instanceId] ?? {})
-                                : undefined
-                        }
+                        existingLabelMap={(() => {
+                            if (!dialog.instanceId) return undefined;
+                            const provider = pluginInfos.find(
+                                (plugin) => plugin.instanceId === dialog.instanceId,
+                            )?.activeProviders[0];
+                            return provider
+                                ? {
+                                      ...(config.accountLabelMaps?.[dialog.instanceId] ?? {}),
+                                      ...(config.providerLabelMaps?.[provider] ?? {}),
+                                  }
+                                : (config.accountLabelMaps?.[dialog.instanceId] ?? {});
+                        })()}
                         onSaveLabelMap={async (id, map) => {
+                            const provider = pluginInfos.find((plugin) => plugin.instanceId === id)
+                                ?.activeProviders[0];
+                            if (provider) {
+                                await save_config({
+                                    ...config,
+                                    providerLabelMaps: {
+                                        ...(config.providerLabelMaps ?? {}),
+                                        [provider]: {
+                                            ...(config.providerLabelMaps?.[provider] ?? {}),
+                                            ...map,
+                                        },
+                                    },
+                                });
+                                return;
+                            }
                             await save_config({
                                 ...config,
                                 accountLabelMaps: {

@@ -100,6 +100,7 @@ export function SettingsForm({
     );
 
     useEffect(() => {
+        mounted_ref.current = true;
         return () => {
             mounted_ref.current = false;
             if (saved_timeout_ref.current !== null) {

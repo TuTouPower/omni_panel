@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -94,6 +95,40 @@ describe("SettingsForm", () => {
         renderForm({ onDuplicate });
         await user.click(screen.getByTestId("settings-duplicate-btn-deepseek"));
         expect(onDuplicate).toHaveBeenCalledWith("deepseek");
+    });
+
+    it("loads label map rows under React StrictMode", async () => {
+        const user = userEvent.setup();
+        window.usageboard.connector.getState = vi.fn().mockResolvedValue({
+            status: "ready",
+            updatedAt: "2026-06-28T00:00:00.000Z",
+            items: [
+                {
+                    provider: "opencode_go",
+                    raw_label: "rolling",
+                    normalized_label: "滚动",
+                },
+            ],
+        });
+
+        render(
+            <StrictMode>
+                <SettingsForm
+                    instanceId="opencode-go-1"
+                    providerId="opencode_go"
+                    parameters={[]}
+                    values={{}}
+                    refreshIntervalSeconds={300}
+                    globalIntervalLabel="5 分钟"
+                    onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+                    onSaveLabelMap={vi.fn().mockResolvedValue(undefined)}
+                />
+            </StrictMode>,
+        );
+
+        await user.click(screen.getByText("数据标签映射"));
+
+        expect(await screen.findByDisplayValue("滚动")).toBeInTheDocument();
     });
 
     it("submits form and calls onSave with correct arguments", async () => {

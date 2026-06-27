@@ -16,4 +16,10 @@
 
 某个厂商下的一条独立身份。同一厂商可以有多个账号。
 
-示例：Codex 厂商下可以有 5 个账号。DeepSeek 直连时，数据源是 DeepSeek，厂商是 DeepSeek，账号是用户添加的某个 DeepSeek 账号。
+示例：Codex 厂商下可以有 5 个账号。DeepSeek 直连时，数据源是 DeepSeek，厂商是 DeepSeek，账号就是用户添加的某个 DeepSeek 账号。
+
+## 数据标签映射
+
+厂商级的显示名称规则。同一厂商下的所有账号共享同一套数据标签映射。
+
+示例：OpenCode 的任一账号把 `rolling` 映射为“5 小时”后，OpenCode 厂商下所有账号都使用 `rolling → 5 小时`。
