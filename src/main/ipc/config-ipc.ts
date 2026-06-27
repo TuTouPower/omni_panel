@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod/v3";
 import { readFile, writeFile, stat } from "node:fs/promises";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
@@ -183,7 +184,7 @@ export async function handleConfigSaveSecrets(
 async function handleConfigDuplicate(
     deps: ConfigIpcDeps,
     payload: unknown,
-): Promise<IpcResult<void>> {
+): Promise<IpcResult<{ instanceId: string }>> {
     try {
         if (typeof payload !== "string" || !payload) {
             return fail("VALIDATION_ERROR", "无效的插件 ID");
@@ -196,16 +197,17 @@ async function handleConfigDuplicate(
         );
         if (!source) return fail("VALIDATION_ERROR", "源插件不存在");
 
-        const suffix = String(Date.now());
+        const newInstanceId = randomUUID();
         const newInstance: ConnectorConfiguration = {
-            instanceId: `${source.instanceId}-${suffix}`,
-            stateId: `${source.stateId}-${suffix}`,
-            name: `${source.name} (副本)`,
-            enabled: false,
+            instanceId: newInstanceId,
+            stateId: randomUUID(),
+            name: source.name,
+            enabled: true,
             executablePath: source.executablePath,
             refreshIntervalSeconds: source.refreshIntervalSeconds,
             parameterValues: {},
             endpointOverrides: {},
+            ...(source.manualRefreshOnly ? { manualRefreshOnly: true } : {}),
         };
 
         const updated: AppConfiguration = {
@@ -214,7 +216,7 @@ async function handleConfigDuplicate(
         };
         await deps.configStore.save(updated);
         deps.onConfigSaved?.(updated);
-        return ok(undefined);
+        return ok({ instanceId: newInstanceId });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return fail("INTERNAL_ERROR", `复制插件失败: ${msg}`);

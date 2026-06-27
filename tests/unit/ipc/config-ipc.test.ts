@@ -388,6 +388,55 @@ describe("config-ipc", () => {
         );
     });
 
+    it("config:duplicate creates an enabled blank account and returns its instanceId", async () => {
+        const deps = createMockDeps();
+        deps.configStore.load.mockResolvedValueOnce({
+            ...(await deps.configStore.load()),
+            plugins: [
+                {
+                    instanceId: "claude",
+                    stateId: "claude",
+                    name: "Claude",
+                    enabled: true,
+                    executablePath: "/plugins/claude.py",
+                    refreshIntervalSeconds: 300,
+                    manualRefreshOnly: true,
+                    parameterValues: { API_KEY: "sk-real", MODEL: "gpt-4" },
+                    endpointOverrides: {},
+                },
+            ],
+        });
+        const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+        await registerConfigIpc(deps);
+
+        const handler = ipc_main_mock.handle.mock.calls.find(
+            ([channel]) => channel === "config:duplicate",
+        )?.[1];
+        if (!handler) throw new Error("missing config:duplicate handler");
+
+        const result = await handler(
+            { senderFrame: { url: "file://settings" } } as Electron.IpcMainInvokeEvent,
+            "claude",
+        );
+
+        expect(result).toMatchObject({ ok: true });
+        const new_instance_id = (result as { data: { instanceId: string } }).data.instanceId;
+        expect(typeof new_instance_id).toBe("string");
+        expect(new_instance_id).not.toBe("");
+        const savedArgs = deps.configStore.save.mock.calls as [AppConfiguration][];
+        const saved = savedArgs[0]?.[0];
+        const added = saved?.plugins.find((plugin) => plugin.instanceId === new_instance_id);
+        expect(added).toMatchObject({
+            enabled: true,
+            executablePath: "/plugins/claude.py",
+            parameterValues: {},
+            endpointOverrides: {},
+            manualRefreshOnly: true,
+        });
+        expect(added?.instanceId).not.toBe("claude");
+        expect(added?.stateId).not.toBe("claude");
+    });
+
     it("handleConfigExport writes JSON file via dialog", async () => {
         const { dialog } = await import("electron");
         const exportPath = await tempFile("export.json");

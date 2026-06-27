@@ -259,9 +259,7 @@ const api: UsageboardApi = (() => {
                     saveSecrets: async () => {
                         /* no-op: popup/tray cannot save secrets */
                     },
-                    duplicate: async () => {
-                        /* no-op: popup/tray cannot duplicate */
-                    },
+                    duplicate: () => Promise.resolve({ instanceId: "" }),
                     export: () => Promise.resolve({ saved: false }),
                     import: () => Promise.resolve({ imported: false }),
                 },
@@ -287,9 +285,7 @@ const api: UsageboardApi = (() => {
                     saveSecrets: async () => {
                         /* no-op: popup/tray cannot save secrets */
                     },
-                    duplicate: async () => {
-                        /* no-op: popup/tray cannot duplicate */
-                    },
+                    duplicate: () => Promise.resolve({ instanceId: "" }),
                     export: () => Promise.resolve({ saved: false }),
                     import: () => Promise.resolve({ imported: false }),
                 },

@@ -4,6 +4,7 @@ import type { UsageProvider } from "../../../src/shared/schemas/plugin-output";
 
 const mock_window_events: Record<string, (() => void) | undefined> = {};
 let mock_cookie_get_result: { name: string; value: string }[] = [];
+const mock_partitions: string[] = [];
 
 vi.mock("electron", () => ({
     BrowserWindow: vi.fn().mockImplementation(() => ({
@@ -18,14 +19,17 @@ vi.mock("electron", () => ({
         loadURL: vi.fn(),
     })),
     session: {
-        fromPartition: vi.fn(() => ({
-            cookies: {
-                get: vi.fn(() => Promise.resolve(mock_cookie_get_result)),
-            },
-            webRequest: {
-                onBeforeSendHeaders: vi.fn(),
-            },
-        })),
+        fromPartition: vi.fn((partition: string) => {
+            mock_partitions.push(partition);
+            return {
+                cookies: {
+                    get: vi.fn(() => Promise.resolve(mock_cookie_get_result)),
+                },
+                webRequest: {
+                    onBeforeSendHeaders: vi.fn(),
+                },
+            };
+        }),
     },
     ipcMain: {
         handle: vi.fn(),
@@ -64,6 +68,7 @@ describe("handleCookieLogin", () => {
     beforeEach(() => {
         secrets_store = {};
         mock_cookie_get_result = [];
+        mock_partitions.length = 0;
         Object.keys(mock_window_events).forEach((k) => {
             mock_window_events[k] = undefined;
         });
@@ -108,6 +113,20 @@ describe("handleCookieLogin", () => {
             definitions: [mimo_definition],
         };
     }
+
+    it("uses an instance-scoped persistent partition for interactive login", async () => {
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const promise = mod.handleCookieLogin(build_deps("mimo-test-1"), "mimo-test-1");
+
+        await vi.waitFor(() => {
+            if (!mock_window_events["closed"]) throw new Error("not ready");
+        });
+
+        mock_window_events["closed"]?.();
+        await promise;
+
+        expect(mock_partitions).toEqual(["persist:mimo-login:mimo-test-1"]);
+    });
 
     it("returns saved:true with combined cookie string when all 3 cookies present", async () => {
         mock_cookie_get_result = [

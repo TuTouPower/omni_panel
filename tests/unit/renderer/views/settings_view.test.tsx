@@ -6,7 +6,11 @@ import { SettingsView } from "../../../../src/renderer/views/SettingsView";
 
 const save = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 const saveSecrets = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-const duplicate = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+const duplicate = vi
+    .fn<(instanceId: string) => Promise<{ instanceId: string }>>()
+    .mockResolvedValue({
+        instanceId: "deepseek-2",
+    });
 
 const base_config: AppConfiguration = {
     schemaVersion: 1,
@@ -924,6 +928,64 @@ describe("SettingsView", () => {
 
         // The "添加" button now opens AccountDialog (add mode) with AddAccountPicker
         expect(screen.getByRole("button", { name: /^添加$/ })).toBeInTheDocument();
+    });
+
+    it("opens duplicated account dialog with vendor name instead of old account name", async () => {
+        const user = userEvent.setup();
+        current_config = {
+            ...base_config,
+            plugins: [
+                ...base_config.plugins,
+                {
+                    instanceId: "deepseek-2",
+                    stateId: "deepseek-2",
+                    name: "DeepSeek",
+                    enabled: true,
+                    executablePath: "plugins/deepseek.ts",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        window.usageboard.connector.list = vi.fn().mockResolvedValue([
+            {
+                instanceId: "deepseek-1",
+                sourceInstanceId: "deepseek-1",
+                stateId: "deepseek-1",
+                name: "DeepSeek",
+                displayName: "DeepSeek old account",
+                enabled: true,
+                source: "poll",
+                supportedProviders: ["deepseek"],
+                activeProviders: ["deepseek"],
+                metadata: { parameters: [], endpoints: {} },
+                snapshot: { status: "idle" },
+            },
+            {
+                instanceId: "deepseek-2",
+                sourceInstanceId: "deepseek-2",
+                stateId: "deepseek-2",
+                name: "DeepSeek",
+                displayName: "DeepSeek",
+                enabled: true,
+                source: "poll",
+                supportedProviders: ["deepseek"],
+                activeProviders: ["deepseek"],
+                metadata: { parameters: [], endpoints: {} },
+                snapshot: { status: "idle" },
+            },
+        ]);
+
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        await user.click(screen.getByRole("button", { name: /^添加$/ }));
+        await user.click(screen.getByRole("button", { name: "DeepSeek" }));
+
+        const dialog = await screen.findByRole("dialog");
+        expect(duplicate).toHaveBeenCalledWith("deepseek-1");
+        expect(within(dialog).getByText("DeepSeek")).toBeInTheDocument();
+        expect(within(dialog).queryByText("DeepSeek old account")).not.toBeInTheDocument();
     });
 
     it("shows VendorMark in edit dialog header", async () => {

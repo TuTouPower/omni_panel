@@ -66,8 +66,9 @@ export function create_session_manager(
             }
             in_progress.add(request.instance_id);
 
-            const window = deps.create_window(SESSION_LOGIN_PARTITION);
-            const session = deps.create_session(SESSION_LOGIN_PARTITION);
+            const partition = get_session_login_partition(request.instance_id);
+            const window = deps.create_window(partition);
+            const session = deps.create_session(partition);
             const login_origin = new URL(request.login_url).origin;
             let captured_cookie: string | null = null;
             let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -155,6 +156,10 @@ export function create_session_manager(
             });
         },
     };
+}
+
+export function get_session_login_partition(instance_id: string): string {
+    return `${SESSION_LOGIN_PARTITION}:${instance_id}`;
 }
 
 function should_capture_cookie(url: string, login_origin: string): boolean {

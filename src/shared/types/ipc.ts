@@ -198,7 +198,7 @@ export interface UsageboardApi {
         }>;
         save(config: AppConfiguration): Promise<void>;
         saveSecrets(payload: ConfigSaveSecretsPayload): Promise<void>;
-        duplicate(instanceId: string): Promise<void>;
+        duplicate(instanceId: string): Promise<{ instanceId: string }>;
         export(): Promise<{ saved: boolean }>;
         import(): Promise<{ imported: boolean }>;
     };

@@ -311,7 +311,7 @@ function AccountDialog({
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
     ) => Promise<void>;
-    onSelectService: (instanceId: string, pluginName: string) => void;
+    onSelectService: (instanceId: string, pluginName: string) => void | Promise<void>;
     onCpa: () => void;
     onClose: () => void;
     existingLabelMap?: Readonly<Record<string, string>> | undefined;
@@ -436,14 +436,13 @@ function AddAccountPicker({
     onCpa,
 }: {
     pluginInfos: ConnectorInfo[];
-    onSelect: (instanceId: string, pluginName: string) => void;
+    onSelect: (instanceId: string, pluginName: string) => void | Promise<void>;
     onCpa: () => void;
 }) {
-    const handleServiceClick = (provider: UsageProvider) => {
-        // Find the first plugin instance that provides this provider
+    const handleServiceClick = (provider: UsageProvider, label: string) => {
         const match = pluginInfos.find((p) => p.activeProviders.includes(provider) && p.enabled);
         if (match) {
-            onSelect(match.instanceId, match.displayName);
+            void onSelect(match.instanceId, label);
         }
     };
 
@@ -459,7 +458,7 @@ function AddAccountPicker({
                         key={s.id}
                         type="button"
                         onClick={() => {
-                            handleServiceClick(s.id);
+                            handleServiceClick(s.id, s.label);
                         }}
                     >
                         <span className="pc-mark">
@@ -707,7 +706,7 @@ function open_settings_account_dialog(
 export function SettingsView() {
     useTheme();
     const version = package_json.version;
-    const { config, hasSecrets, loading, error, save, saveSecrets } = use_config();
+    const { config, hasSecrets, loading, error, save, saveSecrets, duplicate } = use_config();
     const [pluginInfos, setConnectorInfos] = useState<ConnectorInfo[]>([]);
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -1915,8 +1914,13 @@ export function SettingsView() {
                         pluginInfos={pluginInfos}
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
-                        onSelectService={(id, name) => {
-                            setDialog({ mode: "edit", instanceId: id, pluginName: name });
+                        onSelectService={async (id, name) => {
+                            const created = await duplicate(id);
+                            setDialog({
+                                mode: "edit",
+                                instanceId: created.instanceId,
+                                pluginName: name,
+                            });
                         }}
                         onCpa={() => {
                             setDialog(null);

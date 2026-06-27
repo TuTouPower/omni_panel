@@ -10,6 +10,7 @@ import { createLogger } from "../../shared/lib/logger";
 const log = createLogger("ipc:auth");
 
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
+const MIMO_LOGIN_PARTITION = "persist:mimo-login";
 
 const ALLOWED_LOGIN_DOMAINS = new Set([
     "kimi.com",
@@ -55,9 +56,9 @@ export async function handleCookieLogin(
         return fail("VALIDATION_ERROR", `登录域名不被允许: ${hostname}`);
     }
 
-    // Fixed persistent partition keeps the session alive across window opens/closes.
-    // The user can close and reopen the login window without losing cookies.
-    const partition = "persist:mimo-login";
+    // Keep each account in its own persistent partition so cookies from one
+    // MiMo account never prefill or overwrite another account's login state.
+    const partition = get_mimo_login_partition(instanceId);
     const loginSession = session.fromPartition(partition);
 
     return new Promise<IpcResult<{ saved: boolean }>>((resolve) => {
@@ -204,7 +205,7 @@ export async function trySilentCookieRefresh(
     secretsStore: SecretsStore,
     instanceId: string,
 ): Promise<boolean> {
-    const partition = "persist:mimo-login";
+    const partition = get_mimo_login_partition(instanceId);
     const loginSession = session.fromPartition(partition);
     try {
         const allCookies = await loginSession.cookies.get({});
@@ -231,6 +232,10 @@ export async function trySilentCookieRefresh(
         );
         return false;
     }
+}
+
+export function get_mimo_login_partition(instanceId: string): string {
+    return `${MIMO_LOGIN_PARTITION}:${instanceId}`;
 }
 
 export function registerAuthIpc(deps: AuthIpcDeps): void {

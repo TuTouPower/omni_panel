@@ -118,7 +118,7 @@ describe("session-manager", () => {
         expect(deps.window.loaded_urls).toEqual(["https://example.com/login"]);
     });
 
-    it("uses the same persistent partition for login window and cookie capture", async () => {
+    it("uses an instance-scoped persistent partition for login window and cookie capture", async () => {
         const deps = create_deps();
         const manager = create_session_manager(deps);
 
@@ -131,8 +131,8 @@ describe("session-manager", () => {
         await promise;
 
         expect(deps.partitions).toEqual([
-            `window:${SESSION_LOGIN_PARTITION}`,
-            `session:${SESSION_LOGIN_PARTITION}`,
+            `window:${SESSION_LOGIN_PARTITION}:opencode-go-1`,
+            `session:${SESSION_LOGIN_PARTITION}:opencode-go-1`,
         ]);
     });
 

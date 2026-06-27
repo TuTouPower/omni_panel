@@ -12,7 +12,7 @@ interface UseConfigResult {
     save: (newConfig: AppConfiguration) => Promise<void>;
     update_config: (updater: (prev: AppConfiguration) => AppConfiguration) => void;
     saveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
-    duplicate: (instanceId: string) => Promise<void>;
+    duplicate: (instanceId: string) => Promise<{ instanceId: string }>;
 }
 
 export function use_config(): UseConfigResult {
@@ -112,12 +112,13 @@ export function use_config(): UseConfigResult {
             module: MODULE,
             message: `Duplicating plugin ${instanceId}`,
         });
-        await window.usageboard.config.duplicate(instanceId);
+        const created = await window.usageboard.config.duplicate(instanceId);
         // Reload config to reflect the new duplicate
         const result = await window.usageboard.config.get();
         config_ref.current = result.config;
         setConfig(result.config);
         setHasSecrets(result.hasSecrets);
+        return created;
     }, []);
 
     return { config, hasSecrets, loading, error, save, update_config, saveSecrets, duplicate };
