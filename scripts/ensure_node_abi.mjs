@@ -1,5 +1,8 @@
 import { spawnSync } from "node:child_process";
 
+/**
+ * @param {string} exec_path
+ */
 function check_abi(exec_path) {
     const check = spawnSync(
         exec_path,

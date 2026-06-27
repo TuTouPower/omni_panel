@@ -4,12 +4,18 @@ import { resolve } from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
+const electron_module = /** @type {unknown} */ (require("electron"));
+if (typeof electron_module !== "string") {
+    process.stderr.write("[abi] electron entrypoint is invalid\n");
+    process.exit(1);
+}
+const electron_bin = electron_module;
 const sqlite_check_script = "new (require('better-sqlite3'))(':memory:').close()";
 
 let electron_check;
 try {
     electron_check = spawnSync(
-        require("electron"),
+        electron_bin,
         ["-e", sqlite_check_script],
         { stdio: "pipe", env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } },
     );
@@ -22,9 +28,19 @@ if (electron_check.status !== 0) {
     process.stderr.write("[abi] better-sqlite3 is not compatible with Electron, rebuilding...\n");
 
     const electron_pkg = resolve(process.cwd(), "node_modules/electron/package.json");
-    let electron_version;
+    let electron_version = "";
     try {
-        electron_version = JSON.parse(readFileSync(electron_pkg, "utf8")).version;
+        const electron_pkg_json = /** @type {unknown} */ (
+            JSON.parse(readFileSync(electron_pkg, "utf8"))
+        );
+        if (typeof electron_pkg_json !== "object" || electron_pkg_json === null) {
+            throw new Error("invalid Electron package metadata");
+        }
+        const electron_pkg_record = /** @type {Record<string, unknown>} */ (electron_pkg_json);
+        if (typeof electron_pkg_record["version"] !== "string") {
+            throw new Error("invalid Electron package metadata");
+        }
+        electron_version = electron_pkg_record["version"];
     } catch {
         process.stderr.write("[abi] cannot read Electron version from node_modules/electron\n");
         process.exit(1);
