@@ -1,7 +1,7 @@
 # OpenCode Go 登录与用量查看设计
 
 日期：2026-06-27
-状态：待用户确认
+状态：实施中
 
 ## 目标
 
@@ -95,6 +95,12 @@ manifest：
 2. 单个 JSON 对象。
 3. Netscape cookie 文件格式。
 4. Cookie header 字符串：`name=value; name2=value2`。
+
+Cookie 输入旁新增“复制脚本”按钮。点击后把一段浏览器控制台脚本写入系统剪贴板。用户在已登录的 `https://opencode.ai` 页面 DevTools Console 运行该脚本：
+
+- 成功：脚本提示成功，并把 `document.cookie` 中可读取的 OpenCode Cookie header 写入用户剪贴板。用户可直接粘贴回 Cookie 输入框。
+- 失败：脚本提示明确原因，如未在 `opencode.ai` 域名、未登录、无可读取 Cookie、剪贴板写入失败。
+- 限制：浏览器脚本无法读取 `HttpOnly` Cookie。如果 OpenCode Go 必需 Cookie 是 `HttpOnly`，脚本应提示改用网页登录捕获或 DevTools/Application 导出。
 
 解析后统一生成 Cookie header，并保存到 `SESSION_COOKIE` secret。
 
@@ -315,7 +321,7 @@ pnpm test
 实现时同步更新：
 
 - `CLAUDE.md` 如新增关键限制或测试要求。
-- `docs/test.md` 如新增 OpenCode Go 手工验证步骤。
+- `docs/TEST.md` 如新增 OpenCode Go 手工验证步骤。
 - 现有 provider / direct integration 文档（如果存在）。
 - 本 spec 如实现中改变范围。
 
@@ -332,6 +338,7 @@ pnpm test
 
 ## 风险
 
+- UI 手工点击和真实 OpenCode Go 账号验证仍需手动执行。
 - OpenCode Go 页面协议依赖 SolidJS server function hash，网站更新会破坏解析。
 - 当前 observation window schema 没有 `week`，首版如果用最小映射，内部语义不完美。
 - 当前 session login 捕获逻辑偏 MiMo，需要通用化；否则 OpenCode Go 网页登录保存不了 Cookie。

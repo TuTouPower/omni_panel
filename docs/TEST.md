@@ -105,6 +105,16 @@ pnpm test:packaged
 # 6. 启用/禁用切换：设置页 Toggle 正确切换插件 enabled 状态，禁用后主面板不再显示该插件账号。
 # 7. 账号菜单不干扰折叠：点击账号菜单按钮不触发卡片折叠/展开。
 
+# OpenCode Go 手动验收
+# 1. 打开设置。
+# 2. 添加 OpenCode Go。
+# 3. 粘贴 JSON / Netscape / `k=v; k=v` 任一格式 Cookie 并保存。
+# 4. 手动刷新该 connector。
+# 5. 概览出现 rolling / weekly / monthly。
+# 6. 再添加第二个 OpenCode Go 账号，确认两个账号行。
+# 7. 点击网页登录，关闭登录窗口后确认 Cookie 已保存，再刷新。
+# 8. 限制：控制台复制脚本无法读取 HttpOnly Cookie；遇到 HttpOnly 必需 Cookie，用网页登录捕获或 DevTools/Application 导出。
+
 # 类型检查
 pnpm typecheck
 
