@@ -63,6 +63,18 @@ describe("VendorMark", () => {
         expect(image?.getAttribute("src")).toContain("deepseek");
     });
 
+    it("fits image logos inside a square transparent canvas", () => {
+        const { container } = render(<VendorMark id="deepseek" size={26} />);
+        const span = container.querySelector("span.vicon");
+        const image = container.querySelector("span.vicon img");
+
+        expect(span?.getAttribute("style")).toContain("width: 26px");
+        expect(span?.getAttribute("style")).toContain("height: 26px");
+        expect(image).toHaveClass("vendor-logo-img");
+        expect(image).not.toHaveAttribute("width");
+        expect(image).not.toHaveAttribute("height");
+    });
+
     it("renders MiMo as inline SVG so currentColor can inherit", () => {
         const { container } = render(<VendorMark id="mimo" />);
         const svg = container.querySelector("span.vicon svg");
@@ -102,6 +114,12 @@ describe("VendorMark", () => {
 
         expect(light_image).toBeInTheDocument();
         expect(dark_image).toBeInTheDocument();
+        expect(light_image).toHaveClass("vendor-logo-img");
+        expect(dark_image).toHaveClass("vendor-logo-img");
+        expect(light_image).not.toHaveAttribute("width");
+        expect(light_image).not.toHaveAttribute("height");
+        expect(dark_image).not.toHaveAttribute("width");
+        expect(dark_image).not.toHaveAttribute("height");
         expect(light_image?.getAttribute("src")).toContain("opencode_go_light");
         expect(dark_image?.getAttribute("src")).toContain("opencode_go_dark");
         expect(light_svg).toContain("fill='#211E1E'");
