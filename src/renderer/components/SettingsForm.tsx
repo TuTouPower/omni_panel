@@ -5,6 +5,7 @@ import {
     refresh_seconds_to_label,
     refresh_label_to_seconds,
 } from "../lib/refresh-intervals";
+import { format_usage_period_label } from "../lib/provider-usage";
 import { Icon } from "./Icon";
 
 const SECRET_PLACEHOLDER = "•".repeat(12);
@@ -127,9 +128,10 @@ export function SettingsForm({
                     const raw: string = item.raw_label;
                     if (seen.has(raw)) continue;
                     seen.add(raw);
+                    const name: string = item.normalized_label;
                     rows.push({
                         raw,
-                        display: existingLabelMap?.[raw] ?? raw,
+                        display: existingLabelMap?.[raw] ?? format_usage_period_label(raw, name),
                     });
                 }
                 if (mounted_ref.current) setLabelRows(rows);
@@ -188,13 +190,9 @@ export function SettingsForm({
                     if (onSaveLabelMap && Object.keys(labelEdits).length > 0) {
                         const map: Record<string, string> = {};
                         for (const [raw, display] of Object.entries(labelEdits)) {
-                            if (display !== (existingLabelMap?.[raw] ?? raw)) {
-                                map[raw] = display;
-                            }
+                            map[raw] = display;
                         }
-                        if (Object.keys(map).length > 0) {
-                            await onSaveLabelMap(instanceId, map);
-                        }
+                        await onSaveLabelMap(instanceId, map);
                     }
                     if (!mounted_ref.current) return;
                     setSaved(true);
@@ -218,7 +216,6 @@ export function SettingsForm({
             parameters,
             saving,
             syncInterval,
-            existingLabelMap,
             labelEdits,
             onSaveLabelMap,
         ],
