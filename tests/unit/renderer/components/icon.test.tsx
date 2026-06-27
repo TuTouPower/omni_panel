@@ -87,19 +87,39 @@ describe("VendorMark", () => {
         expect(svg).not.toContain("<rect");
     });
 
-    it("stores the official opencode logo asset", () => {
+    it("renders official opencode logos for both themes", () => {
         const { container } = render(<VendorMark id="opencode_go" />);
-        const image = container.querySelector("span.vicon img");
-        const svg = readFileSync(
-            join(process.cwd(), "src/renderer/assets/vendor_logos/opencode_go.svg"),
+        const light_image = container.querySelector("span.vicon img.vendor-logo-light");
+        const dark_image = container.querySelector("span.vicon img.vendor-logo-dark");
+        const light_svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/opencode_go_light.svg"),
+            "utf8",
+        );
+        const dark_svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/opencode_go_dark.svg"),
             "utf8",
         );
 
-        expect(image).toBeInTheDocument();
-        expect(image?.getAttribute("src")).toContain("opencode_go");
-        expect(svg).toContain("viewBox='0 0 300 300'");
-        expect(svg).toContain("fill='#211E1E'");
-        expect(svg).not.toContain('stroke="currentColor"');
+        expect(light_image).toBeInTheDocument();
+        expect(dark_image).toBeInTheDocument();
+        expect(light_image?.getAttribute("src")).toContain("opencode_go_light");
+        expect(dark_image?.getAttribute("src")).toContain("opencode_go_dark");
+        expect(light_svg).toContain("fill='#211E1E'");
+        expect(dark_svg).toContain("fill='#F1ECEC'");
+    });
+
+    it("switches opencode logo visibility with the app theme", () => {
+        const css = readFileSync(join(process.cwd(), "src/renderer/styles/globals.css"), "utf8");
+
+        const normalized_css = css.replace(/\s+/g, " ");
+
+        expect(normalized_css).toContain(".vicon .vendor-logo-dark { display: none; }");
+        expect(normalized_css).toContain(
+            '[data-theme="dark"] .vicon .vendor-logo-light { display: none; }',
+        );
+        expect(normalized_css).toContain(
+            '[data-theme="dark"] .vicon .vendor-logo-dark { display: block; }',
+        );
     });
 
     it("stores the official Zhipu logo asset for glm", () => {

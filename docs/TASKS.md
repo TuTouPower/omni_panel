@@ -780,11 +780,11 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 
 **验收：** CPA 设置页有多 provider 开关；Claude/Codex/Gemini/Antigravity/Kimi auth file 各产出对应 observation。已通过 `tests/integration/connector/cpa-connector.test.ts` 7 个测试验证（每个 provider 一个强断言测试 + 空 key/关闭/不崩溃测试）。
 
-### 已完成：MiMo logo 深色模式不可见
+### 已完成：MiMo / OpenCode logo 深色模式不可见
 
-**根因：** 旧 MiMo logo 资产不是官方 XiaomiMiMo 图标，且颜色/背景策略会在深色模式下失真。
+**根因：** 旧 MiMo logo 资产不是官方 XiaomiMiMo 图标，且颜色/背景策略会在深色模式下失真。OpenCode Go 旧资源是单一占位 SVG，不能随主题切换。
 
-**修复：** 使用 WSL 官方 logo 目录中的 `lobehub_icons/svg/icons/xiaomimimo.svg`；SVG 使用 `currentColor`，不带硬编码橙色背景；MiMo 在 `VendorMark` 中内联渲染，避免 `<img>` 隔离导致 `currentColor` 不继承。
+**修复：** 使用 WSL 官方 logo 目录中的 `lobehub_icons/svg/icons/xiaomimimo.svg`；SVG 使用 `currentColor`，不带硬编码橙色背景；MiMo 在 `VendorMark` 中内联渲染，避免 `<img>` 隔离导致 `currentColor` 不继承。OpenCode Go 使用压缩包内官方 `opencode-logo-light.svg` / `opencode-logo-dark.svg`，通过 `[data-theme="dark"]` 自动切换。
 
 ---
 

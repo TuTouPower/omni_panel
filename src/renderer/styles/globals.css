@@ -373,7 +373,17 @@ html[data-window="tray"] #root {
     justify-content: center;
     flex-shrink: 0;
 }
-.vicon svg {
+.vicon svg,
+.vicon img {
+    display: block;
+}
+.vicon .vendor-logo-dark {
+    display: none;
+}
+[data-theme="dark"] .vicon .vendor-logo-light {
+    display: none;
+}
+[data-theme="dark"] .vicon .vendor-logo-dark {
     display: block;
 }
 .card-name {
