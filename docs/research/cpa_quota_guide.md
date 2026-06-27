@@ -262,42 +262,48 @@ body = {
 
 ### Antigravity
 
-OmniUsage 按 CPA 面板口径展示 Antigravity：读取 CPA 历史用量聚合，而不是 `fetchAvailableModels` 内部模型配额。
+OmniUsage 通过 CPA 代理请求 Antigravity `fetchAvailableModels`，只展示两个 5 小时配额组：`Gemini Models` 和 `Claude/GPT`。
 
 ```
-CPA URL: GET /v0/management/usage
+CPA URL: POST /v0/management/api-call
+上游 URL: POST https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels
 必要 Header:
-  Authorization: Bearer {cpa_mgmt_key}
+  Authorization: Bearer $TOKEN$
+  Content-Type: application/json
+  User-Agent: antigravity/1.11.5 windows/amd64
 ```
 
 **响应解析**：
 
 ```json
 {
-    "apis": {
-        "POST /v1/messages": {
-            "models": {
-                "gemini-3-pro": {
-                    "details": [
-                        {
-                            "auth_index": "antigravity-auth",
-                            "failed": false,
-                            "tokens": { "total_tokens": 600 }
-                        }
-                    ]
-                }
-            }
+    "models": {
+        "gemini-3-flash": {
+            "quotaInfo": {
+                "remainingFraction": 0.8,
+                "resetTime": "2026-06-28T02:56:31Z"
+            },
+            "apiProvider": "API_PROVIDER_GOOGLE_GEMINI",
+            "modelProvider": "MODEL_PROVIDER_GOOGLE"
+        },
+        "claude-sonnet-4-6": {
+            "quotaInfo": {
+                "remainingFraction": 0.6,
+                "resetTime": "2026-06-28T02:56:52Z"
+            },
+            "apiProvider": "API_PROVIDER_ANTHROPIC_VERTEX",
+            "modelProvider": "MODEL_PROVIDER_ANTHROPIC"
         }
     }
 }
 ```
 
-- 遍历 `apis.*.models.*.details[]`
-- 只汇总当前 Antigravity `auth_index` 的明细
-- 按 `tokens.total_tokens` 汇总同名模型
-- 丢弃 0 token 模型，按 token 降序取前 8 条
-- 以 `ratio` 样式展示：`used = 模型 token`，`limit = 当前列表最大模型 token`
-- `fetchAvailableModels` 是内部可用模型/配额信号，不作为 CPA 面板同款 Antigravity 用量来源
+- `Gemini Models`：`apiProvider` 等于 `API_PROVIDER_GOOGLE_GEMINI` 的模型。
+- `Claude/GPT`：`apiProvider/modelProvider` 等于 Anthropic 或 OpenAI 的已知 provider 枚举值（如 `API_PROVIDER_ANTHROPIC_VERTEX`、`MODEL_PROVIDER_ANTHROPIC`、`API_PROVIDER_OPENAI_VERTEX`、`MODEL_PROVIDER_OPENAI`）。
+- 每组取最小 `quotaInfo.remainingFraction` 作为组剩余量。
+- `remainingFraction`：值 ≤ 1 时 ×100；`used_percent = 100 - remaining_percent`。
+- `resetTime` 使用决定该组剩余量的模型的 `quotaInfo.resetTime`。
+- Antigravity 只产出 5 小时窗口，两条 observation 的 `window` 都是 `second`。
 
 ### Kimi (Moonshot AI 编程助手)
 

@@ -272,7 +272,7 @@ definePlugin(
 | MiMo     | `mimo-usage-plugin.ts`     | 是           | 网页登录拦截浏览器 Cookie 获取用量/套餐/余额；API 需带浏览器请求头否则 401（详见 `docs/research/mimo_cookie_research.md`） |
 | CPA      | `cpa-usage-plugin.ts`      | 是           | 通过 CPA-Manager 代理获取 5 个 provider 的用量（详见 `docs/research/cpa_quota_guide.md`）                                  |
 
-CPA 连接器特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key`（secret）+ 5 个 `monitor_*` boolean 开关；调用 `/v0/management/auth-files` 和 `/v0/management/api-call`；单个账号失败不阻塞其他；Antigravity 走 `/v0/management/usage` 历史模型 token 聚合；Gemini 两步请求。
+CPA 连接器特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key`（secret）+ 5 个 `monitor_*` boolean 开关；调用 `/v0/management/auth-files` 和 `/v0/management/api-call`；单个账号失败不阻塞其他；Antigravity 走 `fetchAvailableModels` 的模型配额，只展示 5 小时 `Gemini Models` 和 `Claude/GPT` 两组；Gemini 两步请求。
 
 ---
 
