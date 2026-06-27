@@ -47,7 +47,7 @@ describe("opencode_go connector", () => {
         const { manifest, script } = await load_connector();
         const ctx = create_ctx((path, opts) => {
             if (path === "/auth") {
-                expect(opts?.headers?.Cookie).toBe("session=secret");
+                expect(opts?.headers?.["Cookie"]).toBe("session=secret");
                 return raw(302, "", { location: "https://opencode.ai/workspace/ws_123" });
             }
             if (path === "/workspace/ws_123") {
@@ -120,7 +120,41 @@ describe("opencode_go connector", () => {
                 limit: 100,
             }),
         ]);
-        expect(result.observations[0]?.reset_at).toBeGreaterThan(Date.now());
+        expect(result.observations[0]?.reset_at).toBe(
+            (result.observations[0]?.observed_at ?? 0) + 60_000,
+        );
+        expect(result.observations[1]?.reset_at).toBe(
+            (result.observations[1]?.observed_at ?? 0) + 120_000,
+        );
+        expect(result.observations[2]?.reset_at).toBe(
+            (result.observations[2]?.observed_at ?? 0) + 180_000,
+        );
+    });
+
+    it("reports missing session cookie", async () => {
+        const { manifest, script } = await load_connector();
+        const ctx = create_ctx(() => raw(200, ""), { ACCOUNT_LABEL: "Work" });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toEqual([]);
+        expect(result.error).toContain("Missing required secret: SESSION_COOKIE");
+    });
+
+    it("reports a protocol change when no JS assets are found", async () => {
+        const { manifest, script } = await load_connector();
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") return raw(302, "", { location: "/workspace/ws_123" });
+            if (path === "/workspace/ws_123" || path === "/workspace/ws_123/go") {
+                return raw(200, "<html>No assets</html>");
+            }
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toEqual([]);
+        expect(result.error).toContain("OpenCode Go 页面协议可能已变更");
     });
 
     it("reports an expired cookie when auth does not redirect to workspace", async () => {
@@ -156,5 +190,47 @@ describe("opencode_go connector", () => {
 
         expect(result.observations).toEqual([]);
         expect(result.error).toContain("OpenCode Go 页面协议可能已变更");
+    });
+
+    it("reports invalid usage response when a usage window is missing", async () => {
+        const { manifest, script } = await load_connector();
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") return raw(302, "", { location: "/workspace/ws_123" });
+            if (path === "/workspace/ws_123" || path === "/workspace/ws_123/go") {
+                return raw(200, '<script src="/_build/assets/go.js"></script>');
+            }
+            if (path === "/_build/assets/go.js") {
+                return raw(200, `lite.subscription.get createServerReference("${hash}");`);
+            }
+            if (path.startsWith(`/_server?id=${hash}&args=`)) {
+                return raw(200, `1:{"rollingUsage":{"usagePercent":12,"resetInSec":60}}`);
+            }
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toEqual([]);
+        expect(result.error).toContain("OpenCode Go usage response invalid");
+    });
+
+    it("reports invalid usage response when server response is not JSON-like", async () => {
+        const { manifest, script } = await load_connector();
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") return raw(302, "", { location: "/workspace/ws_123" });
+            if (path === "/workspace/ws_123" || path === "/workspace/ws_123/go") {
+                return raw(200, '<script src="/_build/assets/go.js"></script>');
+            }
+            if (path === "/_build/assets/go.js") {
+                return raw(200, `lite.subscription.get createServerReference("${hash}");`);
+            }
+            if (path.startsWith(`/_server?id=${hash}&args=`)) return raw(200, "not json");
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toEqual([]);
+        expect(result.error).toContain("OpenCode Go usage response invalid");
     });
 });

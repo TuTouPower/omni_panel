@@ -671,6 +671,68 @@ describe("SettingsView", () => {
         expect(config_get).toHaveBeenCalled();
     });
 
+    it("calls session.login with OpenCode Go session metadata and refreshes", async () => {
+        const user = userEvent.setup();
+        current_config = {
+            ...base_config,
+            plugins: [
+                {
+                    instanceId: "opencode-go-1",
+                    stateId: "opencode-go-1",
+                    name: "OpenCode Go",
+                    enabled: true,
+                    executablePath: "connectors/opencode_go/connector.ts",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        const mock_session_login = vi.fn().mockResolvedValue({ saved: true });
+        const mock_refresh = vi.fn();
+        window.usageboard.session.login = mock_session_login;
+        window.usageboard.connector.refresh = mock_refresh;
+        window.usageboard.connector.list = vi.fn().mockResolvedValue([
+            {
+                instanceId: "opencode-go-1",
+                sourceInstanceId: "opencode-go-1",
+                stateId: "opencode-go-1",
+                name: "OpenCode Go",
+                displayName: "OpenCode Go",
+                enabled: true,
+                source: "session",
+                supportedProviders: ["opencode_go"],
+                activeProviders: ["opencode_go"],
+                metadata: {
+                    parameters: [
+                        {
+                            name: "SESSION_COOKIE",
+                            label: "Cookie",
+                            type: "secret",
+                            required: true,
+                        },
+                    ],
+                    endpoints: {},
+                },
+                snapshot: { status: "idle" },
+            },
+        ]);
+
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        await user.click(await screen.findByTitle("编辑"));
+        await user.click(await screen.findByText("网页登录"));
+
+        await waitFor(() => {
+            expect(mock_session_login).toHaveBeenCalledWith({
+                instance_id: "opencode-go-1",
+                login_url: "https://opencode.ai/auth",
+                cookie_names: ["session", "__Host-session", "__Secure-session"],
+            });
+        });
+        expect(mock_refresh).toHaveBeenCalledWith("opencode-go-1");
+    });
+
     it("does not call plugin.refresh when cookie login fails", async () => {
         const user = userEvent.setup();
         current_config = {

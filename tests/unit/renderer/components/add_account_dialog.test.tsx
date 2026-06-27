@@ -196,6 +196,32 @@ describe("AddAccountDialog MIMO session cookie", () => {
         expect(screen.getByText("请粘贴 Cookie 或先网页登录")).toBeInTheDocument();
     });
 
+    it("does not save OpenCode Go when pasted Cookie is invalid", async () => {
+        const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[opencode_go_plugin()]}
+                has_cpa={false}
+                on_close={on_close}
+                on_save={on_save}
+                on_cpa={on_cpa}
+            />,
+        );
+
+        await user.click(screen.getByText("OpenCode Go"));
+        fireEvent.change(
+            screen.getByPlaceholderText("支持 JSON、EditThisCookie、Netscape、k=v; k=v"),
+            {
+                target: { value: "not a cookie" },
+            },
+        );
+        await user.click(screen.getByText("添加账号"));
+
+        expect(on_save).not.toHaveBeenCalled();
+        expect(alert).toHaveBeenCalledWith("无法识别 Cookie 格式");
+    });
+
     it("copies OpenCode Go browser cookie script", async () => {
         const write_text = vi.fn().mockResolvedValue(undefined);
         const user = userEvent.setup();

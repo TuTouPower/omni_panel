@@ -28,21 +28,22 @@ test.describe("popup token panel", () => {
         expect(await na_msg.count()).toBeGreaterThanOrEqual(1);
     });
 
-    test("time range buttons are clickable", async ({ omni }) => {
+    test("time range buttons update the active range", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        const today = page.locator("button:has-text('今天')");
-        const week = page.locator("button:has-text('最近一周')");
-        const month = page.locator("button:has-text('最近一月')");
+        const token_card = page.locator(".token-card").first();
+        await expect(token_card).toBeVisible();
 
-        if ((await today.count()) > 0) {
-            await week.click();
-            await page.waitForTimeout(200);
-            await month.click();
-            await page.waitForTimeout(200);
-            // No crash on switch = pass
-        }
+        const today = token_card.getByRole("button", { name: "今天" });
+        const week = token_card.getByRole("button", { name: "最近一周" });
+        const month = token_card.getByRole("button", { name: "最近一月" });
+
+        await expect(today).toHaveClass(/\bon\b/);
+        await week.click();
+        await expect(week).toHaveClass(/\bon\b/);
+        await month.click();
+        await expect(month).toHaveClass(/\bon\b/);
     });
 });

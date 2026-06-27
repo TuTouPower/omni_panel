@@ -254,6 +254,31 @@ describe("SettingsForm cookie login", () => {
         expect(screen.getByText("网页登录")).toBeInTheDocument();
     });
 
+    it("calls OpenCode Go cookie login with instance id", async () => {
+        const onCookieLogin = vi.fn().mockResolvedValue(true);
+        const user = userEvent.setup();
+        renderForm({
+            instanceId: "opencode-go-1",
+            name: "OpenCode Go",
+            providerId: "opencode_go",
+            parameters: [
+                {
+                    name: "SESSION_COOKIE",
+                    label: "Cookie",
+                    type: "secret",
+                    required: true,
+                },
+            ],
+            values: {},
+            hasSecrets: {},
+            onCookieLogin,
+        });
+
+        await user.click(screen.getByText("网页登录"));
+
+        expect(onCookieLogin).toHaveBeenCalledWith("opencode-go-1");
+    });
+
     it("does not render 网页登录 without login handler", () => {
         renderForm({
             instanceId: "kimi-1",
