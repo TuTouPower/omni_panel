@@ -1,0 +1,160 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import { run_connector } from "../../../src/main/core/connector/runtime";
+import { load_manifest } from "../../../src/main/core/connector/manifest-loader";
+import type { ConnectorContext, RawHttpResponse } from "../../../src/main/core/connector/host-io";
+
+const connector_dir = join(process.cwd(), "connectors", "opencode_go");
+const hash = "a".repeat(64);
+const other_hash = "b".repeat(64);
+
+async function load_connector() {
+    const manifest = await load_manifest(connector_dir);
+    const script = await readFile(join(connector_dir, "connector.ts"), "utf8");
+    if (!manifest) throw new Error("manifest missing");
+    return { manifest, script };
+}
+
+function raw(status: number, body: string, headers: Record<string, string> = {}): RawHttpResponse {
+    return { status, body, headers };
+}
+
+function create_ctx(
+    handler: (
+        path: string,
+        opts?: { headers?: Record<string, string> },
+    ) => RawHttpResponse | Promise<RawHttpResponse>,
+    params: Record<string, string> = { SESSION_COOKIE: "session=secret", ACCOUNT_LABEL: "Work" },
+): ConnectorContext {
+    return {
+        log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        http: {
+            get_json: () => Promise.resolve({}),
+            post_json: () => Promise.resolve({}),
+            get_raw: vi.fn(
+                (_endpoint: string, path: string, opts?: { headers?: Record<string, string> }) =>
+                    Promise.resolve(handler(path, opts)),
+            ),
+        },
+        files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+        params,
+    };
+}
+
+describe("opencode_go connector", () => {
+    it("emits rolling, weekly, and monthly observations from the server reference", async () => {
+        const { manifest, script } = await load_connector();
+        const ctx = create_ctx((path, opts) => {
+            if (path === "/auth") {
+                expect(opts?.headers?.Cookie).toBe("session=secret");
+                return raw(302, "", { location: "https://opencode.ai/workspace/ws_123" });
+            }
+            if (path === "/workspace/ws_123") {
+                return raw(200, '<script src="/_build/assets/app.js"></script>');
+            }
+            if (path === "/workspace/ws_123/go") {
+                return raw(200, '<script src="/_build/assets/go.js"></script>');
+            }
+            if (path === "/_build/assets/app.js") {
+                return raw(200, `createServerReference("${other_hash}");`);
+            }
+            if (path === "/_build/assets/go.js") {
+                return raw(
+                    200,
+                    `createServerReference("${other_hash}"); lite.subscription.get createServerReference("${hash}");`,
+                );
+            }
+            if (path.startsWith(`/_server?id=${hash}&args=`)) {
+                const encoded_args = path.slice(path.indexOf("&args=") + "&args=".length);
+                expect(JSON.parse(decodeURIComponent(encoded_args))).toEqual({
+                    t: { t: 9, i: 0, l: 1, a: [{ t: 1, s: "ws_123" }], o: 0 },
+                    f: 31,
+                    m: [],
+                });
+                return raw(
+                    200,
+                    `1:{"rollingUsage":{"usagePercent":12,"resetInSec":60},"weeklyUsage":{"usagePercent":34,"resetInSec":120},"monthlyUsage":{"usagePercent":56,"resetInSec":180}}`,
+                );
+            }
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(3);
+        expect(result.observations.map((o) => o.raw_label)).toEqual([
+            "rolling",
+            "weekly",
+            "monthly",
+        ]);
+        expect(result.observations).toEqual([
+            expect.objectContaining({
+                provider: "opencode_go",
+                source: "session",
+                source_instance_id: "ws_123",
+                account_id: "ws_123",
+                account_label: "Work",
+                metric_id: "opencode_go:rolling",
+                normalized_label: "滚动",
+                window: "second",
+                used: 12,
+                limit: 100,
+                display_style: "percent",
+                stale: false,
+                last_error: null,
+            }),
+            expect.objectContaining({
+                metric_id: "opencode_go:weekly",
+                normalized_label: "一周",
+                window: "day",
+                used: 34,
+                limit: 100,
+            }),
+            expect.objectContaining({
+                metric_id: "opencode_go:monthly",
+                normalized_label: "一月",
+                window: "month",
+                used: 56,
+                limit: 100,
+            }),
+        ]);
+        expect(result.observations[0]?.reset_at).toBeGreaterThan(Date.now());
+    });
+
+    it("reports an expired cookie when auth does not redirect to workspace", async () => {
+        const { manifest, script } = await load_connector();
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") return raw(200, "login");
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toEqual([]);
+        expect(result.error).toContain("Cookie 可能已失效，未跳转到 workspace");
+    });
+
+    it("reports a protocol change when no server hash is found", async () => {
+        const { manifest, script } = await load_connector();
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") return raw(302, "", { location: "/workspace/ws_123" });
+            if (path === "/workspace/ws_123") {
+                return raw(200, '<script src="/_build/assets/app.js"></script>');
+            }
+            if (path === "/workspace/ws_123/go") {
+                return raw(200, '<script src="/_build/assets/go.js"></script>');
+            }
+            if (path === "/_build/assets/app.js" || path === "/_build/assets/go.js") {
+                return raw(200, "lite.subscription.get without server reference");
+            }
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toEqual([]);
+        expect(result.error).toContain("OpenCode Go 页面协议可能已变更");
+    });
+});

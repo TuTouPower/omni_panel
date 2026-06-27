@@ -14,6 +14,7 @@ const EXPECTED_PROVIDERS = {
     minimax: { secret_param: "API_KEY", label: "API 密钥" },
     mimo: { secret_param: "SESSION_COOKIE", label: "登录 Cookie" },
     kimi: { secret_param: "SESSION_COOKIE", label: "登录 Cookie" },
+    opencode_go: { secret_param: "SESSION_COOKIE", label: "登录 Cookie" },
 } as const;
 
 describe("connector manifest contract", () => {
@@ -50,7 +51,7 @@ describe("connector manifest contract", () => {
     });
 
     it("all UI-exposed session providers have connectors", async () => {
-        const session_providers = ["mimo", "kimi"];
+        const session_providers = ["mimo", "kimi", "opencode_go"];
         for (const provider of session_providers) {
             const manifest = await load_manifest(join(CONNECTORS_DIR, provider));
             expect(manifest, `${provider} connector missing`).not.toBeNull();

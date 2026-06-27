@@ -1,0 +1,29 @@
+{
+    "id": "opencode_go",
+    "provider": "opencode_go",
+    "capabilities": ["session"],
+    "parameters": [
+        {
+            "name": "SESSION_COOKIE",
+            "type": "secret",
+            "required": true,
+            "label": "Session Cookie",
+            "label@zh-Hans": "登录 Cookie",
+            "exposeToScript": true
+        },
+        {
+            "name": "ACCOUNT_LABEL",
+            "type": "string",
+            "required": false,
+            "default": "",
+            "label": "Account Label",
+            "label@zh-Hans": "账号名称",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://opencode.ai",
+        "login": "https://opencode.ai/auth"
+    },
+    "script": "connector.ts"
+}

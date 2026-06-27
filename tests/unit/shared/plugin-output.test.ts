@@ -32,6 +32,27 @@ describe("pluginSuccessOutputSchema", () => {
         expect(result.success).toBe(true);
     });
 
+    it("accepts provider opencode_go", () => {
+        const result = pluginSuccessOutputSchema.safeParse({
+            ...validOutput,
+            items: [
+                {
+                    ...validOutput.items[0],
+                    id: "opencode_go:rolling",
+                    provider: "opencode_go",
+                    source: "session",
+                    sourceInstanceId: "opencode-go-1",
+                    accountId: "opencode-go-1",
+                    accountLabel: "OpenCode Go",
+                    raw_label: "rolling",
+                    normalized_label: "滚动",
+                },
+            ],
+        });
+
+        expect(result.success).toBe(true);
+    });
+
     it("rejects schemaVersion 1 success output", () => {
         const result = pluginSuccessOutputSchema.safeParse({
             ...validOutput,

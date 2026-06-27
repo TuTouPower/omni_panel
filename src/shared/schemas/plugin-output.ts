@@ -14,6 +14,7 @@ export const usageProviderSchema = z.enum([
     "deepseek",
     "tavily",
     "mimo",
+    "opencode_go",
 ]);
 export const usageSourceSchema = z.enum([
     "poll",
