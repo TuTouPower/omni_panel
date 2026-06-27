@@ -1,4 +1,4 @@
-import { request, type Dispatcher, ProxyAgent } from "undici";
+import { Agent, request, type Dispatcher, ProxyAgent } from "undici";
 import type { Result } from "./errors";
 import { resolveEndpoint } from "./endpoints";
 
@@ -12,19 +12,23 @@ export interface HttpRequestOptions {
 
 export interface HttpClient {
     getJson<T>(endpointKey: string, path: string, opts?: HttpRequestOptions): Promise<Result<T>>;
+    getText(endpointKey: string, path: string, opts?: HttpRequestOptions): Promise<Result<string>>;
     postJson<T>(endpointKey: string, path: string, opts?: HttpRequestOptions): Promise<Result<T>>;
     request<T>(endpointKey: string, path: string, opts?: HttpRequestOptions): Promise<Result<T>>;
+    close(): Promise<void>;
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+type ResponseType = "json" | "text";
 
 export function createHttpClient(metadataEndpoints?: Record<string, string | null>): HttpClient {
-    const dispatcher = buildProxyDispatcher();
+    const dispatcher = buildProxyDispatcher() ?? new Agent();
 
     async function call<T>(
         endpointKey: string,
         path: string,
         opts: HttpRequestOptions = {},
+        responseType: ResponseType = "json",
     ): Promise<Result<T>> {
         const base = resolveEndpoint(endpointKey, metadataEndpoints?.[endpointKey] ?? null);
         if (!base) {
@@ -43,7 +47,10 @@ export function createHttpClient(metadataEndpoints?: Record<string, string | nul
                 opts.body === undefined || opts.body === null
                     ? undefined
                     : JSON.stringify(opts.body);
-            const headers: Record<string, string> = { ...(opts.headers ?? {}) };
+            const headers: Record<string, string> = {
+                connection: "close",
+                ...(opts.headers ?? {}),
+            };
             if (
                 body !== undefined &&
                 headers["content-type"] === undefined &&
@@ -57,10 +64,20 @@ export function createHttpClient(metadataEndpoints?: Record<string, string | nul
                 headers,
                 signal: controller.signal,
                 ...(body !== undefined ? { body } : {}),
-                ...(dispatcher ? { dispatcher } : {}),
+                dispatcher,
             });
 
             const text = await readBodyWithLimit(res);
+            if (responseType === "text") {
+                if (res.statusCode >= 400) {
+                    return {
+                        ok: false,
+                        error: { kind: "http", status: res.statusCode, body: text },
+                    };
+                }
+                return { ok: true, value: text as T };
+            }
+
             let data: unknown = null;
             if (text.length > 0) {
                 try {
@@ -100,10 +117,13 @@ export function createHttpClient(metadataEndpoints?: Record<string, string | nul
 
     return {
         getJson: <T>(k: string, p: string, o?: HttpRequestOptions) =>
-            call<T>(k, p, { ...o, method: "GET" }),
+            call<T>(k, p, { ...o, method: "GET" }, "json"),
+        getText: (k: string, p: string, o?: HttpRequestOptions) =>
+            call<string>(k, p, { ...o, method: "GET" }, "text"),
         postJson: <T>(k: string, p: string, o?: HttpRequestOptions) =>
-            call<T>(k, p, { ...o, method: "POST" }),
-        request: <T>(k: string, p: string, o?: HttpRequestOptions) => call<T>(k, p, o),
+            call<T>(k, p, { ...o, method: "POST" }, "json"),
+        request: <T>(k: string, p: string, o?: HttpRequestOptions) => call<T>(k, p, o, "json"),
+        close: () => dispatcher.destroy(),
     };
 }
 

@@ -82,15 +82,21 @@ export function definePlugin(handler: PluginHandler, options: DefinePluginOption
     };
 
     let handlerDone = false;
+    let quitPipe: ReturnType<typeof createReadStream> | null = null;
+
+    function finish(result: PluginOutput): void {
+        handlerDone = true;
+        writeSync(1, JSON.stringify(result));
+    }
 
     handler(ctx)
-        .then((result) => {
-            handlerDone = true;
-            writeSync(1, JSON.stringify(result));
+        .then(async (result) => {
+            await ctx.http.close();
+            finish(result);
         })
-        .catch((err: unknown) => {
-            handlerDone = true;
-            writeSync(1, JSON.stringify(normalizeError(err)));
+        .catch(async (err: unknown) => {
+            await ctx.http.close();
+            finish(normalizeError(err));
         });
 
     // Listen for quit signal on fd 3 (cross-platform, injected by runner).
@@ -99,7 +105,7 @@ export function definePlugin(handler: PluginHandler, options: DefinePluginOption
     // maps to immediate TerminateProcess).
     if (!process.stdin.isTTY) {
         try {
-            const quitPipe = createReadStream("", { fd: 3 });
+            quitPipe = createReadStream("", { fd: 3 });
             quitPipe.on("data", (chunk: Buffer) => {
                 if (chunk.toString().trim() === "quit") {
                     process.exit(handlerDone ? 0 : 1);

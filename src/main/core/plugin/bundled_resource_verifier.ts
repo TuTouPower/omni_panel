@@ -15,11 +15,11 @@ const PLUGIN_HASHES: Readonly<Record<string, string>> = {
 };
 
 const SDK_HASHES: Readonly<Record<string, string>> = {
-    "define-plugin.ts": "b364808db49bc685e5587fb67bc54e17f1f4c2ff7672e25091e7705c4b004603",
+    "define-plugin.ts": "d8058da2a751ca9c72790fcfd9a0f8f0e64f3baef7e6f6e00e4b801b32063690",
     "endpoints.ts": "2c4c7def375029793b374053d5b905fad6ed17851931cc64ef85d47d6de62cc4",
     "errors.ts": "c6fffe9bd61da92b9b144b6a5ce45822d646273ef83b054c4bbd94558d424a78",
     "helpers.ts": "62062cbdf70e790677b447cfe2e7ec040485920df6061222083497381e96206d",
-    "http-client.ts": "4c60168efc6d5d1cb67374d28e980fbbf61df10622550ad84b5e7438d88dc7b2",
+    "http-client.ts": "87072b92344392630189518644b47442a95474391569c4738652ba344f4e9744",
     "index.ts": "bf1d945d1c274f86506d2cbae83f2d9d604e2df93f9d6883dfc2fafaca36c0ca",
     "result.ts": "36f68663b71d180de0544ba8fad35d752c90269e4af6818946a788158a8f3d51",
 };
