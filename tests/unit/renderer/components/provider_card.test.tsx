@@ -224,9 +224,8 @@ describe("ProviderCard", () => {
 
     it("renders short usage period labels", () => {
         const periods = [
-            makePeriod({ id: "long-5h", name: "Codex (Work) · 5小时", used: 10, limit: 100 }),
-            makePeriod({ id: "long-week", name: "Codex (Work) · 每周", used: 20, limit: 100 }),
-            makePeriod({ id: "mcp", name: "GLM MCP 月用量", used: 30, limit: 100 }),
+            makePeriod({ id: "long-5h", name: "5小时", used: 10, limit: 100 }),
+            makePeriod({ id: "long-week", name: "一周", used: 20, limit: 100 }),
         ];
         const [account] = makeGroup().accounts;
         const group = makeGroup({
@@ -240,15 +239,13 @@ describe("ProviderCard", () => {
 
         expect(screen.getByText("5小时")).toBeInTheDocument();
         expect(screen.getByText("一周")).toBeInTheDocument();
-        expect(screen.getByText("MCP")).toBeInTheDocument();
-        expect(screen.queryByText("Codex (Work) · 5小时")).not.toBeInTheDocument();
     });
 
-    it("aggregates overview rows by short usage period label", () => {
+    it("aggregates overview rows by period name", () => {
         const group = makeGroup({
             periods: [
-                makePeriod({ id: "a-5h", name: "Codex (A) · 5小时", used: 10, limit: 100 }),
-                makePeriod({ id: "b-5h", name: "Codex (B) · 5小时", used: 30, limit: 100 }),
+                makePeriod({ id: "a-5h", name: "5小时", used: 10, limit: 100 }),
+                makePeriod({ id: "b-5h", name: "5小时", used: 30, limit: 100 }),
             ],
         });
 
@@ -447,11 +444,11 @@ describe("ProviderCard", () => {
     });
 
     it("uses current-only color for multi-account overview when reset display is hidden", () => {
-        const first_period = makePeriod({
+        const per = makePeriod({
             id: "a-5h",
             accountId: "a",
             accountLabel: "A",
-            name: "Claude Pro · 5小时",
+            name: "5小时",
             used: 50,
             limit: 100,
             displayStyle: "percent",
@@ -461,7 +458,7 @@ describe("ProviderCard", () => {
             id: "b-5h",
             accountId: "b",
             accountLabel: "B",
-            name: "Claude Pro · 5小时",
+            name: "5小时",
             used: 50,
             limit: 100,
             displayStyle: "percent",
@@ -469,7 +466,7 @@ describe("ProviderCard", () => {
         });
         const group = makeGroup({
             accountCount: 2,
-            periods: [first_period, second_period],
+            periods: [per, second_period],
             accounts: [
                 {
                     id: "a",
@@ -480,7 +477,7 @@ describe("ProviderCard", () => {
                     updatedAt: "2026-01-01T15:00:00Z",
                     observedAt: 1735689600000,
                     stale: false,
-                    periods: [first_period],
+                    periods: [per],
                 },
                 {
                     id: "b",

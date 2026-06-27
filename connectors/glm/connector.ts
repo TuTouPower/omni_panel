@@ -144,7 +144,7 @@ async function main(): Promise<Observation[]> {
         } else {
             const percentage = Math.min(Math.max(to_number(record["percentage"]), 0), 100);
             const normalized_label =
-                pk === "5h" ? "5 小时用量" : pk === "week" ? "周用量" : `${kind}(${pk})`;
+                pk === "5h" ? "5小时" : pk === "week" ? "一周" : `${kind}(${pk})`;
             observations.push({
                 provider: "glm",
                 source_instance_id: "glm",

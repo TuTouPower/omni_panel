@@ -204,17 +204,23 @@ function parse_codex(
 // ─── Gemini ────────────────────────────────────────────
 
 function gemini_model_label(model_id: string): string {
-    return model_id
-        .replace(/^gemini[-_]?/i, "")
-        .split(/[-_\s]+/)
-        .filter((p) => p.length > 0)
-        .map((p) => {
-            const lower = p.toLowerCase();
-            if (lower === "pro") return "Pro";
-            if (lower === "flash") return "Flash";
-            return p;
-        })
-        .join(" ");
+    const lower = model_id.toLowerCase();
+    const preview_suffix = lower.endsWith("-preview") ? "·Pv" : "";
+    return (
+        model_id
+            .replace(/^gemini[-_]?/i, "")
+            .replace(/-preview$/i, "")
+            .split(/[-_\s]+/)
+            .filter((p) => p.length > 0)
+            .map((p) => {
+                const lo = p.toLowerCase();
+                if (lo === "pro") return "Pro";
+                if (lo === "flash") return "Flash";
+                if (lo === "lite") return "Lite";
+                return p;
+            })
+            .join(" ") + preview_suffix
+    );
 }
 
 function gemini_token_label(token_type: string): string {

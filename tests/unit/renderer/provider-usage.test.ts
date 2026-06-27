@@ -88,13 +88,8 @@ function connectorInfo(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
 }
 
 describe("format_usage_period_label", () => {
-    it("shortens known long model labels", () => {
-        expect(
-            format_usage_period_label(
-                "gemini-3.1-flash-lite-preview",
-                "gemini-3.1-flash-lite-preview",
-            ),
-        ).toBe("3.1 Flash-Lite·Pv");
+    it("returns normalized_label when no override exists", () => {
+        expect(format_usage_period_label("any_raw", "我的标签")).toBe("我的标签");
     });
 
     it("lets custom label map override built-in labels", () => {

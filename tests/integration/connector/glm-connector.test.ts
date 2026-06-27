@@ -90,7 +90,7 @@ describe("glm connector", () => {
             expect.objectContaining({
                 provider: "glm",
                 raw_label: "text-5h",
-                normalized_label: "5 小时用量",
+                normalized_label: "5小时",
                 window: "second",
                 display_style: "percent",
                 used: 30,
@@ -103,7 +103,7 @@ describe("glm connector", () => {
         expect(text_week).toEqual(
             expect.objectContaining({
                 raw_label: "text-week",
-                normalized_label: "周用量",
+                normalized_label: "一周",
             }),
         );
 
