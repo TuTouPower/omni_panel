@@ -8,6 +8,7 @@ import type { ConnectorContext, RawHttpResponse } from "../../../src/main/core/c
 const connector_dir = join(process.cwd(), "connectors", "opencode_go");
 const hash = "a".repeat(64);
 const other_hash = "b".repeat(64);
+const checkout_hash = "c".repeat(64);
 
 async function load_connector() {
     const manifest = await load_manifest(connector_dir);
@@ -62,10 +63,17 @@ describe("opencode_go connector", () => {
             if (path === "/_build/assets/go.js") {
                 return raw(
                     200,
-                    `createServerReference("${other_hash}"); lite.subscription.get createServerReference("${hash}");`,
+                    `const checkout_reference = createServerReference("${checkout_hash}"); lite.subscription.get; const usage_reference = createServerReference("${hash}"); query(usage_reference, "lite.subscription.get");`,
                 );
             }
             if (path.startsWith(`/_server?id=${hash}&args=`)) {
+                expect(opts?.headers).toMatchObject({
+                    Cookie: "session=secret",
+                    Accept: "*/*",
+                    Referer: "https://opencode.ai/workspace/ws_123",
+                    "x-server-id": hash,
+                    "x-server-instance": "server-fn:0",
+                });
                 const encoded_args = path.slice(path.indexOf("&args=") + "&args=".length);
                 expect(JSON.parse(decodeURIComponent(encoded_args))).toEqual({
                     t: { t: 9, i: 0, l: 1, a: [{ t: 1, s: "ws_123" }], o: 0 },
@@ -74,7 +82,7 @@ describe("opencode_go connector", () => {
                 });
                 return raw(
                     200,
-                    `1:{"rollingUsage":{"usagePercent":12,"resetInSec":60},"weeklyUsage":{"usagePercent":34,"resetInSec":120},"monthlyUsage":{"usagePercent":56,"resetInSec":180}}`,
+                    `;0x;(($R)=>{rollingUsage:$R[1]={usagePercent:12,resetInSec:60,status:"ok"},weeklyUsage:$R[2]={usagePercent:34,resetInSec:120,status:"ok"},monthlyUsage:$R[3]={usagePercent:56,resetInSec:180,status:"ok"}})($R["server-fn:0"])`,
                 );
             }
             throw new Error(`unexpected path ${path}`);

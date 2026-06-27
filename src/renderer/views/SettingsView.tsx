@@ -104,7 +104,7 @@ const session_meta: Record<string, { login_url: string; cookie_names: string[] }
     },
     opencode_go: {
         login_url: "https://opencode.ai/auth",
-        cookie_names: ["session", "__Host-session", "__Secure-session"],
+        cookie_names: ["*"],
     },
 };
 

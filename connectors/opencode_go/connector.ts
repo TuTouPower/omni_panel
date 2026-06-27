@@ -17,6 +17,8 @@ interface UsagePayload {
 
 const SERVER_ARGS_PREFIX = "/_server?id=";
 const SERVER_ARGS = { t: { t: 9, i: 0, l: 1, a: [{ t: 1, s: "" }], o: 0 }, f: 31, m: [] };
+const USER_AGENT =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
 
 function required_cookie(): string {
     const cookie = (ctx.params["SESSION_COOKIE"] ?? "").trim();
@@ -45,7 +47,34 @@ function extract_assets(html: string): string[] {
     return [...assets];
 }
 
+function escape_regex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function subscription_hash_from_query(bundle: string): string | null {
+    const references = new Map<string, string>();
+    const reference_regex =
+        /(?:const\s+)?(\w+)\s*=\s*createServerReference\(["']([a-f0-9]{64})["']/gi;
+    for (const match of bundle.matchAll(reference_regex)) {
+        const variable_name = match[1];
+        const hash = match[2];
+        if (variable_name && hash) references.set(variable_name, hash);
+    }
+
+    for (const [variable_name, hash] of references) {
+        const usage_regex = new RegExp(
+            `(?:query|action)\\(\\s*${escape_regex(variable_name)}\\s*,\\s*["']lite\\.subscription\\.get["']`,
+        );
+        if (usage_regex.test(bundle)) return hash;
+    }
+
+    return null;
+}
+
 function nearest_subscription_hash(bundle: string): string | null {
+    const query_hash = subscription_hash_from_query(bundle);
+    if (query_hash) return query_hash;
+
     const target = bundle.indexOf("lite.subscription.get");
     if (target < 0) return null;
 
@@ -64,11 +93,54 @@ function nearest_subscription_hash(bundle: string): string | null {
     return best_hash;
 }
 
-function parse_json_object(text: string): UsagePayload {
+function parse_window_fields(content: string): UsageWindow | null {
+    const usage_match = /usagePercent:(\d+(?:\.\d+)?)/.exec(content);
+    const reset_match = /resetInSec:(\d+)/.exec(content);
+    if (!usage_match) return null;
+    return {
+        usagePercent: Number(usage_match[1]),
+        resetInSec: reset_match ? Number(reset_match[1]) : 0,
+    };
+}
+
+function extract_window(text: string, window_name: string): UsageWindow | null {
+    const index = text.indexOf(window_name);
+    if (index < 0) return null;
+    const section = text.slice(index, index + 300);
+    const escaped_window_name = escape_regex(window_name);
+
+    const reference = new RegExp(`${escaped_window_name}:\\$R\\[(\\d+)\\]`).exec(section);
+    if (reference?.[1]) {
+        const definition = new RegExp(`\\$R\\[${reference[1]}\\]=\\{([^}]+)\\}`).exec(text);
+        if (definition?.[1]) return parse_window_fields(definition[1]);
+    }
+
+    const inline = new RegExp(`${escaped_window_name}:(?:\\$R\\[\\d+\\]=)?\\{([^}]+)\\}`).exec(
+        section,
+    );
+    if (inline?.[1]) return parse_window_fields(inline[1]);
+    return parse_window_fields(section);
+}
+
+function parse_usage_payload(text: string): UsagePayload {
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
-    if (start < 0 || end <= start) throw new Error("OpenCode Go usage response invalid");
-    return JSON.parse(text.slice(start, end + 1)) as UsagePayload;
+    if (start >= 0 && end > start) {
+        try {
+            return JSON.parse(text.slice(start, end + 1)) as UsagePayload;
+        } catch {
+            // OpenCode's server response is often JavaScript with $R references.
+        }
+    }
+
+    const rolling_usage = extract_window(text, "rollingUsage");
+    const weekly_usage = extract_window(text, "weeklyUsage");
+    const monthly_usage = extract_window(text, "monthlyUsage");
+    return {
+        ...(rolling_usage ? { rollingUsage: rolling_usage } : {}),
+        ...(weekly_usage ? { weeklyUsage: weekly_usage } : {}),
+        ...(monthly_usage ? { monthlyUsage: monthly_usage } : {}),
+    };
 }
 
 function to_number(value: unknown): number {
@@ -116,7 +188,11 @@ function observation(
 
 async function main(): Promise<Observation[]> {
     const cookie = required_cookie();
-    const headers = { Cookie: cookie };
+    const headers = {
+        Cookie: cookie,
+        "User-Agent": USER_AGENT,
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    };
 
     const auth = await ctx.http.get_raw("login", "/auth", { headers });
     const workspace_id = extract_workspace_id(header_value(auth.headers, "location"));
@@ -145,8 +221,16 @@ async function main(): Promise<Observation[]> {
         t: { ...SERVER_ARGS.t, a: [{ t: 1, s: workspace_id }] },
     };
     const server_path = `${SERVER_ARGS_PREFIX}${hash}&args=${encodeURIComponent(JSON.stringify(args))}`;
-    const server_response = await ctx.http.get_raw("default", server_path, { headers });
-    const usage = parse_json_object(server_response.body);
+    const server_response = await ctx.http.get_raw("default", server_path, {
+        headers: {
+            ...headers,
+            Accept: "*/*",
+            Referer: `https://opencode.ai/workspace/${workspace_id}`,
+            "x-server-id": hash,
+            "x-server-instance": "server-fn:0",
+        },
+    });
+    const usage = parse_usage_payload(server_response.body);
 
     if (!usage.rollingUsage || !usage.weeklyUsage || !usage.monthlyUsage) {
         throw new Error("OpenCode Go usage response invalid");

@@ -337,6 +337,36 @@ describe("SettingsForm cookie login", () => {
         });
         await vi.waitFor(() => {
             expect(screen.getByText("网页登录")).toBeInTheDocument();
+            expect(screen.getByText("网页登录成功，Cookie 已保存")).toBeInTheDocument();
+        });
+    });
+
+    it("shows feedback when cookie login captures nothing", async () => {
+        const onCookieLogin = vi.fn().mockResolvedValue(false);
+        const user = userEvent.setup();
+        renderForm({
+            instanceId: "opencode-go-1",
+            name: "OpenCode Go",
+            providerId: "opencode_go",
+            parameters: [
+                {
+                    name: "SESSION_COOKIE",
+                    label: "Cookie",
+                    type: "secret",
+                    required: true,
+                },
+            ],
+            values: {},
+            hasSecrets: {},
+            onCookieLogin,
+        });
+
+        await user.click(screen.getByText("网页登录"));
+
+        await vi.waitFor(() => {
+            expect(
+                screen.getByText("未捕获到 Cookie，请确认登录成功后再关闭窗口"),
+            ).toBeInTheDocument();
         });
     });
 

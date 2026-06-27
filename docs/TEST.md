@@ -106,14 +106,17 @@ pnpm test:packaged
 # 7. 账号菜单不干扰折叠：点击账号菜单按钮不触发卡片折叠/展开。
 
 # OpenCode Go 手动验收
+# 参考项目：`vendors/opencode-account-manager`（来源 `https://github.com/heartmore/opencode-account-manager`）。
 # 1. 打开设置。
 # 2. 添加 OpenCode Go。
 # 3. 粘贴 JSON / Netscape / `k=v; k=v` 任一格式 Cookie 并保存。
 # 4. 手动刷新该 connector。
 # 5. 概览出现 rolling / weekly / monthly。
 # 6. 再添加第二个 OpenCode Go 账号，确认两个账号行。
-# 7. 点击网页登录，关闭登录窗口后确认 Cookie 已保存，再刷新。
-# 8. 限制：控制台复制脚本无法读取 HttpOnly Cookie；遇到 HttpOnly 必需 Cookie，用网页登录捕获或 DevTools/Application 导出。
+# 7. 点击网页登录，登录完成后关闭登录窗口。
+# 8. 必须看到“网页登录成功，Cookie 已保存”；如果看到“未捕获到 Cookie”，视为失败。
+# 9. 成功后手动刷新，确认 OpenCode Go 不再报 `Missing required secret: SESSION_COOKIE`。
+# 10. 限制：控制台复制脚本无法读取 HttpOnly Cookie；遇到 HttpOnly 必需 Cookie，用网页登录捕获或 DevTools/Application 导出。
 
 # 类型检查
 pnpm typecheck

@@ -60,6 +60,7 @@ export function SettingsForm({
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [loginLoading, setLoginLoading] = useState(false);
+    const [loginMessage, setLoginMessage] = useState<string | null>(null);
     const [labelMapExpanded, setLabelMapExpanded] = useState(false);
     const [labelRows, setLabelRows] = useState<LabelMapRow[]>([]);
     const [labelLoading, setLabelLoading] = useState(false);
@@ -70,6 +71,32 @@ export function SettingsForm({
     );
     const mounted_ref = useRef(true);
     const saved_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handle_cookie_login = useCallback(
+        (secret_name: string) => {
+            if (!onCookieLogin) return;
+            setLoginLoading(true);
+            setLoginMessage(null);
+            void onCookieLogin(instanceId)
+                .then((ok) => {
+                    if (!mounted_ref.current) return;
+                    setLoginLoading(false);
+                    if (ok) {
+                        const el = document.getElementById(secret_name) as HTMLInputElement | null;
+                        if (el) el.value = SECRET_PLACEHOLDER;
+                        setLoginMessage("网页登录成功，Cookie 已保存");
+                    } else {
+                        setLoginMessage("未捕获到 Cookie，请确认登录成功后再关闭窗口");
+                    }
+                })
+                .catch(() => {
+                    if (!mounted_ref.current) return;
+                    setLoginLoading(false);
+                    setLoginMessage("网页登录失败，请重试");
+                });
+        },
+        [instanceId, onCookieLogin],
+    );
 
     useEffect(() => {
         return () => {
@@ -259,21 +286,15 @@ export function SettingsForm({
                                     className="cf-secondary"
                                     disabled={loginLoading}
                                     onClick={() => {
-                                        setLoginLoading(true);
-                                        void onCookieLogin(instanceId).then((ok) => {
-                                            setLoginLoading(false);
-                                            if (ok) {
-                                                const el = document.getElementById(
-                                                    param.name,
-                                                ) as HTMLInputElement | null;
-                                                if (el) el.value = SECRET_PLACEHOLDER;
-                                            }
-                                        });
+                                        handle_cookie_login(param.name);
                                     }}
                                 >
                                     {loginLoading ? "登录中..." : "网页登录"}
                                 </button>
                             )}
+                            {providerId && param.name === "SESSION_COOKIE" && loginMessage ? (
+                                <p className="ad-hint">{loginMessage}</p>
+                            ) : null}
                         </div>
                     )}
                     {typeof param.description === "string" && (

@@ -4,6 +4,8 @@ import type { VaultBackend } from "../vault/vault-backend";
 const log = createLogger("session-manager");
 
 const SESSION_COOKIE_KEY = "SESSION_COOKIE";
+const ALL_COOKIES = "*";
+export const SESSION_LOGIN_PARTITION = "persist:session-login";
 /** Session login timeout — longer than connector timeout because user interaction is required. */
 const SESSION_LOGIN_TIMEOUT_MS = 120_000;
 
@@ -23,13 +25,13 @@ export interface SessionController {
     on_before_send_headers(
         handler: (details: { url: string; requestHeaders: Record<string, string> }) => void,
     ): void;
-    get_cookies(): Promise<SessionCookie[]>;
+    get_cookies(url: string): Promise<SessionCookie[]>;
 }
 
 export interface SessionManagerDeps {
     readonly vault: VaultBackend;
-    create_window(): SessionWindow;
-    create_session(): SessionController;
+    create_window(partition: string): SessionWindow;
+    create_session(partition: string): SessionController;
 }
 
 export interface LoginRequest {
@@ -64,8 +66,8 @@ export function create_session_manager(
             }
             in_progress.add(request.instance_id);
 
-            const window = deps.create_window();
-            const session = deps.create_session();
+            const window = deps.create_window(SESSION_LOGIN_PARTITION);
+            const session = deps.create_session(SESSION_LOGIN_PARTITION);
             const login_origin = new URL(request.login_url).origin;
             let captured_cookie: string | null = null;
             let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -99,8 +101,13 @@ export function create_session_manager(
                     try {
                         const cookie =
                             captured_cookie ??
-                            (await select_session_cookies(session, request.cookie_names));
+                            (await select_session_cookies(
+                                session,
+                                login_origin,
+                                request.cookie_names,
+                            ));
                         if (!cookie) {
+                            log.warn(`No matching cookies captured for ${request.instance_id}`);
                             resolve({ saved: false });
                             return;
                         }
@@ -109,6 +116,7 @@ export function create_session_manager(
                             `${request.instance_id}:${SESSION_COOKIE_KEY}`,
                             cookie,
                         );
+                        log.info(`Session cookie saved for ${request.instance_id}`);
                         resolve({ saved: true });
                     } catch (error) {
                         reject(to_error(error));
@@ -176,6 +184,7 @@ function select_cookie_header_values(
     header: string,
     cookie_names: readonly string[],
 ): string | null {
+    const all_cookies = cookie_names.includes(ALL_COOKIES);
     const allowed = new Set(cookie_names);
     const selected = header
         .split(";")
@@ -183,7 +192,7 @@ function select_cookie_header_values(
         .filter((part) => {
             const equals_index = part.indexOf("=");
             if (equals_index <= 0) return false;
-            return allowed.has(part.slice(0, equals_index));
+            return all_cookies || allowed.has(part.slice(0, equals_index));
         });
 
     return selected.length > 0 ? selected.join("; ") : null;
@@ -191,13 +200,16 @@ function select_cookie_header_values(
 
 async function select_session_cookies(
     session: SessionController,
+    url: string,
     cookie_names: readonly string[],
 ): Promise<string | null> {
-    const cookies = await session.get_cookies();
-    const selected = cookie_names
-        .map((name) => cookies.find((cookie) => cookie.name === name))
-        .filter((cookie): cookie is SessionCookie => cookie !== undefined)
-        .map((cookie) => `${cookie.name}=${cookie.value}`);
+    const cookies = await session.get_cookies(url);
+    const selected = cookie_names.includes(ALL_COOKIES)
+        ? cookies
+        : cookie_names
+              .map((name) => cookies.find((cookie) => cookie.name === name))
+              .filter((cookie): cookie is SessionCookie => cookie !== undefined);
+    const values = selected.map((cookie) => `${cookie.name}=${cookie.value}`);
 
-    return selected.length > 0 ? selected.join("; ") : null;
+    return values.length > 0 ? values.join("; ") : null;
 }

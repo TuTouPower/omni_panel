@@ -3,6 +3,28 @@
 日期：2026-06-27
 状态：实施中
 
+## 参考项目
+
+本功能的参考项目固定为本地 vendor：`vendors/opencode-account-manager`，来源仓库：`https://github.com/heartmore/opencode-account-manager`。
+
+关键参考文件：
+
+- `vendors/opencode-account-manager/backend/src/services/cookie-manager.ts`：支持 JSON / EditThisCookie / Netscape / `k=v; k=v`，并保留 Cookie 的 `domain/path/httpOnly/secure/sameSite` 信息。
+- `vendors/opencode-account-manager/backend/src/services/browser-pool.ts`：用 Playwright context 保存并读取 `opencode.ai` Cookie，不猜单一 Cookie 名。
+- `vendors/opencode-account-manager/backend/src/services/registration-monitor.ts`：登录/注册成功的判断是 URL 进入 `/workspace/` 后读取整个 browser context cookies。
+- `vendors/opencode-account-manager/backend/src/services/usage-checker.ts`：把账号 Cookie 数组拼成完整 Cookie header 后，按 `/auth -> /workspace/{id} -> /workspace/{id}/go -> /_server` 协议查询 rolling/weekly/monthly。
+
+OmniUsage 不复制参考项目的账号工坊能力（邀请、注册监控、领奖、sub2api、独立账号库），但 OpenCode Go 的 Cookie 获取和 usage 协议必须按参考项目校准。
+
+## 已知实现教训
+
+2026-06-28 实测发现两处网页登录捕获缺陷：
+
+1. 登录窗口和 Cookie 读取 session 曾使用不同 Electron partition，导致登录成功后读不到 Cookie。
+2. 修复 partition 后仍失败，是因为实现只白名单 `session` / `__Host-session` / `__Secure-session`，但参考项目不这么猜名，而是读取 `opencode.ai` context 下的完整 Cookie；真实 OpenCode Cookie 可能叫 `session_token`、`auth` 等。
+
+因此 OpenCode Go 网页登录应读取 `https://opencode.ai` 作用域下全部 Cookie，再拼成 `SESSION_COOKIE`。如果关闭窗口后没有匹配 Cookie，UI 必须明确提示“未捕获到 Cookie”，不能只让 IPC 返回 ok 或让按钮停在“登录中”。
+
 ## 目标
 
 为 OmniUsage 添加 OpenCode Go 支持：

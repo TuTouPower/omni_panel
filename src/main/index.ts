@@ -318,7 +318,7 @@ void app.whenReady().then(async () => {
     // Session manager — controlled login window + credential capture
     const sessionManager = create_session_manager({
         vault,
-        create_window: () => {
+        create_window: (partition) => {
             return new BrowserWindow({
                 width: 520,
                 height: 720,
@@ -326,11 +326,11 @@ void app.whenReady().then(async () => {
                     contextIsolation: true,
                     nodeIntegration: false,
                     sandbox: true,
+                    partition,
                 },
             });
         },
-        create_session: () => {
-            const partition = "persist:session-login";
+        create_session: (partition) => {
             const ses = session.fromPartition(partition);
             return {
                 on_before_send_headers(handler) {
@@ -339,8 +339,8 @@ void app.whenReady().then(async () => {
                         callback({ requestHeaders: details.requestHeaders });
                     });
                 },
-                async get_cookies() {
-                    const cookies = await ses.cookies.get({});
+                async get_cookies(url: string) {
+                    const cookies = await ses.cookies.get({ url });
                     return cookies.map((c) => ({ name: c.name, value: c.value }));
                 },
             };

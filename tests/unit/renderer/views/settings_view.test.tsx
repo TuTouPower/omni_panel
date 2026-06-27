@@ -727,7 +727,7 @@ describe("SettingsView", () => {
             expect(mock_session_login).toHaveBeenCalledWith({
                 instance_id: "opencode-go-1",
                 login_url: "https://opencode.ai/auth",
-                cookie_names: ["session", "__Host-session", "__Secure-session"],
+                cookie_names: ["*"],
             });
         });
         expect(mock_refresh).toHaveBeenCalledWith("opencode-go-1");

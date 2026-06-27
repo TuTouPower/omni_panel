@@ -1,6 +1,9 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { create_session_manager } from "../../../src/main/core/session/session-manager";
+import {
+    create_session_manager,
+    SESSION_LOGIN_PARTITION,
+} from "../../../src/main/core/session/session-manager";
 import type {
     SessionCookie,
     SessionManagerDeps,
@@ -59,27 +62,36 @@ function create_vault(): VaultBackend & { values: Map<string, string>; fail_next
 
 interface TestDeps extends SessionManagerDeps {
     readonly window: MockWindow;
+    readonly partitions: string[];
+    readonly cookie_urls: string[];
     emit_before_send_headers(url: string, requestHeaders: Record<string, string>): void;
 }
 
 function create_deps(cookies: SessionCookie[] = []): TestDeps {
     const window = new MockWindow();
+    const partitions: string[] = [];
+    const cookie_urls: string[] = [];
     let before_send_headers:
         | ((details: { url: string; requestHeaders: Record<string, string> }) => void)
         | null = null;
 
     return {
         window,
+        partitions,
+        cookie_urls,
         vault: create_vault(),
-        create_window() {
+        create_window(partition: string) {
+            partitions.push(`window:${partition}`);
             return window;
         },
-        create_session() {
+        create_session(partition: string) {
+            partitions.push(`session:${partition}`);
             return {
                 on_before_send_headers(handler) {
                     before_send_headers = handler;
                 },
-                get_cookies() {
+                get_cookies(url: string) {
+                    cookie_urls.push(url);
                     return Promise.resolve(cookies);
                 },
             };
@@ -104,6 +116,24 @@ describe("session-manager", () => {
         await promise;
 
         expect(deps.window.loaded_urls).toEqual(["https://example.com/login"]);
+    });
+
+    it("uses the same persistent partition for login window and cookie capture", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "opencode-go-1",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["session"],
+        });
+        deps.window.close();
+        await promise;
+
+        expect(deps.partitions).toEqual([
+            `window:${SESSION_LOGIN_PARTITION}`,
+            `session:${SESSION_LOGIN_PARTITION}`,
+        ]);
     });
 
     it("saves captured Cookie header on window close", async () => {
@@ -221,6 +251,27 @@ describe("session-manager", () => {
 
         await expect(promise).resolves.toEqual({ saved: true });
         await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc; userId=42");
+    });
+
+    it("saves all OpenCode Go cookies from the login origin when wildcard is requested", async () => {
+        const deps = create_deps([
+            { name: "session_token", value: "abc" },
+            { name: "auth", value: "xyz" },
+        ]);
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "opencode-go-1",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("opencode-go-1:SESSION_COOKIE")).resolves.toBe(
+            "session_token=abc; auth=xyz",
+        );
+        expect(deps.cookie_urls).toEqual(["https://opencode.ai"]);
     });
 
     it("returns saved false when no cookies are captured", async () => {
