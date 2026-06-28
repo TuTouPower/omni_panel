@@ -13,7 +13,7 @@
 
 多平台 AI 服务用量监控桌面应用（Electron），对标 macOS 原生版 UsageBoard。
 
-**目标**：集中展示 Claude、OpenAI Codex、Gemini、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily、MiMo 等 AI 服务的用量数据。
+**目标**：集中展示 Claude、OpenAI Codex、Gemini、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily、Firecrawl、MiMo、OpenCode Go 等 AI 服务的用量数据。
 
 **技术栈**：Electron + TypeScript + Vite + React + Vitest + Playwright + Zod + ESLint + Prettier
 
@@ -261,16 +261,18 @@ definePlugin(
 
 ### 3.6 内置连接器
 
-| 连接器   | 脚本                       | 需要 API Key | 说明                                                                                                                       |
-| -------- | -------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Claude   | `claude-usage-plugin.ts`   | 否（读本地） | 读取 `~/.claude` 用量文件                                                                                                  |
-| Codex    | `codex-usage-plugin.ts`    | 否（读本地） | 读取 `~/.codex` 用量文件                                                                                                   |
-| DeepSeek | `deepseek-usage-plugin.ts` | 是           | 调用 DeepSeek API                                                                                                          |
-| 智谱     | `glm-usage-plugin.ts`      | 是           | 调用智谱 GLM API                                                                                                           |
-| MiniMax  | `minimax-usage-plugin.ts`  | 是           | 调用 MiniMax API                                                                                                           |
-| Tavily   | `tavily-usage-plugin.ts`   | 是           | 调用 Tavily API                                                                                                            |
-| MiMo     | `mimo-usage-plugin.ts`     | 是           | 网页登录拦截浏览器 Cookie 获取用量/套餐/余额；API 需带浏览器请求头否则 401（详见 `docs/research/mimo_cookie_research.md`） |
-| CPA      | `cpa-usage-plugin.ts`      | 是           | 通过 CPA-Manager 代理获取 5 个 provider 的用量（详见 `docs/research/cpa_quota_guide.md`）                                  |
+| 连接器      | 脚本                                  | 需要 API Key | 说明                                                                                                                       |
+| ----------- | ------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Claude      | `claude-usage-plugin.ts`              | 否（读本地） | 读取 `~/.claude` 用量文件                                                                                                  |
+| Codex       | `codex-usage-plugin.ts`               | 否（读本地） | 读取 `~/.codex` 用量文件                                                                                                   |
+| DeepSeek    | `deepseek-usage-plugin.ts`            | 是           | 调用 DeepSeek API                                                                                                          |
+| 智谱        | `glm-usage-plugin.ts`                 | 是           | 调用智谱 GLM API                                                                                                           |
+| MiniMax     | `minimax-usage-plugin.ts`             | 是           | 调用 MiniMax API                                                                                                           |
+| Tavily      | `tavily-usage-plugin.ts`              | 是           | 调用 Tavily API                                                                                                            |
+| Firecrawl   | `connectors/firecrawl/connector.ts`   | 是           | 调用 Firecrawl API                                                                                                         |
+| MiMo        | `mimo-usage-plugin.ts`                | 是           | 网页登录拦截浏览器 Cookie 获取用量/套餐/余额；API 需带浏览器请求头否则 401（详见 `docs/research/mimo_cookie_research.md`） |
+| OpenCode Go | `connectors/opencode_go/connector.ts` | 是           | 通过网页登录 Cookie 获取 OpenCode Go 用量                                                                                  |
+| CPA         | `cpa-usage-plugin.ts`                 | 是           | 通过 CPA-Manager 代理获取 5 个 provider 的用量（详见 `docs/research/cpa_quota_guide.md`）                                  |
 
 CPA 连接器特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key`（secret）+ 5 个 `monitor_*` boolean 开关；调用 `/v0/management/auth-files` 和 `/v0/management/api-call`；单个账号失败不阻塞其他；Antigravity 走 `fetchAvailableModels` 的模型配额，只展示 5 小时 `Gemini Models` 和 `Claude/GPT` 两组；Gemini 两步请求。
 

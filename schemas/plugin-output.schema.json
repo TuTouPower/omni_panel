@@ -35,7 +35,9 @@
                                     "minimax",
                                     "deepseek",
                                     "tavily",
-                                    "mimo"
+                                    "firecrawl",
+                                    "mimo",
+                                    "opencode_go"
                                 ]
                             },
                             "source": {
