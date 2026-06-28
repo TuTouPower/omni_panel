@@ -61,6 +61,7 @@ export const PROVIDER_ORDER: readonly UsageProvider[] = [
     "minimax",
     "deepseek",
     "tavily",
+    "firecrawl",
     "mimo",
     "opencode_go",
 ];
@@ -75,6 +76,7 @@ export const PROVIDER_LABELS: Record<UsageProvider, string> = {
     minimax: "MiniMax",
     deepseek: "DeepSeek",
     tavily: "Tavily",
+    firecrawl: "Firecrawl",
     mimo: "MiMo",
     opencode_go: "OpenCode Go",
 };
