@@ -37,13 +37,13 @@ describe("globals usage bar css", () => {
         expect(css).toContain(".bar-capsule-value-light");
     });
 
-    it("does not show a custom right-side scrollbar on the main panel", () => {
+    it("keeps main panel scrollable without showing a right-side scrollbar", () => {
         const main_scroll_css = /\.scroll\s*\{[\s\S]*?\}/.exec(css)?.[0] ?? "";
 
-        expect(css).not.toContain(".scroll::-webkit-scrollbar");
-        expect(css).not.toContain(".scroll::-webkit-scrollbar-thumb");
-        expect(main_scroll_css).not.toContain("scrollbar-width");
-        expect(main_scroll_css).not.toContain("scrollbar-color");
+        expect(main_scroll_css).toContain("overflow-y: auto");
+        expect(main_scroll_css).toContain("scrollbar-width: none");
+        expect(main_scroll_css).toContain("-ms-overflow-style: none");
+        expect(css).toMatch(/\.scroll::-webkit-scrollbar\s*\{[\s\S]*display:\s*none;/);
     });
 
     it("does not keep obsolete bar classes", () => {

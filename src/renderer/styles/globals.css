@@ -332,6 +332,11 @@ html[data-window="tray"] #root {
     overflow-y: auto;
     overflow-x: hidden;
     padding: 12px 16px 8px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.scroll::-webkit-scrollbar {
+    display: none;
 }
 .scroll-inner {
     display: flex;
