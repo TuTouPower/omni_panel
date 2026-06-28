@@ -4,6 +4,7 @@ import antigravity_svg from "../assets/vendor_logos/antigravity.svg";
 import claude_svg from "../assets/vendor_logos/claude.svg";
 import codex_svg from "../assets/vendor_logos/codex.svg";
 import deepseek_svg from "../assets/vendor_logos/deepseek.svg";
+import firecrawl_svg from "../assets/vendor_logos/firecrawl.svg";
 import gemini_svg from "../assets/vendor_logos/gemini.svg";
 import glm_svg from "../assets/vendor_logos/glm.svg";
 import kimi_svg from "../assets/vendor_logos/kimi.svg";
@@ -105,6 +106,7 @@ const VENDOR_LOGOS: Record<string, string> = {
     deepseek: deepseek_svg,
     minimax: minimax_svg,
     tavily: tavily_svg,
+    firecrawl: firecrawl_svg,
 };
 
 const VENDOR_MARKS: Record<string, (s: number) => string> = {

@@ -99,6 +99,20 @@ describe("VendorMark", () => {
         expect(svg).not.toContain("<rect");
     });
 
+    it("renders the official Firecrawl logo asset", () => {
+        const { container } = render(<VendorMark id="firecrawl" />);
+        const image = container.querySelector("span.vicon img");
+        const svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/firecrawl.svg"),
+            "utf8",
+        );
+
+        expect(image).toBeInTheDocument();
+        expect(image).toHaveClass("vendor-logo-img");
+        expect(image?.getAttribute("src")).toContain("firecrawl");
+        expect(svg).toContain("Firecrawl");
+    });
+
     it("renders official opencode logos for both themes", () => {
         const { container } = render(<VendorMark id="opencode_go" />);
         const light_image = container.querySelector("span.vicon img.vendor-logo-light");
