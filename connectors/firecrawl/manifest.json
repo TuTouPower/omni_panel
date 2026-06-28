@@ -1,0 +1,27 @@
+{
+    "id": "firecrawl",
+    "provider": "firecrawl",
+    "capabilities": ["poll"],
+    "parameters": [
+        {
+            "name": "API_KEY",
+            "type": "secret",
+            "required": true,
+            "label": "API Key",
+            "label@zh-Hans": "API 密钥",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://api.firecrawl.dev"
+    },
+    "poll": {
+        "request": {
+            "endpoint": "default",
+            "path": "/team/token-usage",
+            "method": "GET"
+        },
+        "map": {}
+    },
+    "script": "connector.ts"
+}
