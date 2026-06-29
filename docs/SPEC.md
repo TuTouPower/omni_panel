@@ -57,7 +57,7 @@
 - renderer 禁止直接访问 `fs`、`child_process`、`ipcRenderer`
 - `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`
 - preload 通过 `contextBridge` 暴露白名单 API（`window.usageboard.*`）
-- secret 参数不进入错误消息、测试快照；开发期 raw debug 日志会记录完整原始值
+- secret 参数不进入错误消息、测试快照；日志输出统一经过 scrubber 和默认敏感字段脱敏，开发期同样不写明文 secret
 - renderer 只能调用 IPC 白名单方法，不能发任意 channel
 
 ---
@@ -257,7 +257,7 @@ definePlugin(
 
 - **timeout**：15 秒，超时后 kill 子进程，返回 failed snapshot
 - **stderr**：exit 0 时仅调试用；exit 非零时作为错误消息 fallback
-- 开发期 raw debug 日志会记录完整参数值；打包/非开发环境不写新增 full raw payload
+- 日志输出统一经过 scrubber 和默认敏感字段脱敏；开发期 raw debug 日志也不写明文 secret
 
 ### 3.6 内置连接器
 
@@ -296,7 +296,8 @@ CPA 连接器特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key
 - Linux: `~/.config/OmniUsage`
 
 启动后日志第一行会写入实际日志文件路径：`Logging initialized: .../logs/app-YYYY-MM-DD.log`。
-刷新排查优先看 `refresh-service`、`runner`、`compiler`、`ipc:*`、`renderer:*` 模块；开发期 raw debug 日志会记录 config/cache/secrets/IPC/renderer/连接器 stdout-stderr 的完整原始 payload（不脱敏），打包/非开发环境不写新增 full raw payload。
+日志文件扩展名仍为 `.log`，内容为 JSONL。每行包含 `ts`、`level`、`module`、`message`、可选 `meta`、可选 `trace_id`。日志等级可在设置页「诊断 / 日志等级」调整；开发环境默认 `debug`，生产环境默认 `info`。刷新与连接器链路、已包装 IPC 调用会带同一个 `trace_id` 便于排查。renderer 日志经 preload 节流，超限时记录一条 `renderer logs throttled`，并带 `dropped_count`。
+刷新排查优先看 `refresh-service`、`runner`、`compiler`、`ipc:*`、`renderer:*` 模块。日志输出统一经过 scrubber 和默认敏感字段脱敏；开发期 raw debug 日志也不写明文 secret。
 
 ### 4.2 AppConfiguration schema
 
@@ -327,7 +328,8 @@ CPA 连接器特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key
         hidden?: Record<string, string[]>,    // 隐藏的账号（per provider）
         disabled?: Record<string, string[]>   // 禁用的账号（per provider）
     },
-    cookieRefreshHours?: number           // Cookie 自动刷新周期（0=关闭，6/12/24 小时）
+    cookieRefreshHours?: number,          // Cookie 自动刷新周期（0=关闭，6/12/24 小时）
+    logLevel?: "debug" | "info" | "warn" | "error" // 日志等级，缺省时开发 debug、生产 info
 }
 ```
 
@@ -650,22 +652,22 @@ Cookie 认证相关（MiMo 等需要浏览器 Cookie 的连接器）：
 
 ### 7.13 log:renderer / log:export
 
-- `log:renderer` — Renderer → Main，渲染进程日志转发。Payload：`{ level, module, message, meta? }`
-- `log:export` — 导出日志文件
+- `log:renderer` — Renderer → Main，渲染进程日志转发。Payload：`{ level, module, message, meta? }`；preload 会限制字段长度并按窗口节流；生产环境不转发 `meta`。
+- `log:export` — 导出当前日志文件（`.log` 扩展，JSONL 内容）
 
 ---
 
 ## 8. 安全模型
 
-| 层级     | 措施                                                             |
-| -------- | ---------------------------------------------------------------- |
-| Electron | contextIsolation + sandbox + nodeIntegration=false               |
-| IPC      | contextBridge 白名单，不允许任意 channel                         |
-| 密钥     | Electron safeStorage 加密存储；开发期 raw debug 日志可记录明文值 |
-| 日志     | 新增 full raw payload 仅开发环境输出，不做脱敏                   |
-| Git      | secrets.json 在 .gitignore，pre-commit gitleaks 扫描             |
-| SAST     | Semgrep 自定义规则（no nodeIntegration、no eval、no remote）     |
-| 依赖     | dependency-cruiser 禁止 renderer import Node API                 |
+| 层级     | 措施                                                                        |
+| -------- | --------------------------------------------------------------------------- |
+| Electron | contextIsolation + sandbox + nodeIntegration=false                          |
+| IPC      | contextBridge 白名单，不允许任意 channel                                    |
+| 密钥     | Electron safeStorage 加密存储；日志 scrubber 和默认敏感字段脱敏强制生效     |
+| 日志     | JSONL 本地日志，7 天滚动；用户可调日志等级；开发期默认 debug、生产默认 info |
+| Git      | secrets.json 在 .gitignore，pre-commit gitleaks 扫描                        |
+| SAST     | Semgrep 自定义规则（no nodeIntegration、no eval、no remote）                |
+| 依赖     | dependency-cruiser 禁止 renderer import Node API                            |
 
 ---
 

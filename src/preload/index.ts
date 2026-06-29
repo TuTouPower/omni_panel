@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/types/ipc";
+import { create_renderer_log_throttle } from "./log-throttle";
 import type {
     UsageboardApi,
     PluginSnapshotDTO,
@@ -205,7 +206,9 @@ const session_methods = {
         invoke<{ saved: boolean }>(IPC_CHANNELS.SESSION_REFRESH, request),
 };
 
-const log_method = (payload: RendererLogPayload) => {
+const renderer_log_throttle = create_renderer_log_throttle({ limit: 100, window_ms: 1000 });
+
+function send_renderer_log(payload: RendererLogPayload): void {
     const sanitized: RendererLogPayload = {
         level: payload.level,
         module: sanitizeLogField(payload.module, 128),
@@ -215,6 +218,21 @@ const log_method = (payload: RendererLogPayload) => {
         sanitized.meta = payload.meta;
     }
     void ipcRenderer.invoke(IPC_CHANNELS.LOG_RENDERER, sanitized);
+}
+
+const log_method = (payload: RendererLogPayload) => {
+    const now_ms = Date.now();
+    const notice = renderer_log_throttle.flush_notice(now_ms);
+    if (notice) {
+        send_renderer_log({
+            level: "warn",
+            module: "preload:log-throttle",
+            message: "renderer logs throttled",
+            meta: notice,
+        });
+    }
+    if (!renderer_log_throttle.accept(now_ms).accepted) return;
+    send_renderer_log(payload);
 };
 
 const logs_methods = {

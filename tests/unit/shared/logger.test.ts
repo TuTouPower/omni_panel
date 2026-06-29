@@ -3,8 +3,10 @@ import {
     addTransport,
     createFileTransport,
     createLogger,
+    flushLogTransports,
     scrubber,
     setLogLevel,
+    withLogContext,
 } from "../../../src/shared/lib/logger";
 
 describe("logger", () => {
@@ -115,7 +117,7 @@ describe("logger", () => {
 
             const output = lines.join("\n");
             expect(output).toContain('"resetAt":"2026-06-06T12:00:00.000Z"');
-            expect(output).toContain('"headers":{"Authorization":"Bearer real-token"}');
+            expect(output).toContain('"headers":{"Authorization":"***"}');
             expect(output).toContain('"providers":["claude","codex"]');
             expect(output).not.toContain("[object Date]");
             expect(output).not.toContain("[object Map]");
@@ -137,11 +139,34 @@ describe("logger", () => {
 
             expect(lines).toHaveLength(1);
             const line = lines[0] ?? "";
-            expect(line).toMatch(/^\[\d{4}-\d{2}-\d{2}T/);
-            expect(line).toContain("[INFO]");
-            expect(line).toContain("[my-module]");
-            expect(line).toContain("hello world");
-            expect(line).toContain('"key":"value"');
+            const record = JSON.parse(line) as Record<string, unknown>;
+            const meta = record["meta"] as Record<string, unknown>;
+            expect(record["ts"]).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/));
+            expect(record["level"]).toBe("info");
+            expect(record["module"]).toBe("my-module");
+            expect(record["message"]).toBe("hello world");
+            expect(meta["key"]).toBe("***");
+        } finally {
+            remove_transport();
+        }
+    });
+
+    it("createFileTransport serializes unstringifiable metadata safely", () => {
+        const lines: string[] = [];
+        const transport = createFileTransport((line) => lines.push(line));
+        const remove_transport = addTransport(transport);
+        setLogLevel("debug");
+
+        try {
+            const log = createLogger("test");
+            expect(() => {
+                log.info("bigint", { count: 1n });
+            }).not.toThrow();
+
+            expect(JSON.parse(lines[0] ?? "{}") as Record<string, unknown>).toMatchObject({
+                module: "test",
+                message: "bigint",
+            });
         } finally {
             remove_transport();
         }
@@ -159,6 +184,74 @@ describe("logger", () => {
             expect(() => {
                 log.info("boom");
             }).toThrow("disk full");
+        } finally {
+            remove_transport();
+        }
+    });
+
+    it("createFileTransport writes JSONL records with redacted secret metadata", () => {
+        const lines: string[] = [];
+        const transport = createFileTransport((line) => lines.push(line));
+        const remove_transport = addTransport(transport);
+        setLogLevel("debug");
+
+        try {
+            const log = createLogger("test");
+            log.info("hello", {
+                api_key: "sk-real",
+                nested: { Authorization: "Bearer token-real" },
+                safe: "visible",
+            });
+
+            const record = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
+            const meta = record["meta"] as Record<string, unknown>;
+            const nested = meta["nested"] as Record<string, unknown>;
+            expect(record["level"]).toBe("info");
+            expect(record["module"]).toBe("test");
+            expect(record["message"]).toBe("hello");
+            expect(meta["api_key"]).toBe("***");
+            expect(nested["Authorization"]).toBe("***");
+            expect(meta["safe"]).toBe("visible");
+        } finally {
+            remove_transport();
+        }
+    });
+
+    it("withLogContext preserves Error metadata under value", () => {
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            const log = withLogContext(createLogger("test"), { trace_id: "trace-1" });
+            log.error("failed", new Error("boom"));
+
+            expect(lines.join("\n")).toContain('"trace_id":"trace-1"');
+            expect(lines.join("\n")).toContain('"message":"boom"');
+        } finally {
+            remove_transport();
+        }
+    });
+
+    it("flushLogTransports waits for flushable transports", async () => {
+        const flushed: string[] = [];
+        const remove_transport = addTransport({
+            write() {
+                return undefined;
+            },
+            flush() {
+                flushed.push("done");
+                return Promise.resolve();
+            },
+        });
+
+        try {
+            await flushLogTransports();
+            expect(flushed).toEqual(["done"]);
         } finally {
             remove_transport();
         }

@@ -5,6 +5,7 @@ import {
     createConsoleTransport,
     createFileTransport,
     createLogger,
+    type LogLevel,
     setLogLevel,
 } from "../../shared/lib/logger";
 
@@ -37,41 +38,54 @@ async function cleanupOldLogs(logDir: string): Promise<void> {
     }
 }
 
+export function defaultLogLevelForEnv(env: NodeJS.ProcessEnv = process.env): LogLevel {
+    return env["NODE_ENV"] === "production" ? "info" : "debug";
+}
+
 export async function exportCurrentLog(userDataPath: string, targetPath: string): Promise<void> {
     const logFile = getLogFilePath(getLogDir(userDataPath));
     await copyFile(logFile, targetPath);
 }
 
-export async function initLogging(userDataPath: string): Promise<() => void> {
+export async function initLogging(
+    userDataPath: string,
+    options: { logLevel?: LogLevel } = {},
+): Promise<() => Promise<void>> {
     const logDir = getLogDir(userDataPath);
     await mkdir(logDir, { recursive: true });
 
     const logFile = getLogFilePath(logDir);
 
     const size_warned_files = new Set<string>();
+    let pending_write = Promise.resolve();
 
-    setLogLevel("debug");
+    setLogLevel(options.logLevel ?? defaultLogLevelForEnv());
 
     const removeFileTransport = addTransport(
-        createFileTransport((line) => {
-            void (async () => {
-                try {
-                    const s = await stat(logFile).catch(() => undefined);
-                    if (s && s.size >= MAX_LOG_FILE_BYTES) {
-                        if (!size_warned_files.has(logFile)) {
-                            size_warned_files.add(logFile);
-                            createLogger("logging").warn(
-                                `Log file exceeded ${String(MAX_LOG_FILE_BYTES / 1024 / 1024)}MB, skipping further writes: ${logFile}`,
-                            );
+        createFileTransport(
+            (line) => {
+                pending_write = pending_write.then(async () => {
+                    try {
+                        const s = await stat(logFile).catch(() => undefined);
+                        if (s && s.size >= MAX_LOG_FILE_BYTES) {
+                            if (!size_warned_files.has(logFile)) {
+                                size_warned_files.add(logFile);
+                                createLogger("logging").warn(
+                                    `Log file exceeded ${String(MAX_LOG_FILE_BYTES / 1024 / 1024)}MB, skipping further writes: ${logFile}`,
+                                );
+                            }
+                            return;
                         }
-                        return;
+                        await appendFile(logFile, line + "\n", "utf8");
+                    } catch {
+                        // Ignore write errors
                     }
-                    await appendFile(logFile, line + "\n", "utf8");
-                } catch {
-                    // Ignore write errors
-                }
-            })();
-        }),
+                });
+            },
+            async () => {
+                await pending_write;
+            },
+        ),
     );
 
     let removeConsoleTransport: (() => void) | undefined;
@@ -83,7 +97,8 @@ export async function initLogging(userDataPath: string): Promise<() => void> {
 
     void cleanupOldLogs(logDir);
 
-    return () => {
+    return async () => {
+        await pending_write;
         removeFileTransport();
         removeConsoleTransport?.();
     };

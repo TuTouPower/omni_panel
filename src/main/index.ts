@@ -20,8 +20,8 @@ import {
     get_tray_icon_path,
     get_app_icon_path,
 } from "./core/paths";
-import { initLogging } from "./core/logging";
-import { createLogger } from "../shared/lib/logger";
+import { initLogging, defaultLogLevelForEnv } from "./core/logging";
+import { createLogger, setLogLevel } from "../shared/lib/logger";
 import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
 import { create_file_vault_backend } from "./core/vault/file-vault-backend";
@@ -179,7 +179,8 @@ let cleanupPopupIpc: (() => void) | null = null;
 void app.whenReady().then(async () => {
     const dataRoot = getDataRoot();
     await cleanup_temp_files(dataRoot);
-    await initLogging(dataRoot);
+    const cleanupLogging = await initLogging(dataRoot);
+    let logging_cleanup_done = false;
     const log = createLogger("main");
 
     log.info("Application starting");
@@ -227,6 +228,7 @@ void app.whenReady().then(async () => {
 
     const currentConfig = await configStore.load();
     let currentConfigSnapshot = currentConfig;
+    setLogLevel(currentConfigSnapshot.logLevel ?? defaultLogLevelForEnv());
 
     function buildSecretParamKeys(cfg: typeof currentConfig): Map<string, ReadonlySet<string>> {
         const map = new Map<string, ReadonlySet<string>>();
@@ -292,6 +294,7 @@ void app.whenReady().then(async () => {
         secretParamKeys,
         onConfigSaved: (updatedConfig) => {
             currentConfigSnapshot = updatedConfig;
+            setLogLevel(updatedConfig.logLevel ?? defaultLogLevelForEnv());
             log.info("Config saved — rebuilding scheduler and secret keys");
             const newKeys = buildSecretParamKeys(updatedConfig);
             secretParamKeys.clear();
@@ -717,9 +720,16 @@ void app.whenReady().then(async () => {
     });
 
     app.on("will-quit", (e) => {
-        if (configStore.hasPendingSave()) {
+        if (configStore.hasPendingSave() || !logging_cleanup_done) {
             e.preventDefault();
-            void configStore.flushPendingSave().finally(() => {
+            void Promise.all([
+                configStore.hasPendingSave() ? configStore.flushPendingSave() : Promise.resolve(),
+                logging_cleanup_done
+                    ? Promise.resolve()
+                    : cleanupLogging().then(() => {
+                          logging_cleanup_done = true;
+                      }),
+            ]).finally(() => {
                 app.quit();
             });
         }

@@ -1,9 +1,6 @@
-import { createLogger } from "../../../shared/lib/logger";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { Observation, ObservationWindow } from "../../../shared/types/observation";
 import type { ConnectorContext } from "./host-io";
-
-const log = createLogger("tier1-poll");
 
 // NOTE: resolve_json_path only supports dot-separated object paths like $.a.b.c.
 // Array index access (e.g. $.items[0].value) is not supported. Adding array
@@ -49,19 +46,19 @@ export async function execute_poll(
                 : await ctx.http.get_json(request.endpoint, request.path);
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        log.error(`Poll failed for ${manifest.id}: ${message}`);
+        ctx.log.error(`Poll failed for ${manifest.id}: ${message}`);
         throw error;
     }
 
     const used = to_number(resolve_json_path(response, map["used"] ?? ""));
     const limit = to_number(resolve_json_path(response, map["limit"] ?? ""));
     if (used === null && limit === null) {
-        log.debug(`Poll for ${manifest.id}: no usable data (used=null, limit=null)`);
+        ctx.log.debug(`Poll for ${manifest.id}: no usable data (used=null, limit=null)`);
         return [];
     }
 
     const window = to_window(resolve_json_path(response, map["window"] ?? "month"));
-    log.debug(
+    ctx.log.debug(
         `Poll for ${manifest.id}: 1 observation (used=${String(used)}, limit=${String(limit)})`,
     );
 

@@ -11,6 +11,7 @@ import type { AsyncObservationStore } from "../../../src/main/core/observation/o
 import { wrap_sync_as_async } from "../../../src/main/core/observation/observation-store-async";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
 import type { Observation } from "../../../src/shared/types/observation";
+import { addTransport, getLogLevel, setLogLevel } from "../../../src/shared/lib/logger";
 
 const script_body = `
 return [{
@@ -153,6 +154,36 @@ async function create_service(plugins: ConnectorConfiguration[]) {
 }
 
 describe("refresh-service", () => {
+    it("uses one trace id across refresh and connector logs", async () => {
+        const previous_level = getLogLevel();
+        const metas: unknown[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                void level;
+                void message;
+                if (module === "refresh-service" || module === "connector-runtime") {
+                    metas.push(meta);
+                }
+            },
+        });
+        setLogLevel("debug");
+        const { tempDir, service } = await create_service([plugin_config()]);
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            const trace_ids = metas
+                .map((meta) => (meta as Record<string, unknown> | undefined)?.["trace_id"])
+                .filter(Boolean);
+            expect(trace_ids.length).toBeGreaterThan(1);
+            expect(new Set(trace_ids).size).toBe(1);
+        } finally {
+            remove_transport();
+            setLogLevel(previous_level);
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
     it("executes script connector and stores observations", async () => {
         const { tempDir, service, observationStore, runtimeStore } = await create_service([
             plugin_config(),

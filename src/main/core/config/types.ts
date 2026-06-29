@@ -54,6 +54,7 @@ const mainPanelModeSchema = z.enum(["system", "popup", "floating"]);
 const floatingHeightModeSchema = z.enum(["fixed", "followContent"]);
 const usageBarColorSchemeSchema = z.enum(["risk-current", "risk-projected", "nine-cycle"]);
 const usageBarStyleSchema = z.enum(["thin", "capsule"]);
+const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 const floatingBoundsSchema = z.object({
     x: z.number().finite(),
     y: z.number().finite(),
@@ -70,6 +71,7 @@ export const appConfigurationSchema = z.object({
     proxy: proxyConfigurationSchema.optional(),
     accentColor: z.string().optional(),
     theme: z.enum(["light", "dark", "system"]).optional(),
+    logLevel: logLevelSchema.optional(),
     pinToTop: z.boolean().optional(),
     minimizeToTray: z.boolean().optional(),
     globalRefreshIntervalSeconds: z.number().int().min(1).optional(),

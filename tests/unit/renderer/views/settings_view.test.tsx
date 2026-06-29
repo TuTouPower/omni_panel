@@ -233,6 +233,25 @@ describe("SettingsView", () => {
         };
     });
 
+    it("labels the log level selector for assistive technology", async () => {
+        current_config = { ...base_config, logLevel: "info" };
+        render(<SettingsView />);
+
+        expect(await screen.findByLabelText("日志等级")).toHaveDisplayValue("Info");
+    });
+
+    it("saves selected log level from general settings", async () => {
+        current_config = { ...base_config, logLevel: "info" };
+        render(<SettingsView />);
+
+        const user = userEvent.setup();
+        await user.selectOptions(await screen.findByDisplayValue("Info"), "Debug");
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalledWith(expect.objectContaining({ logLevel: "debug" }));
+        });
+    });
+
     it("saves endpoint overrides and secrets without putting secrets in config", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);

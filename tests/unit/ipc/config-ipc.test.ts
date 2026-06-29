@@ -107,9 +107,11 @@ describe("config-ipc", () => {
     it("logs raw config IPC request and response payloads", async () => {
         const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
         const lines: string[] = [];
+        const metas: unknown[] = [];
         const remove_transport = addTransport({
             write(level, module, message, meta) {
                 lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+                metas.push(meta);
             },
         });
         setLogLevel("debug");
@@ -134,6 +136,17 @@ describe("config-ipc", () => {
             expect(joined).toContain("config:get");
             expect(joined).toContain("[redacted]");
             expect(joined).not.toContain("Private Label");
+            expect(
+                metas.some(
+                    (meta) =>
+                        (meta as Record<string, unknown> | undefined)?.["channel"] === "config:get",
+                ),
+            ).toBe(true);
+            const trace_ids = metas
+                .map((meta) => (meta as Record<string, unknown> | undefined)?.["trace_id"])
+                .filter(Boolean);
+            expect(trace_ids.length).toBeGreaterThan(1);
+            expect(new Set(trace_ids).size).toBe(1);
         } finally {
             remove_transport();
             setLogLevel("debug");

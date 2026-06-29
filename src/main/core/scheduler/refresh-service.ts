@@ -7,7 +7,7 @@ import type { VaultBackend } from "../vault/vault-backend";
 import type { Observation } from "../../../shared/types/observation";
 import type { MetricRecord, UsageSource } from "../../../shared/schemas/plugin-output";
 import { usageProviderSchema } from "../../../shared/schemas/plugin-output";
-import { createLogger } from "../../../shared/lib/logger";
+import { createLogger, createTraceId, withLogContext } from "../../../shared/lib/logger";
 import type { ConnectorDefinition } from "../connector/manifest-loader";
 import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";
@@ -110,6 +110,7 @@ async function build_params(
     connector_config: ConnectorConfiguration,
     definition: ConnectorDefinition,
     vault: VaultBackend,
+    trace_id?: string,
 ): Promise<Record<string, string>> {
     const secret_names = new Set(
         definition.manifest.parameters.filter((p) => p.type === "secret").map((p) => p.name),
@@ -148,9 +149,8 @@ async function build_params(
     for (const [key, value] of Object.entries(params)) {
         safe_params[key] = secret_names.has(key) ? "***" : value;
     }
-    build_params_log.debug(
-        `Params for ${connector_config.instanceId}: ${JSON.stringify(safe_params)}`,
-    );
+    const log = trace_id ? withLogContext(build_params_log, { trace_id }) : build_params_log;
+    log.debug(`Params for ${connector_config.instanceId}: ${JSON.stringify(safe_params)}`);
     return params;
 }
 
@@ -159,12 +159,14 @@ async function execute_connector(
     definition: ConnectorDefinition,
     vault: VaultBackend,
     proxy_url?: string,
+    trace_id?: string,
 ): Promise<Observation[]> {
-    const params = await build_params(connector_config, definition, vault);
+    const params = await build_params(connector_config, definition, vault, trace_id);
     const ctx = create_connector_context(definition.manifest, vault, connector_config.instanceId, {
         endpoint_overrides: { ...connector_config.endpointOverrides },
         params,
         ...(proxy_url ? { proxy_url } : {}),
+        ...(trace_id ? { trace_id } : {}),
     });
 
     if (definition.manifest.script) {
@@ -202,9 +204,11 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
     }
 
     async function refresh(instanceId: string, options?: { force?: boolean }): Promise<void> {
-        log.debug(`Refresh start: ${instanceId} (force=${String(options?.force === true)})`);
+        const trace_id = createTraceId("refresh");
+        const trace_log = withLogContext(log, { trace_id });
+        trace_log.debug(`Refresh start: ${instanceId} (force=${String(options?.force === true)})`);
         if (is_locked(instanceId)) {
-            log.debug(`Refresh skipped for ${instanceId} (already in progress)`);
+            trace_log.debug(`Refresh skipped for ${instanceId} (already in progress)`);
             return;
         }
         locks.set(instanceId, Date.now());
@@ -215,14 +219,14 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 (p: ConnectorConfiguration) => p.instanceId === instanceId,
             );
             if (!connector_config) {
-                log.warn(`Refresh requested for unknown instanceId: ${instanceId}`);
+                trace_log.warn(`Refresh requested for unknown instanceId: ${instanceId}`);
                 return;
             }
             const definition = deps.definitions.find(
                 (item) => item.executablePath === connector_config.executablePath,
             );
             if (!definition) {
-                log.warn(`Refresh requested for connector without definition: ${instanceId}`);
+                trace_log.warn(`Refresh requested for connector without definition: ${instanceId}`);
                 return;
             }
 
@@ -238,6 +242,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     definition,
                     deps.vault,
                     config.proxy?.url,
+                    trace_id,
                 );
                 for (const obs of observations) {
                     try {
@@ -247,7 +252,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                             insert_error instanceof Error
                                 ? insert_error.message
                                 : String(insert_error);
-                        log.error(
+                        trace_log.error(
                             `Failed to insert observation for ${instanceId} (${connector_config.name}): ${insert_message}`,
                         );
                         throw insert_error;
@@ -265,12 +270,14 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     items,
                     updatedAt: new Date(updated_at),
                 });
-                log.info(
+                trace_log.info(
                     `Connector ${instanceId} (${connector_config.name}) refreshed: ${String(items.length)} items`,
                 );
             } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : String(error);
-                log.error(`Connector ${instanceId} (${connector_config.name}) failed: ${message}`);
+                trace_log.error(
+                    `Connector ${instanceId} (${connector_config.name}) failed: ${message}`,
+                );
 
                 // Auto re-login for session-based connectors on auth errors
                 if (
@@ -278,11 +285,11 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     definition.manifest.capabilities.includes("session") &&
                     is_auth_error(message)
                 ) {
-                    log.info(`Auto-triggering re-login for ${connector_config.name}`);
+                    trace_log.info(`Auto-triggering re-login for ${connector_config.name}`);
                     try {
                         const result = await deps.sessionLogin(instanceId);
                         if (result.saved) {
-                            log.info(
+                            trace_log.info(
                                 `Re-login succeeded for ${connector_config.name}, waiting before retry`,
                             );
                             await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -292,6 +299,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                 definition,
                                 deps.vault,
                                 config.proxy?.url,
+                                trace_id,
                             );
                             for (const obs of retry_observations) {
                                 await deps.observationStore.insert(obs);
@@ -311,13 +319,13 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                 items: retry_items,
                                 updatedAt: new Date(retry_updated_at),
                             });
-                            log.info(
+                            trace_log.info(
                                 `Connector ${connector_config.name} refreshed after re-login: ${String(retry_items.length)} items`,
                             );
                             return;
                         }
                     } catch (login_error: unknown) {
-                        log.error(
+                        trace_log.error(
                             `Auto re-login failed for ${connector_config.name}: ${login_error instanceof Error ? login_error.message : String(login_error)}`,
                         );
                     }
