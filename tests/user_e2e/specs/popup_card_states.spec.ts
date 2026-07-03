@@ -9,9 +9,9 @@ const { test, expect } = createTestWithSetup({
         const userPluginDir = join(userDataDir, "plugins");
 
         seed_fake_plugin(userPluginDir, {
-            name: "critical-gemini-plugin",
-            displayName: "CriticalGemini",
-            provider: "gemini",
+            name: "critical-glm-plugin",
+            displayName: "CriticalGLM",
+            provider: "glm",
             items: [
                 {
                     id: "critical-account",
@@ -54,7 +54,6 @@ const { test, expect } = createTestWithSetup({
                         executablePath: "connectors/cpa",
                         refreshIntervalSeconds: 300,
                         parameterValues: {
-                            monitor_gemini: "false",
                             monitor_kimi: "false",
                             monitor_antigravity: "false",
                         },
@@ -102,7 +101,7 @@ test.describe("popup card states", () => {
         await page.waitForTimeout(5000);
 
         const live = popup.root();
-        await live.getByRole("button", { name: /^Gemini$/ }).click();
+        await live.getByRole("button", { name: /^GLM$/ }).click();
         await expect(live.locator(".bar-row .fill")).toHaveAttribute("style", /width:\s*99%/);
     });
 });

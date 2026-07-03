@@ -7,15 +7,15 @@
 
 数据自上而下：**连接器（定义）→ 数据源（实例）→ 厂商 → 账号 → 用量 → 用量条 → 观测（原子）**。
 
-| 中文   | 英文        | 代码标识                                                        | 定义                                       | 数量关系                                                                                                            |
-| ------ | ----------- | --------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| 连接器 | connector   | `connector`（目录：`manifest.json` + 可选 `connector.ts`）      | 采集逻辑的声明式定义，内置只读，无环境权限 | 一类接入一份定义                                                                                                    |
-| 数据源 | data source | `ConnectorConfiguration` / `instanceId`                         | 用户配置的一份连接实例，= 设置页的一行     | 见 §2                                                                                                               |
-| 厂商   | provider    | `provider`                                                      | AI 服务商，UI 聚合维度                     | `claude` `codex` `gemini` `glm` `minimax` `deepseek` `tavily` `firecrawl` `mimo` `opencode_go` `kimi` `antigravity` |
-| 账号   | account     | `accountId`（稳定 ID）/ `accountLabel`（显示名，不得含 secret） | 某厂商下的一个真实账号                     | 一厂商可多账号                                                                                                      |
-| 用量   | usage       | （某 account 下全部 observation 的集合）                        | 一个账号的用量数据集                       | **一账号 = 一份用量**                                                                                               |
-| 用量条 | metric      | `metricId` / `metricName`                                       | 用量里的单条指标                           | **一账号多条**（DeepSeek 余额 1 条；Gemini 8 条；Claude 5 小时 + 一周 = 2 条）                                      |
-| 观测   | observation | `Observation`                                                   | 单次采集产出的原子记录                     | 最小单元                                                                                                            |
+| 中文   | 英文        | 代码标识                                                        | 定义                                       | 数量关系                                                                                                   |
+| ------ | ----------- | --------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| 连接器 | connector   | `connector`（目录：`manifest.json` + 可选 `connector.ts`）      | 采集逻辑的声明式定义，内置只读，无环境权限 | 一类接入一份定义                                                                                           |
+| 数据源 | data source | `ConnectorConfiguration` / `instanceId`                         | 用户配置的一份连接实例，= 设置页的一行     | 见 §2                                                                                                      |
+| 厂商   | provider    | `provider`                                                      | AI 服务商，UI 聚合维度                     | `claude` `codex` `glm` `minimax` `deepseek` `tavily` `firecrawl` `mimo` `opencode_go` `kimi` `antigravity` |
+| 账号   | account     | `accountId`（稳定 ID）/ `accountLabel`（显示名，不得含 secret） | 某厂商下的一个真实账号                     | 一厂商可多账号                                                                                             |
+| 用量   | usage       | （某 account 下全部 observation 的集合）                        | 一个账号的用量数据集                       | **一账号 = 一份用量**                                                                                      |
+| 用量条 | metric      | `metricId` / `metricName`                                       | 用量里的单条指标                           | **一账号多条**（DeepSeek 余额 1 条；Claude 5 小时 + 一周 = 2 条）                                          |
+| 观测   | observation | `Observation`                                                   | 单次采集产出的原子记录                     | 最小单元                                                                                                   |
 
 **观测字段**：`provider` + `accountId` + `metricId` + `used`/`limit` + `source` + `observedAt` + `stale`/`lastError`。
 当前值 = 同一 `(provider, accountId, metricId)` 下 `observedAt` 最新的那条（§架构 v2 §4.1）。
@@ -33,7 +33,7 @@
 | 聚合 | 聚合数据源 / CPA | aggregator / CPA   | **1 数据源 = N 账号，横跨多厂商** | 设置页可展开行，子行为账号 |
 
 - GLM 填两个密钥 = **两个独立直连数据源**（两行），不是一个数据源多账号。
-- CPA 是当前**唯一**的聚合数据源：一份 `cpa_mgmt_key` 拉回 Claude×N + Codex×N + Gemini + Antigravity + Kimi。
+- CPA 是当前**唯一**的聚合数据源：一份 `cpa_mgmt_key` 拉回 Claude×N + Codex×N + Antigravity + Kimi。
 - 所有权：直连账号可**删除**（存在性由本地配置定义）；CPA 账号只能**隐藏**（存在性由远端 CPA-Manager 定义）。
 
 ## 3. 采集能力（source capability）

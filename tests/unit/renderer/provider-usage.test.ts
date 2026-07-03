@@ -94,14 +94,10 @@ describe("format_usage_period_label", () => {
 
     it("lets custom label map override built-in labels", () => {
         expect(
-            format_usage_period_label(
-                "gemini-3.1-flash-lite-preview",
-                "gemini-3.1-flash-lite-preview",
-                {
-                    "gemini-3.1-flash-lite-preview": "Gemini Custom",
-                },
-            ),
-        ).toBe("Gemini Custom");
+            format_usage_period_label("glm-4-plus", "glm-4-plus", {
+                "glm-4-plus": "GLM Custom",
+            }),
+        ).toBe("GLM Custom");
     });
 
     it("resolves label map by raw_label, not display name", () => {
@@ -130,7 +126,7 @@ describe("provider usage aggregation", () => {
         const connectors = [
             connectorInfo({
                 source: "gateway",
-                supportedProviders: ["claude", "gemini", "kimi"],
+                supportedProviders: ["claude", "kimi"],
                 activeProviders: ["claude"],
                 snapshot: {
                     status: "ready",
@@ -330,7 +326,7 @@ describe("provider usage aggregation", () => {
         const connectors = [
             connectorInfo({
                 source: "gateway",
-                supportedProviders: ["claude", "gemini", "antigravity", "kimi"],
+                supportedProviders: ["claude", "antigravity", "kimi"],
                 activeProviders: ["claude"],
                 snapshot: {
                     status: "ready",
@@ -343,7 +339,6 @@ describe("provider usage aggregation", () => {
         const visibleProviders = get_visible_providers(connectors);
 
         expect(visibleProviders).toEqual(["claude"]);
-        expect(visibleProviders).not.toContain("gemini");
         expect(visibleProviders).not.toContain("antigravity");
         expect(visibleProviders).not.toContain("kimi");
     });
@@ -740,14 +735,14 @@ describe("apply_account_overrides", () => {
             connectorInfo({
                 source: "poll",
                 sourceInstanceId: "shared-source",
-                supportedProviders: ["gemini"],
-                activeProviders: ["gemini"],
+                supportedProviders: ["kimi"],
+                activeProviders: ["kimi"],
                 snapshot: {
                     status: "ready",
                     updatedAt: "2026-01-01T12:00:00Z",
                     items: [
                         usageItem({
-                            provider: "gemini",
+                            provider: "kimi",
                             source: "poll",
                             sourceInstanceId: "shared-source",
                             accountId: "shared-account",
@@ -765,7 +760,7 @@ describe("apply_account_overrides", () => {
             disabled: { claude: [claude_key] },
         });
 
-        expect(result.map((group) => group.provider)).toEqual(["gemini"]);
+        expect(result.map((group) => group.provider)).toEqual(["kimi"]);
         expect(result[0]?.accounts[0]?.accountLabel).toBe("Shared Account");
     });
 });

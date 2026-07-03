@@ -12,7 +12,6 @@ export type AuthMethod = "apikey" | "session" | "local";
 export const VENDOR_AUTH_MAP: Partial<Record<UsageProvider, AuthMethod>> = {
     deepseek: "apikey",
     glm: "apikey",
-    gemini: "apikey",
     tavily: "apikey",
     minimax: "apikey",
     mimo: "session",
@@ -30,11 +29,6 @@ const AUTH_APIKEY_META: Partial<
         prefix: "sk-",
         endpoint: "https://api.deepseek.com",
         docs: "platform.deepseek.com → API Keys",
-    },
-    gemini: {
-        prefix: "AIza",
-        endpoint: "https://generativelanguage.googleapis.com",
-        docs: "aistudio.google.com → API Keys",
     },
     tavily: {
         prefix: "tvly-",

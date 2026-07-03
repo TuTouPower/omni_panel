@@ -15,7 +15,6 @@ import {
 const MONITORS: readonly { name: string; provider: UsageProvider }[] = [
     { name: "monitor_claude", provider: "claude" },
     { name: "monitor_codex", provider: "codex" },
-    { name: "monitor_gemini", provider: "gemini" },
     { name: "monitor_antigravity", provider: "antigravity" },
     { name: "monitor_kimi", provider: "kimi" },
 ];

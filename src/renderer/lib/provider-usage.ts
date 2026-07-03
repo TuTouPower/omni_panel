@@ -54,7 +54,6 @@ export interface ProviderUsageGroup {
 export const PROVIDER_ORDER: readonly UsageProvider[] = [
     "claude",
     "codex",
-    "gemini",
     "antigravity",
     "kimi",
     "glm",
@@ -69,7 +68,6 @@ export const PROVIDER_ORDER: readonly UsageProvider[] = [
 export const PROVIDER_LABELS: Record<UsageProvider, string> = {
     claude: "Claude",
     codex: "Codex",
-    gemini: "Gemini",
     antigravity: "Antigravity",
     kimi: "Kimi",
     glm: "GLM",

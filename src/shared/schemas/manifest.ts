@@ -5,7 +5,7 @@ import { usageProviderSchema } from "./plugin-output";
  * Connector-level provider whitelist.
  *
  * Extends `usageProviderSchema` with meta-providers that exist only at the
- * connector layer (e.g. "cpa" aggregates claude/gemini/… but never appears
+ * connector layer (e.g. "cpa" aggregates claude/codex/… but never appears
  * as a runtime usage provider).
  */
 export const connectorProviderSchema = usageProviderSchema.or(z.literal("cpa"));

@@ -201,79 +201,6 @@ function parse_codex(
     return observations;
 }
 
-// ─── Gemini ────────────────────────────────────────────
-
-function gemini_model_label(model_id: string): string {
-    const lower = model_id.toLowerCase();
-    const preview_suffix = lower.endsWith("-preview") ? "·Pv" : "";
-    return (
-        model_id
-            .replace(/^gemini[-_]?/i, "")
-            .replace(/-preview$/i, "")
-            .split(/[-_\s]+/)
-            .filter((p) => p.length > 0)
-            .map((p) => {
-                const lo = p.toLowerCase();
-                if (lo === "pro") return "Pro";
-                if (lo === "flash") return "Flash";
-                if (lo === "lite") return "Lite";
-                return p;
-            })
-            .join(" ") + preview_suffix
-    );
-}
-
-function gemini_token_label(token_type: string): string {
-    const n = token_type.toLowerCase().replace(/[-\s]+/g, "_");
-    if (n === "input_tokens") return "输入";
-    if (n === "output_tokens") return "输出";
-    if (n === "requests") return "";
-    return token_type.replace(/[_-]+/g, " ").trim();
-}
-
-function parse_gemini(
-    body: Record<string, unknown>,
-    account: CpaAccount,
-    now: number,
-): Observation[] {
-    const buckets = body["buckets"];
-    if (!Array.isArray(buckets)) return [];
-    const observations: Observation[] = [];
-    for (const bucket of buckets) {
-        if (!is_record(bucket)) continue;
-        const model_id = typeof bucket["modelId"] === "string" ? bucket["modelId"] : "unknown";
-        const token_type = typeof bucket["tokenType"] === "string" ? bucket["tokenType"] : "";
-        const remaining_raw = bucket["remainingFraction"];
-        let remaining = to_number(remaining_raw);
-        if (remaining <= 1) remaining *= 100;
-        const used = Math.round(Math.min(Math.max(0, 100 - remaining), 100) * 10) / 10;
-        const reset_at = to_reset_at(bucket["resetTime"] ?? bucket["reset_time"]);
-        const model_label = gemini_model_label(model_id);
-        const token_label = gemini_token_label(token_type);
-        const label = token_label ? `${model_label} ${token_label}` : model_label;
-        observations.push({
-            provider: "gemini",
-            source_instance_id: "cpa",
-            account_id: account.account_id,
-            account_label: account.account_label,
-            metric_id: `gemini:${account.account_id}:${model_id}:${token_type}`,
-            raw_label: `${model_id}:${token_type}`,
-            normalized_label: label,
-            window: "day",
-            used,
-            limit: 100,
-            display_style: "percent",
-            reset_at,
-            status: status_for_pct(used),
-            observed_at: now,
-            source: "gateway",
-            stale: false,
-            last_error: null,
-        });
-    }
-    return observations;
-}
-
 // ─── Antigravity ───────────────────────────────────────
 
 const ANTIGRAVITY_URLS = [
@@ -421,7 +348,7 @@ function parse_kimi(
     return observations;
 }
 
-// ─── Load Code Assist (Gemini/Antigravity helper) ──────
+// ─── Load Code Assist (Antigravity helper) ──────
 
 async function load_code_assist_project(mgmt_key: string, auth_index: string): Promise<string> {
     try {
@@ -477,23 +404,6 @@ async function fetch_provider(
         );
         return parse_api_body(result);
     }
-    if (provider === "gemini-cli") {
-        const project = await load_code_assist_project(mgmt_key, auth_index);
-        const body: Record<string, unknown> = {};
-        if (project) body["project"] = project;
-        const result = await cpa_api_call(
-            mgmt_key,
-            "POST",
-            "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
-            auth_index,
-            {
-                Authorization: "Bearer $TOKEN$",
-                "Content-Type": "application/json",
-            },
-            body,
-        );
-        return parse_api_body(result);
-    }
     if (provider === "antigravity") {
         const project = await load_code_assist_project(mgmt_key, auth_index);
         const body: Record<string, unknown> = {};
@@ -543,7 +453,6 @@ function parse_provider(
 ): Observation[] {
     if (provider === "claude") return parse_claude(body, account, now);
     if (provider === "codex") return parse_codex(body, account, now);
-    if (provider === "gemini-cli") return parse_gemini(body, account, now);
     if (provider === "antigravity") return parse_antigravity(body, account, now);
     if (provider === "kimi") return parse_kimi(body, account, now);
     return [];
@@ -566,7 +475,7 @@ async function main(): Promise<Observation[]> {
     for (const auth_file of files) {
         if (auth_file.disabled) continue;
 
-        const monitor_key = `monitor_${auth_file.provider === "gemini-cli" ? "gemini" : auth_file.provider}`;
+        const monitor_key = `monitor_${auth_file.provider}`;
         if ((ctx.params[monitor_key] ?? "true").toLowerCase() !== "true") continue;
 
         const account = account_from_auth_file(auth_file);

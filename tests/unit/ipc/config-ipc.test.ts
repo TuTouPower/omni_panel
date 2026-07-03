@@ -55,7 +55,7 @@ function createMockDeps() {
             },
         ],
         launchAtLogin: false,
-        providerLabelMaps: { gemini: { "internal-model": "Private Label" } },
+        providerLabelMaps: { glm: { "internal-model": "Private Label" } },
     };
 
     const configStore = {

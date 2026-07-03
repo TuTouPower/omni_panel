@@ -28,7 +28,6 @@
                                 "enum": [
                                     "claude",
                                     "codex",
-                                    "gemini",
                                     "antigravity",
                                     "kimi",
                                     "glm",

@@ -13,7 +13,7 @@
 
 多平台 AI 服务用量监控桌面应用（Electron），对标 macOS 原生版 UsageBoard。
 
-**目标**：集中展示 Claude、OpenAI Codex、Gemini、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily、Firecrawl、MiMo、OpenCode Go 等 AI 服务的用量数据。
+**目标**：集中展示 Claude、OpenAI Codex、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily、Firecrawl、MiMo、OpenCode Go 等 AI 服务的用量数据。
 
 **技术栈**：Electron + TypeScript + Vite + React + Vitest + Playwright + Zod + ESLint + Prettier
 
@@ -274,7 +274,7 @@ definePlugin(
 | OpenCode Go | `connectors/opencode_go/connector.ts` | 是           | 通过网页登录 Cookie 获取 OpenCode Go 用量                                                                                  |
 | CPA         | `cpa-usage-plugin.ts`                 | 是           | 通过 CPA-Manager 代理获取 5 个 provider 的用量（详见 `docs/research/cpa_quota_guide.md`）                                  |
 
-CPA 连接器特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key`（secret）+ 5 个 `monitor_*` boolean 开关；调用 `/v0/management/auth-files` 和 `/v0/management/api-call`；单个账号失败不阻塞其他；Antigravity 走 `fetchAvailableModels` 的模型配额，只展示 5 小时 `Gemini Models` 和 `Claude/GPT` 两组；Gemini 两步请求。
+CPA 连接器特性：端点 `{ "default": null }` 必填；参数 `cpa_mgmt_key`（secret）+ 4 个 `monitor_*` boolean 开关；调用 `/v0/management/auth-files` 和 `/v0/management/api-call`；单个账号失败不阻塞其他；Antigravity 走 `fetchAvailableModels` 的模型配额，只展示 5 小时 `Gemini Models` 和 `Claude/GPT` 两组。
 
 ---
 
@@ -435,7 +435,7 @@ refresh(instanceId)
 - 主用量 UI 按 provider 展示，不按连接器 / connector 展示。
 - provider 页聚合来自多个 source 的同类账号数据。
 - CPA 仅是聚合 connector，只出现在 Settings / 数据源配置中；主 UI 不显示 CPA provider tab。禁用的 provider 卡片在主面板不显示（仅在设置中可见）。
-- CPA 采集的 Claude / Codex / Gemini / Antigravity / Kimi 账号合并到对应 provider 页面。
+- CPA 采集的 Claude / Codex / Antigravity / Kimi 账号合并到对应 provider 页面。
 - 标题 "OmniUsage"
 - 智能空状态：无连接器 / 缺 key
 - "设置"按钮 → 打开独立 Settings 窗口（`window.usageboard.settings.open()`）

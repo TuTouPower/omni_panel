@@ -26,7 +26,6 @@ function write_config(userDataDir: string): void {
                     parameterValues: {
                         monitor_kimi: "false",
                         monitor_antigravity: "false",
-                        monitor_gemini: "false",
                     },
                     endpointOverrides: {},
                 },
@@ -64,7 +63,7 @@ const slow_setup = createTestWithSetup({
             displayName: "FakeSlow",
             items: SLOW_ITEMS,
             behavior: "slow",
-            provider: "gemini",
+            provider: "glm",
         });
         write_config(userDataDir);
     },

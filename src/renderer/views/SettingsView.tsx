@@ -507,7 +507,7 @@ function AddAccountPicker({
     );
 }
 
-const CPA_SCOPE: UsageProvider[] = ["claude", "codex", "gemini", "antigravity", "kimi"];
+const CPA_SCOPE: UsageProvider[] = ["claude", "codex", "antigravity", "kimi"];
 
 /* ── CPA Add Data Source Dialog ── */
 function CpaAddDialog({ onClose }: { onClose: () => void }) {
@@ -1817,7 +1817,7 @@ export function SettingsView() {
                                     </div>
                                     <hr className="ah-rule" />
                                     <div className="ah-desc">
-                                        跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex、Gemini
+                                        跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex
                                         等各服务的用量限制与 Token 趋势。
                                     </div>
                                     <div className="ah-copyright">

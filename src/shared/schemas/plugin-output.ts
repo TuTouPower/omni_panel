@@ -6,7 +6,6 @@ const usageColorSchema = z.enum(["blue", "green", "yellow", "orange", "red"]);
 export const usageProviderSchema = z.enum([
     "claude",
     "codex",
-    "gemini",
     "antigravity",
     "kimi",
     "glm",

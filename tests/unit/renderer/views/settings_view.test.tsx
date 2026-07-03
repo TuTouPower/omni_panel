@@ -105,7 +105,7 @@ describe("SettingsView", () => {
                     displayName: "CPA",
                     enabled: true,
                     source: "gateway",
-                    supportedProviders: ["claude", "codex", "gemini", "antigravity", "kimi"],
+                    supportedProviders: ["claude", "codex", "antigravity", "kimi"],
                     activeProviders: ["claude"],
                     metadata: {
                         parameters: [
@@ -125,13 +125,6 @@ describe("SettingsView", () => {
                             {
                                 name: "monitor_codex",
                                 label: "Codex",
-                                type: "boolean",
-                                required: false,
-                                defaultValue: "false",
-                            },
-                            {
-                                name: "monitor_gemini",
-                                label: "Gemini",
                                 type: "boolean",
                                 required: false,
                                 defaultValue: "false",
