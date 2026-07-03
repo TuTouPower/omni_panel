@@ -172,7 +172,11 @@ function createWindowFor(key: string, options: { load?: boolean } = {}): Browser
         win.setMenuBarVisibility(false);
     }
     if (options.load !== false) {
-        void win.loadURL(getRendererUrl(cfg.route));
+        void win.loadURL(getRendererUrl(cfg.route)).catch((err: unknown) => {
+            log.error(
+                `loadURL failed for ${key}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+        });
     }
     if (cfg.showWhenReady && options.load !== false) {
         win.once("ready-to-show", () => {
@@ -421,7 +425,11 @@ void app.whenReady().then(async () => {
         // load:false -> createWindowFor neither loads nor wires ready-to-show,
         // so the window stays hidden (show:false) while we pre-load it below.
         settingsWin = createWindowFor("settings", { load: false });
-        void settingsWin.loadURL(getRendererUrl("settings"));
+        void settingsWin.loadURL(getRendererUrl("settings")).catch((err: unknown) => {
+            log.error(
+                `settings loadURL failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+        });
         settingsWin.on("resize", save_settings_bounds);
         settingsWin.on("move", save_settings_bounds);
         // Hide instead of destroy on close (unless quitting) so the window
@@ -597,7 +605,9 @@ void app.whenReady().then(async () => {
                 preload: getPreloadPath(),
             },
         });
-        void trayMenuWin.loadURL(getRendererUrl("tray"));
+        void trayMenuWin.loadURL(getRendererUrl("tray")).catch((err: unknown) => {
+            log.error(`tray loadURL failed: ${err instanceof Error ? err.message : String(err)}`);
+        });
 
         // Forward pause/autostart state to tray menu renderer
         const send_tray_state = (): void => {
@@ -627,7 +637,13 @@ void app.whenReady().then(async () => {
         });
         ipcMain.handle(IPC_CHANNELS.TRAY_REFRESH_ALL, () => {
             for (const p of currentConfigSnapshot.plugins) {
-                if (p.enabled) void refreshService.refresh(p.instanceId);
+                if (p.enabled) {
+                    void refreshService.refresh(p.instanceId).catch((err: unknown) => {
+                        log.error(
+                            `tray refresh-all failed for ${p.instanceId}: ${err instanceof Error ? err.message : String(err)}`,
+                        );
+                    });
+                }
             }
         });
         ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_PAUSE, () => {
@@ -775,9 +791,15 @@ void app.whenReady().then(async () => {
                     : cleanupLogging().then(() => {
                           logging_cleanup_done = true;
                       }),
-            ]).finally(() => {
-                app.quit();
-            });
+            ])
+                .catch((err: unknown) => {
+                    log.error(
+                        `shutdown flush failed: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                })
+                .finally(() => {
+                    app.quit();
+                });
         }
     });
 

@@ -74,7 +74,14 @@ export function use_config(): UseConfigResult {
         config_ref.current = newConfig;
         setConfig(newConfig);
         const p = save_queue_ref.current.then(() => window.usageboard.config.save(newConfig));
-        save_queue_ref.current = p.catch(() => undefined);
+        save_queue_ref.current = p.catch((err: unknown) => {
+            window.usageboard.log({
+                level: "error",
+                module: MODULE,
+                message: `config save failed: ${err instanceof Error ? err.message : String(err)}`,
+            });
+            return undefined;
+        });
         return p;
     }, []);
 
@@ -86,7 +93,13 @@ export function use_config(): UseConfigResult {
         setConfig(next);
         save_queue_ref.current = save_queue_ref.current
             .then(() => window.usageboard.config.save(next))
-            .catch(() => undefined);
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: MODULE,
+                    message: `config save failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
+            });
     }, []);
 
     const saveSecrets = useCallback(async (instanceId: string, secrets: Record<string, string>) => {
