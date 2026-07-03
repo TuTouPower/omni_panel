@@ -782,6 +782,55 @@ return [{
             expect(after_success.status).toBe("ready");
             if (after_success.status !== "ready") throw new Error("expected ready");
             expect(after_success.items.length).toBe(1);
+            // value-level freshness: the success data (used=1) overwrote the
+            // failed run, which produced no items.
+            expect(after_success.items[0]?.used).toBe(1);
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("passes display_label from script output through to the runtime snapshot", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "display-label-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `return [{
+    provider: "firecrawl",
+    account_id: "firecrawl",
+    account_label: "Firecrawl",
+    metric_id: "firecrawl:credits",
+    raw_label: "credits",
+    normalized_label: "Credits",
+    display_label: "我的5h",
+    window: "month",
+    used: 1,
+    limit: 100,
+    display_style: "ratio",
+    reset_at: null,
+    status: "normal",
+    observed_at: 1780000000000,
+    source: "wrapper",
+    stale: false,
+    last_error: null
+}];`,
+        );
+        const observationStore = create_async_observation_store();
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [firecrawl_definition(tempDir)],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([
+                { ...firecrawl_plugin_config("firecrawl-a"), executablePath: tempDir },
+            ]),
+            vault: create_vault(),
+        });
+        try {
+            await service.refresh("firecrawl-a", { force: true });
+            const snap = runtimeStore.getSnapshot("firecrawl-a");
+            expect(snap.status).toBe("ready");
+            if (snap.status !== "ready") throw new Error("expected ready");
+            expect(snap.items[0]?.display_label).toBe("我的5h");
         } finally {
             await rm(tempDir, { recursive: true, force: true });
         }
