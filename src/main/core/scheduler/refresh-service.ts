@@ -5,8 +5,7 @@ import type { AppConfigStore } from "../config/config-store";
 import type { RuntimeStore } from "./runtime-store";
 import type { VaultBackend } from "../vault/vault-backend";
 import type { Observation, ScriptObservation } from "../../../shared/types/observation";
-import type { MetricRecord, UsageSource } from "../../../shared/schemas/plugin-output";
-import { usageProviderSchema } from "../../../shared/schemas/plugin-output";
+import { observations_to_ready_state } from "./observation-mapping";
 import { createLogger, createTraceId, withLogContext } from "../../../shared/lib/logger";
 import type { ConnectorDefinition } from "../connector/manifest-loader";
 import { create_connector_context } from "../connector/net-client";
@@ -57,10 +56,6 @@ function is_auth_error(message: string): boolean {
     );
 }
 
-function source_for_observation(obs: Observation): UsageSource {
-    return obs.source;
-}
-
 function resolve_script_path(definition: ConnectorDefinition): string {
     if (!definition.manifest.script) throw new Error("Connector script is missing");
     const connector_dir = resolve(definition.directory);
@@ -72,37 +67,6 @@ function resolve_script_path(definition: ConnectorDefinition): string {
         );
     }
     return script_path;
-}
-
-const observation_to_usage_log = createLogger("refresh-service");
-
-function observation_to_usage_item(obs: Observation): MetricRecord | null {
-    const provider = usageProviderSchema.safeParse(obs.provider);
-    if (!provider.success) {
-        observation_to_usage_log.warn(
-            `Skipping observation with invalid provider: ${obs.provider} (${obs.metric_id})`,
-        );
-        return null;
-    }
-
-    return {
-        id: `${obs.source_instance_id}:${obs.account_id}:${obs.metric_id}`,
-        provider: provider.data,
-        source: source_for_observation(obs),
-        sourceInstanceId: obs.source_instance_id,
-        accountId: obs.account_id,
-        accountLabel: obs.account_label,
-        raw_label: obs.raw_label,
-        normalized_label: obs.normalized_label,
-        ...(obs.display_label !== undefined && { display_label: obs.display_label }),
-        used: obs.used,
-        limit: obs.limit,
-        displayStyle: obs.display_style,
-        resetAt: obs.reset_at,
-        status: obs.status,
-        observedAt: obs.observed_at,
-        stale: obs.stale,
-    };
 }
 
 const build_params_log = createLogger("refresh-service");
@@ -265,17 +229,11 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         throw insert_error;
                     }
                 }
-                const items = observations
-                    .map((obs) => observation_to_usage_item(obs))
-                    .filter((item): item is MetricRecord => item !== null);
-                const updated_at =
-                    observations.length > 0
-                        ? observations.reduce((latest, obs) => Math.max(latest, obs.observed_at), 0)
-                        : Date.now();
+                const { items, updatedAt } = observations_to_ready_state(observations);
                 deps.runtimeStore.updateState(instanceId, {
                     status: "ready",
                     items,
-                    updatedAt: new Date(updated_at),
+                    updatedAt,
                 });
                 trace_log.info(
                     `Connector ${instanceId} (${connector_config.name}) refreshed: ${String(items.length)} items`,
@@ -311,23 +269,14 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                             for (const obs of retry_observations) {
                                 await deps.observationStore.insert(obs);
                             }
-                            const retry_items = retry_observations
-                                .map((obs) => observation_to_usage_item(obs))
-                                .filter((item): item is MetricRecord => item !== null);
-                            const retry_updated_at =
-                                retry_observations.length > 0
-                                    ? retry_observations.reduce(
-                                          (latest, obs) => Math.max(latest, obs.observed_at),
-                                          0,
-                                      )
-                                    : Date.now();
+                            const retry_state = observations_to_ready_state(retry_observations);
                             deps.runtimeStore.updateState(instanceId, {
                                 status: "ready",
-                                items: retry_items,
-                                updatedAt: new Date(retry_updated_at),
+                                items: retry_state.items,
+                                updatedAt: retry_state.updatedAt,
                             });
                             trace_log.info(
-                                `Connector ${connector_config.name} refreshed after re-login: ${String(retry_items.length)} items`,
+                                `Connector ${connector_config.name} refreshed after re-login: ${String(retry_state.items.length)} items`,
                             );
                             return;
                         }
