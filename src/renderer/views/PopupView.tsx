@@ -161,6 +161,23 @@ export function PopupView() {
         [valid_providers],
     );
 
+    // Single read-modify-write queue for persistence. Three effects below used
+    // to each inline this exact block; a bug in one would silently desync.
+    const patchConfig = useCallback((patch: Partial<AppConfiguration>) => {
+        save_queue_ref.current = save_queue_ref.current
+            .then(async () => {
+                const result = await window.usageboard.config.get();
+                await window.usageboard.config.save({ ...result.config, ...patch });
+            })
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: "PopupView",
+                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
+            });
+    }, []);
+
     // Load persisted provider order from config
     useEffect(() => {
         window.usageboard.config
@@ -200,45 +217,15 @@ export function PopupView() {
         if (prev.length === provider_order.length && prev.every((v, i) => v === provider_order[i]))
             return;
         synced_order_ref.current = provider_order;
-        save_queue_ref.current = save_queue_ref.current
-            .then(async () => {
-                const result = await window.usageboard.config.get();
-                await window.usageboard.config.save({
-                    ...result.config,
-                    providerOrder: provider_order,
-                });
-            })
-            .catch((err: unknown) => {
-                window.usageboard.log({
-                    level: "error",
-                    module: "PopupView",
-                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
-                });
-                // ignore save errors
-            });
-    }, [provider_order]);
+        patchConfig({ providerOrder: provider_order });
+    }, [provider_order, patchConfig]);
 
     useEffect(() => {
         const prev = synced_account_orders_ref.current;
         if (account_orders_equal(prev, account_orders)) return;
         synced_account_orders_ref.current = account_orders;
-        save_queue_ref.current = save_queue_ref.current
-            .then(async () => {
-                const result = await window.usageboard.config.get();
-                await window.usageboard.config.save({
-                    ...result.config,
-                    accountOrders: account_orders,
-                });
-            })
-            .catch((err: unknown) => {
-                window.usageboard.log({
-                    level: "error",
-                    module: "PopupView",
-                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
-                });
-                // ignore save errors
-            });
-    }, [account_orders]);
+        patchConfig({ accountOrders: account_orders });
+    }, [account_orders, patchConfig]);
 
     // Persist collapsed/expanded state to config
     const prev_collapsed_ref = useRef<Record<string, boolean>>({});
@@ -254,24 +241,11 @@ export function PopupView() {
         }
         prev_collapsed_ref.current = collapsed_accounts;
         prev_expanded_ref.current = expanded_providers;
-        save_queue_ref.current = save_queue_ref.current
-            .then(async () => {
-                const result = await window.usageboard.config.get();
-                await window.usageboard.config.save({
-                    ...result.config,
-                    collapsedAccounts: collapsed_accounts,
-                    expandedProviders: expanded_providers,
-                });
-            })
-            .catch((err: unknown) => {
-                window.usageboard.log({
-                    level: "error",
-                    module: "PopupView",
-                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
-                });
-                // ignore save errors
-            });
-    }, [collapsed_accounts, expanded_providers]);
+        patchConfig({
+            collapsedAccounts: collapsed_accounts,
+            expandedProviders: expanded_providers,
+        });
+    }, [collapsed_accounts, expanded_providers, patchConfig]);
 
     const tabsRef = useRef<HTMLDivElement>(null);
     const wheel_at_ref = useRef(0);
