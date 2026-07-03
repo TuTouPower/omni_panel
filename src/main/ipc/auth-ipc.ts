@@ -83,7 +83,13 @@ export async function handleCookieLogin(
         // browser may send cookies that session.cookies.get({}) doesn't return, or
         // the server may require cookies in a specific format.
         loginSession.webRequest.onBeforeSendHeaders((details, callback) => {
-            if (!resolved && details.url.includes("/api/v1/")) {
+            let req_path = "";
+            try {
+                req_path = new URL(details.url).pathname;
+            } catch {
+                req_path = "";
+            }
+            if (!resolved && (req_path.includes("/api/v1/") || req_path.startsWith("/api/v1"))) {
                 const cookie = details.requestHeaders["Cookie"] ?? details.requestHeaders["cookie"];
                 if (cookie) {
                     captured_cookie = cookie;
