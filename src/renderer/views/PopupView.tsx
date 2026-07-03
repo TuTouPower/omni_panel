@@ -106,7 +106,12 @@ export function PopupView() {
             .then((mode) => {
                 if (!cancelled) set_main_panel_mode(mode);
             })
-            .catch(() => {
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: "PopupView",
+                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
                 if (!cancelled) set_main_panel_mode("popup");
             });
         return () => {
@@ -166,7 +171,12 @@ export function PopupView() {
                 }
                 apply_config(result.config);
             })
-            .catch(() => {
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: "PopupView",
+                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
                 // ignore load errors
             });
     }, [apply_config]);
@@ -198,7 +208,12 @@ export function PopupView() {
                     providerOrder: provider_order,
                 });
             })
-            .catch(() => {
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: "PopupView",
+                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
                 // ignore save errors
             });
     }, [provider_order]);
@@ -215,7 +230,12 @@ export function PopupView() {
                     accountOrders: account_orders,
                 });
             })
-            .catch(() => {
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: "PopupView",
+                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
                 // ignore save errors
             });
     }, [account_orders]);
@@ -243,7 +263,12 @@ export function PopupView() {
                     expandedProviders: expanded_providers,
                 });
             })
-            .catch(() => {
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: "PopupView",
+                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
                 // ignore save errors
             });
     }, [collapsed_accounts, expanded_providers]);
