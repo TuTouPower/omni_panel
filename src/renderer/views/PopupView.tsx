@@ -583,14 +583,14 @@ export function PopupView() {
         const order = account_orders[tabKey];
         if (!order || order.length === 0) return activeGroup;
         const orderSet = new Set(order);
-        const ordered = order
-            .filter((id) => activeGroup.accounts.some((a) => a.id === id))
-            .map((id) => activeGroup.accounts.find((a) => a.id === id))
-            .filter(Boolean);
+        const ordered = order.flatMap((id) => {
+            const found = activeGroup.accounts.find((a) => a.id === id);
+            return found ? [found] : [];
+        });
         const remaining = activeGroup.accounts.filter((a) => !orderSet.has(a.id));
         return {
             ...activeGroup,
-            accounts: [...ordered, ...remaining] as typeof activeGroup.accounts,
+            accounts: [...ordered, ...remaining],
         };
     }, [activeGroup, account_orders, activeTab]);
 
