@@ -1,5 +1,5 @@
 import type { Manifest } from "../../../shared/schemas/manifest";
-import type { Observation } from "../../../shared/types/observation";
+import type { ScriptObservation } from "../../../shared/types/observation";
 import type { ConnectorContext } from "./host-io";
 
 function extract_numeric_headers(
@@ -45,9 +45,8 @@ function detect_metric_type(header_name: string): "remaining" | "used" | "limit"
 
 export async function execute_probe(
     manifest: Manifest,
-    instance_id: string,
     ctx: ConnectorContext,
-): Promise<Observation[]> {
+): Promise<ScriptObservation[]> {
     if (!manifest.observe?.probe) {
         throw new Error(`Manifest ${manifest.id} has no observe.probe config`);
     }
@@ -106,7 +105,6 @@ export async function execute_probe(
     return [
         {
             provider: manifest.provider,
-            source_instance_id: instance_id,
             account_id: "default",
             account_label: manifest.provider,
             metric_id: `${manifest.id}:usage`,

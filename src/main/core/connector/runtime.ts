@@ -3,15 +3,15 @@ import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { createLogger, withLogContext } from "../../../shared/lib/logger";
 import { DEFAULT_TIMEOUT_MS } from "../../../shared/constants";
 import type { Manifest } from "../../../shared/schemas/manifest";
-import { observation_schema } from "../../../shared/schemas/observation";
-import type { Observation } from "../../../shared/types/observation";
+import { script_observation_schema } from "../../../shared/schemas/observation";
+import type { ScriptObservation } from "../../../shared/types/observation";
 import type { ConnectorContext } from "./host-io";
 
 const log = createLogger("connector-runtime");
 const TIMEOUT_ERROR = "Connector script execution timeout";
 
 export interface ConnectorRunResult {
-    readonly observations: Observation[];
+    readonly observations: ScriptObservation[];
     readonly error: string | null;
 }
 
@@ -126,14 +126,14 @@ export async function run_connector(
             return { observations: [], error: "Script did not return an array" };
         }
 
-        const observations: Observation[] = [];
+        const observations: ScriptObservation[] = [];
         for (const item of result) {
-            const parsed = observation_schema.safeParse(item);
+            const parsed = script_observation_schema.safeParse(item);
             if (!parsed.success) {
                 runtime_log.warn(`Skipping invalid observation: ${parsed.error.message}`);
                 continue;
             }
-            observations.push(parsed.data as unknown as Observation);
+            observations.push(parsed.data as ScriptObservation);
         }
 
         runtime_log.info(

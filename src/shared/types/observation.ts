@@ -3,9 +3,9 @@ export type ObservationDisplayStyle = "percent" | "ratio";
 export type ObservationStatus = "normal" | "warning" | "critical" | "unknown";
 export type ObservationSource = "poll" | "local" | "session" | "wrapper" | "probe" | "gateway";
 
-export interface Observation {
+/** What a connector (script/poll/probe) produces. Instance identity is host authority — see Observation. */
+export interface ScriptObservation {
     readonly provider: string;
-    readonly source_instance_id: string;
     readonly account_id: string;
     readonly account_label: string;
     readonly metric_id: string;
@@ -39,4 +39,9 @@ export interface Observation {
     readonly source: ObservationSource;
     readonly stale: boolean;
     readonly last_error: string | null;
+}
+
+/** Full observation: {@link ScriptObservation} + host-stamped instance identity. */
+export interface Observation extends ScriptObservation {
+    readonly source_instance_id: string;
 }

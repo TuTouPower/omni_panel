@@ -4,7 +4,7 @@ import type { ConnectorConfiguration } from "../config/types";
 import type { AppConfigStore } from "../config/config-store";
 import type { RuntimeStore } from "./runtime-store";
 import type { VaultBackend } from "../vault/vault-backend";
-import type { Observation } from "../../../shared/types/observation";
+import type { Observation, ScriptObservation } from "../../../shared/types/observation";
 import type { MetricRecord, UsageSource } from "../../../shared/schemas/plugin-output";
 import { usageProviderSchema } from "../../../shared/schemas/plugin-output";
 import { createLogger, createTraceId, withLogContext } from "../../../shared/lib/logger";
@@ -169,24 +169,16 @@ async function execute_connector(
         ...(trace_id ? { trace_id } : {}),
     });
 
-    let raw_observations: Observation[];
+    let raw_observations: ScriptObservation[];
     if (definition.manifest.script) {
         const script_code = await readFile(resolve_script_path(definition), "utf8");
         const result = await run_connector(definition.manifest, script_code, ctx);
         if (result.error) throw new Error(result.error);
         raw_observations = result.observations;
     } else if (definition.manifest.poll) {
-        raw_observations = await execute_poll(
-            definition.manifest,
-            connector_config.instanceId,
-            ctx,
-        );
+        raw_observations = await execute_poll(definition.manifest, ctx);
     } else if (definition.manifest.observe?.probe) {
-        raw_observations = await execute_probe(
-            definition.manifest,
-            connector_config.instanceId,
-            ctx,
-        );
+        raw_observations = await execute_probe(definition.manifest, ctx);
     } else {
         throw new Error(`Connector ${definition.manifest.id} has no executable capability`);
     }

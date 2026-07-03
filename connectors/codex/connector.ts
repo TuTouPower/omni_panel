@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
@@ -46,7 +46,7 @@ function extract_token_total(event: Record<string, unknown>): number | null {
     return Number.isFinite(total) ? total : null;
 }
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     const all_files: string[] = [];
     for (const dir of SESSION_DIRS) {
         try {
@@ -105,12 +105,11 @@ async function main(): Promise<Observation[]> {
     if (aggregates.size === 0) return [];
 
     const now = Date.now();
-    const observations: Observation[] = [];
+    const observations: ScriptObservation[] = [];
     for (const [key, used] of aggregates) {
         const model = key.split("|", 1)[0] ?? "unknown";
         observations.push({
             provider: "codex",
-            source_instance_id: "codex",
             account_id: "codex",
             account_label: "Codex",
             metric_id: `codex:${model}`,

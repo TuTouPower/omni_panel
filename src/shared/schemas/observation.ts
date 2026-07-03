@@ -14,9 +14,14 @@ export const observation_source_schema = z.enum([
 
 const finite_number = z.number().finite();
 
-export const observation_schema = z.object({
+/**
+ * What a connector (script / poll / probe) produces. Connectors discover
+ * accounts and metrics at runtime but CANNOT know which connector instance
+ * they run under — instance identity is host authority. The script-output
+ * contract therefore deliberately omits source_instance_id.
+ */
+export const script_observation_schema = z.object({
     provider: z.string().min(1),
-    source_instance_id: z.string().min(1),
     account_id: z.string().min(1),
     account_label: z.string(),
     metric_id: z.string().min(1),
@@ -39,6 +44,15 @@ export const observation_schema = z.object({
     source: observation_source_schema,
     stale: z.boolean(),
     last_error: z.string().nullable(),
+});
+
+/**
+ * Full observation = script output + host-stamped instance identity.
+ * source_instance_id is injected solely by execute_connector (the single
+ * authority) and never appears in connector script output.
+ */
+export const observation_schema = script_observation_schema.extend({
+    source_instance_id: z.string().min(1),
 });
 
 export const observation_ingest_schema = observation_schema.omit({

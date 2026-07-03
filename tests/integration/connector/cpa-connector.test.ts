@@ -104,7 +104,6 @@ describe("cpa connector", () => {
         expect(result.observations).toEqual([
             expect.objectContaining({
                 provider: "claude",
-                source_instance_id: "cpa",
                 account_id: "claude-auth",
                 account_label: "user@example.com",
                 metric_id: "claude:claude-auth:five_hour",
@@ -186,7 +185,6 @@ describe("cpa connector", () => {
         expect(codex[0]).toEqual(
             expect.objectContaining({
                 provider: "codex",
-                source_instance_id: "cpa",
                 source: "gateway",
                 window: "second",
                 display_style: "percent",
@@ -419,7 +417,6 @@ describe("cpa connector", () => {
         expect(kimi[0]).toEqual(
             expect.objectContaining({
                 provider: "kimi",
-                source_instance_id: "cpa",
                 source: "gateway",
                 used: 30,
                 limit: 100,

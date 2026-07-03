@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     observation_ingest_schema,
     observation_schema,
+    script_observation_schema,
 } from "../../../src/shared/schemas/observation";
 
 const valid_observation = {
@@ -84,5 +85,31 @@ describe("observation_ingest_schema", () => {
         );
         const result = observation_ingest_schema.safeParse(input);
         expect(result.success).toBe(false);
+    });
+});
+
+describe("script_observation_schema (connector output contract)", () => {
+    it("accepts script output WITHOUT source_instance_id (instance identity is host authority)", () => {
+        const script_output = Object.fromEntries(
+            Object.entries(valid_observation).filter(([k]) => k !== "source_instance_id"),
+        );
+        const result = script_observation_schema.safeParse(script_output);
+        expect(result.success).toBe(true);
+        expect(result.success && result.data).not.toHaveProperty("source_instance_id");
+    });
+
+    it("strips source_instance_id if a legacy connector still emits it", () => {
+        const result = script_observation_schema.safeParse(valid_observation);
+        expect(result.success).toBe(true);
+        expect(result.success && result.data).not.toHaveProperty("source_instance_id");
+    });
+});
+
+describe("observation_schema (host-stamped)", () => {
+    it("requires source_instance_id — connectors cannot produce a stored observation without it", () => {
+        const without_instance = Object.fromEntries(
+            Object.entries(valid_observation).filter(([k]) => k !== "source_instance_id"),
+        );
+        expect(observation_schema.safeParse(without_instance).success).toBe(false);
     });
 });

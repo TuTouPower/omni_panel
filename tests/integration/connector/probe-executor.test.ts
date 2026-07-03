@@ -123,13 +123,12 @@ describe("probe-executor", () => {
     it("extracts numeric headers and creates observation", async () => {
         const manifest = create_manifest();
         const ctx = create_ctx();
-        const observations = await execute_probe(manifest, "test-1", ctx);
+        const observations = await execute_probe(manifest, ctx);
 
         expect(observations).toHaveLength(1);
         expect(observations[0]).toEqual(
             expect.objectContaining({
                 provider: "claude",
-                source_instance_id: "test-1",
                 account_id: "default",
                 metric_id: "test-probe:usage",
                 name: "Usage",
@@ -157,7 +156,7 @@ describe("probe-executor", () => {
             },
         };
         const ctx = create_ctx();
-        const observations = await execute_probe(manifest, "test-remaining", ctx);
+        const observations = await execute_probe(manifest, ctx);
 
         expect(observations).toHaveLength(1);
         // remaining=50, limit=100 → used = 100 - 50 = 50
@@ -176,7 +175,7 @@ describe("probe-executor", () => {
             },
         };
         const ctx = create_ctx();
-        const observations = await execute_probe(manifest, "test-1", ctx);
+        const observations = await execute_probe(manifest, ctx);
 
         expect(observations).toEqual([]);
     });
@@ -191,7 +190,7 @@ describe("probe-executor", () => {
         };
         const ctx = create_ctx();
 
-        await expect(execute_probe(manifest, "test-1", ctx)).rejects.toThrow();
+        await expect(execute_probe(manifest, ctx)).rejects.toThrow();
     });
 
     it("throws error when manifest has no observe.probe config", async () => {
@@ -204,9 +203,7 @@ describe("probe-executor", () => {
         };
         const ctx = create_ctx();
 
-        await expect(execute_probe(manifest, "test-1", ctx)).rejects.toThrow(
-            "has no observe.probe config",
-        );
+        await expect(execute_probe(manifest, ctx)).rejects.toThrow("has no observe.probe config");
     });
 
     it("handles missing headers gracefully", async () => {
@@ -218,7 +215,7 @@ describe("probe-executor", () => {
             },
         };
         const ctx = create_ctx();
-        const observations = await execute_probe(manifest, "test-1", ctx);
+        const observations = await execute_probe(manifest, ctx);
 
         expect(observations).toEqual([]);
     });
@@ -232,7 +229,7 @@ describe("probe-executor", () => {
             },
         };
         const ctx = create_ctx();
-        const observations = await execute_probe(manifest, "test-1", ctx);
+        const observations = await execute_probe(manifest, ctx);
 
         expect(observations).toEqual([]);
     });

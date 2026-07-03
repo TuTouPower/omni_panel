@@ -101,7 +101,6 @@ describe("opencode_go connector", () => {
             expect.objectContaining({
                 provider: "opencode_go",
                 source: "session",
-                source_instance_id: "ws_123",
                 account_id: "ws_123",
                 account_label: "Work",
                 metric_id: "opencode_go:rolling",

@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 // NOTE: All 5 provider parsers live in one file because the connector runtime
 // (runtime.ts:compile_script) forbids runtime import/export. Splitting requires
@@ -52,7 +52,7 @@ function to_reset_at(value: unknown): number | null {
     return Number.isFinite(ts) ? ts : null;
 }
 
-function status_for_pct(pct: number): Observation["status"] {
+function status_for_pct(pct: number): ScriptObservation["status"] {
     if (pct >= 90) return "critical";
     if (pct >= 75) return "warning";
     return "normal";
@@ -118,7 +118,7 @@ function parse_claude(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
-): Observation[] {
+): ScriptObservation[] {
     const periods: [string, string, string, "second" | "day"][] = [
         ["five_hour", "five_hour", "5小时", "second"],
         ["seven_day", "seven_day", "一周", "day"],
@@ -130,7 +130,6 @@ function parse_claude(
         const reset_at = is_record(period) ? to_reset_at(period["resets_at"]) : null;
         return {
             provider: "claude",
-            source_instance_id: "cpa",
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `claude:${account.account_id}:${key}`,
@@ -146,7 +145,7 @@ function parse_claude(
             source: "gateway",
             stale: false,
             last_error: null,
-        } satisfies Observation;
+        } satisfies ScriptObservation;
     });
 }
 
@@ -156,7 +155,7 @@ function parse_codex(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
-): Observation[] {
+): ScriptObservation[] {
     const rl = body["rate_limit"];
     if (!is_record(rl)) return [];
     // used_percent is integer percent USED (100 = fully consumed, 18 = 18%).
@@ -164,7 +163,7 @@ function parse_codex(
         ["primary_window", "primary_window", "5小时", "second"],
         ["secondary_window", "secondary_window", "一周", "day"],
     ];
-    const observations: Observation[] = [];
+    const observations: ScriptObservation[] = [];
     for (const [key, raw_label, normalized_label, window] of windows) {
         const w = rl[key] ?? rl[key.replace(/_/g, "")];
         if (!is_record(w)) continue;
@@ -180,7 +179,6 @@ function parse_codex(
         }
         observations.push({
             provider: "codex",
-            source_instance_id: "cpa",
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `codex:${account.account_id}:${key}`,
@@ -251,10 +249,10 @@ function parse_antigravity(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
-): Observation[] {
+): ScriptObservation[] {
     const models = body["models"];
     if (!is_record(models)) return [];
-    const observations: Observation[] = [];
+    const observations: ScriptObservation[] = [];
 
     for (const group of ANTIGRAVITY_QUOTA_GROUPS) {
         let min_remaining = 100;
@@ -281,7 +279,6 @@ function parse_antigravity(
         const used = Math.round(Math.min(Math.max(0, 100 - min_remaining), 100) * 10) / 10;
         observations.push({
             provider: "antigravity",
-            source_instance_id: "cpa",
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `antigravity:${account.account_id}:${group.id}`,
@@ -308,10 +305,10 @@ function parse_kimi(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
-): Observation[] {
+): ScriptObservation[] {
     const limits = body["limits"];
     if (!Array.isArray(limits)) return [];
-    const observations: Observation[] = [];
+    const observations: ScriptObservation[] = [];
     for (const entry of limits) {
         if (!is_record(entry)) continue;
         const total = to_number(entry["limit"]);
@@ -327,7 +324,6 @@ function parse_kimi(
         const reset_at = to_reset_at(entry["reset_at"] ?? entry["resetAt"]);
         observations.push({
             provider: "kimi",
-            source_instance_id: "cpa",
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `kimi:${account.account_id}:${period_label}`,
@@ -450,7 +446,7 @@ function parse_provider(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
-): Observation[] {
+): ScriptObservation[] {
     if (provider === "claude") return parse_claude(body, account, now);
     if (provider === "codex") return parse_codex(body, account, now);
     if (provider === "antigravity") return parse_antigravity(body, account, now);
@@ -460,7 +456,7 @@ function parse_provider(
 
 // ─── Main ──────────────────────────────────────────────
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     const mgmt_key = (ctx.params["cpa_mgmt_key"] ?? "").trim();
     if (!mgmt_key) return [];
 
@@ -470,7 +466,7 @@ async function main(): Promise<Observation[]> {
     const files = auth_files_response.files ?? [];
     ctx.log.debug(`CPA fetching ${String(files.length)} auth files`);
     const now = Date.now();
-    const observations: Observation[] = [];
+    const observations: ScriptObservation[] = [];
 
     for (const auth_file of files) {
         if (auth_file.disabled) continue;

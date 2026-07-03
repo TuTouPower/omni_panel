@@ -110,7 +110,6 @@ describe("firecrawl connector", () => {
         expect(result.observations[0]).toEqual(
             expect.objectContaining({
                 provider: "firecrawl",
-                source_instance_id: "firecrawl",
                 account_id: "firecrawl",
                 account_label: "Firecrawl",
                 raw_label: "credits",

@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
@@ -52,7 +52,7 @@ async function fetch_usage(
     return extract_usage(response, remaining_key, plan_key);
 }
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
     if (!api_key) return [];
 
@@ -64,7 +64,6 @@ async function main(): Promise<Observation[]> {
     const now = Date.now();
     const base = {
         provider: "firecrawl",
-        source_instance_id: "firecrawl",
         account_id: "firecrawl",
         account_label: "Firecrawl",
         window: "month" as const,

@@ -1,5 +1,5 @@
 import type { Manifest } from "../../../shared/schemas/manifest";
-import type { Observation, ObservationWindow } from "../../../shared/types/observation";
+import type { ObservationWindow, ScriptObservation } from "../../../shared/types/observation";
 import type { ConnectorContext } from "./host-io";
 
 // NOTE: resolve_json_path only supports dot-separated object paths like $.a.b.c.
@@ -30,9 +30,8 @@ function to_window(value: unknown): ObservationWindow {
 
 export async function execute_poll(
     manifest: Manifest,
-    instance_id: string,
     ctx: ConnectorContext,
-): Promise<Observation[]> {
+): Promise<ScriptObservation[]> {
     if (!manifest.poll) {
         throw new Error(`Manifest ${manifest.id} has no poll config`);
     }
@@ -65,7 +64,6 @@ export async function execute_poll(
     return [
         {
             provider: manifest.provider,
-            source_instance_id: instance_id,
             account_id: "default",
             account_label: manifest.provider,
             metric_id: `${manifest.id}:usage`,

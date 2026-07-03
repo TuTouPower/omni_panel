@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
@@ -23,7 +23,7 @@ function to_number(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function status_for_usage(used: number, limit: number): Observation["status"] {
+function status_for_usage(used: number, limit: number): ScriptObservation["status"] {
     if (limit <= 0) return "normal";
     const ratio = used / limit;
     if (ratio >= 0.9) return "critical";
@@ -42,7 +42,7 @@ function is_record(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
 }
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
     if (!api_key) return [];
 
@@ -69,7 +69,6 @@ async function main(): Promise<Observation[]> {
 
     const base = {
         provider: "tavily",
-        source_instance_id: "tavily",
         account_id: "tavily",
         account_label: "Tavily",
         window: "month" as const,
@@ -81,7 +80,7 @@ async function main(): Promise<Observation[]> {
         last_error: null,
     };
 
-    const observations: Observation[] = [
+    const observations: ScriptObservation[] = [
         {
             ...base,
             metric_id: "tavily:total-month",

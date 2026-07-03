@@ -107,7 +107,6 @@ describe("codex connector", () => {
         expect(obs).toEqual(
             expect.objectContaining({
                 provider: "codex",
-                source_instance_id: "codex",
                 account_id: "codex",
                 metric_id: "codex:gpt-5",
                 raw_label: "gpt-5",
