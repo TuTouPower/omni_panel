@@ -142,6 +142,9 @@ function createWindowFor(key: string, options: { load?: boolean } = {}): Browser
     if (!cfg) throw new Error(`Unknown window: ${key}`);
     const log = createLogger("main");
     log.info(`Creating window: ${key} (${String(cfg.width)}x${String(cfg.height)})`);
+    log.debug(
+        `Window ${key} theme: shouldUseDarkColors=${String(nativeTheme.shouldUseDarkColors)}, themeSource=${nativeTheme.themeSource}`,
+    );
     const win = new BrowserWindow({
         width: cfg.width,
         height: cfg.height,

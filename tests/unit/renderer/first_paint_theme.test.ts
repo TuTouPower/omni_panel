@@ -49,6 +49,16 @@ describe("first-paint theme background", () => {
         expect(html.indexOf("<style>")).toBeLessThan(html.indexOf('<script type="module"'));
     });
 
+    it("inlines body/#root background too, so globals.css var(--win-bg) (default white) cannot flash through before the bundle loads", () => {
+        const html = read_source("src/renderer/index.html");
+        // body and #root must be themed inline, not only html.
+        expect(html).toContain('html[data-theme="dark"] body');
+        expect(html).toContain('html[data-theme="dark"] #root');
+        expect(html).toContain("@media (prefers-color-scheme: dark)");
+        // color-scheme must be set so Chromium picks the right canvas/scrollbar scheme at first paint.
+        expect(html).toContain("color-scheme: dark");
+    });
+
     it("does not animate the first visible window background", () => {
         const css = read_source("src/renderer/styles/globals.css");
         const window_start = css.indexOf(".window {");

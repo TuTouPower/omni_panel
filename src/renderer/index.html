@@ -7,20 +7,49 @@
         <style>
             /* Paint the window background before JS/CSS bundles load, so the
                first frame matches the theme instead of flashing white. The
-               preload script sets [data-theme] synchronously; this fallback
-               also covers system theme when data-theme is not yet set. */
-            html {
+               preload sets [data-theme] synchronously; the data-theme + the
+               prefers-color-scheme fallback below cover the first paint even
+               if the preload lands slightly late in packaged builds.
+               IMPORTANT: body and #root are themed here too — globals.css
+               sets body { background: var(--win-bg) }, and --win-bg defaults
+               to white at :root. Without these rules, body would paint white
+               over the dark html until globals.css resolves --win-bg. */
+            html,
+            body,
+            #root {
                 background-color: #ffffff;
             }
-            html[data-theme="dark"] {
+            html[data-theme="dark"],
+            html[data-theme="dark"] body,
+            html[data-theme="dark"] #root {
                 background-color: #181b22;
             }
             @media (prefers-color-scheme: dark) {
-                html {
+                html,
+                body,
+                #root {
                     background-color: #181b22;
                 }
-                html[data-theme="light"] {
+                html[data-theme="light"],
+                html[data-theme="light"] body,
+                html[data-theme="light"] #root {
                     background-color: #ffffff;
+                }
+            }
+            /* Let Chromium pick the right canvas / scrollbar / form-control
+               scheme at first paint, not the default light. */
+            html {
+                color-scheme: light;
+            }
+            html[data-theme="dark"] {
+                color-scheme: dark;
+            }
+            @media (prefers-color-scheme: dark) {
+                html {
+                    color-scheme: dark;
+                }
+                html[data-theme="light"] {
+                    color-scheme: light;
                 }
             }
         </style>
