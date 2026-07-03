@@ -30,6 +30,7 @@ import { create_async_observation_store } from "./core/observation/observation-s
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
 import { decide_settings_close } from "./core/settings-close-action";
+import { createWindowManager, WINDOW_CONFIGS, SECURE_WEB_PREFS } from "./window/window-manager";
 import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestrator";
 import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
@@ -70,125 +71,15 @@ if (!gotTheLock) {
     app.quit();
 }
 
-const SECURE_WEB_PREFS = {
-    contextIsolation: true,
-    nodeIntegration: false,
-    sandbox: true,
-    webSecurity: true,
-    allowRunningInsecureContent: false,
-} as const;
-
-interface WindowConfig {
-    route: string;
-    width: number;
-    height: number;
-    frame?: boolean;
-    show?: boolean;
-    autoHideMenuBar?: boolean;
-    titleBarStyle?: "hidden" | "hiddenInset" | "default";
-    titleBarOverlay?: boolean;
-    roundedCorners?: boolean;
-    resizable?: boolean;
-    minWidth?: number;
-    maxWidth?: number;
-    showWhenReady?: boolean;
-}
-
-const WINDOW_CONFIGS: Record<string, WindowConfig> = {
-    popup: {
-        route: "popup",
-        width: 482,
-        height: 480,
-        frame: false,
-        show: false,
-        resizable: true,
-        minWidth: 472,
-        maxWidth: 780,
-    },
-    settings: {
-        route: "settings",
-        width: 820,
-        height: 660,
-        frame: false,
-        show: false,
-        showWhenReady: true,
-        titleBarStyle: "hidden",
-        titleBarOverlay: false,
-        roundedCorners: true,
-    },
-    tray_menu: {
-        route: "tray",
-        width: 1,
-        height: 1,
-        frame: false,
-        show: false,
-    },
-};
-
 function getPreloadPath(): string {
     return join(__dirname, "../preload/index.js");
 }
 
-function getRendererUrl(route: string): string {
-    const theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
-    const devServerUrl = process.env["ELECTRON_RENDERER_URL"];
-    if (devServerUrl) {
-        return `${devServerUrl}?ou_theme=${theme}#${route}`;
-    }
-    return `file://${resolve(join(__dirname, "../renderer/index.html"))}?ou_theme=${theme}#${route}`;
-}
-
-function createWindowFor(key: string, options: { load?: boolean } = {}): BrowserWindow {
-    const cfg = WINDOW_CONFIGS[key];
-    if (!cfg) throw new Error(`Unknown window: ${key}`);
-    const log = createLogger("main");
-    log.info(`Creating window: ${key} (${String(cfg.width)}x${String(cfg.height)})`);
-    log.debug(
-        `Window ${key} theme: shouldUseDarkColors=${String(nativeTheme.shouldUseDarkColors)}, themeSource=${nativeTheme.themeSource}`,
-    );
-    const win = new BrowserWindow({
-        width: cfg.width,
-        height: cfg.height,
-        frame: cfg.frame ?? true,
-        show: cfg.show ?? true,
-        autoHideMenuBar: cfg.autoHideMenuBar ?? false,
-        resizable: cfg.resizable ?? true,
-        ...(cfg.minWidth !== undefined && { minWidth: cfg.minWidth }),
-        ...(cfg.maxWidth !== undefined && { maxWidth: cfg.maxWidth }),
-        ...(cfg.titleBarStyle !== undefined && { titleBarStyle: cfg.titleBarStyle }),
-        ...(cfg.titleBarOverlay !== undefined && { titleBarOverlay: cfg.titleBarOverlay }),
-        ...(cfg.roundedCorners !== undefined && { roundedCorners: cfg.roundedCorners }),
-        icon: get_app_icon_path(),
-        backgroundColor: nativeTheme.shouldUseDarkColors ? "#181b22" : "#ffffff",
-        webPreferences: {
-            ...SECURE_WEB_PREFS,
-            preload: getPreloadPath(),
-        },
-    });
-    // Group all windows under one taskbar icon on Windows
-    if (process.platform === "win32") {
-        win.setAppDetails({ appId: "omni-usage" });
-    }
-    if (cfg.autoHideMenuBar) {
-        win.setMenuBarVisibility(false);
-    }
-    if (options.load !== false) {
-        void win.loadURL(getRendererUrl(cfg.route)).catch((err: unknown) => {
-            log.error(
-                `loadURL failed for ${key}: ${err instanceof Error ? err.message : String(err)}`,
-            );
-        });
-    }
-    if (cfg.showWhenReady && options.load !== false) {
-        win.once("ready-to-show", () => {
-            if (!win.isDestroyed()) win.show();
-        });
-    }
-    win.on("closed", () => {
-        log.info(`Window closed: ${key}`);
-    });
-    return win;
-}
+const windowManager = createWindowManager({
+    getPreloadPath,
+    getIconPath: get_app_icon_path,
+    rendererIndexPath: resolve(join(__dirname, "../renderer/index.html")),
+});
 
 let cleanupEventIpc: (() => void) | null = null;
 let cleanupPopupIpc: (() => void) | null = null;
@@ -425,8 +316,8 @@ void app.whenReady().then(async () => {
         if (settingsWin && !settingsWin.isDestroyed()) return;
         // load:false -> createWindowFor neither loads nor wires ready-to-show,
         // so the window stays hidden (show:false) while we pre-load it below.
-        settingsWin = createWindowFor("settings", { load: false });
-        void settingsWin.loadURL(getRendererUrl("settings")).catch((err: unknown) => {
+        settingsWin = windowManager.createWindowFor("settings", { load: false });
+        void settingsWin.loadURL(windowManager.getRendererUrl("settings")).catch((err: unknown) => {
             log.error(
                 `settings loadURL failed: ${err instanceof Error ? err.message : String(err)}`,
             );
@@ -512,8 +403,8 @@ void app.whenReady().then(async () => {
             currentConfigSnapshot = next;
             configStore.scheduleSave(next);
         },
-        create_window: () => createWindowFor("popup", { load: false }),
-        get_renderer_url: getRendererUrl,
+        create_window: () => windowManager.createWindowFor("popup", { load: false }),
+        get_renderer_url: (route: string) => windowManager.getRendererUrl(route),
         get_preload_path: getPreloadPath,
         get_app_icon_path,
         get_tray_bounds: () => tray_ref?.getBounds() ?? null,
@@ -607,7 +498,7 @@ void app.whenReady().then(async () => {
                 preload: getPreloadPath(),
             },
         });
-        void trayMenuWin.loadURL(getRendererUrl("tray")).catch((err: unknown) => {
+        void trayMenuWin.loadURL(windowManager.getRendererUrl("tray")).catch((err: unknown) => {
             log.error(`tray loadURL failed: ${err instanceof Error ? err.message : String(err)}`);
         });
 

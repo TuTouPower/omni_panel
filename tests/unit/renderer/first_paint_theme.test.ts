@@ -8,7 +8,7 @@ function read_source(path: string): string {
 
 describe("first-paint theme background", () => {
     it("passes the native theme in the renderer URL before the page loads", () => {
-        const source = read_source("src/main/index.ts");
+        const source = read_source("src/main/window/window-manager.ts");
 
         expect(source).toContain(
             'const theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";',
@@ -17,7 +17,7 @@ describe("first-paint theme background", () => {
     });
 
     it("keeps settings hidden until the renderer has a first frame", () => {
-        const source = read_source("src/main/index.ts");
+        const source = read_source("src/main/window/window-manager.ts");
 
         expect(source).toContain("settings: {");
         expect(source).toContain("show: false,\n        showWhenReady: true,");
@@ -25,7 +25,7 @@ describe("first-paint theme background", () => {
     });
 
     it("uses the native Electron background for the pre-document frame", () => {
-        const source = read_source("src/main/index.ts");
+        const source = read_source("src/main/window/window-manager.ts");
 
         expect(source).toContain(
             'backgroundColor: nativeTheme.shouldUseDarkColors ? "#181b22" : "#ffffff"',
