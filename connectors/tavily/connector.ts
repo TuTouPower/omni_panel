@@ -85,7 +85,7 @@ async function main(): Promise<ScriptObservation[]> {
             ...base,
             metric_id: "tavily:total-month",
             raw_label: "total-month",
-            normalized_label: "总用量",
+            normalized_label: "月用量",
             used: plan_usage,
             limit: plan_limit,
             status: status_for_usage(plan_usage, plan_limit),
