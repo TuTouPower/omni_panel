@@ -18,7 +18,7 @@
     "poll": {
         "request": {
             "endpoint": "default",
-            "path": "/team/token-usage",
+            "path": "/v1/team/credit-usage",
             "method": "GET"
         },
         "map": {}
