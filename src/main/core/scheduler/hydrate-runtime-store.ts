@@ -32,6 +32,7 @@ function observation_to_metric_record(
         accountLabel: obs.account_label,
         raw_label: obs.raw_label,
         normalized_label: obs.normalized_label,
+        ...(obs.display_label !== undefined && { display_label: obs.display_label }),
         used: obs.used,
         limit: obs.limit,
         displayStyle: obs.display_style,
