@@ -56,7 +56,7 @@ describe("observations_to_ready_state", () => {
             obs({ metric_id: "firecrawl:tokens" }),
         ]);
         expect(items).toHaveLength(1);
-        expect(items[0]?.metric_id ?? items[0]?.id).toBeDefined();
+        expect(items[0]?.id).toContain("firecrawl:tokens");
     });
 
     it("returns an empty item set for no observations, with a fresh updatedAt", () => {
