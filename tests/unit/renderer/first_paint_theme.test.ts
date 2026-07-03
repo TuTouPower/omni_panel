@@ -70,4 +70,17 @@ describe("first-paint theme background", () => {
         expect(window_rule).toContain("background: var(--win-bg)");
         expect(window_rule).not.toContain("background 0.35s ease");
     });
+
+    it("pre-warms the settings window and hides (not destroys) on close, so reopen reuses the painted window", () => {
+        const src = read_source("src/main/index.ts");
+        // Pre-warm at startup: the hidden settings window is created + loaded
+        // before the user ever opens it, so the first open reveals an
+        // already-painted dark window (no fresh-window show-animation flash).
+        expect(src).toContain("function ensure_settings_window");
+        expect(src).toContain("ensure_settings_window();");
+        // Persistence: close hides instead of destroying, so subsequent opens
+        // reuse the same loaded window.
+        expect(src).toContain("event.preventDefault()");
+        expect(src).toContain("settingsWin?.hide()");
+    });
 });

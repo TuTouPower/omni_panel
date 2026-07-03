@@ -369,6 +369,11 @@ void app.whenReady().then(async () => {
 
     // Settings window singleton
     let settingsWin: BrowserWindow | null = null;
+    // True once shutdown begins: settings then destroys instead of hiding.
+    let quitting = false;
+    // Whether saved bounds have been applied since the settings window was
+    // (re)created. Apply only on first show, then keep user moves across reopens.
+    let settings_bounds_applied = false;
 
     function save_settings_bounds(): void {
         if (!settingsWin || settingsWin.isDestroyed()) return;
@@ -389,35 +394,56 @@ void app.whenReady().then(async () => {
         configStore.scheduleSave(currentConfigSnapshot);
     }
 
-    function createOrFocusSettings(): { created: boolean } {
-        if (settingsWin && !settingsWin.isDestroyed()) {
-            settingsWin.show();
-            settingsWin.focus();
-            return { created: false };
-        }
+    function apply_settings_bounds(win: BrowserWindow): void {
         const saved = currentConfigSnapshot.settingsBounds;
-        if (saved) {
-            const displays = screen.getAllDisplays();
-            const preferred = screen.getPrimaryDisplay();
-            const target_display = saved.displayId
-                ? (displays.find((d) => String(d.id) === saved.displayId) ?? preferred)
-                : preferred;
-            const work = target_display.workArea;
-            const width = Math.min(Math.max(480, saved.width), work.width);
-            const height = Math.min(Math.max(360, saved.height), work.height);
-            const x = Math.max(work.x, Math.min(saved.x, work.x + work.width - width));
-            const y = Math.max(work.y, Math.min(saved.y, work.y + work.height - height));
-            settingsWin = createWindowFor("settings");
-            settingsWin.setBounds({ x, y, width, height });
-        } else {
-            settingsWin = createWindowFor("settings");
-            settingsWin.center();
+        if (!saved) {
+            win.center();
+            return;
         }
+        const displays = screen.getAllDisplays();
+        const preferred = screen.getPrimaryDisplay();
+        const target_display = saved.displayId
+            ? (displays.find((d) => String(d.id) === saved.displayId) ?? preferred)
+            : preferred;
+        const work = target_display.workArea;
+        const width = Math.min(Math.max(480, saved.width), work.width);
+        const height = Math.min(Math.max(360, saved.height), work.height);
+        const x = Math.max(work.x, Math.min(saved.x, work.x + work.width - width));
+        const y = Math.max(work.y, Math.min(saved.y, work.y + work.height - height));
+        win.setBounds({ x, y, width, height });
+    }
+
+    // Create the hidden, pre-loaded settings window (idempotent). Kept alive
+    // for the session so reopening just reveals an already-painted dark window
+    // and skips the fresh-window show animation that flashes white on Windows.
+    function ensure_settings_window(): void {
+        if (settingsWin && !settingsWin.isDestroyed()) return;
+        // load:false -> createWindowFor neither loads nor wires ready-to-show,
+        // so the window stays hidden (show:false) while we pre-load it below.
+        settingsWin = createWindowFor("settings", { load: false });
+        void settingsWin.loadURL(getRendererUrl("settings"));
         settingsWin.on("resize", save_settings_bounds);
         settingsWin.on("move", save_settings_bounds);
-        settingsWin.on("closed", () => {
-            settingsWin = null;
+        // Hide instead of destroy on close (unless quitting) so the window
+        // persists across opens.
+        settingsWin.on("close", (event) => {
+            if (quitting) return;
+            event.preventDefault();
+            settingsWin?.hide();
         });
+        settings_bounds_applied = false;
+    }
+
+    function createOrFocusSettings(): { created: boolean } {
+        ensure_settings_window();
+        const win = settingsWin;
+        if (!win || win.isDestroyed()) return { created: false };
+        if (!settings_bounds_applied) {
+            apply_settings_bounds(win);
+            settings_bounds_applied = true;
+        }
+        win.show();
+        win.focus();
         return { created: true };
     }
 
@@ -425,17 +451,19 @@ void app.whenReady().then(async () => {
     ipcMain.handle(
         IPC_CHANNELS.SETTINGS_OPEN,
         (_event, context?: { instanceId?: string; provider?: string; accountId?: string }) => {
-            const { created } = createOrFocusSettings();
+            createOrFocusSettings();
             if (!context || !settingsWin || settingsWin.isDestroyed()) return;
             const win = settingsWin;
-            if (created) {
-                win.webContents.once("did-finish-load", () => {
-                    if (!win.isDestroyed()) {
-                        win.webContents.send(IPC_CHANNELS.SETTINGS_NAVIGATE, context);
-                    }
-                });
+            const wc = win.webContents;
+            const send_navigate = () => {
+                if (!win.isDestroyed()) wc.send(IPC_CHANNELS.SETTINGS_NAVIGATE, context);
+            };
+            // The window may be pre-warmed (already loaded) or freshly created
+            // (still loading). Send once it's ready either way.
+            if (wc.isLoading()) {
+                wc.once("did-finish-load", send_navigate);
             } else {
-                win.webContents.send(IPC_CHANNELS.SETTINGS_NAVIGATE, context);
+                send_navigate();
             }
         },
     );
@@ -488,6 +516,11 @@ void app.whenReady().then(async () => {
         report_content_height: (report) =>
             main_panel_controller?.report_content_height(report) ?? null,
     });
+
+    // Pre-warm the settings window (hidden + loaded) so opening it later just
+    // reveals an already-painted dark window, avoiding the fresh-window show
+    // animation that flashes white on Windows.
+    ensure_settings_window();
 
     // Hydrate runtime store from observation history for manualRefreshOnly connectors
     await hydrate_runtime_store({
@@ -713,6 +746,7 @@ void app.whenReady().then(async () => {
 
     app.on("before-quit", () => {
         log.info("Application shutting down");
+        quitting = true;
         if (trayMenuWin && !trayMenuWin.isDestroyed()) {
             trayMenuWin.destroy();
             trayMenuWin = null;
