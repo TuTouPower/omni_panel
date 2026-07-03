@@ -128,7 +128,9 @@ describe("config-ipc", () => {
             )?.[1];
             if (!handler) throw new Error("missing config:get handler");
 
-            await handler({} as Electron.IpcMainInvokeEvent);
+            await handler({
+                senderFrame: { url: "file:///index.html" },
+            } as Electron.IpcMainInvokeEvent);
 
             const joined = lines.join("\n");
             expect(joined).toContain("ipc request raw");

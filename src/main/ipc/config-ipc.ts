@@ -318,9 +318,10 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
         redactResult: redact_config_raw,
     });
 
-    ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () =>
-        logged(IPC_CHANNELS.CONFIG_GET, [], () => handleConfigGet(deps)),
-    );
+    ipcMain.handle(IPC_CHANNELS.CONFIG_GET, (e) => {
+        assert_valid_sender(e);
+        return logged(IPC_CHANNELS.CONFIG_GET, [], () => handleConfigGet(deps));
+    });
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE, (e, config: unknown) => {
         assert_valid_sender(e);
         return logged(IPC_CHANNELS.CONFIG_SAVE, [config], async () => {
