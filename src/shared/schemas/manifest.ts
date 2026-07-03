@@ -37,7 +37,21 @@ const poll_request_schema = z.object({
     body: z.unknown().optional(),
 });
 
-const poll_map_schema = z.record(z.string(), z.string());
+// Poll map values for numeric-quota fields MUST be JSON paths ("$...."). A bare
+// literal would be returned as-is by resolve_json_path and silently fabricated
+// into a fake metric value. `window` may stay a literal enum.
+const poll_map_schema = z.record(z.string(), z.string()).superRefine((map, ctx) => {
+    for (const key of ["used", "limit", "remaining"]) {
+        const value = map[key];
+        if (value !== undefined && !value.startsWith("$")) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: [key],
+                message: `poll.map.${key} must be a JSON path starting with "$" (got "${value}")`,
+            });
+        }
+    }
+});
 
 const poll_config_schema = z.object({
     request: poll_request_schema,
