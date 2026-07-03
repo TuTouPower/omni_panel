@@ -134,7 +134,14 @@ function toPeriod(
     };
 }
 
-function accountKeyForPeriod(period: ProviderUsagePeriod): string {
+/**
+ * The identity contract for a 账号 (account) — how a single account is told
+ * apart across periods/connectors. Gateway-source accounts key by label
+ * (the gateway may not expose a stable id); everything else keys by
+ * sourceInstanceId|accountId. Exported so override/hide/reorder callers use
+ * the canonical rule instead of re-deriving it.
+ */
+export function accountKey(period: ProviderUsagePeriod): string {
     if (period.source === "gateway") {
         return `${period.sourceInstanceId}|label|${period.accountLabel}`;
     }
@@ -182,8 +189,8 @@ export function build_provider_usage_groups(
             let groupStale = false;
 
             for (const period of periods) {
-                const accountKey = accountKeyForPeriod(period);
-                const account = accountsByKey.get(accountKey);
+                const key = accountKey(period);
+                const account = accountsByKey.get(key);
                 groupStatus = worstStatus(groupStatus, period.status);
                 groupUpdatedAt = latestTimestamp(groupUpdatedAt, period.updatedAt);
                 groupObservedAt = latestEpoch(groupObservedAt, period.observedAt);
@@ -198,8 +205,8 @@ export function build_provider_usage_groups(
                     continue;
                 }
 
-                accountsByKey.set(accountKey, {
-                    id: accountKey,
+                accountsByKey.set(key, {
+                    id: key,
                     sourceInstanceId: period.sourceInstanceId,
                     accountId: period.accountId,
                     accountLabel: period.accountLabel,
@@ -248,9 +255,7 @@ export function apply_account_overrides(
             if (excluded_set.size === 0) return group;
 
             const filtered = group.accounts.filter((a) => !excluded_set.has(a.id));
-            const filtered_periods = group.periods.filter(
-                (p) => !excluded_set.has(accountKeyForPeriod(p)),
-            );
+            const filtered_periods = group.periods.filter((p) => !excluded_set.has(accountKey(p)));
             return {
                 ...group,
                 accounts: filtered,
@@ -261,22 +266,22 @@ export function apply_account_overrides(
         .filter((group) => group.accounts.length > 0);
 }
 
-export function get_visible_providers(connectors: readonly ConnectorInfo[]): UsageProvider[] {
-    const providers = new Set<UsageProvider>();
-
-    for (const group of build_provider_usage_groups(connectors)) {
-        providers.add(group.provider);
-    }
-
+export function visible_providers_from_groups(
+    groups: readonly ProviderUsageGroup[],
+    connectors: readonly ConnectorInfo[],
+): UsageProvider[] {
+    const providers = new Set<UsageProvider>(groups.map((g) => g.provider));
     for (const connector of connectors) {
         if (!connector.enabled) continue;
-
         for (const provider of connector.activeProviders) {
             providers.add(provider);
         }
     }
-
     return [...providers].sort(compareProviders);
+}
+
+export function get_visible_providers(connectors: readonly ConnectorInfo[]): UsageProvider[] {
+    return visible_providers_from_groups(build_provider_usage_groups(connectors), connectors);
 }
 
 const TEN_MINUTES_MS = 10 * 60 * 1000;

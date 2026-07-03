@@ -12,7 +12,7 @@ import { TokenPanel } from "../components/TokenPanel";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import {
     build_provider_usage_groups,
-    get_visible_providers,
+    visible_providers_from_groups,
     apply_account_overrides,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
@@ -283,7 +283,10 @@ export function PopupView() {
         () => apply_account_overrides(rawGroups, account_overrides),
         [rawGroups, account_overrides],
     );
-    const visibleProviders = useMemo(() => get_visible_providers(plugins), [plugins]);
+    const visibleProviders = useMemo(
+        () => visible_providers_from_groups(rawGroups, plugins),
+        [rawGroups, plugins],
+    );
 
     useEffect(() => {
         if (should_log_raw) {
