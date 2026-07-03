@@ -26,7 +26,7 @@ import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
 import { create_file_vault_backend } from "./core/vault/file-vault-backend";
 import { create_session_manager } from "./core/session/session-manager";
-import { create_async_observation_store } from "./core/observation/observation-store-async";
+import { create_observation_store } from "./core/observation/observation-store";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
 import { decide_settings_close } from "./core/settings-close-action";
@@ -115,7 +115,7 @@ void app.whenReady().then(async () => {
     await runtimeStore.hydrateFromCache();
     const vault = await create_file_vault_backend(dataRoot);
     const secretsStore = createSecretsStore(vault);
-    const observationStore = create_async_observation_store(join(dataRoot, "observations.sqlite"));
+    const observationStore = create_observation_store(join(dataRoot, "observations.sqlite"));
 
     const bundledDir = getBundledConnectorsDir();
     const userDir = getUserConnectorsDir();
@@ -424,7 +424,7 @@ void app.whenReady().then(async () => {
     ensure_settings_window();
 
     // Hydrate runtime store from observation history for manualRefreshOnly connectors
-    await hydrate_runtime_store({
+    hydrate_runtime_store({
         runtimeStore,
         observationStore,
         connectorConfigs: currentConfig.plugins,

@@ -7,8 +7,6 @@ import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-sto
 import type { AppConfiguration, ConnectorConfiguration } from "../../../src/main/core/config/types";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
-import type { AsyncObservationStore } from "../../../src/main/core/observation/observation-store-async";
-import { wrap_sync_as_async } from "../../../src/main/core/observation/observation-store-async";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
 import type { Observation } from "../../../src/shared/types/observation";
 import { addTransport, getLogLevel, setLogLevel } from "../../../src/shared/lib/logger";
@@ -115,10 +113,8 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
     };
 }
 
-function create_async_observation_store(): AsyncObservationStore & { inserted: Observation[] } {
-    const sync = create_observation_store();
-    const async = wrap_sync_as_async(sync);
-    return Object.assign(async, { inserted: sync.inserted });
+function make_store(): ObservationStore & { inserted: Observation[] } {
+    return create_observation_store();
 }
 
 function create_config_store(plugins: ConnectorConfiguration[]) {
@@ -139,7 +135,7 @@ function create_config_store(plugins: ConnectorConfiguration[]) {
 async function create_service(plugins: ConnectorConfiguration[]) {
     const tempDir = await mkdtemp(join(tmpdir(), "connector-refresh-test-"));
     await writeFile(join(tempDir, "connector.js"), script_body);
-    const observationStore = create_async_observation_store();
+    const observationStore = make_store();
     const runtimeStore = createRuntimeStore();
     const service = createRefreshService({
         definitions: [definition(tempDir)],
@@ -226,7 +222,7 @@ describe("refresh-service", () => {
         });
         const service = createRefreshService({
             definitions: [definition(tempDir)],
-            observationStore: create_async_observation_store(),
+            observationStore: make_store(),
             runtimeStore,
             configStore: create_config_store([{ ...plugin_config(), executablePath: tempDir }]),
             vault: create_vault(),
@@ -326,7 +322,7 @@ return [{
     last_error: null
 }];`;
         await writeFile(join(tempDir, "connector.js"), poll_script);
-        const observationStore = create_async_observation_store();
+        const observationStore = make_store();
         const runtimeStore = createRuntimeStore();
         const configStore = {
             load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
@@ -391,7 +387,7 @@ return [{
     last_error: null
 }];`;
         await writeFile(join(tempDir, "connector.js"), session_script);
-        const observationStore = create_async_observation_store();
+        const observationStore = make_store();
         const runtimeStore = createRuntimeStore();
         const vault = create_vault();
         await vault.set("mimo-1:SESSION_COOKIE", "expired");
@@ -472,7 +468,7 @@ return [{
                     },
                 },
             ],
-            observationStore: create_async_observation_store(),
+            observationStore: make_store(),
             runtimeStore,
             configStore: create_config_store([
                 {
@@ -543,7 +539,7 @@ return [{
                     },
                 },
             ],
-            observationStore: create_async_observation_store(),
+            observationStore: make_store(),
             runtimeStore,
             configStore: create_config_store([
                 { ...plugin_config("mimo-1"), executablePath: tempDir, name: "MiMo" },
@@ -582,7 +578,7 @@ return [{
         const sessionLogin = vi.fn();
         const service = createRefreshService({
             definitions: [definition(tempDir)],
-            observationStore: create_async_observation_store(),
+            observationStore: make_store(),
             runtimeStore,
             configStore: create_config_store([
                 {
@@ -663,7 +659,7 @@ function firecrawl_definition(directory: string): ConnectorDefinition {
 async function create_firecrawl_service(instance_ids: string[]) {
     const tempDir = await mkdtemp(join(tmpdir(), "firecrawl-identity-test-"));
     await writeFile(join(tempDir, "connector.js"), firecrawl_literal_script);
-    const observationStore = create_async_observation_store();
+    const observationStore = make_store();
     const runtimeStore = createRuntimeStore();
     const service = createRefreshService({
         definitions: [firecrawl_definition(tempDir)],
@@ -707,7 +703,9 @@ describe("connector instance identity (host-stamped)", () => {
             await service.refresh("firecrawl-b", { force: true });
 
             expect(observationStore.inserted).toHaveLength(2);
-            const stamped_ids = observationStore.inserted.map((o) => o.source_instance_id).sort();
+            const stamped_ids = observationStore.inserted
+                .map((o: Observation) => o.source_instance_id)
+                .sort();
             expect(stamped_ids).toEqual(["firecrawl-a", "firecrawl-b"]);
 
             const snap_a = runtimeStore.getSnapshot("firecrawl-a");
@@ -735,7 +733,7 @@ describe("connector instance identity (host-stamped)", () => {
 describe("connector error freshness", () => {
     it("shows only the latest collection's error; a later success clears it", async () => {
         const tempDir = await mkdtemp(join(tmpdir(), "err-freshness-"));
-        const observationStore = create_async_observation_store();
+        const observationStore = make_store();
         const runtimeStore = createRuntimeStore();
         const write_script = (body: string) => writeFile(join(tempDir, "connector.js"), body);
 
@@ -814,7 +812,7 @@ return [{
     last_error: null
 }];`,
         );
-        const observationStore = create_async_observation_store();
+        const observationStore = make_store();
         const runtimeStore = createRuntimeStore();
         const service = createRefreshService({
             definitions: [firecrawl_definition(tempDir)],
