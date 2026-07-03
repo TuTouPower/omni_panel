@@ -134,15 +134,12 @@ html[data-window="tray"] #root {
     will-change: height;
     transition:
         height 0.32s cubic-bezier(0.32, 0.72, 0.3, 1),
-        background 0.35s ease,
         box-shadow 0.35s ease;
     margin: 0 auto;
 }
 @media (prefers-reduced-motion: reduce) {
     .window {
-        transition:
-            background 0.35s ease,
-            box-shadow 0.35s ease;
+        transition: box-shadow 0.35s ease;
     }
 }
 

@@ -90,6 +90,7 @@ interface WindowConfig {
     resizable?: boolean;
     minWidth?: number;
     maxWidth?: number;
+    showWhenReady?: boolean;
 }
 
 const WINDOW_CONFIGS: Record<string, WindowConfig> = {
@@ -108,7 +109,8 @@ const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         width: 820,
         height: 660,
         frame: false,
-        show: true,
+        show: false,
+        showWhenReady: true,
         titleBarStyle: "hidden",
         titleBarOverlay: false,
         roundedCorners: true,
@@ -127,11 +129,12 @@ function getPreloadPath(): string {
 }
 
 function getRendererUrl(route: string): string {
+    const theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
     const devServerUrl = process.env["ELECTRON_RENDERER_URL"];
     if (devServerUrl) {
-        return `${devServerUrl}#${route}`;
+        return `${devServerUrl}?ou_theme=${theme}#${route}`;
     }
-    return `file://${resolve(join(__dirname, "../renderer/index.html"))}#${route}`;
+    return `file://${resolve(join(__dirname, "../renderer/index.html"))}?ou_theme=${theme}#${route}`;
 }
 
 function createWindowFor(key: string, options: { load?: boolean } = {}): BrowserWindow {
@@ -152,6 +155,7 @@ function createWindowFor(key: string, options: { load?: boolean } = {}): Browser
         ...(cfg.titleBarOverlay !== undefined && { titleBarOverlay: cfg.titleBarOverlay }),
         ...(cfg.roundedCorners !== undefined && { roundedCorners: cfg.roundedCorners }),
         icon: get_app_icon_path(),
+        backgroundColor: nativeTheme.shouldUseDarkColors ? "#181b22" : "#ffffff",
         webPreferences: {
             ...SECURE_WEB_PREFS,
             preload: getPreloadPath(),
@@ -166,6 +170,11 @@ function createWindowFor(key: string, options: { load?: boolean } = {}): Browser
     }
     if (options.load !== false) {
         void win.loadURL(getRendererUrl(cfg.route));
+    }
+    if (cfg.showWhenReady && options.load !== false) {
+        win.once("ready-to-show", () => {
+            if (!win.isDestroyed()) win.show();
+        });
     }
     win.on("closed", () => {
         log.info(`Window closed: ${key}`);

@@ -4,6 +4,26 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>OmniUsage</title>
+        <style>
+            /* Paint the window background before JS/CSS bundles load, so the
+               first frame matches the theme instead of flashing white. The
+               preload script sets [data-theme] synchronously; this fallback
+               also covers system theme when data-theme is not yet set. */
+            html {
+                background-color: #ffffff;
+            }
+            html[data-theme="dark"] {
+                background-color: #181b22;
+            }
+            @media (prefers-color-scheme: dark) {
+                html {
+                    background-color: #181b22;
+                }
+                html[data-theme="light"] {
+                    background-color: #ffffff;
+                }
+            }
+        </style>
     </head>
     <body>
         <div id="root"></div>

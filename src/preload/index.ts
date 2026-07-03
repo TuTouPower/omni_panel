@@ -11,6 +11,17 @@ import type {
 import type { AppConfiguration } from "../shared/types/config";
 import "./usageboard-api";
 
+// Apply theme synchronously before first paint to avoid white flash.
+// theme.ts applies it later via async IPC; this closes the first-frame gap.
+try {
+    const theme_value = new URL(window.location.href).searchParams.get("ou_theme");
+    const theme = theme_value === "dark" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.style.backgroundColor = theme === "dark" ? "#181b22" : "#ffffff";
+} catch {
+    // documentElement not ready; theme.ts will fix up
+}
+
 function is_ipc_result(
     val: unknown,
 ): val is { ok: boolean; data?: unknown; error?: { code: string; message: string } } {
