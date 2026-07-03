@@ -614,4 +614,17 @@ describe("config-ipc", () => {
         }
         expect(deps.configStore.save).not.toHaveBeenCalled();
     });
+
+    it("rejects CONFIG_GET from an invalid sender", async () => {
+        const deps = createMockDeps();
+        const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+        await registerConfigIpc(deps);
+        const handler = ipc_main_mock.handle.mock.calls.find(
+            ([channel]) => channel === "config:get",
+        )?.[1];
+        if (!handler) throw new Error("missing config:get handler");
+        expect(() =>
+            handler({ senderFrame: { url: "about:blank" } } as Electron.IpcMainInvokeEvent),
+        ).toThrow("IPC not allowed from unknown origin");
+    });
 });

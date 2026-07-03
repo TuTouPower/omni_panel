@@ -233,4 +233,14 @@ describe("probe-executor", () => {
 
         expect(observations).toEqual([]);
     });
+
+    it("does not fabricate `used` from a numeric header not in the observe list", async () => {
+        // Server sends an unlisted numeric header; manifest only whitelists x-ratelimit-remaining.
+        const manifest = create_manifest(["x-definitely-not-sent-by-server"]);
+        const ctx = create_ctx();
+        const observations = await execute_probe(manifest, ctx);
+        // The listed header is never sent -> no recognized value -> empty result
+        // (regression: previously fabricated from the first numeric header found).
+        expect(observations).toEqual([]);
+    });
 });
