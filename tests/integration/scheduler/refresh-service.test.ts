@@ -605,3 +605,129 @@ return [{
         }
     });
 });
+
+const firecrawl_literal_script = `
+return [{
+    provider: "firecrawl",
+    source_instance_id: "firecrawl",
+    account_id: "firecrawl",
+    account_label: "Firecrawl",
+    metric_id: "firecrawl:credits",
+    raw_label: "credits",
+    normalized_label: "Credits",
+    window: "month",
+    used: 200,
+    limit: 1000,
+    display_style: "ratio",
+    reset_at: null,
+    status: "normal",
+    observed_at: 1780000000000,
+    source: "wrapper",
+    stale: false,
+    last_error: null
+}];
+`;
+
+function firecrawl_plugin_config(instance_id: string): ConnectorConfiguration {
+    return {
+        instanceId: instance_id,
+        stateId: instance_id,
+        name: `Firecrawl ${instance_id}`,
+        enabled: true,
+        executablePath: "/connectors/firecrawl",
+        refreshIntervalSeconds: 300,
+        parameterValues: { API_KEY: `key-${instance_id}` },
+        endpointOverrides: {},
+    };
+}
+
+function firecrawl_definition(directory: string): ConnectorDefinition {
+    return {
+        directory,
+        executablePath: directory,
+        manifest: {
+            id: "firecrawl",
+            provider: "firecrawl",
+            capabilities: ["poll"],
+            parameters: [{ name: "API_KEY", type: "secret", required: true, exposeToScript: true }],
+            endpoints: { default: "http://127.0.0.1:1" },
+            script: "connector.js",
+            poll: {
+                request: { endpoint: "default", path: "/usage", method: "GET" },
+                map: { used: "$.used", limit: "$.limit", window: "month" },
+            },
+        },
+    };
+}
+
+async function create_firecrawl_service(instance_ids: string[]) {
+    const tempDir = await mkdtemp(join(tmpdir(), "firecrawl-identity-test-"));
+    await writeFile(join(tempDir, "connector.js"), firecrawl_literal_script);
+    const observationStore = create_async_observation_store();
+    const runtimeStore = createRuntimeStore();
+    const service = createRefreshService({
+        definitions: [firecrawl_definition(tempDir)],
+        observationStore,
+        runtimeStore,
+        configStore: create_config_store(
+            instance_ids.map((id) => ({
+                ...firecrawl_plugin_config(id),
+                executablePath: tempDir,
+            })),
+        ),
+        vault: create_vault(),
+    });
+    return { tempDir, service, observationStore, runtimeStore };
+}
+
+describe("connector instance identity (host-stamped)", () => {
+    it("stamps source_instance_id with the connector instance id, overriding the script-declared literal", async () => {
+        const { tempDir, service, observationStore } = await create_firecrawl_service([
+            "firecrawl-a",
+        ]);
+        try {
+            await service.refresh("firecrawl-a", { force: true });
+            expect(observationStore.inserted).toHaveLength(1);
+            expect(observationStore.inserted[0]).toMatchObject({
+                provider: "firecrawl",
+                source_instance_id: "firecrawl-a",
+                account_id: "firecrawl",
+            });
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("keeps two user-added instances of the same provider distinct (no identity collapse)", async () => {
+        const { tempDir, service, observationStore, runtimeStore } = await create_firecrawl_service(
+            ["firecrawl-a", "firecrawl-b"],
+        );
+        try {
+            await service.refresh("firecrawl-a", { force: true });
+            await service.refresh("firecrawl-b", { force: true });
+
+            expect(observationStore.inserted).toHaveLength(2);
+            const stamped_ids = observationStore.inserted.map((o) => o.source_instance_id).sort();
+            expect(stamped_ids).toEqual(["firecrawl-a", "firecrawl-b"]);
+
+            const snap_a = runtimeStore.getSnapshot("firecrawl-a");
+            const snap_b = runtimeStore.getSnapshot("firecrawl-b");
+            expect(snap_a.status).toBe("ready");
+            expect(snap_b.status).toBe("ready");
+            if (snap_a.status !== "ready" || snap_b.status !== "ready") {
+                throw new Error("expected both snapshots ready");
+            }
+            expect(snap_a.items.length).toBeGreaterThanOrEqual(1);
+            expect(snap_b.items.length).toBeGreaterThanOrEqual(1);
+            const item_a = snap_a.items[0];
+            const item_b = snap_b.items[0];
+            if (!item_a || !item_b) throw new Error("expected one item per instance");
+            expect(item_a.id).toBe("firecrawl-a:firecrawl:firecrawl:credits");
+            expect(item_b.id).toBe("firecrawl-b:firecrawl:firecrawl:credits");
+            expect(item_a.sourceInstanceId).toBe("firecrawl-a");
+            expect(item_b.sourceInstanceId).toBe("firecrawl-b");
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+});

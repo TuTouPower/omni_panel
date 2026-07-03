@@ -169,22 +169,36 @@ async function execute_connector(
         ...(trace_id ? { trace_id } : {}),
     });
 
+    let raw_observations: Observation[];
     if (definition.manifest.script) {
         const script_code = await readFile(resolve_script_path(definition), "utf8");
         const result = await run_connector(definition.manifest, script_code, ctx);
         if (result.error) throw new Error(result.error);
-        return result.observations;
+        raw_observations = result.observations;
+    } else if (definition.manifest.poll) {
+        raw_observations = await execute_poll(
+            definition.manifest,
+            connector_config.instanceId,
+            ctx,
+        );
+    } else if (definition.manifest.observe?.probe) {
+        raw_observations = await execute_probe(
+            definition.manifest,
+            connector_config.instanceId,
+            ctx,
+        );
+    } else {
+        throw new Error(`Connector ${definition.manifest.id} has no executable capability`);
     }
 
-    if (definition.manifest.poll) {
-        return execute_poll(definition.manifest, connector_config.instanceId, ctx);
-    }
-
-    if (definition.manifest.observe?.probe) {
-        return execute_probe(definition.manifest, connector_config.instanceId, ctx);
-    }
-
-    throw new Error(`Connector ${definition.manifest.id} has no executable capability`);
+    // Host-authority identity: the connector instance id is established by the
+    // host, not by the (untrusted) connector script. Stamp it on every
+    // observation so two instances of the same direct provider (e.g. two
+    // Firecrawl accounts) do not collapse into one account downstream.
+    return raw_observations.map((obs) => ({
+        ...obs,
+        source_instance_id: connector_config.instanceId,
+    }));
 }
 
 export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefreshService {

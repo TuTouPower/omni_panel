@@ -847,3 +847,68 @@ describe("build_overview_for_group with convergentTimeMinutes", () => {
         expect(custom_overview?.resetAt).toBe(base + 30 * 60 * 1000);
     });
 });
+
+describe("multi-instance direct connectors (e.g. two user-added Firecrawl accounts)", () => {
+    it("shows each instance as a separate account under the same provider", () => {
+        const connectors: ConnectorInfo[] = [
+            connectorInfo({
+                instanceId: "firecrawl-a",
+                sourceInstanceId: "firecrawl-a",
+                name: "Firecrawl A",
+                displayName: "Firecrawl A",
+                source: "poll",
+                supportedProviders: ["firecrawl"],
+                activeProviders: ["firecrawl"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-07-03T00:00:00Z",
+                    items: [
+                        usageItem({
+                            id: "firecrawl-a:firecrawl:credits",
+                            provider: "firecrawl",
+                            source: "poll",
+                            sourceInstanceId: "firecrawl-a",
+                            accountId: "firecrawl",
+                            accountLabel: "Firecrawl A",
+                            normalized_label: "Firecrawl A",
+                        }),
+                    ],
+                },
+            }),
+            connectorInfo({
+                instanceId: "firecrawl-b",
+                sourceInstanceId: "firecrawl-b",
+                name: "Firecrawl B",
+                displayName: "Firecrawl B",
+                source: "poll",
+                supportedProviders: ["firecrawl"],
+                activeProviders: ["firecrawl"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-07-03T00:00:00Z",
+                    items: [
+                        usageItem({
+                            id: "firecrawl-b:firecrawl:credits",
+                            provider: "firecrawl",
+                            source: "poll",
+                            sourceInstanceId: "firecrawl-b",
+                            accountId: "firecrawl",
+                            accountLabel: "Firecrawl B",
+                            normalized_label: "Firecrawl B",
+                        }),
+                    ],
+                },
+            }),
+        ];
+
+        const groups = build_provider_usage_groups(connectors);
+        const firecrawl = groups.find((g) => g.provider === "firecrawl");
+        expect(firecrawl).toBeDefined();
+        if (!firecrawl) throw new Error("firecrawl group missing");
+        expect(firecrawl.accountCount).toBe(2);
+        expect(firecrawl.accounts.map((a) => a.accountLabel).sort()).toEqual([
+            "Firecrawl A",
+            "Firecrawl B",
+        ]);
+    });
+});
