@@ -1,4 +1,5 @@
 import { createLogger } from "../../../shared/lib/logger";
+import { keyFor } from "../config/secrets-store";
 import type { VaultBackend } from "../vault/vault-backend";
 
 const log = createLogger("session-manager");
@@ -114,7 +115,7 @@ export function create_session_manager(
                         }
 
                         await deps.vault.set(
-                            `${request.instance_id}:${SESSION_COOKIE_KEY}`,
+                            keyFor(request.instance_id, SESSION_COOKIE_KEY),
                             cookie,
                         );
                         log.info(`Session cookie saved for ${request.instance_id}`);

@@ -72,3 +72,12 @@ export function createSecretsStore(vault: VaultBackend): SecretsStore {
         },
     };
 }
+
+/**
+ * The vault key for a secret. Owns the instance-namespacing format so callers
+ * never build `${instanceId}:${name}` inline (and so the format can change in
+ * one place). Pure module-level helper — usable without a SecretsStore instance.
+ */
+export function keyFor(instanceId: string, name: string): string {
+    return `${instanceId}:${name}`;
+}

@@ -6,6 +6,7 @@ import type { RuntimeStore } from "./runtime-store";
 import type { VaultBackend } from "../vault/vault-backend";
 import type { Observation, ScriptObservation } from "../../../shared/types/observation";
 import { observations_to_ready_state } from "./observation-mapping";
+import { keyFor } from "../config/secrets-store";
 import { createLogger, createTraceId, withLogContext } from "../../../shared/lib/logger";
 import type { ConnectorDefinition } from "../connector/manifest-loader";
 import { create_connector_context } from "../connector/net-client";
@@ -90,7 +91,7 @@ async function build_params(
             continue;
         }
         if (!param.exposeToScript) continue;
-        const stored = await vault.get(`${connector_config.instanceId}:${param.name}`);
+        const stored = await vault.get(keyFor(connector_config.instanceId, param.name));
         if (stored !== null) {
             params[param.name] = stored;
             continue;

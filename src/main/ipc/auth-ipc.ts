@@ -2,7 +2,7 @@ import { BrowserWindow, ipcMain, session } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail, assert_valid_sender } from "./helpers";
-import type { SecretsStore } from "../core/config/secrets-store";
+import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
@@ -132,7 +132,7 @@ export async function handleCookieLogin(
             if (captured_cookie) {
                 log.info("Saving cookie captured from browser API request");
                 void deps.secretsStore
-                    .set(`${instanceId}:SESSION_COOKIE`, captured_cookie)
+                    .set(keyFor(instanceId, "SESSION_COOKIE"), captured_cookie)
                     .then(() => {
                         log.info("Cookies saved successfully");
                         finish(ok({ saved: true }));
@@ -168,7 +168,7 @@ export async function handleCookieLogin(
                         `Saving ${String(matched.length)} cookies from persistent session on window close`,
                     );
                     void deps.secretsStore
-                        .set(`${instanceId}:SESSION_COOKIE`, cookie_header)
+                        .set(keyFor(instanceId, "SESSION_COOKIE"), cookie_header)
                         .then(() => {
                             log.info("Cookies saved successfully");
                             finish(ok({ saved: true }));
@@ -229,7 +229,7 @@ export async function trySilentCookieRefresh(
             return false;
         }
         const cookieHeader = matched.map((c) => `${c.name}=${c.value}`).join("; ");
-        await secretsStore.set(`${instanceId}:SESSION_COOKIE`, cookieHeader);
+        await secretsStore.set(keyFor(instanceId, "SESSION_COOKIE"), cookieHeader);
         log.info(`Silent cookie refresh succeeded for ${instanceId}`);
         return true;
     } catch (err: unknown) {

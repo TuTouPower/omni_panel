@@ -2,6 +2,7 @@ import { lstat, readFile, realpath, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { request as undici_request, ProxyAgent } from "undici";
+import { keyFor } from "../config/secrets-store";
 import { createLogger, withLogContext } from "../../../shared/lib/logger";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { VaultBackend } from "../vault/vault-backend";
@@ -123,7 +124,7 @@ export function create_connector_context(
     async function apply_auth(url: URL, headers: Record<string, string>): Promise<void> {
         const auth = manifest.poll?.request.auth;
         if (!auth) return;
-        const value = await vault.get(`${instance_id}:${auth.secret}`);
+        const value = await vault.get(keyFor(instance_id, auth.secret));
         if (!value) return;
 
         if (auth.type === "bearer") {
