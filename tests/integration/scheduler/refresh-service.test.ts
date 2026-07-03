@@ -731,3 +731,59 @@ describe("connector instance identity (host-stamped)", () => {
         }
     });
 });
+
+describe("connector error freshness", () => {
+    it("shows only the latest collection's error; a later success clears it", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "err-freshness-"));
+        const observationStore = create_async_observation_store();
+        const runtimeStore = createRuntimeStore();
+        const write_script = (body: string) => writeFile(join(tempDir, "connector.js"), body);
+
+        await write_script(`throw new Error("boom-latest");`);
+        const service = createRefreshService({
+            definitions: [firecrawl_definition(tempDir)],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([
+                { ...firecrawl_plugin_config("firecrawl-a"), executablePath: tempDir },
+            ]),
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("firecrawl-a", { force: true });
+            const after_fail = runtimeStore.getSnapshot("firecrawl-a");
+            expect(after_fail.status).toBe("failed");
+            if (after_fail.status !== "failed") throw new Error("expected failed");
+            expect(after_fail.error).toContain("boom-latest");
+
+            await write_script(`
+return [{
+    provider: "firecrawl",
+    account_id: "firecrawl",
+    account_label: "Firecrawl",
+    metric_id: "firecrawl:credits",
+    raw_label: "credits",
+    normalized_label: "Credits",
+    window: "month",
+    used: 1,
+    limit: 100,
+    display_style: "ratio",
+    reset_at: null,
+    status: "normal",
+    observed_at: 1780000000000,
+    source: "wrapper",
+    stale: false,
+    last_error: null
+}];
+`);
+            await service.refresh("firecrawl-a", { force: true });
+            const after_success = runtimeStore.getSnapshot("firecrawl-a");
+            expect(after_success.status).toBe("ready");
+            if (after_success.status !== "ready") throw new Error("expected ready");
+            expect(after_success.items.length).toBe(1);
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+});
