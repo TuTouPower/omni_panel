@@ -91,13 +91,6 @@ export async function execute_probe(
     }
 
     if (used === null && limit === null) {
-        const first = numeric_headers.entries().next().value;
-        if (first) {
-            used = first[1];
-        }
-    }
-
-    if (used === null && limit === null) {
         return [];
     }
 
