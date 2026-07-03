@@ -32,38 +32,42 @@ export async function load_manifest(connector_dir: string): Promise<Manifest | n
     }
 }
 
+async function load_definitions_from_dir(
+    dir: string,
+    definitions: ConnectorDefinition[],
+): Promise<void> {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const directory = join(dir, entry.name);
+        const manifest = await load_manifest(directory);
+        if (!manifest) continue;
+        if (!connectorProviderSchema.safeParse(manifest.provider).success) {
+            log.warn(
+                `Skipping connector ${entry.name}: provider "${manifest.provider}" not in connectorProviderSchema`,
+            );
+            continue;
+        }
+        definitions.push({ directory, executablePath: directory, manifest });
+    }
+}
+
 export async function discover_connector_definitions(
     builtin_dir: string,
     user_dir: string,
 ): Promise<ConnectorDefinition[]> {
     const definitions: ConnectorDefinition[] = [];
-    const dirs = process.env["E2E_SKIP_BUNDLED"] === "1" ? [user_dir] : [builtin_dir, user_dir];
-
-    for (const dir of dirs) {
-        try {
-            const entries = await readdir(dir, { withFileTypes: true });
-            for (const entry of entries) {
-                if (!entry.isDirectory()) continue;
-                const directory = join(dir, entry.name);
-                const manifest = await load_manifest(directory);
-                if (!manifest) continue;
-                if (!connectorProviderSchema.safeParse(manifest.provider).success) {
-                    log.warn(
-                        `Skipping connector ${entry.name}: provider "${manifest.provider}" not in connectorProviderSchema`,
-                    );
-                    continue;
-                }
-                definitions.push({
-                    directory,
-                    executablePath: directory,
-                    manifest,
-                });
-            }
-        } catch (err) {
-            log.error("Failed to read connector directory", err);
-        }
+    // A missing/unreadable builtin dir is fatal: otherwise the app would launch
+    // with zero connectors and no UI signal. Let it propagate to startup.
+    if (process.env["E2E_SKIP_BUNDLED"] !== "1") {
+        await load_definitions_from_dir(builtin_dir, definitions);
     }
-
+    // The user dir is best-effort: it may not exist until the user adds a connector.
+    try {
+        await load_definitions_from_dir(user_dir, definitions);
+    } catch (err) {
+        log.warn("Could not read user connector directory", err);
+    }
     return definitions;
 }
 
