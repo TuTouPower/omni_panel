@@ -29,6 +29,7 @@ import { create_session_manager } from "./core/session/session-manager";
 import { create_async_observation_store } from "./core/observation/observation-store-async";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
+import { decide_settings_close } from "./core/settings-close-action";
 import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestrator";
 import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
@@ -435,9 +436,10 @@ void app.whenReady().then(async () => {
         // Hide instead of destroy on close (unless quitting) so the window
         // persists across opens.
         settingsWin.on("close", (event) => {
-            if (quitting) return;
-            event.preventDefault();
-            settingsWin?.hide();
+            if (decide_settings_close(quitting) === "hide") {
+                event.preventDefault();
+                settingsWin?.hide();
+            }
         });
         settings_bounds_applied = false;
     }
