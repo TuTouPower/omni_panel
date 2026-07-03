@@ -653,9 +653,11 @@ void app.whenReady().then(async () => {
             if (is_paused) {
                 orchestrator.suspend();
             } else {
+                // resume() reloads config and startAll()s (which refreshes
+                // immediately). The previous rebuild()+startAll() here restarted
+                // every connector twice and desynced from the orchestrator's own
+                // suspend/resume generation — dropped.
                 orchestrator.resume();
-                orchestrator.rebuild(currentConfigSnapshot);
-                orchestrator.startAll(currentConfigSnapshot);
             }
             send_tray_state();
         });
