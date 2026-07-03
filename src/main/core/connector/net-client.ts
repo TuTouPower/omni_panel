@@ -75,6 +75,24 @@ async function list_dir_recursive(dir: string, depth = 0, max_depth = 10): Promi
     return results;
 }
 
+// Defense against secret exfiltration via a malicious endpoint override: a
+// crafted CONFIG_IMPORT could point a connector at a cloud-metadata service,
+// and apply_auth would then leak the user's API key there (AWS/GCP/Azure
+// instance creds are the prime target). Block known metadata hosts. Private/
+// loopback ranges are NOT blocked — local dev connectors and tests use them.
+// Note: a public attacker-controlled host is not blocked here; the broader
+// defense is requiring secret re-entry on config import (see PLAN.md).
+function assert_safe_connector_host(url: URL): void {
+    const host = url.hostname.toLowerCase();
+    if (
+        host === "169.254.169.254" ||
+        host === "metadata.google.internal" ||
+        host === "metadata.azure.com"
+    ) {
+        throw new Error(`Refusing connector request to metadata host: ${host}`);
+    }
+}
+
 export function create_connector_context(
     manifest: Manifest,
     vault: VaultBackend,
@@ -129,6 +147,7 @@ export function create_connector_context(
         opts?: HttpOpts,
     ): Promise<unknown> {
         const url = new URL(path, resolve_endpoint(endpoint_key));
+        assert_safe_connector_host(url);
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
         };
@@ -238,6 +257,7 @@ export function create_connector_context(
             },
             async get_raw(endpoint_key: string, path: string, opts?: HttpOpts) {
                 const url = new URL(path, resolve_endpoint(endpoint_key));
+                assert_safe_connector_host(url);
                 const headers: Record<string, string> = {};
                 await apply_auth(url, headers);
 
