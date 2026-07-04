@@ -17,11 +17,14 @@ export function assert_valid_sender(event: IpcMainInvokeEvent): void {
     if (!url || url === "about:blank") {
         throw new Error("IPC not allowed from unknown origin");
     }
-    if (process.env["NODE_ENV"] === "production") {
-        if (!url.startsWith("file://")) {
-            throw new Error(`Invalid sender protocol: ${url}`);
-        }
-    }
+    // Allow the app's own packaged pages (file://) and, when running under
+    // electron-vite dev, the dev server. Do NOT gate on NODE_ENV — it is not
+    // reliably set in packaged Electron builds, so the production check could
+    // silently no-op and let any origin invoke privileged IPC.
+    if (url.startsWith("file://")) return;
+    const dev_url = process.env["ELECTRON_RENDERER_URL"];
+    if (dev_url && url.startsWith(dev_url)) return;
+    throw new Error(`Invalid sender protocol: ${url}`);
 }
 
 export function toDTO(state: ConnectorSnapshotState): PluginSnapshotDTO {

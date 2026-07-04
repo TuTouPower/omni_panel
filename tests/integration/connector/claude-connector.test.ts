@@ -62,7 +62,6 @@ describe("claude connector", () => {
         expect(result.observations).toEqual([
             expect.objectContaining({
                 provider: "claude",
-                source_instance_id: "claude",
                 account_id: "claude",
                 metric_id: "claude:five_hour",
                 raw_label: "five_hour",

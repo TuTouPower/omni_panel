@@ -100,11 +100,11 @@ test.describe("settings view", () => {
 
         // Clear and type new value
         await labelMapField.fill("");
-        await labelMapField.fill("gemini-long=Gemini Short");
+        await labelMapField.fill("glm-long=GLM Short");
         // Trigger blur to save
         await labelMapField.press("Tab");
 
         // Verify the textarea still shows the value after save
-        await expect(labelMapField).toHaveValue("gemini-long=Gemini Short");
+        await expect(labelMapField).toHaveValue("glm-long=GLM Short");
     });
 });

@@ -105,7 +105,7 @@ describe("SettingsView", () => {
                     displayName: "CPA",
                     enabled: true,
                     source: "gateway",
-                    supportedProviders: ["claude", "codex", "gemini", "antigravity", "kimi"],
+                    supportedProviders: ["claude", "codex", "antigravity", "kimi"],
                     activeProviders: ["claude"],
                     metadata: {
                         parameters: [
@@ -125,13 +125,6 @@ describe("SettingsView", () => {
                             {
                                 name: "monitor_codex",
                                 label: "Codex",
-                                type: "boolean",
-                                required: false,
-                                defaultValue: "false",
-                            },
-                            {
-                                name: "monitor_gemini",
-                                label: "Gemini",
                                 type: "boolean",
                                 required: false,
                                 defaultValue: "false",
@@ -231,6 +224,25 @@ describe("SettingsView", () => {
             logs: { export: vi.fn() },
             log: vi.fn(),
         };
+    });
+
+    it("labels the log level selector for assistive technology", async () => {
+        current_config = { ...base_config, logLevel: "info" };
+        render(<SettingsView />);
+
+        expect(await screen.findByLabelText("日志等级")).toHaveDisplayValue("Info");
+    });
+
+    it("saves selected log level from general settings", async () => {
+        current_config = { ...base_config, logLevel: "info" };
+        render(<SettingsView />);
+
+        const user = userEvent.setup();
+        await user.selectOptions(await screen.findByDisplayValue("Info"), "Debug");
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalledWith(expect.objectContaining({ logLevel: "debug" }));
+        });
     });
 
     it("saves endpoint overrides and secrets without putting secrets in config", async () => {

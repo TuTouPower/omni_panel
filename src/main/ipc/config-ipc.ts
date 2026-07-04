@@ -6,7 +6,7 @@ import type { ConfigExportData } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail, assert_valid_sender } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
-import type { SecretsStore } from "../core/config/secrets-store";
+import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfiguration, ConnectorConfiguration } from "../../shared/types/config";
 import { appConfigurationSchema } from "../core/config/types";
 import { createLogger } from "../../shared/lib/logger";
@@ -78,7 +78,7 @@ export async function handleConfigGet(
             if (!secretKeys || secretKeys.size === 0) continue;
             const pluginSecrets: Record<string, boolean> = {};
             for (const key of secretKeys) {
-                const value = await deps.secretsStore.get(`${plugin.instanceId}:${key}`);
+                const value = await deps.secretsStore.get(keyFor(plugin.instanceId, key));
                 pluginSecrets[key] = value !== null;
             }
             hasSecrets[plugin.instanceId] = pluginSecrets;
@@ -171,7 +171,7 @@ export async function handleConfigSaveSecrets(
 
         for (const [paramName, value] of Object.entries(secrets)) {
             if (allowedKeys.has(paramName)) {
-                await deps.secretsStore.set(`${instanceId}:${paramName}`, value);
+                await deps.secretsStore.set(keyFor(instanceId, paramName), value);
             }
         }
         return ok(undefined);
@@ -318,9 +318,10 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
         redactResult: redact_config_raw,
     });
 
-    ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () =>
-        logged(IPC_CHANNELS.CONFIG_GET, [], () => handleConfigGet(deps)),
-    );
+    ipcMain.handle(IPC_CHANNELS.CONFIG_GET, (e) => {
+        assert_valid_sender(e);
+        return logged(IPC_CHANNELS.CONFIG_GET, [], () => handleConfigGet(deps));
+    });
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE, (e, config: unknown) => {
         assert_valid_sender(e);
         return logged(IPC_CHANNELS.CONFIG_SAVE, [config], async () => {

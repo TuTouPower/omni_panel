@@ -19,15 +19,6 @@
             "label@zh-Hans": "监控 Claude"
         },
         {
-            "name": "monitor_gemini",
-            "type": "string",
-            "required": false,
-            "default": "true",
-            "exposeToScript": true,
-            "label": "Monitor Gemini",
-            "label@zh-Hans": "监控 Gemini"
-        },
-        {
             "name": "monitor_kimi",
             "type": "string",
             "required": false,

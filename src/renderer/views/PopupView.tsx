@@ -12,7 +12,7 @@ import { TokenPanel } from "../components/TokenPanel";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import {
     build_provider_usage_groups,
-    get_visible_providers,
+    visible_providers_from_groups,
     apply_account_overrides,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
@@ -106,7 +106,12 @@ export function PopupView() {
             .then((mode) => {
                 if (!cancelled) set_main_panel_mode(mode);
             })
-            .catch(() => {
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: "PopupView",
+                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
                 if (!cancelled) set_main_panel_mode("popup");
             });
         return () => {
@@ -156,6 +161,23 @@ export function PopupView() {
         [valid_providers],
     );
 
+    // Single read-modify-write queue for persistence. Three effects below used
+    // to each inline this exact block; a bug in one would silently desync.
+    const patchConfig = useCallback((patch: Partial<AppConfiguration>) => {
+        save_queue_ref.current = save_queue_ref.current
+            .then(async () => {
+                const result = await window.usageboard.config.get();
+                await window.usageboard.config.save({ ...result.config, ...patch });
+            })
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: "PopupView",
+                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
+            });
+    }, []);
+
     // Load persisted provider order from config
     useEffect(() => {
         window.usageboard.config
@@ -166,7 +188,12 @@ export function PopupView() {
                 }
                 apply_config(result.config);
             })
-            .catch(() => {
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: "PopupView",
+                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
                 // ignore load errors
             });
     }, [apply_config]);
@@ -190,35 +217,15 @@ export function PopupView() {
         if (prev.length === provider_order.length && prev.every((v, i) => v === provider_order[i]))
             return;
         synced_order_ref.current = provider_order;
-        save_queue_ref.current = save_queue_ref.current
-            .then(async () => {
-                const result = await window.usageboard.config.get();
-                await window.usageboard.config.save({
-                    ...result.config,
-                    providerOrder: provider_order,
-                });
-            })
-            .catch(() => {
-                // ignore save errors
-            });
-    }, [provider_order]);
+        patchConfig({ providerOrder: provider_order });
+    }, [provider_order, patchConfig]);
 
     useEffect(() => {
         const prev = synced_account_orders_ref.current;
         if (account_orders_equal(prev, account_orders)) return;
         synced_account_orders_ref.current = account_orders;
-        save_queue_ref.current = save_queue_ref.current
-            .then(async () => {
-                const result = await window.usageboard.config.get();
-                await window.usageboard.config.save({
-                    ...result.config,
-                    accountOrders: account_orders,
-                });
-            })
-            .catch(() => {
-                // ignore save errors
-            });
-    }, [account_orders]);
+        patchConfig({ accountOrders: account_orders });
+    }, [account_orders, patchConfig]);
 
     // Persist collapsed/expanded state to config
     const prev_collapsed_ref = useRef<Record<string, boolean>>({});
@@ -234,19 +241,11 @@ export function PopupView() {
         }
         prev_collapsed_ref.current = collapsed_accounts;
         prev_expanded_ref.current = expanded_providers;
-        save_queue_ref.current = save_queue_ref.current
-            .then(async () => {
-                const result = await window.usageboard.config.get();
-                await window.usageboard.config.save({
-                    ...result.config,
-                    collapsedAccounts: collapsed_accounts,
-                    expandedProviders: expanded_providers,
-                });
-            })
-            .catch(() => {
-                // ignore save errors
-            });
-    }, [collapsed_accounts, expanded_providers]);
+        patchConfig({
+            collapsedAccounts: collapsed_accounts,
+            expandedProviders: expanded_providers,
+        });
+    }, [collapsed_accounts, expanded_providers, patchConfig]);
 
     const tabsRef = useRef<HTMLDivElement>(null);
     const wheel_at_ref = useRef(0);
@@ -258,7 +257,10 @@ export function PopupView() {
         () => apply_account_overrides(rawGroups, account_overrides),
         [rawGroups, account_overrides],
     );
-    const visibleProviders = useMemo(() => get_visible_providers(plugins), [plugins]);
+    const visibleProviders = useMemo(
+        () => visible_providers_from_groups(rawGroups, plugins),
+        [rawGroups, plugins],
+    );
 
     useEffect(() => {
         if (should_log_raw) {
@@ -583,14 +585,14 @@ export function PopupView() {
         const order = account_orders[tabKey];
         if (!order || order.length === 0) return activeGroup;
         const orderSet = new Set(order);
-        const ordered = order
-            .filter((id) => activeGroup.accounts.some((a) => a.id === id))
-            .map((id) => activeGroup.accounts.find((a) => a.id === id))
-            .filter(Boolean);
+        const ordered = order.flatMap((id) => {
+            const found = activeGroup.accounts.find((a) => a.id === id);
+            return found ? [found] : [];
+        });
         const remaining = activeGroup.accounts.filter((a) => !orderSet.has(a.id));
         return {
             ...activeGroup,
-            accounts: [...ordered, ...remaining] as typeof activeGroup.accounts,
+            accounts: [...ordered, ...remaining],
         };
     }, [activeGroup, account_orders, activeTab]);
 

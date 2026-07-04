@@ -24,13 +24,6 @@ const manifest: Manifest = {
             default: "true",
         },
         {
-            name: "monitor_gemini",
-            type: "string",
-            required: false,
-            exposeToScript: true,
-            default: "true",
-        },
-        {
             name: "monitor_kimi",
             type: "string",
             required: false,
@@ -111,7 +104,6 @@ describe("cpa connector", () => {
         expect(result.observations).toEqual([
             expect.objectContaining({
                 provider: "claude",
-                source_instance_id: "cpa",
                 account_id: "claude-auth",
                 account_label: "user@example.com",
                 metric_id: "claude:claude-auth:five_hour",
@@ -193,7 +185,6 @@ describe("cpa connector", () => {
         expect(codex[0]).toEqual(
             expect.objectContaining({
                 provider: "codex",
-                source_instance_id: "cpa",
                 source: "gateway",
                 window: "second",
                 display_style: "percent",
@@ -282,72 +273,6 @@ describe("cpa connector", () => {
         expect(codex[0]?.raw_label).toBe("primary_window");
         expect(codex[1]?.used).toBe(20);
         expect(codex[1]?.raw_label).toBe("secondary_window");
-    });
-
-    it("produces Gemini observations via CPA api-call", async () => {
-        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
-        const ctx = create_ctx();
-        ctx.http.get_json = () =>
-            Promise.resolve({
-                files: [
-                    {
-                        name: "auth-gemini-cli-1.json",
-                        provider: "gemini-cli",
-                        auth_index: "gem-auth",
-                    },
-                ],
-            });
-        ctx.http.post_json = (_ep, _path, body) => {
-            const url = (body as { url?: string }).url ?? "";
-            if (url.includes("loadCodeAssist")) {
-                return Promise.resolve({
-                    status_code: 200,
-                    body: { cloudaicompanionProject: "proj-123" },
-                });
-            }
-            if (url.includes("retrieveUserQuota")) {
-                return Promise.resolve({
-                    status_code: 200,
-                    body: {
-                        buckets: [
-                            {
-                                modelId: "gemini-2.5-pro",
-                                tokenType: "input_tokens",
-                                remainingFraction: 0.72,
-                                resetTime: "2026-06-15T00:00:00Z",
-                            },
-                            {
-                                modelId: "gemini-2.5-flash",
-                                tokenType: "output_tokens",
-                                remainingFraction: 0.95,
-                                resetTime: null,
-                            },
-                        ],
-                    },
-                });
-            }
-            return Promise.resolve({ status_code: 404, body: {} });
-        };
-        const gemini_result = await run_connector(manifest, script, {
-            ...ctx,
-            params: { cpa_mgmt_key: "management-key" },
-        });
-
-        expect(gemini_result.error).toBeNull();
-        const gemini = gemini_result.observations.filter((o) => o.provider === "gemini");
-        expect(gemini.length).toBe(2);
-        expect(gemini[0]).toEqual(
-            expect.objectContaining({
-                provider: "gemini",
-                source_instance_id: "cpa",
-                source: "gateway",
-                display_style: "percent",
-                raw_label: "gemini-2.5-pro:input_tokens",
-                normalized_label: "2.5 Pro 输入",
-            }),
-        );
-        // remainingFraction 0.72 → used = 28%
-        expect(gemini[0]?.used).toBeCloseTo(28, 0);
     });
 
     it("produces two Antigravity five-hour observations via CPA api-call", async () => {
@@ -492,7 +417,6 @@ describe("cpa connector", () => {
         expect(kimi[0]).toEqual(
             expect.objectContaining({
                 provider: "kimi",
-                source_instance_id: "cpa",
                 source: "gateway",
                 used: 30,
                 limit: 100,
@@ -509,11 +433,6 @@ describe("cpa connector", () => {
         ctx.http.get_json = () =>
             Promise.resolve({
                 files: [
-                    {
-                        name: "auth-gemini-1.json",
-                        provider: "gemini",
-                        auth_index: "gemini-auth",
-                    },
                     {
                         name: "auth-kimi-1.json",
                         provider: "kimi",

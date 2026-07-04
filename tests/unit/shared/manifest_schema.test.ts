@@ -35,4 +35,29 @@ describe("manifest_schema strict validation", () => {
         });
         expect(result.success).toBe(false);
     });
+
+    it("rejects poll.map used/limit/remaining that are not $ JSON-paths", () => {
+        const result = manifest_schema.safeParse({
+            ...valid_base,
+            poll: {
+                request: { endpoint: "default", path: "/api", method: "GET" },
+                map: { used: "0", limit: "1000" },
+            },
+        });
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            expect(result.error.message).toContain("must be a JSON path");
+        }
+    });
+
+    it("accepts poll.map with $-paths plus a literal window", () => {
+        const result = manifest_schema.safeParse({
+            ...valid_base,
+            poll: {
+                request: { endpoint: "default", path: "/api", method: "GET" },
+                map: { used: "$.u", limit: "$.l", remaining: "$.r", window: "month" },
+            },
+        });
+        expect(result.success).toBe(true);
+    });
 });

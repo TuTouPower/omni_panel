@@ -88,8 +88,10 @@ export const ProviderCard = memo(function ProviderCard({
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
     const label = connectorError?.displayName ?? group?.label ?? PROVIDER_LABELS[provider];
-    const isFailed = connectorError !== undefined && !hasUsage;
-    const is_auth = connectorError !== undefined && is_auth_error(connectorError.error);
+    const hasError = connectorError !== undefined;
+    const isFailed = hasError && !hasUsage;
+    const has_stale_error = hasError && hasUsage;
+    const is_auth = hasError && is_auth_error(connectorError.error);
     const hasAccounts = group !== undefined && group.accounts.length > 0;
     const card_status: CardStatus = isFailed
         ? "failed"
@@ -101,7 +103,7 @@ export const ProviderCard = memo(function ProviderCard({
     const card_class =
         (dragging ? " dragging" : "") +
         (dragOver ? " drag-over" : "") +
-        (group?.stale ? " stale" : "");
+        (group?.stale || has_stale_error ? " stale" : "");
 
     const [l2open, set_l2open] = useState(false);
 
@@ -228,6 +230,28 @@ export const ProviderCard = memo(function ProviderCard({
         return null;
     };
 
+    // Shown when collection is failing but cached usage still exists. Sits ABOVE
+    // the stale data so the failure is visible on the main panel.
+    const render_error_banner = () => (
+        <div className="card-state err">
+            <span className="cs-ic">
+                <Icon name="cloud_off" size={15} />
+            </span>
+            <span>采集失败：{connectorError?.error}</span>
+            {onRefresh && (
+                <span
+                    className="cs-action"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRefresh(provider);
+                    }}
+                >
+                    重试
+                </span>
+            )}
+        </div>
+    );
+
     const header = (
         <>
             {onDragStart && <DragGrip iconSize={18} />}
@@ -352,25 +376,37 @@ export const ProviderCard = memo(function ProviderCard({
           }
         : undefined;
 
-    // Collapsible content: state message OR bar content
+    // Collapsible content. Failed-with-cached-data renders an error banner above
+    // the (stale) usage so failures surface on the main panel instead of only
+    // in account settings.
+    const usage_content =
+        is_multi && l2open
+            ? render_account_detail()
+            : is_multi && !l2open
+              ? render_overview()
+              : group
+                ? group.accounts.map((account) => (
+                      <UsageBarList
+                          key={account.id}
+                          periods={account.periods}
+                          colorScheme={barColorScheme}
+                          barStyle={barStyle}
+                          labelMap={label_map_for_account(account)}
+                      />
+                  ))
+                : null;
+
     const collapse_children =
-        isFailed || !hasUsage
-            ? render_state()
-            : is_multi && l2open
-              ? render_account_detail()
-              : is_multi && !l2open
-                ? render_overview()
-                : group
-                  ? group.accounts.map((account) => (
-                        <UsageBarList
-                            key={account.id}
-                            periods={account.periods}
-                            colorScheme={barColorScheme}
-                            barStyle={barStyle}
-                            labelMap={label_map_for_account(account)}
-                        />
-                    ))
-                  : null;
+        isFailed || !hasUsage ? (
+            render_state()
+        ) : has_stale_error ? (
+            <>
+                {render_error_banner()}
+                {usage_content}
+            </>
+        ) : (
+            usage_content
+        );
 
     const can_collapse = onToggleExpand !== undefined && (hasAccounts || isFailed);
 

@@ -66,7 +66,6 @@ describe("deepseek connector", () => {
         expect(result.observations).toEqual([
             expect.objectContaining({
                 provider: "deepseek",
-                source_instance_id: "deepseek",
                 account_id: "deepseek",
                 metric_id: "deepseek:balance-CNY",
                 raw_label: "balance-CNY",

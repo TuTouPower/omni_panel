@@ -1,9 +1,6 @@
-import { createLogger } from "../../../shared/lib/logger";
 import type { Manifest } from "../../../shared/schemas/manifest";
-import type { Observation } from "../../../shared/types/observation";
+import type { ScriptObservation } from "../../../shared/types/observation";
 import type { ConnectorContext } from "./host-io";
-
-const log = createLogger("probe-executor");
 
 function extract_numeric_headers(
     headers: Record<string, string>,
@@ -48,9 +45,8 @@ function detect_metric_type(header_name: string): "remaining" | "used" | "limit"
 
 export async function execute_probe(
     manifest: Manifest,
-    instance_id: string,
     ctx: ConnectorContext,
-): Promise<Observation[]> {
+): Promise<ScriptObservation[]> {
     if (!manifest.observe?.probe) {
         throw new Error(`Manifest ${manifest.id} has no observe.probe config`);
     }
@@ -59,18 +55,18 @@ export async function execute_probe(
     let response_headers: Record<string, string>;
 
     try {
-        log.debug(`Probing ${manifest.id}: ${probe.endpoint}${probe.path}`);
+        ctx.log.debug(`Probing ${manifest.id}: ${probe.endpoint}${probe.path}`);
         const response = await ctx.http.get_raw(probe.endpoint, probe.path);
         response_headers = response.headers;
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        log.error(`Probe failed for ${manifest.id}: ${message}`);
+        ctx.log.error(`Probe failed for ${manifest.id}: ${message}`);
         throw error;
     }
 
     const numeric_headers = extract_numeric_headers(response_headers, header_names);
     if (numeric_headers.size === 0) {
-        log.warn(`No numeric headers found for ${manifest.id}`);
+        ctx.log.warn(`No numeric headers found for ${manifest.id}`);
         return [];
     }
 
@@ -95,21 +91,13 @@ export async function execute_probe(
     }
 
     if (used === null && limit === null) {
-        const first = numeric_headers.entries().next().value;
-        if (first) {
-            used = first[1];
-        }
-    }
-
-    if (used === null && limit === null) {
         return [];
     }
 
-    log.debug(`Probe for ${manifest.id}: used=${String(used)}, limit=${String(limit)}`);
+    ctx.log.debug(`Probe for ${manifest.id}: used=${String(used)}, limit=${String(limit)}`);
     return [
         {
             provider: manifest.provider,
-            source_instance_id: instance_id,
             account_id: "default",
             account_label: manifest.provider,
             metric_id: `${manifest.id}:usage`,

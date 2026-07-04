@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
@@ -90,7 +90,7 @@ function period_label(key: string): string {
     return "周期";
 }
 
-function status_for(used: number, limit: number): Observation["status"] {
+function status_for(used: number, limit: number): ScriptObservation["status"] {
     if (limit <= 0) return "normal";
     const ratio = used / limit;
     if (ratio >= 0.9) return "critical";
@@ -127,12 +127,12 @@ function is_weekly_redundant(
     return weekly_ms / interval_ms <= weekly_total / interval_total;
 }
 
-interface Intermediate extends Observation {
+interface Intermediate extends ScriptObservation {
     readonly _model_sort: number;
     readonly _period_sort: number;
 }
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
     if (!api_key) return [];
 
@@ -152,7 +152,6 @@ async function main(): Promise<Observation[]> {
     const now = Date.now();
     const base = {
         provider: "minimax",
-        source_instance_id: "minimax",
         account_id: "minimax",
         account_label: "MiniMax",
         window: "total" as const,

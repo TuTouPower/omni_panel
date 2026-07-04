@@ -86,10 +86,11 @@ describe("IPC helpers", () => {
 });
 
 describe("assert_valid_sender", () => {
-    const original_node_env = process.env["NODE_ENV"];
+    const original_dev = process.env["ELECTRON_RENDERER_URL"];
 
     afterEach(() => {
-        process.env["NODE_ENV"] = original_node_env;
+        if (original_dev === undefined) delete process.env["ELECTRON_RENDERER_URL"];
+        else process.env["ELECTRON_RENDERER_URL"] = original_dev;
     });
 
     it("rejects empty sender URL", () => {
@@ -108,8 +109,8 @@ describe("assert_valid_sender", () => {
         }).toThrow("IPC not allowed from unknown origin");
     });
 
-    it("allows file:// sender in development", () => {
-        process.env["NODE_ENV"] = "development";
+    it("allows file:// sender (packaged app pages)", () => {
+        delete process.env["ELECTRON_RENDERER_URL"];
         const event = {
             senderFrame: { url: "file:///index.html" },
         } as unknown as Electron.IpcMainInvokeEvent;
@@ -118,33 +119,33 @@ describe("assert_valid_sender", () => {
         }).not.toThrow();
     });
 
-    it("allows http:// sender in development", () => {
-        process.env["NODE_ENV"] = "development";
+    it("allows dev-server sender matching ELECTRON_RENDERER_URL", () => {
+        process.env["ELECTRON_RENDERER_URL"] = "http://localhost:3000";
         const event = {
-            senderFrame: { url: "http://localhost:3000" },
+            senderFrame: { url: "http://localhost:3000/index.html" },
         } as unknown as Electron.IpcMainInvokeEvent;
         expect(() => {
             assert_valid_sender(event);
         }).not.toThrow();
     });
 
-    it("rejects non-file:// sender in production", () => {
-        process.env["NODE_ENV"] = "production";
+    it("rejects http:// sender when no dev server is configured", () => {
+        delete process.env["ELECTRON_RENDERER_URL"];
         const event = {
-            senderFrame: { url: "http://evil.com" },
+            senderFrame: { url: "http://localhost:3000" },
         } as unknown as Electron.IpcMainInvokeEvent;
         expect(() => {
             assert_valid_sender(event);
         }).toThrow("Invalid sender protocol");
     });
 
-    it("allows file:// sender in production", () => {
-        process.env["NODE_ENV"] = "production";
+    it("rejects http:// sender that does not match the dev server", () => {
+        process.env["ELECTRON_RENDERER_URL"] = "http://localhost:3000";
         const event = {
-            senderFrame: { url: "file:///index.html" },
+            senderFrame: { url: "http://evil.com" },
         } as unknown as Electron.IpcMainInvokeEvent;
         expect(() => {
             assert_valid_sender(event);
-        }).not.toThrow();
+        }).toThrow("Invalid sender protocol");
     });
 });

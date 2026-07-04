@@ -2,7 +2,8 @@ import { lstat, readFile, realpath, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { request as undici_request, ProxyAgent } from "undici";
-import { createLogger } from "../../../shared/lib/logger";
+import { keyFor } from "../config/secrets-store";
+import { createLogger, withLogContext } from "../../../shared/lib/logger";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { VaultBackend } from "../vault/vault-backend";
 import type { ConnectorContext, HttpOpts } from "./host-io";
@@ -38,6 +39,7 @@ export interface NetClientConfig {
     readonly endpoint_overrides?: Record<string, string>;
     readonly timeout_ms?: number;
     readonly params?: Record<string, string>;
+    readonly trace_id?: string;
 }
 
 function expand_home(path_pattern: string): string {
@@ -74,6 +76,24 @@ async function list_dir_recursive(dir: string, depth = 0, max_depth = 10): Promi
     return results;
 }
 
+// Defense against secret exfiltration via a malicious endpoint override: a
+// crafted CONFIG_IMPORT could point a connector at a cloud-metadata service,
+// and apply_auth would then leak the user's API key there (AWS/GCP/Azure
+// instance creds are the prime target). Block known metadata hosts. Private/
+// loopback ranges are NOT blocked — local dev connectors and tests use them.
+// Note: a public attacker-controlled host is not blocked here; the broader
+// defense is requiring secret re-entry on config import (see PLAN.md).
+function assert_safe_connector_host(url: URL): void {
+    const host = url.hostname.toLowerCase();
+    if (
+        host === "169.254.169.254" ||
+        host === "metadata.google.internal" ||
+        host === "metadata.azure.com"
+    ) {
+        throw new Error(`Refusing connector request to metadata host: ${host}`);
+    }
+}
+
 export function create_connector_context(
     manifest: Manifest,
     vault: VaultBackend,
@@ -82,6 +102,10 @@ export function create_connector_context(
 ): ConnectorContext {
     const dispatcher = config.proxy_url ? new ProxyAgent(config.proxy_url) : undefined;
     const timeout_ms = config.timeout_ms ?? 15_000;
+    const request_log = config.trace_id ? withLogContext(log, { trace_id: config.trace_id }) : log;
+    const connector_log = config.trace_id
+        ? withLogContext(sandbox_log, { trace_id: config.trace_id })
+        : sandbox_log;
 
     function resolve_endpoint(endpoint_key: string): string {
         const override = config.endpoint_overrides?.[endpoint_key];
@@ -100,7 +124,7 @@ export function create_connector_context(
     async function apply_auth(url: URL, headers: Record<string, string>): Promise<void> {
         const auth = manifest.poll?.request.auth;
         if (!auth) return;
-        const value = await vault.get(`${instance_id}:${auth.secret}`);
+        const value = await vault.get(keyFor(instance_id, auth.secret));
         if (!value) return;
 
         if (auth.type === "bearer") {
@@ -124,6 +148,7 @@ export function create_connector_context(
         opts?: HttpOpts,
     ): Promise<unknown> {
         const url = new URL(path, resolve_endpoint(endpoint_key));
+        assert_safe_connector_host(url);
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
         };
@@ -134,7 +159,7 @@ export function create_connector_context(
             ...(opts?.headers ?? {}),
         };
 
-        log.debug(`${method} ${url.origin}${url.pathname}`);
+        request_log.debug(`${method} ${url.origin}${url.pathname}`);
         const effective_timeout = opts?.timeout_ms ?? timeout_ms;
         const ac = new AbortController();
         const total_timer = setTimeout(() => {
@@ -151,11 +176,13 @@ export function create_connector_context(
         };
         try {
             const response = await undici_request(url, request_options);
-            log.debug(`${method} ${url.origin}${url.pathname} → ${String(response.statusCode)}`);
+            request_log.debug(
+                `${method} ${url.origin}${url.pathname} → ${String(response.statusCode)}`,
+            );
 
             if (response.statusCode >= 400) {
                 const body_text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
-                log.debug(`HTTP ${String(response.statusCode)} response body`, {
+                request_log.debug(`HTTP ${String(response.statusCode)} response body`, {
                     body: body_text.slice(0, 200),
                     url,
                 });
@@ -177,7 +204,9 @@ export function create_connector_context(
             }
 
             const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
-            log.debug(`${method} ${url.origin}${url.pathname} body=${String(text.length)} bytes`);
+            request_log.debug(
+                `${method} ${url.origin}${url.pathname} body=${String(text.length)} bytes`,
+            );
             if (text.length === 0) {
                 return null;
             }
@@ -196,7 +225,7 @@ export function create_connector_context(
             try {
                 return JSON.parse(text) as unknown;
             } catch (parse_error) {
-                log.warn(`JSON parse failed for ${url.origin}${url.pathname}: ${text}`);
+                request_log.warn(`JSON parse failed for ${url.origin}${url.pathname}: ${text}`);
                 throw parse_error;
             }
         } finally {
@@ -205,18 +234,19 @@ export function create_connector_context(
     }
 
     return {
+        ...(config.trace_id ? { trace_id: config.trace_id } : {}),
         log: {
             debug: (message: string, meta?: unknown) => {
-                sandbox_log.debug(`[${manifest.id}] ${message}`, meta);
+                connector_log.debug(`[${manifest.id}] ${message}`, meta);
             },
             info: (message: string, meta?: unknown) => {
-                sandbox_log.info(`[${manifest.id}] ${message}`, meta);
+                connector_log.info(`[${manifest.id}] ${message}`, meta);
             },
             warn: (message: string, meta?: unknown) => {
-                sandbox_log.warn(`[${manifest.id}] ${message}`, meta);
+                connector_log.warn(`[${manifest.id}] ${message}`, meta);
             },
             error: (message: string, meta?: unknown) => {
-                sandbox_log.error(`[${manifest.id}] ${message}`, meta);
+                connector_log.error(`[${manifest.id}] ${message}`, meta);
             },
         },
         http: {
@@ -228,6 +258,7 @@ export function create_connector_context(
             },
             async get_raw(endpoint_key: string, path: string, opts?: HttpOpts) {
                 const url = new URL(path, resolve_endpoint(endpoint_key));
+                assert_safe_connector_host(url);
                 const headers: Record<string, string> = {};
                 await apply_auth(url, headers);
 
@@ -236,7 +267,7 @@ export function create_connector_context(
                     ...(opts?.headers ?? {}),
                 };
 
-                log.debug(`GET RAW ${url.origin}${url.pathname}`);
+                request_log.debug(`GET RAW ${url.origin}${url.pathname}`);
                 const effective_timeout = opts?.timeout_ms ?? timeout_ms;
                 const ac = new AbortController();
                 const total_timer = setTimeout(() => {
@@ -258,10 +289,13 @@ export function create_connector_context(
                             response.body,
                             MAX_RESPONSE_BYTES,
                         );
-                        log.debug(`HTTP ${String(response.statusCode)} get_raw response body`, {
-                            body: body_text.slice(0, 200),
-                            url: url.toString(),
-                        });
+                        request_log.debug(
+                            `HTTP ${String(response.statusCode)} get_raw response body`,
+                            {
+                                body: body_text.slice(0, 200),
+                                url: url.toString(),
+                            },
+                        );
                         throw new Error(
                             `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
                         );

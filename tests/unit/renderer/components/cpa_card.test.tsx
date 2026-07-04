@@ -34,9 +34,9 @@ function render_card(overrides: Partial<Parameters<typeof CpaCard>[0]> = {}) {
                 is_removed: false,
             },
             {
-                provider: "gemini" as VendorId,
-                account_id: "gemini-old",
-                account_label: "Old Gemini",
+                provider: "glm" as VendorId,
+                account_id: "glm-old",
+                account_label: "Old GLM",
                 status: "ok" as const,
                 is_hidden: false,
                 is_removed: true,

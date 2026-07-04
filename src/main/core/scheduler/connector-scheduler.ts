@@ -27,14 +27,22 @@ export function createConnectorScheduler(deps: ConnectorSchedulerDeps): Connecto
 
         log.debug(`Starting scheduler for ${instanceId} (every ${String(intervalSeconds)}s)`);
         if (options?.immediate !== false) {
-            void deps.refresh(instanceId);
+            void deps.refresh(instanceId).catch((err: unknown) => {
+                log.error(
+                    `refresh failed for ${instanceId}: ${err instanceof Error ? err.message : String(err)}`,
+                );
+            });
         }
 
         function schedule_next(): void {
             const timer = setTimeout(() => {
                 // Fire refresh without waiting for completion.
                 // Decoupled so a hanging connector never kills the scheduler.
-                void deps.refresh(instanceId);
+                void deps.refresh(instanceId).catch((err: unknown) => {
+                    log.error(
+                        `refresh failed for ${instanceId}: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                });
                 schedule_next();
             }, interval);
             timers.set(instanceId, { timer, interval });
@@ -59,7 +67,11 @@ export function createConnectorScheduler(deps: ConnectorSchedulerDeps): Connecto
     }
 
     function refreshNow(instanceId: string): void {
-        void deps.refresh(instanceId);
+        void deps.refresh(instanceId).catch((err: unknown) => {
+            log.error(
+                `refresh failed for ${instanceId}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+        });
     }
 
     function isRunning(instanceId: string): boolean {

@@ -10,6 +10,7 @@ export type MainPanelMode = "system" | "popup" | "floating";
 export type FloatingHeightMode = "fixed" | "followContent";
 export type UsageBarColorScheme = "risk-current" | "risk-projected" | "nine-cycle";
 export type UsageBarStyle = "thin" | "capsule";
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface FloatingBoundsConfiguration {
     readonly x: number;
@@ -32,6 +33,7 @@ export interface AppConfiguration {
     readonly proxy?: ProxyConfiguration;
     readonly accentColor?: string;
     readonly theme?: "light" | "dark" | "system";
+    readonly logLevel?: LogLevel;
     readonly pinToTop?: boolean;
     readonly minimizeToTray?: boolean;
     readonly globalRefreshIntervalSeconds?: number;

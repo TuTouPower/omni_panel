@@ -109,14 +109,15 @@
                 "enum": [
                     "claude",
                     "codex",
-                    "gemini",
                     "antigravity",
                     "kimi",
                     "glm",
                     "minimax",
                     "deepseek",
                     "tavily",
-                    "mimo"
+                    "firecrawl",
+                    "mimo",
+                    "opencode_go"
                 ]
             }
         },

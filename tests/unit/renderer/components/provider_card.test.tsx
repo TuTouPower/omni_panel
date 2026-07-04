@@ -878,4 +878,22 @@ describe("ProviderCard", () => {
         expect(open).toHaveBeenCalledTimes(1);
         expect(open).toHaveBeenCalledWith({ provider: "deepseek" });
     });
+
+    it("shows the error banner alongside cached usage when a connector failed but has data (has_stale_error)", () => {
+        render(
+            <ProviderCard
+                provider="deepseek"
+                group={makeGroup()}
+                connectorError={{ displayName: "DeepSeek", error: "网络超时" }}
+            />,
+        );
+        // stale styling on the card
+        expect(document.querySelector(".card.stale")).toBeInTheDocument();
+        // error banner text
+        expect(screen.getByText(/网络超时/)).toBeInTheDocument();
+        // cached usage still rendered (not the empty state)
+        expect(screen.queryByText(/暂无/)).not.toBeInTheDocument();
+        // NOT the auth-failure path (re-login) since data exists
+        expect(screen.queryByText(/重新登录/)).not.toBeInTheDocument();
+    });
 });

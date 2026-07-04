@@ -45,11 +45,10 @@ function make_ctx(response: unknown): ConnectorContext {
 describe("tier1-poll-executor", () => {
     it("returns observation from poll response", async () => {
         const ctx = make_ctx({ usage: { month: 100 }, plan: { limit: 1000 } });
-        const result = await execute_poll(tavily_manifest, "tavily-1", ctx);
+        const result = await execute_poll(tavily_manifest, ctx);
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
             provider: "tavily",
-            source_instance_id: "tavily-1",
             account_id: "default",
             account_label: "tavily",
             metric_id: "tavily:usage",
@@ -103,7 +102,7 @@ describe("tier1-poll-executor", () => {
             params: {},
         };
 
-        const result = await execute_poll(manifest, "tavily-1", ctx);
+        const result = await execute_poll(manifest, ctx);
         expect(posted_body).toEqual({ range: "month" });
         expect(result[0]).toMatchObject({ used: 5, limit: 10, window: "day" });
     });
@@ -128,19 +127,17 @@ describe("tier1-poll-executor", () => {
             },
             params: {},
         };
-        await expect(execute_poll(tavily_manifest, "tavily-1", ctx)).rejects.toThrow("network");
+        await expect(execute_poll(tavily_manifest, ctx)).rejects.toThrow("network");
     });
 
     it("returns empty array when used and limit are missing", async () => {
         const ctx = make_ctx({ usage: {}, plan: {} });
-        const result = await execute_poll(tavily_manifest, "tavily-1", ctx);
+        const result = await execute_poll(tavily_manifest, ctx);
         expect(result).toHaveLength(0);
     });
 
     it("throws when manifest has no poll config", async () => {
         const no_poll = { ...tavily_manifest, poll: undefined };
-        await expect(execute_poll(no_poll, "tavily-1", make_ctx({}))).rejects.toThrow(
-            "no poll config",
-        );
+        await expect(execute_poll(no_poll, make_ctx({}))).rejects.toThrow("no poll config");
     });
 });

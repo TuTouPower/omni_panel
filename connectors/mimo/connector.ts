@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
@@ -48,7 +48,7 @@ function to_number(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function status_for_usage(used: number, limit: number): Observation["status"] {
+function status_for_usage(used: number, limit: number): ScriptObservation["status"] {
     if (limit <= 0) return "normal";
     const ratio = used / limit;
     if (ratio >= 0.9) return "critical";
@@ -83,7 +83,7 @@ const HEADERS = {
     "Sec-Fetch-Dest": "empty",
 };
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     const cookie = (ctx.params["SESSION_COOKIE"] ?? "").trim();
     if (!cookie) return [];
     const limit = parse_limit(ctx.params["LIMIT"]);
@@ -121,7 +121,6 @@ async function main(): Promise<Observation[]> {
 
     const base = {
         provider: "mimo",
-        source_instance_id: "mimo",
         account_id: "mimo",
         account_label: plan_name,
         window: "month" as const,
@@ -132,7 +131,7 @@ async function main(): Promise<Observation[]> {
         last_error: null,
     };
 
-    const observations: Observation[] = usage_result.data.usage.items.map((item) => ({
+    const observations: ScriptObservation[] = usage_result.data.usage.items.map((item) => ({
         ...base,
         metric_id: `mimo:${item.name ?? "unknown"}`,
         raw_label: item.name ?? "unknown",

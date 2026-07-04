@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
@@ -148,7 +148,7 @@ function to_number(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function status_for_usage(used: number): Observation["status"] {
+function status_for_usage(used: number): ScriptObservation["status"] {
     if (used >= 90) return "critical";
     if (used >= 75) return "warning";
     return "normal";
@@ -159,15 +159,14 @@ function observation(
     account_label: string,
     raw_label: "rolling" | "weekly" | "monthly",
     normalized_label: string,
-    window: Observation["window"],
+    window: ScriptObservation["window"],
     usage: UsageWindow,
     now: number,
-): Observation {
+): ScriptObservation {
     const used = to_number(usage.usagePercent ?? usage.used);
     const reset_in_sec = to_number(usage.resetInSec);
     return {
         provider: "opencode_go",
-        source_instance_id: workspace_id,
         account_id: workspace_id,
         account_label,
         metric_id: `opencode_go:${raw_label}`,
@@ -186,7 +185,7 @@ function observation(
     };
 }
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     const cookie = required_cookie();
     const headers = {
         Cookie: cookie,

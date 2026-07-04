@@ -63,7 +63,7 @@ describe("PopupView", () => {
             connectorInfo({
                 source: "gateway",
                 sourceInstanceId: "cpa-main",
-                supportedProviders: ["claude", "gemini", "kimi"],
+                supportedProviders: ["claude", "kimi"],
                 activeProviders: ["claude"],
                 snapshot: {
                     status: "ready",
@@ -213,7 +213,7 @@ describe("PopupView", () => {
             connectorInfo({
                 source: "gateway",
                 sourceInstanceId: "cpa-1",
-                supportedProviders: ["claude", "gemini"],
+                supportedProviders: ["claude"],
                 activeProviders: ["claude"],
                 snapshot: {
                     status: "ready",
@@ -259,9 +259,9 @@ describe("PopupView", () => {
             }),
             connectorInfo({
                 source: "poll",
-                sourceInstanceId: "gemini-direct-1",
-                supportedProviders: ["gemini"],
-                activeProviders: ["gemini"],
+                sourceInstanceId: "kimi-direct-1",
+                supportedProviders: ["kimi"],
+                activeProviders: ["kimi"],
             }),
         ]);
 
@@ -276,7 +276,7 @@ describe("PopupView", () => {
         expect(plugin_refresh).toHaveBeenCalledWith("cpa-1");
         expect(plugin_refresh).toHaveBeenCalledWith("claude-direct-1");
         expect(plugin_refresh).not.toHaveBeenCalledWith("claude-disabled-1");
-        expect(plugin_refresh).not.toHaveBeenCalledWith("gemini-direct-1");
+        expect(plugin_refresh).not.toHaveBeenCalledWith("kimi-direct-1");
     });
 
     it("logs provider refresh failures", async () => {

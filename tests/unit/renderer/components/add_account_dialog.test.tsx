@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -428,6 +430,15 @@ describe("AddAccountDialog API key", () => {
         const button = screen.getByText("GLM").closest("button");
         expect(button).toBeInTheDocument();
         expect(button?.className).not.toContain("disabled");
+    });
+
+    it("does not contain direct console calls", async () => {
+        const source = await readFile(
+            join(process.cwd(), "src/renderer/components/AddAccountDialog.tsx"),
+            "utf8",
+        );
+
+        expect(source).not.toMatch(/console\.(log|warn|error|debug|info)/);
     });
 
     it("shows CPA button when has_cpa is true", () => {

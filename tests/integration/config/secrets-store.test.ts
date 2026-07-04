@@ -103,4 +103,30 @@ describe("secrets-store", () => {
         expect(await store2.get("a:b")).toBe("secret-a");
         expect(await store2.get("c:d")).toBe("secret-b");
     });
+
+    it("importAll rolls back to the original vault if a write fails mid-import", async () => {
+        const original = { a: "v1", b: "v2" };
+        const store_map = new Map<string, string>(Object.entries(original));
+        const fake_vault = {
+            get: (k: string) => Promise.resolve(store_map.get(k) ?? null),
+            set: (k: string, val: string) => {
+                // Fail on the import value, not on the key, so the rollback restore
+                // (which writes the original "v2" back) succeeds.
+                if (val === "brand-new") return Promise.reject(new Error("write boom"));
+                store_map.set(k, val);
+                return Promise.resolve();
+            },
+            delete: (k: string) => {
+                store_map.delete(k);
+                return Promise.resolve();
+            },
+            has: (k: string) => Promise.resolve(store_map.has(k)),
+            list_keys: () => Promise.resolve([...store_map.keys()]),
+        };
+        const store = createSecretsStore(fake_vault);
+        await expect(store.importAll({ a: "new", b: "brand-new" })).rejects.toThrow("write boom");
+        // Rollback restored the original keys; the partial "new" did not survive.
+        const exported = await store.exportAll();
+        expect(exported).toEqual(original);
+    });
 });

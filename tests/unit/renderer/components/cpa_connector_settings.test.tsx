@@ -42,7 +42,7 @@ function connector(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
         displayName: "CPA",
         enabled: true,
         source: "gateway",
-        supportedProviders: ["claude", "codex", "gemini", "antigravity", "kimi"],
+        supportedProviders: ["claude", "codex", "antigravity", "kimi"],
         activeProviders: ["claude", "codex"],
         metadata: {
             name: "CPA",
@@ -60,13 +60,6 @@ function connector(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
                 {
                     name: "monitor_codex",
                     label: "Codex",
-                    type: "boolean",
-                    required: false,
-                    defaultValue: "true",
-                },
-                {
-                    name: "monitor_gemini",
-                    label: "Gemini",
                     type: "boolean",
                     required: false,
                     defaultValue: "true",
@@ -223,7 +216,6 @@ describe("CpaConnectorSettings", () => {
             {
                 monitor_codex: "false",
                 monitor_claude: "false",
-                monitor_gemini: "true",
                 monitor_antigravity: "true",
                 monitor_kimi: "false",
             },
@@ -335,7 +327,7 @@ describe("CpaConnectorSettings", () => {
 
         // Label map buttons in sync scope rows (one per MONITOR)
         const tag_buttons = screen.getAllByTitle("编辑数据标签映射");
-        expect(tag_buttons.length).toBe(5);
+        expect(tag_buttons.length).toBe(4);
     });
 
     it("does not render discovered accounts section", () => {
@@ -346,7 +338,7 @@ describe("CpaConnectorSettings", () => {
 
     it("renders all monitor toggles in sync scope regardless of selectedProvider", () => {
         renderSettings({
-            selectedProvider: "gemini",
+            selectedProvider: "antigravity",
             onEditLabelMap: vi.fn(),
             connector: connector({
                 snapshot: {
@@ -355,7 +347,7 @@ describe("CpaConnectorSettings", () => {
                     items: [
                         usageItem({ provider: "claude", accountLabel: "Claude Account" }),
                         usageItem({ provider: "codex", accountLabel: "Codex Account" }),
-                        usageItem({ provider: "gemini", accountLabel: "Gemini Account" }),
+                        usageItem({ provider: "antigravity", accountLabel: "Antigravity Account" }),
                     ],
                 },
             }),
@@ -364,7 +356,7 @@ describe("CpaConnectorSettings", () => {
         // All 5 monitor toggles should be present in sync scope
         expect(screen.getByText("同步范围")).toBeInTheDocument();
         const tag_buttons = screen.getAllByTitle("编辑数据标签映射");
-        expect(tag_buttons.length).toBe(5);
+        expect(tag_buttons.length).toBe(4);
     });
 
     it("renders alias field with display name", () => {

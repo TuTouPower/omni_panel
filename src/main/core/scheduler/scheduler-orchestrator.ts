@@ -35,24 +35,10 @@ export function createSchedulerOrchestrator(
     let safetyNetTimer: ReturnType<typeof setTimeout> | null = null;
     let generation = 0;
 
-    function startAll(config: ConnectorListConfig): void {
-        let count = 0;
-        for (const connector of config.plugins) {
-            if (connector.enabled && !connector.manualRefreshOnly) {
-                const interval = resolve_refresh_interval(
-                    connector.refreshIntervalSeconds,
-                    config.globalRefreshIntervalSeconds,
-                );
-                deps.scheduler.start(connector.instanceId, interval);
-                count++;
-            }
-        }
-        log.info(`startAll: ${String(count)} connectors`);
-    }
-
-    function rebuild(config: ConnectorListConfig): void {
-        log.info("rebuild: stopping all and restarting enabled (no immediate refresh)");
-        deps.scheduler.stopAll();
+    // The single enabled-connector loop. startAll and rebuild previously
+    // duplicated this; a config-change bug in one would silently desync from
+    // the other. Now written once.
+    function applyEnabled(config: ConnectorListConfig, immediate: boolean): number {
         let count = 0;
         for (const connector of config.plugins) {
             if (connector.enabled && !connector.manualRefreshOnly) {
@@ -61,12 +47,22 @@ export function createSchedulerOrchestrator(
                     config.globalRefreshIntervalSeconds,
                 );
                 deps.scheduler.start(connector.instanceId, interval, {
-                    immediate: false,
+                    immediate,
                 });
                 count++;
             }
         }
-        log.info(`rebuild: restarted ${String(count)} connectors`);
+        return count;
+    }
+
+    function startAll(config: ConnectorListConfig): void {
+        log.info(`startAll: ${String(applyEnabled(config, true))} connectors`);
+    }
+
+    function rebuild(config: ConnectorListConfig): void {
+        log.info("rebuild: stopping all and restarting enabled (no immediate refresh)");
+        deps.scheduler.stopAll();
+        log.info(`rebuild: restarted ${String(applyEnabled(config, false))} connectors`);
     }
 
     function suspend(): void {

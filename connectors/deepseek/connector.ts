@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
@@ -26,7 +26,7 @@ function to_number(value: string | number | undefined): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function status_for_balance(balance: number, limit: number): Observation["status"] {
+function status_for_balance(balance: number, limit: number): ScriptObservation["status"] {
     if (limit <= 0) return "normal";
     const ratio = balance / limit;
     if (ratio <= 0.1) return "critical";
@@ -34,7 +34,7 @@ function status_for_balance(balance: number, limit: number): Observation["status
     return "normal";
 }
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
     if (!api_key) return [];
 
@@ -62,7 +62,6 @@ async function main(): Promise<Observation[]> {
         const suffix = currency !== "CNY" && currency ? ` (${currency})` : "";
         return {
             provider: "deepseek",
-            source_instance_id: "deepseek",
             account_id: "deepseek",
             account_label: "DeepSeek",
             metric_id: `deepseek:balance-${currency}`,
@@ -78,7 +77,7 @@ async function main(): Promise<Observation[]> {
             source: "poll",
             stale: false,
             last_error: null,
-        } satisfies Observation;
+        } satisfies ScriptObservation;
     });
 }
 

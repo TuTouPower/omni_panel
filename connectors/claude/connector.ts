@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
@@ -42,7 +42,7 @@ function pct(value: number | undefined): number {
     return Math.round(Math.min(number, 100) * 10) / 10;
 }
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     let credentials: ClaudeCredentials;
     try {
         credentials = JSON.parse(
@@ -71,7 +71,6 @@ async function main(): Promise<Observation[]> {
     return [
         {
             provider: "claude",
-            source_instance_id: "claude",
             account_id: "claude",
             account_label: "Claude",
             metric_id: "claude:five_hour",
@@ -90,7 +89,6 @@ async function main(): Promise<Observation[]> {
         },
         {
             provider: "claude",
-            source_instance_id: "claude",
             account_id: "claude",
             account_label: "Claude",
             metric_id: "claude:seven_day",

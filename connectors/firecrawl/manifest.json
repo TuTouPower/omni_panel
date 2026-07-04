@@ -1,6 +1,6 @@
 {
-    "id": "gemini",
-    "provider": "gemini",
+    "id": "firecrawl",
+    "provider": "firecrawl",
     "capabilities": ["poll"],
     "parameters": [
         {
@@ -13,17 +13,13 @@
         }
     ],
     "endpoints": {
-        "default": "https://generativelanguage.googleapis.com"
+        "default": "https://api.firecrawl.dev"
     },
     "poll": {
         "request": {
             "endpoint": "default",
-            "path": "/usage",
-            "method": "GET",
-            "auth": {
-                "type": "bearer",
-                "secret": "API_KEY"
-            }
+            "path": "/v1/team/credit-usage",
+            "method": "GET"
         },
         "map": {}
     },

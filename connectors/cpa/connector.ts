@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 // NOTE: All 5 provider parsers live in one file because the connector runtime
 // (runtime.ts:compile_script) forbids runtime import/export. Splitting requires
@@ -52,7 +52,7 @@ function to_reset_at(value: unknown): number | null {
     return Number.isFinite(ts) ? ts : null;
 }
 
-function status_for_pct(pct: number): Observation["status"] {
+function status_for_pct(pct: number): ScriptObservation["status"] {
     if (pct >= 90) return "critical";
     if (pct >= 75) return "warning";
     return "normal";
@@ -118,7 +118,7 @@ function parse_claude(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
-): Observation[] {
+): ScriptObservation[] {
     const periods: [string, string, string, "second" | "day"][] = [
         ["five_hour", "five_hour", "5小时", "second"],
         ["seven_day", "seven_day", "一周", "day"],
@@ -130,7 +130,6 @@ function parse_claude(
         const reset_at = is_record(period) ? to_reset_at(period["resets_at"]) : null;
         return {
             provider: "claude",
-            source_instance_id: "cpa",
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `claude:${account.account_id}:${key}`,
@@ -146,7 +145,7 @@ function parse_claude(
             source: "gateway",
             stale: false,
             last_error: null,
-        } satisfies Observation;
+        } satisfies ScriptObservation;
     });
 }
 
@@ -156,7 +155,7 @@ function parse_codex(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
-): Observation[] {
+): ScriptObservation[] {
     const rl = body["rate_limit"];
     if (!is_record(rl)) return [];
     // used_percent is integer percent USED (100 = fully consumed, 18 = 18%).
@@ -164,7 +163,7 @@ function parse_codex(
         ["primary_window", "primary_window", "5小时", "second"],
         ["secondary_window", "secondary_window", "一周", "day"],
     ];
-    const observations: Observation[] = [];
+    const observations: ScriptObservation[] = [];
     for (const [key, raw_label, normalized_label, window] of windows) {
         const w = rl[key] ?? rl[key.replace(/_/g, "")];
         if (!is_record(w)) continue;
@@ -180,7 +179,6 @@ function parse_codex(
         }
         observations.push({
             provider: "codex",
-            source_instance_id: "cpa",
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `codex:${account.account_id}:${key}`,
@@ -192,79 +190,6 @@ function parse_codex(
             display_style: "percent",
             reset_at,
             status: status_for_pct(pct),
-            observed_at: now,
-            source: "gateway",
-            stale: false,
-            last_error: null,
-        });
-    }
-    return observations;
-}
-
-// ─── Gemini ────────────────────────────────────────────
-
-function gemini_model_label(model_id: string): string {
-    const lower = model_id.toLowerCase();
-    const preview_suffix = lower.endsWith("-preview") ? "·Pv" : "";
-    return (
-        model_id
-            .replace(/^gemini[-_]?/i, "")
-            .replace(/-preview$/i, "")
-            .split(/[-_\s]+/)
-            .filter((p) => p.length > 0)
-            .map((p) => {
-                const lo = p.toLowerCase();
-                if (lo === "pro") return "Pro";
-                if (lo === "flash") return "Flash";
-                if (lo === "lite") return "Lite";
-                return p;
-            })
-            .join(" ") + preview_suffix
-    );
-}
-
-function gemini_token_label(token_type: string): string {
-    const n = token_type.toLowerCase().replace(/[-\s]+/g, "_");
-    if (n === "input_tokens") return "输入";
-    if (n === "output_tokens") return "输出";
-    if (n === "requests") return "";
-    return token_type.replace(/[_-]+/g, " ").trim();
-}
-
-function parse_gemini(
-    body: Record<string, unknown>,
-    account: CpaAccount,
-    now: number,
-): Observation[] {
-    const buckets = body["buckets"];
-    if (!Array.isArray(buckets)) return [];
-    const observations: Observation[] = [];
-    for (const bucket of buckets) {
-        if (!is_record(bucket)) continue;
-        const model_id = typeof bucket["modelId"] === "string" ? bucket["modelId"] : "unknown";
-        const token_type = typeof bucket["tokenType"] === "string" ? bucket["tokenType"] : "";
-        const remaining_raw = bucket["remainingFraction"];
-        let remaining = to_number(remaining_raw);
-        if (remaining <= 1) remaining *= 100;
-        const used = Math.round(Math.min(Math.max(0, 100 - remaining), 100) * 10) / 10;
-        const reset_at = to_reset_at(bucket["resetTime"] ?? bucket["reset_time"]);
-        const model_label = gemini_model_label(model_id);
-        const token_label = gemini_token_label(token_type);
-        const label = token_label ? `${model_label} ${token_label}` : model_label;
-        observations.push({
-            provider: "gemini",
-            source_instance_id: "cpa",
-            account_id: account.account_id,
-            account_label: account.account_label,
-            metric_id: `gemini:${account.account_id}:${model_id}:${token_type}`,
-            raw_label: `${model_id}:${token_type}`,
-            normalized_label: label,
-            window: "day",
-            used,
-            limit: 100,
-            display_style: "percent",
-            reset_at,
-            status: status_for_pct(used),
             observed_at: now,
             source: "gateway",
             stale: false,
@@ -324,10 +249,10 @@ function parse_antigravity(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
-): Observation[] {
+): ScriptObservation[] {
     const models = body["models"];
     if (!is_record(models)) return [];
-    const observations: Observation[] = [];
+    const observations: ScriptObservation[] = [];
 
     for (const group of ANTIGRAVITY_QUOTA_GROUPS) {
         let min_remaining = 100;
@@ -354,7 +279,6 @@ function parse_antigravity(
         const used = Math.round(Math.min(Math.max(0, 100 - min_remaining), 100) * 10) / 10;
         observations.push({
             provider: "antigravity",
-            source_instance_id: "cpa",
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `antigravity:${account.account_id}:${group.id}`,
@@ -381,10 +305,10 @@ function parse_kimi(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
-): Observation[] {
+): ScriptObservation[] {
     const limits = body["limits"];
     if (!Array.isArray(limits)) return [];
-    const observations: Observation[] = [];
+    const observations: ScriptObservation[] = [];
     for (const entry of limits) {
         if (!is_record(entry)) continue;
         const total = to_number(entry["limit"]);
@@ -400,7 +324,6 @@ function parse_kimi(
         const reset_at = to_reset_at(entry["reset_at"] ?? entry["resetAt"]);
         observations.push({
             provider: "kimi",
-            source_instance_id: "cpa",
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `kimi:${account.account_id}:${period_label}`,
@@ -421,7 +344,7 @@ function parse_kimi(
     return observations;
 }
 
-// ─── Load Code Assist (Gemini/Antigravity helper) ──────
+// ─── Load Code Assist (Antigravity helper) ──────
 
 async function load_code_assist_project(mgmt_key: string, auth_index: string): Promise<string> {
     try {
@@ -477,23 +400,6 @@ async function fetch_provider(
         );
         return parse_api_body(result);
     }
-    if (provider === "gemini-cli") {
-        const project = await load_code_assist_project(mgmt_key, auth_index);
-        const body: Record<string, unknown> = {};
-        if (project) body["project"] = project;
-        const result = await cpa_api_call(
-            mgmt_key,
-            "POST",
-            "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
-            auth_index,
-            {
-                Authorization: "Bearer $TOKEN$",
-                "Content-Type": "application/json",
-            },
-            body,
-        );
-        return parse_api_body(result);
-    }
     if (provider === "antigravity") {
         const project = await load_code_assist_project(mgmt_key, auth_index);
         const body: Record<string, unknown> = {};
@@ -540,10 +446,9 @@ function parse_provider(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
-): Observation[] {
+): ScriptObservation[] {
     if (provider === "claude") return parse_claude(body, account, now);
     if (provider === "codex") return parse_codex(body, account, now);
-    if (provider === "gemini-cli") return parse_gemini(body, account, now);
     if (provider === "antigravity") return parse_antigravity(body, account, now);
     if (provider === "kimi") return parse_kimi(body, account, now);
     return [];
@@ -551,7 +456,7 @@ function parse_provider(
 
 // ─── Main ──────────────────────────────────────────────
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     const mgmt_key = (ctx.params["cpa_mgmt_key"] ?? "").trim();
     if (!mgmt_key) return [];
 
@@ -561,12 +466,12 @@ async function main(): Promise<Observation[]> {
     const files = auth_files_response.files ?? [];
     ctx.log.debug(`CPA fetching ${String(files.length)} auth files`);
     const now = Date.now();
-    const observations: Observation[] = [];
+    const observations: ScriptObservation[] = [];
 
     for (const auth_file of files) {
         if (auth_file.disabled) continue;
 
-        const monitor_key = `monitor_${auth_file.provider === "gemini-cli" ? "gemini" : auth_file.provider}`;
+        const monitor_key = `monitor_${auth_file.provider}`;
         if ((ctx.params[monitor_key] ?? "true").toLowerCase() !== "true") continue;
 
         const account = account_from_auth_file(auth_file);

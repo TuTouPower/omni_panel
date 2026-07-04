@@ -52,7 +52,11 @@ ALTER TABLE observations ADD COLUMN display_label TEXT;
 `;
 
 function row_to_observation(row: Record<string, unknown>): Observation {
-    const normalized = (row["normalized_label"] as string | undefined) ?? (row["name"] as string);
+    const normalized =
+        (row["normalized_label"] as string | undefined) ??
+        (row["name"] as string | undefined) ??
+        (row["metric_id"] as string | undefined) ??
+        "";
     const display_label = row["display_label"] as string | undefined;
     const name = row["name"] as string | undefined;
     const obs: Observation = {

@@ -36,7 +36,6 @@ const { test, expect } = createTestWithSetup({
                         parameterValues: {
                             monitor_claude: "false",
                             monitor_codex: "false",
-                            monitor_gemini: "false",
                             monitor_antigravity: "false",
                             monitor_kimi: "false",
                             monitor_deepseek: "false",

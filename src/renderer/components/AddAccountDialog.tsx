@@ -12,7 +12,6 @@ export type AuthMethod = "apikey" | "session" | "local";
 export const VENDOR_AUTH_MAP: Partial<Record<UsageProvider, AuthMethod>> = {
     deepseek: "apikey",
     glm: "apikey",
-    gemini: "apikey",
     tavily: "apikey",
     minimax: "apikey",
     mimo: "session",
@@ -30,11 +29,6 @@ const AUTH_APIKEY_META: Partial<
         prefix: "sk-",
         endpoint: "https://api.deepseek.com",
         docs: "platform.deepseek.com → API Keys",
-    },
-    gemini: {
-        prefix: "AIza",
-        endpoint: "https://generativelanguage.googleapis.com",
-        docs: "aistudio.google.com → API Keys",
     },
     tavily: {
         prefix: "tvly-",
@@ -394,15 +388,7 @@ function LocalScanForm({ vendor_id }: { vendor_id: UsageProvider }) {
                             请确保已安装对应的 CLI 工具并完成登录，然后点击重新扫描。
                         </div>
                     </div>
-                    <button
-                        className="scan-manual"
-                        type="button"
-                        disabled
-                        title="尚未实现"
-                        onClick={() => {
-                            console.warn("Manual file selection is not yet implemented");
-                        }}
-                    >
+                    <button className="scan-manual" type="button" disabled title="尚未实现">
                         <Icon name="folder" size={14} />
                         手动选择文件…
                     </button>

@@ -10,6 +10,7 @@ export interface RawHttpResponse {
 }
 
 export interface ConnectorContext {
+    readonly trace_id?: string;
     readonly log: {
         debug(message: string, meta?: unknown): void;
         info(message: string, meta?: unknown): void;

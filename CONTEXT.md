@@ -4,13 +4,13 @@
 
 数据的来源。一个数据源可以提供一个或多个厂商的数据。
 
-示例：CPA 数据源可以提供 Codex、Claude、Gemini 等厂商的数据。DeepSeek 直连数据源只提供 DeepSeek 厂商的数据。
+示例：CPA 数据源可以提供 Codex、Claude 等厂商的数据。DeepSeek 直连数据源只提供 DeepSeek 厂商的数据。
 
 ## 厂商
 
 被统计用量和费用的 AI 服务品牌或产品归属。
 
-示例：Claude、Codex、Gemini、MiMo、OpenCode、DeepSeek。
+示例：Claude、Codex、MiMo、OpenCode、DeepSeek。
 
 ## 账号
 

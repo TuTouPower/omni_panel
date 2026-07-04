@@ -434,4 +434,28 @@ describe("net-client", () => {
             expect(Date.now() - start).toBeLessThan(5000);
         });
     });
+
+    it("refuses GET to a cloud-metadata endpoint via override", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {
+            endpoint_overrides: { default: "http://169.254.169.254" },
+        });
+        await expect(ctx.http.get_json("default", "/latest/meta-data/iam/")).rejects.toThrow(
+            /Refusing connector request to metadata host/,
+        );
+    });
+
+    it("refuses POST to metadata.google.internal via override", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {
+            endpoint_overrides: { default: "http://metadata.google.internal" },
+        });
+        await expect(ctx.http.post_json("default", "/", {})).rejects.toThrow(
+            /Refusing connector request to metadata host/,
+        );
+    });
+
+    it("does not refuse loopback (local dev/test fixtures must work)", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        // 127.0.0.1 is the test server; this must NOT throw the metadata error.
+        await expect(ctx.http.get_json("default", "/usage")).resolves.toBeDefined();
+    });
 });

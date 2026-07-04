@@ -20,15 +20,17 @@ import {
     get_tray_icon_path,
     get_app_icon_path,
 } from "./core/paths";
-import { initLogging } from "./core/logging";
-import { createLogger } from "../shared/lib/logger";
+import { initLogging, defaultLogLevelForEnv } from "./core/logging";
+import { createLogger, setLogLevel } from "../shared/lib/logger";
 import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
 import { create_file_vault_backend } from "./core/vault/file-vault-backend";
 import { create_session_manager } from "./core/session/session-manager";
-import { create_async_observation_store } from "./core/observation/observation-store-async";
+import { create_observation_store } from "./core/observation/observation-store";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
+import { decide_settings_close } from "./core/settings-close-action";
+import { createWindowManager, WINDOW_CONFIGS, SECURE_WEB_PREFS } from "./window/window-manager";
 import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestrator";
 import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
@@ -69,109 +71,15 @@ if (!gotTheLock) {
     app.quit();
 }
 
-const SECURE_WEB_PREFS = {
-    contextIsolation: true,
-    nodeIntegration: false,
-    sandbox: true,
-    webSecurity: true,
-    allowRunningInsecureContent: false,
-} as const;
-
-interface WindowConfig {
-    route: string;
-    width: number;
-    height: number;
-    frame?: boolean;
-    show?: boolean;
-    autoHideMenuBar?: boolean;
-    titleBarStyle?: "hidden" | "hiddenInset" | "default";
-    titleBarOverlay?: boolean;
-    roundedCorners?: boolean;
-    resizable?: boolean;
-    minWidth?: number;
-    maxWidth?: number;
-}
-
-const WINDOW_CONFIGS: Record<string, WindowConfig> = {
-    popup: {
-        route: "popup",
-        width: 482,
-        height: 480,
-        frame: false,
-        show: false,
-        resizable: true,
-        minWidth: 472,
-        maxWidth: 780,
-    },
-    settings: {
-        route: "settings",
-        width: 820,
-        height: 660,
-        frame: false,
-        show: true,
-        titleBarStyle: "hidden",
-        titleBarOverlay: false,
-        roundedCorners: true,
-    },
-    tray_menu: {
-        route: "tray",
-        width: 1,
-        height: 1,
-        frame: false,
-        show: false,
-    },
-};
-
 function getPreloadPath(): string {
     return join(__dirname, "../preload/index.js");
 }
 
-function getRendererUrl(route: string): string {
-    const devServerUrl = process.env["ELECTRON_RENDERER_URL"];
-    if (devServerUrl) {
-        return `${devServerUrl}#${route}`;
-    }
-    return `file://${resolve(join(__dirname, "../renderer/index.html"))}#${route}`;
-}
-
-function createWindowFor(key: string, options: { load?: boolean } = {}): BrowserWindow {
-    const cfg = WINDOW_CONFIGS[key];
-    if (!cfg) throw new Error(`Unknown window: ${key}`);
-    const log = createLogger("main");
-    log.info(`Creating window: ${key} (${String(cfg.width)}x${String(cfg.height)})`);
-    const win = new BrowserWindow({
-        width: cfg.width,
-        height: cfg.height,
-        frame: cfg.frame ?? true,
-        show: cfg.show ?? true,
-        autoHideMenuBar: cfg.autoHideMenuBar ?? false,
-        resizable: cfg.resizable ?? true,
-        ...(cfg.minWidth !== undefined && { minWidth: cfg.minWidth }),
-        ...(cfg.maxWidth !== undefined && { maxWidth: cfg.maxWidth }),
-        ...(cfg.titleBarStyle !== undefined && { titleBarStyle: cfg.titleBarStyle }),
-        ...(cfg.titleBarOverlay !== undefined && { titleBarOverlay: cfg.titleBarOverlay }),
-        ...(cfg.roundedCorners !== undefined && { roundedCorners: cfg.roundedCorners }),
-        icon: get_app_icon_path(),
-        webPreferences: {
-            ...SECURE_WEB_PREFS,
-            preload: getPreloadPath(),
-        },
-    });
-    // Group all windows under one taskbar icon on Windows
-    if (process.platform === "win32") {
-        win.setAppDetails({ appId: "omni-usage" });
-    }
-    if (cfg.autoHideMenuBar) {
-        win.setMenuBarVisibility(false);
-    }
-    if (options.load !== false) {
-        void win.loadURL(getRendererUrl(cfg.route));
-    }
-    win.on("closed", () => {
-        log.info(`Window closed: ${key}`);
-    });
-    return win;
-}
+const windowManager = createWindowManager({
+    getPreloadPath,
+    getIconPath: get_app_icon_path,
+    rendererIndexPath: resolve(join(__dirname, "../renderer/index.html")),
+});
 
 let cleanupEventIpc: (() => void) | null = null;
 let cleanupPopupIpc: (() => void) | null = null;
@@ -179,7 +87,8 @@ let cleanupPopupIpc: (() => void) | null = null;
 void app.whenReady().then(async () => {
     const dataRoot = getDataRoot();
     await cleanup_temp_files(dataRoot);
-    await initLogging(dataRoot);
+    const cleanupLogging = await initLogging(dataRoot);
+    let logging_cleanup_done = false;
     const log = createLogger("main");
 
     log.info("Application starting");
@@ -206,7 +115,7 @@ void app.whenReady().then(async () => {
     await runtimeStore.hydrateFromCache();
     const vault = await create_file_vault_backend(dataRoot);
     const secretsStore = createSecretsStore(vault);
-    const observationStore = create_async_observation_store(join(dataRoot, "observations.sqlite"));
+    const observationStore = create_observation_store(join(dataRoot, "observations.sqlite"));
 
     const bundledDir = getBundledConnectorsDir();
     const userDir = getUserConnectorsDir();
@@ -227,6 +136,7 @@ void app.whenReady().then(async () => {
 
     const currentConfig = await configStore.load();
     let currentConfigSnapshot = currentConfig;
+    setLogLevel(currentConfigSnapshot.logLevel ?? defaultLogLevelForEnv());
 
     function buildSecretParamKeys(cfg: typeof currentConfig): Map<string, ReadonlySet<string>> {
         const map = new Map<string, ReadonlySet<string>>();
@@ -292,6 +202,7 @@ void app.whenReady().then(async () => {
         secretParamKeys,
         onConfigSaved: (updatedConfig) => {
             currentConfigSnapshot = updatedConfig;
+            setLogLevel(updatedConfig.logLevel ?? defaultLogLevelForEnv());
             log.info("Config saved — rebuilding scheduler and secret keys");
             const newKeys = buildSecretParamKeys(updatedConfig);
             secretParamKeys.clear();
@@ -354,6 +265,11 @@ void app.whenReady().then(async () => {
 
     // Settings window singleton
     let settingsWin: BrowserWindow | null = null;
+    // True once shutdown begins: settings then destroys instead of hiding.
+    let quitting = false;
+    // Whether saved bounds have been applied since the settings window was
+    // (re)created. Apply only on first show, then keep user moves across reopens.
+    let settings_bounds_applied = false;
 
     function save_settings_bounds(): void {
         if (!settingsWin || settingsWin.isDestroyed()) return;
@@ -374,35 +290,61 @@ void app.whenReady().then(async () => {
         configStore.scheduleSave(currentConfigSnapshot);
     }
 
-    function createOrFocusSettings(): { created: boolean } {
-        if (settingsWin && !settingsWin.isDestroyed()) {
-            settingsWin.show();
-            settingsWin.focus();
-            return { created: false };
-        }
+    function apply_settings_bounds(win: BrowserWindow): void {
         const saved = currentConfigSnapshot.settingsBounds;
-        if (saved) {
-            const displays = screen.getAllDisplays();
-            const preferred = screen.getPrimaryDisplay();
-            const target_display = saved.displayId
-                ? (displays.find((d) => String(d.id) === saved.displayId) ?? preferred)
-                : preferred;
-            const work = target_display.workArea;
-            const width = Math.min(Math.max(480, saved.width), work.width);
-            const height = Math.min(Math.max(360, saved.height), work.height);
-            const x = Math.max(work.x, Math.min(saved.x, work.x + work.width - width));
-            const y = Math.max(work.y, Math.min(saved.y, work.y + work.height - height));
-            settingsWin = createWindowFor("settings");
-            settingsWin.setBounds({ x, y, width, height });
-        } else {
-            settingsWin = createWindowFor("settings");
-            settingsWin.center();
+        if (!saved) {
+            win.center();
+            return;
         }
+        const displays = screen.getAllDisplays();
+        const preferred = screen.getPrimaryDisplay();
+        const target_display = saved.displayId
+            ? (displays.find((d) => String(d.id) === saved.displayId) ?? preferred)
+            : preferred;
+        const work = target_display.workArea;
+        const width = Math.min(Math.max(480, saved.width), work.width);
+        const height = Math.min(Math.max(360, saved.height), work.height);
+        const x = Math.max(work.x, Math.min(saved.x, work.x + work.width - width));
+        const y = Math.max(work.y, Math.min(saved.y, work.y + work.height - height));
+        win.setBounds({ x, y, width, height });
+    }
+
+    // Create the hidden, pre-loaded settings window (idempotent). Kept alive
+    // for the session so reopening just reveals an already-painted dark window
+    // and skips the fresh-window show animation that flashes white on Windows.
+    function ensure_settings_window(): void {
+        if (settingsWin && !settingsWin.isDestroyed()) return;
+        // load:false -> createWindowFor neither loads nor wires ready-to-show,
+        // so the window stays hidden (show:false) while we pre-load it below.
+        settingsWin = windowManager.createWindowFor("settings", { load: false });
+        void settingsWin.loadURL(windowManager.getRendererUrl("settings")).catch((err: unknown) => {
+            log.error(
+                `settings loadURL failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+        });
         settingsWin.on("resize", save_settings_bounds);
         settingsWin.on("move", save_settings_bounds);
-        settingsWin.on("closed", () => {
-            settingsWin = null;
+        // Hide instead of destroy on close (unless quitting) so the window
+        // persists across opens.
+        settingsWin.on("close", (event) => {
+            if (decide_settings_close(quitting) === "hide") {
+                event.preventDefault();
+                settingsWin?.hide();
+            }
         });
+        settings_bounds_applied = false;
+    }
+
+    function createOrFocusSettings(): { created: boolean } {
+        ensure_settings_window();
+        const win = settingsWin;
+        if (!win || win.isDestroyed()) return { created: false };
+        if (!settings_bounds_applied) {
+            apply_settings_bounds(win);
+            settings_bounds_applied = true;
+        }
+        win.show();
+        win.focus();
         return { created: true };
     }
 
@@ -410,17 +352,19 @@ void app.whenReady().then(async () => {
     ipcMain.handle(
         IPC_CHANNELS.SETTINGS_OPEN,
         (_event, context?: { instanceId?: string; provider?: string; accountId?: string }) => {
-            const { created } = createOrFocusSettings();
+            createOrFocusSettings();
             if (!context || !settingsWin || settingsWin.isDestroyed()) return;
             const win = settingsWin;
-            if (created) {
-                win.webContents.once("did-finish-load", () => {
-                    if (!win.isDestroyed()) {
-                        win.webContents.send(IPC_CHANNELS.SETTINGS_NAVIGATE, context);
-                    }
-                });
+            const wc = win.webContents;
+            const send_navigate = () => {
+                if (!win.isDestroyed()) wc.send(IPC_CHANNELS.SETTINGS_NAVIGATE, context);
+            };
+            // The window may be pre-warmed (already loaded) or freshly created
+            // (still loading). Send once it's ready either way.
+            if (wc.isLoading()) {
+                wc.once("did-finish-load", send_navigate);
             } else {
-                win.webContents.send(IPC_CHANNELS.SETTINGS_NAVIGATE, context);
+                send_navigate();
             }
         },
     );
@@ -459,8 +403,8 @@ void app.whenReady().then(async () => {
             currentConfigSnapshot = next;
             configStore.scheduleSave(next);
         },
-        create_window: () => createWindowFor("popup", { load: false }),
-        get_renderer_url: getRendererUrl,
+        create_window: () => windowManager.createWindowFor("popup", { load: false }),
+        get_renderer_url: (route: string) => windowManager.getRendererUrl(route),
         get_preload_path: getPreloadPath,
         get_app_icon_path,
         get_tray_bounds: () => tray_ref?.getBounds() ?? null,
@@ -474,8 +418,13 @@ void app.whenReady().then(async () => {
             main_panel_controller?.report_content_height(report) ?? null,
     });
 
+    // Pre-warm the settings window (hidden + loaded) so opening it later just
+    // reveals an already-painted dark window, avoiding the fresh-window show
+    // animation that flashes white on Windows.
+    ensure_settings_window();
+
     // Hydrate runtime store from observation history for manualRefreshOnly connectors
-    await hydrate_runtime_store({
+    hydrate_runtime_store({
         runtimeStore,
         observationStore,
         connectorConfigs: currentConfig.plugins,
@@ -549,7 +498,9 @@ void app.whenReady().then(async () => {
                 preload: getPreloadPath(),
             },
         });
-        void trayMenuWin.loadURL(getRendererUrl("tray"));
+        void trayMenuWin.loadURL(windowManager.getRendererUrl("tray")).catch((err: unknown) => {
+            log.error(`tray loadURL failed: ${err instanceof Error ? err.message : String(err)}`);
+        });
 
         // Forward pause/autostart state to tray menu renderer
         const send_tray_state = (): void => {
@@ -579,7 +530,13 @@ void app.whenReady().then(async () => {
         });
         ipcMain.handle(IPC_CHANNELS.TRAY_REFRESH_ALL, () => {
             for (const p of currentConfigSnapshot.plugins) {
-                if (p.enabled) void refreshService.refresh(p.instanceId);
+                if (p.enabled) {
+                    void refreshService.refresh(p.instanceId).catch((err: unknown) => {
+                        log.error(
+                            `tray refresh-all failed for ${p.instanceId}: ${err instanceof Error ? err.message : String(err)}`,
+                        );
+                    });
+                }
             }
         });
         ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_PAUSE, () => {
@@ -587,9 +544,11 @@ void app.whenReady().then(async () => {
             if (is_paused) {
                 orchestrator.suspend();
             } else {
+                // resume() reloads config and startAll()s (which refreshes
+                // immediately). The previous rebuild()+startAll() here restarted
+                // every connector twice and desynced from the orchestrator's own
+                // suspend/resume generation — dropped.
                 orchestrator.resume();
-                orchestrator.rebuild(currentConfigSnapshot);
-                orchestrator.startAll(currentConfigSnapshot);
             }
             send_tray_state();
         });
@@ -698,6 +657,7 @@ void app.whenReady().then(async () => {
 
     app.on("before-quit", () => {
         log.info("Application shutting down");
+        quitting = true;
         if (trayMenuWin && !trayMenuWin.isDestroyed()) {
             trayMenuWin.destroy();
             trayMenuWin = null;
@@ -717,11 +677,24 @@ void app.whenReady().then(async () => {
     });
 
     app.on("will-quit", (e) => {
-        if (configStore.hasPendingSave()) {
+        if (configStore.hasPendingSave() || !logging_cleanup_done) {
             e.preventDefault();
-            void configStore.flushPendingSave().finally(() => {
-                app.quit();
-            });
+            void Promise.all([
+                configStore.hasPendingSave() ? configStore.flushPendingSave() : Promise.resolve(),
+                logging_cleanup_done
+                    ? Promise.resolve()
+                    : cleanupLogging().then(() => {
+                          logging_cleanup_done = true;
+                      }),
+            ])
+                .catch((err: unknown) => {
+                    log.error(
+                        `shutdown flush failed: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                })
+                .finally(() => {
+                    app.quit();
+                });
         }
     });
 

@@ -22,6 +22,7 @@ import type {
     FloatingHeightMode,
     UsageBarColorScheme,
     UsageBarStyle,
+    LogLevel,
 } from "../../shared/types/config";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
@@ -89,6 +90,7 @@ const BAR_COLOR_SCHEMES: {
 const MAIN_PANEL_MODE_LABELS = ["跟随系统推荐", "弹出面板", "浮动窗口"] as const;
 const FLOATING_HEIGHT_MODE_LABELS = ["保持窗口大小", "跟随内容变化"] as const;
 const BAR_STYLE_LABELS = ["细线型", "粗胶囊型"] as const;
+const LOG_LEVEL_OPTIONS = ["Debug", "Info", "Warn", "Error"];
 const log = createLogger("renderer:settings-view");
 const should_log_raw = import.meta.env.DEV;
 const session_meta: Record<string, { login_url: string; cookie_names: string[] }> = {
@@ -139,6 +141,20 @@ function floating_height_mode_label_to_value(label: string): FloatingHeightMode 
 
 function floating_height_mode_value_to_label(value: FloatingHeightMode | undefined): string {
     return value === "followContent" ? "跟随内容变化" : "保持窗口大小";
+}
+
+function log_level_label_to_value(label: string): LogLevel {
+    if (label === "Info") return "info";
+    if (label === "Warn") return "warn";
+    if (label === "Error") return "error";
+    return "debug";
+}
+
+function log_level_value_to_label(value: LogLevel): string {
+    if (value === "info") return "Info";
+    if (value === "warn") return "Warn";
+    if (value === "error") return "Error";
+    return "Debug";
 }
 
 function bar_style_label_to_value(label: string): UsageBarStyle {
@@ -212,13 +228,16 @@ function Select({
     value,
     onChange,
     options,
+    ariaLabel,
 }: {
     value: string;
     onChange: (v: string) => void;
     options: string[];
+    ariaLabel?: string;
 }) {
     return (
         <select
+            aria-label={ariaLabel}
             className="set-select"
             value={value}
             onChange={(e) => {
@@ -488,7 +507,7 @@ function AddAccountPicker({
     );
 }
 
-const CPA_SCOPE: UsageProvider[] = ["claude", "codex", "gemini", "antigravity", "kimi"];
+const CPA_SCOPE: UsageProvider[] = ["claude", "codex", "antigravity", "kimi"];
 
 /* ── CPA Add Data Source Dialog ── */
 function CpaAddDialog({ onClose }: { onClose: () => void }) {
@@ -801,6 +820,7 @@ export function SettingsView() {
     const cacheMaxMb = config?.cacheMaxMb ?? 100;
     const usageBarColorScheme = config?.usageBarColorScheme ?? "risk-current";
     const usageBarStyle = config?.usageBarStyle ?? "thin";
+    const logLevel = config?.logLevel ?? (import.meta.env.DEV ? "debug" : "info");
 
     const has_multi_account = useMemo(() => {
         const accounts_by_provider = new Map<string, Set<string>>();
@@ -1035,6 +1055,21 @@ export function SettingsView() {
                                             });
                                         }}
                                         options={REFRESH_INTERVAL_OPTIONS.map((opt) => opt.label)}
+                                    />
+                                </SetRow>
+
+                                <div className="set-group-label">诊断</div>
+                                <SetRow title="日志等级" sub="Debug 记录最多，Info 适合日常诊断">
+                                    <Select
+                                        ariaLabel="日志等级"
+                                        value={log_level_value_to_label(logLevel)}
+                                        onChange={(v) => {
+                                            void save_config({
+                                                ...config,
+                                                logLevel: log_level_label_to_value(v),
+                                            });
+                                        }}
+                                        options={LOG_LEVEL_OPTIONS}
                                     />
                                 </SetRow>
 
@@ -1782,7 +1817,7 @@ export function SettingsView() {
                                     </div>
                                     <hr className="ah-rule" />
                                     <div className="ah-desc">
-                                        跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex、Gemini
+                                        跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex
                                         等各服务的用量限制与 Token 趋势。
                                     </div>
                                     <div className="ah-copyright">

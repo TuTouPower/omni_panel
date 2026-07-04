@@ -7,15 +7,15 @@ import type { ProviderUsagePeriod } from "../../../../src/renderer/lib/provider-
 function make_period(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsagePeriod {
     return {
         id: "period-1",
-        provider: "gemini",
+        provider: "glm",
         source: "gateway",
         sourceInstanceId: "cpa-main",
         connectorInstanceId: "cpa-main",
         connectorDisplayName: "CPA",
-        accountId: "gemini-main",
-        accountLabel: "Gemini Account",
-        name: "gemini-3.1-flash-lite-preview",
-        raw_label: "gemini-3.1-flash-lite-preview",
+        accountId: "glm-main",
+        accountLabel: "GLM Account",
+        name: "glm-4-plus",
+        raw_label: "glm-4-plus",
         used: 10,
         limit: 100,
         displayStyle: "percent",
@@ -78,10 +78,10 @@ describe("UsageBarRow", () => {
             <UsageBarRow
                 period={make_period()}
                 index={0}
-                labelMap={{ "gemini-3.1-flash-lite-preview": "Gemini Custom" }}
+                labelMap={{ "glm-4-plus": "GLM Custom" }}
             />,
         );
 
-        expect(screen.getByText("Gemini Custom")).toBeInTheDocument();
+        expect(screen.getByText("GLM Custom")).toBeInTheDocument();
     });
 });

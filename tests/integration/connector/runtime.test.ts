@@ -47,7 +47,6 @@ describe("connector-runtime", () => {
             const data = await ctx.http.get_json("default", "/usage");
             return [{
                 provider: "test",
-                source_instance_id: "test-1",
                 account_id: "default",
                 account_label: "Test",
                 metric_id: "test:monthly",
@@ -78,7 +77,6 @@ describe("connector-runtime", () => {
             const used: number = data.usage.month;
             return [{
                 provider: "test",
-                source_instance_id: "test-1",
                 account_id: "default",
                 account_label: "Test",
                 metric_id: "test:monthly",

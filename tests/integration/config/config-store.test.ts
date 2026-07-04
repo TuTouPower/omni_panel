@@ -281,7 +281,7 @@ describe("config-store", () => {
                     launchAtLogin: false,
                     usageBarColorScheme: "risk-projected",
                     usageBarStyle: "capsule",
-                    providerLabelMaps: { gemini: { "gemini-long": "Gemini Short" } },
+                    providerLabelMaps: { glm: { "glm-long": "GLM Short" } },
                 };
                 await store.save(config);
                 await writeFile(
@@ -304,7 +304,7 @@ describe("config-store", () => {
                         launchAtLogin: false,
                         usageBarColorScheme: "risk-projected",
                         usageBarStyle: "capsule",
-                        providerLabelMaps: { gemini: { "gemini-long": "Gemini Short" } },
+                        providerLabelMaps: { glm: { "glm-long": "GLM Short" } },
                     }),
                     "utf8",
                 );
@@ -317,7 +317,7 @@ describe("config-store", () => {
                 expect(joined).toContain("config parsed raw");
                 expect(joined).toContain("risk-projected");
                 expect(joined).toContain("[redacted]");
-                expect(joined).not.toContain("Gemini Short");
+                expect(joined).not.toContain("GLM Short");
                 const parsedLine = lines.find((line) => line.includes("config parsed raw")) ?? "";
                 expect(parsedLine).toContain('"instanceId":"state-1"');
                 expect(parsedLine).not.toContain("overviewDisplayMode");

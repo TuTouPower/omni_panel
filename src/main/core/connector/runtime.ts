@@ -1,17 +1,17 @@
 import vm from "node:vm";
 import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
-import { createLogger } from "../../../shared/lib/logger";
+import { createLogger, withLogContext } from "../../../shared/lib/logger";
 import { DEFAULT_TIMEOUT_MS } from "../../../shared/constants";
 import type { Manifest } from "../../../shared/schemas/manifest";
-import { observation_schema } from "../../../shared/schemas/observation";
-import type { Observation } from "../../../shared/types/observation";
+import { script_observation_schema } from "../../../shared/schemas/observation";
+import type { ScriptObservation } from "../../../shared/types/observation";
 import type { ConnectorContext } from "./host-io";
 
 const log = createLogger("connector-runtime");
 const TIMEOUT_ERROR = "Connector script execution timeout";
 
 export interface ConnectorRunResult {
-    readonly observations: Observation[];
+    readonly observations: ScriptObservation[];
     readonly error: string | null;
 }
 
@@ -105,43 +105,45 @@ export async function run_connector(
         return { observations: [], error: "No script defined in manifest" };
     }
 
+    const runtime_log = ctx.trace_id ? withLogContext(log, { trace_id: ctx.trace_id }) : log;
+
     try {
         const context = create_sandbox_context(ctx);
         const compiled = compile_script(script_code);
-        log.debug(
+        runtime_log.debug(
             `Connector ${manifest.id}: compiled, running in VM (timeout=${String(timeout_ms)}ms)`,
         );
         const raw_result: unknown = vm.runInContext(compiled, context, {
             timeout: timeout_ms,
         }) as unknown;
-        log.debug(
+        runtime_log.debug(
             `Connector ${manifest.id}: vm.runInContext returned type=${typeof raw_result}, isPromise=${String(raw_result instanceof Promise)}`,
         );
         const result: unknown = await race_with_timeout(Promise.resolve(raw_result), timeout_ms);
-        log.debug(`Connector ${manifest.id}: race_with_timeout resolved`);
+        runtime_log.debug(`Connector ${manifest.id}: race_with_timeout resolved`);
 
         if (!Array.isArray(result)) {
             return { observations: [], error: "Script did not return an array" };
         }
 
-        const observations: Observation[] = [];
+        const observations: ScriptObservation[] = [];
         for (const item of result) {
-            const parsed = observation_schema.safeParse(item);
+            const parsed = script_observation_schema.safeParse(item);
             if (!parsed.success) {
-                log.warn(`Skipping invalid observation: ${parsed.error.message}`);
+                runtime_log.warn(`Skipping invalid observation: ${parsed.error.message}`);
                 continue;
             }
-            observations.push(parsed.data as unknown as Observation);
+            observations.push(parsed.data as ScriptObservation);
         }
 
-        log.info(
+        runtime_log.info(
             `Connector ${manifest.id}: ${String(observations.length)} valid observations (from ${String(result.length)} raw)`,
         );
         return { observations, error: null };
     } catch (error) {
         const message = get_error_message(error);
         const normalized = is_timeout_error(message) ? `${TIMEOUT_ERROR}: ${message}` : message;
-        log.error(`Connector execution failed: ${normalized}`);
+        runtime_log.error(`Connector execution failed: ${normalized}`);
         return { observations: [], error: normalized };
     }
 }

@@ -1,5 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type { Observation } from "../../src/shared/types/observation";
+import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
@@ -78,7 +78,7 @@ function reset_at_from(limit: QuotaLimit): number | null {
     return null;
 }
 
-function status_for(used: number, limit: number, is_percent: boolean): Observation["status"] {
+function status_for(used: number, limit: number, is_percent: boolean): ScriptObservation["status"] {
     if (is_percent) {
         if (used >= 90) return "critical";
         if (used >= 75) return "warning";
@@ -91,7 +91,7 @@ function status_for(used: number, limit: number, is_percent: boolean): Observati
     return "normal";
 }
 
-async function main(): Promise<Observation[]> {
+async function main(): Promise<ScriptObservation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
     if (!api_key) return [];
 
@@ -109,7 +109,7 @@ async function main(): Promise<Observation[]> {
     }
 
     const now = Date.now();
-    const observations: Observation[] = [];
+    const observations: ScriptObservation[] = [];
 
     for (const limit of limits) {
         if (!is_record(limit)) continue;
@@ -124,7 +124,6 @@ async function main(): Promise<Observation[]> {
             const normalized_label = pk === "month" ? "MCP 月用量" : `${kind}(${pk})`;
             observations.push({
                 provider: "glm",
-                source_instance_id: "glm",
                 account_id: "glm",
                 account_label: "智谱 GLM",
                 metric_id: `glm:${kind}-${pk}`,
@@ -147,7 +146,6 @@ async function main(): Promise<Observation[]> {
                 pk === "5h" ? "5小时" : pk === "week" ? "一周" : `${kind}(${pk})`;
             observations.push({
                 provider: "glm",
-                source_instance_id: "glm",
                 account_id: "glm",
                 account_label: "智谱 GLM",
                 metric_id: `glm:${kind}-${pk}`,

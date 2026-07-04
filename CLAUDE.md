@@ -4,7 +4,7 @@
 
 ## 核心功能
 
-集中展示多种 AI 服务的用量和费用：Claude、OpenAI Codex、Gemini、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily、MiMo。
+集中展示多种 AI 服务的用量和费用：Claude、OpenAI Codex、Antigravity、Kimi、智谱 GLM、MiniMax、DeepSeek、Tavily、Firecrawl、MiMo、OpenCode Go。
 
 ## 设计 Demo
 
