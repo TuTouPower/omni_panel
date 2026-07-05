@@ -1,0 +1,57 @@
+<!-- omni_powers: blueprint/specs/secret-vault -->
+
+# 密钥库（SecretsVault）
+
+自管加密密钥存储。配置字段含义见 `config-store.md`；运行时 secret 注入见 `connector-runtime.md`。
+
+## 设计决策
+
+**不使用**系统密钥管理器，也不用 Electron safeStorage（底层即 Keychain/DPAPI/libsecret）。自管 AES-256-GCM 文件加密。
+
+## 存储（`{userData}/`）
+
+- `secrets.vault` — 密文。每条 secret 独立 AES-256-GCM（随机 IV + GCM tag 校验完整性）。
+- `vault.key` — 32 字节随机主密钥，首次启动生成，文件权限 `0600`（Windows 仅当前用户 ACL）。
+- 主密钥常驻主进程内存，**不写日志、不进 IPC、不进崩溃转储**。
+
+## key 命名（`src/main/core/vault`，commit `5b05ead`）
+
+`keyFor(instanceId, paramName)` 统一命名契约：`${instanceId}:${paramName}`。所有调用方经 `keyFor`，不直接拼字符串。
+
+## 接口（`VaultBackend`）
+
+```ts
+get(key): Promise<string | null>
+set(key, value): Promise<void>
+delete(key): Promise<void>
+has(key): Promise<boolean>
+listKeys(prefix?): Promise<string[]>
+```
+
+文件后端是首个实现；日后切 safeStorage / 系统钥匙串，换实现不动调用方。
+
+## 最小暴露规则
+
+- 渲染进程永远只拿 `hasSecret` 布尔（`config.get` 返回 `hasSecrets: Record<instanceId, Record<param, boolean>>`），表单回显用占位符，**不回传明文**。
+- 连接器刷新时主进程 just-in-time 解密，按 manifest auth 模板注入宿主请求；明文默认不进沙箱，更不进 stdin/argv/env。
+- 仅 `exposeToScript: true` 的 secret 从 vault 取明文进 `ctx.params`，否则走 `ctx.http` 宿主侧 `apply_auth`。
+
+## 日志脱敏
+
+每个解密出的 secret 值注册进 Logger scrubber，任何日志输出前做值替换。**开发期同样生效**（删除了旧"开发期 raw debug 记录完整原值"的漏洞）。
+
+## 导入/导出（`CONFIG_EXPORT` / `CONFIG_IMPORT`）
+
+- 配置可明文导出，**密钥部分必须用户输入口令**，scrypt 派生密钥后 AES-GCM 加密成 bundle。
+- 导入时口令解密。`ConfigExportData.secrets: Record<string, string>` 在文件中已是加密 bundle，不含明文。
+- `importAll` 原子化 + 快照回滚（commit `d053992`）。
+
+## 威胁模型（诚实记录）
+
+- **防**：配置目录被整体拷走 / 同步进云盘备份 —— 拿到 `secrets.vault` 无 `vault.key` 读不出。
+- **不防**：同一用户身份下的恶意进程 —— key 与密文同目录，本机恶意代码两者皆可读。这是"不用系统密钥管理器"的固有代价。
+- 加固优先级：可选主口令（用户口令经 KDF 参与主密钥派生）> 切系统钥匙串后端。
+
+## 已知限制（`PLAN.md`）
+
+导入配置可重定向连接器端点到公网攻击者主机，`apply_auth` 会把现存 vault secret 发过去。`assert_safe_connector_host` 只拦云元数据主机，不拦公网。待办：端点变更要求重录 secret 或导入时显式确认。
