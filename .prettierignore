@@ -1,2 +1,3 @@
 .pytest_cache
 docs/design/omni-usage/
+pnpm-lock.yaml

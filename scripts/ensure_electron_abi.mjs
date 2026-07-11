@@ -14,11 +14,10 @@ const sqlite_check_script = "new (require('better-sqlite3'))(':memory:').close()
 
 let electron_check;
 try {
-    electron_check = spawnSync(
-        electron_bin,
-        ["-e", sqlite_check_script],
-        { stdio: "pipe", env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } },
-    );
+    electron_check = spawnSync(electron_bin, ["-e", sqlite_check_script], {
+        stdio: "pipe",
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+    });
 } catch {
     process.stderr.write("[abi] electron not found, skipping Electron ABI check\n");
     process.exit(0);
@@ -52,13 +51,20 @@ if (electron_check.status !== 0) {
     const rebuild = spawnSync(
         npx_cmd,
         [
-            "node-gyp", "rebuild", "--release",
+            "node-gyp",
+            "rebuild",
+            "--release",
             `--target=${electron_version}`,
             `--arch=${target_arch}`,
             "--dist-url=https://electronjs.org/headers",
             "--build-from-source",
         ],
-        { stdio: "inherit", shell: process.platform === "win32", cwd: better_sqlite3_dir, timeout: 300_000 },
+        {
+            stdio: "inherit",
+            shell: process.platform === "win32",
+            cwd: better_sqlite3_dir,
+            timeout: 300_000,
+        },
     );
     if (rebuild.status !== 0) {
         process.exit(rebuild.status ?? 1);
@@ -71,7 +77,9 @@ if (electron_check.status !== 0) {
                 `powershell -Command "Get-CimInstance Win32_Process -Filter \\"Name='electron.exe'\\" | Where-Object { $_.CommandLine -match '${project_dir}' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
                 { timeout: 5000, stdio: "ignore" },
             );
-        } catch { /* no leftover processes */ }
+        } catch {
+            /* no leftover processes */
+        }
         spawnSync("ping", ["-n", "2", "127.0.0.1"], { stdio: "ignore" });
     }
 
