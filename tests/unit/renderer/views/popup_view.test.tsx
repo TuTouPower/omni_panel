@@ -31,7 +31,7 @@ function connectorInfo(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
         sourceInstanceId: `${source}-main`,
         stateId: `${source}-connector`,
         name: `${source}-connector`,
-        displayName: `${source.toUpperCase()} Connector`,
+        displayName: `${source}-connector`,
         enabled: true,
         source,
         supportedProviders,

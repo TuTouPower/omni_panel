@@ -1,6 +1,6 @@
 import { createLogger } from "../../shared/lib/logger";
 import type { MetricRecord, UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
-import type { AccountOverrides } from "../../shared/types/config";
+import type { AccountLabels, AccountOverrides } from "../../shared/types/config";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 
 export interface ProviderUsagePeriod {
@@ -118,7 +118,12 @@ function toPeriod(
         connectorInstanceId: connector.instanceId,
         connectorDisplayName: connector.displayName,
         accountId: item.accountId,
-        accountLabel: item.accountLabel,
+        // 直连账号备注名（ConnectorConfiguration.displayName）覆盖采集层默认名。
+        // CPA 连接器无改名 UI，displayName 始终等于 name，不会误覆盖其账号。
+        accountLabel:
+            connector.displayName && connector.displayName !== connector.name
+                ? connector.displayName
+                : item.accountLabel,
         name: item.normalized_label,
         raw_label: item.raw_label,
         display_label: item.display_label,
@@ -264,6 +269,25 @@ export function apply_account_overrides(
             };
         })
         .filter((group) => group.accounts.length > 0);
+}
+
+export function apply_account_labels(
+    groups: ProviderUsageGroup[],
+    labels: AccountLabels | undefined,
+): ProviderUsageGroup[] {
+    if (!labels) return groups;
+    return groups.map((group) => {
+        const label_map = labels[group.provider];
+        if (!label_map) return group;
+        return {
+            ...group,
+            accounts: group.accounts.map((account) => {
+                const custom = label_map[account.accountId];
+                if (custom === undefined || custom === account.accountLabel) return account;
+                return { ...account, accountLabel: custom };
+            }),
+        };
+    });
 }
 
 export function visible_providers_from_groups(

@@ -16,6 +16,7 @@ interface AccountRowProps {
     on_hide?: () => void;
     on_unhide?: () => void;
     on_clear?: () => void;
+    on_rename?: () => void;
     show_vendor?: boolean;
 }
 
@@ -77,6 +78,7 @@ export function AccountRow({
     on_hide,
     on_unhide,
     on_clear,
+    on_rename,
     show_vendor = true,
 }: AccountRowProps) {
     const is_cpa_child = mode === "cpa-child";
@@ -122,13 +124,18 @@ export function AccountRow({
                             清除
                         </button>
                     ) : (
-                        <button
-                            className="sw"
-                            data-on={effective_on ? "1" : "0"}
-                            onClick={is_hidden ? on_unhide : on_hide}
-                        >
-                            <i />
-                        </button>
+                        <>
+                            <button className="sp-ic" title="改备注名" onClick={on_rename}>
+                                <Icon name="edit" size={15} />
+                            </button>
+                            <button
+                                className="sw"
+                                data-on={effective_on ? "1" : "0"}
+                                onClick={is_hidden ? on_unhide : on_hide}
+                            >
+                                <i />
+                            </button>
+                        </>
                     )
                 ) : (
                     <>

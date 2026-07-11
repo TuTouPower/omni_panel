@@ -7,15 +7,16 @@
 
 数据自上而下：**连接器（定义）→ 数据源（实例）→ 厂商 → 账号 → 用量 → 用量条 → 观测（原子）**。
 
-| 中文   | 英文        | 代码标识                                                        | 定义                                       | 数量关系                                                                                                   |
-| ------ | ----------- | --------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| 连接器 | connector   | `connector`（目录：`manifest.json` + 可选 `connector.ts`）      | 采集逻辑的声明式定义，内置只读，无环境权限 | 一类接入一份定义                                                                                           |
-| 数据源 | data source | `ConnectorConfiguration` / `instanceId`                         | 用户配置的一份连接实例，= 设置页的一行     | 见 §2                                                                                                      |
-| 厂商   | provider    | `provider`                                                      | AI 服务商，UI 聚合维度                     | `claude` `codex` `glm` `minimax` `deepseek` `tavily` `firecrawl` `mimo` `opencode_go` `kimi` `antigravity` |
-| 账号   | account     | `accountId`（稳定 ID）/ `accountLabel`（显示名，不得含 secret） | 某厂商下的一个真实账号                     | 一厂商可多账号                                                                                             |
-| 用量   | usage       | （某 account 下全部 observation 的集合）                        | 一个账号的用量数据集                       | **一账号 = 一份用量**                                                                                      |
-| 用量条 | metric      | `metricId` / `metricName`                                       | 用量里的单条指标                           | **一账号多条**（DeepSeek 余额 1 条；Claude 5 小时 + 一周 = 2 条）                                          |
-| 观测   | observation | `Observation`                                                   | 单次采集产出的原子记录                     | 最小单元                                                                                                   |
+| 中文   | 英文         | 代码标识                                                        | 定义                                              | 数量关系                                                                                                                 |
+| ------ | ------------ | --------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 连接器 | connector    | `connector`（目录：`manifest.json` + 可选 `connector.ts`）      | 采集逻辑的声明式定义，内置只读，无环境权限        | 一类接入一份定义                                                                                                         |
+| 数据源 | data source  | `ConnectorConfiguration` / `instanceId`                         | 用户配置的一份连接实例，= 设置页的一行            | 见 §2                                                                                                                    |
+| 备注名 | display name | `displayName`（直连）/ `accountLabels`（CPA）                   | 用户自定义的账号显示名，覆盖采集层 `accountLabel` | 可选，直连 1:1 挂 `ConnectorConfiguration.displayName`；CPA 1:N 挂 `AppConfiguration.accountLabels[provider][accountId]` |
+| 厂商   | provider     | `provider`                                                      | AI 服务商，UI 聚合维度                            | `claude` `codex` `glm` `minimax` `deepseek` `tavily` `firecrawl` `mimo` `opencode_go` `kimi` `antigravity`               |
+| 账号   | account      | `accountId`（稳定 ID）/ `accountLabel`（显示名，不得含 secret） | 某厂商下的一个真实账号                            | 一厂商可多账号                                                                                                           |
+| 用量   | usage        | （某 account 下全部 observation 的集合）                        | 一个账号的用量数据集                              | **一账号 = 一份用量**                                                                                                    |
+| 用量条 | metric       | `metricId` / `metricName`                                       | 用量里的单条指标                                  | **一账号多条**（DeepSeek 余额 1 条；Claude 5 小时 + 一周 = 2 条）                                                        |
+| 观测   | observation  | `Observation`                                                   | 单次采集产出的原子记录                            | 最小单元                                                                                                                 |
 
 **观测字段**：`provider` + `accountId` + `metricId` + `used`/`limit` + `source` + `observedAt` + `stale`/`lastError`。
 当前值 = 同一 `(provider, accountId, metricId)` 下 `observedAt` 最新的那条（§架构 v2 §4.1）。
@@ -49,13 +50,14 @@
 
 ## 4. 废弃对照（落后词 → 统一词）
 
-| 废弃                                              | 统一                                      | 位置                        |
-| ------------------------------------------------- | ----------------------------------------- | --------------------------- |
-| 插件 / plugin                                     | 连接器 / connector                        | SPEC.md、部分代码注释       |
-| `PluginConfiguration`                             | `ConnectorConfiguration`                  | `shared/types/config.ts` 等 |
-| `PluginScheduler`                                 | `ConnectorScheduler`                      | 已部分完成                  |
-| 子账号                                            | 账号（CPA 下为展开子行）                  | UI 文案、TASKS.md           |
-| `defaultSource`：`api_key`/`cpa`/`direct`/`oauth` | 四能力 `poll`/`local`/`session`/`observe` | SPEC.md §3.2、manifest      |
-| 用量项 / usage item / `UsageItem`                 | 用量条 / metric / `MetricRecord`          | 不一致处统一                |
+| 废弃                                                   | 统一                                                                      | 位置                         |
+| ------------------------------------------------------ | ------------------------------------------------------------------------- | ---------------------------- |
+| 插件 / plugin                                          | 连接器 / connector                                                        | SPEC.md、部分代码注释        |
+| `PluginConfiguration`                                  | `ConnectorConfiguration`                                                  | `shared/types/config.ts` 等  |
+| `PluginScheduler`                                      | `ConnectorScheduler`                                                      | 已部分完成                   |
+| 子账号                                                 | 账号（CPA 下为展开子行）                                                  | UI 文案、TASKS.md            |
+| `defaultSource`：`api_key`/`cpa`/`direct`/`oauth`      | 四能力 `poll`/`local`/`session`/`observe`                                 | SPEC.md §3.2、manifest       |
+| 用量项 / usage item / `UsageItem`                      | 用量条 / metric / `MetricRecord`                                          | 不一致处统一                 |
+| `accountLabelMaps`（按 instanceId 存 metric 标签映射） | 数据标签映射；账号备注名用 `displayName`（直连）或 `accountLabels`（CPA） | 名字误导，易与账号备注名混淆 |
 
 > 维护规则：发现新落后词，先更新本表，再改代码/文档。本表与 `docs/omniusage-architecture-v2.md` 数据模型章节必须一致，冲突以本表为准。

@@ -25,6 +25,10 @@ export interface AccountOverrides {
     readonly disabled?: Readonly<Partial<Record<UsageProvider, readonly string[]>>>;
 }
 
+export type AccountLabels = Readonly<
+    Partial<Record<UsageProvider, Readonly<Record<string, string>>>>
+>;
+
 export interface AppConfiguration {
     readonly schemaVersion: number;
     readonly language: AppLanguage;
@@ -53,6 +57,7 @@ export interface AppConfiguration {
     readonly settingsBounds?: FloatingBoundsConfiguration;
     readonly floatingBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;
+    readonly accountLabels?: AccountLabels;
     readonly collapsedAccounts?: Readonly<Record<string, boolean>>;
     readonly expandedProviders?: Readonly<Record<string, boolean>>;
     readonly convergentTimeMinutes?: number;
@@ -62,6 +67,7 @@ export interface ConnectorConfiguration {
     readonly instanceId: string;
     readonly stateId: string;
     readonly name: string;
+    readonly displayName?: string;
     readonly enabled: boolean;
     readonly executablePath: string;
     readonly refreshIntervalSeconds: number;

@@ -198,6 +198,7 @@ async function handleConfigDuplicate(
         if (!source) return fail("VALIDATION_ERROR", "源插件不存在");
 
         const newInstanceId = randomUUID();
+        // 不复制 source.displayName：新账号回退连接器名，避免克隆出带别名的副本
         const newInstance: ConnectorConfiguration = {
             instanceId: newInstanceId,
             stateId: randomUUID(),

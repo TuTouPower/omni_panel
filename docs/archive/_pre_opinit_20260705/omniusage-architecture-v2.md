@@ -365,7 +365,7 @@ UI 细节不在本文范围,只定边界契约:
 | `logs/`                       | `{userData}/` | 7 天滚动                                                    |
 
 - `AppConfiguration` 保留现有 spec 的字段集(语言、代理、刷新间隔、暂停、provider 排序、账号 hidden/disabled 覆盖、cookieRefreshHours 等),其中与 UI 呈现强相关的字段不在本文展开。
-- `ConnectorConfiguration` 对应原 `PluginConfiguration`:`instanceId / enabled / connectorId / refreshIntervalSeconds / parameterValues(非 secret) / endpointOverrides`。`executablePath` 取消——连接器按 id 从内置目录/用户目录发现,路径不进配置。
+- `ConnectorConfiguration` 对应原 `PluginConfiguration`:`instanceId / enabled / connectorId / refreshIntervalSeconds / parameterValues(非 secret) / endpointOverrides / displayName(可选,用户备注名)`。`executablePath` 取消——连接器按 id 从内置目录/用户目录发现,路径不进配置。
 - 导出/导入:配置 + 口令加密的密钥 bundle(§6.2)。
 
 ---

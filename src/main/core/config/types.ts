@@ -37,6 +37,7 @@ const connectorConfigurationSchema = z.object({
     instanceId: z.string().min(1).optional(),
     stateId: z.string().min(1),
     name: z.string().min(1),
+    displayName: z.string().optional(),
     enabled: z.boolean(),
     executablePath: z.string().min(1),
     refreshIntervalSeconds: refreshIntervalSecondsSchema,
@@ -61,6 +62,11 @@ const floatingBoundsSchema = z.object({
     width: z.number().int().min(320),
     height: z.number().int().min(240),
     displayId: z.string().optional(),
+});
+
+const accountOverridesSchema = z.object({
+    hidden: z.record(z.array(z.string())).optional(),
+    disabled: z.record(z.array(z.string())).optional(),
 });
 
 export const appConfigurationSchema = z.object({
@@ -91,6 +97,8 @@ export const appConfigurationSchema = z.object({
     labelMapSync: z.boolean().optional(),
     floatingBounds: floatingBoundsSchema.optional(),
     settingsBounds: floatingBoundsSchema.optional(),
+    accountOverrides: accountOverridesSchema.optional(),
+    accountLabels: z.record(z.record(z.string())).optional(),
     collapsedAccounts: z.record(z.boolean()).optional(),
     expandedProviders: z.record(z.boolean()).optional(),
     convergentTimeMinutes: z.number().int().min(1).max(1440).optional(),

@@ -4,6 +4,7 @@ import type { MetricRecord } from "../../../src/shared/schemas/plugin-output";
 import { usageProviderSchema } from "../../../src/shared/schemas/plugin-output";
 import type { ConnectorInfo } from "../../../src/shared/types/ipc";
 import {
+    apply_account_labels,
     apply_account_overrides,
     build_provider_usage_groups,
     build_overview_for_group,
@@ -72,7 +73,7 @@ function connectorInfo(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
         sourceInstanceId: `${source}-main`,
         stateId: `${source}-connector`,
         name: `${source}-connector`,
-        displayName: `${source.toUpperCase()} Connector`,
+        displayName: `${source}-connector`,
         enabled: true,
         source,
         supportedProviders,
@@ -910,5 +911,124 @@ describe("multi-instance direct connectors (e.g. two user-added Firecrawl accoun
             "Firecrawl A",
             "Firecrawl B",
         ]);
+    });
+});
+
+describe("apply_account_labels", () => {
+    const cpa_connectors = [
+        connectorInfo({
+            source: "gateway",
+            supportedProviders: ["claude"],
+            activeProviders: ["claude"],
+            snapshot: {
+                status: "ready",
+                updatedAt: "2026-01-01T12:00:00Z",
+                items: [
+                    usageItem({
+                        provider: "claude",
+                        source: "gateway",
+                        sourceInstanceId: "cpa-main",
+                        accountId: "auth-a",
+                        accountLabel: "Account A",
+                    }),
+                    usageItem({
+                        provider: "claude",
+                        source: "gateway",
+                        sourceInstanceId: "cpa-main",
+                        accountId: "auth-b",
+                        accountLabel: "Account B",
+                    }),
+                ],
+            },
+        }),
+    ];
+
+    it("returns groups unchanged when labels are undefined", () => {
+        const groups = build_provider_usage_groups(cpa_connectors);
+        expect(apply_account_labels(groups, undefined)).toEqual(groups);
+    });
+
+    it("overwrites the label of a matching account by (provider, accountId)", () => {
+        const groups = build_provider_usage_groups(cpa_connectors);
+        const result = apply_account_labels(groups, { claude: { "auth-a": "我的Claude" } });
+        expect(result[0]?.accounts.map((a) => a.accountLabel).sort()).toEqual([
+            "Account B",
+            "我的Claude",
+        ]);
+    });
+
+    it("leaves accounts without a matching entry untouched", () => {
+        const groups = build_provider_usage_groups(cpa_connectors);
+        const result = apply_account_labels(groups, { claude: { "auth-z": "X" } });
+        expect(result[0]?.accounts.map((a) => a.accountLabel).sort()).toEqual([
+            "Account A",
+            "Account B",
+        ]);
+    });
+
+    it("skips providers that have no label map", () => {
+        const groups = build_provider_usage_groups(cpa_connectors);
+        const result = apply_account_labels(groups, { deepseek: { "auth-a": "X" } });
+        expect(result).toEqual(groups);
+    });
+});
+
+describe("直连账号 displayName 覆盖采集层 accountLabel", () => {
+    it("uses connector.displayName when it differs from name", () => {
+        const connectors = [
+            connectorInfo({
+                source: "poll",
+                sourceInstanceId: "glm-work",
+                instanceId: "glm-work",
+                name: "glm-connector",
+                displayName: "工作账号",
+                supportedProviders: ["glm"],
+                activeProviders: ["glm"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            provider: "glm",
+                            source: "poll",
+                            sourceInstanceId: "glm-work",
+                            accountId: "default",
+                            accountLabel: "glm",
+                            normalized_label: "glm",
+                        }),
+                    ],
+                },
+            }),
+        ];
+        const [group] = build_provider_usage_groups(connectors);
+        expect(group?.accounts[0]?.accountLabel).toBe("工作账号");
+    });
+
+    it("keeps采集层 accountLabel when displayName equals name", () => {
+        const connectors = [
+            connectorInfo({
+                source: "poll",
+                sourceInstanceId: "glm-work",
+                instanceId: "glm-work",
+                supportedProviders: ["glm"],
+                activeProviders: ["glm"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            provider: "glm",
+                            source: "poll",
+                            sourceInstanceId: "glm-work",
+                            accountId: "default",
+                            accountLabel: "GLM 默认",
+                            normalized_label: "glm",
+                        }),
+                    ],
+                },
+            }),
+        ];
+        const [group] = build_provider_usage_groups(connectors);
+        expect(group?.accounts[0]?.accountLabel).toBe("GLM 默认");
     });
 });

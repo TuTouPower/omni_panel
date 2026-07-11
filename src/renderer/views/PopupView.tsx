@@ -14,10 +14,12 @@ import {
     build_provider_usage_groups,
     visible_providers_from_groups,
     apply_account_overrides,
+    apply_account_labels,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import type {
+    AccountLabels,
     AccountOverrides,
     AppConfiguration,
     UsageBarColorScheme,
@@ -91,6 +93,7 @@ export function PopupView() {
     const [account_overrides, set_account_overrides] = useState<AccountOverrides | undefined>(
         undefined,
     );
+    const [account_labels, set_account_labels] = useState<AccountLabels | undefined>(undefined);
     const [account_label_maps, set_account_label_maps] = useState<
         Readonly<Record<string, Readonly<Record<string, string>>>> | undefined
     >(undefined);
@@ -142,6 +145,7 @@ export function PopupView() {
             set_account_label_maps(config.accountLabelMaps);
             set_provider_label_maps(config.providerLabelMaps);
             set_account_overrides(config.accountOverrides);
+            set_account_labels(config.accountLabels);
             if (config.accountOrders) {
                 const next_orders = Object.fromEntries(
                     Object.entries(config.accountOrders).map(([key, value]) => [key, [...value]]),
@@ -254,8 +258,12 @@ export function PopupView() {
 
     const rawGroups = useMemo(() => build_provider_usage_groups(plugins), [plugins]);
     const providerGroups = useMemo(
-        () => apply_account_overrides(rawGroups, account_overrides),
-        [rawGroups, account_overrides],
+        () =>
+            apply_account_labels(
+                apply_account_overrides(rawGroups, account_overrides),
+                account_labels,
+            ),
+        [rawGroups, account_overrides, account_labels],
     );
     const visibleProviders = useMemo(
         () => visible_providers_from_groups(rawGroups, plugins),

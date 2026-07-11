@@ -49,6 +49,7 @@ function render_card(overrides: Partial<Parameters<typeof CpaCard>[0]> = {}) {
         on_hide: noop,
         on_unhide: noop,
         on_clear: noop,
+        on_rename: noop,
         ...overrides,
     };
     return { ...render(<CpaCard {...props} />), props };

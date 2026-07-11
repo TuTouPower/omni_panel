@@ -6,12 +6,17 @@ import {
     refresh_seconds_to_label,
     refresh_label_to_seconds,
 } from "../lib/refresh-intervals";
-import { add_account_override, remove_account_override } from "../lib/account-overrides";
+import {
+    add_account_override,
+    remove_account_override,
+    set_account_label,
+} from "../lib/account-overrides";
 import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { VendorCard } from "../components/VendorCard";
 import { CpaCard } from "../components/CpaCard";
 import { LabelMapDialog } from "../components/LabelMapDialog";
+import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon, VendorMark, type VendorId } from "../components/Icon";
 import type { ConnectorInfo } from "../../shared/types/ipc";
@@ -329,6 +334,7 @@ function AccountDialog({
         secrets: Record<string, string>,
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
+        displayName?: string,
     ) => Promise<void>;
     onSelectService: (instanceId: string, pluginName: string) => void | Promise<void>;
     onCpa: () => void;
@@ -388,6 +394,7 @@ function AccountDialog({
                     {instanceId && pluginInfo && pluginConfig ? (
                         <SettingsForm
                             instanceId={instanceId}
+                            displayName={pluginConfig.displayName}
                             parameters={pluginInfo.metadata?.parameters ?? []}
                             values={Object.fromEntries(
                                 Object.entries(pluginConfig.parameterValues).map(([k, v]) => [
@@ -737,6 +744,11 @@ export function SettingsView() {
         save_target: "account" | "provider";
     } | null>(null);
     const [editingCpaId, setEditingCpaId] = useState<string | null>(null);
+    const [rename_target, set_rename_target] = useState<{
+        provider: string;
+        account_id: string;
+        label: string;
+    } | null>(null);
 
     // Confirm-delete state for direct account deletion
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -916,6 +928,7 @@ export function SettingsView() {
             secrets: Record<string, string>,
             endpointOverrides: Record<string, string>,
             refreshIntervalSeconds: number,
+            display_name?: string,
         ) => {
             if (!config) return;
             if (Object.keys(secrets).length > 0) {
@@ -923,16 +936,18 @@ export function SettingsView() {
             }
             await save_config({
                 ...config,
-                plugins: config.plugins.map((plugin) =>
-                    plugin.instanceId === instanceId
-                        ? {
-                              ...plugin,
-                              parameterValues: nonSecrets,
-                              endpointOverrides,
-                              refreshIntervalSeconds,
-                          }
-                        : plugin,
-                ),
+                plugins: config.plugins.map((plugin) => {
+                    if (plugin.instanceId !== instanceId) return plugin;
+                    const { displayName: _omit, ...rest } = plugin;
+                    void _omit;
+                    return {
+                        ...rest,
+                        parameterValues: nonSecrets,
+                        endpointOverrides,
+                        refreshIntervalSeconds,
+                        ...(display_name ? { displayName: display_name } : {}),
+                    };
+                }),
             });
             trigger_background_refresh(instanceId);
         },
@@ -1514,6 +1529,9 @@ export function SettingsView() {
                                                                     provider: item.provider,
                                                                     account_id: item.accountId,
                                                                     account_label:
+                                                                        config.accountLabels?.[
+                                                                            item.provider
+                                                                        ]?.[item.accountId] ??
                                                                         item.accountLabel,
                                                                     status: mapped_status,
                                                                     is_hidden,
@@ -1577,6 +1595,24 @@ export function SettingsView() {
                                                                     target.account_id,
                                                                     "hidden",
                                                                 );
+                                                            }}
+                                                            on_rename={(target) => {
+                                                                set_rename_target({
+                                                                    provider: target.provider,
+                                                                    account_id: target.account_id,
+                                                                    label:
+                                                                        config.accountLabels?.[
+                                                                            target.provider as UsageProvider
+                                                                        ]?.[target.account_id] ??
+                                                                        items.find(
+                                                                            (it) =>
+                                                                                it.provider ===
+                                                                                    target.provider &&
+                                                                                it.accountId ===
+                                                                                    target.account_id,
+                                                                        )?.accountLabel ??
+                                                                        "",
+                                                                });
                                                             }}
                                                         />
                                                     );
@@ -1926,6 +1962,29 @@ export function SettingsView() {
                         )}
                     </div>
                 </div>
+
+                {/* Rename CPA account dialog */}
+                {rename_target && (
+                    <RenameAccountDialog
+                        account_id={rename_target.account_id}
+                        current_label={rename_target.label}
+                        on_save={(label) => {
+                            void save_config({
+                                ...config,
+                                accountLabels: set_account_label(
+                                    config.accountLabels,
+                                    rename_target.provider,
+                                    rename_target.account_id,
+                                    label,
+                                ),
+                            });
+                            set_rename_target(null);
+                        }}
+                        on_close={() => {
+                            set_rename_target(null);
+                        }}
+                    />
+                )}
 
                 {/* Account dialog */}
                 {dialog && (

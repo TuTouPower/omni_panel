@@ -55,7 +55,7 @@ function connector(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
         sourceInstanceId: overrides.sourceInstanceId ?? `${source}-main`,
         stateId: overrides.stateId ?? `${source}-state`,
         name: overrides.name ?? `${source}-name`,
-        displayName: overrides.displayName ?? source.toUpperCase(),
+        displayName: overrides.displayName ?? overrides.name ?? `${source}-name`,
         enabled: overrides.enabled ?? true,
         source,
         supportedProviders,

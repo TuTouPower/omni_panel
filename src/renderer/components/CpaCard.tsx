@@ -26,6 +26,7 @@ interface CpaCardProps {
     on_hide: (target: { provider: string; account_id: string }) => void;
     on_unhide: (target: { provider: string; account_id: string }) => void;
     on_clear: (target: { provider: string; account_id: string }) => void;
+    on_rename: (target: { provider: string; account_id: string }) => void;
 }
 
 const CPA_STATUS_DOT: Record<string, string> = {
@@ -50,6 +51,7 @@ export function CpaCard({
     on_hide,
     on_unhide,
     on_clear,
+    on_rename,
 }: CpaCardProps) {
     const dot = enabled ? (CPA_STATUS_DOT[status] ?? CPA_STATUS_DOT["unknown"]) : "var(--text-3)";
 
@@ -114,6 +116,12 @@ export function CpaCard({
                     }}
                     on_clear={() => {
                         on_clear({
+                            provider: row.provider,
+                            account_id: row.account_id,
+                        });
+                    }}
+                    on_rename={() => {
+                        on_rename({
                             provider: row.provider,
                             account_id: row.account_id,
                         });

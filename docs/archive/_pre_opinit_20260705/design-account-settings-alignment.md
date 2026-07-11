@@ -116,7 +116,7 @@ CPA 账号不应有删除按钮。
 2. ~~普通账号主行仍显示用量信息~~ → 已移除，设置页账号列表不显示用量。
 3. ~~CPA 仍有展开按钮和 `open_cpa_rows` 状态~~ → 已删除，CPA 账号始终显示。
 4. ~~CPA 账号行仍显示用量信息~~ → 已移除。
-5. CPA 账号编辑目前打开 `LabelMapDialog`，实际语义是标签映射。最终设计要求"改名/隐藏"，标签映射在编辑面板内。（暂保留 `LabelMapDialog` 作为"改名"入口）
+5. ~~CPA 账号编辑目前打开 `LabelMapDialog`，实际语义是标签映射。最终设计要求"改名/隐藏"，标签映射在编辑面板内。~~ → CPA 账号改名已实现：`RenameAccountDialog` 弹窗编辑备注名，写入 `accountLabels[provider][accountId]`，`AccountRow` cpa-child 模式有改名按钮。
 6. ~~`LabelMapDialog` 仍作为独立弹窗存在~~ → 仅保留 CPA 账号"改名"入口；直连账号编辑面板内已无独立标签映射按钮。
 7. ~~多账号厂商 UI 当前是每个 plugin 一张连接卡~~ → 已按 provider 聚合为 `VendorCard`。
 8. CPA Manager 详情页里的"已发现账号"仍按服务商折叠分组。demo 详情页也保留折叠；账号列表取消折叠。（保留，见暂缓项）

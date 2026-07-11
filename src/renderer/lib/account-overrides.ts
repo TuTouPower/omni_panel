@@ -1,4 +1,4 @@
-import type { AccountOverrides } from "../../shared/types/config";
+import type { AccountLabels, AccountOverrides } from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 
 export function add_account_override(
@@ -37,4 +37,33 @@ export function remove_account_override(
         return { ...overrides, [kind]: rest };
     }
     return Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== kind));
+}
+
+export function set_account_label(
+    labels: AccountLabels | undefined,
+    provider: string,
+    accountId: string,
+    label: string,
+): AccountLabels {
+    const provider_key = provider as UsageProvider;
+    const current = labels ?? {};
+    const current_map = current[provider_key] ?? {};
+    return { ...current, [provider_key]: { ...current_map, [accountId]: label } };
+}
+
+export function remove_account_label(
+    labels: AccountLabels,
+    provider: string,
+    accountId: string,
+): AccountLabels {
+    const provider_key = provider as UsageProvider;
+    const current_map = labels[provider_key];
+    if (!current_map || !(accountId in current_map)) return labels;
+    const rest = { ...current_map };
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete rest[accountId];
+    if (Object.keys(rest).length > 0) {
+        return { ...labels, [provider_key]: rest };
+    }
+    return Object.fromEntries(Object.entries(labels).filter(([key]) => key !== provider_key));
 }

@@ -26,6 +26,7 @@ interface SettingsFormProps {
     globalIntervalLabel: string;
     manualRefreshOnly?: boolean | undefined;
     providerId?: string | undefined;
+    displayName?: string | undefined;
     onCookieLogin?: ((instanceId: string) => Promise<boolean>) | undefined;
     onSave: (
         instanceId: string,
@@ -33,6 +34,7 @@ interface SettingsFormProps {
         secrets: Record<string, string>,
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
+        displayName?: string,
     ) => Promise<void>;
     onDuplicate?: ((instanceId: string) => void) | undefined;
     existingLabelMap?: Readonly<Record<string, string>> | undefined;
@@ -52,6 +54,7 @@ export function SettingsForm({
     globalIntervalLabel,
     manualRefreshOnly,
     providerId,
+    displayName,
     onCookieLogin,
     onSave,
     onDuplicate,
@@ -182,10 +185,18 @@ export function SettingsForm({
             }
 
             const intervalSeconds = followGlobal ? 0 : refresh_label_to_seconds(syncInterval);
+            const display_name = (formData.get("displayName") as string | null)?.trim();
 
             setSaving(true);
             setSaved(false);
-            void onSave(instanceId, nonSecrets, secrets, endpointOverrides, intervalSeconds)
+            void onSave(
+                instanceId,
+                nonSecrets,
+                secrets,
+                endpointOverrides,
+                intervalSeconds,
+                display_name,
+            )
                 .then(async () => {
                     // Save label map changes if any
                     if (onSaveLabelMap && Object.keys(labelEdits).length > 0) {
@@ -228,6 +239,19 @@ export function SettingsForm({
             className="ad-body-form"
             data-testid={`settings-form-${instanceId}`}
         >
+            <div className="ad-field">
+                <label className="ad-label" htmlFor="displayName">
+                    备注名<span className="ad-opt">显示用</span>
+                </label>
+                <input
+                    type="text"
+                    id="displayName"
+                    name="displayName"
+                    defaultValue={displayName ?? ""}
+                    placeholder="例如：工作账号"
+                    className="ad-input"
+                />
+            </div>
             {parameters.map((param) => (
                 <div className="ad-field" key={param.name}>
                     <label className="ad-label" htmlFor={param.name}>
