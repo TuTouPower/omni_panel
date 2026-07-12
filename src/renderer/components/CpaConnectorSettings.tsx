@@ -230,9 +230,9 @@ export function CpaConnectorSettings({
                 </div>
                 <div className="cfg-sec">连接配置</div>
                 <div className="cfg-field">
-                    <div className="cfg-label">别名</div>
+                    <div className="cfg-label">备注</div>
                     <input
-                        aria-label="别名"
+                        aria-label="备注"
                         className="ad-input"
                         onChange={(event) => {
                             setAlias(event.target.value);

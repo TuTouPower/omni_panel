@@ -360,7 +360,7 @@ describe("SettingsView", () => {
         });
     });
 
-    it("renders CPA as a card with always-visible account child rows", async () => {
+    it("renders CPA as a card with a parent status and status-free child rows", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
 
@@ -368,14 +368,16 @@ describe("SettingsView", () => {
         const cpa_vendor = await screen.findByText("CPA");
         const card = cpa_vendor.closest<HTMLElement>(".acc-card");
         if (!card) throw new Error("missing CPA card");
-        expect(card).toHaveTextContent("1 账号");
-        expect(card).toHaveTextContent("1 服务商");
+        expect(card).not.toHaveTextContent("1 账号");
+        expect(card).not.toHaveTextContent("1 服务商");
 
-        // Child rows are always visible (no expand button)
-        expect(screen.getByText("Claude Account")).toBeInTheDocument();
-        const child_row = screen.getByText("Claude Account").closest<HTMLElement>(".acc-row");
-        if (!child_row) throw new Error("missing CPA child row");
-        expect(within(child_row).queryByTitle("删除账号")).not.toBeInTheDocument();
+        const parent_row = card.querySelector<HTMLElement>(".ds-row");
+        if (!parent_row) throw new Error("missing CPA parent row");
+        expect(parent_row).toHaveTextContent("正常");
+        expect(parent_row.querySelector(".ar-status")).toBeInTheDocument();
+
+        // CPA child rows never expose collection status. The card has only its parent status slot.
+        expect(card.querySelectorAll(".ar-status")).toHaveLength(1);
     });
 
     it("renders CPA connector settings page from accounts", async () => {
@@ -1194,10 +1196,10 @@ describe("SettingsView", () => {
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
 
         await waitFor(() => {
-            expect(screen.getByText("Codex Account Full")).toBeInTheDocument();
+            expect(document.querySelectorAll(".acc-card .acc-row").length).toBeGreaterThan(1);
         });
 
-        // Neither account should show "采集失败"
+        // CPA child rows never expose collection status.
         expect(screen.queryByText("采集失败")).not.toBeInTheDocument();
     });
 });

@@ -185,7 +185,7 @@ function ApiKeyForm({
         <div>
             <div className="ad-field">
                 <label className="ad-label">
-                    账号名称<span className="ad-opt">显示用</span>
+                    备注<span className="ad-opt">显示用</span>
                 </label>
                 <input
                     className="ad-input"
@@ -284,7 +284,7 @@ function SessionForm({
         <>
             <div className="ad-field">
                 <label className="ad-label">
-                    账号名称<span className="ad-opt">显示用</span>
+                    备注<span className="ad-opt">显示用</span>
                 </label>
                 <input
                     className="ad-input"

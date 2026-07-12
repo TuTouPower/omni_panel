@@ -16,8 +16,6 @@ interface CpaCardProps {
     display_name: string;
     enabled: boolean;
     status: "ok" | "partial" | "error" | "disabled" | "unknown";
-    source_count: number;
-    account_count: number;
     rows: CpaCardRow[];
     on_toggle: () => void;
     on_refresh: () => void;
@@ -29,20 +27,26 @@ interface CpaCardProps {
     on_rename: (target: { provider: string; account_id: string }) => void;
 }
 
-const CPA_STATUS_DOT: Record<string, string> = {
-    ok: "var(--green)",
-    partial: "var(--risk-orange)",
-    error: "var(--risk-red)",
-    disabled: "var(--text-3)",
-    unknown: "var(--text-3)",
-};
+interface CpaStatus {
+    color: string;
+    text: string;
+    severity_class: string;
+}
+
+function get_cpa_status(status: CpaCardProps["status"], enabled: boolean): CpaStatus {
+    if (!enabled || status === "disabled") {
+        return { color: "var(--text-3)", text: "已关闭", severity_class: "" };
+    }
+    if (status === "partial" || status === "error") {
+        return { color: "var(--risk-red)", text: "采集失败", severity_class: " err" };
+    }
+    return { color: "var(--green)", text: "正常", severity_class: "" };
+}
 
 export function CpaCard({
     display_name,
     enabled,
     status,
-    source_count,
-    account_count,
     rows,
     on_toggle,
     on_refresh,
@@ -53,7 +57,7 @@ export function CpaCard({
     on_clear,
     on_rename,
 }: CpaCardProps) {
-    const dot = enabled ? (CPA_STATUS_DOT[status] ?? CPA_STATUS_DOT["unknown"]) : "var(--text-3)";
+    const cpa_status = get_cpa_status(status, enabled);
 
     const unique_accounts = useMemo(() => {
         const seen = new Map<string, CpaCardRow>();
@@ -69,16 +73,17 @@ export function CpaCard({
     return (
         <div className={"acc-card" + (enabled ? "" : " off")}>
             <div className="acc-row ds-row">
-                <span className="ar-vendor-col ds-vendor">
-                    <VendorMark id="cpa" size={24} />
-                    <span className="ar-vendor">{display_name}</span>
+                <VendorMark id="cpa" size={24} />
+                <span className="ar-id">
+                    <span className="ar-vendor">CPA</span>
+                    {display_name && display_name !== "CPA" && (
+                        <span className="ar-note">· {display_name}</span>
+                    )}
                 </span>
-                <div className="ar-acct-col">
-                    <span className="ar-dot" style={{ background: dot }} />
-                    <span className="ar-note">
-                        {account_count} 账号 · {source_count} 服务商
-                    </span>
-                </div>
+                <span className="ar-status">
+                    <span className="ar-dot" style={{ background: cpa_status.color }} />
+                    <span className={"ar-stat" + cpa_status.severity_class}>{cpa_status.text}</span>
+                </span>
                 <div className="ar-actions">
                     <button className="sw" data-on={enabled ? "1" : "0"} onClick={on_toggle}>
                         <i />
@@ -104,7 +109,6 @@ export function CpaCard({
                     status={row.status}
                     is_hidden={row.is_hidden}
                     is_removed={row.is_removed}
-                    show_vendor={true}
                     on_hide={() => {
                         on_hide({ provider: row.provider, account_id: row.account_id });
                     }}

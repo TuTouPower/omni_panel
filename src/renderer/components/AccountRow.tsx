@@ -17,48 +17,29 @@ interface AccountRowProps {
     on_unhide?: () => void;
     on_clear?: () => void;
     on_rename?: () => void;
-    show_vendor?: boolean;
 }
 
-const STATUS_DOT_COLOR: Record<string, string> = {
-    ok: "var(--green)",
-    error: "var(--risk-red)",
-    auth: "var(--risk-orange)",
-    disabled: "var(--text-3)",
-    unknown: "var(--text-3)",
-};
-
-const STATUS_TEXT: Partial<Record<string, string>> = {
-    error: "采集失败",
-    auth: "凭证失效",
-};
-
-function get_status_dot(
-    status: string,
-    enabled: boolean,
-    is_hidden: boolean,
-    is_removed: boolean,
-): string {
-    if (is_removed) return "var(--risk-orange)";
-    if (is_hidden) return "var(--text-3)";
-    if (!enabled && status !== "error" && status !== "auth") return "var(--text-3)";
-    return STATUS_DOT_COLOR[status] ?? STATUS_DOT_COLOR["unknown"] ?? "var(--text-3)";
+interface AccountStatus {
+    color: string;
+    text: string;
+    severity_class: string;
 }
 
-function get_status_text(
-    status: string,
-    enabled: boolean,
-    is_hidden: boolean,
-    is_removed: boolean,
-): string | null {
-    if (is_removed) return "来源已移除";
-    if (is_hidden) return "已关闭";
-    if (!enabled) return null;
-    return STATUS_TEXT[status] ?? null;
+function get_account_status(status: AccountRowProps["status"], enabled: boolean): AccountStatus {
+    if (!enabled || status === "disabled") {
+        return { color: "var(--text-3)", text: "已关闭", severity_class: "" };
+    }
+    if (status === "error") {
+        return { color: "var(--risk-red)", text: "采集失败", severity_class: " err" };
+    }
+    if (status === "auth") {
+        return { color: "var(--risk-red)", text: "凭证失效", severity_class: " err" };
+    }
+    return { color: "var(--green)", text: "正常", severity_class: "" };
 }
 
 function get_vendor_name(provider: VendorId): string {
-    if (provider === "cpa") return "CPA Manager";
+    if (provider === "cpa") return "CPA";
     if (provider === "overview") return "总览";
     return provider in PROVIDER_LABELS ? PROVIDER_LABELS[provider] : provider;
 }
@@ -79,19 +60,10 @@ export function AccountRow({
     on_unhide,
     on_clear,
     on_rename,
-    show_vendor = true,
 }: AccountRowProps) {
     const is_cpa_child = mode === "cpa-child";
     const effective_on = is_cpa_child ? !is_hidden && !is_removed : enabled;
-    const dot = get_status_dot(status, enabled, is_hidden, is_removed);
-    const status_text = get_status_text(status, enabled, is_hidden, is_removed);
-    const severity_class = is_removed
-        ? ""
-        : status === "error"
-          ? " err"
-          : status === "auth"
-            ? " warn"
-            : "";
+    const account_status = get_account_status(status, enabled);
 
     const row_class =
         "acc-row" +
@@ -102,17 +74,20 @@ export function AccountRow({
 
     return (
         <div className={row_class}>
-            {show_vendor && (
-                <span className="ar-vendor-col">
-                    <VendorMark id={provider} size={24} />
-                    <span className="ar-vendor">{get_vendor_name(provider)}</span>
+            <VendorMark id={provider} size={24} />
+            <span className="ar-id">
+                <span className="ar-vendor">{get_vendor_name(provider)}</span>
+                {account_label && <span className="ar-note">· {account_label}</span>}
+                {is_cpa_child && is_removed && <span className="ar-removed">来源已移除</span>}
+            </span>
+            {!is_cpa_child && (
+                <span className="ar-status">
+                    <span className="ar-dot" style={{ background: account_status.color }} />
+                    <span className={"ar-stat" + account_status.severity_class}>
+                        {account_status.text}
+                    </span>
                 </span>
             )}
-            <div className="ar-acct-col">
-                <span className="ar-dot" style={{ background: dot }} />
-                <span className="ar-note">{account_label}</span>
-                {status_text && <span className={"ar-stat" + severity_class}>{status_text}</span>}
-            </div>
             <div className="ar-actions">
                 {is_cpa_child ? (
                     is_removed ? (
@@ -125,7 +100,7 @@ export function AccountRow({
                         </button>
                     ) : (
                         <>
-                            <button className="sp-ic" title="改备注名" onClick={on_rename}>
+                            <button className="sp-ic" title="改备注" onClick={on_rename}>
                                 <Icon name="edit" size={15} />
                             </button>
                             <button

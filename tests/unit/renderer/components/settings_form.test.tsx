@@ -49,6 +49,7 @@ function renderForm(overrides: Record<string, unknown> = {}) {
 describe("SettingsForm", () => {
     it("renders form fields", () => {
         renderForm();
+        expect(screen.getByText("备注")).toBeInTheDocument();
         expect(screen.getByText("API Key")).toBeInTheDocument();
     });
 

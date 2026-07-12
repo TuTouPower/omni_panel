@@ -107,7 +107,7 @@ export async function handleConnectorList(
                 sourceInstanceId: plugin.instanceId,
                 stateId: plugin.stateId,
                 name: plugin.name,
-                displayName: plugin.displayName ?? plugin.name,
+                displayName: plugin.displayName ?? "",
                 enabled: plugin.enabled,
                 source: source_from_definition(definition),
                 supportedProviders: providers,

@@ -41,7 +41,7 @@ export function RenameAccountDialog({
             >
                 <div className="ad-head">
                     <div className="ad-htext">
-                        <div className="ad-title">编辑备注名</div>
+                        <div className="ad-title">编辑备注</div>
                         <div className="ad-sub mono">{account_id}</div>
                     </div>
                     <button className="ad-close" onClick={on_close} title="关闭" type="button">
@@ -51,7 +51,7 @@ export function RenameAccountDialog({
                 <div className="ad-body">
                     <div className="ad-field">
                         <label className="ad-label" htmlFor="rename-input">
-                            备注名<span className="ad-opt">显示用</span>
+                            备注<span className="ad-opt">显示用</span>
                         </label>
                         <input
                             id="rename-input"

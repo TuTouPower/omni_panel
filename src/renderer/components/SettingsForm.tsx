@@ -241,7 +241,7 @@ export function SettingsForm({
         >
             <div className="ad-field">
                 <label className="ad-label" htmlFor="displayName">
-                    备注名<span className="ad-opt">显示用</span>
+                    备注<span className="ad-opt">显示用</span>
                 </label>
                 <input
                     type="text"

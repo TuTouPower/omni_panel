@@ -134,6 +134,7 @@ describe("CpaConnectorSettings", () => {
         renderSettings();
 
         // Config fields
+        expect(screen.getByLabelText("备注")).toHaveValue("CPA");
         expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
         expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
 
@@ -359,9 +360,9 @@ describe("CpaConnectorSettings", () => {
         expect(tag_buttons.length).toBe(4);
     });
 
-    it("renders alias field with display name", () => {
+    it("renders 备注 field with display name", () => {
         renderSettings({ displayName: "公司 CPA" });
-        expect(screen.getByLabelText("别名")).toHaveValue("公司 CPA");
+        expect(screen.getByLabelText("备注")).toHaveValue("公司 CPA");
     });
 
     it("renders follow-global refresh toggle", () => {

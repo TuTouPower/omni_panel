@@ -62,7 +62,8 @@ describe("AddAccountDialog MIMO session cookie", () => {
         // Step 1: select MiMo from vendor picker
         await user.click(screen.getByText("MiMo"));
 
-        // Step 2: should now show session form with cookie textarea
+        // Step 2: should now show session form with a 备注 field and cookie textarea
+        expect(screen.getByText("备注")).toBeInTheDocument();
         const cookie_textarea = screen.getByPlaceholderText(/在浏览器登录/);
         expect(cookie_textarea).toBeInTheDocument();
 

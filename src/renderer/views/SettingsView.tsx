@@ -19,7 +19,7 @@ import { LabelMapDialog } from "../components/LabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon, VendorMark, type VendorId } from "../components/Icon";
-import type { ConnectorInfo } from "../../shared/types/ipc";
+import type { ConnectorInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
 import type {
     ConnectorConfiguration,
     AppConfiguration,
@@ -921,6 +921,18 @@ export function SettingsView() {
         };
     }, [config]);
 
+    // Keep pluginInfos in sync with live state changes from connectors
+    useEffect(() => {
+        const unsub = window.usageboard.event.onStateChange(
+            (instanceId: string, state: PluginSnapshotDTO) => {
+                setConnectorInfos((prev) =>
+                    prev.map((p) => (p.instanceId === instanceId ? { ...p, snapshot: state } : p)),
+                );
+            },
+        );
+        return unsub;
+    }, []);
+
     const savePluginSettings = useCallback(
         async (
             instanceId: string,
@@ -1394,7 +1406,7 @@ export function SettingsView() {
                                                       : "已停用";
                                                 const row = {
                                                     instance_id: plugin.instanceId,
-                                                    account_label: info?.displayName ?? plugin.name,
+                                                    account_label: info?.displayName ?? "",
                                                     enabled: plugin.enabled,
                                                     status: map_status(status_label),
                                                 };
@@ -1472,16 +1484,6 @@ export function SettingsView() {
                                                             item.instanceId === plugin.instanceId,
                                                     );
                                                     const items = info ? snapshot_items(info) : [];
-                                                    const provider_set = new Set(
-                                                        items.map((item) => item.provider),
-                                                    );
-                                                    const account_set = new Set(
-                                                        items.map(
-                                                            (item) =>
-                                                                `${item.provider}:${item.accountId}`,
-                                                        ),
-                                                    );
-
                                                     const connector_status:
                                                         | "ok"
                                                         | "partial"
@@ -1503,13 +1505,9 @@ export function SettingsView() {
                                                         <CpaCard
                                                             key={plugin.instanceId}
                                                             instance_id={plugin.instanceId}
-                                                            display_name={
-                                                                info?.displayName ?? "CPA Manager"
-                                                            }
+                                                            display_name={info?.displayName ?? ""}
                                                             enabled={plugin.enabled}
                                                             status={connector_status}
-                                                            source_count={provider_set.size}
-                                                            account_count={account_set.size}
                                                             rows={items.map((item) => {
                                                                 const is_hidden =
                                                                     config.accountOverrides?.hidden?.[
