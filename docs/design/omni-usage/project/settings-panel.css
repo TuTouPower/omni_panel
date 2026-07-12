@@ -383,20 +383,24 @@
 .acc-row.hidden { opacity: .5; }
 .acc-row.removed { opacity: .72; }
 
-.ar-vendor-col { display: flex; align-items: center; gap: 10px; width: 168px; flex-shrink: 0; }
-.ar-vendor { font-size: 14px; font-weight: 650; color: var(--text); letter-spacing: -.01em; white-space: nowrap; }
-.ar-acct-col { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+/* identity — 单行一级结构：厂商名（粗）+「· 备注」（弱灰），无备注则仅厂商名 */
+.ar-id { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; overflow: hidden; }
+.ar-vendor { font-size: 14px; font-weight: 650; color: var(--text); letter-spacing: -.01em; white-space: nowrap; flex-shrink: 0; }
+.ar-note {
+  font-size: 13px; font-weight: 500; color: var(--text-3); letter-spacing: -.005em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.ds-meta { font-size: 12.5px; font-weight: 500; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
+/* status light + text — fixed-width slot so lights align down the list (§3) */
+.ar-status { display: flex; align-items: center; gap: 7px; width: 72px; flex-shrink: 0; }
 .ar-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.ar-note { font-size: 13.5px; font-weight: 550; color: var(--text); white-space: nowrap; }
-.ar-stat { font-size: 11.5px; font-weight: 600; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
+.ar-stat { font-size: 11.5px; font-weight: 600; color: var(--text-3); white-space: nowrap; }
 .ar-stat.err { color: var(--risk-red); }
-.ar-stat.warn { color: var(--risk-orange); }
-.ar-actions { display: flex; align-items: center; gap: 3px; flex-shrink: 0; margin-left: auto; }
+.ar-actions { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
 .ar-actions .sw { margin: 0 3px 0 2px; }
 
 /* CPA data-source row (the card's top row) */
 .acc-row.ds-row { background: color-mix(in srgb, var(--desktop) 4%, var(--card-bg)); }
-.acc-row.ds-row .ds-vendor { width: auto; }
 
 /* active (hidden) eye toggle */
 .sp-ic.on { color: var(--blue); }
@@ -405,10 +409,6 @@
 .cr-srctag {
   font-size: 10px; font-weight: 600; color: var(--text-3); background: var(--chip-bg);
   padding: 2px 7px; border-radius: 6px; letter-spacing: .02em; flex-shrink: 0;
-}
-.cpa-fail {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; font-weight: 600; color: var(--risk-red); white-space: nowrap; flex-shrink: 0;
 }
 
 .sub-clear {

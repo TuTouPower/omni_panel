@@ -31,13 +31,22 @@
 
 ### SettingsView（设置窗，route=settings）
 
-`SettingsForm` + `VendorCard`（直连 provider 卡）+ `CpaCard`（CPA 卡）+ `CpaConnectorSettings`（CPA 数据源详情）+ `LabelMapDialog`（账号/provider 改名）+ `ConfirmDelete`（删除确认）。
+`SettingsForm` + `VendorCard`（直连 provider 卡，内嵌 `AccountRow`）+ `CpaCard`（CPA 卡，父行自渲染 + `AccountRow mode="cpa-child"`）+ `CpaConnectorSettings`（CPA 数据源详情）+ `LabelMapDialog`（数据标签映射）+ `RenameAccountDialog`（账号备注）+ `ConfirmDelete`（删除确认）+ `AddAccountDialog`（新增账号）。
+
+**账号行布局**（`AccountRow` + `CpaCard`）：
+
+- 身份区（`.ar-id`）：`VendorMark` + 厂商名 + `· 备注`（仅 `displayName`/`account_label` 非空时显示）。备注灰 `--text-3`，长文本截断。
+- 状态区（`.ar-status`，固定 `72px`）：状态灯 + 状态文字。直连行始终显示；CPA 父行显示整体连接状态；CPA 子行不渲染。
+- 状态映射：`ok` → 绿"正常"；`error` → 红"采集失败"；`auth` → 红"凭证失效"；`disabled`/`!enabled` → 灰"已关闭"。CPA 父行 `partial`/`error` → 红"采集失败"。
+- CPA 父行：`CPA · displayName`（无备注时仅 `CPA`），不显示账号/服务商计数。子行去重 `provider:account_id`，保留隐藏开关/改备注/来源已移除清除。
+- 术语统一："备注名"/"账号名称"/"别名" → "备注"。底层 `displayName` 字段与 schema 不变。
 
 - `REFRESH_INTERVAL_OPTIONS` + `refresh_seconds_to_label` / `refresh_label_to_seconds` — 刷新间隔选项
 - `account_overrides`（add/remove）— 账号隐藏/标签
-- `ADD_COMMON_SERVICES` — 添加账号的服务清单（含 minimax/firecrawl，commit `b5ff7b9`）
+- `ADD_COMMON_SERVICES` — 添加账号的服务清单
 - `redact_config_raw` — config 日志脱敏
 - 导航：`settings:navigate(SettingsOpenContext)` 从主面板"编辑账号"跳入定位
+- **实时同步**：订阅 `onStateChange` 保持 `pluginInfos` 与 connector snapshot 同步（CPA 连接器状态就绪后子行即时出现）
 
 ### TrayMenu（托盘菜单，route=tray）
 

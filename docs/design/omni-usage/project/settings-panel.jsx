@@ -78,23 +78,23 @@ function ConfirmDelete({ name, onCancel, onConfirm }) {
   );
 }
 
-/* ---- status dot + optional problem text (no usage shown here) ---- */
-const ST_META = {
-  ok:    { dot: 'var(--green)' },
-  error: { dot: 'var(--risk-red)',    text: '采集失败' },
-  auth:  { dot: 'var(--risk-orange)', text: '凭证失效' },
-};
-function dotOf(status, on) { return on ? ((ST_META[status] || ST_META.ok).dot) : 'var(--text-3)'; }
-function textOf(status, on, vendorId) {
-  if (!on) return null;
-  const m = ST_META[status];
-  if (!m) return null;
+/* ---- status light + text — 绿灯 正常 / 红灯 登录失效·采集失败 / 灰灯 已关闭.
+        直连账号每行都显示状态灯+文字；CPA 子账号不显示状态（§5）。 ---- */
+function acctStatus(status, on, vendorId) {
+  if (!on) return { color: 'var(--text-3)', text: '已关闭', cls: '' };
+  if (status === 'error') return { color: 'var(--risk-red)', text: '采集失败', cls: ' err' };
   if (status === 'auth') {
     // 网页登录类服务（MiMo / Kimi …）说「登录失效」，密钥/本地类说「凭证失效」
     const auth = (window.VENDOR_AUTH && window.VENDOR_AUTH[vendorId]) || 'apikey';
-    return auth === 'session' ? '登录失效' : '凭证失效';
+    return { color: 'var(--risk-red)', text: auth === 'session' ? '登录失效' : '凭证失效', cls: ' err' };
   }
-  return m.text || null;
+  return { color: 'var(--green)', text: '正常', cls: '' };
+}
+/* CPA 一次统一抓取 —— 只有数据源行显示整体状态（§5）。 */
+function cpaStatus(status, on) {
+  if (!on) return { color: 'var(--text-3)', text: '已关闭', cls: '' };
+  if (status === 'error') return { color: 'var(--risk-red)', text: '采集失败', cls: ' err' };
+  return { color: 'var(--green)', text: '正常', cls: '' };
 }
 
 /* ---- one account row — identical layout for single-account vendors,
@@ -105,21 +105,21 @@ function AccountRow({ mode, vendorId, account, on, onToggle, onEdit, hidden, onH
   const [confirm, setConfirm] = React.useState(false);
   const isCpa = mode === 'cpa';
   const removed = account.removed;
-  const effOn = isCpa ? !hidden && !removed : on;
-  const stext = removed ? '来源已移除' : (isCpa && hidden) ? '已关闭' : textOf(account.status, isCpa ? true : on, vendorId);
-  const sevCls = removed ? '' : account.status === 'error' ? ' err' : account.status === 'auth' ? ' warn' : '';
-  const dot = removed ? 'var(--risk-orange)' : (isCpa && hidden) ? 'var(--text-3)' : dotOf(account.status, isCpa ? true : on);
+  // 直连账号显示状态灯+文字；CPA 子账号一律不显示状态（§5）。
+  const st = isCpa ? null : acctStatus(account.status, on, vendorId);
   return (
-    <div className={'acc-row' + (effOn ? '' : ' off') + (isCpa && hidden ? ' hidden' : '') + (removed ? ' removed' : '')}>
-      <span className="ar-vendor-col">
-        <VendorMark id={vendorId} size={24} />
+    <div className={'acc-row' + (isCpa ? '' : (on ? '' : ' off')) + (isCpa && hidden ? ' hidden' : '') + (removed ? ' removed' : '')}>
+      <VendorMark id={vendorId} size={24} />
+      <span className="ar-id">
         <span className="ar-vendor">{SV_META[vendorId].name}</span>
+        {account.name && <span className="ar-note">· {account.name}</span>}
       </span>
-      <div className="ar-acct-col">
-        <span className="ar-dot" style={{ background: dot }} />
-        <span className="ar-note">{account.name}</span>
-        {stext && <span className={'ar-stat' + sevCls}>{stext}</span>}
-      </div>
+      {st && (
+        <span className="ar-status">
+          <span className="ar-dot" style={{ background: st.color }} />
+          <span className={'ar-stat' + st.cls}>{st.text}</span>
+        </span>
+      )}
       <div className="ar-actions">
         {isCpa ? (
           removed ? (
@@ -159,21 +159,19 @@ function VendorCard({ vendor, accounts, isOn, onToggle, onEditAcct }) {
         by its discovered account rows, always visible (§5.5.6). ---- */
 function CpaCard({ conn, on, onToggle, onOpenDetail, hiddenSet, onHide, onEditAcct }) {
   const [confirm, setConfirm] = React.useState(false);
-  const live = conn.accounts.filter((a) => !a.removed);
-  const providers = new Set(live.map((a) => a.vendor));
-  const failing = conn.accounts.filter((a) => a.status === 'error' && !a.removed).length;
+  const st = cpaStatus(conn.status, on);
   return (
     <div className={'acc-card' + (on ? '' : ' off')}>
       <div className="acc-row ds-row">
-        <span className="ar-vendor-col ds-vendor">
-          <VendorMark id="cpa" size={24} />
-          <span className="ar-vendor">{conn.name}</span>
+        <VendorMark id="cpa" size={24} />
+        <span className="ar-id">
+          <span className="ar-vendor">CPA</span>
+          {conn.note && <span className="ar-note">· {conn.note}</span>}
         </span>
-        <div className="ar-acct-col">
-          <span className="ar-dot" style={{ background: dotOf(conn.status, on) }} />
-          <span className="ar-note">{live.length} 账号 · {providers.size} 服务商</span>
-          {failing > 0 && <span className="cpa-fail"><Icon name="cloud_off" size={12} strokeWidth={1.9} />{failing} 个采集失败</span>}
-        </div>
+        <span className="ar-status">
+          <span className="ar-dot" style={{ background: st.color }} />
+          <span className={'ar-stat' + st.cls}>{st.text}</span>
+        </span>
         <div className="ar-actions">
           <SPToggle on={on} onClick={onToggle} />
           <button className="sp-ic" title="刷新"><Icon name="refresh" size={15} /></button>
@@ -259,7 +257,7 @@ function EditAccountDialog({ vendorId, accountName, onClose }) {
       </div>
       <div className="ad-body">
         <div className="ad-field">
-          <label className="ad-label">备注名</label>
+          <label className="ad-label">备注</label>
           <input className="ad-input" value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="例如：工作账号" />
         </div>
 
@@ -483,7 +481,7 @@ function CpaDetailPage({ conn }) {
   const discovered = conn.discovered || CPA_DISCOVERED;
   const scopeList = conn.scope || CPA_SCOPE;
   const globalInterval = window.__omniRefreshInterval || '5 分钟';
-  const [alias, setAlias] = React.useState(conn.name || 'CPA Manager');
+  const [note, setNote] = React.useState(conn.note || '');
   const [url, setUrl] = React.useState(conn.url || 'https://cpa.example.com');
   const [key, setKey] = React.useState('cpa_sk_9f3a2b7c1d8e');
   const [showKey, setShowKey] = React.useState(false);
@@ -502,8 +500,8 @@ function CpaDetailPage({ conn }) {
       <div className="cpa-cfg">
         <div className="cfg-sec">连接配置</div>
         <div className="cfg-field">
-          <label className="cfg-label">别名</label>
-          <input className="ad-input" value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="例如：公司 CPA" />
+          <label className="cfg-label">备注</label>
+          <input className="ad-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="例如：公司" />
         </div>
         <div className="cfg-field">
           <label className="cfg-label">CPA-Manager URL</label>
@@ -644,7 +642,7 @@ function VendorFormDialog({ vendorId, onClose }) {
       </div>
       <div className="ad-body">
         <div className="ad-field">
-          <label className="ad-label">账号名称</label>
+          <label className="ad-label">备注</label>
           <input className="ad-input" value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="例如：工作账号" />
         </div>
         <div className="ad-field">

@@ -284,7 +284,7 @@ const CONNECTIONS = [
 
   /* CPA Manager：一行可展开的一对多连接，始终就在这个列表里。
      可同时配置多个 CPA Manager —— 每个是独立的一行，带各自别名/URL/范围。 */
-  { type: 'cpa', id: 'src-cpa', name: '公司 CPA', url: 'https://cpa.company.com',
+  { type: 'cpa', id: 'src-cpa', name: '公司 CPA', note: '公司', url: 'https://cpa.company.com',
     status: 'ok', synced: '2 分钟前',
     scope: ['claude', 'codex', 'gemini', 'antigravity', 'kimi'],
     discovered: CPA_DISCOVERED,
@@ -304,7 +304,7 @@ const CONNECTIONS = [
     ] },
 
   /* 第二个 CPA Manager：另一套别名 / URL / 范围，覆盖面更小 */
-  { type: 'cpa', id: 'src-cpa-2', name: '个人 CPA', url: 'https://cpa.mystudio.io',
+  { type: 'cpa', id: 'src-cpa-2', name: '个人 CPA', note: '个人', url: 'https://cpa.mystudio.io',
     status: 'ok', synced: '6 分钟前',
     scope: ['claude', 'gemini', 'deepseek'],
     discovered: CPA_DISCOVERED_2,

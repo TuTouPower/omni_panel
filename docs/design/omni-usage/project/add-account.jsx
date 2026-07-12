@@ -38,7 +38,7 @@ function AAHead({ vendorId, title, sub, onClose }) {
 function NameField({ value, onChange, placeholder, autoFocus }) {
   return (
     <div className="ad-field">
-      <label className="ad-label">账号名称<span className="ad-opt">显示用</span></label>
+      <label className="ad-label">备注<span className="ad-opt">显示用</span></label>
       <input className="ad-input" value={value} autoFocus={autoFocus}
         onChange={(e) => onChange(e.target.value)} placeholder={placeholder || '例如：工作账号'} />
     </div>
