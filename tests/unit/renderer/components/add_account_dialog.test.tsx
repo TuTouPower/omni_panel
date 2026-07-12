@@ -149,6 +149,7 @@ describe("AddAccountDialog MIMO session cookie", () => {
             screen.getByPlaceholderText("支持 JSON、EditThisCookie、Netscape、k=v; k=v"),
         ).toBeInTheDocument();
         expect(screen.queryByPlaceholderText(/sk-/)).not.toBeInTheDocument();
+        expect(screen.queryByText("备注")).not.toBeInTheDocument();
     });
 
     it("parses OpenCode Go JSON cookie before save", async () => {
