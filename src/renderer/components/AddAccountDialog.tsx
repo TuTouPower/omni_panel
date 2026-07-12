@@ -282,21 +282,19 @@ function SessionForm({
 
     return (
         <>
-            {!is_opencode_go && (
-                <div className="ad-field">
-                    <label className="ad-label">
-                        备注<span className="ad-opt">显示用</span>
-                    </label>
-                    <input
-                        className="ad-input"
-                        value={account_name}
-                        onChange={(e) => {
-                            set_account_name(e.target.value);
-                        }}
-                        placeholder="例如：工作账号"
-                    />
-                </div>
-            )}
+            <div className="ad-field">
+                <label className="ad-label">
+                    备注<span className="ad-opt">显示用</span>
+                </label>
+                <input
+                    className="ad-input"
+                    value={account_name}
+                    onChange={(e) => {
+                        set_account_name(e.target.value);
+                    }}
+                    placeholder="例如：工作账号"
+                />
+            </div>
             <div className="ad-field">
                 <label className="ad-label">Cookie 字符串</label>
                 {is_opencode_go && (
@@ -468,7 +466,7 @@ export function AddAccountDialog({
         try {
             const params: AddAccountParams = {
                 vendor_id,
-                account_name: account_name || (vendor_id === "opencode_go" ? "" : vendor_label),
+                account_name: account_name || vendor_label,
                 auth_method,
                 parameter_values: {},
                 secrets: {},

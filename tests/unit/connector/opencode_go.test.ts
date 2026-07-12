@@ -26,7 +26,7 @@ function create_ctx(
         path: string,
         opts?: { headers?: Record<string, string> },
     ) => RawHttpResponse | Promise<RawHttpResponse>,
-    params: Record<string, string> = { SESSION_COOKIE: "session=secret", ACCOUNT_LABEL: "Work" },
+    params: Record<string, string> = { SESSION_COOKIE: "session=secret" },
 ): ConnectorContext {
     return {
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -102,7 +102,7 @@ describe("opencode_go connector", () => {
                 provider: "opencode_go",
                 source: "session",
                 account_id: "ws_123",
-                account_label: "Work",
+                account_label: "ws_123",
                 metric_id: "opencode_go:rolling",
                 normalized_label: "滚动",
                 window: "second",
@@ -140,7 +140,7 @@ describe("opencode_go connector", () => {
 
     it("reports missing session cookie", async () => {
         const { manifest, script } = await load_connector();
-        const ctx = create_ctx(() => raw(200, ""), { ACCOUNT_LABEL: "Work" });
+        const ctx = create_ctx(() => raw(200, ""), {});
 
         const result = await run_connector(manifest, script, ctx);
 

@@ -149,10 +149,10 @@ describe("AddAccountDialog MIMO session cookie", () => {
             screen.getByPlaceholderText("支持 JSON、EditThisCookie、Netscape、k=v; k=v"),
         ).toBeInTheDocument();
         expect(screen.queryByPlaceholderText(/sk-/)).not.toBeInTheDocument();
-        expect(screen.queryByText("备注")).not.toBeInTheDocument();
+        expect(screen.getByText("备注")).toBeInTheDocument();
     });
 
-    it("parses OpenCode Go JSON cookie before save", async () => {
+    it("parses OpenCode Go JSON cookie and saves the remark", async () => {
         const user = userEvent.setup();
         render(
             <AddAccountDialog
@@ -165,6 +165,7 @@ describe("AddAccountDialog MIMO session cookie", () => {
         );
 
         await user.click(screen.getByText("OpenCode Go"));
+        await user.type(screen.getByPlaceholderText("例如：工作账号"), "工作账号");
         fireEvent.change(
             screen.getByPlaceholderText("支持 JSON、EditThisCookie、Netscape、k=v; k=v"),
             {
@@ -179,7 +180,7 @@ describe("AddAccountDialog MIMO session cookie", () => {
         expect(get_saved_params(on_save).secrets).toEqual({
             SESSION_COOKIE: "session=abc",
         });
-        expect(get_saved_params(on_save).account_name).toBe("");
+        expect(get_saved_params(on_save).account_name).toBe("工作账号");
     });
 
     it("does not save OpenCode Go without a pasted Cookie", async () => {
