@@ -50,4 +50,5 @@
 ## 边界
 
 - 单实例串行锁 5 分钟（`refresh-service`）；`refreshAll` 并发上限 5。
-- 会话连接器 auth 错误（消息含 401/unauthorized/token/credential/auth）且 manifest 有 `session` 能力 → 触发 `sessionLogin`，等 2s 重跑一次。
+- script / poll / probe 及观测写库失败统一最多尝试 3 次，相邻尝试固定等待 1s；三次均失败才向 runtime-store 写 `failed`，错误取最后一次失败。
+- session 连接器首次出现 auth 错误（消息含 401/unauthorized/token/credential/auth）且有 `sessionLogin` 依赖 → 每轮刷新最多触发一次重新登录；保存成功后额外等待 2s，再继续剩余通用尝试。

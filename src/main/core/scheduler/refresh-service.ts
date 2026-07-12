@@ -208,92 +208,85 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 ...(prior !== undefined && { lastSuccess: prior }),
             });
 
-            try {
-                const observations = await execute_connector(
-                    connector_config,
-                    definition,
-                    deps.vault,
-                    config.proxy?.url,
-                    trace_id,
-                );
-                for (const obs of observations) {
-                    try {
-                        deps.observationStore.insert(obs);
-                    } catch (insert_error: unknown) {
-                        const insert_message =
-                            insert_error instanceof Error
-                                ? insert_error.message
-                                : String(insert_error);
-                        trace_log.error(
-                            `Failed to insert observation for ${instanceId} (${connector_config.name}): ${insert_message}`,
-                        );
-                        throw insert_error;
-                    }
-                }
-                const { items, updatedAt } = observations_to_ready_state(observations);
-                deps.runtimeStore.updateState(instanceId, {
-                    status: "ready",
-                    items,
-                    updatedAt,
-                });
-                trace_log.info(
-                    `Connector ${instanceId} (${connector_config.name}) refreshed: ${String(items.length)} items`,
-                );
-            } catch (error: unknown) {
-                const message = error instanceof Error ? error.message : String(error);
-                trace_log.error(
-                    `Connector ${instanceId} (${connector_config.name}) failed: ${message}`,
-                );
+            let last_error = "";
+            let session_relogin_done = false;
+            const max_attempts = 3;
+            const retry_delay_ms = 1000;
 
-                // Auto re-login for session-based connectors on auth errors
-                if (
-                    deps.sessionLogin &&
-                    definition.manifest.capabilities.includes("session") &&
-                    is_auth_error(message)
-                ) {
-                    trace_log.info(`Auto-triggering re-login for ${connector_config.name}`);
-                    try {
-                        const result = await deps.sessionLogin(instanceId);
-                        if (result.saved) {
-                            trace_log.info(
-                                `Re-login succeeded for ${connector_config.name}, waiting before retry`,
+            for (let attempt = 0; attempt < max_attempts; attempt++) {
+                try {
+                    const observations = await execute_connector(
+                        connector_config,
+                        definition,
+                        deps.vault,
+                        config.proxy?.url,
+                        trace_id,
+                    );
+                    for (const obs of observations) {
+                        try {
+                            deps.observationStore.insert(obs);
+                        } catch (insert_error: unknown) {
+                            const insert_message =
+                                insert_error instanceof Error
+                                    ? insert_error.message
+                                    : String(insert_error);
+                            trace_log.error(
+                                `Failed to insert observation for ${instanceId} (${connector_config.name}): ${insert_message}`,
                             );
-                            await new Promise((resolve) => setTimeout(resolve, 2000));
-                            // Re-run the connector with fresh cookies
-                            const retry_observations = await execute_connector(
-                                connector_config,
-                                definition,
-                                deps.vault,
-                                config.proxy?.url,
-                                trace_id,
-                            );
-                            for (const obs of retry_observations) {
-                                deps.observationStore.insert(obs);
-                            }
-                            const retry_state = observations_to_ready_state(retry_observations);
-                            deps.runtimeStore.updateState(instanceId, {
-                                status: "ready",
-                                items: retry_state.items,
-                                updatedAt: retry_state.updatedAt,
-                            });
-                            trace_log.info(
-                                `Connector ${connector_config.name} refreshed after re-login: ${String(retry_state.items.length)} items`,
-                            );
-                            return;
+                            throw insert_error;
                         }
-                    } catch (login_error: unknown) {
-                        trace_log.error(
-                            `Auto re-login failed for ${connector_config.name}: ${login_error instanceof Error ? login_error.message : String(login_error)}`,
-                        );
+                    }
+                    const { items, updatedAt } = observations_to_ready_state(observations);
+                    deps.runtimeStore.updateState(instanceId, {
+                        status: "ready",
+                        items,
+                        updatedAt,
+                    });
+                    trace_log.info(
+                        `Connector ${instanceId} (${connector_config.name}) refreshed: ${String(items.length)} items`,
+                    );
+                    return;
+                } catch (error: unknown) {
+                    last_error = error instanceof Error ? error.message : String(error);
+                    trace_log.error(
+                        `Connector ${instanceId} (${connector_config.name}) attempt ${String(attempt + 1)}/${String(max_attempts)} failed: ${last_error}`,
+                    );
+
+                    // Auto re-login for session-based connectors on first auth error
+                    if (
+                        !session_relogin_done &&
+                        deps.sessionLogin &&
+                        definition.manifest.capabilities.includes("session") &&
+                        is_auth_error(last_error)
+                    ) {
+                        session_relogin_done = true;
+                        trace_log.info(`Auto-triggering re-login for ${connector_config.name}`);
+                        try {
+                            const result = await deps.sessionLogin(instanceId);
+                            if (result.saved) {
+                                trace_log.info(
+                                    `Re-login succeeded for ${connector_config.name}, waiting before retry`,
+                                );
+                                await new Promise((resolve) => setTimeout(resolve, 2000));
+                            }
+                        } catch (login_error: unknown) {
+                            trace_log.error(
+                                `Auto re-login failed for ${connector_config.name}: ${login_error instanceof Error ? login_error.message : String(login_error)}`,
+                            );
+                        }
+                    }
+
+                    if (attempt < max_attempts - 1) {
+                        await new Promise((resolve) => setTimeout(resolve, retry_delay_ms));
                     }
                 }
-
-                deps.runtimeStore.updateState(instanceId, {
-                    status: "failed",
-                    error: message,
-                    ...(prior !== undefined && { lastSuccess: prior }),
-                });
             }
+
+            deps.runtimeStore.updateState(instanceId, {
+                status: "failed",
+                error: last_error,
+                ...(prior !== undefined && { lastSuccess: prior }),
+            });
         } finally {
             locks.delete(instanceId);
         }
