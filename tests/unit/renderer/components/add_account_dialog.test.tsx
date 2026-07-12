@@ -179,6 +179,7 @@ describe("AddAccountDialog MIMO session cookie", () => {
         expect(get_saved_params(on_save).secrets).toEqual({
             SESSION_COOKIE: "session=abc",
         });
+        expect(get_saved_params(on_save).account_name).toBe("");
     });
 
     it("does not save OpenCode Go without a pasted Cookie", async () => {

@@ -468,7 +468,7 @@ export function AddAccountDialog({
         try {
             const params: AddAccountParams = {
                 vendor_id,
-                account_name: account_name || vendor_label,
+                account_name: account_name || (vendor_id === "opencode_go" ? "" : vendor_label),
                 auth_method,
                 parameter_values: {},
                 secrets: {},

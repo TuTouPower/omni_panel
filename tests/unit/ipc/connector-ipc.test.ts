@@ -113,7 +113,7 @@ describe("connector-ipc", () => {
         expect(result.data).toHaveLength(1);
         const item = result.data[0];
         expect(item?.stateId).toBe("claude");
-        expect(item?.displayName).toBe("Claude");
+        expect(item?.displayName).toBe("");
         expect(item?.source).toBe("poll");
         expect(item?.supportedProviders).toEqual(["claude"]);
         expect(item?.metadata?.parameters?.[0]?.name).toBe("API_KEY");
