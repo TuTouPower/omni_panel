@@ -521,6 +521,12 @@ async function main(): Promise<ScriptObservation[]> {
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             ctx.log.warn(`CPA ${auth_file.provider} (${account.account_label}) failed: ${msg}`);
+            ctx.report_failed_account(
+                auth_file.provider,
+                account.account_id,
+                account.account_label,
+                msg,
+            );
             continue;
         }
     }

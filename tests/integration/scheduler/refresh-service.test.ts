@@ -860,6 +860,107 @@ return [{
             await rm(tempDir, { recursive: true, force: true });
         }
     });
+
+    it("marks only the failed account's prior observations stale when script reports a failed account", async () => {
+        // invariant 5: CPA 单账号失败只让那一行 stale，同 provider 其他账号照常刷新。
+        // 脚本成功返回 acc-ok 的观测，但通过 ctx.report_failed_account 报告
+        // acc-failed 失败。refresh-service 应从 observation-store 取 acc-failed
+        // 的上次成功观测，复制为 stale 副本插入；acc-ok 的观测正常插入。
+        const tempDir = await mkdtemp(join(tmpdir(), "stale-per-account-"));
+        const script = `
+            ctx.report_failed_account("claude", "acc-failed", "Failed Account", "HTTP 500");
+            return [{
+                provider: "claude",
+                account_id: "acc-ok",
+                account_label: "OK Account",
+                metric_id: "claude:acc-ok:five_hour",
+                raw_label: "five_hour",
+                normalized_label: "5小时",
+                window: "second",
+                used: 30,
+                limit: 100,
+                display_style: "percent",
+                reset_at: null,
+                status: "normal",
+                observed_at: 1780000000000,
+                source: "gateway",
+                stale: false,
+                last_error: null
+            }];
+        `;
+        await writeFile(join(tempDir, "connector.js"), script);
+
+        const prior_failed_obs: Observation = {
+            provider: "claude",
+            source_instance_id: "deepseek-1",
+            account_id: "acc-failed",
+            account_label: "Failed Account",
+            metric_id: "claude:acc-failed:five_hour",
+            raw_label: "five_hour",
+            normalized_label: "5小时",
+            window: "second",
+            used: 70,
+            limit: 100,
+            display_style: "percent",
+            reset_at: null,
+            status: "normal",
+            observed_at: 1770000000000,
+            source: "gateway",
+            stale: false,
+            last_error: null,
+        };
+
+        const observationStore = make_store();
+        observationStore.list_by_source_instance_id = vi.fn(() => [prior_failed_obs]);
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition(tempDir)],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([{ ...plugin_config(), executablePath: tempDir }]),
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            // 成功账号的观测正常插入（非 stale）
+            const ok_inserts = observationStore.inserted.filter(
+                (o) => o.account_id === "acc-ok" && !o.stale,
+            );
+            expect(ok_inserts).toHaveLength(1);
+            expect(ok_inserts[0]).toMatchObject({
+                provider: "claude",
+                account_id: "acc-ok",
+                used: 30,
+                limit: 100,
+                stale: false,
+            });
+
+            // 失败账号的上次成功观测被复制为 stale 副本插入
+            const stale_inserts = observationStore.inserted.filter(
+                (o) => o.account_id === "acc-failed" && o.stale,
+            );
+            expect(stale_inserts).toHaveLength(1);
+            const stale_obs = stale_inserts[0];
+            if (!stale_obs) throw new Error("expected stale observation");
+            expect(stale_obs).toMatchObject({
+                provider: "claude",
+                account_id: "acc-failed",
+                metric_id: "claude:acc-failed:five_hour",
+                used: 70,
+                limit: 100,
+                last_error: "HTTP 500",
+            });
+            expect(stale_obs.observed_at).toBeGreaterThan(prior_failed_obs.observed_at);
+
+            // 脚本整体成功，state 应为 ready
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            expect(state.status).toBe("ready");
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
 });
 
 const firecrawl_literal_script = `

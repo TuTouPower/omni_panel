@@ -47,6 +47,7 @@ function create_ctx(balance_infos: unknown[]): ConnectorContext {
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: { API_KEY: "test-key", LIMIT: "100" },
+        report_failed_account: () => undefined,
     };
 }
 
@@ -118,6 +119,7 @@ describe("deepseek connector", () => {
             },
             files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
             params: { API_KEY: "test-key", LIMIT: "100" },
+            report_failed_account: () => undefined,
         };
         const result = await run_connector(manifest, script, ctx);
 
@@ -137,6 +139,7 @@ describe("deepseek connector", () => {
             },
             files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
             params: { API_KEY: "test-key", LIMIT: "100" },
+            report_failed_account: () => undefined,
         };
         const result = await run_connector(manifest, script, ctx);
 

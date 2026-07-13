@@ -4,7 +4,11 @@ import type { ConnectorConfiguration } from "../config/types";
 import type { AppConfigStore } from "../config/config-store";
 import type { RuntimeStore } from "./runtime-store";
 import type { VaultBackend } from "../vault/vault-backend";
-import type { Observation, ScriptObservation } from "../../../shared/types/observation";
+import type {
+    Observation,
+    ScriptObservation,
+    FailedAccount,
+} from "../../../shared/types/observation";
 import { observations_to_ready_state } from "./observation-mapping";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, createTraceId, withLogContext } from "../../../shared/lib/logger";
@@ -126,7 +130,7 @@ async function execute_connector(
     vault: VaultBackend,
     proxy_url?: string,
     trace_id?: string,
-): Promise<Observation[]> {
+): Promise<{ observations: Observation[]; failed_accounts: FailedAccount[] }> {
     const params = await build_params(connector_config, definition, vault, trace_id);
     const ctx = create_connector_context(definition.manifest, vault, connector_config.instanceId, {
         endpoint_overrides: { ...connector_config.endpointOverrides },
@@ -136,11 +140,13 @@ async function execute_connector(
     });
 
     let raw_observations: ScriptObservation[];
+    let failed_accounts: FailedAccount[] = [];
     if (definition.manifest.script) {
         const script_code = await readFile(resolve_script_path(definition), "utf8");
         const result = await run_connector(definition.manifest, script_code, ctx);
         if (result.error) throw new Error(result.error);
         raw_observations = result.observations;
+        failed_accounts = result.failed_accounts;
     } else if (definition.manifest.poll) {
         raw_observations = await execute_poll(definition.manifest, ctx);
     } else if (definition.manifest.observe?.probe) {
@@ -153,10 +159,11 @@ async function execute_connector(
     // host, not by the (untrusted) connector script. Stamp it on every
     // observation so two instances of the same direct provider (e.g. two
     // Firecrawl accounts) do not collapse into one account downstream.
-    return raw_observations.map((obs) => ({
+    const observations: Observation[] = raw_observations.map((obs) => ({
         ...obs,
         source_instance_id: connector_config.instanceId,
     }));
+    return { observations, failed_accounts };
 }
 
 export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefreshService {
@@ -215,7 +222,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
 
             for (let attempt = 0; attempt < max_attempts; attempt++) {
                 try {
-                    const observations = await execute_connector(
+                    const { observations, failed_accounts } = await execute_connector(
                         connector_config,
                         definition,
                         deps.vault,
@@ -236,7 +243,39 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                             throw insert_error;
                         }
                     }
-                    const { items, updatedAt } = observations_to_ready_state(observations);
+
+                    // invariant 5 / P0-2: 脚本成功返回但内部有单账号失败时，
+                    // 复制失败账号的上次成功观测为 stale 副本插入。成功账号的
+                    // 观测已正常插入，不受影响。失败账号无上次观测时跳过
+                    // （UI 显示"无数据"而非"stale"）。
+                    const stale_observations: Observation[] = [];
+                    if (failed_accounts.length > 0) {
+                        const stale_observed_at = Date.now();
+                        const prior = deps.observationStore.list_by_source_instance_id(instanceId);
+                        for (const failed of failed_accounts) {
+                            for (const obs of prior) {
+                                if (obs.account_id !== failed.account_id) continue;
+                                const stale_obs: Observation = {
+                                    ...obs,
+                                    stale: true,
+                                    last_error: failed.error,
+                                    observed_at: stale_observed_at,
+                                };
+                                deps.observationStore.insert(stale_obs);
+                                stale_observations.push(stale_obs);
+                            }
+                        }
+                        if (stale_observations.length > 0) {
+                            trace_log.info(
+                                `Marked ${String(stale_observations.length)} observation(s) stale for ${String(failed_accounts.length)} failed account(s) on ${instanceId}`,
+                            );
+                        }
+                    }
+
+                    const { items, updatedAt } = observations_to_ready_state([
+                        ...observations,
+                        ...stale_observations,
+                    ]);
                     deps.runtimeStore.updateState(instanceId, {
                         status: "ready",
                         items,

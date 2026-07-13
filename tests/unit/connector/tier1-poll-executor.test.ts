@@ -39,6 +39,7 @@ function make_ctx(response: unknown): ConnectorContext {
             list: () => Promise.resolve([]),
         },
         params: {},
+        report_failed_account: () => undefined,
     };
 }
 
@@ -100,6 +101,7 @@ describe("tier1-poll-executor", () => {
                 list: () => Promise.resolve([]),
             },
             params: {},
+            report_failed_account: () => undefined,
         };
 
         const result = await execute_poll(manifest, ctx);
@@ -126,6 +128,7 @@ describe("tier1-poll-executor", () => {
                 list: () => Promise.resolve([]),
             },
             params: {},
+            report_failed_account: () => undefined,
         };
         await expect(execute_poll(tavily_manifest, ctx)).rejects.toThrow("network");
     });

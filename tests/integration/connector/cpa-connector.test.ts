@@ -92,6 +92,7 @@ function create_ctx(): ConnectorContext {
             list: () => Promise.resolve([]),
         },
         params: { cpa_mgmt_key: "management-key", monitor_claude: "true" },
+        report_failed_account: () => undefined,
     };
 }
 

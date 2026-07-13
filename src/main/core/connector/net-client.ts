@@ -351,5 +351,9 @@ export function create_connector_context(
             },
         },
         params: config.params ?? {},
+        // 实际收集由 run_connector 注入的 wrapper 负责；此处仅为满足
+        // ConnectorContext 契约，脚本不会直接走到此 no-op（script 路径必经
+        // run_connector 包装）。
+        report_failed_account: () => undefined,
     };
 }

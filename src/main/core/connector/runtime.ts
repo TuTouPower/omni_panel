@@ -4,7 +4,7 @@ import { createLogger, withLogContext } from "../../../shared/lib/logger";
 import { DEFAULT_TIMEOUT_MS } from "../../../shared/constants";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import { script_observation_schema } from "../../../shared/schemas/observation";
-import type { ScriptObservation } from "../../../shared/types/observation";
+import type { ScriptObservation, FailedAccount } from "../../../shared/types/observation";
 import type { ConnectorContext } from "./host-io";
 
 const log = createLogger("connector-runtime");
@@ -12,6 +12,7 @@ const TIMEOUT_ERROR = "Connector script execution timeout";
 
 export interface ConnectorRunResult {
     readonly observations: ScriptObservation[];
+    readonly failed_accounts: FailedAccount[];
     readonly error: string | null;
 }
 
@@ -102,13 +103,29 @@ export async function run_connector(
     timeout_ms: number = DEFAULT_TIMEOUT_MS,
 ): Promise<ConnectorRunResult> {
     if (!manifest.script) {
-        return { observations: [], error: "No script defined in manifest" };
+        return { observations: [], failed_accounts: [], error: "No script defined in manifest" };
     }
 
     const runtime_log = ctx.trace_id ? withLogContext(log, { trace_id: ctx.trace_id }) : log;
 
+    // 收集脚本通过 ctx.report_failed_account 上报的失败账号。
+    // 用 wrapper 注入收集实现，覆盖 ctx 上可能存在的 no-op（来自
+    // net-client）。脚本只调 ctx.report_failed_account，不感知收集细节。
+    const failed_accounts: FailedAccount[] = [];
+    const ctx_with_collector: ConnectorContext = {
+        ...ctx,
+        report_failed_account: (
+            provider: string,
+            account_id: string,
+            account_label: string,
+            error: string,
+        ) => {
+            failed_accounts.push({ provider, account_id, account_label, error });
+        },
+    };
+
     try {
-        const context = create_sandbox_context(ctx);
+        const context = create_sandbox_context(ctx_with_collector);
         const compiled = compile_script(script_code);
         runtime_log.debug(
             `Connector ${manifest.id}: compiled, running in VM (timeout=${String(timeout_ms)}ms)`,
@@ -123,7 +140,7 @@ export async function run_connector(
         runtime_log.debug(`Connector ${manifest.id}: race_with_timeout resolved`);
 
         if (!Array.isArray(result)) {
-            return { observations: [], error: "Script did not return an array" };
+            return { observations: [], failed_accounts, error: "Script did not return an array" };
         }
 
         const observations: ScriptObservation[] = [];
@@ -139,11 +156,11 @@ export async function run_connector(
         runtime_log.info(
             `Connector ${manifest.id}: ${String(observations.length)} valid observations (from ${String(result.length)} raw)`,
         );
-        return { observations, error: null };
+        return { observations, failed_accounts, error: null };
     } catch (error) {
         const message = get_error_message(error);
         const normalized = is_timeout_error(message) ? `${TIMEOUT_ERROR}: ${message}` : message;
         runtime_log.error(`Connector execution failed: ${normalized}`);
-        return { observations: [], error: normalized };
+        return { observations: [], failed_accounts, error: normalized };
     }
 }

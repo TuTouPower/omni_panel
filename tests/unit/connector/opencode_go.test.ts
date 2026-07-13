@@ -40,6 +40,7 @@ function create_ctx(
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params,
+        report_failed_account: () => undefined,
     };
 }
 

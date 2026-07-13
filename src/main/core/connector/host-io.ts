@@ -32,4 +32,15 @@ export interface ConnectorContext {
         list(path_pattern: string): Promise<readonly string[]>;
     };
     readonly params: Record<string, string>;
+    /**
+     * 脚本在 per-account 循环里 catch 到错误时调此方法上报失败账号。
+     * runtime 收集后交给 refresh-service，由后者从 observation-store 取
+     * 该账号上次成功观测并复制为 stale 副本（domain.md 不变量 5）。
+     */
+    readonly report_failed_account: (
+        provider: string,
+        account_id: string,
+        account_label: string,
+        error: string,
+    ) => void;
 }

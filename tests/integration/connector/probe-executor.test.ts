@@ -56,6 +56,7 @@ function create_ctx(): ConnectorContext {
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: {},
+        report_failed_account: () => undefined,
     };
 }
 
