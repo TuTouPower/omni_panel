@@ -452,7 +452,7 @@ describe("config-ipc", () => {
         expect(added?.stateId).not.toBe("claude");
     });
 
-    it("handleConfigExport writes JSON file via dialog", async () => {
+    it("handleConfigExport writes JSON file via dialog with plaintext secrets", async () => {
         const { dialog } = await import("electron");
         const exportPath = await tempFile("export.json");
         vi.mocked(dialog).showSaveDialog.mockResolvedValue({
@@ -471,7 +471,9 @@ describe("config-ipc", () => {
         const parsed = JSON.parse(await readFile(exportPath, "utf8")) as Record<string, unknown>;
         expect(parsed["formatVersion"]).toBe(1);
         expect(parsed["config"]).toBeDefined();
-        expect(parsed["secrets"]).toEqual({ "claude:API_KEY": "***REDACTED***" });
+        // 待澄清-1：明文导出密钥，权限完全开放给用户，不脱敏、不加密。
+        // 用户自己负责导出文件的安全（spec: secret-vault.md）。
+        expect(parsed["secrets"]).toEqual({ "claude:API_KEY": "sk-real" });
     });
 
     it("handleConfigExport returns saved=false when dialog canceled", async () => {

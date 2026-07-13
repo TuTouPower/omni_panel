@@ -42,10 +42,9 @@ listKeys(prefix?): Promise<string[]>
 
 ## 导入/导出（`CONFIG_EXPORT` / `CONFIG_IMPORT`）
 
-- 配置可明文导出，**密钥脱敏为 `\***REDACTED**\*`**（不导出明文密钥）。与 `config-store.md` 边界一致。
-- `ConfigExportData.secrets: Record<string, string>` 在文件中只是占位符，不含明文。
-- 导入时 `secretsStore.importAll` 走 delete-all + replace 语义（原子化 + 快照回滚，commit `d053992`）。
-- **已知限制**：导入带 `***REDACTED***` 占位的导出文件会清空现存 vault 内容（占位符被当字面值写入），用户需重新录入所有 secret。待办：导入路径过滤占位符。
+- 配置可明文导出，**密钥明文导出**——`ConfigExportData.secrets: Record<string, string>` 在文件中即为 vault 解密后的真实密钥。用户决策（待澄清-1）：权限完全开放给用户，不脱敏、不加密，用户自己负责导出文件的安全。
+- 导入时 `secretsStore.importAll` 走 delete-all + replace 语义（原子化 + 快照回滚，commit `d053992`），导入文件中的 secrets 字段直接写入 vault。
+- **安全提示**：导出文件含明文密钥，应避免放入云盘同步、版本控制或公共位置。
 
 ## 威胁模型（诚实记录）
 

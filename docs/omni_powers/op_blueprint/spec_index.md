@@ -19,7 +19,7 @@ OmniUsage 已实现功能清单。每项指向 `specs/{feature}.md`。技术栈/
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | [observation-store](specs/observation-store.md) | SQLite 观测表、observedAt 最新胜出、历史保留与 prune、WAL 配置                            |
 | [config-store](specs/config-store.md)           | AppConfiguration/ConnectorConfiguration schema、防抖原子写、载入加固、零散迁移、auto-seed |
-| [secret-vault](specs/secret-vault.md)           | AES-256-GCM 自管密钥、vault.key、keyFor 命名、最小暴露、日志脱敏、口令导入导出、威胁模型  |
+| [secret-vault](specs/secret-vault.md)           | AES-256-GCM 自管密钥、vault.key、keyFor 命名、最小暴露、日志脱敏、明文导入导出、威胁模型  |
 
 ## 宿主平台
 

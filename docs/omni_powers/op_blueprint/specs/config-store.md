@@ -32,4 +32,4 @@
 ## 边界
 
 - `schemaVersion` 字段存在但**无版本分支迁移引擎**（`architecture.md` §6）。
-- 导入导出见 `ipc.md`（`CONFIG_EXPORT`/`CONFIG_IMPORT`，密钥脱敏为 `***REDACTED***`）与 `secret-vault.md`。
+- 导入导出见 `ipc.md`（`CONFIG_EXPORT`/`CONFIG_IMPORT`，**密钥明文导出**，权限完全开放给用户）与 `secret-vault.md`。
