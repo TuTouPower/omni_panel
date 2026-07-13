@@ -16,9 +16,15 @@ import { createLoggedIpcHandler } from "./logged";
 
 const instanceIdSchema = z.string().min(1);
 
+// CPA 网关连接器走单独的 provider/source 分发逻辑（monitor_* 参数、gateway source）。
+// 三处分支共用此判断，避免 manifest.id === "cpa" 字面量散落。
+export function is_cpa_connector(definition: ConnectorDefinition | undefined): boolean {
+    return definition?.manifest.id === "cpa";
+}
+
 function source_from_definition(definition: ConnectorDefinition | undefined): UsageSource {
     if (!definition) return "poll";
-    if (definition.manifest.id === "cpa") return "gateway";
+    if (is_cpa_connector(definition)) return "gateway";
     const capabilities = definition.manifest.capabilities;
     if (capabilities.includes("session")) return "session";
     if (capabilities.includes("local")) return "local";
@@ -30,7 +36,7 @@ function supported_providers(
     definition: ConnectorDefinition | undefined,
 ): readonly UsageProvider[] {
     if (!definition) return [];
-    if (definition.manifest.id === "cpa") {
+    if (is_cpa_connector(definition)) {
         return definition.manifest.parameters
             .filter((p) => p.name.startsWith("monitor_"))
             .map((p) => p.name.replace("monitor_", ""))
@@ -73,7 +79,7 @@ function activeProvidersForConnector(
 ): readonly UsageProvider[] {
     const providers = supported_providers(definition);
     if (!definition) return providers;
-    if (definition.manifest.id !== "cpa") return providers;
+    if (!is_cpa_connector(definition)) return providers;
     return providers.filter((provider) => {
         const key = `monitor_${provider}`;
         const metadataDefault = definition.manifest.parameters.find((p) => p.name === key)?.default;
