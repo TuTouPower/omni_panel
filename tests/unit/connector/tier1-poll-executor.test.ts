@@ -53,7 +53,6 @@ describe("tier1-poll-executor", () => {
             account_id: "default",
             account_label: "tavily",
             metric_id: "tavily:usage",
-            name: "Usage",
             window: "month",
             used: 100,
             limit: 1000,
@@ -65,6 +64,8 @@ describe("tier1-poll-executor", () => {
             last_error: null,
         });
         expect(result[0]?.observed_at).toEqual(expect.any(Number));
+        // conventions.md §5：观测用 raw_label + normalized_label，不再带废弃的 name 字段
+        expect(result[0]).not.toHaveProperty("name");
     });
 
     it("uses POST when manifest request method is POST", async () => {

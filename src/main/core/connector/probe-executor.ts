@@ -101,7 +101,6 @@ export async function execute_probe(
             account_id: "default",
             account_label: manifest.provider,
             metric_id: `${manifest.id}:usage`,
-            name: "Usage",
             raw_label: "usage",
             normalized_label: "Usage",
             window: "month",
