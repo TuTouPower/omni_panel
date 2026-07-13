@@ -627,4 +627,89 @@ describe("config-ipc", () => {
             handler({ senderFrame: { url: "about:blank" } } as Electron.IpcMainInvokeEvent),
         ).toThrow("IPC not allowed from unknown origin");
     });
+
+    // P1-3: 用户可见文案统一用「连接器」而非「插件」（domain.md §5）
+    describe("user-facing messages use 连接器 wording", () => {
+        it("handleConfigSave unknown instanceId message says 连接器 not 插件", async () => {
+            const deps = createMockDeps();
+            const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
+            const loaded = structuredClone(await deps.configStore.load()) as AppConfiguration;
+            const fakePlugin: AppConfiguration["plugins"][number] = {
+                instanceId: "unknown-id",
+                stateId: "unknown-id",
+                name: "Fake",
+                enabled: true,
+                executablePath: "/plugins/fake.py",
+                refreshIntervalSeconds: 300,
+                parameterValues: {},
+                endpointOverrides: {},
+            };
+            const modified: AppConfiguration = {
+                ...loaded,
+                plugins: [...loaded.plugins, fakePlugin],
+            };
+
+            const result = await handleConfigSave(deps, modified);
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error.message).toContain("连接器");
+                expect(result.error.message).not.toContain("插件");
+            }
+        });
+
+        it("handleConfigSaveSecrets unknown instanceId message says 连接器 not 插件", async () => {
+            const deps = createMockDeps();
+            const { handleConfigSaveSecrets } = await import("../../../src/main/ipc/config-ipc");
+            const result = await handleConfigSaveSecrets(deps, {
+                instanceId: "nonexistent",
+                secrets: { API_KEY: "new-key" },
+            });
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error.message).toContain("连接器");
+                expect(result.error.message).not.toContain("插件");
+            }
+        });
+
+        it("config:duplicate unknown source message says 连接器 not 插件", async () => {
+            const deps = createMockDeps();
+            const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+            await registerConfigIpc(deps);
+            const handler = ipc_main_mock.handle.mock.calls.find(
+                ([channel]) => channel === "config:duplicate",
+            )?.[1];
+            if (!handler) throw new Error("missing config:duplicate handler");
+
+            const result = await handler(
+                { senderFrame: { url: "file://settings" } } as Electron.IpcMainInvokeEvent,
+                "nonexistent-source",
+            );
+
+            expect(result).toMatchObject({ ok: false });
+            const error_message = (result as { error: { message: string } }).error.message;
+            expect(error_message).toContain("连接器");
+            expect(error_message).not.toContain("插件");
+        });
+
+        it("config:duplicate save failure message says 连接器 not 插件", async () => {
+            const deps = createMockDeps();
+            deps.configStore.save = vi.fn().mockRejectedValue(new Error("disk full"));
+            const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+            await registerConfigIpc(deps);
+            const handler = ipc_main_mock.handle.mock.calls.find(
+                ([channel]) => channel === "config:duplicate",
+            )?.[1];
+            if (!handler) throw new Error("missing config:duplicate handler");
+
+            const result = await handler(
+                { senderFrame: { url: "file://settings" } } as Electron.IpcMainInvokeEvent,
+                "claude",
+            );
+
+            expect(result).toMatchObject({ ok: false });
+            const error_message = (result as { error: { message: string } }).error.message;
+            expect(error_message).toContain("连接器");
+            expect(error_message).not.toContain("插件");
+        });
+    });
 });

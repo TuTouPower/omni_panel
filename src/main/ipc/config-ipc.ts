@@ -107,7 +107,7 @@ export async function handleConfigSave(
         for (const plugin of incoming.plugins) {
             const existing = currentByInstanceId.get(plugin.instanceId);
             if (!existing) {
-                return fail("VALIDATION_ERROR", `未知的插件实例: ${plugin.instanceId}`);
+                return fail("VALIDATION_ERROR", `未知的连接器实例: ${plugin.instanceId}`);
             }
             if (existing.executablePath !== plugin.executablePath) {
                 return fail("VALIDATION_ERROR", `不允许修改插件的可执行路径: ${plugin.name}`);
@@ -159,7 +159,7 @@ export async function handleConfigSaveSecrets(
         const plugin = config.plugins.find(
             (p: ConnectorConfiguration) => p.instanceId === instanceId,
         );
-        if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
+        if (!plugin) return fail("VALIDATION_ERROR", "连接器不存在");
 
         const allowedKeys = deps.secretParamKeys.get(instanceId);
         if (!allowedKeys) {
@@ -195,7 +195,7 @@ async function handleConfigDuplicate(
         const source = config.plugins.find(
             (p: ConnectorConfiguration) => p.instanceId === sourceInstanceId,
         );
-        if (!source) return fail("VALIDATION_ERROR", "源插件不存在");
+        if (!source) return fail("VALIDATION_ERROR", "源连接器不存在");
 
         const newInstanceId = randomUUID();
         // 不复制 source.displayName：新账号回退连接器名，避免克隆出带别名的副本
@@ -220,7 +220,7 @@ async function handleConfigDuplicate(
         return ok({ instanceId: newInstanceId });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return fail("INTERNAL_ERROR", `复制插件失败: ${msg}`);
+        return fail("INTERNAL_ERROR", `复制连接器失败: ${msg}`);
     }
 }
 
