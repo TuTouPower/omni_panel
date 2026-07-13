@@ -222,8 +222,8 @@ const renderer_log_throttle = create_renderer_log_throttle({ limit: 100, window_
 function send_renderer_log(payload: RendererLogPayload): void {
     const sanitized: RendererLogPayload = {
         level: payload.level,
-        module: sanitizeLogField(payload.module, 128),
-        message: sanitizeLogField(payload.message, 4096),
+        module: sanitize_log_field(payload.module, 128),
+        message: sanitize_log_field(payload.message, 4096),
     };
     if (import.meta.env.DEV) {
         sanitized.meta = payload.meta;
@@ -343,7 +343,7 @@ if (process.env["E2E"] === "1") {
 
 const CONTROL_CHARS_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f]/g;
 
-function sanitizeLogField(value: string, maxLen: number): string {
+function sanitize_log_field(value: string, maxLen: number): string {
     const stripped = value.replace(CONTROL_CHARS_RE, "");
     return stripped.length > maxLen ? stripped.slice(0, maxLen) : stripped;
 }

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import type { MetricRecord } from "../../../src/shared/schemas/plugin-output";
 import { usageProviderSchema } from "../../../src/shared/schemas/plugin-output";
@@ -1057,5 +1059,38 @@ describe("直连账号 displayName 覆盖采集层 accountLabel", () => {
         ];
         const [group] = build_provider_usage_groups(connectors);
         expect(group?.accounts[0]?.accountLabel).toBe("GLM 默认");
+    });
+});
+
+describe("provider-usage 命名约定 (snake_case)", () => {
+    // conventions.md §1：函数名一律 snake_case。同文件已有 build_provider_usage_groups。
+    const source = readFileSync(
+        resolve(__dirname, "../../../src/renderer/lib/provider-usage.ts"),
+        "utf8",
+    );
+
+    it("compare_providers 使用 snake_case 而非 compareProviders", () => {
+        expect(source).toContain("function compare_providers(");
+        expect(source).not.toContain("compareProviders");
+    });
+
+    it("latest_timestamp 使用 snake_case 而非 latestTimestamp", () => {
+        expect(source).toContain("function latest_timestamp(");
+        expect(source).not.toContain("latestTimestamp");
+    });
+
+    it("worst_status 使用 snake_case 而非 worstStatus", () => {
+        expect(source).toContain("function worst_status(");
+        expect(source).not.toContain("worstStatus");
+    });
+
+    it("to_period 使用 snake_case 而非 toPeriod", () => {
+        expect(source).toContain("function to_period(");
+        expect(source).not.toContain("toPeriod");
+    });
+
+    it("has_valid_quota 使用 snake_case 而非 hasValidQuota", () => {
+        expect(source).toContain("function has_valid_quota(");
+        expect(source).not.toContain("hasValidQuota");
     });
 });
