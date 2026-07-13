@@ -824,6 +824,7 @@ describe("SettingsView", () => {
         await waitFor(() => {
             expect(mock_session_login).toHaveBeenCalledWith({
                 instance_id: "mimo-1",
+                provider: "mimo",
                 login_url: "https://platform.xiaomimimo.com/console/plan-manage",
                 cookie_names: ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph"],
             });
@@ -888,6 +889,7 @@ describe("SettingsView", () => {
         await waitFor(() => {
             expect(mock_session_login).toHaveBeenCalledWith({
                 instance_id: "opencode-go-1",
+                provider: "opencode_go",
                 login_url: "https://opencode.ai/auth",
                 cookie_names: ["*"],
             });

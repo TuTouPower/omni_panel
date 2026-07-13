@@ -30,6 +30,7 @@ export async function handleSessionLogin(
     try {
         const result = await deps.sessionManager.start_login({
             instance_id: request.instance_id,
+            provider: request.provider,
             login_url: request.login_url,
             cookie_names: request.cookie_names,
         });

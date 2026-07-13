@@ -26,6 +26,7 @@ describe("handleSessionLogin", () => {
             { sessionManager: mock_session_manager },
             {
                 instance_id: "test-instance",
+                provider: "mimo",
                 login_url: "https://example.com/login",
                 cookie_names: ["SESSION"],
             },
@@ -37,6 +38,7 @@ describe("handleSessionLogin", () => {
         }
         expect(mock_session_manager.start_login).toHaveBeenCalledWith({
             instance_id: "test-instance",
+            provider: "mimo",
             login_url: "https://example.com/login",
             cookie_names: ["SESSION"],
         });
@@ -50,6 +52,7 @@ describe("handleSessionLogin", () => {
             { sessionManager: mock_session_manager },
             {
                 instance_id: "test-instance",
+                provider: "mimo",
                 login_url: "https://example.com/login",
                 cookie_names: ["SESSION"],
             },
@@ -71,6 +74,7 @@ describe("handleSessionLogin", () => {
             { sessionManager: mock_session_manager },
             {
                 instance_id: "test-instance",
+                provider: "mimo",
                 login_url: "https://example.com/login",
                 cookie_names: ["SESSION"],
             },
@@ -90,6 +94,7 @@ describe("handleSessionLogin", () => {
             { sessionManager: mock_session_manager },
             {
                 instance_id: "test-instance",
+                provider: "mimo",
                 login_url: "https://example.com/login",
                 cookie_names: ["SESSION"],
             },
@@ -107,6 +112,7 @@ describe("handleSessionLogin", () => {
             { sessionManager: mock_session_manager },
             {
                 instance_id: "",
+                provider: "mimo",
                 login_url: "https://example.com/login",
                 cookie_names: ["SESSION"],
             },
@@ -125,6 +131,7 @@ describe("handleSessionLogin", () => {
             { sessionManager: mock_session_manager },
             {
                 instance_id: "test-instance",
+                provider: "mimo",
                 login_url: "",
                 cookie_names: ["SESSION"],
             },
@@ -142,6 +149,7 @@ describe("handleSessionLogin", () => {
             { sessionManager: mock_session_manager },
             {
                 instance_id: "test-instance",
+                provider: "mimo",
                 login_url: "https://example.com/login",
                 cookie_names: "not-an-array" as unknown as string[],
             },
@@ -160,6 +168,7 @@ describe("handleSessionLogin", () => {
             { sessionManager: mock_session_manager },
             {
                 instance_id: "test-instance",
+                provider: "mimo",
                 login_url: "https://example.com/login",
                 cookie_names: [],
             },
@@ -179,6 +188,7 @@ describe("handleSessionLogin", () => {
             { sessionManager: mock_session_manager },
             {
                 instance_id: "test-instance",
+                provider: "mimo",
                 login_url: "https://example.com/login",
                 cookie_names: ["SESSION"],
             },

@@ -114,7 +114,7 @@ describe("handleCookieLogin", () => {
         };
     }
 
-    it("uses an instance-scoped persistent partition for interactive login", async () => {
+    it("uses a provider-scoped persistent partition persist:<provider>-login for interactive login", async () => {
         const mod = await import("../../../src/main/ipc/auth-ipc");
         const promise = mod.handleCookieLogin(build_deps("mimo-test-1"), "mimo-test-1");
 
@@ -125,10 +125,11 @@ describe("handleCookieLogin", () => {
         mock_window_events["closed"]?.();
         await promise;
 
-        expect(mock_partitions).toEqual(["persist:mimo-login:mimo-test-1"]);
+        expect(mock_partitions).toEqual(["persist:mimo-login"]);
     });
 
-    it("returns saved:true with combined cookie string when all 3 cookies present", async () => {
+    it("returns saved:false and does not read cookie jar when no cookie captured (P0-5)", async () => {
+        // Cookie jar 有匹配的 cookie，但未捕获到请求头 Cookie 时不应该回退到 cookie jar。
         mock_cookie_get_result = [
             { name: "api-platform_serviceToken", value: "tok_abc" },
             { name: "api-platform_slh", value: "slh_xyz" },
@@ -149,14 +150,12 @@ describe("handleCookieLogin", () => {
         const result = await promise;
         expect(result.ok).toBe(true);
         if (result.ok) {
-            expect(result.data.saved).toBe(true);
+            expect(result.data.saved).toBe(false);
         }
-        expect(secrets_store["mimo-test-1:SESSION_COOKIE"]).toBe(
-            "api-platform_serviceToken=tok_abc; api-platform_slh=slh_xyz; api-platform_ph=ph_123",
-        );
+        expect(secrets_store["mimo-test-1:SESSION_COOKIE"]).toBeUndefined();
     });
 
-    it("returns saved:true when only partial cookies are present", async () => {
+    it("returns saved:false when only partial cookies in jar and none captured (P0-5)", async () => {
         mock_cookie_get_result = [
             { name: "api-platform_serviceToken", value: "tok_abc" },
             { name: "api-platform_slh", value: "slh_xyz" },
@@ -175,11 +174,9 @@ describe("handleCookieLogin", () => {
         const result = await promise;
         expect(result.ok).toBe(true);
         if (result.ok) {
-            expect(result.data.saved).toBe(true);
+            expect(result.data.saved).toBe(false);
         }
-        expect(secrets_store["mimo-test-1:SESSION_COOKIE"]).toBe(
-            "api-platform_serviceToken=tok_abc; api-platform_slh=slh_xyz",
-        );
+        expect(secrets_store["mimo-test-1:SESSION_COOKIE"]).toBeUndefined();
     });
 
     it("rejects loginUrl with disallowed domain", async () => {

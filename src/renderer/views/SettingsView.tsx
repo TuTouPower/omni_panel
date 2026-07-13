@@ -19,7 +19,7 @@ import { LabelMapDialog } from "../components/LabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon, VendorMark, type VendorId } from "../components/Icon";
-import type { ConnectorInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
+import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc";
 import type {
     ConnectorConfiguration,
     AppConfiguration,
@@ -415,13 +415,15 @@ function AccountDialog({
                                 try {
                                     const provider = pluginInfo.activeProviders[0];
                                     const meta = provider ? session_meta[provider] : undefined;
-                                    const result = meta
-                                        ? await window.usageboard.session.login({
-                                              instance_id: id,
-                                              login_url: meta.login_url,
-                                              cookie_names: meta.cookie_names,
-                                          })
-                                        : await window.usageboard.auth.cookieLogin(id);
+                                    const result =
+                                        meta && provider
+                                            ? await window.usageboard.session.login({
+                                                  instance_id: id,
+                                                  provider,
+                                                  login_url: meta.login_url,
+                                                  cookie_names: meta.cookie_names,
+                                              })
+                                            : await window.usageboard.auth.cookieLogin(id);
                                     if (result.saved) {
                                         await window.usageboard.connector.refresh(id);
                                         await window.usageboard.config.get();
@@ -924,7 +926,7 @@ export function SettingsView() {
     // Keep pluginInfos in sync with live state changes from connectors
     useEffect(() => {
         const unsub = window.usageboard.event.onStateChange(
-            (instanceId: string, state: PluginSnapshotDTO) => {
+            (instanceId: string, state: ConnectorSnapshotDTO) => {
                 setConnectorInfos((prev) =>
                     prev.map((p) => (p.instanceId === instanceId ? { ...p, snapshot: state } : p)),
                 );

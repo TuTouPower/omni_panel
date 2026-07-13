@@ -31,7 +31,10 @@ import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
 import { decide_settings_close } from "./core/settings-close-action";
 import { createWindowManager, WINDOW_CONFIGS, SECURE_WEB_PREFS } from "./window/window-manager";
-import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestrator";
+import {
+    createSchedulerOrchestrator,
+    to_connector_list_config,
+} from "./core/scheduler/scheduler-orchestrator";
 import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
 import { registerConnectorIpc } from "./ipc/connector-ipc";
@@ -165,8 +168,15 @@ void app.whenReady().then(async () => {
         configStore,
         vault,
         sessionLogin: async (instanceId: string) => {
+            // 从 definitions + config 找到 instanceId 对应的 provider
+            const cfg = await configStore.load();
+            const plugin = cfg.plugins.find((p) => p.instanceId === instanceId);
+            if (!plugin) throw new Error(`No plugin found for instance ${instanceId}`);
+            const def = allDefinitions.find((d) => d.executablePath === plugin.executablePath);
+            if (!def) throw new Error(`No definition found for instance ${instanceId}`);
+            const provider = def.manifest.provider;
             // Try silent cookie refresh first (no window popup)
-            const silent = await trySilentCookieRefresh(secretsStore, instanceId);
+            const silent = await trySilentCookieRefresh(secretsStore, instanceId, provider);
             if (silent) {
                 return { saved: true };
             }
@@ -210,7 +220,10 @@ void app.whenReady().then(async () => {
             for (const [k, v] of newKeys) {
                 secretParamKeys.set(k, v);
             }
-            orchestrator.reconcile(previousConfig, updatedConfig);
+            orchestrator.reconcile(
+                to_connector_list_config(previousConfig),
+                to_connector_list_config(updatedConfig),
+            );
             for (const win of BrowserWindow.getAllWindows()) {
                 if (!win.isDestroyed()) {
                     win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
@@ -433,7 +446,7 @@ void app.whenReady().then(async () => {
     });
 
     // Start periodic refresh for enabled plugins
-    orchestrator.startAll(currentConfig);
+    orchestrator.startAll(to_connector_list_config(currentConfig));
 
     // Sleep/wake handling
     powerMonitor.on("suspend", () => {
