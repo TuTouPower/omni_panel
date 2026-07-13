@@ -149,7 +149,7 @@ describe("cpa connector", () => {
         expect(result.observations).toEqual([]);
     });
 
-    it("produces Codex observations via CPA api-call", async () => {
+    it("uses the Codex window duration instead of its field position", async () => {
         const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
         const ctx = create_ctx();
         ctx.http.get_json = () =>
@@ -164,10 +164,11 @@ describe("cpa connector", () => {
                     body: {
                         rate_limit: {
                             primary_window: {
+                                limit_window_seconds: 604_800,
                                 used_percent: 35,
                                 reset_at: "2026-06-14T12:00:00Z",
                             },
-                            secondary_window: { used_percent: 13, reset_at: null },
+                            secondary_window: null,
                         },
                     },
                 });
@@ -181,25 +182,144 @@ describe("cpa connector", () => {
 
         expect(codex_result.error).toBeNull();
         const codex = codex_result.observations.filter((o) => o.provider === "codex");
-        expect(codex.length).toBe(2);
-        expect(codex[0]).toEqual(
+        expect(codex).toEqual([
             expect.objectContaining({
                 provider: "codex",
                 source: "gateway",
-                window: "second",
+                metric_id: "codex:codex-auth:primary_window",
+                raw_label: "primary_window",
+                normalized_label: "一周",
+                window: "day",
                 display_style: "percent",
+                used: 35,
+            }),
+        ]);
+    });
+
+    it("maps the Codex annual-average month duration to a month window", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [{ name: "auth-codex-1.json", provider: "codex", auth_index: "codex-auth" }],
+            });
+        ctx.http.post_json = () =>
+            Promise.resolve({
+                status_code: 200,
+                body: {
+                    rate_limit: {
+                        primary_window: {
+                            limit_window_seconds: 2_628_000,
+                            used_percent: 42,
+                        },
+                    },
+                },
+            });
+
+        const result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
+
+        expect(result.error).toBeNull();
+        expect(result.observations.filter((o) => o.provider === "codex")).toEqual([
+            expect.objectContaining({
+                metric_id: "codex:codex-auth:primary_window",
+                raw_label: "primary_window",
+                normalized_label: "一月",
+                window: "month",
+                used: 42,
+            }),
+        ]);
+    });
+
+    it("keeps an unknown positive Codex duration explicit", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [{ name: "auth-codex-1.json", provider: "codex", auth_index: "codex-auth" }],
+            });
+        ctx.http.post_json = () =>
+            Promise.resolve({
+                status_code: 200,
+                body: {
+                    rate_limit: {
+                        secondary_window: {
+                            limit_window_seconds: 86_400,
+                            used_percent: 12,
+                        },
+                    },
+                },
+            });
+
+        const result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
+
+        expect(result.error).toBeNull();
+        expect(result.observations.filter((o) => o.provider === "codex")).toEqual([
+            expect.objectContaining({
+                metric_id: "codex:codex-auth:secondary_window",
+                raw_label: "secondary_window",
+                normalized_label: "窗口 86400 秒",
+                window: "second",
+                used: 12,
+            }),
+        ]);
+    });
+
+    it("parses camelCase Codex fields with the same window semantics", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [{ name: "auth-codex-1.json", provider: "codex", auth_index: "codex-auth" }],
+            });
+        ctx.http.post_json = () =>
+            Promise.resolve({
+                status_code: 200,
+                body: {
+                    rateLimit: {
+                        primaryWindow: {
+                            limitWindowSeconds: 18_000,
+                            usedPercent: 25,
+                            resetAt: 1_800_000_000,
+                        },
+                        secondaryWindow: {
+                            limitWindowSeconds: 604_800,
+                            usedPercent: 50,
+                            resetAfterSeconds: 300,
+                        },
+                    },
+                },
+            });
+
+        const result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
+
+        expect(result.error).toBeNull();
+        expect(result.observations.filter((o) => o.provider === "codex")).toEqual([
+            expect.objectContaining({
+                metric_id: "codex:codex-auth:primary_window",
                 raw_label: "primary_window",
                 normalized_label: "5小时",
+                window: "second",
+                used: 25,
+                reset_at: 1_800_000_000_000,
             }),
-        );
-        expect(codex[1]).toEqual(
             expect.objectContaining({
+                metric_id: "codex:codex-auth:secondary_window",
                 raw_label: "secondary_window",
                 normalized_label: "一周",
+                window: "day",
+                used: 50,
             }),
-        );
-        expect(codex[0]?.used).toBeCloseTo(35, 0);
-        expect(codex[1]?.used).toBeCloseTo(13, 0);
+        ]);
+        expect(typeof result.observations[1]?.reset_at).toBe("number");
     });
 
     it("shows 0 for unused Codex accounts (used_percent = 0)", async () => {
@@ -218,7 +338,11 @@ describe("cpa connector", () => {
                     body: {
                         rate_limit: {
                             primary_window: { used_percent: 0, reset_at: null },
-                            secondary_window: { used_percent: 0, reset_at: null },
+                            secondary_window: {
+                                limit_window_seconds: 0,
+                                used_percent: 0,
+                                reset_at: null,
+                            },
                         },
                     },
                 });
@@ -233,10 +357,22 @@ describe("cpa connector", () => {
         expect(result.error).toBeNull();
         const codex = result.observations.filter((o) => o.provider === "codex");
         expect(codex.length).toBe(2);
-        expect(codex[0]?.used).toBe(0);
-        expect(codex[0]?.raw_label).toBe("primary_window");
-        expect(codex[1]?.used).toBe(0);
-        expect(codex[1]?.raw_label).toBe("secondary_window");
+        expect(codex[0]).toEqual(
+            expect.objectContaining({
+                used: 0,
+                raw_label: "primary_window",
+                normalized_label: "主限额",
+                window: "second",
+            }),
+        );
+        expect(codex[1]).toEqual(
+            expect.objectContaining({
+                used: 0,
+                raw_label: "secondary_window",
+                normalized_label: "次限额",
+                window: "second",
+            }),
+        );
     });
 
     it("shows 100 for exhausted 5h window (used_percent = 100)", async () => {
@@ -253,7 +389,11 @@ describe("cpa connector", () => {
                     status_code: 200,
                     body: {
                         rate_limit: {
-                            primary_window: { used_percent: 100, reset_at: null },
+                            primary_window: {
+                                limit_window_seconds: 18_000,
+                                used_percent: 100,
+                                reset_at: null,
+                            },
                             secondary_window: { used_percent: 20, reset_at: null },
                         },
                     },
@@ -269,8 +409,14 @@ describe("cpa connector", () => {
         expect(result.error).toBeNull();
         const codex = result.observations.filter((o) => o.provider === "codex");
         expect(codex.length).toBe(2);
-        expect(codex[0]?.used).toBe(100);
-        expect(codex[0]?.raw_label).toBe("primary_window");
+        expect(codex[0]).toEqual(
+            expect.objectContaining({
+                used: 100,
+                raw_label: "primary_window",
+                normalized_label: "5小时",
+                window: "second",
+            }),
+        );
         expect(codex[1]?.used).toBe(20);
         expect(codex[1]?.raw_label).toBe("secondary_window");
     });

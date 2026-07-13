@@ -151,22 +151,55 @@ function parse_claude(
 
 // ─── Codex ─────────────────────────────────────────────
 
+interface CodexWindowDescriptor {
+    readonly normalized_label: string;
+    readonly window: "second" | "day" | "month";
+}
+
+function resolve_codex_window(
+    duration_seconds: unknown,
+    fallback_label: string,
+): CodexWindowDescriptor {
+    if (duration_seconds === 18_000) {
+        return { normalized_label: "5小时", window: "second" };
+    }
+    if (duration_seconds === 604_800) {
+        return { normalized_label: "一周", window: "day" };
+    }
+    if (duration_seconds === 2_628_000) {
+        return { normalized_label: "一月", window: "month" };
+    }
+    if (
+        typeof duration_seconds === "number" &&
+        Number.isFinite(duration_seconds) &&
+        duration_seconds > 0
+    ) {
+        return { normalized_label: `窗口 ${String(duration_seconds)} 秒`, window: "second" };
+    }
+    return { normalized_label: fallback_label, window: "second" };
+}
+
 function parse_codex(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
 ): ScriptObservation[] {
-    const rl = body["rate_limit"];
+    const rl = body["rate_limit"] ?? body["rateLimit"];
     if (!is_record(rl)) return [];
     // used_percent is integer percent USED (100 = fully consumed, 18 = 18%).
-    const windows: [string, string, string, "second" | "day"][] = [
-        ["primary_window", "primary_window", "5小时", "second"],
-        ["secondary_window", "secondary_window", "一周", "day"],
+    const windows: [string, string][] = [
+        ["primary_window", "主限额"],
+        ["secondary_window", "次限额"],
     ];
     const observations: ScriptObservation[] = [];
-    for (const [key, raw_label, normalized_label, window] of windows) {
-        const w = rl[key] ?? rl[key.replace(/_/g, "")];
+    for (const [key, fallback_label] of windows) {
+        const camel_key = key === "primary_window" ? "primaryWindow" : "secondaryWindow";
+        const w = rl[key] ?? rl[camel_key];
         if (!is_record(w)) continue;
+        const { normalized_label, window } = resolve_codex_window(
+            w["limit_window_seconds"] ?? w["limitWindowSeconds"],
+            fallback_label,
+        );
         const pct = Math.min(to_number(w["used_percent"] ?? w["usedPercent"]), 100);
         const raw_reset = w["reset_at"] ?? w["resetAt"];
         let reset_at: number | null = null;
@@ -174,15 +207,18 @@ function parse_codex(
             let ts = Number(raw_reset);
             if (ts < 1e12) ts *= 1000;
             if (Number.isFinite(ts)) reset_at = ts;
-        } else if (w["reset_after_seconds"] != null) {
-            reset_at = Date.now() + Number(w["reset_after_seconds"]) * 1000;
+        } else {
+            const reset_after_seconds = w["reset_after_seconds"] ?? w["resetAfterSeconds"];
+            if (reset_after_seconds != null) {
+                reset_at = Date.now() + Number(reset_after_seconds) * 1000;
+            }
         }
         observations.push({
             provider: "codex",
             account_id: account.account_id,
             account_label: account.account_label,
             metric_id: `codex:${account.account_id}:${key}`,
-            raw_label,
+            raw_label: key,
             normalized_label,
             window,
             used: pct,
