@@ -24,5 +24,7 @@
     "endpoints": {
         "default": "https://platform.xiaomimimo.com"
     },
+    "loginDomains": ["platform.xiaomimimo.com", "mimo.com"],
+    "cookieNames": ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph", "userId"],
     "script": "connector.ts"
 }

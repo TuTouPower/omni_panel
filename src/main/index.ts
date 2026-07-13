@@ -19,6 +19,8 @@ import {
     getUserConnectorsDir,
     get_tray_icon_path,
     get_app_icon_path,
+    get_observations_db_path,
+    get_snapshot_cache_path,
 } from "./core/paths";
 import { initLogging, defaultLogLevelForEnv } from "./core/logging";
 import { createLogger, setLogLevel } from "../shared/lib/logger";
@@ -114,11 +116,11 @@ void app.whenReady().then(async () => {
     const configPath = getConfigPath();
 
     const configStore = createConfigStore(configPath);
-    const runtimeStore = createRuntimeStore(join(dataRoot, "snapshot-cache.json"));
+    const runtimeStore = createRuntimeStore(get_snapshot_cache_path());
     await runtimeStore.hydrateFromCache();
     const vault = await create_file_vault_backend(dataRoot);
     const secretsStore = createSecretsStore(vault);
-    const observationStore = create_observation_store(join(dataRoot, "observations.sqlite"));
+    const observationStore = create_observation_store(get_observations_db_path());
 
     const bundledDir = getBundledConnectorsDir();
     const userDir = getUserConnectorsDir();
@@ -168,15 +170,12 @@ void app.whenReady().then(async () => {
         configStore,
         vault,
         sessionLogin: async (instanceId: string) => {
-            // 从 definitions + config 找到 instanceId 对应的 provider
-            const cfg = await configStore.load();
-            const plugin = cfg.plugins.find((p) => p.instanceId === instanceId);
-            if (!plugin) throw new Error(`No plugin found for instance ${instanceId}`);
-            const def = allDefinitions.find((d) => d.executablePath === plugin.executablePath);
-            if (!def) throw new Error(`No definition found for instance ${instanceId}`);
-            const provider = def.manifest.provider;
-            // Try silent cookie refresh first (no window popup)
-            const silent = await trySilentCookieRefresh(secretsStore, instanceId, provider);
+            // Try silent cookie refresh first (no window popup).
+            // trySilentCookieRefresh 内部从 definitions + config 查 provider 与 cookieNames。
+            const silent = await trySilentCookieRefresh(
+                { configStore, secretsStore, definitions: allDefinitions },
+                instanceId,
+            );
             if (silent) {
                 return { saved: true };
             }

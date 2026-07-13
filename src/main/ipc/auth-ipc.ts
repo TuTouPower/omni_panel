@@ -12,20 +12,6 @@ const log = createLogger("ipc:auth");
 
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 
-const ALLOWED_LOGIN_DOMAINS = new Set([
-    "kimi.com",
-    "mimo.com",
-    "platform.xiaomimimo.com",
-    "minimaxi.com",
-    "www.minimaxi.com",
-    "open.bigmodel.cn",
-    "api.deepseek.com",
-    "api.tavily.com",
-    "generativelanguage.googleapis.com",
-    "api.anthropic.com",
-    "127.0.0.1",
-]);
-
 export interface AuthIpcDeps {
     configStore: AppConfigStore;
     secretsStore: SecretsStore;
@@ -50,10 +36,13 @@ export async function handleCookieLogin(
 
     const parsed = new URL(loginUrl);
     const hostname = parsed.hostname;
-    if (
-        !ALLOWED_LOGIN_DOMAINS.has(hostname) &&
-        !ALLOWED_LOGIN_DOMAINS.has(hostname.replace(/^www\./, ""))
-    ) {
+    // 登录域名白名单从 manifest.loginDomains 读取（P1-4）：连接器自声明，宿主不硬编码。
+    const allowed_domains = def.manifest.loginDomains ?? [];
+    if (!allowed_domains.length) {
+        return fail("VALIDATION_ERROR", "该插件未配置登录域名");
+    }
+    const allowed_set = new Set(allowed_domains);
+    if (!allowed_set.has(hostname) && !allowed_set.has(hostname.replace(/^www\./, ""))) {
         return fail("VALIDATION_ERROR", `登录域名不被允许: ${hostname}`);
     }
 
@@ -168,24 +157,36 @@ export async function handleCookieLogin(
 
 /**
  * Try to silently refresh cookies from the persisted login session
- * without opening a login window. Returns the cookie string if the
- * session still has valid cookies, or null if not.
+ * without opening a login window. Returns true if the session still
+ * has all required cookies (declared in manifest.cookieNames) and
+ * they were saved, or false if not.
  */
 export async function trySilentCookieRefresh(
-    secretsStore: SecretsStore,
+    deps: AuthIpcDeps,
     instanceId: string,
-    provider: string,
 ): Promise<boolean> {
-    const partition = get_session_login_partition(provider);
+    const config = await deps.configStore.load();
+    const plugin = config.plugins.find((p) => p.instanceId === instanceId);
+    if (!plugin) {
+        log.warn(`Silent refresh: instance ${instanceId} not found in config`);
+        return false;
+    }
+    const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
+    if (!def) {
+        log.warn(`Silent refresh: definition not found for ${instanceId}`);
+        return false;
+    }
+    // cookie 名从 manifest.cookieNames 读取（P1-4）：未声明则无法校验，直接跳过。
+    const cookie_names = def.manifest.cookieNames ?? [];
+    if (!cookie_names.length) {
+        log.debug(`Silent refresh: ${instanceId} declares no cookieNames, skipping`);
+        return false;
+    }
+    const targetNames = new Set(cookie_names);
+    const partition = get_session_login_partition(def.manifest.provider);
     const loginSession = session.fromPartition(partition);
     try {
         const allCookies = await loginSession.cookies.get({});
-        const targetNames = new Set([
-            "api-platform_serviceToken",
-            "api-platform_slh",
-            "api-platform_ph",
-            "userId",
-        ]);
         const matched = allCookies.filter((c) => targetNames.has(c.name));
         if (matched.length < targetNames.size) {
             log.debug(
@@ -194,7 +195,7 @@ export async function trySilentCookieRefresh(
             return false;
         }
         const cookieHeader = matched.map((c) => `${c.name}=${c.value}`).join("; ");
-        await secretsStore.set(keyFor(instanceId, "SESSION_COOKIE"), cookieHeader);
+        await deps.secretsStore.set(keyFor(instanceId, "SESSION_COOKIE"), cookieHeader);
         log.info(`Silent cookie refresh succeeded for ${instanceId}`);
         return true;
     } catch (err: unknown) {
