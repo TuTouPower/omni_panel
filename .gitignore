@@ -63,3 +63,7 @@ artifacts/
 vendors/
 
 data/capture_all*.json
+
+# Internal working scratch and AI design chat logs (not for public)
+.scratch/
+docs/design/omni-usage/chats/
