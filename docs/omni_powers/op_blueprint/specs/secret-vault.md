@@ -42,9 +42,10 @@ listKeys(prefix?): Promise<string[]>
 
 ## 导入/导出（`CONFIG_EXPORT` / `CONFIG_IMPORT`）
 
-- 配置可明文导出，**密钥部分必须用户输入口令**，scrypt 派生密钥后 AES-GCM 加密成 bundle。
-- 导入时口令解密。`ConfigExportData.secrets: Record<string, string>` 在文件中已是加密 bundle，不含明文。
-- `importAll` 原子化 + 快照回滚（commit `d053992`）。
+- 配置可明文导出，**密钥脱敏为 `\***REDACTED**\*`**（不导出明文密钥）。与 `config-store.md` 边界一致。
+- `ConfigExportData.secrets: Record<string, string>` 在文件中只是占位符，不含明文。
+- 导入时 `secretsStore.importAll` 走 delete-all + replace 语义（原子化 + 快照回滚，commit `d053992`）。
+- **已知限制**：导入带 `***REDACTED***` 占位的导出文件会清空现存 vault 内容（占位符被当字面值写入），用户需重新录入所有 secret。待办：导入路径过滤占位符。
 
 ## 威胁模型（诚实记录）
 
