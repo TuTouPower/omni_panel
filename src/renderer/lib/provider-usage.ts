@@ -118,10 +118,12 @@ function toPeriod(
         connectorInstanceId: connector.instanceId,
         connectorDisplayName: connector.displayName,
         accountId: item.accountId,
-        // 直连账号备注名（ConnectorConfiguration.displayName）覆盖采集层默认名。
-        // CPA 连接器无改名 UI，displayName 始终等于 name，不会误覆盖其账号。
+        // 直连账号备注（ConnectorConfiguration.displayName）覆盖采集层默认名。
+        // CPA displayName 属于数据源备注，不能覆盖其子账号标签。
         accountLabel:
-            connector.displayName && connector.displayName !== connector.name
+            item.source !== "gateway" &&
+            connector.displayName &&
+            connector.displayName !== connector.name
                 ? connector.displayName
                 : item.accountLabel,
         name: item.normalized_label,

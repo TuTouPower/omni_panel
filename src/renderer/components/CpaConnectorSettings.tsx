@@ -173,12 +173,7 @@ export function CpaConnectorSettings({
                     if (Object.keys(secrets).length > 0) {
                         await onSaveSecrets(secrets);
                     }
-                    await onSave(
-                        nonSecrets,
-                        endpointOverrides,
-                        effectiveInterval,
-                        alias.trim() || displayName,
-                    );
+                    await onSave(nonSecrets, endpointOverrides, effectiveInterval, alias.trim());
                 })
                 .catch(() => {
                     setError("保存失败");
@@ -198,7 +193,6 @@ export function CpaConnectorSettings({
             syncInterval,
             followGlobal,
             alias,
-            displayName,
         ],
     );
 

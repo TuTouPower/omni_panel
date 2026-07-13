@@ -240,6 +240,47 @@ describe("provider usage aggregation", () => {
         ]);
     });
 
+    it("keeps CPA accounts separate when the connector has a remark", () => {
+        const account_labels = [
+            "user1@example.com",
+            "user2@example.com",
+            "user3@example.com",
+            "user4@example.com",
+        ];
+        const connectors = [
+            connectorInfo({
+                name: "CPA",
+                displayName: "Oracle",
+                source: "gateway",
+                sourceInstanceId: "cpa-main",
+                supportedProviders: ["codex"],
+                activeProviders: ["codex"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-07-13T00:00:00Z",
+                    items: account_labels.map((account_label, index) =>
+                        usageItem({
+                            id: `codex-${String(index + 1)}-primary`,
+                            provider: "codex",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: `auth-${String(index + 1)}`,
+                            accountLabel: account_label,
+                            raw_label: "primary_window",
+                            normalized_label: "5小时",
+                        }),
+                    ),
+                },
+            }),
+        ];
+
+        const [group] = build_provider_usage_groups(connectors);
+
+        expect(group?.accountCount).toBe(4);
+        expect(group?.accounts.map((account) => account.accountLabel)).toEqual(account_labels);
+        expect(group?.accounts.map((account) => account.periods.length)).toEqual([1, 1, 1, 1]);
+    });
+
     it("groups CPA rows by account label", () => {
         const items: MetricRecord[] = Array.from({ length: 5 }).flatMap((_, index) => {
             const account_index = String(index);

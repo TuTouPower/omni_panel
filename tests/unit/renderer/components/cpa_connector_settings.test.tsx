@@ -109,7 +109,7 @@ function renderSettings(overrides: Partial<Parameters<typeof CpaConnectorSetting
             enabled: true,
         },
         enabled: true,
-        displayName: "CPA",
+        displayName: "",
         globalIntervalLabel: "5 分钟",
         hasSecrets: { cpa_mgmt_key: true },
         onSave: vi.fn<SaveHandler>().mockResolvedValue(undefined),
@@ -134,7 +134,7 @@ describe("CpaConnectorSettings", () => {
         renderSettings();
 
         // Config fields
-        expect(screen.getByLabelText("备注")).toHaveValue("CPA");
+        expect(screen.getByLabelText("备注")).toHaveValue("");
         expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
         expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
 
@@ -222,7 +222,7 @@ describe("CpaConnectorSettings", () => {
             },
             { default: "http://new-cpa.example" },
             300,
-            "CPA",
+            "",
         );
         expect(onSaveSecrets).not.toHaveBeenCalled();
     });
@@ -363,6 +363,20 @@ describe("CpaConnectorSettings", () => {
     it("renders 备注 field with display name", () => {
         renderSettings({ displayName: "公司 CPA" });
         expect(screen.getByLabelText("备注")).toHaveValue("公司 CPA");
+    });
+
+    it("allows clearing the remark", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        renderSettings({ displayName: "公司 CPA", onSave });
+
+        await user.clear(screen.getByLabelText("备注"));
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(onSave).toHaveBeenCalledTimes(1);
+        });
+        expect(onSave.mock.calls[0]?.[3]).toBe("");
     });
 
     it("renders follow-global refresh toggle", () => {

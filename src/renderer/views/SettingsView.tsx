@@ -1268,7 +1268,7 @@ export function SettingsView() {
                                                     enabled: editingPluginConfig.enabled,
                                                 }}
                                                 enabled={editingPluginConfig.enabled}
-                                                displayName={editingPluginConfig.name}
+                                                displayName={editingPluginConfig.displayName ?? ""}
                                                 globalIntervalLabel={interval_label}
                                                 hasSecrets={hasSecrets[editingCpaId] ?? {}}
                                                 onSave={async (
@@ -1277,27 +1277,13 @@ export function SettingsView() {
                                                     refreshIntervalSeconds,
                                                     newDisplayName,
                                                 ) => {
-                                                    if (
-                                                        newDisplayName !== editingPluginConfig.name
-                                                    ) {
-                                                        await save_config({
-                                                            ...config,
-                                                            plugins: config.plugins.map((pl) =>
-                                                                pl.instanceId === editingCpaId
-                                                                    ? {
-                                                                          ...pl,
-                                                                          name: newDisplayName,
-                                                                      }
-                                                                    : pl,
-                                                            ),
-                                                        });
-                                                    }
                                                     await savePluginSettings(
                                                         editingCpaId,
                                                         nonSecrets,
                                                         {},
                                                         endpointOverrides,
                                                         refreshIntervalSeconds,
+                                                        newDisplayName,
                                                     );
                                                 }}
                                                 onSaveSecrets={async (secrets) => {

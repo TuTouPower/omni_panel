@@ -396,11 +396,47 @@ describe("SettingsView", () => {
         await waitFor(() => {
             expect(screen.getByTestId("cpa-connector-settings")).toBeInTheDocument();
         });
+        expect(screen.getByLabelText("备注")).toHaveValue("");
         expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
         expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
         expect(
             within(screen.getByTestId("cpa-connector-settings")).getByText("同步范围"),
         ).toBeInTheDocument();
+    });
+
+    it("saves CPA remark in displayName without changing connector name", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        const cpa_vendor = await screen.findByText("CPA");
+        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        if (!card) throw new Error("missing CPA card");
+        const edit_btn = card.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
+        if (!edit_btn) throw new Error("missing CPA edit button");
+        await user.click(edit_btn);
+
+        await user.type(screen.getByLabelText("备注"), "工作数据源");
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalledWith({
+                ...base_config,
+                plugins: [
+                    base_config.plugins[0],
+                    {
+                        ...base_config.plugins[1],
+                        displayName: "工作数据源",
+                        parameterValues: {
+                            monitor_claude: "true",
+                            monitor_codex: "false",
+                            monitor_antigravity: "false",
+                            monitor_kimi: "false",
+                        },
+                    },
+                ],
+            });
+        });
     });
 
     it("does not render a separate data source nav", async () => {
