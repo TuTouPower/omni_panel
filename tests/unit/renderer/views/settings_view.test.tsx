@@ -404,8 +404,10 @@ describe("SettingsView", () => {
         ).toBeInTheDocument();
     });
 
-    it("saves CPA remark in displayName without changing connector name", async () => {
+    it("saves CPA remark without refreshing and returns to accounts list", async () => {
         const user = userEvent.setup();
+        const refresh_spy = vi.fn();
+        window.usageboard.connector.refresh = refresh_spy;
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
@@ -437,6 +439,72 @@ describe("SettingsView", () => {
                 ],
             });
         });
+        expect(refresh_spy).not.toHaveBeenCalled();
+        expect(screen.queryByTestId("cpa-connector-settings")).not.toBeInTheDocument();
+        expect(screen.getByText("CPA")).toBeInTheDocument();
+    });
+
+    it("refreshes only the edited CPA after endpoint changes and returns immediately", async () => {
+        const user = userEvent.setup();
+        const refresh_spy = vi.fn(
+            () =>
+                new Promise<void>(() => {
+                    /* never resolves */
+                }),
+        );
+        const refresh_all_spy = vi.fn();
+        window.usageboard.connector.refresh = refresh_spy;
+        window.usageboard.connector.refreshAll = refresh_all_spy;
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        const cpa_vendor = await screen.findByText("CPA");
+        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        if (!card) throw new Error("missing CPA card");
+        const edit_btn = card.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
+        if (!edit_btn) throw new Error("missing CPA edit button");
+        await user.click(edit_btn);
+
+        await user.clear(screen.getByLabelText("CPA-Manager URL"));
+        await user.type(screen.getByLabelText("CPA-Manager URL"), "http://new-cpa.example");
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(refresh_spy).toHaveBeenCalledWith("cpa-1");
+            expect(screen.queryByTestId("cpa-connector-settings")).not.toBeInTheDocument();
+        });
+        expect(refresh_all_spy).not.toHaveBeenCalled();
+    });
+
+    it("refreshes only the edited CPA after management key changes", async () => {
+        const user = userEvent.setup();
+        const refresh_spy = vi.fn().mockResolvedValue(undefined);
+        const refresh_all_spy = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.connector.refresh = refresh_spy;
+        window.usageboard.connector.refreshAll = refresh_all_spy;
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        const cpa_vendor = await screen.findByText("CPA");
+        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        if (!card) throw new Error("missing CPA card");
+        const edit_btn = card.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
+        if (!edit_btn) throw new Error("missing CPA edit button");
+        await user.click(edit_btn);
+
+        await user.clear(screen.getByLabelText("管理密钥"));
+        await user.type(screen.getByLabelText("管理密钥"), "new-secret");
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(saveSecrets).toHaveBeenCalledWith("cpa-1", {
+                cpa_mgmt_key: "new-secret",
+            });
+            expect(refresh_spy).toHaveBeenCalledWith("cpa-1");
+            expect(screen.queryByTestId("cpa-connector-settings")).not.toBeInTheDocument();
+        });
+        expect(refresh_spy).toHaveBeenCalledTimes(1);
+        expect(refresh_all_spy).not.toHaveBeenCalled();
     });
 
     it("does not render a separate data source nav", async () => {

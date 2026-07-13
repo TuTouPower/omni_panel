@@ -34,8 +34,10 @@ interface CpaConnectorSettingsProps {
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
         displayName: string,
+        shouldRefresh: boolean,
     ) => Promise<void> | void;
     onSaveSecrets: (secrets: Record<string, string>) => Promise<void> | void;
+    onSaved?: (shouldRefresh: boolean) => void;
     onToggleEnabled: (enabled: boolean) => void;
     onRefresh: () => Promise<void> | void;
     onRemove?: () => Promise<void> | void;
@@ -72,6 +74,7 @@ export function CpaConnectorSettings({
     globalIntervalLabel,
     onSave,
     onSaveSecrets,
+    onSaved,
     onToggleEnabled,
     onRefresh,
     onRemove,
@@ -165,15 +168,45 @@ export function CpaConnectorSettings({
             }
 
             const effectiveInterval = followGlobal ? 0 : refresh_label_to_seconds(syncInterval);
+            const normalizedAlias = alias.trim();
+            const currentEndpoint = (
+                config.endpointOverrides["default"] ??
+                connector.metadata?.endpoints?.["default"] ??
+                ""
+            ).trim();
+            const endpointChanged = endpointOverrides["default"] !== currentEndpoint;
+            const monitorChanged = MONITORS.some((monitor) => {
+                const current = is_enabled_value(
+                    config.parameterValues[monitor.name] ??
+                        get_default_value(connector, monitor.name),
+                );
+                return monitors[monitor.name] !== current;
+            });
+            const configChanged =
+                endpointChanged ||
+                monitorChanged ||
+                effectiveInterval !== config.refreshIntervalSeconds ||
+                normalizedAlias !== displayName.trim() ||
+                "cpa_mgmt_key" in config.parameterValues;
+            const secretChanged = Object.keys(secrets).length > 0;
 
             setSaving(true);
             setError(null);
             void Promise.resolve()
                 .then(async () => {
-                    if (Object.keys(secrets).length > 0) {
+                    if (secretChanged) {
                         await onSaveSecrets(secrets);
                     }
-                    await onSave(nonSecrets, endpointOverrides, effectiveInterval, alias.trim());
+                    if (configChanged) {
+                        await onSave(
+                            nonSecrets,
+                            endpointOverrides,
+                            effectiveInterval,
+                            normalizedAlias,
+                            endpointChanged || monitorChanged || secretChanged,
+                        );
+                    }
+                    onSaved?.(endpointChanged || monitorChanged || secretChanged);
                 })
                 .catch(() => {
                     setError("保存失败");
@@ -188,11 +221,14 @@ export function CpaConnectorSettings({
             monitors,
             onSave,
             onSaveSecrets,
+            onSaved,
             saving,
             secret,
             syncInterval,
             followGlobal,
             alias,
+            connector,
+            displayName,
         ],
     );
 

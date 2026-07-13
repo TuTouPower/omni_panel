@@ -201,15 +201,16 @@ void app.whenReady().then(async () => {
         secretsStore,
         secretParamKeys,
         onConfigSaved: (updatedConfig) => {
+            const previousConfig = currentConfigSnapshot;
             currentConfigSnapshot = updatedConfig;
             setLogLevel(updatedConfig.logLevel ?? defaultLogLevelForEnv());
-            log.info("Config saved — rebuilding scheduler and secret keys");
+            log.info("Config saved — reconciling scheduler and secret keys");
             const newKeys = buildSecretParamKeys(updatedConfig);
             secretParamKeys.clear();
             for (const [k, v] of newKeys) {
                 secretParamKeys.set(k, v);
             }
-            orchestrator.rebuild(updatedConfig);
+            orchestrator.reconcile(previousConfig, updatedConfig);
             for (const win of BrowserWindow.getAllWindows()) {
                 if (!win.isDestroyed()) {
                     win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
@@ -437,12 +438,12 @@ void app.whenReady().then(async () => {
     // Sleep/wake handling
     powerMonitor.on("suspend", () => {
         log.info("System suspending — stopping all schedulers");
-        orchestrator.suspend();
+        orchestrator.suspend("system");
     });
 
     powerMonitor.on("resume", () => {
         log.info("System resumed — restarting schedulers");
-        orchestrator.resume();
+        orchestrator.resume("system");
     });
 
     // System tray — skip in E2E mode unless E2E_WITH_TRAY=1
@@ -542,13 +543,13 @@ void app.whenReady().then(async () => {
         ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_PAUSE, () => {
             is_paused = !is_paused;
             if (is_paused) {
-                orchestrator.suspend();
+                orchestrator.suspend("user");
             } else {
                 // resume() reloads config and startAll()s (which refreshes
                 // immediately). The previous rebuild()+startAll() here restarted
                 // every connector twice and desynced from the orchestrator's own
                 // suspend/resume generation — dropped.
-                orchestrator.resume();
+                orchestrator.resume("user");
             }
             send_tray_state();
         });

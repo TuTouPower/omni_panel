@@ -36,6 +36,8 @@
 - 用量条 UI 回归：细线型/粗胶囊型在概览/单账号/多账号视图行间距列结构一致。
 - 空/加载/错误态 DOM。
 - CPA UI 回归：主 UI 无 CPA provider tab；CPA 数据进对应 provider；CPA 配置只在设置/数据源页。
+- CPA 保存回归：无变化不持久化；备注/刷新间隔不立即采集；管理密钥、CPA-Manager URL、monitor 变化仅刷新当前 CPA；保存成功立即返回账号列表，保存失败保留详情页。
+- Scheduler 回归：非调度配置和插件排序变化不重建；有效计划变化才 deferred rebuild；user/system 暂停原因交错时互不解除，暂停期间配置变化不得启动 scheduler。
 
 ## 4. 必须真实打包 smoke（自动化不能单独宣称已解决）
 

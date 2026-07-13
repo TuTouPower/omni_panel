@@ -16,12 +16,15 @@
 
 ### scheduler-orchestrator.ts — 全集生命周期
 
-- 接口：`startAll` / `rebuild` / `suspend` / `resume` / `shutdown`。
-- 单一共享循环 `applyEnabled(config, immediate)`：仅对 `enabled && !manualRefreshOnly` 的连接器解析间隔并 `scheduler.start`。
-- `startAll` = `applyEnabled(immediate:true)`；`rebuild` = `stopAll()` + `applyEnabled(immediate:false)`。
-- `suspend` = `stopAll()` + 递增 `generation` + 装 **4 小时安全网定时器**（自动 resume）。
-- `resume` = 清安全网 + 异步重载 config，仅当 `generation` 未变时 `startAll`（防陈旧 resume 抢跑新 suspend）。
-- `shutdown` = 递增 generation + 清定时器 + `stopAll()`。
+- 接口：`startAll` / `rebuild` / `reconcile` / `suspend(reason)` / `resume(reason)` / `shutdown`；暂停原因是 `user | system`。
+- 有效调度计划仅含 `enabled && !manualRefreshOnly` 实例，使用 `resolve_refresh_interval` 解析最终间隔，并按 `instanceId` 排序。
+- `startAll` 以 `immediate:true` 应用计划；`rebuild` = `stopAll()` + 以 `immediate:false` 应用计划。
+- `reconcile(previous, next)` 只比较有效调度计划；备注、endpoint、secret、参数及插件数组顺序等非调度变化不重建，实例启停、增删或有效间隔变化才重建。
+- 暂停原因使用集合管理：任一原因仍存在时禁止启动 scheduler；system resume 不解除 user pause，user resume 不解除 system suspend。
+- `suspend(reason)` = 记录原因 + `stopAll()` + 递增 `generation`；仅 system suspend 安装 **4 小时安全网定时器**，且安全网只解除 system 原因。
+- `resume(reason)` 移除对应原因；全部原因解除后异步重载最新 config，仅当 `generation` 未变时 `startAll`（防陈旧 resume 抢跑新 suspend）。
+- 暂停期间计划变化只延迟应用，不恢复周期调度；真正恢复时以最新 config 建立计划。
+- `shutdown` = 递增 generation + 清 system 安全网 + `stopAll()`。
 - `manualRefreshOnly` 连接器永不自动调度。
 
 ### refresh-service.ts — 单次刷新

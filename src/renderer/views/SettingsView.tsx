@@ -941,6 +941,7 @@ export function SettingsView() {
             endpointOverrides: Record<string, string>,
             refreshIntervalSeconds: number,
             display_name?: string,
+            refresh_after_save = true,
         ) => {
             if (!config) return;
             if (Object.keys(secrets).length > 0) {
@@ -961,7 +962,9 @@ export function SettingsView() {
                     };
                 }),
             });
-            trigger_background_refresh(instanceId);
+            if (refresh_after_save) {
+                trigger_background_refresh(instanceId);
+            }
         },
         [config, save_config, saveSecrets],
     );
@@ -1284,10 +1287,17 @@ export function SettingsView() {
                                                         endpointOverrides,
                                                         refreshIntervalSeconds,
                                                         newDisplayName,
+                                                        false,
                                                     );
                                                 }}
                                                 onSaveSecrets={async (secrets) => {
                                                     await savePluginSecrets(editingCpaId, secrets);
+                                                }}
+                                                onSaved={(shouldRefresh) => {
+                                                    if (shouldRefresh) {
+                                                        trigger_background_refresh(editingCpaId);
+                                                    }
+                                                    setEditingCpaId(null);
                                                 }}
                                                 onToggleEnabled={(nextEnabled) => {
                                                     void save_config({

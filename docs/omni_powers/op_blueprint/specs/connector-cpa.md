@@ -58,3 +58,6 @@ CPA 脚本逐账号 try，产出观测各自带状态。失败归属决定显示
 - `connectors/cpa/manifest.json` + `connector.ts`（script 型，走 `connector-runtime.md` 脚本分支）。
 - `provider = "cpa"`，`capabilities = ["poll"]`（多步 poll 经 script 实现）。
 - 参数 `cpa_mgmt_key`（secret）。
+- 保存副作用按实际变化分类：管理密钥、CPA-Manager URL、任一 monitor 变化时，仅 fire-and-forget 刷新当前 CPA；备注、刷新间隔不立即采集。
+- 无变化保存不写 config、不写 secret、不刷新；保存成功返回账号列表，保存失败保留详情页。
+- 当前 CPA 定向刷新不等待网络结果，也不解除 scheduler 的 user/system 暂停状态。

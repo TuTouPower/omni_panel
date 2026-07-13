@@ -127,12 +127,12 @@ describe("scheduler-orchestrator", () => {
     });
 
     it("suspend stops all", () => {
-        orchestrator.suspend();
+        orchestrator.suspend("system");
         expect(scheduler.calls).toContain("stopAll");
     });
 
     it("resume reloads config and restarts enabled", async () => {
-        orchestrator.resume();
+        orchestrator.resume("system");
         await vi.advanceTimersByTimeAsync(0);
         expect(configStore.calls).toContain("load");
         expect(scheduler.calls).toContain("start:a");
@@ -142,6 +142,184 @@ describe("scheduler-orchestrator", () => {
     it("shutdown stops all", () => {
         orchestrator.shutdown();
         expect(scheduler.calls).toContain("stopAll");
+    });
+
+    it("reconcile ignores non-scheduling changes", () => {
+        const updated = {
+            ...config,
+            theme: "dark" as const,
+            plugins: config.plugins.map((plugin) =>
+                plugin.instanceId === "a"
+                    ? {
+                          ...plugin,
+                          displayName: "Renamed",
+                          parameterValues: { token: "changed" },
+                          endpointOverrides: { default: "https://example.com" },
+                      }
+                    : plugin,
+            ),
+        };
+
+        orchestrator.reconcile(config, updated);
+
+        expect(scheduler.calls).toEqual([]);
+    });
+
+    it("reconcile rebuilds when the effective schedule changes", () => {
+        const updated = {
+            ...config,
+            plugins: config.plugins.map((plugin) =>
+                plugin.instanceId === "a" ? { ...plugin, refreshIntervalSeconds: 900 } : plugin,
+            ),
+        };
+
+        orchestrator.reconcile(config, updated);
+
+        expect(scheduler.calls[0]).toBe("stopAll");
+        expect(scheduler.calls).toContain("start:a:deferred");
+        expect(scheduler.starts.find((entry) => entry.instanceId === "a")?.interval).toBe(900);
+    });
+
+    it("reconcile rebuilds when a connector is enabled", () => {
+        const updated = {
+            ...config,
+            plugins: config.plugins.map((plugin) =>
+                plugin.instanceId === "b" ? { ...plugin, enabled: true } : plugin,
+            ),
+        };
+
+        orchestrator.reconcile(config, updated);
+
+        expect(scheduler.calls[0]).toBe("stopAll");
+        expect(scheduler.calls).toContain("start:b:deferred");
+    });
+
+    it("reconcile ignores interval changes for disabled connectors", () => {
+        const updated = {
+            ...config,
+            plugins: config.plugins.map((plugin) =>
+                plugin.instanceId === "b" ? { ...plugin, refreshIntervalSeconds: 900 } : plugin,
+            ),
+        };
+
+        orchestrator.reconcile(config, updated);
+
+        expect(scheduler.calls).toEqual([]);
+    });
+
+    it("reconcile ignores interval changes for manual-only connectors", () => {
+        const previous = {
+            ...config,
+            plugins: config.plugins.map((plugin) =>
+                plugin.instanceId === "a" ? { ...plugin, manualRefreshOnly: true } : plugin,
+            ),
+        };
+        const updated = {
+            ...previous,
+            plugins: previous.plugins.map((plugin) =>
+                plugin.instanceId === "a" ? { ...plugin, refreshIntervalSeconds: 900 } : plugin,
+            ),
+        };
+
+        orchestrator.reconcile(previous, updated);
+
+        expect(scheduler.calls).toEqual([]);
+    });
+
+    it("reconcile rebuilds only when a global interval changes an active follow-global connector", () => {
+        const follow_global = {
+            ...config,
+            globalRefreshIntervalSeconds: 300,
+            plugins: config.plugins.map((plugin) =>
+                plugin.instanceId === "a" ? { ...plugin, refreshIntervalSeconds: 0 } : plugin,
+            ),
+        };
+
+        orchestrator.reconcile(follow_global, {
+            ...follow_global,
+            globalRefreshIntervalSeconds: 900,
+        });
+
+        expect(scheduler.calls[0]).toBe("stopAll");
+        expect(scheduler.starts.find((entry) => entry.instanceId === "a")?.interval).toBe(900);
+    });
+
+    it("reconcile ignores plugin order changes", () => {
+        orchestrator.reconcile(config, { ...config, plugins: [...config.plugins].reverse() });
+        expect(scheduler.calls).toEqual([]);
+    });
+
+    it("does not restart schedulers while user pause remains active", async () => {
+        orchestrator.suspend("user");
+        orchestrator.suspend("system");
+        scheduler.calls.length = 0;
+        scheduler.starts.length = 0;
+
+        orchestrator.resume("system");
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(scheduler.starts).toEqual([]);
+        expect(configStore.calls).not.toContain("load");
+
+        orchestrator.resume("user");
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(configStore.calls).toContain("load");
+        expect(scheduler.calls).toContain("start:a");
+    });
+
+    it("does not restart schedulers while system suspend remains active", async () => {
+        orchestrator.suspend("system");
+        orchestrator.suspend("user");
+        scheduler.calls.length = 0;
+        scheduler.starts.length = 0;
+
+        orchestrator.resume("user");
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(scheduler.starts).toEqual([]);
+        expect(configStore.calls).not.toContain("load");
+
+        orchestrator.resume("system");
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(configStore.calls).toContain("load");
+        expect(scheduler.calls).toContain("start:a");
+    });
+
+    it("reconcile does not start schedulers while suspended", () => {
+        orchestrator.suspend("user");
+        scheduler.calls.length = 0;
+        scheduler.starts.length = 0;
+        const updated = {
+            ...config,
+            plugins: config.plugins.map((plugin) =>
+                plugin.instanceId === "a" ? { ...plugin, refreshIntervalSeconds: 900 } : plugin,
+            ),
+        };
+
+        orchestrator.reconcile(config, updated);
+
+        expect(scheduler.starts).toEqual([]);
+    });
+
+    it("resumes with the latest config after a deferred reconcile", async () => {
+        const updated = {
+            ...config,
+            plugins: config.plugins.map((plugin) =>
+                plugin.instanceId === "a" ? { ...plugin, refreshIntervalSeconds: 900 } : plugin,
+            ),
+        };
+        configStore.load = () => Promise.resolve(updated);
+        orchestrator.suspend("user");
+        scheduler.calls.length = 0;
+        scheduler.starts.length = 0;
+
+        orchestrator.reconcile(config, updated);
+        orchestrator.resume("user");
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(scheduler.starts.find((entry) => entry.instanceId === "a")?.interval).toBe(900);
     });
 
     describe("follow-global refresh interval (sentinel 0)", () => {

@@ -47,6 +47,8 @@
 - `redact_config_raw` — config 日志脱敏
 - 导航：`settings:navigate(SettingsOpenContext)` 从主面板"编辑账号"跳入定位
 - **实时同步**：订阅 `onStateChange` 保持 `pluginInfos` 与 connector snapshot 同步（CPA 连接器状态就绪后子行即时出现）
+- **CPA 保存导航**：配置和 secret 持久化成功后立即退出 `CpaConnectorSettings`，返回账号列表；保存失败则保留详情页和输入并显示错误。
+- **CPA 保存刷新**：管理密钥、CPA-Manager URL、monitor 实际变化时，仅 fire-and-forget 调用当前 CPA `connector.refresh(instanceId)`；备注、刷新间隔及无变化提交不立即采集，且从不调用 `refreshAll()`。
 
 ### TrayMenu（托盘菜单，route=tray）
 
