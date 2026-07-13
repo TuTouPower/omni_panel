@@ -2,7 +2,7 @@ import { z } from "zod/v3";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
-import { ok, fail, toDTO, assert_valid_sender } from "./helpers";
+import { ok, fail, state_to_snapshot_dto, assert_valid_sender } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { ConnectorConfiguration } from "../../shared/types/config";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
@@ -99,7 +99,9 @@ export async function handleConnectorList(
             const definition = deps.definitions.find(
                 (d) => d.executablePath === plugin.executablePath,
             );
-            const snapshot = toDTO(deps.runtimeStore.getSnapshot(plugin.instanceId));
+            const snapshot = state_to_snapshot_dto(
+                deps.runtimeStore.getSnapshot(plugin.instanceId),
+            );
             const metadata = metadata_from_definition(definition);
             const providers = supported_providers(definition);
             return {
@@ -131,7 +133,7 @@ export function handleConnectorGetState(
         const parsed = instanceIdSchema.safeParse(instanceId);
         if (!parsed.success) return fail("VALIDATION_ERROR", "无效的连接器 ID");
         const state = deps.runtimeStore.getSnapshot(parsed.data);
-        return ok(toDTO(state));
+        return ok(state_to_snapshot_dto(state));
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return fail("INTERNAL_ERROR", `获取连接器状态失败: ${msg}`);
@@ -173,7 +175,7 @@ export function handleConnectorSnapshot(
     try {
         const snapshot: Record<string, ConnectorSnapshotDTO> = {};
         for (const [instance_id, state] of deps.runtimeStore.getAll()) {
-            snapshot[instance_id] = toDTO(state);
+            snapshot[instance_id] = state_to_snapshot_dto(state);
         }
         return ok(snapshot);
     } catch (err: unknown) {

@@ -1,5 +1,5 @@
 import type { IpcMainInvokeEvent } from "electron";
-import type { IpcResult, PluginSnapshotDTO } from "../../shared/types/ipc";
+import type { IpcResult, ConnectorSnapshotDTO } from "../../shared/types/ipc";
 import type { ConnectorSnapshotState } from "../core/scheduler/types";
 
 export type { IpcResult };
@@ -27,7 +27,7 @@ export function assert_valid_sender(event: IpcMainInvokeEvent): void {
     throw new Error(`Invalid sender protocol: ${url}`);
 }
 
-export function toDTO(state: ConnectorSnapshotState): PluginSnapshotDTO {
+export function state_to_snapshot_dto(state: ConnectorSnapshotState): ConnectorSnapshotDTO {
     switch (state.status) {
         case "idle":
             return { status: "idle" };
