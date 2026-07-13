@@ -7,14 +7,30 @@ const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 
 type PauseReason = "user" | "system";
 
+interface ConnectorListEntry {
+    enabled: boolean;
+    instanceId: string;
+    refreshIntervalSeconds: number;
+    manualRefreshOnly?: boolean;
+}
+
 interface ConnectorListConfig {
-    plugins: readonly {
-        enabled: boolean;
-        instanceId: string;
-        refreshIntervalSeconds: number;
-        manualRefreshOnly?: boolean;
-    }[];
+    connectors: readonly ConnectorListEntry[];
     globalRefreshIntervalSeconds?: number;
+}
+
+// 将 AppConfiguration（持久化 schema 仍用兼容字段 plugins）映射为
+// ConnectorListConfig（新代码统一用 connectors，见 domain.md §5）
+export function to_connector_list_config(appConfig: {
+    plugins: readonly ConnectorListEntry[];
+    globalRefreshIntervalSeconds?: number;
+}): ConnectorListConfig {
+    return {
+        connectors: appConfig.plugins,
+        ...(appConfig.globalRefreshIntervalSeconds !== undefined
+            ? { globalRefreshIntervalSeconds: appConfig.globalRefreshIntervalSeconds }
+            : {}),
+    };
 }
 
 interface SchedulerOrchestratorDeps {
@@ -38,7 +54,7 @@ interface ScheduleEntry {
 
 function build_schedule(config: ConnectorListConfig): ScheduleEntry[] {
     const schedule = new Map<string, number>();
-    for (const connector of config.plugins) {
+    for (const connector of config.connectors) {
         if (!connector.enabled || connector.manualRefreshOnly) continue;
         schedule.set(
             connector.instanceId,
@@ -133,7 +149,7 @@ export function createSchedulerOrchestrator(
                     return;
                 }
                 log.info("resume: restarting enabled connectors");
-                startAll(latestConfig);
+                startAll(to_connector_list_config(latestConfig));
             })
             .catch((error: unknown) => {
                 const message = error instanceof Error ? error.message : String(error);

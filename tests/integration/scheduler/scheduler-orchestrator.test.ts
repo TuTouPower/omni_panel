@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createSchedulerOrchestrator } from "../../../src/main/core/scheduler/scheduler-orchestrator";
+import {
+    createSchedulerOrchestrator,
+    to_connector_list_config,
+} from "../../../src/main/core/scheduler/scheduler-orchestrator";
 import type { ConnectorScheduler } from "../../../src/main/core/scheduler/connector-scheduler";
 import type { AppConfigStore } from "../../../src/main/core/config/config-store";
 import type { AppConfiguration } from "../../../src/main/core/config/types";
@@ -111,14 +114,14 @@ describe("scheduler-orchestrator", () => {
     });
 
     it("startAll only starts enabled connectors", () => {
-        orchestrator.startAll(config);
+        orchestrator.startAll(to_connector_list_config(config));
         expect(scheduler.calls).toContain("start:a");
         expect(scheduler.calls).toContain("start:c");
         expect(scheduler.calls).not.toContain("start:b");
     });
 
     it("rebuild stops all then restarts enabled without immediate refresh", () => {
-        orchestrator.rebuild(config);
+        orchestrator.rebuild(to_connector_list_config(config));
         expect(scheduler.calls[0]).toBe("stopAll");
         expect(scheduler.calls).toContain("start:a:deferred");
         expect(scheduler.calls).toContain("start:c:deferred");
@@ -160,7 +163,7 @@ describe("scheduler-orchestrator", () => {
             ),
         };
 
-        orchestrator.reconcile(config, updated);
+        orchestrator.reconcile(to_connector_list_config(config), to_connector_list_config(updated));
 
         expect(scheduler.calls).toEqual([]);
     });
@@ -173,7 +176,7 @@ describe("scheduler-orchestrator", () => {
             ),
         };
 
-        orchestrator.reconcile(config, updated);
+        orchestrator.reconcile(to_connector_list_config(config), to_connector_list_config(updated));
 
         expect(scheduler.calls[0]).toBe("stopAll");
         expect(scheduler.calls).toContain("start:a:deferred");
@@ -188,7 +191,7 @@ describe("scheduler-orchestrator", () => {
             ),
         };
 
-        orchestrator.reconcile(config, updated);
+        orchestrator.reconcile(to_connector_list_config(config), to_connector_list_config(updated));
 
         expect(scheduler.calls[0]).toBe("stopAll");
         expect(scheduler.calls).toContain("start:b:deferred");
@@ -202,7 +205,7 @@ describe("scheduler-orchestrator", () => {
             ),
         };
 
-        orchestrator.reconcile(config, updated);
+        orchestrator.reconcile(to_connector_list_config(config), to_connector_list_config(updated));
 
         expect(scheduler.calls).toEqual([]);
     });
@@ -221,7 +224,10 @@ describe("scheduler-orchestrator", () => {
             ),
         };
 
-        orchestrator.reconcile(previous, updated);
+        orchestrator.reconcile(
+            to_connector_list_config(previous),
+            to_connector_list_config(updated),
+        );
 
         expect(scheduler.calls).toEqual([]);
     });
@@ -235,17 +241,23 @@ describe("scheduler-orchestrator", () => {
             ),
         };
 
-        orchestrator.reconcile(follow_global, {
-            ...follow_global,
-            globalRefreshIntervalSeconds: 900,
-        });
+        orchestrator.reconcile(
+            to_connector_list_config(follow_global),
+            to_connector_list_config({
+                ...follow_global,
+                globalRefreshIntervalSeconds: 900,
+            }),
+        );
 
         expect(scheduler.calls[0]).toBe("stopAll");
         expect(scheduler.starts.find((entry) => entry.instanceId === "a")?.interval).toBe(900);
     });
 
     it("reconcile ignores plugin order changes", () => {
-        orchestrator.reconcile(config, { ...config, plugins: [...config.plugins].reverse() });
+        orchestrator.reconcile(
+            to_connector_list_config(config),
+            to_connector_list_config({ ...config, plugins: [...config.plugins].reverse() }),
+        );
         expect(scheduler.calls).toEqual([]);
     });
 
@@ -298,7 +310,7 @@ describe("scheduler-orchestrator", () => {
             ),
         };
 
-        orchestrator.reconcile(config, updated);
+        orchestrator.reconcile(to_connector_list_config(config), to_connector_list_config(updated));
 
         expect(scheduler.starts).toEqual([]);
     });
@@ -315,7 +327,7 @@ describe("scheduler-orchestrator", () => {
         scheduler.calls.length = 0;
         scheduler.starts.length = 0;
 
-        orchestrator.reconcile(config, updated);
+        orchestrator.reconcile(to_connector_list_config(config), to_connector_list_config(updated));
         orchestrator.resume("user");
         await vi.advanceTimersByTimeAsync(0);
 
@@ -345,7 +357,7 @@ describe("scheduler-orchestrator", () => {
             const s = createMockScheduler();
             const cs = createMockConfigStore(follow_global_config);
             const o = createSchedulerOrchestrator({ scheduler: s, configStore: cs });
-            o.startAll(follow_global_config);
+            o.startAll(to_connector_list_config(follow_global_config));
             const started = s.starts.find((entry) => entry.instanceId === "follow");
             expect(started).toBeDefined();
             expect(started?.interval).toBe(600);
@@ -372,7 +384,7 @@ describe("scheduler-orchestrator", () => {
             const s = createMockScheduler();
             const cs = createMockConfigStore(follow_global_config);
             const o = createSchedulerOrchestrator({ scheduler: s, configStore: cs });
-            o.startAll(follow_global_config);
+            o.startAll(to_connector_list_config(follow_global_config));
             const started = s.starts.find((entry) => entry.instanceId === "follow");
             expect(started?.interval).toBe(300);
         });
@@ -381,7 +393,7 @@ describe("scheduler-orchestrator", () => {
             const s = createMockScheduler();
             const cs = createMockConfigStore(config);
             const o = createSchedulerOrchestrator({ scheduler: s, configStore: cs });
-            o.startAll(config);
+            o.startAll(to_connector_list_config(config));
             const c = s.starts.find((entry) => entry.instanceId === "c");
             expect(c?.interval).toBe(120);
         });
@@ -408,10 +420,78 @@ describe("scheduler-orchestrator", () => {
             const s = createMockScheduler();
             const cs = createMockConfigStore(follow_global_config);
             const o = createSchedulerOrchestrator({ scheduler: s, configStore: cs });
-            o.rebuild(follow_global_config);
+            o.rebuild(to_connector_list_config(follow_global_config));
             const started = s.starts.find((entry) => entry.instanceId === "follow");
             expect(started?.interval).toBe(900);
             expect(started?.immediate).toBe(false);
+        });
+    });
+
+    // P1-1: ConnectorListConfig 必须使用 connectors 字段（domain.md §5 统一词）
+    describe("ConnectorListConfig uses connectors field", () => {
+        it("startAll reads from connectors (not plugins)", () => {
+            const listConfig = {
+                connectors: [
+                    {
+                        instanceId: "x",
+                        enabled: true,
+                        refreshIntervalSeconds: 300,
+                    },
+                    {
+                        instanceId: "y",
+                        enabled: false,
+                        refreshIntervalSeconds: 300,
+                    },
+                ],
+            };
+            orchestrator.startAll(listConfig);
+            expect(scheduler.calls).toContain("start:x");
+            expect(scheduler.calls).not.toContain("start:y");
+        });
+
+        it("rebuild reads from connectors", () => {
+            const listConfig = {
+                connectors: [
+                    {
+                        instanceId: "z",
+                        enabled: true,
+                        refreshIntervalSeconds: 600,
+                    },
+                ],
+            };
+            orchestrator.rebuild(listConfig);
+            expect(scheduler.calls[0]).toBe("stopAll");
+            expect(scheduler.calls).toContain("start:z:deferred");
+        });
+
+        it("reconcile reads from connectors on both sides", () => {
+            const previous = {
+                connectors: [{ instanceId: "a", enabled: true, refreshIntervalSeconds: 300 }],
+            };
+            const next = {
+                connectors: [{ instanceId: "a", enabled: true, refreshIntervalSeconds: 900 }],
+            };
+            orchestrator.reconcile(previous, next);
+            expect(scheduler.calls[0]).toBe("stopAll");
+            expect(scheduler.starts.find((entry) => entry.instanceId === "a")?.interval).toBe(900);
+        });
+
+        it("to_connector_list_config maps AppConfiguration.plugins to connectors", async () => {
+            const { to_connector_list_config } =
+                await import("../../../src/main/core/scheduler/scheduler-orchestrator");
+            const appConfig = {
+                plugins: [
+                    {
+                        instanceId: "mapped",
+                        enabled: true,
+                        refreshIntervalSeconds: 300,
+                    },
+                ],
+                globalRefreshIntervalSeconds: 120,
+            };
+            const listConfig = to_connector_list_config(appConfig);
+            expect(listConfig.connectors).toEqual(appConfig.plugins);
+            expect(listConfig.globalRefreshIntervalSeconds).toBe(120);
         });
     });
 });
