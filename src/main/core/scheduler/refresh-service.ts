@@ -282,6 +282,23 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 }
             }
 
+            // invariant 2: 采集失败保留上次成功观测，挂 stale:true + lastError。
+            // 为该 instance 下的每条最新观测插入一份 stale 副本，UI 据此显示"数据过期"。
+            // 首次即失败（无上次观测）时跳过——UI 应显示"无数据"而非"stale"。
+            const prior_observations = deps.observationStore.list_by_source_instance_id(instanceId);
+            const stale_observed_at = Date.now();
+            for (const obs of prior_observations) {
+                deps.observationStore.insert({
+                    ...obs,
+                    stale: true,
+                    last_error: last_error,
+                    observed_at: stale_observed_at,
+                });
+            }
+            trace_log.info(
+                `Marked ${String(prior_observations.length)} observation(s) stale for ${instanceId}`,
+            );
+
             deps.runtimeStore.updateState(instanceId, {
                 status: "failed",
                 error: last_error,

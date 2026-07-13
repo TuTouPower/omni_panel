@@ -776,6 +776,90 @@ return [{
             await rm(tempDir, { recursive: true, force: true });
         }
     });
+
+    it("inserts stale observations for last successful data when refresh fails", async () => {
+        // invariant 2: 采集失败保留上次成功观测，挂 stale:true + lastError
+        const tempDir = await mkdtemp(join(tmpdir(), "stale-on-fail-"));
+        await writeFile(join(tempDir, "connector.js"), `throw new Error("boom");`);
+
+        const prior_observation: Observation = {
+            provider: "deepseek",
+            source_instance_id: "deepseek-1",
+            account_id: "deepseek-1",
+            account_label: "DeepSeek",
+            metric_id: "deepseek:usage",
+            raw_label: "usage",
+            normalized_label: "Usage",
+            window: "month",
+            used: 80,
+            limit: 1000,
+            display_style: "ratio",
+            reset_at: null,
+            status: "normal",
+            observed_at: 1780000000000,
+            source: "wrapper",
+            stale: false,
+            last_error: null,
+        };
+
+        const observationStore = make_store();
+        observationStore.list_by_source_instance_id = vi.fn(() => [prior_observation]);
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition(tempDir)],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([{ ...plugin_config(), executablePath: tempDir }]),
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            expect(observationStore.inserted).toHaveLength(1);
+            const stale_obs = observationStore.inserted[0];
+            if (!stale_obs) throw new Error("expected stale observation");
+            expect(stale_obs).toMatchObject({
+                provider: "deepseek",
+                account_id: "deepseek-1",
+                metric_id: "deepseek:usage",
+                used: 80,
+                limit: 1000,
+                stale: true,
+            });
+            expect(stale_obs.last_error).toBe("boom");
+            expect(stale_obs.observed_at).toBeGreaterThan(prior_observation.observed_at);
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("does not insert stale observations when first refresh fails with no prior data", async () => {
+        // 首次即失败（无上次观测）时不插 stale — UI 应显示"无数据"而非"stale"
+        const tempDir = await mkdtemp(join(tmpdir(), "stale-no-prior-"));
+        await writeFile(join(tempDir, "connector.js"), `throw new Error("boom");`);
+
+        const observationStore = make_store();
+        observationStore.list_by_source_instance_id = vi.fn(() => []);
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition(tempDir)],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([{ ...plugin_config(), executablePath: tempDir }]),
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            expect(observationStore.inserted).toHaveLength(0);
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            expect(state.status).toBe("failed");
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
 });
 
 const firecrawl_literal_script = `
