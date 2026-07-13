@@ -19,7 +19,7 @@ import { LabelMapDialog } from "../components/LabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon, VendorMark, type VendorId } from "../components/Icon";
-import type { ConnectorInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
+import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc";
 import type {
     ConnectorConfiguration,
     AppConfiguration,
@@ -415,13 +415,15 @@ function AccountDialog({
                                 try {
                                     const provider = pluginInfo.activeProviders[0];
                                     const meta = provider ? session_meta[provider] : undefined;
-                                    const result = meta
-                                        ? await window.usageboard.session.login({
-                                              instance_id: id,
-                                              login_url: meta.login_url,
-                                              cookie_names: meta.cookie_names,
-                                          })
-                                        : await window.usageboard.auth.cookieLogin(id);
+                                    const result =
+                                        meta && provider
+                                            ? await window.usageboard.session.login({
+                                                  instance_id: id,
+                                                  provider,
+                                                  login_url: meta.login_url,
+                                                  cookie_names: meta.cookie_names,
+                                              })
+                                            : await window.usageboard.auth.cookieLogin(id);
                                     if (result.saved) {
                                         await window.usageboard.connector.refresh(id);
                                         await window.usageboard.config.get();
@@ -788,7 +790,7 @@ export function SettingsView() {
     }, [pluginInfos]);
 
     const restoreOverrideAccount = useCallback(
-        (provider: UsageProvider, key: string, kind: "hidden" | "disabled") => {
+        (provider: UsageProvider, key: string, kind: "hidden") => {
             if (!config?.accountOverrides) return;
             const newOverrides = remove_account_override(
                 config.accountOverrides,
@@ -924,7 +926,7 @@ export function SettingsView() {
     // Keep pluginInfos in sync with live state changes from connectors
     useEffect(() => {
         const unsub = window.usageboard.event.onStateChange(
-            (instanceId: string, state: PluginSnapshotDTO) => {
+            (instanceId: string, state: ConnectorSnapshotDTO) => {
                 setConnectorInfos((prev) =>
                     prev.map((p) => (p.instanceId === instanceId ? { ...p, snapshot: state } : p)),
                 );
@@ -941,6 +943,7 @@ export function SettingsView() {
             endpointOverrides: Record<string, string>,
             refreshIntervalSeconds: number,
             display_name?: string,
+            refresh_after_save = true,
         ) => {
             if (!config) return;
             if (Object.keys(secrets).length > 0) {
@@ -961,7 +964,9 @@ export function SettingsView() {
                     };
                 }),
             });
-            trigger_background_refresh(instanceId);
+            if (refresh_after_save) {
+                trigger_background_refresh(instanceId);
+            }
         },
         [config, save_config, saveSecrets],
     );
@@ -1268,7 +1273,7 @@ export function SettingsView() {
                                                     enabled: editingPluginConfig.enabled,
                                                 }}
                                                 enabled={editingPluginConfig.enabled}
-                                                displayName={editingPluginConfig.name}
+                                                displayName={editingPluginConfig.displayName ?? ""}
                                                 globalIntervalLabel={interval_label}
                                                 hasSecrets={hasSecrets[editingCpaId] ?? {}}
                                                 onSave={async (
@@ -1277,31 +1282,24 @@ export function SettingsView() {
                                                     refreshIntervalSeconds,
                                                     newDisplayName,
                                                 ) => {
-                                                    if (
-                                                        newDisplayName !== editingPluginConfig.name
-                                                    ) {
-                                                        await save_config({
-                                                            ...config,
-                                                            plugins: config.plugins.map((pl) =>
-                                                                pl.instanceId === editingCpaId
-                                                                    ? {
-                                                                          ...pl,
-                                                                          name: newDisplayName,
-                                                                      }
-                                                                    : pl,
-                                                            ),
-                                                        });
-                                                    }
                                                     await savePluginSettings(
                                                         editingCpaId,
                                                         nonSecrets,
                                                         {},
                                                         endpointOverrides,
                                                         refreshIntervalSeconds,
+                                                        newDisplayName,
+                                                        false,
                                                     );
                                                 }}
                                                 onSaveSecrets={async (secrets) => {
                                                     await savePluginSecrets(editingCpaId, secrets);
+                                                }}
+                                                onSaved={(shouldRefresh) => {
+                                                    if (shouldRefresh) {
+                                                        trigger_background_refresh(editingCpaId);
+                                                    }
+                                                    setEditingCpaId(null);
                                                 }}
                                                 onToggleEnabled={(nextEnabled) => {
                                                     void save_config({

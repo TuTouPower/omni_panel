@@ -71,32 +71,31 @@ describe("ProviderAccountRow account menu", () => {
     });
 
     it("shows account menu button when handlers are provided", () => {
-        render(
-            <ProviderAccountRow
-                account={make_account()}
-                onEditAccount={vi.fn()}
-                onDisableAccount={vi.fn()}
-            />,
-        );
+        render(<ProviderAccountRow account={make_account()} onEditAccount={vi.fn()} />);
 
         expect(screen.getByLabelText("账号操作")).toBeInTheDocument();
     });
 
-    it("shows edit and disable in the menu", async () => {
-        render(
-            <ProviderAccountRow
-                account={make_account()}
-                onEditAccount={vi.fn()}
-                onDisableAccount={vi.fn()}
-            />,
-        );
+    it("shows edit in the menu", async () => {
+        render(<ProviderAccountRow account={make_account()} onEditAccount={vi.fn()} />);
 
         fireEvent.click(screen.getByLabelText("账号操作"));
 
         await waitFor(() => {
             expect(screen.getByText("编辑")).toBeInTheDocument();
         });
-        expect(screen.getByText("关闭监控")).toBeInTheDocument();
+    });
+
+    it("does not show 关闭监控 in the menu", async () => {
+        // P0-3：禁用账号的菜单项已删除（违反不变量 8）。
+        render(<ProviderAccountRow account={make_account()} onEditAccount={vi.fn()} />);
+
+        fireEvent.click(screen.getByLabelText("账号操作"));
+
+        await waitFor(() => {
+            expect(screen.getByText("编辑")).toBeInTheDocument();
+        });
+        expect(screen.queryByText("关闭监控")).not.toBeInTheDocument();
     });
 
     it("calls onEditAccount when edit is clicked", async () => {
@@ -115,28 +114,6 @@ describe("ProviderAccountRow account menu", () => {
         expect(on_edit).toHaveBeenCalledWith(account);
     });
 
-    it("calls onDisableAccount when disable is clicked", async () => {
-        const on_disable = vi.fn();
-        const account = make_account();
-
-        render(
-            <ProviderAccountRow
-                account={account}
-                onEditAccount={vi.fn()}
-                onDisableAccount={on_disable}
-            />,
-        );
-
-        fireEvent.click(screen.getByLabelText("账号操作"));
-
-        await waitFor(() => {
-            expect(screen.getByText("关闭监控")).toBeInTheDocument();
-        });
-        fireEvent.click(screen.getByText("关闭监控"));
-
-        expect(on_disable).toHaveBeenCalledWith(account);
-    });
-
     it("clicking menu does not trigger collapse toggle", () => {
         const on_toggle = vi.fn();
 
@@ -146,7 +123,6 @@ describe("ProviderAccountRow account menu", () => {
                 collapsed={false}
                 onToggleCollapsed={on_toggle}
                 onEditAccount={vi.fn()}
-                onDisableAccount={vi.fn()}
             />,
         );
 

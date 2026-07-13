@@ -400,7 +400,9 @@ describe("PopupView", () => {
         expect(account_menu_buttons.length).toBeGreaterThan(0);
     });
 
-    it("account menu does not show hide or delete", async () => {
+    it("account menu does not show hide, delete, or 关闭监控", async () => {
+        // P0-3：删除 accountOverrides.disabled 后，账号子行不再有"关闭监控"
+        // 入口。隐藏由 hidden 覆盖，禁用按钮违反不变量 8（越层写破坏性状态）。
         render(<PopupView />);
 
         const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
@@ -419,65 +421,8 @@ describe("PopupView", () => {
         });
         expect(screen.queryByText("隐藏")).not.toBeInTheDocument();
         expect(screen.queryByText("删除")).not.toBeInTheDocument();
-    });
-
-    it("disables an account by saving account override", async () => {
-        const config_save = vi.fn().mockResolvedValue(undefined);
-        window.usageboard.config.save = config_save;
-
-        render(<PopupView />);
-
-        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
-        fireEvent.click(claude_tab);
-
-        await waitFor(() => {
-            expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
-        });
-
-        const account_menu = screen.getAllByLabelText("账号操作")[0];
-        if (!account_menu) throw new Error("account menu not found");
-        fireEvent.click(account_menu);
-
-        await waitFor(() => {
-            expect(screen.getByText("关闭监控")).toBeInTheDocument();
-        });
-        fireEvent.click(screen.getByText("关闭监控"));
-
-        await waitFor(() => {
-            expect(config_save).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    accountOverrides: {
-                        disabled: {
-                            claude: ["cpa-main|label|Claude Account"],
-                        },
-                    },
-                }),
-            );
-        });
-    });
-
-    it("shows account save failure feedback", async () => {
-        window.usageboard.config.save = vi.fn().mockRejectedValue(new Error("disk locked"));
-
-        render(<PopupView />);
-
-        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
-        fireEvent.click(claude_tab);
-
-        await waitFor(() => {
-            expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
-        });
-
-        const account_menu = screen.getAllByLabelText("账号操作")[0];
-        if (!account_menu) throw new Error("account menu not found");
-        fireEvent.click(account_menu);
-
-        await waitFor(() => {
-            expect(screen.getByText("关闭监控")).toBeInTheDocument();
-        });
-        fireEvent.click(screen.getByText("关闭监控"));
-
-        await expect(screen.findByRole("alert")).resolves.toHaveTextContent("保存账号操作失败");
+        // 期望：禁用账号的菜单项已删除（违反不变量 8）。
+        expect(screen.queryByText("关闭监控")).not.toBeInTheDocument();
     });
 
     it("opens settings with context when account edit is clicked", async () => {

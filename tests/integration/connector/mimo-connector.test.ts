@@ -43,6 +43,7 @@ function create_ctx(usage: unknown, detail: unknown, balance: unknown): Connecto
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
+        report_failed_account: () => undefined,
     };
 }
 
@@ -143,6 +144,7 @@ describe("mimo connector", () => {
             },
             files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
             params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
+            report_failed_account: () => undefined,
         };
         const result = await run_connector(manifest, script, error_ctx);
         expect(result.error).not.toBeNull();
@@ -204,6 +206,7 @@ describe("mimo connector", () => {
             },
             files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
             params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
+            report_failed_account: () => undefined,
         };
         const result = await run_connector(manifest, script, detail_null_ctx);
 

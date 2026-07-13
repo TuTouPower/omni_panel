@@ -15,5 +15,6 @@
     "endpoints": {
         "default": "https://kimi.com"
     },
+    "loginDomains": ["kimi.com", "www.kimi.com"],
     "script": "connector.ts"
 }

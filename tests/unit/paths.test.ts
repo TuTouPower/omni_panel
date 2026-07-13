@@ -3,11 +3,21 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("electron", () => ({
     app: {
         getPath: vi.fn(() => "/mock/userData"),
+        isPackaged: false,
     },
 }));
 
-const { getDataRoot, getConfigPath, getStatesDir, getUserConnectorsDir } =
-    await import("../../src/main/core/paths");
+const {
+    getDataRoot,
+    getConfigPath,
+    getStatesDir,
+    getUserConnectorsDir,
+    get_vault_path,
+    get_vault_key_path,
+    get_observations_db_path,
+    get_snapshot_cache_path,
+    get_logs_dir,
+} = await import("../../src/main/core/paths");
 
 describe("paths", () => {
     it("getDataRoot returns userData path", () => {
@@ -34,6 +44,7 @@ describe("paths", () => {
         vi.doMock("electron", () => ({
             app: {
                 getPath: vi.fn(() => "C:\\Users\\李明\\AppData\\Roaming\\Omni Usage"),
+                isPackaged: false,
             },
         }));
         const {
@@ -48,5 +59,40 @@ describe("paths", () => {
         expect(getConfigPath2()).toMatch(/config\.json$/);
         expect(getStatesDir2()).toMatch(/states$/);
         expect(getUserConnectorsDir2()).toMatch(/connectors$/);
+    });
+
+    it("get_vault_path ends with secrets.vault under userData", () => {
+        expect(get_vault_path()).toMatch(/secrets\.vault$/);
+    });
+
+    it("get_vault_key_path ends with vault.key under userData", () => {
+        expect(get_vault_key_path()).toMatch(/vault\.key$/);
+    });
+
+    it("get_observations_db_path ends with observations.sqlite under userData", () => {
+        expect(get_observations_db_path()).toMatch(/observations\.sqlite$/);
+    });
+
+    it("get_snapshot_cache_path ends with snapshot-cache.json under userData", () => {
+        expect(get_snapshot_cache_path()).toMatch(/snapshot-cache\.json$/);
+    });
+
+    it("get_logs_dir ends with logs directory under userData", () => {
+        expect(get_logs_dir()).toMatch(/logs$/);
+    });
+
+    it("path getters accept optional base dir override for testability", () => {
+        const custom_base = "/custom/data/root";
+        // 路径分隔符跨平台差异：统一成正斜杠后比较
+        const normalize = (p: string): string => p.replace(/\\/g, "/");
+        expect(normalize(get_vault_path(custom_base))).toBe(`${custom_base}/secrets.vault`);
+        expect(normalize(get_vault_key_path(custom_base))).toBe(`${custom_base}/vault.key`);
+        expect(normalize(get_observations_db_path(custom_base))).toBe(
+            `${custom_base}/observations.sqlite`,
+        );
+        expect(normalize(get_snapshot_cache_path(custom_base))).toBe(
+            `${custom_base}/snapshot-cache.json`,
+        );
+        expect(normalize(get_logs_dir(custom_base))).toBe(`${custom_base}/logs`);
     });
 });

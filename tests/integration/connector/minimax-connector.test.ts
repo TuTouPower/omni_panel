@@ -43,6 +43,7 @@ function create_ctx(model_remains: unknown[], base_resp?: unknown): ConnectorCon
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: { API_KEY: "test-key" },
+        report_failed_account: () => undefined,
     };
 }
 

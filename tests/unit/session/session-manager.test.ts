@@ -1,9 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import {
-    create_session_manager,
-    SESSION_LOGIN_PARTITION,
-} from "../../../src/main/core/session/session-manager";
+import { create_session_manager } from "../../../src/main/core/session/session-manager";
 import type {
     SessionCookie,
     SessionManagerDeps,
@@ -109,6 +106,7 @@ describe("session-manager", () => {
 
         const promise = manager.start_login({
             instance_id: "mimo-1",
+            provider: "mimo",
             login_url: "https://example.com/login",
             cookie_names: ["token"],
         });
@@ -118,12 +116,13 @@ describe("session-manager", () => {
         expect(deps.window.loaded_urls).toEqual(["https://example.com/login"]);
     });
 
-    it("uses an instance-scoped persistent partition for login window and cookie capture", async () => {
+    it("uses a provider-scoped persistent partition persist:<provider>-login for login window and cookie capture", async () => {
         const deps = create_deps();
         const manager = create_session_manager(deps);
 
         const promise = manager.start_login({
             instance_id: "opencode-go-1",
+            provider: "opencode_go",
             login_url: "https://opencode.ai/auth",
             cookie_names: ["session"],
         });
@@ -131,8 +130,8 @@ describe("session-manager", () => {
         await promise;
 
         expect(deps.partitions).toEqual([
-            `window:${SESSION_LOGIN_PARTITION}:opencode-go-1`,
-            `session:${SESSION_LOGIN_PARTITION}:opencode-go-1`,
+            `window:persist:opencode_go-login`,
+            `session:persist:opencode_go-login`,
         ]);
     });
 
@@ -142,6 +141,7 @@ describe("session-manager", () => {
 
         const promise = manager.start_login({
             instance_id: "mimo-1",
+            provider: "mimo",
             login_url: "https://example.com/login",
             cookie_names: ["token"],
         });
@@ -160,6 +160,7 @@ describe("session-manager", () => {
 
         const promise = manager.start_login({
             instance_id: "opencode-go-1",
+            provider: "opencode_go",
             login_url: "https://opencode.ai/auth",
             cookie_names: ["session"],
         });
@@ -178,6 +179,7 @@ describe("session-manager", () => {
 
         const promise = manager.start_login({
             instance_id: "opencode-go-1",
+            provider: "opencode_go",
             login_url: "https://opencode.ai/auth",
             cookie_names: ["session"],
         });
@@ -199,6 +201,7 @@ describe("session-manager", () => {
 
         const promise = manager.start_login({
             instance_id: "opencode-go-1",
+            provider: "opencode_go",
             login_url: "https://opencode.ai/auth",
             cookie_names: ["session"],
         });
@@ -216,12 +219,15 @@ describe("session-manager", () => {
         );
     });
 
-    it("falls back to selected session cookies when captured header has no requested cookies", async () => {
+    it("does not fall back to cookie jar when captured header has no requested cookies (P0-5)", async () => {
+        // Cookie jar has matching cookies, but they must NOT be used — only
+        // cookies captured from the request header count.
         const deps = create_deps([{ name: "token", value: "from-jar" }]);
         const manager = create_session_manager(deps);
 
         const promise = manager.start_login({
             instance_id: "mimo-1",
+            provider: "mimo",
             login_url: "https://example.com/login",
             cookie_names: ["token"],
         });
@@ -230,11 +236,13 @@ describe("session-manager", () => {
         });
         deps.window.close();
 
-        await expect(promise).resolves.toEqual({ saved: true });
-        await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=from-jar");
+        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(deps.vault.has("mimo-1:SESSION_COOKIE")).resolves.toBe(false);
+        // cookie jar 不应被查询
+        expect(deps.cookie_urls).toEqual([]);
     });
 
-    it("falls back to selected session cookies on close", async () => {
+    it("does not fall back to cookie jar on close when nothing captured (P0-5)", async () => {
         const deps = create_deps([
             { name: "token", value: "abc" },
             { name: "ignored", value: "no" },
@@ -244,16 +252,18 @@ describe("session-manager", () => {
 
         const promise = manager.start_login({
             instance_id: "mimo-1",
+            provider: "mimo",
             login_url: "https://example.com/login",
             cookie_names: ["token", "userId"],
         });
         deps.window.close();
 
-        await expect(promise).resolves.toEqual({ saved: true });
-        await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc; userId=42");
+        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(deps.vault.has("mimo-1:SESSION_COOKIE")).resolves.toBe(false);
+        expect(deps.cookie_urls).toEqual([]);
     });
 
-    it("saves all OpenCode Go cookies from the login origin when wildcard is requested", async () => {
+    it("does not fall back to cookie jar even when wildcard is requested (P0-5)", async () => {
         const deps = create_deps([
             { name: "session_token", value: "abc" },
             { name: "auth", value: "xyz" },
@@ -262,16 +272,15 @@ describe("session-manager", () => {
 
         const promise = manager.start_login({
             instance_id: "opencode-go-1",
+            provider: "opencode_go",
             login_url: "https://opencode.ai/auth",
             cookie_names: ["*"],
         });
         deps.window.close();
 
-        await expect(promise).resolves.toEqual({ saved: true });
-        await expect(deps.vault.get("opencode-go-1:SESSION_COOKIE")).resolves.toBe(
-            "session_token=abc; auth=xyz",
-        );
-        expect(deps.cookie_urls).toEqual(["https://opencode.ai"]);
+        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(deps.vault.has("opencode-go-1:SESSION_COOKIE")).resolves.toBe(false);
+        expect(deps.cookie_urls).toEqual([]);
     });
 
     it("returns saved false when no cookies are captured", async () => {
@@ -280,6 +289,7 @@ describe("session-manager", () => {
 
         const promise = manager.start_login({
             instance_id: "mimo-1",
+            provider: "mimo",
             login_url: "https://example.com/login",
             cookie_names: ["token"],
         });
@@ -297,6 +307,7 @@ describe("session-manager", () => {
 
             const promise = manager.start_login({
                 instance_id: "mimo-1",
+                provider: "mimo",
                 login_url: "https://example.com/login",
                 cookie_names: ["token"],
             });
@@ -321,6 +332,7 @@ describe("session-manager", () => {
 
         const promise = manager.start_login({
             instance_id: "mimo-1",
+            provider: "mimo",
             login_url: "https://example.com/login",
             cookie_names: ["token"],
         });
@@ -341,6 +353,7 @@ describe("session-manager", () => {
 
             const promise = manager.start_login({
                 instance_id: "mimo-1",
+                provider: "mimo",
                 login_url: "https://example.com/login",
                 cookie_names: ["token"],
             });
@@ -360,12 +373,14 @@ describe("session-manager", () => {
 
         const first = manager.start_login({
             instance_id: "mimo-1",
+            provider: "mimo",
             login_url: "https://example.com/login",
             cookie_names: ["token"],
         });
 
         const second = manager.start_login({
             instance_id: "mimo-1",
+            provider: "mimo",
             login_url: "https://example.com/login",
             cookie_names: ["token"],
         });

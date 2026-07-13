@@ -2,10 +2,10 @@
 
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
-import type { PluginInfo, PluginSnapshotDTO } from "../../src/shared/types/ipc";
+import type { PluginInfo, ConnectorSnapshotDTO } from "../../src/shared/types/ipc";
 import type { AppConfiguration } from "../../src/shared/types/config";
 
-type StateChangeCallback = (instanceId: string, state: PluginSnapshotDTO) => void;
+type StateChangeCallback = (instanceId: string, state: ConnectorSnapshotDTO) => void;
 type ThemeChangeCallback = (isDark: boolean) => void;
 
 function createMockApi() {
@@ -114,7 +114,7 @@ function createMockApi() {
 
     const pluginMock = {
         list: vi.fn<() => Promise<PluginInfo[]>>().mockResolvedValue(plugins),
-        getState: vi.fn().mockResolvedValue({ status: "idle" } satisfies PluginSnapshotDTO),
+        getState: vi.fn().mockResolvedValue({ status: "idle" } satisfies ConnectorSnapshotDTO),
         refresh: vi.fn().mockResolvedValue(undefined),
         refreshAll: vi.fn().mockResolvedValue(undefined),
     };

@@ -270,7 +270,7 @@ describe("SettingsForm cookie login", () => {
         expect(screen.getByText("网页登录")).toBeInTheDocument();
     });
 
-    it("renders 网页登录 for OpenCode Go SESSION_COOKIE parameter", () => {
+    it("renders 网页登录 and 备注 for OpenCode Go without 账号名称", () => {
         renderForm({
             instanceId: "opencode-go-1",
             name: "OpenCode Go",
@@ -282,12 +282,21 @@ describe("SettingsForm cookie login", () => {
                     type: "secret",
                     required: true,
                 },
+                {
+                    name: "ACCOUNT_LABEL",
+                    label: "Account Label",
+                    "label@zh-Hans": "账号名称",
+                    type: "string",
+                    required: false,
+                },
             ],
             values: {},
             hasSecrets: {},
             onCookieLogin: vi.fn().mockResolvedValue(true),
         });
         expect(screen.getByText("网页登录")).toBeInTheDocument();
+        expect(screen.getByText("备注")).toBeInTheDocument();
+        expect(screen.queryByText("账号名称")).not.toBeInTheDocument();
     });
 
     it("calls OpenCode Go cookie login with instance id", async () => {

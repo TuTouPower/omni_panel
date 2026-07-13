@@ -1,7 +1,7 @@
 import { nativeTheme, BrowserWindow, ipcMain } from "electron";
 import { z } from "zod/v3";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
-import { toDTO, assert_valid_sender } from "./helpers";
+import { state_to_snapshot_dto, assert_valid_sender } from "./helpers";
 import type { RuntimeStore } from "../core/scheduler/runtime-store";
 import type { ConnectorSnapshotState } from "../core/scheduler/types";
 import { createLogger } from "../../shared/lib/logger";
@@ -22,7 +22,7 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
             const is_development = process.env["NODE_ENV"] === "development";
             if (is_development) log.debug("ipc request raw", { channel, args });
             try {
-                const dto = toDTO(state);
+                const dto = state_to_snapshot_dto(state);
                 const winCount = BrowserWindow.getAllWindows().filter(
                     (w) => !w.isDestroyed(),
                 ).length;

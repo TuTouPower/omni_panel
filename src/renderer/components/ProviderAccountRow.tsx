@@ -19,7 +19,6 @@ interface ProviderAccountRowProps {
     onDragEnter?: (() => void) | undefined;
     onDragEnd?: (() => void) | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
-    onDisableAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
@@ -35,7 +34,6 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
     onDragEnter,
     onDragEnd,
     onEditAccount,
-    onDisableAccount,
     barColorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
     barStyle = "thin",
     labelMap,
@@ -53,19 +51,8 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 },
             });
         }
-        if (onDisableAccount) {
-            items.push({
-                key: "disable",
-                label: "关闭监控",
-                icon: "close",
-                iconSize: 14,
-                onSelect: () => {
-                    onDisableAccount(account);
-                },
-            });
-        }
         return items;
-    }, [account, onEditAccount, onDisableAccount]);
+    }, [account, onEditAccount]);
 
     const header = (
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

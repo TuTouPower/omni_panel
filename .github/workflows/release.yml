@@ -1,0 +1,66 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: "Tag name (e.g. v1.0.0)"
+                required: true
+
+permissions:
+    contents: write
+
+jobs:
+    build-and-release:
+        name: Build and release
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - os: windows-latest
+                      platform: win
+                      artifact_glob: "artifacts/*.exe"
+                    - os: macos-latest
+                      platform: mac
+                      artifact_glob: "artifacts/*.dmg"
+                    - os: macos-latest
+                      platform: mac
+                      artifact_glob: "artifacts/*.zip"
+                    - os: ubuntu-latest
+                      platform: linux
+                      artifact_glob: "artifacts/*.AppImage"
+                    - os: ubuntu-latest
+                      platform: linux
+                      artifact_glob: "artifacts/*.deb"
+                    - os: ubuntu-latest
+                      platform: linux
+                      artifact_glob: "artifacts/*.rpm"
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: pnpm/action-setup@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: pnpm
+
+            - run: pnpm install --frozen-lockfile
+
+            - name: Build and package
+              run: pnpm make:${{ matrix.platform }}
+              env:
+                  ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/"
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Upload artifacts to GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: ${{ matrix.artifact_glob }}
+                  generate_release_notes: true
+                  draft: true
+                  tag_name: ${{ github.event.inputs.tag || github.ref_name }}

@@ -105,11 +105,11 @@ export async function flushLogTransports(): Promise<void> {
     await Promise.all(transports.map((transport) => transport.flush?.() ?? Promise.resolve()));
 }
 
-function formatTimestamp(): string {
+function format_timestamp(): string {
     return new Date().toISOString();
 }
 
-function shouldLog(level: LogLevel): boolean {
+function should_log(level: LogLevel): boolean {
     return LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[globalLevel];
 }
 
@@ -186,7 +186,7 @@ function extract_trace_id(meta: unknown): string | undefined {
 }
 
 function emit(level: LogLevel, module: string, message: string, meta?: unknown): void {
-    if (!shouldLog(level)) return;
+    if (!should_log(level)) return;
     const scrubbed_message = scrubber.scrub_text(message);
     const safe_meta = serialize_meta(meta);
     const scrubbed_meta = scrub_meta(safe_meta);
@@ -195,7 +195,7 @@ function emit(level: LogLevel, module: string, message: string, meta?: unknown):
     }
 }
 
-function formatMeta(meta: unknown): string {
+function format_meta(meta: unknown): string {
     if (meta === undefined) return "";
     if (typeof meta === "string") return ` | ${meta}`;
     try {
@@ -213,7 +213,7 @@ function create_record(
 ): LogRecord {
     const trace_id = extract_trace_id(meta);
     return {
-        ts: formatTimestamp(),
+        ts: format_timestamp(),
         level,
         module,
         message,
@@ -225,7 +225,7 @@ function create_record(
 export function createConsoleTransport(): LogTransport {
     return {
         write(level, module, message, meta) {
-            const line = `[${formatTimestamp()}] [${level.toUpperCase()}] [${module}] ${message}${formatMeta(meta)}`;
+            const line = `[${format_timestamp()}] [${level.toUpperCase()}] [${module}] ${message}${format_meta(meta)}`;
             try {
                 if (level === "error") {
                     console.error(line);

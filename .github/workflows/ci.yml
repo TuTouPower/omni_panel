@@ -2,9 +2,9 @@ name: CI
 
 on:
     pull_request:
-        branches: [master]
+        branches: [master, main]
     push:
-        branches: [master]
+        branches: [master, main]
 
 concurrency:
     group: ci-${{ github.ref }}
@@ -32,7 +32,11 @@ jobs:
 
     test:
         name: Unit & integration tests
-        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, windows-latest]
+        runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
             - uses: pnpm/action-setup@v4
@@ -45,7 +49,7 @@ jobs:
 
     e2e:
         name: E2E tests
-        runs-on: ubuntu-latest
+        runs-on: windows-latest
         steps:
             - uses: actions/checkout@v4
             - uses: pnpm/action-setup@v4
@@ -56,11 +60,9 @@ jobs:
             - run: pnpm install --frozen-lockfile
             - name: Package app
               run: pnpm package
+              env:
+                  ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/"
             - name: Install Playwright browsers
               run: npx playwright install --with-deps chromium
-            - name: Start Xvfb
-              run: Xvfb :99 -screen 0 1024x768x24 &
             - name: Run E2E tests
               run: pnpm test:e2e
-              env:
-                  DISPLAY: ":99"

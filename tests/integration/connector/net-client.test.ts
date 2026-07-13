@@ -458,4 +458,100 @@ describe("net-client", () => {
         // 127.0.0.1 is the test server; this must NOT throw the metadata error.
         await expect(ctx.http.get_json("default", "/usage")).resolves.toBeDefined();
     });
+
+    describe("build_request_context", () => {
+        it("exists and returns { url, headers, abort_controller, timeout_id } structure", async () => {
+            const { build_request_context } =
+                await import("../../../src/main/core/connector/net-client");
+            expect(typeof build_request_context).toBe("function");
+
+            const ctx = await build_request_context(
+                get_test_manifest(),
+                "default",
+                vault,
+                "test-1",
+                {
+                    path: "/usage",
+                    default_timeout_ms: 15_000,
+                    initial_headers: { "Content-Type": "application/json" },
+                },
+            );
+
+            // 结构断言：四个必备字段齐全
+            expect(ctx).toHaveProperty("url");
+            expect(ctx).toHaveProperty("headers");
+            expect(ctx).toHaveProperty("abort_controller");
+            expect(ctx).toHaveProperty("timeout_id");
+
+            // url 指向请求路径
+            expect(ctx.url).toBeInstanceOf(URL);
+            expect(ctx.url.pathname).toBe("/usage");
+
+            // headers 已注入 bearer auth + 初始 Content-Type
+            expect(ctx.headers["Authorization"]).toBe("Bearer sk-test-secret");
+            expect(ctx.headers["Content-Type"]).toBe("application/json");
+
+            // abort_controller 是 AbortController
+            expect(ctx.abort_controller).toBeInstanceOf(AbortController);
+
+            // timeout_id 是有效的 timer 句柄
+            expect(ctx.timeout_id).toBeDefined();
+            expect(typeof ctx.timeout_id).toBe("object");
+
+            // 清理 timer 避免泄漏
+            clearTimeout(ctx.timeout_id);
+        });
+
+        it("applies per-request timeout_ms override over default", async () => {
+            const { build_request_context } =
+                await import("../../../src/main/core/connector/net-client");
+            const ctx = await build_request_context(
+                get_test_manifest(),
+                "default",
+                vault,
+                "test-1",
+                {
+                    path: "/usage",
+                    default_timeout_ms: 15_000,
+                    timeout_ms: 500,
+                },
+            );
+            expect(ctx.effective_timeout).toBe(500);
+            clearTimeout(ctx.timeout_id);
+        });
+
+        it("merges extra_headers from opts over initial headers", async () => {
+            const { build_request_context } =
+                await import("../../../src/main/core/connector/net-client");
+            const ctx = await build_request_context(
+                get_test_manifest(),
+                "default",
+                vault,
+                "test-1",
+                {
+                    path: "/usage",
+                    default_timeout_ms: 15_000,
+                    initial_headers: { "Content-Type": "application/json", "X-Default": "1" },
+                    extra_headers: { "X-Custom": "abc", "X-Default": "2" },
+                },
+            );
+            // extra_headers 覆盖 initial_headers 同名键
+            expect(ctx.headers["X-Default"]).toBe("2");
+            expect(ctx.headers["X-Custom"]).toBe("abc");
+            expect(ctx.headers["Authorization"]).toBe("Bearer sk-test-secret");
+            clearTimeout(ctx.timeout_id);
+        });
+
+        it("refuses metadata host via override", async () => {
+            const { build_request_context } =
+                await import("../../../src/main/core/connector/net-client");
+            await expect(
+                build_request_context(get_test_manifest(), "default", vault, "test-1", {
+                    path: "/latest/meta-data/",
+                    default_timeout_ms: 15_000,
+                    endpoint_overrides: { default: "http://169.254.169.254" },
+                }),
+            ).rejects.toThrow(/Refusing connector request to metadata host/);
+        });
+    });
 });

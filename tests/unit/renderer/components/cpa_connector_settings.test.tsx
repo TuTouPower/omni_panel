@@ -10,6 +10,7 @@ type SaveHandler = (
     endpointOverrides: Record<string, string>,
     refreshIntervalSeconds: number,
     displayName: string,
+    shouldRefresh: boolean,
 ) => Promise<void>;
 
 function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
@@ -109,11 +110,12 @@ function renderSettings(overrides: Partial<Parameters<typeof CpaConnectorSetting
             enabled: true,
         },
         enabled: true,
-        displayName: "CPA",
+        displayName: "",
         globalIntervalLabel: "5 分钟",
         hasSecrets: { cpa_mgmt_key: true },
         onSave: vi.fn<SaveHandler>().mockResolvedValue(undefined),
         onSaveSecrets: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+        onSaved: vi.fn(),
         onToggleEnabled: vi.fn(),
         onRefresh: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
         ...overrides,
@@ -134,7 +136,7 @@ describe("CpaConnectorSettings", () => {
         renderSettings();
 
         // Config fields
-        expect(screen.getByLabelText("备注")).toHaveValue("CPA");
+        expect(screen.getByLabelText("备注")).toHaveValue("");
         expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
         expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
 
@@ -173,11 +175,89 @@ describe("CpaConnectorSettings", () => {
                 hasSecrets={{}}
                 onSave={vi.fn()}
                 onSaveSecrets={vi.fn()}
+                onSaved={vi.fn()}
                 onToggleEnabled={vi.fn()}
                 onRefresh={vi.fn()}
             />,
         );
         expect(screen.getByText("未连接")).toBeInTheDocument();
+    });
+
+    it("skips persistence and completes when nothing changed", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        const onSaveSecrets = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+        const onSaved = vi.fn();
+        renderSettings({ onSave, onSaveSecrets, onSaved });
+
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(onSaved).toHaveBeenCalledTimes(1);
+        });
+        expect(onSave).not.toHaveBeenCalled();
+        expect(onSaveSecrets).not.toHaveBeenCalled();
+    });
+
+    it("marks remark-only changes as not requiring refresh", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        renderSettings({ onSave });
+
+        await user.type(screen.getByLabelText("备注"), "公司 CPA");
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(onSave).toHaveBeenCalledTimes(1);
+        });
+        expect(onSave.mock.calls[0]?.[4]).toBe(false);
+    });
+
+    it("marks endpoint changes as requiring refresh", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        renderSettings({ onSave });
+
+        await user.clear(screen.getByLabelText("CPA-Manager URL"));
+        await user.type(screen.getByLabelText("CPA-Manager URL"), "http://new-cpa.example ");
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(onSave).toHaveBeenCalledTimes(1);
+        });
+        expect(onSave.mock.calls[0]?.[4]).toBe(true);
+    });
+
+    it("marks refresh interval changes as not requiring immediate refresh", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        renderSettings({ onSave });
+
+        const followRow = screen.getByText("跟随全局自动刷新间隔").closest(".cfg-row");
+        const btn = followRow?.querySelector(".sw");
+        if (!btn) throw new Error("missing follow-global toggle");
+        await user.click(btn);
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(onSave).toHaveBeenCalledTimes(1);
+        });
+        expect(onSave.mock.calls[0]?.[4]).toBe(false);
+    });
+
+    it("completes only after persistence succeeds", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn<SaveHandler>().mockRejectedValue(new Error("save failed"));
+        const onSaved = vi.fn();
+        renderSettings({ onSave, onSaved });
+
+        await user.type(screen.getByLabelText("备注"), "公司 CPA");
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(screen.getByRole("alert")).toHaveTextContent("保存失败");
+        });
+        expect(onSaved).not.toHaveBeenCalled();
     });
 
     it("saves monitor changes and does not save placeholder secret", async () => {
@@ -222,21 +302,24 @@ describe("CpaConnectorSettings", () => {
             },
             { default: "http://new-cpa.example" },
             300,
-            "CPA",
+            "",
+            true,
         );
         expect(onSaveSecrets).not.toHaveBeenCalled();
     });
 
-    it("saves a newly entered management key", async () => {
+    it("saves a newly entered management key and requests refresh", async () => {
         const user = userEvent.setup();
         const onSaveSecrets = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        renderSettings({ hasSecrets: {}, onSaveSecrets });
+        const onSaved = vi.fn();
+        renderSettings({ hasSecrets: {}, onSaveSecrets, onSaved });
 
         await user.type(screen.getByLabelText("管理密钥"), "new-secret");
         await user.click(screen.getByTestId("cpa-settings-save-btn"));
 
         await waitFor(() => {
             expect(onSaveSecrets).toHaveBeenCalledWith({ cpa_mgmt_key: "new-secret" });
+            expect(onSaved).toHaveBeenCalledWith(true);
         });
     });
 
@@ -272,6 +355,7 @@ describe("CpaConnectorSettings", () => {
         const onSave = vi.fn<SaveHandler>().mockRejectedValue(new Error("save failed"));
         renderSettings({ onSave });
 
+        await user.type(screen.getByLabelText("备注"), "失败测试");
         await user.click(screen.getByTestId("cpa-settings-save-btn"));
 
         await waitFor(() => {
@@ -363,6 +447,20 @@ describe("CpaConnectorSettings", () => {
     it("renders 备注 field with display name", () => {
         renderSettings({ displayName: "公司 CPA" });
         expect(screen.getByLabelText("备注")).toHaveValue("公司 CPA");
+    });
+
+    it("allows clearing the remark", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        renderSettings({ displayName: "公司 CPA", onSave });
+
+        await user.clear(screen.getByLabelText("备注"));
+        await user.click(screen.getByTestId("cpa-settings-save-btn"));
+
+        await waitFor(() => {
+            expect(onSave).toHaveBeenCalledTimes(1);
+        });
+        expect(onSave.mock.calls[0]?.[3]).toBe("");
     });
 
     it("renders follow-global refresh toggle", () => {

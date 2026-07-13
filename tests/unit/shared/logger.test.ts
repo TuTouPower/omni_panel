@@ -1,4 +1,6 @@
 import { describe, expect, it, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
     addTransport,
     createFileTransport,
@@ -255,5 +257,25 @@ describe("logger", () => {
         } finally {
             remove_transport();
         }
+    });
+});
+
+describe("logger 命名约定 (snake_case)", () => {
+    // conventions.md §1：函数名一律 snake_case。同文件已有 serialize_meta/scrub_meta。
+    const source = readFileSync(resolve(__dirname, "../../../src/shared/lib/logger.ts"), "utf8");
+
+    it("format_timestamp 使用 snake_case 而非 formatTimestamp", () => {
+        expect(source).toContain("function format_timestamp(");
+        expect(source).not.toContain("formatTimestamp");
+    });
+
+    it("should_log 使用 snake_case 而非 shouldLog", () => {
+        expect(source).toContain("function should_log(");
+        expect(source).not.toContain("shouldLog");
+    });
+
+    it("format_meta 使用 snake_case 而非 formatMeta", () => {
+        expect(source).toContain("function format_meta(");
+        expect(source).not.toContain("formatMeta");
     });
 });

@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useState, useEffect, useCallback } from "react";
-import type { ConnectorInfo, PluginSnapshotDTO } from "../../shared/types/ipc";
+import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc";
 
 const MODULE = "use-plugins";
 
@@ -52,7 +52,7 @@ export function use_plugins(): UsePluginsResult {
 
     useEffect(() => {
         const unsub = window.usageboard.event.onStateChange(
-            (instanceId: string, state: PluginSnapshotDTO) => {
+            (instanceId: string, state: ConnectorSnapshotDTO) => {
                 setPlugins((prev) =>
                     prev.map((p) => (p.instanceId === instanceId ? { ...p, snapshot: state } : p)),
                 );

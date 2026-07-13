@@ -236,21 +236,20 @@ async function main(): Promise<ScriptObservation[]> {
     }
 
     const now = Date.now();
-    const account_label = (ctx.params["ACCOUNT_LABEL"] ?? "").trim() || workspace_id;
     return [
         observation(
             workspace_id,
-            account_label,
+            workspace_id,
             "rolling",
             "滚动",
             "second",
             usage.rollingUsage,
             now,
         ),
-        observation(workspace_id, account_label, "weekly", "一周", "day", usage.weeklyUsage, now),
+        observation(workspace_id, workspace_id, "weekly", "一周", "day", usage.weeklyUsage, now),
         observation(
             workspace_id,
-            account_label,
+            workspace_id,
             "monthly",
             "一月",
             "month",

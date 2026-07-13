@@ -26,7 +26,6 @@ import type {
     UsageBarStyle,
 } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
-import { add_account_override } from "../lib/account-overrides";
 import { compute_drag_reorder, build_reorder_base } from "../lib/drag-reorder";
 import logo from "../assets/logo.svg";
 import { createLogger } from "../../shared/lib/logger";
@@ -100,7 +99,6 @@ export function PopupView() {
     const [provider_label_maps, set_provider_label_maps] = useState<
         Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>> | undefined
     >(undefined);
-    const [account_action_error, set_account_action_error] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -488,42 +486,6 @@ export function PopupView() {
         });
     };
 
-    const disable_account = (account: ProviderUsageAccount) => {
-        const first_period = account.periods[0];
-        if (!first_period) return;
-        const provider = first_period.provider;
-
-        void (async () => {
-            set_account_action_error(null);
-            try {
-                const result = await window.usageboard.config.get();
-                const new_overrides = add_account_override(
-                    result.config.accountOverrides,
-                    "disabled",
-                    provider,
-                    account.id,
-                );
-                await window.usageboard.config.save({
-                    ...result.config,
-                    accountOverrides: new_overrides,
-                });
-                set_account_overrides(new_overrides);
-                window.usageboard.log({
-                    level: "info",
-                    module: MODULE,
-                    message: `关闭账号监控: ${provider}`,
-                });
-            } catch (err: unknown) {
-                set_account_action_error("保存账号操作失败");
-                window.usageboard.log({
-                    level: "error",
-                    module: MODULE,
-                    message: `关闭账号监控失败: ${errorMessage(err)}`,
-                });
-            }
-        })();
-    };
-
     // Drag-and-drop handlers for provider card reordering
     const handle_drag_start = (provider: UsageProvider) => {
         set_drag_id(provider);
@@ -740,13 +702,6 @@ export function PopupView() {
                             </div>
                         )}
 
-                        {account_action_error && (
-                            <div className="net-banner" role="alert">
-                                <Icon name="cloud_off" size={18} />
-                                <span>{account_action_error}</span>
-                            </div>
-                        )}
-
                         {loading && plugins.length === 0 && (
                             <div className="card">
                                 <div className="card-head">
@@ -842,7 +797,6 @@ export function PopupView() {
                                               }
                                             : undefined
                                     }
-                                    onDisableAccount={is_live ? disable_account : undefined}
                                     barColorScheme={usage_bar_color_scheme}
                                     barStyle={usage_bar_style}
                                     accountLabelMaps={account_label_maps}

@@ -45,3 +45,16 @@ export interface ScriptObservation {
 export interface Observation extends ScriptObservation {
     readonly source_instance_id: string;
 }
+
+/**
+ * 单账号失败报告。脚本在 per-account 循环中 catch 到错误时通过
+ * {@link ConnectorContext.report_failed_account} 上报，由 runtime 收集后
+ * 交给 refresh-service 复制上次成功观测为 stale 副本。
+ * 见 domain.md 不变量 5。
+ */
+export interface FailedAccount {
+    readonly provider: string;
+    readonly account_id: string;
+    readonly account_label: string;
+    readonly error: string;
+}

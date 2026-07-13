@@ -6,25 +6,11 @@ import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
+import { get_session_login_partition } from "../core/session/session-manager";
 
 const log = createLogger("ipc:auth");
 
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
-const MIMO_LOGIN_PARTITION = "persist:mimo-login";
-
-const ALLOWED_LOGIN_DOMAINS = new Set([
-    "kimi.com",
-    "mimo.com",
-    "platform.xiaomimimo.com",
-    "minimaxi.com",
-    "www.minimaxi.com",
-    "open.bigmodel.cn",
-    "api.deepseek.com",
-    "api.tavily.com",
-    "generativelanguage.googleapis.com",
-    "api.anthropic.com",
-    "127.0.0.1",
-]);
 
 export interface AuthIpcDeps {
     configStore: AppConfigStore;
@@ -41,7 +27,8 @@ export async function handleCookieLogin(
     if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
 
     const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
-    const endpoints = def?.manifest.endpoints;
+    if (!def) return fail("VALIDATION_ERROR", "插件定义不存在");
+    const endpoints = def.manifest.endpoints;
     const loginUrl = endpoints?.["login"] ?? endpoints?.["default"];
     if (!loginUrl || typeof loginUrl !== "string") {
         return fail("VALIDATION_ERROR", "该插件未配置登录地址");
@@ -49,16 +36,18 @@ export async function handleCookieLogin(
 
     const parsed = new URL(loginUrl);
     const hostname = parsed.hostname;
-    if (
-        !ALLOWED_LOGIN_DOMAINS.has(hostname) &&
-        !ALLOWED_LOGIN_DOMAINS.has(hostname.replace(/^www\./, ""))
-    ) {
+    // 登录域名白名单从 manifest.loginDomains 读取（P1-4）：连接器自声明，宿主不硬编码。
+    const allowed_domains = def.manifest.loginDomains ?? [];
+    if (!allowed_domains.length) {
+        return fail("VALIDATION_ERROR", "该插件未配置登录域名");
+    }
+    const allowed_set = new Set(allowed_domains);
+    if (!allowed_set.has(hostname) && !allowed_set.has(hostname.replace(/^www\./, ""))) {
         return fail("VALIDATION_ERROR", `登录域名不被允许: ${hostname}`);
     }
 
-    // Keep each account in its own persistent partition so cookies from one
-    // MiMo account never prefill or overwrite another account's login state.
-    const partition = get_mimo_login_partition(instanceId);
+    // 每个 provider 一个独立持久化分区 persist:<provider>-login（见 connector-session.md:21）。
+    const partition = get_session_login_partition(def.manifest.provider);
     const loginSession = session.fromPartition(partition);
 
     return new Promise<IpcResult<{ saved: boolean }>>((resolve) => {
@@ -143,45 +132,9 @@ export async function handleCookieLogin(
                     });
                 return;
             }
-            // Fallback: read cookies from persistent session
-            void loginSession.cookies
-                .get({})
-                .then((all_cookies) => {
-                    const target_names = new Set([
-                        "api-platform_serviceToken",
-                        "api-platform_slh",
-                        "api-platform_ph",
-                        "userId",
-                    ]);
-                    const matched = all_cookies.filter((c) => target_names.has(c.name));
-                    if (matched.length === 0) {
-                        log.info("No required cookies found on window close");
-                        finish(ok({ saved: false }));
-                        return;
-                    }
-                    const cookie_parts: string[] = [];
-                    for (const c of matched) {
-                        cookie_parts.push(`${c.name}=${c.value}`);
-                    }
-                    const cookie_header = cookie_parts.join("; ");
-                    log.info(
-                        `Saving ${String(matched.length)} cookies from persistent session on window close`,
-                    );
-                    void deps.secretsStore
-                        .set(keyFor(instanceId, "SESSION_COOKIE"), cookie_header)
-                        .then(() => {
-                            log.info("Cookies saved successfully");
-                            finish(ok({ saved: true }));
-                        })
-                        .catch((err: unknown) => {
-                            log.error("Failed to save cookies on window close", err);
-                            finish(fail("INTERNAL_ERROR", "保存 Cookie 失败"));
-                        });
-                })
-                .catch((err: unknown) => {
-                    log.error("Failed to read cookies on window close", err);
-                    finish(fail("INTERNAL_ERROR", "读取 Cookie 失败"));
-                });
+            // 不从 cookie jar 回退：未捕获到 Cookie 头时直接返回 saved:false（见 connector-session.md:22）。
+            log.info("No cookie captured on window close");
+            finish(ok({ saved: false }));
         });
 
         timeoutId = setTimeout(() => {
@@ -204,23 +157,36 @@ export async function handleCookieLogin(
 
 /**
  * Try to silently refresh cookies from the persisted login session
- * without opening a login window. Returns the cookie string if the
- * session still has valid cookies, or null if not.
+ * without opening a login window. Returns true if the session still
+ * has all required cookies (declared in manifest.cookieNames) and
+ * they were saved, or false if not.
  */
 export async function trySilentCookieRefresh(
-    secretsStore: SecretsStore,
+    deps: AuthIpcDeps,
     instanceId: string,
 ): Promise<boolean> {
-    const partition = get_mimo_login_partition(instanceId);
+    const config = await deps.configStore.load();
+    const plugin = config.plugins.find((p) => p.instanceId === instanceId);
+    if (!plugin) {
+        log.warn(`Silent refresh: instance ${instanceId} not found in config`);
+        return false;
+    }
+    const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
+    if (!def) {
+        log.warn(`Silent refresh: definition not found for ${instanceId}`);
+        return false;
+    }
+    // cookie 名从 manifest.cookieNames 读取（P1-4）：未声明则无法校验，直接跳过。
+    const cookie_names = def.manifest.cookieNames ?? [];
+    if (!cookie_names.length) {
+        log.debug(`Silent refresh: ${instanceId} declares no cookieNames, skipping`);
+        return false;
+    }
+    const targetNames = new Set(cookie_names);
+    const partition = get_session_login_partition(def.manifest.provider);
     const loginSession = session.fromPartition(partition);
     try {
         const allCookies = await loginSession.cookies.get({});
-        const targetNames = new Set([
-            "api-platform_serviceToken",
-            "api-platform_slh",
-            "api-platform_ph",
-            "userId",
-        ]);
         const matched = allCookies.filter((c) => targetNames.has(c.name));
         if (matched.length < targetNames.size) {
             log.debug(
@@ -229,7 +195,7 @@ export async function trySilentCookieRefresh(
             return false;
         }
         const cookieHeader = matched.map((c) => `${c.name}=${c.value}`).join("; ");
-        await secretsStore.set(keyFor(instanceId, "SESSION_COOKIE"), cookieHeader);
+        await deps.secretsStore.set(keyFor(instanceId, "SESSION_COOKIE"), cookieHeader);
         log.info(`Silent cookie refresh succeeded for ${instanceId}`);
         return true;
     } catch (err: unknown) {
@@ -238,10 +204,6 @@ export async function trySilentCookieRefresh(
         );
         return false;
     }
-}
-
-export function get_mimo_login_partition(instanceId: string): string {
-    return `${MIMO_LOGIN_PARTITION}:${instanceId}`;
 }
 
 export function registerAuthIpc(deps: AuthIpcDeps): void {

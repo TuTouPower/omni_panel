@@ -3,7 +3,7 @@ import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_renderer_log_throttle } from "./log-throttle";
 import type {
     UsageboardApi,
-    PluginSnapshotDTO,
+    ConnectorSnapshotDTO,
     RendererLogPayload,
     RendererPlatform,
     SessionLoginRequest,
@@ -61,7 +61,7 @@ const connector_methods = {
             IPC_CHANNELS.CONNECTOR_LIST,
         ),
     getState: (instanceId: string) =>
-        invoke<PluginSnapshotDTO>(IPC_CHANNELS.CONNECTOR_GET_STATE, instanceId),
+        invoke<ConnectorSnapshotDTO>(IPC_CHANNELS.CONNECTOR_GET_STATE, instanceId),
     refresh: (instanceId: string) =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["connector"]["refresh"]>>>(
             IPC_CHANNELS.CONNECTOR_REFRESH,
@@ -124,8 +124,8 @@ function subscribe<T extends unknown[]>(
 }
 
 const event_methods = {
-    onStateChange: (callback: (instanceId: string, state: PluginSnapshotDTO) => void) =>
-        subscribe<[string, PluginSnapshotDTO]>(IPC_CHANNELS.EVENT_STATE_CHANGE, callback),
+    onStateChange: (callback: (instanceId: string, state: ConnectorSnapshotDTO) => void) =>
+        subscribe<[string, ConnectorSnapshotDTO]>(IPC_CHANNELS.EVENT_STATE_CHANGE, callback),
     onConfigChange: (callback: (config: AppConfiguration) => void) =>
         subscribe<[AppConfiguration]>(IPC_CHANNELS.CONFIG_CHANGED, callback),
     onThemeChange: (callback: (isDark: boolean) => void) =>
@@ -222,8 +222,8 @@ const renderer_log_throttle = create_renderer_log_throttle({ limit: 100, window_
 function send_renderer_log(payload: RendererLogPayload): void {
     const sanitized: RendererLogPayload = {
         level: payload.level,
-        module: sanitizeLogField(payload.module, 128),
-        message: sanitizeLogField(payload.message, 4096),
+        module: sanitize_log_field(payload.module, 128),
+        message: sanitize_log_field(payload.message, 4096),
     };
     if (import.meta.env.DEV) {
         sanitized.meta = payload.meta;
@@ -343,7 +343,7 @@ if (process.env["E2E"] === "1") {
 
 const CONTROL_CHARS_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f]/g;
 
-function sanitizeLogField(value: string, maxLen: number): string {
+function sanitize_log_field(value: string, maxLen: number): string {
     const stripped = value.replace(CONTROL_CHARS_RE, "");
     return stripped.length > maxLen ? stripped.slice(0, maxLen) : stripped;
 }

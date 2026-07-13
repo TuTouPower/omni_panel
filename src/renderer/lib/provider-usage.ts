@@ -89,11 +89,11 @@ const STATUS_RANK: Record<MetricRecord["status"], number> = {
     critical: 3,
 };
 
-function compareProviders(a: UsageProvider, b: UsageProvider): number {
+function compare_providers(a: UsageProvider, b: UsageProvider): number {
     return PROVIDER_ORDER.indexOf(a) - PROVIDER_ORDER.indexOf(b);
 }
 
-function latestTimestamp(a: string, b: string): string {
+function latest_timestamp(a: string, b: string): string {
     return new Date(a).getTime() >= new Date(b).getTime() ? a : b;
 }
 
@@ -101,11 +101,14 @@ function latestEpoch(a: number, b: number): number {
     return Math.max(a, b);
 }
 
-function worstStatus(a: MetricRecord["status"], b: MetricRecord["status"]): MetricRecord["status"] {
+function worst_status(
+    a: MetricRecord["status"],
+    b: MetricRecord["status"],
+): MetricRecord["status"] {
     return STATUS_RANK[a] >= STATUS_RANK[b] ? a : b;
 }
 
-function toPeriod(
+function to_period(
     item: MetricRecord,
     connector: ConnectorInfo,
     updatedAt: string,
@@ -118,10 +121,12 @@ function toPeriod(
         connectorInstanceId: connector.instanceId,
         connectorDisplayName: connector.displayName,
         accountId: item.accountId,
-        // 直连账号备注名（ConnectorConfiguration.displayName）覆盖采集层默认名。
-        // CPA 连接器无改名 UI，displayName 始终等于 name，不会误覆盖其账号。
+        // 直连账号备注（ConnectorConfiguration.displayName）覆盖采集层默认名。
+        // CPA displayName 属于数据源备注，不能覆盖其子账号标签。
         accountLabel:
-            connector.displayName && connector.displayName !== connector.name
+            item.source !== "gateway" &&
+            connector.displayName &&
+            connector.displayName !== connector.name
                 ? connector.displayName
                 : item.accountLabel,
         name: item.normalized_label,
@@ -179,13 +184,13 @@ export function build_provider_usage_groups(
 
         for (const item of snapshot.items) {
             const periods = periodsByProvider.get(item.provider) ?? [];
-            periods.push(toPeriod(item, connector, snapshot.updatedAt));
+            periods.push(to_period(item, connector, snapshot.updatedAt));
             periodsByProvider.set(item.provider, periods);
         }
     }
 
     const groups = [...periodsByProvider.entries()]
-        .sort(([a], [b]) => compareProviders(a, b))
+        .sort(([a], [b]) => compare_providers(a, b))
         .map(([provider, periods]) => {
             const accountsByKey = new Map<string, ProviderUsageAccount>();
             let groupStatus: MetricRecord["status"] = "normal";
@@ -196,15 +201,15 @@ export function build_provider_usage_groups(
             for (const period of periods) {
                 const key = accountKey(period);
                 const account = accountsByKey.get(key);
-                groupStatus = worstStatus(groupStatus, period.status);
-                groupUpdatedAt = latestTimestamp(groupUpdatedAt, period.updatedAt);
+                groupStatus = worst_status(groupStatus, period.status);
+                groupUpdatedAt = latest_timestamp(groupUpdatedAt, period.updatedAt);
                 groupObservedAt = latestEpoch(groupObservedAt, period.observedAt);
                 groupStale = groupStale || period.stale;
 
                 if (account) {
                     account.periods.push(period);
-                    account.status = worstStatus(account.status, period.status);
-                    account.updatedAt = latestTimestamp(account.updatedAt, period.updatedAt);
+                    account.status = worst_status(account.status, period.status);
+                    account.updatedAt = latest_timestamp(account.updatedAt, period.updatedAt);
                     account.observedAt = latestEpoch(account.observedAt, period.observedAt);
                     account.stale = account.stale || period.stale;
                     continue;
@@ -253,10 +258,7 @@ export function apply_account_overrides(
     if (!overrides) return groups;
     return groups
         .map((group) => {
-            const excluded_set = new Set([
-                ...(overrides.hidden?.[group.provider] ?? []),
-                ...(overrides.disabled?.[group.provider] ?? []),
-            ]);
+            const excluded_set = new Set([...(overrides.hidden?.[group.provider] ?? [])]);
             if (excluded_set.size === 0) return group;
 
             const filtered = group.accounts.filter((a) => !excluded_set.has(a.id));
@@ -301,7 +303,7 @@ export function visible_providers_from_groups(
             providers.add(provider);
         }
     }
-    return [...providers].sort(compareProviders);
+    return [...providers].sort(compare_providers);
 }
 
 export function get_visible_providers(connectors: readonly ConnectorInfo[]): UsageProvider[] {
@@ -348,7 +350,7 @@ export function resolve_convergent_epoch(
     return latest;
 }
 
-function hasValidQuota(period: ProviderUsagePeriod): boolean {
+function has_valid_quota(period: ProviderUsagePeriod): boolean {
     return (
         period.used !== null &&
         Number.isFinite(period.used) &&
@@ -397,14 +399,14 @@ export function build_overview_for_group(
     const result: OverviewWindow[] = [];
 
     for (const [name, periods] of byPeriod) {
-        const validPeriods = periods.filter(hasValidQuota);
+        const validPeriods = periods.filter(has_valid_quota);
         if (validPeriods.length === 0) continue;
 
         const totalUsed = validPeriods.reduce((sum, period) => sum + (period.used ?? 0), 0);
         const totalLimit = validPeriods.reduce((sum, period) => sum + (period.limit ?? 0), 0);
         const percent = Math.round((totalUsed / totalLimit) * 100);
         const periodWorstStatus = validPeriods.reduce<MetricRecord["status"]>(
-            (worst, period) => worstStatus(period.status, worst),
+            (worst, period) => worst_status(period.status, worst),
             "normal",
         );
 

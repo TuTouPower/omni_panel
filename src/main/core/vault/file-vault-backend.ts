@@ -1,8 +1,9 @@
 import { execFile } from "node:child_process";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { access, chmod, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { createLogger, scrubber } from "../../../shared/lib/logger";
+import { get_vault_key_path, get_vault_path } from "../paths";
 import type { VaultBackend } from "./vault-backend";
 
 const log = createLogger("vault");
@@ -88,8 +89,8 @@ function redact_key(key: string): string {
 }
 
 export async function create_file_vault_backend(user_data_dir: string): Promise<VaultBackend> {
-    const vault_path = join(user_data_dir, "secrets.vault");
-    const key_path = join(user_data_dir, "vault.key");
+    const vault_path = get_vault_path(user_data_dir);
+    const key_path = get_vault_key_path(user_data_dir);
     const master_key = await ensure_master_key(key_path);
 
     let mutex: Promise<void> = Promise.resolve();

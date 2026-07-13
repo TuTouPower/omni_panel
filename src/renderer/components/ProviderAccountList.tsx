@@ -13,7 +13,6 @@ interface ProviderAccountListProps {
     onDragEnter?: ((accountId: string) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
     onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
-    onDisableAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onReLogin?: ((provider: UsageProvider) => void) | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
@@ -34,7 +33,6 @@ export function ProviderAccountList({
     onDragEnter,
     onDragEnd,
     onEditAccount,
-    onDisableAccount,
     onReLogin: _onReLogin,
     barColorScheme,
     barStyle,
@@ -67,7 +65,6 @@ export function ProviderAccountList({
                             key={account.id}
                             account={account}
                             onEditAccount={onEditAccount}
-                            onDisableAccount={onDisableAccount}
                             barColorScheme={barColorScheme}
                             barStyle={barStyle}
                             labelMap={merged_label_map}
@@ -101,7 +98,6 @@ export function ProviderAccountList({
                         }
                         onDragEnd={onDragEnd}
                         onEditAccount={onEditAccount}
-                        onDisableAccount={onDisableAccount}
                         barColorScheme={barColorScheme}
                         barStyle={barStyle}
                         labelMap={merged_label_map}

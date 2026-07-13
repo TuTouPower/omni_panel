@@ -50,6 +50,7 @@ function create_ctx(): ConnectorContext {
             list: () => Promise.resolve([]),
         },
         params: {},
+        report_failed_account: () => undefined,
     };
 }
 

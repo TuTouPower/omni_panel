@@ -86,6 +86,10 @@ export const manifest_schema = z
         poll: poll_config_schema.optional(),
         observe: observe_config_schema.optional(),
         local: local_config_schema.optional(),
+        // session 连接器声明：允许的登录域名 + 静默刷新校验用的 cookie 名。
+        // 由 auth-ipc 读取，避免宿主硬编码（见 P1-4）。
+        loginDomains: z.array(z.string().min(1)).optional(),
+        cookieNames: z.array(z.string().min(1)).optional(),
     })
     .strict()
     .refine(

@@ -233,6 +233,10 @@ export function SettingsForm({
         ],
     );
 
+    const visible_parameters = parameters.filter(
+        (param) => providerId !== "opencode_go" || param.name !== "ACCOUNT_LABEL",
+    );
+
     return (
         <form
             onSubmit={handle_submit}
@@ -252,7 +256,7 @@ export function SettingsForm({
                     className="ad-input"
                 />
             </div>
-            {parameters.map((param) => (
+            {visible_parameters.map((param) => (
                 <div className="ad-field" key={param.name}>
                     <label className="ad-label" htmlFor={param.name}>
                         {param["label@zh-Hans"] ?? param.label}

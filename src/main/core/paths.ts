@@ -19,6 +19,28 @@ export function getStatesDir(): string {
     return join(getDataRoot(), "states");
 }
 
+// userData 下文件路径常量集中入口。可选 base 参数用于注入临时目录（测试场景），
+// 默认走 getDataRoot()，保持调用方零侵入。
+export function get_vault_path(base: string = getDataRoot()): string {
+    return join(base, "secrets.vault");
+}
+
+export function get_vault_key_path(base: string = getDataRoot()): string {
+    return join(base, "vault.key");
+}
+
+export function get_observations_db_path(base: string = getDataRoot()): string {
+    return join(base, "observations.sqlite");
+}
+
+export function get_snapshot_cache_path(base: string = getDataRoot()): string {
+    return join(base, "snapshot-cache.json");
+}
+
+export function get_logs_dir(base: string = getDataRoot()): string {
+    return join(base, "logs");
+}
+
 export function getBundledConnectorsDir(): string {
     if (app.isPackaged) {
         return join(process.resourcesPath, "connectors");

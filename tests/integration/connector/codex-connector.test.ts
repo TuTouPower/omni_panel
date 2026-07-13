@@ -47,6 +47,7 @@ function create_ctx(files: Record<string, string>): ConnectorContext {
             },
         },
         params: {},
+        report_failed_account: () => undefined,
     };
 }
 

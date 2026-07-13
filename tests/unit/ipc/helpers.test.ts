@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { ok, fail, toDTO, assert_valid_sender } from "../../../src/main/ipc/helpers";
+import type { ConnectorSnapshotDTO } from "../../../src/shared/types/ipc";
+import {
+    ok,
+    fail,
+    state_to_snapshot_dto,
+    assert_valid_sender,
+} from "../../../src/main/ipc/helpers";
 
 describe("IPC helpers", () => {
     it("ok() returns success envelope with data", () => {
@@ -26,8 +32,8 @@ describe("IPC helpers", () => {
         });
     });
 
-    it("toDTO includes last successful items during loading", () => {
-        const result = toDTO({
+    it("state_to_snapshot_dto includes last successful items during loading", () => {
+        const result: ConnectorSnapshotDTO = state_to_snapshot_dto({
             status: "loading",
             lastSuccess: {
                 updatedAt: "2026-06-06T12:00:00Z",
@@ -64,8 +70,8 @@ describe("IPC helpers", () => {
         expect(result.items?.[0]?.provider).toBe("claude");
     });
 
-    it("toDTO includes last successful metadata during failed", () => {
-        const result = toDTO({
+    it("state_to_snapshot_dto includes last successful metadata during failed", () => {
+        const result: ConnectorSnapshotDTO = state_to_snapshot_dto({
             status: "failed",
             error: "timeout",
             lastSuccess: {

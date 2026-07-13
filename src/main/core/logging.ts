@@ -8,12 +8,13 @@ import {
     type LogLevel,
     setLogLevel,
 } from "../../shared/lib/logger";
+import { get_logs_dir } from "./paths";
 
 const MAX_LOG_AGE_DAYS = 7;
 const MAX_LOG_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 export function getLogDir(userDataPath: string): string {
-    return join(userDataPath, "logs");
+    return get_logs_dir(userDataPath);
 }
 
 function getLogFilePath(logDir: string): string {

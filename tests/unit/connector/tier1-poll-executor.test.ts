@@ -39,6 +39,7 @@ function make_ctx(response: unknown): ConnectorContext {
             list: () => Promise.resolve([]),
         },
         params: {},
+        report_failed_account: () => undefined,
     };
 }
 
@@ -52,7 +53,6 @@ describe("tier1-poll-executor", () => {
             account_id: "default",
             account_label: "tavily",
             metric_id: "tavily:usage",
-            name: "Usage",
             window: "month",
             used: 100,
             limit: 1000,
@@ -64,6 +64,8 @@ describe("tier1-poll-executor", () => {
             last_error: null,
         });
         expect(result[0]?.observed_at).toEqual(expect.any(Number));
+        // conventions.md §5：观测用 raw_label + normalized_label，不再带废弃的 name 字段
+        expect(result[0]).not.toHaveProperty("name");
     });
 
     it("uses POST when manifest request method is POST", async () => {
@@ -100,6 +102,7 @@ describe("tier1-poll-executor", () => {
                 list: () => Promise.resolve([]),
             },
             params: {},
+            report_failed_account: () => undefined,
         };
 
         const result = await execute_poll(manifest, ctx);
@@ -126,6 +129,7 @@ describe("tier1-poll-executor", () => {
                 list: () => Promise.resolve([]),
             },
             params: {},
+            report_failed_account: () => undefined,
         };
         await expect(execute_poll(tavily_manifest, ctx)).rejects.toThrow("network");
     });

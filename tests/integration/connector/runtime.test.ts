@@ -21,6 +21,7 @@ const stub_ctx: ConnectorContext = {
         list: () => Promise.resolve([]),
     },
     params: {},
+    report_failed_account: () => undefined,
 };
 
 const poll_manifest: Manifest = {
@@ -179,5 +180,35 @@ describe("connector-runtime", () => {
         expect(result.error).toBeNull();
         expect(ctx_with_params.params["token"]).toBe("secret");
         expect(ctx_with_params.params["injected"]).toBeUndefined();
+    });
+
+    it("collects failed account reports from ctx.report_failed_account", async () => {
+        // P0-2: 脚本内部逐账号 try/catch，失败时调 ctx.report_failed_account
+        // 上报。runtime 收集到 failed_accounts 数组随 run_connector 返回，
+        // 供 refresh-service 决定标 stale 的账号范围。
+        const script = `
+            ctx.report_failed_account("claude", "acc-1", "Account 1", "HTTP 500");
+            ctx.report_failed_account("kimi", "acc-2", "Account 2", "timeout");
+            return [];
+        `;
+        const result = await run_connector(poll_manifest, script, stub_ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toEqual([]);
+        expect(result.failed_accounts).toEqual([
+            {
+                provider: "claude",
+                account_id: "acc-1",
+                account_label: "Account 1",
+                error: "HTTP 500",
+            },
+            { provider: "kimi", account_id: "acc-2", account_label: "Account 2", error: "timeout" },
+        ]);
+    });
+
+    it("returns empty failed_accounts when script does not report any", async () => {
+        const script = `return [];`;
+        const result = await run_connector(poll_manifest, script, stub_ctx);
+        expect(result.error).toBeNull();
+        expect(result.failed_accounts).toEqual([]);
     });
 });

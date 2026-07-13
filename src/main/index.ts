@@ -19,6 +19,8 @@ import {
     getUserConnectorsDir,
     get_tray_icon_path,
     get_app_icon_path,
+    get_observations_db_path,
+    get_snapshot_cache_path,
 } from "./core/paths";
 import { initLogging, defaultLogLevelForEnv } from "./core/logging";
 import { createLogger, setLogLevel } from "../shared/lib/logger";
@@ -31,7 +33,10 @@ import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
 import { decide_settings_close } from "./core/settings-close-action";
 import { createWindowManager, WINDOW_CONFIGS, SECURE_WEB_PREFS } from "./window/window-manager";
-import { createSchedulerOrchestrator } from "./core/scheduler/scheduler-orchestrator";
+import {
+    createSchedulerOrchestrator,
+    to_connector_list_config,
+} from "./core/scheduler/scheduler-orchestrator";
 import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
 import { registerConnectorIpc } from "./ipc/connector-ipc";
@@ -111,11 +116,11 @@ void app.whenReady().then(async () => {
     const configPath = getConfigPath();
 
     const configStore = createConfigStore(configPath);
-    const runtimeStore = createRuntimeStore(join(dataRoot, "snapshot-cache.json"));
+    const runtimeStore = createRuntimeStore(get_snapshot_cache_path());
     await runtimeStore.hydrateFromCache();
     const vault = await create_file_vault_backend(dataRoot);
     const secretsStore = createSecretsStore(vault);
-    const observationStore = create_observation_store(join(dataRoot, "observations.sqlite"));
+    const observationStore = create_observation_store(get_observations_db_path());
 
     const bundledDir = getBundledConnectorsDir();
     const userDir = getUserConnectorsDir();
@@ -165,8 +170,12 @@ void app.whenReady().then(async () => {
         configStore,
         vault,
         sessionLogin: async (instanceId: string) => {
-            // Try silent cookie refresh first (no window popup)
-            const silent = await trySilentCookieRefresh(secretsStore, instanceId);
+            // Try silent cookie refresh first (no window popup).
+            // trySilentCookieRefresh 内部从 definitions + config 查 provider 与 cookieNames。
+            const silent = await trySilentCookieRefresh(
+                { configStore, secretsStore, definitions: allDefinitions },
+                instanceId,
+            );
             if (silent) {
                 return { saved: true };
             }
@@ -201,15 +210,19 @@ void app.whenReady().then(async () => {
         secretsStore,
         secretParamKeys,
         onConfigSaved: (updatedConfig) => {
+            const previousConfig = currentConfigSnapshot;
             currentConfigSnapshot = updatedConfig;
             setLogLevel(updatedConfig.logLevel ?? defaultLogLevelForEnv());
-            log.info("Config saved — rebuilding scheduler and secret keys");
+            log.info("Config saved — reconciling scheduler and secret keys");
             const newKeys = buildSecretParamKeys(updatedConfig);
             secretParamKeys.clear();
             for (const [k, v] of newKeys) {
                 secretParamKeys.set(k, v);
             }
-            orchestrator.rebuild(updatedConfig);
+            orchestrator.reconcile(
+                to_connector_list_config(previousConfig),
+                to_connector_list_config(updatedConfig),
+            );
             for (const win of BrowserWindow.getAllWindows()) {
                 if (!win.isDestroyed()) {
                     win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
@@ -432,17 +445,17 @@ void app.whenReady().then(async () => {
     });
 
     // Start periodic refresh for enabled plugins
-    orchestrator.startAll(currentConfig);
+    orchestrator.startAll(to_connector_list_config(currentConfig));
 
     // Sleep/wake handling
     powerMonitor.on("suspend", () => {
         log.info("System suspending — stopping all schedulers");
-        orchestrator.suspend();
+        orchestrator.suspend("system");
     });
 
     powerMonitor.on("resume", () => {
         log.info("System resumed — restarting schedulers");
-        orchestrator.resume();
+        orchestrator.resume("system");
     });
 
     // System tray — skip in E2E mode unless E2E_WITH_TRAY=1
@@ -542,13 +555,13 @@ void app.whenReady().then(async () => {
         ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_PAUSE, () => {
             is_paused = !is_paused;
             if (is_paused) {
-                orchestrator.suspend();
+                orchestrator.suspend("user");
             } else {
                 // resume() reloads config and startAll()s (which refreshes
                 // immediately). The previous rebuild()+startAll() here restarted
                 // every connector twice and desynced from the orchestrator's own
                 // suspend/resume generation — dropped.
-                orchestrator.resume();
+                orchestrator.resume("user");
             }
             send_tray_state();
         });

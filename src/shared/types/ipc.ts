@@ -81,7 +81,7 @@ export interface TrayMenuSizeReport {
     height: number;
 }
 
-export type PluginSnapshotDTO =
+export type ConnectorSnapshotDTO =
     | { status: "idle" }
     | {
           status: "loading";
@@ -105,8 +105,6 @@ export type PluginSnapshotDTO =
           badge?: string;
           chart?: PluginChart;
       };
-
-export type ConnectorSnapshotDTO = PluginSnapshotDTO;
 
 export interface ConnectorInfo {
     instanceId: string;
@@ -145,6 +143,7 @@ export interface IpcError {
 
 export interface SessionLoginRequest {
     readonly instance_id: string;
+    readonly provider: string;
     readonly login_url: string;
     readonly cookie_names: readonly string[];
 }
@@ -203,7 +202,9 @@ export interface UsageboardApi {
         import(): Promise<{ imported: boolean }>;
     };
     event: {
-        onStateChange(callback: (instanceId: string, state: PluginSnapshotDTO) => void): () => void;
+        onStateChange(
+            callback: (instanceId: string, state: ConnectorSnapshotDTO) => void,
+        ): () => void;
         onConfigChange?(callback: (config: AppConfiguration) => void): () => void;
         onThemeChange(callback: (isDark: boolean) => void): () => void;
         onSettingsNavigate(callback: (context: SettingsOpenContext) => void): () => void;

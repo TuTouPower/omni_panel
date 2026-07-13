@@ -9,7 +9,6 @@
 仅监听 `127.0.0.1`，端口默认自动分配并展示给用户（可固定）。Bearer token 由宿主生成、存 Vault。
 
 - `POST /v1/ingest` — 接收外部 producer 观测上报（`observation_ingest_schema`，服务端补 `observed_at`/`stale`/`last_error`），校验后入 ObservationStore，`source` 按 producer 标记。
-- 可选网关 `/v1/<provider>/...` — 转发到 manifest 声明的固定上游域名（白名单），自动记响应头。默认关闭。
 - `GET /v1/health` — 健康检查。
 - **不支持任意上游 URL** —— 绝不变成通用开放代理。
 

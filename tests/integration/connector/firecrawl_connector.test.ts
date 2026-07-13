@@ -60,6 +60,7 @@ function create_ctx_with_get_json(
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params,
+        report_failed_account: () => undefined,
     };
 }
 

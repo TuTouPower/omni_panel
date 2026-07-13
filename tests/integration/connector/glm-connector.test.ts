@@ -40,6 +40,7 @@ function create_ctx(limits: unknown[]): ConnectorContext {
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: { API_KEY: "test-key" },
+        report_failed_account: () => undefined,
     };
 }
 
@@ -140,6 +141,7 @@ describe("glm connector", () => {
             },
             files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
             params: { API_KEY: "test-key" },
+            report_failed_account: () => undefined,
         };
         const result = await run_connector(manifest, script, ctx);
 
@@ -159,6 +161,7 @@ describe("glm connector", () => {
             },
             files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
             params: { API_KEY: "test-key" },
+            report_failed_account: () => undefined,
         };
         const result = await run_connector(manifest, script, ctx);
 

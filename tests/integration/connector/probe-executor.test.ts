@@ -56,6 +56,7 @@ function create_ctx(): ConnectorContext {
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: {},
+        report_failed_account: () => undefined,
     };
 }
 
@@ -131,7 +132,6 @@ describe("probe-executor", () => {
                 provider: "claude",
                 account_id: "default",
                 metric_id: "test-probe:usage",
-                name: "Usage",
                 window: "month",
                 display_style: "ratio",
                 source: "probe",
@@ -145,6 +145,8 @@ describe("probe-executor", () => {
         expect(first1.used).toBe(900);
         expect(first1.limit).toBe(1000);
         expect(first1.observed_at).toBeGreaterThan(0);
+        // conventions.md §5：观测用 raw_label + normalized_label，不再带废弃的 name 字段
+        expect(first1).not.toHaveProperty("name");
     });
 
     it("computes used = limit - remaining from headers", async () => {

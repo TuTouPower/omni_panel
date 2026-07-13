@@ -6,7 +6,6 @@ const log = createLogger("session-manager");
 
 const SESSION_COOKIE_KEY = "SESSION_COOKIE";
 const ALL_COOKIES = "*";
-export const SESSION_LOGIN_PARTITION = "persist:session-login";
 /** Session login timeout — longer than connector timeout because user interaction is required. */
 const SESSION_LOGIN_TIMEOUT_MS = 120_000;
 
@@ -37,6 +36,7 @@ export interface SessionManagerDeps {
 
 export interface LoginRequest {
     readonly instance_id: string;
+    readonly provider: string;
     readonly login_url: string;
     readonly cookie_names: readonly string[];
 }
@@ -67,7 +67,7 @@ export function create_session_manager(
             }
             in_progress.add(request.instance_id);
 
-            const partition = get_session_login_partition(request.instance_id);
+            const partition = get_session_login_partition(request.provider);
             const window = deps.create_window(partition);
             const session = deps.create_session(partition);
             const login_origin = new URL(request.login_url).origin;
@@ -101,14 +101,8 @@ export function create_session_manager(
                     completed = true;
                     clear_timeout();
                     try {
-                        const cookie =
-                            captured_cookie ??
-                            (await select_session_cookies(
-                                session,
-                                login_origin,
-                                request.cookie_names,
-                            ));
-                        if (!cookie) {
+                        // 不从 cookie jar 回退：仅信任 webRequest 捕获的请求头 Cookie。
+                        if (!captured_cookie) {
                             log.warn(`No matching cookies captured for ${request.instance_id}`);
                             resolve({ saved: false });
                             return;
@@ -116,7 +110,7 @@ export function create_session_manager(
 
                         await deps.vault.set(
                             keyFor(request.instance_id, SESSION_COOKIE_KEY),
-                            cookie,
+                            captured_cookie,
                         );
                         log.info(`Session cookie saved for ${request.instance_id}`);
                         resolve({ saved: true });
@@ -159,8 +153,8 @@ export function create_session_manager(
     };
 }
 
-export function get_session_login_partition(instance_id: string): string {
-    return `${SESSION_LOGIN_PARTITION}:${instance_id}`;
+export function get_session_login_partition(provider: string): string {
+    return `persist:${provider}-login`;
 }
 
 function should_capture_cookie(url: string, login_origin: string): boolean {
@@ -202,20 +196,4 @@ function select_cookie_header_values(
         });
 
     return selected.length > 0 ? selected.join("; ") : null;
-}
-
-async function select_session_cookies(
-    session: SessionController,
-    url: string,
-    cookie_names: readonly string[],
-): Promise<string | null> {
-    const cookies = await session.get_cookies(url);
-    const selected = cookie_names.includes(ALL_COOKIES)
-        ? cookies
-        : cookie_names
-              .map((name) => cookies.find((cookie) => cookie.name === name))
-              .filter((cookie): cookie is SessionCookie => cookie !== undefined);
-    const values = selected.map((cookie) => `${cookie.name}=${cookie.value}`);
-
-    return values.length > 0 ? values.join("; ") : null;
 }

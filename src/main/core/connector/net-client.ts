@@ -94,6 +94,101 @@ function assert_safe_connector_host(url: URL): void {
     }
 }
 
+// 解析 endpoint 基址：优先用户 override，其次 manifest 声明；requireExplicitEndpoints
+// 为真时拒绝隐式回退，防止 CONFIG_IMPORT 把请求重定向到攻击者主机。
+function resolve_endpoint_base(
+    manifest: Manifest,
+    endpoint_key: string,
+    overrides?: Record<string, string>,
+): string {
+    const override = overrides?.[endpoint_key];
+    if (override) return override;
+    if (manifest.requireExplicitEndpoints) {
+        throw new Error(
+            `Endpoint "${endpoint_key}" requires explicit configuration; ` +
+                `no user-provided override found for connector "${manifest.id}"`,
+        );
+    }
+    const endpoint = manifest.endpoints?.[endpoint_key];
+    if (endpoint) return endpoint;
+    throw new Error(`Unknown endpoint key: ${endpoint_key}`);
+}
+
+// 把 manifest 声明的 auth 注入 url（query 类型）或 headers（bearer/header 类型）。
+async function apply_request_auth(
+    manifest: Manifest,
+    vault: VaultBackend,
+    instance_id: string,
+    url: URL,
+    headers: Record<string, string>,
+): Promise<void> {
+    const auth = manifest.poll?.request.auth;
+    if (!auth) return;
+    const value = await vault.get(keyFor(instance_id, auth.secret));
+    if (!value) return;
+
+    if (auth.type === "bearer") {
+        headers["Authorization"] = `Bearer ${value}`;
+        return;
+    }
+    if (auth.type === "header" && auth.header_name) {
+        headers[auth.header_name] = value;
+        return;
+    }
+    if (auth.type === "query" && auth.query_param) {
+        url.searchParams.set(auth.query_param, value);
+    }
+}
+
+// do_request 与 get_raw 共享的请求前奏：URL 构造 → 安全校验 → auth 注入 →
+// 超时/AbortController 装配。返回一次性 context，调用方负责 clearTimeout(timeout_id)。
+export interface RequestContext {
+    url: URL;
+    headers: Record<string, string>;
+    abort_controller: AbortController;
+    timeout_id: NodeJS.Timeout;
+    effective_timeout: number;
+}
+
+export interface BuildRequestContextOptions {
+    path: string;
+    endpoint_overrides?: Record<string, string> | undefined;
+    initial_headers?: Record<string, string> | undefined;
+    extra_headers?: Record<string, string> | undefined;
+    default_timeout_ms: number;
+    timeout_ms?: number | undefined;
+}
+
+export async function build_request_context(
+    manifest: Manifest,
+    endpoint_name: string,
+    vault: VaultBackend,
+    instance_id: string,
+    options: BuildRequestContextOptions,
+): Promise<RequestContext> {
+    const base = resolve_endpoint_base(manifest, endpoint_name, options.endpoint_overrides);
+    const url = new URL(options.path, base);
+    assert_safe_connector_host(url);
+
+    const headers: Record<string, string> = { ...(options.initial_headers ?? {}) };
+    await apply_request_auth(manifest, vault, instance_id, url, headers);
+    const all_headers = { ...headers, ...(options.extra_headers ?? {}) };
+
+    const effective_timeout = options.timeout_ms ?? options.default_timeout_ms;
+    const abort_controller = new AbortController();
+    const timeout_id = setTimeout(() => {
+        abort_controller.abort();
+    }, effective_timeout);
+
+    return {
+        url,
+        headers: all_headers,
+        abort_controller,
+        timeout_id,
+        effective_timeout,
+    };
+}
+
 export function create_connector_context(
     manifest: Manifest,
     vault: VaultBackend,
@@ -107,39 +202,6 @@ export function create_connector_context(
         ? withLogContext(sandbox_log, { trace_id: config.trace_id })
         : sandbox_log;
 
-    function resolve_endpoint(endpoint_key: string): string {
-        const override = config.endpoint_overrides?.[endpoint_key];
-        if (override) return override;
-        if (manifest.requireExplicitEndpoints) {
-            throw new Error(
-                `Endpoint "${endpoint_key}" requires explicit configuration; ` +
-                    `no user-provided override found for connector "${manifest.id}"`,
-            );
-        }
-        const endpoint = manifest.endpoints?.[endpoint_key];
-        if (endpoint) return endpoint;
-        throw new Error(`Unknown endpoint key: ${endpoint_key}`);
-    }
-
-    async function apply_auth(url: URL, headers: Record<string, string>): Promise<void> {
-        const auth = manifest.poll?.request.auth;
-        if (!auth) return;
-        const value = await vault.get(keyFor(instance_id, auth.secret));
-        if (!value) return;
-
-        if (auth.type === "bearer") {
-            headers["Authorization"] = `Bearer ${value}`;
-            return;
-        }
-        if (auth.type === "header" && auth.header_name) {
-            headers[auth.header_name] = value;
-            return;
-        }
-        if (auth.type === "query" && auth.query_param) {
-            url.searchParams.set(auth.query_param, value);
-        }
-    }
-
     async function do_request(
         method: "GET" | "POST",
         endpoint_key: string,
@@ -147,24 +209,23 @@ export function create_connector_context(
         body?: unknown,
         opts?: HttpOpts,
     ): Promise<unknown> {
-        const url = new URL(path, resolve_endpoint(endpoint_key));
-        assert_safe_connector_host(url);
-        const headers: Record<string, string> = {
-            "Content-Type": "application/json",
-        };
-        await apply_auth(url, headers);
-
-        const all_headers = {
-            ...headers,
-            ...(opts?.headers ?? {}),
-        };
+        const ctx = await build_request_context(manifest, endpoint_key, vault, instance_id, {
+            path,
+            endpoint_overrides: config.endpoint_overrides,
+            initial_headers: { "Content-Type": "application/json" },
+            extra_headers: opts?.headers,
+            default_timeout_ms: timeout_ms,
+            timeout_ms: opts?.timeout_ms,
+        });
+        const {
+            url,
+            headers: all_headers,
+            abort_controller: ac,
+            timeout_id: total_timer,
+            effective_timeout,
+        } = ctx;
 
         request_log.debug(`${method} ${url.origin}${url.pathname}`);
-        const effective_timeout = opts?.timeout_ms ?? timeout_ms;
-        const ac = new AbortController();
-        const total_timer = setTimeout(() => {
-            ac.abort();
-        }, effective_timeout);
         const request_options = {
             method,
             headers: all_headers,
@@ -257,22 +318,28 @@ export function create_connector_context(
                 return do_request("POST", endpoint_key, path, body, opts);
             },
             async get_raw(endpoint_key: string, path: string, opts?: HttpOpts) {
-                const url = new URL(path, resolve_endpoint(endpoint_key));
-                assert_safe_connector_host(url);
-                const headers: Record<string, string> = {};
-                await apply_auth(url, headers);
-
-                const all_headers = {
-                    ...headers,
-                    ...(opts?.headers ?? {}),
-                };
+                const ctx = await build_request_context(
+                    manifest,
+                    endpoint_key,
+                    vault,
+                    instance_id,
+                    {
+                        path,
+                        endpoint_overrides: config.endpoint_overrides,
+                        extra_headers: opts?.headers,
+                        default_timeout_ms: timeout_ms,
+                        timeout_ms: opts?.timeout_ms,
+                    },
+                );
+                const {
+                    url,
+                    headers: all_headers,
+                    abort_controller: ac,
+                    timeout_id: total_timer,
+                    effective_timeout,
+                } = ctx;
 
                 request_log.debug(`GET RAW ${url.origin}${url.pathname}`);
-                const effective_timeout = opts?.timeout_ms ?? timeout_ms;
-                const ac = new AbortController();
-                const total_timer = setTimeout(() => {
-                    ac.abort();
-                }, effective_timeout);
                 const request_options = {
                     method: "GET" as const,
                     headers: all_headers,
@@ -351,5 +418,9 @@ export function create_connector_context(
             },
         },
         params: config.params ?? {},
+        // 实际收集由 run_connector 注入的 wrapper 负责；此处仅为满足
+        // ConnectorContext 契约，脚本不会直接走到此 no-op（script 路径必经
+        // run_connector 包装）。
+        report_failed_account: () => undefined,
     };
 }

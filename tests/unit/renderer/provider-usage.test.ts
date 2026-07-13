@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import type { MetricRecord } from "../../../src/shared/schemas/plugin-output";
 import { usageProviderSchema } from "../../../src/shared/schemas/plugin-output";
@@ -238,6 +240,47 @@ describe("provider usage aggregation", () => {
             "glm",
             "minimax",
         ]);
+    });
+
+    it("keeps CPA accounts separate when the connector has a remark", () => {
+        const account_labels = [
+            "user1@example.com",
+            "user2@example.com",
+            "user3@example.com",
+            "user4@example.com",
+        ];
+        const connectors = [
+            connectorInfo({
+                name: "CPA",
+                displayName: "Oracle",
+                source: "gateway",
+                sourceInstanceId: "cpa-main",
+                supportedProviders: ["codex"],
+                activeProviders: ["codex"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-07-13T00:00:00Z",
+                    items: account_labels.map((account_label, index) =>
+                        usageItem({
+                            id: `codex-${String(index + 1)}-primary`,
+                            provider: "codex",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: `auth-${String(index + 1)}`,
+                            accountLabel: account_label,
+                            raw_label: "primary_window",
+                            normalized_label: "5小时",
+                        }),
+                    ),
+                },
+            }),
+        ];
+
+        const [group] = build_provider_usage_groups(connectors);
+
+        expect(group?.accountCount).toBe(4);
+        expect(group?.accounts.map((account) => account.accountLabel)).toEqual(account_labels);
+        expect(group?.accounts.map((account) => account.periods.length)).toEqual([1, 1, 1, 1]);
     });
 
     it("groups CPA rows by account label", () => {
@@ -698,20 +741,6 @@ describe("apply_account_overrides", () => {
         expect(result).toHaveLength(0);
     });
 
-    it("removes disabled accounts the same as hidden", () => {
-        const groups = build_provider_usage_groups(two_account_connectors);
-        const account_b_key = groups[0]?.accounts.find((a) => a.accountLabel === "Account B")?.id;
-        if (!account_b_key) throw new Error("Account B not found");
-
-        const result = apply_account_overrides(groups, {
-            disabled: { claude: [account_b_key] },
-        });
-
-        expect(result).toHaveLength(1);
-        expect(result[0]?.accountCount).toBe(1);
-        expect(result[0]?.accounts[0]?.accountLabel).toBe("Account A");
-    });
-
     it("applies overrides only to the matching provider group", () => {
         const connectors = [
             connectorInfo({
@@ -758,7 +787,7 @@ describe("apply_account_overrides", () => {
         if (!claude_key) throw new Error("Claude account not found");
 
         const result = apply_account_overrides(groups, {
-            disabled: { claude: [claude_key] },
+            hidden: { claude: [claude_key] },
         });
 
         expect(result.map((group) => group.provider)).toEqual(["kimi"]);
@@ -1030,5 +1059,38 @@ describe("直连账号 displayName 覆盖采集层 accountLabel", () => {
         ];
         const [group] = build_provider_usage_groups(connectors);
         expect(group?.accounts[0]?.accountLabel).toBe("GLM 默认");
+    });
+});
+
+describe("provider-usage 命名约定 (snake_case)", () => {
+    // conventions.md §1：函数名一律 snake_case。同文件已有 build_provider_usage_groups。
+    const source = readFileSync(
+        resolve(__dirname, "../../../src/renderer/lib/provider-usage.ts"),
+        "utf8",
+    );
+
+    it("compare_providers 使用 snake_case 而非 compareProviders", () => {
+        expect(source).toContain("function compare_providers(");
+        expect(source).not.toContain("compareProviders");
+    });
+
+    it("latest_timestamp 使用 snake_case 而非 latestTimestamp", () => {
+        expect(source).toContain("function latest_timestamp(");
+        expect(source).not.toContain("latestTimestamp");
+    });
+
+    it("worst_status 使用 snake_case 而非 worstStatus", () => {
+        expect(source).toContain("function worst_status(");
+        expect(source).not.toContain("worstStatus");
+    });
+
+    it("to_period 使用 snake_case 而非 toPeriod", () => {
+        expect(source).toContain("function to_period(");
+        expect(source).not.toContain("toPeriod");
+    });
+
+    it("has_valid_quota 使用 snake_case 而非 hasValidQuota", () => {
+        expect(source).toContain("function has_valid_quota(");
+        expect(source).not.toContain("hasValidQuota");
     });
 });

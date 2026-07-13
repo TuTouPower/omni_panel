@@ -301,4 +301,37 @@ describe("connector-ipc", () => {
         const defaultConnector = result.data.find((item) => item.instanceId === "cpa-2");
         expect(defaultConnector?.activeProviders).toEqual(["claude"]);
     });
+
+    describe("is_cpa_connector", () => {
+        it("exists and returns true for a cpa connector definition", async () => {
+            const { is_cpa_connector } = await import("../../../src/main/ipc/connector-ipc");
+            expect(typeof is_cpa_connector).toBe("function");
+
+            const cpa_def: ConnectorDefinition = {
+                directory: "/connectors/cpa",
+                executablePath: "/connectors/cpa",
+                manifest: {
+                    id: "cpa",
+                    provider: "cpa",
+                    capabilities: ["poll"],
+                    parameters: [],
+                    poll: {
+                        request: { endpoint: "default", path: "/usage", method: "GET" },
+                        map: {},
+                    },
+                },
+            };
+            expect(is_cpa_connector(cpa_def)).toBe(true);
+        });
+
+        it("returns false for a non-cpa connector definition", async () => {
+            const { is_cpa_connector } = await import("../../../src/main/ipc/connector-ipc");
+            expect(is_cpa_connector(claude_definition)).toBe(false);
+        });
+
+        it("returns false for undefined definition", async () => {
+            const { is_cpa_connector } = await import("../../../src/main/ipc/connector-ipc");
+            expect(is_cpa_connector(undefined)).toBe(false);
+        });
+    });
 });

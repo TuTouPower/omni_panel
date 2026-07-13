@@ -3,7 +3,7 @@ import type { UsageProvider } from "../../shared/schemas/plugin-output";
 
 export function add_account_override(
     overrides: AccountOverrides | undefined,
-    kind: "hidden" | "disabled",
+    kind: "hidden",
     provider: string,
     accountId: string,
 ): AccountOverrides {
@@ -18,7 +18,7 @@ export function add_account_override(
 
 export function remove_account_override(
     overrides: AccountOverrides,
-    kind: "hidden" | "disabled",
+    kind: "hidden",
     provider: string,
     accountId: string,
 ): AccountOverrides {
