@@ -790,7 +790,7 @@ export function SettingsView() {
     }, [pluginInfos]);
 
     const restoreOverrideAccount = useCallback(
-        (provider: UsageProvider, key: string, kind: "hidden" | "disabled") => {
+        (provider: UsageProvider, key: string, kind: "hidden") => {
             if (!config?.accountOverrides) return;
             const newOverrides = remove_account_override(
                 config.accountOverrides,

@@ -115,29 +115,6 @@ test.describe("account-level operations", () => {
         await settings_page.close();
     });
 
-    test("closing a direct-source account removes only that account from the provider tab", async ({
-        omni,
-    }) => {
-        const page = await omni.app.firstWindow();
-        const popup = new PopupPage(page);
-        await popup.waitReady();
-        await page.waitForTimeout(5000);
-
-        const live = popup.root();
-        const tab = live.getByRole("button", { name: /^DeepSeek$/ });
-        await expect(tab).toBeVisible();
-        await tab.click();
-
-        await expect(live.locator(".card-name").filter({ hasText: "Account A" })).toBeVisible();
-        await expect(live.locator(".card-name").filter({ hasText: "Account B" })).toBeVisible();
-
-        await live.locator('[aria-label="账号操作"]').first().click();
-        await page.getByText("关闭监控").click();
-
-        await expect(live.locator(".card-name").filter({ hasText: "Account A" })).toHaveCount(0);
-        await expect(live.locator(".card-name").filter({ hasText: "Account B" })).toBeVisible();
-    });
-
     test("delete menu item visible on direct-source accounts", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);

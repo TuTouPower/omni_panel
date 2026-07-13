@@ -255,10 +255,7 @@ export function apply_account_overrides(
     if (!overrides) return groups;
     return groups
         .map((group) => {
-            const excluded_set = new Set([
-                ...(overrides.hidden?.[group.provider] ?? []),
-                ...(overrides.disabled?.[group.provider] ?? []),
-            ]);
+            const excluded_set = new Set([...(overrides.hidden?.[group.provider] ?? [])]);
             if (excluded_set.size === 0) return group;
 
             const filtered = group.accounts.filter((a) => !excluded_set.has(a.id));

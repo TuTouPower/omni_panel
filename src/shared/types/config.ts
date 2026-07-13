@@ -22,7 +22,6 @@ export interface FloatingBoundsConfiguration {
 
 export interface AccountOverrides {
     readonly hidden?: Readonly<Partial<Record<UsageProvider, readonly string[]>>>;
-    readonly disabled?: Readonly<Partial<Record<UsageProvider, readonly string[]>>>;
 }
 
 export type AccountLabels = Readonly<
