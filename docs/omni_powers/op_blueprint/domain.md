@@ -18,7 +18,7 @@
 | 用量条 | metric      | `metricId` / `metricName`                             | 用量里的单条指标                    | 一账号多条（Claude 5小时+一周=2条）                                                                        |
 | 观测   | observation | `Observation`                                         | 单次采集产出的原子记录              | 最小单元                                                                                                   |
 
-**观测核心字段**：`provider` + `sourceInstanceId` + `accountId` + `metricId` + `used`/`limit` + `source` + `observedAt` + `stale`/`lastError`。完整字段与 SQLite schema 见 `specs/observation-store.md`。
+**观测核心字段**：`provider` + `sourceInstanceId` + `accountId` + `metricId` + `used`/`limit` + `source` + `observedAt` + `stale`/`lastError` + `cycleDurationMs`。完整字段与 SQLite schema 见 `specs/observation-store.md`。
 
 ### 高发 bug 区
 
