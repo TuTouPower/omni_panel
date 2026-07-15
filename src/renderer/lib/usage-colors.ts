@@ -42,77 +42,7 @@ function risk_projected_level(
     return "green";
 }
 
-export function usage_window_elapsed(
-    period_name: string,
-    reset_at: number | null | undefined,
-    now_ms = Date.now(),
-): number | undefined {
-    if (!reset_at) {
-        if (should_log_raw) {
-            log.debug("usage window elapsed raw", {
-                period_name,
-                reset_at,
-                now_ms,
-                elapsed: undefined,
-                reason: "missing resetAt",
-            });
-        }
-        return undefined;
-    }
-    const reset_ms = reset_at;
-    if (!Number.isFinite(reset_ms)) {
-        if (should_log_raw) {
-            log.debug("usage window elapsed raw", {
-                period_name,
-                reset_at,
-                now_ms,
-                elapsed: undefined,
-                reason: "invalid resetAt",
-            });
-        }
-        return undefined;
-    }
-    const name = period_name.toLowerCase();
-    const hour = 60 * 60 * 1000;
-    const day = 24 * hour;
-    const duration =
-        name.includes("5小时") || name.includes("5 小时") || name.includes("5h")
-            ? 5 * hour
-            : name.includes("一周") ||
-                name.includes("每周") ||
-                name.includes("周") ||
-                name.includes("week")
-              ? 7 * day
-              : name.includes("月") || name.includes("month")
-                ? 30 * day
-                : name.includes("天") || name.includes("每日") || name.includes("day")
-                  ? day
-                  : undefined;
-    if (duration === undefined) {
-        if (should_log_raw) {
-            log.debug("usage window elapsed raw", {
-                period_name,
-                reset_at,
-                now_ms,
-                elapsed: undefined,
-                reason: "unknown period",
-            });
-        }
-        return undefined;
-    }
-    const remaining = reset_ms - now_ms;
-    const elapsed = Math.min(1, Math.max(0, 1 - remaining / duration));
-    if (should_log_raw) {
-        log.debug("usage window elapsed raw", {
-            period_name,
-            reset_at,
-            now_ms,
-            reset_ms,
-            duration,
-            remaining,
-            elapsed,
-        });
-    }
+export function usage_window_elapsed(elapsed: number | undefined): number | undefined {
     return elapsed;
 }
 

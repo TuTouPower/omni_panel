@@ -36,37 +36,22 @@ describe("usage_color", () => {
 });
 
 describe("usage_window_elapsed", () => {
-    it("derives elapsed fraction from reset time and known period label", () => {
-        const now = Date.parse("2026-06-06T10:00:00Z");
-
-        expect(usage_window_elapsed("5小时", Date.parse("2026-06-06T12:00:00Z"), now)).toBeCloseTo(
-            0.6,
-        );
-        expect(
-            usage_window_elapsed("5 小时用量", Date.parse("2026-06-06T12:00:00Z"), now),
-        ).toBeCloseTo(0.6);
-        expect(usage_window_elapsed("一周", Date.parse("2026-06-09T10:00:00Z"), now)).toBeCloseTo(
-            4 / 7,
-        );
-        expect(usage_window_elapsed("周用量", Date.parse("2026-06-09T10:00:00Z"), now)).toBeCloseTo(
-            4 / 7,
-        );
+    it("returns elapsed fraction unchanged", () => {
+        expect(usage_window_elapsed(0.6)).toBeCloseTo(0.6);
+        expect(usage_window_elapsed(undefined)).toBeUndefined();
+        expect(usage_window_elapsed(0)).toBe(0);
+        expect(usage_window_elapsed(1)).toBe(1);
     });
 
-    it("lets projected risk colors use derived elapsed", () => {
-        const now = Date.parse("2026-06-06T10:00:00Z");
-        const elapsed = usage_window_elapsed("5小时", Date.parse("2026-06-06T12:00:00Z"), now);
-
-        if (elapsed === undefined) throw new Error("missing elapsed");
-
-        expect(bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed })).toBe(
+    it("lets projected risk colors use elapsed", () => {
+        expect(bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed: 0.6 })).toBe(
             "var(--risk-yellow)",
         );
     });
 });
 
 describe("usage color debug logs", () => {
-    it("logs resetAt elapsed and color decisions", async () => {
+    it("logs bar fill color decisions", async () => {
         const { addTransport, setLogLevel } = await import("../../../../src/shared/lib/logger");
         const lines: string[] = [];
         const remove_transport = addTransport({
@@ -77,20 +62,11 @@ describe("usage color debug logs", () => {
         setLogLevel("debug");
 
         try {
-            const now = Date.parse("2026-06-06T10:00:00Z");
-            const elapsed = usage_window_elapsed(
-                "5 小时用量",
-                Date.parse("2026-06-06T12:00:00Z"),
-                now,
-            );
-            const color = bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed });
+            const color = bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed: 0.6 });
 
             const joined = lines.join("\n");
             expect(color).toBe("var(--risk-yellow)");
-            expect(joined).toContain("usage window elapsed raw");
             expect(joined).toContain("bar fill color raw");
-            expect(joined).toContain('"reset_at":1780747200000');
-            expect(joined).toContain("1780747200000");
             expect(joined).toContain("risk-projected");
             expect(joined).toContain('"elapsed":0.6');
             expect(joined).toContain('"result":"var(--risk-yellow)"');
