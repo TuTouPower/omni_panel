@@ -6,16 +6,19 @@ import type { MetricRecord } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageAccount, ProviderUsagePeriod } from "../lib/provider-usage";
 import { format_usage_period_label } from "../lib/provider-usage";
 import { format_reset_time, relative_time } from "../lib/utils";
-import {
-    bar_fill_color,
-    DEFAULT_USAGE_BAR_COLOR_SCHEME,
-    usage_window_elapsed,
-} from "../lib/usage-colors";
+import { bar_fill_color, DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 
 interface UsageBarRowProps {
     period: Pick<
         ProviderUsagePeriod,
-        "id" | "name" | "raw_label" | "used" | "limit" | "displayStyle" | "resetAt"
+        | "id"
+        | "name"
+        | "raw_label"
+        | "used"
+        | "limit"
+        | "displayStyle"
+        | "resetAt"
+        | "cycleDurationMs"
     >;
     index: number;
     colorScheme?: UsageBarColorScheme | undefined;
@@ -54,7 +57,10 @@ export const UsageBarRow = memo(function UsageBarRow({
     labelMap,
 }: UsageBarRowProps) {
     const label = format_usage_period_label(period.raw_label, period.name, labelMap);
-    const elapsed = usage_window_elapsed(period.name, period.resetAt);
+    const elapsed =
+        period.resetAt && period.cycleDurationMs
+            ? Math.min(1, Math.max(0, 1 - (period.resetAt - Date.now()) / period.cycleDurationMs))
+            : undefined;
     const used = period.used;
     const has_value = used !== null;
     const pct = has_value ? percent(used, period.limit) : 0;

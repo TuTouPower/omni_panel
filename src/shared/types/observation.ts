@@ -30,6 +30,7 @@ export interface ScriptObservation {
      */
     readonly name?: string;
     readonly window: ObservationWindow;
+    readonly cycleDurationMs?: number | null;
     readonly used: number | null;
     readonly limit: number | null;
     readonly display_style: ObservationDisplayStyle;

@@ -19,6 +19,7 @@ export interface ProviderUsagePeriod {
     limit: number | null;
     displayStyle: MetricRecord["displayStyle"];
     resetAt: number | null;
+    cycleDurationMs?: number | null;
     status: MetricRecord["status"];
     color?: MetricRecord["color"] | undefined;
     updatedAt: string;
@@ -138,6 +139,7 @@ function to_period(
         limit: item.limit,
         displayStyle: item.displayStyle,
         resetAt: item.resetAt,
+        cycleDurationMs: item.cycleDurationMs,
         status: item.status,
         color: item.color,
         updatedAt,

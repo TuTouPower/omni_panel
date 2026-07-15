@@ -40,6 +40,7 @@ export function observation_to_metric_record(obs: Observation): MetricRecord | n
         ...(obs.display_label !== undefined && { display_label: obs.display_label }),
         used: obs.used,
         limit: obs.limit,
+        cycleDurationMs: obs.cycleDurationMs,
         displayStyle: obs.display_style,
         resetAt: obs.reset_at,
         status: obs.status,

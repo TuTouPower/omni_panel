@@ -5,7 +5,7 @@ import { UsageBarRow } from "./UsageRows";
 
 type BarPeriod = Pick<
     ProviderUsagePeriod,
-    "id" | "name" | "raw_label" | "used" | "limit" | "displayStyle" | "resetAt"
+    "id" | "name" | "raw_label" | "used" | "limit" | "displayStyle" | "resetAt" | "cycleDurationMs"
 >;
 
 interface UsageBarListProps {

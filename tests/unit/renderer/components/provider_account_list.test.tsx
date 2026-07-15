@@ -20,6 +20,7 @@ function make_group(): ProviderUsageGroup {
         limit: 100,
         displayStyle: "percent" as const,
         resetAt: 1767286800000,
+        cycleDurationMs: 5 * 3_600_000,
         status: "normal" as const,
         updatedAt: "2026-01-01T15:00:00Z",
         observedAt: 1735689600000,
