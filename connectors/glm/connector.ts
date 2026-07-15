@@ -130,6 +130,12 @@ async function main(): Promise<ScriptObservation[]> {
                 raw_label: `${kind}-${pk}`,
                 normalized_label,
                 window: pk === "month" ? "month" : pk === "week" ? "day" : "second",
+                cycleDurationMs:
+                    pk === "month"
+                        ? 30 * 24 * 3_600_000
+                        : pk === "week"
+                          ? 7 * 24 * 3_600_000
+                          : 5 * 3_600_000,
                 used: current,
                 limit: total,
                 display_style: "ratio",
@@ -152,6 +158,12 @@ async function main(): Promise<ScriptObservation[]> {
                 raw_label: `${kind}-${pk}`,
                 normalized_label,
                 window: pk === "5h" ? "second" : pk === "month" ? "month" : "day",
+                cycleDurationMs:
+                    pk === "5h"
+                        ? 5 * 3_600_000
+                        : pk === "month"
+                          ? 30 * 24 * 3_600_000
+                          : 7 * 24 * 3_600_000,
                 used: percentage,
                 limit: 100,
                 display_style: "percent",

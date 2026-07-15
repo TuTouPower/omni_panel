@@ -67,6 +67,7 @@ async function main(): Promise<ScriptObservation[]> {
         account_id: "firecrawl",
         account_label: "Firecrawl",
         window: "month" as const,
+        cycleDurationMs: 30 * 24 * 3_600_000,
         display_style: "ratio" as const,
         reset_at: credits.reset_at,
         observed_at: now,

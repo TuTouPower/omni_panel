@@ -68,6 +68,7 @@ async function main(): Promise<ScriptObservation[]> {
             raw_label: `balance-${currency}`,
             normalized_label: `余额${suffix}`,
             window: "total",
+            cycleDurationMs: null,
             used: Math.round(balance * 100) / 100,
             limit: rounded_limit,
             display_style: "ratio",

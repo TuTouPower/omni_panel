@@ -116,6 +116,7 @@ async function main(): Promise<ScriptObservation[]> {
             raw_label: model,
             normalized_label: model,
             window: "day",
+            cycleDurationMs: null,
             used,
             limit: null,
             display_style: "ratio",

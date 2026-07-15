@@ -104,6 +104,7 @@ export async function execute_probe(
             raw_label: "usage",
             normalized_label: "Usage",
             window: "month",
+            cycleDurationMs: null,
             used,
             limit,
             display_style: "ratio",

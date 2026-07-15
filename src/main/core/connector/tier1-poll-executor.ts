@@ -76,6 +76,7 @@ export async function execute_poll(
             raw_label: "usage",
             normalized_label: "Usage",
             window,
+            cycleDurationMs: null,
             used,
             limit,
             display_style: "ratio",

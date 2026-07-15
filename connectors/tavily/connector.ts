@@ -72,6 +72,7 @@ async function main(): Promise<ScriptObservation[]> {
         account_id: "tavily",
         account_label: "Tavily",
         window: "month" as const,
+        cycleDurationMs: 30 * 24 * 3_600_000,
         display_style: "ratio" as const,
         reset_at,
         observed_at: now,

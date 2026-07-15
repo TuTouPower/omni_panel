@@ -119,11 +119,11 @@ function parse_claude(
     account: CpaAccount,
     now: number,
 ): ScriptObservation[] {
-    const periods: [string, string, string, "second" | "day"][] = [
-        ["five_hour", "five_hour", "5小时", "second"],
-        ["seven_day", "seven_day", "一周", "day"],
+    const periods: [string, string, string, "second" | "day", number][] = [
+        ["five_hour", "five_hour", "5小时", "second", 5 * 3_600_000],
+        ["seven_day", "seven_day", "一周", "day", 7 * 24 * 3_600_000],
     ];
-    return periods.map(([key, raw_label, normalized_label, window]) => {
+    return periods.map(([key, raw_label, normalized_label, window, cycleDurationMs]) => {
         const period = body[key];
         // utilization is fraction used (0.34 = 34% used).
         const pct = is_record(period) ? to_pct(period["utilization"]) : 0;
@@ -136,6 +136,7 @@ function parse_claude(
             raw_label,
             normalized_label,
             window,
+            cycleDurationMs,
             used: pct,
             limit: 100,
             display_style: "percent",
@@ -154,6 +155,7 @@ function parse_claude(
 interface CodexWindowDescriptor {
     readonly normalized_label: string;
     readonly window: "second" | "day" | "month";
+    readonly cycleDurationMs: number | null;
 }
 
 function resolve_codex_window(
@@ -161,22 +163,26 @@ function resolve_codex_window(
     fallback_label: string,
 ): CodexWindowDescriptor {
     if (duration_seconds === 18_000) {
-        return { normalized_label: "5小时", window: "second" };
+        return { normalized_label: "5小时", window: "second", cycleDurationMs: 18_000_000 };
     }
     if (duration_seconds === 604_800) {
-        return { normalized_label: "一周", window: "day" };
+        return { normalized_label: "一周", window: "day", cycleDurationMs: 604_800_000 };
     }
     if (duration_seconds === 2_628_000) {
-        return { normalized_label: "一月", window: "month" };
+        return { normalized_label: "一月", window: "month", cycleDurationMs: 2_628_000_000 };
     }
     if (
         typeof duration_seconds === "number" &&
         Number.isFinite(duration_seconds) &&
         duration_seconds > 0
     ) {
-        return { normalized_label: `窗口 ${String(duration_seconds)} 秒`, window: "second" };
+        return {
+            normalized_label: `窗口 ${String(duration_seconds)} 秒`,
+            window: "second",
+            cycleDurationMs: duration_seconds * 1000,
+        };
     }
-    return { normalized_label: fallback_label, window: "second" };
+    return { normalized_label: fallback_label, window: "second", cycleDurationMs: null };
 }
 
 function parse_codex(
@@ -196,7 +202,7 @@ function parse_codex(
         const camel_key = key === "primary_window" ? "primaryWindow" : "secondaryWindow";
         const w = rl[key] ?? rl[camel_key];
         if (!is_record(w)) continue;
-        const { normalized_label, window } = resolve_codex_window(
+        const { normalized_label, window, cycleDurationMs } = resolve_codex_window(
             w["limit_window_seconds"] ?? w["limitWindowSeconds"],
             fallback_label,
         );
@@ -221,6 +227,7 @@ function parse_codex(
             raw_label: key,
             normalized_label,
             window,
+            cycleDurationMs,
             used: pct,
             limit: 100,
             display_style: "percent",
@@ -321,6 +328,7 @@ function parse_antigravity(
             raw_label: group.id,
             normalized_label: group.label,
             window: "second",
+            cycleDurationMs: null,
             used,
             limit: 100,
             display_style: "percent",
@@ -366,6 +374,7 @@ function parse_kimi(
             raw_label: name_field || period_label,
             normalized_label: period_label,
             window: "day",
+            cycleDurationMs: null,
             used: pct,
             limit: 100,
             display_style: "percent",
