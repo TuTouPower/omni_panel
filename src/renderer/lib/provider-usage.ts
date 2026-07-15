@@ -19,7 +19,7 @@ export interface ProviderUsagePeriod {
     limit: number | null;
     displayStyle: MetricRecord["displayStyle"];
     resetAt: number | null;
-    cycleDurationMs?: number | null;
+    cycleDurationMs?: number | null | undefined;
     status: MetricRecord["status"];
     color?: MetricRecord["color"] | undefined;
     updatedAt: string;
