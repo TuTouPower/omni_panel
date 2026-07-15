@@ -116,7 +116,7 @@ describe("session-manager", () => {
         expect(deps.window.loaded_urls).toEqual(["https://example.com/login"]);
     });
 
-    it("uses a provider-scoped persistent partition persist:<provider>-login for login window and cookie capture", async () => {
+    it("uses an instance-scoped persistent partition persist:session-login:<instance_id> for login window and cookie capture", async () => {
         const deps = create_deps();
         const manager = create_session_manager(deps);
 
@@ -130,8 +130,8 @@ describe("session-manager", () => {
         await promise;
 
         expect(deps.partitions).toEqual([
-            `window:persist:opencode_go-login`,
-            `session:persist:opencode_go-login`,
+            `window:persist:session-login:opencode-go-1`,
+            `session:persist:session-login:opencode-go-1`,
         ]);
     });
 
@@ -390,5 +390,87 @@ describe("session-manager", () => {
 
         deps.window.close();
         await first;
+    });
+
+    it("auto-closes window after auto_close_ms delay when cookie is captured", async () => {
+        vi.useFakeTimers();
+        try {
+            const deps = create_deps();
+            const manager = create_session_manager(deps);
+
+            const promise = manager.start_login({
+                instance_id: "mimo-1",
+                provider: "mimo",
+                login_url: "https://example.com/login",
+                cookie_names: ["token"],
+                auto_close_ms: 1500,
+            });
+
+            deps.emit_before_send_headers("https://example.com/api/v1/user", {
+                Cookie: "token=abc",
+            });
+
+            expect(deps.window.closed).toBe(false);
+            await vi.advanceTimersByTimeAsync(1500);
+            expect(deps.window.closed).toBe(true);
+
+            const result = await promise;
+            expect(result.saved).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("does not auto-close when auto_close_ms is set but no cookie captured", async () => {
+        vi.useFakeTimers();
+        try {
+            const deps = create_deps();
+            const manager = create_session_manager(deps, { timeout_ms: 5000 });
+
+            const promise = manager.start_login({
+                instance_id: "mimo-1",
+                provider: "mimo",
+                login_url: "https://example.com/login",
+                cookie_names: ["token"],
+                auto_close_ms: 1500,
+            });
+
+            await vi.advanceTimersByTimeAsync(2000);
+            expect(deps.window.closed).toBe(false);
+
+            deps.window.close();
+            const result = await promise;
+            expect(result.saved).toBe(false);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("does not auto-close when auto_close_ms is not set even after cookie capture", async () => {
+        vi.useFakeTimers();
+        try {
+            const deps = create_deps();
+            const manager = create_session_manager(deps, { timeout_ms: 5000 });
+
+            const promise = manager.start_login({
+                instance_id: "mimo-1",
+                provider: "mimo",
+                login_url: "https://example.com/login",
+                cookie_names: ["token"],
+            });
+
+            deps.emit_before_send_headers("https://example.com/api/v1/user", {
+                Cookie: "token=abc",
+            });
+
+            await vi.advanceTimersByTimeAsync(3000);
+            expect(deps.window.closed).toBe(false);
+
+            deps.window.close();
+            const result = await promise;
+            expect(result.saved).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

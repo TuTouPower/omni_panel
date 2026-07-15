@@ -201,7 +201,7 @@ void app.whenReady().then(async () => {
             // Try silent cookie refresh first (no window popup).
             // trySilentCookieRefresh 内部从 definitions + config 查 provider 与 cookieNames。
             const silent = await trySilentCookieRefresh(
-                { configStore, secretsStore, definitions: allDefinitions },
+                { configStore, secretsStore, definitions: allDefinitions, sessionManager },
                 instanceId,
             );
             if (silent) {
@@ -209,7 +209,7 @@ void app.whenReady().then(async () => {
             }
             // Fall back to interactive login window
             const result = await handleCookieLogin(
-                { configStore, secretsStore, definitions: allDefinitions },
+                { configStore, secretsStore, definitions: allDefinitions, sessionManager },
                 instanceId,
             );
             if (!result.ok) throw new Error(result.error.message);
@@ -271,11 +271,6 @@ void app.whenReady().then(async () => {
     });
     await registerLogIpc(dataRoot);
     cleanupEventIpc = registerEventIpc({ runtimeStore });
-    registerAuthIpc({
-        configStore,
-        secretsStore,
-        definitions: allDefinitions,
-    });
     registerGrokAuthIpc({ manager: grokOAuthManager });
 
     // Session manager — controlled login window + credential capture
@@ -310,6 +305,12 @@ void app.whenReady().then(async () => {
         },
     });
     await registerSessionIpc({ sessionManager });
+    registerAuthIpc({
+        configStore,
+        secretsStore,
+        definitions: allDefinitions,
+        sessionManager,
+    });
 
     // Window references — shared between tray and E2E mode
     /** Custom tray menu frameless window (replaces native context menu). */

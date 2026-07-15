@@ -16,5 +16,6 @@
         "default": "https://kimi.com"
     },
     "loginDomains": ["kimi.com", "www.kimi.com"],
+    "cookieNames": ["access_token", "refresh_token"],
     "script": "connector.ts"
 }

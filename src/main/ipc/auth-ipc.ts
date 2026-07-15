@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, session } from "electron";
+import { ipcMain, session } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail, assert_valid_sender } from "./helpers";
@@ -6,16 +6,17 @@ import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
-import { get_session_login_partition } from "../core/session/session-manager";
+import { get_session_login_partition, type SessionManager } from "../core/session/session-manager";
 
 const log = createLogger("ipc:auth");
 
-const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
+const AUTO_CLOSE_MS = 1500;
 
 export interface AuthIpcDeps {
     configStore: AppConfigStore;
     secretsStore: SecretsStore;
     definitions: readonly ConnectorDefinition[];
+    sessionManager: SessionManager;
 }
 
 export async function handleCookieLogin(
@@ -34,9 +35,13 @@ export async function handleCookieLogin(
         return fail("VALIDATION_ERROR", "该插件未配置登录地址");
     }
 
+    const cookie_names = def.manifest.cookieNames ?? [];
+    if (!cookie_names.length) {
+        return fail("VALIDATION_ERROR", "该插件未配置 cookieNames");
+    }
+
     const parsed = new URL(loginUrl);
     const hostname = parsed.hostname;
-    // 登录域名白名单从 manifest.loginDomains 读取（P1-4）：连接器自声明，宿主不硬编码。
     const allowed_domains = def.manifest.loginDomains ?? [];
     if (!allowed_domains.length) {
         return fail("VALIDATION_ERROR", "该插件未配置登录域名");
@@ -46,113 +51,19 @@ export async function handleCookieLogin(
         return fail("VALIDATION_ERROR", `登录域名不被允许: ${hostname}`);
     }
 
-    // 每个 provider 一个独立持久化分区 persist:<provider>-login（见 connector-session.md:21）。
-    const partition = get_session_login_partition(def.manifest.provider);
-    const loginSession = session.fromPartition(partition);
-
-    return new Promise<IpcResult<{ saved: boolean }>>((resolve) => {
-        let resolved = false;
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-        let captured_cookie: string | null = null;
-
-        function finish(result: IpcResult<{ saved: boolean }>) {
-            if (resolved) return;
-            resolved = true;
-            if (timeoutId) {
-                clearTimeout(timeoutId);
-                timeoutId = null;
-            }
-            resolve(result);
-        }
-
-        let auto_close_id: ReturnType<typeof setTimeout> | null = null;
-
-        // Intercept API requests to capture the exact Cookie header the browser sends.
-        // This is more reliable than reading cookies from the session because the
-        // browser may send cookies that session.cookies.get({}) doesn't return, or
-        // the server may require cookies in a specific format.
-        loginSession.webRequest.onBeforeSendHeaders((details, callback) => {
-            let req_path = "";
-            try {
-                req_path = new URL(details.url).pathname;
-            } catch {
-                req_path = "";
-            }
-            if (!resolved && (req_path.includes("/api/v1/") || req_path.startsWith("/api/v1"))) {
-                const cookie = details.requestHeaders["Cookie"] ?? details.requestHeaders["cookie"];
-                if (cookie) {
-                    captured_cookie = cookie;
-                    log.info(
-                        `Captured Cookie header from browser API request to ${details.url.slice(0, 80)}`,
-                    );
-                    // Auto-close after a short delay so the page finishes loading.
-                    auto_close_id ??= setTimeout(() => {
-                        auto_close_id = null;
-                        if (!resolved && !loginWin.isDestroyed()) {
-                            log.info("Auto-closing login window after cookie capture");
-                            loginWin.close();
-                        }
-                    }, 1500);
-                }
-            }
-            callback({ requestHeaders: details.requestHeaders });
+    try {
+        const result = await deps.sessionManager.start_login({
+            instance_id: instanceId,
+            provider: def.manifest.provider,
+            login_url: loginUrl,
+            cookie_names,
+            auto_close_ms: AUTO_CLOSE_MS,
         });
-
-        const loginWin = new BrowserWindow({
-            width: 520,
-            height: 720,
-            title: "MiMo 登录 — 登录后将自动关闭",
-            webPreferences: {
-                contextIsolation: true,
-                nodeIntegration: false,
-                sandbox: true,
-                webSecurity: true,
-                allowRunningInsecureContent: false,
-                partition,
-            },
-        });
-
-        loginWin.on("closed", () => {
-            if (auto_close_id) {
-                clearTimeout(auto_close_id);
-                auto_close_id = null;
-            }
-            if (resolved) return;
-            if (captured_cookie) {
-                log.info("Saving cookie captured from browser API request");
-                void deps.secretsStore
-                    .set(keyFor(instanceId, "SESSION_COOKIE"), captured_cookie)
-                    .then(() => {
-                        log.info("Cookies saved successfully");
-                        finish(ok({ saved: true }));
-                    })
-                    .catch((err: unknown) => {
-                        log.error("Failed to save cookies", err);
-                        finish(fail("INTERNAL_ERROR", "保存 Cookie 失败"));
-                    });
-                return;
-            }
-            // 不从 cookie jar 回退：未捕获到 Cookie 头时直接返回 saved:false（见 connector-session.md:22）。
-            log.info("No cookie captured on window close");
-            finish(ok({ saved: false }));
-        });
-
-        timeoutId = setTimeout(() => {
-            if (auto_close_id) {
-                clearTimeout(auto_close_id);
-                auto_close_id = null;
-            }
-            if (!resolved) {
-                log.warn("Login window timed out");
-                if (!loginWin.isDestroyed()) {
-                    loginWin.close();
-                }
-                finish(fail("TIMEOUT", "登录超时"));
-            }
-        }, LOGIN_TIMEOUT_MS);
-
-        void loginWin.loadURL(loginUrl);
-    });
+        return ok(result);
+    } catch (err: unknown) {
+        log.error(`Cookie login failed for ${instanceId}`, err);
+        return fail("INTERNAL_ERROR", err instanceof Error ? err.message : String(err));
+    }
 }
 
 /**
@@ -176,14 +87,13 @@ export async function trySilentCookieRefresh(
         log.warn(`Silent refresh: definition not found for ${instanceId}`);
         return false;
     }
-    // cookie 名从 manifest.cookieNames 读取（P1-4）：未声明则无法校验，直接跳过。
     const cookie_names = def.manifest.cookieNames ?? [];
     if (!cookie_names.length) {
         log.debug(`Silent refresh: ${instanceId} declares no cookieNames, skipping`);
         return false;
     }
     const targetNames = new Set(cookie_names);
-    const partition = get_session_login_partition(def.manifest.provider);
+    const partition = get_session_login_partition(instanceId);
     const loginSession = session.fromPartition(partition);
     try {
         const allCookies = await loginSession.cookies.get({});

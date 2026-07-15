@@ -39,6 +39,7 @@ export interface LoginRequest {
     readonly provider: string;
     readonly login_url: string;
     readonly cookie_names: readonly string[];
+    readonly auto_close_ms?: number;
 }
 
 export interface LoginResult {
@@ -67,19 +68,24 @@ export function create_session_manager(
             }
             in_progress.add(request.instance_id);
 
-            const partition = get_session_login_partition(request.provider);
+            const partition = get_session_login_partition(request.instance_id);
             const window = deps.create_window(partition);
             const session = deps.create_session(partition);
             const login_origin = new URL(request.login_url).origin;
             let captured_cookie: string | null = null;
             let timeout: ReturnType<typeof setTimeout> | null = null;
+            let auto_close_timer: ReturnType<typeof setTimeout> | null = null;
             let completed = false;
 
             return new Promise<LoginResult>((resolve, reject) => {
-                function clear_timeout(): void {
+                function clear_timers(): void {
                     if (timeout) {
                         clearTimeout(timeout);
                         timeout = null;
+                    }
+                    if (auto_close_timer) {
+                        clearTimeout(auto_close_timer);
+                        auto_close_timer = null;
                     }
                 }
 
@@ -90,7 +96,7 @@ export function create_session_manager(
                 function finish_with_error(error: Error): void {
                     if (completed) return;
                     completed = true;
-                    clear_timeout();
+                    clear_timers();
                     captured_cookie = null;
                     release_lock();
                     reject(error);
@@ -99,7 +105,7 @@ export function create_session_manager(
                 async function save_cookie_on_close(): Promise<void> {
                     if (completed) return;
                     completed = true;
-                    clear_timeout();
+                    clear_timers();
                     try {
                         // 不从 cookie jar 回退：仅信任 webRequest 捕获的请求头 Cookie。
                         if (!captured_cookie) {
@@ -131,6 +137,17 @@ export function create_session_manager(
                     if (selected_cookie) {
                         log.info(`Cookie captured for ${request.instance_id}`);
                         captured_cookie = selected_cookie;
+                        if (request.auto_close_ms != null) {
+                            auto_close_timer ??= setTimeout(() => {
+                                auto_close_timer = null;
+                                if (!completed && !window.isDestroyed()) {
+                                    log.info(
+                                        `Auto-closing login window for ${request.instance_id}`,
+                                    );
+                                    window.close();
+                                }
+                            }, request.auto_close_ms);
+                        }
                     }
                 });
 
@@ -153,8 +170,8 @@ export function create_session_manager(
     };
 }
 
-export function get_session_login_partition(provider: string): string {
-    return `persist:${provider}-login`;
+export function get_session_login_partition(instance_id: string): string {
+    return `persist:session-login:${instance_id}`;
 }
 
 function should_capture_cookie(url: string, login_origin: string): boolean {

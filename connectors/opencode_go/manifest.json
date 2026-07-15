@@ -17,5 +17,6 @@
         "login": "https://opencode.ai/auth"
     },
     "loginDomains": ["opencode.ai"],
+    "cookieNames": ["*"],
     "script": "connector.ts"
 }
