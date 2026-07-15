@@ -63,6 +63,7 @@ export const PROVIDER_ORDER: readonly UsageProvider[] = [
     "firecrawl",
     "mimo",
     "opencode_go",
+    "grok",
 ];
 
 export const PROVIDER_LABELS: Record<UsageProvider, string> = {
@@ -77,6 +78,7 @@ export const PROVIDER_LABELS: Record<UsageProvider, string> = {
     firecrawl: "Firecrawl",
     mimo: "MiMo",
     opencode_go: "OpenCode Go",
+    grok: "Grok",
 };
 
 const log = createLogger("renderer:provider-usage");

@@ -47,10 +47,12 @@ src/
 │   │   ├── local-api/server.ts    # 127.0.0.1 ingest + health
 │   │   ├── main-panel/            # 托盘弹出/悬浮窗控制 + floating-bounds
 │   │   ├── popup/popup-height-controller.ts  # 动态高度纯函数
+│   │   ├── auth/grok_oauth_manager.ts          # Grok device-code OAuth + token rotation
+│   │   ├── network/effective_proxy.ts           # configured/detected proxy 运行时合并
 │   │   ├── logging.ts / paths.ts / settings-close-action.ts
 │   ├── ipc/                       # 按域拆的 IPC handler（见 specs/ipc.md）
 │   └── window/window-manager.ts   # 窗口目录 + 工厂（见 specs/window-management.md）
-├── preload/                       # contextBridge 白名单：usageboard-api.ts
+├── preload/                       # contextBridge 白名单 + route capability 策略
 ├── renderer/                      # React：views/ components/ hooks/ lib/
 └── shared/                        # 主/渲染共享：schemas/ types/ lib/ constants.ts
 connectors/                        # 12 个内置连接器（manifest.json + connector.ts）

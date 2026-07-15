@@ -1,12 +1,18 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_renderer_log_throttle } from "./log-throttle";
+import { select_grok_api } from "./route_api";
 import type {
     UsageboardApi,
     ConnectorSnapshotDTO,
     RendererLogPayload,
     RendererPlatform,
     SessionLoginRequest,
+    GrokDeviceCodeStart,
+    GrokLoginStatus,
+    GrokRefreshResult,
+    GrokReadonlyApi,
+    GrokSettingsApi,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
 import "./usageboard-api";
@@ -217,6 +223,34 @@ const session_methods = {
         invoke<{ saved: boolean }>(IPC_CHANNELS.SESSION_REFRESH, request),
 };
 
+const grok_readonly_methods: GrokReadonlyApi = {
+    login_status: (instance_id: string) =>
+        invoke<GrokLoginStatus>(IPC_CHANNELS.GROK_LOGIN_STATUS, instance_id),
+};
+
+const grok_methods: GrokSettingsApi = {
+    login_start: () => invoke<GrokDeviceCodeStart>(IPC_CHANNELS.GROK_LOGIN_START),
+    login_poll: (
+        instance_id: string,
+        device_code: string,
+        interval: number,
+        expires_at_epoch_ms: number,
+    ) =>
+        invoke<{ saved: boolean }>(
+            IPC_CHANNELS.GROK_LOGIN_POLL,
+            instance_id,
+            device_code,
+            interval,
+            expires_at_epoch_ms,
+        ),
+    login_status: (instance_id: string) =>
+        invoke<GrokLoginStatus>(IPC_CHANNELS.GROK_LOGIN_STATUS, instance_id),
+    logout: (instance_id: string) =>
+        invoke<{ logged_out: boolean }>(IPC_CHANNELS.GROK_LOGOUT, instance_id),
+    refresh: (instance_id: string) =>
+        invoke<GrokRefreshResult>(IPC_CHANNELS.GROK_REFRESH, instance_id),
+};
+
 const renderer_log_throttle = create_renderer_log_throttle({ limit: 100, window_ms: 1000 });
 
 function send_renderer_log(payload: RendererLogPayload): void {
@@ -252,6 +286,7 @@ const logs_methods = {
 
 // Route-based API restriction: each window only gets the capabilities it needs.
 const current_route = window.location.hash.slice(1) || "popup";
+const route_grok_api = select_grok_api(current_route, grok_readonly_methods, grok_methods);
 
 // Build route-specific API: each window only gets capabilities it needs
 const api: UsageboardApi = (() => {
@@ -270,6 +305,7 @@ const api: UsageboardApi = (() => {
                 tray: tray_methods,
                 auth: auth_methods,
                 session: session_methods,
+                grok: route_grok_api,
                 logs: logs_methods,
                 log: log_method,
             };
@@ -300,6 +336,7 @@ const api: UsageboardApi = (() => {
                 tray: tray_methods,
                 auth: auth_methods,
                 session: session_methods,
+                grok: route_grok_api,
                 logs: logs_methods,
                 log: log_method,
             };
@@ -326,6 +363,7 @@ const api: UsageboardApi = (() => {
                 tray: tray_methods,
                 auth: auth_methods,
                 session: session_methods,
+                grok: route_grok_api,
                 logs: logs_methods,
                 log: log_method,
             };

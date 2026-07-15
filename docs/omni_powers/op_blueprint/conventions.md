@@ -27,7 +27,8 @@
 
 ## 4. 浏览器/网络 API 约定
 
-- **所有出网走宿主 NetClient（undici）**，不在连接器/渲染层直接 `fetch`。代理、endpoint override、超时、SSRF 防护统一在此生效。
+- **连接器出网走宿主 NetClient（undici）**，不在连接器/渲染层直接 `fetch`。代理、endpoint override、超时、SSRF 防护统一在此生效。
+- 主进程 OAuth 管理器可直接使用 undici + `ProxyAgent` 处理 device-code 与 token refresh；仍须从当前配置读取代理，且不得向渲染层暴露网络能力。
 - 连接器脚本沙箱内无 `fetch/require/fs/process/timer`，只能用注入的 `ctx.http` / `ctx.files` / `ctx.params` / `ctx.log`。
 - 渲染进程无 `fs/child_process/ipcRenderer` 直连，只调 `window.usageboard.*` 白名单。
 
@@ -46,6 +47,31 @@
 6. 补测试（见 `test.md`）。
 
 > 阈值约定：percent 型（used 是百分比）用 90 critical / 75 warning；ratio 型（used/limit）用 0.9 / 0.75；余额型（越低越危险，如 DeepSeek）反向。
+
+### 5.1 Grok 连接器：OAuth device-code 授权
+
+Grok（SuperGrok）连接器与本仓库其他连接器的 cookie/API-key 授权不同，采用 **OAuth 2.0 device-code flow**（RFC 8628），与 grok CLI 的 `~/.grok/auth.json` **完全独立**——本应用持有自己的 token pair，互不干扰。
+
+**关键组件：**
+
+- `connectors/grok/manifest.json`：script 模式连接器，`poll.request.auth.secret = "OAUTH_TOKEN"`，由宿主 `apply_request_auth` 自动注入 bearer token 到 billing 请求。
+- `connectors/grok/connector.ts`：解析 `GET /v1/billing?format=credits`，返回 `creditUsagePercent`（总量）+ `productUsage[]`（分产品），window = `"week"`，display_style = `"percent"`。
+- `src/main/core/auth/grok_oauth_manager.ts`：OAuth 管理器，职责：
+    - `start_device_login()`：向 `https://auth.x.ai/oauth2/device/code` 发 form-urlencoded POST，返回 `{ device_code, user_code, verification_uri, ... }`。
+    - `await_completion()`：轮询 `https://auth.x.ai/oauth2/token`，处理 `authorization_pending` / `slow_down`（+5s 惩罚）/ `expired_token` / `access_denied`。
+    - `refresh_now()`：用 `refresh_token` 刷新；**refresh token rotation**——新 refresh_token 存入 vault，旧作废。终端错误（`invalid_grant` 等）清除 token 强制重登。
+    - token 写入、rotation、logout 按 `instance_id` 串行，防止交错 mutation 恢复已退出 token。
+    - `start_auto_refresh()`：按 `expires_at - 5min` 设置一次性 timer；成功刷新按新 expiry 重排，超长 delay 分段重算，临时失败延迟重试。`reconcile_auto_refresh()` 维护启用实例真相。
+- `src/main/ipc/grok_auth_ipc.ts`：5 个 IPC handler（login start / login poll / login status / logout / refresh）。
+- `src/renderer/components/GrokLoginSection.tsx`：设置页内的 device-code 授权 UI——展示 user_code + verification_uri，轮询完成后显示状态。
+
+**Vault 存储（per instance_id）：** `OAUTH_TOKEN` / `OAUTH_REFRESH_TOKEN` / `OAUTH_EXPIRES_AT`。
+
+**代理支持：** 用户配置代理优先于系统探测代理；探测值仅参与运行时 effective proxy，不写入 `AppConfiguration`。OAuth 管理器每次请求读取最新 effective proxy，所有 OAuth HTTP 请求走 undici `ProxyAgent`。
+
+**Endpoint 安全：** Grok billing bearer 请求固定使用 manifest 中 `grok_billing` endpoint；实例 `endpointOverrides.grok_billing` 在进入 NetClient 前删除，避免 token 发往自定义主机。
+
+**OAuth 常量（公开，非 secret）：** `GROK_CLIENT_ID`、`GROK_DEVICE_AUTH_URL`、`GROK_TOKEN_URL`、`GROK_SCOPE` 定义在 `grok_oauth_manager.ts`，来自 xAI OIDC discovery 文档与 grok CLI Rust 源码。
 
 ## 6. 提交 & 质量门
 

@@ -15,6 +15,7 @@ describe("add-account common services", () => {
             "firecrawl",
             "mimo",
             "opencode_go",
+            "grok",
         ]);
     });
 

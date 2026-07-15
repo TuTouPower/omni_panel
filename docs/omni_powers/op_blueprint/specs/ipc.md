@@ -18,12 +18,15 @@
 | mainPanel | `mainPanel:hide` / `getMode`                                                                                                                                                                                   | 主面板 shell 动作                         |
 | tray      | `tray:openPanel` / `refreshAll` / `togglePause` / `toggleAutostart` / `openSettings` / `checkUpdate` / `survey` / `sponsor` / `quit` / `restart` / `hide` / `reportMenuSize` / `pauseState` / `autostartState` | 托盘菜单动作                              |
 | auth      | `auth:cookieLogin`                                                                                                                                                                                             | 通用 cookie 登录                          |
+| grok      | `grok:loginStart` / `loginPoll` / `loginStatus` / `logout` / `refresh`                                                                                                                                         | Grok OAuth device-code 与 token 生命周期  |
 | session   | `session:login` / `refresh`                                                                                                                                                                                    | 受控网页登录（见 `connector-session.md`） |
 | test      | `test:tray-click`                                                                                                                                                                                              | **E2E only**，程序触发托盘点击            |
 
 ## 渲染 API（`UsageboardApi`，preload 暴露）
 
-`window.usageboard` 命名空间：`connector` / `config` / `event` / `popup` / `main_panel` / `theme` / `settings` / `tray` / `auth` / `session` / `logs` / `log`。`plugin` 段为 deprecated 别名（历史名遗留）。
+`window.usageboard` 命名空间：`connector` / `config` / `event` / `popup` / `main_panel` / `theme` / `settings` / `tray` / `auth` / `session` / `grok` / `logs` / `log`。`plugin` 段为 deprecated 别名（历史名遗留）。
+
+Grok API 按 route 收窄：settings 暴露 `login_start` / `login_poll` / `login_status` / `logout` / `refresh`；popup 与 tray 仅暴露 `login_status`。共享类型用 `GrokSettingsApi | GrokReadonlyApi` 表达能力差异，settings-only 调用前须做 capability guard。
 
 ## 安全
 

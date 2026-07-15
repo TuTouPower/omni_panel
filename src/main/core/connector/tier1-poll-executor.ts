@@ -22,7 +22,13 @@ function to_number(value: unknown): number | null {
 }
 
 function to_window(value: unknown): ObservationWindow {
-    if (value === "second" || value === "day" || value === "month" || value === "total") {
+    if (
+        value === "second" ||
+        value === "day" ||
+        value === "week" ||
+        value === "month" ||
+        value === "total"
+    ) {
         return value;
     }
     return "month";

@@ -11,6 +11,11 @@ const duplicate = vi
     .mockResolvedValue({
         instanceId: "deepseek-2",
     });
+const grok_login_status = vi.fn().mockResolvedValue({
+    has_token: false,
+    expires_at: null,
+    can_refresh: false,
+});
 
 const base_config: AppConfiguration = {
     schemaVersion: 1,
@@ -221,6 +226,13 @@ describe("SettingsView", () => {
             },
             auth: { cookieLogin: vi.fn() },
             session: { login: vi.fn(), refresh: vi.fn() },
+            grok: {
+                login_start: vi.fn(),
+                login_poll: vi.fn(),
+                login_status: grok_login_status,
+                logout: vi.fn(),
+                refresh: vi.fn(),
+            },
             logs: { export: vi.fn() },
             log: vi.fn(),
         };
@@ -243,6 +255,60 @@ describe("SettingsView", () => {
         await waitFor(() => {
             expect(save).toHaveBeenCalledWith(expect.objectContaining({ logLevel: "debug" }));
         });
+    });
+
+    it("opens the Grok settings form with OAuth login and no editable billing endpoint", async () => {
+        current_config = {
+            ...base_config,
+            plugins: [
+                ...base_config.plugins,
+                {
+                    instanceId: "grok-1",
+                    stateId: "grok-1",
+                    name: "Grok",
+                    enabled: true,
+                    executablePath: "plugins/grok.ts",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        window.usageboard.connector.list = vi.fn().mockResolvedValue([
+            ...(await window.usageboard.connector.list()),
+            {
+                instanceId: "grok-1",
+                sourceInstanceId: "grok-1",
+                stateId: "grok-1",
+                name: "Grok",
+                displayName: "Grok",
+                enabled: true,
+                source: "poll",
+                supportedProviders: ["grok"],
+                activeProviders: ["grok"],
+                metadata: {
+                    parameters: [],
+                    endpoints: {
+                        grok_billing: "https://cli-chat-proxy.grok.com",
+                    },
+                },
+                snapshot: { status: "idle" },
+            },
+        ]);
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        const grok_label = await screen.findByText("Grok");
+        const card = grok_label.closest<HTMLElement>(".acc-card");
+        if (!card) throw new Error("missing Grok card");
+        const edit_button = within(card).getByTitle("编辑");
+        await user.click(edit_button);
+
+        expect(await screen.findByTestId("settings-form-grok-1")).toBeInTheDocument();
+        expect(screen.getByText("Grok 登录")).toBeInTheDocument();
+        expect(screen.queryByLabelText("接口地址 (grok_billing)")).not.toBeInTheDocument();
+        expect(grok_login_status).toHaveBeenCalledWith("grok-1");
     });
 
     it("saves endpoint overrides and secrets without putting secrets in config", async () => {

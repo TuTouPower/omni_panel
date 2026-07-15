@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
-import type { ConnectorConfiguration } from "../config/types";
+import type { ConnectorConfiguration, AppConfiguration } from "../config/types";
 import type { AppConfigStore } from "../config/config-store";
 import type { RuntimeStore } from "./runtime-store";
 import type { VaultBackend } from "../vault/vault-backend";
@@ -27,6 +27,7 @@ export interface RefreshServiceDeps {
     configStore: AppConfigStore;
     vault: VaultBackend;
     sessionLogin?: (instanceId: string) => Promise<{ saved: boolean }>;
+    resolve_proxy_url?: (config: AppConfiguration) => string | undefined;
 }
 
 export interface ConnectorRefreshService {
@@ -132,8 +133,12 @@ async function execute_connector(
     trace_id?: string,
 ): Promise<{ observations: Observation[]; failed_accounts: FailedAccount[] }> {
     const params = await build_params(connector_config, definition, vault, trace_id);
+    const endpoint_overrides = { ...connector_config.endpointOverrides };
+    if (definition.manifest.provider === "grok") {
+        delete endpoint_overrides["grok_billing"];
+    }
     const ctx = create_connector_context(definition.manifest, vault, connector_config.instanceId, {
-        endpoint_overrides: { ...connector_config.endpointOverrides },
+        endpoint_overrides,
         params,
         ...(proxy_url ? { proxy_url } : {}),
         ...(trace_id ? { trace_id } : {}),
@@ -226,7 +231,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         connector_config,
                         definition,
                         deps.vault,
-                        config.proxy?.url,
+                        deps.resolve_proxy_url?.(config) ?? config.proxy?.url,
                         trace_id,
                     );
                     for (const obs of observations) {

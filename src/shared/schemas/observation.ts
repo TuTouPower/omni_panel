@@ -1,6 +1,6 @@
 import { z } from "zod/v3";
 
-export const observation_window_schema = z.enum(["second", "day", "month", "total"]);
+export const observation_window_schema = z.enum(["second", "day", "week", "month", "total"]);
 export const observation_display_style_schema = z.enum(["percent", "ratio"]);
 export const observation_status_schema = z.enum(["normal", "warning", "critical", "unknown"]);
 export const observation_source_schema = z.enum([

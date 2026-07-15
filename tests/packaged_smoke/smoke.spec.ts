@@ -106,7 +106,7 @@ test.describe("packaged binary smoke", () => {
     test("packaged app launches without white screen", async ({}, testInfo) => {
         test.skip(skipIfNoExe.skip, skipIfNoExe.reason);
 
-        const app = await launchPackagedApp(47000 + testInfo.workerIndex * 10);
+        const app = await launchPackagedApp(59300 + testInfo.workerIndex * 10);
         try {
             const pageErrors: Error[] = [];
             app.page.on("pageerror", (err) => pageErrors.push(err));
@@ -123,7 +123,7 @@ test.describe("packaged binary smoke", () => {
     test("provider overview is available without CPA provider tab", async ({}, testInfo) => {
         test.skip(skipIfNoExe.skip, skipIfNoExe.reason);
 
-        const app = await launchPackagedApp(47001 + testInfo.workerIndex * 10);
+        const app = await launchPackagedApp(59301 + testInfo.workerIndex * 10);
         try {
             const providerNav = app.page.locator(".tabs-wrap");
             await expect(providerNav.getByRole("button", { name: /总览/ })).toBeVisible({
@@ -140,7 +140,7 @@ test.describe("packaged binary smoke", () => {
     test("popup root fills the packaged window height", async ({}, testInfo) => {
         test.skip(skipIfNoExe.skip, skipIfNoExe.reason);
 
-        const app = await launchPackagedApp(47002 + testInfo.workerIndex * 10);
+        const app = await launchPackagedApp(59302 + testInfo.workerIndex * 10);
         try {
             await expect(app.page.locator(".app-title").first()).toContainText("OmniUsage", {
                 timeout: 15_000,

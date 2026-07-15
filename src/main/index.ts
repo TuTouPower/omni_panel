@@ -43,7 +43,10 @@ import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
 import { registerAuthIpc, handleCookieLogin, trySilentCookieRefresh } from "./ipc/auth-ipc";
+import { registerGrokAuthIpc } from "./ipc/grok_auth_ipc";
 import { registerSessionIpc } from "./ipc/session-ipc";
+import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
+import { resolve_effective_proxy_url } from "./core/network/effective_proxy";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
 import { parseSizeReport } from "./ipc/size-validation";
@@ -140,8 +143,23 @@ void app.whenReady().then(async () => {
     }
 
     const currentConfig = await configStore.load();
+    setLogLevel(currentConfig.logLevel ?? defaultLogLevelForEnv());
+
+    // Resolve system proxy for OAuth and connector HTTP requests.
+    // If the user hasn't configured a proxy in settings, fall back to the
+    // system proxy (e.g., Windows Internet Settings proxy at 127.0.0.1:7890).
+    let detected_system_proxy: string | undefined;
+    try {
+        const proxyInfo = await session.defaultSession.resolveProxy("https://auth.x.ai");
+        const match = /PROXY\s+([^\s;]+)/.exec(proxyInfo);
+        if (match?.[1]) {
+            detected_system_proxy = `http://${match[1]}`;
+            log.info(`Detected system proxy: ${detected_system_proxy}`);
+        }
+    } catch {
+        // resolveProxy not available or failed — continue without proxy
+    }
     let currentConfigSnapshot = currentConfig;
-    setLogLevel(currentConfigSnapshot.logLevel ?? defaultLogLevelForEnv());
 
     function buildSecretParamKeys(cfg: typeof currentConfig): Map<string, ReadonlySet<string>> {
         const map = new Map<string, ReadonlySet<string>>();
@@ -163,12 +181,22 @@ void app.whenReady().then(async () => {
 
     nativeTheme.themeSource = currentConfig.theme ?? "system";
 
+    // Grok OAuth manager — device-code login + scheduled token refresh.
+    // Read the current config for every request so proxy changes apply immediately.
+    const grokOAuthManager = create_grok_oauth_manager({
+        vault,
+        get_proxy_url: () =>
+            resolve_effective_proxy_url(currentConfigSnapshot.proxy?.url, detected_system_proxy),
+    });
+
     const refreshService = createRefreshService({
         definitions: allDefinitions,
         observationStore,
         runtimeStore,
         configStore,
         vault,
+        resolve_proxy_url: (config) =>
+            resolve_effective_proxy_url(config.proxy?.url, detected_system_proxy),
         sessionLogin: async (instanceId: string) => {
             // Try silent cookie refresh first (no window popup).
             // trySilentCookieRefresh 内部从 definitions + config 查 provider 与 cookieNames。
@@ -223,6 +251,16 @@ void app.whenReady().then(async () => {
                 to_connector_list_config(previousConfig),
                 to_connector_list_config(updatedConfig),
             );
+            const grokDef = allDefinitions.find((d) => d.manifest.provider === "grok");
+            const active_grok_instance_ids = grokDef
+                ? updatedConfig.plugins
+                      .filter(
+                          (plugin) =>
+                              plugin.enabled && plugin.executablePath === grokDef.executablePath,
+                      )
+                      .map((plugin) => plugin.instanceId)
+                : [];
+            grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
             for (const win of BrowserWindow.getAllWindows()) {
                 if (!win.isDestroyed()) {
                     win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
@@ -238,6 +276,7 @@ void app.whenReady().then(async () => {
         secretsStore,
         definitions: allDefinitions,
     });
+    registerGrokAuthIpc({ manager: grokOAuthManager });
 
     // Session manager — controlled login window + credential capture
     const sessionManager = create_session_manager({
@@ -446,6 +485,21 @@ void app.whenReady().then(async () => {
 
     // Start periodic refresh for enabled plugins
     orchestrator.startAll(to_connector_list_config(currentConfig));
+
+    // Start OAuth auto-refresh for enabled grok connector instances. The manager
+    // gracefully skips instances without stored tokens.
+    {
+        const grokDef = allDefinitions.find((d) => d.manifest.provider === "grok");
+        const active_grok_instance_ids = grokDef
+            ? currentConfig.plugins
+                  .filter(
+                      (plugin) =>
+                          plugin.enabled && plugin.executablePath === grokDef.executablePath,
+                  )
+                  .map((plugin) => plugin.instanceId)
+            : [];
+        grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
+    }
 
     // Sleep/wake handling
     powerMonitor.on("suspend", () => {
@@ -682,6 +736,7 @@ void app.whenReady().then(async () => {
         main_panel_controller?.close_for_mode_switch();
         main_panel_controller = null;
         orchestrator.shutdown();
+        grokOAuthManager.shutdown();
         void runtimeStore.flushPendingCache();
         cleanupEventIpc?.();
         cleanupEventIpc = null;

@@ -1,6 +1,6 @@
 # OmniUsage
 
-多平台 AI 服务用量监控桌面应用（Electron + React + TypeScript）。一处看全 Claude / Codex / Antigravity / Kimi / 智谱 GLM / MiniMax / DeepSeek / Tavily / Firecrawl / MiMo / OpenCode Go 的用量与费用。
+多平台 AI 服务用量监控桌面应用（Electron + React + TypeScript）。一处看全 Claude / Codex / Antigravity / Kimi / 智谱 GLM / MiniMax / DeepSeek / Tavily / Firecrawl / MiMo / OpenCode Go / Grok 的用量与费用。
 
 > 文档真相在 `docs/omni_powers/op_blueprint/`（omni_powers 工作流）。本文件是门牌，不重复 blueprint 内容。
 

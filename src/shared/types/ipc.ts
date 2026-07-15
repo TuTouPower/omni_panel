@@ -65,6 +65,13 @@ export const IPC_CHANNELS = {
     SESSION_LOGIN: "session:login",
     SESSION_REFRESH: "session:refresh",
 
+    /** Grok OAuth device-code flow — independent token in OmniUsage vault. */
+    GROK_LOGIN_START: "grok:loginStart",
+    GROK_LOGIN_POLL: "grok:loginPoll",
+    GROK_LOGIN_STATUS: "grok:loginStatus",
+    GROK_LOGOUT: "grok:logout",
+    GROK_REFRESH: "grok:refresh",
+
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
 } as const;
@@ -152,6 +159,26 @@ export interface SessionLoginResult {
     readonly saved: boolean;
 }
 
+export interface GrokDeviceCodeStart {
+    readonly device_code: string;
+    readonly user_code: string;
+    readonly verification_uri: string;
+    readonly verification_uri_complete: string | null;
+    readonly expires_in: number;
+    readonly interval: number;
+}
+
+export interface GrokLoginStatus {
+    readonly has_token: boolean;
+    readonly expires_at: string | null;
+    readonly can_refresh: boolean;
+}
+
+export interface GrokRefreshResult {
+    readonly success: boolean;
+    readonly error?: string;
+}
+
 export type RendererLogLevel = "debug" | "info" | "warn" | "error";
 
 export interface RendererLogPayload {
@@ -171,6 +198,22 @@ export interface SettingsOpenContext {
     readonly instanceId?: string;
     readonly provider?: string;
     readonly accountId?: string;
+}
+
+export interface GrokReadonlyApi {
+    login_status(instance_id: string): Promise<GrokLoginStatus>;
+}
+
+export interface GrokSettingsApi extends GrokReadonlyApi {
+    login_start(): Promise<GrokDeviceCodeStart>;
+    login_poll(
+        instance_id: string,
+        device_code: string,
+        interval: number,
+        expires_at_epoch_ms: number,
+    ): Promise<{ saved: boolean }>;
+    logout(instance_id: string): Promise<{ logged_out: boolean }>;
+    refresh(instance_id: string): Promise<GrokRefreshResult>;
 }
 
 export interface UsageboardApi {
@@ -257,6 +300,7 @@ export interface UsageboardApi {
         login(request: SessionLoginRequest): Promise<SessionLoginResult>;
         refresh(request: SessionLoginRequest): Promise<SessionLoginResult>;
     };
+    grok: GrokReadonlyApi | GrokSettingsApi;
     logs: {
         export(): Promise<{ saved: boolean }>;
     };

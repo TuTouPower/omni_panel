@@ -6,6 +6,8 @@ import codex_svg from "../assets/vendor_logos/codex.svg";
 import deepseek_svg from "../assets/vendor_logos/deepseek.svg";
 import firecrawl_svg from "../assets/vendor_logos/firecrawl.svg";
 import glm_svg from "../assets/vendor_logos/glm.svg";
+import grok_light_svg from "../assets/vendor_logos/grok_light.svg";
+import grok_dark_svg from "../assets/vendor_logos/grok_dark.svg";
 import kimi_svg from "../assets/vendor_logos/kimi.svg";
 import minimax_svg from "../assets/vendor_logos/minimax.svg";
 import opencode_go_dark_svg from "../assets/vendor_logos/opencode_go_dark.svg";
@@ -92,6 +94,10 @@ const VENDOR_THEME_LOGOS: Partial<Record<string, { light: string; dark: string }
     opencode_go: {
         light: opencode_go_light_svg,
         dark: opencode_go_dark_svg,
+    },
+    grok: {
+        light: grok_light_svg,
+        dark: grok_dark_svg,
     },
 };
 

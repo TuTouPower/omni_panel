@@ -1,0 +1,22 @@
+{
+    "id": "grok",
+    "provider": "grok",
+    "capabilities": ["poll"],
+    "parameters": [],
+    "endpoints": {
+        "grok_billing": "https://cli-chat-proxy.grok.com"
+    },
+    "poll": {
+        "request": {
+            "endpoint": "grok_billing",
+            "path": "/v1/billing?format=credits",
+            "method": "GET",
+            "auth": {
+                "type": "bearer",
+                "secret": "OAUTH_TOKEN"
+            }
+        },
+        "map": {}
+    },
+    "script": "connector.ts"
+}

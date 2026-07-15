@@ -1,7 +1,6 @@
 import { createServer, type IncomingMessage } from "node:http";
-import { lstatSync, symlinkSync } from "node:fs";
+import { symlinkSync, existsSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -16,19 +15,22 @@ let server_port: number;
 let server: ReturnType<typeof createServer>;
 let last_request_body: unknown;
 
-function create_link(target: string, link_path: string, type: "dir" | "file"): void {
-    if (process.platform === "win32") {
-        if (type === "dir") {
-            execSync(`cmd /c mklink /J "${link_path}" "${target}"`);
+function create_link(target: string, link_path: string, type: "dir" | "file"): boolean {
+    try {
+        // On Windows, directory junctions don't require admin privileges,
+        // but file symlinks do. symlinkSync handles both; if it throws
+        // (insufficient privilege), return false so callers skip the test.
+        if (process.platform === "win32" && type === "dir") {
+            symlinkSync(target, link_path, "junction");
         } else {
-            try {
-                execSync(`cmd /c mklink "${link_path}" "${target}"`);
-            } catch {
-                execSync(`cmd /c mklink /H "${link_path}" "${target}"`);
-            }
+            symlinkSync(target, link_path, type);
         }
-    } else {
-        symlinkSync(target, link_path, type);
+        // On Windows, symlinkSync can silently succeed without actually
+        // creating the link when the user lacks admin/Developer Mode.
+        // Verify the link exists before reporting success.
+        return existsSync(link_path);
+    } catch {
+        return false;
     }
 }
 
@@ -218,11 +220,8 @@ describe("net-client", () => {
         await mkdir(outside, { recursive: true });
         await writeFile(join(outside, "secret.txt"), "TOP SECRET", "utf8");
         const link_path = join(dir, "escape-link.txt");
-        create_link(join(outside, "secret.txt"), link_path, "file");
-
-        // Verify the link is actually a symlink (not a hard link)
-        if (!lstatSync(link_path).isSymbolicLink()) {
-            // Hard link can't be detected by lstat; skip on this platform
+        if (!create_link(join(outside, "secret.txt"), link_path, "file")) {
+            // Symlinks not available on this platform (Windows needs admin/Developer Mode)
             return;
         }
 
@@ -244,10 +243,7 @@ describe("net-client", () => {
         await mkdir(sub, { recursive: true });
         await writeFile(join(sub, "file.txt"), "hello", "utf8");
         const link_path = join(dir, "link.txt");
-        create_link(join(sub, "file.txt"), link_path, "file");
-
-        // Verify the link is actually a symlink (not a hard link)
-        if (!lstatSync(link_path).isSymbolicLink()) {
+        if (!create_link(join(sub, "file.txt"), link_path, "file")) {
             return;
         }
 
@@ -326,11 +322,8 @@ describe("net-client", () => {
         await mkdir(outside, { recursive: true });
         await writeFile(join(outside, "data.json"), '{"secret":true}', "utf8");
         const link_path = join(dir, "link.json");
-        create_link(join(outside, "data.json"), link_path, "file");
-
-        // Verify the link is actually a symlink (not a hard link)
-        if (!lstatSync(link_path).isSymbolicLink()) {
-            // Hard link can't be detected by lstat; skip on this platform
+        if (!create_link(join(outside, "data.json"), link_path, "file")) {
+            // Symlinks not available on this platform (Windows needs admin/Developer Mode)
             return;
         }
 

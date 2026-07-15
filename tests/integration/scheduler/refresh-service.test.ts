@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createRefreshService } from "../../../src/main/core/scheduler/refresh-service";
@@ -291,6 +293,173 @@ describe("refresh-service", () => {
             expect(state.error).toMatch(/API_KEY/i);
         } finally {
             await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("ignores Grok billing endpoint overrides before attaching the bearer token", async () => {
+        const temp_dir = await mkdtemp(join(tmpdir(), "grok-endpoint-policy-test-"));
+        const requests = { official: 0, attacker: 0 };
+        let received_authorization: string | undefined;
+        const response_body = JSON.stringify({ used: 42 });
+        const official_server = createServer((request, response) => {
+            requests.official += 1;
+            received_authorization = request.headers.authorization;
+            response.writeHead(200, { "Content-Type": "application/json" });
+            response.end(response_body);
+        });
+        const attacker_server = createServer((_request, response) => {
+            requests.attacker += 1;
+            response.writeHead(200, { "Content-Type": "application/json" });
+            response.end(response_body);
+        });
+        const listen = (server: ReturnType<typeof createServer>) =>
+            new Promise<number>((resolve) => {
+                server.listen(0, "127.0.0.1", () => {
+                    resolve((server.address() as AddressInfo).port);
+                });
+            });
+        const close = (server: ReturnType<typeof createServer>) =>
+            new Promise<void>((resolve, reject) => {
+                server.close((error) => {
+                    if (error) reject(error);
+                    else resolve();
+                });
+            });
+        const official_port = await listen(official_server);
+        const attacker_port = await listen(attacker_server);
+        const script = `
+const response = await ctx.http.get_json("grok_billing", "/v1/billing?format=credits");
+return [{
+    provider: "grok",
+    account_id: "grok",
+    account_label: "SuperGrok",
+    metric_id: "grok:credits",
+    raw_label: "credits",
+    normalized_label: "额度",
+    window: "week",
+    used: response.used,
+    limit: 100,
+    display_style: "percent",
+    reset_at: null,
+    status: "normal",
+    observed_at: 1780000000000,
+    source: "poll",
+    stale: false,
+    last_error: null
+}];`;
+        await writeFile(join(temp_dir, "connector.js"), script);
+        const connector_config: ConnectorConfiguration = {
+            instanceId: "grok-1",
+            stateId: "grok-1",
+            name: "Grok",
+            enabled: true,
+            executablePath: temp_dir,
+            refreshIntervalSeconds: 300,
+            parameterValues: {},
+            endpointOverrides: {
+                grok_billing: `http://127.0.0.1:${String(attacker_port)}`,
+            },
+        };
+        const config_store = create_config_store([connector_config]);
+        const vault = create_vault();
+        await vault.set("grok-1:OAUTH_TOKEN", "grok-test-token");
+        const runtime_store = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: temp_dir,
+                    executablePath: temp_dir,
+                    manifest: {
+                        id: "grok",
+                        provider: "grok",
+                        capabilities: ["poll"],
+                        parameters: [],
+                        endpoints: {
+                            grok_billing: `http://127.0.0.1:${String(official_port)}`,
+                        },
+                        poll: {
+                            request: {
+                                endpoint: "grok_billing",
+                                path: "/v1/billing?format=credits",
+                                method: "GET",
+                                auth: { type: "bearer", secret: "OAUTH_TOKEN" },
+                            },
+                            map: {},
+                        },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore: make_store(),
+            runtimeStore: runtime_store,
+            configStore: config_store,
+            vault,
+        });
+
+        try {
+            await service.refresh("grok-1", { force: true });
+
+            expect(runtime_store.getSnapshot("grok-1").status).toBe("ready");
+            expect(requests).toEqual({ official: 1, attacker: 0 });
+            expect(received_authorization).toBe("Bearer grok-test-token");
+        } finally {
+            await Promise.all([close(official_server), close(attacker_server)]);
+            await rm(temp_dir, { recursive: true, force: true });
+        }
+    });
+
+    it("uses the injected effective proxy resolver for connector requests", async () => {
+        const temp_dir = await mkdtemp(join(tmpdir(), "connector-effective-proxy-test-"));
+        const poll_script = `
+const resp = await ctx.http.get_json("default", "/usage");
+return [{
+    provider: "deepseek",
+    account_id: "deepseek-1",
+    account_label: "DeepSeek",
+    metric_id: "deepseek:usage",
+    raw_label: "usage",
+    normalized_label: "Usage",
+    window: "month",
+    used: resp.used,
+    limit: resp.limit,
+    display_style: "ratio",
+    reset_at: null,
+    status: "normal",
+    observed_at: 1780000000000,
+    source: "wrapper",
+    stale: false,
+    last_error: null
+}];`;
+        await writeFile(join(temp_dir, "connector.js"), poll_script);
+        const config_store = create_config_store([
+            { ...plugin_config(), executablePath: temp_dir },
+        ]);
+        const resolve_proxy_url = vi.fn((config: AppConfiguration) => {
+            void config;
+            return "http://127.0.0.1:1";
+        });
+        const runtime_store = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition(temp_dir)],
+            observationStore: make_store(),
+            runtimeStore: runtime_store,
+            configStore: config_store,
+            vault: create_vault(),
+            resolve_proxy_url,
+        });
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            expect(resolve_proxy_url).toHaveBeenCalled();
+            const resolved_config = resolve_proxy_url.mock.calls[0]?.[0];
+            expect(resolved_config?.proxy).toBeUndefined();
+            const state = runtime_store.getSnapshot("deepseek-1");
+            expect(state.status).toBe("failed");
+            if (state.status !== "failed") throw new Error("expected failed state");
+            expect(state.error).toMatch(/connect|ECONNREFUSED|proxy|fetch/i);
+        } finally {
+            await rm(temp_dir, { recursive: true, force: true });
         }
     });
 

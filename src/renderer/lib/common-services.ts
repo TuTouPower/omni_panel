@@ -12,4 +12,5 @@ export const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
     { id: "firecrawl", label: "Firecrawl" },
     { id: "mimo", label: "MiMo" },
     { id: "opencode_go", label: "OpenCode Go" },
+    { id: "grok", label: "Grok" },
 ];

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, readFile, writeFile, chmod, mkdir } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createConfigStore } from "../../../src/main/core/config/config-store";
@@ -126,6 +126,9 @@ describe("config-store", () => {
     it("recovers save chain after a transient failure so later saves still persist", async () => {
         // The config-store serializes saves via an internal queue. A transient write
         // failure on one save must NOT poison the queue and block subsequent saves.
+        // writeJsonAtomic does mkdir(tmpDir) + writeFile(tmp) + rename(tmp, path).
+        // To force a write failure cross-platform, create a DIRECTORY at the temp
+        // file path — writeFile(tmp) fails with EISDIR on both Windows and Unix.
         const configPath = join(tempDir, "config.json");
         const store = createConfigStore(configPath);
 
@@ -137,13 +140,13 @@ describe("config-store", () => {
         };
         await store.save(valid);
 
-        // Make the file unwritable to force a transient write failure on next save.
-        await chmod(configPath, 0o444);
+        // Block the temp file path so writeFile(config.json.tmp) fails.
+        await mkdir(`${configPath}.tmp`);
         const failing: AppConfiguration = { ...valid, language: "zh-Hans" };
         await expect(store.save(failing)).rejects.toThrow();
 
-        // Restore writability — a subsequent save must succeed and persist.
-        await chmod(configPath, 0o644);
+        // Restore — remove the blocker directory and save again.
+        await rm(`${configPath}.tmp`, { recursive: true });
         const recovered: AppConfiguration = { ...valid, launchAtLogin: true };
         await store.save(recovered);
         const reloaded = await store.load();

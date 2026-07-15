@@ -1,4 +1,4 @@
-export type ObservationWindow = "second" | "day" | "month" | "total";
+export type ObservationWindow = "second" | "day" | "week" | "month" | "total";
 export type ObservationDisplayStyle = "percent" | "ratio";
 export type ObservationStatus = "normal" | "warning" | "critical" | "unknown";
 export type ObservationSource = "poll" | "local" | "session" | "wrapper" | "probe" | "gateway";

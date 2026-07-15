@@ -7,6 +7,7 @@ import {
 } from "../lib/refresh-intervals";
 import { format_usage_period_label } from "../lib/provider-usage";
 import { Icon } from "./Icon";
+import { GrokLoginSection } from "./GrokLoginSection";
 
 const SECRET_PLACEHOLDER = "•".repeat(12);
 
@@ -256,6 +257,7 @@ export function SettingsForm({
                     className="ad-input"
                 />
             </div>
+            {providerId === "grok" && <GrokLoginSection instance_id={instanceId} />}
             {visible_parameters.map((param) => (
                 <div className="ad-field" key={param.name}>
                     <label className="ad-label" htmlFor={param.name}>
@@ -328,28 +330,31 @@ export function SettingsForm({
                     )}
                 </div>
             ))}
-            {Object.keys(endpoints ?? {}).map((endpointName) => (
-                <div className="ad-field" key={endpointName}>
-                    <label className="ad-label">
-                        {endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`}
-                    </label>
-                    <input
-                        type="url"
-                        name={`endpoint:${endpointName}`}
-                        defaultValue={
-                            endpointValues?.[endpointName] ?? endpoints?.[endpointName] ?? ""
-                        }
-                        placeholder={
-                            endpointName === "default" ? "https://api.example.com" : undefined
-                        }
-                        required={endpoints?.[endpointName] === null}
-                        aria-label={
-                            endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`
-                        }
-                        className="ad-input"
-                    />
-                </div>
-            ))}
+            {providerId !== "grok" &&
+                Object.keys(endpoints ?? {}).map((endpointName) => (
+                    <div className="ad-field" key={endpointName}>
+                        <label className="ad-label">
+                            {endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`}
+                        </label>
+                        <input
+                            type="url"
+                            name={`endpoint:${endpointName}`}
+                            defaultValue={
+                                endpointValues?.[endpointName] ?? endpoints?.[endpointName] ?? ""
+                            }
+                            placeholder={
+                                endpointName === "default" ? "https://api.example.com" : undefined
+                            }
+                            required={endpoints?.[endpointName] === null}
+                            aria-label={
+                                endpointName === "default"
+                                    ? "接口地址"
+                                    : `接口地址 (${endpointName})`
+                            }
+                            className="ad-input"
+                        />
+                    </div>
+                ))}
             <div className="ad-field">
                 <label className="ad-label">刷新</label>
                 {manualRefreshOnly ? (

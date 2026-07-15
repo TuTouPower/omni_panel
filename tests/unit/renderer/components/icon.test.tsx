@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
@@ -138,6 +139,36 @@ describe("VendorMark", () => {
         expect(dark_image?.getAttribute("src")).toContain("opencode_go_dark");
         expect(light_svg).toContain("fill='#211E1E'");
         expect(dark_svg).toContain("fill='#F1ECEC'");
+    });
+
+    it("renders official Grok logos for both themes", () => {
+        const { container } = render(<VendorMark id="grok" />);
+        const light_image = container.querySelector("span.vicon img.vendor-logo-light");
+        const dark_image = container.querySelector("span.vicon img.vendor-logo-dark");
+        const light_svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/grok_light.svg"),
+            "utf8",
+        );
+        const dark_svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/grok_dark.svg"),
+            "utf8",
+        );
+
+        const official_light_hash =
+            "9175fc90c22655160231976c849f25a03b888d7cc0e04c5f1b987b659bb07c95";
+        const light_hash = createHash("sha256")
+            .update(light_svg.replace(/\r\n/g, "\n"))
+            .digest("hex");
+
+        expect(light_image?.getAttribute("src")).toContain("grok_light");
+        expect(dark_image?.getAttribute("src")).toContain("grok_dark");
+        expect(container.querySelector("span.vicon svg")).not.toBeInTheDocument();
+        expect(light_hash).toBe(official_light_hash);
+        expect(dark_svg).toContain("<title>Grok</title>");
+        expect(dark_svg).toContain('fill="#fff"');
+        expect(/<path d="([^"]+)"/.exec(light_svg)?.[1]).toBe(
+            /<path d="([^"]+)"/.exec(dark_svg)?.[1],
+        );
     });
 
     it("switches opencode logo visibility with the app theme", () => {
