@@ -14,6 +14,7 @@ const valid_observation = {
     raw_label: "daily_tokens",
     normalized_label: "Daily tokens",
     window: "day",
+    cycleDurationMs: 24 * 3600 * 1000,
     used: 1000,
     limit: 10000,
     display_style: "percent",
@@ -29,6 +30,32 @@ describe("observation_schema", () => {
     it("accepts a valid observation", () => {
         const result = observation_schema.safeParse(valid_observation);
         expect(result.success).toBe(true);
+    });
+
+    it("accepts cycleDurationMs as null", () => {
+        const result = observation_schema.safeParse({
+            ...valid_observation,
+            cycleDurationMs: null,
+        });
+        expect(result.success).toBe(true);
+        expect(result.data?.cycleDurationMs).toBeNull();
+    });
+
+    it("accepts cycleDurationMs as a finite number", () => {
+        const result = observation_schema.safeParse({
+            ...valid_observation,
+            cycleDurationMs: 7 * 24 * 3600 * 1000,
+        });
+        expect(result.success).toBe(true);
+        expect(result.data?.cycleDurationMs).toBe(7 * 24 * 3600 * 1000);
+    });
+
+    it("rejects non-finite cycleDurationMs", () => {
+        const result = observation_schema.safeParse({
+            ...valid_observation,
+            cycleDurationMs: Infinity,
+        });
+        expect(result.success).toBe(false);
     });
 
     it("rejects empty provider", () => {

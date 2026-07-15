@@ -61,6 +61,7 @@ const usageItemSchema = z.object({
     limit: finiteNumber.nullable(),
     displayStyle: usageDisplayStyleSchema,
     resetAt: finiteNumber.nullable(),
+    cycleDurationMs: finiteNumber.nullable().optional(),
     status: usageStatusSchema.default("unknown"),
     color: usageColorSchema.optional(),
     observedAt: finiteNumber,
