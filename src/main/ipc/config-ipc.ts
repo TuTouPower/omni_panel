@@ -168,6 +168,9 @@ export async function handleConfigSaveSecrets(
             return fail("VALIDATION_ERROR", "无效的请求数据");
         }
         const { instanceId, secrets } = parsed.data;
+        log.info(
+            `Saving secrets for instanceId=${instanceId}, keys=[${Object.keys(secrets).join(", ")}]`,
+        );
 
         const config = await deps.configStore.load();
         const plugin = config.plugins.find(
@@ -384,13 +387,9 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     });
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (e, payload: unknown) => {
         assert_valid_sender(e);
-        return logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, [payload], () => {
-            const p = payload as { instanceId?: string; secrets?: Record<string, unknown> };
-            log.info(
-                `Saving secrets for instanceId=${p.instanceId ?? "?"}, keys=[${Object.keys(p.secrets ?? {}).join(", ")}]`,
-            );
-            return handleConfigSaveSecrets(deps, payload);
-        });
+        return logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, [payload], () =>
+            handleConfigSaveSecrets(deps, payload),
+        );
     });
     ipcMain.handle(IPC_CHANNELS.CONFIG_GET_SECRETS, (e, payload: unknown) => {
         assert_valid_sender(e);
