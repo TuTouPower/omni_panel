@@ -66,7 +66,14 @@ describe("auto_seed_connectors", () => {
         const existing = [make_existing("claude")];
         const result = auto_seed_connectors(existing, [make_definition("claude")]);
         expect(result.changed).toBe(true);
-        expect(existing[0]?.executablePath).toBe("/connectors/claude");
+        // Must NOT mutate the original input
+        expect(existing[0]?.executablePath).toBe("/old/claude");
+        // Updated entry is returned in updatedExisting
+        expect(result.updatedExisting).toHaveLength(1);
+        expect(result.updatedExisting[0]?.executablePath).toBe("/connectors/claude");
+        // Other fields preserved from original
+        expect(result.updatedExisting[0]?.instanceId).toBe("claude-inst");
+        expect(result.updatedExisting[0]?.refreshIntervalSeconds).toBe(600);
     });
 
     it("sets manualRefreshOnly when manifest declares manualDefault", () => {

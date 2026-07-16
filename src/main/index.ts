@@ -131,12 +131,17 @@ void app.whenReady().then(async () => {
     log.info(`Discovered ${String(allDefinitions.length)} connectors`);
 
     const config = await configStore.load();
-    const { seeded: seededPlugins, changed: seedChanged } = auto_seed_connectors(
+    const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
         config.plugins,
         allDefinitions,
     );
-    if (seededPlugins.length > 0 || seedChanged) {
-        await configStore.save({ ...config, plugins: [...config.plugins, ...seededPlugins] });
+    if (seededPlugins.length > 0 || updatedExisting.length > 0) {
+        const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));
+        const mergedPlugins = config.plugins.map((p) => updatedById.get(p.instanceId) ?? p);
+        await configStore.save({
+            ...config,
+            plugins: [...mergedPlugins, ...seededPlugins],
+        });
         if (seededPlugins.length > 0) {
             log.info(`Auto-seeded ${String(seededPlugins.length)} connectors`);
         }

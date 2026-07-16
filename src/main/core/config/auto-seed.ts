@@ -10,6 +10,7 @@ export const DEFAULT_FALLBACK_REFRESH_SECONDS = 300;
 
 interface AutoSeedResult {
     seeded: ConnectorConfiguration[];
+    updatedExisting: ConnectorConfiguration[];
     changed: boolean;
 }
 
@@ -37,12 +38,13 @@ export function auto_seed_connectors(
     }
 
     const seeded: ConnectorConfiguration[] = [];
+    const updatedExisting: ConnectorConfiguration[] = [];
     let changed = false;
     for (const def of definitions) {
         const existing_match = existing_by_id.get(def.manifest.id);
         if (existing_match) {
             if (existing_match.executablePath !== def.executablePath) {
-                (existing_match as { executablePath: string }).executablePath = def.executablePath;
+                updatedExisting.push({ ...existing_match, executablePath: def.executablePath });
                 changed = true;
             }
             continue;
@@ -64,7 +66,7 @@ export function auto_seed_connectors(
         });
     }
 
-    return { seeded, changed };
+    return { seeded, updatedExisting, changed };
 }
 
 /**
