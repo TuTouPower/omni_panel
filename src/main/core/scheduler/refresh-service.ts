@@ -239,6 +239,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
             let last_error = "";
             let session_relogin_done = false;
             let force_fresh_connection = false;
+            let connection_error_count = 0;
             const max_attempts = 3;
             const retry_delay_ms = 1000;
 
@@ -338,12 +339,18 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         }
                     }
 
-                    // 连接级错误（TCP 重置/TLS 失败/超时）下次重试跳过连接池
-                    if (!force_fresh_connection && is_connection_error(last_error)) {
-                        force_fresh_connection = true;
-                        trace_log.info(
-                            `Connection error detected for ${connector_config.name}, next retry will use fresh connection`,
-                        );
+                    // 连接级错误（TCP 重置/TLS 失败/超时）：需连续两次才升级为
+                    // reset:true。首次连接错误可能是瞬时抖动，不应立即放弃连接池复用。
+                    if (is_connection_error(last_error)) {
+                        connection_error_count++;
+                        if (!force_fresh_connection && connection_error_count >= 2) {
+                            force_fresh_connection = true;
+                            trace_log.info(
+                                `Connection error detected for ${connector_config.name} (${String(connection_error_count)} consecutive), next retry will use fresh connection`,
+                            );
+                        }
+                    } else {
+                        connection_error_count = 0;
                     }
 
                     if (attempt < max_attempts - 1) {

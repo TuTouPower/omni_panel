@@ -205,12 +205,27 @@ async function main(): Promise<ScriptObservation[]> {
         ctx.http.get_raw("default", `/workspace/${workspace_id}/go`, { headers }),
     ]);
 
-    const asset_paths = [...extract_assets(workspace.body), ...extract_assets(go_page.body)];
-    const bundles = await Promise.all(
-        asset_paths.map((path) =>
-            ctx.http.get_raw("default", path, { headers }).then((res) => res.body),
-        ),
-    );
+    const asset_paths = [
+        ...new Set([...extract_assets(workspace.body), ...extract_assets(go_page.body)]),
+    ];
+    const bundle_limit = 4;
+    const bundles: string[] = [];
+    const executing = new Set<Promise<void>>();
+    for (const path of asset_paths) {
+        const p = ctx.http
+            .get_raw("default", path, { headers })
+            .then((res) => {
+                bundles.push(res.body);
+            })
+            .finally(() => {
+                executing.delete(p);
+            });
+        executing.add(p);
+        if (executing.size >= bundle_limit) {
+            await Promise.race(executing);
+        }
+    }
+    await Promise.allSettled(executing);
     const hash = bundles
         .map(nearest_subscription_hash)
         .find((value): value is string => Boolean(value));

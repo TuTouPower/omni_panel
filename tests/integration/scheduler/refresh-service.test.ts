@@ -1003,6 +1003,62 @@ return [{
         }
     });
 
+    it("only upgrades to reset after two consecutive connection errors (regression: premature reset)", async () => {
+        // Regression: previously, the first connection error immediately set
+        // force_fresh_connection=true. With connection pool reuse (keepAlive),
+        // premature reset defeats the pool. The fix requires two consecutive
+        // connection errors before forcing a fresh TCP+TLS.
+        //
+        // Test strategy: connector always fails (3 connection errors).
+        // Current (broken) code: "detected" logged after 1st error AND 2nd error = 2 times.
+        // Fixed code: "detected" logged only after 2nd error = 1 time.
+        // (The 3rd error doesn't trigger a new "detected" log because
+        // force_fresh_connection is already true.)
+        const previous_level = getLogLevel();
+        const log_messages: string[] = [];
+        const remove_transport = addTransport({
+            write(_level, module, message) {
+                if (module === "refresh-service") {
+                    log_messages.push(message);
+                }
+            },
+        });
+        setLogLevel("debug");
+
+        const tempDir = await mkdtemp(join(tmpdir(), "reset-upgrade-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("Client network socket disconnected before secure TLS connection was established");`,
+        );
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition(tempDir)],
+            observationStore: make_store(),
+            runtimeStore,
+            configStore: create_config_store([
+                { ...plugin_config("deepseek-1"), executablePath: tempDir },
+            ]),
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            const detected_logs = log_messages.filter((m) =>
+                m.includes("Connection error detected"),
+            );
+            // With the fix: "detected" should appear exactly once (after 2nd
+            // consecutive error), not twice (which would be 1st + 2nd).
+            expect(detected_logs).toHaveLength(1);
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            expect(state.status).toBe("failed");
+        } finally {
+            remove_transport();
+            setLogLevel(previous_level);
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
     it("does not insert stale observations when first refresh fails with no prior data", async () => {
         // 首次即失败（无上次观测）时不插 stale — UI 应显示"无数据"而非"stale"
         const tempDir = await mkdtemp(join(tmpdir(), "stale-no-prior-"));

@@ -39,6 +39,7 @@ import {
 } from "./core/scheduler/scheduler-orchestrator";
 import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
+import { init_global_network } from "./core/connector/net-client";
 import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
@@ -100,6 +101,9 @@ void app.whenReady().then(async () => {
     const log = createLogger("main");
 
     log.info("Application starting");
+
+    // 全局连接池：每 origin 连接上限 + keepAlive 复用，消除并发 TLS 握手风暴
+    init_global_network();
 
     // Set CSP programmatically — allows Vite dev server in dev mode
     const devServerUrl = process.env["ELECTRON_RENDERER_URL"];
@@ -609,15 +613,11 @@ void app.whenReady().then(async () => {
             tray.emit("click");
         });
         ipcMain.handle(IPC_CHANNELS.TRAY_REFRESH_ALL, () => {
-            for (const p of currentConfigSnapshot.plugins) {
-                if (p.enabled) {
-                    void refreshService.refresh(p.instanceId).catch((err: unknown) => {
-                        log.error(
-                            `tray refresh-all failed for ${p.instanceId}: ${err instanceof Error ? err.message : String(err)}`,
-                        );
-                    });
-                }
-            }
+            void refreshService.refreshAll().catch((err: unknown) => {
+                log.error(
+                    `tray refresh-all failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+            });
         });
         ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_PAUSE, () => {
             is_paused = !is_paused;

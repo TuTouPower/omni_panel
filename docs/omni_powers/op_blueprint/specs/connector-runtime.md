@@ -18,7 +18,7 @@
 ### ConnectorContext（`src/main/core/connector/host-io.ts`，注入脚本的 `ctx`）
 
 - `ctx.http.get_json/post_json(endpoint_key, path[, body], opts?)` → `unknown`；`get_raw(endpoint_key, path, opts?)` → `{status, headers(全小写), body}`。`opts = {headers?, timeout_ms?, reset?}`。
-- `opts.reset`：跳过 undici 全局连接池，强制新建 TCP+TLS 连接。由 refresh-service 在连接级错误重试时自动注入，连接器脚本一般不需直接使用。
+- `opts.reset`：跳过 undici 全局连接池，强制新建 TCP+TLS 连接。由 refresh-service 在连续两次连接级错误后自动注入，连接器脚本一般不需直接使用。
 - `ctx.files.read(pathPattern) → string`；`list(pathPattern) → string[]`。
 - `ctx.params: Record<string,string>`（非 secret 参数 + `exposeToScript:true` 的 secret 明文）。
 - `ctx.log.debug/info/warn/error`；`ctx.trace_id?`。
@@ -39,9 +39,10 @@
 
 ## NetClient（`net-client.ts`，undici）
 
+- 全局 `Agent`（`init_global_network()`）：`connections=6`（每 origin 上限）+ `keepAliveTimeout=30s`，在主进程启动早期 `setGlobalDispatcher`。连接复用后 TLS 握手从「每请求一次」降到「每 origin 几次」。
 - endpoint 解析优先级：`endpoint_overrides[key]` > （`requireExplicitEndpoints` 为真且无 override 则报错）> `manifest.endpoints[key]`。
-- 代理：`proxy_url` → `ProxyAgent` dispatcher。超时默认 15s，可 `opts.timeout_ms` 覆盖；响应体上限 50MB。
-- **连接池 reset**：`NetClientConfig.reset` 或 `opts.reset` 为 true 时，undici 请求传 `{reset:true}` 跳过全局连接池，强制新建 TCP+TLS 连接。连接级错误重试时由 refresh-service 自动注入。
+- 代理：`proxy_url` → `ProxyAgent` dispatcher，同样传 `connections: 6`。超时默认 15s，可 `opts.timeout_ms` 覆盖；响应体上限 50MB。
+- **连接池 reset**：`NetClientConfig.reset` 或 `opts.reset` 为 true 时，undici 请求传 `{reset:true}` 跳过全局连接池，强制新建 TCP+TLS 连接。连接级错误重试时由 refresh-service 自动注入（需连续两次连接错误才升级）。
 - 错误归一：status ≥ 400 抛 `HTTP <status>`；`text/html` 响应抛"possible interception page"；空 body 返回 null。
 - SSRF：`assert_safe_connector_host` 拦云元数据主机（`169.254.169.254`/`metadata.google.internal`/`metadata.azure.com`），**不拦公网/私有主机**（见 `architecture.md` §6 已知限制）。
 
@@ -52,6 +53,7 @@
 ## 边界
 
 - 单实例串行锁 5 分钟（`refresh-service`）；`refreshAll` 并发上限 5。
+- 连接器脚本扇出节流：脚本内并发 HTTP 请求应使用 `map_with_limit(items, limit, fn)` 闸门（`Promise.race` 实现），避免大量请求同时对同 origin 发起 TLS 握手。参考 `connectors/opencode_go/connector.ts` 的 `bundle_limit=4` 实现。
 - script / poll / probe 及观测写库失败统一最多尝试 3 次，相邻尝试固定等待 1s；三次均失败才向 runtime-store 写 `failed`，错误取最后一次失败。
-- 连接级错误（`ECONNRESET`/`EPROTO`/`ETIMEDOUT`/`socket hang up`/`UND_ERR_SOCKET`/`UND_ERR_CONNECT`/`tls`/`ssl`）触发 `force_fresh_connection`，后续重试向 undici 传 `{reset:true}` 跳过连接池。非连接级错误不触发。
+- 连接级错误（`ECONNRESET`/`EPROTO`/`ETIMEDOUT`/`socket hang up`/`UND_ERR_SOCKET`/`UND_ERR_CONNECT`/`tls`/`ssl`）触发 `force_fresh_connection`，后续重试向 undici 传 `{reset:true}` 跳过连接池。**需连续两次连接错误才升级**，非连接级错误重置连续计数。
 - session 连接器首次出现 auth 错误（消息含 401/unauthorized/token/credential/auth）且有 `sessionLogin` 依赖 → 每轮刷新最多触发一次重新登录；保存成功后额外等待 2s，再继续剩余通用尝试。

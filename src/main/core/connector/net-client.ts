@@ -1,9 +1,10 @@
 import { lstat, readFile, realpath, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
-import { request as undici_request, ProxyAgent } from "undici";
+import { request as undici_request, Agent, ProxyAgent, setGlobalDispatcher } from "undici";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, withLogContext } from "../../../shared/lib/logger";
+import { MAX_CONNECTIONS_PER_ORIGIN, KEEPALIVE_TIMEOUT_MS } from "../../../shared/constants";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { VaultBackend } from "../vault/vault-backend";
 import type { ConnectorContext, HttpOpts } from "./host-io";
@@ -11,6 +12,23 @@ import type { ConnectorContext, HttpOpts } from "./host-io";
 const log = createLogger("net-client");
 const sandbox_log = createLogger("connector-sandbox");
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024; // 50MB
+
+/**
+ * 创建并注册全局 undici Agent（每 origin 连接上限 + keepAlive 复用）。
+ * 必须在任何 HTTP 请求前调用一次。连接复用后 TLS 握手从「每请求一次」
+ * 降到「每 origin 几次」，消除并发握手风暴。
+ */
+export function init_global_network(): void {
+    const agent = new Agent({
+        keepAliveTimeout: KEEPALIVE_TIMEOUT_MS,
+        keepAliveMaxTimeout: KEEPALIVE_TIMEOUT_MS,
+        connections: MAX_CONNECTIONS_PER_ORIGIN,
+    });
+    setGlobalDispatcher(agent);
+    log.info(
+        `Global Agent set: connections=${String(MAX_CONNECTIONS_PER_ORIGIN)}, keepAlive=${String(KEEPALIVE_TIMEOUT_MS)}ms`,
+    );
+}
 
 async function read_body_with_limit(
     body: Awaited<ReturnType<typeof undici_request>>["body"],
@@ -197,7 +215,12 @@ export function create_connector_context(
     instance_id: string,
     config: NetClientConfig,
 ): ConnectorContext {
-    const dispatcher = config.proxy_url ? new ProxyAgent(config.proxy_url) : undefined;
+    const dispatcher = config.proxy_url
+        ? new ProxyAgent({
+              ...{ uri: config.proxy_url },
+              connections: MAX_CONNECTIONS_PER_ORIGIN,
+          })
+        : undefined;
     const timeout_ms = config.timeout_ms ?? 15_000;
     const reset = config.reset ?? false;
     const request_log = config.trace_id ? withLogContext(log, { trace_id: config.trace_id }) : log;

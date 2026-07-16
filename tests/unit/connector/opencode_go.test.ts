@@ -139,6 +139,62 @@ describe("opencode_go connector", () => {
         );
     });
 
+    it("deduplicates asset paths across workspace and go pages", async () => {
+        // Regression: TLS handshake burst — when both pages reference the same
+        // JS assets, the connector should deduplicate before fetching bundles.
+        const { manifest, script } = await load_connector();
+        const bundle_fetched_paths: string[] = [];
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") {
+                return raw(302, "", { location: "https://opencode.ai/workspace/ws_dedup" });
+            }
+            if (path === "/workspace/ws_dedup") {
+                return raw(
+                    200,
+                    '<script src="/_build/assets/shared.js"></script><script src="/_build/assets/app.js"></script>',
+                );
+            }
+            if (path === "/workspace/ws_dedup/go") {
+                // go page references the same shared.js — should not be fetched twice
+                return raw(
+                    200,
+                    '<script src="/_build/assets/shared.js"></script><script src="/_build/assets/go.js"></script>',
+                );
+            }
+            if (path === "/_build/assets/shared.js") {
+                bundle_fetched_paths.push(path);
+                return raw(200, `createServerReference("${hash}"); lite.subscription.get;`);
+            }
+            if (path === "/_build/assets/app.js") {
+                bundle_fetched_paths.push(path);
+                return raw(200, "no reference here");
+            }
+            if (path === "/_build/assets/go.js") {
+                bundle_fetched_paths.push(path);
+                return raw(200, "no reference here either");
+            }
+            if (path.startsWith(`/_server?id=${hash}&args=`)) {
+                return raw(
+                    200,
+                    `;0x;(($R)=>{rollingUsage:$R[1]={usagePercent:10,resetInSec:60,status:"ok"},weeklyUsage:$R[2]={usagePercent:20,resetInSec:120,status:"ok"},monthlyUsage:$R[3]={usagePercent:30,resetInSec:180,status:"ok"}})($R["server-fn:0"])`,
+                );
+            }
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(3);
+        // shared.js appears in both workspace and go page but should only be fetched once
+        const shared_count = bundle_fetched_paths.filter(
+            (p) => p === "/_build/assets/shared.js",
+        ).length;
+        expect(shared_count).toBe(1);
+        // Total bundle fetches: shared.js + app.js + go.js = 3 (not 4)
+        expect(bundle_fetched_paths).toHaveLength(3);
+    });
+
     it("reports missing session cookie", async () => {
         const { manifest, script } = await load_connector();
         const ctx = create_ctx(() => raw(200, ""), {});
