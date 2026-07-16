@@ -6,12 +6,12 @@ OmniUsage 已实现功能清单。每项指向 `specs/{feature}.md`。技术栈/
 
 ## 采集层
 
-| spec                                            | 功能                                                                                                                                         |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| [connector-runtime](specs/connector-runtime.md) | 连接器执行共享机制：manifest schema、ConnectorContext、stdout 协议、vm 沙箱、能力分发、NetClient                                             |
-| [connector-direct](specs/connector-direct.md)   | 11 个直连连接器（claude/codex/deepseek/glm/minimax/tavily/firecrawl/mimo/kimi/opencode_go/antigravity），poll/local/observe/session 能力映射 |
-| [connector-cpa](specs/connector-cpa.md)         | CPA 聚合数据源：三层 ID 解耦、跨源去重、account 级错误归属、聚合计算、隐藏 vs 删除所有权                                                     |
-| [connector-session](specs/connector-session.md) | session 型受控网页登录：webRequest 捕获 cookie、后台续期、触发再登录                                                                         |
+| spec                                            | 功能                                                                                                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [connector-runtime](specs/connector-runtime.md) | 连接器执行共享机制：manifest schema、ConnectorContext、stdout 协议、vm 沙箱、能力分发、NetClient                                                  |
+| [connector-direct](specs/connector-direct.md)   | 12 个直连连接器（claude/codex/deepseek/glm/minimax/tavily/firecrawl/mimo/kimi/opencode_go/antigravity/grok），poll/local/observe/session 能力映射 |
+| [connector-cpa](specs/connector-cpa.md)         | CPA 聚合数据源：三层 ID 解耦、跨源去重、account 级错误归属、聚合计算、隐藏 vs 删除所有权                                                          |
+| [connector-session](specs/connector-session.md) | session 型受控网页登录：webRequest 捕获 cookie、后台续期、触发再登录                                                                              |
 
 ## 存储层
 

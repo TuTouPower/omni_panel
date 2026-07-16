@@ -55,7 +55,7 @@ src/
 ├── preload/                       # contextBridge 白名单 + route capability 策略
 ├── renderer/                      # React：views/ components/ hooks/ lib/
 └── shared/                        # 主/渲染共享：schemas/ types/ lib/ constants.ts
-connectors/                        # 12 个内置连接器（manifest.json + connector.ts）
+connectors/                        # 13 个内置连接器（manifest.json + connector.ts）
 tests/                             # unit / integration / user_e2e / packaged_smoke
 docs/design/omni-usage/            # 前端 UI 设计 demo（历史设计参考）
 ```

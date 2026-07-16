@@ -8,15 +8,15 @@
 
 数据自上而下：**连接器（定义）→ 数据源（实例）→ 厂商 → 账号 → 用量 → 用量条 → 观测（原子）**。
 
-| 中文   | 英文        | 代码标识                                              | 定义                                | 数量关系                                                                                                   |
-| ------ | ----------- | ----------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| 连接器 | connector   | 目录 `manifest.json` + `connector.ts`                 | 采集逻辑的声明式定义，内置只读      | 一类接入一份定义                                                                                           |
-| 数据源 | data source | `ConnectorConfiguration` / `instanceId`               | 用户配置的一份连接实例 = 设置页一行 | 见 §2                                                                                                      |
-| 厂商   | provider    | `provider`                                            | AI 服务商，UI 聚合维度              | `claude` `codex` `antigravity` `kimi` `glm` `minimax` `deepseek` `tavily` `firecrawl` `mimo` `opencode_go` |
-| 账号   | account     | `accountId` / `accountLabel`（显示名，不得含 secret） | 某厂商下一个真实账号                | 一厂商可多账号                                                                                             |
-| 用量   | usage       | 某 account 下全部 observation 的集合                  | 一个账号的用量数据集                | 一账号 = 一份用量                                                                                          |
-| 用量条 | metric      | `metricId` / `metricName`                             | 用量里的单条指标                    | 一账号多条（Claude 5小时+一周=2条）                                                                        |
-| 观测   | observation | `Observation`                                         | 单次采集产出的原子记录              | 最小单元                                                                                                   |
+| 中文   | 英文        | 代码标识                                              | 定义                                | 数量关系                                                                                                          |
+| ------ | ----------- | ----------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 连接器 | connector   | 目录 `manifest.json` + `connector.ts`                 | 采集逻辑的声明式定义，内置只读      | 一类接入一份定义                                                                                                  |
+| 数据源 | data source | `ConnectorConfiguration` / `instanceId`               | 用户配置的一份连接实例 = 设置页一行 | 见 §2                                                                                                             |
+| 厂商   | provider    | `provider`                                            | AI 服务商，UI 聚合维度              | `claude` `codex` `antigravity` `kimi` `glm` `minimax` `deepseek` `tavily` `firecrawl` `mimo` `opencode_go` `grok` |
+| 账号   | account     | `accountId` / `accountLabel`（显示名，不得含 secret） | 某厂商下一个真实账号                | 一厂商可多账号                                                                                                    |
+| 用量   | usage       | 某 account 下全部 observation 的集合                  | 一个账号的用量数据集                | 一账号 = 一份用量                                                                                                 |
+| 用量条 | metric      | `metricId` / `metricName`                             | 用量里的单条指标                    | 一账号多条（Claude 5小时+一周=2条）                                                                               |
+| 观测   | observation | `Observation`                                         | 单次采集产出的原子记录              | 最小单元                                                                                                          |
 
 **观测核心字段**：`provider` + `sourceInstanceId` + `accountId` + `metricId` + `used`/`limit` + `source` + `observedAt` + `stale`/`lastError` + `cycleDurationMs`。完整字段与 SQLite schema 见 `specs/observation-store.md`。
 

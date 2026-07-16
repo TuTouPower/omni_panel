@@ -19,6 +19,7 @@
 | `kimi`        | kimi        | session | 直连 | 受控网页登录（也可经 CPA）    |
 | `opencode_go` | opencode_go | session | 直连 | 受控网页登录捕获 cookie       |
 | `antigravity` | antigravity | poll    | 直连 | Antigravity API（也可经 CPA） |
+| `grok`        | grok        | poll    | 直连 | Grok API（OAuth device-code） |
 
 ## 能力分发（`refresh-service.execute_connector`）
 
