@@ -64,6 +64,12 @@ export interface AppConfiguration {
     readonly collapsedAccounts?: Readonly<Record<string, boolean>>;
     readonly expandedProviders?: Readonly<Record<string, boolean>>;
     readonly convergentTimeMinutes?: number;
+    readonly tokenStats?: {
+        readonly pollIntervalMinutes?: number;
+        readonly wslEnabled?: boolean;
+        readonly wslDistro?: string;
+        readonly wslUser?: string;
+    };
 }
 
 export interface ConnectorConfiguration {

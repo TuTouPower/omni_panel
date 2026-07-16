@@ -45,6 +45,9 @@ import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
 import { registerAuthIpc, handleCookieLogin, trySilentCookieRefresh } from "./ipc/auth-ipc";
 import { registerGrokAuthIpc } from "./ipc/grok_auth_ipc";
+import { registerTokenStatsIpc } from "./ipc/token-stats-ipc";
+import { create_token_stats_store } from "./core/token-stats/token-stats-store";
+import { create_token_stats_manager } from "./core/token-stats/manager";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
 import { resolve_effective_proxy_url } from "./core/network/effective_proxy";
@@ -235,6 +238,29 @@ void app.whenReady().then(async () => {
     let main_panel_controller: MainPanelController | null = null;
     let tray_ref: Tray | null = null;
 
+    // Token stats: store + manager (subprocess-based collection)
+    const tokenStatsStore = create_token_stats_store(get_observations_db_path());
+    const tokenStatsManager = create_token_stats_manager({
+        store: tokenStatsStore,
+        on_update: () => {
+            // Broadcast to all windows that token stats were updated
+            BrowserWindow.getAllWindows().forEach((win) => {
+                if (!win.isDestroyed()) {
+                    win.webContents.send(IPC_CHANNELS.TOKEN_STATS_UPDATED);
+                }
+            });
+        },
+    });
+    // Start token stats collection with config
+    const tsConfig = currentConfigSnapshot.tokenStats;
+    tokenStatsManager.start({
+        win_home: getDataRoot().replace(/[/\\]data$/, ""),
+        wsl_enabled: tsConfig?.wslEnabled ?? false,
+        wsl_distro: tsConfig?.wslDistro ?? "Ubuntu-22.04",
+        wsl_user: tsConfig?.wslUser ?? "",
+        poll_interval_ms: (tsConfig?.pollIntervalMinutes ?? 10) * 60_000,
+    });
+
     // Register IPC handlers
     await registerConnectorIpc({
         configStore,
@@ -242,6 +268,7 @@ void app.whenReady().then(async () => {
         refreshService,
         definitions: allDefinitions,
     });
+    registerTokenStatsIpc(ipcMain, { store: tokenStatsStore });
     await registerConfigIpc({
         configStore,
         secretsStore,
@@ -270,6 +297,15 @@ void app.whenReady().then(async () => {
                       .map((plugin) => plugin.instanceId)
                 : [];
             grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
+            // Update token stats config if changed
+            const newTs = updatedConfig.tokenStats;
+            tokenStatsManager.update_config({
+                win_home: getDataRoot().replace(/[/\\]data$/, ""),
+                wsl_enabled: newTs?.wslEnabled ?? false,
+                wsl_distro: newTs?.wslDistro ?? "Ubuntu-22.04",
+                wsl_user: newTs?.wslUser ?? "",
+                poll_interval_ms: (newTs?.pollIntervalMinutes ?? 10) * 60_000,
+            });
             for (const win of BrowserWindow.getAllWindows()) {
                 if (!win.isDestroyed()) {
                     win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
