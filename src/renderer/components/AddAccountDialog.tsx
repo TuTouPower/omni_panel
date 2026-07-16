@@ -14,9 +14,9 @@ export const VENDOR_AUTH_MAP: Partial<Record<UsageProvider, AuthMethod>> = {
     glm: "apikey",
     tavily: "apikey",
     minimax: "apikey",
+    kimi: "apikey",
     mimo: "session",
     opencode_go: "session",
-    kimi: "session",
     claude: "local",
     codex: "local",
     antigravity: "local",
@@ -29,6 +29,11 @@ const AUTH_APIKEY_META: Partial<
         prefix: "sk-",
         endpoint: "https://api.deepseek.com",
         docs: "platform.deepseek.com → API Keys",
+    },
+    kimi: {
+        prefix: "sk-kimi-",
+        endpoint: "https://api.kimi.com/coding/v1",
+        docs: "kimi.com/code/console → 创建 API Key",
     },
     tavily: {
         prefix: "tvly-",
@@ -44,11 +49,6 @@ const AUTH_SESSION_META: Partial<
         host: "platform.xiaomimimo.com",
         login_url: "https://platform.xiaomimimo.com/console/plan-manage",
         cookie_keys: ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph"],
-    },
-    kimi: {
-        host: "kimi.com",
-        login_url: "https://www.kimi.com/login",
-        cookie_keys: ["access_token", "refresh_token"],
     },
     opencode_go: {
         host: "opencode.ai",
@@ -111,8 +111,10 @@ function VendorPicker({
     on_select: (vendor_id: UsageProvider) => void;
     on_cpa: () => void;
 }) {
+    // 允许添加有连接器定义的厂商账号，不要求已启用
     const can_add = (provider: UsageProvider) =>
-        plugin_infos.some((p) => p.activeProviders.includes(provider) && p.enabled);
+        plugin_infos.some((p) => p.activeProviders.includes(provider)) ||
+        plugin_infos.some((p) => p.supportedProviders.includes(provider));
 
     return (
         <div className="pick-body">

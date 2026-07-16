@@ -1140,7 +1140,7 @@ describe("SettingsView", () => {
         expect(screen.getByRole("button", { name: /^添加$/ })).toBeInTheDocument();
     });
 
-    it("opens duplicated account dialog with vendor name instead of old account name", async () => {
+    it("opens AddAccountDialog when clicking 添加", async () => {
         const user = userEvent.setup();
         current_config = {
             ...base_config,
@@ -1190,12 +1190,10 @@ describe("SettingsView", () => {
         render(<SettingsView />);
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         await user.click(screen.getByRole("button", { name: /^添加$/ }));
-        await user.click(screen.getByRole("button", { name: "DeepSeek" }));
 
+        // AddAccountDialog should open with vendor picker
         const dialog = await screen.findByRole("dialog");
-        expect(duplicate).toHaveBeenCalledWith("deepseek-1");
-        expect(within(dialog).getByText("DeepSeek")).toBeInTheDocument();
-        expect(within(dialog).queryByText("DeepSeek old account")).not.toBeInTheDocument();
+        expect(within(dialog).getByText("添加账号")).toBeInTheDocument();
     });
 
     it("shows VendorMark in edit dialog header", async () => {

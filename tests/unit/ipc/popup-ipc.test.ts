@@ -33,7 +33,7 @@ describe("popup-ipc", () => {
         registerPopupIpc({ report_content_height: report_fn });
 
         const handler = ipc_main_mock.handle.mock.calls.find(
-            ([channel]: [string]) => channel === "popup:reportContentHeight",
+            (call: unknown[]) => call[0] === "popup:reportContentHeight",
         )?.[1] as (event: unknown, payload: unknown) => unknown;
 
         const result = handler({}, { content_height: 400, collapsed_min_height: 100 });
@@ -50,7 +50,7 @@ describe("popup-ipc", () => {
         registerPopupIpc({ report_content_height: report_fn });
 
         const handler = ipc_main_mock.handle.mock.calls.find(
-            ([channel]: [string]) => channel === "popup:reportContentHeight",
+            (call: unknown[]) => call[0] === "popup:reportContentHeight",
         )?.[1] as (event: unknown, payload: unknown) => unknown;
 
         // Missing required field
@@ -65,7 +65,7 @@ describe("popup-ipc", () => {
         registerPopupIpc({ report_content_height: report_fn });
 
         const handler = ipc_main_mock.handle.mock.calls.find(
-            ([channel]: [string]) => channel === "popup:reportContentHeight",
+            (call: unknown[]) => call[0] === "popup:reportContentHeight",
         )?.[1] as (event: unknown, payload: unknown) => unknown;
 
         expect(handler({}, null)).toMatchObject({ ok: false });
@@ -79,7 +79,7 @@ describe("popup-ipc", () => {
         registerPopupIpc({ report_content_height: report_fn });
 
         const handler = ipc_main_mock.handle.mock.calls.find(
-            ([channel]: [string]) => channel === "popup:reportContentHeight",
+            (call: unknown[]) => call[0] === "popup:reportContentHeight",
         )?.[1] as (event: unknown, payload: unknown) => unknown;
 
         const result = handler({}, { content_height: 10001, collapsed_min_height: 100 });

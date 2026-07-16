@@ -85,7 +85,7 @@ export const ProviderCard = memo(function ProviderCard({
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
-    const label = connectorError?.displayName ?? group?.label ?? PROVIDER_LABELS[provider];
+    const label = group?.label ?? PROVIDER_LABELS[provider];
     const hasError = connectorError !== undefined;
     const isFailed = hasError && !hasUsage;
     const has_stale_error = hasError && hasUsage;

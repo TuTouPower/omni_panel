@@ -1,21 +1,27 @@
 {
     "id": "kimi",
     "provider": "kimi",
-    "capabilities": ["session"],
+    "capabilities": ["poll"],
     "parameters": [
         {
-            "name": "SESSION_COOKIE",
+            "name": "API_KEY",
             "type": "secret",
             "required": true,
-            "label": "Session Cookie",
-            "label@zh-Hans": "登录 Cookie",
+            "label": "API Key (sk-kimi-xxx from Kimi Code Console)",
+            "label@zh-Hans": "API 密钥",
             "exposeToScript": true
         }
     ],
     "endpoints": {
-        "default": "https://kimi.com"
+        "default": "https://api.kimi.com"
     },
-    "loginDomains": ["kimi.com", "www.kimi.com"],
-    "cookieNames": ["access_token", "refresh_token"],
+    "poll": {
+        "request": {
+            "endpoint": "default",
+            "path": "/coding/v1/usages",
+            "method": "GET"
+        },
+        "map": {}
+    },
     "script": "connector.ts"
 }

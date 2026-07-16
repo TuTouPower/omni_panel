@@ -85,7 +85,7 @@ describe("AddAccountDialog MIMO session cookie", () => {
         expect(saved.auth_method).toBe("session");
     });
 
-    it("passes SESSION_COOKIE for kimi session-auth account", async () => {
+    it("passes API_KEY for kimi apikey-auth account", async () => {
         const kimi_plugin: PluginInfo = {
             ...base_plugin,
             instanceId: "kimi-1",
@@ -106,18 +106,19 @@ describe("AddAccountDialog MIMO session cookie", () => {
         );
 
         await user.click(screen.getByText("Kimi"));
-        const cookie_textarea = screen.getByPlaceholderText(/在浏览器登录/);
-        expect(cookie_textarea).toBeInTheDocument();
+        const api_key_input = screen.getByPlaceholderText(/sk-kimi/);
+        expect(api_key_input).toBeInTheDocument();
 
-        await user.type(cookie_textarea, "access_token=kimikimi");
+        await user.type(api_key_input, "sk-kimi-test123");
         await user.click(screen.getByText("添加账号"));
 
         await vi.waitFor(() => {
             expect(on_save).toHaveBeenCalledTimes(1);
         });
         expect(get_saved_params(on_save).secrets).toEqual({
-            SESSION_COOKIE: "access_token=kimikimi",
+            API_KEY: "sk-kimi-test123",
         });
+        expect(get_saved_params(on_save).auth_method).toBe("apikey");
     });
 
     function opencode_go_plugin(): PluginInfo {
@@ -396,7 +397,7 @@ describe("AddAccountDialog API key", () => {
         expect(saved.endpoint_overrides).toBeUndefined();
     });
 
-    it("disables vendor button when plugin is not enabled", () => {
+    it("enables vendor button when plugin has supportedProviders even if disabled", () => {
         const disabled = apikey_plugin({ enabled: false, activeProviders: [] });
         render(
             <AddAccountDialog
@@ -409,7 +410,7 @@ describe("AddAccountDialog API key", () => {
         );
 
         const btn = screen.getByText("DeepSeek").closest("button");
-        expect(btn?.className).toContain("disabled");
+        expect(btn?.className).not.toContain("disabled");
     });
 
     it("shows GLM in the vendor picker when GLM plugin is available", () => {

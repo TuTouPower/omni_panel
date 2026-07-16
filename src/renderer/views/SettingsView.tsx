@@ -13,6 +13,8 @@ import {
 } from "../lib/account-overrides";
 import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
+import { AddAccountDialog } from "../components/AddAccountDialog";
+import type { AddAccountParams } from "../components/AddAccountDialog";
 import { VendorCard } from "../components/VendorCard";
 import { CpaCard } from "../components/CpaCard";
 import { LabelMapDialog } from "../components/LabelMapDialog";
@@ -31,7 +33,6 @@ import type {
 } from "../../shared/types/config";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
-import { ADD_COMMON_SERVICES } from "../lib/common-services";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
 import logo from "../assets/logo.svg";
@@ -314,7 +315,7 @@ function AccountDialog({
     pluginInfos,
     hasSecrets,
     onSave,
-    onSelectService,
+    onAddAccount,
     onCpa,
     onClose,
     existingLabelMap,
@@ -338,7 +339,7 @@ function AccountDialog({
         refreshIntervalSeconds: number,
         displayName?: string,
     ) => Promise<void>;
-    onSelectService: (instanceId: string, pluginName: string) => void | Promise<void>;
+    onAddAccount: (params: AddAccountParams) => Promise<void>;
     onCpa: () => void;
     onClose: () => void;
     existingLabelMap?: Readonly<Record<string, string>> | undefined;
@@ -372,152 +373,109 @@ function AccountDialog({
                 aria-modal="true"
                 aria-labelledby="acct-dialog-title"
             >
-                <div className="ad-head">
-                    {isEdit && pluginInfo && (
-                        <span className="ad-mark">
-                            <VendorMark
-                                id={pluginInfo.activeProviders[0] ?? "overview"}
-                                size={24}
-                            />
-                        </span>
-                    )}
-                    <div className="ad-htext">
-                        <div className="ad-title" id="acct-dialog-title">
-                            {isEdit ? "编辑账号" : "添加账号"}
-                        </div>
-                        <div className="ad-sub">
-                            {isEdit ? (pluginName ?? "新账号") : "选择要添加的服务"}
-                        </div>
-                    </div>
-                    <button className="ad-close" onClick={onClose} title="关闭" type="button">
-                        <Icon name="close" size={17} strokeWidth={2} />
-                    </button>
-                </div>
-
-                <div className="ad-body">
-                    {instanceId && pluginInfo && pluginConfig ? (
-                        <SettingsForm
-                            instanceId={instanceId}
-                            displayName={pluginConfig.displayName}
-                            parameters={pluginInfo.metadata?.parameters ?? []}
-                            values={Object.fromEntries(
-                                Object.entries(pluginConfig.parameterValues).map(([k, v]) => [
-                                    k,
-                                    String(v),
-                                ]),
+                {mode === "add" && !instanceId ? (
+                    <AddAccountDialog
+                        plugin_infos={pluginInfos}
+                        has_cpa={true}
+                        on_close={onClose}
+                        on_save={onAddAccount}
+                        on_cpa={onCpa}
+                    />
+                ) : (
+                    <>
+                        <div className="ad-head">
+                            {isEdit && pluginInfo && (
+                                <span className="ad-mark">
+                                    <VendorMark
+                                        id={pluginInfo.activeProviders[0] ?? "overview"}
+                                        size={24}
+                                    />
+                                </span>
                             )}
-                            hasSecrets={hasSecrets ?? {}}
-                            endpoints={pluginInfo.metadata?.endpoints ?? {}}
-                            endpointValues={pluginConfig.endpointOverrides}
-                            refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
-                            globalIntervalLabel={globalIntervalLabel}
-                            {...(pluginConfig.manualRefreshOnly ? { manualRefreshOnly: true } : {})}
-                            {...(pluginInfo.activeProviders[0]
-                                ? { providerId: pluginInfo.activeProviders[0] }
-                                : {})}
-                            onCookieLogin={async (id) => {
-                                try {
-                                    const provider = pluginInfo.activeProviders[0];
-                                    const meta = provider ? session_meta[provider] : undefined;
-                                    const result =
-                                        meta && provider
-                                            ? await window.usageboard.session.login({
-                                                  instance_id: id,
-                                                  provider,
-                                                  login_url: meta.login_url,
-                                                  cookie_names: meta.cookie_names,
-                                              })
-                                            : await window.usageboard.auth.cookieLogin(id);
-                                    if (result.saved) {
-                                        await window.usageboard.connector.refresh(id);
-                                        await window.usageboard.config.get();
-                                    }
-                                    return result.saved;
-                                } catch {
-                                    return false;
-                                }
-                            }}
-                            onSave={async (...args) => {
-                                await onSave(...args);
-                                onClose();
-                            }}
-                            existingLabelMap={existingLabelMap}
-                            onSaveLabelMap={onSaveLabelMap}
-                            forcePercent={forcePercent}
-                            onForcePercentChange={onForcePercentChange}
-                        />
-                    ) : mode === "add" && !instanceId ? (
-                        <AddAccountPicker
-                            pluginInfos={pluginInfos}
-                            onSelect={onSelectService}
-                            onCpa={onCpa}
-                        />
-                    ) : mode === "edit" ? (
-                        <div className="text-sm text-[var(--text-3)]">加载中...</div>
-                    ) : (
-                        <div className="text-sm text-[var(--text-3)]">暂不支持在此添加新账号</div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
+                            <div className="ad-htext">
+                                <div className="ad-title" id="acct-dialog-title">
+                                    {isEdit ? "编辑账号" : "添加账号"}
+                                </div>
+                                <div className="ad-sub">
+                                    {isEdit ? (pluginName ?? "新账号") : "选择要添加的服务"}
+                                </div>
+                            </div>
+                            <button
+                                className="ad-close"
+                                onClick={onClose}
+                                title="关闭"
+                                type="button"
+                            >
+                                <Icon name="close" size={17} strokeWidth={2} />
+                            </button>
+                        </div>
 
-/* ── Add Account Picker ── */
-function AddAccountPicker({
-    pluginInfos,
-    onSelect,
-    onCpa,
-}: {
-    pluginInfos: ConnectorInfo[];
-    onSelect: (instanceId: string, pluginName: string) => void | Promise<void>;
-    onCpa: () => void;
-}) {
-    const handleServiceClick = (provider: UsageProvider, label: string) => {
-        const match = pluginInfos.find((p) => p.activeProviders.includes(provider) && p.enabled);
-        if (match) {
-            void onSelect(match.instanceId, label);
-        }
-    };
-
-    return (
-        <div className="pick-body">
-            <div className="set-group-label" style={{ marginTop: 0 }}>
-                常用服务
+                        <div className="ad-body">
+                            {instanceId && pluginInfo && pluginConfig ? (
+                                <SettingsForm
+                                    instanceId={instanceId}
+                                    displayName={pluginConfig.displayName}
+                                    parameters={pluginInfo.metadata?.parameters ?? []}
+                                    values={Object.fromEntries(
+                                        Object.entries(pluginConfig.parameterValues).map(
+                                            ([k, v]) => [k, String(v)],
+                                        ),
+                                    )}
+                                    hasSecrets={hasSecrets ?? {}}
+                                    endpoints={pluginInfo.metadata?.endpoints ?? {}}
+                                    endpointValues={pluginConfig.endpointOverrides}
+                                    refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
+                                    globalIntervalLabel={globalIntervalLabel}
+                                    {...(pluginConfig.manualRefreshOnly
+                                        ? { manualRefreshOnly: true }
+                                        : {})}
+                                    {...(pluginInfo.activeProviders[0]
+                                        ? { providerId: pluginInfo.activeProviders[0] }
+                                        : {})}
+                                    onCookieLogin={async (id) => {
+                                        try {
+                                            const provider = pluginInfo.activeProviders[0];
+                                            const meta = provider
+                                                ? session_meta[provider]
+                                                : undefined;
+                                            const result =
+                                                meta && provider
+                                                    ? await window.usageboard.session.login({
+                                                          instance_id: id,
+                                                          provider,
+                                                          login_url: meta.login_url,
+                                                          cookie_names: meta.cookie_names,
+                                                      })
+                                                    : await window.usageboard.auth.cookieLogin(id);
+                                            if (result.saved) {
+                                                await window.usageboard.connector.refresh(id);
+                                                await window.usageboard.config.get();
+                                            }
+                                            return result.saved;
+                                        } catch {
+                                            return false;
+                                        }
+                                    }}
+                                    onSave={async (...args) => {
+                                        await onSave(...args);
+                                        onClose();
+                                    }}
+                                    existingLabelMap={existingLabelMap}
+                                    onSaveLabelMap={onSaveLabelMap}
+                                    forcePercent={forcePercent}
+                                    onForcePercentChange={onForcePercentChange}
+                                />
+                            ) : mode === "edit" ? (
+                                <div className="text-sm text-[var(--text-3)]">加载中...</div>
+                            ) : (
+                                <div className="text-sm text-[var(--text-3)]">
+                                    暂不支持在此添加新账号
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
             </div>
-            <div className="pick-grid">
-                {ADD_COMMON_SERVICES.map((s) => (
-                    <button
-                        className="pick-card"
-                        key={s.id}
-                        type="button"
-                        onClick={() => {
-                            handleServiceClick(s.id, s.label);
-                        }}
-                    >
-                        <span className="pc-mark">
-                            <VendorMark id={s.id} size={30} />
-                        </span>
-                        <span className="pc-name">{s.label}</span>
-                    </button>
-                ))}
-            </div>
-            <div className="set-group-label">高级方式</div>
-            <button className="pick-adv" type="button" onClick={onCpa}>
-                <span className="pa-icon">
-                    <VendorMark id="cpa" size={24} />
-                </span>
-                <span className="pa-text">
-                    <span className="pa-title-row">
-                        <span className="pa-title">CPA Manager</span>
-                        <span className="pa-badge">多服务商</span>
-                    </span>
-                    <span className="pa-desc">通过 CPA 批量获取多个 AI 服务商账号</span>
-                </span>
-                <span className="pa-chev">
-                    <Icon name="chevron" size={18} />
-                </span>
-            </button>
         </div>
     );
 }
@@ -2029,12 +1987,22 @@ export function SettingsView() {
                         pluginInfos={pluginInfos}
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
-                        onSelectService={async (id, name) => {
-                            const created = await duplicate(id);
+                        onAddAccount={async (params) => {
+                            // 找到对应厂商的直连连接器（排除 CPA gateway），duplicate 后填入 secrets
+                            const source = pluginInfos.find(
+                                (p) =>
+                                    p.supportedProviders.includes(params.vendor_id) &&
+                                    p.source !== "gateway",
+                            );
+                            if (!source) return;
+                            const created = await duplicate(source.instanceId);
+                            if (Object.keys(params.secrets).length > 0) {
+                                await savePluginSecrets(created.instanceId, params.secrets);
+                            }
                             setDialog({
                                 mode: "edit",
                                 instanceId: created.instanceId,
-                                pluginName: name,
+                                pluginName: params.account_name,
                             });
                         }}
                         onCpa={() => {

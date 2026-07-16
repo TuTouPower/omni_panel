@@ -62,7 +62,8 @@ config/env/.env.local
 artifacts/
 vendors/
 
-data/capture_all*.json
+data/capture_*
+data/session-*
 
 # Internal working scratch and AI design chat logs (not for public)
 .scratch/
