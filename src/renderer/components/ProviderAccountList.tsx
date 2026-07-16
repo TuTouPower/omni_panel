@@ -1,6 +1,6 @@
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
-import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
+import type { ProviderUsageGroup } from "../lib/provider-usage";
 import { ProviderAccountRow } from "./ProviderAccountRow";
 
 interface ProviderAccountListProps {
@@ -12,7 +12,6 @@ interface ProviderAccountListProps {
     onDragStart?: ((accountId: string) => void) | undefined;
     onDragEnter?: ((accountId: string) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
-    onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onReLogin?: ((provider: UsageProvider) => void) | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
@@ -21,6 +20,8 @@ interface ProviderAccountListProps {
     providerLabelMaps?:
         | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
         | undefined;
+    desensitizeRemarks?: boolean | undefined;
+    forcePercent?: boolean | undefined;
 }
 
 export function ProviderAccountList({
@@ -32,19 +33,20 @@ export function ProviderAccountList({
     onDragStart,
     onDragEnter,
     onDragEnd,
-    onEditAccount,
     onReLogin: _onReLogin,
     barColorScheme,
     barStyle,
     labelMap,
     accountLabelMaps,
     providerLabelMaps,
+    desensitizeRemarks = false,
+    forcePercent = false,
 }: ProviderAccountListProps) {
     void _onReLogin;
     const per_provider_map = providerLabelMaps?.[group.provider] ?? {};
 
     return (
-        <>
+        <div className="provider-account-list">
             {group.accounts.map((account) => {
                 const collapsed = collapsedAccounts?.[account.id] ?? false;
                 const isDragging = draggingId === account.id;
@@ -64,10 +66,11 @@ export function ProviderAccountList({
                         <ProviderAccountRow
                             key={account.id}
                             account={account}
-                            onEditAccount={onEditAccount}
                             barColorScheme={barColorScheme}
                             barStyle={barStyle}
                             labelMap={merged_label_map}
+                            desensitizeRemarks={desensitizeRemarks}
+                            forcePercent={forcePercent}
                         />
                     );
                 }
@@ -97,13 +100,14 @@ export function ProviderAccountList({
                                 : undefined
                         }
                         onDragEnd={onDragEnd}
-                        onEditAccount={onEditAccount}
                         barColorScheme={barColorScheme}
                         barStyle={barStyle}
                         labelMap={merged_label_map}
+                        desensitizeRemarks={desensitizeRemarks}
+                        forcePercent={forcePercent}
                     />
                 );
             })}
-        </>
+        </div>
     );
 }

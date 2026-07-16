@@ -53,6 +53,10 @@ export interface AppConfiguration {
     >;
     readonly accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>>;
     readonly labelMapSync?: boolean;
+    /** When true, hide account remarks/display names in UI surfaces. */
+    readonly uiDesensitizeRemarks?: boolean;
+    /** Per-provider: force all metrics to percent display (not ratio). */
+    readonly providerForcePercent?: Readonly<Partial<Record<UsageProvider, boolean>>>;
     readonly settingsBounds?: FloatingBoundsConfiguration;
     readonly floatingBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;

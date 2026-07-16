@@ -25,6 +25,7 @@ interface CpaCardProps {
     on_unhide: (target: { provider: string; account_id: string }) => void;
     on_clear: (target: { provider: string; account_id: string }) => void;
     on_rename: (target: { provider: string; account_id: string }) => void;
+    desensitizeRemarks?: boolean | undefined;
 }
 
 interface CpaStatus {
@@ -56,8 +57,10 @@ export function CpaCard({
     on_unhide,
     on_clear,
     on_rename,
+    desensitizeRemarks = false,
 }: CpaCardProps) {
     const cpa_status = get_cpa_status(status, enabled);
+    const note = desensitizeRemarks ? "" : display_name;
 
     const unique_accounts = useMemo(() => {
         const seen = new Map<string, CpaCardRow>();
@@ -76,9 +79,7 @@ export function CpaCard({
                 <VendorMark id="cpa" size={24} />
                 <span className="ar-id">
                     <span className="ar-vendor">CPA</span>
-                    {display_name && display_name !== "CPA" && (
-                        <span className="ar-note">· {display_name}</span>
-                    )}
+                    {note && note !== "CPA" && <span className="ar-note">· {note}</span>}
                 </span>
                 <span className="ar-status">
                     <span className="ar-dot" style={{ background: cpa_status.color }} />
@@ -109,6 +110,7 @@ export function CpaCard({
                     status={row.status}
                     is_hidden={row.is_hidden}
                     is_removed={row.is_removed}
+                    desensitizeRemarks={desensitizeRemarks}
                     on_hide={() => {
                         on_hide({ provider: row.provider, account_id: row.account_id });
                     }}

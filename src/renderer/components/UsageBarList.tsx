@@ -14,6 +14,7 @@ interface UsageBarListProps {
     colorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
+    forcePercent?: boolean | undefined;
 }
 
 export function UsageBarList({
@@ -22,6 +23,7 @@ export function UsageBarList({
     colorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
     barStyle = "thin",
     labelMap,
+    forcePercent = false,
 }: UsageBarListProps) {
     return (
         <div className={className}>
@@ -33,6 +35,7 @@ export function UsageBarList({
                     colorScheme={colorScheme}
                     barStyle={barStyle}
                     labelMap={labelMap}
+                    forcePercent={forcePercent}
                 />
             ))}
         </div>

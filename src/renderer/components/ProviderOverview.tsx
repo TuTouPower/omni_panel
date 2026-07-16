@@ -1,5 +1,5 @@
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
-import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
+import type { ProviderUsageGroup } from "../lib/provider-usage";
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import { ProviderCard } from "./ProviderCard";
 
@@ -16,7 +16,6 @@ interface ProviderOverviewProps {
     expandedProviders?: Record<string, boolean> | undefined;
     onToggleExpandProvider?: ((provider: UsageProvider) => void) | undefined;
     onToggleDisableProvider?: ((provider: UsageProvider) => void) | undefined;
-    onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onReLogin?: ((provider: UsageProvider) => void) | undefined;
     draggingProvider?: UsageProvider | null | undefined;
     overProvider?: UsageProvider | null | undefined;
@@ -33,6 +32,8 @@ interface ProviderOverviewProps {
         | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
         | undefined;
     convergentTimeMinutes?: number | undefined;
+    desensitizeRemarks?: boolean | undefined;
+    providerForcePercent?: Readonly<Partial<Record<UsageProvider, boolean>>> | undefined;
 }
 
 export function ProviderOverview({
@@ -43,7 +44,6 @@ export function ProviderOverview({
     expandedProviders,
     onToggleExpandProvider,
     onToggleDisableProvider,
-    onEditAccount,
     onReLogin,
     draggingProvider,
     overProvider,
@@ -58,6 +58,8 @@ export function ProviderOverview({
     accountLabelMaps,
     providerLabelMaps,
     convergentTimeMinutes,
+    desensitizeRemarks = false,
+    providerForcePercent,
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
 
@@ -76,7 +78,6 @@ export function ProviderOverview({
                         }
                         onToggleExpand={onToggleExpandProvider}
                         onToggleDisable={onToggleDisableProvider}
-                        onEditAccount={onEditAccount}
                         onReLogin={onReLogin}
                         dragging={draggingProvider === provider}
                         dragOver={overProvider === provider && draggingProvider !== provider}
@@ -91,6 +92,8 @@ export function ProviderOverview({
                         accountLabelMaps={accountLabelMaps}
                         providerLabelMaps={providerLabelMaps}
                         convergentTimeMinutes={convergentTimeMinutes}
+                        desensitizeRemarks={desensitizeRemarks}
+                        forcePercent={providerForcePercent?.[provider] === true}
                     />
                 );
             })}

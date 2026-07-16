@@ -19,6 +19,7 @@ vi.mock("../../../../src/renderer/hooks/use-config", () => ({
         loading: false,
         error: null,
         save: vi.fn(),
+        getSecrets: vi.fn().mockResolvedValue({}),
         saveSecrets: vi.fn(),
         duplicate: vi.fn(),
     }),

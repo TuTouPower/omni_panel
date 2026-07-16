@@ -320,6 +320,8 @@ function AccountDialog({
     existingLabelMap,
     onSaveLabelMap,
     globalIntervalLabel,
+    forcePercent,
+    onForcePercentChange,
 }: {
     mode: "add" | "edit";
     instanceId: string | undefined;
@@ -344,6 +346,8 @@ function AccountDialog({
         | ((instanceId: string, map: Record<string, string>) => Promise<void>)
         | undefined;
     globalIntervalLabel: string;
+    forcePercent?: boolean | undefined;
+    onForcePercentChange?: ((provider: UsageProvider, force: boolean) => Promise<void>) | undefined;
 }) {
     const isEdit = mode === "edit";
 
@@ -439,6 +443,8 @@ function AccountDialog({
                             }}
                             existingLabelMap={existingLabelMap}
                             onSaveLabelMap={onSaveLabelMap}
+                            forcePercent={forcePercent}
+                            onForcePercentChange={onForcePercentChange}
                         />
                     ) : mode === "add" && !instanceId ? (
                         <AddAccountPicker
@@ -569,6 +575,9 @@ function CpaAddDialog({ onClose }: { onClose: () => void }) {
                             }}
                             placeholder="https://cpa.example.com"
                             autoFocus
+                            spellCheck={false}
+                            autoCorrect="off"
+                            autoCapitalize="off"
                         />
                     </div>
                     <div className="ad-field">
@@ -582,6 +591,9 @@ function CpaAddDialog({ onClose }: { onClose: () => void }) {
                                     setKey(e.target.value);
                                 }}
                                 placeholder="cpa_sk_..."
+                                spellCheck={false}
+                                autoCorrect="off"
+                                autoCapitalize="off"
                             />
                             <button
                                 className="ad-eye"
@@ -1194,6 +1206,21 @@ export function SettingsView() {
                                 </SetRow>
                                 <div className="set-group-label">其他</div>
                                 <SetRow
+                                    title="界面脱敏"
+                                    sub="隐藏所有账号备注名（主面板与设置列表）"
+                                >
+                                    <Toggle
+                                        on={config.uiDesensitizeRemarks === true}
+                                        onClick={() => {
+                                            void save_config({
+                                                ...config,
+                                                uiDesensitizeRemarks:
+                                                    config.uiDesensitizeRemarks !== true,
+                                            });
+                                        }}
+                                    />
+                                </SetRow>
+                                <SetRow
                                     title="同一厂商的数据标签映射同步"
                                     sub="同一厂商下的多个账号共用一套数据标签映射，编辑任一账号即同步到全部"
                                 >
@@ -1473,6 +1500,9 @@ export function SettingsView() {
                                                                         instance_id,
                                                                 );
                                                             }}
+                                                            desensitizeRemarks={
+                                                                config.uiDesensitizeRemarks === true
+                                                            }
                                                         />
                                                     ),
                                                 )}
@@ -1506,6 +1536,9 @@ export function SettingsView() {
                                                             display_name={info?.displayName ?? ""}
                                                             enabled={plugin.enabled}
                                                             status={connector_status}
+                                                            desensitizeRemarks={
+                                                                config.uiDesensitizeRemarks === true
+                                                            }
                                                             rows={items.map((item) => {
                                                                 const is_hidden =
                                                                     config.accountOverrides?.hidden?.[
@@ -2051,6 +2084,24 @@ export function SettingsView() {
                             });
                         }}
                         globalIntervalLabel={interval_label}
+                        forcePercent={(() => {
+                            if (!dialog.instanceId) return false;
+                            const provider = pluginInfos.find(
+                                (plugin) => plugin.instanceId === dialog.instanceId,
+                            )?.activeProviders[0];
+                            return provider
+                                ? config.providerForcePercent?.[provider] === true
+                                : false;
+                        })()}
+                        onForcePercentChange={async (provider, force) => {
+                            await save_config({
+                                ...config,
+                                providerForcePercent: {
+                                    ...(config.providerForcePercent ?? {}),
+                                    [provider]: force,
+                                },
+                            });
+                        }}
                     />
                 )}
                 {showCpaAdd && (

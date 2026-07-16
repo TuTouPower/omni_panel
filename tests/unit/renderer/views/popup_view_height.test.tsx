@@ -153,6 +153,7 @@ describe("PopupView collapse + height report", () => {
                     hasSecrets: {},
                 }),
                 save: vi.fn().mockResolvedValue(undefined),
+                getSecrets: vi.fn().mockResolvedValue({}),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
                 export: vi.fn(),

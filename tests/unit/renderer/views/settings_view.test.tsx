@@ -187,6 +187,7 @@ describe("SettingsView", () => {
             config: {
                 get: vi.fn(),
                 save: vi.fn(),
+                getSecrets: vi.fn().mockResolvedValue({ cpa_mgmt_key: "vault-secret-key" }),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
                 export: vi.fn(),
@@ -464,7 +465,9 @@ describe("SettingsView", () => {
         });
         expect(screen.getByLabelText("备注")).toHaveValue("");
         expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
-        expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
+        await waitFor(() => {
+            expect(screen.getByLabelText("管理密钥")).toHaveValue("vault-secret-key");
+        });
         expect(
             within(screen.getByTestId("cpa-connector-settings")).getByText("同步范围"),
         ).toBeInTheDocument();

@@ -17,7 +17,6 @@ import {
     apply_account_labels,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
-import type { ProviderUsageAccount } from "../lib/provider-usage";
 import type {
     AccountLabels,
     AccountOverrides,
@@ -99,6 +98,10 @@ export function PopupView() {
     const [provider_label_maps, set_provider_label_maps] = useState<
         Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>> | undefined
     >(undefined);
+    const [ui_desensitize_remarks, set_ui_desensitize_remarks] = useState(false);
+    const [provider_force_percent, set_provider_force_percent] = useState<
+        Readonly<Partial<Record<UsageProvider, boolean>>> | undefined
+    >(undefined);
 
     useEffect(() => {
         let cancelled = false;
@@ -142,6 +145,8 @@ export function PopupView() {
             set_convergent_time_minutes(config.convergentTimeMinutes);
             set_account_label_maps(config.accountLabelMaps);
             set_provider_label_maps(config.providerLabelMaps);
+            set_ui_desensitize_remarks(config.uiDesensitizeRemarks === true);
+            set_provider_force_percent(config.providerForcePercent);
             set_account_overrides(config.accountOverrides);
             set_account_labels(config.accountLabels);
             if (config.accountOrders) {
@@ -471,21 +476,6 @@ export function PopupView() {
         }
     };
 
-    const edit_account = (account: ProviderUsageAccount) => {
-        const first_period = account.periods[0];
-        if (!first_period) return;
-        window.usageboard.settings.open({
-            instanceId: first_period.connectorInstanceId,
-            provider: first_period.provider,
-            accountId: account.id,
-        });
-        window.usageboard.log({
-            level: "info",
-            module: MODULE,
-            message: `编辑账号: ${account.id}`,
-        });
-    };
-
     // Drag-and-drop handlers for provider card reordering
     const handle_drag_start = (provider: UsageProvider) => {
         set_drag_id(provider);
@@ -753,7 +743,6 @@ export function PopupView() {
                                 onToggleDisableProvider={
                                     is_live ? toggle_disable_provider : undefined
                                 }
-                                onEditAccount={is_live ? edit_account : undefined}
                                 onReLogin={
                                     is_live
                                         ? (p) => {
@@ -773,6 +762,8 @@ export function PopupView() {
                                 providerLabelMaps={provider_label_maps}
                                 accountLabelMaps={account_label_maps}
                                 convergentTimeMinutes={convergent_time_minutes}
+                                desensitizeRemarks={ui_desensitize_remarks}
+                                providerForcePercent={provider_force_percent}
                             />
                         )}
 
@@ -789,7 +780,6 @@ export function PopupView() {
                                     onDragStart={is_live ? handle_account_drag_start : undefined}
                                     onDragEnter={is_live ? handle_account_drag_enter : undefined}
                                     onDragEnd={is_live ? handle_account_drag_end : undefined}
-                                    onEditAccount={is_live ? edit_account : undefined}
                                     onReLogin={
                                         is_live
                                             ? (p: UsageProvider) => {
@@ -801,6 +791,11 @@ export function PopupView() {
                                     barStyle={usage_bar_style}
                                     accountLabelMaps={account_label_maps}
                                     providerLabelMaps={provider_label_maps}
+                                    desensitizeRemarks={ui_desensitize_remarks}
+                                    forcePercent={
+                                        provider_force_percent?.[orderedActiveGroup.provider] ===
+                                        true
+                                    }
                                 />
                             )}
 

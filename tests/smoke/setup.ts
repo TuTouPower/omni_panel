@@ -139,6 +139,7 @@ function createMockApi() {
                     },
                 }),
             save: vi.fn().mockResolvedValue(undefined),
+            getSecrets: vi.fn().mockResolvedValue({}),
             saveSecrets: vi.fn().mockResolvedValue(undefined),
             duplicate: vi.fn().mockResolvedValue(undefined),
         },

@@ -340,6 +340,11 @@ html[data-window="tray"] #root {
     flex-direction: column;
     gap: 12px;
 }
+.provider-account-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
 
 /* ── usage card ── */
 .card {

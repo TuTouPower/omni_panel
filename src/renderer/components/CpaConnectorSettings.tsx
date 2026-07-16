@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Icon, VendorMark } from "./Icon";
 import { ConfirmDelete } from "./ConfirmDelete";
+import { SecretInput } from "./SecretInput";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { ConnectorConfiguration } from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
@@ -88,8 +89,8 @@ export function CpaConnectorSettings({
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [alias, setAlias] = useState(displayName);
-    const [secret, setSecret] = useState(hasSecrets["cpa_mgmt_key"] ? "***" : "");
-    const [showKey, setShowKey] = useState(false);
+    const [secret, setSecret] = useState("");
+    const [loaded_secret, set_loaded_secret] = useState("");
     const [endpoint, setEndpoint] = useState(
         config.endpointOverrides["default"] ?? connector.metadata?.endpoints?.["default"] ?? "",
     );
@@ -113,7 +114,6 @@ export function CpaConnectorSettings({
     // Sync state when connector changes (e.g. parent refreshes connector data)
     useEffect(() => {
         setAlias(displayName);
-        setSecret(hasSecrets["cpa_mgmt_key"] ? "***" : "");
         setEndpoint(
             config.endpointOverrides["default"] ?? connector.metadata?.endpoints?.["default"] ?? "",
         );
@@ -126,7 +126,24 @@ export function CpaConnectorSettings({
         setMonitors(values);
         setFollowGlobal(config.refreshIntervalSeconds <= 0);
         setSyncInterval(refresh_seconds_to_label(config.refreshIntervalSeconds || 300));
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset on any external data change
+        let cancelled = false;
+        void window.usageboard.config
+            .getSecrets(connector.instanceId)
+            .then((secrets) => {
+                if (cancelled) return;
+                const value = secrets["cpa_mgmt_key"] ?? "";
+                set_loaded_secret(value);
+                setSecret(value);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                set_loaded_secret("");
+                setSecret("");
+            });
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset on external data change, not every connector snapshot
     }, [connector.instanceId, config, hasSecrets, displayName]);
 
     const status = get_status(connector);
@@ -163,7 +180,7 @@ export function CpaConnectorSettings({
                 default: endpoint.trim(),
             };
             const secrets: Record<string, string> = {};
-            if (secret !== "***" && secret.trim() !== "") {
+            if (secret.trim() !== "" && secret !== loaded_secret) {
                 secrets["cpa_mgmt_key"] = secret;
             }
 
@@ -224,6 +241,7 @@ export function CpaConnectorSettings({
             onSaved,
             saving,
             secret,
+            loaded_secret,
             syncInterval,
             followGlobal,
             alias,
@@ -264,6 +282,9 @@ export function CpaConnectorSettings({
                     <input
                         aria-label="备注"
                         className="ad-input"
+                        spellCheck={false}
+                        autoCorrect="off"
+                        autoCapitalize="off"
                         onChange={(event) => {
                             setAlias(event.target.value);
                         }}
@@ -276,6 +297,9 @@ export function CpaConnectorSettings({
                     <input
                         aria-label="CPA-Manager URL"
                         className="ad-input"
+                        spellCheck={false}
+                        autoCorrect="off"
+                        autoCapitalize="off"
                         name="endpoint:default"
                         onChange={(event) => {
                             setEndpoint(event.target.value);
@@ -286,28 +310,12 @@ export function CpaConnectorSettings({
                 </div>
                 <div className="cfg-field">
                     <div className="cfg-label">API 密钥</div>
-                    <div className="ad-key">
-                        <input
-                            aria-label="管理密钥"
-                            className="ad-input mono"
-                            name="cpa_mgmt_key"
-                            onChange={(event) => {
-                                setSecret(event.target.value);
-                            }}
-                            type={showKey ? "text" : "password"}
-                            value={secret}
-                        />
-                        <button
-                            className="ad-eye"
-                            onClick={() => {
-                                setShowKey((v) => !v);
-                            }}
-                            title={showKey ? "隐藏" : "显示"}
-                            type="button"
-                        >
-                            <Icon name={showKey ? "eye_off" : "eye"} size={16} />
-                        </button>
-                    </div>
+                    <SecretInput
+                        name="cpa_mgmt_key"
+                        aria-label="管理密钥"
+                        value={secret}
+                        onChange={setSecret}
+                    />
                 </div>
 
                 <div className="cfg-sec">连接状态</div>
@@ -351,6 +359,9 @@ export function CpaConnectorSettings({
                         <div className="cr-ctrl">
                             <select
                                 className="ad-input"
+                                spellCheck={false}
+                                autoCorrect="off"
+                                autoCapitalize="off"
                                 style={{ width: "auto", padding: "6px 10px" }}
                                 value={syncInterval}
                                 onChange={(e) => {

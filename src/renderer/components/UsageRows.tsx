@@ -24,6 +24,7 @@ interface UsageBarRowProps {
     colorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
+    forcePercent?: boolean | undefined;
 }
 
 export function split_reset_time(value: string): { date: string; clock: string } {
@@ -55,6 +56,7 @@ export const UsageBarRow = memo(function UsageBarRow({
     colorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
     barStyle = "thin",
     labelMap,
+    forcePercent = false,
 }: UsageBarRowProps) {
     const label = format_usage_period_label(period.raw_label, period.name, labelMap);
     const elapsed =
@@ -68,7 +70,11 @@ export const UsageBarRow = memo(function UsageBarRow({
     const track_style =
         barStyle === "capsule" ? ({ "--bar-fill": fill_color } as CSSProperties) : undefined;
     const is_ratio =
-        has_value && period.displayStyle === "ratio" && period.limit !== null && period.limit > 0;
+        !forcePercent &&
+        has_value &&
+        period.displayStyle === "ratio" &&
+        period.limit !== null &&
+        period.limit > 0;
     const value = has_value
         ? is_ratio
             ? `${String(used)}/${String(period.limit)}`
@@ -119,6 +125,8 @@ interface AccountUsageRowProps {
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
+    desensitizeRemarks?: boolean | undefined;
+    forcePercent?: boolean | undefined;
 }
 
 export function AccountUsageRow({
@@ -128,13 +136,16 @@ export function AccountUsageRow({
     barColorScheme,
     barStyle,
     labelMap,
+    desensitizeRemarks = false,
+    forcePercent = false,
 }: AccountUsageRowProps) {
+    const display_label = desensitizeRemarks ? "" : account.accountLabel;
     return (
         <div className="acct-item">
             <div className="ai-head">
                 {beforeName}
                 <span className="ai-dot" />
-                <span className="ai-name">{account.accountLabel}</span>
+                {display_label ? <span className="ai-name">{display_label}</span> : null}
                 <span className="ai-time">
                     {account.updatedAt ? relative_time(account.updatedAt) : ""}
                 </span>
@@ -148,6 +159,7 @@ export function AccountUsageRow({
                         index={index}
                         colorScheme={barColorScheme}
                         barStyle={barStyle}
+                        forcePercent={forcePercent}
                         labelMap={labelMap}
                     />
                 ))}

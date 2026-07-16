@@ -41,9 +41,10 @@ interface ProviderCardProps {
     providerLabelMaps?:
         | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
         | undefined;
-    onEditAccount?: ((account: ProviderUsageAccount) => void) | undefined;
     onReLogin?: ((provider: UsageProvider) => void) | undefined;
     convergentTimeMinutes?: number | undefined;
+    desensitizeRemarks?: boolean | undefined;
+    forcePercent?: boolean | undefined;
 }
 
 type CardStatus = "loading" | "ready" | "failed" | "empty";
@@ -81,9 +82,10 @@ export const ProviderCard = memo(function ProviderCard({
     labelMap,
     accountLabelMaps,
     providerLabelMaps,
-    onEditAccount,
     onReLogin,
     convergentTimeMinutes,
+    desensitizeRemarks = false,
+    forcePercent = false,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
@@ -152,21 +154,7 @@ export const ProviderCard = memo(function ProviderCard({
     const updated_text = overview_updated_at ? relative_time(overview_updated_at) : "";
 
     // Provider-level menu items
-    const menu_items: CardActionMenuItem[] = [
-        {
-            key: "edit",
-            label: "编辑",
-            icon: "edit",
-            onSelect: () => {
-                const first_account = group?.accounts[0];
-                if (onEditAccount && first_account) {
-                    onEditAccount(first_account);
-                } else {
-                    window.usageboard.settings.open({ provider });
-                }
-            },
-        },
-    ];
+    const menu_items: CardActionMenuItem[] = [];
     if (onToggleDisable) {
         menu_items.push({
             key: "disable",
@@ -309,7 +297,9 @@ export const ProviderCard = memo(function ProviderCard({
                     <Icon name="refresh" size={16} />
                 </button>
             )}
-            <CardActionMenu ariaLabel="更多操作" title="更多操作" items={menu_items} />
+            {menu_items.length > 0 && (
+                <CardActionMenu ariaLabel="更多操作" title="更多操作" items={menu_items} />
+            )}
         </>
     );
 
@@ -334,6 +324,7 @@ export const ProviderCard = memo(function ProviderCard({
                 periods={overview_periods}
                 colorScheme={barColorScheme}
                 barStyle={barStyle}
+                forcePercent={forcePercent}
             />
         );
     };
@@ -349,6 +340,8 @@ export const ProviderCard = memo(function ProviderCard({
                         barColorScheme={barColorScheme}
                         barStyle={barStyle}
                         labelMap={label_map_for_account(account)}
+                        desensitizeRemarks={desensitizeRemarks}
+                        forcePercent={forcePercent}
                     />
                 ))}
             </div>
@@ -392,6 +385,7 @@ export const ProviderCard = memo(function ProviderCard({
                           colorScheme={barColorScheme}
                           barStyle={barStyle}
                           labelMap={label_map_for_account(account)}
+                          forcePercent={forcePercent}
                       />
                   ))
                 : null;

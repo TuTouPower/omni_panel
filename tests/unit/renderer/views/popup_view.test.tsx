@@ -148,6 +148,7 @@ describe("PopupView", () => {
                     hasSecrets: {},
                 }),
                 save: vi.fn().mockResolvedValue(undefined),
+                getSecrets: vi.fn().mockResolvedValue({}),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
                 export: vi.fn(),
@@ -402,14 +403,14 @@ describe("PopupView", () => {
             expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
         });
 
-        // Account rows should have account-level menu buttons
-        const account_menu_buttons = screen.getAllByLabelText("账号操作");
-        expect(account_menu_buttons.length).toBeGreaterThan(0);
+        // Account rows no longer expose account-level edit menu on main panel
+        expect(screen.queryByLabelText("账号操作")).not.toBeInTheDocument();
     });
 
-    it("account menu does not show hide, delete, or 关闭监控", async () => {
+    it("account rows do not show hide, delete, or 关闭监控 menus", async () => {
         // P0-3：删除 accountOverrides.disabled 后，账号子行不再有"关闭监控"
         // 入口。隐藏由 hidden 覆盖，禁用按钮违反不变量 8（越层写破坏性状态）。
+        // T8：主面板编辑入口也已移除。
         render(<PopupView />);
 
         const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
@@ -419,20 +420,14 @@ describe("PopupView", () => {
             expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
         });
 
-        const account_menu = screen.getAllByLabelText("账号操作")[0];
-        if (!account_menu) throw new Error("account menu not found");
-        fireEvent.click(account_menu);
-
-        await waitFor(() => {
-            expect(screen.getByText("编辑")).toBeInTheDocument();
-        });
+        expect(screen.queryByLabelText("账号操作")).not.toBeInTheDocument();
+        expect(screen.queryByText("编辑")).not.toBeInTheDocument();
         expect(screen.queryByText("隐藏")).not.toBeInTheDocument();
         expect(screen.queryByText("删除")).not.toBeInTheDocument();
-        // 期望：禁用账号的菜单项已删除（违反不变量 8）。
         expect(screen.queryByText("关闭监控")).not.toBeInTheDocument();
     });
 
-    it("opens settings with context when account edit is clicked", async () => {
+    it("does not open settings from account edit on main panel", async () => {
         const settings_open = vi.fn();
         window.usageboard.settings.open = settings_open;
 
@@ -444,23 +439,8 @@ describe("PopupView", () => {
         await waitFor(() => {
             expect(screen.getAllByText("Claude Account").length).toBeGreaterThan(0);
         });
-
-        // Open account menu and click edit
-        const account_menu = screen.getAllByLabelText("账号操作")[0];
-        if (!account_menu) throw new Error("account menu not found");
-        fireEvent.click(account_menu);
-
-        await waitFor(() => {
-            expect(screen.getByText("编辑")).toBeInTheDocument();
-        });
-        fireEvent.click(screen.getByText("编辑"));
-
-        expect(settings_open).toHaveBeenCalledWith(
-            expect.objectContaining({
-                instanceId: "gateway-connector",
-                provider: "claude",
-            }),
-        );
+        expect(screen.queryByLabelText("账号操作")).not.toBeInTheDocument();
+        expect(settings_open).not.toHaveBeenCalled();
     });
 
     it("does not re-save providerOrder when external CONFIG_CHANGED arrives", async () => {

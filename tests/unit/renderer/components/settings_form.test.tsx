@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SettingsForm } from "../../../../src/renderer/components/SettingsForm";
@@ -31,6 +31,29 @@ const baseParams: PluginParameterMetadata[] = [
         ],
     },
 ];
+
+beforeEach(() => {
+    window.usageboard = {
+        platform: "win32",
+        config: {
+            getSecrets: vi.fn().mockResolvedValue({ API_KEY: "sk-loaded-secret" }),
+            get: vi.fn(),
+            save: vi.fn(),
+            saveSecrets: vi.fn(),
+            duplicate: vi.fn(),
+            export: vi.fn(),
+            import: vi.fn(),
+        },
+        connector: {
+            getState: vi.fn().mockResolvedValue({ status: "idle" }),
+            list: vi.fn(),
+            refresh: vi.fn(),
+            refreshAll: vi.fn(),
+            snapshot: vi.fn(),
+        },
+        log: vi.fn(),
+    } as unknown as typeof window.usageboard;
+});
 
 function renderForm(overrides: Record<string, unknown> = {}) {
     const defaults = {
@@ -224,7 +247,7 @@ describe("SettingsForm", () => {
         expect(screen.getByTestId("settings-save-btn-deepseek")).toHaveTextContent("已保存");
     });
 
-    it("skips secret parameter value when it equals placeholder ***", async () => {
+    it("skips secret parameter when unchanged from loaded vault value", async () => {
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const user = userEvent.setup();
         renderForm({
@@ -239,6 +262,9 @@ describe("SettingsForm", () => {
             ],
             values: {},
             hasSecrets: { API_KEY: true },
+        });
+        await act(async () => {
+            await Promise.resolve();
         });
         await user.click(screen.getByTestId("settings-save-btn-deepseek"));
         const call = onSave.mock.calls[0];
@@ -430,7 +456,7 @@ describe("SettingsForm cookie login", () => {
         expect(screen.queryByText("Amount Limit")).not.toBeInTheDocument();
     });
 
-    it("shows masked dots matching secret length instead of fixed asterisks", () => {
+    it("loads vault secret plaintext into the field", async () => {
         const params: PluginParameterMetadata[] = [
             {
                 name: "API_KEY",
@@ -443,12 +469,12 @@ describe("SettingsForm cookie login", () => {
             parameters: params,
             hasSecrets: { API_KEY: true },
         });
+        await act(async () => {
+            await Promise.resolve();
+        });
         const input = screen.getByLabelText("API Key");
-
-        const val = (input as HTMLInputElement).value;
-        // Should NOT show fixed "***"
-        expect(val).not.toBe("***");
-        // Should show dots matching some reasonable length (not 3)
-        expect(val.length).toBeGreaterThan(3);
+        expect(input.value).toBe("sk-loaded-secret");
+        expect(input.type).toBe("password");
+        expect(input.value).toHaveLength("sk-loaded-secret".length);
     });
 });

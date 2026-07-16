@@ -18,6 +18,7 @@ export const IPC_CHANNELS = {
     CONFIG_GET: "config:get",
     CONFIG_SAVE: "config:save",
     CONFIG_SAVE_SECRETS: "config:saveSecrets",
+    CONFIG_GET_SECRETS: "config:getSecrets",
     CONFIG_DUPLICATE: "config:duplicate",
     CONFIG_EXPORT: "config:export",
     CONFIG_IMPORT: "config:import",
@@ -240,6 +241,8 @@ export interface UsageboardApi {
         }>;
         save(config: AppConfiguration): Promise<void>;
         saveSecrets(payload: ConfigSaveSecretsPayload): Promise<void>;
+        /** Load vault plaintext for settings edit forms (settings window only). */
+        getSecrets(instanceId: string): Promise<Record<string, string>>;
         duplicate(instanceId: string): Promise<{ instanceId: string }>;
         export(): Promise<{ saved: boolean }>;
         import(): Promise<{ imported: boolean }>;

@@ -129,16 +129,21 @@ describe("CpaConnectorSettings", () => {
         window.usageboard = {
             platform: "win32",
             log: vi.fn(),
+            config: {
+                getSecrets: vi.fn().mockResolvedValue({ cpa_mgmt_key: "vault-secret-key" }),
+            },
         } as unknown as typeof window.usageboard;
     });
 
-    it("renders config fields, connection status, and sync scope toggles in right panel", () => {
+    it("renders config fields, connection status, and sync scope toggles in right panel", async () => {
         renderSettings();
 
         // Config fields
         expect(screen.getByLabelText("备注")).toHaveValue("");
         expect(screen.getByLabelText("CPA-Manager URL")).toHaveValue("http://cpa.example");
-        expect(screen.getByLabelText("管理密钥")).toHaveValue("***");
+        await waitFor(() => {
+            expect(screen.getByLabelText("管理密钥")).toHaveValue("vault-secret-key");
+        });
 
         // Connection status
         expect(screen.getByText("已连接")).toBeInTheDocument();
@@ -310,10 +315,14 @@ describe("CpaConnectorSettings", () => {
 
     it("saves a newly entered management key and requests refresh", async () => {
         const user = userEvent.setup();
+        window.usageboard.config.getSecrets = vi.fn().mockResolvedValue({});
         const onSaveSecrets = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
         const onSaved = vi.fn();
         renderSettings({ hasSecrets: {}, onSaveSecrets, onSaved });
 
+        await waitFor(() => {
+            expect(screen.getByLabelText("管理密钥")).toHaveValue("");
+        });
         await user.type(screen.getByLabelText("管理密钥"), "new-secret");
         await user.click(screen.getByTestId("cpa-settings-save-btn"));
 

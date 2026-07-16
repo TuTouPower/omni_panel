@@ -172,6 +172,9 @@ export function LabelMapDialog({
                                             <div className="lm-inwrap">
                                                 <input
                                                     className="lm-input"
+                                                    spellCheck={false}
+                                                    autoCorrect="off"
+                                                    autoCapitalize="off"
                                                     value={v}
                                                     placeholder={r.default}
                                                     onChange={(e) => {

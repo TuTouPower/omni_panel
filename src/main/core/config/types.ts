@@ -94,6 +94,8 @@ export const appConfigurationSchema = z.object({
     providerLabelMaps: z.record(z.record(z.string())).optional(),
     accountLabelMaps: z.record(z.record(z.string())).optional(),
     labelMapSync: z.boolean().optional(),
+    uiDesensitizeRemarks: z.boolean().optional(),
+    providerForcePercent: z.record(z.boolean()).optional(),
     floatingBounds: floatingBoundsSchema.optional(),
     settingsBounds: floatingBoundsSchema.optional(),
     accountOverrides: accountOverridesSchema.optional(),

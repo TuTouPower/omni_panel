@@ -80,6 +80,7 @@ describe("PopupView mirror isolation", () => {
                     hasSecrets: {},
                 }),
                 save: vi.fn().mockResolvedValue(undefined),
+                getSecrets: vi.fn().mockResolvedValue({}),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
                 export: vi.fn(),

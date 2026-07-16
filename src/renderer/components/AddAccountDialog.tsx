@@ -189,6 +189,9 @@ function ApiKeyForm({
                 </label>
                 <input
                     className="ad-input"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
                     value={account_name}
                     autoFocus
                     onChange={(e) => {
@@ -202,6 +205,9 @@ function ApiKeyForm({
                 <div className="ad-key">
                     <input
                         className="ad-input mono"
+                        spellCheck={false}
+                        autoCorrect="off"
+                        autoCapitalize="off"
                         type={show_key ? "text" : "password"}
                         value={key}
                         onChange={(e) => {
@@ -232,6 +238,9 @@ function ApiKeyForm({
                 </label>
                 <input
                     className="ad-input mono"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
                     value={endpoint}
                     onChange={(e) => {
                         set_endpoint(e.target.value);
@@ -288,6 +297,9 @@ function SessionForm({
                 </label>
                 <input
                     className="ad-input"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
                     value={account_name}
                     onChange={(e) => {
                         set_account_name(e.target.value);
@@ -304,6 +316,9 @@ function SessionForm({
                 )}
                 <textarea
                     className="aa-textarea mono"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
                     value={cookie}
                     onChange={(e) => {
                         set_cookie(e.target.value);

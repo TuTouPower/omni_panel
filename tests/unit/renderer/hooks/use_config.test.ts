@@ -32,6 +32,7 @@ beforeEach(() => {
         config: {
             get: config_get,
             save: config_save,
+            getSecrets: vi.fn().mockResolvedValue({}),
             saveSecrets: config_save_secrets,
             duplicate: config_duplicate,
             export: vi.fn(),

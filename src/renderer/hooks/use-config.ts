@@ -12,6 +12,7 @@ interface UseConfigResult {
     save: (newConfig: AppConfiguration) => Promise<void>;
     update_config: (updater: (prev: AppConfiguration) => AppConfiguration) => void;
     saveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
+    getSecrets: (instanceId: string) => Promise<Record<string, string>>;
     duplicate: (instanceId: string) => Promise<{ instanceId: string }>;
 }
 
@@ -119,6 +120,10 @@ export function use_config(): UseConfigResult {
         }));
     }, []);
 
+    const getSecrets = useCallback(async (instanceId: string) => {
+        return window.usageboard.config.getSecrets(instanceId);
+    }, []);
+
     const duplicate = useCallback(async (instanceId: string) => {
         window.usageboard.log({
             level: "debug",
@@ -134,5 +139,15 @@ export function use_config(): UseConfigResult {
         return created;
     }, []);
 
-    return { config, hasSecrets, loading, error, save, update_config, saveSecrets, duplicate };
+    return {
+        config,
+        hasSecrets,
+        loading,
+        error,
+        save,
+        update_config,
+        saveSecrets,
+        getSecrets,
+        duplicate,
+    };
 }

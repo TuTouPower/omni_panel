@@ -32,8 +32,8 @@ Grok API 按 route 收窄：settings 暴露 `login_start` / `login_poll` / `logi
 
 - `SECURE_WEB_PREFS`：`contextIsolation:true` / `nodeIntegration:false` / `sandbox:true` / `webSecurity:true` / `allowRunningInsecureContent:false`（见 `window-management.md`）。
 - IPC sender allowlist 强制（commit `5279a8b`），不依赖 `NODE_ENV`。
-- secret 永不经 IPC 传明文，渲染只拿 `hasSecret` 布尔（见 `secret-vault.md`）。
-- `config:get` 返回 `{ config, hasSecrets }`，config 经 `redact_config_raw` 脱敏。
+- `config:get` 返回 `{ config, hasSecrets }`，config 经 `redact_config_raw` 脱敏；日常不经 IPC 下发明文。
+- `config:getSecrets` / `config:saveSecrets`：设置窗按 instance 读写 vault 明文（见 `secret-vault.md`）。popup/tray 的 `getSecrets`/`saveSecrets` 为 no-op stub。
 - size-validation（`src/main/ipc/size-validation.ts`）守 popup 尺寸 IPC。
 
 ## 数据形状

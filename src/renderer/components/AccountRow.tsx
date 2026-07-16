@@ -17,6 +17,7 @@ interface AccountRowProps {
     on_unhide?: () => void;
     on_clear?: () => void;
     on_rename?: () => void;
+    desensitizeRemarks?: boolean | undefined;
 }
 
 interface AccountStatus {
@@ -60,10 +61,12 @@ export function AccountRow({
     on_unhide,
     on_clear,
     on_rename,
+    desensitizeRemarks = false,
 }: AccountRowProps) {
     const is_cpa_child = mode === "cpa-child";
     const effective_on = is_cpa_child ? !is_hidden && !is_removed : enabled;
     const account_status = get_account_status(status, enabled);
+    const note_label = desensitizeRemarks ? "" : account_label;
 
     const row_class =
         "acc-row" +
@@ -77,7 +80,7 @@ export function AccountRow({
             <VendorMark id={provider} size={24} />
             <span className="ar-id">
                 <span className="ar-vendor">{get_vendor_name(provider)}</span>
-                {account_label && <span className="ar-note">· {account_label}</span>}
+                {note_label && <span className="ar-note">· {note_label}</span>}
                 {is_cpa_child && is_removed && <span className="ar-removed">来源已移除</span>}
             </span>
             {!is_cpa_child && (

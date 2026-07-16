@@ -15,6 +15,7 @@ interface VendorCardProps {
     on_refresh: (instance_id: string) => void;
     on_edit: (instance_id: string) => void;
     on_delete: (instance_id: string) => void;
+    desensitizeRemarks?: boolean | undefined;
 }
 
 export function VendorCard({
@@ -24,6 +25,7 @@ export function VendorCard({
     on_refresh,
     on_edit,
     on_delete,
+    desensitizeRemarks = false,
 }: VendorCardProps) {
     return (
         <div className="acc-card">
@@ -35,6 +37,7 @@ export function VendorCard({
                     account_label={row.account_label}
                     enabled={row.enabled}
                     status={row.status}
+                    desensitizeRemarks={desensitizeRemarks}
                     on_toggle={() => {
                         on_toggle(row.instance_id);
                     }}

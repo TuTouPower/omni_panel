@@ -38,6 +38,7 @@ describe("LabelMapDialog", () => {
             config: {
                 get: vi.fn(),
                 save: vi.fn(),
+                getSecrets: vi.fn().mockResolvedValue({}),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
                 export: vi.fn(),

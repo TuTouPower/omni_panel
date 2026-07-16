@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { PluginParameterMetadata } from "../../shared/schemas/plugin-metadata";
-import type { MetricRecord } from "../../shared/schemas/plugin-output";
+import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import {
     REFRESH_INTERVAL_OPTIONS,
     refresh_seconds_to_label,
@@ -10,8 +10,7 @@ import { format_usage_period_label } from "../lib/provider-usage";
 import { build_label_map_rows, type LabelMapRow } from "../lib/label-map-util";
 import { Icon } from "./Icon";
 import { GrokLoginSection } from "./GrokLoginSection";
-
-const SECRET_PLACEHOLDER = "•".repeat(12);
+import { SecretInput } from "./SecretInput";
 
 interface SettingsFormProps {
     instanceId: string;
@@ -23,7 +22,7 @@ interface SettingsFormProps {
     refreshIntervalSeconds: number;
     globalIntervalLabel: string;
     manualRefreshOnly?: boolean | undefined;
-    providerId?: string | undefined;
+    providerId?: UsageProvider | undefined;
     displayName?: string | undefined;
     onCookieLogin?: ((instanceId: string) => Promise<boolean>) | undefined;
     onSave: (
@@ -39,6 +38,8 @@ interface SettingsFormProps {
     onSaveLabelMap?:
         | ((instanceId: string, map: Record<string, string>) => Promise<void>)
         | undefined;
+    forcePercent?: boolean | undefined;
+    onForcePercentChange?: ((provider: UsageProvider, force: boolean) => Promise<void>) | undefined;
 }
 
 export function SettingsForm({
@@ -58,6 +59,8 @@ export function SettingsForm({
     onDuplicate,
     existingLabelMap,
     onSaveLabelMap,
+    forcePercent = false,
+    onForcePercentChange,
 }: SettingsFormProps) {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -71,21 +74,62 @@ export function SettingsForm({
     const [syncInterval, setSyncInterval] = useState(
         refresh_seconds_to_label(refreshIntervalSeconds || 300),
     );
+    const [secret_values, set_secret_values] = useState<Record<string, string>>({});
+    const [secrets_loaded, set_secrets_loaded] = useState(false);
+    const [loaded_secrets, set_loaded_secrets] = useState<Record<string, string>>({});
+    const [force_percent_local, set_force_percent_local] = useState(forcePercent);
     const mounted_ref = useRef(true);
     const saved_timeout_ref = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    useEffect(() => {
+        set_force_percent_local(forcePercent);
+    }, [forcePercent]);
+
+    useEffect(() => {
+        mounted_ref.current = true;
+        let cancelled = false;
+        set_secrets_loaded(false);
+        void window.usageboard.config
+            .getSecrets(instanceId)
+            .then((secrets) => {
+                if (cancelled || !mounted_ref.current) return;
+                set_loaded_secrets(secrets);
+                set_secret_values(secrets);
+                set_secrets_loaded(true);
+            })
+            .catch(() => {
+                if (cancelled || !mounted_ref.current) return;
+                set_loaded_secrets({});
+                set_secret_values({});
+                set_secrets_loaded(true);
+            });
+        return () => {
+            cancelled = true;
+            mounted_ref.current = false;
+            if (saved_timeout_ref.current !== null) {
+                clearTimeout(saved_timeout_ref.current);
+            }
+        };
+    }, [instanceId]);
+
     const handle_cookie_login = useCallback(
-        (secret_name: string) => {
+        (_secret_name: string) => {
+            void _secret_name;
             if (!onCookieLogin) return;
             setLoginLoading(true);
             setLoginMessage(null);
             void onCookieLogin(instanceId)
-                .then((ok) => {
+                .then(async (ok) => {
                     if (!mounted_ref.current) return;
                     setLoginLoading(false);
                     if (ok) {
-                        const el = document.getElementById(secret_name) as HTMLInputElement | null;
-                        if (el) el.value = SECRET_PLACEHOLDER;
+                        try {
+                            const secrets = await window.usageboard.config.getSecrets(instanceId);
+                            set_loaded_secrets(secrets);
+                            set_secret_values(secrets);
+                        } catch {
+                            /* keep previous */
+                        }
                         setLoginMessage("网页登录成功，Cookie 已保存");
                     } else {
                         setLoginMessage("未捕获到 Cookie，请确认登录成功后再关闭窗口");
@@ -100,17 +144,6 @@ export function SettingsForm({
         [instanceId, onCookieLogin],
     );
 
-    useEffect(() => {
-        mounted_ref.current = true;
-        return () => {
-            mounted_ref.current = false;
-            if (saved_timeout_ref.current !== null) {
-                clearTimeout(saved_timeout_ref.current);
-            }
-        };
-    }, []);
-
-    // Fetch raw labels when label map section is expanded
     useEffect(() => {
         if (!labelMapExpanded || !providerId || !onSaveLabelMap) return;
         void (async () => {
@@ -153,16 +186,15 @@ export function SettingsForm({
                 if (param.type === "boolean") {
                     const checked = formData.get(param.name) === "on";
                     nonSecrets[param.name] = checked ? "true" : "false";
+                } else if (param.type === "secret") {
+                    const val = secret_values[param.name] ?? "";
+                    if (val !== "" && val !== (loaded_secrets[param.name] ?? "")) {
+                        secrets[param.name] = val;
+                    }
                 } else {
                     const val = formData.get(param.name) as string | null;
                     if (val === null) continue;
-                    if (param.type === "secret") {
-                        if (val !== SECRET_PLACEHOLDER && val !== "") {
-                            secrets[param.name] = val;
-                        }
-                    } else {
-                        nonSecrets[param.name] = val;
-                    }
+                    nonSecrets[param.name] = val;
                 }
             }
 
@@ -187,7 +219,6 @@ export function SettingsForm({
                 display_name,
             )
                 .then(async () => {
-                    // Save label map changes if any
                     if (onSaveLabelMap && Object.keys(labelEdits).length > 0) {
                         const map: Record<string, string> = {};
                         for (const [raw, display] of Object.entries(labelEdits)) {
@@ -195,7 +226,17 @@ export function SettingsForm({
                         }
                         await onSaveLabelMap(instanceId, map);
                     }
+                    if (
+                        providerId &&
+                        onForcePercentChange &&
+                        force_percent_local !== forcePercent
+                    ) {
+                        await onForcePercentChange(providerId, force_percent_local);
+                    }
                     if (!mounted_ref.current) return;
+                    if (Object.keys(secrets).length > 0) {
+                        set_loaded_secrets((prev) => ({ ...prev, ...secrets }));
+                    }
                     setSaved(true);
                     saved_timeout_ref.current = setTimeout(() => {
                         if (mounted_ref.current) {
@@ -219,6 +260,12 @@ export function SettingsForm({
             syncInterval,
             labelEdits,
             onSaveLabelMap,
+            secret_values,
+            loaded_secrets,
+            providerId,
+            onForcePercentChange,
+            force_percent_local,
+            forcePercent,
         ],
     );
 
@@ -243,6 +290,9 @@ export function SettingsForm({
                     defaultValue={displayName ?? ""}
                     placeholder="例如：工作账号"
                     className="ad-input"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
                 />
             </div>
             {providerId === "grok" && <GrokLoginSection instance_id={instanceId} />}
@@ -273,28 +323,24 @@ export function SettingsForm({
                                 </option>
                             ))}
                         </select>
-                    ) : (
+                    ) : param.type === "secret" ? (
                         <div className="ad-secret-row">
-                            <input
-                                type={
-                                    param.type === "secret"
-                                        ? "password"
-                                        : param.type === "integer"
-                                          ? "number"
-                                          : "text"
-                                }
+                            <SecretInput
                                 id={param.name}
                                 name={param.name}
-                                defaultValue={
-                                    param.type === "secret"
-                                        ? hasSecrets?.[param.name]
-                                            ? SECRET_PLACEHOLDER
-                                            : ""
-                                        : (values[param.name] ?? param.defaultValue ?? "")
+                                value={secret_values[param.name] ?? ""}
+                                onChange={(v) => {
+                                    set_secret_values((prev) => ({ ...prev, [param.name]: v }));
+                                }}
+                                placeholder={
+                                    secrets_loaded
+                                        ? param.placeholder
+                                        : hasSecrets?.[param.name]
+                                          ? "加载中…"
+                                          : param.placeholder
                                 }
-                                placeholder={param.placeholder}
-                                required={param.required}
-                                className={"ad-input" + (param.type === "secret" ? " mono" : "")}
+                                required={param.required && !hasSecrets?.[param.name]}
+                                disabled={!secrets_loaded}
                             />
                             {providerId && param.name === "SESSION_COOKIE" && onCookieLogin && (
                                 <button
@@ -312,6 +358,19 @@ export function SettingsForm({
                                 <p className="ad-hint">{loginMessage}</p>
                             ) : null}
                         </div>
+                    ) : (
+                        <input
+                            type={param.type === "integer" ? "number" : "text"}
+                            id={param.name}
+                            name={param.name}
+                            defaultValue={values[param.name] ?? param.defaultValue ?? ""}
+                            placeholder={param.placeholder}
+                            required={param.required}
+                            className="ad-input"
+                            spellCheck={false}
+                            autoCorrect="off"
+                            autoCapitalize="off"
+                        />
                     )}
                     {typeof param.description === "string" && (
                         <p className="ad-hint">{param.description}</p>
@@ -340,6 +399,9 @@ export function SettingsForm({
                                     : `接口地址 (${endpointName})`
                             }
                             className="ad-input"
+                            spellCheck={false}
+                            autoCorrect="off"
+                            autoCapitalize="off"
                         />
                     </div>
                 ))}
@@ -397,6 +459,25 @@ export function SettingsForm({
                     </>
                 )}
             </div>
+            {providerId && onForcePercentChange && (
+                <div className="ad-field">
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13 }}>用量数字统一为百分比</span>
+                        <button
+                            className="sw"
+                            data-on={force_percent_local ? "1" : "0"}
+                            type="button"
+                            onClick={() => {
+                                set_force_percent_local((v) => !v);
+                            }}
+                            data-testid={`settings-force-percent-${instanceId}`}
+                        >
+                            <i />
+                        </button>
+                    </div>
+                    <p className="ad-hint">该厂商下所有账号用量统一显示为百分比</p>
+                </div>
+            )}
             {onSaveLabelMap && providerId && (
                 <div className="ad-field">
                     <button
@@ -443,6 +524,9 @@ export function SettingsForm({
                                                     className="lm-input"
                                                     value={v}
                                                     placeholder={r.raw}
+                                                    spellCheck={false}
+                                                    autoCorrect="off"
+                                                    autoCapitalize="off"
                                                     onChange={(e) => {
                                                         handle_label_edit(r.raw, e.target.value);
                                                     }}

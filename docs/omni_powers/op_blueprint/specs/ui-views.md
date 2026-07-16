@@ -28,10 +28,15 @@
 - `use_popup_height_report` + `useResizeObserver` — 上报内容高度驱动窗口自适应
 - `useNowTick` — 周期 tick 刷新相对时间显示
 - 用量条样式：`UsageBarStyle`（细线 / 粗胶囊）/ `UsageBarColorScheme`
+- **主面板无账号编辑入口**（T8）：账号设置仅在 Settings；provider 菜单仅「关闭」等
+- **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（主面板 + 设置列表）
+- **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %
 
 ### SettingsView（设置窗，route=settings）
 
-`SettingsForm` + `VendorCard`（直连 provider 卡，内嵌 `AccountRow`）+ `CpaCard`（CPA 卡，父行自渲染 + `AccountRow mode="cpa-child"`）+ `CpaConnectorSettings`（CPA 数据源详情）+ `LabelMapDialog`（数据标签映射）+ `RenameAccountDialog`（账号备注）+ `ConfirmDelete`（删除确认）+ `AddAccountDialog`（新增账号）。
+`SettingsForm` + `SecretInput`（密钥睁/闭）+ `VendorCard`（直连 provider 卡，内嵌 `AccountRow`）+ `CpaCard`（CPA 卡，父行自渲染 + `AccountRow mode="cpa-child"`）+ `CpaConnectorSettings`（CPA 数据源详情）+ `LabelMapDialog`（数据标签映射）+ `RenameAccountDialog`（账号备注）+ `ConfirmDelete`（删除确认）+ `AddAccountDialog`（新增账号）。
+
+编辑已存密钥时 `config:getSecrets` 回填明文；输入框 `spellCheck={false}`。
 
 **数据标签映射 key 不变量**（`lib/label-map-util` `build_label_map_rows`）：
 
@@ -52,7 +57,7 @@
 - `account_overrides`（add/remove）— 账号隐藏/标签
 - `ADD_COMMON_SERVICES` — 添加账号的服务清单
 - `redact_config_raw` — config 日志脱敏
-- 导航：`settings:navigate(SettingsOpenContext)` 从主面板"编辑账号"跳入定位
+- 导航：设置内编辑账号；主面板不再跳转编辑
 - **实时同步**：订阅 `onStateChange` 保持 `pluginInfos` 与 connector snapshot 同步（CPA 连接器状态就绪后子行即时出现）
 - **CPA 保存导航**：配置和 secret 持久化成功后立即退出 `CpaConnectorSettings`，返回账号列表；保存失败则保留详情页和输入并显示错误。
 - **CPA 保存刷新**：管理密钥、CPA-Manager URL、monitor 实际变化时，仅 fire-and-forget 调用当前 CPA `connector.refresh(instanceId)`；备注、刷新间隔及无变化提交不立即采集，且从不调用 `refreshAll()`。

@@ -102,6 +102,8 @@ const config_full = {
             IPC_CHANNELS.CONFIG_SAVE_SECRETS,
             payload,
         ),
+    getSecrets: (instanceId: string) =>
+        invoke<Record<string, string>>(IPC_CHANNELS.CONFIG_GET_SECRETS, { instanceId }),
     duplicate: (instanceId: string) =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["duplicate"]>>>(
             IPC_CHANNELS.CONFIG_DUPLICATE,
@@ -324,6 +326,7 @@ const api: UsageboardApi = (() => {
                     saveSecrets: async () => {
                         /* no-op: popup/tray cannot save secrets */
                     },
+                    getSecrets: () => Promise.resolve({}),
                     duplicate: () => Promise.resolve({ instanceId: "" }),
                     export: () => Promise.resolve({ saved: false }),
                     import: () => Promise.resolve({ imported: false }),
@@ -351,6 +354,7 @@ const api: UsageboardApi = (() => {
                     saveSecrets: async () => {
                         /* no-op: popup/tray cannot save secrets */
                     },
+                    getSecrets: () => Promise.resolve({}),
                     duplicate: () => Promise.resolve({ instanceId: "" }),
                     export: () => Promise.resolve({ saved: false }),
                     import: () => Promise.resolve({ imported: false }),

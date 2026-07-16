@@ -22,6 +22,10 @@ const saveSecretsSchema = z.object({
     secrets: z.record(z.string()),
 });
 
+const getSecretsSchema = z.object({
+    instanceId: z.string().min(1),
+});
+
 export interface ConfigIpcDeps {
     configStore: AppConfigStore;
     secretsStore: SecretsStore;
@@ -178,6 +182,42 @@ export async function handleConfigSaveSecrets(
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return fail("INTERNAL_ERROR", `保存密钥失败: ${msg}`);
+    }
+}
+
+export async function handleConfigGetSecrets(
+    deps: ConfigIpcDeps,
+    payload: unknown,
+): Promise<IpcResult<Record<string, string>>> {
+    try {
+        const parsed = getSecretsSchema.safeParse(payload);
+        if (!parsed.success) {
+            return fail("VALIDATION_ERROR", "无效的请求数据");
+        }
+        const { instanceId } = parsed.data;
+
+        const config = await deps.configStore.load();
+        const plugin = config.plugins.find(
+            (p: ConnectorConfiguration) => p.instanceId === instanceId,
+        );
+        if (!plugin) return fail("VALIDATION_ERROR", "连接器不存在");
+
+        const allowedKeys = deps.secretParamKeys.get(instanceId);
+        if (!allowedKeys) {
+            return ok({});
+        }
+
+        const secrets: Record<string, string> = {};
+        for (const paramName of allowedKeys) {
+            const value = await deps.secretsStore.get(keyFor(instanceId, paramName));
+            if (value !== null) {
+                secrets[paramName] = value;
+            }
+        }
+        return ok(secrets);
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `读取密钥失败: ${msg}`);
     }
 }
 
@@ -340,6 +380,18 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
                 `Saving secrets for instanceId=${p.instanceId ?? "?"}, keys=[${Object.keys(p.secrets ?? {}).join(", ")}]`,
             );
             return handleConfigSaveSecrets(deps, payload);
+        });
+    });
+    ipcMain.handle(IPC_CHANNELS.CONFIG_GET_SECRETS, (e, payload: unknown) => {
+        assert_valid_sender(e);
+        return logged(IPC_CHANNELS.CONFIG_GET_SECRETS, [payload], () => {
+            const p = payload as { instanceId?: string } | string;
+            const instance_id = typeof p === "string" ? p : (p.instanceId ?? "?");
+            log.info(`Loading secrets for instanceId=${instance_id}`);
+            return handleConfigGetSecrets(
+                deps,
+                typeof payload === "string" ? { instanceId: payload } : payload,
+            );
         });
     });
     ipcMain.handle(IPC_CHANNELS.CONFIG_DUPLICATE, (e, instanceId: string) => {

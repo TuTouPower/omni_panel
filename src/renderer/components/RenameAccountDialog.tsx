@@ -56,6 +56,9 @@ export function RenameAccountDialog({
                         <input
                             id="rename-input"
                             className="ad-input"
+                            spellCheck={false}
+                            autoCorrect="off"
+                            autoCapitalize="off"
                             value={value}
                             autoFocus
                             onChange={(e) => {
