@@ -1,20 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { PluginParameterMetadata } from "../../shared/schemas/plugin-metadata";
+import type { MetricRecord } from "../../shared/schemas/plugin-output";
 import {
     REFRESH_INTERVAL_OPTIONS,
     refresh_seconds_to_label,
     refresh_label_to_seconds,
 } from "../lib/refresh-intervals";
 import { format_usage_period_label } from "../lib/provider-usage";
+import { build_label_map_rows, type LabelMapRow } from "../lib/label-map-util";
 import { Icon } from "./Icon";
 import { GrokLoginSection } from "./GrokLoginSection";
 
 const SECRET_PLACEHOLDER = "•".repeat(12);
-
-interface LabelMapRow {
-    raw: string;
-    display: string;
-}
 
 interface SettingsFormProps {
     instanceId: string;
@@ -124,21 +121,12 @@ export function SettingsForm({
                     state.status === "ready" || state.status === "failed"
                         ? (state.items ?? [])
                         : [];
-                const filtered = items.filter(
-                    (item: { provider: string }) => item.provider === providerId,
+                const filtered = (items as MetricRecord[]).filter(
+                    (item) => item.provider === providerId,
                 );
-                const seen = new Set<string>();
-                const rows: LabelMapRow[] = [];
-                for (const item of filtered) {
-                    const raw: string = item.raw_label;
-                    if (seen.has(raw)) continue;
-                    seen.add(raw);
-                    const name: string = item.normalized_label;
-                    rows.push({
-                        raw,
-                        display: existingLabelMap?.[raw] ?? format_usage_period_label(raw, name),
-                    });
-                }
+                const rows = build_label_map_rows(filtered, existingLabelMap, (item) =>
+                    format_usage_period_label(item.raw_label, item.normalized_label),
+                );
                 if (mounted_ref.current) setLabelRows(rows);
             } catch {
                 if (mounted_ref.current) setLabelRows([]);

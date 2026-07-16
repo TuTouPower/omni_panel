@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
+import { build_label_map_rows, type LabelMapRow } from "../lib/label-map-util";
 import { Icon } from "./Icon";
-
-interface LabelMapRow {
-    raw: string;
-    def: string;
-}
 
 function normalize_cpa_label(item: MetricRecord): string {
     const fallback = item.normalized_label;
@@ -53,18 +49,7 @@ export function LabelMapDialog({
                         ? (state.items ?? [])
                         : [];
                 const filtered = items.filter((item) => item.provider === vendor_id);
-                const seen = new Set<string>();
-                const fetched: LabelMapRow[] = [];
-                for (const item of filtered) {
-                    const raw = normalize_cpa_label(item);
-                    if (seen.has(raw)) continue;
-                    seen.add(raw);
-                    fetched.push({
-                        raw,
-                        def: existing_map[raw] ?? raw,
-                    });
-                }
-                set_rows(fetched);
+                set_rows(build_label_map_rows(filtered, existing_map, normalize_cpa_label));
                 if (state.status === "ready") {
                     set_synced(new Date(state.updatedAt).toLocaleString());
                 }
@@ -76,28 +61,31 @@ export function LabelMapDialog({
         })();
     }, [instance_id, vendor_id, existing_map]);
 
-    const changed_count = rows.filter((r) => (map[r.raw] ?? r.def) !== r.def).length;
+    const effective = (r: LabelMapRow) => map[r.raw] ?? r.display;
+    const changed_count = rows.filter((r) => effective(r) !== r.default).length;
 
     const set_value = (raw: string, v: string) => {
         set_map((m) => ({ ...m, [raw]: v }));
     };
     const reset_row = (raw: string) => {
-        set_map((m) => {
-            const { [raw]: _removed, ...rest } = m;
-            void _removed;
-            return rest;
-        });
+        const row = rows.find((r) => r.raw === raw);
+        if (!row) return;
+        set_map((m) => ({ ...m, [raw]: row.default }));
     };
     const reset_all = () => {
-        set_map({});
+        const next: Record<string, string> = {};
+        for (const r of rows) {
+            next[r.raw] = r.default;
+        }
+        set_map(next);
     };
 
     const handle_save = async () => {
-        // Build the merged map: existing values overridden by edits
+        // Persist only non-default mappings, keyed by raw_label.
         const merged: Record<string, string> = {};
         for (const r of rows) {
-            const v = map[r.raw] ?? r.def;
-            if (v !== r.def) {
+            const v = effective(r);
+            if (v !== r.default) {
                 merged[r.raw] = v;
             }
         }
@@ -171,8 +159,8 @@ export function LabelMapDialog({
                             </div>
                             <div className="lm-list">
                                 {rows.map((r) => {
-                                    const v = map[r.raw] ?? r.def;
-                                    const changed = v !== r.def;
+                                    const v = effective(r);
+                                    const changed = v !== r.default;
                                     return (
                                         <div className="lm-row" key={r.raw}>
                                             <code className="lm-raw" title={r.raw}>
@@ -185,7 +173,7 @@ export function LabelMapDialog({
                                                 <input
                                                     className="lm-input"
                                                     value={v}
-                                                    placeholder={r.def}
+                                                    placeholder={r.default}
                                                     onChange={(e) => {
                                                         set_value(r.raw, e.target.value);
                                                     }}

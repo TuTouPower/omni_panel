@@ -33,6 +33,13 @@
 
 `SettingsForm` + `VendorCard`（直连 provider 卡，内嵌 `AccountRow`）+ `CpaCard`（CPA 卡，父行自渲染 + `AccountRow mode="cpa-child"`）+ `CpaConnectorSettings`（CPA 数据源详情）+ `LabelMapDialog`（数据标签映射）+ `RenameAccountDialog`（账号备注）+ `ConfirmDelete`（删除确认）+ `AddAccountDialog`（新增账号）。
 
+**数据标签映射 key 不变量**（`lib/label-map-util` `build_label_map_rows`）：
+
+- 映射配置 **key 永远是 `item.raw_label`**（与主面板 `format_usage_period_label` 查找键一致）。禁止用 `normalized_label` 或显示名作 key。
+- `LabelMapRow`：`raw`（key）/ `default`（无用户覆盖时的显示回退）/ `display`（`existing_map[raw]` 或 `default`）。
+- 直连（`SettingsForm`）与 CPA（`LabelMapDialog`）共用此 util；CPA 可用 `normalize_for_display` 剥账号名做默认显示，**不改 key**。
+- 按 `raw_label` 去重（first wins）。旧映射若误用 `normalized_label` 作 key 不迁移，用户重设。
+
 **账号行布局**（`AccountRow` + `CpaCard`）：
 
 - 身份区（`.ar-id`）：`VendorMark` + 厂商名 + `· 备注`（仅 `displayName`/`account_label` 非空时显示）。备注灰 `--text-3`，长文本截断。

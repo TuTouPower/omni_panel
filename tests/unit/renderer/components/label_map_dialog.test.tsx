@@ -81,9 +81,9 @@ describe("LabelMapDialog", () => {
                 sourceInstanceId: "cpa-1",
                 accountId: "acc-1",
                 accountLabel: "Account 1",
-                name: "Claude Pro · 5小时",
-                raw_label: "Claude Pro · 5小时",
-                normalized_label: "Claude Pro · 5小时",
+                name: "5小时",
+                raw_label: "five_hour",
+                normalized_label: "5小时",
                 used: 50,
                 limit: 100,
                 resetAt: null,
@@ -99,9 +99,9 @@ describe("LabelMapDialog", () => {
                 sourceInstanceId: "cpa-1",
                 accountId: "acc-1",
                 accountLabel: "Account 1",
-                name: "Claude Pro · 一周",
-                raw_label: "Claude Pro · 一周",
-                normalized_label: "Claude Pro · 一周",
+                name: "一周",
+                raw_label: "seven_day",
+                normalized_label: "一周",
                 used: 200,
                 limit: 500,
                 resetAt: null,
@@ -146,7 +146,7 @@ describe("LabelMapDialog", () => {
         });
     });
 
-    it("shows raw labels and default display names when state is ready", async () => {
+    it("shows raw_label keys and normalized defaults when state is ready", async () => {
         mock_get_state.mockResolvedValue(mock_ready_state(sample_items()));
         render(
             <LabelMapDialog
@@ -159,20 +159,23 @@ describe("LabelMapDialog", () => {
             />,
         );
         await waitFor(() => {
-            expect(screen.getByText("Claude Pro · 5小时")).toBeInTheDocument();
+            expect(screen.getByText("five_hour")).toBeInTheDocument();
         });
-        expect(screen.getByText("Claude Pro · 一周")).toBeInTheDocument();
+        expect(screen.getByText("seven_day")).toBeInTheDocument();
+        const inputs = screen.getAllByRole("textbox");
+        expect((inputs[0] as HTMLInputElement).value).toBe("5小时");
+        expect((inputs[1] as HTMLInputElement).value).toBe("一周");
         expect(screen.getByText("保存映射")).toBeInTheDocument();
     });
 
-    it("applies existing_map as default values for display names", async () => {
+    it("applies existing_map keyed by raw_label", async () => {
         mock_get_state.mockResolvedValue(mock_ready_state(sample_items()));
         render(
             <LabelMapDialog
                 instance_id="cpa-1"
                 vendor_id="claude"
                 account_name="CPA · Claude"
-                existing_map={{ "Claude Pro · 5小时": "我的克劳德额度" }}
+                existing_map={{ five_hour: "我的克劳德额度" }}
                 on_save={on_save}
                 on_close={on_close}
             />,
@@ -195,9 +198,9 @@ describe("LabelMapDialog", () => {
                     sourceInstanceId: "cpa-1",
                     accountId: "acc-2",
                     accountLabel: "Account 2",
-                    name: "Codex · 5小时",
-                    raw_label: "Codex · 5小时",
-                    normalized_label: "Codex · 5小时",
+                    name: "5小时",
+                    raw_label: "primary_window",
+                    normalized_label: "5小时",
                     used: 10,
                     limit: 50,
                     resetAt: null,
@@ -219,12 +222,12 @@ describe("LabelMapDialog", () => {
             />,
         );
         await waitFor(() => {
-            expect(screen.getByText("Claude Pro · 5小时")).toBeInTheDocument();
+            expect(screen.getByText("five_hour")).toBeInTheDocument();
         });
-        expect(screen.queryByText("Codex · 5小时")).not.toBeInTheDocument();
+        expect(screen.queryByText("primary_window")).not.toBeInTheDocument();
     });
 
-    it("normalizes CPA labels by removing account names and duplicates", async () => {
+    it("keys rows by raw_label and de-duplicates across CPA accounts", async () => {
         mock_get_state.mockResolvedValue(
             mock_ready_state([
                 {
@@ -235,7 +238,7 @@ describe("LabelMapDialog", () => {
                     accountId: "acc-a",
                     accountLabel: "Account A",
                     name: "Codex (Account A) · 5小时",
-                    raw_label: "Codex (Account A) · 5小时",
+                    raw_label: "primary_window",
                     normalized_label: "Codex (Account A) · 5小时",
                     used: 10,
                     limit: 50,
@@ -253,7 +256,7 @@ describe("LabelMapDialog", () => {
                     accountId: "acc-b",
                     accountLabel: "Account B",
                     name: "Codex (Account B) · 5小时",
-                    raw_label: "Codex (Account B) · 5小时",
+                    raw_label: "primary_window",
                     normalized_label: "Codex (Account B) · 5小时",
                     used: 20,
                     limit: 50,
@@ -271,7 +274,7 @@ describe("LabelMapDialog", () => {
                     accountId: "acc-b",
                     accountLabel: "Account B",
                     name: "Codex (Account B) · 每周",
-                    raw_label: "Codex (Account B) · 每周",
+                    raw_label: "secondary_window",
                     normalized_label: "Codex (Account B) · 每周",
                     used: 20,
                     limit: 50,
@@ -295,12 +298,17 @@ describe("LabelMapDialog", () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText("Codex · 5小时")).toBeInTheDocument();
+            expect(screen.getByText("primary_window")).toBeInTheDocument();
         });
-        expect(screen.getByText("Codex · 每周")).toBeInTheDocument();
+        expect(screen.getByText("secondary_window")).toBeInTheDocument();
+        // raw_label is the key shown in the raw column
         expect(screen.queryByText("Codex (Account A) · 5小时")).not.toBeInTheDocument();
         expect(screen.queryByText("Codex (Account B) · 5小时")).not.toBeInTheDocument();
         expect(screen.getAllByRole("textbox")).toHaveLength(2);
+        // default display strips account from first occurrence
+        const inputs = screen.getAllByRole("textbox");
+        expect((inputs[0] as HTMLInputElement).value).toBe("Codex · 5小时");
+        expect((inputs[1] as HTMLInputElement).value).toBe("Codex · 每周");
     });
 
     it("resets single row to default when reset button clicked", async () => {
@@ -317,7 +325,7 @@ describe("LabelMapDialog", () => {
             />,
         );
         await waitFor(() => {
-            expect(screen.getByText("Claude Pro · 5小时")).toBeInTheDocument();
+            expect(screen.getByText("five_hour")).toBeInTheDocument();
         });
 
         const inputs = screen.getAllByRole("textbox");
@@ -330,10 +338,10 @@ describe("LabelMapDialog", () => {
 
         const reset_btn = screen.getByTitle("恢复默认");
         await user.click(reset_btn);
-        expect(first_input.value).toBe("Claude Pro · 5小时");
+        expect(first_input.value).toBe("5小时");
     });
 
-    it("calls on_save with only changed mappings", async () => {
+    it("calls on_save with only changed mappings keyed by raw_label", async () => {
         const user = userEvent.setup();
         mock_get_state.mockResolvedValue(mock_ready_state(sample_items()));
         render(
@@ -359,7 +367,7 @@ describe("LabelMapDialog", () => {
 
         await waitFor(() => {
             expect(on_save).toHaveBeenCalledWith("cpa-1", {
-                "Claude Pro · 5小时": "新名称",
+                five_hour: "新名称",
             });
         });
     });
@@ -394,8 +402,8 @@ describe("LabelMapDialog", () => {
         expect(reset_all_btn).not.toBeDisabled();
         await user.click(reset_all_btn);
 
-        expect(el0.value).toBe("Claude Pro · 5小时");
-        expect(el1.value).toBe("Claude Pro · 一周");
+        expect(el0.value).toBe("5小时");
+        expect(el1.value).toBe("一周");
     });
 
     it("closes when cancel button is clicked", async () => {
