@@ -176,12 +176,9 @@ describe("ProviderCard", () => {
     });
 
     it("shows enable-disable menu items without edit", () => {
-        const onToggle = vi.fn();
-        render(<ProviderCard provider="deepseek" group={makeGroup()} onToggleDisable={onToggle} />);
-        fireEvent.click(screen.getByLabelText("更多操作"));
-        expect(screen.queryByText("编辑")).not.toBeInTheDocument();
-        expect(screen.getByText("关闭")).toBeInTheDocument();
-        expect(screen.queryByText("删除")).not.toBeInTheDocument();
+        render(<ProviderCard provider="deepseek" group={makeGroup()} />);
+        // More menu removed from main panel — button should not appear
+        expect(screen.queryByLabelText("更多操作")).not.toBeInTheDocument();
     });
 
     it("does not render detail button", () => {
@@ -861,10 +858,9 @@ describe("ProviderCard", () => {
 
     it("does not show edit in provider menu (main panel edit removed)", () => {
         const group = makeGroup();
-        render(<ProviderCard provider="deepseek" group={group} onToggleDisable={vi.fn()} />);
-        fireEvent.click(screen.getByLabelText("更多操作"));
-        expect(screen.queryByText("编辑")).not.toBeInTheDocument();
-        expect(screen.getByText("关闭")).toBeInTheDocument();
+        render(<ProviderCard provider="deepseek" group={group} />);
+        // More menu removed from main panel — button should not appear
+        expect(screen.queryByLabelText("更多操作")).not.toBeInTheDocument();
     });
 
     it("hides provider menu when no disable handler", () => {

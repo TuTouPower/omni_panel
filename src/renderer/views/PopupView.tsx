@@ -413,52 +413,6 @@ export function PopupView() {
         set_expanded_providers((prev) => ({ ...prev, [provider]: !(prev[provider] ?? false) }));
     };
 
-    const toggle_disable_provider = (provider: UsageProvider) => {
-        save_queue_ref.current = save_queue_ref.current
-            .then(async () => {
-                const result = await window.usageboard.config.get();
-                const related_plugins = result.config.plugins.filter((p) => {
-                    const info = plugins.find((pi) => pi.instanceId === p.instanceId);
-                    return info?.activeProviders.includes(provider) ?? false;
-                });
-                if (related_plugins.length === 0) return;
-
-                const updated_plugins = result.config.plugins.map((p) => {
-                    if (!related_plugins.some((rp) => rp.instanceId === p.instanceId)) {
-                        return p;
-                    }
-                    const info = plugins.find((pi) => pi.instanceId === p.instanceId);
-                    // CPA connector: toggle monitor param per provider, don't disable entire connector
-                    if (info?.source === "gateway") {
-                        const monitor_key = `monitor_${provider}`;
-                        const current_val = p.parameterValues[monitor_key];
-                        const is_off = String(current_val) === "false";
-                        return {
-                            ...p,
-                            parameterValues: {
-                                ...p.parameterValues,
-                                [monitor_key]: is_off ? "true" : "false",
-                            },
-                        };
-                    }
-                    // Direct plugin: toggle plugin.enabled
-                    return { ...p, enabled: !p.enabled };
-                });
-
-                await window.usageboard.config.save({
-                    ...result.config,
-                    plugins: updated_plugins,
-                });
-            })
-            .catch((err: unknown) => {
-                window.usageboard.log({
-                    level: "error",
-                    module: MODULE,
-                    message: `toggle provider failed: ${errorMessage(err)}`,
-                });
-            });
-    };
-
     const handle_re_login = async (provider: UsageProvider) => {
         const connector = plugins.find((c) => c.enabled && c.activeProviders.includes(provider));
         if (!connector) return;
@@ -739,9 +693,6 @@ export function PopupView() {
                                 expandedProviders={is_live ? expanded_providers : undefined}
                                 onToggleExpandProvider={
                                     is_live ? toggle_expand_provider : undefined
-                                }
-                                onToggleDisableProvider={
-                                    is_live ? toggle_disable_provider : undefined
                                 }
                                 onReLogin={
                                     is_live

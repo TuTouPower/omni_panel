@@ -28,7 +28,7 @@
 - `use_popup_height_report` + `useResizeObserver` — 上报内容高度驱动窗口自适应
 - `useNowTick` — 周期 tick 刷新相对时间显示
 - 用量条样式：`UsageBarStyle`（细线 / 粗胶囊）/ `UsageBarColorScheme`
-- **主面板无账号编辑入口**（T8）：账号设置仅在 Settings；provider 菜单仅「关闭」等
+- **主面板无账号编辑入口**（T8）：账号设置仅在 Settings；主面板 provider 卡片无更多操作菜单，关闭/管理操作在设置页进行
 - **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（主面板 + 设置列表）
 - **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %
 

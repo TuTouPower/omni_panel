@@ -13,8 +13,6 @@ import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { VENDOR_AUTH_MAP } from "./AddAccountDialog";
 import { CollapsibleCard } from "./CollapsibleCard";
-import { CardActionMenu } from "./CardActionMenu";
-import type { CardActionMenuItem } from "./CardActionMenu";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
 import { AccountUsageRow } from "./UsageRows";
@@ -26,7 +24,6 @@ interface ProviderCardProps {
     onRefresh?: ((provider: UsageProvider) => void) | undefined;
     expanded?: boolean | undefined;
     onToggleExpand?: ((provider: UsageProvider) => void) | undefined;
-    onToggleDisable?: ((provider: UsageProvider) => void) | undefined;
     dragging?: boolean | undefined;
     dragOver?: boolean | undefined;
     onDragStart?: ((provider: UsageProvider) => void) | undefined;
@@ -69,7 +66,6 @@ export const ProviderCard = memo(function ProviderCard({
     onRefresh,
     expanded,
     onToggleExpand,
-    onToggleDisable,
     dragging,
     dragOver,
     onDragStart,
@@ -153,18 +149,6 @@ export const ProviderCard = memo(function ProviderCard({
 
     const updated_text = overview_updated_at ? relative_time(overview_updated_at) : "";
 
-    // Provider-level menu items
-    const menu_items: CardActionMenuItem[] = [];
-    if (onToggleDisable) {
-        menu_items.push({
-            key: "disable",
-            label: "关闭",
-            icon: "power",
-            onSelect: () => {
-                onToggleDisable(provider);
-            },
-        });
-    }
     const render_state = () => {
         if (isFailed) {
             if (is_auth) {
@@ -296,9 +280,6 @@ export const ProviderCard = memo(function ProviderCard({
                 >
                     <Icon name="refresh" size={16} />
                 </button>
-            )}
-            {menu_items.length > 0 && (
-                <CardActionMenu ariaLabel="更多操作" title="更多操作" items={menu_items} />
             )}
         </>
     );

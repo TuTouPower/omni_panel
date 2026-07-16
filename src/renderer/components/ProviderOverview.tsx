@@ -15,7 +15,6 @@ interface ProviderOverviewProps {
     onRefreshProvider: (provider: UsageProvider) => void;
     expandedProviders?: Record<string, boolean> | undefined;
     onToggleExpandProvider?: ((provider: UsageProvider) => void) | undefined;
-    onToggleDisableProvider?: ((provider: UsageProvider) => void) | undefined;
     onReLogin?: ((provider: UsageProvider) => void) | undefined;
     draggingProvider?: UsageProvider | null | undefined;
     overProvider?: UsageProvider | null | undefined;
@@ -43,7 +42,6 @@ export function ProviderOverview({
     onRefreshProvider,
     expandedProviders,
     onToggleExpandProvider,
-    onToggleDisableProvider,
     onReLogin,
     draggingProvider,
     overProvider,
@@ -77,7 +75,6 @@ export function ProviderOverview({
                             expandedProviders ? (expandedProviders[provider] ?? false) : undefined
                         }
                         onToggleExpand={onToggleExpandProvider}
-                        onToggleDisable={onToggleDisableProvider}
                         onReLogin={onReLogin}
                         dragging={draggingProvider === provider}
                         dragOver={overProvider === provider && draggingProvider !== provider}
