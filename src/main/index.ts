@@ -471,10 +471,17 @@ void app.whenReady().then(async () => {
             main_panel_controller?.report_content_height(report) ?? null,
     });
 
+    // Open main panel BEFORE pre-warming settings so popup is the first window.
+    // This matters for Playwright E2E tests which expect firstWindow() = popup.
+    main_panel_controller.open_or_focus();
+
     // Pre-warm the settings window (hidden + loaded) so opening it later just
     // reveals an already-painted dark window, avoiding the fresh-window show
     // animation that flashes white on Windows.
-    ensure_settings_window();
+    // Skip in E2E mode — tests expect settings.open() to emit a "window" event.
+    if (process.env["E2E"] !== "1") {
+        ensure_settings_window();
+    }
 
     // Hydrate runtime store from observation history for manualRefreshOnly connectors
     hydrate_runtime_store({
@@ -767,14 +774,7 @@ void app.whenReady().then(async () => {
         }
     });
 
-    // In E2E mode, auto-open main panel so tests don't need tray interaction
-    if (process.env["E2E"] === "1") {
-        log.info("E2E mode: auto-opening main panel");
-        main_panel_controller.open_or_focus();
-    } else {
-        // Auto-open main panel on app start
-        main_panel_controller.open_or_focus();
-    }
+    // Main panel already opened earlier (before settings pre-warm)
 });
 
 app.on("window-all-closed", () => {
