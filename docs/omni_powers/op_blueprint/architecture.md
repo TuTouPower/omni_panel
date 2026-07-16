@@ -6,19 +6,19 @@
 
 ## 1. 技术栈
 
-| 领域           | 选型                                                                   | 说明                                                                          |
-| -------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 运行时         | **Electron 42**                                                        | `session` 能力（受控登录窗、webRequest 捕获、持久化分区）要求可编程浏览器引擎 |
-| 语言           | **TypeScript 5.9**                                                     | 严格模式；主/预加载/渲染/共享四区共用                                         |
-| 构建           | **electron-vite 5** + **Vite 5**                                       | dev/build；`out/main` `out/preload` `out/renderer`                            |
-| 打包           | **electron-builder 26**                                                | Windows/macOS/Linux；连接器目录随 `extraResource` 进 `resources/connectors`   |
-| UI             | **React 19** + **Tailwind CSS 4** + lucide-react + clsx/tailwind-merge | 渲染进程                                                                      |
-| 校验           | **Zod 4**                                                              | manifest / observation / config / plugin-output 四处运行时 schema             |
-| 观测存储       | **better-sqlite3 12**                                                  | 同步 API，WAL 模式，单文件 `usage.db`                                         |
-| HTTP           | **undici 8**                                                           | 宿主统一出口 NetClient，ProxyAgent 支持代理                                   |
-| 连接器脚本编译 | **TypeScript `transpileModule`**                                       | 非 esbuild；无 SHA-256 缓存（见下"与旧 SPEC 差异"）                           |
-| 测试           | Vitest 3 + Playwright + jsdom + Testing Library                        | 见 `test.md`                                                                  |
-| 质量门         | eslint 9 / prettier / knip（deadcode）/ dependency-cruiser（arch）     | `pnpm check` 聚合                                                             |
+| 领域           | 选型                                                                   | 说明                                                                             |
+| -------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 运行时         | **Electron 42**                                                        | `session` 能力（受控登录窗、webRequest 捕获、持久化分区）要求可编程浏览器引擎    |
+| 语言           | **TypeScript 5.9**                                                     | 严格模式；主/预加载/渲染/共享四区共用                                            |
+| 构建           | **electron-vite 5** + **Vite 5**                                       | dev/build；`out/main` `out/preload` `out/renderer`                               |
+| 打包           | **electron-builder 26**                                                | Windows/macOS/Linux；连接器目录随 `extraResource` 进 `resources/connectors`      |
+| UI             | **React 19** + **Tailwind CSS 4** + lucide-react + clsx/tailwind-merge | 渲染进程                                                                         |
+| 校验           | **Zod 4**（v3 兼容 API）                                               | manifest / observation / config / plugin-output 四处运行时 schema                |
+| 观测存储       | **better-sqlite3 12**                                                  | 同步 API，WAL 模式，单文件 `usage.db`                                            |
+| HTTP           | **undici 8**                                                           | 宿主统一出口 NetClient，ProxyAgent 支持代理                                      |
+| 连接器脚本编译 | **TypeScript `transpileModule`**                                       | 非 esbuild（package.json 中 esbuild 为 electron-vite 传递依赖）；无 SHA-256 缓存 |
+| 测试           | Vitest 3 + Playwright + jsdom + Testing Library                        | 见 `test.md`                                                                     |
+| 质量门         | eslint 9 / prettier / knip（deadcode）/ dependency-cruiser（arch）     | `pnpm check` 聚合                                                                |
 
 ## 2. 目录结构
 
@@ -39,9 +39,12 @@ src/
 │   │   │   ├── scheduler-orchestrator.ts  # startAll/rebuild/suspend/resume/shutdown
 │   │   │   ├── refresh-service.ts         # 单次刷新：锁/并发/执行/写库/映射
 │   │   │   ├── runtime-store.ts / snapshot-cache.ts / hydrate-runtime-store.ts
-│   │   │   └── observation-mapping.ts     # Observation → MetricRecord
+│   │   │   ├── observation-mapping.ts     # Observation → MetricRecord
+│   │   │   ├── endpoint-resolver.ts       # 子进程 env 路径解析
+│   │   │   └── types.ts                   # 调度器内部类型定义
 │   │   ├── observation/observation-store.ts  # SQLite（见 specs/observation-store.md）
 │   │   ├── config/                # config-store / secrets-store / auto-seed / types
+│   │   ├── storage/               # write-json（原子写 JSON）
 │   │   ├── vault/                 # file-vault-backend + VaultBackend 接口
 │   │   ├── session/session-manager.ts        # 登录窗 + cookie 捕获
 │   │   ├── local-api/server.ts    # 127.0.0.1 ingest + health
@@ -53,10 +56,13 @@ src/
 │   ├── ipc/                       # 按域拆的 IPC handler（见 specs/ipc.md）
 │   └── window/window-manager.ts   # 窗口目录 + 工厂（见 specs/window-management.md）
 ├── preload/                       # contextBridge 白名单 + route capability 策略
-├── renderer/                      # React：views/ components/ hooks/ lib/
+│   ├── index.ts                   # contextBridge 暴露 + route-based 分权
+│   ├── log-throttle.ts            # preload 侧 100条/秒日志限流
+│   └── route_api.ts               # route 能力查询辅助
+├── renderer/                      # React：views/ components/ hooks/ lib/ styles/
 └── shared/                        # 主/渲染共享：schemas/ types/ lib/ constants.ts
 connectors/                        # 13 个内置连接器（manifest.json + connector.ts）
-tests/                             # unit / integration / user_e2e / packaged_smoke
+tests/                             # unit / integration / user_e2e / packaged_smoke / smoke
 docs/design/omni-usage/            # 前端 UI 设计 demo（历史设计参考）
 ```
 
