@@ -6,6 +6,7 @@ import type {
 } from "../schemas/plugin-output";
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
+import type { TokenStatsBucket, TokenStatsSession } from "./token-stats";
 export type { AppConfiguration } from "./config";
 
 export const IPC_CHANNELS = {
@@ -72,6 +73,11 @@ export const IPC_CHANNELS = {
     GROK_LOGIN_STATUS: "grok:loginStatus",
     GROK_LOGOUT: "grok:logout",
     GROK_REFRESH: "grok:refresh",
+
+    /** Token stats */
+    TOKEN_STATS_BUCKETS: "tokenStats:buckets",
+    TOKEN_STATS_SESSIONS: "tokenStats:sessions",
+    TOKEN_STATS_UPDATED: "tokenStats:updated",
 
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
@@ -308,4 +314,19 @@ export interface UsageboardApi {
         export(): Promise<{ saved: boolean }>;
     };
     log(payload: RendererLogPayload): void;
+    tokenStats: {
+        getBuckets(filters?: {
+            source?: string;
+            env?: string;
+            from_date?: string;
+            to_date?: string;
+        }): Promise<TokenStatsBucket[]>;
+        getSessions(filters?: {
+            source?: string;
+            env?: string;
+            search?: string;
+            limit?: number;
+            offset?: number;
+        }): Promise<TokenStatsSession[]>;
+    };
 }

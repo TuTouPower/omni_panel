@@ -83,6 +83,22 @@ const connector_methods = {
         ),
 };
 
+const token_stats_methods = {
+    getBuckets: (filters?: {
+        source?: string;
+        env?: string;
+        from_date?: string;
+        to_date?: string;
+    }) => invoke<unknown[]>(IPC_CHANNELS.TOKEN_STATS_BUCKETS, filters),
+    getSessions: (filters?: {
+        source?: string;
+        env?: string;
+        search?: string;
+        limit?: number;
+        offset?: number;
+    }) => invoke<unknown[]>(IPC_CHANNELS.TOKEN_STATS_SESSIONS, filters),
+};
+
 // Read-only config (popup, tray)
 const config_readonly = {
     get: () =>
@@ -310,6 +326,7 @@ const api: UsageboardApi = (() => {
                 grok: route_grok_api,
                 logs: logs_methods,
                 log: log_method,
+                tokenStats: token_stats_methods,
             };
         case "tray":
             return {
@@ -342,6 +359,7 @@ const api: UsageboardApi = (() => {
                 grok: route_grok_api,
                 logs: logs_methods,
                 log: log_method,
+                tokenStats: token_stats_methods,
             };
         default: // popup
             return {
@@ -370,6 +388,7 @@ const api: UsageboardApi = (() => {
                 grok: route_grok_api,
                 logs: logs_methods,
                 log: log_method,
+                tokenStats: token_stats_methods,
             };
     }
 })();
