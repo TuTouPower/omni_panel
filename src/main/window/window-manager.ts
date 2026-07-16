@@ -56,6 +56,17 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         frame: false,
         show: false,
     },
+    tokenStats: {
+        route: "tokenStats",
+        width: 900,
+        height: 700,
+        frame: false,
+        show: false,
+        showWhenReady: true,
+        titleBarStyle: "hidden",
+        titleBarOverlay: false,
+        roundedCorners: true,
+    },
 };
 
 export interface WindowManager {

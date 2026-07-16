@@ -642,6 +642,12 @@ void app.whenReady().then(async () => {
             hideTrayMenu();
             createOrFocusSettings();
         });
+        ipcMain.handle(IPC_CHANNELS.TOKEN_STATS_OPEN, () => {
+            hideTrayMenu();
+            const win = windowManager.createWindowFor("tokenStats");
+            win.show();
+            win.focus();
+        });
         ipcMain.handle(IPC_CHANNELS.TRAY_CHECK_UPDATE, () => {
             log.info("Check for updates requested (not yet implemented)");
         });

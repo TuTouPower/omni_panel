@@ -98,6 +98,14 @@ export function TrayMenu() {
                 },
             },
             {
+                icon: "chart",
+                label_zh: "Token 统计",
+                label_en: "Token Stats",
+                action: () => {
+                    window.usageboard.tokenStats.open();
+                },
+            },
+            {
                 icon: "download",
                 label_zh: "检查更新",
                 label_en: "Check for Updates",

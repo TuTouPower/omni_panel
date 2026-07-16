@@ -78,6 +78,7 @@ export const IPC_CHANNELS = {
     TOKEN_STATS_BUCKETS: "tokenStats:buckets",
     TOKEN_STATS_SESSIONS: "tokenStats:sessions",
     TOKEN_STATS_UPDATED: "tokenStats:updated",
+    TOKEN_STATS_OPEN: "tokenStats:open",
 
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
@@ -315,6 +316,7 @@ export interface UsageboardApi {
     };
     log(payload: RendererLogPayload): void;
     tokenStats: {
+        open(): void;
         getBuckets(filters?: {
             source?: string;
             env?: string;

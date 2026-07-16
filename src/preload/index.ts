@@ -84,6 +84,7 @@ const connector_methods = {
 };
 
 const token_stats_methods = {
+    open: () => void ipcRenderer.invoke(IPC_CHANNELS.TOKEN_STATS_OPEN),
     getBuckets: (filters?: {
         source?: string;
         env?: string;
