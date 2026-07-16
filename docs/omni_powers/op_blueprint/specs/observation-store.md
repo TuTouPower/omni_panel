@@ -8,24 +8,23 @@
 
 `observation_schema`（`src/shared/schemas/observation.ts`）：
 
-| 字段                                                | 说明                                                                                   |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `provider`                                          | 归属服务商，UI 按它聚合                                                                |
-| `source_instance_id`                                | 连接器实例 ID（宿主盖，脚本不可控）                                                    |
-| `account_id`                                        | 账号稳定 ID（不变量 3：绝不用实例+序号）                                               |
-| `account_label`                                     | 账号显示名，不得含 secret                                                              |
-| `metric_id`                                         | 指标唯一标识                                                                           |
-| `raw_label` / `normalized_label` / `display_label?` | 三层标签模型（`name` 为 deprecated 别名）                                              |
-| `window`                                            | `second` / `day` / `month` / `total`                                                   |
-| `window`                                            | `second` / `day` / `week` / `month` / `total`（deprecated，由 `cycleDurationMs` 替代） |
-| `cycleDurationMs`                                   | 周期总长度（毫秒），用于用量条颜色计算。可 null（无限周期/余额类）                     |
-| `used` / `limit`                                    | 用量与上限，均可 null                                                                  |
-| `display_style`                                     | `percent` / `ratio`                                                                    |
-| `reset_at`                                          | 窗口重置时刻，可 null                                                                  |
-| `status`                                            | `normal` / `warning` / `critical` / `unknown`                                          |
-| `observed_at`                                       | 观测时刻（新鲜度源，宿主盖 poll/probe，脚本盖 script）                                 |
-| `source`                                            | `poll` / `local` / `session` / `probe` / `wrapper` / `gateway`                         |
-| `stale` / `last_error`                              | 采集失败标记                                                                           |
+| 字段                                                | 说明                                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `provider`                                          | 归属服务商，UI 按它聚合                                                                           |
+| `source_instance_id`                                | 连接器实例 ID（宿主盖，脚本不可控）                                                               |
+| `account_id`                                        | 账号稳定 ID（不变量 3：绝不用实例+序号）                                                          |
+| `account_label`                                     | 账号显示名，不得含 secret                                                                         |
+| `metric_id`                                         | 指标唯一标识                                                                                      |
+| `raw_label` / `normalized_label` / `display_label?` | 三层标签模型（`name` 为 deprecated 别名）                                                         |
+| `window`                                            | `second` / `day` / `week` / `month` / `total`（`week` 已由 `cycleDurationMs` 替代，保留向后兼容） |
+| `cycleDurationMs`                                   | 周期总长度（毫秒），用于用量条颜色计算。可 null（无限周期/余额类）                                |
+| `used` / `limit`                                    | 用量与上限，均可 null                                                                             |
+| `display_style`                                     | `percent` / `ratio`                                                                               |
+| `reset_at`                                          | 窗口重置时刻，可 null                                                                             |
+| `status`                                            | `normal` / `warning` / `critical` / `unknown`                                                     |
+| `observed_at`                                       | 观测时刻（新鲜度源，宿主盖 poll/probe，脚本盖 script）                                            |
+| `source`                                            | `poll` / `local` / `session` / `probe` / `wrapper` / `gateway`                                    |
+| `stale` / `last_error`                              | 采集失败标记                                                                                      |
 
 `observation_ingest_schema = observation_schema.omit({observed_at, stale, last_error})`（LocalAPI 上报用，服务端补齐）。
 
