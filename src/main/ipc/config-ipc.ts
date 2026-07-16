@@ -128,6 +128,16 @@ export async function handleConfigSave(
             merged[key] = (incoming as unknown as Record<string, unknown>)[key];
         }
 
+        // Post-merge validation: the merged result may carry extra fields from
+        // current that aren't in the schema (e.g. leftover from a bug or manual
+        // edit). Validate against schema to strip unknown keys and ensure the
+        // merged result is safe to persist.
+        const mergedValidated = appConfigurationSchema.safeParse(merged);
+        if (!mergedValidated.success) {
+            return fail("VALIDATION_ERROR", "合并后配置格式无效");
+        }
+        const validated = mergedValidated.data as AppConfiguration;
+
         // Re-load to detect concurrent writes from another window between
         // our initial load and save. If the on-disk config changed, abort
         // and ask the caller to retry — silently overwriting would lose
@@ -138,7 +148,7 @@ export async function handleConfigSave(
             return fail("CONFLICT", "配置已被其他窗口修改，请重试");
         }
 
-        const stripped = stripSecrets(merged as unknown as AppConfiguration, deps.secretParamKeys);
+        const stripped = stripSecrets(validated, deps.secretParamKeys);
         await deps.configStore.save(stripped);
         deps.onConfigSaved?.(stripped);
         return ok(undefined);

@@ -735,4 +735,42 @@ describe("config-ipc", () => {
             expect(error_message).not.toContain("插件");
         });
     });
+
+    describe("handleConfigSave post-merge schema validation (#1)", () => {
+        it("strips unknown fields that survive merge from current config", async () => {
+            // Regression: merged result was cast with `as unknown as` and never
+            // validated against appConfigurationSchema before persisting.
+            // If current config carries an extra field (e.g. from a bug, manual
+            // edit, or future schema change), it would survive the merge and
+            // get persisted unvalidated.
+            const deps = createMockDeps();
+            const currentWithExtra = structuredClone(
+                await deps.configStore.load(),
+            ) as unknown as Record<string, unknown>;
+            // Simulate an extra field on current config
+            currentWithExtra["extraDangerousField"] = "should-not-persist";
+            deps.configStore.load = vi.fn().mockResolvedValue(currentWithExtra);
+
+            const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
+
+            // Incoming only overrides launchAtLogin; extraDangerousField
+            // from current would survive the merge without post-merge validation.
+            const incoming = {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: true,
+            };
+
+            const result = await handleConfigSave(deps, incoming);
+            expect(result.ok).toBe(true);
+
+            const saved = deps.configStore.save.mock.calls[0]?.[0] as Record<string, unknown>;
+            expect(saved).toBeDefined();
+            // After fix: post-merge schema validation strips unknown fields.
+            expect(saved).not.toHaveProperty("extraDangerousField");
+            // Valid fields from incoming are preserved
+            expect(saved["launchAtLogin"]).toBe(true);
+        });
+    });
 });
