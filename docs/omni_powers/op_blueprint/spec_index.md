@@ -15,11 +15,11 @@ OmniUsage 已实现功能清单。每项指向 `specs/{feature}.md`。技术栈/
 
 ## 存储层
 
-| spec                                            | 功能                                                                                      |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [observation-store](specs/observation-store.md) | SQLite 观测表、observedAt 最新胜出、历史保留与 prune、WAL 配置                            |
-| [config-store](specs/config-store.md)           | AppConfiguration/ConnectorConfiguration schema、防抖原子写、载入加固、零散迁移、auto-seed |
-| [secret-vault](specs/secret-vault.md)           | AES-256-GCM 自管密钥、vault.key、keyFor 命名、最小暴露、日志脱敏、明文导入导出、威胁模型  |
+| spec                                            | 功能                                                                                                                                          |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [observation-store](specs/observation-store.md) | SQLite 观测表、observedAt 最新胜出、历史保留与 prune、WAL 配置                                                                                |
+| [config-store](specs/config-store.md)           | AppConfiguration/ConnectorConfiguration schema、防抖原子写、载入加固、零散迁移、auto-seed；含 `uiDesensitizeRemarks` / `providerForcePercent` |
+| [secret-vault](specs/secret-vault.md)           | AES-256-GCM 自管密钥、vault.key、keyFor 命名、设置窗 `getSecrets` 按需明文、日志脱敏、明文导入导出、威胁模型                                  |
 
 ## 宿主平台
 
@@ -30,11 +30,11 @@ OmniUsage 已实现功能清单。每项指向 `specs/{feature}.md`。技术栈/
 
 ## 消费层
 
-| spec                                            | 功能                                                                                          |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| [ipc](specs/ipc.md)                             | IPC_CHANNELS 全量、UsageboardApi、安全 prefs、数据形状（SnapshotDTO/ConnectorInfo/IpcResult） |
-| [window-management](specs/window-management.md) | popup/settings/tray_menu 三窗、mainPanelMode、动态高度、主题、close-action                    |
-| [ui-views](specs/ui-views.md)                   | PopupView/SettingsView/TrayMenu 三视图、provider-usage 数据管线、国际化                       |
+| spec                                            | 功能                                                                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [ipc](specs/ipc.md)                             | IPC_CHANNELS 全量、UsageboardApi、安全 prefs、`getSecrets`/`saveSecrets`、数据形状（SnapshotDTO/ConnectorInfo/IpcResult） |
+| [window-management](specs/window-management.md) | popup/settings/tray_menu 三窗、mainPanelMode、动态高度、主题、close-action                                                |
+| [ui-views](specs/ui-views.md)                   | PopupView/SettingsView/TrayMenu；SecretInput；脱敏/强制百分比；主面板无编辑；provider-usage 管线                          |
 
 ## 跨切面
 

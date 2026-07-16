@@ -84,4 +84,29 @@ describe("UsageBarRow", () => {
 
         expect(screen.getByText("GLM Custom")).toBeInTheDocument();
     });
+
+    it("shows ratio by default for displayStyle ratio", () => {
+        const { container } = render(
+            <UsageBarRow
+                period={make_period({ displayStyle: "ratio", used: 3, limit: 10 })}
+                index={0}
+                barStyle="thin"
+            />,
+        );
+        expect(container.querySelector(".bar-pct")?.textContent).toBe("3/10");
+        expect(container.querySelector(".bar-row.frac")).toBeInTheDocument();
+    });
+
+    it("forcePercent converts ratio periods to percent display", () => {
+        const { container } = render(
+            <UsageBarRow
+                period={make_period({ displayStyle: "ratio", used: 3, limit: 10 })}
+                index={0}
+                barStyle="thin"
+                forcePercent
+            />,
+        );
+        expect(container.querySelector(".bar-pct")?.textContent).toBe("30%");
+        expect(container.querySelector(".bar-row.frac")).not.toBeInTheDocument();
+    });
 });

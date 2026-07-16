@@ -73,6 +73,11 @@ describe("ProviderAccountRow", () => {
         expect(screen.queryByText("Account A")).not.toBeInTheDocument();
     });
 
+    it("shows account label when desensitizeRemarks is off", () => {
+        render(<ProviderAccountRow account={make_account()} desensitizeRemarks={false} />);
+        expect(screen.getByText("Account A")).toBeInTheDocument();
+    });
+
     it("card has .card class and no status-specific class when critical", () => {
         const account = make_account({
             status: "critical",
