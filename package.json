@@ -29,7 +29,7 @@
         "test": "node scripts/ensure_node_abi.mjs && vitest run",
         "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
-        "test:e2e": "playwright test --config=playwright.config.ts --project=default",
+        "test:e2e": "node scripts/ensure_electron_abi.mjs && playwright test --config=playwright.config.ts --project=default",
         "test:visual": "playwright test --config=playwright.config.ts --project=visual",
         "test:visual:update": "playwright test --config=playwright.config.ts --project=visual --update-snapshots",
         "test:packaged": "playwright test --config=playwright.config.ts --project=packaged",
