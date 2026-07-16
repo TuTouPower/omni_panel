@@ -3,6 +3,7 @@ import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { use_plugins } from "../hooks/use-plugins";
 import { use_popup_height_report } from "../hooks/use-popup-height-report";
 import { useNowTick } from "../hooks/use-now-tick";
+import { usePopupUiConfig } from "../hooks/use-popup-ui-config";
 import { useTheme } from "../lib/theme";
 import { Icon } from "../components/Icon";
 import { ProviderAccountList } from "../components/ProviderAccountList";
@@ -17,13 +18,7 @@ import {
     apply_account_labels,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
-import type {
-    AccountLabels,
-    AccountOverrides,
-    AppConfiguration,
-    UsageBarColorScheme,
-    UsageBarStyle,
-} from "../../shared/types/config";
+import type { AppConfiguration } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import { compute_drag_reorder, build_reorder_base } from "../lib/drag-reorder";
 import logo from "../assets/logo.svg";
@@ -80,48 +75,29 @@ export function PopupView() {
     const [account_over_id, set_account_over_id] = useState<string | null>(null);
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const synced_account_orders_ref = useRef<Record<string, string[]>>({});
-    const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
-    const [main_panel_mode, set_main_panel_mode] = useState<"popup" | "floating">("popup");
-    const [usage_bar_color_scheme, set_usage_bar_color_scheme] =
-        useState<UsageBarColorScheme>("risk-current");
-    const [usage_bar_style, set_usage_bar_style] = useState<UsageBarStyle>("thin");
-    const [convergent_time_minutes, set_convergent_time_minutes] = useState<number | undefined>(
-        undefined,
-    );
-    const [account_overrides, set_account_overrides] = useState<AccountOverrides | undefined>(
-        undefined,
-    );
-    const [account_labels, set_account_labels] = useState<AccountLabels | undefined>(undefined);
-    const [account_label_maps, set_account_label_maps] = useState<
-        Readonly<Record<string, Readonly<Record<string, string>>>> | undefined
-    >(undefined);
-    const [provider_label_maps, set_provider_label_maps] = useState<
-        Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>> | undefined
-    >(undefined);
-    const [ui_desensitize_remarks, set_ui_desensitize_remarks] = useState(false);
-    const [provider_force_percent, set_provider_force_percent] = useState<
-        Readonly<Partial<Record<UsageProvider, boolean>>> | undefined
-    >(undefined);
-
-    useEffect(() => {
-        let cancelled = false;
-        window.usageboard.main_panel
-            .get_mode()
-            .then((mode) => {
-                if (!cancelled) set_main_panel_mode(mode);
-            })
-            .catch((err: unknown) => {
-                window.usageboard.log({
-                    level: "error",
-                    module: "PopupView",
-                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
-                });
-                if (!cancelled) set_main_panel_mode("popup");
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, []);
+    const {
+        main_panel_mode,
+        usage_bar_color_scheme,
+        usage_bar_style,
+        convergent_time_minutes,
+        account_overrides,
+        account_labels,
+        account_label_maps,
+        provider_label_maps,
+        ui_desensitize_remarks,
+        provider_force_percent,
+        token_panel_collapsed,
+        set_token_panel_collapsed,
+        set_usage_bar_color_scheme,
+        set_usage_bar_style,
+        set_convergent_time_minutes,
+        set_account_overrides,
+        set_account_labels,
+        set_account_label_maps,
+        set_provider_label_maps,
+        set_ui_desensitize_remarks,
+        set_provider_force_percent,
+    } = usePopupUiConfig();
 
     const valid_providers = useMemo(() => new Set(PROVIDER_ORDER as readonly string[]), []);
 
@@ -165,7 +141,18 @@ export function PopupView() {
                 set_expanded_providers(config.expandedProviders);
             }
         },
-        [valid_providers],
+        [
+            valid_providers,
+            set_usage_bar_color_scheme,
+            set_usage_bar_style,
+            set_convergent_time_minutes,
+            set_account_label_maps,
+            set_provider_label_maps,
+            set_ui_desensitize_remarks,
+            set_provider_force_percent,
+            set_account_overrides,
+            set_account_labels,
+        ],
     );
 
     // Single read-modify-write queue for persistence. Three effects below used
