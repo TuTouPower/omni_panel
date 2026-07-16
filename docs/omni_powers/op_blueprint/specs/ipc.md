@@ -41,4 +41,4 @@ Grok API 按 route 收窄：settings 暴露 `login_start` / `login_poll` / `logi
 - `ConnectorSnapshotDTO`：`idle | loading{updatedAt?,items?,badge?,chart?} | ready{items,updatedAt,badge?,chart?} | failed{error,updatedAt?,items?,badge?,chart?}`。
 - `ConnectorInfo`：`instanceId` / `sourceInstanceId` / `stateId` / `name` / `displayName` / `enabled` / `source` / `supportedProviders` / `activeProviders` / `metadata` / `snapshot`。
 - `IpcResult<T> = { ok:true, data:T } | { ok:false, error:IpcError }`。
-- `SettingsOpenContext`：`{ instanceId?, provider?, accountId? }` —— 主面板"编辑账号"跳转设置页定位上下文。
+- `SettingsOpenContext`：`{ instanceId?, provider?, accountId? }` —— 打开设置窗时的定位上下文（主面板已无账号「编辑」菜单；仍可用于其它跳转）。

@@ -96,8 +96,8 @@ test.describe("settings provider accounts", () => {
         await expect(deepseek_row).toBeVisible();
         await deepseek_row.getByTitle("编辑").click();
 
-        await expect(sPage.getByLabel("API 密钥")).toHaveValue("***");
-        await expect(sPage.getByLabel("API 密钥")).not.toHaveValue("sk-e2e-secret");
+        await expect(sPage.getByLabel("API 密钥")).toHaveValue("sk-e2e-secret");
+        await expect(sPage.getByLabel("API 密钥")).toHaveAttribute("type", "password");
     });
 
     test("about page shows real logo", async ({ omni }) => {

@@ -105,7 +105,9 @@ test.describe("secrets persistence", () => {
 
         form = await openSecretForm(sPage);
         const secretInputAfter = form.locator('input[name="api_secret"][type="password"]');
-        await expect(secretInputAfter).toHaveValue("***");
+        // Settings loads vault plaintext for edit; password type masks display.
+        await expect(secretInputAfter).toHaveValue("my-secret-token-123");
+        await expect(secretInputAfter).toHaveAttribute("type", "password");
     });
 
     test("saved secret is passed to the plugin subprocess on refresh", async ({ omni }) => {
@@ -129,7 +131,7 @@ test.describe("secrets persistence", () => {
     // subprocess by observing the UI output, rather than directly intercepting
     // the subprocess stdin/env.  A more direct verification would require
     // instrumenting the plugin host.
-    test("secret value is masked in UI, not shown in plain text", async ({ omni }) => {
+    test("saved secret reloads as vault plaintext under password mask", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });
         const sPage = await openSettings(omni.app, page);
@@ -142,7 +144,7 @@ test.describe("secrets persistence", () => {
 
         form = await openSecretForm(sPage);
         const secretInputReloaded = form.locator('input[name="api_secret"][type="password"]');
-        await expect(secretInputReloaded).toHaveValue("***");
-        await expect(secretInputReloaded).not.toHaveValue("super-secret-value");
+        await expect(secretInputReloaded).toHaveValue("super-secret-value");
+        await expect(secretInputReloaded).toHaveAttribute("type", "password");
     });
 });

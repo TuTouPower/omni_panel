@@ -104,6 +104,27 @@ describe("config-ipc", () => {
         expect(result.data.hasSecrets["claude"]).toEqual({ API_KEY: true });
     });
 
+    it("handleConfigGetSecrets returns vault plaintext for allowed keys", async () => {
+        const deps = createMockDeps();
+        const { handleConfigGetSecrets } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigGetSecrets(deps, { instanceId: "claude" });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data).toEqual({ API_KEY: "sk-real" });
+        expect(deps.secretsStore.get).toHaveBeenCalledWith("claude:API_KEY");
+    });
+
+    it("handleConfigGetSecrets rejects unknown instanceId", async () => {
+        const deps = createMockDeps();
+        const { handleConfigGetSecrets } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigGetSecrets(deps, { instanceId: "missing" });
+
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.error.message).toContain("连接器");
+    });
+
     it("logs raw config IPC request and response payloads", async () => {
         const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
         const lines: string[] = [];

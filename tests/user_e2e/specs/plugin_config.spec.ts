@@ -102,9 +102,12 @@ test.describe("plugin configuration", () => {
         await expect(form.locator('input[name="endpoint:default"]')).toHaveValue(
             "https://cpa.example.test",
         );
-        await expect(form.locator('input[name="cpa_mgmt_key"]')).toHaveValue("***");
-        await expect(form.locator('input[name="cpa_mgmt_key"]')).not.toHaveValue(
+        await expect(form.locator('input[name="cpa_mgmt_key"]')).toHaveValue(
             "secret-management-key",
+        );
+        await expect(form.locator('input[name="cpa_mgmt_key"]')).toHaveAttribute(
+            "type",
+            "password",
         );
     });
 });
