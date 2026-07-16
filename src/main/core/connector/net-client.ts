@@ -40,6 +40,8 @@ export interface NetClientConfig {
     readonly timeout_ms?: number;
     readonly params?: Record<string, string>;
     readonly trace_id?: string;
+    /** 跳过连接池，强制新建 TCP+TLS 连接。所有请求共享此设置。 */
+    readonly reset?: boolean;
 }
 
 function expand_home(path_pattern: string): string {
@@ -197,6 +199,7 @@ export function create_connector_context(
 ): ConnectorContext {
     const dispatcher = config.proxy_url ? new ProxyAgent(config.proxy_url) : undefined;
     const timeout_ms = config.timeout_ms ?? 15_000;
+    const reset = config.reset ?? false;
     const request_log = config.trace_id ? withLogContext(log, { trace_id: config.trace_id }) : log;
     const connector_log = config.trace_id
         ? withLogContext(sandbox_log, { trace_id: config.trace_id })
@@ -225,6 +228,7 @@ export function create_connector_context(
             effective_timeout,
         } = ctx;
 
+        const request_reset = opts?.reset ?? reset;
         request_log.debug(`${method} ${url.origin}${url.pathname}`);
         const request_options = {
             method,
@@ -234,6 +238,7 @@ export function create_connector_context(
             signal: ac.signal,
             ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
             ...(dispatcher ? { dispatcher } : {}),
+            ...(request_reset ? { reset: true } : {}),
         };
         try {
             const response = await undici_request(url, request_options);
@@ -339,6 +344,7 @@ export function create_connector_context(
                     effective_timeout,
                 } = ctx;
 
+                const request_reset = opts?.reset ?? reset;
                 request_log.debug(`GET RAW ${url.origin}${url.pathname}`);
                 const request_options = {
                     method: "GET" as const,
@@ -347,6 +353,7 @@ export function create_connector_context(
                     bodyTimeout: effective_timeout,
                     signal: ac.signal,
                     ...(dispatcher ? { dispatcher } : {}),
+                    ...(request_reset ? { reset: true } : {}),
                 };
                 try {
                     const response = await undici_request(url, request_options);

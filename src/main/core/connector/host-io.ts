@@ -1,6 +1,8 @@
 export interface HttpOpts {
     readonly headers?: Record<string, string>;
     readonly timeout_ms?: number;
+    /** 跳过连接池，强制新建 TCP+TLS 连接。重试连接级错误时使用。 */
+    readonly reset?: boolean;
 }
 
 export interface RawHttpResponse {

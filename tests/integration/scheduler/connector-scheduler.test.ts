@@ -180,4 +180,28 @@ describe("connector-scheduler", () => {
         expect(hangRefresh).toHaveBeenCalledTimes(3);
         expect(normalRefresh).toHaveBeenCalledTimes(3);
     });
+
+    it("staggers start when peers already running (regression: TLS handshake burst)", () => {
+        const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+        const scheduler = createConnectorScheduler({ refresh });
+        // First instance starts immediately (no peers)
+        scheduler.start("p1", 10);
+        expect(refresh).toHaveBeenCalledTimes(1);
+
+        // Second instance should not fire immediately — stagger applied
+        scheduler.start("p2", 10);
+        expect(refresh).toHaveBeenCalledTimes(1);
+
+        // After advancing past STAGGER_MAX_MS (3000ms), second fires
+        vi.advanceTimersByTime(3_000);
+        expect(refresh).toHaveBeenCalledTimes(2);
+    });
+
+    it("no stagger when only one instance starts (no peers)", () => {
+        const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+        const scheduler = createConnectorScheduler({ refresh });
+        scheduler.start("solo", 10);
+        expect(refresh).toHaveBeenCalledTimes(1);
+        expect(refresh).toHaveBeenCalledWith("solo");
+    });
 });

@@ -1363,4 +1363,72 @@ return [{
             await rm(tempDir, { recursive: true, force: true });
         }
     });
+
+    it("retries on connection errors and marks stale (regression: TLS handshake burst)", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "conn-error-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("Client network socket disconnected before secure TLS connection was established");`,
+        );
+        const runtimeStore = createRuntimeStore();
+        // Seed prior success so stale observations are produced
+        runtimeStore.updateState("mimo-1", {
+            status: "ready",
+            items: [
+                {
+                    id: "mimo:mimo:mimo:usage",
+                    provider: "mimo" as const,
+                    source: "session" as const,
+                    sourceInstanceId: "mimo-1",
+                    accountId: "mimo-1",
+                    accountLabel: "MiMo",
+                    raw_label: "usage",
+                    normalized_label: "Usage",
+                    used: 50,
+                    limit: 100,
+                    displayStyle: "percent" as const,
+                    resetAt: null,
+                    status: "normal" as const,
+                    observedAt: 1749211200000,
+                    stale: false,
+                },
+            ],
+            updatedAt: new Date("2026-06-06T12:00:00Z"),
+        });
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "mimo",
+                        provider: "mimo",
+                        capabilities: ["session"],
+                        parameters: [],
+                        endpoints: { default: "https://platform.xiaomimimo.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore: make_store(),
+            runtimeStore,
+            configStore: create_config_store([
+                { ...plugin_config("mimo-1"), executablePath: tempDir, name: "MiMo" },
+            ]),
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("mimo-1", { force: true });
+            const state = runtimeStore.getSnapshot("mimo-1");
+            // Should still retry3 times and end in failed state
+            expect(state.status).toBe("failed");
+            if (state.status === "failed") {
+                expect(state.lastSuccess?.items).toHaveLength(1);
+                expect(state.error).toContain("TLS");
+            }
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
 });

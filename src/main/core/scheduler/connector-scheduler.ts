@@ -1,6 +1,8 @@
 import { MIN_REFRESH_INTERVAL_SECONDS } from "../../../shared/constants";
 import { createLogger } from "../../../shared/lib/logger";
 
+const STAGGER_MAX_MS = 3000;
+
 interface ConnectorSchedulerDeps {
     refresh: (instanceId: string) => Promise<void>;
 }
@@ -27,11 +29,22 @@ export function createConnectorScheduler(deps: ConnectorSchedulerDeps): Connecto
 
         log.debug(`Starting scheduler for ${instanceId} (every ${String(intervalSeconds)}s)`);
         if (options?.immediate !== false) {
-            void deps.refresh(instanceId).catch((err: unknown) => {
-                log.error(
-                    `refresh failed for ${instanceId}: ${err instanceof Error ? err.message : String(err)}`,
-                );
-            });
+            // 同 host 多实例同时启动会触发 TLS 握手限流（如 10 个 OpenCode Go → opencode.ai），
+            // 有其他实例运行时随机错开，避免服务端拒绝连接。
+            const has_peers = timers.size > 0;
+            const jitter = has_peers ? Math.floor(Math.random() * STAGGER_MAX_MS) : 0;
+            const do_refresh = (): void => {
+                void deps.refresh(instanceId).catch((err: unknown) => {
+                    log.error(
+                        `refresh failed for ${instanceId}: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                });
+            };
+            if (jitter > 0) {
+                setTimeout(do_refresh, jitter);
+            } else {
+                do_refresh();
+            }
         }
 
         function schedule_next(): void {

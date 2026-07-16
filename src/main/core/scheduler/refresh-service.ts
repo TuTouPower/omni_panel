@@ -62,6 +62,20 @@ function is_auth_error(message: string): boolean {
     );
 }
 
+function is_connection_error(message: string): boolean {
+    const lower = message.toLowerCase();
+    return (
+        lower.includes("econnreset") ||
+        lower.includes("eproto") ||
+        lower.includes("etimedout") ||
+        lower.includes("socket hang up") ||
+        lower.includes("und_err_socket") ||
+        lower.includes("und_err_connect") ||
+        lower.includes("tls") ||
+        lower.includes("ssl")
+    );
+}
+
 function resolve_script_path(definition: ConnectorDefinition): string {
     if (!definition.manifest.script) throw new Error("Connector script is missing");
     const connector_dir = resolve(definition.directory);
@@ -131,6 +145,7 @@ async function execute_connector(
     vault: VaultBackend,
     proxy_url?: string,
     trace_id?: string,
+    reset?: boolean,
 ): Promise<{ observations: Observation[]; failed_accounts: FailedAccount[] }> {
     const params = await build_params(connector_config, definition, vault, trace_id);
     const endpoint_overrides = { ...connector_config.endpointOverrides };
@@ -142,6 +157,7 @@ async function execute_connector(
         params,
         ...(proxy_url ? { proxy_url } : {}),
         ...(trace_id ? { trace_id } : {}),
+        ...(reset !== undefined ? { reset } : {}),
     });
 
     let raw_observations: ScriptObservation[];
@@ -222,6 +238,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
 
             let last_error = "";
             let session_relogin_done = false;
+            let force_fresh_connection = false;
             const max_attempts = 3;
             const retry_delay_ms = 1000;
 
@@ -233,6 +250,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         deps.vault,
                         deps.resolve_proxy_url?.(config) ?? config.proxy?.url,
                         trace_id,
+                        force_fresh_connection,
                     );
                     for (const obs of observations) {
                         try {
@@ -318,6 +336,14 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                 `Auto re-login failed for ${connector_config.name}: ${login_error instanceof Error ? login_error.message : String(login_error)}`,
                             );
                         }
+                    }
+
+                    // 连接级错误（TCP 重置/TLS 失败/超时）下次重试跳过连接池
+                    if (!force_fresh_connection && is_connection_error(last_error)) {
+                        force_fresh_connection = true;
+                        trace_log.info(
+                            `Connection error detected for ${connector_config.name}, next retry will use fresh connection`,
+                        );
                     }
 
                     if (attempt < max_attempts - 1) {
