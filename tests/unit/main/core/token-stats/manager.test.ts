@@ -1,27 +1,34 @@
-import { describe, it, expect, vi } from "vitest";
-import type { TokenStatsStore } from "../../../../../src/main/core/token-stats/token-stats-store";
-import type { TokenStatsConfig } from "../../../../../src/shared/types/token-stats";
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { EventEmitter } from "node:events";
 
-function create_mock_store(): TokenStatsStore & { _buckets: unknown[]; _sessions: unknown[] } {
-    const _buckets: unknown[] = [];
-    const _sessions: unknown[] = [];
-    return {
-        _buckets,
-        _sessions,
-        upsert_buckets: vi.fn((b: unknown[]) => _buckets.push(...b)),
-        upsert_sessions: vi.fn((s: unknown[]) => _sessions.push(...s)),
-        query_buckets: vi.fn(() => []),
-        query_sessions: vi.fn(() => []),
-        close: vi.fn(),
-    };
+// --- Mock electron (utilityProcess) ---
+
+class MockUtilityProcess extends EventEmitter {
+    postMessage = vi.fn();
+    kill = vi.fn();
+    stdout = new EventEmitter();
+    stderr = new EventEmitter();
 }
 
-// Test the exported configure + collect path (same code path the manager uses)
-import {
-    configure,
-    reset_config,
-    collect,
-} from "../../../../../src/main/core/token-stats/collector";
+let last_child: MockUtilityProcess | null = null;
+const mock_fork = vi.fn<(path: string, args?: string[], options?: unknown) => MockUtilityProcess>(
+    () => {
+        last_child = new MockUtilityProcess();
+        return last_child;
+    },
+);
+
+vi.mock("electron", () => ({
+    app: { isPackaged: false },
+    utilityProcess: {
+        fork: (path: string, args?: string[], options?: unknown) => mock_fork(path, args, options),
+    },
+}));
+
+import { create_token_stats_manager } from "../../../../../src/main/core/token-stats/manager";
+import type { TokenStatsStore } from "../../../../../src/main/core/token-stats/token-stats-store";
+import type { TokenStatsConfig } from "../../../../../src/shared/types/token-stats";
 
 const base_config: TokenStatsConfig = {
     win_home: "C:\\Users\\Test",
@@ -31,47 +38,131 @@ const base_config: TokenStatsConfig = {
     poll_interval_ms: 600000,
 };
 
-// Mock readers to avoid file system access
-vi.mock("../../../../../src/main/core/token-stats/claude-reader", () => ({
-    read_costs_jsonl: vi.fn(() => ({ sessions: [], new_offset: 0, new_size: 0 })),
-}));
-vi.mock("../../../../../src/main/core/token-stats/opencode-reader", () => ({
-    read_opencode_sessions: vi.fn(() => []),
-}));
+function create_mock_store() {
+    return {
+        upsert_sessions: vi.fn(),
+        query_buckets: vi.fn(() => []),
+        query_sessions: vi.fn(() => []),
+        last_updated: vi.fn(() => null),
+        close: vi.fn(),
+    } satisfies TokenStatsStore;
+}
 
-// Mock process.send
-const mock_send = vi.fn();
-process.send = mock_send as typeof process.send;
-
-describe("token-stats manager integration", () => {
-    it("configure sets config and collect sends update via process.send", () => {
-        mock_send.mockClear();
-        reset_config();
-        configure(base_config);
-
-        expect(mock_send).toHaveBeenCalledTimes(1);
-        const update = mock_send.mock.calls[0]?.[0] as Record<string, unknown>;
-        expect(update.type).toBe("token_stats_update");
-        expect(Array.isArray(update.buckets)).toBe(true);
-        expect(Array.isArray(update.sessions)).toBe(true);
+describe("token-stats manager", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        last_child = null;
     });
 
-    it("collect does nothing without config", () => {
-        mock_send.mockClear();
-        reset_config();
-        collect();
-        expect(mock_send).not.toHaveBeenCalled();
-    });
-
-    it("manager create_token_stats_manager returns expected interface", async () => {
-        // Test manager can be imported and creates expected shape
-        // Use dynamic import to avoid fork side-effects
-        const { create_token_stats_manager } =
-            await import("../../../../../src/main/core/token-stats/manager");
+    it("start forks the collector and posts config", () => {
         const store = create_mock_store();
         const manager = create_token_stats_manager({ store });
-        expect(typeof manager.start).toBe("function");
-        expect(typeof manager.stop).toBe("function");
-        expect(typeof manager.update_config).toBe("function");
+
+        manager.start(base_config);
+
+        expect(mock_fork).toHaveBeenCalledTimes(1);
+        expect(mock_fork.mock.calls[0]![0]).toContain("collector.js");
+        expect(last_child!.postMessage).toHaveBeenCalledWith({
+            type: "config",
+            config: base_config,
+        });
+        expect(manager.is_running()).toBe(true);
+        manager.stop();
+    });
+
+    it("stores session deltas + daily rows on update message and fires on_update", () => {
+        const store = create_mock_store();
+        const on_update = vi.fn();
+        const manager = create_token_stats_manager({ store, on_update });
+
+        manager.start(base_config);
+        last_child!.emit("message", {
+            type: "token_stats_update",
+            sessions: [{ id: "s1" }],
+            daily: [{ id: "s1", date: "2026-07-17" }],
+        });
+
+        expect(store.upsert_sessions).toHaveBeenCalledWith(
+            [{ id: "s1" }],
+            [{ id: "s1", date: "2026-07-17" }],
+        );
+        expect(on_update).toHaveBeenCalledTimes(1);
+        manager.stop();
+    });
+
+    it("ignores non-update messages", () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+
+        manager.start(base_config);
+        last_child!.emit("message", { type: "something_else", sessions: [{ id: "s1" }] });
+
+        expect(store.upsert_sessions).not.toHaveBeenCalled();
+        manager.stop();
+    });
+
+    it("auto-restarts 30s after unexpected exit", () => {
+        vi.useFakeTimers();
+        try {
+            const store = create_mock_store();
+            const manager = create_token_stats_manager({ store });
+
+            manager.start(base_config);
+            expect(mock_fork).toHaveBeenCalledTimes(1);
+
+            last_child!.emit("exit", 1);
+            expect(manager.is_running()).toBe(false);
+
+            vi.advanceTimersByTime(30_000);
+            expect(mock_fork).toHaveBeenCalledTimes(2);
+            expect(manager.is_running()).toBe(true);
+            manager.stop();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("does not restart after stop()", () => {
+        vi.useFakeTimers();
+        try {
+            const store = create_mock_store();
+            const manager = create_token_stats_manager({ store });
+
+            manager.start(base_config);
+            manager.stop();
+
+            vi.advanceTimersByTime(60_000);
+            expect(mock_fork).toHaveBeenCalledTimes(1);
+            expect(manager.is_running()).toBe(false);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("update_config posts new config to the running child", () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+
+        manager.start(base_config);
+        const new_config = { ...base_config, poll_interval_ms: 300_000 };
+        manager.update_config(new_config);
+
+        expect(last_child!.postMessage).toHaveBeenLastCalledWith({
+            type: "config",
+            config: new_config,
+        });
+        manager.stop();
+    });
+
+    it("stop kills the child", () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+
+        manager.start(base_config);
+        const child_ref = last_child!;
+        manager.stop();
+
+        expect(child_ref.kill).toHaveBeenCalledTimes(1);
+        expect(manager.is_running()).toBe(false);
     });
 });

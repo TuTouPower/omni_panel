@@ -2,9 +2,24 @@ import { describe, it, expect } from "vitest";
 import {
     tokenStatsBucketSchema,
     tokenStatsSessionSchema,
+    tokenStatsSessionUpsertSchema,
+    tokenStatsDailyUpsertSchema,
     tokenStatsUpdateSchema,
     tokenStatsConfigSchema,
 } from "../../../src/shared/types/token-stats";
+
+const validDaily = {
+    id: "sess-abc123",
+    source: "claude_code",
+    env: "win",
+    model: "claude-sonnet-4-20250514",
+    date: "2026-07-17",
+    input_tokens: 500,
+    output_tokens: 200,
+    cache_read_tokens: 50,
+    cache_write_tokens: 20,
+    calls: 3,
+};
 
 const validBucket = {
     source: "claude_code",
@@ -115,21 +130,62 @@ describe("tokenStatsSessionSchema", () => {
     });
 });
 
-describe("tokenStatsUpdateSchema", () => {
-    it("accepts valid update message", () => {
-        const result = tokenStatsUpdateSchema.safeParse({
-            type: "token_stats_update",
-            buckets: [validBucket],
-            sessions: [validSession],
+describe("tokenStatsSessionUpsertSchema", () => {
+    it("accepts a full delta", () => {
+        const result = tokenStatsSessionUpsertSchema.safeParse(validSession);
+        expect(result.success).toBe(true);
+    });
+
+    it("accepts a sparse delta (null = no information)", () => {
+        const result = tokenStatsSessionUpsertSchema.safeParse({
+            id: "sess-abc123",
+            source: "claude_code",
+            env: "win",
+            model: null,
+            title: null,
+            directory: null,
+            input_tokens: null,
+            output_tokens: null,
+            cache_read_tokens: null,
+            cache_write_tokens: null,
+            calls: 5,
+            started_at: 1752758400000,
+            ended_at: 1752762000000,
         });
         expect(result.success).toBe(true);
     });
 
-    it("accepts empty buckets and sessions", () => {
+    it("rejects negative tokens even in a delta", () => {
+        const result = tokenStatsSessionUpsertSchema.safeParse({
+            ...validSession,
+            input_tokens: -1,
+        });
+        expect(result.success).toBe(false);
+    });
+
+    it("requires started_at and ended_at", () => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { started_at: _a, ended_at: _b, ...noTimes } = validSession;
+        const result = tokenStatsSessionUpsertSchema.safeParse(noTimes);
+        expect(result.success).toBe(false);
+    });
+});
+
+describe("tokenStatsUpdateSchema", () => {
+    it("accepts valid update message", () => {
         const result = tokenStatsUpdateSchema.safeParse({
             type: "token_stats_update",
-            buckets: [],
+            sessions: [validSession],
+            daily: [validDaily],
+        });
+        expect(result.success).toBe(true);
+    });
+
+    it("accepts empty sessions and daily", () => {
+        const result = tokenStatsUpdateSchema.safeParse({
+            type: "token_stats_update",
             sessions: [],
+            daily: [],
         });
         expect(result.success).toBe(true);
     });
@@ -137,9 +193,31 @@ describe("tokenStatsUpdateSchema", () => {
     it("rejects wrong type literal", () => {
         const result = tokenStatsUpdateSchema.safeParse({
             type: "other",
-            buckets: [],
             sessions: [],
+            daily: [],
         });
+        expect(result.success).toBe(false);
+    });
+});
+
+describe("tokenStatsDailyUpsertSchema", () => {
+    it("accepts a valid daily row", () => {
+        const result = tokenStatsDailyUpsertSchema.safeParse(validDaily);
+        expect(result.success).toBe(true);
+    });
+
+    it("rejects negative token values", () => {
+        const result = tokenStatsDailyUpsertSchema.safeParse({
+            ...validDaily,
+            input_tokens: -1,
+        });
+        expect(result.success).toBe(false);
+    });
+
+    it("rejects missing date", () => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { date: _, ...noDate } = validDaily;
+        const result = tokenStatsDailyUpsertSchema.safeParse(noDate);
         expect(result.success).toBe(false);
     });
 });

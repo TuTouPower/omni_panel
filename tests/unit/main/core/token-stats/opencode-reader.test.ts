@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { tmpdir } from "node:os";
@@ -20,9 +21,29 @@ function create_test_db(db_path: string): InstanceType<typeof Database> {
             directory TEXT,
             time_created INTEGER,
             time_updated INTEGER
-        )
+        );
+        CREATE TABLE IF NOT EXISTS message (
+            id TEXT PRIMARY KEY,
+            session_id TEXT,
+            time_created INTEGER,
+            time_updated INTEGER,
+            data TEXT
+        );
     `);
     return db;
+}
+
+function insert_message(
+    db: InstanceType<typeof Database>,
+    id: string,
+    session_id: string,
+    role: string,
+    data_extras: Record<string, unknown> = {},
+) {
+    db.prepare(
+        `INSERT INTO message (id, session_id, time_created, time_updated, data)
+         VALUES (?, ?, 0, 0, ?)`,
+    ).run(id, session_id, JSON.stringify({ role, ...data_extras }));
 }
 
 function insert_session(
@@ -88,6 +109,9 @@ describe("read_opencode_sessions", () => {
     it("reads sessions with valid tokens", () => {
         const db = create_test_db(db_path);
         insert_session(db);
+        insert_message(db, "m1", "sess-001", "assistant");
+        insert_message(db, "m2", "sess-001", "assistant");
+        insert_message(db, "m3", "sess-001", "user");
         insert_session(db, {
             id: "sess-002",
             tokens_input: 2000,
@@ -96,21 +120,100 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const sessions = read_opencode_sessions(db_path, "win", 0);
+        const { sessions } = read_opencode_sessions(db_path, "win", 0);
         expect(sessions).toHaveLength(2);
-        expect(sessions[0].id).toBe("sess-001");
-        expect(sessions[0].source).toBe("opencode");
-        expect(sessions[0].env).toBe("win");
-        expect(sessions[0].model).toBe("claude-sonnet-4-20250514");
-        expect(sessions[0].input_tokens).toBe(1000);
-        expect(sessions[0].output_tokens).toBe(500);
-        expect(sessions[0].cache_read_tokens).toBe(100);
-        expect(sessions[0].cache_write_tokens).toBe(50);
-        expect(sessions[0].calls).toBe(0);
-        expect(sessions[0].title).toBe("Fix auth bug");
-        expect(sessions[0].directory).toBe("/home/user/project");
-        expect(sessions[0].started_at).toBe(1752758400000);
-        expect(sessions[0].ended_at).toBe(1752762000000);
+        expect(sessions[0]!.id).toBe("sess-001");
+        expect(sessions[0]!.source).toBe("opencode");
+        expect(sessions[0]!.env).toBe("win");
+        expect(sessions[0]!.model).toBe("claude-sonnet-4-20250514");
+        expect(sessions[0]!.input_tokens).toBe(1000);
+        expect(sessions[0]!.output_tokens).toBe(500);
+        expect(sessions[0]!.cache_read_tokens).toBe(100);
+        expect(sessions[0]!.cache_write_tokens).toBe(50);
+        expect(sessions[0]!.calls).toBe(2); // assistant messages only
+        expect(sessions[1]!.calls).toBe(0);
+        expect(sessions[0]!.title).toBe("Fix auth bug");
+        expect(sessions[0]!.directory).toBe("/home/user/project");
+        expect(sessions[0]!.started_at).toBe(1752758400000);
+        expect(sessions[0]!.ended_at).toBe(1752762000000);
+    });
+
+    it("derives daily usage rows from assistant message tokens", () => {
+        const db = create_test_db(db_path);
+        insert_session(db);
+        insert_message(db, "m1", "sess-001", "assistant", {
+            tokens: { input: 100, output: 10, cache: { read: 5, write: 2 } },
+            time: { created: 1752758400000 }, // 2025-07-17T16:00:00Z
+            modelID: "claude-sonnet-4-20250514",
+        });
+        insert_message(db, "m2", "sess-001", "assistant", {
+            tokens: { input: 200, output: 20, cache: { read: 0, write: 0 } },
+            time: { created: 1752758400000 + 3600000 },
+            modelID: "claude-sonnet-4-20250514",
+        });
+        // user message with tokens must not contribute
+        insert_message(db, "m3", "sess-001", "user", {
+            tokens: { input: 999, output: 999 },
+            time: { created: 1752758400000 },
+            modelID: "claude-sonnet-4-20250514",
+        });
+        db.close();
+
+        const { sessions, daily } = read_opencode_sessions(db_path, "win", 0);
+        expect(sessions[0]!.calls).toBe(2);
+        expect(daily).toHaveLength(1);
+        expect(daily[0]).toMatchObject({
+            id: "sess-001",
+            source: "opencode",
+            env: "win",
+            model: "claude-sonnet-4-20250514",
+            input_tokens: 300,
+            output_tokens: 30,
+            cache_read_tokens: 5,
+            cache_write_tokens: 2,
+            calls: 2,
+        });
+    });
+
+    it("skips assistant messages without token fields for daily but keeps calls", () => {
+        const db = create_test_db(db_path);
+        insert_session(db);
+        db.prepare(
+            `INSERT INTO message (id, session_id, time_created, time_updated, data)
+             VALUES ('m1', 'sess-001', 0, 0, '{"role":"assistant"}')`,
+        ).run();
+        db.close();
+
+        const { sessions, daily } = read_opencode_sessions(db_path, "win", 0);
+        expect(sessions[0]!.calls).toBe(1);
+        expect(daily).toHaveLength(0);
+    });
+
+    it("calls is null when the message table is missing", () => {
+        const db = new Database(db_path);
+        db.exec(`
+            CREATE TABLE session (
+                id TEXT PRIMARY KEY,
+                model TEXT,
+                tokens_input INTEGER,
+                tokens_output INTEGER,
+                tokens_reasoning INTEGER,
+                tokens_cache_read INTEGER,
+                tokens_cache_write INTEGER,
+                title TEXT,
+                directory TEXT,
+                time_created INTEGER,
+                time_updated INTEGER
+            )
+        `);
+        db.prepare(
+            `INSERT INTO session VALUES ('s1', '{"id":"m"}', 100, 50, 0, 0, 0, 't', 'd', 1, 2)`,
+        ).run();
+        db.close();
+
+        const { sessions } = read_opencode_sessions(db_path, "win", 0);
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0]!.calls).toBeNull();
     });
 
     it("filters by max_updated (incremental)", () => {
@@ -119,9 +222,9 @@ describe("read_opencode_sessions", () => {
         insert_session(db, { id: "new", time_updated: 5000 });
         db.close();
 
-        const sessions = read_opencode_sessions(db_path, "win", 3000);
+        const { sessions } = read_opencode_sessions(db_path, "win", 3000);
         expect(sessions).toHaveLength(1);
-        expect(sessions[0].id).toBe("new");
+        expect(sessions[0]!.id).toBe("new");
     });
 
     it("skips sessions with tokens_input = 0", () => {
@@ -130,9 +233,9 @@ describe("read_opencode_sessions", () => {
         insert_session(db, { id: "zero", tokens_input: 0 });
         db.close();
 
-        const sessions = read_opencode_sessions(db_path, "wsl", 0);
+        const { sessions } = read_opencode_sessions(db_path, "wsl", 0);
         expect(sessions).toHaveLength(1);
-        expect(sessions[0].id).toBe("valid");
+        expect(sessions[0]!.id).toBe("valid");
     });
 
     it("extracts model from JSON field", () => {
@@ -147,7 +250,7 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const sessions = read_opencode_sessions(db_path, "win", 0);
+        const { sessions } = read_opencode_sessions(db_path, "win", 0);
         expect(sessions).toHaveLength(2);
         const by_id = Object.fromEntries(sessions.map((s) => [s.id, s.model]));
         expect(by_id["sonnet"]).toBe("claude-sonnet-4-20250514");
@@ -169,14 +272,14 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const sessions = read_opencode_sessions(db_path, "win", 0);
+        const { sessions } = read_opencode_sessions(db_path, "win", 0);
         // only the valid one should pass; null-model/empty/bad-json are filtered
         expect(sessions).toHaveLength(1);
-        expect(sessions[0].id).toBe("valid");
+        expect(sessions[0]!.id).toBe("valid");
     });
 
     it("returns empty array for missing database", () => {
-        const sessions = read_opencode_sessions("/nonexistent/path/db.sqlite", "win", 0);
+        const { sessions } = read_opencode_sessions("/nonexistent/path/db.sqlite", "win", 0);
         expect(sessions).toEqual([]);
     });
 
@@ -189,9 +292,9 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const sessions = read_opencode_sessions(db_path, "win", 0);
+        const { sessions } = read_opencode_sessions(db_path, "win", 0);
         expect(sessions).toHaveLength(1);
-        expect(sessions[0].cache_read_tokens).toBe(0);
-        expect(sessions[0].cache_write_tokens).toBe(0);
+        expect(sessions[0]!.cache_read_tokens).toBe(0);
+        expect(sessions[0]!.cache_write_tokens).toBe(0);
     });
 });

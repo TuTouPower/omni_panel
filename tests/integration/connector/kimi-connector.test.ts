@@ -110,7 +110,7 @@ describe("kimi connector", () => {
         ];
         expect(endpoint_key).toBe("default");
         expect(path).toBe("coding/v1/usages");
-        expect(opts.headers.Authorization).toBe("Bearer sk-kimi-test-key");
+        expect(opts.headers["Authorization"]).toBe("Bearer sk-kimi-test-key");
         expect(opts.headers["User-Agent"]).toBe("KimiCLI/1.6");
     });
 

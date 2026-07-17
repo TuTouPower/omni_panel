@@ -1,8 +1,13 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { read_costs_jsonl } from "../../../../../src/main/core/token-stats/claude-reader";
+import {
+    read_costs_jsonl,
+    scan_session_jsonls,
+    create_session_scan_state,
+} from "../../../../../src/main/core/token-stats/claude-reader";
 
 let tmp_dir: string;
 let jsonl_path: string;
@@ -67,7 +72,7 @@ describe("read_costs_jsonl", () => {
         if (!s1) throw new Error("s1 not found");
         expect(s1.input_tokens).toBe(100);
         expect(s1.output_tokens).toBe(50);
-        expect(s1.calls).toBe(1);
+        expect(s1.calls).toBeNull(); // calls come from scan_session_jsonls
         expect(s1.started_at).toBe(E1);
         expect(s1.ended_at).toBe(E1);
         expect(s1.source).toBe("claude_code");
@@ -92,7 +97,7 @@ describe("read_costs_jsonl", () => {
 
         const result = read_costs_jsonl(jsonl_path, "win", 0, 0);
         expect(result.sessions).toHaveLength(1);
-        expect(result.sessions[0].id).toBe("real");
+        expect(result.sessions[0]!.id).toBe("real");
     });
 
     it("filters out model=unknown", () => {
@@ -105,7 +110,7 @@ describe("read_costs_jsonl", () => {
 
         const result = read_costs_jsonl(jsonl_path, "win", 0, 0);
         expect(result.sessions).toHaveLength(1);
-        expect(result.sessions[0].id).toBe("s2");
+        expect(result.sessions[0]!.id).toBe("s2");
     });
 
     it("filters out zero-token rows", () => {
@@ -134,12 +139,12 @@ describe("read_costs_jsonl", () => {
         const result = read_costs_jsonl(jsonl_path, "win", 0, 0);
         expect(result.sessions).toHaveLength(1);
 
-        const s = result.sessions[0];
+        const s = result.sessions[0]!;
         // Latest timestamp is T3 -> model=opus, input=300, output=120
         expect(s.model).toBe("claude-opus-4-20250514");
         expect(s.input_tokens).toBe(300);
         expect(s.output_tokens).toBe(120);
-        expect(s.calls).toBe(3);
+        expect(s.calls).toBeNull(); // calls come from scan_session_jsonls
         expect(s.started_at).toBe(E1);
         expect(s.ended_at).toBe(E3);
     });
@@ -161,7 +166,7 @@ describe("read_costs_jsonl", () => {
 
         const second = read_costs_jsonl(jsonl_path, "win", saved_offset, saved_offset);
         expect(second.sessions).toHaveLength(1);
-        expect(second.sessions[0].id).toBe("s3");
+        expect(second.sessions[0]!.id).toBe("s3");
     });
 
     it("returns empty when file unchanged (same size)", () => {
@@ -203,15 +208,15 @@ describe("read_costs_jsonl", () => {
 
         const second = read_costs_jsonl(jsonl_path, "win", saved, saved);
         expect(second.sessions).toHaveLength(1);
-        expect(second.sessions[0].id).toBe("s2");
+        expect(second.sessions[0]!.id).toBe("s2");
     });
 
     it("defaults missing cache tokens to 0", () => {
         write(line("s1", "claude-sonnet-4-20250514", 100, 50, T1) + "\n");
 
         const result = read_costs_jsonl(jsonl_path, "win", 0, 0);
-        expect(result.sessions[0].cache_read_tokens).toBe(0);
-        expect(result.sessions[0].cache_write_tokens).toBe(0);
+        expect(result.sessions[0]!.cache_read_tokens).toBe(0);
+        expect(result.sessions[0]!.cache_write_tokens).toBe(0);
     });
 
     it("reads cache tokens when present", () => {
@@ -223,14 +228,308 @@ describe("read_costs_jsonl", () => {
         );
 
         const result = read_costs_jsonl(jsonl_path, "win", 0, 0);
-        expect(result.sessions[0].cache_read_tokens).toBe(500);
-        expect(result.sessions[0].cache_write_tokens).toBe(300);
+        expect(result.sessions[0]!.cache_read_tokens).toBe(500);
+        expect(result.sessions[0]!.cache_write_tokens).toBe(300);
     });
 
     it("propagates env parameter", () => {
         write(line("s1", "claude-sonnet-4-20250514", 100, 50, T1) + "\n");
 
         const result = read_costs_jsonl(jsonl_path, "wsl", 0, 0);
-        expect(result.sessions[0].env).toBe("wsl");
+        expect(result.sessions[0]!.env).toBe("wsl");
+    });
+});
+
+// --- scan_session_jsonls ---
+
+function session_line(type: string, timestamp: string, extras: Record<string, unknown> = {}) {
+    return JSON.stringify({ type, timestamp, ...extras });
+}
+
+function assistant_line(timestamp: string, model: string) {
+    return session_line("assistant", timestamp, {
+        message: { model, usage: { input_tokens: 10, output_tokens: 5 } },
+    });
+}
+
+describe("scan_session_jsonls", () => {
+    let projects_dir: string;
+
+    beforeEach(() => {
+        projects_dir = fs.mkdtempSync(path.join(os.tmpdir(), "claude-projects-"));
+    });
+
+    afterEach(() => {
+        fs.rmSync(projects_dir, { recursive: true, force: true });
+    });
+
+    function write_session(rel: string, lines: string[]) {
+        const full = path.join(projects_dir, rel);
+        fs.mkdirSync(path.dirname(full), { recursive: true });
+        fs.writeFileSync(full, lines.join("\n") + "\n", "utf-8");
+    }
+
+    it("parses calls, title, directory, model, token sums and time range", () => {
+        write_session("proj-a/sess-1.jsonl", [
+            session_line("user", T1, {
+                cwd: "D:\\proj\\a",
+                message: { content: "hello world" },
+            }),
+            assistant_line(T2, "claude-sonnet-4-20250514"),
+            assistant_line(T3, "claude-sonnet-4-20250514"),
+        ]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        expect(result.sessions).toHaveLength(1);
+        const s = result.sessions[0]!;
+        expect(s.id).toBe("sess-1");
+        expect(s.calls).toBe(2);
+        expect(s.title).toBe("hello world");
+        expect(s.directory).toBe("D:\\proj\\a");
+        expect(s.model).toBe("claude-sonnet-4-20250514");
+        expect(s.started_at).toBe(E1);
+        expect(s.ended_at).toBe(E3);
+        // Token sums come from per-call usage (2 calls × 10 in / 5 out)
+        expect(s.input_tokens).toBe(20);
+        expect(s.output_tokens).toBe(10);
+        expect(result.new_state.mtimes.size).toBe(1);
+    });
+
+    it("emits per-day usage rows grouped by UTC date and model", () => {
+        write_session("proj-a/sess-1.jsonl", [
+            assistant_line("2026-07-10T10:00:00.000Z", "sonnet"),
+            assistant_line("2026-07-10T23:30:00.000Z", "sonnet"),
+            assistant_line("2026-07-11T10:00:00.000Z", "opus"),
+        ]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        expect(result.daily).toHaveLength(2);
+        const d1 = result.daily.find((d) => d.model === "sonnet")!;
+        const d2 = result.daily.find((d) => d.model === "opus")!;
+        expect(d1.calls).toBe(2);
+        expect(d1.input_tokens).toBe(20);
+        expect(d1.date).toBe("2026-07-10");
+        expect(d2.calls).toBe(1);
+        expect(d2.date).toBe("2026-07-11");
+        expect(d1.id).toBe("sess-1");
+        expect(d1.source).toBe("claude_code");
+    });
+
+    it("dedups byte-identical records but keeps distinct calls with identical usage", () => {
+        const dup = assistant_line(T2, "sonnet");
+        const same_usage_different_request = session_line("assistant", T2, {
+            requestId: "req-other",
+            message: { model: "sonnet", usage: { input_tokens: 10, output_tokens: 5 } },
+        });
+        write_session("proj-a/sess-1.jsonl", [
+            assistant_line(T1, "sonnet"),
+            dup,
+            dup, // exact duplicate line — counted once
+            same_usage_different_request, // distinct call with same ts+usage — counted
+        ]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(result.sessions[0]!.calls).toBe(3);
+        expect(result.sessions[0]!.input_tokens).toBe(30);
+        expect(result.daily[0]!.calls).toBe(3);
+    });
+
+    it("prefers sessionId from records over the filename", () => {
+        write_session("proj-a/file-name.jsonl", [
+            session_line("assistant", T1, {
+                sessionId: "real-session-id",
+                message: { model: "m", usage: { input_tokens: 1, output_tokens: 1 } },
+            }),
+        ]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(result.sessions[0]!.id).toBe("real-session-id");
+        expect(result.daily[0]!.id).toBe("real-session-id");
+    });
+
+    it("prefers summary line title over first user text", () => {
+        write_session("proj-a/sess-2.jsonl", [
+            session_line("summary", T1, { summary: "Real title" }),
+            session_line("user", T2, { message: { content: "user text" } }),
+            assistant_line(T3, "m"),
+        ]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(result.sessions[0]!.title).toBe("Real title");
+    });
+
+    it("extracts user text from array content blocks", () => {
+        write_session("proj-a/sess-3.jsonl", [
+            session_line("user", T1, {
+                message: { content: [{ type: "text", text: "array content title" }] },
+            }),
+            assistant_line(T2, "m"),
+        ]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(result.sessions[0]!.title).toBe("array content title");
+    });
+
+    it("skips unchanged files by mtime on rescan", () => {
+        write_session("proj-a/sess-4.jsonl", [assistant_line(T1, "m")]);
+
+        const first = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(first.sessions).toHaveLength(1);
+
+        const second = scan_session_jsonls(projects_dir, "win", first.new_state);
+        expect(second.sessions).toHaveLength(0);
+        expect(second.new_state.mtimes.size).toBe(1);
+    });
+
+    it("recounts in full when a file changes (store REPLACEs)", () => {
+        write_session("proj-a/sess-5.jsonl", [assistant_line(T1, "m")]);
+
+        const first = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(first.sessions[0]!.calls).toBe(1);
+
+        // Append another call — mtime changes
+        const file = path.join(projects_dir, "proj-a", "sess-5.jsonl");
+        fs.appendFileSync(file, assistant_line(T2, "m") + "\n", "utf-8");
+        // Ensure mtime differs even on coarse filesystems
+        const future = new Date(Date.now() + 5000);
+        fs.utimesSync(file, future, future);
+
+        const second = scan_session_jsonls(projects_dir, "win", first.new_state);
+        expect(second.sessions).toHaveLength(1);
+        expect(second.sessions[0]!.calls).toBe(2);
+    });
+
+    it("scans nested project dirs and skips non-jsonl files", () => {
+        write_session("proj-a/sess-6.jsonl", [assistant_line(T1, "m")]);
+        write_session("proj-b/deep/sess-7.jsonl", [assistant_line(T1, "m")]);
+        write_session("proj-a/notes.txt", [assistant_line(T1, "m")]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(result.sessions.map((s) => s.id).sort()).toEqual(["sess-6", "sess-7"]);
+    });
+
+    it("skips <synthetic> assistant records (not real API calls)", () => {
+        write_session("proj-a/sess-syn.jsonl", [
+            session_line("user", T1, { message: { content: "hi" } }),
+            assistant_line(T2, "<synthetic>"),
+            assistant_line(T3, "claude-sonnet-4-20250514"),
+        ]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(result.sessions[0]!.calls).toBe(1);
+        expect(result.sessions[0]!.model).toBe("claude-sonnet-4-20250514");
+    });
+
+    it("skips files with no timestamps and malformed lines", () => {
+        write_session("proj-a/empty.jsonl", ["not json", ""]);
+        write_session("proj-a/ok.jsonl", ["bad json {{{", assistant_line(T1, "m")]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(result.sessions).toHaveLength(1);
+        expect(result.sessions[0]!.id).toBe("ok");
+    });
+
+    it("returns empty when the directory does not exist", () => {
+        const result = scan_session_jsonls(
+            path.join(projects_dir, "does-not-exist"),
+            "win",
+            create_session_scan_state(),
+        );
+        expect(result.sessions).toEqual([]);
+        expect(result.new_state.mtimes.size).toBe(0);
+    });
+
+    // Regression: subagent transcripts (<id>/subagents/agent-*.jsonl) carry the
+    // parent sessionId. Per-file rows keyed by sessionId made the store's
+    // REPLACE clobber sibling files, undercounting tokens (~3x in the wild).
+    it("merges subagent files sharing a sessionId into one session", () => {
+        write_session("proj-a/sess-9.jsonl", [
+            session_line("user", T1, { cwd: "/work/a", message: { content: "main session" } }),
+            assistant_line(T2, "sonnet"),
+        ]);
+        write_session("proj-a/sess-9/subagents/agent-aaa.jsonl", [
+            session_line("assistant", T2, {
+                sessionId: "sess-9",
+                message: { model: "sonnet", usage: { input_tokens: 100, output_tokens: 50 } },
+            }),
+        ]);
+        write_session("proj-a/sess-9/subagents/agent-bbb.jsonl", [
+            session_line("assistant", T3, {
+                sessionId: "sess-9",
+                message: { model: "sonnet", usage: { input_tokens: 200, output_tokens: 60 } },
+            }),
+        ]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        expect(result.sessions).toHaveLength(1);
+        const s = result.sessions[0]!;
+        expect(s.id).toBe("sess-9");
+        expect(s.calls).toBe(3);
+        expect(s.input_tokens).toBe(310); // 10 + 100 + 200
+        expect(s.output_tokens).toBe(115); // 5 + 50 + 60
+        expect(s.title).toBe("main session"); // main transcript wins over agent prompts
+        expect(s.directory).toBe("/work/a");
+
+        expect(result.daily).toHaveLength(1);
+        expect(result.daily[0]!.id).toBe("sess-9");
+        expect(result.daily[0]!.input_tokens).toBe(310);
+        expect(result.daily[0]!.calls).toBe(3);
+    });
+
+    it("re-merges the whole session when only a subagent file changes", () => {
+        write_session("proj-a/sess-10.jsonl", [assistant_line(T1, "sonnet")]);
+        const agent = "proj-a/sess-10/subagents/agent-aaa.jsonl";
+        write_session(agent, [
+            session_line("assistant", T2, {
+                sessionId: "sess-10",
+                message: { model: "sonnet", usage: { input_tokens: 100, output_tokens: 50 } },
+            }),
+        ]);
+
+        const first = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(first.sessions[0]!.input_tokens).toBe(110);
+
+        // Append to the agent file only: the re-emitted row must still carry
+        // the main file's tokens, or the store's REPLACE would drop them.
+        const full = path.join(projects_dir, agent);
+        fs.appendFileSync(
+            full,
+            session_line("assistant", T3, {
+                sessionId: "sess-10",
+                message: { model: "sonnet", usage: { input_tokens: 5, output_tokens: 1 } },
+            }) + "\n",
+            "utf-8",
+        );
+        const future = new Date(Date.now() + 5000);
+        fs.utimesSync(full, future, future);
+
+        const second = scan_session_jsonls(projects_dir, "win", first.new_state);
+        expect(second.sessions).toHaveLength(1);
+        expect(second.sessions[0]!.input_tokens).toBe(115); // 10 + 100 + 5
+        expect(second.daily[0]!.input_tokens).toBe(115);
+    });
+
+    it("re-merges when a session file is deleted", () => {
+        write_session("proj-a/sess-11.jsonl", [assistant_line(T1, "sonnet")]);
+        const agent = "proj-a/sess-11/subagents/agent-aaa.jsonl";
+        write_session(agent, [
+            session_line("assistant", T2, {
+                sessionId: "sess-11",
+                message: { model: "sonnet", usage: { input_tokens: 100, output_tokens: 50 } },
+            }),
+        ]);
+
+        const first = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+        expect(first.sessions[0]!.input_tokens).toBe(110);
+
+        fs.rmSync(path.join(projects_dir, agent));
+
+        const second = scan_session_jsonls(projects_dir, "win", first.new_state);
+        expect(second.sessions).toHaveLength(1);
+        expect(second.sessions[0]!.input_tokens).toBe(10); // main transcript only
+        expect(second.daily[0]!.input_tokens).toBe(10);
     });
 });

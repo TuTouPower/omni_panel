@@ -122,6 +122,13 @@ describe("PopupView mirror isolation", () => {
                 logout: vi.fn(),
                 refresh: vi.fn(),
             },
+            tokenStats: {
+                open: vi.fn(),
+                getBuckets: vi.fn().mockResolvedValue([]),
+                getSessions: vi.fn().mockResolvedValue([]),
+                getStatus: vi.fn().mockResolvedValue({ running: false, last_updated: null }),
+                onUpdated: vi.fn(() => vi.fn()),
+            },
             logs: { export: vi.fn() },
             log: vi.fn(),
         };

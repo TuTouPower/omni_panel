@@ -472,7 +472,7 @@ describe("SettingsForm cookie login", () => {
         await act(async () => {
             await Promise.resolve();
         });
-        const input = screen.getByLabelText("API Key");
+        const input = screen.getByLabelText<HTMLInputElement>("API Key");
         expect(input.value).toBe("sk-loaded-secret");
         expect(input.type).toBe("password");
         expect(input.value).toHaveLength("sk-loaded-secret".length);
