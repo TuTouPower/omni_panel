@@ -7,6 +7,13 @@ import type {
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
 import type { TokenStatsBucket, TokenStatsSession } from "./token-stats";
+
+export interface TokenStatsStatus {
+    /** Whether the collector utility process is alive. */
+    running: boolean;
+    /** Latest session upsert time (ms epoch), null when no data yet. */
+    last_updated: number | null;
+}
 export type { AppConfiguration } from "./config";
 
 export const IPC_CHANNELS = {
@@ -77,6 +84,7 @@ export const IPC_CHANNELS = {
     /** Token stats */
     TOKEN_STATS_BUCKETS: "tokenStats:buckets",
     TOKEN_STATS_SESSIONS: "tokenStats:sessions",
+    TOKEN_STATS_STATUS: "tokenStats:status",
     TOKEN_STATS_UPDATED: "tokenStats:updated",
     TOKEN_STATS_OPEN: "tokenStats:open",
 
@@ -330,5 +338,7 @@ export interface UsageboardApi {
             limit?: number;
             offset?: number;
         }): Promise<TokenStatsSession[]>;
+        getStatus(): Promise<TokenStatsStatus>;
+        onUpdated(callback: () => void): () => void;
     };
 }

@@ -90,14 +90,35 @@ const token_stats_methods = {
         env?: string;
         from_date?: string;
         to_date?: string;
-    }) => invoke<unknown[]>(IPC_CHANNELS.TOKEN_STATS_BUCKETS, filters),
+    }) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getBuckets"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_BUCKETS,
+            filters,
+        ),
     getSessions: (filters?: {
         source?: string;
         env?: string;
         search?: string;
         limit?: number;
         offset?: number;
-    }) => invoke<unknown[]>(IPC_CHANNELS.TOKEN_STATS_SESSIONS, filters),
+    }) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getSessions"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_SESSIONS,
+            filters,
+        ),
+    getStatus: () =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getStatus"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_STATUS,
+        ),
+    onUpdated: (callback: () => void) => {
+        const listener = () => {
+            callback();
+        };
+        ipcRenderer.on(IPC_CHANNELS.TOKEN_STATS_UPDATED, listener);
+        return () => {
+            ipcRenderer.removeListener(IPC_CHANNELS.TOKEN_STATS_UPDATED, listener);
+        };
+    },
 };
 
 // Read-only config (popup, tray)

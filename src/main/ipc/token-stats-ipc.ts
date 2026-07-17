@@ -1,9 +1,15 @@
 import type { IpcMain } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
+import type { TokenStatsStatus } from "../../shared/types/ipc";
 import type { TokenStatsBucket, TokenStatsSession } from "../../shared/types/token-stats";
+import { ok, type IpcResult } from "./helpers";
 import type { TokenStatsStore } from "../core/token-stats/token-stats-store";
+import type { TokenStatsManager } from "../core/token-stats/manager";
 
-export function registerTokenStatsIpc(ipc: IpcMain, deps: { store: TokenStatsStore }): void {
+export function registerTokenStatsIpc(
+    ipc: IpcMain,
+    deps: { store: TokenStatsStore; manager: TokenStatsManager },
+): void {
     ipc.handle(
         IPC_CHANNELS.TOKEN_STATS_BUCKETS,
         (
@@ -14,8 +20,8 @@ export function registerTokenStatsIpc(ipc: IpcMain, deps: { store: TokenStatsSto
                 from_date?: string;
                 to_date?: string;
             },
-        ): TokenStatsBucket[] => {
-            return deps.store.query_buckets(filters ?? {});
+        ): IpcResult<TokenStatsBucket[]> => {
+            return ok(deps.store.query_buckets(filters ?? {}));
         },
     );
 
@@ -30,8 +36,15 @@ export function registerTokenStatsIpc(ipc: IpcMain, deps: { store: TokenStatsSto
                 limit?: number;
                 offset?: number;
             },
-        ): TokenStatsSession[] => {
-            return deps.store.query_sessions(filters ?? {});
+        ): IpcResult<TokenStatsSession[]> => {
+            return ok(deps.store.query_sessions(filters ?? {}));
         },
     );
+
+    ipc.handle(IPC_CHANNELS.TOKEN_STATS_STATUS, (): IpcResult<TokenStatsStatus> => {
+        return ok({
+            running: deps.manager.is_running(),
+            last_updated: deps.store.last_updated(),
+        });
+    });
 }
