@@ -37,17 +37,21 @@ export function create_web_usageboard(): UsageboardApi {
     const api = {
         platform: "win32" as const,
         connector: {
-            list: () => Promise.resolve([] as unknown[]),
-            getState: () => Promise.resolve({ status: "idle" as const }),
-            refresh: () => Promise.resolve(),
-            refreshAll: () => Promise.resolve(),
+            list: () => get_json("/v1/connectors"),
+            getState: (instanceId: string) =>
+                get_json(`/v1/connectors/${encodeURIComponent(instanceId)}/state`),
+            refresh: (instanceId: string) =>
+                post_json(`/v1/connectors/${encodeURIComponent(instanceId)}/refresh`, {}),
+            refreshAll: () => post_json("/v1/connectors", {}),
             snapshot: () => Promise.resolve({}),
         },
         plugin: {
-            list: () => Promise.resolve([] as unknown[]),
-            getState: () => Promise.resolve({ status: "idle" as const }),
-            refresh: () => Promise.resolve(),
-            refreshAll: () => Promise.resolve(),
+            list: () => get_json("/v1/connectors"),
+            getState: (instanceId: string) =>
+                get_json(`/v1/connectors/${encodeURIComponent(instanceId)}/state`),
+            refresh: (instanceId: string) =>
+                post_json(`/v1/connectors/${encodeURIComponent(instanceId)}/refresh`, {}),
+            refreshAll: () => post_json("/v1/connectors", {}),
         },
         config: {
             get: () => get_json("/v1/config"),
@@ -72,7 +76,16 @@ export function create_web_usageboard(): UsageboardApi {
         popup: { report_content_height: noop },
         main_panel: { hide: noop, get_mode: () => Promise.resolve("popup" as const) },
         theme: { set: noop },
-        settings: { open: noop, minimize: noop, maximize: noop, close: noop },
+        settings: {
+            open: () => {
+                window.location.hash = "settings";
+            },
+            minimize: noop,
+            maximize: noop,
+            close: () => {
+                window.location.hash = "popup";
+            },
+        },
         tray: {
             open_panel: noop,
             refresh_all: noop,
@@ -107,7 +120,9 @@ export function create_web_usageboard(): UsageboardApi {
             console.debug("[usageboard]", payload);
         },
         tokenStats: {
-            open: noop,
+            open: () => {
+                window.location.hash = "tokenStats";
+            },
             getBuckets: () => get_json("/v1/buckets"),
             getSessions: () => get_json("/v1/sessions"),
             getRecords: () => get_json("/v1/records"),

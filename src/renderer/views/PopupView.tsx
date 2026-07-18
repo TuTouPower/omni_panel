@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type CSSProperties } from "react";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { use_plugins } from "../hooks/use-plugins";
+import { is_web } from "../lib/is-web";
 import { use_popup_height_report } from "../hooks/use-popup-height-report";
 import { useNowTick } from "../hooks/use-now-tick";
 import { usePopupUiConfig } from "../hooks/use-popup-ui-config";
@@ -588,6 +589,17 @@ export function PopupView() {
                         >
                             <Icon name="gear" size={18} />
                         </button>
+                        {is_web() && (
+                            <button
+                                className="icon-btn"
+                                title="代理面板"
+                                onClick={() => {
+                                    window.usageboard.tokenStats.open();
+                                }}
+                            >
+                                <Icon name="chart" size={18} />
+                            </button>
+                        )}
                         {is_live && main_panel_mode === "floating" && (
                             <button
                                 className="icon-btn floating-close-btn"
