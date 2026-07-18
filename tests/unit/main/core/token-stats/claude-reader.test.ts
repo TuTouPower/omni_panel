@@ -346,11 +346,11 @@ describe("scan_session_jsonls", () => {
         expect(r1.cache_write_tokens).toBe(0);
     });
 
-    it("emits per-day usage rows grouped by UTC date and model", () => {
+    it("emits per-day usage rows grouped by local date and model", () => {
         write_session("proj-a/sess-1.jsonl", [
+            assistant_line("2026-07-10T02:00:00.000Z", "sonnet"),
             assistant_line("2026-07-10T10:00:00.000Z", "sonnet"),
-            assistant_line("2026-07-10T23:30:00.000Z", "sonnet"),
-            assistant_line("2026-07-11T10:00:00.000Z", "opus"),
+            assistant_line("2026-07-11T02:00:00.000Z", "opus"),
         ]);
 
         const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());

@@ -241,12 +241,13 @@ function extract_user_text(message: unknown): string | null {
 }
 
 /**
- * UTC calendar date (YYYY-MM-DD). Claude Code's own /stats buckets usage by
- * UTC day — verified against live data (per-day and per-model totals match
- * only when bucketing by UTC, not collector-local time).
+ * Local calendar date (YYYY-MM-DD) using the system timezone, so per-day
+ * bucketing matches the user's local day (what they see in Claude Code /stats).
  */
-function utc_date_of(ts: number): string {
-    return new Date(ts).toISOString().slice(0, 10);
+function calendar_date_of(ts: number): string {
+    const d = new Date(ts);
+    const pad = (x: number) => String(x).padStart(2, "0");
+    return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function num(v: unknown): number {
@@ -348,7 +349,7 @@ function parse_session_file(content: string, env: TokenStatsEnv): SessionFileFac
                     model = rec_model;
                 }
                 if (ts !== null && rec_model !== "") {
-                    const date = utc_date_of(ts);
+                    const date = calendar_date_of(ts);
                     const key = `${date}|${rec_model}`;
                     const entry = daily.get(key) ?? {
                         date,

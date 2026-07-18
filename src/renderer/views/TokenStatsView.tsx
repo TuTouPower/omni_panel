@@ -156,11 +156,7 @@ export function TokenStatsView() {
     );
 
     const prevRecords = useMemo(
-        () =>
-            filtered(prevRangeRecords(agentFiltered, currentRange), {
-                agent: "all",
-                ...currentRange,
-            }),
+        () => prevRangeRecords(agentFiltered, currentRange),
         [agentFiltered, currentRange],
     );
 

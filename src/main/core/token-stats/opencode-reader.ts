@@ -117,8 +117,10 @@ function num(v: unknown): number {
 }
 
 /** UTC calendar date (YYYY-MM-DD) — matches Claude Code /stats bucketing. */
-function utc_date_of(ts: number): string {
-    return new Date(ts).toISOString().slice(0, 10);
+function calendar_date_of(ts: number): string {
+    const d = new Date(ts);
+    const pad = (x: number) => String(x).padStart(2, "0");
+    return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /**
@@ -245,7 +247,7 @@ function query_sessions(
                     part_row.session_id,
                     (calls_by_session.get(part_row.session_id) ?? 0) + 1,
                 );
-                const date = utc_date_of(part_row.time_created);
+                const date = calendar_date_of(part_row.time_created);
                 const key = `${part_row.session_id}|${date}|${model_id}`;
                 const entry = daily_by_key.get(key) ?? {
                     id: part_row.session_id,
