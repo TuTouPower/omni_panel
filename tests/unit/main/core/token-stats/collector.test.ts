@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mock_read_costs = vi.fn();
 const mock_scan_jsonls = vi.fn();
 const mock_read_opencode_sessions = vi.fn();
+const mock_scan_kimi = vi.fn();
 
 vi.mock("../../../../../src/main/core/token-stats/claude-reader", () => ({
     read_costs_jsonl: (...args: unknown[]) => mock_read_costs(...args),
@@ -14,6 +15,10 @@ vi.mock("../../../../../src/main/core/token-stats/claude-reader", () => ({
 }));
 vi.mock("../../../../../src/main/core/token-stats/opencode-reader", () => ({
     read_opencode_sessions: (...args: unknown[]) => mock_read_opencode_sessions(...args),
+}));
+vi.mock("../../../../../src/main/core/token-stats/kimi-reader", () => ({
+    scan_kimi_wire_jsonls: (...args: unknown[]) => mock_scan_kimi(...args),
+    create_kimi_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
 }));
 
 // Mock Electron's utilityProcess parentPort (must exist before collector import)
@@ -34,6 +39,8 @@ import {
     claude_costs_path,
     claude_projects_path,
     opencode_path,
+    kimi_sessions_path,
+    kimi_index_path,
     effective_wsl_user,
 } from "../../../../../src/main/core/token-stats/collector";
 import type {
@@ -116,6 +123,12 @@ describe("collector", () => {
             new_state: { mtimes: new Map(), files: new Map() },
         });
         mock_read_opencode_sessions.mockReturnValue({ sessions: [], daily: [], records: [] });
+        mock_scan_kimi.mockReturnValue({
+            sessions: [],
+            daily: [],
+            records: [],
+            new_state: { mtimes: new Map(), files: new Map() },
+        });
     });
 
     describe("path builders", () => {
@@ -152,6 +165,27 @@ describe("collector", () => {
         it("builds WSL OpenCode path", () => {
             expect(opencode_path(wsl_config, "wsl")).toBe(
                 "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.local\\share\\opencode\\opencode.db",
+            );
+        });
+
+        it("builds Win Kimi sessions path", () => {
+            expect(kimi_sessions_path(base_config, "win")).toBe(
+                "C:\\Users\\Test\\.kimi-code\\sessions",
+            );
+        });
+
+        it("builds WSL Kimi sessions path", () => {
+            expect(kimi_sessions_path(wsl_config, "wsl")).toBe(
+                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.kimi-code\\sessions",
+            );
+        });
+
+        it("builds Kimi session_index path", () => {
+            expect(kimi_index_path(base_config, "win")).toBe(
+                "C:\\Users\\Test\\.kimi-code\\session_index.jsonl",
+            );
+            expect(kimi_index_path(wsl_config, "wsl")).toBe(
+                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.kimi-code\\session_index.jsonl",
             );
         });
     });
@@ -212,6 +246,12 @@ describe("collector", () => {
                 daily: [],
                 records: [record({ message_id: "oc-r1", agent: "opencode" })],
             });
+            mock_scan_kimi.mockReturnValue({
+                sessions: [upsert({ id: "k1", source: "kimi_code" })],
+                daily: [],
+                records: [record({ message_id: "kimi-r1", agent: "kimi-code" })],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
 
             configure(base_config);
 
@@ -223,12 +263,16 @@ describe("collector", () => {
                 records: AgentSessionUsage[];
             };
             expect(update.type).toBe("token_stats_update");
-            expect(update.sessions).toHaveLength(3);
+            expect(update.sessions).toHaveLength(4);
             expect(update.daily).toHaveLength(1);
             expect(update.daily[0]!.id).toBe("c1");
             // costs.jsonl carries cumulative snapshots, not per-message records
-            expect(update.records).toHaveLength(2);
-            expect(update.records.map((r) => r.message_id).sort()).toEqual(["jsonl-r1", "oc-r1"]);
+            expect(update.records).toHaveLength(3);
+            expect(update.records.map((r) => r.message_id).sort()).toEqual([
+                "jsonl-r1",
+                "kimi-r1",
+                "oc-r1",
+            ]);
         });
 
         it("tracks incremental state per source kind", () => {
@@ -303,6 +347,7 @@ describe("collector", () => {
             expect(mock_read_costs).toHaveBeenCalledTimes(1);
             expect(mock_scan_jsonls).toHaveBeenCalledTimes(1);
             expect(mock_read_opencode_sessions).toHaveBeenCalledTimes(1);
+            expect(mock_scan_kimi).toHaveBeenCalledTimes(1);
             expect(mock_read_costs).toHaveBeenCalledWith(
                 expect.stringContaining("Users"),
                 "win",
@@ -314,7 +359,12 @@ describe("collector", () => {
         it("reads WSL sources when wsl_enabled=true", () => {
             configure(wsl_config);
 
-            for (const mock of [mock_read_costs, mock_scan_jsonls, mock_read_opencode_sessions]) {
+            for (const mock of [
+                mock_read_costs,
+                mock_scan_jsonls,
+                mock_read_opencode_sessions,
+                mock_scan_kimi,
+            ]) {
                 expect(mock).toHaveBeenCalledTimes(2);
                 const wsl_call = mock.mock.calls.find((c: unknown[]) =>
                     String(c[0]).includes("wsl.localhost"),

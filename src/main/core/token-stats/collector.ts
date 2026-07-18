@@ -10,6 +10,8 @@ import type {
 import { read_costs_jsonl, scan_session_jsonls, create_session_scan_state } from "./claude-reader";
 import type { SessionScanState } from "./claude-reader";
 import { read_opencode_sessions } from "./opencode-reader";
+import { scan_kimi_wire_jsonls, create_kimi_scan_state } from "./kimi-reader";
+import type { KimiScanState } from "./kimi-reader";
 
 // --- Constants ---
 
@@ -25,7 +27,7 @@ interface CostsState {
 interface SourceDef {
     key: string;
     source: TokenStatsSource;
-    kind: "costs" | "session_jsonl" | "opencode_db";
+    kind: "costs" | "session_jsonl" | "opencode_db" | "kimi_jsonl";
     env: TokenStatsEnv;
     wsl: boolean;
 }
@@ -50,6 +52,7 @@ let interval_id: ReturnType<typeof setInterval> | null = null;
 const costs_state = new Map<string, CostsState>();
 const opencode_max_updated = new Map<string, number>();
 const jsonl_states = new Map<string, SessionScanState>();
+const kimi_states = new Map<string, KimiScanState>();
 
 const sources: SourceDef[] = [
     { key: "claude_costs_win", source: "claude_code", kind: "costs", env: "win", wsl: false },
@@ -61,6 +64,7 @@ const sources: SourceDef[] = [
         wsl: false,
     },
     { key: "opencode_win", source: "opencode", kind: "opencode_db", env: "win", wsl: false },
+    { key: "kimi_win", source: "kimi_code", kind: "kimi_jsonl", env: "win", wsl: false },
     { key: "claude_costs_wsl", source: "claude_code", kind: "costs", env: "wsl", wsl: true },
     {
         key: "claude_jsonl_wsl",
@@ -70,6 +74,7 @@ const sources: SourceDef[] = [
         wsl: true,
     },
     { key: "opencode_wsl", source: "opencode", kind: "opencode_db", env: "wsl", wsl: true },
+    { key: "kimi_wsl", source: "kimi_code", kind: "kimi_jsonl", env: "wsl", wsl: true },
 ];
 
 // --- Path builders ---
@@ -124,6 +129,21 @@ function opencode_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
     return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.local\\share\\opencode\\opencode.db`;
 }
 
+function kimi_base(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
+    if (env === "win") {
+        return `${cfg.win_home}\\.kimi-code`;
+    }
+    return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.kimi-code`;
+}
+
+function kimi_sessions_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
+    return `${kimi_base(cfg, env)}\\sessions`;
+}
+
+function kimi_index_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
+    return `${kimi_base(cfg, env)}\\session_index.jsonl`;
+}
+
 // --- Source readers ---
 
 interface SourceReadResult {
@@ -149,6 +169,17 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceReadResult {
             const state = jsonl_states.get(src.key) ?? create_session_scan_state();
             const result = scan_session_jsonls(claude_projects_path(cfg, src.env), src.env, state);
             jsonl_states.set(src.key, result.new_state);
+            return { sessions: result.sessions, daily: result.daily, records: result.records };
+        }
+        if (src.kind === "kimi_jsonl") {
+            const state = kimi_states.get(src.key) ?? create_kimi_scan_state();
+            const result = scan_kimi_wire_jsonls(
+                kimi_sessions_path(cfg, src.env),
+                src.env,
+                kimi_index_path(cfg, src.env),
+                state,
+            );
+            kimi_states.set(src.key, result.new_state);
             return { sessions: result.sessions, daily: result.daily, records: result.records };
         }
         const max_updated = opencode_max_updated.get(src.key) ?? 0;
@@ -229,6 +260,7 @@ function reset_config(): void {
     costs_state.clear();
     opencode_max_updated.clear();
     jsonl_states.clear();
+    kimi_states.clear();
     wsl_user_cache = null;
     if (interval_id) {
         clearInterval(interval_id);
@@ -267,5 +299,7 @@ export {
     claude_costs_path,
     claude_projects_path,
     opencode_path,
+    kimi_sessions_path,
+    kimi_index_path,
     effective_wsl_user,
 };

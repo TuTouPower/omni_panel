@@ -2,7 +2,7 @@ import { z } from "zod/v3";
 
 // --- Enums ---
 
-export const tokenStatsSourceSchema = z.enum(["claude_code", "opencode"]);
+export const tokenStatsSourceSchema = z.enum(["claude_code", "opencode", "kimi_code"]);
 export const tokenStatsEnvSchema = z.enum(["win", "wsl"]);
 
 // --- Stored row schemas (query results) ---
@@ -82,7 +82,7 @@ export const agentSessionUsageSchema = z.object({
     output_tokens: z.number().int().nonnegative().default(0),
     cache_read_tokens: z.number().int().nonnegative().default(0),
     cache_write_tokens: z.number().int().nonnegative().default(0),
-    agent: z.enum(["claude-code", "opencode"]),
+    agent: z.enum(["claude-code", "opencode", "kimi-code"]),
 });
 
 export type AgentSessionUsage = z.infer<typeof agentSessionUsageSchema>;

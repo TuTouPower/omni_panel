@@ -2,12 +2,12 @@
 
 # AI CLI Token / Session 统计面板
 
-> 范围：Claude Code + OpenCode，Win + WSL 双环境。
+> 范围：Claude Code + OpenCode + Kimi Code，Win + WSL 双环境。
 > 前端设计参考：`ai-cli-token-stats-frontend-design.md`（独立设计文档，本 spec 定义数据采集与集成方案）。
 
 ## 1. 一句话定位
 
-新增**本地 AI CLI Token 统计**能力：通过独立子进程定时读取 Claude Code 和 OpenCode 的本地数据文件，聚合后在独立窗口展示 token 趋势与 session 列表。**只读**——绝不修改源数据。
+新增**本地 AI CLI Token 统计**能力：通过独立子进程定时读取 Claude Code、OpenCode、Kimi Code 的本地数据文件，聚合后在独立窗口展示 token 趋势与 session 列表。**只读**——绝不修改源数据。
 
 **与现有功能的区别**：
 
@@ -21,7 +21,7 @@
 
 ## 2. 数据源（只读约束）
 
-**核心约束**：所有源数据文件只读访问。子进程绝不修改 Claude Code / OpenCode 的任何文件（JSONL、SQLite、WAL、SHM）。读取 SQLite 时使用 `mode: readonly` 打开。
+**核心约束**：所有源数据文件只读访问。子进程绝不修改 Claude Code / OpenCode / Kimi Code 的任何文件（JSONL、SQLite、WAL、SHM）。读取 SQLite 时使用 `mode: readonly` 打开。
 
 ### 2.1 Claude Code
 
@@ -54,7 +54,20 @@
 
 **Win/WSL 差异**：两份独立 SQLite，需分别读取。打开时使用 `mode: readonly`，避免锁竞争。
 
-### 2.3 Grok Build（本版不做）
+### 2.3 Kimi Code
+
+| 数据              | 格式       | Win 路径                                                                  | WSL 路径                                                      |
+| ----------------- | ---------- | ------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 每次 API 调用明细 | wire JSONL | `%USERPROFILE%\.kimi-code\sessions\{ws}\{session}\agents\main\wire.jsonl` | `~/.kimi-code/sessions/{ws}/{session}/agents/main/wire.jsonl` |
+| session→目录映射  | JSONL      | `%USERPROFILE%\.kimi-code\session_index.jsonl`                            | `~/.kimi-code/session_index.jsonl`                            |
+
+**wire.jsonl**：`type: "usage.record"` 且 `usageScope: "turn"` 的行含逐回合 token——`usage.inputOther`→input、`usage.output`→output、`usage.inputCacheRead`→cache_read、`usage.inputCacheCreation`→cache_write，附 `model` 与 `time`（epoch ms）。`usageScope: "session"` 是 session 结束聚合，忽略以免双算。
+
+**session_index.jsonl**：每行 `{sessionId, sessionDir, workDir}`，提供 session→工作目录映射。
+
+**Win/WSL 差异**：两份独立目录，分别读取。
+
+### 2.4 Grok Build（本版不做）
 
 本地 token 用量文件待确认（`signals.json` 实测不存在）。留后续扩展入口。
 
@@ -77,6 +90,7 @@ src/main/core/token-stats/
 ├── collector.ts          # 子进程入口（被 fork）
 ├── claude-reader.ts      # costs.jsonl + session JSONL 读取
 ├── opencode-reader.ts    # opencode.db 只读查询
+├── kimi-reader.ts        # Kimi Code wire.jsonl + session_index 读取
 ├── aggregator.ts         # 按模型/天聚合
 ├── types.ts              # 共享类型定义
 └── manager.ts            # 主进程侧：fork / 生命周期 / IPC 接收
