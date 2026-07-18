@@ -274,18 +274,12 @@
 }
 
 .token-stats .card h3.bar-chart-header {
-    justify-content: flex-end;
+    justify-content: space-between;
+    flex-wrap: nowrap;
 }
 
 .token-stats .bar-chart-wrap {
     position: relative;
-}
-
-.token-stats .bar-metric {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 10;
 }
 
 .token-stats .delta {

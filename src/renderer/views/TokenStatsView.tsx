@@ -399,6 +399,14 @@ export function TokenStatsView() {
                     <div className="grid">
                         <div className="card span-8">
                             <h3 className="bar-chart-header">
+                                <Segmented
+                                    options={METRIC_OPTIONS}
+                                    value={metric}
+                                    onChange={(v) => {
+                                        handleMetricChange(v);
+                                    }}
+                                    size="sm"
+                                />
                                 <span className="h3ctrl">
                                     {effectiveXaxis === "time" && (
                                         <Segmented
@@ -424,16 +432,6 @@ export function TokenStatsView() {
                                 </span>
                             </h3>
                             <div className="bar-chart-wrap">
-                                <div className="bar-metric">
-                                    <Segmented
-                                        options={METRIC_OPTIONS}
-                                        value={metric}
-                                        onChange={(v) => {
-                                            handleMetricChange(v);
-                                        }}
-                                        size="sm"
-                                    />
-                                </div>
                                 <BarChart
                                     records={currentRecords}
                                     metric={metric}
@@ -442,7 +440,6 @@ export function TokenStatsView() {
                                     start={currentRange.start}
                                     end={currentRange.end}
                                     theme={theme}
-                                    topOffset={44}
                                 />
                             </div>
                         </div>
