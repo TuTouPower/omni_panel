@@ -70,6 +70,14 @@ export function TrayMenu() {
                 },
             },
             {
+                icon: "open",
+                label_zh: "网页访问",
+                label_en: "Web Panel",
+                action: () => {
+                    window.usageboard.tray.open_web();
+                },
+            },
+            {
                 icon: "refresh",
                 label_zh: "立即刷新全部",
                 label_en: "Refresh All",
@@ -171,7 +179,7 @@ export function TrayMenu() {
 
     useResizeObserver(menu_ref, report_menu_size, [items]);
 
-    const sep_indexes = new Set([2, 4, 9]); // indexes where separators appear
+    const sep_indexes = new Set([3, 5, 10]); // indexes where separators appear
 
     return (
         <div className="tray-window" ref={menu_ref}>

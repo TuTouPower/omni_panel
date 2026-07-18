@@ -8,6 +8,7 @@ import {
     powerMonitor,
     session,
     ipcMain,
+    shell,
 } from "electron";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
@@ -696,6 +697,9 @@ void app.whenReady().then(async () => {
             const win = windowManager.createWindowFor("tokenStats");
             win.show();
             win.focus();
+        });
+        ipcMain.handle(IPC_CHANNELS.TRAY_OPEN_WEB, () => {
+            void shell.openExternal(`http://localhost:${String(local_api.get_port())}/`);
         });
         ipcMain.handle(IPC_CHANNELS.TRAY_CHECK_UPDATE, () => {
             log.info("Check for updates requested (not yet implemented)");

@@ -103,6 +103,7 @@ describe("PopupView mirror isolation", () => {
                 toggle_pause: vi.fn(),
                 toggle_autostart: vi.fn(),
                 open_settings: vi.fn(),
+                open_web: vi.fn(),
                 check_update: vi.fn(),
                 survey: vi.fn(),
                 sponsor: vi.fn(),

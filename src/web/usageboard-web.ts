@@ -79,6 +79,7 @@ export function create_web_usageboard(): UsageboardApi {
             toggle_pause: noop,
             toggle_autostart: noop,
             open_settings: noop,
+            open_web: noop,
             check_update: noop,
             survey: noop,
             sponsor: noop,
@@ -123,5 +124,6 @@ export function create_web_usageboard(): UsageboardApi {
 }
 
 export function install_web_usageboard(): void {
+    document.documentElement.setAttribute("data-web", "1");
     (window as unknown as { usageboard: UsageboardApi }).usageboard = create_web_usageboard();
 }

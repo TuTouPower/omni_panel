@@ -232,6 +232,7 @@ const tray_methods = {
     toggle_pause: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_TOGGLE_PAUSE),
     toggle_autostart: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_TOGGLE_AUTOSTART),
     open_settings: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_OPEN_SETTINGS),
+    open_web: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_OPEN_WEB),
     check_update: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_CHECK_UPDATE),
     survey: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_SURVEY),
     sponsor: () => void ipcRenderer.invoke(IPC_CHANNELS.TRAY_SPONSOR),
