@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
     fmtInt,
+    fmtRelativeTime,
     fmtTime,
     fmtTok,
     shortDir,
@@ -68,6 +69,18 @@ describe("format", () => {
         it("returns datetime-local compatible string", () => {
             const ts = new Date("2026-07-10T08:30:00").getTime();
             expect(toLocalInput(ts)).toBe("2026-07-10T08:30");
+        });
+    });
+
+    describe("fmtRelativeTime", () => {
+        it("returns friendly relative labels", () => {
+            expect(fmtRelativeTime(0)).toBe("刚刚");
+            expect(fmtRelativeTime(30_000)).toBe("刚刚");
+            expect(fmtRelativeTime(60_000)).toBe("1 分钟前");
+            expect(fmtRelativeTime(59 * 60_000)).toBe("59 分钟前");
+            expect(fmtRelativeTime(60 * 60_000)).toBe("1 小时前");
+            expect(fmtRelativeTime(23 * 60 * 60_000)).toBe("23 小时前");
+            expect(fmtRelativeTime(24 * 60 * 60_000)).toBe("1 天前");
         });
     });
 

@@ -60,6 +60,13 @@
     margin: 0;
 }
 
+.token-stats .brand .update-ago {
+    font: 500 11.5px var(--ts-mono);
+    color: var(--ts-text-3);
+    margin-left: 8px;
+    letter-spacing: 0;
+}
+
 .token-stats .brand .dot {
     width: 10px;
     height: 10px;

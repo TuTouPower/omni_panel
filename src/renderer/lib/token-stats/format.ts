@@ -51,6 +51,24 @@ export function toLocalInput(ts: number): string {
     return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/**
+ * Format a duration in milliseconds as a Chinese relative time:
+ * - < 1 min → "刚刚"
+ * - < 1 h → "N 分钟前"
+ * - < 24 h → "N 小时前"
+ * - otherwise → "N 天前"
+ */
+export function fmtRelativeTime(ms: number): string {
+    const value = Math.max(0, Number.isFinite(ms) ? ms : 0);
+    const minutes = Math.floor(value / 60000);
+    if (minutes < 1) return "刚刚";
+    if (minutes < 60) return `${String(minutes)} 分钟前`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${String(hours)} 小时前`;
+    const days = Math.floor(hours / 24);
+    return `${String(days)} 天前`;
+}
+
 /** Shorten a directory path to its basename, with a fallback for null. */
 export function shortDir(d: string | null): string {
     if (!d) return "(unknown)";

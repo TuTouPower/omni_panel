@@ -9,7 +9,7 @@ import { Segmented } from "../components/token-stats/Segmented";
 import { RangePicker } from "../components/token-stats/RangePicker";
 import { filtered } from "../lib/token-stats/filter";
 import { metricValue, prevRangeRecords, hitRateOf } from "../lib/token-stats/aggregate";
-import { fmtInt, fmtTok } from "../lib/token-stats/format";
+import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import {
     modelSegments,
     compositionSegments,
@@ -104,6 +104,11 @@ export function TokenStatsView() {
             custom ? { ...custom } : preset ? presetRange(preset) : { start: 0, end: Date.now() },
         [custom, preset],
     );
+
+    const updatedAgo = useMemo(() => {
+        if (!status?.last_updated) return null;
+        return fmtRelativeTime(Date.now() - status.last_updated);
+    }, [status?.last_updated]);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -221,6 +226,7 @@ export function TokenStatsView() {
                     <h1>
                         <span className="dot" />
                         Agent Session Usage
+                        {updatedAgo && <span className="update-ago">{updatedAgo}</span>}
                     </h1>
                 </div>
                 <div className="controls">
@@ -375,15 +381,6 @@ export function TokenStatsView() {
                     </div>
                 </>
             )}
-
-            <footer>
-                <span>{status?.running ? "采集器运行中" : "采集器已停止"}</span>
-                <span>
-                    {status?.last_updated
-                        ? `更新于 ${new Date(status.last_updated).toLocaleString("zh-CN", { hour12: false })}`
-                        : "尚未采集到数据"}
-                </span>
-            </footer>
         </div>
     );
 }
