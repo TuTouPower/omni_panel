@@ -60,11 +60,9 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         route: "tokenStats",
         width: 900,
         height: 700,
-        frame: false,
+        frame: true,
         show: false,
         showWhenReady: true,
-        titleBarStyle: "hidden",
-        titleBarOverlay: false,
         roundedCorners: true,
     },
 };
