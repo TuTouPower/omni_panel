@@ -83,7 +83,7 @@ export function create_web_usageboard(): UsageboardApi {
             minimize: noop,
             maximize: noop,
             close: () => {
-                window.location.hash = "popup";
+                window.location.hash = "usage";
             },
         },
         tray: {
@@ -121,7 +121,7 @@ export function create_web_usageboard(): UsageboardApi {
         },
         tokenStats: {
             open: () => {
-                window.location.hash = "tokenStats";
+                window.location.hash = "agent";
             },
             getBuckets: () => get_json("/v1/buckets"),
             getSessions: () => get_json("/v1/sessions"),

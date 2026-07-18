@@ -516,7 +516,7 @@ void app.whenReady().then(async () => {
             currentConfigSnapshot = next;
             configStore.scheduleSave(next);
         },
-        create_window: () => windowManager.createWindowFor("popup", { load: false }),
+        create_window: () => windowManager.createWindowFor("usage", { load: false }),
         get_renderer_url: (route: string) => windowManager.getRendererUrl(route),
         get_preload_path: getPreloadPath,
         get_app_icon_path,
@@ -695,7 +695,7 @@ void app.whenReady().then(async () => {
         });
         ipcMain.handle(IPC_CHANNELS.TOKEN_STATS_OPEN, () => {
             hideTrayMenu();
-            const win = windowManager.createWindowFor("tokenStats");
+            const win = windowManager.createWindowFor("agent");
             win.show();
             win.focus();
         });

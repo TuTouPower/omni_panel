@@ -28,8 +28,8 @@ export interface WindowConfig {
 }
 
 export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
-    popup: {
-        route: "popup",
+    usage: {
+        route: "usage",
         width: 482,
         height: 480,
         frame: false,
@@ -56,8 +56,8 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         frame: false,
         show: false,
     },
-    tokenStats: {
-        route: "tokenStats",
+    agent: {
+        route: "agent",
         width: 900,
         height: 700,
         frame: true,

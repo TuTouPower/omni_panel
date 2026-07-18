@@ -11,7 +11,7 @@ export function App() {
             return <SettingsView />;
         case "tray":
             return <TrayMenu />;
-        case "tokenStats":
+        case "agent":
             return <TokenStatsView />;
         default:
             return <PopupView />;
