@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { fmtTime, fmtTok } from "../../lib/token-stats/format";
-import { modelColor } from "../../lib/token-stats/palette";
+import { paletteFor } from "../../lib/token-stats/palette";
+import { modelColorMap } from "../../lib/token-stats/chart-data";
 import { sessionRows } from "../../lib/token-stats/aggregate";
-import type { AgentSessionUsage, SessionRow } from "../../lib/token-stats/types";
+import type { AgentSessionUsage, Metric, SessionRow } from "../../lib/token-stats/types";
 
 interface SessionTableProps {
     records: AgentSessionUsage[];
+    metric: Metric;
+    theme: "dark" | "light";
 }
 
 const PAGE_SIZES = [10, 20, 50] as const;
@@ -22,7 +25,7 @@ type SortKey =
     | "lastTs";
 type SortDir = 1 | -1;
 
-export function SessionTable({ records }: SessionTableProps) {
+export function SessionTable({ records, metric, theme }: SessionTableProps) {
     const [sortKey, setSortKey] = useState<SortKey>("tokens");
     const [sortDir, setSortDir] = useState<SortDir>(-1);
     const [page, setPage] = useState(1);
@@ -32,6 +35,13 @@ export function SessionTable({ records }: SessionTableProps) {
         const unsorted = sessionRows(records);
         return sortSessionRows(unsorted, sortKey, sortDir);
     }, [records, sortKey, sortDir]);
+
+    const topModelColors = useMemo(
+        () => modelColorMap(records, metric, theme),
+        [records, metric, theme],
+    );
+    const otherColor = paletteFor(theme).other;
+    const colorForModel = (m: string) => topModelColors.get(m) ?? otherColor;
 
     const pages = Math.max(1, Math.ceil(rows.length / pageSize));
     const safePage = Math.min(page, pages);
@@ -145,19 +155,22 @@ export function SessionTable({ records }: SessionTableProps) {
                                     </td>
                                     <td className="t-dim t-mono">{r.directory}</td>
                                     <td>
-                                        {r.models.map((m) => (
-                                            <span
-                                                key={m}
-                                                className="modeltag"
-                                                style={{
-                                                    color: modelColor(m),
-                                                    background: `${modelColor(m)}18`,
-                                                    border: `1px solid ${modelColor(m)}30`,
-                                                }}
-                                            >
-                                                {m}
-                                            </span>
-                                        ))}
+                                        {r.models.map((m) => {
+                                            const c = colorForModel(m);
+                                            return (
+                                                <span
+                                                    key={m}
+                                                    className="modeltag"
+                                                    style={{
+                                                        color: c,
+                                                        background: `${c}18`,
+                                                        border: `1px solid ${c}30`,
+                                                    }}
+                                                >
+                                                    {m}
+                                                </span>
+                                            );
+                                        })}
                                     </td>
                                     <td className="t-mono t-dim">{r.calls}</td>
                                     <td>
