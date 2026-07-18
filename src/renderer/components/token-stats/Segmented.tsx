@@ -6,7 +6,7 @@ export interface SegmentedOption<T extends string> {
 
 interface SegmentedProps<T extends string> {
     options: SegmentedOption<T>[];
-    value: T;
+    value: T | "" | null;
     onChange: (value: T) => void;
     size?: "sm" | "default";
 }
