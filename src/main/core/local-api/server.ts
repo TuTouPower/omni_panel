@@ -4,6 +4,7 @@ import { createLogger } from "../../../shared/lib/logger";
 import { observation_ingest_schema } from "../../../shared/schemas/observation";
 import type { Observation } from "../../../shared/types/observation";
 import type { ObservationStore } from "../observation/observation-store";
+import type { TokenStatsStore } from "../token-stats/token-stats-store";
 
 const log = createLogger("local-api");
 const DEFAULT_PORT = 17863;
@@ -69,9 +70,10 @@ function is_address_in_use(error: unknown): boolean {
 
 export function create_local_api_server(
     observation_store: ObservationStore,
-    options?: { port?: number },
+    options?: { port?: number; token_stats_store?: TokenStatsStore },
 ): LocalAPIServer {
     const token = generate_token();
+    const token_stats_store = options?.token_stats_store;
     let port = options?.port ?? DEFAULT_PORT;
     let server: ReturnType<typeof createServer> | null = null;
 
@@ -106,8 +108,17 @@ export function create_local_api_server(
 
     function handle_request(req: IncomingMessage, res: ServerResponse): void {
         void (async () => {
-            if (req.url === "/v1/health" && req.method === "GET") {
+            const url = new URL(req.url ?? "/", "http://local");
+            const is_get = req.method === "GET";
+
+            if (url.pathname === "/v1/health" && is_get) {
                 json_response(res, 200, { status: "ok", uptime: process.uptime() });
+                return;
+            }
+
+            // Web read endpoints serve the panel UI without auth (intranet use
+            // per project decision). ingest stays token-gated below.
+            if (is_get && token_stats_store && handle_web_read(url, res, token_stats_store)) {
                 return;
             }
 
@@ -116,7 +127,7 @@ export function create_local_api_server(
                 return;
             }
 
-            if (req.url === "/v1/ingest" && req.method === "POST") {
+            if (url.pathname === "/v1/ingest" && req.method === "POST") {
                 await handle_ingest(req, res);
                 return;
             }
@@ -126,6 +137,56 @@ export function create_local_api_server(
             log.error("request failed", err);
             json_response(res, 500, { error: "Internal server error" });
         });
+    }
+
+    function handle_web_read(url: URL, res: ServerResponse, store: TokenStatsStore): boolean {
+        const params = url.searchParams;
+        const env = params.get("env");
+        const agent = params.get("agent");
+        const start = params.get("start");
+        const end = params.get("end");
+        switch (url.pathname) {
+            case "/v1/records":
+                json_response(
+                    res,
+                    200,
+                    store.query_records({
+                        ...(agent
+                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" }
+                            : {}),
+                        ...(env ? { env: env as "win" | "wsl" } : {}),
+                        ...(start ? { start: Number(start) } : {}),
+                        ...(end ? { end: Number(end) } : {}),
+                    }),
+                );
+                return true;
+            case "/v1/sessions":
+                json_response(
+                    res,
+                    200,
+                    store.query_sessions({
+                        ...(env ? { env } : {}),
+                    }),
+                );
+                return true;
+            case "/v1/buckets":
+                json_response(
+                    res,
+                    200,
+                    store.query_buckets({
+                        ...(env ? { env } : {}),
+                    }),
+                );
+                return true;
+            case "/v1/status":
+                json_response(res, 200, {
+                    running: true,
+                    last_updated: store.last_updated(),
+                });
+                return true;
+            default:
+                return false;
+        }
     }
 
     function listen(target_port: number): Promise<number> {
@@ -148,7 +209,7 @@ export function create_local_api_server(
             };
             active_server.once("error", on_error);
             active_server.once("listening", on_listening);
-            active_server.listen(target_port, "127.0.0.1");
+            active_server.listen(target_port, "0.0.0.0");
         });
     }
 
@@ -162,7 +223,7 @@ export function create_local_api_server(
                 if (!is_address_in_use(error)) throw error;
                 port = await listen(0);
             }
-            log.info(`LocalAPI listening on 127.0.0.1:${String(port)}`);
+            log.info(`LocalAPI listening on 0.0.0.0:${String(port)}`);
             return { port, token };
         },
 

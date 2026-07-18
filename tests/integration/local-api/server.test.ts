@@ -5,13 +5,16 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { create_local_api_server } from "../../../src/main/core/local-api/server";
 import { create_observation_store } from "../../../src/main/core/observation/observation-store";
+import { create_token_stats_store } from "../../../src/main/core/token-stats/token-stats-store";
 import type { LocalAPIServer } from "../../../src/main/core/local-api/server";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
+import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
 
 let temp_dir: string;
 let sync_store: ObservationStore;
 let store: ObservationStore;
 let api: LocalAPIServer;
+let token_stats_store: TokenStatsStore;
 
 function assert_non_null<T>(
     value: T,
@@ -43,12 +46,14 @@ beforeEach(async () => {
     temp_dir = await mkdtemp(join(tmpdir(), "local-api-test-"));
     sync_store = create_observation_store(join(temp_dir, "test.db"));
     store = sync_store;
-    api = create_local_api_server(store, { port: 0 });
+    token_stats_store = create_token_stats_store(":memory:");
+    api = create_local_api_server(store, { port: 0, token_stats_store });
 });
 
 afterEach(async () => {
     await api.stop();
     store.close();
+    token_stats_store.close();
     await rm(temp_dir, { recursive: true, force: true });
 });
 
@@ -141,7 +146,7 @@ describe("local-api", () => {
             res.end("occupied");
         });
         const occupied_port = await new Promise<number>((resolve) => {
-            occupied.listen(0, "127.0.0.1", () => {
+            occupied.listen(0, "0.0.0.0", () => {
                 const addr = occupied.address();
                 if (addr && typeof addr === "object") resolve(addr.port);
             });
@@ -158,5 +163,45 @@ describe("local-api", () => {
                 resolve();
             });
         });
+    });
+});
+
+describe("local-api web read endpoints", () => {
+    it("GET /v1/records returns records without auth", async () => {
+        token_stats_store.upsert_records([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "s1",
+                title: null,
+                directory: null,
+                slug: null,
+                version: null,
+                parent_session_id: null,
+                message_id: "m1",
+                role: "assistant",
+                timestamp: Date.now(),
+                model: "sonnet",
+                input_tokens: 10,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent: "claude-code",
+            },
+        ]);
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/records`);
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as unknown[];
+        expect(data).toHaveLength(1);
+        expect(data[0]).toMatchObject({ message_id: "m1", agent: "claude-code" });
+    });
+
+    it("web read endpoints do not require bearer auth", async () => {
+        await api.start();
+        for (const path of ["/v1/records", "/v1/sessions", "/v1/buckets", "/v1/status"]) {
+            const res = await fetch(`http://127.0.0.1:${String(api.get_port())}${path}`);
+            expect(res.status, path).toBe(200);
+        }
     });
 });
