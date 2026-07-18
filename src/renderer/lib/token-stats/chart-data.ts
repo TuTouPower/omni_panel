@@ -1,6 +1,6 @@
 import type { EChartsOption } from "echarts";
 import { bucketize, groupBy, metricValue, sessionRows, sumTokens, topGroups } from "./aggregate";
-import { shortDir } from "./format";
+import { fmtTok, shortDir } from "./format";
 import {
     TOP5_COLORS,
     colorForTopModel,
@@ -23,6 +23,60 @@ export type RecordValue = (r: AgentSessionUsage) => number;
 
 export const sumTokensValue: RecordValue = (r) => sumTokens(r);
 export const oneValue: RecordValue = () => 1;
+
+/** Fixed display colors/labels for the three agents (matches SessionTable chips). */
+const AGENT_COLORS: Record<string, string> = {
+    "claude-code": "#ffb78a",
+    "kimi-code": "#7ee8b0",
+    opencode: "#8ad8ff",
+};
+const AGENT_LABELS: Record<string, string> = {
+    "claude-code": "Claude Code",
+    "kimi-code": "Kimi Code",
+    opencode: "OpenCode",
+};
+
+/** Donut segments comparing token usage across the three agents. */
+export function agentSegments(records: AgentSessionUsage[]): DonutSegment[] {
+    const totals: Record<string, number> = {
+        "claude-code": 0,
+        "kimi-code": 0,
+        opencode: 0,
+    };
+    for (const r of records) {
+        totals[r.agent] = (totals[r.agent] ?? 0) + sumTokens(r);
+    }
+    return (["claude-code", "kimi-code", "opencode"] as const)
+        .filter((a) => (totals[a] ?? 0) > 0)
+        .map((a) => ({
+            name: AGENT_LABELS[a] ?? a,
+            value: totals[a] ?? 0,
+            itemStyle: { color: AGENT_COLORS[a] ?? "#6b7890" },
+        }));
+}
+
+/** Segments for the cache-hit-rate donut (cache_read / input / cache_write / output). */
+export function compositionSegments(records: AgentSessionUsage[]): DonutSegment[] {
+    const colors: Record<string, string> = {
+        cache_read: "#3ddc97",
+        input: "#4cc2ff",
+        cache_write: "#ffb454",
+        output: "#7c6cf6",
+    };
+    const totals = {
+        cache_read: records.reduce((s, r) => s + r.cache_read_tokens, 0),
+        input: records.reduce((s, r) => s + r.input_tokens, 0),
+        cache_write: records.reduce((s, r) => s + r.cache_write_tokens, 0),
+        output: records.reduce((s, r) => s + r.output_tokens, 0),
+    };
+    return (Object.keys(totals) as (keyof typeof totals)[])
+        .filter((k) => totals[k] > 0)
+        .map((k) => ({
+            name: k,
+            value: totals[k],
+            itemStyle: { color: colors[k] ?? "#6b7890" },
+        }));
+}
 
 /**
  * Build Top5 + "其他" donut segments by model.
@@ -56,38 +110,20 @@ export function modelSegments(
             name: `其他（${String(rest.length)} 个模型）`,
             value: restTotal,
             itemStyle: { color: palette.other },
-            extra: restItems
-                .map(
-                    ([k, v]) =>
-                        `<br/><span style="opacity:.75">· ${escapeHtml(k)}: ${escapeHtml(String(v))}</span>`,
-                )
-                .join(""),
+            extra:
+                restItems
+                    .slice(0, 5)
+                    .map(
+                        ([k, v]) =>
+                            `<br/><span style="opacity:.75">· ${escapeHtml(k)}: ${escapeHtml(fmtTok(v))}</span>`,
+                    )
+                    .join("") +
+                (restItems.length > 5
+                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
+                    : ""),
         });
     }
     return segs;
-}
-
-/** Segments for the cache-hit-rate donut (cache_read / input / cache_write / output). */
-export function compositionSegments(records: AgentSessionUsage[]): DonutSegment[] {
-    const colors: Record<string, string> = {
-        cache_read: "#3ddc97",
-        input: "#4cc2ff",
-        cache_write: "#ffb454",
-        output: "#7c6cf6",
-    };
-    const totals = {
-        cache_read: records.reduce((s, r) => s + r.cache_read_tokens, 0),
-        input: records.reduce((s, r) => s + r.input_tokens, 0),
-        cache_write: records.reduce((s, r) => s + r.cache_write_tokens, 0),
-        output: records.reduce((s, r) => s + r.output_tokens, 0),
-    };
-    return Object.entries(totals)
-        .filter(([, v]) => v > 0)
-        .map(([k, v]) => ({
-            name: k,
-            value: v,
-            itemStyle: { color: colors[k] ?? "#6b7890" },
-        }));
 }
 
 /** Segments for the sessions donut grouped by project (Top5 + 其他). */
@@ -117,12 +153,17 @@ export function projectSegments(
             name: `其他（${String(rest.length)} 个项目）`,
             value: restTotal,
             itemStyle: { color: palette.other },
-            extra: restItems
-                .map(
-                    ([k, v]) =>
-                        `<br/><span style="opacity:.75">· ${escapeHtml(shortDir(k))}: ${escapeHtml(String(v))}</span>`,
-                )
-                .join(""),
+            extra:
+                restItems
+                    .slice(0, 5)
+                    .map(
+                        ([k, v]) =>
+                            `<br/><span style="opacity:.75">· ${escapeHtml(shortDir(k))}: ${escapeHtml(String(v))}</span>`,
+                    )
+                    .join("") +
+                (restItems.length > 5
+                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
+                    : ""),
         });
     }
     return segs;
@@ -285,6 +326,7 @@ function escapeHtml(text: string): string {
 export interface HeatData {
     data: [number, number, number][];
     max: number;
+    quantiles: { q1: number; q2: number; q3: number };
 }
 
 export function prepareHeatmapData(records: AgentSessionUsage[], metric: Metric): HeatData {
@@ -324,7 +366,28 @@ export function prepareHeatmapData(records: AgentSessionUsage[], metric: Metric)
             if (v > max) max = v;
         });
     });
-    return { data, max };
+    // 5 bands: zero is its own band, non-zero values are split into 4 equal-count
+    // bands by quartile so each band carries roughly the same number of cells.
+    const nonzero = data
+        .map((d) => d[2])
+        .filter((v) => v > 0)
+        .sort((a, b) => a - b);
+    const quantile = (arr: number[], p: number): number => {
+        if (arr.length === 0) return 0;
+        const idx = (p / 100) * (arr.length - 1);
+        const lo = Math.floor(idx);
+        const hi = Math.ceil(idx);
+        const vlo = arr[lo] ?? 0;
+        const vhi = arr[hi] ?? 0;
+        if (lo === hi) return vlo;
+        return Math.floor(vlo + (vhi - vlo) * (idx - lo));
+    };
+    const quantiles = {
+        q1: quantile(nonzero, 25),
+        q2: quantile(nonzero, 50),
+        q3: quantile(nonzero, 75),
+    };
+    return { data, max, quantiles };
 }
 
 /** Minimal re-export of EChartsOption for convenience. */

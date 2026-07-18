@@ -11,8 +11,9 @@ import { filtered } from "../lib/token-stats/filter";
 import { metricValue, prevRangeRecords, hitRateOf } from "../lib/token-stats/aggregate";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import {
-    modelSegments,
+    agentSegments,
     compositionSegments,
+    modelSegments,
     projectSegments,
     oneValue,
     sumTokensValue,
@@ -222,6 +223,13 @@ export function TokenStatsView() {
     const prevCalls = metricValue(prevRecords, "calls");
     const prevHitRate = hitRateOf(prevRecords);
 
+    const agentSegmentsData = agentSegments(currentRecords);
+    const topAgentSeg = agentSegmentsData.reduce<{ name: string; value: number } | null>(
+        (acc, b) => (!acc || b.value > acc.value ? b : acc),
+        null,
+    );
+    const topAgentLabel = topAgentSeg ? topAgentSeg.name.replace(/ /g, "\n") : "—";
+
     const handlePresetChange = (p: RangePreset) => {
         setPreset(p);
         setCustom(null);
@@ -292,7 +300,7 @@ export function TokenStatsView() {
                 <div className="empty">该筛选条件下暂无记录</div>
             ) : (
                 <>
-                    <div className="grid">
+                    <div className="grid kpi-grid">
                         <div className="card span-3">
                             <h3>
                                 总 Token 消耗{" "}
@@ -300,7 +308,6 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtTok(totalTokens)}
-                                centerLabel="tokens"
                                 segments={modelSegments(currentRecords, sumTokensValue, theme)}
                                 format={fmtTok}
                                 theme={theme}
@@ -315,7 +322,6 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtInt(totalSessions)}
-                                centerLabel="sessions"
                                 segments={projectSegments(currentRecords, theme)}
                                 format={fmtInt}
                                 theme={theme}
@@ -328,9 +334,17 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtInt(totalCalls)}
-                                centerLabel="calls"
                                 segments={modelSegments(currentRecords, oneValue, theme)}
                                 format={fmtInt}
+                                theme={theme}
+                            />
+                        </div>
+                        <div className="card span-3">
+                            <h3>工具占比</h3>
+                            <MetricDonut
+                                centerValue={topAgentLabel}
+                                segments={agentSegmentsData}
+                                format={fmtTok}
                                 theme={theme}
                             />
                         </div>
@@ -343,7 +357,6 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={`${(hitRate * 100).toFixed(1)}%`}
-                                centerLabel="hit rate"
                                 segments={compositionSegments(currentRecords)}
                                 format={fmtTok}
                                 theme={theme}

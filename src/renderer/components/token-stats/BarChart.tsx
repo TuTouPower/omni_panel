@@ -43,7 +43,8 @@ export function BarChart({
 
     const option = useMemo<EChartsOption>(() => {
         const nCat = labels.length;
-        const rotate = xaxis === "time" ? (nCat > 14 ? 38 : 0) : 38;
+        const rotate = xaxis === "time" ? (gran === "hour" ? 0 : nCat > 14 ? 38 : 0) : 38;
+        const hourMode = xaxis === "time" && gran === "hour";
         return {
             grid: {
                 left: 8,
@@ -97,7 +98,24 @@ export function BarChart({
                     fontFamily: "JetBrains Mono",
                     fontSize: 10.5,
                     rotate,
-                    interval: xaxis === "time" ? "auto" : 0,
+                    interval: hourMode
+                        ? (index: number) => new Date(start + index * 3600000).getHours() % 6 === 0
+                        : xaxis === "time"
+                          ? "auto"
+                          : 0,
+                    ...(hourMode
+                        ? {
+                              formatter: (_v: string, index: number) => {
+                                  const d = new Date(start + index * 3600000);
+                                  const pad = (x: number) => String(x).padStart(2, "0");
+                                  const h = d.getHours();
+                                  return h === 0
+                                      ? `{b|${pad(d.getMonth() + 1)}-${pad(d.getDate())}}`
+                                      : `${pad(h)}:00`;
+                              },
+                              rich: { b: { fontWeight: 700, color: pal.centerV } },
+                          }
+                        : {}),
                 },
                 splitLine: { lineStyle: { color: pal.split } },
             },
@@ -152,7 +170,7 @@ export function BarChart({
                 emphasis: { focus: "series" },
             })),
         };
-    }, [labels, series, otherDetails, metric, xaxis, pal, fmtV, topOffset]);
+    }, [labels, series, otherDetails, metric, xaxis, gran, start, pal, fmtV, topOffset]);
 
     useECharts(containerRef, () => option, [option]);
 

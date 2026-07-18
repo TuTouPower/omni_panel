@@ -10,10 +10,9 @@ export function fmtTok(n: number): string {
     return String(Math.floor(value));
 }
 
-/** Format an integer with locale separators. */
+/** Format an integer with K/M/B abbreviations (same scale as fmtTok). */
 export function fmtInt(n: number): string {
-    const value = Math.max(0, Number.isFinite(n) ? Math.floor(n) : 0);
-    return value.toLocaleString();
+    return fmtTok(n);
 }
 
 /**

@@ -31,10 +31,10 @@ describe("format", () => {
     });
 
     describe("fmtInt", () => {
-        it("uses locale separators", () => {
+        it("uses K/M/B abbreviations", () => {
             expect(fmtInt(0)).toBe("0");
-            expect(fmtInt(1000)).toBe("1,000");
-            expect(fmtInt(1234567)).toBe("1,234,567");
+            expect(fmtInt(1000)).toBe("1.0K");
+            expect(fmtInt(1234567)).toBe("1.2M");
         });
     });
 

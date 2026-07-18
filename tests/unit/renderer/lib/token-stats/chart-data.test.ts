@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { AgentSessionUsage } from "../../../../../src/shared/types/token-stats";
 import {
+    agentSegments,
     compositionSegments,
     modelColorMap,
     modelSegments,
@@ -30,6 +31,24 @@ function record(overrides: Partial<AgentSessionUsage> = {}): AgentSessionUsage {
         ...overrides,
     };
 }
+
+describe("agentSegments", () => {
+    it("sums tokens per agent and skips agents with no usage", () => {
+        const records = [
+            record({ agent: "claude-code", input_tokens: 100, output_tokens: 50 }),
+            record({ agent: "claude-code", input_tokens: 10 }),
+            record({ agent: "opencode", input_tokens: 30, output_tokens: 10 }),
+            record({ agent: "kimi-code", input_tokens: 5 }),
+        ];
+        const segs = agentSegments(records);
+        const byName = new Map(segs.map((s) => [s.name, s.value]));
+        // claude-code: (100+50) + (10+5 default out) = 165; cache excluded
+        expect(byName.get("Claude Code")).toBe(165);
+        expect(byName.get("OpenCode")).toBe(40);
+        expect(byName.get("Kimi Code")).toBe(10);
+        expect(segs).toHaveLength(3);
+    });
+});
 
 describe("chart-data", () => {
     describe("modelSegments", () => {

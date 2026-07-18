@@ -22,7 +22,10 @@ const WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "�
 
 export function Heatmap({ records, metric, theme }: HeatmapProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const { data, max } = useMemo(() => prepareHeatmapData(records, metric), [records, metric]);
+    const { data, quantiles } = useMemo(
+        () => prepareHeatmapData(records, metric),
+        [records, metric],
+    );
     const fmtV = metric === "tokens" ? fmtTok : fmtInt;
     const pal = paletteFor(theme);
 
@@ -51,7 +54,7 @@ export function Heatmap({ records, metric, theme }: HeatmapProps) {
                     fontFamily: "JetBrains Mono",
                     fontSize: 10.5,
                     interval: 3,
-                    formatter: (v: string | number) => `${String(v)}h`,
+                    formatter: (v: string | number) => `${String(v).padStart(2, "0")}:00`,
                 },
                 splitLine: { show: false },
             },
@@ -66,9 +69,14 @@ export function Heatmap({ records, metric, theme }: HeatmapProps) {
             },
             visualMap: {
                 show: false,
-                min: 0,
-                max: Math.max(max, 1),
-                inRange: { color: pal.heat },
+                type: "piecewise",
+                pieces: [
+                    { min: 0, max: 0, color: pal.heat[0] ?? "#161d2c" },
+                    { gt: 0, lte: quantiles.q1, color: pal.heat[1] ?? "#2c2a55" },
+                    { gt: quantiles.q1, lte: quantiles.q2, color: pal.heat[2] ?? "#5a4fd0" },
+                    { gt: quantiles.q2, lte: quantiles.q3, color: pal.heat[3] ?? "#7c6cf6" },
+                    { gt: quantiles.q3, color: pal.heat[4] ?? "#a99bff" },
+                ],
             },
             series: [
                 {
@@ -78,7 +86,7 @@ export function Heatmap({ records, metric, theme }: HeatmapProps) {
                 },
             ],
         };
-    }, [data, max, metric, pal, fmtV]);
+    }, [data, quantiles, metric, pal, fmtV]);
 
     useECharts(containerRef, () => option, [option]);
 

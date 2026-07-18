@@ -221,6 +221,16 @@
     margin-bottom: 16px;
 }
 
+.token-stats .kpi-grid {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.token-stats .kpi-grid > .card {
+    flex: 1 1 0;
+    min-width: 180px;
+}
+
 .token-stats .card {
     background: var(--ts-card);
     border: 1px solid var(--ts-line);
@@ -441,6 +451,12 @@
     color: #8ad8ff;
     border-color: rgba(140, 216, 255, 0.25);
     background: rgba(140, 216, 255, 0.07);
+}
+
+.token-stats .chip.kc {
+    color: #7ee8b0;
+    border-color: rgba(126, 232, 176, 0.25);
+    background: rgba(126, 232, 176, 0.07);
 }
 
 .token-stats .chip.sub {

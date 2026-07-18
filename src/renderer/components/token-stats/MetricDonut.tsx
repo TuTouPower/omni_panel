@@ -6,19 +6,12 @@ import type { DonutSegment } from "../../lib/token-stats/chart-data";
 
 interface MetricDonutProps {
     centerValue: string;
-    centerLabel: string;
     segments: DonutSegment[];
     format: (n: number) => string;
     theme: "dark" | "light";
 }
 
-export function MetricDonut({
-    centerValue,
-    centerLabel,
-    segments,
-    format,
-    theme,
-}: MetricDonutProps) {
+export function MetricDonut({ centerValue, segments, format, theme }: MetricDonutProps) {
     const containerRef = useRef<HTMLDivElement>(null);
 
     const option = useMemo<EChartsOption>(() => {
@@ -49,7 +42,7 @@ export function MetricDonut({
                     label: {
                         show: true,
                         position: "center",
-                        formatter: `{v|${centerValue}}\n{l|${centerLabel}}`,
+                        formatter: `{v|${centerValue}}`,
                         rich: {
                             v: {
                                 color: pal.centerV,
@@ -71,7 +64,7 @@ export function MetricDonut({
                 },
             ],
         };
-    }, [centerValue, centerLabel, segments, format, theme]);
+    }, [centerValue, segments, format, theme]);
 
     useECharts(containerRef, () => option, [option]);
 

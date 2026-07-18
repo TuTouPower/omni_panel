@@ -147,9 +147,19 @@ export function SessionTable({ records, metric, theme }: SessionTableProps) {
                                     </td>
                                     <td>
                                         <span
-                                            className={`chip ${r.agent === "claude-code" ? "cc" : "oc"}`}
+                                            className={`chip ${
+                                                r.agent === "claude-code"
+                                                    ? "cc"
+                                                    : r.agent === "kimi-code"
+                                                      ? "kc"
+                                                      : "oc"
+                                            }`}
                                         >
-                                            {r.agent === "claude-code" ? "Claude Code" : "OpenCode"}
+                                            {r.agent === "claude-code"
+                                                ? "Claude Code"
+                                                : r.agent === "kimi-code"
+                                                  ? "Kimi Code"
+                                                  : "OpenCode"}
                                         </span>
                                     </td>
                                     <td className="t-dim t-mono">{r.directory}</td>
