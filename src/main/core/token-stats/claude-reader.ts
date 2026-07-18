@@ -612,8 +612,12 @@ export function scan_session_jsonls(
         }
         const merged = merge_session_files(session_id, entries, env);
         sessions.push(merged.upsert);
-        daily.push(...merged.daily);
-        records.push(...merged.records);
+        for (const d of merged.daily) {
+            daily.push(d);
+        }
+        for (const r of merged.records) {
+            records.push(r);
+        }
     }
 
     return { sessions, daily, records, new_state };
