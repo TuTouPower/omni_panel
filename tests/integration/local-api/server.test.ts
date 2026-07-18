@@ -10,6 +10,7 @@ import type { LocalAPIServer } from "../../../src/main/core/local-api/server";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
 import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
 import type { ConfigIpcDeps } from "../../../src/main/ipc/config-ipc";
+import type { ConnectorIpcDeps } from "../../../src/main/ipc/connector-ipc";
 
 let temp_dir: string;
 let sync_store: ObservationStore;
@@ -17,6 +18,7 @@ let store: ObservationStore;
 let api: LocalAPIServer;
 let token_stats_store: TokenStatsStore;
 let config_deps: ConfigIpcDeps;
+let connector_deps: ConnectorIpcDeps;
 let web_root: string;
 
 function assert_non_null<T>(
@@ -75,10 +77,20 @@ beforeEach(async () => {
         },
         secretParamKeys: new Map([["inst-1", new Set(["apiKey"])]]),
     };
+    connector_deps = {
+        configStore: config_deps.configStore,
+        runtimeStore: { getSnapshot: () => ({ status: "idle" }) } as never,
+        refreshService: {
+            refresh: () => Promise.resolve(),
+            refreshAll: () => Promise.resolve(),
+        },
+        definitions: [],
+    };
     api = create_local_api_server(store, {
         port: 0,
         token_stats_store,
         config_deps,
+        connector_deps,
         web_root,
     });
 });
@@ -262,5 +274,13 @@ describe("local-api web read endpoints", () => {
         const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/`);
         expect(res.status).toBe(200);
         expect(await res.text()).toContain("web panel");
+    });
+
+    it("GET /v1/connectors returns list without auth", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/connectors`);
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as unknown[];
+        expect(Array.isArray(data)).toBe(true);
     });
 });

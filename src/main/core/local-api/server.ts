@@ -14,6 +14,13 @@ import {
     handleConfigSaveSecrets,
 } from "../../ipc/config-ipc";
 import type { ConfigIpcDeps } from "../../ipc/config-ipc";
+import {
+    handleConnectorGetState,
+    handleConnectorList,
+    handleConnectorRefresh,
+    handleConnectorRefreshAll,
+} from "../../ipc/connector-ipc";
+import type { ConnectorIpcDeps } from "../../ipc/connector-ipc";
 import type { IpcResult } from "../../../shared/types/ipc";
 
 const log = createLogger("local-api");
@@ -140,12 +147,14 @@ export function create_local_api_server(
         port?: number;
         token_stats_store?: TokenStatsStore;
         config_deps?: ConfigIpcDeps;
+        connector_deps?: ConnectorIpcDeps;
         web_root?: string;
     },
 ): LocalAPIServer {
     const token = generate_token();
     const token_stats_store = options?.token_stats_store;
     const config_deps = options?.config_deps;
+    const connector_deps = options?.connector_deps;
     const web_root = options?.web_root;
     let port = options?.port ?? DEFAULT_PORT;
     let server: ReturnType<typeof createServer> | null = null;
@@ -201,6 +210,9 @@ export function create_local_api_server(
                 return;
             }
             if (config_deps && (await handle_web_config(req, res, url, config_deps))) {
+                return;
+            }
+            if (connector_deps && (await handle_web_connector(req, res, url, connector_deps))) {
                 return;
             }
 
@@ -307,6 +319,48 @@ export function create_local_api_server(
                 return true;
             }
             return false;
+        }
+        return false;
+    }
+
+    async function handle_web_connector(
+        req: IncomingMessage,
+        res: ServerResponse,
+        url: URL,
+        deps: ConnectorIpcDeps,
+    ): Promise<boolean> {
+        if (url.pathname === "/v1/connectors") {
+            if (req.method === "GET") {
+                send_result(res, await handleConnectorList(deps));
+                return true;
+            }
+            if (req.method === "POST") {
+                send_result(res, await handleConnectorRefreshAll(deps));
+                return true;
+            }
+            return false;
+        }
+        const match = /^\/v1\/connectors\/([^/]+)\/(state|refresh)$/.exec(url.pathname);
+        if (match) {
+            const instance_id = decodeURIComponent(match[1] ?? "");
+            const action = match[2];
+            if (action === "state" && req.method === "GET") {
+                let result: IpcResult<unknown>;
+                try {
+                    result = handleConnectorGetState(deps, instance_id);
+                } catch (err: unknown) {
+                    result = {
+                        ok: false,
+                        error: { code: "INTERNAL_ERROR", message: String(err) },
+                    };
+                }
+                send_result(res, result);
+                return true;
+            }
+            if (action === "refresh" && req.method === "POST") {
+                send_result(res, await handleConnectorRefresh(deps, instance_id));
+                return true;
+            }
         }
         return false;
     }

@@ -324,6 +324,7 @@ void app.whenReady().then(async () => {
     const local_api: LocalAPIServer = create_local_api_server(observationStore, {
         token_stats_store: tokenStatsStore,
         config_deps: { configStore, secretsStore, secretParamKeys, onConfigSaved },
+        connector_deps: { configStore, runtimeStore, refreshService, definitions: allDefinitions },
         ...(existsSync(web_root_path) ? { web_root: web_root_path } : {}),
     });
     await local_api.start();
