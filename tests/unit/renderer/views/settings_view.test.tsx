@@ -255,6 +255,19 @@ describe("SettingsView", () => {
         expect(await screen.findByLabelText("日志等级")).toHaveDisplayValue("Info");
     });
 
+    it("hides window controls in web mode", () => {
+        document.documentElement.setAttribute("data-web", "1");
+        try {
+            render(<SettingsView />);
+            // TitleBar renders synchronously; window controls must be absent.
+            expect(screen.queryByTitle("最小化")).not.toBeInTheDocument();
+            expect(screen.queryByTitle("最大化")).not.toBeInTheDocument();
+            expect(screen.queryByTitle("关闭")).not.toBeInTheDocument();
+        } finally {
+            document.documentElement.removeAttribute("data-web");
+        }
+    });
+
     it("saves selected log level from general settings", async () => {
         current_config = { ...base_config, logLevel: "info" };
         render(<SettingsView />);
