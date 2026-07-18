@@ -6,7 +6,12 @@ import type {
 } from "../schemas/plugin-output";
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
-import type { AgentSessionUsage, TokenStatsBucket, TokenStatsSession } from "./token-stats";
+import type {
+    AgentSessionUsage,
+    TokenStatsBucket,
+    TokenStatsRecordFilters,
+    TokenStatsSession,
+} from "./token-stats";
 
 export interface TokenStatsStatus {
     /** Whether the collector utility process is alive. */
@@ -339,11 +344,7 @@ export interface UsageboardApi {
             limit?: number;
             offset?: number;
         }): Promise<TokenStatsSession[]>;
-        getRecords(filters?: {
-            agent?: "claude-code" | "opencode";
-            start?: number;
-            end?: number;
-        }): Promise<AgentSessionUsage[]>;
+        getRecords(filters?: TokenStatsRecordFilters): Promise<AgentSessionUsage[]>;
         getStatus(): Promise<TokenStatsStatus>;
         onUpdated(callback: () => void): () => void;
     };

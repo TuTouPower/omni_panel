@@ -4,6 +4,7 @@ import type { TokenStatsStatus } from "../../shared/types/ipc";
 import type {
     AgentSessionUsage,
     TokenStatsBucket,
+    TokenStatsRecordFilters,
     TokenStatsSession,
 } from "../../shared/types/token-stats";
 import { ok, type IpcResult } from "./helpers";
@@ -47,14 +48,7 @@ export function registerTokenStatsIpc(
 
     ipc.handle(
         IPC_CHANNELS.TOKEN_STATS_RECORDS,
-        (
-            _event: unknown,
-            filters?: {
-                agent?: "claude-code" | "opencode";
-                start?: number;
-                end?: number;
-            },
-        ): IpcResult<AgentSessionUsage[]> => {
+        (_event: unknown, filters?: TokenStatsRecordFilters): IpcResult<AgentSessionUsage[]> => {
             return ok(deps.store.query_records(filters ?? {}));
         },
     );

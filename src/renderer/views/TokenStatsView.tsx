@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AgentSessionUsage } from "../../shared/types/token-stats";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AgentSessionUsage, TokenStatsEnv } from "../../shared/types/token-stats";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
 import { MetricDonut } from "../components/token-stats/MetricDonut";
 import { BarChart } from "../components/token-stats/BarChart";
@@ -24,11 +24,19 @@ const MODULE = "TokenStatsView";
 
 type Theme = "dark" | "light";
 type RangePreset = "24h" | "7d" | "30d";
+type PlatformFilter = "all" | TokenStatsEnv;
 
 const AGENT_OPTIONS: { value: AgentFilter; label: string }[] = [
     { value: "all", label: "全部工具" },
     { value: "claude-code", label: "Claude Code" },
     { value: "opencode", label: "OpenCode" },
+    { value: "kimi-code", label: "Kimi Code" },
+];
+
+const PLATFORM_OPTIONS: { value: PlatformFilter; label: string }[] = [
+    { value: "all", label: "全平台" },
+    { value: "win", label: "Win" },
+    { value: "wsl", label: "WSL" },
 ];
 
 const RANGE_OPTIONS: { value: RangePreset; label: string }[] = [
@@ -92,12 +100,14 @@ export function TokenStatsView() {
     const [status, setStatus] = useState<TokenStatsStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [agent, setAgent] = useState<AgentFilter>("all");
+    const [platform, setPlatform] = useState<PlatformFilter>("all");
     const [preset, setPreset] = useState<RangePreset | null>("30d");
     const [custom, setCustom] = useState<{ start: number; end: number } | null>(null);
     const [metric, setMetric] = useState<Metric>("tokens");
     const [xaxis, setXaxis] = useState<XAxis>("time");
     const [gran, setGran] = useState<Granularity>("day");
     const [theme, setTheme] = useState<Theme>(readSavedTheme());
+    const load_request_id = useRef(0);
 
     const currentRange = useMemo(
         () =>
@@ -110,25 +120,38 @@ export function TokenStatsView() {
         return fmtRelativeTime(Date.now() - status.last_updated);
     }, [status?.last_updated]);
 
-    const loadData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const [recs, st] = await Promise.all([
-                window.usageboard.tokenStats.getRecords({}),
-                window.usageboard.tokenStats.getStatus(),
-            ]);
-            setRecords(recs);
-            setStatus(st);
-        } catch (err: unknown) {
-            window.usageboard.log({
-                level: "error",
-                module: MODULE,
-                message: `Failed to load token stats: ${err instanceof Error ? err.message : String(err)}`,
-            });
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const loadData = useCallback(
+        async (silent = false) => {
+            const request_id = ++load_request_id.current;
+            // Silent refresh (collector auto-update) keeps the previous data on
+            // screen instead of flashing "加载中"; only user-driven reloads show
+            // the loading state.
+            if (!silent) setLoading(true);
+            try {
+                const [recs, st] = await Promise.all([
+                    window.usageboard.tokenStats.getRecords(
+                        platform === "all" ? {} : { env: platform },
+                    ),
+                    window.usageboard.tokenStats.getStatus(),
+                ]);
+                if (request_id !== load_request_id.current) return;
+                setRecords(recs);
+                setStatus(st);
+            } catch (err: unknown) {
+                if (request_id !== load_request_id.current) return;
+                window.usageboard.log({
+                    level: "error",
+                    module: MODULE,
+                    message: `Failed to load token stats: ${err instanceof Error ? err.message : String(err)}`,
+                });
+            } finally {
+                if (!silent && request_id === load_request_id.current) {
+                    setLoading(false);
+                }
+            }
+        },
+        [platform],
+    );
 
     useEffect(() => {
         void loadData();
@@ -136,7 +159,7 @@ export function TokenStatsView() {
 
     useEffect(() => {
         return window.usageboard.tokenStats.onUpdated(() => {
-            void loadData();
+            void loadData(true);
         });
     }, [loadData]);
 
@@ -231,6 +254,13 @@ export function TokenStatsView() {
                         value={agent}
                         onChange={(v) => {
                             setAgent(v);
+                        }}
+                    />
+                    <Segmented
+                        options={PLATFORM_OPTIONS}
+                        value={platform}
+                        onChange={(v) => {
+                            setPlatform(v);
                         }}
                     />
                     <Segmented

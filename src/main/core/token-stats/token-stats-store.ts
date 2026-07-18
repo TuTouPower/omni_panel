@@ -4,6 +4,7 @@ import type {
     AgentSessionUsageRecord,
     TokenStatsBucket,
     TokenStatsDailyUpsert,
+    TokenStatsRecordFilters,
     TokenStatsSession,
     TokenStatsSessionUpsert,
 } from "../../../shared/types/token-stats";
@@ -27,11 +28,7 @@ export interface TokenStatsStore {
         limit?: number;
         offset?: number;
     }): TokenStatsSession[];
-    query_records(filters: {
-        agent?: "claude-code" | "opencode";
-        start?: number;
-        end?: number;
-    }): AgentSessionUsage[];
+    query_records(filters: TokenStatsRecordFilters): AgentSessionUsage[];
     /** Latest session upsert time (ms epoch), null when store is empty. */
     last_updated(): number | null;
     close(): void;
@@ -437,6 +434,10 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             if (filters.agent) {
                 conditions.push("agent = @agent");
                 params["agent"] = filters.agent;
+            }
+            if (filters.env) {
+                conditions.push("env = @env");
+                params["env"] = filters.env;
             }
             if (filters.start !== undefined) {
                 conditions.push("timestamp >= @start");

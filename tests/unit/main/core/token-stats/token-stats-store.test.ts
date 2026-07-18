@@ -318,6 +318,36 @@ describe("token-stats-store", () => {
             );
         });
 
+        it("filters records by platform and combines with other filters", () => {
+            store.upsert_records([
+                record({ message_id: "win-claude", env: "win", timestamp: T0 }),
+                record({
+                    message_id: "wsl-claude",
+                    env: "wsl",
+                    timestamp: T1,
+                }),
+                record({
+                    message_id: "wsl-opencode",
+                    source: "opencode",
+                    env: "wsl",
+                    agent: "opencode",
+                    timestamp: T2,
+                }),
+            ]);
+
+            expect(store.query_records({})).toHaveLength(3);
+            expect(store.query_records({ env: "win" })).toHaveLength(1);
+            expect(store.query_records({ env: "wsl" })).toHaveLength(2);
+            expect(
+                store.query_records({
+                    env: "wsl",
+                    agent: "claude-code",
+                    start: T1,
+                    end: T1,
+                }),
+            ).toHaveLength(1);
+        });
+
         it("replaces records by message_id+source+env (idempotent recounts)", () => {
             store.upsert_records([record({ message_id: "m1", input_tokens: 100 })]);
             store.upsert_records([record({ message_id: "m1", input_tokens: 150 })]);

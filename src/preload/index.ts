@@ -15,6 +15,7 @@ import type {
     GrokSettingsApi,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
+import type { TokenStatsRecordFilters } from "../shared/types/token-stats";
 import "./usageboard-api";
 
 // Apply theme synchronously before first paint to avoid white flash.
@@ -106,7 +107,7 @@ const token_stats_methods = {
             IPC_CHANNELS.TOKEN_STATS_SESSIONS,
             filters,
         ),
-    getRecords: (filters?: { agent?: "claude-code" | "opencode"; start?: number; end?: number }) =>
+    getRecords: (filters?: TokenStatsRecordFilters) =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getRecords"]>>>(
             IPC_CHANNELS.TOKEN_STATS_RECORDS,
             filters,

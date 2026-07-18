@@ -48,12 +48,20 @@ function usage_record_at(message_id: string, timestamp: number): AgentSessionUsa
     return { ...usage_record(message_id), timestamp };
 }
 
-describe("TokenStatsView period delta", () => {
+function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((resolver) => {
+        resolve = resolver;
+    });
+    return { promise, resolve };
+}
+
+describe("TokenStatsView", () => {
     const get_records = vi.fn();
 
     beforeEach(() => {
         get_records.mockReset();
-        get_records.mockResolvedValue([usage_record("r")]);
+        get_records.mockResolvedValue([usage_record("all-record")]);
         window.usageboard = {
             tokenStats: {
                 open: vi.fn(),
@@ -65,6 +73,65 @@ describe("TokenStatsView period delta", () => {
             },
             log: vi.fn(),
         } as unknown as typeof window.usageboard;
+    });
+
+    it("loads all platforms by default and switches between Win, WSL, and all", async () => {
+        get_records
+            .mockResolvedValueOnce([usage_record("all-record")])
+            .mockResolvedValueOnce([usage_record("win-record")])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([usage_record("all-again")]);
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+
+        await waitFor(() => {
+            expect(get_records).toHaveBeenNthCalledWith(1, {});
+        });
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("all-record");
+
+        // Kimi Code option is present in the agent filter.
+        expect(screen.getByRole("button", { name: "Kimi Code" })).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "Win" }));
+        await waitFor(() => {
+            expect(get_records).toHaveBeenNthCalledWith(2, { env: "win" });
+        });
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("win-record");
+
+        await user.click(screen.getByRole("button", { name: "WSL" }));
+        await waitFor(() => {
+            expect(get_records).toHaveBeenNthCalledWith(3, { env: "wsl" });
+        });
+        expect(await screen.findByText("该筛选条件下暂无记录")).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "全平台" }));
+        await waitFor(() => {
+            expect(get_records).toHaveBeenNthCalledWith(4, {});
+        });
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("all-again");
+    });
+
+    it("ignores an older platform response after a faster switch", async () => {
+        const all_request = deferred<AgentSessionUsage[]>();
+        get_records.mockImplementation((filters: { env?: "win" | "wsl" }) => {
+            if (filters.env === "wsl") {
+                return Promise.resolve([usage_record("wsl-record")]);
+            }
+            return all_request.promise;
+        });
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await user.click(screen.getByRole("button", { name: "WSL" }));
+
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("wsl-record");
+        all_request.resolve([usage_record("stale-all-record")]);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("wsl-record");
+        });
+        expect(screen.getByTestId("session-records")).not.toHaveTextContent("stale-all-record");
     });
 
     it("shows period-over-period delta when the prior window has records", async () => {

@@ -149,3 +149,10 @@ export type TokenStatsSessionUpsert = z.infer<typeof tokenStatsSessionUpsertSche
 export type TokenStatsDailyUpsert = z.infer<typeof tokenStatsDailyUpsertSchema>;
 export type TokenStatsUpdate = z.infer<typeof tokenStatsUpdateSchema>;
 export type TokenStatsConfig = z.infer<typeof tokenStatsConfigSchema>;
+
+export interface TokenStatsRecordFilters {
+    agent?: "claude-code" | "opencode" | "kimi-code";
+    env?: TokenStatsEnv;
+    start?: number;
+    end?: number;
+}
