@@ -12,6 +12,32 @@ import { createLogger } from "../../../shared/lib/logger";
 
 const log = createLogger("opencode-reader");
 
+function native_binding_path(): string | undefined {
+    const candidates = [
+        path.resolve(
+            __dirname,
+            "..",
+            "..",
+            "node_modules",
+            "better-sqlite3",
+            "build",
+            "Release",
+            "better_sqlite3.node",
+        ),
+        path.resolve(
+            process.cwd(),
+            "node_modules",
+            "better-sqlite3",
+            "build",
+            "Release",
+            "better_sqlite3.node",
+        ),
+    ];
+    return candidates.find((candidate) => fs.existsSync(candidate));
+}
+
+const NATIVE_BINDING_PATH = native_binding_path();
+
 const SESSION_QUERY = `
 SELECT id,
        model,
@@ -29,11 +55,18 @@ WHERE time_updated > ?
   AND tokens_input > 0
 `;
 
-const MESSAGES_QUERY = `
-SELECT id, session_id, data
-FROM message
-WHERE json_extract(data, '$.role') = 'assistant'
-  AND session_id IN (SELECT value FROM json_each(?))
+const PARTS_QUERY = `
+SELECT p.id,
+       p.message_id,
+       p.session_id,
+       p.time_created,
+       p.data,
+       m.data AS message_data
+FROM part p
+JOIN message m ON m.id = p.message_id
+WHERE json_extract(p.data, '$.type') = 'step-finish'
+  AND p.session_id IN (SELECT value FROM json_each(?))
+ORDER BY p.session_id, p.time_created, p.id
 `;
 
 export interface OpenCodeReadResult {
@@ -118,8 +151,8 @@ function copy_db_to_temp(db_path: string, env: TokenStatsEnv): string | null {
  * Falls back to reading a temp copy when the source is locked (WSL case).
  * Returns empty arrays if the db is missing or unreadable.
  *
- * Daily rows come from the message table (assistant messages carry
- * data.tokens + data.time.created); calls = assistant message count.
+ * Daily rows come from step-finish parts (tokens + time_created), joined to
+ * assistant messages for model IDs; calls = valid step-finish part count.
  * Values are full recounts per changed session — the store REPLACEs them.
  */
 export function read_opencode_sessions(
@@ -154,7 +187,10 @@ function query_sessions(
 ): OpenCodeReadResult | null {
     let db: InstanceType<typeof Database> | undefined;
     try {
-        db = new Database(db_path, { readonly: true });
+        db = new Database(db_path, {
+            readonly: true,
+            ...(NATIVE_BINDING_PATH ? { nativeBinding: NATIVE_BINDING_PATH } : {}),
+        });
 
         const rows = (db.prepare(SESSION_QUERY).all(max_updated) as SessionRow[])
             .map((row) => ({ ...row, model_id: extract_model_id(row.model) }))
@@ -176,39 +212,43 @@ function query_sessions(
             ]),
         );
 
-        // Assistant messages → calls + per-day usage + per-message records
+        // Step-finish parts → calls + per-day usage + per-call records
         const calls_by_session = new Map<string, number>();
         const daily_by_key = new Map<string, TokenStatsDailyUpsert>();
         const records: AgentSessionUsageRecord[] = [];
-        let messages_ok = true;
+        let parts_ok = true;
         try {
-            const msg_rows = db.prepare(MESSAGES_QUERY).all(ids_json) as {
+            const part_rows = db.prepare(PARTS_QUERY).all(ids_json) as {
                 id: string;
+                message_id: string;
                 session_id: string;
+                time_created: number;
                 data: string;
+                message_data: string;
             }[];
-            for (const msg_row of msg_rows) {
-                calls_by_session.set(
-                    msg_row.session_id,
-                    (calls_by_session.get(msg_row.session_id) ?? 0) + 1,
-                );
-
+            for (const part_row of part_rows) {
                 let data: Record<string, unknown>;
+                let message_data: Record<string, unknown>;
                 try {
-                    data = JSON.parse(msg_row.data) as Record<string, unknown>;
+                    data = JSON.parse(part_row.data) as Record<string, unknown>;
+                    message_data = JSON.parse(part_row.message_data) as Record<string, unknown>;
                 } catch {
                     continue;
                 }
                 const tokens = data["tokens"] as MessageTokens | undefined;
-                const time = data["time"] as { created?: number } | undefined;
-                const model_id = data["modelID"];
-                if (!tokens || typeof time?.created !== "number" || typeof model_id !== "string") {
+                const model_id = message_data["modelID"];
+                if (!tokens || typeof model_id !== "string") {
                     continue;
                 }
-                const date = utc_date_of(time.created);
-                const key = `${msg_row.session_id}|${date}|${model_id}`;
+
+                calls_by_session.set(
+                    part_row.session_id,
+                    (calls_by_session.get(part_row.session_id) ?? 0) + 1,
+                );
+                const date = utc_date_of(part_row.time_created);
+                const key = `${part_row.session_id}|${date}|${model_id}`;
                 const entry = daily_by_key.get(key) ?? {
-                    id: msg_row.session_id,
+                    id: part_row.session_id,
                     source: "opencode",
                     env,
                     model: model_id,
@@ -226,20 +266,20 @@ function query_sessions(
                 entry.calls++;
                 daily_by_key.set(key, entry);
 
-                const meta = session_meta.get(msg_row.session_id);
+                const meta = session_meta.get(part_row.session_id);
                 records.push({
                     source: "opencode",
                     env,
                     agent: "opencode",
-                    session_id: msg_row.session_id,
+                    session_id: part_row.session_id,
                     title: meta?.title ?? null,
                     directory: meta?.directory ?? null,
                     slug: null,
                     version: null,
                     parent_session_id: null,
-                    message_id: msg_row.id,
+                    message_id: part_row.message_id,
                     role: "assistant",
-                    timestamp: time.created,
+                    timestamp: part_row.time_created,
                     model: model_id,
                     input_tokens: num(tokens.input),
                     output_tokens: num(tokens.output),
@@ -248,9 +288,9 @@ function query_sessions(
                 });
             }
         } catch {
-            // message table missing or schema differs — calls/daily = no info
-            messages_ok = false;
-            log.warn(`Could not read opencode messages in ${db_path}`);
+            // part/message table missing or schema differs — calls/daily = no info
+            parts_ok = false;
+            log.warn(`Could not read opencode parts in ${db_path}`);
         }
 
         const sessions: TokenStatsSessionUpsert[] = rows.map((row) => ({
@@ -264,7 +304,7 @@ function query_sessions(
             output_tokens: row.tokens_output,
             cache_read_tokens: row.tokens_cache_read ?? 0,
             cache_write_tokens: row.tokens_cache_write ?? 0,
-            calls: messages_ok ? (calls_by_session.get(row.id) ?? 0) : null,
+            calls: parts_ok ? (calls_by_session.get(row.id) ?? 0) : null,
             started_at: row.time_created,
             ended_at: row.time_updated,
         }));

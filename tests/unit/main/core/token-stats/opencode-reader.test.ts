@@ -29,6 +29,14 @@ function create_test_db(db_path: string): InstanceType<typeof Database> {
             time_updated INTEGER,
             data TEXT
         );
+        CREATE TABLE IF NOT EXISTS part (
+            id TEXT PRIMARY KEY,
+            message_id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            time_created INTEGER NOT NULL,
+            time_updated INTEGER NOT NULL,
+            data TEXT NOT NULL
+        );
     `);
     return db;
 }
@@ -44,6 +52,27 @@ function insert_message(
         `INSERT INTO message (id, session_id, time_created, time_updated, data)
          VALUES (?, ?, 0, 0, ?)`,
     ).run(id, session_id, JSON.stringify({ role, ...data_extras }));
+}
+
+function insert_step_finish(
+    db: InstanceType<typeof Database>,
+    id: string,
+    message_id: string,
+    session_id: string,
+    time_created: number,
+    tokens: Record<string, unknown>,
+) {
+    db.prepare(
+        `INSERT INTO part (id, message_id, session_id, time_created, time_updated, data)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(
+        id,
+        message_id,
+        session_id,
+        time_created,
+        time_created,
+        JSON.stringify({ type: "step-finish", tokens }),
+    );
 }
 
 function insert_session(
@@ -109,8 +138,20 @@ describe("read_opencode_sessions", () => {
     it("reads sessions with valid tokens", () => {
         const db = create_test_db(db_path);
         insert_session(db);
-        insert_message(db, "m1", "sess-001", "assistant");
-        insert_message(db, "m2", "sess-001", "assistant");
+        insert_message(db, "m1", "sess-001", "assistant", {
+            modelID: "claude-sonnet-4-20250514",
+        });
+        insert_step_finish(db, "p1", "m1", "sess-001", 1752758400000, {
+            input: 10,
+            output: 1,
+        });
+        insert_message(db, "m2", "sess-001", "assistant", {
+            modelID: "claude-sonnet-4-20250514",
+        });
+        insert_step_finish(db, "p2", "m2", "sess-001", 1752758401000, {
+            input: 20,
+            output: 2,
+        });
         insert_message(db, "m3", "sess-001", "user");
         insert_session(db, {
             id: "sess-002",
@@ -130,7 +171,7 @@ describe("read_opencode_sessions", () => {
         expect(sessions[0]!.output_tokens).toBe(500);
         expect(sessions[0]!.cache_read_tokens).toBe(100);
         expect(sessions[0]!.cache_write_tokens).toBe(50);
-        expect(sessions[0]!.calls).toBe(2); // assistant messages only
+        expect(sessions[0]!.calls).toBe(2); // valid step-finish parts only
         expect(sessions[1]!.calls).toBe(0);
         expect(sessions[0]!.title).toBe("Fix auth bug");
         expect(sessions[0]!.directory).toBe("/home/user/project");
@@ -138,18 +179,24 @@ describe("read_opencode_sessions", () => {
         expect(sessions[0]!.ended_at).toBe(1752762000000);
     });
 
-    it("derives daily usage rows from assistant message tokens", () => {
+    it("derives daily usage rows from step-finish part tokens", () => {
         const db = create_test_db(db_path);
         insert_session(db);
         insert_message(db, "m1", "sess-001", "assistant", {
-            tokens: { input: 100, output: 10, cache: { read: 5, write: 2 } },
-            time: { created: 1752758400000 }, // 2025-07-17T16:00:00Z
             modelID: "claude-sonnet-4-20250514",
         });
+        insert_step_finish(db, "p1", "m1", "sess-001", 1752758400000, {
+            input: 100,
+            output: 10,
+            cache: { read: 5, write: 2 },
+        });
         insert_message(db, "m2", "sess-001", "assistant", {
-            tokens: { input: 200, output: 20, cache: { read: 0, write: 0 } },
-            time: { created: 1752758400000 + 3600000 },
             modelID: "claude-sonnet-4-20250514",
+        });
+        insert_step_finish(db, "p2", "m2", "sess-001", 1752758400000 + 3600000, {
+            input: 200,
+            output: 20,
+            cache: { read: 0, write: 0 },
         });
         // user message with tokens must not contribute
         insert_message(db, "m3", "sess-001", "user", {
@@ -186,7 +233,38 @@ describe("read_opencode_sessions", () => {
         expect(r0.cache_write_tokens).toBe(2);
     });
 
-    it("skips assistant messages without token fields for daily but keeps calls", () => {
+    it("reads records from step-finish parts when assistant messages omit tokens", () => {
+        const db = create_test_db(db_path);
+        insert_session(db);
+        insert_message(db, "m1", "sess-001", "assistant", {
+            modelID: "claude-sonnet-4-20250514",
+            time: { created: 1752758400000 },
+        });
+        insert_step_finish(db, "p1", "m1", "sess-001", 1752758401000, {
+            input: 100,
+            output: 10,
+            cache: { read: 5, write: 2 },
+        });
+        db.close();
+
+        const { sessions, daily, records } = read_opencode_sessions(db_path, "win", 0);
+
+        expect(sessions[0]!.calls).toBe(1);
+        expect(daily).toHaveLength(1);
+        expect(records).toHaveLength(1);
+        expect(records[0]).toMatchObject({
+            message_id: "m1",
+            timestamp: 1752758401000,
+            model: "claude-sonnet-4-20250514",
+            input_tokens: 100,
+            output_tokens: 10,
+            cache_read_tokens: 5,
+            cache_write_tokens: 2,
+            agent: "opencode",
+        });
+    });
+
+    it("skips assistant messages without step-finish parts", () => {
         const db = create_test_db(db_path);
         insert_session(db);
         db.prepare(
@@ -196,7 +274,7 @@ describe("read_opencode_sessions", () => {
         db.close();
 
         const { sessions, daily } = read_opencode_sessions(db_path, "win", 0);
-        expect(sessions[0]!.calls).toBe(1);
+        expect(sessions[0]!.calls).toBe(0);
         expect(daily).toHaveLength(0);
     });
 
