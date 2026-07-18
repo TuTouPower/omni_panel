@@ -583,3 +583,101 @@ describe("scan_session_jsonls", () => {
         expect(second.daily[0]!.input_tokens).toBe(10);
     });
 });
+
+// 构造 OpenAI 协议语义的 assistant 行：input_tokens 含 cache_read（见
+// docs/research/token-cache-openai-semantics.md）
+function openai_semantic_line(
+    timestamp: string,
+    model: string,
+    input: number,
+    cache_read: number,
+    output = 5,
+) {
+    return session_line("assistant", timestamp, {
+        message: {
+            model,
+            usage: {
+                input_tokens: input,
+                output_tokens: output,
+                cache_read_input_tokens: cache_read,
+                cache_creation_input_tokens: 0,
+            },
+        },
+    });
+}
+
+// deepseek / longcat 经 new-api 以 OpenAI 协议接入，input_tokens 含 cache_read。
+// 采集时需归一化为 input -= cache_read，否则 hitRateOf = read/(input+read)
+// 双重计数把真实 ~65% 算成 ~37%。详见 docs/research/token-cache-openai-semantics.md
+describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
+    let projects_dir: string;
+
+    beforeEach(() => {
+        projects_dir = fs.mkdtempSync(path.join(os.tmpdir(), "claude-openai-sem-"));
+    });
+
+    afterEach(() => {
+        fs.rmSync(projects_dir, { recursive: true, force: true });
+    });
+
+    function write_session(rel: string, lines: string[]) {
+        const full = path.join(projects_dir, rel);
+        fs.mkdirSync(path.dirname(full), { recursive: true });
+        fs.writeFileSync(full, lines.join("\n") + "\n", "utf-8");
+    }
+
+    it("deepseek-v4-pro 命中时归一化 input（扣除 cache_read）", () => {
+        write_session("p/s.jsonl", [openai_semantic_line(T2, "deepseek-v4-pro", 38083, 38016)]);
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        const rec = result.records[0]!;
+        expect(rec.input_tokens).toBe(67); // 38083 - 38016
+        expect(rec.cache_read_tokens).toBe(38016);
+        // session sums 也用归一化值
+        expect(result.sessions[0]!.input_tokens).toBe(67);
+    });
+
+    it("LongCat-2.0 模型名大小写不敏感，归一化生效", () => {
+        write_session("p/s.jsonl", [openai_semantic_line(T2, "LongCat-2.0", 5000, 3000)]);
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        expect(result.records[0]!.input_tokens).toBe(2000); // 5000 - 3000
+    });
+
+    it("deepseek 未命中（read=0）不归一化", () => {
+        write_session("p/s.jsonl", [openai_semantic_line(T2, "deepseek-v4-pro", 38083, 0)]);
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        // read=0 时原始 input 就是未缓存输入，两种语义一致，不动
+        expect(result.records[0]!.input_tokens).toBe(38083);
+    });
+
+    it("deepseek input < cache_read 时跳过归一化（防御负数）", () => {
+        write_session("p/s.jsonl", [openai_semantic_line(T2, "deepseek-v4-pro", 100, 200)]);
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        expect(result.records[0]!.input_tokens).toBe(100); // 保留原值
+    });
+
+    it("claude-opus-4-8（Anthropic 原生语义）不受归一化影响", () => {
+        // mimo/glm/opus 等原生语义模型 read >> input，必须保持原值
+        write_session("p/s.jsonl", [openai_semantic_line(T2, "claude-opus-4-8", 61, 43840)]);
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        expect(result.records[0]!.input_tokens).toBe(61);
+        expect(result.records[0]!.cache_read_tokens).toBe(43840);
+    });
+
+    it("daily 聚合使用归一化后的 input", () => {
+        write_session("p/s.jsonl", [
+            openai_semantic_line(T2, "deepseek-v4-pro", 38083, 38016),
+            openai_semantic_line(T3, "deepseek-v4-pro", 20000, 15000),
+        ]);
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        const total_input = result.daily.reduce((s, d) => s + d.input_tokens, 0);
+        const total_read = result.daily.reduce((s, d) => s + d.cache_read_tokens, 0);
+        expect(total_input).toBe(67 + 5000); // (38083-38016) + (20000-15000)
+        expect(total_read).toBe(38016 + 15000);
+    });
+});

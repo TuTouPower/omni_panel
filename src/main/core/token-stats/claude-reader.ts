@@ -254,6 +254,18 @@ function num(v: unknown): number {
     return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
 }
 
+/**
+ * 经 new-api 以 OpenAI 协议接入的模型。其响应里 input_tokens 含 cache_read
+ * （OpenAI 的 prompt_tokens 含 cached_tokens），与 Anthropic 原生语义
+ * （input_tokens 与 cache_read_input_tokens 互斥）不同，会让命中率公式
+ * read/(input+read) 双重计数。采集时需对这些模型按条件做 input -= cache_read
+ * 归一化。详见 docs/research/token-cache-openai-semantics.md
+ */
+function is_openai_semantic_model(model: string): boolean {
+    const m = model.toLowerCase();
+    return m.includes("deepseek") || m.includes("longcat");
+}
+
 /** Deterministic message id for Claude JSONL lines (no native message id). */
 function message_id_from_line(line: string): string {
     return crypto.createHash("sha256").update(line).digest("hex").slice(0, 32);
@@ -341,7 +353,14 @@ function parse_session_file(content: string, env: TokenStatsEnv): SessionFileFac
                 calls++;
                 const cache_read = num(usage["cache_read_input_tokens"]);
                 const cache_write = num(usage["cache_creation_input_tokens"]);
-                sums.input_tokens += inp;
+                // OpenAI 协议接入的模型 input_tokens 含 cache_read，归一化为
+                // Anthropic 原生语义（input 不含 cache_read），避免命中率公式双重计数。
+                // 详见 docs/research/token-cache-openai-semantics.md
+                const normalized_inp =
+                    is_openai_semantic_model(rec_model) && cache_read > 0 && inp >= cache_read
+                        ? inp - cache_read
+                        : inp;
+                sums.input_tokens += normalized_inp;
                 sums.output_tokens += out;
                 sums.cache_read_tokens += cache_read;
                 sums.cache_write_tokens += cache_write;
@@ -360,7 +379,7 @@ function parse_session_file(content: string, env: TokenStatsEnv): SessionFileFac
                         cache_write_tokens: 0,
                         calls: 0,
                     };
-                    entry.input_tokens += inp;
+                    entry.input_tokens += normalized_inp;
                     entry.output_tokens += out;
                     entry.cache_read_tokens += cache_read;
                     entry.cache_write_tokens += cache_write;
@@ -381,7 +400,7 @@ function parse_session_file(content: string, env: TokenStatsEnv): SessionFileFac
                         role: "assistant",
                         timestamp: ts,
                         model: rec_model,
-                        input_tokens: inp,
+                        input_tokens: normalized_inp,
                         output_tokens: out,
                         cache_read_tokens: cache_read,
                         cache_write_tokens: cache_write,
