@@ -45,10 +45,18 @@ describe("chart-data", () => {
             const segs = modelSegments(records, sumTokensValue, "dark");
             expect(segs).toHaveLength(6);
             expect(segs.slice(0, 5).map((s) => s.name)).toEqual(["a", "b", "c", "d", "e"]);
+            expect(segs.slice(0, 5).map((s) => s.itemStyle.color)).toEqual([
+                "#7c6cf6",
+                "#4cc2ff",
+                "#3ddc97",
+                "#ffb454",
+                "#f56cc6",
+            ]);
             const other = segs[5];
             if (!other) throw new Error("expected other segment");
             expect(other.name).toContain("其他");
             expect(other.value).toBe(40);
+            expect(other.itemStyle.color).toBe("#46506a");
         });
 
         it("omits the 'other' bucket when there are 5 or fewer models", () => {

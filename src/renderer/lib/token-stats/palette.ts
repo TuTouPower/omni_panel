@@ -119,3 +119,17 @@ export function projectColor(directory: string | null): string {
 export function paletteFor(theme: "dark" | "light"): ChartPalette {
     return PALETTES[theme];
 }
+
+/**
+ * High-contrast colors assigned to the top 5 models by usage, in descending
+ * order. Unknown model names fall back to these; anything beyond the top 5
+ * is collapsed into "其他" and uses the theme gray.
+ */
+export const TOP5_COLORS = ["#7c6cf6", "#4cc2ff", "#3ddc97", "#ffb454", "#f56cc6"];
+
+export function colorForTopModel(model: string, index: number, theme: "dark" | "light"): string {
+    if (index >= 0 && index < TOP5_COLORS.length) {
+        return TOP5_COLORS[index] ?? MODEL_COLORS[model] ?? PALETTES[theme].other;
+    }
+    return MODEL_COLORS[model] ?? PALETTES[theme].other;
+}

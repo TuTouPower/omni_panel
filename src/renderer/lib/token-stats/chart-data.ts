@@ -1,7 +1,7 @@
 import type { EChartsOption } from "echarts";
 import { bucketize, groupBy, metricValue, sessionRows, sumTokens, topGroups } from "./aggregate";
 import { shortDir } from "./format";
-import { modelColor, paletteFor, projectColor } from "./palette";
+import { colorForTopModel, paletteFor, projectColor } from "./palette";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "./types";
 
 /** A single donut segment. */
@@ -35,10 +35,10 @@ export function modelSegments(
     }
     const { top, rest } = topGroups(totals, 5);
     const palette = paletteFor(theme);
-    const segs: DonutSegment[] = top.map((m) => ({
+    const segs: DonutSegment[] = top.map((m, i) => ({
         name: m,
         value: totals[m] ?? 0,
-        itemStyle: { color: modelColor(m, theme) },
+        itemStyle: { color: colorForTopModel(m, i, theme) },
     }));
     if (rest.length) {
         const restItems = rest
@@ -188,14 +188,14 @@ export function prepareBarData(
             .sort((a, b) => b[1] - a[1]),
     );
 
-    const colorOf = (k: string) =>
+    const colorOf = (k: string, index: number) =>
         k === "其他"
             ? palette.other
             : colorDim === "model"
-              ? modelColor(k, theme)
+              ? colorForTopModel(k, index, theme)
               : projectColor(k);
 
-    const series = seriesNames.map((nm) => ({
+    const series = seriesNames.map((nm, i) => ({
         name: nm,
         data: cells.map((m) =>
             Object.entries(m).reduce(
@@ -203,7 +203,7 @@ export function prepareBarData(
                 0,
             ),
         ),
-        itemStyle: { color: colorOf(nm) },
+        itemStyle: { color: colorOf(nm, i) },
     }));
 
     return { labels, seriesNames, series, otherDetails };
