@@ -49,6 +49,9 @@ import { registerGrokAuthIpc } from "./ipc/grok_auth_ipc";
 import { registerTokenStatsIpc } from "./ipc/token-stats-ipc";
 import { create_token_stats_store } from "./core/token-stats/token-stats-store";
 import { create_token_stats_manager } from "./core/token-stats/manager";
+import { create_local_api_server } from "./core/local-api/server";
+import type { LocalAPIServer } from "./core/local-api/server";
+import type { AppConfiguration } from "../shared/types/config";
 import type { TokenStatsConfig } from "../shared/types/token-stats";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
@@ -271,44 +274,54 @@ void app.whenReady().then(async () => {
         definitions: allDefinitions,
     });
     registerTokenStatsIpc(ipcMain, { store: tokenStatsStore, manager: tokenStatsManager });
+    const onConfigSaved = (updatedConfig: AppConfiguration): void => {
+        const previousConfig = currentConfigSnapshot;
+        currentConfigSnapshot = updatedConfig;
+        setLogLevel(updatedConfig.logLevel ?? defaultLogLevelForEnv());
+        log.info("Config saved — reconciling scheduler and secret keys");
+        const newKeys = buildSecretParamKeys(updatedConfig);
+        secretParamKeys.clear();
+        for (const [k, v] of newKeys) {
+            secretParamKeys.set(k, v);
+        }
+        orchestrator.reconcile(
+            to_connector_list_config(previousConfig),
+            to_connector_list_config(updatedConfig),
+        );
+        const grokDef = allDefinitions.find((d) => d.manifest.provider === "grok");
+        const active_grok_instance_ids = grokDef
+            ? updatedConfig.plugins
+                  .filter(
+                      (plugin) =>
+                          plugin.enabled && plugin.executablePath === grokDef.executablePath,
+                  )
+                  .map((plugin) => plugin.instanceId)
+            : [];
+        grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
+        // Update token stats config if changed
+        tokenStatsManager.update_config(build_token_stats_config(updatedConfig));
+        for (const win of BrowserWindow.getAllWindows()) {
+            if (!win.isDestroyed()) {
+                win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
+            }
+        }
+        main_panel_controller?.apply_config_change();
+    };
+
     await registerConfigIpc({
         configStore,
         secretsStore,
         secretParamKeys,
-        onConfigSaved: (updatedConfig) => {
-            const previousConfig = currentConfigSnapshot;
-            currentConfigSnapshot = updatedConfig;
-            setLogLevel(updatedConfig.logLevel ?? defaultLogLevelForEnv());
-            log.info("Config saved — reconciling scheduler and secret keys");
-            const newKeys = buildSecretParamKeys(updatedConfig);
-            secretParamKeys.clear();
-            for (const [k, v] of newKeys) {
-                secretParamKeys.set(k, v);
-            }
-            orchestrator.reconcile(
-                to_connector_list_config(previousConfig),
-                to_connector_list_config(updatedConfig),
-            );
-            const grokDef = allDefinitions.find((d) => d.manifest.provider === "grok");
-            const active_grok_instance_ids = grokDef
-                ? updatedConfig.plugins
-                      .filter(
-                          (plugin) =>
-                              plugin.enabled && plugin.executablePath === grokDef.executablePath,
-                      )
-                      .map((plugin) => plugin.instanceId)
-                : [];
-            grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
-            // Update token stats config if changed
-            tokenStatsManager.update_config(build_token_stats_config(updatedConfig));
-            for (const win of BrowserWindow.getAllWindows()) {
-                if (!win.isDestroyed()) {
-                    win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
-                }
-            }
-            main_panel_controller?.apply_config_change();
-        },
+        onConfigSaved,
     });
+
+    // Local HTTP API: serves the web panel UI + observation ingest.
+    const local_api: LocalAPIServer = create_local_api_server(observationStore, {
+        token_stats_store: tokenStatsStore,
+        config_deps: { configStore, secretsStore, secretParamKeys, onConfigSaved },
+    });
+    await local_api.start();
+    log.info(`Web panel: http://localhost:${String(local_api.get_port())}/v1/health`);
     await registerLogIpc(dataRoot);
     cleanupEventIpc = registerEventIpc({ runtimeStore });
     registerGrokAuthIpc({ manager: grokOAuthManager });
@@ -775,6 +788,7 @@ void app.whenReady().then(async () => {
     app.on("before-quit", () => {
         log.info("Application shutting down");
         quitting = true;
+        void local_api.stop();
         if (trayMenuWin && !trayMenuWin.isDestroyed()) {
             trayMenuWin.destroy();
             trayMenuWin = null;
