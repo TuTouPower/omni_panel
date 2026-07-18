@@ -78,7 +78,7 @@ export function create_web_usageboard(): UsageboardApi {
         theme: { set: noop },
         settings: {
             open: () => {
-                window.location.hash = "settings";
+                window.location.hash = "setting";
             },
             minimize: noop,
             maximize: noop,

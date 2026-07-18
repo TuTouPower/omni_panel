@@ -38,8 +38,8 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         minWidth: 472,
         maxWidth: 780,
     },
-    settings: {
-        route: "settings",
+    setting: {
+        route: "setting",
         width: 820,
         height: 660,
         frame: false,

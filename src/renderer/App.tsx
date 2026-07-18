@@ -7,7 +7,7 @@ import { TokenStatsView } from "./views/TokenStatsView";
 export function App() {
     const route = use_route();
     switch (route) {
-        case "settings":
+        case "setting":
             return <SettingsView />;
         case "tray":
             return <TrayMenu />;

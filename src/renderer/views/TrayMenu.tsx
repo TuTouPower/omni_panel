@@ -56,7 +56,7 @@ export function TrayMenu() {
             {
                 icon: "open",
                 label_zh: "用量面板",
-                label_en: "Open Panel",
+                label_en: "Usage Panel",
                 action: () => {
                     window.usageboard.tray.open_panel();
                 },
@@ -64,7 +64,7 @@ export function TrayMenu() {
             {
                 icon: "chart",
                 label_zh: "代理面板",
-                label_en: "Token Stats",
+                label_en: "Agent Panel",
                 action: () => {
                     window.usageboard.tokenStats.open();
                 },

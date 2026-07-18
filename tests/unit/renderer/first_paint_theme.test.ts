@@ -19,7 +19,7 @@ describe("first-paint theme background", () => {
     it("keeps settings hidden until the renderer has a first frame", () => {
         const source = read_source("src/main/window/window-manager.ts");
 
-        expect(source).toContain("settings: {");
+        expect(source).toContain("setting: {");
         expect(source).toContain("show: false,\n        showWhenReady: true,");
         expect(source).toContain('win.once("ready-to-show"');
     });

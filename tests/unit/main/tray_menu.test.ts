@@ -23,8 +23,8 @@ const ZH_LABELS = [
 ] as const;
 
 const EN_LABELS = [
-    "Open Panel",
-    "Token Stats",
+    "Usage Panel",
+    "Agent Panel",
     "Web Panel",
     "Refresh All",
     "Pause Auto-Refresh",
@@ -47,8 +47,8 @@ describe("tray menu", () => {
 
     it("has all 10 required menu item labels in English", () => {
         expect(EN_LABELS).toHaveLength(10);
-        expect(EN_LABELS).toContain("Open Panel");
-        expect(EN_LABELS).toContain("Token Stats");
+        expect(EN_LABELS).toContain("Usage Panel");
+        expect(EN_LABELS).toContain("Agent Panel");
         expect(EN_LABELS).toContain("Web Panel");
         expect(EN_LABELS).toContain("Refresh All");
         expect(EN_LABELS).toContain("Quit OmniUsage");

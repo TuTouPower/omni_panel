@@ -429,8 +429,8 @@ void app.whenReady().then(async () => {
         if (settingsWin && !settingsWin.isDestroyed()) return;
         // load:false -> createWindowFor neither loads nor wires ready-to-show,
         // so the window stays hidden (show:false) while we pre-load it below.
-        settingsWin = windowManager.createWindowFor("settings", { load: false });
-        void settingsWin.loadURL(windowManager.getRendererUrl("settings")).catch((err: unknown) => {
+        settingsWin = windowManager.createWindowFor("setting", { load: false });
+        void settingsWin.loadURL(windowManager.getRendererUrl("setting")).catch((err: unknown) => {
             log.error(
                 `settings loadURL failed: ${err instanceof Error ? err.message : String(err)}`,
             );
