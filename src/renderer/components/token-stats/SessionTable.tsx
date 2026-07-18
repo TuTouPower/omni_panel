@@ -75,7 +75,7 @@ export function SessionTable({ records, metric, theme }: SessionTableProps) {
                                 onSort={handleSort}
                             />
                             <SortHeader
-                                label="工具 / 版本"
+                                label="工具"
                                 k="agent"
                                 sortKey={sortKey}
                                 sortDir={sortDir}
@@ -150,8 +150,7 @@ export function SessionTable({ records, metric, theme }: SessionTableProps) {
                                             className={`chip ${r.agent === "claude-code" ? "cc" : "oc"}`}
                                         >
                                             {r.agent === "claude-code" ? "Claude Code" : "OpenCode"}
-                                        </span>{" "}
-                                        <span className="chip ver">v{r.version ?? "?"}</span>
+                                        </span>
                                     </td>
                                     <td className="t-dim t-mono">{r.directory}</td>
                                     <td>
