@@ -16,7 +16,7 @@ T1–T8 规格在 `docs/tasks/`（未写入 omni_powers `op_execution/specs/`）
 - T5 `uiDesensitizeRemarks` ✅ `5efb68a`
 - T6 多账号半行间距 ✅ `5efb68a`
 - T7 `providerForcePercent` ✅ `5efb68a`
-- T8 主面板去编辑 ✅ `5efb68a`
+- T8 用量面板去编辑 ✅ `5efb68a`
 - E2E/IPC 断言对齐明文模型 ✅ `30d078b`
 
 ## tasks_list 状态

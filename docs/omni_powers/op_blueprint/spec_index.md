@@ -35,7 +35,7 @@ OmniUsage 已实现功能清单。每项指向 `specs/{feature}.md`。技术栈/
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | [ipc](specs/ipc.md)                             | IPC_CHANNELS 全量、UsageboardApi、安全 prefs、`getSecrets`/`saveSecrets`、数据形状（SnapshotDTO/ConnectorInfo/IpcResult） |
 | [window-management](specs/window-management.md) | popup/settings/tray_menu 三窗、mainPanelMode、动态高度、主题、close-action                                                |
-| [ui-views](specs/ui-views.md)                   | PopupView/SettingsView/TrayMenu；SecretInput；脱敏/强制百分比；主面板无编辑；provider-usage 管线                          |
+| [ui-views](specs/ui-views.md)                   | PopupView/SettingsView/TrayMenu；SecretInput；脱敏/强制百分比；用量面板无编辑；provider-usage 管线                        |
 
 ## 跨切面
 

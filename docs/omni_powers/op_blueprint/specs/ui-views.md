@@ -6,9 +6,9 @@
 
 ## 三视图
 
-### PopupView（主面板，route=popup）
+### PopupView（用量面板，route=popup）
 
-托盘弹窗主面板，默认视图。组合：
+托盘弹窗用量面板，默认视图。组合：
 
 - `ProviderNav` — 顶部 provider 导航 tab（总览 + 各 provider）
 - `ProviderOverview` — 概览聚合卡片
@@ -28,8 +28,8 @@
 - `use_popup_height_report` + `useResizeObserver` — 上报内容高度驱动窗口自适应
 - `useNowTick` — 周期 tick 刷新相对时间显示
 - 用量条样式：`UsageBarStyle`（细线 / 粗胶囊）/ `UsageBarColorScheme`
-- **主面板无账号编辑入口**（T8）：账号设置仅在 Settings；主面板 provider 卡片无更多操作菜单，关闭/管理操作在设置页进行
-- **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（主面板 + 设置列表）
+- **用量面板无账号编辑入口**（T8）：账号设置仅在 Settings；用量面板 provider 卡片无更多操作菜单，关闭/管理操作在设置页进行
+- **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（用量面板 + 设置列表）
 - **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %
 
 ### SettingsView（设置窗，route=settings）
@@ -40,7 +40,7 @@
 
 **数据标签映射 key 不变量**（`lib/label-map-util` `build_label_map_rows`）：
 
-- 映射配置 **key 永远是 `item.raw_label`**（与主面板 `format_usage_period_label` 查找键一致）。禁止用 `normalized_label` 或显示名作 key。
+- 映射配置 **key 永远是 `item.raw_label`**（与用量面板 `format_usage_period_label` 查找键一致）。禁止用 `normalized_label` 或显示名作 key。
 - `LabelMapRow`：`raw`（key）/ `default`（无用户覆盖时的显示回退）/ `display`（`existing_map[raw]` 或 `default`）。
 - 直连（`SettingsForm`）与 CPA（`LabelMapDialog`）共用此 util；CPA 可用 `normalize_for_display` 剥账号名做默认显示，**不改 key**。
 - 按 `raw_label` 去重（first wins）。旧映射若误用 `normalized_label` 作 key 不迁移，用户重设。
@@ -57,7 +57,7 @@
 - `account_overrides`（add/remove）— 账号隐藏/标签
 - `ADD_COMMON_SERVICES` — 添加账号的服务清单
 - `redact_config_raw` — config 日志脱敏
-- 导航：设置内编辑账号；主面板不再跳转编辑
+- 导航：设置内编辑账号；用量面板不再跳转编辑
 - **实时同步**：订阅 `onStateChange` 保持 `pluginInfos` 与 connector snapshot 同步（CPA 连接器状态就绪后子行即时出现）
 - **CPA 保存导航**：配置和 secret 持久化成功后立即退出 `CpaConnectorSettings`，返回账号列表；保存失败则保留详情页和输入并显示错误。
 - **CPA 保存刷新**：管理密钥、CPA-Manager URL、monitor 实际变化时，仅 fire-and-forget 调用当前 CPA `connector.refresh(instanceId)`；备注、刷新间隔及无变化提交不立即采集，且从不调用 `refreshAll()`。

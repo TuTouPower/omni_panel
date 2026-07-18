@@ -55,10 +55,18 @@ export function TrayMenu() {
         () => [
             {
                 icon: "open",
-                label_zh: "打开主面板",
+                label_zh: "用量面板",
                 label_en: "Open Panel",
                 action: () => {
                     window.usageboard.tray.open_panel();
+                },
+            },
+            {
+                icon: "chart",
+                label_zh: "代理面板",
+                label_en: "Token Stats",
+                action: () => {
+                    window.usageboard.tokenStats.open();
                 },
             },
             {
@@ -95,14 +103,6 @@ export function TrayMenu() {
                 label_en: "Settings…",
                 action: () => {
                     window.usageboard.tray.open_settings();
-                },
-            },
-            {
-                icon: "chart",
-                label_zh: "Token 统计",
-                label_en: "Token Stats",
-                action: () => {
-                    window.usageboard.tokenStats.open();
                 },
             },
             {

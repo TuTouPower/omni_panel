@@ -1111,8 +1111,8 @@ export function SettingsView() {
 
                                 <div className="set-group-label">窗口</div>
                                 <SetRow
-                                    title="主面板打开方式"
-                                    sub="左键托盘图标永远打开主面板，外壳由这里决定"
+                                    title="用量面板打开方式"
+                                    sub="左键托盘图标永远打开用量面板，外壳由这里决定"
                                 >
                                     <Select
                                         value={main_panel_mode_value_to_label(mainPanelMode)}
@@ -1165,7 +1165,7 @@ export function SettingsView() {
                                 <div className="set-group-label">其他</div>
                                 <SetRow
                                     title="界面脱敏"
-                                    sub="隐藏所有账号备注名（主面板与设置列表）"
+                                    sub="隐藏所有账号备注名（用量面板与设置面板）"
                                 >
                                     <Toggle
                                         on={config.uiDesensitizeRemarks === true}

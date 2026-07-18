@@ -56,8 +56,8 @@
 6. **聚合用总量比，不用百分比均值**：多账号 provider 概览 `整体使用率 = sum(used)/sum(limit)`，绝不对各账号百分比取平均。仅 `used/limit` 有限、`used≥0`、`limit>0` 的 metric 参与。
 7. **聚合时间的收敛规则**：同周期内有效账号时间差 ≤ 10 分钟（可由 `convergentTimeMinutes` 覆盖）显示最新时间，> 阈值则不显示，绝不编造"平均时刻"。
 8. **所有权决定可删除性**：CPA 账号存在性由远端 CPA-Manager 决定 → 本地**只能隐藏**（写 `accountOverrides.hidden`），不调远端删除；直连账号存在性由本地配置定义 → **可删除**（连 secret 一起清）。破坏性操作只出现在"行即数据源"层级，账号子行只做显示调整。
-9. **密钥按需暴露**：日常只拿 `hasSecret` 布尔；设置编辑时经 `config:getSecrets` 按实例拉明文回填。连接器 secret just-in-time 解密注入宿主请求；日志强制脱敏，开发期同样生效。主面板不拉密钥。
-10. **CPA 主面板隐身**：主面板无"CPA" provider tab，CPA 采来的账号并入对应真实 provider 卡片；CPA 只在设置页作为可展开连接呈现。
+9. **密钥按需暴露**：日常只拿 `hasSecret` 布尔；设置编辑时经 `config:getSecrets` 按实例拉明文回填。连接器 secret just-in-time 解密注入宿主请求；日志强制脱敏，开发期同样生效。用量面板不拉密钥。
+10. **CPA 用量面板隐身**：用量面板无"CPA" provider tab，CPA 采来的账号并入对应真实 provider 卡片；CPA 只在设置页作为可展开连接呈现。
 
 ## 5. 废弃对照（落后词 → 统一词）
 

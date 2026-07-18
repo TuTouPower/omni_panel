@@ -15,7 +15,7 @@
 | log       | `log:renderer` / `log:export`                                                                                                                                                                                  | 渲染日志转发、日志导出                    |
 | popup     | `popup:reportContentHeight`                                                                                                                                                                                    | 渲染上报测得内容高度（窗口自适应）        |
 | settings  | `settings:open` / `navigate` / `minimize` / `maximize` / `close`                                                                                                                                               | 设置窗控制                                |
-| mainPanel | `mainPanel:hide` / `getMode`                                                                                                                                                                                   | 主面板 shell 动作                         |
+| mainPanel | `mainPanel:hide` / `getMode`                                                                                                                                                                                   | 用量面板 shell 动作                       |
 | tray      | `tray:openPanel` / `refreshAll` / `togglePause` / `toggleAutostart` / `openSettings` / `checkUpdate` / `survey` / `sponsor` / `quit` / `restart` / `hide` / `reportMenuSize` / `pauseState` / `autostartState` | 托盘菜单动作                              |
 | auth      | `auth:cookieLogin`                                                                                                                                                                                             | 通用 cookie 登录                          |
 | grok      | `grok:loginStart` / `loginPoll` / `loginStatus` / `logout` / `refresh`                                                                                                                                         | Grok OAuth device-code 与 token 生命周期  |
@@ -41,4 +41,4 @@ Grok API 按 route 收窄：settings 暴露 `login_start` / `login_poll` / `logi
 - `ConnectorSnapshotDTO`：`idle | loading{updatedAt?,items?,badge?,chart?} | ready{items,updatedAt,badge?,chart?} | failed{error,updatedAt?,items?,badge?,chart?}`。
 - `ConnectorInfo`：`instanceId` / `sourceInstanceId` / `stateId` / `name` / `displayName` / `enabled` / `source` / `supportedProviders` / `activeProviders` / `metadata` / `snapshot`。
 - `IpcResult<T> = { ok:true, data:T } | { ok:false, error:IpcError }`。
-- `SettingsOpenContext`：`{ instanceId?, provider?, accountId? }` —— 打开设置窗时的定位上下文（主面板已无账号「编辑」菜单；仍可用于其它跳转）。
+- `SettingsOpenContext`：`{ instanceId?, provider?, accountId? }` —— 打开设置窗时的定位上下文（用量面板已无账号「编辑」菜单；仍可用于其它跳转）。

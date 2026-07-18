@@ -8,13 +8,13 @@
 
 | key         | route      | 尺寸                      | 特征                                                                   |
 | ----------- | ---------- | ------------------------- | ---------------------------------------------------------------------- |
-| `popup`     | `popup`    | 482×480, min 472, max 780 | frameless, resizable, 托盘弹窗主面板（默认隐藏，托盘点击显示）         |
+| `popup`     | `popup`    | 482×480, min 472, max 780 | frameless, resizable, 托盘弹窗用量面板（默认隐藏，托盘点击显示）       |
 | `settings`  | `settings` | 820×660                   | frameless, `titleBarStyle:hidden`, `showWhenReady`, 圆角，独立持久窗口 |
 | `tray_menu` | `tray`     | —                         | 自定义托盘菜单渲染窗口                                                 |
 
 URL：`file://...renderer/index.html#<route>?ou_theme=<dark|light>&v=<version>`。
 
-## 主面板模式（`mainPanelMode`）
+## 用量面板模式（`mainPanelMode`）
 
 - `popup` — 托盘弹窗（默认），点击托盘图标弹出，失焦隐藏。
 - `floating` — 常驻浮窗。

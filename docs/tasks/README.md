@@ -9,7 +9,7 @@
 | T5  | 界面脱敏（隐藏备注，无序号）         | M      | [spec](./T5_ui_desensitize_remarks_spec.md) | [plan](./T5_ui_desensitize_remarks_plan.md) | 独立                                             |
 | T6  | 多账号半行间距                       | S      | [spec](./T6_account_row_spacing_spec.md)    | [plan](./T6_account_row_spacing_plan.md)    | 独立                                             |
 | T7  | 厂商统一百分比（刷新下、标签映射上） | M      | [spec](./T7_provider_force_percent_spec.md) | [plan](./T7_provider_force_percent_plan.md) | SettingsForm 位置已定                            |
-| T8  | 取消主面板编辑按钮                   | S      | [spec](./T8_remove_main_panel_edit_spec.md) | [plan](./T8_remove_main_panel_edit_plan.md) | 独立                                             |
+| T8  | 取消用量面板编辑按钮                 | S      | [spec](./T8_remove_main_panel_edit_spec.md) | [plan](./T8_remove_main_panel_edit_plan.md) | 独立                                             |
 
 ## 已拍板
 
