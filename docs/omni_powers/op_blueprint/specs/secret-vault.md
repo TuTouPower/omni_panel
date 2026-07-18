@@ -33,7 +33,7 @@ listKeys(prefix?): Promise<string[]>
 ## 最小暴露规则
 
 - `config.get` 仍只返回 `hasSecrets: Record<instanceId, Record<param, boolean>>`（布尔），配置本体脱敏。
-- **设置窗按需明文**：`config:getSecrets({ instanceId })` 从 vault 解密该实例 secret 参数明文，供编辑表单回填与眼睛开关显示。仅 settings preload 暴露；popup/tray stub 返回 `{}`。主面板/托盘不拉密钥。
+- **设置窗按需明文**：`config:getSecrets({ instanceId })` 从 vault 解密该实例 secret 参数明文，供编辑表单回填与眼睛开关显示。仅 settings preload 暴露；popup/tray stub 返回 `{}`。用量面板/托盘不拉密钥。
 - 连接器刷新时主进程 just-in-time 解密，按 manifest auth 模板注入宿主请求；明文默认不进沙箱，更不进 stdin/argv/env。
 - 仅 `exposeToScript: true` 的 secret 从 vault 取明文进 `ctx.params`，否则走 `ctx.http` 宿主侧 `apply_auth`。
 - **威胁扩展**：设置窗打开期间明文在渲染进程内存（截图/DevTools 可及）；日志 scrubber 仍强制脱敏。

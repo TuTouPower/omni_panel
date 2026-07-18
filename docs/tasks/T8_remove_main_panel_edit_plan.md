@@ -1,4 +1,4 @@
-# T8 Plan: 移除主面板编辑
+# T8 Plan: 移除用量面板编辑
 
 ## 复杂度
 
@@ -21,4 +21,4 @@ refactor(ui): remove edit action from main panel menus
 
 ## 验证
 
-`pnpm test` renderer；手工主面板 ⋮ 无编辑，设置齿轮可用。
+`pnpm test` renderer；手工用量面板 ⋮ 无编辑，设置齿轮可用。

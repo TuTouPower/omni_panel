@@ -55,10 +55,26 @@ export function TrayMenu() {
         () => [
             {
                 icon: "open",
-                label_zh: "打开主面板",
+                label_zh: "用量面板",
                 label_en: "Open Panel",
                 action: () => {
                     window.usageboard.tray.open_panel();
+                },
+            },
+            {
+                icon: "chart",
+                label_zh: "代理面板",
+                label_en: "Token Stats",
+                action: () => {
+                    window.usageboard.tokenStats.open();
+                },
+            },
+            {
+                icon: "open",
+                label_zh: "网页访问",
+                label_en: "Web Panel",
+                action: () => {
+                    window.usageboard.tray.open_web();
                 },
             },
             {
@@ -95,14 +111,6 @@ export function TrayMenu() {
                 label_en: "Settings…",
                 action: () => {
                     window.usageboard.tray.open_settings();
-                },
-            },
-            {
-                icon: "chart",
-                label_zh: "Token 统计",
-                label_en: "Token Stats",
-                action: () => {
-                    window.usageboard.tokenStats.open();
                 },
             },
             {
@@ -171,7 +179,7 @@ export function TrayMenu() {
 
     useResizeObserver(menu_ref, report_menu_size, [items]);
 
-    const sep_indexes = new Set([2, 4, 9]); // indexes where separators appear
+    const sep_indexes = new Set([3, 5, 10]); // indexes where separators appear
 
     return (
         <div className="tray-window" ref={menu_ref}>

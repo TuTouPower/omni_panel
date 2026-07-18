@@ -10,7 +10,9 @@ import { IPC_CHANNELS } from "../../../src/shared/types/ipc";
  */
 
 const ZH_LABELS = [
-    "打开主面板",
+    "用量面板",
+    "代理面板",
+    "网页访问",
     "立即刷新全部",
     "暂停自动刷新",
     "恢复自动刷新",
@@ -22,6 +24,8 @@ const ZH_LABELS = [
 
 const EN_LABELS = [
     "Open Panel",
+    "Token Stats",
+    "Web Panel",
     "Refresh All",
     "Pause Auto-Refresh",
     "Resume Auto-Refresh",
@@ -32,23 +36,27 @@ const EN_LABELS = [
 ] as const;
 
 describe("tray menu", () => {
-    it("has all 8 required menu item labels in Chinese", () => {
-        expect(ZH_LABELS).toHaveLength(8);
-        expect(ZH_LABELS).toContain("打开主面板");
+    it("has all 10 required menu item labels in Chinese", () => {
+        expect(ZH_LABELS).toHaveLength(10);
+        expect(ZH_LABELS).toContain("用量面板");
+        expect(ZH_LABELS).toContain("代理面板");
+        expect(ZH_LABELS).toContain("网页访问");
         expect(ZH_LABELS).toContain("立即刷新全部");
         expect(ZH_LABELS).toContain("退出 OmniUsage");
     });
 
-    it("has all 8 required menu item labels in English", () => {
-        expect(EN_LABELS).toHaveLength(8);
+    it("has all 10 required menu item labels in English", () => {
+        expect(EN_LABELS).toHaveLength(10);
         expect(EN_LABELS).toContain("Open Panel");
+        expect(EN_LABELS).toContain("Token Stats");
+        expect(EN_LABELS).toContain("Web Panel");
         expect(EN_LABELS).toContain("Refresh All");
         expect(EN_LABELS).toContain("Quit OmniUsage");
     });
 
     it("pause labels are distinct", () => {
-        expect(ZH_LABELS[2]).not.toBe(ZH_LABELS[3]);
-        expect(EN_LABELS[2]).not.toBe(EN_LABELS[3]);
+        expect(ZH_LABELS[4]).not.toBe(ZH_LABELS[5]);
+        expect(EN_LABELS[4]).not.toBe(EN_LABELS[5]);
     });
 
     it("tray IPC channels cover all actions", () => {

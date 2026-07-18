@@ -12,6 +12,9 @@ extraResources:
       to: tray-icon.png
     - from: assets/icon.png
       to: icon.png
+    - from: out/web
+      to: web
+      filter: ["**/*"]
 asar: true
 asarUnpack:
     - out/main/collector.js

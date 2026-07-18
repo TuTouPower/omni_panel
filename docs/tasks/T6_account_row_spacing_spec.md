@@ -2,13 +2,13 @@
 
 ## 问题
 
-主面板同一厂商下多账号卡片贴太紧，扫视困难。用户：「多账号之间空半行就算换行了」。
+用量面板同一厂商下多账号卡片贴太紧，扫视困难。用户：「多账号之间空半行就算换行了」。
 
 ## 现状
 
-- 主面板账号列表：`ProviderAccountList` 对 `ProviderAccountRow` 无 wrapper gap，依赖 `CollapsibleCard`/`.card` 外边距。
+- 用量面板账号列表：`ProviderAccountList` 对 `ProviderAccountRow` 无 wrapper gap，依赖 `CollapsibleCard`/`.card` 外边距。
 - 外层 provider 卡片容器：`.scroll-inner { gap: 12px }`（厂商之间）。
-- 设置页 `AccountRow` 另有列表间距，**主诉是主面板**。
+- 设置页 `AccountRow` 另有列表间距，**主诉是用量面板**。
 
 ## 期望
 
@@ -18,7 +18,7 @@
 
 ## 范围
 
-- **In**：主面板 `ProviderAccountList` / 概览内多账号列表
+- **In**：用量面板 `ProviderAccountList` / 概览内多账号列表
 - **Out（默认）**：设置页账号列表（除非实现时一并极小改动无风险）
 
 ## 验收

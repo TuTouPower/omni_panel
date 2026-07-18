@@ -252,7 +252,7 @@ export function TokenStatsView() {
                 <div className="brand">
                     <h1>
                         <span className="dot" />
-                        Agent Session Usage
+                        代理面板
                         {updatedAgo && <span className="update-ago">{updatedAgo}</span>}
                     </h1>
                 </div>

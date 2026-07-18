@@ -1,6 +1,6 @@
-# Token 统计面板 · 实现文档
+# 代理面板 · 实现文档
 
-> 本文件记录 `docs/design/用量面板复刻规范.md` 与 `docs/design/index.html` 的 React + TypeScript 实现映射，供维护与验收参考。
+> 本文件记录 `docs/design/代理面板复刻规范.md` 与 `docs/design/index.html` 的 React + TypeScript 实现映射，供维护与验收参考。
 
 ## 1. 文件映射
 

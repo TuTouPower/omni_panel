@@ -1,17 +1,25 @@
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { create_local_api_server } from "../../../src/main/core/local-api/server";
 import { create_observation_store } from "../../../src/main/core/observation/observation-store";
+import { create_token_stats_store } from "../../../src/main/core/token-stats/token-stats-store";
 import type { LocalAPIServer } from "../../../src/main/core/local-api/server";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
+import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
+import type { ConfigIpcDeps } from "../../../src/main/ipc/config-ipc";
+import type { ConnectorIpcDeps } from "../../../src/main/ipc/connector-ipc";
 
 let temp_dir: string;
 let sync_store: ObservationStore;
 let store: ObservationStore;
 let api: LocalAPIServer;
+let token_stats_store: TokenStatsStore;
+let config_deps: ConfigIpcDeps;
+let connector_deps: ConnectorIpcDeps;
+let web_root: string;
 
 function assert_non_null<T>(
     value: T,
@@ -43,12 +51,55 @@ beforeEach(async () => {
     temp_dir = await mkdtemp(join(tmpdir(), "local-api-test-"));
     sync_store = create_observation_store(join(temp_dir, "test.db"));
     store = sync_store;
-    api = create_local_api_server(store, { port: 0 });
+    token_stats_store = create_token_stats_store(":memory:");
+    web_root = await mkdtemp(join(tmpdir(), "local-api-web-"));
+    await writeFile(join(web_root, "index.html"), "<html>web panel</html>");
+    config_deps = {
+        configStore: {
+            load: () =>
+                Promise.resolve({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [{ instanceId: "inst-1" }] as never[],
+                    launchAtLogin: false,
+                }),
+            save: () => Promise.resolve(),
+            scheduleSave: () => undefined,
+            flushPendingSave: () => Promise.resolve(),
+            hasPendingSave: () => false,
+        },
+        secretsStore: {
+            get: () => Promise.resolve("sk-plain"),
+            set: () => Promise.resolve(),
+            delete: () => Promise.resolve(),
+            exportAll: () => Promise.resolve({}),
+            importAll: () => Promise.resolve(),
+        },
+        secretParamKeys: new Map([["inst-1", new Set(["apiKey"])]]),
+    };
+    connector_deps = {
+        configStore: config_deps.configStore,
+        runtimeStore: { getSnapshot: () => ({ status: "idle" }) } as never,
+        refreshService: {
+            refresh: () => Promise.resolve(),
+            refreshAll: () => Promise.resolve(),
+        },
+        definitions: [],
+    };
+    api = create_local_api_server(store, {
+        port: 0,
+        token_stats_store,
+        config_deps,
+        connector_deps,
+        web_root,
+    });
 });
 
 afterEach(async () => {
     await api.stop();
     store.close();
+    token_stats_store.close();
+    await rm(web_root, { recursive: true, force: true });
     await rm(temp_dir, { recursive: true, force: true });
 });
 
@@ -141,7 +192,7 @@ describe("local-api", () => {
             res.end("occupied");
         });
         const occupied_port = await new Promise<number>((resolve) => {
-            occupied.listen(0, "127.0.0.1", () => {
+            occupied.listen(0, "0.0.0.0", () => {
                 const addr = occupied.address();
                 if (addr && typeof addr === "object") resolve(addr.port);
             });
@@ -158,5 +209,78 @@ describe("local-api", () => {
                 resolve();
             });
         });
+    });
+});
+
+describe("local-api web read endpoints", () => {
+    it("GET /v1/records returns records without auth", async () => {
+        token_stats_store.upsert_records([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "s1",
+                title: null,
+                directory: null,
+                slug: null,
+                version: null,
+                parent_session_id: null,
+                message_id: "m1",
+                role: "assistant",
+                timestamp: Date.now(),
+                model: "sonnet",
+                input_tokens: 10,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent: "claude-code",
+            },
+        ]);
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/records`);
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as unknown[];
+        expect(data).toHaveLength(1);
+        expect(data[0]).toMatchObject({ message_id: "m1", agent: "claude-code" });
+    });
+
+    it("web read endpoints do not require bearer auth", async () => {
+        await api.start();
+        for (const path of ["/v1/records", "/v1/sessions", "/v1/buckets", "/v1/status"]) {
+            const res = await fetch(`http://127.0.0.1:${String(api.get_port())}${path}`);
+            expect(res.status, path).toBe(200);
+        }
+    });
+
+    it("GET /v1/config returns config without auth", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/config`);
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { config: { language: string } };
+        expect(data.config.language).toBe("zh-Hans");
+    });
+
+    it("GET /v1/secrets returns plaintext secret without auth", async () => {
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/secrets?instanceId=inst-1`,
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as Record<string, string>;
+        expect(data["apiKey"]).toBe("sk-plain");
+    });
+
+    it("GET / serves the web index.html without auth", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/`);
+        expect(res.status).toBe(200);
+        expect(await res.text()).toContain("web panel");
+    });
+
+    it("GET /v1/connectors returns list without auth", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/connectors`);
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as unknown[];
+        expect(Array.isArray(data)).toBe(true);
     });
 });

@@ -35,13 +35,13 @@ test.describe("main panel window modes", () => {
         const page = await findMainPanelPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
         await expect(page.locator('[data-popup="live"]').getByText("OmniUsage")).toBeVisible();
-        await expect(page.getByRole("button", { name: "隐藏主面板" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "隐藏用量面板" })).toBeVisible();
     });
 
     test("floating close button hides without destroying the window", async ({ omni }) => {
         test.skip(process.platform === "darwin", "macOS system mode uses popup");
         const page = await findMainPanelPage(omni.app);
-        await page.getByRole("button", { name: "隐藏主面板" }).click();
+        await page.getByRole("button", { name: "隐藏用量面板" }).click();
         await expect
             .poll(() => popupWindowState(omni.app))
             .toEqual({ exists: true, visible: false });

@@ -592,7 +592,7 @@ export function PopupView() {
                             <button
                                 className="icon-btn floating-close-btn"
                                 title="隐藏到托盘"
-                                aria-label="隐藏主面板"
+                                aria-label="隐藏用量面板"
                                 type="button"
                                 onClick={() => {
                                     window.usageboard.main_panel.hide();

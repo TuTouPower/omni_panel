@@ -171,6 +171,7 @@ describe("PopupView", () => {
                 toggle_pause: vi.fn(),
                 toggle_autostart: vi.fn(),
                 open_settings: vi.fn(),
+                open_web: vi.fn(),
                 check_update: vi.fn(),
                 survey: vi.fn(),
                 sponsor: vi.fn(),
@@ -369,7 +370,7 @@ describe("PopupView", () => {
             expect(main_panel_get_mode).toHaveBeenCalled();
         });
 
-        expect(screen.queryByRole("button", { name: "隐藏主面板" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "隐藏用量面板" })).not.toBeInTheDocument();
     });
 
     it("shows the floating close button in floating mode and hides the main panel", async () => {
@@ -377,7 +378,7 @@ describe("PopupView", () => {
 
         render(<PopupView />);
 
-        const close_btn = await screen.findByRole("button", { name: "隐藏主面板" });
+        const close_btn = await screen.findByRole("button", { name: "隐藏用量面板" });
         fireEvent.click(close_btn);
 
         expect(main_panel_hide).toHaveBeenCalledTimes(1);
@@ -392,7 +393,7 @@ describe("PopupView", () => {
 
         try {
             await waitFor(() => {
-                expect(screen.getAllByRole("button", { name: "隐藏主面板" }).length).toBe(1);
+                expect(screen.getAllByRole("button", { name: "隐藏用量面板" }).length).toBe(1);
             });
         } finally {
             view.unmount();

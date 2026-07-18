@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
+import { is_web } from "../lib/is-web";
 import {
     REFRESH_INTERVAL_OPTIONS,
     refresh_seconds_to_label,
@@ -611,56 +612,58 @@ function TitleBar() {
     return (
         <div className="settings-titlebar">
             <span className="st-title">设置</span>
-            <div className="st-controls">
-                <button
-                    className="st-btn"
-                    onClick={() => {
-                        window.usageboard.settings.minimize();
-                    }}
-                    title="最小化"
-                    type="button"
-                >
-                    <svg width="10" height="1" viewBox="0 0 10 1">
-                        <rect width="10" height="1" fill="currentColor" />
-                    </svg>
-                </button>
-                <button
-                    className="st-btn"
-                    onClick={() => {
-                        window.usageboard.settings.maximize();
-                    }}
-                    title="最大化"
-                    type="button"
-                >
-                    <svg width="10" height="10" viewBox="0 0 10 10">
-                        <rect
-                            x="0.5"
-                            y="0.5"
-                            width="9"
-                            height="9"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1"
-                        />
-                    </svg>
-                </button>
-                <button
-                    className="st-btn close"
-                    onClick={() => {
-                        window.usageboard.settings.close();
-                    }}
-                    title="关闭"
-                    type="button"
-                >
-                    <svg width="10" height="10" viewBox="0 0 10 10">
-                        <path
-                            d="M0.5 0.5L9.5 9.5M9.5 0.5L0.5 9.5"
-                            stroke="currentColor"
-                            strokeWidth="1.2"
-                        />
-                    </svg>
-                </button>
-            </div>
+            {!is_web() && (
+                <div className="st-controls">
+                    <button
+                        className="st-btn"
+                        onClick={() => {
+                            window.usageboard.settings.minimize();
+                        }}
+                        title="最小化"
+                        type="button"
+                    >
+                        <svg width="10" height="1" viewBox="0 0 10 1">
+                            <rect width="10" height="1" fill="currentColor" />
+                        </svg>
+                    </button>
+                    <button
+                        className="st-btn"
+                        onClick={() => {
+                            window.usageboard.settings.maximize();
+                        }}
+                        title="最大化"
+                        type="button"
+                    >
+                        <svg width="10" height="10" viewBox="0 0 10 10">
+                            <rect
+                                x="0.5"
+                                y="0.5"
+                                width="9"
+                                height="9"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1"
+                            />
+                        </svg>
+                    </button>
+                    <button
+                        className="st-btn close"
+                        onClick={() => {
+                            window.usageboard.settings.close();
+                        }}
+                        title="关闭"
+                        type="button"
+                    >
+                        <svg width="10" height="10" viewBox="0 0 10 10">
+                            <path
+                                d="M0.5 0.5L9.5 9.5M9.5 0.5L0.5 9.5"
+                                stroke="currentColor"
+                                strokeWidth="1.2"
+                            />
+                        </svg>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
@@ -1111,8 +1114,8 @@ export function SettingsView() {
 
                                 <div className="set-group-label">窗口</div>
                                 <SetRow
-                                    title="主面板打开方式"
-                                    sub="左键托盘图标永远打开主面板，外壳由这里决定"
+                                    title="用量面板打开方式"
+                                    sub="左键托盘图标永远打开用量面板，外壳由这里决定"
                                 >
                                     <Select
                                         value={main_panel_mode_value_to_label(mainPanelMode)}
@@ -1165,7 +1168,7 @@ export function SettingsView() {
                                 <div className="set-group-label">其他</div>
                                 <SetRow
                                     title="界面脱敏"
-                                    sub="隐藏所有账号备注名（主面板与设置列表）"
+                                    sub="隐藏所有账号备注名（用量面板与设置面板）"
                                 >
                                     <Toggle
                                         on={config.uiDesensitizeRemarks === true}

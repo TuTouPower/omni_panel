@@ -64,6 +64,7 @@ export const IPC_CHANNELS = {
     TRAY_TOGGLE_PAUSE: "tray:togglePause",
     TRAY_TOGGLE_AUTOSTART: "tray:toggleAutostart",
     TRAY_OPEN_SETTINGS: "tray:openSettings",
+    TRAY_OPEN_WEB: "tray:openWeb",
     TRAY_CHECK_UPDATE: "tray:checkUpdate",
     TRAY_SURVEY: "tray:survey",
     TRAY_SPONSOR: "tray:sponsor",
@@ -307,6 +308,8 @@ export interface UsageboardApi {
         toggle_pause(): void;
         toggle_autostart(): void;
         open_settings(): void;
+        /** Open the web UI in the system browser (intranet). */
+        open_web(): void;
         check_update(): void;
         survey(): void;
         sponsor(): void;
