@@ -327,15 +327,7 @@ export function TokenStatsView() {
 
                     <div className="grid">
                         <div className="card span-8">
-                            <h3>
-                                <Segmented
-                                    options={METRIC_OPTIONS}
-                                    value={metric}
-                                    onChange={(v) => {
-                                        handleMetricChange(v);
-                                    }}
-                                    size="sm"
-                                />
+                            <h3 className="bar-chart-header">
                                 <span className="h3ctrl">
                                     {effectiveXaxis === "time" && (
                                         <Segmented
@@ -360,15 +352,28 @@ export function TokenStatsView() {
                                     />
                                 </span>
                             </h3>
-                            <BarChart
-                                records={currentRecords}
-                                metric={metric}
-                                xaxis={effectiveXaxis}
-                                gran={gran}
-                                start={currentRange.start}
-                                end={currentRange.end}
-                                theme={theme}
-                            />
+                            <div className="bar-chart-wrap">
+                                <div className="bar-metric">
+                                    <Segmented
+                                        options={METRIC_OPTIONS}
+                                        value={metric}
+                                        onChange={(v) => {
+                                            handleMetricChange(v);
+                                        }}
+                                        size="sm"
+                                    />
+                                </div>
+                                <BarChart
+                                    records={currentRecords}
+                                    metric={metric}
+                                    xaxis={effectiveXaxis}
+                                    gran={gran}
+                                    start={currentRange.start}
+                                    end={currentRange.end}
+                                    theme={theme}
+                                    topOffset={44}
+                                />
+                            </div>
                         </div>
                         <div className="card span-4">
                             <h3>时段热力</h3>

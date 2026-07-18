@@ -14,6 +14,7 @@ interface BarChartProps {
     start: number;
     end: number;
     theme: "dark" | "light";
+    topOffset?: number;
 }
 
 const METRIC_LABEL: Record<Metric, string> = {
@@ -22,7 +23,16 @@ const METRIC_LABEL: Record<Metric, string> = {
     calls: "调用次数",
 };
 
-export function BarChart({ records, metric, xaxis, gran, start, end, theme }: BarChartProps) {
+export function BarChart({
+    records,
+    metric,
+    xaxis,
+    gran,
+    start,
+    end,
+    theme,
+    topOffset = 20,
+}: BarChartProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const { labels, series, otherDetails } = useMemo(
         () => prepareBarData(records, metric, xaxis, gran, start, end, theme),
@@ -35,7 +45,13 @@ export function BarChart({ records, metric, xaxis, gran, start, end, theme }: Ba
         const nCat = labels.length;
         const rotate = xaxis === "time" ? (nCat > 14 ? 38 : 0) : 38;
         return {
-            grid: { left: 8, right: 8, top: 20, bottom: nCat > 14 ? 62 : 20, containLabel: true },
+            grid: {
+                left: 8,
+                right: 8,
+                top: topOffset,
+                bottom: nCat > 14 ? 62 : 20,
+                containLabel: true,
+            },
             tooltip: {
                 backgroundColor: pal.tipBg,
                 borderColor: pal.tipBorder,
@@ -136,7 +152,7 @@ export function BarChart({ records, metric, xaxis, gran, start, end, theme }: Ba
                 emphasis: { focus: "series" },
             })),
         };
-    }, [labels, series, otherDetails, metric, xaxis, pal, fmtV]);
+    }, [labels, series, otherDetails, metric, xaxis, pal, fmtV, topOffset]);
 
     useECharts(containerRef, () => option, [option]);
 
