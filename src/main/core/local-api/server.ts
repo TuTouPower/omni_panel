@@ -5,6 +5,14 @@ import { observation_ingest_schema } from "../../../shared/schemas/observation";
 import type { Observation } from "../../../shared/types/observation";
 import type { ObservationStore } from "../observation/observation-store";
 import type { TokenStatsStore } from "../token-stats/token-stats-store";
+import {
+    handleConfigGet,
+    handleConfigGetSecrets,
+    handleConfigSave,
+    handleConfigSaveSecrets,
+} from "../../ipc/config-ipc";
+import type { ConfigIpcDeps } from "../../ipc/config-ipc";
+import type { IpcResult } from "../../../shared/types/ipc";
 
 const log = createLogger("local-api");
 const DEFAULT_PORT = 17863;
@@ -46,6 +54,27 @@ function parse_body(req: IncomingMessage): Promise<Buffer> {
     });
 }
 
+async function read_json_body(req: IncomingMessage, res: ServerResponse): Promise<unknown> {
+    try {
+        return JSON.parse((await parse_body(req)).toString("utf8"));
+    } catch (err) {
+        if (err instanceof RequestBodyTooLargeError) {
+            json_response(res, 413, { error: "Request body too large" });
+        } else {
+            json_response(res, 400, { error: "Invalid JSON" });
+        }
+        return null;
+    }
+}
+
+function send_result<T>(res: ServerResponse, result: IpcResult<T>): void {
+    if (result.ok) {
+        json_response(res, 200, result.data);
+    } else {
+        json_response(res, 400, result.error);
+    }
+}
+
 function check_auth(req: IncomingMessage, token: string): boolean {
     const auth = req.headers.authorization;
     if (!auth?.startsWith("Bearer ")) return false;
@@ -70,10 +99,15 @@ function is_address_in_use(error: unknown): boolean {
 
 export function create_local_api_server(
     observation_store: ObservationStore,
-    options?: { port?: number; token_stats_store?: TokenStatsStore },
+    options?: {
+        port?: number;
+        token_stats_store?: TokenStatsStore;
+        config_deps?: ConfigIpcDeps;
+    },
 ): LocalAPIServer {
     const token = generate_token();
     const token_stats_store = options?.token_stats_store;
+    const config_deps = options?.config_deps;
     let port = options?.port ?? DEFAULT_PORT;
     let server: ReturnType<typeof createServer> | null = null;
 
@@ -119,6 +153,9 @@ export function create_local_api_server(
             // Web read endpoints serve the panel UI without auth (intranet use
             // per project decision). ingest stays token-gated below.
             if (is_get && token_stats_store && handle_web_read(url, res, token_stats_store)) {
+                return;
+            }
+            if (config_deps && (await handle_web_config(req, res, url, config_deps))) {
                 return;
             }
 
@@ -187,6 +224,46 @@ export function create_local_api_server(
             default:
                 return false;
         }
+    }
+
+    async function handle_web_config(
+        req: IncomingMessage,
+        res: ServerResponse,
+        url: URL,
+        deps: ConfigIpcDeps,
+    ): Promise<boolean> {
+        if (url.pathname === "/v1/config") {
+            if (req.method === "GET") {
+                send_result(res, await handleConfigGet(deps));
+                return true;
+            }
+            if (req.method === "POST") {
+                const parsed = await read_json_body(req, res);
+                if (parsed === null) return true;
+                send_result(res, await handleConfigSave(deps, parsed));
+                return true;
+            }
+            return false;
+        }
+        if (url.pathname === "/v1/secrets") {
+            if (req.method === "GET") {
+                const instance_id = url.searchParams.get("instanceId");
+                if (!instance_id) {
+                    json_response(res, 400, { error: "instanceId required" });
+                    return true;
+                }
+                send_result(res, await handleConfigGetSecrets(deps, { instanceId: instance_id }));
+                return true;
+            }
+            if (req.method === "POST") {
+                const parsed = await read_json_body(req, res);
+                if (parsed === null) return true;
+                send_result(res, await handleConfigSaveSecrets(deps, parsed));
+                return true;
+            }
+            return false;
+        }
+        return false;
     }
 
     function listen(target_port: number): Promise<number> {

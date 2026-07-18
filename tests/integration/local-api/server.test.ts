@@ -9,12 +9,14 @@ import { create_token_stats_store } from "../../../src/main/core/token-stats/tok
 import type { LocalAPIServer } from "../../../src/main/core/local-api/server";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
 import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
+import type { ConfigIpcDeps } from "../../../src/main/ipc/config-ipc";
 
 let temp_dir: string;
 let sync_store: ObservationStore;
 let store: ObservationStore;
 let api: LocalAPIServer;
 let token_stats_store: TokenStatsStore;
+let config_deps: ConfigIpcDeps;
 
 function assert_non_null<T>(
     value: T,
@@ -47,7 +49,30 @@ beforeEach(async () => {
     sync_store = create_observation_store(join(temp_dir, "test.db"));
     store = sync_store;
     token_stats_store = create_token_stats_store(":memory:");
-    api = create_local_api_server(store, { port: 0, token_stats_store });
+    config_deps = {
+        configStore: {
+            load: () =>
+                Promise.resolve({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [{ instanceId: "inst-1" }] as never[],
+                    launchAtLogin: false,
+                }),
+            save: () => Promise.resolve(),
+            scheduleSave: () => undefined,
+            flushPendingSave: () => Promise.resolve(),
+            hasPendingSave: () => false,
+        },
+        secretsStore: {
+            get: () => Promise.resolve("sk-plain"),
+            set: () => Promise.resolve(),
+            delete: () => Promise.resolve(),
+            exportAll: () => Promise.resolve({}),
+            importAll: () => Promise.resolve(),
+        },
+        secretParamKeys: new Map([["inst-1", new Set(["apiKey"])]]),
+    };
+    api = create_local_api_server(store, { port: 0, token_stats_store, config_deps });
 });
 
 afterEach(async () => {
@@ -203,5 +228,23 @@ describe("local-api web read endpoints", () => {
             const res = await fetch(`http://127.0.0.1:${String(api.get_port())}${path}`);
             expect(res.status, path).toBe(200);
         }
+    });
+
+    it("GET /v1/config returns config without auth", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/config`);
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { config: { language: string } };
+        expect(data.config.language).toBe("zh-Hans");
+    });
+
+    it("GET /v1/secrets returns plaintext secret without auth", async () => {
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/secrets?instanceId=inst-1`,
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as Record<string, string>;
+        expect(data["apiKey"]).toBe("sk-plain");
     });
 });
