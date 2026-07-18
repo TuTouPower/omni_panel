@@ -268,7 +268,7 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtTok(totalTokens)}
-                                centerLabel="tokens · 按模型"
+                                centerLabel="tokens"
                                 segments={modelSegments(currentRecords, sumTokensValue, theme)}
                                 format={fmtTok}
                                 theme={theme}
@@ -296,7 +296,7 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtInt(totalCalls)}
-                                centerLabel="calls · 按模型"
+                                centerLabel="calls"
                                 segments={modelSegments(currentRecords, oneValue, theme)}
                                 format={fmtInt}
                                 theme={theme}
@@ -311,7 +311,7 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={`${(hitRate * 100).toFixed(1)}%`}
-                                centerLabel="hit rate · 按 token 构成"
+                                centerLabel="hit rate"
                                 segments={compositionSegments(currentRecords)}
                                 format={fmtTok}
                                 theme={theme}
