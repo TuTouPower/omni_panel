@@ -156,4 +156,18 @@ describe("TokenStatsView", () => {
         });
         expect(screen.getAllByText(/▲|▼/).length).toBeGreaterThan(0);
     });
+
+    it("persists agent and preset selection across remount", async () => {
+        get_records.mockResolvedValue([usage_record("r")]);
+        const user = userEvent.setup();
+
+        const { unmount } = render(<TokenStatsView />);
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+        unmount();
+
+        const prefs = JSON.parse(localStorage.getItem("token-stats-prefs") ?? "{}") as {
+            preset?: string;
+        };
+        expect(prefs.preset).toBe("7d");
+    });
 });

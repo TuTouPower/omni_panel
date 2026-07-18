@@ -96,17 +96,45 @@ function saveTheme(theme: Theme) {
     }
 }
 
+interface TokenStatsPrefs {
+    agent: AgentFilter;
+    platform: PlatformFilter;
+    preset: RangePreset | null;
+    metric: Metric;
+    xaxis: XAxis;
+    gran: Granularity;
+}
+
+const PREFS_KEY = "token-stats-prefs";
+
+function load_prefs(): Partial<TokenStatsPrefs> {
+    try {
+        return JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") as Partial<TokenStatsPrefs>;
+    } catch {
+        return {};
+    }
+}
+
+function save_prefs(p: TokenStatsPrefs): void {
+    try {
+        localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+    } catch {
+        // ignore
+    }
+}
+
 export function TokenStatsView() {
+    const saved = useMemo(() => load_prefs(), []);
     const [records, setRecords] = useState<AgentSessionUsage[]>([]);
     const [status, setStatus] = useState<TokenStatsStatus | null>(null);
     const [loading, setLoading] = useState(true);
-    const [agent, setAgent] = useState<AgentFilter>("all");
-    const [platform, setPlatform] = useState<PlatformFilter>("all");
-    const [preset, setPreset] = useState<RangePreset | null>("30d");
+    const [agent, setAgent] = useState<AgentFilter>(saved.agent ?? "all");
+    const [platform, setPlatform] = useState<PlatformFilter>(saved.platform ?? "all");
+    const [preset, setPreset] = useState<RangePreset | null>(saved.preset ?? "30d");
     const [custom, setCustom] = useState<{ start: number; end: number } | null>(null);
-    const [metric, setMetric] = useState<Metric>("tokens");
-    const [xaxis, setXaxis] = useState<XAxis>("time");
-    const [gran, setGran] = useState<Granularity>("day");
+    const [metric, setMetric] = useState<Metric>(saved.metric ?? "tokens");
+    const [xaxis, setXaxis] = useState<XAxis>(saved.xaxis ?? "time");
+    const [gran, setGran] = useState<Granularity>(saved.gran ?? "day");
     const [theme, setTheme] = useState<Theme>(readSavedTheme());
     const load_request_id = useRef(0);
 
@@ -168,6 +196,10 @@ export function TokenStatsView() {
         document.documentElement.setAttribute("data-theme", theme);
         saveTheme(theme);
     }, [theme]);
+
+    useEffect(() => {
+        save_prefs({ agent, platform, preset, metric, xaxis, gran });
+    }, [agent, platform, preset, metric, xaxis, gran]);
 
     const agentFiltered = useMemo(
         () => records.filter((r) => agent === "all" || r.agent === agent),
