@@ -1,13 +1,7 @@
 import type { EChartsOption } from "echarts";
 import { bucketize, groupBy, metricValue, sessionRows, sumTokens, topGroups } from "./aggregate";
 import { fmtTok, shortDir } from "./format";
-import {
-    TOP5_COLORS,
-    colorForTopModel,
-    colorForTopProject,
-    paletteFor,
-    projectColor,
-} from "./palette";
+import { TOP5_COLORS, colorForTopModel, colorForTopProject, paletteFor } from "./palette";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "./types";
 
 /** A single donut segment. */
@@ -264,7 +258,7 @@ export function prepareBarData(
             ? palette.other
             : colorDim === "model"
               ? colorForTopModel(k, index, theme)
-              : projectColor(k);
+              : colorForTopProject(k, index, theme);
 
     const series = seriesNames.map((nm, i) => ({
         name: nm,

@@ -185,6 +185,21 @@ describe("chart-data", () => {
             expect(data.seriesNames).toContain("/a");
             expect(data.seriesNames).toContain("/b");
         });
+
+        it("sessions bar series use top-5 colors, not the gray fallback", () => {
+            const records = [
+                record({ directory: "/a", session_id: "x" }),
+                record({ directory: "/b", session_id: "y" }),
+                record({ directory: "/c", session_id: "z" }),
+            ];
+            const data = prepareBarData(records, "sessions", "project", "day", 0, 1, "dark");
+            const gray = "#6b7890";
+            for (const s of data.series) {
+                if (s.name !== "其他") {
+                    expect(s.itemStyle.color).not.toBe(gray);
+                }
+            }
+        });
     });
 
     describe("prepareHeatmapData", () => {
