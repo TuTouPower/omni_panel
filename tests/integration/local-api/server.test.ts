@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -17,6 +17,7 @@ let store: ObservationStore;
 let api: LocalAPIServer;
 let token_stats_store: TokenStatsStore;
 let config_deps: ConfigIpcDeps;
+let web_root: string;
 
 function assert_non_null<T>(
     value: T,
@@ -49,6 +50,8 @@ beforeEach(async () => {
     sync_store = create_observation_store(join(temp_dir, "test.db"));
     store = sync_store;
     token_stats_store = create_token_stats_store(":memory:");
+    web_root = await mkdtemp(join(tmpdir(), "local-api-web-"));
+    await writeFile(join(web_root, "index.html"), "<html>web panel</html>");
     config_deps = {
         configStore: {
             load: () =>
@@ -72,13 +75,19 @@ beforeEach(async () => {
         },
         secretParamKeys: new Map([["inst-1", new Set(["apiKey"])]]),
     };
-    api = create_local_api_server(store, { port: 0, token_stats_store, config_deps });
+    api = create_local_api_server(store, {
+        port: 0,
+        token_stats_store,
+        config_deps,
+        web_root,
+    });
 });
 
 afterEach(async () => {
     await api.stop();
     store.close();
     token_stats_store.close();
+    await rm(web_root, { recursive: true, force: true });
     await rm(temp_dir, { recursive: true, force: true });
 });
 
@@ -246,5 +255,12 @@ describe("local-api web read endpoints", () => {
         expect(res.status).toBe(200);
         const data = (await res.json()) as Record<string, string>;
         expect(data["apiKey"]).toBe("sk-plain");
+    });
+
+    it("GET / serves the web index.html without auth", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/`);
+        expect(res.status).toBe(200);
+        expect(await res.text()).toContain("web panel");
     });
 });

@@ -9,6 +9,7 @@
         "start": "node scripts/ensure_electron_abi.mjs && electron-vite dev",
         "poststart": "node scripts/ensure_node_abi.mjs",
         "build": "electron-vite build",
+        "build:web": "vite build --config vite.web.config.ts",
         "package": "tsx scripts/package-and-run.ts",
         "package:build": "tsx scripts/package-and-run.ts",
         "reload": "tsx scripts/package-and-run.ts --no-build",

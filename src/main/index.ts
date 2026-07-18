@@ -11,6 +11,7 @@ import {
 } from "electron";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
+import { existsSync } from "node:fs";
 import { createConfigStore } from "./core/config/config-store";
 import { auto_seed_connectors } from "./core/config/auto-seed";
 import {
@@ -316,9 +317,13 @@ void app.whenReady().then(async () => {
     });
 
     // Local HTTP API: serves the web panel UI + observation ingest.
+    const web_root_path = app.isPackaged
+        ? join(process.resourcesPath, "web")
+        : join(app.getAppPath(), "out", "web");
     const local_api: LocalAPIServer = create_local_api_server(observationStore, {
         token_stats_store: tokenStatsStore,
         config_deps: { configStore, secretsStore, secretParamKeys, onConfigSaved },
+        ...(existsSync(web_root_path) ? { web_root: web_root_path } : {}),
     });
     await local_api.start();
     log.info(`Web panel: http://localhost:${String(local_api.get_port())}/v1/health`);

@@ -1,5 +1,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { createLogger } from "../../../shared/lib/logger";
 import { observation_ingest_schema } from "../../../shared/schemas/observation";
 import type { Observation } from "../../../shared/types/observation";
@@ -17,6 +19,19 @@ import type { IpcResult } from "../../../shared/types/ipc";
 const log = createLogger("local-api");
 const DEFAULT_PORT = 17863;
 const MAX_BODY_BYTES = 1024 * 1024;
+
+const MIME: Record<string, string> = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".json": "application/json; charset=utf-8",
+    ".ico": "image/x-icon",
+    ".woff2": "font/woff2",
+};
 
 class RequestBodyTooLargeError extends Error {}
 
@@ -75,6 +90,28 @@ function send_result<T>(res: ServerResponse, result: IpcResult<T>): void {
     }
 }
 
+/** Serve a static file from web_root, falling back to index.html (SPA). */
+function serve_static(url: URL, res: ServerResponse, web_root: string): void {
+    const requested = decodeURIComponent(url.pathname);
+    const resolved = path.resolve(web_root, requested.replace(/^[/\\]+/, ""));
+    if (!resolved.startsWith(web_root)) {
+        json_response(res, 403, { error: "Forbidden" });
+        return;
+    }
+    fs.stat(resolved, (stat_err, stat) => {
+        const file_path = stat_err || !stat.isFile() ? path.join(web_root, "index.html") : resolved;
+        fs.readFile(file_path, (err, data) => {
+            if (err) {
+                json_response(res, 404, { error: "Not found" });
+                return;
+            }
+            const content_type = MIME[path.extname(file_path)] ?? "application/octet-stream";
+            res.writeHead(200, { "Content-Type": content_type });
+            res.end(data);
+        });
+    });
+}
+
 function check_auth(req: IncomingMessage, token: string): boolean {
     const auth = req.headers.authorization;
     if (!auth?.startsWith("Bearer ")) return false;
@@ -103,11 +140,13 @@ export function create_local_api_server(
         port?: number;
         token_stats_store?: TokenStatsStore;
         config_deps?: ConfigIpcDeps;
+        web_root?: string;
     },
 ): LocalAPIServer {
     const token = generate_token();
     const token_stats_store = options?.token_stats_store;
     const config_deps = options?.config_deps;
+    const web_root = options?.web_root;
     let port = options?.port ?? DEFAULT_PORT;
     let server: ReturnType<typeof createServer> | null = null;
 
@@ -147,6 +186,12 @@ export function create_local_api_server(
 
             if (url.pathname === "/v1/health" && is_get) {
                 json_response(res, 200, { status: "ok", uptime: process.uptime() });
+                return;
+            }
+
+            // Static web UI assets (non-API GET), no auth — serves the panel.
+            if (web_root && is_get && !url.pathname.startsWith("/v1/")) {
+                serve_static(url, res, web_root);
                 return;
             }
 
