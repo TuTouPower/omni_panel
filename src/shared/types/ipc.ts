@@ -6,7 +6,7 @@ import type {
 } from "../schemas/plugin-output";
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
-import type { TokenStatsBucket, TokenStatsSession } from "./token-stats";
+import type { AgentSessionUsage, TokenStatsBucket, TokenStatsSession } from "./token-stats";
 
 export interface TokenStatsStatus {
     /** Whether the collector utility process is alive. */
@@ -84,6 +84,7 @@ export const IPC_CHANNELS = {
     /** Token stats */
     TOKEN_STATS_BUCKETS: "tokenStats:buckets",
     TOKEN_STATS_SESSIONS: "tokenStats:sessions",
+    TOKEN_STATS_RECORDS: "tokenStats:records",
     TOKEN_STATS_STATUS: "tokenStats:status",
     TOKEN_STATS_UPDATED: "tokenStats:updated",
     TOKEN_STATS_OPEN: "tokenStats:open",
@@ -338,6 +339,11 @@ export interface UsageboardApi {
             limit?: number;
             offset?: number;
         }): Promise<TokenStatsSession[]>;
+        getRecords(filters?: {
+            agent?: "claude-code" | "opencode";
+            start?: number;
+            end?: number;
+        }): Promise<AgentSessionUsage[]>;
         getStatus(): Promise<TokenStatsStatus>;
         onUpdated(callback: () => void): () => void;
     };

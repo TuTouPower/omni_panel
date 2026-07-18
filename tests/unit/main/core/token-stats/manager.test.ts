@@ -41,8 +41,10 @@ const base_config: TokenStatsConfig = {
 function create_mock_store() {
     return {
         upsert_sessions: vi.fn(),
+        upsert_records: vi.fn(),
         query_buckets: vi.fn(() => []),
         query_sessions: vi.fn(() => []),
+        query_records: vi.fn(() => []),
         last_updated: vi.fn(() => null),
         close: vi.fn(),
     } satisfies TokenStatsStore;

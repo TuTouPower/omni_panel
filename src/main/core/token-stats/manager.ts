@@ -54,22 +54,31 @@ export function create_token_stats_manager(deps: {
             serviceName: "token-stats-collector",
         });
 
-        child.on("message", (msg: { type?: string; sessions?: unknown[]; daily?: unknown[] }) => {
-            if (msg.type !== "token_stats_update") return;
-            try {
-                deps.store.upsert_sessions(
-                    (msg.sessions ?? []) as TokenStatsUpdate["sessions"],
-                    (msg.daily ?? []) as TokenStatsUpdate["daily"],
-                );
-                log.debug(
-                    `Stored ${String(msg.sessions?.length ?? 0)} session deltas, ${String(msg.daily?.length ?? 0)} daily rows`,
-                );
-                deps.on_update?.();
-            } catch (err: unknown) {
-                const msg_str = err instanceof Error ? err.message : String(err);
-                log.error(`Failed to store token stats: ${msg_str}`);
-            }
-        });
+        child.on(
+            "message",
+            (msg: {
+                type?: string;
+                sessions?: unknown[];
+                daily?: unknown[];
+                records?: unknown[];
+            }) => {
+                if (msg.type !== "token_stats_update") return;
+                try {
+                    deps.store.upsert_sessions(
+                        (msg.sessions ?? []) as TokenStatsUpdate["sessions"],
+                        (msg.daily ?? []) as TokenStatsUpdate["daily"],
+                    );
+                    deps.store.upsert_records((msg.records ?? []) as TokenStatsUpdate["records"]);
+                    log.debug(
+                        `Stored ${String(msg.sessions?.length ?? 0)} session deltas, ${String(msg.daily?.length ?? 0)} daily rows, ${String(msg.records?.length ?? 0)} records`,
+                    );
+                    deps.on_update?.();
+                } catch (err: unknown) {
+                    const msg_str = err instanceof Error ? err.message : String(err);
+                    log.error(`Failed to store token stats: ${msg_str}`);
+                }
+            },
+        );
 
         child.on("exit", (code) => {
             log.warn(`Collector subprocess exited: code=${String(code)}`);

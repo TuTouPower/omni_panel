@@ -106,6 +106,11 @@ const token_stats_methods = {
             IPC_CHANNELS.TOKEN_STATS_SESSIONS,
             filters,
         ),
+    getRecords: (filters?: { agent?: "claude-code" | "opencode"; start?: number; end?: number }) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getRecords"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_RECORDS,
+            filters,
+        ),
     getStatus: () =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getStatus"]>>>(
             IPC_CHANNELS.TOKEN_STATS_STATUS,

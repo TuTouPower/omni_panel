@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type {
+    AgentSessionUsageRecord,
     TokenStatsDailyUpsert,
     TokenStatsEnv,
     TokenStatsSessionUpsert,
@@ -29,7 +30,7 @@ WHERE time_updated > ?
 `;
 
 const MESSAGES_QUERY = `
-SELECT session_id, data
+SELECT id, session_id, data
 FROM message
 WHERE json_extract(data, '$.role') = 'assistant'
   AND session_id IN (SELECT value FROM json_each(?))
@@ -38,6 +39,7 @@ WHERE json_extract(data, '$.role') = 'assistant'
 export interface OpenCodeReadResult {
     sessions: TokenStatsSessionUpsert[];
     daily: TokenStatsDailyUpsert[];
+    records: AgentSessionUsageRecord[];
 }
 
 interface SessionRow {
@@ -132,7 +134,7 @@ export function read_opencode_sessions(
     const copy_path = copy_db_to_temp(db_path, env);
     if (copy_path === null) {
         log.warn(`Failed to read opencode db (and copy fallback): ${db_path}`);
-        return { sessions: [], daily: [] };
+        return { sessions: [], daily: [], records: [] };
     }
     log.info(`Reading opencode db via temp copy: ${db_path}`);
     const via_copy = query_sessions(copy_path, env, max_updated);
@@ -141,7 +143,7 @@ export function read_opencode_sessions(
     } catch {
         // best effort cleanup
     }
-    return via_copy ?? { sessions: [], daily: [] };
+    return via_copy ?? { sessions: [], daily: [], records: [] };
 }
 
 /** Returns null when the db cannot be opened/queried at all. */
@@ -159,17 +161,29 @@ function query_sessions(
             .filter((row) => row.model_id !== null);
 
         if (rows.length === 0) {
-            return { sessions: [], daily: [] };
+            return { sessions: [], daily: [], records: [] };
         }
 
         const ids_json = JSON.stringify(rows.map((r) => r.id));
+        const session_meta = new Map(
+            rows.map((row) => [
+                row.id,
+                {
+                    title: row.title,
+                    directory: row.directory,
+                    model_id: row.model_id,
+                },
+            ]),
+        );
 
-        // Assistant messages → calls + per-day usage
+        // Assistant messages → calls + per-day usage + per-message records
         const calls_by_session = new Map<string, number>();
         const daily_by_key = new Map<string, TokenStatsDailyUpsert>();
+        const records: AgentSessionUsageRecord[] = [];
         let messages_ok = true;
         try {
             const msg_rows = db.prepare(MESSAGES_QUERY).all(ids_json) as {
+                id: string;
                 session_id: string;
                 data: string;
             }[];
@@ -211,6 +225,27 @@ function query_sessions(
                 entry.cache_write_tokens += num(tokens.cache?.write);
                 entry.calls++;
                 daily_by_key.set(key, entry);
+
+                const meta = session_meta.get(msg_row.session_id);
+                records.push({
+                    source: "opencode",
+                    env,
+                    agent: "opencode",
+                    session_id: msg_row.session_id,
+                    title: meta?.title ?? null,
+                    directory: meta?.directory ?? null,
+                    slug: null,
+                    version: null,
+                    parent_session_id: null,
+                    message_id: msg_row.id,
+                    role: "assistant",
+                    timestamp: time.created,
+                    model: model_id,
+                    input_tokens: num(tokens.input),
+                    output_tokens: num(tokens.output),
+                    cache_read_tokens: num(tokens.cache?.read),
+                    cache_write_tokens: num(tokens.cache?.write),
+                });
             }
         } catch {
             // message table missing or schema differs — calls/daily = no info
@@ -234,7 +269,7 @@ function query_sessions(
             ended_at: row.time_updated,
         }));
 
-        return { sessions, daily: [...daily_by_key.values()] };
+        return { sessions, daily: [...daily_by_key.values()], records };
     } catch (err) {
         log.debug(`opencode db not directly readable: ${db_path}`, err);
         return null;

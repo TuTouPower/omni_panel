@@ -296,6 +296,56 @@ describe("scan_session_jsonls", () => {
         expect(result.new_state.mtimes.size).toBe(1);
     });
 
+    it("emits per-message AgentSessionUsage records for assistant messages", () => {
+        write_session("proj-a/sess-rec.jsonl", [
+            session_line("user", T1, {
+                cwd: "/work/rec",
+                message: { content: "records test" },
+            }),
+            session_line("assistant", T2, {
+                sessionId: "sess-rec",
+                message: {
+                    model: "claude-sonnet-4-20250514",
+                    usage: {
+                        input_tokens: 12,
+                        output_tokens: 7,
+                        cache_read_input_tokens: 3,
+                        cache_creation_input_tokens: 1,
+                    },
+                },
+            }),
+            session_line("assistant", T3, {
+                sessionId: "sess-rec",
+                message: {
+                    model: "claude-opus-4-20250514",
+                    usage: { input_tokens: 20, output_tokens: 10 },
+                },
+            }),
+        ]);
+
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        expect(result.records).toHaveLength(2);
+        const r0 = result.records[0]!;
+        expect(r0.agent).toBe("claude-code");
+        expect(r0.session_id).toBe("sess-rec");
+        expect(r0.title).toBe("records test");
+        expect(r0.directory).toBe("/work/rec");
+        expect(r0.model).toBe("claude-sonnet-4-20250514");
+        expect(r0.timestamp).toBe(E1 + 3600000); // T2
+        expect(r0.input_tokens).toBe(12);
+        expect(r0.output_tokens).toBe(7);
+        expect(r0.cache_read_tokens).toBe(3);
+        expect(r0.cache_write_tokens).toBe(1);
+        expect(r0.role).toBe("assistant");
+        expect(r0.parent_session_id).toBeNull();
+
+        const r1 = result.records[1]!;
+        expect(r1.model).toBe("claude-opus-4-20250514");
+        expect(r1.cache_read_tokens).toBe(0);
+        expect(r1.cache_write_tokens).toBe(0);
+    });
+
     it("emits per-day usage rows grouped by UTC date and model", () => {
         write_session("proj-a/sess-1.jsonl", [
             assistant_line("2026-07-10T10:00:00.000Z", "sonnet"),

@@ -1,6 +1,8 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type {
+    AgentSessionUsageRecord,
     TokenStatsDailyUpsert,
     TokenStatsEnv,
     TokenStatsSessionUpsert,
@@ -17,6 +19,7 @@ export interface CostsReadResult {
 export interface SessionScanResult {
     sessions: TokenStatsSessionUpsert[];
     daily: TokenStatsDailyUpsert[];
+    records: AgentSessionUsageRecord[];
     /** Fresh state object; caller replaces its state with it on success. */
     new_state: SessionScanState;
 }
@@ -206,6 +209,8 @@ interface SessionFileFacts {
     sums: UsageSums;
     /** "date|model" → tokens + calls (dedup applied) */
     daily: Map<string, UsageSums & { calls: number; date: string; model: string }>;
+    /** Per-message records collected from this file. */
+    records: AgentSessionUsageRecord[];
 }
 
 function truncate_title(text: string): string {
@@ -248,7 +253,12 @@ function num(v: unknown): number {
     return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-function parse_session_file(content: string): SessionFileFacts | null {
+/** Deterministic message id for Claude JSONL lines (no native message id). */
+function message_id_from_line(line: string): string {
+    return crypto.createHash("sha256").update(line).digest("hex").slice(0, 32);
+}
+
+function parse_session_file(content: string, env: TokenStatsEnv): SessionFileFacts | null {
     let calls = 0;
     let model: string | null = null;
     let title: string | null = null;
@@ -264,6 +274,7 @@ function parse_session_file(content: string): SessionFileFacts | null {
         cache_write_tokens: 0,
     };
     const daily = new Map<string, UsageSums & { calls: number; date: string; model: string }>();
+    const records: AgentSessionUsageRecord[] = [];
     // Collapse byte-identical duplicate lines only (Claude Code rewrites parts
     // of a transcript on resume/interruption). Do NOT key on timestamp+usage:
     // parallel subagent calls legitimately share those, and Claude Code's own
@@ -354,6 +365,26 @@ function parse_session_file(content: string): SessionFileFacts | null {
                     entry.cache_write_tokens += cache_write;
                     entry.calls++;
                     daily.set(key, entry);
+
+                    records.push({
+                        source: "claude_code",
+                        env,
+                        agent: "claude-code",
+                        session_id: session_id ?? "",
+                        title: title ?? first_user_text,
+                        directory,
+                        slug: null,
+                        version: null,
+                        parent_session_id: null,
+                        message_id: message_id_from_line(trimmed),
+                        role: "assistant",
+                        timestamp: ts,
+                        model: rec_model,
+                        input_tokens: inp,
+                        output_tokens: out,
+                        cache_read_tokens: cache_read,
+                        cache_write_tokens: cache_write,
+                    });
                 }
             }
         }
@@ -372,6 +403,7 @@ function parse_session_file(content: string): SessionFileFacts | null {
         session_id,
         sums,
         daily,
+        records,
     };
 }
 
@@ -395,12 +427,16 @@ function collect_jsonl_files(dir: string, depth: number, out: string[]): void {
     }
 }
 
-/** Merge all files of one session into a single session upsert + daily rows. */
+/** Merge all files of one session into a single session upsert + daily rows + records. */
 function merge_session_files(
     session_id: string,
     entries: { file: string; facts: SessionFileFacts }[],
     env: TokenStatsEnv,
-): { upsert: TokenStatsSessionUpsert; daily: TokenStatsDailyUpsert[] } {
+): {
+    upsert: TokenStatsSessionUpsert;
+    daily: TokenStatsDailyUpsert[];
+    records: AgentSessionUsageRecord[];
+} {
     const sorted = [...entries].sort((a, b) => a.file.localeCompare(b.file));
     // The main transcript carries the session's display identity (title, cwd);
     // subagent files only contribute usage.
@@ -414,6 +450,7 @@ function merge_session_files(
     let directory = main?.facts.directory ?? null;
     const sums = { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 };
     const daily = new Map<string, TokenStatsDailyUpsert>();
+    const records: AgentSessionUsageRecord[] = [];
 
     for (const e of sorted) {
         const f = e.facts;
@@ -448,6 +485,14 @@ function merge_session_files(
             acc.calls += d.calls;
             daily.set(key, acc);
         }
+        for (const r of f.records) {
+            records.push({
+                ...r,
+                session_id,
+                title,
+                directory,
+            });
+        }
     }
 
     return {
@@ -467,6 +512,7 @@ function merge_session_files(
             ended_at: max_ts,
         },
         daily: [...daily.values()],
+        records,
     };
 }
 
@@ -534,7 +580,7 @@ export function scan_session_jsonls(
             continue;
         }
 
-        const facts = parse_session_file(content);
+        const facts = parse_session_file(content, env);
         if (!facts) {
             continue;
         }
@@ -556,6 +602,7 @@ export function scan_session_jsonls(
 
     const sessions: TokenStatsSessionUpsert[] = [];
     const daily: TokenStatsDailyUpsert[] = [];
+    const records: AgentSessionUsageRecord[] = [];
     for (const session_id of [...dirty].sort()) {
         const entries = by_session.get(session_id);
         // Session vanished entirely: nothing to emit; the store keeps its
@@ -566,7 +613,8 @@ export function scan_session_jsonls(
         const merged = merge_session_files(session_id, entries, env);
         sessions.push(merged.upsert);
         daily.push(...merged.daily);
+        records.push(...merged.records);
     }
 
-    return { sessions, daily, new_state };
+    return { sessions, daily, records, new_state };
 }

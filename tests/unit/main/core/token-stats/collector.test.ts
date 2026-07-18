@@ -37,6 +37,7 @@ import {
     effective_wsl_user,
 } from "../../../../../src/main/core/token-stats/collector";
 import type {
+    AgentSessionUsage,
     TokenStatsConfig,
     TokenStatsSessionUpsert,
 } from "../../../../../src/shared/types/token-stats";
@@ -76,6 +77,27 @@ function upsert(overrides: Partial<TokenStatsSessionUpsert> = {}): TokenStatsSes
     };
 }
 
+function record(overrides: Partial<AgentSessionUsage> = {}): AgentSessionUsage {
+    return {
+        session_id: "s1",
+        title: null,
+        directory: null,
+        slug: null,
+        version: null,
+        parent_session_id: null,
+        message_id: "msg-001",
+        role: "assistant",
+        timestamp: new Date("2026-07-10T08:00:00Z").getTime(),
+        model: "claude-sonnet-4-20250514",
+        input_tokens: 100,
+        output_tokens: 50,
+        cache_read_tokens: 10,
+        cache_write_tokens: 5,
+        agent: "claude-code",
+        ...overrides,
+    };
+}
+
 // --- Tests ---
 
 describe("collector", () => {
@@ -86,13 +108,14 @@ describe("collector", () => {
         jsonl_states.clear();
         reset_config();
 
-        mock_read_costs.mockReturnValue({ sessions: [], new_offset: 0, new_size: 0 });
+        mock_read_costs.mockReturnValue({ sessions: [], records: [], new_offset: 0, new_size: 0 });
         mock_scan_jsonls.mockReturnValue({
             sessions: [],
             daily: [],
+            records: [],
             new_state: { mtimes: new Map(), files: new Map() },
         });
-        mock_read_opencode_sessions.mockReturnValue({ sessions: [], daily: [] });
+        mock_read_opencode_sessions.mockReturnValue({ sessions: [], daily: [], records: [] });
     });
 
     describe("path builders", () => {
@@ -161,6 +184,7 @@ describe("collector", () => {
         it("reads all Win sources and posts update", () => {
             mock_read_costs.mockReturnValue({
                 sessions: [upsert({ id: "c1" })],
+                records: [record({ message_id: "costs-r1", agent: "claude-code" })],
                 new_offset: 500,
                 new_size: 500,
             });
@@ -180,32 +204,44 @@ describe("collector", () => {
                         calls: 7,
                     },
                 ],
+                records: [record({ message_id: "jsonl-r1", agent: "claude-code" })],
                 new_state: { mtimes: new Map([["f1", 1]]), files: new Map() },
             });
             mock_read_opencode_sessions.mockReturnValue({
                 sessions: [upsert({ id: "o1", source: "opencode" })],
                 daily: [],
+                records: [record({ message_id: "oc-r1", agent: "opencode" })],
             });
 
             configure(base_config);
 
             expect(mock_post_message).toHaveBeenCalledTimes(1);
-            const update = mock_post_message.mock.calls[0]![0];
+            const update = mock_post_message.mock.calls[0]![0] as {
+                type: string;
+                sessions: unknown[];
+                daily: { id: string }[];
+                records: AgentSessionUsage[];
+            };
             expect(update.type).toBe("token_stats_update");
             expect(update.sessions).toHaveLength(3);
             expect(update.daily).toHaveLength(1);
-            expect(update.daily[0].id).toBe("c1");
+            expect(update.daily[0]!.id).toBe("c1");
+            // costs.jsonl carries cumulative snapshots, not per-message records
+            expect(update.records).toHaveLength(2);
+            expect(update.records.map((r) => r.message_id).sort()).toEqual(["jsonl-r1", "oc-r1"]);
         });
 
         it("tracks incremental state per source kind", () => {
             mock_read_costs.mockReturnValue({
                 sessions: [upsert({ id: "c1" })],
+                records: [],
                 new_offset: 100,
                 new_size: 100,
             });
             mock_read_opencode_sessions.mockReturnValue({
                 sessions: [upsert({ id: "o1", source: "opencode", ended_at: 1000 })],
                 daily: [],
+                records: [],
             });
 
             configure(base_config);
@@ -225,12 +261,14 @@ describe("collector", () => {
             mock_post_message.mockClear();
             mock_read_costs.mockReturnValue({
                 sessions: [upsert({ id: "c2" })],
+                records: [],
                 new_offset: 200,
                 new_size: 200,
             });
             mock_read_opencode_sessions.mockReturnValue({
                 sessions: [upsert({ id: "o2", source: "opencode", ended_at: 2000 })],
                 daily: [],
+                records: [],
             });
 
             collect();
@@ -245,7 +283,12 @@ describe("collector", () => {
 
         it("passes previous scan state to the jsonl scanner", () => {
             const state = { mtimes: new Map([["a.jsonl", 123]]), files: new Map() };
-            mock_scan_jsonls.mockReturnValue({ sessions: [], daily: [], new_state: state });
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [],
+                daily: [],
+                records: [],
+                new_state: state,
+            });
 
             configure(base_config);
             mock_post_message.mockClear();
@@ -286,12 +329,16 @@ describe("collector", () => {
                 if (env === "win") {
                     throw new Error("file locked");
                 }
-                return { sessions: [], new_offset: 0, new_size: 0 };
+                return { sessions: [], records: [], new_offset: 0, new_size: 0 };
             });
             mock_read_opencode_sessions.mockImplementation((_path: string, env: string) => {
                 if (env === "win")
-                    return { sessions: [upsert({ id: "win-ok", source: "opencode" })], daily: [] };
-                return { sessions: [], daily: [] };
+                    return {
+                        sessions: [upsert({ id: "win-ok", source: "opencode" })],
+                        daily: [],
+                        records: [],
+                    };
+                return { sessions: [], daily: [], records: [] };
             });
 
             const spy = vi.spyOn(console, "error").mockImplementation(() => {});

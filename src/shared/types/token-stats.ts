@@ -59,6 +59,44 @@ export const tokenStatsSessionUpsertSchema = z.object({
     ended_at: z.number(),
 });
 
+// --- Per-message usage record (panel data contract) ---
+
+/**
+ * A single assistant message as seen by the usage panel. This is the only
+ * contract between the data layer and the UI; downstream aggregation code must
+ * not know the original source format.
+ */
+export const agentSessionUsageSchema = z.object({
+    session_id: z.string(),
+    title: z.string().nullable(),
+    directory: z.string().nullable(),
+    slug: z.string().nullable(),
+    version: z.string().nullable(),
+    parent_session_id: z.string().nullable(),
+    message_id: z.string(),
+    role: z.string(),
+    /** Milliseconds since Unix epoch. */
+    timestamp: z.number(),
+    model: z.string(),
+    input_tokens: z.number().int().nonnegative().default(0),
+    output_tokens: z.number().int().nonnegative().default(0),
+    cache_read_tokens: z.number().int().nonnegative().default(0),
+    cache_write_tokens: z.number().int().nonnegative().default(0),
+    agent: z.enum(["claude-code", "opencode"]),
+});
+
+export type AgentSessionUsage = z.infer<typeof agentSessionUsageSchema>;
+
+/**
+ * Internal store row: adds source/env so the main process can filter and
+ * key records while the renderer only deals with the public AgentSessionUsage.
+ */
+export const agentSessionUsageRecordSchema = agentSessionUsageSchema.extend({
+    source: tokenStatsSourceSchema,
+    env: tokenStatsEnvSchema,
+});
+export type AgentSessionUsageRecord = z.infer<typeof agentSessionUsageRecordSchema>;
+
 // --- Daily usage delta schema ---
 
 /**
@@ -88,6 +126,7 @@ export const tokenStatsUpdateSchema = z.object({
     type: z.literal("token_stats_update"),
     sessions: z.array(tokenStatsSessionUpsertSchema),
     daily: z.array(tokenStatsDailyUpsertSchema),
+    records: z.array(agentSessionUsageRecordSchema).default([]),
 });
 
 // --- Collector config ---

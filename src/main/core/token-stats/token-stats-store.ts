@@ -1,5 +1,7 @@
 import Database from "better-sqlite3";
 import type {
+    AgentSessionUsage,
+    AgentSessionUsageRecord,
     TokenStatsBucket,
     TokenStatsDailyUpsert,
     TokenStatsSession,
@@ -10,6 +12,8 @@ import { createLogger } from "../../../shared/lib/logger";
 export interface TokenStatsStore {
     /** Merge session deltas + daily usage rows, then recompute daily buckets. */
     upsert_sessions(deltas: TokenStatsSessionUpsert[], daily: TokenStatsDailyUpsert[]): void;
+    /** Replace per-message records for changed sessions. */
+    upsert_records(records: AgentSessionUsageRecord[]): void;
     query_buckets(filters: {
         source?: string;
         env?: string;
@@ -23,6 +27,11 @@ export interface TokenStatsStore {
         limit?: number;
         offset?: number;
     }): TokenStatsSession[];
+    query_records(filters: {
+        agent?: "claude-code" | "opencode";
+        start?: number;
+        end?: number;
+    }): AgentSessionUsage[];
     /** Latest session upsert time (ms epoch), null when store is empty. */
     last_updated(): number | null;
     close(): void;
@@ -76,6 +85,28 @@ CREATE TABLE IF NOT EXISTS token_stats_daily (
     calls INTEGER NOT NULL DEFAULT 0,
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (id, source, env, date, model)
+);
+
+CREATE TABLE IF NOT EXISTS token_stats_records (
+    source TEXT NOT NULL,
+    env TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    title TEXT,
+    directory TEXT,
+    slug TEXT,
+    version TEXT,
+    parent_session_id TEXT,
+    message_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    model TEXT NOT NULL,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+    agent TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (message_id, source, env)
 );
 `;
 
@@ -137,6 +168,30 @@ function row_to_session(row: Record<string, unknown>): TokenStatsSession {
     };
 }
 
+function row_to_record(row: Record<string, unknown>): AgentSessionUsage {
+    return {
+        session_id: row["session_id"] as string,
+        title: row["title"] as string | null,
+        directory: row["directory"] as string | null,
+        slug: row["slug"] as string | null,
+        version: row["version"] as string | null,
+        parent_session_id: row["parent_session_id"] as string | null,
+        message_id: row["message_id"] as string,
+        role: row["role"] as string,
+        timestamp: row["timestamp"] as number,
+        model: row["model"] as string,
+        input_tokens: row["input_tokens"] as number,
+        output_tokens: row["output_tokens"] as number,
+        cache_read_tokens: row["cache_read_tokens"] as number,
+        cache_write_tokens: row["cache_write_tokens"] as number,
+        agent: row["agent"] as "claude-code" | "opencode",
+    };
+}
+
+function safe_int(v: unknown): number {
+    return typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
+}
+
 export function create_token_stats_store(db_path: string): TokenStatsStore {
     const log = createLogger("token-stats-store");
     const db = new Database(db_path);
@@ -154,6 +209,12 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             "DELETE FROM token_stats_daily; DELETE FROM token_stats_buckets; DELETE FROM token_stats_sessions;",
         );
         db.pragma("user_version = 2");
+    }
+    // Migration v3: add per-message records table. Records are fully
+    // re-emitted by the collector on each rescan, so wipe legacy rows once.
+    if ((db.pragma("user_version", { simple: true }) as number) < 3) {
+        db.exec("DELETE FROM token_stats_records;");
+        db.pragma("user_version = 3");
     }
     log.debug(`Token stats store initialized: ${db_path}`);
 
@@ -211,6 +272,21 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
         )
     `);
 
+    // Per-message records are full recounts per changed session — REPLACE by PK.
+    const upsert_record_stmt = db.prepare(`
+        INSERT OR REPLACE INTO token_stats_records (
+            source, env, session_id, title, directory, slug, version,
+            parent_session_id, message_id, role, timestamp, model,
+            input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
+            agent, updated_at
+        ) VALUES (
+            @source, @env, @session_id, @title, @directory, @slug, @version,
+            @parent_session_id, @message_id, @role, @timestamp, @model,
+            @input_tokens, @output_tokens, @cache_read_tokens, @cache_write_tokens,
+            @agent, @updated_at
+        )
+    `);
+
     return {
         upsert_sessions(deltas: TokenStatsSessionUpsert[], daily: TokenStatsDailyUpsert[]): void {
             if (deltas.length === 0 && daily.length === 0) {
@@ -262,6 +338,39 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             log.debug(
                 `Upserted ${String(deltas.length)} session deltas + ${String(daily.length)} daily rows, buckets recomputed`,
             );
+        },
+
+        upsert_records(records: AgentSessionUsageRecord[]): void {
+            if (records.length === 0) {
+                return;
+            }
+            const now = Date.now();
+            const tx = db.transaction((items: AgentSessionUsageRecord[]) => {
+                for (const r of items) {
+                    upsert_record_stmt.run({
+                        source: r.source,
+                        env: r.env,
+                        session_id: r.session_id,
+                        title: r.title ?? null,
+                        directory: r.directory ?? null,
+                        slug: r.slug ?? null,
+                        version: r.version ?? null,
+                        parent_session_id: r.parent_session_id ?? null,
+                        message_id: r.message_id,
+                        role: r.role,
+                        timestamp: r.timestamp,
+                        model: r.model,
+                        input_tokens: safe_int(r.input_tokens),
+                        output_tokens: safe_int(r.output_tokens),
+                        cache_read_tokens: safe_int(r.cache_read_tokens),
+                        cache_write_tokens: safe_int(r.cache_write_tokens),
+                        agent: r.agent,
+                        updated_at: now,
+                    });
+                }
+            });
+            tx(records);
+            log.debug(`Upserted ${String(records.length)} per-message records`);
         },
 
         query_buckets(filters) {
@@ -319,6 +428,29 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
 
             const rows = db.prepare(sql).all(params) as Record<string, unknown>[];
             return rows.map(row_to_session);
+        },
+
+        query_records(filters) {
+            const conditions: string[] = [];
+            const params: Record<string, unknown> = {};
+
+            if (filters.agent) {
+                conditions.push("agent = @agent");
+                params["agent"] = filters.agent;
+            }
+            if (filters.start !== undefined) {
+                conditions.push("timestamp >= @start");
+                params["start"] = filters.start;
+            }
+            if (filters.end !== undefined) {
+                conditions.push("timestamp <= @end");
+                params["end"] = filters.end;
+            }
+
+            const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+            const sql = `SELECT session_id, title, directory, slug, version, parent_session_id, message_id, role, timestamp, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, agent FROM token_stats_records ${where} ORDER BY timestamp DESC`;
+            const rows = db.prepare(sql).all(params) as Record<string, unknown>[];
+            return rows.map(row_to_record);
         },
 
         last_updated() {

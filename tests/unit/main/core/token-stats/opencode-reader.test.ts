@@ -159,7 +159,7 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const { sessions, daily } = read_opencode_sessions(db_path, "win", 0);
+        const { sessions, daily, records } = read_opencode_sessions(db_path, "win", 0);
         expect(sessions[0]!.calls).toBe(2);
         expect(daily).toHaveLength(1);
         expect(daily[0]).toMatchObject({
@@ -173,6 +173,17 @@ describe("read_opencode_sessions", () => {
             cache_write_tokens: 2,
             calls: 2,
         });
+
+        expect(records).toHaveLength(2);
+        const r0 = records[0]!;
+        expect(r0.agent).toBe("opencode");
+        expect(r0.session_id).toBe("sess-001");
+        expect(r0.message_id).toBe("m1");
+        expect(r0.model).toBe("claude-sonnet-4-20250514");
+        expect(r0.timestamp).toBe(1752758400000);
+        expect(r0.input_tokens).toBe(100);
+        expect(r0.cache_read_tokens).toBe(5);
+        expect(r0.cache_write_tokens).toBe(2);
     });
 
     it("skips assistant messages without token fields for daily but keeps calls", () => {

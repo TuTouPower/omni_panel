@@ -7,6 +7,7 @@ import Database from "better-sqlite3";
 import { create_token_stats_store } from "../../../../../src/main/core/token-stats/token-stats-store";
 import type { TokenStatsStore } from "../../../../../src/main/core/token-stats/token-stats-store";
 import type {
+    AgentSessionUsageRecord,
     TokenStatsDailyUpsert,
     TokenStatsSessionUpsert,
 } from "../../../../../src/shared/types/token-stats";
@@ -46,6 +47,29 @@ function daily(overrides: Partial<TokenStatsDailyUpsert> = {}): TokenStatsDailyU
         cache_read_tokens: 200,
         cache_write_tokens: 100,
         calls: 2,
+        ...overrides,
+    };
+}
+
+function record(overrides: Partial<AgentSessionUsageRecord> = {}): AgentSessionUsageRecord {
+    return {
+        session_id: "s1",
+        title: "hello",
+        directory: "/home/user/proj",
+        slug: "brave-fox-jumps",
+        version: "2.1.170",
+        parent_session_id: null,
+        message_id: "msg-001",
+        role: "assistant",
+        timestamp: T0,
+        model: "sonnet-4",
+        input_tokens: 100,
+        output_tokens: 50,
+        cache_read_tokens: 10,
+        cache_write_tokens: 5,
+        agent: "claude-code",
+        source: "claude_code",
+        env: "win",
         ...overrides,
     };
 }
@@ -265,6 +289,95 @@ describe("token-stats-store", () => {
         });
     });
 
+    describe("records (AgentSessionUsage contract)", () => {
+        it("inserts and queries records", () => {
+            store.upsert_records([record({ message_id: "m1" }), record({ message_id: "m2" })]);
+
+            const rows = store.query_records({});
+            expect(rows).toHaveLength(2);
+            expect(rows[0]).toMatchObject({
+                session_id: "s1",
+                message_id: "m1",
+                agent: "claude-code",
+                model: "sonnet-4",
+                input_tokens: 100,
+            });
+        });
+
+        it("filters records by agent and time range", () => {
+            store.upsert_records([
+                record({ message_id: "m1", agent: "claude-code", timestamp: T0 }),
+                record({ message_id: "m2", agent: "opencode", timestamp: T1 }),
+                record({ message_id: "m3", agent: "claude-code", timestamp: T2 }),
+            ]);
+
+            expect(store.query_records({ agent: "claude-code" })).toHaveLength(2);
+            expect(store.query_records({ start: T0, end: T0 + 1 })).toHaveLength(1);
+            expect(store.query_records({ start: T0, end: T2, agent: "claude-code" })).toHaveLength(
+                2,
+            );
+        });
+
+        it("replaces records by message_id+source+env (idempotent recounts)", () => {
+            store.upsert_records([record({ message_id: "m1", input_tokens: 100 })]);
+            store.upsert_records([record({ message_id: "m1", input_tokens: 150 })]);
+
+            const rows = store.query_records({});
+            expect(rows).toHaveLength(1);
+            expect(rows[0]!.input_tokens).toBe(150);
+        });
+
+        it("keeps same message_id across sources as separate rows", () => {
+            store.upsert_records([record({ message_id: "m1", source: "claude_code" })]);
+            store.upsert_records([
+                record({ message_id: "m1", source: "opencode", agent: "opencode" }),
+            ]);
+
+            expect(store.query_records({})).toHaveLength(2);
+        });
+
+        it("defaults missing numeric fields to 0 and allows null metadata", () => {
+            store.upsert_records([
+                {
+                    session_id: "s1",
+                    title: null,
+                    directory: null,
+                    slug: null,
+                    version: null,
+                    parent_session_id: null,
+                    message_id: "m1",
+                    role: "assistant",
+                    timestamp: T0,
+                    model: "sonnet-4",
+                    input_tokens: NaN,
+                    output_tokens: undefined,
+                    cache_read_tokens: Number("x"),
+                    cache_write_tokens: -1,
+                    agent: "claude-code",
+                    source: "claude_code",
+                    env: "win",
+                } as unknown as AgentSessionUsageRecord,
+            ]);
+
+            const rows = store.query_records({});
+            expect(rows[0]!).toMatchObject({
+                title: null,
+                directory: null,
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            });
+        });
+
+        it("returns AgentSessionUsage shape without source/env", () => {
+            store.upsert_records([record()]);
+            const rows = store.query_records({});
+            expect("source" in rows[0]!).toBe(false);
+            expect("env" in rows[0]!).toBe(false);
+        });
+    });
+
     it("close() works without error", () => {
         const temp_store = create_token_stats_store(":memory:");
         expect(() => {
@@ -291,11 +404,13 @@ describe("token-stats-store", () => {
                 migrated.close();
 
                 const check = new Database(db_path);
-                expect(check.pragma("user_version", { simple: true })).toBe(2);
+                check.pragma("wal_checkpoint(TRUNCATE)");
+                expect(check.pragma("user_version", { simple: true })).toBe(3);
                 for (const table of [
                     "token_stats_daily",
                     "token_stats_buckets",
                     "token_stats_sessions",
+                    "token_stats_records",
                 ]) {
                     const row = check.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get() as {
                         c: number;
@@ -304,7 +419,26 @@ describe("token-stats-store", () => {
                 }
                 check.close();
             } finally {
-                fs.rmSync(dir, { recursive: true, force: true });
+                // Windows may hold WAL handles briefly after close; retry cleanup.
+                let last_err: Error | undefined;
+                for (let i = 0; i < 10; i++) {
+                    try {
+                        fs.rmSync(dir, { recursive: true, force: true });
+                        break;
+                    } catch (err) {
+                        last_err = err as Error;
+                        if (i < 9) {
+                            // small busy-wait to let the kernel release the handle
+                            const until = Date.now() + 50;
+                            while (Date.now() < until) {
+                                /* spin */
+                            }
+                        }
+                    }
+                }
+                if (last_err) {
+                    throw last_err;
+                }
             }
         });
     });

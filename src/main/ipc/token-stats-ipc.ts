@@ -1,7 +1,11 @@
 import type { IpcMain } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
-import type { TokenStatsBucket, TokenStatsSession } from "../../shared/types/token-stats";
+import type {
+    AgentSessionUsage,
+    TokenStatsBucket,
+    TokenStatsSession,
+} from "../../shared/types/token-stats";
 import { ok, type IpcResult } from "./helpers";
 import type { TokenStatsStore } from "../core/token-stats/token-stats-store";
 import type { TokenStatsManager } from "../core/token-stats/manager";
@@ -38,6 +42,20 @@ export function registerTokenStatsIpc(
             },
         ): IpcResult<TokenStatsSession[]> => {
             return ok(deps.store.query_sessions(filters ?? {}));
+        },
+    );
+
+    ipc.handle(
+        IPC_CHANNELS.TOKEN_STATS_RECORDS,
+        (
+            _event: unknown,
+            filters?: {
+                agent?: "claude-code" | "opencode";
+                start?: number;
+                end?: number;
+            },
+        ): IpcResult<AgentSessionUsage[]> => {
+            return ok(deps.store.query_records(filters ?? {}));
         },
     );
 

@@ -129,6 +129,7 @@ function opencode_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
 interface SourceReadResult {
     sessions: TokenStatsSessionUpsert[];
     daily: TokenStatsDailyUpsert[];
+    records: TokenStatsUpdate["records"];
 }
 
 function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceReadResult {
@@ -142,13 +143,13 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceReadResult {
                 s.size,
             );
             costs_state.set(src.key, { offset: result.new_offset, size: result.new_size });
-            return { sessions: result.sessions, daily: [] };
+            return { sessions: result.sessions, daily: [], records: [] };
         }
         if (src.kind === "session_jsonl") {
             const state = jsonl_states.get(src.key) ?? create_session_scan_state();
             const result = scan_session_jsonls(claude_projects_path(cfg, src.env), src.env, state);
             jsonl_states.set(src.key, result.new_state);
-            return { sessions: result.sessions, daily: result.daily };
+            return { sessions: result.sessions, daily: result.daily, records: result.records };
         }
         const max_updated = opencode_max_updated.get(src.key) ?? 0;
         const result = read_opencode_sessions(opencode_path(cfg, src.env), src.env, max_updated);
@@ -163,7 +164,7 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceReadResult {
         if (!msg.includes("ENOENT")) {
             console.error(`[collector] ${src.key} read failed:`, msg);
         }
-        return { sessions: [], daily: [] };
+        return { sessions: [], daily: [], records: [] };
     }
 }
 
@@ -174,12 +175,14 @@ function collect(): void {
 
     const all_sessions: TokenStatsSessionUpsert[] = [];
     const all_daily: TokenStatsDailyUpsert[] = [];
+    const all_records: TokenStatsUpdate["records"] = [];
 
     for (const src of sources) {
         if (src.wsl && !config.wsl_enabled) continue;
         const result = read_source(src, config);
         all_sessions.push(...result.sessions);
         all_daily.push(...result.daily);
+        all_records.push(...result.records);
     }
 
     if (all_sessions.length > MAX_RECORDS) {
@@ -194,11 +197,18 @@ function collect(): void {
         );
         all_daily.length = MAX_RECORDS * 5;
     }
+    if (all_records.length > MAX_RECORDS * 20) {
+        console.warn(
+            `[collector] records (${String(all_records.length)}) exceed limit ${String(MAX_RECORDS * 20)}, truncating`,
+        );
+        all_records.length = MAX_RECORDS * 20;
+    }
 
     const update: TokenStatsUpdate = {
         type: "token_stats_update",
         sessions: all_sessions,
         daily: all_daily,
+        records: all_records,
     };
 
     try {
