@@ -6,6 +6,7 @@ import {
     TAIL_MODELS,
     TOP5_COLORS,
     colorForTopModel,
+    colorForTopProject,
     modelColor,
     paletteFor,
     projectColor,
@@ -64,6 +65,18 @@ describe("palette", () => {
                 MODEL_COLORS["qwen3-coder-plus"],
             );
             expect(colorForTopModel("unknown-model", 5, "dark")).toBe(PALETTES.dark.other);
+        });
+    });
+
+    describe("colorForTopProject", () => {
+        it("assigns the five high-contrast colors to the top 5 projects", () => {
+            expect(colorForTopProject("/any/path", 0, "dark")).toBe(TOP5_COLORS[0]);
+            expect(colorForTopProject("/any/path", 4, "light")).toBe(TOP5_COLORS[4]);
+        });
+
+        it("falls back to the theme gray beyond top 5", () => {
+            expect(colorForTopProject("/any/path", 5, "dark")).toBe(PALETTES.dark.other);
+            expect(colorForTopProject("/any/path", 5, "light")).toBe(PALETTES.light.other);
         });
     });
 });

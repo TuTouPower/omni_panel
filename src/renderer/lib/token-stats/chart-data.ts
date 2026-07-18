@@ -1,7 +1,13 @@
 import type { EChartsOption } from "echarts";
 import { bucketize, groupBy, metricValue, sessionRows, sumTokens, topGroups } from "./aggregate";
 import { shortDir } from "./format";
-import { colorForTopModel, paletteFor, projectColor } from "./palette";
+import {
+    TOP5_COLORS,
+    colorForTopModel,
+    colorForTopProject,
+    paletteFor,
+    projectColor,
+} from "./palette";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "./types";
 
 /** A single donut segment. */
@@ -84,18 +90,42 @@ export function compositionSegments(records: AgentSessionUsage[]): DonutSegment[
         }));
 }
 
-/** Segments for the sessions donut grouped by project. */
-export function projectSegments(records: AgentSessionUsage[]): DonutSegment[] {
+/** Segments for the sessions donut grouped by project (Top5 + 其他). */
+export function projectSegments(
+    records: AgentSessionUsage[],
+    theme: "dark" | "light",
+): DonutSegment[] {
     const byDir = groupBy(records, (r) => r.directory ?? "(unknown)");
-    const segs: DonutSegment[] = [];
+    const totals: Record<string, number> = {};
     for (const [dir, rs] of Object.entries(byDir)) {
+        totals[dir] = new Set(rs.map((r) => r.session_id)).size;
+    }
+    const { top, rest } = topGroups(totals, 5);
+    const palette = paletteFor(theme);
+    const segs: DonutSegment[] = top.map((dir, i) => ({
+        name: shortDir(dir),
+        value: totals[dir] ?? 0,
+        itemStyle: { color: colorForTopProject(dir, i, theme) },
+    }));
+    if (rest.length) {
+        const restItems = rest
+            .map((d) => [d, totals[d] ?? 0] as const)
+            .filter(([, v]) => v > 0)
+            .sort((a, b) => b[1] - a[1]);
+        const restTotal = restItems.reduce((sum, [, v]) => sum + v, 0);
         segs.push({
-            name: shortDir(dir),
-            value: new Set(rs.map((r) => r.session_id)).size,
-            itemStyle: { color: projectColor(dir) },
+            name: `其他（${String(rest.length)} 个项目）`,
+            value: restTotal,
+            itemStyle: { color: palette.other },
+            extra: restItems
+                .map(
+                    ([k, v]) =>
+                        `<br/><span style="opacity:.75">· ${escapeHtml(shortDir(k))}: ${escapeHtml(String(v))}</span>`,
+                )
+                .join(""),
         });
     }
-    return segs.sort((a, b) => b.value - a.value);
+    return segs;
 }
 
 /** Prepared data for the stacked bar chart. */
@@ -211,6 +241,30 @@ export function prepareBarData(
 
 function displayKey(key: string, restSet: Set<string>): string {
     return restSet.has(key) ? "其他" : key;
+}
+
+/**
+ * Build a color map for every model in `records` based on the current metric's
+ * Top5 ranking. Models outside the Top5 fall back to the theme "其他" gray so
+ * the session table tags stay consistent with the donut / bar highlighting.
+ */
+export function modelColorMap(
+    records: AgentSessionUsage[],
+    metric: Metric,
+    theme: "dark" | "light",
+): Map<string, string> {
+    const byModel = groupBy(records, (r) => r.model);
+    const totals: Record<string, number> = {};
+    for (const [model, rs] of Object.entries(byModel)) {
+        totals[model] = metricValue(rs, metric);
+    }
+    const { top } = topGroups(totals, 5);
+    const map = new Map<string, string>();
+    const fallback = paletteFor(theme).other;
+    top.forEach((m, i) => {
+        map.set(m, TOP5_COLORS[i] ?? fallback);
+    });
+    return map;
 }
 
 function escapeHtml(text: string): string {

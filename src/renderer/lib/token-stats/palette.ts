@@ -133,3 +133,15 @@ export function colorForTopModel(model: string, index: number, theme: "dark" | "
     }
     return MODEL_COLORS[model] ?? PALETTES[theme].other;
 }
+
+/** High-contrast colors for the top 5 projects by usage, in descending order. */
+export function colorForTopProject(
+    _directory: string,
+    index: number,
+    theme: "dark" | "light",
+): string {
+    if (index >= 0 && index < TOP5_COLORS.length) {
+        return TOP5_COLORS[index] ?? PALETTES[theme].other;
+    }
+    return PALETTES[theme].other;
+}

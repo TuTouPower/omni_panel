@@ -283,8 +283,8 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtInt(totalSessions)}
-                                centerLabel="sessions · 按项目"
-                                segments={projectSegments(currentRecords)}
+                                centerLabel="sessions"
+                                segments={projectSegments(currentRecords, theme)}
                                 format={fmtInt}
                                 theme={theme}
                             />

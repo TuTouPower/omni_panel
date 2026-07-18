@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { AgentSessionUsage } from "../../../../../src/shared/types/token-stats";
 import {
     compositionSegments,
+    modelColorMap,
     modelSegments,
     prepareBarData,
     prepareHeatmapData,
@@ -94,10 +95,50 @@ describe("chart-data", () => {
                 record({ directory: "/a", session_id: "y" }),
                 record({ directory: "/b", session_id: "z" }),
             ];
-            const segs = projectSegments(records);
+            const segs = projectSegments(records, "dark");
             const byName = new Map(segs.map((s) => [s.name, s.value]));
             expect(byName.get("a")).toBe(2);
             expect(byName.get("b")).toBe(1);
+        });
+
+        it("uses Top5 high-contrast colors and groups the rest as 其他", () => {
+            const records = [
+                record({ directory: "/a", session_id: "a1" }),
+                record({ directory: "/b", session_id: "b1" }),
+                record({ directory: "/c", session_id: "c1" }),
+                record({ directory: "/d", session_id: "d1" }),
+                record({ directory: "/e", session_id: "e1" }),
+                record({ directory: "/f", session_id: "f1" }),
+                record({ directory: "/g", session_id: "g1" }),
+            ];
+            const segs = projectSegments(records, "dark");
+            expect(segs).toHaveLength(6);
+            expect(segs.slice(0, 5).map((s) => s.itemStyle.color)).toEqual([
+                "#7c6cf6",
+                "#4cc2ff",
+                "#3ddc97",
+                "#ffb454",
+                "#f56cc6",
+            ]);
+            expect(segs[5]?.name).toContain("其他");
+            expect(segs[5]?.itemStyle.color).toBe("#46506a");
+        });
+    });
+
+    describe("modelColorMap", () => {
+        it("maps the top 5 models by metric to the high-contrast palette", () => {
+            const records = [
+                record({ model: "a", input_tokens: 100 }),
+                record({ model: "b", input_tokens: 80 }),
+                record({ model: "c", input_tokens: 60 }),
+                record({ model: "d", input_tokens: 40 }),
+                record({ model: "e", input_tokens: 30 }),
+                record({ model: "f", input_tokens: 20 }),
+            ];
+            const map = modelColorMap(records, "tokens", "dark");
+            expect(map.get("a")).toBe("#7c6cf6");
+            expect(map.get("e")).toBe("#f56cc6");
+            expect(map.has("f")).toBe(false);
         });
     });
 
