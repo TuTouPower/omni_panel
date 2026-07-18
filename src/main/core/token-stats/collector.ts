@@ -180,28 +180,26 @@ function collect(): void {
     for (const src of sources) {
         if (src.wsl && !config.wsl_enabled) continue;
         const result = read_source(src, config);
-        all_sessions.push(...result.sessions);
-        all_daily.push(...result.daily);
-        all_records.push(...result.records);
-    }
-
-    if (all_sessions.length > MAX_RECORDS) {
-        console.warn(
-            `[collector] sessions (${String(all_sessions.length)}) exceed limit ${String(MAX_RECORDS)}, truncating`,
-        );
-        all_sessions.length = MAX_RECORDS;
-    }
-    if (all_daily.length > MAX_RECORDS * 5) {
-        console.warn(
-            `[collector] daily rows (${String(all_daily.length)}) exceed limit ${String(MAX_RECORDS * 5)}, truncating`,
-        );
-        all_daily.length = MAX_RECORDS * 5;
-    }
-    if (all_records.length > MAX_RECORDS * 20) {
-        console.warn(
-            `[collector] records (${String(all_records.length)}) exceed limit ${String(MAX_RECORDS * 20)}, truncating`,
-        );
-        all_records.length = MAX_RECORDS * 20;
+        for (const s of result.sessions) {
+            if (all_sessions.length >= MAX_RECORDS) break;
+            all_sessions.push(s);
+        }
+        for (const d of result.daily) {
+            if (all_daily.length >= MAX_RECORDS * 5) break;
+            all_daily.push(d);
+        }
+        for (const r of result.records) {
+            if (all_records.length >= MAX_RECORDS * 20) break;
+            all_records.push(r);
+        }
+        if (
+            all_sessions.length >= MAX_RECORDS ||
+            all_daily.length >= MAX_RECORDS * 5 ||
+            all_records.length >= MAX_RECORDS * 20
+        ) {
+            console.warn("[collector] sessions exceed limit, stopping source collection");
+            break;
+        }
     }
 
     const update: TokenStatsUpdate = {
