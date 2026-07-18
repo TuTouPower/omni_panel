@@ -13,6 +13,9 @@ extraResources:
     - from: assets/icon.png
       to: icon.png
 asar: true
+asarUnpack:
+    - out/main/collector.js
+    - out/main/chunks/**
 electronFuses:
     enableEmbeddedAsarIntegrityValidation: true
     onlyLoadAppFromAsar: true
