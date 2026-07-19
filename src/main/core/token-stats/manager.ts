@@ -73,7 +73,25 @@ export function create_token_stats_manager(deps: {
                 sessions?: unknown[];
                 daily?: unknown[];
                 records?: unknown[];
+                level?: string;
+                module?: string;
+                message?: string;
             }) => {
+                // D7: structured log forwarded from the collector subprocess -
+                // route through the main logger so collector logs get scrubber
+                // redaction + 7-day rotation instead of landing on stderr only.
+                if (msg.type === "collector_log") {
+                    const level = msg.level === "error" ? "error" : "warn";
+                    const module_name = msg.module ?? "collector";
+                    const text = msg.message ?? "";
+                    const collector_log = createLogger(
+                        module_name.startsWith("collector")
+                            ? module_name
+                            : `collector:${module_name}`,
+                    );
+                    collector_log[level](text);
+                    return;
+                }
                 if (msg.type !== "token_stats_update") return;
                 try {
                     deps.store.upsert_sessions(

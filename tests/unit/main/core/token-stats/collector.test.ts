@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-non-null-assertion */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Mock readers ---
@@ -391,18 +391,20 @@ describe("collector", () => {
                 return { sessions: [], daily: [], records: [] };
             });
 
-            const spy = vi.spyOn(console, "error").mockImplementation(() => {});
             configure(wsl_config);
 
-            expect(mock_post_message).toHaveBeenCalledTimes(1);
-            const update = mock_post_message.mock.calls[0]![0];
+            // token_stats_update + one forwarded collector_log (D7)
+            expect(mock_post_message).toHaveBeenCalledTimes(2);
+            const log_msg = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "collector_log",
+            )?.[0] as { type: string; level: string; module: string; message: string } | undefined;
+            expect(log_msg?.level).toBe("error");
+            expect(log_msg?.message).toContain("claude_costs_win read failed");
+            const update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
             expect(update.sessions).toHaveLength(1);
-            expect(update.sessions[0]!.id).toBe("win-ok");
-            expect(spy).toHaveBeenCalledWith(
-                expect.stringContaining("claude_costs_win read failed"),
-                expect.any(String),
-            );
-            spy.mockRestore();
+            expect(update.sessions[0]).toMatchObject({ id: "win-ok" });
         });
 
         it("sends empty update when no sessions found", () => {
@@ -428,14 +430,19 @@ describe("collector", () => {
                 new_size: 100000,
             });
 
-            const warn_spy = vi.spyOn(console, "warn").mockImplementation(() => {});
             configure(base_config);
 
-            expect(mock_post_message).toHaveBeenCalledTimes(1);
-            const update = mock_post_message.mock.calls[0]![0];
+            // token_stats_update + one forwarded collector_log warn (D7)
+            expect(mock_post_message).toHaveBeenCalledTimes(2);
+            const update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
             expect(update.sessions).toHaveLength(10000);
-            expect(warn_spy).toHaveBeenCalledWith(expect.stringContaining("exceed limit"));
-            warn_spy.mockRestore();
+            const log_msg = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "collector_log",
+            )?.[0] as { level: string; message: string } | undefined;
+            expect(log_msg?.level).toBe("warn");
+            expect(log_msg?.message).toContain("exceed limit");
         });
     });
 });

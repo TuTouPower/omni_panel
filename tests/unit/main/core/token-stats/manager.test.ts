@@ -210,4 +210,35 @@ describe("token-stats manager", () => {
         expect(child_ref.kill).toHaveBeenCalledTimes(1);
         expect(manager.is_running()).toBe(false);
     });
+
+    it("routes collector_log messages through the main logger (D7)", async () => {
+        const { addTransport } = await import("node:events").then(
+            () => import("../../../../../src/shared/lib/logger"),
+        );
+        const logged: { module: string; message: string; level: string }[] = [];
+        const remove = addTransport({
+            write(level, module, message) {
+                logged.push({ module, message, level });
+            },
+        });
+        try {
+            const store = create_mock_store();
+            const manager = create_token_stats_manager({ store });
+            manager.start(base_config);
+            last_child!.emit("message", {
+                type: "collector_log",
+                level: "warn",
+                module: "collector",
+                message: "sessions exceed limit",
+            });
+            const matched = logged.find(
+                (e) => e.module === "collector" && e.message === "sessions exceed limit",
+            );
+            expect(matched).toBeDefined();
+            expect(matched?.level).toBe("warn");
+            manager.stop();
+        } finally {
+            remove();
+        }
+    });
 });

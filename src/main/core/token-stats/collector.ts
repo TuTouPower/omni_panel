@@ -46,6 +46,39 @@ function get_parent_port(): ParentPortLike | undefined {
     return (process as unknown as { parentPort?: ParentPortLike }).parentPort;
 }
 
+// Structured log forwarding: the collector is a utilityProcess child without
+// the main logger. Forward log events to the parent via postMessage so they go
+// through the main logger (scrubber redaction + 7-day rotation) instead of
+// plain console.error on stderr (D7). No-ops when no parent port (tests).
+export type CollectorLogLevel = "warn" | "error";
+export interface CollectorLogMessage {
+    type: "collector_log";
+    level: CollectorLogLevel;
+    module: string;
+    message: string;
+}
+
+export function forward_log(level: CollectorLogLevel, module: string, message: string): void {
+    const port = get_parent_port();
+    if (port) {
+        try {
+            const payload: CollectorLogMessage = {
+                type: "collector_log",
+                level,
+                module,
+                message,
+            };
+            port.postMessage(payload);
+        } catch {
+            // parent port gone — fall back to console so we at least see it
+
+            console[level === "error" ? "error" : "warn"](`[${module}] ${message}`);
+        }
+    } else {
+        console[level === "error" ? "error" : "warn"](`[${module}] ${message}`);
+    }
+}
+
 let config: TokenStatsConfig | null = null;
 let interval_id: ReturnType<typeof setInterval> | null = null;
 
@@ -201,7 +234,7 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceReadResult {
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         if (!msg.includes("ENOENT")) {
-            console.error(`[collector] ${src.key} read failed:`, msg);
+            forward_log("error", "collector", `${src.key} read failed: ${msg}`);
         }
         return { sessions: [], daily: [], records: [] };
     }
@@ -236,7 +269,7 @@ function collect(): void {
             all_daily.length >= MAX_RECORDS * 5 ||
             all_records.length >= MAX_RECORDS * 20
         ) {
-            console.warn("[collector] sessions exceed limit, stopping source collection");
+            forward_log("warn", "collector", "sessions exceed limit, stopping source collection");
             break;
         }
     }
@@ -252,7 +285,7 @@ function collect(): void {
         get_parent_port()?.postMessage(update);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error("[collector] postMessage failed:", msg);
+        forward_log("error", "collector", `postMessage failed: ${msg}`);
     }
 }
 
