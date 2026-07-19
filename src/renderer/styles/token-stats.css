@@ -274,8 +274,16 @@
 }
 
 .token-stats .card h3.bar-chart-header {
-    justify-content: space-between;
+    justify-content: flex-start;
     flex-wrap: nowrap;
+}
+
+.token-stats .card h3.bar-chart-header > .seg {
+    margin-left: 0;
+}
+
+.token-stats .card h3.bar-chart-header .h3ctrl {
+    margin-left: auto;
 }
 
 .token-stats .bar-chart-wrap {
