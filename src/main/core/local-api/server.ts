@@ -113,7 +113,14 @@ function serve_static(url: URL, res: ServerResponse, web_root: string): void {
                 return;
             }
             const content_type = MIME[path.extname(file_path)] ?? "application/octet-stream";
-            res.writeHead(200, { "Content-Type": content_type });
+            const headers: Record<string, string> = { "Content-Type": content_type };
+            // Never cache the SPA shell — assets use hashed filenames so they
+            // cache safely, but index.html must always revalidate so new builds
+            // appear on refresh instead of a stale bundle.
+            if (file_path.endsWith(".html")) {
+                headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+            }
+            res.writeHead(200, headers);
             res.end(data);
         });
     });
