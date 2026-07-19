@@ -184,4 +184,19 @@ describe("file-vault-backend", () => {
             expect(await vault.get(`perf-${String(i)}`)).toBe(`val-${String(i)}`);
         }
     });
+
+    it("atomic write leaves no .tmp residue after set", async () => {
+        const { readdir } = await import("node:fs/promises");
+        await vault.set("atomic-key", "value");
+        const entries = await readdir(temp_dir);
+        expect(entries.some((name) => name.endsWith(".tmp"))).toBe(false);
+    });
+
+    it(".bak mirrors main vault content after successful write", async () => {
+        const { readFile } = await import("node:fs/promises");
+        await vault.set("bak-key", "bak-value");
+        const main = await readFile(join(temp_dir, "secrets.vault"), "utf8");
+        const bak = await readFile(join(temp_dir, "secrets.vault.bak"), "utf8");
+        expect(bak).toBe(main);
+    });
 });
