@@ -64,6 +64,16 @@ export interface AppConfiguration {
     readonly collapsedAccounts?: Readonly<Record<string, boolean>>;
     readonly expandedProviders?: Readonly<Record<string, boolean>>;
     readonly convergentTimeMinutes?: number;
+    /** Directories grouped under one project label in the agent panel. */
+    readonly dirAliases?: readonly {
+        readonly alias: string;
+        readonly dirs: readonly string[];
+    }[];
+    /** Models grouped under one label in the agent panel. */
+    readonly modelAliases?: readonly {
+        readonly alias: string;
+        readonly models: readonly string[];
+    }[];
     readonly tokenStats?: {
         readonly pollIntervalMinutes?: number;
         readonly wslEnabled?: boolean;
