@@ -23,6 +23,7 @@ import {
     get_tray_icon_path,
     get_app_icon_path,
     get_observations_db_path,
+    get_token_stats_db_path,
     get_snapshot_cache_path,
 } from "./core/paths";
 import { initLogging, defaultLogLevelForEnv } from "./core/logging";
@@ -251,7 +252,7 @@ void app.whenReady().then(async () => {
     let tray_ref: Tray | null = null;
 
     // Token stats: store + manager (subprocess-based collection)
-    const tokenStatsStore = create_token_stats_store(get_observations_db_path());
+    const tokenStatsStore = create_token_stats_store(get_token_stats_db_path());
     const tokenStatsManager = create_token_stats_manager({
         store: tokenStatsStore,
         on_update: () => {
