@@ -45,11 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_lookup
     ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
 `;
 
-const MIGRATE_ADD_LABEL_COLUMNS_SQL = `
-ALTER TABLE observations ADD COLUMN raw_label TEXT;
-ALTER TABLE observations ADD COLUMN normalized_label TEXT;
-ALTER TABLE observations ADD COLUMN display_label TEXT;
-`;
+const LABEL_COLUMNS = ["raw_label", "normalized_label", "display_label"] as const;
 
 function row_to_observation(row: Record<string, unknown>): Observation {
     const normalized =
@@ -98,13 +94,17 @@ export function create_observation_store(db_path: string): ObservationStore {
     // Migrate older databases that predate the raw/normalized/display label
     // columns. The columns are added without NOT NULL constraints so existing
     // rows survive; row_to_observation backfills missing values from `name`.
+    // Check each column independently (A9) — a partially-applied migration
+    // (raw_label added but normalized_label not) must still backfill the rest,
+    // otherwise inserts binding @normalized_label fail.
     const columns = db.prepare("PRAGMA table_info(observations)").all() as { name: string }[];
     const column_names = new Set(columns.map((c) => c.name));
-    if (!column_names.has("raw_label")) {
-        db.exec(MIGRATE_ADD_LABEL_COLUMNS_SQL);
-        log.info(
-            "Observation store migrated: added raw_label/normalized_label/display_label columns",
-        );
+    const missing = LABEL_COLUMNS.filter((col) => !column_names.has(col));
+    if (missing.length > 0) {
+        for (const col of missing) {
+            db.exec(`ALTER TABLE observations ADD COLUMN ${col} TEXT;`);
+        }
+        log.info(`Observation store migrated: added columns ${missing.join(", ")}`);
     }
 
     const insert_stmt = db.prepare(`
