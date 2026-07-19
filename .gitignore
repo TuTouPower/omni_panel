@@ -2,9 +2,6 @@
 logs
 __pycache__
 *.log
-data/logs/*
-data/*.jsonl
-!data/logs/.gitkeep
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -62,8 +59,7 @@ config/env/.env.local
 artifacts/
 vendors/
 
-data/capture_*
-data/session-*
+data
 
 # Internal working scratch and AI design chat logs (not for public)
 .scratch/
