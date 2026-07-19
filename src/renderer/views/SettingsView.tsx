@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { is_web } from "../lib/is-web";
+import { AliasEditor } from "../components/AliasEditor";
 import {
     REFRESH_INTERVAL_OPTIONS,
     refresh_seconds_to_label,
@@ -1181,6 +1182,40 @@ export function SettingsView() {
                                         }}
                                     />
                                 </SetRow>
+                                <AliasEditor
+                                    label="目录别名"
+                                    itemLabel="目录"
+                                    entries={(config.dirAliases ?? []).map((a) => ({
+                                        alias: a.alias,
+                                        values: [...a.dirs],
+                                    }))}
+                                    onChange={(next) => {
+                                        void save_config({
+                                            ...config,
+                                            dirAliases: next.map((e) => ({
+                                                alias: e.alias,
+                                                dirs: e.values,
+                                            })),
+                                        });
+                                    }}
+                                />
+                                <AliasEditor
+                                    label="模型别名"
+                                    itemLabel="模型"
+                                    entries={(config.modelAliases ?? []).map((a) => ({
+                                        alias: a.alias,
+                                        values: [...a.models],
+                                    }))}
+                                    onChange={(next) => {
+                                        void save_config({
+                                            ...config,
+                                            modelAliases: next.map((e) => ({
+                                                alias: e.alias,
+                                                models: e.values,
+                                            })),
+                                        });
+                                    }}
+                                />
                                 <SetRow
                                     title="同一厂商的数据标签映射同步"
                                     sub="同一厂商下的多个账号共用一套数据标签映射，编辑任一账号即同步到全部"
