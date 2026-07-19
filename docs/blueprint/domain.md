@@ -70,7 +70,7 @@
 
 ## 6. 产品边界（明确不做）
 
-- 不做趋势图 UI（SQLite 留了历史数据，但第一版不出图）。
+- 不做完整多维趋势图 UI（柱状/热力/区间选择仍归 TokenStats 独立窗口）；账号展开区出近 7 天 sparkline 迷你走势（T006），SQLite 历史已用于此时序聚合。
 - 不做通用开放代理（LocalAPI 只白名单 ingest + health）。
 - 不做系统钥匙串/safeStorage（自管 Vault，见 `specs/secret-vault.md` 威胁模型）。
 - 不为第三方开放沙箱脚本连接器（`node:vm` 非真隔离，见 `architecture.md` §6 已知限制）。

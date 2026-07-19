@@ -15,7 +15,7 @@
 
 - `docs/blueprint/domain.md §6` 移除或改写「不做趋势图 UI」条目：明确「账号展开区出近 7 天 sparkline（迷你走势）；完整多维趋势（柱状/热力/区间）仍归 TokenStats 独立窗口承担」。
 - `docs/blueprint/decisions.md` 新增决策条目：记录「第一版不出图 → 账号展开区 sparkline 出图」的替代，含旧决策引用、新决策、理由、日期。
-- T006 spec.md「依赖与约束」段加「前置 T007」。
+- T006 spec.md「依赖与约束」段确认含「前置 T007」（T006 spec 早已含此引用，本 task 核对即可，无需改动 T006 spec）。
 
 ## 非范围
 

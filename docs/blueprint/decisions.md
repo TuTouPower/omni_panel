@@ -54,3 +54,10 @@
 - 选项：A) 多列下禁用拖拽；B) 补 `clientX` 多列 hit-testing；C) 多列按单列 DOM 语义不标注。
 - 结论：选 B。`compute_drag_reorder` 加 `axis: "x" | "y"` 参数（默认 "y" 向后兼容）；caller（`PopupView.handle_drag_over`）按 `drag_rect.top` vs `over_rect.top` 判定 same_row 选轴。`drag_rect` 在 `onDragStart` 捕获、`onDragEnd` 清理。已知遗留：reorder 后 `drag_rect` state 过时，多步拖拽退化垂直 guard（见 T004 task_report）。
 - 替代：无
+
+## 005 账号展开区 sparkline 出图，解除「第一版不出图」边界（2026-07-20）
+
+- 背景：`domain.md §6` 原「不做趋势图 UI（SQLite 留了历史数据，但第一版不出图）」是第一版产品边界。T006 计划在账号展开区引入近 7 天 sparkline 迷你走势，打破该边界。
+- 选项：A) 新开 T007 先解除边界 + 记录决策，T006 实施；B) T006 单 task 内同时改 domain + 实施；C) 放弃 sparkline。
+- 结论：选 A（审阅 adoption D1=A 决策）。`domain.md §6` 改写为「完整多维趋势仍归 TokenStats 独立窗口；账号展开区出 sparkline」。符合「长期真相延后」「单 task 单 commit」硬约束。T006 实施时引用本条。
+- 替代：无（原边界追溯：`domain.md §6` 第一版 commit）
