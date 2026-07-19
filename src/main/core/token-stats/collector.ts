@@ -94,6 +94,7 @@ const default_lister: DirLister = (p) => {
 };
 
 let wsl_user_cache: string | null = null;
+let wsl_user_cache_distro: string | null = null;
 
 /**
  * Effective WSL user: explicit config wins; otherwise auto-detect as the
@@ -102,6 +103,13 @@ let wsl_user_cache: string | null = null;
 function effective_wsl_user(cfg: TokenStatsConfig, lister: DirLister = default_lister): string {
     if (cfg.wsl_user !== "") {
         return cfg.wsl_user;
+    }
+    // Invalidate the cache if the user switched distro (A8) — otherwise the
+    // first distro's detected user lingers across update_config and reads the
+    // wrong home path.
+    if (wsl_user_cache_distro !== cfg.wsl_distro) {
+        wsl_user_cache = null;
+        wsl_user_cache_distro = cfg.wsl_distro;
     }
     wsl_user_cache ??= lister(`\\\\wsl.localhost\\${cfg.wsl_distro}\\home`)[0] ?? "";
     return wsl_user_cache;
@@ -262,6 +270,7 @@ function reset_config(): void {
     jsonl_states.clear();
     kimi_states.clear();
     wsl_user_cache = null;
+    wsl_user_cache_distro = null;
     if (interval_id) {
         clearInterval(interval_id);
         interval_id = null;
