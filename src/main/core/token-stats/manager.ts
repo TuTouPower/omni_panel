@@ -35,6 +35,17 @@ export function create_token_stats_manager(deps: {
 }): TokenStatsManager {
     let child: UtilityProcess | null = null;
     let current_config: TokenStatsConfig | null = null;
+    // Pending auto-restart timer - tracked so stop()/shutdown can clear it
+    // instead of leaving it pending to fire after the app is gone (A13).
+    let restart_timer: ReturnType<typeof setTimeout> | null = null;
+    // Crash-circuit-breaker (A14): if the collector repeatedly exits shortly
+    // after start (native binding missing, WSL path error, ...), an unbounded
+    // 30s restart loop wastes CPU and floods logs. After MAX_RAPID_FAILURES
+    // rapid exits we give up and surface the error.
+    let rapid_failure_count = 0;
+    let last_started_at = 0;
+    const RAPID_EXIT_THRESHOLD_MS = 5 * 60 * 1000;
+    const MAX_RAPID_FAILURES = 5;
 
     function start(config: TokenStatsConfig): void {
         if (child) {
@@ -53,6 +64,7 @@ export function create_token_stats_manager(deps: {
             stdio: ["ignore", "pipe", "pipe"],
             serviceName: "token-stats-collector",
         });
+        last_started_at = Date.now();
 
         child.on(
             "message",
@@ -83,14 +95,34 @@ export function create_token_stats_manager(deps: {
         child.on("exit", (code) => {
             log.warn(`Collector subprocess exited: code=${String(code)}`);
             child = null;
+            // A14: detect rapid crash loops. If the process lived less than the
+            // threshold, count it against the breaker; on a clean long run reset.
+            const uptime_ms = Date.now() - last_started_at;
+            if (uptime_ms < RAPID_EXIT_THRESHOLD_MS) {
+                rapid_failure_count += 1;
+            } else {
+                rapid_failure_count = 0;
+            }
+            if (rapid_failure_count >= MAX_RAPID_FAILURES) {
+                log.error(
+                    `Collector crashed ${String(rapid_failure_count)} times within ${String(RAPID_EXIT_THRESHOLD_MS / 1000)}s; stopping auto-restart. Check native bindings / WSL paths.`,
+                );
+                current_config = null;
+                rapid_failure_count = 0;
+                return;
+            }
             // Auto-restart after 30 seconds
             if (current_config) {
-                setTimeout(() => {
+                const cfg = current_config;
+                restart_timer = setTimeout(() => {
+                    restart_timer = null;
                     if (current_config) {
                         log.info("Restarting collector subprocess");
-                        start(current_config);
+                        start(cfg);
                     }
                 }, 30_000);
+                // A13: don't keep the event loop alive solely for a restart timer.
+                restart_timer.unref();
             }
         });
 
@@ -117,6 +149,11 @@ export function create_token_stats_manager(deps: {
 
     function stop(): void {
         current_config = null;
+        if (restart_timer) {
+            clearTimeout(restart_timer);
+            restart_timer = null;
+        }
+        rapid_failure_count = 0;
         if (child) {
             child.kill();
             child = null;
