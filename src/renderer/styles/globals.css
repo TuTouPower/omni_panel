@@ -339,6 +339,30 @@ html[data-window="tray"] #root {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    container-type: inline-size;
+}
+/* Offscreen popup-mirror reuses .scroll-inner via class; the class selector
+   matches BOTH live and mirror nodes (not inheritance). Force the mirror out
+   of the container context so its multi-column overview-grid doesn't shorten
+   offsetHeight and corrupt the height report (see use-popup-height-report). */
+.popup-mirror .scroll-inner {
+    container-type: normal;
+}
+.overview-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    align-items: start;
+}
+@container (min-width: 1024px) {
+    .overview-grid {
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    }
+}
+@container (max-width: 1023px) and (min-width: 640px) {
+    .overview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 .provider-account-list {
     display: flex;

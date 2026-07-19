@@ -61,6 +61,77 @@ describe("compute_drag_reorder", () => {
         // midpoint; at y=200 (below midpoint) it stays put.
         expect(compute_drag_reorder(moved, "a", "b", { pointer_y: 200, ...tall })).toBeNull();
     });
+
+    it("moves right once pointer passes the target horizontal midpoint (multicolumn x-axis)", () => {
+        // 2-column grid, "a"(0) and "b"(1) share a row. Drag "a" right onto "b";
+        // commit only once pointer crosses "b"'s horizontal midpoint.
+        expect(
+            compute_drag_reorder(
+                base,
+                "a",
+                "b",
+                {
+                    pointer_y: 50,
+                    rect_top: 0,
+                    rect_height: 100,
+                    pointer_x: 160,
+                    rect_left: 100,
+                    rect_width: 100,
+                },
+                "x",
+            ),
+        ).toEqual(["b", "a", "c", "d"]);
+    });
+
+    it("does NOT move right while pointer is left of the target horizontal midpoint", () => {
+        expect(
+            compute_drag_reorder(
+                base,
+                "a",
+                "b",
+                {
+                    pointer_y: 50,
+                    rect_top: 0,
+                    rect_height: 100,
+                    pointer_x: 120,
+                    rect_left: 100,
+                    rect_width: 100,
+                },
+                "x",
+            ),
+        ).toBeNull();
+    });
+
+    it("moves left once pointer passes the target horizontal midpoint (multicolumn x-axis)", () => {
+        // Drag "d"(3) left onto "c"(2); commit once pointer crosses "c"'s horizontal midpoint leftward.
+        expect(
+            compute_drag_reorder(
+                base,
+                "d",
+                "c",
+                {
+                    pointer_y: 50,
+                    rect_top: 0,
+                    rect_height: 100,
+                    pointer_x: 40,
+                    rect_left: 100,
+                    rect_width: 100,
+                },
+                "x",
+            ),
+        ).toEqual(["a", "b", "d", "c"]);
+    });
+
+    it("defaults to y-axis guard when axis omitted (backward compatible)", () => {
+        // Same call as the vertical move-down case but without passing axis.
+        expect(
+            compute_drag_reorder(base, "a", "c", {
+                pointer_y: 160,
+                rect_top: 100,
+                rect_height: 100,
+            }),
+        ).toEqual(["b", "c", "a", "d"]);
+    });
 });
 
 describe("build_reorder_base", () => {

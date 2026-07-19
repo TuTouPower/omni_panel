@@ -18,9 +18,11 @@ interface ProviderOverviewProps {
     onReLogin?: ((provider: UsageProvider) => void) | undefined;
     draggingProvider?: UsageProvider | null | undefined;
     overProvider?: UsageProvider | null | undefined;
-    onDragStart?: ((provider: UsageProvider) => void) | undefined;
+    onDragStart?: ((provider: UsageProvider, rect?: DOMRect) => void) | undefined;
     onDragEnter?: ((provider: UsageProvider) => void) | undefined;
-    onDragOver?: ((provider: UsageProvider, clientY: number, rect: DOMRect) => void) | undefined;
+    onDragOver?:
+        | ((provider: UsageProvider, clientX: number, clientY: number, rect: DOMRect) => void)
+        | undefined;
     onDragEnd?: (() => void) | undefined;
     refreshingProviders?: Set<string> | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
@@ -62,7 +64,7 @@ export function ProviderOverview({
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
 
     return (
-        <>
+        <div className="overview-grid">
             {visibleProviders.map((provider) => {
                 return (
                     <ProviderCard
@@ -94,6 +96,6 @@ export function ProviderOverview({
                     />
                 );
             })}
-        </>
+        </div>
     );
 }

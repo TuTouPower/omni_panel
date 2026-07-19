@@ -71,6 +71,9 @@ export function PopupView() {
     const save_queue_ref = useRef(Promise.resolve());
     const synced_order_ref = useRef<UsageProvider[]>([]);
     const [drag_id, set_drag_id] = useState<UsageProvider | null>(null);
+    // Drag-card rect captured on dragStart; picks reorder axis (same row →
+    // "x" horizontal guard, else "y" vertical guard) for T004 D2=B.
+    const [drag_rect, set_drag_rect] = useState<DOMRect | null>(null);
     const [over_id, set_over_id] = useState<UsageProvider | null>(null);
     const [account_drag_id, set_account_drag_id] = useState<string | null>(null);
     const [account_over_id, set_account_over_id] = useState<string | null>(null);
@@ -419,8 +422,9 @@ export function PopupView() {
     };
 
     // Drag-and-drop handlers for provider card reordering
-    const handle_drag_start = (provider: UsageProvider) => {
+    const handle_drag_start = (provider: UsageProvider, rect?: DOMRect) => {
         set_drag_id(provider);
+        set_drag_rect(rect ?? null);
     };
 
     const handle_drag_enter = (provider: UsageProvider) => {
@@ -428,20 +432,37 @@ export function PopupView() {
         set_over_id(provider);
     };
 
-    // Reorder uses a direction-aware midpoint guard (see compute_drag_reorder)
-    // to avoid swap-back flicker when a short card is dragged across a tall
-    // (expanded) card. Fires on dragOver so the move commits as the pointer
-    // crosses the midpoint, not merely on entry.
-    const handle_drag_over = (provider: UsageProvider, clientY: number, rect: DOMRect) => {
+    // Reorder uses a direction-aware midpoint guard (see compute_drag_reorder).
+    // Axis is picked from drag-card vs over-card rects: same row (top close)
+    // → "x" horizontal guard for multi-column grids (T004 D2=B); otherwise
+    // "y" vertical guard with anti-flicker for single-column lists.
+    const handle_drag_over = (
+        provider: UsageProvider,
+        clientX: number,
+        clientY: number,
+        rect: DOMRect,
+    ) => {
         if (!drag_id || drag_id === provider) return;
         set_over_id(provider);
         set_provider_order((prev) => {
             const base = build_reorder_base(prev, orderedProviders);
-            const next = compute_drag_reorder(base, drag_id, provider, {
-                pointer_y: clientY,
-                rect_top: rect.top,
-                rect_height: rect.height,
-            });
+            const same_row =
+                drag_rect !== null && Math.abs(drag_rect.top - rect.top) < rect.height / 2;
+            const axis: "x" | "y" = same_row ? "x" : "y";
+            const next = compute_drag_reorder(
+                base,
+                drag_id,
+                provider,
+                {
+                    pointer_y: clientY,
+                    rect_top: rect.top,
+                    rect_height: rect.height,
+                    pointer_x: clientX,
+                    rect_left: rect.left,
+                    rect_width: rect.width,
+                },
+                axis,
+            );
             return next ?? prev;
         });
     };
@@ -449,6 +470,7 @@ export function PopupView() {
     const handle_drag_end = () => {
         set_drag_id(null);
         set_over_id(null);
+        set_drag_rect(null);
     };
 
     // Account drag handlers for single-provider tab view

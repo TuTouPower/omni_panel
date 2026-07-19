@@ -33,3 +33,24 @@
 - `op_execution/*` + `docs/tasks/T1-T8_*` → `docs/archive/`（T1-T8 入 `archive/tasks/`）
 - `docs/research/` `docs/design/` → `docs/archive/research/` `docs/archive/design/`
 - T1-T8 历史提交 SHA：`5efb68a`、`30d078b`（原编号 T1..T8；`git log --grep` 仍可用原编号）
+
+## 002 横屏响应式选 CSS 容器查询而非 @media（2026-07-20）
+
+- 背景：T004 让 usage 窗在 472–1400px 宽度范围自适应（窄 popup / 横屏管理台 / web 浏览器）。需选响应式机制。
+- 选项：A) `@media`（按窗口宽度）；B) CSS 容器查询（`container-type: inline-size` + `@container`，按容器宽度）。
+- 结论：选 B。容器查询按容器宽度响应，Electron 窗口拖宽、浏览器 web 版、未来内嵌模拟框共用一套布局逻辑；`@media` 无法区分容器 vs 窗口。断点 1024/640 沿用 demo 阈值。Electron 42（Chromium 105+）满足 container queries 支持。
+- 替代：无
+
+## 003 不新增 Electron 横屏主窗，放开 usage 窗 maxWidth 承担横屏（2026-07-20）
+
+- 背景：demo 设想新增 1440×900 Electron 横屏主窗。本项目 web 构建版（`vite.web.config.ts` → `out/web/`）已承担浏览器横屏载体。
+- 选项：A) 新增 Electron 横屏主窗（demo 原版）；B) 放开 usage 窗 `maxWidth`（780→1400）+ 容器查询，同一份渲染层覆盖桌面横屏。
+- 结论：选 B。再开 Electron 横屏窗与 web 版职能重叠；放开 `maxWidth` + 容器查询改动最小，web 版自动复用同一套 `@container` 断点。`maxWidth` 定 1400（不取消——避免 4K 屏拉到极宽 auto-fill 成 10+ 列 UX 恶化）。
+- 替代：无
+
+## 004 横屏多列拖拽补 clientX hit-testing（D2=B，2026-07-20）
+
+- 背景：现有 `compute_drag_reorder` 仅 `clientY` 垂直 midpoint guard（单列假设）。横屏多列同行水平拖拽时垂直 guard 阻止 commit，视觉与语义不一致。
+- 选项：A) 多列下禁用拖拽；B) 补 `clientX` 多列 hit-testing；C) 多列按单列 DOM 语义不标注。
+- 结论：选 B。`compute_drag_reorder` 加 `axis: "x" | "y"` 参数（默认 "y" 向后兼容）；caller（`PopupView.handle_drag_over`）按 `drag_rect.top` vs `over_rect.top` 判定 same_row 选轴。`drag_rect` 在 `onDragStart` 捕获、`onDragEnd` 清理。已知遗留：reorder 后 `drag_rect` state 过时，多步拖拽退化垂直 guard（见 T004 task_report）。
+- 替代：无

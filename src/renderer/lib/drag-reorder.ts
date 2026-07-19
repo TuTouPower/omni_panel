@@ -5,31 +5,47 @@ export interface DragMidpoint {
     rect_top: number;
     /** Height of the hovered card. */
     rect_height: number;
+    /** Pointer X in viewport coords (DragEvent.clientX). Required for `axis="x"`. */
+    pointer_x?: number;
+    /** Left edge of the hovered card. Required for `axis="x"`. */
+    rect_left?: number;
+    /** Width of the hovered card. Required for `axis="x"`. */
+    rect_width?: number;
 }
 
 /**
  * Compute a reordered list when `drag_id` is dragged over `over_id`.
  * Returns the new order, or null when no move should happen.
  *
- * Direction-aware midpoint guard: dragging downward only commits the move
- * once the pointer passes the target's vertical midpoint, and vice versa.
- * Without this guard, dragging a short card across a tall (expanded) card
- * swaps on entry, the layout shift re-enters the target, and it swaps back —
- * an oscillation that shows as flicker.
+ * Direction-aware midpoint guard prevents swap-back flicker. `axis` selects
+ * which axis the guard applies to: `"y"` (default, single-column vertical
+ * list — original behavior) or `"x"` (multi-column same-row horizontal drag,
+ * introduced by T004 D2=B). Caller decides axis by comparing drag-card and
+ * over-card rects (same row → `"x"`, same column → `"y"`).
  */
 export function compute_drag_reorder<T>(
     base: readonly T[],
     drag_id: T,
     over_id: T,
     midpoint: DragMidpoint,
+    axis: "x" | "y" = "y",
 ): T[] | null {
     if (drag_id === over_id) return null;
     const from = base.indexOf(drag_id);
     const to = base.indexOf(over_id);
     if (from < 0 || to < 0) return null;
-    const middle = midpoint.rect_top + midpoint.rect_height / 2;
-    if (from < to && midpoint.pointer_y < middle) return null;
-    if (from > to && midpoint.pointer_y > middle) return null;
+    if (axis === "x") {
+        const left = midpoint.rect_left ?? 0;
+        const width = midpoint.rect_width ?? 0;
+        const middle_x = left + width / 2;
+        const pointer_x = midpoint.pointer_x ?? 0;
+        if (from < to && pointer_x < middle_x) return null;
+        if (from > to && pointer_x > middle_x) return null;
+    } else {
+        const middle = midpoint.rect_top + midpoint.rect_height / 2;
+        if (from < to && midpoint.pointer_y < middle) return null;
+        if (from > to && midpoint.pointer_y > middle) return null;
+    }
     const next = [...base];
     next.splice(from, 1);
     next.splice(to, 0, drag_id);

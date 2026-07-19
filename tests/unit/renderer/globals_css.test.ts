@@ -55,4 +55,43 @@ describe("globals usage bar css", () => {
         expect(css).not.toContain(".off-badge");
         expect(css).not.toContain(".card.disabled");
     });
+
+    it("establishes container context on .scroll-inner for responsive overview grid", () => {
+        const scroll_inner_css = /\.scroll-inner\s*\{[\s\S]*?\}/.exec(css)?.[0] ?? "";
+        expect(scroll_inner_css).toContain("container-type: inline-size");
+    });
+
+    it("isolates .popup-mirror .scroll-inner from the container context", () => {
+        expect(css).toMatch(/\.popup-mirror\s+\.scroll-inner\s*\{[\s\S]*?container-type:\s*normal/);
+    });
+
+    it("introduces .overview-grid for responsive provider card layout", () => {
+        const grid_css = /\.overview-grid\s*\{[\s\S]*?\}/.exec(css)?.[0] ?? "";
+        expect(grid_css).toContain("display: grid");
+        expect(grid_css).toContain("grid-template-columns: 1fr");
+        expect(grid_css).toContain("align-items: start");
+    });
+
+    it("defines @container breakpoints at 1024px (wide) and 640–1023px (mid)", () => {
+        expect(css).toMatch(/@container\s*\(\s*min-width:\s*1024px\s*\)/);
+        expect(css).toMatch(
+            /@container\s*\(\s*max-width:\s*1023px\s*\)\s*and\s*\(\s*min-width:\s*640px\s*\)/,
+        );
+    });
+
+    it("uses minmax(320px,1fr) auto-fill in the wide breakpoint", () => {
+        const wide_block =
+            /@container\s*\(\s*min-width:\s*1024px\s*\)\s*\{[\s\S]*?\}/.exec(css)?.[0] ?? "";
+        expect(wide_block).toMatch(
+            /repeat\(\s*auto-fill\s*,\s*minmax\(\s*320px\s*,\s*1fr\s*\)\s*\)/,
+        );
+    });
+
+    it("forces two columns in the mid breakpoint to satisfy spec acceptance", () => {
+        const mid_block =
+            /@container\s*\(\s*max-width:\s*1023px\s*\)\s*and\s*\(\s*min-width:\s*640px\s*\)\s*\{[\s\S]*?\}/.exec(
+                css,
+            )?.[0] ?? "";
+        expect(mid_block).toMatch(/repeat\(\s*2\s*,\s*minmax\(0,\s*1fr\)\s*\)/);
+    });
 });

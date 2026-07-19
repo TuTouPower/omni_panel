@@ -36,7 +36,7 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         show: false,
         resizable: true,
         minWidth: 472,
-        maxWidth: 780,
+        maxWidth: 1400,
     },
     setting: {
         route: "setting",

@@ -26,9 +26,11 @@ interface ProviderCardProps {
     onToggleExpand?: ((provider: UsageProvider) => void) | undefined;
     dragging?: boolean | undefined;
     dragOver?: boolean | undefined;
-    onDragStart?: ((provider: UsageProvider) => void) | undefined;
+    onDragStart?: ((provider: UsageProvider, rect?: DOMRect) => void) | undefined;
     onDragEnter?: ((provider: UsageProvider) => void) | undefined;
-    onDragOver?: ((provider: UsageProvider, clientY: number, rect: DOMRect) => void) | undefined;
+    onDragOver?:
+        | ((provider: UsageProvider, clientX: number, clientY: number, rect: DOMRect) => void)
+        | undefined;
     onDragEnd?: (() => void) | undefined;
     refreshing?: boolean | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
@@ -332,8 +334,8 @@ export const ProviderCard = memo(function ProviderCard({
     const drag_root_props = onDragStart
         ? {
               draggable: true as const,
-              onDragStart: () => {
-                  onDragStart(provider);
+              onDragStart: (e: React.DragEvent<HTMLDivElement>) => {
+                  onDragStart(provider, e.currentTarget.getBoundingClientRect());
               },
               onDragEnter: onDragEnter
                   ? () => {
@@ -343,7 +345,12 @@ export const ProviderCard = memo(function ProviderCard({
               onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
                   e.preventDefault();
                   if (onDragOver) {
-                      onDragOver(provider, e.clientY, e.currentTarget.getBoundingClientRect());
+                      onDragOver(
+                          provider,
+                          e.clientX,
+                          e.clientY,
+                          e.currentTarget.getBoundingClientRect(),
+                      );
                   }
               },
               onDragEnd: onDragEnd,
