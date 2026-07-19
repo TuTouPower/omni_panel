@@ -66,13 +66,37 @@ describe("connector-scheduler", () => {
     });
 
     it("stopAll stops all schedulers", () => {
-        const refresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+        const refresh = vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+        const scheduler = createConnectorScheduler({ refresh });
+        scheduler.start("p1", 10); // immediate refresh
+        scheduler.start("p2", 10); // jittered (peers present)
+        scheduler.stopAll(); // cancels p2's pending jitter too
+        vi.advanceTimersByTime(20_000);
+        // Only p1's immediate fire remains; p2's jitter was cancelled by stopAll.
+        expect(refresh).toHaveBeenCalledTimes(1);
+        expect(refresh).toHaveBeenCalledWith("p1");
+    });
+
+    it("stop() cancels pending jitter refresh for staggered start (A12)", () => {
+        const refresh = vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+        const scheduler = createConnectorScheduler({ refresh });
+        scheduler.start("p1", 10); // no peers → immediate refresh('p1')
+        scheduler.start("p2", 10); // peers present → jitter 0..3000ms
+        scheduler.stop("p2"); // before the jitter timer fires
+        vi.advanceTimersByTime(5_000); // well past the jitter window
+        const p2_calls = refresh.mock.calls.filter((c) => c[0] === "p2").length;
+        expect(p2_calls).toBe(0);
+    });
+
+    it("stopAll cancels pending jitter refreshes (A12)", () => {
+        const refresh = vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
         const scheduler = createConnectorScheduler({ refresh });
         scheduler.start("p1", 10);
-        scheduler.start("p2", 10);
+        scheduler.start("p2", 10); // jittered
         scheduler.stopAll();
-        vi.advanceTimersByTime(20_000);
-        expect(refresh).toHaveBeenCalledTimes(2);
+        vi.advanceTimersByTime(5_000);
+        const p2_calls = refresh.mock.calls.filter((c) => c[0] === "p2").length;
+        expect(p2_calls).toBe(0);
     });
 
     it("does not call refresh immediately when immediate:false", () => {
