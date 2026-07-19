@@ -2,9 +2,9 @@
 
 `src/renderer/views/`。IPC 见 `ipc.md`；窗口承载见 `window-management.md`；术语见 `domain.md`。
 
-## 三视图
+## 视图
 
-### PopupView（用量面板，route=popup）
+### PopupView（用量面板，route=usage）
 
 托盘弹窗用量面板，默认视图。组合：
 
@@ -30,7 +30,7 @@
 - **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（用量面板 + 设置列表）
 - **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %
 
-### SettingsView（设置窗，route=settings）
+### SettingsView（设置窗，route=setting）
 
 `SettingsForm` + `SecretInput`（密钥睁/闭）+ `VendorCard`（直连 provider 卡，内嵌 `AccountRow`）+ `CpaCard`（CPA 卡，父行自渲染 + `AccountRow mode="cpa-child"`）+ `CpaConnectorSettings`（CPA 数据源详情）+ `LabelMapDialog`（数据标签映射）+ `RenameAccountDialog`（账号备注）+ `ConfirmDelete`（删除确认）+ `AddAccountDialog`（新增账号）。
 
@@ -68,6 +68,18 @@
 - autostart 状态（`tray:autostartState`）
 - `tray:reportMenuSize` 上报菜单尺寸驱动窗口大小
 - 版本号从 URL hash `?v=` 解析
+
+### TokenStatsView（token 统计，route=agent）
+
+独立窗（900×700，frame:true）。Claude Code / OpenCode / Kimi Code 本地 token 与 session 统计。组合：
+
+- `MetricDonut` — 指标环形图
+- `BarChart` — 柱状图
+- `Heatmap` — 热力图
+- `SessionTable` — 会话列表
+- `Segmented` / `RangePicker` — 分段与时间范围筛选
+
+数据管线（`lib/token-stats`）：`filtered` / `aggregate` / `chart-data`（agentSegments / compositionSegments / modelSegments / projectSegments）。过滤维度：agent / platform（win/wsl）/ range（24h/7d/30d）/ metric / xAxis。详见 `specs/ai-cli-token-stats.md`。
 
 ## 共性
 

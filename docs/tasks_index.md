@@ -6,7 +6,7 @@
 - `done` 及曾 active 的 `dropped` 任务目录必须移入 `docs/archive/tasks/`。
 - owner 和 branch 表示当前归属；工作分支推荐 `task_tnnn_slug`。
 
-| ID   | 标题                                            | 状态    | owner  | branch | 备注                                   |
-| ---- | ----------------------------------------------- | ------- | ------ | ------ | -------------------------------------- |
-| T001 | fix preload route 分权同步 usage/setting        | done    | claude | main   | route 重构漏改 preload 层;代码已先实现 |
-| T002 | docs specs route 值同步代码 + 补 TokenStatsView | backlog | claude | main   | 依赖 T001 代码真相                     |
+| ID   | 标题                                            | 状态 | owner  | branch | 备注                                   |
+| ---- | ----------------------------------------------- | ---- | ------ | ------ | -------------------------------------- |
+| T001 | fix preload route 分权同步 usage/setting        | done | claude | main   | route 重构漏改 preload 层;代码已先实现 |
+| T002 | docs specs route 值同步代码 + 补 TokenStatsView | done | claude | main   | 依赖 T001 代码真相                     |

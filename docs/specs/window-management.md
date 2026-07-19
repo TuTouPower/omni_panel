@@ -2,15 +2,18 @@
 
 `src/main/window/window-manager.ts`（commit `e50dc26` 从 index.ts 提取）。IPC 见 `ipc.md`；UI 视图见 `ui-views.md`。
 
-## 三类窗口（`WINDOW_CONFIGS`）
+## 四类窗口（`WINDOW_CONFIGS`）
 
-| key         | route      | 尺寸                      | 特征                                                                   |
-| ----------- | ---------- | ------------------------- | ---------------------------------------------------------------------- |
-| `popup`     | `popup`    | 482×480, min 472, max 780 | frameless, resizable, 托盘弹窗用量面板（默认隐藏，托盘点击显示）       |
-| `settings`  | `settings` | 820×660                   | frameless, `titleBarStyle:hidden`, `showWhenReady`, 圆角，独立持久窗口 |
-| `tray_menu` | `tray`     | —                         | 自定义托盘菜单渲染窗口                                                 |
+| key         | route     | 尺寸                      | 特征                                                                   |
+| ----------- | --------- | ------------------------- | ---------------------------------------------------------------------- |
+| `usage`     | `usage`   | 482×480, min 472, max 780 | frameless, resizable, 托盘弹窗用量面板（默认隐藏，托盘点击显示）       |
+| `setting`   | `setting` | 820×660                   | frameless, `titleBarStyle:hidden`, `showWhenReady`, 圆角，独立持久窗口 |
+| `tray_menu` | `tray`    | —                         | 自定义托盘菜单渲染窗口                                                 |
+| `agent`     | `agent`   | 900×700                   | `frame:true`, `showWhenReady`, 圆角，独立窗承载 TokenStatsView         |
 
-URL：`file://...renderer/index.html#<route>?ou_theme=<dark|light>&v=<version>`。
+URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在前 hash 在后）。
+
+> TrayMenu 渲染层保留对 hash 中 `v=<version>` 的解析（历史兼容），当前 main 未注入 `v=`。
 
 ## 用量面板模式（`mainPanelMode`）
 

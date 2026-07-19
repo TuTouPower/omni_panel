@@ -24,14 +24,14 @@
 
 `window.usageboard` 命名空间：`connector` / `config` / `event` / `popup` / `main_panel` / `theme` / `settings` / `tray` / `auth` / `session` / `grok` / `logs` / `log`。`plugin` 段为 deprecated 别名（历史名遗留）。
 
-Grok API 按 route 收窄：settings 暴露 `login_start` / `login_poll` / `login_status` / `logout` / `refresh`；popup 与 tray 仅暴露 `login_status`。共享类型用 `GrokSettingsApi | GrokReadonlyApi` 表达能力差异，settings-only 调用前须做 capability guard。
+Grok API 按 route 收窄：setting 暴露 `login_start` / `login_poll` / `login_status` / `logout` / `refresh`；usage 与 tray 仅暴露 `login_status`。共享类型用 `GrokSettingsApi | GrokReadonlyApi` 表达能力差异，setting-only 调用前须做 capability guard。
 
 ## 安全
 
 - `SECURE_WEB_PREFS`：`contextIsolation:true` / `nodeIntegration:false` / `sandbox:true` / `webSecurity:true` / `allowRunningInsecureContent:false`（见 `window-management.md`）。
 - IPC sender allowlist 强制（commit `5279a8b`），不依赖 `NODE_ENV`。
 - `config:get` 返回 `{ config, hasSecrets }`，config 经 `redact_config_raw` 脱敏；日常不经 IPC 下发明文。
-- `config:getSecrets` / `config:saveSecrets`：设置窗按 instance 读写 vault 明文（见 `secret-vault.md`）。popup/tray 的 `getSecrets`/`saveSecrets` 为 no-op stub。
+- `config:getSecrets` / `config:saveSecrets`：设置窗按 instance 读写 vault 明文（见 `secret-vault.md`）。usage/tray 的 `getSecrets`/`saveSecrets` 为 no-op stub。
 - size-validation（`src/main/ipc/size-validation.ts`）守 popup 尺寸 IPC。
 
 ## 数据形状
