@@ -1,66 +1,59 @@
-# Logs
-logs
-__pycache__
+# 依赖
+node_modules/
+jspm_packages/
+
+# 构建产物
+out/
+.vite/
+build/Release
+artifacts/
+vendors/
+*.tgz
+
+# 运行时数据
+data/
+pids/
+*.pid
+*.seed
+*.pid.lock
+__pycache__/
+
+# 日志
 *.log
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# Diagnostic reports
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-.DS_Store
-
-# Coverage
-coverage
+# 覆盖率
+coverage/
 *.lcov
-.nyc_output
+.nyc_output/
 
-# Build output
-build/Release
-out/
-.vite/
-
-# Dependencies
-node_modules/
-jspm_packages/
+# 缓存
+.npm/
+.eslintcache
+.cache/
+.pytest_cache/
 
 # TypeScript
 *.tsbuildinfo
 typings/
 
-# Caches
-.npm
-.eslintcache
-.cache
-
-# Environment
+# 环境 / 凭据
 .env
-.env.test
-.env.local
-config/env/.env.local
+.env.*
 
-# Package artifacts
-*.tgz
-.superpowers/
-.pytest_cache
+# 系统
+.DS_Store
 
-# Local Claude state
+# 诊断报告
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# 工具本地状态
 .claude/
-
-.reasonix
-.playwright-mcp/
-artifacts/
-vendors/
-
-data
-
-# Internal working scratch and AI design chat logs (not for public)
 .scratch/
-docs/design/omni-usage/chats/
+.superpowers/
+.reasonix/
+.playwright-mcp/
