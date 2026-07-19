@@ -759,7 +759,9 @@ void app.whenReady().then(async () => {
         tray.on("right-click", () => {
             if (!trayMenuWin || trayMenuWin.isDestroyed()) return;
 
-            const trayBounds = tray.getBounds();
+            // Copy the bounds - Electron doesn't guarantee getBounds() returns a
+            // fresh object, so don't mutate the return value in place (A19).
+            const trayBounds = { ...tray.getBounds() };
             // Tray.getBounds() returns zero on Windows; fall back to primary display center
             if (trayBounds.width <= 0 || trayBounds.height <= 0) {
                 const primary = screen.getPrimaryDisplay();
