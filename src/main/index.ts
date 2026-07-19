@@ -58,6 +58,7 @@ import type { TokenStatsConfig } from "../shared/types/token-stats";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
 import { resolve_effective_proxy_url } from "./core/network/effective_proxy";
+import { close_all_proxy_agents } from "./core/network/proxy-pool";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
 import { parseSizeReport } from "./ipc/size-validation";
@@ -811,6 +812,7 @@ void app.whenReady().then(async () => {
         main_panel_controller = null;
         orchestrator.shutdown();
         grokOAuthManager.shutdown();
+        void close_all_proxy_agents();
         void runtimeStore.flushPendingCache();
         cleanupEventIpc?.();
         cleanupEventIpc = null;

@@ -1,6 +1,7 @@
-import { request as undici_request, ProxyAgent } from "undici";
+import { request as undici_request } from "undici";
 import { createLogger } from "../../../shared/lib/logger";
 import { keyFor } from "../config/secrets-store";
+import { get_proxy_agent } from "../network/proxy-pool";
 import type { VaultBackend } from "../vault/vault-backend";
 
 const log = createLogger("grok-oauth");
@@ -121,30 +122,27 @@ function to_error(error: unknown): Error {
 
 function make_default_http_post(): HttpPost {
     return async (url, body, headers, proxy_url) => {
-        const dispatcher = proxy_url ? new ProxyAgent(proxy_url) : undefined;
+        // Shared process-level ProxyAgent (pooled by proxy URL). Reusing the
+        // agent restores TCP/TLS connection reuse across refreshes; lifecycle is
+        // managed centrally at shutdown, so no per-request close here.
+        const dispatcher = proxy_url ? get_proxy_agent(proxy_url) : undefined;
+        const response = await undici_request(url, {
+            method: "POST",
+            headers,
+            body,
+            headersTimeout: 15_000,
+            bodyTimeout: 15_000,
+            ...(dispatcher ? { dispatcher } : {}),
+        });
+        const text = await response.body.text();
+        if (text.length === 0) {
+            return {};
+        }
         try {
-            const response = await undici_request(url, {
-                method: "POST",
-                headers,
-                body,
-                headersTimeout: 15_000,
-                bodyTimeout: 15_000,
-                ...(dispatcher ? { dispatcher } : {}),
-            });
-            const text = await response.body.text();
-            if (text.length === 0) {
-                return {};
-            }
-            try {
-                return JSON.parse(text) as unknown;
-            } catch {
-                // Some OAuth error responses may be non-JSON; surface the raw text.
-                throw new Error(`Non-JSON response from ${url}: ${text.slice(0, 200)}`);
-            }
-        } finally {
-            if (dispatcher) {
-                await dispatcher.close();
-            }
+            return JSON.parse(text) as unknown;
+        } catch {
+            // Some OAuth error responses may be non-JSON; surface the raw text.
+            throw new Error(`Non-JSON response from ${url}: ${text.slice(0, 200)}`);
         }
     };
 }

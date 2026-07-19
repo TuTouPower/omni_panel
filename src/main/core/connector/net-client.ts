@@ -1,10 +1,11 @@
 import { lstat, readFile, realpath, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
-import { request as undici_request, Agent, ProxyAgent, setGlobalDispatcher } from "undici";
+import { request as undici_request, Agent, setGlobalDispatcher } from "undici";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, withLogContext } from "../../../shared/lib/logger";
 import { MAX_CONNECTIONS_PER_ORIGIN, KEEPALIVE_TIMEOUT_MS } from "../../../shared/constants";
+import { get_proxy_agent } from "../network/proxy-pool";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { VaultBackend } from "../vault/vault-backend";
 import type { ConnectorContext, HttpOpts } from "./host-io";
@@ -218,12 +219,7 @@ export function create_connector_context(
     instance_id: string,
     config: NetClientConfig,
 ): ConnectorContext {
-    const dispatcher = config.proxy_url
-        ? new ProxyAgent({
-              ...{ uri: config.proxy_url },
-              connections: MAX_CONNECTIONS_PER_ORIGIN,
-          })
-        : undefined;
+    const dispatcher = config.proxy_url ? get_proxy_agent(config.proxy_url) : undefined;
     const timeout_ms = config.timeout_ms ?? 15_000;
     const reset = config.reset ?? false;
     const request_log = config.trace_id ? withLogContext(log, { trace_id: config.trace_id }) : log;
