@@ -51,18 +51,17 @@ function last_success_snapshot(state: ConnectorSnapshotState): SnapshotSuccess |
     return undefined;
 }
 
-function is_auth_error(message: string): boolean {
+export function is_auth_error(message: string): boolean {
     const lower = message.toLowerCase();
     return (
         lower.includes("401") ||
         lower.includes("unauthorized") ||
         lower.includes("token") ||
-        lower.includes("credential") ||
-        lower.includes("auth")
+        lower.includes("credential")
     );
 }
 
-function is_connection_error(message: string): boolean {
+export function is_connection_error(message: string): boolean {
     const lower = message.toLowerCase();
     return (
         lower.includes("econnreset") ||
