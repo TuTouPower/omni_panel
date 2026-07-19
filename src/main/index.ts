@@ -173,17 +173,23 @@ void app.whenReady().then(async () => {
     // Resolve system proxy for OAuth and connector HTTP requests.
     // If the user hasn't configured a proxy in settings, fall back to the
     // system proxy (e.g., Windows Internet Settings proxy at 127.0.0.1:7890).
-    let detected_system_proxy: string | undefined;
-    try {
-        const proxyInfo = await session.defaultSession.resolveProxy("https://auth.x.ai");
-        const match = /PROXY\s+([^\s;]+)/.exec(proxyInfo);
-        if (match?.[1]) {
-            detected_system_proxy = `http://${match[1]}`;
-            log.info(`Detected system proxy: ${detected_system_proxy}`);
+    // Re-run on every config save so toggling a system proxy (Clash on/off)
+    // takes effect without an app restart (D12).
+    const detect_system_proxy = async (): Promise<string | undefined> => {
+        try {
+            const proxyInfo = await session.defaultSession.resolveProxy("https://auth.x.ai");
+            const match = /PROXY\s+([^\s;]+)/.exec(proxyInfo);
+            if (match?.[1]) {
+                const proxy = `http://${match[1]}`;
+                log.info(`Detected system proxy: ${proxy}`);
+                return proxy;
+            }
+        } catch {
+            // resolveProxy not available or failed — continue without proxy
         }
-    } catch {
-        // resolveProxy not available or failed — continue without proxy
-    }
+        return undefined;
+    };
+    let detected_system_proxy = await detect_system_proxy();
     let currentConfigSnapshot = currentConfig;
 
     function buildSecretParamKeys(cfg: typeof currentConfig): Map<string, ReadonlySet<string>> {
@@ -308,6 +314,11 @@ void app.whenReady().then(async () => {
         grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
         // Update token stats config if changed
         tokenStatsManager.update_config(build_token_stats_config(updatedConfig));
+        // Re-detect system proxy (D12): a config save is a reasonable hook for
+        // "the user may have just toggled their system proxy".
+        void detect_system_proxy().then((proxy) => {
+            detected_system_proxy = proxy;
+        });
         for (const win of BrowserWindow.getAllWindows()) {
             if (!win.isDestroyed()) {
                 win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
