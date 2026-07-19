@@ -118,7 +118,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
     function create_panel_window(next_mode: MainPanelShellMode): WindowLike {
         mode = next_mode;
         const target = deps.create_window(next_mode);
-        void target.loadURL(deps.get_renderer_url("popup")).catch((error: unknown) => {
+        void target.loadURL(deps.get_renderer_url("usage")).catch((error: unknown) => {
             log.error("Failed to load main panel", error);
         });
         target.setAlwaysOnTop(deps.get_config().pinToTop ?? false);
