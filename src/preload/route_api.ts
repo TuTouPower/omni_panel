@@ -5,5 +5,5 @@ export function select_grok_api(
     readonly_api: GrokReadonlyApi,
     settings_api: GrokSettingsApi,
 ): GrokReadonlyApi | GrokSettingsApi {
-    return route === "settings" ? settings_api : readonly_api;
+    return route === "setting" ? settings_api : readonly_api;
 }

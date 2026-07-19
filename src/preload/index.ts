@@ -332,13 +332,13 @@ const logs_methods = {
 };
 
 // Route-based API restriction: each window only gets the capabilities it needs.
-const current_route = window.location.hash.slice(1) || "popup";
+const current_route = window.location.hash.slice(1) || "usage";
 const route_grok_api = select_grok_api(current_route, grok_readonly_methods, grok_methods);
 
 // Build route-specific API: each window only gets capabilities it needs
 const api: UsageboardApi = (() => {
     switch (current_route) {
-        case "settings":
+        case "setting":
             return {
                 platform: renderer_platform,
                 connector: connector_methods,

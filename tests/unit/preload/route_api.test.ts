@@ -22,10 +22,10 @@ function create_grok_apis(): {
 }
 
 describe("select_grok_api", () => {
-    it("exposes the full Grok API to settings", () => {
+    it("exposes the full Grok API to setting", () => {
         const { readonly_api, settings_api } = create_grok_apis();
 
-        const api = select_grok_api("settings", readonly_api, settings_api);
+        const api = select_grok_api("setting", readonly_api, settings_api);
 
         expect(Object.keys(api).sort()).toEqual([
             "login_poll",
@@ -36,11 +36,14 @@ describe("select_grok_api", () => {
         ]);
     });
 
-    it.each(["popup", "tray", "unknown"])("exposes only Grok login status to %s", (route) => {
-        const { readonly_api, settings_api } = create_grok_apis();
+    it.each(["usage", "agent", "tray", "unknown"])(
+        "exposes only Grok login status to %s",
+        (route) => {
+            const { readonly_api, settings_api } = create_grok_apis();
 
-        const api = select_grok_api(route, readonly_api, settings_api);
+            const api = select_grok_api(route, readonly_api, settings_api);
 
-        expect(Object.keys(api)).toEqual(["login_status"]);
-    });
+            expect(Object.keys(api)).toEqual(["login_status"]);
+        },
+    );
 });
