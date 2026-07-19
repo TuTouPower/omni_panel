@@ -1,9 +1,9 @@
-export function isFinitePositiveNumber(value: unknown): value is number {
+export function isFiniteNonNegativeNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
-export function isFinitePositiveNumberWithMax(value: unknown, max: number): value is number {
-    return isFinitePositiveNumber(value) && value <= max;
+export function isFiniteNonNegativeNumberWithMax(value: unknown, max: number): value is number {
+    return isFiniteNonNegativeNumber(value) && value <= max;
 }
 
 export function parseSizeReport(
@@ -17,9 +17,9 @@ export function parseSizeReport(
     for (const field of fields) {
         const v = obj[field];
         if (max !== undefined) {
-            if (!isFinitePositiveNumberWithMax(v, max)) return null;
+            if (!isFiniteNonNegativeNumberWithMax(v, max)) return null;
         } else {
-            if (!isFinitePositiveNumber(v)) return null;
+            if (!isFiniteNonNegativeNumber(v)) return null;
         }
         result[field] = v;
     }
