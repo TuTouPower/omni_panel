@@ -28,7 +28,7 @@ const config: PlaywrightTestConfig = {
         },
         {
             name: "packaged",
-            testDir: "./tests/packaged_smoke",
+            testDir: "./tests/user_e2e/packaged",
             timeout: 60_000,
             expect: { timeout: 15_000 },
             workers: 1,

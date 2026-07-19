@@ -4,7 +4,7 @@ import type { Readable } from "node:stream";
 import { resolve, join } from "node:path";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { scrubber } from "../../src/shared/lib/logger";
+import { scrubber } from "../../../src/shared/lib/logger";
 
 const ROOT = process.cwd();
 

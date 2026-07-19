@@ -60,7 +60,7 @@ src/
 ├── renderer/                      # React：views/ components/ hooks/ lib/ styles/
 └── shared/                        # 主/渲染共享：schemas/ types/ lib/ constants.ts
 connectors/                        # 13 个内置连接器（manifest.json + connector.ts）
-tests/                             # unit / integration / user_e2e / packaged_smoke / smoke
+tests/                             # unit / integration / user_e2e(specs/visual/packaged) / smoke
 docs/design/omni-usage/            # 前端 UI 设计 demo（历史设计参考）
 ```
 
