@@ -116,7 +116,7 @@ function num(v: unknown): number {
     return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-/** UTC calendar date (YYYY-MM-DD) — matches Claude Code /stats bucketing. */
+/** Local calendar date (YYYY-MM-DD) — matches Claude/Kimi reader bucketing. */
 function calendar_date_of(ts: number): string {
     const d = new Date(ts);
     const pad = (x: number) => String(x).padStart(2, "0");
