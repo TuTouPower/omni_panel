@@ -290,6 +290,21 @@
     position: relative;
 }
 
+.token-stats .ts-nav-btn {
+    background: var(--ts-card);
+    border: 1px solid var(--ts-line);
+    color: var(--ts-text-2);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.token-stats .ts-nav-btn:hover {
+    color: var(--ts-text);
+    border-color: var(--ts-text-3);
+}
+
 .token-stats .delta {
     font: 500 11px var(--ts-mono);
     color: var(--ts-text-3);

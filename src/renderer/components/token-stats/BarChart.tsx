@@ -15,6 +15,8 @@ interface BarChartProps {
     end: number;
     theme: "dark" | "light";
     topOffset?: number;
+    dirAliases?: { alias: string; dirs: string[] }[];
+    modelAliases?: { alias: string; models: string[] }[];
 }
 
 const METRIC_LABEL: Record<Metric, string> = {
@@ -32,11 +34,24 @@ export function BarChart({
     end,
     theme,
     topOffset = 20,
+    dirAliases,
+    modelAliases,
 }: BarChartProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const { labels, series, otherDetails } = useMemo(
-        () => prepareBarData(records, metric, xaxis, gran, start, end, theme),
-        [records, metric, xaxis, gran, start, end, theme],
+        () =>
+            prepareBarData(
+                records,
+                metric,
+                xaxis,
+                gran,
+                start,
+                end,
+                theme,
+                dirAliases,
+                modelAliases,
+            ),
+        [records, metric, xaxis, gran, start, end, theme, dirAliases, modelAliases],
     );
     const fmtV = metric === "tokens" ? fmtTok : fmtInt;
     const pal = paletteFor(theme);

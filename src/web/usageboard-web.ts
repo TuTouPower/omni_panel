@@ -87,7 +87,9 @@ export function create_web_usageboard(): UsageboardApi {
             },
         },
         tray: {
-            open_panel: noop,
+            open_panel: () => {
+                window.location.hash = "usage";
+            },
             refresh_all: noop,
             toggle_pause: noop,
             toggle_autostart: noop,

@@ -200,6 +200,21 @@ describe("chart-data", () => {
                 }
             }
         });
+
+        it("groups directories by alias in project xaxis", () => {
+            const records = [
+                record({ directory: "/a", input_tokens: 10, output_tokens: 0 }),
+                record({ directory: "/b", input_tokens: 20, output_tokens: 0 }),
+                record({ directory: "/c", input_tokens: 5, output_tokens: 0 }),
+            ];
+            const data = prepareBarData(records, "tokens", "project", "day", 0, 1, "dark", [
+                { alias: "proj-x", dirs: ["/a", "/b"] },
+            ]);
+            expect(data.labels).toContain("proj-x");
+            const proj_idx = data.labels.indexOf("proj-x");
+            const total = data.series.reduce((sum, s) => sum + (s.data[proj_idx] ?? 0), 0);
+            expect(total).toBe(30);
+        });
     });
 
     describe("prepareHeatmapData", () => {

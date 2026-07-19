@@ -103,6 +103,12 @@ export const appConfigurationSchema = z.object({
     collapsedAccounts: z.record(z.boolean()).optional(),
     expandedProviders: z.record(z.boolean()).optional(),
     convergentTimeMinutes: z.number().int().min(1).max(1440).optional(),
+    dirAliases: z
+        .array(z.object({ alias: z.string().min(1), dirs: z.array(z.string()) }))
+        .default([]),
+    modelAliases: z
+        .array(z.object({ alias: z.string().min(1), models: z.array(z.string()) }))
+        .default([]),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {

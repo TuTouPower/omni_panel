@@ -18,6 +18,17 @@ export type RecordValue = (r: AgentSessionUsage) => number;
 export const sumTokensValue: RecordValue = (r) => sumTokens(r);
 export const oneValue: RecordValue = () => 1;
 
+/** Build a key→alias resolver so multiple keys collapse into one label. */
+function build_resolver(
+    aliases: readonly { alias: string; keys: readonly string[] }[],
+): (key: string) => string {
+    const map: Record<string, string> = {};
+    for (const a of aliases) {
+        for (const k of a.keys) map[k] = a.alias;
+    }
+    return (key) => map[key] ?? key;
+}
+
 /** Fixed display colors/labels for the three agents (matches SessionTable chips). */
 const AGENT_COLORS: Record<string, string> = {
     "claude-code": "#ffb78a",
@@ -179,10 +190,17 @@ export function prepareBarData(
     start: number,
     end: number,
     theme: "dark" | "light",
+    dirAliases: readonly { alias: string; dirs: readonly string[] }[] = [],
+    modelAliases: readonly { alias: string; models: readonly string[] }[] = [],
 ): BarData {
     const colorDim: "model" | "project" = metric === "sessions" ? "project" : "model";
+    const dir_resolver = build_resolver(dirAliases.map((a) => ({ alias: a.alias, keys: a.dirs })));
+    const model_resolver = build_resolver(
+        modelAliases.map((a) => ({ alias: a.alias, keys: a.models })),
+    );
+    const dir_key = (r: AgentSessionUsage) => dir_resolver(r.directory ?? "(unknown)");
     const keyOf = (r: AgentSessionUsage) =>
-        colorDim === "model" ? r.model : (r.directory ?? "(unknown)");
+        colorDim === "model" ? model_resolver(r.model) : dir_key(r);
 
     let labels: string[] = [];
     let idxOf: (r: AgentSessionUsage) => number;
@@ -192,12 +210,12 @@ export function prepareBarData(
         labels = Array.from({ length: bk.n }, (_, i) => bk.label(i));
         idxOf = (r) => bk.idx(r.timestamp);
     } else if (xaxis === "project") {
-        const dirs = Object.entries(groupBy(records, (r) => r.directory ?? "(unknown)"))
+        const dirs = Object.entries(groupBy(records, dir_key))
             .map(([k, rs]) => [k, metricValue(rs, metric)] as const)
             .sort((a, b) => b[1] - a[1])
             .map(([k]) => k);
         labels = dirs.map((d) => shortDir(d));
-        idxOf = (r) => dirs.indexOf(r.directory ?? "(unknown)");
+        idxOf = (r) => dirs.indexOf(dir_key(r));
     } else {
         const rows = sessionRows(records)
             .sort((a, b) => b.tokens - a.tokens)
