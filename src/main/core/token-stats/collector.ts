@@ -46,6 +46,39 @@ function get_parent_port(): ParentPortLike | undefined {
     return (process as unknown as { parentPort?: ParentPortLike }).parentPort;
 }
 
+// Structured log forwarding: the collector is a utilityProcess child without
+// the main logger. Forward log events to the parent via postMessage so they go
+// through the main logger (scrubber redaction + 7-day rotation) instead of
+// plain console.error on stderr (D7). No-ops when no parent port (tests).
+export type CollectorLogLevel = "warn" | "error";
+export interface CollectorLogMessage {
+    type: "collector_log";
+    level: CollectorLogLevel;
+    module: string;
+    message: string;
+}
+
+export function forward_log(level: CollectorLogLevel, module: string, message: string): void {
+    const port = get_parent_port();
+    if (port) {
+        try {
+            const payload: CollectorLogMessage = {
+                type: "collector_log",
+                level,
+                module,
+                message,
+            };
+            port.postMessage(payload);
+        } catch {
+            // parent port gone — fall back to console so we at least see it
+
+            console[level === "error" ? "error" : "warn"](`[${module}] ${message}`);
+        }
+    } else {
+        console[level === "error" ? "error" : "warn"](`[${module}] ${message}`);
+    }
+}
+
 let config: TokenStatsConfig | null = null;
 let interval_id: ReturnType<typeof setInterval> | null = null;
 
@@ -94,6 +127,7 @@ const default_lister: DirLister = (p) => {
 };
 
 let wsl_user_cache: string | null = null;
+let wsl_user_cache_distro: string | null = null;
 
 /**
  * Effective WSL user: explicit config wins; otherwise auto-detect as the
@@ -102,6 +136,13 @@ let wsl_user_cache: string | null = null;
 function effective_wsl_user(cfg: TokenStatsConfig, lister: DirLister = default_lister): string {
     if (cfg.wsl_user !== "") {
         return cfg.wsl_user;
+    }
+    // Invalidate the cache if the user switched distro (A8) — otherwise the
+    // first distro's detected user lingers across update_config and reads the
+    // wrong home path.
+    if (wsl_user_cache_distro !== cfg.wsl_distro) {
+        wsl_user_cache = null;
+        wsl_user_cache_distro = cfg.wsl_distro;
     }
     wsl_user_cache ??= lister(`\\\\wsl.localhost\\${cfg.wsl_distro}\\home`)[0] ?? "";
     return wsl_user_cache;
@@ -193,7 +234,7 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceReadResult {
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         if (!msg.includes("ENOENT")) {
-            console.error(`[collector] ${src.key} read failed:`, msg);
+            forward_log("error", "collector", `${src.key} read failed: ${msg}`);
         }
         return { sessions: [], daily: [], records: [] };
     }
@@ -228,7 +269,7 @@ function collect(): void {
             all_daily.length >= MAX_RECORDS * 5 ||
             all_records.length >= MAX_RECORDS * 20
         ) {
-            console.warn("[collector] sessions exceed limit, stopping source collection");
+            forward_log("warn", "collector", "sessions exceed limit, stopping source collection");
             break;
         }
     }
@@ -244,7 +285,7 @@ function collect(): void {
         get_parent_port()?.postMessage(update);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error("[collector] postMessage failed:", msg);
+        forward_log("error", "collector", `postMessage failed: ${msg}`);
     }
 }
 
@@ -262,6 +303,7 @@ function reset_config(): void {
     jsonl_states.clear();
     kimi_states.clear();
     wsl_user_cache = null;
+    wsl_user_cache_distro = null;
     if (interval_id) {
         clearInterval(interval_id);
         interval_id = null;

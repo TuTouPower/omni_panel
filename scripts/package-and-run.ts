@@ -121,6 +121,11 @@ function main(): void {
             cwd: ROOT,
             stdio: "inherit",
         });
+        log("running web build...");
+        execSync("vite build --config vite.web.config.ts", {
+            cwd: ROOT,
+            stdio: "inherit",
+        });
         log("running electron-builder --dir...");
         execSync("electron-builder --dir", {
             cwd: ROOT,

@@ -63,7 +63,7 @@ export function compute_target_height(report: ContentHeightReport, display: Disp
     const desired = Math.ceil(report.content_height);
 
     // When clamp bounds invert (min > max because work area is tiny),
-    // honour the max — we must not exceed the 85% screen rule.
+    // honour the max — we must not exceed the 75% screen rule.
     if (min_height > max_height) return max_height;
 
     if (desired < min_height) return min_height;

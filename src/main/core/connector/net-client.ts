@@ -1,10 +1,11 @@
 import { lstat, readFile, realpath, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
-import { request as undici_request, Agent, ProxyAgent, setGlobalDispatcher } from "undici";
+import { request as undici_request, Agent, setGlobalDispatcher } from "undici";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, withLogContext } from "../../../shared/lib/logger";
 import { MAX_CONNECTIONS_PER_ORIGIN, KEEPALIVE_TIMEOUT_MS } from "../../../shared/constants";
+import { get_proxy_agent } from "../network/proxy-pool";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { VaultBackend } from "../vault/vault-backend";
 import type { ConnectorContext, HttpOpts } from "./host-io";
@@ -70,10 +71,13 @@ function expand_home(path_pattern: string): string {
 
 function is_within_allowed(path: string, allowed: readonly string[]): boolean {
     const resolved = resolve(path);
+    // Windows is case-insensitive but preserves case; normalize before comparing
+    // so a manifest path "C:\Users\..." still matches an actual "c:\users\...".
+    const norm = process.platform === "win32" ? (s: string) => s.toLowerCase() : (s: string) => s;
+    const np = norm(resolved);
     for (const root of allowed) {
-        const resolved_root = resolve(root);
-        if (resolved === resolved_root) return true;
-        if (resolved.startsWith(resolved_root + sep)) return true;
+        const nr = norm(resolve(root));
+        if (np === nr || np.startsWith(nr + sep)) return true;
     }
     return false;
 }
@@ -215,12 +219,7 @@ export function create_connector_context(
     instance_id: string,
     config: NetClientConfig,
 ): ConnectorContext {
-    const dispatcher = config.proxy_url
-        ? new ProxyAgent({
-              ...{ uri: config.proxy_url },
-              connections: MAX_CONNECTIONS_PER_ORIGIN,
-          })
-        : undefined;
+    const dispatcher = config.proxy_url ? get_proxy_agent(config.proxy_url) : undefined;
     const timeout_ms = config.timeout_ms ?? 15_000;
     const reset = config.reset ?? false;
     const request_log = config.trace_id ? withLogContext(log, { trace_id: config.trace_id }) : log;

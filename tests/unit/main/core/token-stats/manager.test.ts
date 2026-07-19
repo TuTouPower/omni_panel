@@ -141,6 +141,49 @@ describe("token-stats manager", () => {
         }
     });
 
+    it("stop() clears a pending restart timer scheduled by exit (A13)", () => {
+        vi.useFakeTimers();
+        try {
+            const store = create_mock_store();
+            const manager = create_token_stats_manager({ store });
+
+            manager.start(base_config);
+            last_child!.emit("exit", 1); // schedules a restart in 30s
+            manager.stop(); // must clear that timer, not just null the config
+
+            vi.advanceTimersByTime(60_000);
+            expect(mock_fork).toHaveBeenCalledTimes(1);
+            expect(manager.is_running()).toBe(false);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("stops auto-restart after repeated rapid crashes (A14)", () => {
+        vi.useFakeTimers();
+        try {
+            const store = create_mock_store();
+            const manager = create_token_stats_manager({ store });
+
+            manager.start(base_config); // fork #1
+            // 5 rapid exit+restart cycles — each restart happens 30s later,
+            // well within the 5-minute rapid-exit threshold.
+            for (let i = 0; i < 5; i++) {
+                last_child!.emit("exit", 1);
+                vi.advanceTimersByTime(30_000);
+            }
+            // start + 4 successful restarts = 5 forks; the 5th rapid exit trips
+            // the breaker and no further restart is scheduled.
+            expect(mock_fork).toHaveBeenCalledTimes(5);
+
+            vi.advanceTimersByTime(120_000);
+            expect(mock_fork).toHaveBeenCalledTimes(5);
+            expect(manager.is_running()).toBe(false);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("update_config posts new config to the running child", () => {
         const store = create_mock_store();
         const manager = create_token_stats_manager({ store });
@@ -166,5 +209,36 @@ describe("token-stats manager", () => {
 
         expect(child_ref.kill).toHaveBeenCalledTimes(1);
         expect(manager.is_running()).toBe(false);
+    });
+
+    it("routes collector_log messages through the main logger (D7)", async () => {
+        const { addTransport } = await import("node:events").then(
+            () => import("../../../../../src/shared/lib/logger"),
+        );
+        const logged: { module: string; message: string; level: string }[] = [];
+        const remove = addTransport({
+            write(level, module, message) {
+                logged.push({ module, message, level });
+            },
+        });
+        try {
+            const store = create_mock_store();
+            const manager = create_token_stats_manager({ store });
+            manager.start(base_config);
+            last_child!.emit("message", {
+                type: "collector_log",
+                level: "warn",
+                module: "collector",
+                message: "sessions exceed limit",
+            });
+            const matched = logged.find(
+                (e) => e.module === "collector" && e.message === "sessions exceed limit",
+            );
+            expect(matched).toBeDefined();
+            expect(matched?.level).toBe("warn");
+            manager.stop();
+        } finally {
+            remove();
+        }
     });
 });

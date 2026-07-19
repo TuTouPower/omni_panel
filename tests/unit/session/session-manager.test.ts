@@ -11,9 +11,13 @@ import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
 class MockWindow extends EventEmitter implements SessionWindow {
     readonly loaded_urls: string[] = [];
     closed = false;
+    fail_load_with?: Error;
 
     loadURL(url: string): Promise<void> {
         this.loaded_urls.push(url);
+        if (this.fail_load_with) {
+            return Promise.reject(this.fail_load_with);
+        }
         return Promise.resolve();
     }
 
@@ -219,6 +223,27 @@ describe("session-manager", () => {
         );
     });
 
+    it("captures cookie from any same-origin path, not just /api/v1/ or /_server (D5)", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-1",
+            provider: "mimo",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+        // A non-allowlisted path on the login origin must still be captured so
+        // session connectors whose callback does not hit /api/v1/ or /_server work.
+        deps.emit_before_send_headers("https://example.com/dashboard", {
+            Cookie: "token=abc",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc");
+    });
+
     it("does not fall back to cookie jar when captured header has no requested cookies (P0-5)", async () => {
         // Cookie jar has matching cookies, but they must NOT be used — only
         // cookies captured from the request header count.
@@ -319,6 +344,22 @@ describe("session-manager", () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it("closes window when loadURL fails (A4)", async () => {
+        const deps = create_deps();
+        deps.window.fail_load_with = new Error("ERR_FAILED");
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-1",
+            provider: "mimo",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+
+        await expect(promise).rejects.toThrow("ERR_FAILED");
+        expect(deps.window.closed).toBe(true);
     });
 
     it("clears captured cookie from memory after vault.set fails (E6)", async () => {

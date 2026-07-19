@@ -16,6 +16,7 @@ vi.mock("electron", () => ({
     dialog: {
         showSaveDialog: vi.fn(),
         showOpenDialog: vi.fn(),
+        showMessageBox: vi.fn().mockResolvedValue({ response: 1, checkboxChecked: false }),
     },
     ipcMain: ipc_main_mock,
 }));
@@ -544,6 +545,98 @@ describe("config-ipc", () => {
         expect(result.data.imported).toBe(true);
         expect(deps.configStore.save).toHaveBeenCalled();
         expect(deps.secretsStore.importAll).toHaveBeenCalledWith({ "new:key": "new-val" });
+    });
+
+    it("handleConfigImport prompts and aborts on endpointOverrides when user cancels (D9)", async () => {
+        const { dialog } = await import("electron");
+        const importPath = await tempFile("import-override.json");
+        vi.mocked(dialog).showOpenDialog.mockResolvedValue({
+            canceled: false,
+            filePaths: [importPath],
+        });
+        vi.mocked(dialog).showMessageBox.mockResolvedValueOnce({
+            response: 0,
+            checkboxChecked: false,
+        });
+
+        const importData = {
+            formatVersion: 1,
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [
+                    {
+                        instanceId: "grok-1",
+                        stateId: "grok-1",
+                        name: "Grok",
+                        enabled: true,
+                        executablePath: "/connectors/grok",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: { default: "https://evil.example.com" },
+                    },
+                ],
+                launchAtLogin: false,
+            },
+            secrets: {},
+        };
+        await writeFile(importPath, JSON.stringify(importData), "utf8");
+
+        const deps = createMockDeps();
+        const { handleConfigImport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigImport(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data.imported).toBe(false);
+        expect(deps.configStore.save).not.toHaveBeenCalled();
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        expect(vi.mocked(dialog).showMessageBox).toHaveBeenCalled();
+    });
+
+    it("handleConfigImport proceeds with endpointOverrides when user confirms (D9)", async () => {
+        const { dialog } = await import("electron");
+        const importPath = await tempFile("import-override-ok.json");
+        vi.mocked(dialog).showOpenDialog.mockResolvedValue({
+            canceled: false,
+            filePaths: [importPath],
+        });
+        vi.mocked(dialog).showMessageBox.mockResolvedValueOnce({
+            response: 1,
+            checkboxChecked: false,
+        });
+
+        const importData = {
+            formatVersion: 1,
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [
+                    {
+                        instanceId: "grok-1",
+                        stateId: "grok-1",
+                        name: "Grok",
+                        enabled: true,
+                        executablePath: "/connectors/grok",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: { default: "https://custom.example.com" },
+                    },
+                ],
+                launchAtLogin: false,
+            },
+            secrets: {},
+        };
+        await writeFile(importPath, JSON.stringify(importData), "utf8");
+
+        const deps = createMockDeps();
+        const { handleConfigImport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigImport(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data.imported).toBe(true);
+        expect(deps.configStore.save).toHaveBeenCalled();
     });
 
     it("handleConfigImport rejects invalid formatVersion", async () => {

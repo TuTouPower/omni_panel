@@ -99,6 +99,10 @@ export function create_session_manager(
                     clear_timers();
                     captured_cookie = null;
                     release_lock();
+                    // Ensure the login window is torn down on every error path, not just
+                    // timeout — otherwise loadURL failure leaves a stale window on screen
+                    // with the in-progress lock already released (re-trigger opens a 2nd).
+                    if (!window.isDestroyed()) window.close();
                     reject(error);
                 }
 
@@ -159,7 +163,6 @@ export function create_session_manager(
                 timeout = setTimeout(() => {
                     log.warn(`Login timed out for ${request.instance_id}`);
                     finish_with_error(new Error("Login timed out"));
-                    if (!window.isDestroyed()) window.close();
                 }, timeout_ms);
 
                 void window.loadURL(request.login_url).catch((error: unknown) => {
@@ -175,10 +178,12 @@ export function get_session_login_partition(instance_id: string): string {
 }
 
 function should_capture_cookie(url: string, login_origin: string): boolean {
+    // Only the request origin matters - the path allowlist (/api/v1/, /_server)
+    // was a hardcoded callback-path guess that silently broke session connectors
+    // whose login flow uses a different path. cookieNames in the manifest is the
+    // sole contract for which cookies to accept; here we just keep it same-origin.
     try {
-        const parsed_url = new URL(url);
-        if (parsed_url.origin !== login_origin) return false;
-        return parsed_url.pathname.includes("/api/v1/") || parsed_url.pathname === "/_server";
+        return new URL(url).origin === login_origin;
     } catch {
         return false;
     }

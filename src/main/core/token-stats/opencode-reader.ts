@@ -116,7 +116,7 @@ function num(v: unknown): number {
     return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-/** UTC calendar date (YYYY-MM-DD) — matches Claude Code /stats bucketing. */
+/** Local calendar date (YYYY-MM-DD) — matches Claude/Kimi reader bucketing. */
 function calendar_date_of(ts: number): string {
     const d = new Date(ts);
     const pad = (x: number) => String(x).padStart(2, "0");
@@ -130,8 +130,9 @@ function calendar_date_of(ts: number): string {
  * Returns null when the copy itself fails.
  */
 function copy_db_to_temp(db_path: string, env: TokenStatsEnv): string | null {
+    let dir: string | null = null;
     try {
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), `omni-usage-opencode-${env}-`));
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), `omni-usage-opencode-${env}-`));
         const copy = path.join(dir, "opencode.db");
         fs.copyFileSync(db_path, copy);
         for (const suffix of ["-wal", "-shm"]) {
@@ -143,6 +144,15 @@ function copy_db_to_temp(db_path: string, env: TokenStatsEnv): string | null {
         }
         return copy;
     } catch {
+        // mkdtempSync may have succeeded before the failure — clean up the
+        // partial temp dir so tmpdir doesn't accumulate leaked copies (A7).
+        if (dir !== null) {
+            try {
+                fs.rmSync(dir, { recursive: true, force: true });
+            } catch {
+                // best effort
+            }
+        }
         return null;
     }
 }

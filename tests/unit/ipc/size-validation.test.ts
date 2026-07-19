@@ -1,43 +1,43 @@
 import { describe, it, expect } from "vitest";
 import {
-    isFinitePositiveNumber,
-    isFinitePositiveNumberWithMax,
+    isFiniteNonNegativeNumber,
+    isFiniteNonNegativeNumberWithMax,
     parseSizeReport,
 } from "../../../src/main/ipc/size-validation";
 
-describe("isFinitePositiveNumber", () => {
+describe("isFiniteNonNegativeNumber", () => {
     it("accepts zero", () => {
-        expect(isFinitePositiveNumber(0)).toBe(true);
+        expect(isFiniteNonNegativeNumber(0)).toBe(true);
     });
     it("accepts positive numbers", () => {
-        expect(isFinitePositiveNumber(42)).toBe(true);
-        expect(isFinitePositiveNumber(0.5)).toBe(true);
+        expect(isFiniteNonNegativeNumber(42)).toBe(true);
+        expect(isFiniteNonNegativeNumber(0.5)).toBe(true);
     });
     it("rejects negative", () => {
-        expect(isFinitePositiveNumber(-1)).toBe(false);
+        expect(isFiniteNonNegativeNumber(-1)).toBe(false);
     });
     it("rejects Infinity", () => {
-        expect(isFinitePositiveNumber(Infinity)).toBe(false);
+        expect(isFiniteNonNegativeNumber(Infinity)).toBe(false);
     });
     it("rejects NaN", () => {
-        expect(isFinitePositiveNumber(NaN)).toBe(false);
+        expect(isFiniteNonNegativeNumber(NaN)).toBe(false);
     });
     it("rejects non-numbers", () => {
-        expect(isFinitePositiveNumber("42")).toBe(false);
-        expect(isFinitePositiveNumber(null)).toBe(false);
-        expect(isFinitePositiveNumber(undefined)).toBe(false);
+        expect(isFiniteNonNegativeNumber("42")).toBe(false);
+        expect(isFiniteNonNegativeNumber(null)).toBe(false);
+        expect(isFiniteNonNegativeNumber(undefined)).toBe(false);
     });
 });
 
-describe("isFinitePositiveNumberWithMax", () => {
+describe("isFiniteNonNegativeNumberWithMax", () => {
     it("accepts values within max", () => {
-        expect(isFinitePositiveNumberWithMax(500, 1000)).toBe(true);
+        expect(isFiniteNonNegativeNumberWithMax(500, 1000)).toBe(true);
     });
     it("accepts value equal to max", () => {
-        expect(isFinitePositiveNumberWithMax(1000, 1000)).toBe(true);
+        expect(isFiniteNonNegativeNumberWithMax(1000, 1000)).toBe(true);
     });
     it("rejects values exceeding max", () => {
-        expect(isFinitePositiveNumberWithMax(1001, 1000)).toBe(false);
+        expect(isFiniteNonNegativeNumberWithMax(1001, 1000)).toBe(false);
     });
 });
 

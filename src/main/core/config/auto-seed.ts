@@ -28,10 +28,10 @@ export function auto_seed_connectors(
     for (const connector of existing) {
         const base_name = connector.executablePath.split(/[/\\]/).pop() ?? connector.name;
         for (const def of definitions) {
-            if (
-                base_name.includes(def.manifest.id) ||
-                connector.name.toLowerCase() === def.manifest.id
-            ) {
+            // Exact match only - substring includes() misclassified connectors
+            // whose dir name merely contained another id (cpa vs cpadapter),
+            // resurrecting deleted instances on next seed (A10).
+            if (base_name === def.manifest.id || connector.name.toLowerCase() === def.manifest.id) {
                 existing_by_id.set(def.manifest.id, connector);
             }
         }

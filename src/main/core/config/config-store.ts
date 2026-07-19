@@ -80,6 +80,10 @@ export function createConfigStore(configPath: string): AppConfigStore {
     // the chain — otherwise a single transient write failure would block every
     // subsequent save until process restart.
     let saveTail: Promise<void> = Promise.resolve();
+    // Number of saves currently in-flight (between doSave start and settle).
+    // hasPendingSave must reflect these too: will-quit used to skip waiting
+    // when the debounce timer had fired but the write was still on disk (A5).
+    let inflightSaves = 0;
 
     async function doSave(config: AppConfiguration): Promise<void> {
         const sorted = sortKeys(config);
@@ -97,6 +101,7 @@ export function createConfigStore(configPath: string): AppConfigStore {
     }
 
     function enqueueSave(config: AppConfiguration): Promise<void> {
+        inflightSaves++;
         const run = saveTail.then(
             () => doSave(config),
             () => doSave(config),
@@ -105,6 +110,11 @@ export function createConfigStore(configPath: string): AppConfigStore {
         // the queue. The original caller still sees the rejection via `run`.
         saveTail = run.catch(() => {
             /* chain continues regardless of individual save failures */
+        });
+        // Decrement only after the chain settles, so hasPendingSave sees the
+        // in-flight window even when the debounce timer has already cleared.
+        saveTail = saveTail.then(() => {
+            inflightSaves--;
         });
         return run;
     }
@@ -185,18 +195,23 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 } catch {
                     // .bak not available or also corrupt
                 }
-                // Backup corrupted file (after reading .bak so we don't overwrite it)
-                try {
-                    await writeFile(`${configPath}.bak`, raw, "utf8");
-                } catch {
-                    // non-critical
-                }
                 if (recovered_from_bak) {
+                    // Don't overwrite the good .bak with the corrupted main
+                    // content (D13) — that would destroy the only known-good
+                    // backup on the next corruption.
                     log.warn(
                         `Config schema mismatch at ${configPath}, recovered from backup`,
                         result.error.issues,
                     );
                     return recovered_from_bak;
+                }
+                // Main is corrupt AND no valid .bak to recover - back up the
+                // corrupted main content before falling back to defaults, so
+                // there's still something to inspect later.
+                try {
+                    await writeFile(`${configPath}.bak`, raw, "utf8");
+                } catch {
+                    // non-critical
                 }
                 log.warn(
                     `Config schema mismatch at ${configPath}, backup also invalid, using defaults`,
@@ -249,10 +264,13 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 pendingConfig = null;
                 await this.save(cfg);
             }
+            // Wait for any save that already started to finish writing (A5) —
+            // otherwise will-quit could exit mid-write and truncate the file.
+            await saveTail;
         },
 
         hasPendingSave(): boolean {
-            return pendingTimer !== null;
+            return pendingTimer !== null || inflightSaves > 0;
         },
     };
 }

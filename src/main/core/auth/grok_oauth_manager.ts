@@ -1,6 +1,7 @@
-import { request as undici_request, ProxyAgent } from "undici";
+import { request as undici_request } from "undici";
 import { createLogger } from "../../../shared/lib/logger";
 import { keyFor } from "../config/secrets-store";
+import { get_proxy_agent } from "../network/proxy-pool";
 import type { VaultBackend } from "../vault/vault-backend";
 
 const log = createLogger("grok-oauth");
@@ -25,6 +26,10 @@ const OAUTH_EXPIRES_AT_KEY = "OAUTH_EXPIRES_AT";
 const SLOW_DOWN_PENALTY_SECONDS = 5;
 const REFRESH_MARGIN_MS = 5 * 60 * 1000;
 const REFRESH_RETRY_DELAY_MS = 60 * 1000;
+// A16: cap consecutive refresh retries so a permanently-failing token (e.g. xAI
+// 5xx storm) doesn't poll every 60s forever. Terminal grant errors already
+// stop; this bounds non-terminal failures.
+const MAX_REFRESH_RETRIES = 10;
 const MIN_REFRESH_DELAY_MS = 1000;
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
@@ -121,30 +126,27 @@ function to_error(error: unknown): Error {
 
 function make_default_http_post(): HttpPost {
     return async (url, body, headers, proxy_url) => {
-        const dispatcher = proxy_url ? new ProxyAgent(proxy_url) : undefined;
+        // Shared process-level ProxyAgent (pooled by proxy URL). Reusing the
+        // agent restores TCP/TLS connection reuse across refreshes; lifecycle is
+        // managed centrally at shutdown, so no per-request close here.
+        const dispatcher = proxy_url ? get_proxy_agent(proxy_url) : undefined;
+        const response = await undici_request(url, {
+            method: "POST",
+            headers,
+            body,
+            headersTimeout: 15_000,
+            bodyTimeout: 15_000,
+            ...(dispatcher ? { dispatcher } : {}),
+        });
+        const text = await response.body.text();
+        if (text.length === 0) {
+            return {};
+        }
         try {
-            const response = await undici_request(url, {
-                method: "POST",
-                headers,
-                body,
-                headersTimeout: 15_000,
-                bodyTimeout: 15_000,
-                ...(dispatcher ? { dispatcher } : {}),
-            });
-            const text = await response.body.text();
-            if (text.length === 0) {
-                return {};
-            }
-            try {
-                return JSON.parse(text) as unknown;
-            } catch {
-                // Some OAuth error responses may be non-JSON; surface the raw text.
-                throw new Error(`Non-JSON response from ${url}: ${text.slice(0, 200)}`);
-            }
-        } finally {
-            if (dispatcher) {
-                await dispatcher.close();
-            }
+            return JSON.parse(text) as unknown;
+        } catch {
+            // Some OAuth error responses may be non-JSON; surface the raw text.
+            throw new Error(`Non-JSON response from ${url}: ${text.slice(0, 200)}`);
         }
     };
 }
@@ -199,6 +201,7 @@ export function create_grok_oauth_manager(deps: GrokOAuthManagerDeps): GrokOAuth
     const auto_refresh_timers = new Map<string, ReturnType<typeof setTimeout>>();
     const auto_refresh_options = new Map<string, AutoRefreshOptions>();
     const enabled_auto_refresh_ids = new Set<string>();
+    const retry_failure_counts = new Map<string, number>();
     const token_generations = new Map<string, number>();
     const token_mutation_tails = new Map<string, Promise<void>>();
     const refresh_in_flight = new Map<string, Promise<RefreshResult>>();
@@ -437,10 +440,21 @@ export function create_grok_oauth_manager(deps: GrokOAuthManagerDeps): GrokOAuth
     function schedule_retry(instance_id: string): void {
         if (!enabled_auto_refresh_ids.has(instance_id)) return;
         cancel_auto_refresh_timer(instance_id);
+        const failures = (retry_failure_counts.get(instance_id) ?? 0) + 1;
+        if (failures > MAX_REFRESH_RETRIES) {
+            log.error(
+                `Grok OAuth refresh gave up after ${String(MAX_REFRESH_RETRIES)} consecutive non-terminal failures for ${instance_id}`,
+            );
+            retry_failure_counts.delete(instance_id);
+            return;
+        }
+        retry_failure_counts.set(instance_id, failures);
         const timer = setTimeout(() => {
             auto_refresh_timers.delete(instance_id);
             void refresh_now(instance_id).then((result) => {
-                if (!result.success && !is_terminal_grant_error(result.error ?? "")) {
+                if (result.success) {
+                    retry_failure_counts.delete(instance_id);
+                } else if (!is_terminal_grant_error(result.error ?? "")) {
                     schedule_retry(instance_id);
                 }
             });

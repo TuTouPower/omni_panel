@@ -18,6 +18,10 @@ export interface ConnectorScheduler {
 export function createConnectorScheduler(deps: ConnectorSchedulerDeps): ConnectorScheduler {
     const log = createLogger("scheduler");
     const timers = new Map<string, { timer: ReturnType<typeof setTimeout>; interval: number }>();
+    // First-fire jitter timers (applied when peers are already running). Tracked
+    // separately so stop()/stopAll() can cancel them — otherwise a shutdown that
+    // races the stagger window still fires one last refresh (A12).
+    const jitter_timers = new Map<string, ReturnType<typeof setTimeout>>();
 
     function start(
         instanceId: string,
@@ -41,7 +45,11 @@ export function createConnectorScheduler(deps: ConnectorSchedulerDeps): Connecto
                 });
             };
             if (jitter > 0) {
-                setTimeout(do_refresh, jitter);
+                const jitter_timer = setTimeout(() => {
+                    jitter_timers.delete(instanceId);
+                    do_refresh();
+                }, jitter);
+                jitter_timers.set(instanceId, jitter_timer);
             } else {
                 do_refresh();
             }
@@ -71,10 +79,18 @@ export function createConnectorScheduler(deps: ConnectorSchedulerDeps): Connecto
             timers.delete(instanceId);
             log.debug(`Stopped scheduler for ${instanceId}`);
         }
+        const jitter_timer = jitter_timers.get(instanceId);
+        if (jitter_timer) {
+            clearTimeout(jitter_timer);
+            jitter_timers.delete(instanceId);
+        }
     }
 
     function stopAll(): void {
-        for (const [id] of timers) {
+        // Snapshot keys first (D17): a schedule_next callback could otherwise
+        // mutate the map during iteration. Single-threaded JS protects the
+        // synchronous case, but the snapshot is cheap insurance.
+        for (const id of [...new Set([...timers.keys(), ...jitter_timers.keys()])]) {
             stop(id);
         }
     }

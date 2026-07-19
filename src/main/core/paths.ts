@@ -29,8 +29,19 @@ export function get_vault_key_path(base: string = getDataRoot()): string {
     return join(base, "vault.key");
 }
 
+// Note (A17): token-stats-store and observation-store share this single SQLite
+// file. better-sqlite3 supports multiple connections to the same file in-process
+// without corruption, so the shared path is intentional. If the stores ever
+// split (independent backup / migration cadence), update both call sites
+// (index.ts creates both stores from this path) and the test fixtures.
 export function get_observations_db_path(base: string = getDataRoot()): string {
     return join(base, "observations.sqlite");
+}
+
+// Alias for token-stats-store so its dependency on the shared DB is explicit
+// at the call site. Currently returns the same file as get_observations_db_path.
+export function get_token_stats_db_path(base: string = getDataRoot()): string {
+    return get_observations_db_path(base);
 }
 
 export function get_snapshot_cache_path(base: string = getDataRoot()): string {

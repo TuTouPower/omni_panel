@@ -97,11 +97,24 @@ function send_result<T>(res: ServerResponse, result: IpcResult<T>): void {
     }
 }
 
+/**
+ * Path-traversal guard for static file serving.
+ *
+ * `startsWith(web_root)` is a string prefix compare and is bypassable by a
+ * sibling directory sharing the prefix (web_root=/app/web, target=/app/web-secret).
+ * `path.relative` detects that as a leading ".." — and also catches unrelated
+ * absolute paths (different drive on Windows → absolute relative result).
+ */
+export function is_within_web_root(web_root: string, resolved: string): boolean {
+    const rel = path.relative(web_root, resolved);
+    return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
 /** Serve a static file from web_root, falling back to index.html (SPA). */
 function serve_static(url: URL, res: ServerResponse, web_root: string): void {
     const requested = decodeURIComponent(url.pathname);
     const resolved = path.resolve(web_root, requested.replace(/^[/\\]+/, ""));
-    if (!resolved.startsWith(web_root)) {
+    if (!is_within_web_root(web_root, resolved)) {
         json_response(res, 403, { error: "Forbidden" });
         return;
     }

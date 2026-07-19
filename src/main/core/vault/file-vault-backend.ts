@@ -4,6 +4,7 @@ import { access, chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { createLogger, scrubber } from "../../../shared/lib/logger";
 import { get_vault_key_path, get_vault_path } from "../paths";
+import { writeJsonAtomic } from "../storage/write-json";
 import type { VaultBackend } from "./vault-backend";
 
 const log = createLogger("vault");
@@ -131,16 +132,18 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
     }
 
     async function write_vault(data: Record<string, VaultEntry>): Promise<void> {
-        await mkdir(dirname(vault_path), { recursive: true });
-        const json = JSON.stringify(data, null, 2);
-        // Write .bak first (best-effort previous good state), then main file
+        // Atomic write (tmp + rename) for the main file so an interrupted write
+        // never leaves a truncated JSON — vault corruption would lose every secret.
+        await writeJsonAtomic(vault_path, data, { chmod: 0o600 });
+        await set_file_permissions(vault_path);
+        // Refresh .bak with the now-committed known-good state (best-effort).
+        // Written AFTER the main file so a crash here leaves .bak stale but the
+        // main file intact, rather than .bak holding newer data than a half-written main.
         try {
-            await writeFile(`${vault_path}.bak`, json, "utf8");
+            await writeFile(`${vault_path}.bak`, JSON.stringify(data, null, 2), "utf8");
         } catch {
             // non-critical
         }
-        await writeFile(vault_path, json, "utf8");
-        await set_file_permissions(vault_path);
     }
 
     return {
