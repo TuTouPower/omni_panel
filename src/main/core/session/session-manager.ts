@@ -99,6 +99,10 @@ export function create_session_manager(
                     clear_timers();
                     captured_cookie = null;
                     release_lock();
+                    // Ensure the login window is torn down on every error path, not just
+                    // timeout — otherwise loadURL failure leaves a stale window on screen
+                    // with the in-progress lock already released (re-trigger opens a 2nd).
+                    if (!window.isDestroyed()) window.close();
                     reject(error);
                 }
 
@@ -159,7 +163,6 @@ export function create_session_manager(
                 timeout = setTimeout(() => {
                     log.warn(`Login timed out for ${request.instance_id}`);
                     finish_with_error(new Error("Login timed out"));
-                    if (!window.isDestroyed()) window.close();
                 }, timeout_ms);
 
                 void window.loadURL(request.login_url).catch((error: unknown) => {

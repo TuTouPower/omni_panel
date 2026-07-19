@@ -11,9 +11,13 @@ import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
 class MockWindow extends EventEmitter implements SessionWindow {
     readonly loaded_urls: string[] = [];
     closed = false;
+    fail_load_with?: Error;
 
     loadURL(url: string): Promise<void> {
         this.loaded_urls.push(url);
+        if (this.fail_load_with) {
+            return Promise.reject(this.fail_load_with);
+        }
         return Promise.resolve();
     }
 
@@ -319,6 +323,22 @@ describe("session-manager", () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it("closes window when loadURL fails (A4)", async () => {
+        const deps = create_deps();
+        deps.window.fail_load_with = new Error("ERR_FAILED");
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-1",
+            provider: "mimo",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+
+        await expect(promise).rejects.toThrow("ERR_FAILED");
+        expect(deps.window.closed).toBe(true);
     });
 
     it("clears captured cookie from memory after vault.set fails (E6)", async () => {
