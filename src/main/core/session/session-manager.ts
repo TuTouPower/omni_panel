@@ -178,10 +178,12 @@ export function get_session_login_partition(instance_id: string): string {
 }
 
 function should_capture_cookie(url: string, login_origin: string): boolean {
+    // Only the request origin matters - the path allowlist (/api/v1/, /_server)
+    // was a hardcoded callback-path guess that silently broke session connectors
+    // whose login flow uses a different path. cookieNames in the manifest is the
+    // sole contract for which cookies to accept; here we just keep it same-origin.
     try {
-        const parsed_url = new URL(url);
-        if (parsed_url.origin !== login_origin) return false;
-        return parsed_url.pathname.includes("/api/v1/") || parsed_url.pathname === "/_server";
+        return new URL(url).origin === login_origin;
     } catch {
         return false;
     }
