@@ -36,7 +36,21 @@
 
 - web 端无 IPC 推送；`tokenStats.onUpdated` 由 `usageboard-web` 内部 10s 轮询触发。
 
-## 6. 未做 / 后续
+## 6. 面板间导航
+
+- 代理面板顶栏「用量面板」「设置」按钮：web 模式 hash 导航（`#usage`/`#setting`），Electron 模式调 `tray.open_panel`/`settings.open` 开窗口。
+- 用量面板 web 模式顶栏有「代理面板」入口（Electron 从托盘进）。
+
+## 7. 别名（目录/模型归并）
+
+`config.dirAliases` / `config.modelAliases` 让多个目录/模型归为同一标签：
+
+- `{ alias, dirs[] }`：目录归并（柱状图 project 横轴 + 项目维度 series）
+- `{ alias, models[] }`：模型归并（柱状图 model 维度 series）
+
+设置面板「其他」section 的 `AliasEditor` 增删改；`prepareBarData` 通过 `build_resolver` 应用。TokenStatsView 启动时 `config.get()` 拉取并透传给 BarChart。
+
+## 8. 未做 / 后续
 
 - connector/session 写端点（账号增删、登录、刷新触发）：T7。
 - SettingsView 窗口控制按钮的 `is_web` 精细化隐藏（当前 native 按钮在 web 点击为 no-op，不崩）。
