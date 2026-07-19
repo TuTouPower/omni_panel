@@ -70,10 +70,13 @@ function expand_home(path_pattern: string): string {
 
 function is_within_allowed(path: string, allowed: readonly string[]): boolean {
     const resolved = resolve(path);
+    // Windows is case-insensitive but preserves case; normalize before comparing
+    // so a manifest path "C:\Users\..." still matches an actual "c:\users\...".
+    const norm = process.platform === "win32" ? (s: string) => s.toLowerCase() : (s: string) => s;
+    const np = norm(resolved);
     for (const root of allowed) {
-        const resolved_root = resolve(root);
-        if (resolved === resolved_root) return true;
-        if (resolved.startsWith(resolved_root + sep)) return true;
+        const nr = norm(resolve(root));
+        if (np === nr || np.startsWith(nr + sep)) return true;
     }
     return false;
 }
