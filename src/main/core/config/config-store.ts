@@ -185,18 +185,23 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 } catch {
                     // .bak not available or also corrupt
                 }
-                // Backup corrupted file (after reading .bak so we don't overwrite it)
-                try {
-                    await writeFile(`${configPath}.bak`, raw, "utf8");
-                } catch {
-                    // non-critical
-                }
                 if (recovered_from_bak) {
+                    // Don't overwrite the good .bak with the corrupted main
+                    // content (D13) — that would destroy the only known-good
+                    // backup on the next corruption.
                     log.warn(
                         `Config schema mismatch at ${configPath}, recovered from backup`,
                         result.error.issues,
                     );
                     return recovered_from_bak;
+                }
+                // Main is corrupt AND no valid .bak to recover - back up the
+                // corrupted main content before falling back to defaults, so
+                // there's still something to inspect later.
+                try {
+                    await writeFile(`${configPath}.bak`, raw, "utf8");
+                } catch {
+                    // non-critical
                 }
                 log.warn(
                     `Config schema mismatch at ${configPath}, backup also invalid, using defaults`,

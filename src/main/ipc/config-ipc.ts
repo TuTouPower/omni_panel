@@ -351,8 +351,22 @@ export async function handleConfigImport(
                 ? (obj["secrets"] as Record<string, string>)
                 : {};
 
+        // Write config first, then secrets. If secrets fails (vault write
+        // error, permission issue), roll the config back to its pre-import
+        // state so connectors don't reference secrets that were never written
+        // (D14).
+        const previous_config = await deps.configStore.load();
         await deps.configStore.save(parsed.data as AppConfiguration);
-        await deps.secretsStore.importAll(secrets);
+        try {
+            await deps.secretsStore.importAll(secrets);
+        } catch (import_err: unknown) {
+            try {
+                await deps.configStore.save(previous_config);
+            } catch (rollback_err: unknown) {
+                log.error("Config rollback after failed secrets import failed", rollback_err);
+            }
+            throw import_err;
+        }
         deps.onConfigSaved?.(parsed.data as AppConfiguration);
         return ok({ imported: true });
     } catch (err: unknown) {
