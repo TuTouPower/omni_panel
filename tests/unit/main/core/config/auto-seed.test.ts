@@ -83,6 +83,22 @@ describe("auto_seed_connectors", () => {
         );
         expect(result.seeded[0]?.manualRefreshOnly).toBe(true);
     });
+
+    it("does not match an existing connector whose dir name merely contains the id (A10)", () => {
+        // "cpa" must not be treated as already-seeded just because a directory
+        // named "cpadapter" contains the substring "cpa" — otherwise deleted
+        // connectors with overlapping names silently resurrect.
+        const existing = [
+            make_existing("cpadapter", {
+                name: "CPADAPTER",
+                executablePath: "/old/cpadapter",
+            }),
+        ];
+        const result = auto_seed_connectors(existing, [make_definition("cpa")]);
+        expect(result.seeded).toHaveLength(1);
+        expect(result.seeded[0]?.name).toBe("CPA");
+        expect(result.updatedExisting).toHaveLength(0);
+    });
 });
 
 describe("resolve_refresh_interval", () => {
