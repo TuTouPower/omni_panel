@@ -119,8 +119,12 @@ void app.whenReady().then(async () => {
     // Set CSP programmatically — allows Vite dev server in dev mode
     const devServerUrl = process.env["ELECTRON_RENDERER_URL"];
     const devOrigin = devServerUrl ? new URL(devServerUrl).origin : null;
+    const devHost = devServerUrl ? new URL(devServerUrl).host : null;
     const cspScriptSrc = devOrigin ? `'self' ${devOrigin} 'unsafe-eval'` : "'self'";
-    const cspConnectSrc = devOrigin ? `'self' ${devOrigin} ws:` : "'self'";
+    // A15: scope dev WebSocket to the dev origin only, not ws: (any host).
+    const cspConnectSrc = devOrigin
+        ? `'self' ${devOrigin} ws://${devHost ?? "*"} wss://${devHost ?? "*"}`
+        : "'self'";
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
         callback({
             responseHeaders: {
