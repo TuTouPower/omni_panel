@@ -36,12 +36,45 @@ function create_sandbox_context(ctx: ConnectorContext): vm.Context {
     );
 }
 
+// Known node:vm sandbox-escape vectors. node:vm is NOT a security boundary
+// (architecture.md §6), but a user-contributed connector could trivially grab
+// host fs/child_process/secrets via these patterns. Reject them at compile time
+// as a short-term mitigation before moving to isolated-vm (D8).
+const SANDBOX_ESCAPE_PATTERNS: readonly { pattern: RegExp; label: string }[] = [
+    // Direct/indirect eval - (0, eval)("this") reaches the global scope.
+    { pattern: /(^|[^.\w])eval\s*\(/, label: "eval" },
+    { pattern: /,\s*eval\s*\)/, label: "indirect eval" },
+    // Function constructor - new Function("...") compiles arbitrary code in
+    // the host realm, bypassing the sandbox entirely.
+    { pattern: /\bnew\s+Function\s*\(/, label: "Function constructor" },
+    { pattern: /(^|[^.\w])Function\s*\(/, label: "Function constructor" },
+    // .constructor.constructor walks up to Function - same escape as above.
+    { pattern: /\.constructor\s*\.\s*constructor/, label: "constructor chain" },
+    // process.binding reaches native internals.
+    { pattern: /\bprocess\s*\.\s*binding\b/, label: "process.binding" },
+];
+
+function detect_sandbox_escape(code: string): string | null {
+    for (const { pattern, label } of SANDBOX_ESCAPE_PATTERNS) {
+        if (pattern.test(code)) {
+            return label;
+        }
+    }
+    return null;
+}
+
 function compile_script(script_code: string): string {
     const stripped_code = script_code
         .replace(/^import\s+type\s+[^;]+;\s*$/gm, "")
         .replace(/^declare\s+const\s+[^;]+;\s*$/gm, "");
     if (/^\s*(?:import|export)\s/m.test(stripped_code)) {
         throw new Error("Connector scripts cannot use import or export statements");
+    }
+    const escape = detect_sandbox_escape(stripped_code);
+    if (escape) {
+        throw new Error(
+            `Connector script rejected: sandbox escape vector (${escape}) - connectors must not use ${escape}`,
+        );
     }
     return transpileModule(
         `(async () =>{\n${stripped_code}\nif (typeof main === "function") return await main();\n})()`,

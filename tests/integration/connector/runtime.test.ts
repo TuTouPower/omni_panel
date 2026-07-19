@@ -109,6 +109,19 @@ describe("connector-runtime", () => {
         expect(result.error).toContain("Connector scripts cannot use import or export statements");
     });
 
+    it("rejects scripts that try common vm sandbox-escape patterns (D8)", async () => {
+        const escape_payloads = [
+            `(0, eval)("this")`,
+            `return Function("return process")()`,
+            `return ({}).constructor.constructor("return process")()`,
+            `return process.binding("fs")`,
+        ];
+        for (const payload of escape_payloads) {
+            const result = await run_connector(poll_manifest, payload, stub_ctx);
+            expect(result.error).toMatch(/sandbox escape/i);
+        }
+    });
+
     it("filters out malformed observations with warning", async () => {
         const { addTransport } = await import("../../../src/shared/lib/logger");
         const warn_messages: string[] = [];
