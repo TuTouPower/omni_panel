@@ -346,6 +346,28 @@ export async function handleConfigImport(
         const parsed = appConfigurationSchema.safeParse(obj["config"]);
         if (!parsed.success) return fail("VALIDATION_ERROR", "导入的配置格式无效");
 
+        // D9: endpointOverrides can redirect a connector's authenticated requests
+        // (API key, session cookie) to an attacker-controlled host. A malicious
+        // CONFIG_IMPORT points the override at the attacker, then the next refresh
+        // leaks the secret. Warn on any non-empty override before importing.
+        const has_overrides = parsed.data.plugins.some(
+            (p) => Object.keys(p.endpointOverrides).length > 0,
+        );
+        if (has_overrides) {
+            const confirm = await dialog.showMessageBox({
+                type: "warning",
+                buttons: ["取消导入", "继续导入"],
+                defaultId: 0,
+                cancelId: 0,
+                title: "导入设置 · 自定义端点",
+                message: "导入的配置包含自定义端点覆盖 (endpointOverrides)",
+                detail: "自定义端点可能将连接器的请求（含 API key / Cookie）发送到第三方主机。\n仅当信任此配置来源时才继续。\n继续后请重新核对各连接器的 secret。",
+            });
+            if (confirm.response !== 1) {
+                return ok({ imported: false });
+            }
+        }
+
         const secrets =
             obj["secrets"] && typeof obj["secrets"] === "object"
                 ? (obj["secrets"] as Record<string, string>)
