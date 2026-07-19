@@ -170,4 +170,12 @@ describe("TokenStatsView", () => {
         };
         expect(prefs.preset).toBe("7d");
     });
+
+    it("renders nav buttons to usage panel and settings", async () => {
+        get_records.mockResolvedValue([usage_record("r")]);
+        render(<TokenStatsView />);
+        await waitFor(() => expect(screen.getByText("代理面板")).toBeInTheDocument());
+        expect(screen.getByRole("button", { name: "用量面板" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "设置" })).toBeInTheDocument();
+    });
 });

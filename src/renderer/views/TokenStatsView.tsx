@@ -323,6 +323,24 @@ export function TokenStatsView() {
                         active={custom !== null}
                         onApply={handleCustomApply}
                     />
+                    <button
+                        className="ts-nav-btn"
+                        type="button"
+                        onClick={() => {
+                            window.usageboard.tray.open_panel();
+                        }}
+                    >
+                        用量面板
+                    </button>
+                    <button
+                        className="ts-nav-btn"
+                        type="button"
+                        onClick={() => {
+                            window.usageboard.settings.open();
+                        }}
+                    >
+                        设置
+                    </button>
                 </div>
             </header>
 
