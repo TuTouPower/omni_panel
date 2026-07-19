@@ -37,7 +37,7 @@
 
 ## review 报告字段
 
-`review_code.md` / `review_test.md` 共用以下字段；流程（两 agent 并行、续写规则、权限）见 AGENTS.md step 6。
+`review_code.md` / `review_test.md` 共用以下字段；流程（两 agent 并行、续写规则、权限）见 AGENTS.md step 5。
 
 - task：`TNNN_slug`
 - spec：`docs/tasks/TNNN_slug/spec.md`
@@ -51,7 +51,7 @@
 
 ## adoption 字段
 
-`adoption.md` 字段表；处置流程见 AGENTS.md step 7。
+`adoption.md` 字段表；处置流程见 AGENTS.md step 6。
 
 | finding_id     | decision      | rationale    | status                 |
 | -------------- | ------------- | ------------ | ---------------------- |
@@ -68,11 +68,15 @@
 
 ## specs_index 字段
 
-`docs/specs_index.md` 字段表；首次写入规则与状态流转见 AGENTS.md。
+`docs/specs_index.md` 是当前生效 spec 清单；写入规则见 AGENTS.md「目录与读写规则」。
 
-| slug     | 状态                    | task 清单  | spec 路径              | 归档路径                       |
-| -------- | ----------------------- | ---------- | ---------------------- | ------------------------------ |
-| `<slug>` | active / done / dropped | T001, T002 | `docs/specs/<slug>.md` | `docs/archive/specs/<slug>.md` |
+| slug     | task 清单  | 最后固化时间 |
+| -------- | ---------- | ------------ |
+| `<slug>` | T001, T002 | YYYY-MM-DD   |
+
+- 表内 = 生效；废弃时整行删除。
+- 历史清单由 `docs/archive/specs/` 目录承载，不重复 index。
+- task 期间不写本表；全需求 task done 才首次写入。
 
 ## spike 文件模板
 

@@ -1,20 +1,20 @@
-# 需求索引
+# 当前生效 spec 清单
 
-需求索引。task 黑盒验证通过后更新进度；全 task done 后状态改 `done`。新需求开始时不登记，第一个 task 黑盒通过后才首次写入。
+在表即生效。需求全 task done 后首次写入；废弃时整行删除，spec 移入 `docs/archive/specs/`。历史清单由 `docs/archive/specs/` 目录承载。
 
-| slug               | 状态 | task 清单                                     | spec 路径                        | 归档路径 |
-| ------------------ | ---- | --------------------------------------------- | -------------------------------- | -------- |
-| ai-cli-token-stats | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/ai-cli-token-stats.md |          |
-| config-store       | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/config-store.md       |          |
-| connector-cpa      | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/connector-cpa.md      |          |
-| connector-direct   | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/connector-direct.md   |          |
-| connector-runtime  | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/connector-runtime.md  |          |
-| connector-session  | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/connector-session.md  |          |
-| ipc                | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/ipc.md                |          |
-| observation-store  | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/observation-store.md  |          |
-| platform-services  | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/platform-services.md  |          |
-| scheduler          | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/scheduler.md          |          |
-| secret-vault       | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/secret-vault.md       |          |
-| ui-views           | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/ui-views.md           |          |
-| web-panel          | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/web-panel.md          |          |
-| window-management  | done | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | docs/specs/window-management.md  |          |
+| slug               | task 清单                                     | 最后固化时间 |
+| ------------------ | --------------------------------------------- | ------------ |
+| ai-cli-token-stats | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| config-store       | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| connector-cpa      | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| connector-direct   | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| connector-runtime  | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| connector-session  | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| ipc                | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| observation-store  | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| platform-services  | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| scheduler          | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| secret-vault       | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| ui-views           | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| web-panel          | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
+| window-management  | 迁移自 omni_powers，历史 ad-hoc 实现，无 TNNN | 2026-07-05   |
