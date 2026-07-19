@@ -71,6 +71,12 @@ describe("TokenStatsView", () => {
                 getStatus: vi.fn().mockResolvedValue({ running: true, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
             },
+            config: {
+                get: vi.fn().mockResolvedValue({
+                    config: { dirAliases: [], modelAliases: [] },
+                    hasSecrets: {},
+                }),
+            },
             log: vi.fn(),
         } as unknown as typeof window.usageboard;
     });

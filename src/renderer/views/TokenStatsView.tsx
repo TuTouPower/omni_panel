@@ -136,6 +136,8 @@ export function TokenStatsView() {
     const [xaxis, setXaxis] = useState<XAxis>(saved.xaxis ?? "time");
     const [gran, setGran] = useState<Granularity>(saved.gran ?? "day");
     const [theme, setTheme] = useState<Theme>(readSavedTheme());
+    const [dirAliases, setDirAliases] = useState<{ alias: string; dirs: string[] }[]>([]);
+    const [modelAliases, setModelAliases] = useState<{ alias: string; models: string[] }[]>([]);
     const load_request_id = useRef(0);
 
     const currentRange = useMemo(
@@ -157,15 +159,28 @@ export function TokenStatsView() {
             // the loading state.
             if (!silent) setLoading(true);
             try {
-                const [recs, st] = await Promise.all([
+                const [recs, st, cfg] = await Promise.all([
                     window.usageboard.tokenStats.getRecords(
                         platform === "all" ? {} : { env: platform },
                     ),
                     window.usageboard.tokenStats.getStatus(),
+                    window.usageboard.config.get(),
                 ]);
                 if (request_id !== load_request_id.current) return;
                 setRecords(recs);
                 setStatus(st);
+                setDirAliases(
+                    (cfg.config.dirAliases ?? []).map((a) => ({
+                        alias: a.alias,
+                        dirs: [...a.dirs],
+                    })),
+                );
+                setModelAliases(
+                    (cfg.config.modelAliases ?? []).map((a) => ({
+                        alias: a.alias,
+                        models: [...a.models],
+                    })),
+                );
             } catch (err: unknown) {
                 if (request_id !== load_request_id.current) return;
                 window.usageboard.log({
@@ -458,6 +473,8 @@ export function TokenStatsView() {
                                     start={currentRange.start}
                                     end={currentRange.end}
                                     theme={theme}
+                                    dirAliases={dirAliases}
+                                    modelAliases={modelAliases}
                                 />
                             </div>
                         </div>
