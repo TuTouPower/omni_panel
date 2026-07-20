@@ -28,8 +28,8 @@ jobs:
             - name: Start Xvfb
               if: runner.os == 'Linux'
               run: Xvfb :99 -screen 0 1024x768x24 &
-            - name: Run E2E tests
-              run: pnpm test:e2e
+            - name: Run Electron E2E tests
+              run: pnpm test:e2e:electron
               env:
                   DISPLAY: ":99"
 

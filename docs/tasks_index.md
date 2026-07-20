@@ -19,6 +19,6 @@
 | T009 | e2e 改名 user_e2e→e2e + 引用更新                        | done    | claude | task_t009_rename_user_e2e_to_e2e     | 完结;机械搬运;test:e2e 降级 T010 补           |
 | T010 | web e2e 基建(mock local-api+本机 fixture+chromium 驱动) | done    | claude | task_t010_web_e2e_infrastructure     | 完结;2 passed;CI/webServer 遗留 T013          |
 | T011 | web spec 批量迁移(specs→web,~15 个)                     | done    | claude | task_t011_migrate_web_specs          | 完结;迁 5 个,21 passed;23 留 specs(T012)      |
-| T012 | electron project 整理(specs→electron 专属)              | backlog | claude | task_t012_electron_project_reorg     | 依赖 T009                                     |
+| T012 | electron project 整理(specs→electron 专属)              | done    | claude | task_t012_electron_project_reorg     | 完结;65 tests --list OK;CI test:e2e 引用已修  |
 | T013 | e2e 文档收尾(testing.md/AGENTS.md/ADR)                  | backlog | claude | task_t013_e2e_docs_finalize          | 依赖 T010-T012                                |
 | T014 | 修复 app 图标(render_icon 产 .ico + 重打包)             | backlog | claude | task_t014_fix_app_icon_ico           | icon.ico 陈旧;kimi 错图                       |

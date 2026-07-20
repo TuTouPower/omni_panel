@@ -30,7 +30,7 @@
         "test": "node scripts/ensure_node_abi.mjs && vitest run",
         "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
-        "test:e2e": "node scripts/ensure_electron_abi.mjs && playwright test --config=playwright.config.ts --project=default",
+        "test:e2e:electron": "node scripts/ensure_electron_abi.mjs && playwright test --config=playwright.config.ts --project=electron",
         "test:e2e:web": "playwright test --config=playwright.config.ts --project=web",
         "e2e:gen-data": "node scripts/e2e/gen_fixture.mjs",
         "test:packaged": "playwright test --config=playwright.config.ts --project=packaged",

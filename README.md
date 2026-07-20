@@ -75,7 +75,8 @@ pnpm make:linux       # 仅打包 Linux
 pnpm install          # 装依赖
 pnpm check            # typecheck + lint + format + deadcode + arch
 pnpm test             # vitest 单元 + 集成
-pnpm test:e2e         # Playwright E2E
+pnpm test:e2e:web     # Playwright 测 web SPA（chromium, mock 后端, 日常）
+pnpm test:e2e:electron # Playwright Electron 驱动（专属能力, 手动跑）
 pnpm test:packaged    # 打包 smoke
 ```
 

@@ -20,8 +20,8 @@ const config: PlaywrightTestConfig = {
             },
         },
         {
-            name: "default",
-            testDir: "./tests/e2e/specs",
+            name: "electron",
+            testDir: "./tests/e2e/electron",
         },
         {
             name: "packaged",

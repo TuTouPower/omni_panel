@@ -64,5 +64,5 @@ jobs:
                   ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/"
             - name: Install Playwright browsers
               run: npx playwright install --with-deps chromium
-            - name: Run E2E tests
-              run: pnpm test:e2e
+            - name: Run packaged smoke tests
+              run: pnpm test:packaged

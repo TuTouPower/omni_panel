@@ -7,9 +7,10 @@ OmniUsage 测试命令、分层、覆盖率与打包 smoke 指南。硬约束入
 ```bash
 pnpm test                 # 单元 + 集成（vitest run）
 pnpm test:coverage        # 覆盖率
-pnpm test:e2e             # Playwright 用户 E2E
+pnpm test:e2e:web        # Playwright chromium 测 web SPA（日常, mock local-api）
+pnpm test:e2e:electron   # Playwright Electron 驱动（托盘/多窗口等专属, 手动跑）
 pnpm package              # 打包
-pnpm test:packaged        # 打包 smoke（CDP）
+pnpm test:packaged        # 打包 smoke（CDP 连 exe）
 ./artifacts/win-unpacked/OmniUsage.exe   # 打包后真实启动
 pnpm test:contract:live   # 连接器 live 契约测试（打真实上游）
 pnpm typecheck && pnpm lint && pnpm check
@@ -19,12 +20,12 @@ pnpm typecheck && pnpm lint && pnpm check
 
 ## 测试分层
 
-| 层级       | 目录                  | 框架             | 职责                                                                                      |
-| ---------- | --------------------- | ---------------- | ----------------------------------------------------------------------------------------- |
-| 单元       | `tests/unit/`         | Vitest           | 纯函数、工具、schema 校验、parser、连接器解析逻辑                                         |
-| 集成       | `tests/integration/`  | Vitest           | Node 环境可真实运行的主进程模块（config/cache/scheduler/runtime/vault/observation-store） |
-| 用户 E2E   | `tests/e2e/specs/`    | Playwright       | 真实 Electron 实例，模拟真实用户操作（`.spec.ts`）                                        |
-| 打包 smoke | `tests/e2e/packaged/` | Playwright + CDP | 验证 `artifacts/win-unpacked/OmniUsage.exe` 启动、渲染、发现内置连接器、popup 高度回归    |
+| 层级         | 目录                  | 框架             | 职责                                                                                                             |
+| ------------ | --------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 单元         | `tests/unit/`         | Vitest           | 纯函数、工具、schema 校验、parser、连接器解析逻辑                                                                |
+| 集成         | `tests/integration/`  | Vitest           | Node 环境可真实运行的主进程模块（config/cache/scheduler/runtime/vault/observation-store）                        |
+| Electron E2E | `tests/e2e/electron/` | Playwright       | 真实 Electron 实例，模拟真实用户操作（`.spec.ts`），手动跑 Electron 专属能力（托盘/多窗口/powerMonitor/restart） |
+| 打包 smoke   | `tests/e2e/packaged/` | Playwright + CDP | 验证 `artifacts/win-unpacked/OmniUsage.exe` 启动、渲染、发现内置连接器、popup 高度回归                           |
 
 三层职责不重叠：
 
