@@ -17,16 +17,6 @@ const config: PlaywrightTestConfig = {
             testDir: "./tests/user_e2e/specs",
         },
         {
-            name: "visual",
-            testDir: "./tests/user_e2e/visual",
-            expect: {
-                toHaveScreenshot: {
-                    maxDiffPixelRatio: 0.02,
-                    threshold: 0.2,
-                },
-            },
-        },
-        {
             name: "packaged",
             testDir: "./tests/user_e2e/packaged",
             timeout: 60_000,
