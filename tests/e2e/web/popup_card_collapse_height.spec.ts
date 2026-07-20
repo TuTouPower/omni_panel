@@ -28,7 +28,9 @@ test.describe("popup card collapse height (web)", () => {
         const account_label = (first_label ?? "").replace(/^折叠\s+/, "");
 
         await collapse_buttons.first().click();
-        await expect(live.locator(`button[aria-label="展开 ${account_label}"]`)).toBeVisible();
+        await expect(
+            live.getByRole("button", { name: `展开 ${account_label}`, exact: true }),
+        ).toBeVisible();
         const height_after = await content.evaluate((node) => node.scrollHeight);
 
         expect(height_after).toBeLessThan(height_before);
@@ -51,9 +53,11 @@ test.describe("popup card collapse height (web)", () => {
         const content = live.locator(".scroll-inner");
         const height_collapsed = await content.evaluate((node) => node.scrollHeight);
 
-        const expand_btn = live.locator(`button[aria-label="展开 ${account_label}"]`);
+        const expand_btn = live.getByRole("button", { name: `展开 ${account_label}`, exact: true });
         await expand_btn.click();
-        await expect(live.locator(`button[aria-label="折叠 ${account_label}"]`)).toBeVisible();
+        await expect(
+            live.getByRole("button", { name: `折叠 ${account_label}`, exact: true }),
+        ).toBeVisible();
         const height_expanded = await content.evaluate((node) => node.scrollHeight);
 
         expect(height_expanded).toBeGreaterThan(height_collapsed);
@@ -101,12 +105,16 @@ test.describe("popup card collapse height (web)", () => {
         const account_label = (first_label ?? "").replace(/^折叠\s+/, "");
 
         await collapse_buttons.first().click();
-        await expect(live.locator(`button[aria-label="展开 ${account_label}"]`)).toBeVisible();
+        await expect(
+            live.getByRole("button", { name: `展开 ${account_label}`, exact: true }),
+        ).toBeVisible();
 
         // 切走再切回，折叠态应保留
         await live.getByRole("button", { name: "总览" }).click();
         await live.getByRole("button", { name: /^Codex$/ }).click();
 
-        await expect(live.locator(`button[aria-label="展开 ${account_label}"]`)).toBeVisible();
+        await expect(
+            live.getByRole("button", { name: `展开 ${account_label}`, exact: true }),
+        ).toBeVisible();
     });
 });

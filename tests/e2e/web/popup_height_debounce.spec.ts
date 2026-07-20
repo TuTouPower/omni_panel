@@ -33,13 +33,13 @@ test.describe("popup height debounce (web)", () => {
         for (const label of labels) {
             const height_before = await content.evaluate((node) => node.scrollHeight);
 
-            await live.locator(`button[aria-label="折叠 ${label}"]`).click();
+            await live.getByRole("button", { name: `折叠 ${label}`, exact: true }).click();
             await webPage.waitForTimeout(200);
 
             const height_collapsed = await content.evaluate((node) => node.scrollHeight);
             expect(height_collapsed).toBeLessThan(height_before);
 
-            await live.locator(`button[aria-label="展开 ${label}"]`).click();
+            await live.getByRole("button", { name: `展开 ${label}`, exact: true }).click();
             await webPage.waitForTimeout(200);
 
             const height_expanded = await content.evaluate((node) => node.scrollHeight);
