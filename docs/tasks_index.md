@@ -26,3 +26,4 @@
 | T016 | seed_fake_plugin 类 9 spec 迁 web(改断言泛化)            | done | claude | task_t016_migrate_seed_fake_specs    | 完结;迁 7 spec 37 passed;account_operations/plugin_failure_modes 留 electron |
 | T017 | settings_view + popup_token_panel 迁 web + 删重复        | done | claude | task_t017_migrate_settings_token     | 完结;settings_view 拆迁;删 popup_theme 重复;drag flaky 修;41 passed          |
 | T018 | trend gen_fixture 多录(provider×account×metric)          | done | claude | task_t018_trend_fixture_multi        | 完结;trend 全录+精确匹配;critical(双?)+days 修;38 passed                     |
+| T019 | 废弃 account_operations spec(popup 账号菜单功能已移除)   | done | claude | task_t019_drop_account_operations    | 完结;popup 重构后功能移 settings,spec 删除                                   |
