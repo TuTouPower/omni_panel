@@ -46,6 +46,7 @@ export function observation_to_metric_record(obs: Observation): MetricRecord | n
         status: obs.status,
         observedAt: obs.observed_at,
         stale: obs.stale,
+        ...(obs.last_error != null && { error: obs.last_error }),
     };
 }
 
