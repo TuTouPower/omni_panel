@@ -443,3 +443,60 @@ export function build_overview_for_group(
     }
     return result;
 }
+
+export interface UpcomingResetItem {
+    provider: UsageProvider;
+    accountLabel: string;
+    accountId: string;
+    metricLabel: string;
+    resetAt: number;
+    percent: number;
+    status: MetricRecord["status"];
+}
+
+/**
+ * Flatten every account's metrics across all provider groups, keep only those
+ * whose resetAt falls in the half-open future window `(now, now + horizon]`
+ * (`resetAt <= now` = already reset, skipped; `resetAt` null = no schedule,
+ * skipped), and return them sorted by resetAt ascending. `percent` uses the
+ * same per-metric definition as OverviewWindow (used/limit clamped 0-100;
+ * ratio displayStyle also reports percent), but does NOT aggregate across
+ * metrics of the same account. `now` is injected for testability.
+ */
+export function collect_upcoming_resets(
+    groups: readonly ProviderUsageGroup[],
+    horizonMs: number = 7 * 24 * 60 * 60 * 1000,
+    now: number = Date.now(),
+): UpcomingResetItem[] {
+    const ceiling = now + horizonMs;
+    const items: UpcomingResetItem[] = [];
+    for (const group of groups) {
+        for (const account of group.accounts) {
+            for (const period of account.periods) {
+                if (period.resetAt === null) continue;
+                if (period.resetAt <= now || period.resetAt > ceiling) continue;
+                const used = period.used;
+                const limit = period.limit;
+                const percent =
+                    used !== null &&
+                    limit !== null &&
+                    limit > 0 &&
+                    Number.isFinite(used) &&
+                    Number.isFinite(limit)
+                        ? Math.min(100, Math.max(0, Math.round((used / limit) * 100)))
+                        : 0;
+                items.push({
+                    provider: group.provider,
+                    accountLabel: account.accountLabel,
+                    accountId: account.accountId,
+                    metricLabel: period.display_label ?? period.raw_label,
+                    resetAt: period.resetAt,
+                    percent,
+                    status: period.status,
+                });
+            }
+        }
+    }
+    items.sort((a, b) => a.resetAt - b.resetAt);
+    return items;
+}

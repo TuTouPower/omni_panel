@@ -1,7 +1,7 @@
 {
     "name": "omni_usage",
     "productName": "OmniUsage",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Multi-platform AI service usage monitoring desktop app.",
     "main": "out/main/index.js",
     "private": true,
