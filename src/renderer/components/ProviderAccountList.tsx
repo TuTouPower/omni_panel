@@ -1,6 +1,6 @@
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
-import type { ProviderUsageGroup } from "../lib/provider-usage";
+import type { AccountError, ProviderUsageGroup } from "../lib/provider-usage";
 import { ProviderAccountRow } from "./ProviderAccountRow";
 
 interface ProviderAccountListProps {
@@ -22,6 +22,7 @@ interface ProviderAccountListProps {
         | undefined;
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
+    accountErrors?: Readonly<Map<string, AccountError>> | undefined;
 }
 
 export function ProviderAccountList({
@@ -41,6 +42,7 @@ export function ProviderAccountList({
     providerLabelMaps,
     desensitizeRemarks = false,
     forcePercent = false,
+    accountErrors,
 }: ProviderAccountListProps) {
     void _onReLogin;
     const per_provider_map = providerLabelMaps?.[group.provider] ?? {};
@@ -71,6 +73,7 @@ export function ProviderAccountList({
                             labelMap={merged_label_map}
                             desensitizeRemarks={desensitizeRemarks}
                             forcePercent={forcePercent}
+                            error={accountErrors?.get(account.id)?.error}
                         />
                     );
                 }
@@ -105,6 +108,7 @@ export function ProviderAccountList({
                         labelMap={merged_label_map}
                         desensitizeRemarks={desensitizeRemarks}
                         forcePercent={forcePercent}
+                        error={accountErrors?.get(account.id)?.error}
                     />
                 );
             })}

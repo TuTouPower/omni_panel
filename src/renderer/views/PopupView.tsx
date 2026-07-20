@@ -20,6 +20,7 @@ import {
     apply_account_overrides,
     apply_account_labels,
     collect_upcoming_resets,
+    buildAccountErrors,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
 import type { AppConfiguration } from "../../shared/types/config";
@@ -310,6 +311,7 @@ export function PopupView() {
         }
         return map;
     }, [plugins]);
+    const accountErrors = useMemo(() => buildAccountErrors(providerGroups), [providerGroups]);
 
     const activeGroup =
         activeTab === "overview"
@@ -793,6 +795,7 @@ export function PopupView() {
                                         provider_force_percent?.[orderedActiveGroup.provider] ===
                                         true
                                     }
+                                    accountErrors={accountErrors}
                                 />
                             )}
 

@@ -25,6 +25,7 @@ export interface ProviderUsagePeriod {
     updatedAt: string;
     observedAt: number;
     stale: boolean;
+    error?: string | undefined;
 }
 
 export interface ProviderUsageAccount {
@@ -145,6 +146,7 @@ function to_period(
         updatedAt,
         observedAt: item.observedAt,
         stale: item.stale,
+        error: item.error,
     };
 }
 
@@ -294,6 +296,39 @@ export function apply_account_labels(
             }),
         };
     });
+}
+
+export interface AccountError {
+    provider: UsageProvider;
+    accountLabel: string;
+    error: string;
+}
+
+/**
+ * Scan all accounts across provider groups for MetricRecord-level errors.
+ * For each account that has at least one period with `error` set, the first
+ * error message is captured. Returns a Map keyed by account id (= the
+ * canonical account key used by ProviderAccountRow).
+ */
+export function buildAccountErrors(
+    groups: readonly ProviderUsageGroup[],
+): Map<string, AccountError> {
+    const result = new Map<string, AccountError>();
+    for (const group of groups) {
+        for (const account of group.accounts) {
+            for (const period of account.periods) {
+                if (period.error) {
+                    result.set(account.id, {
+                        provider: group.provider,
+                        accountLabel: account.accountLabel,
+                        error: period.error,
+                    });
+                    break; // first error per account is sufficient
+                }
+            }
+        }
+    }
+    return result;
 }
 
 export function visible_providers_from_groups(

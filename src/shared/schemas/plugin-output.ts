@@ -66,6 +66,7 @@ const usageItemSchema = z.object({
     color: usageColorSchema.optional(),
     observedAt: finiteNumber,
     stale: z.boolean(),
+    error: z.string().optional(),
 });
 
 const pluginChartSegmentSchema = z.object({

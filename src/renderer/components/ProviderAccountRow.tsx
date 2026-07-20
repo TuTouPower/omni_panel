@@ -27,6 +27,7 @@ interface ProviderAccountRowProps {
     labelMap?: Readonly<Record<string, string>> | undefined;
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
+    error?: string | undefined;
 }
 
 export const ProviderAccountRow = memo(function ProviderAccountRow({
@@ -43,7 +44,9 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
     labelMap,
     desensitizeRemarks = false,
     forcePercent = false,
+    error: _error,
 }: ProviderAccountRowProps) {
+    void _error; // T027: error indicator UI deferred
     const display_label = desensitizeRemarks ? "" : account.accountLabel;
 
     // Sparkline cache: key = `${provider}||${accountId}||${metricId}`.
