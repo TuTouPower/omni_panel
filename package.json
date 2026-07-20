@@ -33,6 +33,7 @@
         "test:e2e:electron": "node scripts/ensure_electron_abi.mjs && playwright test --config=playwright.config.ts --project=electron",
         "test:e2e:web": "playwright test --config=playwright.config.ts --project=web",
         "e2e:gen-data": "node scripts/e2e/gen_fixture.mjs",
+        "e2e:gen-synthetic": "node scripts/e2e/gen_synthetic.mjs",
         "test:packaged": "playwright test --config=playwright.config.ts --project=packaged",
         "test:contract:live": "vitest run --config vitest.contract_live.config.mts",
         "test:full": "pnpm test && pnpm test:contract:live",

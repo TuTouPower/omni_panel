@@ -8,9 +8,18 @@ export function mock_api_plugin() {
     return {
         name: "omniusage-mock-api",
         configurePreviewServer(server) {
-            const f = resolve(process.cwd(), "tests/e2e/fixtures/data/responses.json");
+            const f =
+                process.env["MOCK_FIXTURE"] === "synthetic"
+                    ? resolve(process.cwd(), "tests/e2e/fixtures/synthetic.json")
+                    : resolve(process.cwd(), "tests/e2e/fixtures/data/responses.json");
             if (!existsSync(f)) {
-                console.warn("[mock_api_plugin] responses.json 不存在，/v1/* 将 404；先跑 pnpm e2e:gen-data");
+                console.warn(
+                    `[mock_api_plugin] ${f} 不存在，/v1/* 将 404；${
+                        process.env["MOCK_FIXTURE"] === "synthetic"
+                            ? "先跑 pnpm e2e:gen-synthetic"
+                            : "先跑 pnpm e2e:gen-data"
+                    }`,
+                );
                 return;
             }
             const responses = JSON.parse(readFileSync(f, "utf8"));
@@ -20,7 +29,11 @@ export function mock_api_plugin() {
                 if (!url.pathname.startsWith("/v1/")) return next();
                 handler(req, res);
             });
-            console.log("[mock_api_plugin] mock api mounted on /v1/*");
+            console.log(
+                `[mock_api_plugin] mock api mounted on /v1/* (${
+                    process.env["MOCK_FIXTURE"] === "synthetic" ? "synthetic" : "real"
+                })`,
+            );
         },
     };
 }

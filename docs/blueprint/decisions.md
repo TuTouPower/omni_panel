@@ -68,7 +68,8 @@
 - 选项：CI web e2e A) synthetic seed fixture 入库供 CI smoke；B) 跳过 web project（CI 只 vitest + packaged smoke）。webServer A) 拆 web 独立 playwright config；B) 保留顶层。
 - 结论：CI 选 B（web e2e 作本地开发反馈，不作 CI 门禁；CI 由 vitest 单元/集成 + packaged smoke 覆盖产物可用性；Electron 驱动 nightly 跑）。webServer 选 B（Playwright 无 project 级 webServer，拆独立 config 增维护成本 > 节省的 vite preview 启动开销）。
 - 替代：无
-- 遗留：未来若需 CI web 回归，造 synthetic seed fixture（脱敏假账号）入库供 CI smoke。
+- 落地（T015, 2026-07-21）：CI web e2e 通道已恢复——`scripts/e2e/gen_synthetic.mjs` 从真实 responses 脱敏取 3 instance 子集 → `tests/e2e/fixtures/synthetic.json` 入库；CI `MOCK_FIXTURE=synthetic pnpm test:e2e:web` 跑 web smoke。CI 选项 B 的"不作门禁"被 synthetic fixture 取代（CI 现跑 synthetic web smoke）；webServer 保留顶层。
+- 遗留：无（CI web 通道已恢复；real fixture 仍仅本地）。
 
 ## 006 dev CSP 放开 'unsafe-inline' 让 @vitejs/plugin-react preamble 能注入（2026-07-20）
 

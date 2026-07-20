@@ -1,0 +1,1088 @@
+{
+    "GET /v1/connectors": [
+        {
+            "instanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+            "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+            "stateId": "a4e3d963-fe9f-4214-8457-ed7a9d1e1266",
+            "name": "CPA",
+            "displayName": "Oracle",
+            "enabled": true,
+            "source": "gateway",
+            "supportedProviders": ["claude", "kimi", "codex", "antigravity"],
+            "activeProviders": ["claude", "codex", "antigravity"],
+            "metadata": {
+                "name": "cpa",
+                "parameters": [
+                    {
+                        "name": "cpa_mgmt_key",
+                        "label": "cpa_mgmt_key",
+                        "type": "secret",
+                        "required": true
+                    },
+                    {
+                        "name": "monitor_claude",
+                        "label": "Monitor Claude",
+                        "type": "string",
+                        "required": false,
+                        "defaultValue": "true",
+                        "label@zh-Hans": "监控 Claude"
+                    },
+                    {
+                        "name": "monitor_kimi",
+                        "label": "Monitor Kimi",
+                        "type": "string",
+                        "required": false,
+                        "defaultValue": "true",
+                        "label@zh-Hans": "监控 Kimi"
+                    },
+                    {
+                        "name": "monitor_codex",
+                        "label": "Monitor Codex",
+                        "type": "string",
+                        "required": false,
+                        "defaultValue": "true",
+                        "label@zh-Hans": "监控 Codex"
+                    },
+                    {
+                        "name": "monitor_antigravity",
+                        "label": "Monitor Antigravity",
+                        "type": "string",
+                        "required": false,
+                        "defaultValue": "true",
+                        "label@zh-Hans": "监控 Antigravity"
+                    }
+                ],
+                "endpoints": {
+                    "default": "http://127.0.0.1:17863"
+                },
+                "supportedProviders": ["claude", "kimi", "codex", "antigravity"],
+                "defaultSource": "gateway"
+            },
+            "snapshot": {
+                "status": "ready",
+                "items": [
+                    {
+                        "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:abbb04ff42bfe9e0:antigravity:abbb04ff42bfe9e0:gemini-models",
+                        "provider": "antigravity",
+                        "source": "gateway",
+                        "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                        "accountId": "abbb04ff42bfe9e0",
+                        "accountLabel": "demo_claude_0@example.com",
+                        "raw_label": "gemini-models",
+                        "normalized_label": "Gemini Models",
+                        "used": 0,
+                        "limit": 100,
+                        "cycleDurationMs": null,
+                        "displayStyle": "percent",
+                        "resetAt": 1784588693000,
+                        "status": "normal",
+                        "observedAt": 1784570691762,
+                        "stale": false
+                    },
+                    {
+                        "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:abbb04ff42bfe9e0:antigravity:abbb04ff42bfe9e0:claude-gpt",
+                        "provider": "antigravity",
+                        "source": "gateway",
+                        "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                        "accountId": "abbb04ff42bfe9e0",
+                        "accountLabel": "demo_claude_0@example.com",
+                        "raw_label": "claude-gpt",
+                        "normalized_label": "Claude/GPT",
+                        "used": 71.9,
+                        "limit": 100,
+                        "cycleDurationMs": null,
+                        "displayStyle": "percent",
+                        "resetAt": 1784679149000,
+                        "status": "normal",
+                        "observedAt": 1784570691762,
+                        "stale": false
+                    },
+                    {
+                        "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:e272445dc93b68ec:claude:e272445dc93b68ec:five_hour",
+                        "provider": "claude",
+                        "source": "gateway",
+                        "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                        "accountId": "e272445dc93b68ec",
+                        "accountLabel": "demo_claude_0@example.com",
+                        "raw_label": "five_hour",
+                        "normalized_label": "5小时",
+                        "used": 77,
+                        "limit": 100,
+                        "cycleDurationMs": 18000000,
+                        "displayStyle": "percent",
+                        "resetAt": 1784579999647,
+                        "status": "warning",
+                        "observedAt": 1784570691762,
+                        "stale": false
+                    },
+                    {
+                        "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:e272445dc93b68ec:claude:e272445dc93b68ec:seven_day",
+                        "provider": "claude",
+                        "source": "gateway",
+                        "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                        "accountId": "e272445dc93b68ec",
+                        "accountLabel": "demo_claude_0@example.com",
+                        "raw_label": "seven_day",
+                        "normalized_label": "一周",
+                        "used": 5,
+                        "limit": 100,
+                        "cycleDurationMs": 604800000,
+                        "displayStyle": "percent",
+                        "resetAt": 1785149999647,
+                        "status": "normal",
+                        "observedAt": 1784570691762,
+                        "stale": false
+                    },
+                    {
+                        "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:4b8684ded91a333b:codex:4b8684ded91a333b:primary_window",
+                        "provider": "codex",
+                        "source": "gateway",
+                        "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                        "accountId": "4b8684ded91a333b",
+                        "accountLabel": "demo_claude_0@example.com",
+                        "raw_label": "primary_window",
+                        "normalized_label": "一周",
+                        "used": 97,
+                        "limit": 100,
+                        "cycleDurationMs": 604800000,
+                        "displayStyle": "percent",
+                        "resetAt": 1784987140000,
+                        "status": "critical",
+                        "observedAt": 1784570691762,
+                        "stale": false
+                    },
+                    {
+                        "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:d00e7fd6bf69b4be:codex:d00e7fd6bf69b4be:primary_window",
+                        "provider": "codex",
+                        "source": "gateway",
+                        "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                        "accountId": "d00e7fd6bf69b4be",
+                        "accountLabel": "demo_claude_0@example.com",
+                        "raw_label": "primary_window",
+                        "normalized_label": "一月",
+                        "used": 100,
+                        "limit": 100,
+                        "cycleDurationMs": 2628000000,
+                        "displayStyle": "percent",
+                        "resetAt": 1786975911000,
+                        "status": "critical",
+                        "observedAt": 1784570691762,
+                        "stale": false
+                    },
+                    {
+                        "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:3ed7ff62effcdd91:codex:3ed7ff62effcdd91:primary_window",
+                        "provider": "codex",
+                        "source": "gateway",
+                        "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                        "accountId": "3ed7ff62effcdd91",
+                        "accountLabel": "demo_claude_0@example.com",
+                        "raw_label": "primary_window",
+                        "normalized_label": "一周",
+                        "used": 100,
+                        "limit": 100,
+                        "cycleDurationMs": 604800000,
+                        "displayStyle": "percent",
+                        "resetAt": 1784950611000,
+                        "status": "critical",
+                        "observedAt": 1784570691762,
+                        "stale": false
+                    },
+                    {
+                        "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:22ff19c4c2471ad6:codex:22ff19c4c2471ad6:primary_window",
+                        "provider": "codex",
+                        "source": "gateway",
+                        "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                        "accountId": "22ff19c4c2471ad6",
+                        "accountLabel": "demo_claude_0@example.com",
+                        "raw_label": "primary_window",
+                        "normalized_label": "一周",
+                        "used": 0,
+                        "limit": 100,
+                        "cycleDurationMs": 604800000,
+                        "displayStyle": "percent",
+                        "resetAt": 1785175500000,
+                        "status": "normal",
+                        "observedAt": 1784570691762,
+                        "stale": false
+                    }
+                ],
+                "updatedAt": "2026-07-20T18:04:51.762Z"
+            }
+        },
+        {
+            "instanceId": "3399f34a-a68d-4899-a4b4-f3fc6450398e",
+            "sourceInstanceId": "3399f34a-a68d-4899-a4b4-f3fc6450398e",
+            "stateId": "0a546f78-2d41-4f49-a37a-f72549be4909",
+            "name": "DEEPSEEK",
+            "displayName": "13800000000",
+            "enabled": true,
+            "source": "poll",
+            "supportedProviders": ["deepseek"],
+            "activeProviders": ["deepseek"],
+            "metadata": {
+                "name": "deepseek",
+                "parameters": [
+                    {
+                        "name": "API_KEY",
+                        "label": "API Key",
+                        "type": "secret",
+                        "required": true,
+                        "label@zh-Hans": "API 密钥"
+                    },
+                    {
+                        "name": "LIMIT",
+                        "label": "Amount Limit",
+                        "type": "integer",
+                        "required": false,
+                        "defaultValue": "100",
+                        "label@zh-Hans": "金额上限"
+                    }
+                ],
+                "endpoints": {
+                    "default": "https://api.deepseek.com"
+                },
+                "supportedProviders": ["deepseek"],
+                "defaultSource": "poll"
+            },
+            "snapshot": {
+                "status": "ready",
+                "items": [
+                    {
+                        "id": "3399f34a-a68d-4899-a4b4-f3fc6450398e:deepseek:deepseek:balance-CNY",
+                        "provider": "deepseek",
+                        "source": "poll",
+                        "sourceInstanceId": "3399f34a-a68d-4899-a4b4-f3fc6450398e",
+                        "accountId": "deepseek",
+                        "accountLabel": "DeepSeek",
+                        "raw_label": "balance-CNY",
+                        "normalized_label": "余额",
+                        "used": -0.57,
+                        "limit": 100,
+                        "cycleDurationMs": null,
+                        "displayStyle": "ratio",
+                        "resetAt": null,
+                        "status": "critical",
+                        "observedAt": 1784570693992,
+                        "stale": false
+                    }
+                ],
+                "updatedAt": "2026-07-20T18:04:53.992Z"
+            }
+        },
+        {
+            "instanceId": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3",
+            "sourceInstanceId": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3",
+            "stateId": "1f92239f-84ce-405e-b011-745f45007f4d",
+            "name": "FIRECRAWL",
+            "displayName": "1",
+            "enabled": true,
+            "source": "poll",
+            "supportedProviders": ["firecrawl"],
+            "activeProviders": ["firecrawl"],
+            "metadata": {
+                "name": "firecrawl",
+                "parameters": [
+                    {
+                        "name": "API_KEY",
+                        "label": "API Key",
+                        "type": "secret",
+                        "required": true,
+                        "label@zh-Hans": "API 密钥"
+                    }
+                ],
+                "endpoints": {
+                    "default": "https://api.firecrawl.dev"
+                },
+                "supportedProviders": ["firecrawl"],
+                "defaultSource": "poll"
+            },
+            "snapshot": {
+                "status": "ready",
+                "items": [
+                    {
+                        "id": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3:firecrawl:firecrawl:credits-total",
+                        "provider": "firecrawl",
+                        "source": "poll",
+                        "sourceInstanceId": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3",
+                        "accountId": "firecrawl",
+                        "accountLabel": "Firecrawl",
+                        "raw_label": "credits",
+                        "normalized_label": "积分",
+                        "used": 1000,
+                        "limit": 1000,
+                        "cycleDurationMs": 2592000000,
+                        "displayStyle": "ratio",
+                        "resetAt": 1785124845905,
+                        "status": "normal",
+                        "observedAt": 1784570692822,
+                        "stale": false
+                    },
+                    {
+                        "id": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3:firecrawl:firecrawl:tokens-total",
+                        "provider": "firecrawl",
+                        "source": "poll",
+                        "sourceInstanceId": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3",
+                        "accountId": "firecrawl",
+                        "accountLabel": "Firecrawl",
+                        "raw_label": "tokens",
+                        "normalized_label": "Tokens",
+                        "used": 15000,
+                        "limit": 15000,
+                        "cycleDurationMs": 2592000000,
+                        "displayStyle": "ratio",
+                        "resetAt": 1785124845905,
+                        "status": "normal",
+                        "observedAt": 1784570692822,
+                        "stale": false
+                    }
+                ],
+                "updatedAt": "2026-07-20T18:04:52.822Z"
+            }
+        }
+    ],
+    "GET /v1/connectors/c77fb063-2ea2-47c7-b638-2086656e8f47/state": {
+        "status": "ready",
+        "items": [
+            {
+                "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:abbb04ff42bfe9e0:antigravity:abbb04ff42bfe9e0:gemini-models",
+                "provider": "antigravity",
+                "source": "gateway",
+                "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                "accountId": "abbb04ff42bfe9e0",
+                "accountLabel": "demo_claude_0@example.com",
+                "raw_label": "gemini-models",
+                "normalized_label": "Gemini Models",
+                "used": 0,
+                "limit": 100,
+                "cycleDurationMs": null,
+                "displayStyle": "percent",
+                "resetAt": 1784588693000,
+                "status": "normal",
+                "observedAt": 1784570691762,
+                "stale": false
+            },
+            {
+                "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:abbb04ff42bfe9e0:antigravity:abbb04ff42bfe9e0:claude-gpt",
+                "provider": "antigravity",
+                "source": "gateway",
+                "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                "accountId": "abbb04ff42bfe9e0",
+                "accountLabel": "demo_claude_0@example.com",
+                "raw_label": "claude-gpt",
+                "normalized_label": "Claude/GPT",
+                "used": 71.9,
+                "limit": 100,
+                "cycleDurationMs": null,
+                "displayStyle": "percent",
+                "resetAt": 1784679149000,
+                "status": "normal",
+                "observedAt": 1784570691762,
+                "stale": false
+            },
+            {
+                "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:e272445dc93b68ec:claude:e272445dc93b68ec:five_hour",
+                "provider": "claude",
+                "source": "gateway",
+                "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                "accountId": "e272445dc93b68ec",
+                "accountLabel": "demo_claude_0@example.com",
+                "raw_label": "five_hour",
+                "normalized_label": "5小时",
+                "used": 77,
+                "limit": 100,
+                "cycleDurationMs": 18000000,
+                "displayStyle": "percent",
+                "resetAt": 1784579999647,
+                "status": "warning",
+                "observedAt": 1784570691762,
+                "stale": false
+            },
+            {
+                "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:e272445dc93b68ec:claude:e272445dc93b68ec:seven_day",
+                "provider": "claude",
+                "source": "gateway",
+                "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                "accountId": "e272445dc93b68ec",
+                "accountLabel": "demo_claude_0@example.com",
+                "raw_label": "seven_day",
+                "normalized_label": "一周",
+                "used": 5,
+                "limit": 100,
+                "cycleDurationMs": 604800000,
+                "displayStyle": "percent",
+                "resetAt": 1785149999647,
+                "status": "normal",
+                "observedAt": 1784570691762,
+                "stale": false
+            },
+            {
+                "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:4b8684ded91a333b:codex:4b8684ded91a333b:primary_window",
+                "provider": "codex",
+                "source": "gateway",
+                "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                "accountId": "4b8684ded91a333b",
+                "accountLabel": "demo_claude_0@example.com",
+                "raw_label": "primary_window",
+                "normalized_label": "一周",
+                "used": 97,
+                "limit": 100,
+                "cycleDurationMs": 604800000,
+                "displayStyle": "percent",
+                "resetAt": 1784987140000,
+                "status": "critical",
+                "observedAt": 1784570691762,
+                "stale": false
+            },
+            {
+                "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:d00e7fd6bf69b4be:codex:d00e7fd6bf69b4be:primary_window",
+                "provider": "codex",
+                "source": "gateway",
+                "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                "accountId": "d00e7fd6bf69b4be",
+                "accountLabel": "demo_claude_0@example.com",
+                "raw_label": "primary_window",
+                "normalized_label": "一月",
+                "used": 100,
+                "limit": 100,
+                "cycleDurationMs": 2628000000,
+                "displayStyle": "percent",
+                "resetAt": 1786975911000,
+                "status": "critical",
+                "observedAt": 1784570691762,
+                "stale": false
+            },
+            {
+                "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:3ed7ff62effcdd91:codex:3ed7ff62effcdd91:primary_window",
+                "provider": "codex",
+                "source": "gateway",
+                "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                "accountId": "3ed7ff62effcdd91",
+                "accountLabel": "demo_claude_0@example.com",
+                "raw_label": "primary_window",
+                "normalized_label": "一周",
+                "used": 100,
+                "limit": 100,
+                "cycleDurationMs": 604800000,
+                "displayStyle": "percent",
+                "resetAt": 1784950611000,
+                "status": "critical",
+                "observedAt": 1784570691762,
+                "stale": false
+            },
+            {
+                "id": "c77fb063-2ea2-47c7-b638-2086656e8f47:22ff19c4c2471ad6:codex:22ff19c4c2471ad6:primary_window",
+                "provider": "codex",
+                "source": "gateway",
+                "sourceInstanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                "accountId": "22ff19c4c2471ad6",
+                "accountLabel": "demo_claude_0@example.com",
+                "raw_label": "primary_window",
+                "normalized_label": "一周",
+                "used": 0,
+                "limit": 100,
+                "cycleDurationMs": 604800000,
+                "displayStyle": "percent",
+                "resetAt": 1785175500000,
+                "status": "normal",
+                "observedAt": 1784570691762,
+                "stale": false
+            }
+        ],
+        "updatedAt": "2026-07-20T18:04:51.762Z"
+    },
+    "GET /v1/secrets?instanceId=c77fb063-2ea2-47c7-b638-2086656e8f47": {
+        "cpa_mgmt_key": "***"
+    },
+    "GET /v1/connectors/3399f34a-a68d-4899-a4b4-f3fc6450398e/state": {
+        "status": "ready",
+        "items": [
+            {
+                "id": "3399f34a-a68d-4899-a4b4-f3fc6450398e:deepseek:deepseek:balance-CNY",
+                "provider": "deepseek",
+                "source": "poll",
+                "sourceInstanceId": "3399f34a-a68d-4899-a4b4-f3fc6450398e",
+                "accountId": "deepseek",
+                "accountLabel": "DeepSeek",
+                "raw_label": "balance-CNY",
+                "normalized_label": "余额",
+                "used": -0.57,
+                "limit": 100,
+                "cycleDurationMs": null,
+                "displayStyle": "ratio",
+                "resetAt": null,
+                "status": "critical",
+                "observedAt": 1784570693992,
+                "stale": false
+            }
+        ],
+        "updatedAt": "2026-07-20T18:04:53.992Z"
+    },
+    "GET /v1/secrets?instanceId=3399f34a-a68d-4899-a4b4-f3fc6450398e": {
+        "API_KEY": "***"
+    },
+    "GET /v1/connectors/8bc0a715-1a5f-4c42-8d2e-88a52aed73c3/state": {
+        "status": "ready",
+        "items": [
+            {
+                "id": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3:firecrawl:firecrawl:credits-total",
+                "provider": "firecrawl",
+                "source": "poll",
+                "sourceInstanceId": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3",
+                "accountId": "firecrawl",
+                "accountLabel": "Firecrawl",
+                "raw_label": "credits",
+                "normalized_label": "积分",
+                "used": 1000,
+                "limit": 1000,
+                "cycleDurationMs": 2592000000,
+                "displayStyle": "ratio",
+                "resetAt": 1785124845905,
+                "status": "normal",
+                "observedAt": 1784570692822,
+                "stale": false
+            },
+            {
+                "id": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3:firecrawl:firecrawl:tokens-total",
+                "provider": "firecrawl",
+                "source": "poll",
+                "sourceInstanceId": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3",
+                "accountId": "firecrawl",
+                "accountLabel": "Firecrawl",
+                "raw_label": "tokens",
+                "normalized_label": "Tokens",
+                "used": 15000,
+                "limit": 15000,
+                "cycleDurationMs": 2592000000,
+                "displayStyle": "ratio",
+                "resetAt": 1785124845905,
+                "status": "normal",
+                "observedAt": 1784570692822,
+                "stale": false
+            }
+        ],
+        "updatedAt": "2026-07-20T18:04:52.822Z"
+    },
+    "GET /v1/secrets?instanceId=8bc0a715-1a5f-4c42-8d2e-88a52aed73c3": {
+        "API_KEY": "***"
+    },
+    "GET /v1/config": {
+        "config": {
+            "schemaVersion": 1,
+            "language": "zh-Hans",
+            "plugins": [
+                {
+                    "instanceId": "c77fb063-2ea2-47c7-b638-2086656e8f47",
+                    "stateId": "a4e3d963-fe9f-4214-8457-ed7a9d1e1266",
+                    "name": "CPA",
+                    "displayName": "Oracle",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\cpa",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {
+                        "monitor_antigravity": "true",
+                        "monitor_claude": "true",
+                        "monitor_codex": "true",
+                        "monitor_gemini": "false",
+                        "monitor_kimi": "false"
+                    },
+                    "endpointOverrides": {
+                        "default": "https://cpa.example.com"
+                    }
+                },
+                {
+                    "instanceId": "3399f34a-a68d-4899-a4b4-f3fc6450398e",
+                    "stateId": "0a546f78-2d41-4f49-a37a-f72549be4909",
+                    "name": "DEEPSEEK",
+                    "displayName": "13800000000",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\deepseek",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {
+                        "LIMIT": "100"
+                    },
+                    "endpointOverrides": {
+                        "default": "https://api.deepseek.com"
+                    }
+                },
+                {
+                    "instanceId": "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3",
+                    "stateId": "1f92239f-84ce-405e-b011-745f45007f4d",
+                    "name": "FIRECRAWL",
+                    "displayName": "1",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://api.firecrawl.dev"
+                    }
+                },
+                {
+                    "instanceId": "cbe9883d-b234-4559-83d9-e2d97bff5f26",
+                    "stateId": "972c08cf-68fd-447a-b91c-6b4339117424",
+                    "name": "TAVILY",
+                    "displayName": "搜索",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\tavily",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://api.tavily.com"
+                    }
+                },
+                {
+                    "instanceId": "8c77d41e-6cfa-443e-a772-3cd7018b42ba",
+                    "stateId": "c4588d7b-5603-4a38-adf4-67702fde4031",
+                    "name": "FIRECRAWL",
+                    "displayName": "2",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://api.firecrawl.dev"
+                    }
+                },
+                {
+                    "instanceId": "fdf3e845-553f-47f7-b8fc-496947e739a9",
+                    "stateId": "103ba065-7b53-4f1b-9862-85435fc6dbbd",
+                    "name": "FIRECRAWL",
+                    "displayName": "3",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://api.firecrawl.dev"
+                    }
+                },
+                {
+                    "instanceId": "10f6bd9e-4ef9-40dc-828a-f59fddfd7e57",
+                    "stateId": "682b0745-0aeb-41c4-8564-493f5f2f2f06",
+                    "name": "FIRECRAWL",
+                    "displayName": "4",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://api.firecrawl.dev"
+                    }
+                },
+                {
+                    "instanceId": "fe5f3fee-f983-4837-8d85-019d0b16947b",
+                    "stateId": "818af3e2-11c6-4c84-ab8e-2ec074f279f8",
+                    "name": "FIRECRAWL",
+                    "displayName": "5",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://api.firecrawl.dev"
+                    }
+                },
+                {
+                    "instanceId": "7b7ade3d-aeff-4678-9dc3-5c10ed377a1a",
+                    "stateId": "d385ae90-3453-4953-ae83-759be43ff780",
+                    "name": "FIRECRAWL",
+                    "displayName": "6",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://api.firecrawl.dev"
+                    }
+                },
+                {
+                    "instanceId": "0310fbb0-2b91-484e-b655-032fa975f7fa",
+                    "stateId": "5b69ff22-709e-428c-9468-e5e13b2bf2ea",
+                    "name": "OPENCODE_GO",
+                    "displayName": "demo_config_0@example.com",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://opencode.ai",
+                        "login": "https://opencode.ai/auth"
+                    }
+                },
+                {
+                    "instanceId": "d04f60da-8d38-4a55-bd3c-75b2e05fbe7a",
+                    "stateId": "be182ddb-9162-456f-9ec8-c5c6de20276d",
+                    "name": "GROK",
+                    "displayName": "SuperGrok",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\grok",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {}
+                },
+                {
+                    "instanceId": "b1e5da6f-68be-44f0-befa-2f28deed436c",
+                    "stateId": "47696d37-b0dc-4b90-afb0-21ad112c6c1b",
+                    "name": "OPENCODE_GO",
+                    "displayName": "demo_config_0@example.com",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://opencode.ai",
+                        "login": "https://opencode.ai/auth"
+                    }
+                },
+                {
+                    "instanceId": "0b1c3c50-5958-4d64-976a-023d9a640662",
+                    "stateId": "d28c37a0-93dc-4be9-9d8a-833b99acf42a",
+                    "name": "OPENCODE_GO",
+                    "displayName": "demo_config_0@example.com",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://opencode.ai",
+                        "login": "https://opencode.ai/auth"
+                    }
+                },
+                {
+                    "instanceId": "7cbb096b-5ca9-41b3-92e2-27d6a510069b",
+                    "stateId": "a27adddc-5623-4a17-918b-d0d261a2e9b2",
+                    "name": "OPENCODE_GO",
+                    "displayName": "demo_config_0@example.com",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://opencode.ai",
+                        "login": "https://opencode.ai/auth"
+                    }
+                },
+                {
+                    "instanceId": "59264591-5f64-4ab1-adec-94eecefe3662",
+                    "stateId": "366b8ac4-4b03-403b-996a-84f4f7ccbd20",
+                    "name": "OPENCODE_GO",
+                    "displayName": "demo_config_0@example.com",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://opencode.ai",
+                        "login": "https://opencode.ai/auth"
+                    }
+                },
+                {
+                    "instanceId": "dde49999-fd75-4d45-8690-2cec0d8652d5",
+                    "stateId": "f4f203c3-6693-4b0a-ae3a-76d7bc5ea84b",
+                    "name": "OPENCODE_GO",
+                    "displayName": "demo_config_0@example.com",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://opencode.ai",
+                        "login": "https://opencode.ai/auth"
+                    }
+                },
+                {
+                    "instanceId": "edb9b4e9-6dab-48d5-80f4-fb42d87ab97d",
+                    "stateId": "e681bdf2-985d-4634-b8e5-5f2b2cfc5fa5",
+                    "name": "OPENCODE_GO",
+                    "displayName": "!!!demo_config_0@example.com",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://opencode.ai",
+                        "login": "https://opencode.ai/auth"
+                    }
+                },
+                {
+                    "instanceId": "a417e3c7-677a-49ad-b773-ded9c12c70ce",
+                    "stateId": "bf113656-362b-4071-a138-e2368ed89ec2",
+                    "name": "OPENCODE_GO",
+                    "displayName": "demo_config_0@example.com",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://opencode.ai",
+                        "login": "https://opencode.ai/auth"
+                    }
+                },
+                {
+                    "instanceId": "187e12f6-59a3-4a0a-8198-c5695e2beb74",
+                    "stateId": "7a0caa54-609c-4710-87ef-b39fc7dae1c5",
+                    "name": "KIMI",
+                    "displayName": "173",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\kimi",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://api.kimi.com"
+                    }
+                },
+                {
+                    "instanceId": "2b6557a3-bc67-401b-a1e3-a8908abcd321",
+                    "stateId": "2ecaf947-55e6-4f79-90db-5583225e58ae",
+                    "name": "ANTIGRAVITY",
+                    "enabled": false,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\antigravity",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {}
+                },
+                {
+                    "instanceId": "0bc171fa-7398-49b5-89bc-0e6d58b5f852",
+                    "stateId": "91ead207-d1f2-4989-b3e0-94f5ba451698",
+                    "name": "CLAUDE",
+                    "enabled": false,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\claude",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {
+                        "data_dir": "~/.claude"
+                    },
+                    "endpointOverrides": {}
+                },
+                {
+                    "instanceId": "a8fd43d4-d6ed-47d8-b340-cb54159cc331",
+                    "stateId": "2ec76b49-414f-47f7-a67d-d81bdebf8f50",
+                    "name": "CODEX",
+                    "enabled": false,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\codex",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {}
+                },
+                {
+                    "instanceId": "130d22eb-5fda-4b0f-8643-8aa9befbd7fe",
+                    "stateId": "b728c988-044d-45d7-a112-b0a03d974ba5",
+                    "name": "GLM",
+                    "enabled": false,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\glm",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {}
+                },
+                {
+                    "instanceId": "07b14f03-af58-41cf-b3ad-9da9c255735f",
+                    "stateId": "b3f9598f-3bbc-43bc-b083-5676b0e703e5",
+                    "name": "MIMO",
+                    "enabled": false,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\mimo",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {
+                        "LIMIT": "100"
+                    },
+                    "endpointOverrides": {}
+                },
+                {
+                    "instanceId": "5063516f-ccad-429f-97b7-ee55ee4f44c9",
+                    "stateId": "12f679eb-c38d-4d87-9931-af7309a809a0",
+                    "name": "MINIMAX",
+                    "enabled": false,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\minimax",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {}
+                },
+                {
+                    "instanceId": "ca494b59-4983-4057-bcb6-63c4acfb7194",
+                    "stateId": "ad078137-c08e-4969-b928-5957ac371629",
+                    "name": "KIMI",
+                    "displayName": "188",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\kimi",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://api.kimi.com"
+                    }
+                },
+                {
+                    "instanceId": "d7bdfa50-6532-49b2-aea4-2253982da3aa",
+                    "stateId": "1e0173c6-a9c1-4faa-9403-2eb471857071",
+                    "name": "KIMI",
+                    "displayName": "177",
+                    "enabled": true,
+                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\kimi",
+                    "refreshIntervalSeconds": 0,
+                    "parameterValues": {},
+                    "endpointOverrides": {
+                        "default": "https://api.kimi.com"
+                    }
+                }
+            ],
+            "launchAtLogin": false,
+            "proxy": {
+                "url": "http://127.0.0.1:7890"
+            },
+            "theme": "dark",
+            "globalRefreshIntervalSeconds": 1800,
+            "providerOrder": [
+                "codex",
+                "opencode_go",
+                "grok",
+                "kimi",
+                "antigravity",
+                "tavily",
+                "claude",
+                "firecrawl",
+                "deepseek"
+            ],
+            "usageBarColorScheme": "risk-projected",
+            "providerLabelMaps": {
+                "antigravity": {
+                    "claude-gpt": "Claude",
+                    "gemini-models": "Gemini"
+                },
+                "claude": {
+                    "一周": "一周"
+                },
+                "deepseek": {
+                    "balance-CNY": "余额"
+                },
+                "grok": {
+                    "credits": "一周",
+                    "grok_build": "Build",
+                    "grok_imagine": "Imagine"
+                }
+            },
+            "uiDesensitizeRemarks": false,
+            "providerForcePercent": {
+                "firecrawl": true,
+                "kimi": true,
+                "tavily": true
+            },
+            "floatingBounds": {
+                "x": 1694,
+                "y": 46,
+                "width": 544,
+                "height": 1286,
+                "displayId": "3490877511"
+            },
+            "settingsBounds": {
+                "x": -1512,
+                "y": 397,
+                "width": 844,
+                "height": 919,
+                "displayId": "3814016440"
+            },
+            "accountLabels": {
+                "codex": {
+                    "22ff19c4c2471ad6": "thu",
+                    "3ed7ff62effcdd91": "tu",
+                    "4b8684ded91a333b": "fe",
+                    "d00e7fd6bf69b4be": "fen"
+                }
+            },
+            "collapsedAccounts": {},
+            "expandedProviders": {
+                "antigravity": true,
+                "claude": true,
+                "codex": true,
+                "deepseek": false,
+                "firecrawl": false,
+                "grok": true,
+                "kimi": true,
+                "opencode_go": true,
+                "tavily": true
+            },
+            "dirAliases": [],
+            "modelAliases": []
+        },
+        "hasSecrets": {
+            "c77fb063-2ea2-47c7-b638-2086656e8f47": {
+                "cpa_mgmt_key": true
+            },
+            "3399f34a-a68d-4899-a4b4-f3fc6450398e": {
+                "API_KEY": true
+            },
+            "8bc0a715-1a5f-4c42-8d2e-88a52aed73c3": {
+                "API_KEY": true
+            },
+            "cbe9883d-b234-4559-83d9-e2d97bff5f26": {
+                "API_KEY": true
+            },
+            "8c77d41e-6cfa-443e-a772-3cd7018b42ba": {
+                "API_KEY": true
+            },
+            "fdf3e845-553f-47f7-b8fc-496947e739a9": {
+                "API_KEY": true
+            },
+            "10f6bd9e-4ef9-40dc-828a-f59fddfd7e57": {
+                "API_KEY": true
+            },
+            "fe5f3fee-f983-4837-8d85-019d0b16947b": {
+                "API_KEY": true
+            },
+            "7b7ade3d-aeff-4678-9dc3-5c10ed377a1a": {
+                "API_KEY": true
+            },
+            "0310fbb0-2b91-484e-b655-032fa975f7fa": {
+                "SESSION_COOKIE": true
+            },
+            "b1e5da6f-68be-44f0-befa-2f28deed436c": {
+                "SESSION_COOKIE": true
+            },
+            "0b1c3c50-5958-4d64-976a-023d9a640662": {
+                "SESSION_COOKIE": true
+            },
+            "7cbb096b-5ca9-41b3-92e2-27d6a510069b": {
+                "SESSION_COOKIE": true
+            },
+            "59264591-5f64-4ab1-adec-94eecefe3662": {
+                "SESSION_COOKIE": true
+            },
+            "dde49999-fd75-4d45-8690-2cec0d8652d5": {
+                "SESSION_COOKIE": true
+            },
+            "edb9b4e9-6dab-48d5-80f4-fb42d87ab97d": {
+                "SESSION_COOKIE": true
+            },
+            "a417e3c7-677a-49ad-b773-ded9c12c70ce": {
+                "SESSION_COOKIE": true
+            },
+            "187e12f6-59a3-4a0a-8198-c5695e2beb74": {
+                "API_KEY": true
+            },
+            "130d22eb-5fda-4b0f-8643-8aa9befbd7fe": {
+                "API_KEY": false
+            },
+            "07b14f03-af58-41cf-b3ad-9da9c255735f": {
+                "SESSION_COOKIE": false
+            },
+            "5063516f-ccad-429f-97b7-ee55ee4f44c9": {
+                "API_KEY": false
+            },
+            "ca494b59-4983-4057-bcb6-63c4acfb7194": {
+                "API_KEY": true
+            },
+            "d7bdfa50-6532-49b2-aea4-2253982da3aa": {
+                "API_KEY": true
+            }
+        }
+    },
+    "GET /v1/trend?provider=antigravity&accountId=abbb04ff42bfe9e0&metricId=gemini-models&days=7": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ],
+    "GET /v1/status": {
+        "running": true,
+        "last_updated": 1784569122007
+    }
+}

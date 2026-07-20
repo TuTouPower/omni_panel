@@ -6,7 +6,10 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = process.cwd();
-const RESP_FILE = resolve(ROOT, "tests/e2e/fixtures/data/responses.json");
+const RESP_FILE =
+    process.env["MOCK_FIXTURE"] === "synthetic"
+        ? resolve(ROOT, "tests/e2e/fixtures/synthetic.json")
+        : resolve(ROOT, "tests/e2e/fixtures/data/responses.json");
 const PORT = Number(process.env["MOCK_PORT"] || 17864);
 
 export function create_mock_handler(responses) {
@@ -55,7 +58,11 @@ export function create_mock_handler(responses) {
 
 function main() {
     if (!existsSync(RESP_FILE)) {
-        console.error(`[mock_server] ${RESP_FILE} 不存在，先跑 pnpm e2e:gen-data`);
+        const hint =
+            process.env["MOCK_FIXTURE"] === "synthetic"
+                ? "先跑 pnpm e2e:gen-synthetic"
+                : "先跑 pnpm e2e:gen-data";
+        console.error(`[mock_server] ${RESP_FILE} 不存在，${hint}`);
         process.exit(1);
     }
     const responses = JSON.parse(readFileSync(RESP_FILE, "utf8"));
