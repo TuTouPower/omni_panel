@@ -28,6 +28,6 @@
 | T018 | trend gen_fixture 多录(provider×account×metric)                 | done    | claude | task_t018_trend_fixture_multi        | 完结;trend 全录+精确匹配;critical(双?)+days 修;38 passed                     |
 | T019 | 废弃 account_operations spec(popup 账号菜单功能已移除)          | done    | claude | task_t019_drop_account_operations    | 完结;popup 重构后功能移 settings,spec 删除                                   |
 | T020 | CSS selector 改 getByRole 转义安全(T016 code_f004)              | done    | claude | task_t020_css_selector_getbyrole     | 完结;7 处改 getByRole exact;0 finding;41 passed                              |
-| T021 | mock_server 单测(create_mock_handler 自保护)                    | backlog | claude | task_t021_mock_server_unit_test      | .mjs 导出已就位,vitest 覆盖 trend/state/POST                                 |
+| T021 | mock_server 单测(create_mock_handler 自保护)                    | done    | claude | task_t021_mock_server_unit_test      | 完结;9 用例;1416 passed;T018 critical 可抓                                   |
 | T022 | plugin_failure_modes 迁 web(手造 failed connector fixture)      | backlog | claude | task_t022_plugin_failure_to_web      | synthetic 加 failed connector,3 case 迁 web                                  |
 | T023 | settings_provider_accounts case 拆迁(单次 web/restart electron) | backlog | claude | task_t023_settings_accounts_split    | 同 T017 settings_view 模式                                                   |
