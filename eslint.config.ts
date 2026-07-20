@@ -56,6 +56,7 @@ export default defineConfig(
             ".dependency-cruiser.cjs",
             "tests/e2e/fixtures/*.mjs",
             "scripts/e2e/*.mjs",
+            "scripts/render_icon.mjs",
         ],
     },
 );
