@@ -12,6 +12,6 @@
 | T002 | docs specs route 值同步代码 + 补 TokenStatsView | done   | claude | main                                 | 依赖 T001 代码真相                      |
 | T003 | route 字面量收口 + route 值回归断言             | done   | claude | main                                 | T001/T002 遗留合并(T001_f001/T002_f003) |
 | T004 | 容器查询响应式（usage 窗横屏自适应）            | done   | claude | task_t004_responsive_container_query | 完结；视觉快照遗留                      |
-| T005 | 即将重置预警栏（rail + 横幅）                   | active | claude | task_t005_upcoming_reset_panel       | spec/plan 已落地；准备开工              |
+| T005 | 即将重置预警栏（rail + 横幅）                   | done   | claude | task_t005_upcoming_reset_panel       | 完结;视觉/打包待人工签收                |
 | T006 | 近 7 天趋势 sparkline                           | active | claude | task_t006_trend_sparkline            | spec/plan 已落地；前置 T007 已合入      |
 | T007 | domain 趋势图政策修订（解锁 sparkline）         | done   | claude | task_t007_domain_trend_policy        | 完结；纯文档；T006 前置                 |

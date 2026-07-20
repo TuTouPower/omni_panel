@@ -12,11 +12,14 @@ import { ProviderNav } from "../components/ProviderNav";
 import { ProviderOverview } from "../components/ProviderOverview";
 import { TokenPanel } from "../components/TokenPanel";
 import { CollapsibleCard } from "../components/CollapsibleCard";
+import { UpcomingResetRail } from "../components/UpcomingResetRail";
+import { UpcomingResetBanner } from "../components/UpcomingResetBanner";
 import {
     build_provider_usage_groups,
     visible_providers_from_groups,
     apply_account_overrides,
     apply_account_labels,
+    collect_upcoming_resets,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
 import type { AppConfiguration } from "../../shared/types/config";
@@ -249,6 +252,7 @@ export function PopupView() {
     const wheel_at_ref = useRef(0);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
     const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
+    const scroll_ref = useRef<HTMLDivElement>(null);
 
     const rawGroups = useMemo(() => build_provider_usage_groups(plugins), [plugins]);
     const providerGroups = useMemo(
@@ -263,6 +267,11 @@ export function PopupView() {
         () => visible_providers_from_groups(rawGroups, plugins),
         [rawGroups, plugins],
     );
+    const upcomingItems = useMemo(() => collect_upcoming_resets(providerGroups), [providerGroups]);
+    const select_provider_from_upcoming = useCallback((provider: UsageProvider) => {
+        setActiveTab(provider);
+        scroll_ref.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }, []);
 
     useEffect(() => {
         if (should_log_raw) {
@@ -652,7 +661,7 @@ export function PopupView() {
                 <div className="titlebar-divider" />
 
                 {/* scroll body */}
-                <div className="scroll">
+                <div className="scroll" ref={scroll_ref}>
                     <div className="scroll-inner">
                         {error && (
                             <div className="net-banner">
@@ -706,37 +715,53 @@ export function PopupView() {
                         )}
 
                         {!loading && plugins.length > 0 && activeTab === "overview" && (
-                            <ProviderOverview
-                                groups={providerGroups}
-                                visibleProviders={orderedProviders}
-                                providerErrors={providerErrors}
-                                onRefreshProvider={is_live ? refreshProvider : () => undefined}
-                                expandedProviders={is_live ? expanded_providers : undefined}
-                                onToggleExpandProvider={
-                                    is_live ? toggle_expand_provider : undefined
-                                }
-                                onReLogin={
-                                    is_live
-                                        ? (p) => {
-                                              void handle_re_login(p);
-                                          }
-                                        : undefined
-                                }
-                                draggingProvider={is_live ? drag_id : null}
-                                overProvider={is_live ? over_id : null}
-                                onDragStart={is_live ? handle_drag_start : undefined}
-                                onDragEnter={is_live ? handle_drag_enter : undefined}
-                                onDragOver={is_live ? handle_drag_over : undefined}
-                                onDragEnd={is_live ? handle_drag_end : undefined}
-                                refreshingProviders={is_live ? refresh_providers : undefined}
-                                barColorScheme={usage_bar_color_scheme}
-                                barStyle={usage_bar_style}
-                                providerLabelMaps={provider_label_maps}
-                                accountLabelMaps={account_label_maps}
-                                convergentTimeMinutes={convergent_time_minutes}
-                                desensitizeRemarks={ui_desensitize_remarks}
-                                providerForcePercent={provider_force_percent}
-                            />
+                            <div className="overview-row">
+                                <UpcomingResetBanner
+                                    items={upcomingItems}
+                                    onSelectProvider={
+                                        is_live ? select_provider_from_upcoming : () => undefined
+                                    }
+                                    desensitizeRemarks={ui_desensitize_remarks}
+                                />
+                                <ProviderOverview
+                                    groups={providerGroups}
+                                    visibleProviders={orderedProviders}
+                                    providerErrors={providerErrors}
+                                    onRefreshProvider={is_live ? refreshProvider : () => undefined}
+                                    expandedProviders={is_live ? expanded_providers : undefined}
+                                    onToggleExpandProvider={
+                                        is_live ? toggle_expand_provider : undefined
+                                    }
+                                    onReLogin={
+                                        is_live
+                                            ? (p) => {
+                                                  void handle_re_login(p);
+                                              }
+                                            : undefined
+                                    }
+                                    draggingProvider={is_live ? drag_id : null}
+                                    overProvider={is_live ? over_id : null}
+                                    onDragStart={is_live ? handle_drag_start : undefined}
+                                    onDragEnter={is_live ? handle_drag_enter : undefined}
+                                    onDragOver={is_live ? handle_drag_over : undefined}
+                                    onDragEnd={is_live ? handle_drag_end : undefined}
+                                    refreshingProviders={is_live ? refresh_providers : undefined}
+                                    barColorScheme={usage_bar_color_scheme}
+                                    barStyle={usage_bar_style}
+                                    providerLabelMaps={provider_label_maps}
+                                    accountLabelMaps={account_label_maps}
+                                    convergentTimeMinutes={convergent_time_minutes}
+                                    desensitizeRemarks={ui_desensitize_remarks}
+                                    providerForcePercent={provider_force_percent}
+                                />
+                                <UpcomingResetRail
+                                    items={upcomingItems}
+                                    onSelectProvider={
+                                        is_live ? select_provider_from_upcoming : () => undefined
+                                    }
+                                    desensitizeRemarks={ui_desensitize_remarks}
+                                />
+                            </div>
                         )}
 
                         {!loading &&

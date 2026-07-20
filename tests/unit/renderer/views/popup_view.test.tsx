@@ -1029,4 +1029,110 @@ describe("PopupView", () => {
         const saved = (last_call[0] as Record<string, unknown>)["collapsedAccounts"];
         expect(saved).toEqual({ "cpa-main|label|Claude Account": true });
     });
+
+    it("scrolls .scroll back to top when an upcoming-reset row is clicked", async () => {
+        const future = Date.now() + 3 * 24 * 60 * 60 * 1000;
+        plugin_list.mockResolvedValue([
+            connectorInfo({
+                source: "gateway",
+                sourceInstanceId: "cpa-main",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        {
+                            id: "claude-pro",
+                            provider: "claude",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "claude-account",
+                            accountLabel: "Claude Account",
+                            raw_label: "claude-pro",
+                            normalized_label: "Claude Pro",
+                            used: 10,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: future,
+                            observedAt: 1735689600000,
+                            stale: false,
+                            status: "normal",
+                        },
+                    ],
+                },
+            }),
+        ]);
+
+        const scroll_spy = vi.fn();
+        // eslint-disable-next-line @typescript-eslint/unbound-method -- spy 保存原方法引用以便 finally restore
+        const original_scroll_to = HTMLElement.prototype.scrollTo;
+        HTMLElement.prototype.scrollTo = scroll_spy;
+        try {
+            render(<PopupView />);
+
+            const rows = await screen.findAllByRole("button", { name: /切换到 claude/i });
+            expect(rows.length).toBeGreaterThan(0);
+            fireEvent.click(rows[0]);
+
+            await waitFor(() => {
+                expect(scroll_spy).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+            });
+        } finally {
+            HTMLElement.prototype.scrollTo = original_scroll_to;
+        }
+    });
+
+    it("mounts overview-row + Banner + Rail and derives upcomingItems from providerGroups", async () => {
+        const future = Date.now() + 3 * 24 * 60 * 60 * 1000;
+        plugin_list.mockResolvedValue([
+            connectorInfo({
+                source: "gateway",
+                sourceInstanceId: "cpa-main",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        {
+                            id: "claude-pro",
+                            provider: "claude",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "claude-account",
+                            accountLabel: "Claude Account",
+                            raw_label: "claude-pro",
+                            normalized_label: "Claude Pro",
+                            used: 10,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: future,
+                            observedAt: 1735689600000,
+                            stale: false,
+                            status: "normal",
+                        },
+                    ],
+                },
+            }),
+        ]);
+
+        render(<PopupView />);
+
+        // wait for provider tabs to render (signals providerGroups computed)
+        await screen.findByRole("button", { name: /^Claude$/ });
+
+        // Assembly: overview-row wraps overview-grid + Banner + Rail in the live tree.
+        // Mirror trees also render these classes; assert at least the live count.
+        await waitFor(() => {
+            expect(document.querySelectorAll(".overview-row").length).toBeGreaterThan(0);
+            expect(document.querySelectorAll(".upcoming-banner").length).toBeGreaterThan(0);
+            expect(document.querySelectorAll(".upcoming-rail").length).toBeGreaterThan(0);
+        });
+
+        // upcomingItems derived from providerGroups: rail renders the row text in live tree.
+        const live_overview = document.querySelector(".window:not(.popup-mirror) .overview-row");
+        expect(live_overview?.querySelector(".ur-rail, .upcoming-rail")).not.toBeNull();
+        expect(live_overview?.querySelector(".upcoming-banner")).not.toBeNull();
+    });
 });

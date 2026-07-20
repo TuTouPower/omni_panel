@@ -364,6 +364,165 @@ html[data-window="tray"] #root {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+
+/* T005 overview-row: rail + grid + (sticky rail at >=1024px) */
+.overview-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    align-items: start;
+}
+.overview-row > .overview-grid {
+    grid-column: 1;
+    min-width: 0;
+}
+.overview-row > .upcoming-rail {
+    display: none; /* shown only at >=1024px below */
+}
+.overview-row > .upcoming-banner {
+    grid-column: 1;
+}
+@container (min-width: 1024px) {
+    .overview-row {
+        grid-template-columns: minmax(0, 1fr) 264px;
+    }
+    .overview-row > .overview-grid {
+        grid-column: 1;
+    }
+    .overview-row > .upcoming-rail {
+        display: block;
+        grid-column: 2;
+        position: sticky;
+        top: 0;
+        align-self: start;
+        /* 40px offsets the outer .scroll vertical padding (12px top + 8px bottom = 20px)
+           plus the .scroll-inner gap to the viewport top, so the rail's own
+           scroll area aligns with the visible viewport rather than clipping. */
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(120, 130, 150, 0.3) transparent;
+    }
+    .overview-row > .upcoming-rail::-webkit-scrollbar {
+        width: 6px;
+    }
+    .overview-row > .upcoming-rail::-webkit-scrollbar-thumb {
+        background: rgba(120, 130, 150, 0.26);
+        border-radius: 5px;
+    }
+    .overview-row > .upcoming-banner {
+        display: none; /* rail takes over at wide widths */
+    }
+}
+
+/* Shared upcoming reset row + list styles */
+.upcoming-rail {
+    background: var(--card-bg);
+    border: 0.5px solid var(--card-border);
+    border-radius: 14px;
+    box-shadow: var(--card-shadow);
+    padding: 12px 12px 8px;
+}
+.upcoming-rail .ur-title {
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    padding: 0 2px 8px;
+    border-bottom: 0.5px solid var(--hairline);
+    margin-bottom: 6px;
+}
+.ur-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.ur-empty {
+    padding: 16px 8px 10px;
+    font-size: 12.5px;
+    color: var(--text-3);
+    text-align: center;
+}
+.ur-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px;
+    border: 0;
+    background: transparent;
+    border-radius: 9px;
+    cursor: default;
+    text-align: left;
+    font-family: inherit;
+    transition: background 0.12s;
+}
+.ur-row:hover {
+    background: var(--iconbtn-hov);
+}
+.ur-row .vicon {
+    flex-shrink: 0;
+}
+.ur-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.ur-account {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.ur-acct-label {
+    font-size: 12px;
+    color: var(--text-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
+}
+.ur-metric {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
+}
+.ur-reset {
+    font-size: 11.5px;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.ur-pct {
+    font-size: 12.5px;
+    font-weight: 650;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+.ur-banner-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ur-banner-head .ur-count {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-3);
+    background: var(--chip-bg);
+    padding: 2px 8px;
+    border-radius: 99px;
+}
+.upcoming-banner .ur-list {
+    padding: 8px 4px 4px;
+}
 .provider-account-list {
     display: flex;
     flex-direction: column;
