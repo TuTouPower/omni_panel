@@ -63,9 +63,11 @@ test.describe("settings provider accounts (electron 专属)", () => {
         let sPage = settings.page;
 
         await sPage.getByTestId("settings-plugin-nav-accounts").click();
-        const deepseek_row = sPage.locator(".accent-row").filter({ hasText: "SettingsDeepSeek" });
-        await expect(deepseek_row).toBeVisible();
-        await deepseek_row.getByTitle("编辑").click();
+        const deepseek_edit = sPage
+            .locator(":scope")
+            .filter({ hasText: "DeepSeek" })
+            .getByTitle("编辑");
+        await deepseek_edit.first().click();
 
         const api_key_input = sPage.getByLabel("API 密钥");
         await expect(api_key_input).toBeVisible();
@@ -84,9 +86,11 @@ test.describe("settings provider accounts (electron 专属)", () => {
         sPage = settings.page;
 
         await sPage.getByTestId("settings-plugin-nav-accounts").click();
-        const deepseek_row2 = sPage.locator(".accent-row").filter({ hasText: "SettingsDeepSeek" });
-        await expect(deepseek_row2).toBeVisible();
-        await deepseek_row2.getByTitle("编辑").click();
+        const deepseek_edit2 = sPage
+            .locator(":scope")
+            .filter({ hasText: "DeepSeek" })
+            .getByTitle("编辑");
+        await deepseek_edit2.first().click();
 
         await expect(sPage.getByLabel("API 密钥")).toHaveValue("sk-e2e-secret");
         await expect(sPage.getByLabel("API 密钥")).toHaveAttribute("type", "password");
