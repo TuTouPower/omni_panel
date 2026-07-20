@@ -4,6 +4,10 @@ import { createTestWithSetup } from "../fixtures/test_with_setup";
 import { seed_fake_plugin } from "../fixtures/seeded_plugin";
 import { SettingsPage } from "../pages/settings_page";
 
+/**
+ * Electron 专属：settings secret restart 持久化（web 无 restart 能力）。
+ * about logo/version + accounts DOM 已迁 web/settings_provider_accounts.spec.ts。
+ */
 const { test, expect } = createTestWithSetup({
     setupPlugins: (userDataDir: string) => {
         const plugin_path = seed_fake_plugin(join(userDataDir, "plugins"), {
@@ -50,19 +54,7 @@ const { test, expect } = createTestWithSetup({
     },
 });
 
-test.describe("settings provider accounts", () => {
-    test("accounts page shows seeded provider group and account actions", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        const settings = await SettingsPage.openViaIpc(omni.app, page);
-        const sPage = settings.page;
-
-        await sPage.getByTestId("settings-plugin-nav-accounts").click();
-
-        const deepseek_row = sPage.locator(".ao-item").filter({ hasText: "SettingsDeepSeek" });
-        await expect(deepseek_row).toBeVisible();
-        await expect(deepseek_row.getByTitle("编辑")).toBeVisible();
-    });
-
+test.describe("settings provider accounts (electron 专属)", () => {
     test("settings save persists secrets through restart without writing plaintext config", async ({
         omni,
     }) => {
@@ -71,7 +63,7 @@ test.describe("settings provider accounts", () => {
         let sPage = settings.page;
 
         await sPage.getByTestId("settings-plugin-nav-accounts").click();
-        let deepseek_row = sPage.locator(".ao-item").filter({ hasText: "SettingsDeepSeek" });
+        const deepseek_row = sPage.locator(".accent-row").filter({ hasText: "SettingsDeepSeek" });
         await expect(deepseek_row).toBeVisible();
         await deepseek_row.getByTitle("编辑").click();
 
@@ -92,33 +84,11 @@ test.describe("settings provider accounts", () => {
         sPage = settings.page;
 
         await sPage.getByTestId("settings-plugin-nav-accounts").click();
-        deepseek_row = sPage.locator(".ao-item").filter({ hasText: "SettingsDeepSeek" });
-        await expect(deepseek_row).toBeVisible();
-        await deepseek_row.getByTitle("编辑").click();
+        const deepseek_row2 = sPage.locator(".accent-row").filter({ hasText: "SettingsDeepSeek" });
+        await expect(deepseek_row2).toBeVisible();
+        await deepseek_row2.getByTitle("编辑").click();
 
         await expect(sPage.getByLabel("API 密钥")).toHaveValue("sk-e2e-secret");
         await expect(sPage.getByLabel("API 密钥")).toHaveAttribute("type", "password");
-    });
-
-    test("about page shows real logo", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        const settings = await SettingsPage.openViaIpc(omni.app, page);
-        const sPage = settings.page;
-
-        await sPage.getByTestId("settings-plugin-nav-about").click();
-
-        const logo = sPage.locator(".aa-logo");
-        await expect(logo).toBeVisible();
-        await expect(logo).toHaveAttribute("src", /logo/);
-    });
-
-    test("about page shows version text", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        const settings = await SettingsPage.openViaIpc(omni.app, page);
-        const sPage = settings.page;
-
-        await sPage.getByTestId("settings-plugin-nav-about").click();
-
-        await expect(sPage.locator(".aa-ver")).toContainText(/版本 \d+\.\d+\.\d+/);
     });
 });
