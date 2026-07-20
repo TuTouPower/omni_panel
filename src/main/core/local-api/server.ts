@@ -6,6 +6,7 @@ import { createLogger } from "../../../shared/lib/logger";
 import { observation_ingest_schema } from "../../../shared/schemas/observation";
 import type { Observation } from "../../../shared/types/observation";
 import type { ObservationStore } from "../observation/observation-store";
+import { build_trend_series, type TrendPoint } from "../../../shared/lib/trend";
 import type { TokenStatsStore } from "../token-stats/token-stats-store";
 import {
     handleConfigGet,
@@ -229,6 +230,9 @@ export function create_local_api_server(
             if (is_get && token_stats_store && handle_web_read(url, res, token_stats_store)) {
                 return;
             }
+            if (is_get && handle_web_trend(url, res, observation_store)) {
+                return;
+            }
             if (config_deps && (await handle_web_config(req, res, url, config_deps))) {
                 return;
             }
@@ -301,6 +305,28 @@ export function create_local_api_server(
             default:
                 return false;
         }
+    }
+
+    function handle_web_trend(url: URL, res: ServerResponse, store: ObservationStore): boolean {
+        if (url.pathname !== "/v1/trend") return false;
+        const provider = url.searchParams.get("provider");
+        const accountId = url.searchParams.get("accountId");
+        const metricId = url.searchParams.get("metricId");
+        const days_raw = url.searchParams.get("days");
+        if (!provider || !accountId || !metricId) {
+            json_response(res, 400, {
+                error: "provider, accountId, metricId are required",
+            });
+            return true;
+        }
+        const days =
+            days_raw !== null && Number.isFinite(Number(days_raw)) && Number(days_raw) > 0
+                ? Math.floor(Number(days_raw))
+                : 7;
+        const records = store.query_trend_series(provider, accountId, metricId, days);
+        const series: (TrendPoint | null)[] = build_trend_series(records);
+        json_response(res, 200, series);
+        return true;
     }
 
     async function handle_web_config(

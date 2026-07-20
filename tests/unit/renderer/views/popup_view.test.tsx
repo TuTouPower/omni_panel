@@ -199,6 +199,7 @@ describe("PopupView", () => {
                 getStatus: vi.fn().mockResolvedValue({ running: false, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
             },
+            trend: { get: vi.fn().mockResolvedValue([]) },
             logs: { export: vi.fn() },
             log: usage_log,
         };
@@ -1073,7 +1074,9 @@ describe("PopupView", () => {
 
             const rows = await screen.findAllByRole("button", { name: /切换到 claude/i });
             expect(rows.length).toBeGreaterThan(0);
-            fireEvent.click(rows[0]);
+            const first_row = rows[0];
+            if (!first_row) throw new Error("expected at least one provider row");
+            fireEvent.click(first_row);
 
             await waitFor(() => {
                 expect(scroll_spy).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });

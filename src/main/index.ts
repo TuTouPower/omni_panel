@@ -50,6 +50,7 @@ import { registerEventIpc } from "./ipc/event-ipc";
 import { registerAuthIpc, handleCookieLogin, trySilentCookieRefresh } from "./ipc/auth-ipc";
 import { registerGrokAuthIpc } from "./ipc/grok_auth_ipc";
 import { registerTokenStatsIpc } from "./ipc/token-stats-ipc";
+import { registerTrendIpc } from "./ipc/trend-ipc";
 import { create_token_stats_store } from "./core/token-stats/token-stats-store";
 import { create_token_stats_manager } from "./core/token-stats/manager";
 import { create_local_api_server } from "./core/local-api/server";
@@ -292,6 +293,7 @@ void app.whenReady().then(async () => {
             definitions: allDefinitions,
         });
         registerTokenStatsIpc(ipcMain, { store: tokenStatsStore, manager: tokenStatsManager });
+        registerTrendIpc(ipcMain, { store: observationStore });
         const onConfigSaved = (updatedConfig: AppConfiguration): void => {
             const previousConfig = currentConfigSnapshot;
             currentConfigSnapshot = updatedConfig;

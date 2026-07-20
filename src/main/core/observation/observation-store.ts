@@ -13,6 +13,20 @@ export interface ObservationStore {
     list_latest_by_provider(provider: string): Observation[];
     list_all_providers(): string[];
     list_by_source_instance_id(source_instance_id: string): Observation[];
+    /**
+     * 取最近 `days` 天内、按天分桶的最新一条观测,每天最多 1 条。
+     * 返回长度 = `days`,从最早到最新升序;缺失日期填 null。
+     *
+     * 使用 `idx_trend(provider, account_id, metric_id, observed_at)` 覆盖
+     * 范围扫描;同一 (provider, account_id, metric_id) 下不同 source_instance_id
+     * 的观测会合并到同一日期桶,取 observed_at 最大的一条。
+     */
+    query_trend_series(
+        provider: string,
+        account_id: string,
+        metric_id: string,
+        days: number,
+    ): (Observation | null)[];
     prune(older_than_ms: number): number;
     close(): void;
 }
@@ -43,6 +57,11 @@ CREATE TABLE IF NOT EXISTS observations (
 
 CREATE INDEX IF NOT EXISTS idx_lookup
     ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
+
+-- Sparkline 趋势查询:WHERE provider/account_id/metric_id + observed_at>=? 范围扫描。
+-- idx_lookup 因 metric_id 后还挂 source_instance_id,在 observed_at 之前,无法覆盖此范围。
+CREATE INDEX IF NOT EXISTS idx_trend
+    ON observations(provider, account_id, metric_id, observed_at);
 `;
 
 const LABEL_COLUMNS = ["raw_label", "normalized_label", "display_label"] as const;
@@ -161,6 +180,14 @@ export function create_observation_store(db_path: string): ObservationStore {
             "))",
     );
 
+    // Sparkline: per-day latest observation within (now-days, now].
+    // Group by UTC day (observed_at / 86400000), keep max observed_at per day.
+    const query_trend_stmt = db.prepare(`
+        SELECT * FROM observations
+        WHERE provider = ? AND account_id = ? AND metric_id = ? AND observed_at >= ?
+        ORDER BY observed_at ASC
+    `);
+
     return {
         insert(obs: Observation): void {
             insert_stmt.run({
@@ -205,6 +232,38 @@ export function create_observation_store(db_path: string): ObservationStore {
         list_by_source_instance_id(source_instance_id: string) {
             const rows = list_by_instance_stmt.all(source_instance_id) as Record<string, unknown>[];
             return rows.map(row_to_observation);
+        },
+
+        query_trend_series(provider, account_id, metric_id, days) {
+            if (days <= 0) return [];
+            const now = Date.now();
+            const day_ms = 24 * 60 * 60 * 1000;
+            const start_ms = now - days * day_ms;
+            const rows = query_trend_stmt.all(provider, account_id, metric_id, start_ms) as Record<
+                string,
+                unknown
+            >[];
+
+            // Bucket by UTC day, keep latest observed_at per day.
+            // Map key: days-since-epoch (floor(observed_at / day_ms)).
+            const daily = new Map<number, Observation>();
+            for (const row of rows) {
+                const obs = row_to_observation(row);
+                const bucket = Math.floor(obs.observed_at / day_ms);
+                const prev = daily.get(bucket);
+                if (!prev || obs.observed_at > prev.observed_at) {
+                    daily.set(bucket, obs);
+                }
+            }
+
+            // Build series: days points ending at today's UTC bucket, ascending.
+            const today_bucket = Math.floor(now / day_ms);
+            const result: (Observation | null)[] = [];
+            for (let i = days - 1; i >= 0; i--) {
+                const bucket = today_bucket - i;
+                result.push(daily.get(bucket) ?? null);
+            }
+            return result;
         },
 
         prune(older_than_ms) {

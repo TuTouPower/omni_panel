@@ -97,6 +97,9 @@ export const IPC_CHANNELS = {
 
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
+
+    /** Sparkline trend:近 N 天某 metric 的走势(默认 7 天)。 */
+    TREND_GET: "trend:get",
 } as const;
 
 export interface PopupContentHeightReport {
@@ -200,6 +203,29 @@ export interface GrokLoginStatus {
 export interface GrokRefreshResult {
     readonly success: boolean;
     readonly error?: string;
+}
+
+/** 单个走势点:UTC 日期 + 已用百分比(0–100)。 */
+export interface TrendPoint {
+    readonly date: string;
+    readonly percent: number;
+}
+
+/**
+ * 账号展开区 sparkline 查询接口。
+ *
+ * - `get(provider, accountId, metricId, days?)` 返回长度 = `days`(默认 7)
+ *   的 `({date, percent} | null)[]` 数组;缺失日期填 null。
+ * - 每 metric 一条 sparkline,不跨 metric 合并。
+ * - 走 IPC 白名单;renderer 不直连 SQLite。
+ */
+export interface TrendApi {
+    get(
+        provider: string,
+        accountId: string,
+        metricId: string,
+        days?: number,
+    ): Promise<(TrendPoint | null)[]>;
 }
 
 export type RendererLogLevel = "debug" | "info" | "warn" | "error";
@@ -351,4 +377,5 @@ export interface UsageboardApi {
         getStatus(): Promise<TokenStatsStatus>;
         onUpdated(callback: () => void): () => void;
     };
+    trend: TrendApi;
 }

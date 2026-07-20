@@ -136,6 +136,19 @@ export function create_web_usageboard(): UsageboardApi {
                 };
             },
         },
+        trend: {
+            get: (provider: string, accountId: string, metricId: string, days?: number) => {
+                const params = new URLSearchParams({
+                    provider,
+                    accountId,
+                    metricId,
+                });
+                if (days !== undefined) params.set("days", String(days));
+                return get_json(`/v1/trend?${params.toString()}`) as Promise<
+                    ({ date: string; percent: number } | null)[]
+                >;
+            },
+        },
     };
     return api as unknown as UsageboardApi;
 }

@@ -161,6 +161,9 @@ function createMockApi() {
         theme: {
             set: vi.fn(),
         },
+        trend: {
+            get: vi.fn().mockResolvedValue([]),
+        },
         log: vi.fn(),
         popup: {
             report_content_height: vi.fn(),

@@ -186,4 +186,80 @@ describe("observation-store", () => {
             s.close();
         }
     });
+
+    describe("query_trend_series", () => {
+        it("returns `days` points with null fill for missing days", () => {
+            const now = Date.now();
+            const day_ms = 24 * 60 * 60 * 1000;
+            store.insert(make_observation({ observed_at: now }));
+            store.insert(make_observation({ observed_at: now - 3 * day_ms }));
+            store.insert(make_observation({ observed_at: now - 6 * day_ms }));
+
+            const series = store.query_trend_series("tavily", "default", "tavily:monthly_usage", 7);
+            expect(series).toHaveLength(7);
+            // Buckets: [6 days ago, 5, 4, 3, 2, 1, today]. Only 0, 3, 6 have data.
+            expect(series[0]).not.toBeNull();
+            expect(series[1]).toBeNull();
+            expect(series[2]).toBeNull();
+            expect(series[3]).not.toBeNull();
+            expect(series[4]).toBeNull();
+            expect(series[5]).toBeNull();
+            expect(series[6]).not.toBeNull();
+        });
+
+        it("keeps the latest observation per day when multiple rows hit the same bucket", () => {
+            const now = Date.now();
+            const two_hours_ms = 2 * 60 * 60 * 1000;
+            store.insert(
+                make_observation({ observed_at: now - two_hours_ms, used: 100, limit: 1000 }),
+            );
+            store.insert(make_observation({ observed_at: now, used: 500, limit: 1000 }));
+
+            const series = store.query_trend_series("tavily", "default", "tavily:monthly_usage", 7);
+            expect(series).toHaveLength(7);
+            const today = series[6];
+            expect(today).not.toBeNull();
+            expect(today?.used).toBe(500);
+            expect(today?.limit).toBe(1000);
+        });
+
+        it("returns all-null series for unknown key", () => {
+            const series = store.query_trend_series("nope", "nope", "nope", 7);
+            expect(series).toHaveLength(7);
+            for (const point of series) {
+                expect(point).toBeNull();
+            }
+        });
+
+        it("returns [] when days<=0", () => {
+            expect(
+                store.query_trend_series("tavily", "default", "tavily:monthly_usage", 0),
+            ).toEqual([]);
+        });
+
+        it("uses idx_trend index for the range scan", () => {
+            // Seed 1 observation so the planner has statistics — empty-table plans
+            // can drift across SQLite versions or after ANALYZE.
+            store.insert(make_observation({ observed_at: Date.now() }));
+            // EXPLAIN QUERY PLAN must reference idx_trend — otherwise the schema
+            // optimization regressed and the query goes through idx_lookup or a
+            // full table scan. Word boundary `\b` rejects future siblings like
+            // `idx_trend_v2`.
+            const check = new Database(join(temp_dir, "test.db"));
+            try {
+                const plan = check
+                    .prepare(
+                        "EXPLAIN QUERY PLAN SELECT * FROM observations " +
+                            "WHERE provider = ? AND account_id = ? AND metric_id = ? AND observed_at >= ? " +
+                            "ORDER BY observed_at ASC",
+                    )
+                    .all("p", "a", "m", 0) as { detail: string }[];
+                const details = plan.map((row) => row.detail).join("\n");
+                expect(details).toMatch(/USING INDEX idx_trend\b/);
+                expect(details).not.toContain("idx_lookup");
+            } finally {
+                check.close();
+            }
+        });
+    });
 });

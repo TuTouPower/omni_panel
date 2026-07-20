@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { select_grok_api } from "../../../src/preload/route_api";
-import type { GrokReadonlyApi, GrokSettingsApi } from "../../../src/shared/types/ipc";
+import { select_grok_api, select_trend_api } from "../../../src/preload/route_api";
+import type { GrokReadonlyApi, GrokSettingsApi, TrendApi } from "../../../src/shared/types/ipc";
 
 function create_grok_apis(): {
     readonly readonly_api: GrokReadonlyApi;
@@ -46,4 +46,38 @@ describe("select_grok_api", () => {
             expect(Object.keys(api)).toEqual(["login_status"]);
         },
     );
+});
+
+describe("select_trend_api", () => {
+    function create_trend_apis(): {
+        readonly full_api: TrendApi;
+        readonly disabled_api: TrendApi;
+    } {
+        const full_api: TrendApi = {
+            get: vi.fn().mockResolvedValue([]),
+        };
+        const disabled_api: TrendApi = {
+            get: vi.fn().mockResolvedValue([]),
+        };
+        return { full_api, disabled_api };
+    }
+
+    it.each(["usage", "agent", "unknown"])("exposes full trend API to %s route", (route) => {
+        const { full_api, disabled_api } = create_trend_apis();
+
+        const api = select_trend_api(route, full_api, disabled_api);
+
+        expect(api).toBe(full_api);
+    });
+
+    it.each(["setting", "tray"])("exposes disabled trend API to %s route", async (route) => {
+        const { full_api, disabled_api } = create_trend_apis();
+
+        const api = select_trend_api(route, full_api, disabled_api);
+
+        expect(api).toBe(disabled_api);
+        // Lock the noop contract: disabled routes resolve to [] without throwing,
+        // so setting/tray never see real trend data nor break on the IPC call.
+        await expect(api.get("any", "any", "any")).resolves.toEqual([]);
+    });
 });

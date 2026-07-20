@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProviderAccountRow } from "../../../../src/renderer/components/ProviderAccountRow";
@@ -85,5 +85,105 @@ describe("ProviderAccountRow", () => {
         const { container } = render(<ProviderAccountRow account={account} />);
         expect(container.querySelector(".card")).toBeInTheDocument();
         expect(container.querySelector(".card--critical")).not.toBeInTheDocument();
+    });
+
+    describe("trend sparkline integration", () => {
+        it("fetches trend data on expand and renders sparkline", async () => {
+            const trend_get = vi.fn().mockResolvedValue([
+                { date: "2026-07-14", percent: 10 },
+                { date: "2026-07-15", percent: 20 },
+                { date: "2026-07-16", percent: 30 },
+            ]);
+            window.usageboard.trend = { get: trend_get };
+            const account = make_account();
+            const { container } = render(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={false}
+                    onToggleCollapsed={() => undefined}
+                />,
+            );
+            await waitFor(() => {
+                expect(container.querySelector(".trend-svg")).toBeInTheDocument();
+            });
+            expect(trend_get).toHaveBeenCalledTimes(1);
+            expect(trend_get).toHaveBeenCalledWith("claude", "auth-a", "claude-a-5h");
+            expect(container.querySelector(".trend-sparkline-empty")).not.toBeInTheDocument();
+        });
+
+        it("does not re-fetch on collapse/re-expand (cache hit)", async () => {
+            const trend_get = vi.fn().mockResolvedValue([
+                { date: "2026-07-14", percent: 10 },
+                { date: "2026-07-15", percent: 20 },
+            ]);
+            window.usageboard.trend = { get: trend_get };
+            const account = make_account();
+            const { container, rerender } = render(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={false}
+                    onToggleCollapsed={() => undefined}
+                />,
+            );
+            await waitFor(() => {
+                expect(trend_get).toHaveBeenCalledTimes(1);
+            });
+            // Collapse.
+            rerender(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={true}
+                    onToggleCollapsed={() => undefined}
+                />,
+            );
+            // Re-expand - cache should hit, no new IPC call.
+            rerender(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={false}
+                    onToggleCollapsed={() => undefined}
+                />,
+            );
+            await waitFor(() => {
+                expect(container.querySelector(".trend-svg")).toBeInTheDocument();
+            });
+            expect(trend_get).toHaveBeenCalledTimes(1);
+        });
+
+        it("shows placeholder and does not cache when trend.get rejects", async () => {
+            const trend_get = vi.fn().mockRejectedValue(new Error("IPC failed"));
+            window.usageboard.trend = { get: trend_get };
+            const account = make_account();
+            const { container, rerender } = render(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={false}
+                    onToggleCollapsed={() => undefined}
+                />,
+            );
+            await waitFor(() => {
+                expect(trend_get).toHaveBeenCalledTimes(1);
+            });
+            // Failure branch: placeholder shown, not cached.
+            expect(container.querySelector(".trend-sparkline-empty")).toBeInTheDocument();
+            // Collapse and re-expand - without cache, trend.get is called again.
+            rerender(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={true}
+                    onToggleCollapsed={() => undefined}
+                />,
+            );
+            rerender(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={false}
+                    onToggleCollapsed={() => undefined}
+                />,
+            );
+            await waitFor(() => {
+                expect(trend_get).toHaveBeenCalledTimes(2);
+            });
+        });
     });
 });

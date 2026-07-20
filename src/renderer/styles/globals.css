@@ -689,6 +689,28 @@ html[data-window="tray"] #root {
     flex-direction: column;
     gap: 9px;
 }
+
+/* Trend sparkline — 近 7 天走势(账号展开区) */
+.trend-sparkline {
+    margin-top: 10px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: stretch;
+}
+.trend-sparkline-empty {
+    justify-content: flex-start;
+}
+.trend-sparkline-placeholder {
+    font-size: 11px;
+    color: var(--text-3);
+    padding: 6px 2px;
+}
+.trend-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
 .bar-row {
     display: grid;
     grid-template-columns: 4ic minmax(0, 1fr) 5ch 5ch 5ch;

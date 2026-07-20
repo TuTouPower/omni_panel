@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_renderer_log_throttle } from "./log-throttle";
-import { select_grok_api } from "./route_api";
+import { select_grok_api, select_trend_api } from "./route_api";
 import type {
     UsageboardApi,
     ConnectorSnapshotDTO,
@@ -13,6 +13,7 @@ import type {
     GrokRefreshResult,
     GrokReadonlyApi,
     GrokSettingsApi,
+    TrendPoint,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
 import type { TokenStatsRecordFilters } from "../shared/types/token-stats";
@@ -125,6 +126,22 @@ const token_stats_methods = {
             ipcRenderer.removeListener(IPC_CHANNELS.TOKEN_STATS_UPDATED, listener);
         };
     },
+};
+
+// Sparkline trend: account expand 区域的近 7 天走势。usage/agent 消费;
+// setting/tray 路由会被 select_trend_api 替换为 noop 栈。
+const trend_full_methods = {
+    get: (
+        provider: string,
+        accountId: string,
+        metricId: string,
+        days?: number,
+    ): Promise<(TrendPoint | null)[]> =>
+        invoke<(TrendPoint | null)[]>(IPC_CHANNELS.TREND_GET, provider, accountId, metricId, days),
+};
+
+const trend_disabled_methods = {
+    get: (): Promise<(TrendPoint | null)[]> => Promise.resolve([]),
 };
 
 // Read-only config (popup, tray)
@@ -334,6 +351,7 @@ const logs_methods = {
 // Route-based API restriction: each window only gets the capabilities it needs.
 const current_route = window.location.hash.slice(1) || "usage";
 const route_grok_api = select_grok_api(current_route, grok_readonly_methods, grok_methods);
+const route_trend_api = select_trend_api(current_route, trend_full_methods, trend_disabled_methods);
 
 // Build route-specific API: each window only gets capabilities it needs
 const api: UsageboardApi = (() => {
@@ -356,6 +374,7 @@ const api: UsageboardApi = (() => {
                 logs: logs_methods,
                 log: log_method,
                 tokenStats: token_stats_methods,
+                trend: route_trend_api,
             };
         case "tray":
             return {
@@ -389,6 +408,7 @@ const api: UsageboardApi = (() => {
                 logs: logs_methods,
                 log: log_method,
                 tokenStats: token_stats_methods,
+                trend: route_trend_api,
             };
         default: // popup
             return {
@@ -418,6 +438,7 @@ const api: UsageboardApi = (() => {
                 logs: logs_methods,
                 log: log_method,
                 tokenStats: token_stats_methods,
+                trend: route_trend_api,
             };
     }
 })();

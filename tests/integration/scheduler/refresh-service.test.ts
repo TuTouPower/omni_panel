@@ -110,6 +110,7 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
         list_latest_by_provider: vi.fn(() => [] as Observation[]),
         list_all_providers: vi.fn(() => [] as string[]),
         list_by_source_instance_id: vi.fn(() => [] as Observation[]),
+        query_trend_series: vi.fn(() => [] as (Observation | null)[]),
         prune: vi.fn(() => 0),
         close: vi.fn(),
     };

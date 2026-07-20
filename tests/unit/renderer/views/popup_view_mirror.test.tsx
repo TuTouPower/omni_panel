@@ -131,6 +131,7 @@ describe("PopupView mirror isolation", () => {
                 getStatus: vi.fn().mockResolvedValue({ running: false, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
             },
+            trend: { get: vi.fn().mockResolvedValue([]) },
             logs: { export: vi.fn() },
             log: vi.fn(),
         };
