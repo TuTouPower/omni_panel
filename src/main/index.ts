@@ -44,6 +44,7 @@ import {
 import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
 import { init_global_network } from "./core/connector/net-client";
+import { build_csp_header } from "./security/csp";
 import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { registerEventIpc } from "./ipc/event-ipc";
@@ -119,22 +120,18 @@ void app.whenReady().then(async () => {
         // 全局连接池：每 origin 连接上限 + keepAlive 复用，消除并发 TLS 握手风暴
         init_global_network();
 
-        // Set CSP programmatically — allows Vite dev server in dev mode
+        // CSP programmatically. dev 放开 'unsafe-inline' 让 @vitejs/plugin-react 的
+        // React Refresh preamble（inline <script>）能注入；prod 保持最严格 'self'。
+        // 实现见 src/main/security/csp.ts（纯函数 + 单测，防回退）。
         const devServerUrl = process.env["ELECTRON_RENDERER_URL"];
         const devOrigin = devServerUrl ? new URL(devServerUrl).origin : null;
         const devHost = devServerUrl ? new URL(devServerUrl).host : null;
-        const cspScriptSrc = devOrigin ? `'self' ${devOrigin} 'unsafe-eval'` : "'self'";
-        // A15: scope dev WebSocket to the dev origin only, not ws: (any host).
-        const cspConnectSrc = devOrigin
-            ? `'self' ${devOrigin} ws://${devHost ?? "*"} wss://${devHost ?? "*"}`
-            : "'self'";
+        const csp_header = build_csp_header(devOrigin, devHost);
         session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
             callback({
                 responseHeaders: {
                     ...details.responseHeaders,
-                    "Content-Security-Policy": [
-                        `default-src 'self'; script-src ${cspScriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ${cspConnectSrc};`,
-                    ],
+                    "Content-Security-Policy": [csp_header],
                 },
             });
         });

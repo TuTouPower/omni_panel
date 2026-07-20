@@ -6,12 +6,13 @@
 - `done` 及曾 active 的 `dropped` 任务目录必须移入 `docs/archive/tasks/`。
 - owner 和 branch 表示当前归属；工作分支推荐 `task_tnnn_slug`。
 
-| ID   | 标题                                            | 状态 | owner  | branch                               | 备注                                    |
-| ---- | ----------------------------------------------- | ---- | ------ | ------------------------------------ | --------------------------------------- |
-| T001 | fix preload route 分权同步 usage/setting        | done | claude | main                                 | route 重构漏改 preload 层;代码已先实现  |
-| T002 | docs specs route 值同步代码 + 补 TokenStatsView | done | claude | main                                 | 依赖 T001 代码真相                      |
-| T003 | route 字面量收口 + route 值回归断言             | done | claude | main                                 | T001/T002 遗留合并(T001_f001/T002_f003) |
-| T004 | 容器查询响应式（usage 窗横屏自适应）            | done | claude | task_t004_responsive_container_query | 完结；视觉快照遗留                      |
-| T005 | 即将重置预警栏（rail + 横幅）                   | done | claude | task_t005_upcoming_reset_panel       | 完结;视觉/打包待人工签收                |
-| T006 | 近 7 天趋势 sparkline                           | done | claude | task_t006_trend_sparkline            | 完结;视觉/打包待人工签收                |
-| T007 | domain 趋势图政策修订（解锁 sparkline）         | done | claude | task_t007_domain_trend_policy        | 完结；纯文档；T006 前置                 |
+| ID   | 标题                                            | 状态 | owner  | branch                               | 备注                                          |
+| ---- | ----------------------------------------------- | ---- | ------ | ------------------------------------ | --------------------------------------------- |
+| T001 | fix preload route 分权同步 usage/setting        | done | claude | main                                 | route 重构漏改 preload 层;代码已先实现        |
+| T002 | docs specs route 值同步代码 + 补 TokenStatsView | done | claude | main                                 | 依赖 T001 代码真相                            |
+| T003 | route 字面量收口 + route 值回归断言             | done | claude | main                                 | T001/T002 遗留合并(T001_f001/T002_f003)       |
+| T004 | 容器查询响应式（usage 窗横屏自适应）            | done | claude | task_t004_responsive_container_query | 完结；视觉快照遗留                            |
+| T005 | 即将重置预警栏（rail + 横幅）                   | done | claude | task_t005_upcoming_reset_panel       | 完结;视觉/打包待人工签收                      |
+| T006 | 近 7 天趋势 sparkline                           | done | claude | task_t006_trend_sparkline            | 完结;视觉/打包待人工签收                      |
+| T007 | domain 趋势图政策修订（解锁 sparkline）         | done | claude | task_t007_domain_trend_policy        | 完结；纯文档；T006 前置                       |
+| T008 | dev CSP 放开 unsafe-inline 修复 renderer 黑屏   | done | claude | task_t008_csp_dev_unsafe_inline      | 完结;plugin-react preamble 被拦;抽纯函数+单测 |

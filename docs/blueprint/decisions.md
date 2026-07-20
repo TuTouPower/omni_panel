@@ -61,3 +61,10 @@
 - 选项：A) 新开 T007 先解除边界 + 记录决策，T006 实施；B) T006 单 task 内同时改 domain + 实施；C) 放弃 sparkline。
 - 结论：选 A（审阅 adoption D1=A 决策）。`domain.md §6` 改写为「完整多维趋势仍归 TokenStats 独立窗口；账号展开区出 sparkline」。符合「长期真相延后」「单 task 单 commit」硬约束。T006 实施时引用本条。
 - 替代：无（原边界追溯：`domain.md §6` 第一版 commit）
+
+## 006 dev CSP 放开 'unsafe-inline' 让 @vitejs/plugin-react preamble 能注入（2026-07-20）
+
+- 背景：`pnpm start`（electron-vite dev）启动后 renderer 全黑。带 `ELECTRON_ENABLE_LOGGING=true` 抓 console 看到 `@vitejs/plugin-react can't detect preamble`——plugin-react 注入的 React Refresh preamble 是 inline `<script type="module">`，被 dev CSP `script-src 'self' http://localhost:5173 'unsafe-eval'`（无 `'unsafe-inline'`）拦截，所有 `.tsx` 模块加载失败。打包版（prod CSP `'self'`、无 React Refresh）不受影响。
+- 选项：A) dev CSP `script-src` 加 `'unsafe-inline'`；B) 给 preamble 用 nonce/hash；C) 关闭 React Refresh（`@vitejs/plugin-react` 设 `fastRefresh:false`）。
+- 结论：选 A。dev 本地无攻击面，`'unsafe-inline'` 可接受；nonce/hash 需改 plugin-react 注入方式，成本高；关 fastRefresh 丢失 HMR 体验。prod CSP 严格不变（仍 `'self'`）。CSP 构造抽到 `src/main/security/csp.ts` 纯函数 + 单测覆盖 dev/prod 两路防回退。
+- 替代：无
