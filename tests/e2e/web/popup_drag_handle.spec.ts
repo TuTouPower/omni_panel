@@ -26,13 +26,13 @@ test.describe("popup drag handle (web)", () => {
         const cy = box.y + box.height / 2;
         await webPage.mouse.move(cx, cy);
         await webPage.mouse.down();
-        // native dragstart 需 mouse 在按住状态下移动若干像素
-        await webPage.mouse.move(cx + 20, cy + 20, { steps: 8 });
+        // native dragstart 需 mouse 在按住状态下移动若干像素（headless 时序敏感，多步 + 显式等待）
+        await webPage.mouse.move(cx + 25, cy + 25, { steps: 15 });
 
         const card = grip.locator(
             "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' card ')][1]",
         );
-        await expect(card).toHaveClass(/dragging/);
+        await expect(card).toHaveClass(/dragging/, { timeout: 5_000 });
 
         await webPage.mouse.up();
     });

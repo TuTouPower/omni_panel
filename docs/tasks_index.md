@@ -24,5 +24,5 @@
 | T014 | 修复 app 图标(render_icon 产 .ico + 重打包)              | done    | claude | task_t014_fix_app_icon_ico           | 完结;icon.ico 重生成;vision 确认 OmniUsage logo                              |
 | T015 | CI synthetic seed fixture(脱敏假账号入库供 CI web smoke) | done    | claude | task_t015_ci_synthetic_seed_fixture  | 完结;synthetic.json 入库;CI web smoke 21 passed                              |
 | T016 | seed_fake_plugin 类 9 spec 迁 web(改断言泛化)            | done    | claude | task_t016_migrate_seed_fake_specs    | 完结;迁 7 spec 37 passed;account_operations/plugin_failure_modes 留 electron |
-| T017 | settings_view + popup_token_panel 迁 web + 删重复        | backlog | claude | task_t017_migrate_settings_token     | 依赖 T010;无 Electron API 类                                                 |
+| T017 | settings_view + popup_token_panel 迁 web + 删重复        | done    | claude | task_t017_migrate_settings_token     | 完结;settings_view 拆迁;删 popup_theme 重复;drag flaky 修;41 passed          |
 | T018 | trend gen_fixture 多录(provider×account×metric)          | backlog | claude | task_t018_trend_fixture_multi        | T010 test_f002 遗留                                                          |

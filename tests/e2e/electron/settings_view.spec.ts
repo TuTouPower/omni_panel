@@ -3,66 +3,16 @@ import type { ElectronApplication, Page } from "@playwright/test";
 import { expect, test } from "../fixtures/test";
 import { SettingsPage } from "../pages/settings_page";
 
-test.describe("settings view", () => {
+/**
+ * Electron 专属 settings case：
+ * - accounts 页 config forms（依赖 `.acct-row` DOM，web SPA 无）
+ * - appearance 用量标签映射字段（web SPA 无）
+ * 其余 sidebar / appearance 颜色样式 case 已迁 web/settings_view.spec.ts。
+ */
+test.describe("settings view (electron 专属)", () => {
     async function navigateToSettings(app: ElectronApplication, page: Page) {
         return SettingsPage.openViaIpc(app, page);
     }
-
-    test("shows sidebar navigation", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
-        const settings = await navigateToSettings(omni.app, page);
-        await expect(settings.page.locator('[data-testid="settings-sidebar"]')).toBeVisible();
-    });
-
-    test("shows plugin navigation items", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
-        const settings = await navigateToSettings(omni.app, page);
-        const sidebar = settings.page.locator('[data-testid="settings-sidebar"]');
-        await expect(sidebar).toBeVisible();
-    });
-
-    test("changes usage bar color scheme from appearance settings", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
-        const settings = await navigateToSettings(omni.app, page);
-        const sPage = settings.page;
-
-        await sPage.locator('[data-testid="settings-plugin-nav-appearance"]').click();
-
-        await expect(sPage.getByText("用量条颜色方案")).toBeVisible();
-        await expect(sPage.getByRole("button", { name: /风险色：仅当前用量/ })).toBeVisible();
-        await expect(sPage.getByRole("button", { name: /风险色：带投影预测/ })).toBeVisible();
-        await expect(sPage.getByRole("button", { name: /彩色区分：九色循环/ })).toBeVisible();
-
-        await sPage.getByRole("button", { name: /彩色区分：九色循环/ }).click();
-        await expect(sPage.getByRole("button", { name: /彩色区分：九色循环/ })).toHaveClass(
-            /\bon\b/,
-        );
-    });
-
-    test("shows usage bar style buttons above color scheme", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
-        const settings = await navigateToSettings(omni.app, page);
-        const sPage = settings.page;
-
-        await sPage.locator('[data-testid="settings-plugin-nav-appearance"]').click();
-        const styleLabel = sPage.getByText("用量条样式");
-        const colorLabel = sPage.getByText("用量条颜色方案");
-        await expect(styleLabel).toBeVisible();
-        await expect(colorLabel).toBeVisible();
-        const styleBox = await styleLabel.boundingBox();
-        const colorBox = await colorLabel.boundingBox();
-        expect(styleBox?.y).toBeLessThan(colorBox?.y ?? 0);
-
-        const styleField = sPage.getByLabel("用量条样式");
-        await expect(styleField.getByRole("button", { name: "细线型" })).toBeVisible();
-        await expect(styleField.getByRole("button", { name: "粗胶囊型" })).toBeVisible();
-        await styleField.getByRole("button", { name: "粗胶囊型" }).click();
-        await expect(styleField.getByRole("button", { name: "粗胶囊型" })).toHaveClass(/\bon\b/);
-    });
 
     test("plugins with parameters show config forms in account edit dialog", async ({ omni }) => {
         const page = await omni.app.firstWindow();
@@ -71,7 +21,7 @@ test.describe("settings view", () => {
         const sPage = settings.page;
 
         await sPage.locator('[data-testid="settings-plugin-nav-accounts"]').click();
-        // Find the CPA connector row (e.g. "CPA · Claude"), not the provider group
+        // Find the CPA connector row (e.g. "CPA · Claude"), not the provider groups
         const cpaRow = sPage.locator(".acct-row").filter({ hasText: "CPA" }).first();
         await expect(cpaRow).toBeVisible();
         await cpaRow.locator('button[title="编辑"]').first().click();
