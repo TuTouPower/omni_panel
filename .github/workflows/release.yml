@@ -40,10 +40,10 @@ jobs:
             - run: pnpm install --frozen-lockfile
 
             - name: Build and package
-              # No GH_TOKEN env on purpose: disables electron-builder's
-              # auto-publish so we don't race the softprops step below
-              # (dual upload caused 422 already_exists on re-runs).
-              run: pnpm make:${{ matrix.platform }}
+              # --publish never: electron-builder defaults to onTagOrDraft and
+              # would try to upload (needing GH_TOKEN). We upload separately in
+              # the release job below to avoid dual-upload 422 collisions.
+              run: pnpm build && electron-builder --${{ matrix.platform }} --publish never
               env:
                   ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/"
 
