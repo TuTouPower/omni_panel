@@ -19,12 +19,12 @@ pnpm typecheck && pnpm lint && pnpm check
 
 ## 测试分层
 
-| 层级       | 目录                       | 框架             | 职责                                                                                      |
-| ---------- | -------------------------- | ---------------- | ----------------------------------------------------------------------------------------- |
-| 单元       | `tests/unit/`              | Vitest           | 纯函数、工具、schema 校验、parser、连接器解析逻辑                                         |
-| 集成       | `tests/integration/`       | Vitest           | Node 环境可真实运行的主进程模块（config/cache/scheduler/runtime/vault/observation-store） |
-| 用户 E2E   | `tests/user_e2e/`          | Playwright       | 真实 Electron 实例，模拟真实用户操作（`.spec.ts`）                                        |
-| 打包 smoke | `tests/user_e2e/packaged/` | Playwright + CDP | 验证 `artifacts/win-unpacked/OmniUsage.exe` 启动、渲染、发现内置连接器、popup 高度回归    |
+| 层级       | 目录                  | 框架             | 职责                                                                                      |
+| ---------- | --------------------- | ---------------- | ----------------------------------------------------------------------------------------- |
+| 单元       | `tests/unit/`         | Vitest           | 纯函数、工具、schema 校验、parser、连接器解析逻辑                                         |
+| 集成       | `tests/integration/`  | Vitest           | Node 环境可真实运行的主进程模块（config/cache/scheduler/runtime/vault/observation-store） |
+| 用户 E2E   | `tests/e2e/specs/`    | Playwright       | 真实 Electron 实例，模拟真实用户操作（`.spec.ts`）                                        |
+| 打包 smoke | `tests/e2e/packaged/` | Playwright + CDP | 验证 `artifacts/win-unpacked/OmniUsage.exe` 启动、渲染、发现内置连接器、popup 高度回归    |
 
 三层职责不重叠：
 
