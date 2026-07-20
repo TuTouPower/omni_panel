@@ -148,6 +148,14 @@ describe("connector-runtime", () => {
         expect(result.error).toBe("boom");
     });
 
+    it("returns error when script simulates crash (process.exit, undefined in sandbox)", async () => {
+        // vm sandbox 不注入 process；process.exit → ReferenceError → throw → error
+        // 覆盖 e2e seed_fake_plugin behavior=crash 的 process.exit(2) 场景
+        const script = `process.exit(2);`;
+        const result = await run_connector(poll_manifest, script, stub_ctx);
+        expect(result.error).toBeTruthy();
+    });
+
     it("returns error when script times out", async () => {
         const script = `while(true){}`;
         const result = await run_connector(poll_manifest, script, stub_ctx, 100);
