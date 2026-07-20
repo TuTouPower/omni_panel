@@ -338,6 +338,77 @@
                 ],
                 "updatedAt": "2026-07-20T20:21:39.963Z"
             }
+        },
+        {
+            "instanceId": "ca494b59-4983-4057-bcb6-63c4acfb7194",
+            "sourceInstanceId": "ca494b59-4983-4057-bcb6-63c4acfb7194",
+            "stateId": "ad078137-c08e-4969-b928-5957ac371629",
+            "name": "KIMI",
+            "displayName": "188",
+            "enabled": true,
+            "source": "poll",
+            "supportedProviders": ["kimi"],
+            "activeProviders": ["kimi"],
+            "metadata": {
+                "name": "kimi",
+                "parameters": [
+                    {
+                        "name": "API_KEY",
+                        "label": "API Key (sk-kimi-xxx from Kimi Code Console)",
+                        "type": "secret",
+                        "required": true,
+                        "label@zh-Hans": "API 密钥"
+                    }
+                ],
+                "endpoints": {
+                    "default": "https://api.kimi.com"
+                },
+                "supportedProviders": ["kimi"],
+                "defaultSource": "poll"
+            },
+            "snapshot": {
+                "status": "failed",
+                "error": "HTTP 401: request failed (236 bytes)",
+                "updatedAt": "2026-07-20T06:09:32.522Z",
+                "items": [
+                    {
+                        "id": "ca494b59-4983-4057-bcb6-63c4acfb7194:kimi:kimi:weekly",
+                        "provider": "kimi",
+                        "source": "poll",
+                        "sourceInstanceId": "ca494b59-4983-4057-bcb6-63c4acfb7194",
+                        "accountId": "kimi",
+                        "accountLabel": "Kimi",
+                        "raw_label": "weekly",
+                        "normalized_label": "一周",
+                        "used": 81,
+                        "limit": 100,
+                        "cycleDurationMs": 318995989,
+                        "displayStyle": "percent",
+                        "resetAt": 1784846768511,
+                        "status": "warning",
+                        "observedAt": 1784527772522,
+                        "stale": false
+                    },
+                    {
+                        "id": "ca494b59-4983-4057-bcb6-63c4acfb7194:kimi:kimi:five_hour",
+                        "provider": "kimi",
+                        "source": "poll",
+                        "sourceInstanceId": "ca494b59-4983-4057-bcb6-63c4acfb7194",
+                        "accountId": "kimi",
+                        "accountLabel": "Kimi",
+                        "raw_label": "five_hour",
+                        "normalized_label": "5小时",
+                        "used": 0,
+                        "limit": 100,
+                        "cycleDurationMs": 2195989,
+                        "displayStyle": "percent",
+                        "resetAt": 1784529968511,
+                        "status": "normal",
+                        "observedAt": 1784527772522,
+                        "stale": false
+                    }
+                ]
+            }
         }
     ],
     "GET /v1/connectors/c77fb063-2ea2-47c7-b638-2086656e8f47/state": {
@@ -1444,5 +1515,51 @@
     "GET /v1/status": {
         "running": true,
         "last_updated": 1784578007329
+    },
+    "GET /v1/connectors/ca494b59-4983-4057-bcb6-63c4acfb7194/state": {
+        "status": "failed",
+        "error": "HTTP 401: request failed (236 bytes)",
+        "updatedAt": "2026-07-20T06:09:32.522Z",
+        "items": [
+            {
+                "id": "ca494b59-4983-4057-bcb6-63c4acfb7194:kimi:kimi:weekly",
+                "provider": "kimi",
+                "source": "poll",
+                "sourceInstanceId": "ca494b59-4983-4057-bcb6-63c4acfb7194",
+                "accountId": "kimi",
+                "accountLabel": "Kimi",
+                "raw_label": "weekly",
+                "normalized_label": "一周",
+                "used": 81,
+                "limit": 100,
+                "cycleDurationMs": 318995989,
+                "displayStyle": "percent",
+                "resetAt": 1784846768511,
+                "status": "warning",
+                "observedAt": 1784527772522,
+                "stale": false
+            },
+            {
+                "id": "ca494b59-4983-4057-bcb6-63c4acfb7194:kimi:kimi:five_hour",
+                "provider": "kimi",
+                "source": "poll",
+                "sourceInstanceId": "ca494b59-4983-4057-bcb6-63c4acfb7194",
+                "accountId": "kimi",
+                "accountLabel": "Kimi",
+                "raw_label": "five_hour",
+                "normalized_label": "5小时",
+                "used": 0,
+                "limit": 100,
+                "cycleDurationMs": 2195989,
+                "displayStyle": "percent",
+                "resetAt": 1784529968511,
+                "status": "normal",
+                "observedAt": 1784527772522,
+                "stale": false
+            }
+        ]
+    },
+    "GET /v1/secrets?instanceId=ca494b59-4983-4057-bcb6-63c4acfb7194": {
+        "API_KEY": "***"
     }
 }

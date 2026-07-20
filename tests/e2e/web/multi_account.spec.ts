@@ -36,7 +36,7 @@ test.describe("multi-account display (web)", () => {
         // synthetic 无 KIMI connector -> skip（real fixture 锁定合并语义）
         const kimi_cards = live.locator(".card .card-name", { hasText: "Kimi" });
         if ((await kimi_cards.count()) === 0) {
-            test.skip(true, "fixture 无 KIMI connector（synthetic 无），跳过 dedup 强校验");
+            test.skip(true, "fixture 无 KIMI connector，跳过 dedup 强校验");
         }
         await expect(kimi_cards).toHaveCount(1);
     });

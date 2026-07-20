@@ -63,6 +63,21 @@ for (const [k, v] of Object.entries(resp)) {
 }
 if (resp["GET /v1/status"] !== undefined) out["GET /v1/status"] = resp["GET /v1/status"];
 
+// 加 real enabled+failed connector（web 测 failed/stale card；disabled 的不渲染）
+const real_connectors = resp["GET /v1/connectors"] || [];
+const failed_real = real_connectors.find(
+    (i) => i.enabled === true && i.snapshot?.status === "failed",
+);
+if (failed_real) {
+    const fp = failed_real.activeProviders?.[0];
+    const fid = failed_real.instanceId;
+    out["GET /v1/connectors"].push(redact(failed_real, fp, 3));
+    const fstateKey = `GET /v1/connectors/${fid}/state`;
+    if (resp[fstateKey] !== undefined) out[fstateKey] = redact(resp[fstateKey], fp, 3);
+    const fsecKey = `GET /v1/secrets?instanceId=${fid}`;
+    if (resp[fsecKey] !== undefined) out[fsecKey] = redact(resp[fsecKey], fp, 3);
+}
+
 writeFileSync(OUT, JSON.stringify(out, null, 2));
 console.log(`[gen_synthetic] wrote ${OUT} (${String(Object.keys(out).length)} responses)`);
 
