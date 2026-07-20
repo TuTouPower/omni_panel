@@ -14,30 +14,18 @@ permissions:
     contents: write
 
 jobs:
-    build-and-release:
-        name: Build and release
+    build:
+        name: Build (${{ matrix.platform }})
         strategy:
             fail-fast: false
             matrix:
                 include:
                     - os: windows-2022
                       platform: win
-                      artifact_glob: "artifacts/*.exe"
                     - os: macos-latest
                       platform: mac
-                      artifact_glob: "artifacts/*.dmg"
-                    - os: macos-latest
-                      platform: mac
-                      artifact_glob: "artifacts/*.zip"
                     - os: ubuntu-latest
                       platform: linux
-                      artifact_glob: "artifacts/*.AppImage"
-                    - os: ubuntu-latest
-                      platform: linux
-                      artifact_glob: "artifacts/*.deb"
-                    - os: ubuntu-latest
-                      platform: linux
-                      artifact_glob: "artifacts/*.rpm"
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
@@ -52,15 +40,59 @@ jobs:
             - run: pnpm install --frozen-lockfile
 
             - name: Build and package
+              # No GH_TOKEN env on purpose: disables electron-builder's
+              # auto-publish so we don't race the softprops step below
+              # (dual upload caused 422 already_exists on re-runs).
               run: pnpm make:${{ matrix.platform }}
               env:
                   ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/"
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Upload artifacts to GitHub Release
+            - name: Upload build artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: artifacts-${{ matrix.platform }}
+                  path: |
+                      artifacts/*.exe
+                      artifacts/*.exe.blockmap
+                      artifacts/*.dmg
+                      artifacts/*.dmg.blockmap
+                      artifacts/*.zip
+                      artifacts/*.zip.blockmap
+                      artifacts/*.AppImage
+                      artifacts/*.deb
+                      artifacts/*.rpm
+                      artifacts/latest*.yml
+                  if-no-files-found: warn
+                  retention-days: 1
+
+    release:
+        name: Publish to GitHub Release
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - name: Download all build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  pattern: artifacts-*
+                  merge-multiple: true
+                  path: artifacts
+
+            - name: Upload to GitHub Release
               uses: softprops/action-gh-release@v2
               with:
-                  files: ${{ matrix.artifact_glob }}
+                  files: |
+                      artifacts/*.exe
+                      artifacts/*.exe.blockmap
+                      artifacts/*.dmg
+                      artifacts/*.dmg.blockmap
+                      artifacts/*.zip
+                      artifacts/*.zip.blockmap
+                      artifacts/*.AppImage
+                      artifacts/*.deb
+                      artifacts/*.rpm
+                      artifacts/latest*.yml
                   generate_release_notes: true
                   draft: true
                   tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+                  # overwrite handles re-runs of the same tag (draft asset replace).
+                  overwrite: true

@@ -11,7 +11,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                os: [ubuntu-latest, windows-latest]
+                os: [ubuntu-latest, windows-2022]
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - os: windows-latest
+                    - os: windows-2022
                       platform: win
                     - os: ubuntu-latest
                       platform: linux
