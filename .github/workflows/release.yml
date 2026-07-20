@@ -43,7 +43,7 @@ jobs:
               # --publish never: electron-builder defaults to onTagOrDraft and
               # would try to upload (needing GH_TOKEN). We upload separately in
               # the release job below to avoid dual-upload 422 collisions.
-              run: pnpm build && electron-builder --${{ matrix.platform }} --publish never
+              run: pnpm build && pnpm exec electron-builder --${{ matrix.platform }} --publish never
               env:
                   ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/"
 
