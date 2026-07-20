@@ -22,4 +22,15 @@ export class SettingsPage {
         await page.waitReady();
         return page;
     }
+
+    /**
+     * Web SPA hash 路由打开 settings。无新窗口，同 page 切到 #setting。
+     * 仅供 tests/e2e/web/ 下 web fixture 使用。
+     */
+    static async open_via_hash(page: Page): Promise<SettingsPage> {
+        await page.goto("#setting");
+        const settings = new SettingsPage(page);
+        await settings.waitReady();
+        return settings;
+    }
 }

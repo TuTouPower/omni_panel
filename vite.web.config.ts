@@ -22,7 +22,6 @@ export default {
     },
     plugins: [
         react(),
-        // @ts-expect-error - .mjs fixture plugin，无类型声明
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         mock_api_plugin(),
     ],

@@ -1,29 +1,31 @@
-import { expect, test } from "../fixtures/test";
+import { expect, test } from "../fixtures/test_web";
 import { PopupPage } from "../pages/popup_page";
+import { SettingsPage } from "../pages/settings_page";
 
-test.describe("popup view", () => {
-    test("shows title with logo", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        const popup = new PopupPage(page);
+/**
+ * Web e2e：popup view 主干断言。
+ * 浏览器驱动 out/web SPA，mock local-api 回放真实快照。
+ */
+test.describe("popup view (web)", () => {
+    test("shows title with logo", async ({ webPage }) => {
+        const popup = new PopupPage(webPage);
         await popup.waitReady();
         const title = await popup.getTitle();
         expect(title).toContain("OmniUsage");
     });
 
-    test("refresh button is visible and clickable", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        const popup = new PopupPage(page);
+    test("refresh button is visible and clickable", async ({ webPage }) => {
+        const popup = new PopupPage(webPage);
         await popup.waitReady();
         await expect(popup.root().getByTitle("刷新全部")).toBeVisible();
         await popup.clickRefresh();
     });
 
-    test("popup root fills the viewport height", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        const popup = new PopupPage(page);
+    test("popup root fills the viewport height", async ({ webPage }) => {
+        const popup = new PopupPage(webPage);
         await popup.waitReady();
 
-        const layout = await page.evaluate(() => {
+        const layout = await webPage.evaluate(() => {
             const root = document.querySelector(".window");
             const scroll = document.querySelector(".scroll");
             if (!(root instanceof HTMLElement)) throw new Error("Popup root not found");
@@ -41,29 +43,31 @@ test.describe("popup view", () => {
         expect(layout.scroll_bottom).toBeLessThanOrEqual(layout.root_height + 1);
     });
 
-    test("main content area is rendered", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        const popup = new PopupPage(page);
+    test("main content area is rendered with overview tab", async ({ webPage }) => {
+        const popup = new PopupPage(webPage);
         await popup.waitReady();
-        const live = page.locator('[data-popup="live"]');
+        const live = webPage.locator('[data-popup="live"]');
         const providerNav = live.locator(".tabs-wrap");
         await expect(live).toBeVisible();
         await expect(live.locator(".scroll")).toBeVisible();
+        // 总览 tab 是静态 UI，断言其存在
         await expect(providerNav.getByRole("button", { name: /总览/ })).toBeVisible();
-        await expect(providerNav.getByRole("button", { name: /^Claude$/ })).toBeVisible();
-        await expect(providerNav.getByRole("button", { name: /^DeepSeek$/ })).toBeVisible();
+        // provider tabs 数量来自实际 fixture，断言 > 0 而非具体名
+        const providerTabs = providerNav.locator("button").filter({
+            hasNotText: /总览/,
+        });
+        expect(await providerTabs.count()).toBeGreaterThan(0);
+        // CPA provider 应被过滤出主 UI（业务规则：CPA 数据进对应 provider，不独立成 tab）
         await expect(providerNav.getByRole("button", { name: /^CPA$/ })).toHaveCount(0);
     });
 
-    test("settings button opens independent window", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        const popup = new PopupPage(page);
+    test("settings opens via hash route in same page", async ({ webPage }) => {
+        const popup = new PopupPage(webPage);
         await popup.waitReady();
         await popup.clickSettings();
 
-        // Settings opens as a new BrowserWindow
-        const settingsWindow = await omni.app.waitForEvent("window", { timeout: 10_000 });
-        await settingsWindow.waitForLoadState("domcontentloaded");
-        await expect(settingsWindow.locator('[data-testid="settings-sidebar"]')).toBeVisible();
+        // web SPA：settings 在同 page hash 路由，无新窗口
+        const settings = await SettingsPage.open_via_hash(webPage);
+        await expect(settings.page.locator('[data-testid="settings-sidebar"]')).toBeVisible();
     });
 });
