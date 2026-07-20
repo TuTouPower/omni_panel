@@ -13,6 +13,13 @@ const config: PlaywrightTestConfig = {
     outputDir: "./artifacts/e2e-artifacts",
     projects: [
         {
+            name: "web",
+            testDir: "./tests/e2e/web",
+            use: {
+                baseURL: "http://localhost:5174",
+            },
+        },
+        {
             name: "default",
             testDir: "./tests/e2e/specs",
         },
@@ -24,6 +31,13 @@ const config: PlaywrightTestConfig = {
             workers: 1,
         },
     ],
+    webServer: {
+        command:
+            "pnpm build:web && vite preview --config vite.web.config.ts --port 5174 --strictPort",
+        url: "http://localhost:5174",
+        reuseExistingServer: true,
+        timeout: 120_000,
+    },
 };
 
 export default config;

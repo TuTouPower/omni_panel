@@ -12,7 +12,7 @@ export default defineConfig(
         languageOptions: {
             parserOptions: {
                 projectService: {
-                    allowDefaultProject: ["scripts/*.mjs"],
+                    allowDefaultProject: ["scripts/*.mjs", "tests/e2e/fixtures/*.mjs"],
                 },
                 tsconfigRootDir: import.meta.dirname,
             },
@@ -48,6 +48,14 @@ export default defineConfig(
         },
     },
     {
-        ignores: ["dist/", "out/", ".vite/", "node_modules/", ".dependency-cruiser.cjs"],
+        ignores: [
+            "dist/",
+            "out/",
+            ".vite/",
+            "node_modules/",
+            ".dependency-cruiser.cjs",
+            "tests/e2e/fixtures/*.mjs",
+            "scripts/e2e/*.mjs",
+        ],
     },
 );

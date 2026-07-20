@@ -14,6 +14,9 @@ vendors/
 data/
 pids/
 *.pid
+
+# e2e fixture：本机真实数据录制，含账号信息，不入库
+tests/e2e/fixtures/data/
 *.seed
 *.pid.lock
 __pycache__/

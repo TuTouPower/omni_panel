@@ -68,3 +68,15 @@
 - 选项：A) dev CSP `script-src` 加 `'unsafe-inline'`；B) 给 preamble 用 nonce/hash；C) 关闭 React Refresh（`@vitejs/plugin-react` 设 `fastRefresh:false`）。
 - 结论：选 A。dev 本地无攻击面，`'unsafe-inline'` 可接受；nonce/hash 需改 plugin-react 注入方式，成本高；关 fastRefresh 丢失 HMR 体验。prod CSP 严格不变（仍 `'self'`）。CSP 构造抽到 `src/main/security/csp.ts` 纯函数 + 单测覆盖 dev/prod 两路防回退。
 - 替代：无
+
+## 007 web e2e 用 mock local-api 回放录的真实响应，不开桌面 app（2026-07-21）
+
+- 背景：T009 改名后 e2e 仍靠 Electron 驱动（开桌面 app），平台绑定、慢、CI 重。用户要求日常 e2e 跑浏览器测网站。web SPA（`out/web`）数据全来自 local-api（端口 17863），后端必须有。
+- 选项：A) Electron 后端（浏览器前端 + 真实 Electron 提供 local-api，仍开桌面 app）；B) mock local-api（录本机真实响应，Playwright chromium 纯浏览器驱动）；C) 读 config/snapshot 文件合成 mock（零 Electron 但合成逻辑要复刻 local-api）。
+- 结论：选 B。A 仍开桌面 app 违背初衷；C 合成逻辑易漏字段。B 录真实响应 100% 保真，mock 回放零 Electron、跨平台、CI 友好（fixture gitignore，CI 策略另定）。
+- 子决策：
+    - **mock 形态**：vite preview plugin middleware（`mock_api_plugin`）内嵌回放，单 server；非 preview.proxy 双进程（省进程 + 端口管理简）。
+    - **脱敏**：黑名单正则 `secret|password|token|cookie|key|bearer|credential` 递归替换字符串字段为 `***`，实测覆盖本仓库全部 secret 字段名；非白名单（白名单需逐字段列举，新增字段易漏，黑名单 + `key` 兜底更稳）。
+    - **fixture 存放**：`tests/e2e/fixtures/data/` gitignore（含本机真实账号邮箱，不入库）；`pnpm e2e:gen-data` 手动录制（需 app 跑着提供 local-api）。
+- 替代：无（A/C 否决理由见上）
+- 遗留：CI fixture 策略（T013）、webServer 顶层污染（T013）、trend query 覆盖（T011）。
