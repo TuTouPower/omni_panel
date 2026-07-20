@@ -607,6 +607,11 @@ html[data-window="tray"] #root {
     color: var(--amber);
     font-weight: 650;
 }
+.error-badge {
+    margin-left: 6px;
+    color: var(--risk-red);
+    font-weight: 650;
+}
 .card.stale {
     border-color: color-mix(in srgb, var(--amber) 34%, var(--card-border));
 }

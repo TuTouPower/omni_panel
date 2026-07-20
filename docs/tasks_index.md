@@ -34,5 +34,5 @@
 | T024 | integration crash connector 单测(T022 test_f003)                | done    | claude | task_t024_crash_connector_test       | 完结;process.exit vm=throw,1 case,13 passed                                  |
 | T025 | electron restart case 真跑验证(T023 class 改未跑)               | done    | claude | task_t025_electron_restart_verify    | 完结;1 passed(2.8s);selector 适配 SettingsView 重构                          |
 | T026 | MetricRecord 加 per-account error 字段+PopupView accountErrors  | done    | claude | task_t026_metric_error_field         | 完结;data model+透传+buildAccountErrors;1425 passed;T027/T028 后置           |
-| T027 | ProviderAccountRow per-account error UI(indicator)              | backlog | claude | task_t027_account_error_ui           | 账号行显示错误;T026 data 依赖                                                |
+| T027 | ProviderAccountRow per-account error UI(indicator)              | done    | claude | task_t027_account_error_ui           | 完结;error badge UI+CSS;skip 因 T028 data;T028 后置待通                      |
 | T028 | connector script per-account error 记录 pattern(后置)           | backlog | claude | task_t028_connector_error_pattern    | connector 脚本改进;分 connector 迁移                                         |

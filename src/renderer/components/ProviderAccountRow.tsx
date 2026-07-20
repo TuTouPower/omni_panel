@@ -46,7 +46,6 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
     forcePercent = false,
     error: _error,
 }: ProviderAccountRowProps) {
-    void _error; // T027: error indicator UI deferred
     const display_label = desensitizeRemarks ? "" : account.accountLabel;
 
     // Sparkline cache: key = `${provider}||${accountId}||${metricId}`.
@@ -105,6 +104,11 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 <div className="rel-time">
                     {account.updatedAt ? relative_time(account.updatedAt) : ""}
                     {account.stale && <span className="stale-badge">已过期</span>}
+                    {_error && (
+                        <span className="error-badge" title={_error}>
+                            采集失败
+                        </span>
+                    )}
                 </div>
             </div>
         </div>
