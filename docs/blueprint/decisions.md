@@ -62,6 +62,14 @@
 - 结论：选 A（审阅 adoption D1=A 决策）。`domain.md §6` 改写为「完整多维趋势仍归 TokenStats 独立窗口；账号展开区出 sparkline」。符合「长期真相延后」「单 task 单 commit」硬约束。T006 实施时引用本条。
 - 替代：无（原边界追溯：`domain.md §6` 第一版 commit）
 
+## 008 web e2e 不进 CI + webServer 顶层保留（2026-07-21）
+
+- 背景：T010 web e2e 需本机录制 fixture（`tests/e2e/fixtures/data/` gitignore，含真实账号），CI 干净环境无 responses.json 跑不了。`playwright.config.ts` `webServer` 顶层配置致 electron/packaged project 跑时也启 vite preview（浪费，5174 空闲时不阻塞）。
+- 选项：CI web e2e A) synthetic seed fixture 入库供 CI smoke；B) 跳过 web project（CI 只 vitest + packaged smoke）。webServer A) 拆 web 独立 playwright config；B) 保留顶层。
+- 结论：CI 选 B（web e2e 作本地开发反馈，不作 CI 门禁；CI 由 vitest 单元/集成 + packaged smoke 覆盖产物可用性；Electron 驱动 nightly 跑）。webServer 选 B（Playwright 无 project 级 webServer，拆独立 config 增维护成本 > 节省的 vite preview 启动开销）。
+- 替代：无
+- 遗留：未来若需 CI web 回归，造 synthetic seed fixture（脱敏假账号）入库供 CI smoke。
+
 ## 006 dev CSP 放开 'unsafe-inline' 让 @vitejs/plugin-react preamble 能注入（2026-07-20）
 
 - 背景：`pnpm start`（electron-vite dev）启动后 renderer 全黑。带 `ELECTRON_ENABLE_LOGGING=true` 抓 console 看到 `@vitejs/plugin-react can't detect preamble`——plugin-react 注入的 React Refresh preamble 是 inline `<script type="module">`，被 dev CSP `script-src 'self' http://localhost:5173 'unsafe-eval'`（无 `'unsafe-inline'`）拦截，所有 `.tsx` 模块加载失败。打包版（prod CSP `'self'`、无 React Refresh）不受影响。

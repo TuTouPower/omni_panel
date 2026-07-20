@@ -65,4 +65,6 @@ jobs:
             - name: Install Playwright browsers
               run: npx playwright install --with-deps chromium
             - name: Run packaged smoke tests
+              # web e2e (test:e2e:web) 不在 CI 跑：依赖本机 fixture（gitignore，含真实账号）
+              # CI 只跑 packaged smoke + vitest；electron 驱动 nightly 跑
               run: pnpm test:packaged

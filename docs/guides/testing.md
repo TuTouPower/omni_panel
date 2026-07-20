@@ -33,6 +33,38 @@ pnpm typecheck && pnpm lint && pnpm check
 - E2E 验证**功能正确性**：用户看到 Dashboard、填了 API Key、点了刷新看到数据。**不直接调 `window.usageboard` 绕过 UI**。
 - 打包 smoke 验证**产物可用性**：exe 能否启动、渲染是否白屏、托盘是否出现、`extraResource` 连接器是否加载。
 
+## web e2e 录制与 CI 策略
+
+web e2e（`tests/e2e/web/`）由 Playwright chromium 驱动 `out/web` SPA，后端 mock 回放录的本机真实响应（`tests/e2e/fixtures/data/responses.json`，gitignore）。
+
+### 录制 fixture（一次性，本地）
+
+1. 启动 OmniUsage 提供 local-api :17863（择一）：
+    - packaged：先 `pnpm package`，再 `./artifacts/win-unpacked/OmniUsage.exe`
+    - dev：`pnpm start`（electron-vite dev）
+      两者均读本机 `%APPDATA%/OmniUsage` 真实数据。确认 `curl http://localhost:17863/v1/health` 返回 `{"status":"ok"}` 后继续。
+2. `pnpm e2e:gen-data` → 录全部 responses 到 `tests/e2e/fixtures/data/responses.json`（不入库；secrets 黑名单正则脱敏 `***`）。响应数随本机 instance 数变化（T010 基线 61）。
+3. `pnpm test:e2e:web` → chromium 驱动，`vite preview` 内嵌 `mock_api_plugin` 回放
+
+### CI 策略
+
+web e2e **不进 CI**（fixture 含本机真实账号 gitignore，CI 无 responses.json）。CI 只跑：
+
+- `pnpm test`（vitest 单元 + 集成）
+- `pnpm test:packaged`（打包 smoke）
+
+Electron 驱动 `pnpm test:e2e:electron` 在 nightly 跑（Xvfb）；web e2e 作本地开发反馈，不作 CI 门禁。
+
+遗留：若未来要 CI web 回归，需造 synthetic seed fixture（脱敏假账号）入库供 CI smoke，见 ADR 008。
+
+### 三路 e2e project 对照
+
+| project  | 目录                  | 驱动                      | 何时跑                                 |
+| -------- | --------------------- | ------------------------- | -------------------------------------- |
+| web      | `tests/e2e/web/`      | chromium + mock local-api | 本地日常（首次需先录 fixture，见上节） |
+| electron | `tests/e2e/electron/` | Electron（真实进程）      | 本地手动 / nightly                     |
+| packaged | `tests/e2e/packaged/` | CDP 连 exe                | CI + 本地                              |
+
 ## 通用原则
 
 - **少 mock，多真实**：外部服务用本地可控桩；本地能力（连接器发现、TS 编译、配置读写、SQLite、cookie 捕获）真实测。
