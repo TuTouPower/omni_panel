@@ -84,17 +84,28 @@ async function main() {
     // config
     await get("GET /v1/config", "/v1/config");
 
-    // trend：从第一个 snapshot 的 items 取 provider/accountId/metricId
-    const first_state = instances[0] && responses[`GET /v1/connectors/${instances[0].instanceId}/state`];
-    const first_item = first_state?.items?.[0] || first_state?.data?.items?.[0];
-    if (first_item) {
-        const params = new URLSearchParams({
-            provider: first_item.provider,
-            accountId: first_item.accountId,
-            metricId: first_item.id.split(":").slice(-1)[0] || first_item.metricId || "primary",
-            days: "7",
-        });
-        await get(`GET /v1/trend?${params.toString()}`, `/v1/trend?${params.toString()}`);
+    // trend：录全部 provider×account×metric 组合（mock 精确匹配 query，避免覆盖参数构造回归）
+    const trend_seen = new Set();
+    for (const inst of instances) {
+        const state = responses[`GET /v1/connectors/${inst.instanceId}/state`];
+        const items = state?.items || state?.data?.items || [];
+        for (const it of items) {
+            // 契约：state item 含 provider/accountId/id，id 末段（':' 分隔）为 metricId
+            if (!it.provider || !it.accountId || !it.id) {
+                console.warn(`[gen_fixture] skip malformed state item: ${it.id ?? "(no id)"}`);
+                continue;
+            }
+            const metricId = it.id.split(":").slice(-1)[0];
+            const params = new URLSearchParams({
+                provider: it.provider,
+                accountId: it.accountId,
+                metricId,
+            });
+            const qs = params.toString();
+            if (trend_seen.has(qs)) continue;
+            trend_seen.add(qs);
+            await get(`GET /v1/trend?${qs}`, `/v1/trend?${qs}`);
+        }
     }
 
     // tokenStats

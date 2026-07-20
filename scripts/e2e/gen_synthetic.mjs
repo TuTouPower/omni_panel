@@ -54,9 +54,13 @@ for (let i = 0; i < subset.length; i++) {
 
 out["GET /v1/config"] = resp["GET /v1/config"] !== undefined ? redact(resp["GET /v1/config"], "config", 0) : {};
 
-// trend 取首条（过 redact 防御）；tokenStats 只留 status（records/sessions/buckets 含真实 prompt，跳过）
-const trendKey = Object.keys(resp).find((k) => k.startsWith("GET /v1/trend?"));
-if (trendKey) out[trendKey] = redact(resp[trendKey], "trend", 0);
+// trend：拷贝 real responses 全部 trend 条目（百分比点位，无账号邮箱）；key 也过 redact 防御（防 accountId 含邮箱）
+for (const [k, v] of Object.entries(resp)) {
+    if (k.startsWith("GET /v1/trend?")) {
+        const k2 = k.replace(EMAIL_RE, () => demo_email("trend", 0));
+        out[k2] = redact(v, "trend", 0);
+    }
+}
 if (resp["GET /v1/status"] !== undefined) out["GET /v1/status"] = resp["GET /v1/status"];
 
 writeFileSync(OUT, JSON.stringify(out, null, 2));
