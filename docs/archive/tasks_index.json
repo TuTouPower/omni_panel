@@ -287,6 +287,14 @@
             "status": "done",
             "branch": "t036_test_app_packaging",
             "note": ""
+        },
+        {
+            "tid": "t037",
+            "title": "按验证方式拆分 spec 并改造 specs_index",
+            "slug": "split_specs_by_verification",
+            "status": "done",
+            "branch": "t037_split_specs_by_verification",
+            "note": ""
         }
     ]
 }

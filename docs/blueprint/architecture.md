@@ -51,7 +51,7 @@ src/
 │   │   ├── auth/grok_oauth_manager.ts          # Grok device-code OAuth + token rotation
 │   │   ├── network/effective_proxy.ts           # configured/detected proxy 运行时合并
 │   │   ├── logging.ts / paths.ts / settings-close-action.ts
-│   ├── ipc/                       # 按域拆的 IPC handler（见 specs/ipc.md）
+│   ├── ipc/                       # 按域拆的 IPC handler（见 specs/ipc-api.md + ipc-electron.md）
 │   └── window/window-manager.ts   # 窗口目录 + 工厂（见 specs/window-management.md）
 ├── preload/                       # contextBridge 白名单 + route capability 策略
 │   ├── index.ts                   # contextBridge 暴露 + route-based 分权

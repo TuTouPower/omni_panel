@@ -67,7 +67,7 @@ pnpm make:linux       # 仅打包 Linux
 - 渲染进程永远只拿 `hasSecret` 布尔，**不见明文密钥**
 - 配置导入导出含明文密钥，用户自行负责导出文件的安全（详见 [secret-vault spec](docs/specs/secret-vault.md)）
 - 网络请求仅由主进程宿主统一发出（[net-client](src/main/core/connector/net-client.ts)），连接器沙箱无直接出网能力
-- LocalAPI 默认监听 `0.0.0.0:17863`（供局域网 web 面板访问；SSRF/认证由 NetClient 层与端点级 Bearer token 负责，详见 [platform-services spec](docs/specs/platform-services.md)）
+- LocalAPI 默认监听 `0.0.0.0:17863`（供局域网 web 面板访问；SSRF/认证由 NetClient 层与端点级 Bearer token 负责，详见 [platform-services-api spec](docs/specs/platform-services-api.md)）
 
 ## 开发
 
