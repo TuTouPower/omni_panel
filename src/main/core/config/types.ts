@@ -66,6 +66,7 @@ const floatingBoundsSchema = z.object({
 
 const accountOverridesSchema = z.object({
     hidden: z.record(z.array(z.string())).optional(),
+    upcomingResetOff: z.record(z.array(z.string())).optional(),
 });
 
 export const appConfigurationSchema = z.object({
@@ -110,6 +111,7 @@ export const appConfigurationSchema = z.object({
         .array(z.object({ alias: z.string().min(1), models: z.array(z.string()) }))
         .default([]),
     removedConnectorIds: z.array(z.string()).optional(),
+    upcomingResetThresholdPercent: z.number().int().min(0).max(100).nullable().optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {

@@ -83,6 +83,9 @@ export function PopupView() {
     const [account_over_id, set_account_over_id] = useState<string | null>(null);
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const synced_account_orders_ref = useRef<Record<string, string[]>>({});
+    const [upcoming_reset_threshold_percent, set_upcoming_reset_threshold_percent] = useState<
+        number | null | undefined
+    >(undefined);
     const {
         main_panel_mode,
         usage_bar_color_scheme,
@@ -133,6 +136,7 @@ export function PopupView() {
             set_provider_force_percent(config.providerForcePercent);
             set_account_overrides(config.accountOverrides);
             set_account_labels(config.accountLabels);
+            set_upcoming_reset_threshold_percent(config.upcomingResetThresholdPercent ?? null);
             if (config.accountOrders) {
                 const next_orders = Object.fromEntries(
                     Object.entries(config.accountOrders).map(([key, value]) => [key, [...value]]),
@@ -160,6 +164,7 @@ export function PopupView() {
             set_provider_force_percent,
             set_account_overrides,
             set_account_labels,
+            set_upcoming_reset_threshold_percent,
         ],
     );
 
@@ -268,7 +273,16 @@ export function PopupView() {
         () => visible_providers_from_groups(rawGroups, plugins),
         [rawGroups, plugins],
     );
-    const upcomingItems = useMemo(() => collect_upcoming_resets(providerGroups), [providerGroups]);
+    const upcomingItems = useMemo(
+        () =>
+            collect_upcoming_resets(providerGroups, {
+                thresholdPercent: upcoming_reset_threshold_percent,
+                offAccounts: account_overrides?.upcomingResetOff,
+            }),
+        [providerGroups, upcoming_reset_threshold_percent, account_overrides],
+    );
+    // t041：阈值非空时才挂载 Banner/Rail；抽局部常量避免两处 verbatim 重复。
+    const show_upcoming = upcoming_reset_threshold_percent != null;
     const select_provider_from_upcoming = useCallback((provider: UsageProvider) => {
         setActiveTab(provider);
         scroll_ref.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -718,13 +732,17 @@ export function PopupView() {
 
                         {!loading && plugins.length > 0 && activeTab === "overview" && (
                             <div className="overview-row">
-                                <UpcomingResetBanner
-                                    items={upcomingItems}
-                                    onSelectProvider={
-                                        is_live ? select_provider_from_upcoming : () => undefined
-                                    }
-                                    desensitizeRemarks={ui_desensitize_remarks}
-                                />
+                                {show_upcoming && (
+                                    <UpcomingResetBanner
+                                        items={upcomingItems}
+                                        onSelectProvider={
+                                            is_live
+                                                ? select_provider_from_upcoming
+                                                : () => undefined
+                                        }
+                                        desensitizeRemarks={ui_desensitize_remarks}
+                                    />
+                                )}
                                 <ProviderOverview
                                     groups={providerGroups}
                                     visibleProviders={orderedProviders}
@@ -756,13 +774,17 @@ export function PopupView() {
                                     desensitizeRemarks={ui_desensitize_remarks}
                                     providerForcePercent={provider_force_percent}
                                 />
-                                <UpcomingResetRail
-                                    items={upcomingItems}
-                                    onSelectProvider={
-                                        is_live ? select_provider_from_upcoming : () => undefined
-                                    }
-                                    desensitizeRemarks={ui_desensitize_remarks}
-                                />
+                                {show_upcoming && (
+                                    <UpcomingResetRail
+                                        items={upcomingItems}
+                                        onSelectProvider={
+                                            is_live
+                                                ? select_provider_from_upcoming
+                                                : () => undefined
+                                        }
+                                        desensitizeRemarks={ui_desensitize_remarks}
+                                    />
+                                )}
                             </div>
                         )}
 

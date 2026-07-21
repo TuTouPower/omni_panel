@@ -22,6 +22,8 @@ export interface FloatingBoundsConfiguration {
 
 export interface AccountOverrides {
     readonly hidden?: Readonly<Partial<Record<UsageProvider, readonly string[]>>>;
+    /** t041: 列出的 accountKey 不进「即将重置」面板（结构同 hidden）。 */
+    readonly upcomingResetOff?: Readonly<Partial<Record<UsageProvider, readonly string[]>>>;
 }
 
 export type AccountLabels = Readonly<
@@ -86,6 +88,8 @@ export interface AppConfiguration {
         readonly wslDistro?: string;
         readonly wslUser?: string;
     };
+    /** t041: 剩余时间占周期百分比 ≤ 此值时进「即将重置」面板；null/undefined 不展示面板。 */
+    readonly upcomingResetThresholdPercent?: number | null;
 }
 
 export interface ConnectorConfiguration {

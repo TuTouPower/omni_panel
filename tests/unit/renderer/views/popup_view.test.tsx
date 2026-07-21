@@ -1059,6 +1059,7 @@ describe("PopupView", () => {
                             limit: 100,
                             displayStyle: "percent",
                             resetAt: future,
+                            cycleDurationMs: 7 * 24 * 60 * 60 * 1000,
                             observedAt: 1735689600000,
                             stale: false,
                             status: "normal",
@@ -1067,6 +1068,16 @@ describe("PopupView", () => {
                 },
             }),
         ]);
+        window.usageboard.config.get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                upcomingResetThresholdPercent: 100,
+            },
+            hasSecrets: {},
+        });
 
         const scroll_spy = vi.fn();
         // eslint-disable-next-line @typescript-eslint/unbound-method -- spy 保存原方法引用以便 finally restore
@@ -1114,6 +1125,7 @@ describe("PopupView", () => {
                             limit: 100,
                             displayStyle: "percent",
                             resetAt: future,
+                            cycleDurationMs: 7 * 24 * 60 * 60 * 1000,
                             observedAt: 1735689600000,
                             stale: false,
                             status: "normal",
@@ -1122,6 +1134,16 @@ describe("PopupView", () => {
                 },
             }),
         ]);
+        window.usageboard.config.get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                upcomingResetThresholdPercent: 100,
+            },
+            hasSecrets: {},
+        });
 
         render(<PopupView />);
 
@@ -1140,5 +1162,64 @@ describe("PopupView", () => {
         const live_overview = document.querySelector(".window:not(.popup-mirror) .overview-row");
         expect(live_overview?.querySelector(".ur-rail, .upcoming-rail")).not.toBeNull();
         expect(live_overview?.querySelector(".upcoming-banner")).not.toBeNull();
+    });
+
+    it("t041: threshold null → UpcomingResetBanner/Rail not rendered", async () => {
+        const future = Date.now() + 3 * 24 * 60 * 60 * 1000;
+        plugin_list.mockResolvedValue([
+            connectorInfo({
+                source: "gateway",
+                sourceInstanceId: "cpa-main",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        {
+                            id: "claude-pro",
+                            provider: "claude",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "claude-account",
+                            accountLabel: "Claude Account",
+                            raw_label: "claude-pro",
+                            normalized_label: "Claude Pro",
+                            used: 10,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: future,
+                            cycleDurationMs: 7 * 24 * 60 * 60 * 1000,
+                            observedAt: 1735689600000,
+                            stale: false,
+                            status: "normal",
+                        },
+                    ],
+                },
+            }),
+        ]);
+        window.usageboard.config.get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                upcomingResetThresholdPercent: null,
+            },
+            hasSecrets: {},
+        });
+
+        render(<PopupView />);
+
+        // provider tabs render → providerGroups computed, overview-row mounted.
+        await screen.findByRole("button", { name: /^Claude$/ });
+        await waitFor(() => {
+            expect(document.querySelectorAll(".overview-row").length).toBeGreaterThan(0);
+        });
+
+        // Banner/Rail gated by `threshold != null` must not mount in any tree.
+        expect(document.querySelectorAll(".upcoming-banner").length).toBe(0);
+        expect(document.querySelectorAll(".upcoming-rail").length).toBe(0);
+        expect(screen.queryByText(/即将重置/)).toBeNull();
     });
 });

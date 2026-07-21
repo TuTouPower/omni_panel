@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, act, within } from "@testing-library/react";
+import { render, screen, waitFor, act, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
 import { SettingsView } from "../../../../src/renderer/views/SettingsView";
@@ -261,6 +261,49 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         expect(await screen.findByLabelText("日志等级")).toHaveDisplayValue("Info");
+    });
+
+    describe("upcoming reset threshold input (t041)", () => {
+        it("renders empty input when threshold is null", async () => {
+            current_config = { ...base_config, upcomingResetThresholdPercent: null };
+            render(<SettingsView />);
+            const input = await screen.findByPlaceholderText("留空");
+            expect(input).toHaveDisplayValue("");
+        });
+
+        it("saves parsed number when user enters a valid threshold", async () => {
+            current_config = { ...base_config, upcomingResetThresholdPercent: null };
+            render(<SettingsView />);
+            const input = await screen.findByPlaceholderText("留空");
+            fireEvent.change(input, { target: { value: "15" } });
+            await waitFor(() => {
+                expect(save).toHaveBeenCalledWith(
+                    expect.objectContaining({ upcomingResetThresholdPercent: 15 }),
+                );
+            });
+        });
+
+        it("saves null when user clears the input", async () => {
+            current_config = { ...base_config, upcomingResetThresholdPercent: 20 };
+            render(<SettingsView />);
+            const input = await screen.findByPlaceholderText("留空");
+            fireEvent.change(input, { target: { value: "" } });
+            await waitFor(() => {
+                expect(save).toHaveBeenCalledWith(
+                    expect.objectContaining({ upcomingResetThresholdPercent: null }),
+                );
+            });
+        });
+
+        it("does not save when input is out of range", async () => {
+            current_config = { ...base_config, upcomingResetThresholdPercent: null };
+            render(<SettingsView />);
+            const input = await screen.findByPlaceholderText("留空");
+            fireEvent.change(input, { target: { value: "150" } });
+            expect(save).not.toHaveBeenCalledWith(
+                expect.objectContaining({ upcomingResetThresholdPercent: 150 }),
+            );
+        });
     });
 
     it("hides window controls in web mode", () => {

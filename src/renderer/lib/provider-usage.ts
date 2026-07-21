@@ -159,11 +159,18 @@ function to_period(
  * sourceInstanceId|accountId. Exported so override/hide/reorder callers use
  * the canonical rule instead of re-deriving it.
  */
-export function accountKey(period: ProviderUsagePeriod): string {
-    if (period.source === "gateway") {
-        return `${period.sourceInstanceId}|label|${period.accountLabel}`;
+export interface AccountKeyInput {
+    source: UsageSource;
+    sourceInstanceId: string;
+    accountId: string;
+    accountLabel: string;
+}
+
+export function accountKey(item: AccountKeyInput): string {
+    if (item.source === "gateway") {
+        return `${item.sourceInstanceId}|label|${item.accountLabel}`;
     }
-    return `${period.sourceInstanceId}|${period.accountId}`;
+    return `${item.sourceInstanceId}|${item.accountId}`;
 }
 
 export function format_usage_period_label(
@@ -549,26 +556,36 @@ export interface UpcomingResetItem {
 }
 
 /**
- * Flatten every account's metrics across all provider groups, keep only those
- * whose resetAt falls in the half-open future window `(now, now + horizon]`
- * (`resetAt <= now` = already reset, skipped; `resetAt` null = no schedule,
- * skipped), and return them sorted by resetAt ascending. `percent` uses the
- * same per-metric definition as OverviewWindow (used/limit clamped 0-100;
- * ratio displayStyle also reports percent), but does NOT aggregate across
- * metrics of the same account. `now` is injected for testability.
+ * Collect accounts whose reset is "upcoming" — remaining time within the cycle
+ * has dropped to ≤ thresholdPercent of the full cycle. `thresholdPercent` null
+ * /undefined → feature off, returns []. `offAccounts` lists accountKeys
+ * excluded per-provider (structure mirrors `hidden`). Periods lacking
+ * `cycleDurationMs` (null/0/missing) or `resetAt` (null/≤now) are skipped.
  */
 export function collect_upcoming_resets(
     groups: readonly ProviderUsageGroup[],
-    horizonMs: number = 7 * 24 * 60 * 60 * 1000,
-    now: number = Date.now(),
+    options?: {
+        thresholdPercent?: number | null | undefined;
+        offAccounts?: AccountOverrides["upcomingResetOff"];
+        now?: number;
+    },
 ): UpcomingResetItem[] {
-    const ceiling = now + horizonMs;
+    const threshold = options?.thresholdPercent;
+    if (threshold === null || threshold === undefined) return [];
+    const now = options?.now ?? Date.now();
+    const off_accounts = options?.offAccounts;
     const items: UpcomingResetItem[] = [];
     for (const group of groups) {
+        const off_set = new Set([...(off_accounts?.[group.provider] ?? [])]);
         for (const account of group.accounts) {
+            if (off_set.has(account.id)) continue;
             for (const period of account.periods) {
                 if (period.resetAt === null) continue;
-                if (period.resetAt <= now || period.resetAt > ceiling) continue;
+                if (period.resetAt <= now) continue;
+                const cycle = period.cycleDurationMs;
+                if (!cycle || cycle <= 0) continue;
+                const remaining_pct = ((period.resetAt - now) / cycle) * 100;
+                if (remaining_pct > threshold) continue;
                 const used = period.used;
                 const limit = period.limit;
                 const percent =

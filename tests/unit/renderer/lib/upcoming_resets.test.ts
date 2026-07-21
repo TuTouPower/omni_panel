@@ -17,6 +17,7 @@ function period(
         limit: number | null;
         displayStyle: MetricRecord["displayStyle"];
         resetAt: number | null;
+        cycleDurationMs: number | null;
         status: MetricRecord["status"];
         raw_label: string;
     }>,
@@ -37,7 +38,8 @@ function period(
         limit: overrides.limit === undefined ? 100 : overrides.limit,
         displayStyle: overrides.displayStyle ?? ("percent" as const),
         resetAt: overrides.resetAt ?? null,
-        cycleDurationMs: null as MetricRecord["cycleDurationMs"],
+        cycleDurationMs:
+            overrides.cycleDurationMs === undefined ? 7 * DAY : overrides.cycleDurationMs,
         status: overrides.status ?? "warning",
         color: undefined as NonNullable<MetricRecord["color"]> | undefined,
         updatedAt: "2024-07-20T10:00:00Z",
@@ -73,59 +75,141 @@ function group(
     };
 }
 
-describe("collect_upcoming_resets", () => {
-    it("returns empty for empty groups input", () => {
-        expect(collect_upcoming_resets([], 7 * DAY, NOW)).toEqual([]);
-    });
-
-    it("skips periods with resetAt null", () => {
-        const g = group("claude", [{ periods: [period({ resetAt: null })] }]);
-        expect(collect_upcoming_resets([g], 7 * DAY, NOW)).toEqual([]);
-    });
-
-    it("keeps periods within (now, now+horizon]", () => {
+describe("collect_upcoming_resets threshold gate", () => {
+    it("returns [] when thresholdPercent is null", () => {
         const g = group("claude", [
+            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(collect_upcoming_resets([g], { thresholdPercent: null, now: NOW })).toEqual([]);
+    });
+
+    it("returns [] when thresholdPercent is undefined (feature off)", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(collect_upcoming_resets([g], { now: NOW })).toEqual([]);
+    });
+
+    it("returns [] when options is undefined entirely", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(collect_upcoming_resets([g])).toEqual([]);
+    });
+});
+
+describe("collect_upcoming_resets filtering", () => {
+    it("includes period whose remaining% <= threshold", () => {
+        // cycle 7d, remaining 0.7d → 10%
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + 0.7 * DAY, cycleDurationMs: 7 * DAY })] },
+        ]);
+        const result = collect_upcoming_resets([g], { thresholdPercent: 10, now: NOW });
+        expect(result).toHaveLength(1);
+        expect(result[0]?.resetAt).toBe(NOW + 0.7 * DAY);
+    });
+
+    it("excludes period whose remaining% > threshold", () => {
+        // cycle 7d, remaining 5d → ~71.4%, threshold 50
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + 5 * DAY, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(collect_upcoming_resets([g], { thresholdPercent: 50, now: NOW })).toHaveLength(0);
+    });
+
+    it("skips period with cycleDurationMs null", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: null })] },
+        ]);
+        expect(collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW })).toHaveLength(0);
+    });
+
+    it("skips period with cycleDurationMs 0", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 0 })] },
+        ]);
+        expect(collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW })).toHaveLength(0);
+    });
+
+    it("skips period with resetAt null", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: null, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW })).toHaveLength(0);
+    });
+
+    it("skips period with resetAt <= now (already reset)", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW - 1000, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW })).toHaveLength(0);
+    });
+
+    it("excludes account listed in offAccounts", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(
+            collect_upcoming_resets([g], {
+                thresholdPercent: 100,
+                offAccounts: { claude: ["acct0"] },
+                now: NOW,
+            }),
+        ).toHaveLength(0);
+    });
+
+    it("keeps account not listed in offAccounts", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(
+            collect_upcoming_resets([g], {
+                thresholdPercent: 100,
+                offAccounts: { claude: ["other"] },
+                now: NOW,
+            }),
+        ).toHaveLength(1);
+    });
+});
+
+describe("collect_upcoming_resets output shape", () => {
+    it("computes percent as used/limit clamped 0-100", () => {
+        const g = group("deepseek", [
             {
                 periods: [
-                    period({ resetAt: NOW + 3 * DAY }), // inside
-                    period({ resetAt: NOW + 10 * DAY }), // outside (beyond horizon)
+                    period({
+                        used: 5,
+                        limit: 8,
+                        displayStyle: "ratio",
+                        resetAt: NOW + DAY,
+                        cycleDurationMs: 7 * DAY,
+                    }),
+                    period({
+                        used: 12,
+                        limit: 10,
+                        displayStyle: "ratio",
+                        resetAt: NOW + 0.5 * DAY,
+                        cycleDurationMs: 7 * DAY,
+                    }),
                 ],
             },
         ]);
-        const result = collect_upcoming_resets([g], 7 * DAY, NOW);
-        expect(result).toHaveLength(1);
-        expect(result[0]?.resetAt).toBe(NOW + 3 * DAY);
+        const result = collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW });
+        expect(result[0]?.percent).toBe(100); // clamp 120 → 100 (sorted first by resetAt)
+        expect(result[1]?.percent).toBe(63); // 5/8 = 62.5 → 63
     });
 
-    it("treats resetAt = now+horizon as included (closed right endpoint)", () => {
-        const g = group("claude", [{ periods: [period({ resetAt: NOW + 7 * DAY })] }]);
-        const result = collect_upcoming_resets([g], 7 * DAY, NOW);
-        expect(result).toHaveLength(1);
-        expect(result[0]?.resetAt).toBe(NOW + 7 * DAY);
-    });
-
-    it("skips resetAt = now (already reset, half-open left)", () => {
-        const g = group("claude", [{ periods: [period({ resetAt: NOW })] }]);
-        expect(collect_upcoming_resets([g], 7 * DAY, NOW)).toEqual([]);
-    });
-
-    it("skips resetAt < now (already reset)", () => {
-        const g = group("claude", [{ periods: [period({ resetAt: NOW - 1000 })] }]);
-        expect(collect_upcoming_resets([g], 7 * DAY, NOW)).toEqual([]);
-    });
-
-    it("collects all metrics of a multi-metric account", () => {
+    it("reports percent 0 when used/limit invalid", () => {
         const g = group("claude", [
             {
                 periods: [
-                    period({ raw_label: "5小时", resetAt: NOW + 1 * DAY }),
-                    period({ raw_label: "一周", resetAt: NOW + 4 * DAY }),
+                    period({ used: null, limit: 100, resetAt: NOW + DAY }),
+                    period({ used: 50, limit: 0, resetAt: NOW + 0.5 * DAY }),
                 ],
             },
         ]);
-        const result = collect_upcoming_resets([g], 7 * DAY, NOW);
-        expect(result).toHaveLength(2);
-        expect(result.map((r) => r.metricLabel)).toEqual(["5小时", "一周"]);
+        const result = collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW });
+        expect(result.map((r) => r.percent)).toEqual([0, 0]);
     });
 
     it("sorts by resetAt ascending", () => {
@@ -138,46 +222,8 @@ describe("collect_upcoming_resets", () => {
                 ],
             },
         ]);
-        const result = collect_upcoming_resets([g], 7 * DAY, NOW);
-        expect(result.map((r) => r.resetAt)).toEqual([NOW + 1 * DAY, NOW + 3 * DAY, NOW + 5 * DAY]);
-    });
-
-    it("computes percent as used/limit clamped 0-100 for ratio displayStyle", () => {
-        const g = group("deepseek", [
-            {
-                periods: [
-                    period({
-                        used: 5,
-                        limit: 8,
-                        displayStyle: "ratio",
-                        resetAt: NOW + 1 * DAY,
-                    }),
-                    period({
-                        used: 12,
-                        limit: 10,
-                        displayStyle: "ratio",
-                        resetAt: NOW + 2 * DAY,
-                    }),
-                ],
-            },
-        ]);
-        const result = collect_upcoming_resets([g], 7 * DAY, NOW);
-        expect(result[0]?.percent).toBe(63); // 5/8 = 62.5 -> round 63
-        expect(result[1]?.percent).toBe(100); // clamp 120 -> 100
-    });
-
-    it("reports percent 0 when used/limit invalid (null or zero limit)", () => {
-        const g = group("claude", [
-            {
-                periods: [
-                    period({ used: null, limit: 100, resetAt: NOW + 1 * DAY }),
-                    period({ used: 50, limit: 0, resetAt: NOW + 2 * DAY }),
-                    period({ used: null, limit: null, resetAt: NOW + 3 * DAY }),
-                ],
-            },
-        ]);
-        const result = collect_upcoming_resets([g], 7 * DAY, NOW);
-        expect(result.map((r) => r.percent)).toEqual([0, 0, 0]);
+        const result = collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW });
+        expect(result.map((r) => r.resetAt)).toEqual([NOW + DAY, NOW + 3 * DAY, NOW + 5 * DAY]);
     });
 
     it("flattens across providers and accounts", () => {
@@ -185,7 +231,11 @@ describe("collect_upcoming_resets", () => {
         const g2 = group("kimi", [
             { periods: [period({ provider: "kimi", resetAt: NOW + 1 * DAY })] },
         ]);
-        const result = collect_upcoming_resets([g1, g2], 7 * DAY, NOW);
+        const result = collect_upcoming_resets([g1, g2], { thresholdPercent: 100, now: NOW });
         expect(result.map((r) => r.provider)).toEqual(["kimi", "claude"]);
+    });
+
+    it("returns empty for empty groups", () => {
+        expect(collect_upcoming_resets([], { thresholdPercent: 50, now: NOW })).toEqual([]);
     });
 });

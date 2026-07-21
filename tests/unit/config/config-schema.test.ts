@@ -39,4 +39,72 @@ describe("appConfigurationSchema", () => {
         expect(parsed.dirAliases).toEqual([]);
         expect(parsed.modelAliases).toEqual([]);
     });
+
+    it("accepts upcomingResetThresholdPercent as number", () => {
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            upcomingResetThresholdPercent: 15,
+        });
+        expect(parsed.upcomingResetThresholdPercent).toBe(15);
+    });
+
+    it("accepts upcomingResetThresholdPercent as null", () => {
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            upcomingResetThresholdPercent: null,
+        });
+        expect(parsed.upcomingResetThresholdPercent).toBeNull();
+    });
+
+    it("t041: rejects upcomingResetThresholdPercent outside [0,100]", () => {
+        expect(() =>
+            appConfigurationSchema.parse({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [],
+                upcomingResetThresholdPercent: 150,
+            }),
+        ).toThrow();
+        expect(() =>
+            appConfigurationSchema.parse({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [],
+                upcomingResetThresholdPercent: -1,
+            }),
+        ).toThrow();
+    });
+
+    it("t041: rejects non-integer upcomingResetThresholdPercent", () => {
+        expect(() =>
+            appConfigurationSchema.parse({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [],
+                upcomingResetThresholdPercent: 12.7,
+            }),
+        ).toThrow();
+    });
+
+    it("accepts accountOverrides.upcomingResetOff", () => {
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            accountOverrides: {
+                upcomingResetOff: { claude: ["si1|acct1"] },
+            },
+        });
+        expect(parsed.accountOverrides?.upcomingResetOff?.["claude"]).toEqual(["si1|acct1"]);
+    });
 });

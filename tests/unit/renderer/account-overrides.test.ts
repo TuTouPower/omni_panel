@@ -36,6 +36,11 @@ describe("add_account_override", () => {
         add_account_override(undefined, "disabled", "claude", "default");
         expect(true).toBe(true);
     });
+
+    it("adds upcomingResetOff override (t041)", () => {
+        const r = add_account_override(undefined, "upcomingResetOff", "claude", "si1|acct1");
+        expect(r.upcomingResetOff?.claude).toEqual(["si1|acct1"]);
+    });
 });
 
 describe("remove_account_override", () => {
@@ -64,6 +69,16 @@ describe("remove_account_override", () => {
         // @ts-expect-error -- "disabled" kind 已被删除
         remove_account_override({}, "disabled", "claude", "default");
         expect(true).toBe(true);
+    });
+
+    it("removes an account from upcomingResetOff (t041)", () => {
+        const r = remove_account_override(
+            { upcomingResetOff: { claude: ["si1|acct1", "si2|acct2"] } },
+            "upcomingResetOff",
+            "claude",
+            "si1|acct1",
+        );
+        expect(r.upcomingResetOff?.claude).toEqual(["si2|acct2"]);
     });
 });
 

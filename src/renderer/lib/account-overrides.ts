@@ -1,9 +1,11 @@
 import type { AccountLabels, AccountOverrides } from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 
+export type AccountOverrideKind = "hidden" | "upcomingResetOff";
+
 export function add_account_override(
     overrides: AccountOverrides | undefined,
-    kind: "hidden",
+    kind: AccountOverrideKind,
     provider: string,
     accountId: string,
 ): AccountOverrides {
@@ -18,7 +20,7 @@ export function add_account_override(
 
 export function remove_account_override(
     overrides: AccountOverrides,
-    kind: "hidden",
+    kind: AccountOverrideKind,
     provider: string,
     accountId: string,
 ): AccountOverrides {
