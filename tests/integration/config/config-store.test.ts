@@ -59,11 +59,10 @@ describe("config-store", () => {
         expect(raw).not.toHaveProperty("overviewDisplayMode");
     });
 
-    it("returns default config on corrupt JSON", async () => {
+    it("throws on corrupt JSON (no silent fallback to defaults, prevents auto_seed overwrite)", async () => {
         await writeFile(join(tempDir, "config.json"), "not json!!!");
         const store = createConfigStore(join(tempDir, "config.json"));
-        const config = await store.load();
-        expect(config.schemaVersion).toBe(1);
+        await expect(store.load()).rejects.toThrow(/Config load failed/);
     });
 
     it("does not serialize id field", async () => {
@@ -172,25 +171,20 @@ describe("config-store", () => {
         expect(config.launchAtLogin).toBe(true);
     });
 
-    it("falls back to defaults when both main and .bak are schema-invalid", async () => {
+    it("throws when both main and .bak are schema-invalid (refuses defaults to prevent data loss)", async () => {
         const configPath = join(tempDir, "config.json");
         // Write invalid .bak
         await writeFile(`${configPath}.bak`, '{"schemaVersion":1}', "utf8");
         // Write invalid main config
         await writeFile(configPath, '{"schemaVersion":1}', "utf8");
         const store = createConfigStore(configPath);
-        const config = await store.load();
-        expect(config.language).toBe("zh-Hans");
-        expect(config.plugins).toEqual([]);
+        await expect(store.load()).rejects.toThrow(/Config corrupt.*no valid \.bak/);
     });
 
-    it("returns default config on schema-invalid JSON", async () => {
+    it("throws on schema-invalid JSON (no silent fallback to defaults)", async () => {
         await writeFile(join(tempDir, "config.json"), '{"schemaVersion":1}');
         const store = createConfigStore(join(tempDir, "config.json"));
-        const config = await store.load();
-        expect(config.schemaVersion).toBe(1);
-        expect(config.language).toBe("zh-Hans");
-        expect(config.plugins).toEqual([]);
+        await expect(store.load()).rejects.toThrow(/Config corrupt.*no valid \.bak/);
     });
 
     it("clamps out-of-range refreshIntervalSeconds instead of discarding the whole config", async () => {

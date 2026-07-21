@@ -1,10 +1,21 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { type AppConfiguration, DEFAULT_CONFIGURATION, appConfigurationSchema } from "./types";
 import { createLogger } from "../../../shared/lib/logger";
 import { redact_config_json, redact_config_raw } from "../../../shared/lib/config_redaction";
 import { writeJsonAtomic } from "../storage/write-json";
 import { connectorProviderSchema, manifest_schema } from "../../../shared/schemas/manifest";
+
+/**
+ * 原子写 bak 文件：先写 tmp 再 rename，防强杀中断致 bak 损坏。
+ * 之前用 writeFile 直接写 bak，进程 mid-write 被杀时 bak 变 null bytes，
+ * 导致 configStore corrupt 检测后 bak 也不可恢复 -> fallback defaults -> auto_seed 覆盖 -> 用户数据丢失。
+ */
+async function writeBakAtomic(bakPath: string, content: string): Promise<void> {
+    const tmpPath = `${bakPath}.tmp`;
+    await writeFile(tmpPath, content, "utf8");
+    await rename(tmpPath, bakPath);
+}
 
 export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
@@ -206,30 +217,50 @@ export function createConfigStore(configPath: string): AppConfigStore {
                     return recovered_from_bak;
                 }
                 // Main is corrupt AND no valid .bak to recover - back up the
-                // corrupted main content before falling back to defaults, so
-                // there's still something to inspect later.
+                // corrupted main content before throwing, so there's still
+                // something to inspect later. Do NOT fallback to defaults:
+                // returning DEFAULT_CONFIGURATION triggers auto_seed in
+                // index.ts which overwrites config.json with new instanceIds,
+                // orphaning all observation-store data (P0 data loss).
                 try {
-                    await writeFile(`${configPath}.bak`, raw, "utf8");
+                    await writeBakAtomic(`${configPath}.bak`, raw);
                 } catch {
                     // non-critical
                 }
-                log.warn(
-                    `Config schema mismatch at ${configPath}, backup also invalid, using defaults`,
+                log.error(
+                    `Config schema mismatch at ${configPath}, backup also invalid. ` +
+                        `NOT falling back to defaults to prevent auto_seed overwrite. ` +
+                        `Manual recovery required (restore config.json from backup or reconfigure).`,
                     result.error.issues,
                 );
-                return { ...DEFAULT_CONFIGURATION };
+                throw new Error(
+                    `Config corrupt at ${configPath} and no valid .bak. ` +
+                        `Refusing to start with defaults to prevent data loss. ` +
+                        `Restore config.json manually or remove it to reset.`,
+                );
             } catch (err: unknown) {
-                if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-                    // Backup corrupted file
-                    try {
-                        const raw = await readFile(configPath, "utf8").catch(() => null);
-                        if (raw) await writeFile(`${configPath}.bak`, raw, "utf8");
-                    } catch {
-                        // non-critical
-                    }
-                    log.warn(`Config load failed (${configPath}), using defaults`, err);
+                // load() 本身抛错（非 ENOENT）：config 文件存在但 readFile/parse 异常。
+                // 同样不 fallback defaults（防 auto_seed 覆盖），而是抛错停止启动。
+                if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+                    // config.json 不存在 = 首次启动，返回 defaults 合理（auto_seed 填内置 connector）
+                    return { ...DEFAULT_CONFIGURATION };
                 }
-                return { ...DEFAULT_CONFIGURATION };
+                // 已有 config 但读取失败（IO 错误等）→ 备份损坏文件后抛错
+                try {
+                    const raw = await readFile(configPath, "utf8").catch(() => null);
+                    if (raw) await writeBakAtomic(`${configPath}.bak`, raw);
+                } catch {
+                    // non-critical
+                }
+                log.error(
+                    `Config load failed (${configPath}). ` +
+                        `NOT falling back to defaults to prevent auto_seed overwrite.`,
+                    err,
+                );
+                throw new Error(
+                    `Config load failed at ${configPath}: ${String(err)}. ` +
+                        `Refusing to start with defaults. Manual recovery required.`,
+                );
             }
         },
 
