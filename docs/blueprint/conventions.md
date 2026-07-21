@@ -1,12 +1,13 @@
 # 约定（内容细节）
 
-行为规则和工作顺序见 `AGENTS.md`。本文定义两类内容：上半“文档字段元约定”（task/review/adoption/specs_index/spike/decisions 格式，工作流用）；下半“项目编码细则”（OmniUsage 代码命名、风格、日志、测试、网络、连接器开发）。
+行为规则和工作顺序见 `AGENTS.md`。本文定义两类内容：上半”文档字段元约定”（task/review/specs_index/spike/decisions 格式，工作流用）；下半”项目编码细则”（OmniUsage 代码命名、风格、日志、测试、网络、连接器开发）。
 
 ## 命名与格式
 
 - 普通变量、函数、文件、目录和 slug 使用小写 `snake_case`。
 - `AGENTS.md`、`CLAUDE.md`、`README.md` 是工具入口例外。
-- `{tid}_`、`{sid}_` 是工作项类型前缀例外（实际 tid 小写，如 `t001_slug`、`s001_slug`）；前缀后 slug 仍使用小写 `snake_case`。
+- task 编号：占位 `{tid}`，值小写 `t001`、`t042`…。目录 / 分支 / finding：`docs/tasks/{tid}_{slug}/`、`{tid}_{slug}`、`{tid}_code_fNNN`。
+- spike 编号：占位 `{sid}`，值小写 `s001`、`s003`…。目录：`docs/spikes/{sid}_{slug}/`。
 - Markdown 嵌套内容缩进 4 空格，禁止 tab。
 - 时间戳统一使用中国时间，格式 `YYYY-MM-DD HH:MM UTC+8`。
 - 语言和框架已有稳定惯例时，在本文件补充项目级例外，不强行覆盖生态要求。
@@ -19,34 +20,58 @@
 - 常量用 `UPPER_SNAKE_CASE`（`DEFAULT_TIMEOUT_MS`、`MAX_HEIGHT_RATIO`）。
 - 术语中英一律以 `domain.md` §5 废弃对照为准，落后词先改表再改代码。
 
+## schema 类型落点
+
+| 类型                                                          | 落点                                    |
+| ------------------------------------------------------------- | --------------------------------------- |
+| 连接器契约（plugin metadata/output，跨进程）                  | `schemas/`（连接器沙箱 + 主进程共消费） |
+| 代码内数据契约（manifest、observation、config 等 Zod schema） | `src/shared/schemas/`（跟源码同源）     |
+| 配置 schema                                                   | 跟配置走 `config/`                      |
+
+原则：跨进程契约会触发多端同步，独立 `schemas/` 便于发现和工具扫描；代码内契约不外露，跟源码同源，避免双份维护。
+
 ## task 文件模板
 
 所有 active task 固定使用以下文件。任务很小时内容可以简短，但不合并文件。创建与使用流程见 AGENTS.md 单 task 流程。
 
-| 文件             | 字段                                                                                                  |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| `spec.md`        | 背景；范围；非范围；验收标准；依赖与约束                                                              |
-| `plan.md`        | 步骤及验证；风险与回退；完结时需更新的 blueprint 条目                                                 |
-| `task.md`        | 过程总账：过程记录 + `## Review 处置` + 收尾报告（front matter：`tid`/`slug`/`diff_anchor`/`branch`） |
-| `review_code.md` | code reviewer 报告（reviewer 写）                                                                     |
-| `review_test.md` | test reviewer 报告（reviewer 写）                                                                     |
+| 文件             | 谁写          | 是否必有                                                              |
+| ---------------- | ------------- | --------------------------------------------------------------------- |
+| `spec.md`        | 实现侧        | 是（验收标准非空）                                                    |
+| `plan.md`        | 实现侧        | 是                                                                    |
+| `task.md`        | 实现侧        | 是（过程总账：front matter + 过程记录 / `## Review 处置` / 收尾报告） |
+| `review_code.md` | code reviewer | 进入 review 后                                                        |
+| `review_test.md` | test reviewer | 进入 review 后                                                        |
 
-- `task.md` 过程记录只记有追溯价值的事项，不写命令流水账。
-- reviewer 提示词由 `scripts/render_review_prompts.py` 从 `task.md` front matter + `docs/templates/review/*.txt` 渲染。
+不再使用独立的 `log.md` / `adoption.md` / `task_report.md`（已并入 `task.md`）。
+
+### `task.md` front matter
+
+```yaml
+---
+tid: t032
+slug: align_conventions_repo
+diff_anchor: "<SHA>"
+branch: t032_align_conventions_repo
+# spec_path: 可选，默认 <task_dir>/spec.md
+---
+```
+
+- `tid`/`slug` 在 `scripts/task.py add` 后即填；`diff_anchor`/`branch` 在 step 1 开干时写实值。
+- task 状态（`backlog`/`active`/`blocked`/`done`/`dropped`）权威在 `docs/tasks_index.json`（通过 `scripts/task.py` 操作），不在 front matter。
+- `scripts/render_review_prompts.py --task-dir ...` 读 `tid`/`slug`/`diff_anchor`（及可选 `spec_path`）生成两份 review prompt。
+- 正文结构见 `docs/templates/task/task.md`。
 
 ## review 报告字段
 
-`review_code.md` / `review_test.md` 共用以下字段；流程（两 agent 并行、续写规则、权限）见 AGENTS.md step 5。
+`review_code.md` / `review_test.md` 以 `scripts/render_review_prompts.py` 渲染产物为准；流程见 AGENTS.md step 5。
 
-- task：`{tid}_{slug}`
-- spec：`docs/tasks/{tid}_{slug}/spec.md`
-- diff_anchor：`<SHA>`（取自 `task.md` front matter）
-- target：`git diff <diff_anchor>`
-- round：{1/2}
-- reviewed_at：`YYYY-MM-DD HH:MM UTC+8`
-- findings：分类别前缀的 `{tid}_code_fNNN` / `{tid}_test_fNNN`，每条含严重度、位置、问题、建议
-- verdict：末行 `verdict: PASS` 或 `verdict: FAIL`（由 `scripts/check_review_status.py` 解析）
-- conclusion：本 agent 总体判断
+- 提示词正文存于 `docs/templates/review/`（`code_prompt.txt` / `test_prompt.txt` / `share_prompt.txt`），由 `render_review_prompts.py` 读 front matter 填占位符。
+- 用法：`scripts/render_review_prompts.py --task-dir docs/tasks/{tid}_{slug} --out-dir .scratch/review_prompts`
+- 产物：`.scratch/review_prompts/{code,test}_review_prompt.md`（gitignore，不入库）。
+- front matter 字段：`task`=`{tid}_{slug}`、`spec`、`diff_anchor`、`target`=`git diff <diff_anchor>`、`round`、`reviewed_at`。
+- findings 前缀 `{tid}_code_fNNN` / `{tid}_test_fNNN`（跨轮全局续编）。
+- 末行 `verdict: PASS|FAIL`，由 `scripts/check_review_status.py` 解析。
+- `docs/templates/task/review.md` 仅空骨架。
 
 ## Review 处置（task.md 内）
 
@@ -60,7 +85,7 @@
 
 ## specs_index 字段
 
-`docs/specs_index.md` 是当前生效 spec 清单；写入规则见 AGENTS.md「目录与读写规则」。
+`docs/specs_index.md` 是当前生效 spec 清单；每个 task **step 7 收尾**累积更新。
 
 | slug     | task 清单  | 最后固化时间 |
 | -------- | ---------- | ------------ |
@@ -68,7 +93,7 @@
 
 - 表内 = 生效；废弃时整行删除。
 - 历史清单由 `docs/archive/specs/` 目录承载，不重复 index。
-- task 期间不写本表；全需求 task done 才首次写入。
+- 替代旧需求可在备注 `supersedes: <old_slug>`。
 
 ## spike 文件模板
 

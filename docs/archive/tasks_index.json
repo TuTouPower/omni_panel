@@ -239,6 +239,14 @@
             "status": "done",
             "branch": "t031_align_repo_template",
             "note": "单 task 单 commit;归档目录仅改名 T→t;详见 plan"
+        },
+        {
+            "tid": "t032",
+            "title": "conventions.md 对齐 repo_template 工作流字段段",
+            "slug": "align_conventions_repo",
+            "status": "done",
+            "branch": "t032_align_conventions_repo",
+            "note": ""
         }
     ]
 }
