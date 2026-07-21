@@ -5,7 +5,7 @@
  * bridge. Native-only surfaces (tray, window controls) are no-ops; the
  * renderer hides their buttons in web mode (see is_web flag).
  */
-import type { UsageboardApi } from "../shared/types/ipc";
+import type { UsageboardApi, ConnectorSnapshotDTO } from "../shared/types/ipc";
 
 const POLL_MS = 10_000;
 
@@ -33,6 +33,30 @@ export function create_web_usageboard(): UsageboardApi {
     setInterval(() => {
         for (const cb of token_stats_callbacks) cb();
     }, POLL_MS);
+
+    // SSE push channel — mirrors the desktop IPC EVENT_STATE_CHANGE broadcast.
+    // local-api streams runtimeStore state changes over GET /v1/events; this
+    // relays them to renderer subscribers (use_plugins) so the web panel
+    // refreshes without polling.
+    const state_change_cbs = new Set<(instanceId: string, state: ConnectorSnapshotDTO) => void>();
+    let events_source: EventSource | null = null;
+    function ensure_events(): void {
+        if (events_source) return;
+        events_source = new EventSource("/v1/events");
+        events_source.addEventListener("message", (ev: MessageEvent) => {
+            try {
+                const payload = JSON.parse(ev.data as string) as {
+                    instanceId: string;
+                    state: ConnectorSnapshotDTO;
+                };
+                for (const cb of state_change_cbs) {
+                    cb(payload.instanceId, payload.state);
+                }
+            } catch {
+                /* ignore malformed SSE frame */
+            }
+        });
+    }
 
     const api = {
         platform: "win32" as const,
@@ -68,7 +92,13 @@ export function create_web_usageboard(): UsageboardApi {
             import: () => Promise.resolve({ imported: false }),
         },
         event: {
-            onStateChange: return_noop,
+            onStateChange: (cb: (instanceId: string, state: ConnectorSnapshotDTO) => void) => {
+                ensure_events();
+                state_change_cbs.add(cb);
+                return () => {
+                    state_change_cbs.delete(cb);
+                };
+            },
             onConfigChange: return_noop,
             onThemeChange: return_noop,
             onSettingsNavigate: return_noop,

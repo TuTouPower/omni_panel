@@ -39,7 +39,8 @@
 
 ## 5. 数据新鲜度
 
-- web 端无 IPC 推送；`tokenStats.onUpdated` 由 `usageboard-web` 内部 10s 轮询触发。
+- connector/用量面板：`usageboard-web` 经 `GET /v1/events`（SSE）订阅 runtimeStore 状态变更，`onStateChange` 回调转发给 `use_plugins`，与桌面端 IPC `EVENT_STATE_CHANGE` 语义一致（同事件源 `runtimeStore.subscribe`）。连接关闭自动 unsub；EventSource 浏览器原生断线重连。
+- tokenStats/代理面板：无 IPC/SSE 推送，`tokenStats.onUpdated` 由 `usageboard-web` 内部 10s 轮询触发。
 
 ## 6. 面板间导航
 

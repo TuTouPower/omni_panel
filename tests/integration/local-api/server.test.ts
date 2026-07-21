@@ -2,10 +2,12 @@ import { createServer } from "node:http";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { create_local_api_server } from "../../../src/main/core/local-api/server";
 import { create_observation_store } from "../../../src/main/core/observation/observation-store";
 import { create_token_stats_store } from "../../../src/main/core/token-stats/token-stats-store";
+import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
+import type { RuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
 import type { LocalAPIServer } from "../../../src/main/core/local-api/server";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
 import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
@@ -19,6 +21,7 @@ let api: LocalAPIServer;
 let token_stats_store: TokenStatsStore;
 let config_deps: ConfigIpcDeps;
 let connector_deps: ConnectorIpcDeps;
+let runtime_store: RuntimeStore;
 let web_root: string;
 
 function assert_non_null<T>(
@@ -77,9 +80,10 @@ beforeEach(async () => {
         },
         secretParamKeys: new Map([["inst-1", new Set(["apiKey"])]]),
     };
+    runtime_store = createRuntimeStore();
     connector_deps = {
         configStore: config_deps.configStore,
-        runtimeStore: { getSnapshot: () => ({ status: "idle" }) } as never,
+        runtimeStore: runtime_store,
         refreshService: {
             refresh: () => Promise.resolve(),
             refreshAll: () => Promise.resolve(),
@@ -282,5 +286,57 @@ describe("local-api web read endpoints", () => {
         expect(res.status).toBe(200);
         const data = (await res.json()) as unknown[];
         expect(Array.isArray(data)).toBe(true);
+    });
+});
+
+describe("local-api SSE events", () => {
+    it("GET /v1/events streams state changes as text/event-stream", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/events`);
+        expect(res.status).toBe(200);
+        expect(res.headers.get("content-type")).toContain("text/event-stream");
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("no response body");
+        runtime_store.updateState("inst-sse-1", { status: "idle" });
+        const { value } = await reader.read();
+        const text = new TextDecoder().decode(value);
+        expect(text).toContain("data:");
+        expect(text).toContain("inst-sse-1");
+        await reader.cancel();
+    });
+
+    it("SSE connection unsubscribes on client disconnect", async () => {
+        await api.start();
+        let subscribe_count = 0;
+        let unsub_count = 0;
+        const real_subscribe = runtime_store.subscribe.bind(runtime_store);
+        const spy = vi.spyOn(runtime_store, "subscribe").mockImplementation((listener) => {
+            subscribe_count += 1;
+            const unsub = real_subscribe(listener);
+            return () => {
+                unsub_count += 1;
+                unsub();
+            };
+        });
+
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/events`);
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("no response body");
+        runtime_store.updateState("inst-sse-1", { status: "idle" });
+        await reader.read();
+        expect(subscribe_count).toBeGreaterThanOrEqual(1);
+        expect(unsub_count).toBe(0);
+
+        await reader.cancel();
+        await new Promise((resolve) => {
+            setTimeout(resolve, 80);
+        });
+        // Every SSE subscription must be cleaned up on disconnect. cleanup may
+        // fire more than once (req + res close) and undici may open >1 transport;
+        // both are idempotent, so require every subscription to be unsubscribed
+        // at least once — catches a missing-cleanup leak (unsub_count stays 0).
+        expect(subscribe_count).toBeGreaterThanOrEqual(1);
+        expect(unsub_count).toBeGreaterThanOrEqual(subscribe_count);
+        spy.mockRestore();
     });
 });

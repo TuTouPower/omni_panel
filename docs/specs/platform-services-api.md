@@ -16,6 +16,7 @@
 - `GET /v1/trend?provider&accountId&metricId&days?` - sparkline 走势序列（`build_trend_series`，缺失日期填 null，默认 7 天）。
 - `GET /v1/connectors` / `POST /v1/connectors` - 连接器列表 / 全量刷新（POST = `refreshAll`）。
 - `GET /v1/connectors/:id/state` / `POST /v1/connectors/:id/refresh` - 单连接器快照 / 刷新。
+- `GET /v1/events` - connector 状态变更 SSE 推送（`text/event-stream`，无 auth；每连接 `runtimeStore.subscribe`，帧 `data: {instanceId, state: ConnectorSnapshotDTO}`；连接关闭即 unsub）。web 面板借此对齐桌面端 IPC `EVENT_STATE_CHANGE`，无需轮询。
 - 非 `/v1/` 路径 GET - web 面板 SPA 静态 fallback（web_root 存在时；`index.html` 不缓存，path-traversal 由 `is_within_web_root` 守）。
 - **不支持任意上游 URL** -- 绝不变成通用开放代理。
 

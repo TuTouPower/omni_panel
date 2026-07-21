@@ -327,6 +327,14 @@
             "status": "done",
             "branch": "t041_upcoming_reset_threshold",
             "note": ""
+        },
+        {
+            "tid": "t042",
+            "title": "web 用量面板数据实时刷新（SSE 推送）",
+            "slug": "web_usage_panel_sse_refresh",
+            "status": "done",
+            "branch": "t042_web_usage_panel_sse_refresh",
+            "note": ""
         }
     ]
 }

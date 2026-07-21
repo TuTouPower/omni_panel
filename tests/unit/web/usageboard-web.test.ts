@@ -55,4 +55,24 @@ describe("web usageboard bridge", () => {
             api.theme.set("dark");
         }).not.toThrow();
     });
+
+    it("onStateChange relays /v1/events SSE messages", () => {
+        const message_handlers: ((ev: { data: string }) => void)[] = [];
+        class FakeEventSource {
+            constructor(public url: string) {}
+            addEventListener(_type: string, handler: (ev: { data: string }) => void): void {
+                message_handlers.push(handler);
+            }
+        }
+        vi.stubGlobal("EventSource", FakeEventSource);
+
+        const api = create_web_usageboard();
+        const received: [string, unknown][] = [];
+        api.event.onStateChange((instanceId, state) => received.push([instanceId, state]));
+        expect(message_handlers).toHaveLength(1);
+        const handler = message_handlers[0];
+        if (!handler) throw new Error("no message handler");
+        handler({ data: JSON.stringify({ instanceId: "inst-1", state: { status: "idle" } }) });
+        expect(received).toEqual([["inst-1", { status: "idle" }]]);
+    });
 });

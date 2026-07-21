@@ -39,3 +39,11 @@
 - 关联：可能与"e2e badge 展开按钮 timeout"及"T029 connector 脚本 per-account error 改进"相关，但本条记录用户可见账号被隐藏问题，根因需独立确认。
 - 根因：主面板账号列表只从 `snapshot.items`（MetricRecord）构建；首次采集即失败的直连账号无 observation → 无 MetricRecord → 无账号行。已有 stale error 机制（T026-T029）只覆盖曾成功过的账号。
 - 修复（t040，done）：`build_provider_usage_groups` 对 enabled 直连（非 gateway）failed 且零 items 的 connector 合成失败账号占位（`periods:[]` + `error`）；CPA/有 items 不合成。
+
+## 网页端数据不实时刷新，桌面端正常
+
+- 报告时间：2026-07-22。
+- 现象：同一应用，桌面端运行时用量数据可实时刷新；网页端（浏览器访问 LocalAPI 面板）用量主面板数据不实时刷新，首次加载后冻结。
+- 期望：网页端与桌面端刷新行为一致，数据变化应同等呈现。
+- 根因：web 端 `src/web/usageboard-web.ts` 的 `event.onStateChange` 为 no-op，而用量主面板数据 hook `use_plugins()` 仅靠该推送更新 connector 快照、自身无轮询；web 端仅 tokenStats 有 10s 轮询，connector/用量面板无任何刷新机制。桌面端靠 IPC 推送（runtimeStore.subscribe → `EVENT_STATE_CHANGE` → webContents.send）实时。
+- 修复（t042，done）：LocalAPI 加 `GET /v1/events` SSE 端点（复用 `connector_deps.runtimeStore.subscribe`，与桌面端同一事件源）；`usageboard-web.ts` 的 `onStateChange` 改用 `EventSource` 订阅，推送语义对齐桌面端 IPC。

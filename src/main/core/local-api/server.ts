@@ -23,6 +23,8 @@ import {
     handleConnectorRefreshAll,
 } from "../../ipc/connector-ipc";
 import type { ConnectorIpcDeps } from "../../ipc/connector-ipc";
+import { state_to_snapshot_dto } from "../../ipc/helpers";
+import type { ConnectorSnapshotState } from "../scheduler/types";
 import type { IpcResult } from "../../../shared/types/ipc";
 
 const log = createLogger("local-api");
@@ -245,6 +247,11 @@ export function create_local_api_server(
                 return;
             }
 
+            if (url.pathname === "/v1/events" && is_get) {
+                handle_sse(req, res);
+                return;
+            }
+
             if (!check_auth(req, token)) {
                 json_response(res, 401, { error: "Unauthorized" });
                 return;
@@ -414,6 +421,32 @@ export function create_local_api_server(
             }
         }
         return false;
+    }
+
+    function handle_sse(req: IncomingMessage, res: ServerResponse): void {
+        const store = connector_deps?.runtimeStore;
+        if (!store) {
+            json_response(res, 503, { error: "events unavailable" });
+            return;
+        }
+        res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+        });
+        res.flushHeaders();
+        const unsub = store.subscribe({
+            onStateChange(instanceId: string, state: ConnectorSnapshotState): void {
+                if (res.destroyed || res.writableEnded) return;
+                const dto = state_to_snapshot_dto(state);
+                res.write(`data: ${JSON.stringify({ instanceId, state: dto })}\n\n`);
+            },
+        });
+        const cleanup = (): void => {
+            unsub();
+        };
+        req.on("close", cleanup);
+        res.on("close", cleanup);
     }
 
     function listen(target_port: number): Promise<number> {
