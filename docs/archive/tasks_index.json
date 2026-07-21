@@ -303,6 +303,14 @@
             "status": "done",
             "branch": "t039_grok_empty_observation_failure",
             "note": "根因已确认：HTTP 200 但 connector 返回空数组，refresh 写 ready+0 items"
+        },
+        {
+            "tid": "t038",
+            "title": "持久化内置账号删除状态，阻止重启后 auto-seed 复活",
+            "slug": "persist_deleted_connector_tombstones",
+            "status": "done",
+            "branch": "t038_persist_deleted_connector_tombstones",
+            "note": "根因已确认：删除仅移除 plugins，启动 auto-seed 无 tombstone 会重新创建"
         }
     ]
 }

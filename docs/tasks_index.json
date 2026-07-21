@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t038",
-            "title": "持久化内置账号删除状态，阻止重启后 auto-seed 复活",
-            "slug": "persist_deleted_connector_tombstones",
-            "status": "active",
-            "branch": "t038_persist_deleted_connector_tombstones",
-            "note": "根因已确认：删除仅移除 plugins，启动 auto-seed 无 tombstone 会重新创建"
-        },
-        {
             "tid": "t040",
             "title": "主面板展示首次采集失败的已配置账号",
             "slug": "show_failed_configured_accounts",
