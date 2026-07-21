@@ -85,14 +85,15 @@
 
 ```
 src/main/core/token-stats/
-├── collector.ts          # 子进程入口（被 fork）
-├── claude-reader.ts      # costs.jsonl + session JSONL 读取
-├── opencode-reader.ts    # opencode.db 只读查询
-├── kimi-reader.ts        # Kimi Code wire.jsonl + session_index 读取
-├── aggregator.ts         # 按模型/天聚合
-├── types.ts              # 共享类型定义
-└── manager.ts            # 主进程侧：fork / 生命周期 / IPC 接收
+├── collector.ts           # 子进程入口（被 fork），内联按模型/天聚合逻辑
+├── claude-reader.ts       # costs.jsonl + session JSONL 读取
+├── opencode-reader.ts     # opencode.db 只读查询
+├── kimi-reader.ts         # Kimi Code wire.jsonl + session_index 读取
+├── token-stats-store.ts   # token_stats_* 表建表 + 读写（复用 usage.db）
+└── manager.ts             # 主进程侧：fork / 生命周期 / IPC 接收
 ```
+
+共享类型与 Zod schema 放 `src/shared/types/token-stats.ts`（不在模块内单独建 `types.ts`）。聚合逻辑内联进 `collector.ts`，不单独建 `aggregator.ts`。
 
 **进程模型**：
 
@@ -100,7 +101,7 @@ src/main/core/token-stats/
 Electron 主进程
   │  app.whenReady() 时 fork
   │
-  ├── token-stats 子进程 (Node.js child_process.fork)
+  ├── token-stats 子进程 (Electron utilityProcess.fork)
   │     │
   │     ├─ 启动时立即执行一次采集
   │     ├─ setInterval(10 分钟) 定时采集
@@ -109,19 +110,21 @@ Electron 主进程
   │     │   ├─ 读 costs.jsonl（增量 offset）
   │     │   ├─ 遍历 session JSONL（增量 mtime）
   │     │   ├─ 查询 opencode.db（增量 time_updated）
-  │     │   ├─ 聚合为 { buckets, sessions }
-  │     │   └─ process.send({ type: "update", data })
+  │     │   ├─ 聚合为 { sessions, daily, records }
+  │     │   └─ parentPort.postMessage({ type: "token_stats_update", ... })
   │     │
-  │     └─ process.on("message") 接收配置更新
+  │     └─ parentPort.on("message") 接收配置更新
   │
   └─ 收到 IPC → 写入 token_stats_* 表 → 广播事件到渲染端
 ```
 
+**为什么用 `utilityProcess.fork` 而非 `child_process.fork`**：打包后应用将 `runAsNode` fuse 设为 false，禁用 `ELECTRON_RUN_AS_NODE`，`child_process.fork` 会静默失败。`utilityProcess` 是 Electron 官方子进程 API，不受 fuse 影响（见 `src/main/core/token-stats/manager.ts:60-66`）。
+
 **子进程优势**：
 
 - Electron 主进程保持轻量，IO 密集操作不阻塞 UI
-- 标准 Node.js 运行，不受 Electron ABI 限制，直接用 `better-sqlite3`
-- 进程隔离：子进程崩溃不影响主进程（可自动重启）
+- utilityProcess 提供 Node.js 运行时，直接用 `better-sqlite3`
+- 进程隔离：子进程崩溃不影响主进程（manager 内置 30s 自动重启 + 快速崩溃熔断，连续 5 次 5 分钟内退出则停止重启）
 - 生命周期清晰：app 启动 fork，退出 kill
 
 **只读保证**：
@@ -163,12 +166,12 @@ interface TokenStatsConfig {
 复用现有 `usage.db` 文件路径，新建独立 `token-stats-store.ts` 模块管理建表和读写，不侵入 `observation-store.ts`。
 
 ```sql
--- 按天按模型的 token 聚合（趋势图数据源）
+-- 按天按模型的 token 聚合（趋势图数据源；由 daily 表派生重建）
 CREATE TABLE IF NOT EXISTS token_stats_buckets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source TEXT NOT NULL,           -- 'claude_code' | 'opencode'
+    source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code'
     env TEXT NOT NULL,              -- 'win' | 'wsl'
-    bucket_date TEXT NOT NULL,      -- '2026-07-17'（按天）
+    bucket_date TEXT NOT NULL,      -- '2026-07-17'（按天，UTC）
     model TEXT NOT NULL,
     input_tokens INTEGER NOT NULL DEFAULT 0,
     output_tokens INTEGER NOT NULL DEFAULT 0,
@@ -183,7 +186,7 @@ CREATE TABLE IF NOT EXISTS token_stats_buckets (
 -- session 列表
 CREATE TABLE IF NOT EXISTS token_stats_sessions (
     id TEXT NOT NULL,               -- session_id
-    source TEXT NOT NULL,           -- 'claude_code' | 'opencode'
+    source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code'
     env TEXT NOT NULL,              -- 'win' | 'wsl'
     model TEXT NOT NULL,
     title TEXT,
@@ -198,9 +201,62 @@ CREATE TABLE IF NOT EXISTS token_stats_sessions (
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (id, source, env)
 );
+
+-- per-(session, day, model) 派生中间层：reader 每次扫描某 session 时
+-- 全量重算该 session 当日该 model 的 usage，作为 buckets 重建源。session
+-- 累积快照无法把用量归因到正确日期，这一层解决了「近 7 天」准确性。
+CREATE TABLE IF NOT EXISTS token_stats_daily (
+    id TEXT NOT NULL,               -- session_id
+    source TEXT NOT NULL,
+    env TEXT NOT NULL,
+    date TEXT NOT NULL,             -- UTC YYYY-MM-DD
+    model TEXT NOT NULL,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+    calls INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (id, source, env, date, model)
+);
+
+-- per-message token 记录（逐次调用时间线数据源）
+CREATE TABLE IF NOT EXISTS token_stats_records (
+    source TEXT NOT NULL,
+    env TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    title TEXT,
+    directory TEXT,
+    slug TEXT,
+    version TEXT,
+    parent_session_id TEXT,
+    message_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    model TEXT NOT NULL,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+    agent TEXT NOT NULL,            -- 'claude-code' | 'opencode' | 'kimi-code'
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (message_id, source, env)
+);
 ```
 
-**合并策略**：子进程每次采集全量聚合后，用 `INSERT OR REPLACE` 写入。`UNIQUE` 约束保证同源同 session 不重复。
+**写入策略**（分层，见 `src/main/core/token-stats/token-stats-store.ts`）：
+
+- `token_stats_sessions`：`UPDATE ... COALESCE(@field, field)` 已存在行（null 字段保留旧值；`started_at` 取 MIN、`ended_at` 取 MAX）；未命中再 `INSERT`。
+- `token_stats_daily`：reader 每次扫描某 session 时全量重算当日数据，`INSERT OR REPLACE` by PK。每次 upsert 批处理后 `DELETE FROM token_stats_buckets` + `INSERT ... SELECT ... FROM token_stats_daily GROUP BY source, env, date, model` 重建 buckets。
+- `token_stats_records`：reader 全量重发变更 session 的 message 记录，`INSERT OR REPLACE` by `(message_id, source, env)`。
+- source 枚举：`claude_code | opencode | kimi_code`（`agent` 字段在 records 表用连字符形式 `claude-code | opencode | kimi-code`）。
+
+**迁移**：用 PRAGMA `user_version` 驱动的 wipe-rebuild（派生表都是从采集数据重建）：
+
+- v2：把 daily `date` 从 collector 本地时区改为 UTC bucketing；同时清理已删除 transcript 残留的 session 行。`DELETE FROM token_stats_daily; DELETE FROM token_stats_buckets; DELETE FROM token_stats_sessions;`，`PRAGMA user_version = 2`。
+- v3：引入 `token_stats_records` 表时，`DELETE FROM token_stats_records;`，`PRAGMA user_version = 3`。
+
+collector 启动时会做 full rescan，wipe 后自然重建。
 
 ### 4.2 增量状态
 
@@ -224,14 +280,15 @@ interface IncrementalState {
 // 子进程采集完成后发送
 interface TokenStatsUpdate {
     type: "token_stats_update";
-    buckets: TokenStatsBucket[]; // 聚合数据
-    sessions: TokenStatsSession[]; // session 列表
+    sessions: TokenStatsSessionUpsert[]; // session 增量 delta（字段可空 = 无信息）
+    daily: TokenStatsDailyUpsert[]; // per-(session, day, model) 全量重算
+    records: AgentSessionUsageRecord[]; // per-message 时间线记录
 }
 ```
 
-主进程收到后 `INSERT OR REPLACE` 写入 `token_stats_*` 表，然后广播 `TOKEN_STATS_UPDATED` 事件到渲染端。
+主进程收到后按 §4.1 分层策略写入 `token_stats_*` 表（sessions upsert + daily replace + buckets 重建 + records replace），然后广播 `TOKEN_STATS_UPDATED` 事件到渲染端。
 
-**消息大小上限**：`buckets` + `sessions` 合计不超过 10,000 条记录。超出时 warn 日志截断（保留最新的），避免 `process.send()` JSON 序列化阻塞事件循环。
+**消息大小上限**：sessions ≤ 10,000，daily ≤ 50,000，records ≤ 200,000（见 `src/main/core/token-stats/collector.ts:18`）。任一超出 warn 日志截断并停止本轮采集，避免 `postMessage` JSON 序列化阻塞事件循环。
 
 ## 5. 前端：独立窗口
 
@@ -336,24 +393,23 @@ interface TokenStatsUpdate {
 
 ## 6. 涉及文件清单
 
-| 文件                                             | 改动                                                | Task     |
-| ------------------------------------------------ | --------------------------------------------------- | -------- |
-| `scripts/token-stats-spike.ts`                   | 新建：Phase 0 验证脚本（一次性）                    | 0        |
-| `src/shared/types/token-stats.ts`                | 新建：共享类型 + Zod schema                         | 1.1      |
-| `src/main/core/token-stats/types.ts`             | 新建：模块内部类型                                  | 1.1      |
-| `src/main/core/token-stats/token-stats-store.ts` | 新建：token*stats*\* 表建表 + 读写（复用 usage.db） | 1.2      |
-| `src/main/core/token-stats/claude-reader.ts`     | 新建：costs.jsonl + session JSONL 解析              | 2.1, 2.2 |
-| `src/main/core/token-stats/opencode-reader.ts`   | 新建：opencode.db 只读查询                          | 3.1      |
-| `src/main/core/token-stats/aggregator.ts`        | 新建：按模型/天聚合                                 | 4.1      |
-| `src/main/core/token-stats/collector.ts`         | 新建：子进程入口，定时采集循环                      | 4.2, 6.1 |
-| `src/main/core/token-stats/manager.ts`           | 新建：主进程侧 fork / IPC / 写表                    | 4.3      |
-| `src/main/index.ts`                              | 扩展：启动 token-stats manager                      | 4.3      |
-| `src/shared/types/ipc.ts`                        | 扩展：TOKEN_STATS IPC channels                      | 5.1      |
-| `src/main/ipc/token-stats-ipc.ts`                | 新建：渲染端 IPC handler                            | 5.1      |
-| `src/preload/index.ts`                           | 扩展：暴露 tokenStats API                           | 5.1      |
-| `src/main/window/window-manager.ts`              | 扩展：新增 tokenStats 窗口配置                      | 5.2      |
-| `src/renderer/views/TokenStatsView.tsx`          | 新建：独立窗口主视图                                | 5.3      |
-| `src/renderer/components/TokenStatsPanel/`       | 新建：KPI + 图 + 列表组件                           | 5.3–5.5  |
+| 文件                                             | 改动                                                                            | Task     |
+| ------------------------------------------------ | ------------------------------------------------------------------------------- | -------- |
+| `scripts/token-stats-spike.ts`                   | 新建：Phase 0 验证脚本（一次性）                                                | 0        |
+| `src/shared/types/token-stats.ts`                | 新建：共享类型 + Zod schema（含 `AgentSessionUsage` / `TokenStatsDailyUpsert`） | 1.1      |
+| `src/main/core/token-stats/token-stats-store.ts` | 新建：token*stats*\* 表建表 + 读写（复用 usage.db），含 user_version v2/v3 迁移 | 1.2      |
+| `src/main/core/token-stats/claude-reader.ts`     | 新建：costs.jsonl + session JSONL 解析                                          | 2.1, 2.2 |
+| `src/main/core/token-stats/opencode-reader.ts`   | 新建：opencode.db 只读查询                                                      | 3.1      |
+| `src/main/core/token-stats/kimi-reader.ts`       | 新建：Kimi Code wire.jsonl + session_index 解析                                 | 3.2      |
+| `src/main/core/token-stats/collector.ts`         | 新建：utilityProcess 子进程入口，定时采集循环，内联按模型/天聚合                | 4.2, 6.1 |
+| `src/main/core/token-stats/manager.ts`           | 新建：主进程侧 utilityProcess.fork / IPC / 写表                                 | 4.3      |
+| `src/main/index.ts`                              | 扩展：启动 token-stats manager                                                  | 4.3      |
+| `src/shared/types/ipc.ts`                        | 扩展：TOKEN_STATS IPC channels                                                  | 5.1      |
+| `src/main/ipc/token-stats-ipc.ts`                | 新建：渲染端 IPC handler                                                        | 5.1      |
+| `src/preload/index.ts`                           | 扩展：暴露 tokenStats API                                                       | 5.1      |
+| `src/main/window/window-manager.ts`              | 扩展：新增 tokenStats 窗口配置                                                  | 5.2      |
+| `src/renderer/views/TokenStatsView.tsx`          | 新建：独立窗口主视图                                                            | 5.3      |
+| `src/renderer/components/TokenStatsPanel/`       | 新建：KPI + 图 + 列表组件                                                       | 5.3–5.5  |
 
 ## 7. 明确不做（本版）
 
@@ -363,12 +419,13 @@ interface TokenStatsUpdate {
 - **不做**小时粒度聚合（仅按天）
 - **不做**Grok Build token 统计
 - **不做**Session 对比 / 批量操作
-- **不做**Session 详情（逐次调用时间线）
 - **不做**导出 CSV / JSON
 - **不做**Token 口径切换（计费 vs 含缓存）
 - **不做**跨工具对比页
 - **不做**实时流式监控
 - **不做**文件 watcher
+
+注：`token_stats_records` 表与 `AgentSessionUsage` 类型已在本版引入，为 per-message 记录提供数据层契约；UI 层的「Session 详情（逐次调用时间线）」视图留待后续 Phase 在此基础上扩展。
 
 ## 8. 成功标准
 

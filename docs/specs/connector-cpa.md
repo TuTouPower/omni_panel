@@ -32,6 +32,8 @@ CPA 脚本逐账号 try，产出观测各自带状态。失败归属决定显示
 
 **核心约束**：Kimi 拉失败不能让整个 CPA 挂掉、连累 Claude。
 
+**失败上报协议**：CPA 脚本在 per-account 循环里 catch 到错误时，调 `ctx.report_failed_account(provider, account_id, account_label, error)` 把该账号失败信息交给 runtime（`connectors/cpa/connector.ts` 约 533）。runtime 收集到 `ConnectorRunResult.failed_accounts` 后，由 refresh-service 从 observation-store 取该账号上次成功观测并复制为 stale 副本（domain.md 不变量 5）。脚本能继续跑后续账号，不被异常中断。
+
 ## 聚合计算
 
 多账号 provider 卡片在概览粒度聚合当前可显示账号（隐藏的排除）：
@@ -55,7 +57,8 @@ CPA 脚本逐账号 try，产出观测各自带状态。失败归属决定显示
 
 - `connectors/cpa/manifest.json` + `connector.ts`（script 型，走 `connector-runtime.md` 脚本分支）。
 - `provider = "cpa"`，`capabilities = ["poll"]`（多步 poll 经 script 实现）。
-- 参数 `cpa_mgmt_key`（secret）。
+- 参数 `cpa_mgmt_key`（secret，`exposeToScript:true`）。
+- 监控开关参数（均 `type:string`、`default:"true"`、`exposeToScript:true`）：`monitor_claude` / `monitor_kimi` / `monitor_codex` / `monitor_antigravity`。脚本读取 `ctx.params[`monitor\_${provider}`]`，值非 `"true"`（不区分大小写）时跳过该 provider。
 - 保存副作用按实际变化分类：管理密钥、CPA-Manager URL、任一 monitor 变化时，仅 fire-and-forget 刷新当前 CPA；备注、刷新间隔不立即采集。
 - 无变化保存不写 config、不写 secret、不刷新；保存成功返回账号列表，保存失败保留详情页。
 - 当前 CPA 定向刷新不等待网络结果，也不解除 scheduler 的 user/system 暂停状态。

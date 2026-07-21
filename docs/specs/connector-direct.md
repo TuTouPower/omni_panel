@@ -4,20 +4,20 @@
 
 ## 内置清单（`connectors/<id>/`）
 
-| id            | provider    | 能力    | 形态 | 说明                          |
-| ------------- | ----------- | ------- | ---- | ----------------------------- |
-| `claude`      | claude      | local   | 直连 | 读 `~/.claude` 本地用量       |
-| `codex`       | codex       | local   | 直连 | 读 `~/.codex` 本地用量        |
-| `deepseek`    | deepseek    | poll    | 直连 | 官方用量 API                  |
-| `glm`         | glm         | poll    | 直连 | 智谱 API                      |
-| `minimax`     | minimax     | poll    | 直连 | MiniMax API                   |
-| `tavily`      | tavily      | poll    | 直连 | Tavily API                    |
-| `firecrawl`   | firecrawl   | poll    | 直连 | Firecrawl API                 |
-| `mimo`        | mimo        | session | 直连 | 受控网页登录捕获 cookie       |
-| `kimi`        | kimi        | session | 直连 | 受控网页登录（也可经 CPA）    |
-| `opencode_go` | opencode_go | session | 直连 | 受控网页登录捕获 cookie       |
-| `antigravity` | antigravity | poll    | 直连 | Antigravity API（也可经 CPA） |
-| `grok`        | grok        | poll    | 直连 | Grok API（OAuth device-code） |
+| id            | provider    | 能力    | 形态 | 说明                             |
+| ------------- | ----------- | ------- | ---- | -------------------------------- |
+| `claude`      | claude      | local   | 直连 | 读 `~/.claude` 本地用量          |
+| `codex`       | codex       | local   | 直连 | 读 `~/.codex` 本地用量           |
+| `deepseek`    | deepseek    | poll    | 直连 | 官方用量 API                     |
+| `glm`         | glm         | poll    | 直连 | 智谱 API                         |
+| `minimax`     | minimax     | poll    | 直连 | MiniMax API                      |
+| `tavily`      | tavily      | poll    | 直连 | Tavily API                       |
+| `firecrawl`   | firecrawl   | poll    | 直连 | Firecrawl API                    |
+| `mimo`        | mimo        | session | 直连 | 受控网页登录捕获 cookie          |
+| `kimi`        | kimi        | poll    | 直连 | Kimi Code API（API Key）         |
+| `opencode_go` | opencode_go | session | 直连 | 受控网页登录捕获 cookie          |
+| `antigravity` | antigravity | local   | 直连 | 读 `~/.antigravity/session.json` |
+| `grok`        | grok        | poll    | 直连 | Grok API（OAuth device-code）    |
 
 ## 能力分发（`refresh-service.execute_connector`）
 
@@ -41,6 +41,8 @@
 ## session 型行为
 
 详见 `connector-session.md`。受控网页登录捕获 cookie，存 vault，脚本经 `ctx.http` 带 cookie 采集。
+
+session 连接器在 manifest 声明 `loginDomains: string[]`（允许的登录域名白名单）与 `cookieNames: string[]`（命中即视为捕获成功的 cookie 名，支持 `"*"` 通配）。schema 定义见 `src/shared/schemas/manifest.ts:91-92`；实例见 `connectors/mimo/manifest.json`、`connectors/opencode_go/manifest.json`。
 
 ## observe 型行为（被动观测）
 

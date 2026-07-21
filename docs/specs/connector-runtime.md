@@ -6,7 +6,7 @@
 
 ### manifest schema（`src/shared/schemas/manifest.ts`，`.strict()`）
 
-顶层 key：`id`、`provider`（= `usageProviderSchema` ∪ `"cpa"`）、`capabilities`（`["poll"|"local"|"session"|"observe"]`，≥1）、`parameters[]`、`endpoints?`（record<string,url>）、`requireExplicitEndpoints?`、`manualDefault?`、`script?`、`poll?`、`observe?`、`local?`。`.refine`：声明的 poll/local/observe 能力必须有对应配置（session 无此约束）。
+顶层 key：`id`、`provider`（= `usageProviderSchema` ∪ `"cpa"`）、`capabilities`（`["poll"|"local"|"session"|"observe"]`，≥1）、`parameters[]`、`endpoints?`（record<string,url>）、`requireExplicitEndpoints?`、`manualDefault?`、`script?`、`poll?`、`observe?`、`local?`、`loginDomains?`（session 连接器允许的登录域名，由 auth-ipc 读取）、`cookieNames?`（静默刷新校验用的 cookie 名）。`.refine`：声明的 poll/local/observe 能力必须有对应配置（session 无此约束）。
 
 - `parameter`：`name` / `type`（`secret`|`string`|`number`）/ `required`（默认 false）/ `label` / `label@zh-Hans` / `default` / `exposeToScript`（默认 **false**）。
 - `poll.request`：`endpoint` / `path` / `method`（GET|POST，默认 GET）/ `auth?` / `body?`；`poll.map`：`used`/`limit`/`remaining` 若存在须以 `$` 开头。
@@ -17,13 +17,18 @@
 
 - `ctx.http.get_json/post_json(endpoint_key, path[, body], opts?)` → `unknown`；`get_raw(endpoint_key, path, opts?)` → `{status, headers(全小写), body}`。`opts = {headers?, timeout_ms?, reset?}`。
 - `opts.reset`：跳过 undici 全局连接池，强制新建 TCP+TLS 连接。由 refresh-service 在连续两次连接级错误后自动注入，连接器脚本一般不需直接使用。
-- `ctx.files.read(pathPattern) → string`；`list(pathPattern) → string[]`。
+- `ctx.files.read(pathPattern) → Promise<string>`；`list(pathPattern) → Promise<readonly string[]>`（异步，脚本需 `await`）。
 - `ctx.params: Record<string,string>`（非 secret 参数 + `exposeToScript:true` 的 secret 明文）。
+- `ctx.report_failed_account(provider, account_id, account_label, error) → void`：脚本在 per-account 循环里 catch 到错误时调此上报失败账号。runtime 用 wrapper 收集到 `ConnectorRunResult.failed_accounts`，交给 refresh-service 把该账号上次成功观测复制为 stale 副本（domain.md 不变量 5）。脚本只调方法、不感知收集细节。
 - `ctx.log.debug/info/warn/error`；`ctx.trace_id?`。
 
 ### 脚本输出（`script_observation_schema`，snake_case，无 `source_instance_id`）
 
 `provider` / `account_id` / `account_label` / `metric_id` / `raw_label` / `normalized_label` / `display_label?` / `window`（second|day|month|total）/ `used`(number|null) / `limit`(number|null) / `display_style`（percent|ratio）/ `reset_at`(number|null) / `status`（normal|warning|critical|unknown）/ `observed_at`(number) / `source` / `stale` / `last_error`。宿主 `.extend({source_instance_id})` 得 `observation_schema`。
+
+### ConnectorRunResult（`runtime.ts`，`run_connector` 返回值）
+
+`observations: ScriptObservation[]` / `failed_accounts: FailedAccount[]` / `error: string | null`。`FailedAccount = { provider, account_id, account_label, error }`（`src/shared/types/observation.ts`），由脚本经 `ctx.report_failed_account` 上报、runtime 内部 wrapper 收集（覆盖 net-client 注入的 no-op）。无 manifest.script 时直接返回空 observations + 空 failed_accounts + 错误信息。
 
 ## 行为（现在是什么）
 
@@ -32,8 +37,11 @@
 - **超时**：`DEFAULT_TIMEOUT_MS = 15_000`（15s），双重（vm 同步超时 + Promise race）。
 - **能力分发**（`refresh-service.execute_connector`）：有 `script` → 跑脚本；否则 `poll` → `tier1-poll-executor`（宿主发 HTTP，`resolve_json_path` 取 `map`，盖 `observed_at`/`source:"poll"`）；否则 `observe.probe` → `probe-executor`（取响应头，`source:"probe"`）；否则报错。`local`/`session` 无独立 executor——都靠 script 分支 + `ctx.files`/vault cookie。
 - **observedAt 盖章**：poll/probe 路径宿主 `Date.now()`；script 路径脚本自填。`source_instance_id` 一律宿主盖（= `connector_config.instanceId`）。
-- **secret 注入**：`build_params` 仅 `exposeToScript:true` 的 secret 从 vault 取明文进 `ctx.params`；其余 secret 走 `ctx.http` 宿主侧 `apply_auth`（bearer/header/query），脚本看不到。
-- **完整性校验**：**未实现**（无 SHA-256 清单/签名）。唯一防护是脚本路径逃逸检查（script 路径不得逃出连接器目录）。
+- **secret 注入**：`build_params` 仅 `exposeToScript:true` 的 secret 从 vault 取明文进 `ctx.params`；其余 secret 走 `ctx.http` 宿主侧 `apply_request_auth`（bearer/header/query），脚本看不到。
+- **完整性校验**：**未实现**（无 SHA-256 清单/签名）。现有两层编译/加载期防护：
+    - **路径逃逸检查**（`refresh-service.resolve_script_path`）：script 路径不得逃出连接器目录，逃出则抛 "script path escapes connector directory"。
+    - **沙箱逃逸正则**（`runtime.detect_sandbox_escape`，编译期）：拒绝 `eval`（含间接 eval）、`new Function` / `Function(`、`.constructor.constructor` 链、`process.binding`，命中即抛 "sandbox escape vector (...)"。
+      两者均为短期缓解，非真隔离（见 `architecture.md` §6）。
 
 ## NetClient（`net-client.ts`，undici）
 

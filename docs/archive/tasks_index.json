@@ -247,6 +247,14 @@
             "status": "done",
             "branch": "t032_align_conventions_repo",
             "note": ""
+        },
+        {
+            "tid": "t033",
+            "title": "同步连接器类 spec 到当前代码真相",
+            "slug": "sync_connector_specs",
+            "status": "done",
+            "branch": "t033_sync_connector_specs",
+            "note": ""
         }
     ]
 }

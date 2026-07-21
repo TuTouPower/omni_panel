@@ -32,12 +32,13 @@
 - **单实例锁**：内存 `Map<instanceId, lockedAt>`；锁定且未超 `LOCK_TIMEOUT_MS=5min` 则跳过（即使 `force` 也查锁）；陈旧锁 warn 后强清。
 - **并发上限**：`refreshAll` 经 `with_concurrency(limit=5)`。
 - 流程：载 config → 按 instanceId 找 config → 按 executablePath 找 definition → 置 `loading`（带 prior lastSuccess）→ 执行最多 3 次采集尝试（每次含 `execute_connector`、逐条 `ObservationStore.insert`、映射）→ 任一次成功即置 `ready`；三次均失败才置 `failed`（保留 prior lastSuccess 和最后一次错误）。相邻尝试固定等待 1s。
+- **per-account 错误（不变量 5 / P0-2）**：脚本整体成功但返回 `failed_accounts` 时，对每个失败账号从 `observationStore.list_by_source_instance_id(instanceId)` 取上次成功观测，复制为 stale 副本重插（`stale:true` + `last_error=failed.error` + 当前时间戳 `observed_at`）。成功账号正常插入不受影响；失败账号无上次观测则跳过（UI 显示「无数据」而非「stale」）。stale 副本并入 `observations_to_ready_state` 一起映射为 `ready` items。
 - **连接级错误重试**：首次尝试出现连接级错误（`ECONNRESET`/`EPROTO`/`ETIMEDOUT`/`socket hang up`/`UND_ERR_SOCKET`/`UND_ERR_CONNECT`/`tls`/`ssl`）→ 后续重试 `force_fresh_connection=true`，NetClient 向 undici 传 `{reset:true}` 跳过连接池强制新建 TCP+TLS 连接。**需连续两次连接错误才升级**（首次可能是瞬时抖动，不应立即放弃连接池复用）。非连接级错误重置连续计数。
-- 事件触发再登录：session 连接器首次出现 auth 错误（消息含 401/unauthorized/token/credential/auth）且有 `sessionLogin` dep → 每轮刷新最多触发一次登录；保存成功后额外等待 2s，再进入剩余采集尝试。登录失败不提前终止通用三次尝试。
+- 事件触发再登录：session 连接器首次出现 auth 错误（`is_auth_error` 匹配消息含 `401`/`unauthorized`/`token`/`credential`，**不含** `auth`——范围更窄以避免误判）且有 `sessionLogin` dep → 每轮刷新最多触发一次登录；保存成功后额外等待 2s，再进入剩余采集尝试。登录失败不提前终止通用三次尝试。
 
 ## 运行时状态存储
 
-- **runtime-store.ts**：内存 `Map<instanceId, ConnectorSnapshotState>`，`state` = `idle | loading{lastSuccess?} | ready{items:MetricRecord[], updatedAt, badge?, chart?} | failed{error, lastSuccess?}`。`subscribe` 扇出监听；`getAll` 返回拷贝。防抖 500ms 落 `snapshot-cache`。
+- **runtime-store.ts**：内存 `Map<instanceId, ConnectorSnapshotState>`，`state` = `idle | loading{lastSuccess?} | ready{items:MetricRecord[], updatedAt, badge?, chart?} | failed{error, lastSuccess?}`。接口：`getSnapshot` / `updateState` / `getAll`（返回拷贝）/ `subscribe`（扇出监听）/ `removeInstance`（删除实例状态，触发持久化）/ `hydrateFromCache`（启动时从 `snapshot-cache` 预填，已存在的 id 不覆盖）/ `flushPendingCache`（清防抖定时器并立即落盘）。防抖 500ms 落 `snapshot-cache`。
 - **snapshot-cache.ts**：runtime 状态序列化为 JSON 数组，原子写。`idle` 跳过；`loading`/`failed` 存 `lastSuccess` 使重启仍显示上次好数据。
 - **hydrate-runtime-store.ts**：启动只从 ObservationStore 恢复 `manualRefreshOnly` 连接器；自动刷新连接器故意不恢复（下次调度自会重填，非 bug）。
 
