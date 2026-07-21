@@ -121,6 +121,18 @@ async function main(): Promise<ScriptObservation[]> {
         }
     }
 
+    // t039：HTTP 200 + config 存在但无任何可用 usage 字段时，不得静默返回空
+    // observations（否则 refresh-service 误判 ready+空，清空历史、主面板"暂无账号"）。
+    // 上报 failed_account，让 refresh-service 走 stale 保留 / failed 状态。
+    if (observations.length === 0) {
+        ctx.report_failed_account(
+            "grok",
+            ACCOUNT_ID,
+            ACCOUNT_LABEL,
+            "billing response has no usable usage fields",
+        );
+    }
+
     return observations;
 }
 

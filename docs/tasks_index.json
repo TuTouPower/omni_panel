@@ -9,14 +9,6 @@
             "note": "根因已确认：删除仅移除 plugins，启动 auto-seed 无 tombstone 会重新创建"
         },
         {
-            "tid": "t039",
-            "title": "Grok 零观测不得标记采集正常或覆盖历史数据",
-            "slug": "grok_empty_observation_failure",
-            "status": "backlog",
-            "branch": "",
-            "note": "根因已确认：HTTP 200 但 connector 返回空数组，refresh 写 ready+0 items"
-        },
-        {
             "tid": "t040",
             "title": "主面板展示首次采集失败的已配置账号",
             "slug": "show_failed_configured_accounts",

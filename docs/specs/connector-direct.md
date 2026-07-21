@@ -4,20 +4,20 @@
 
 ## 内置清单（`connectors/<id>/`）
 
-| id            | provider    | 能力    | 形态 | 说明                             |
-| ------------- | ----------- | ------- | ---- | -------------------------------- |
-| `claude`      | claude      | local   | 直连 | 读 `~/.claude` 本地用量          |
-| `codex`       | codex       | local   | 直连 | 读 `~/.codex` 本地用量           |
-| `deepseek`    | deepseek    | poll    | 直连 | 官方用量 API                     |
-| `glm`         | glm         | poll    | 直连 | 智谱 API                         |
-| `minimax`     | minimax     | poll    | 直连 | MiniMax API                      |
-| `tavily`      | tavily      | poll    | 直连 | Tavily API                       |
-| `firecrawl`   | firecrawl   | poll    | 直连 | Firecrawl API                    |
-| `mimo`        | mimo        | session | 直连 | 受控网页登录捕获 cookie          |
-| `kimi`        | kimi        | poll    | 直连 | Kimi Code API（API Key）         |
-| `opencode_go` | opencode_go | session | 直连 | 受控网页登录捕获 cookie          |
-| `antigravity` | antigravity | local   | 直连 | 读 `~/.antigravity/session.json` |
-| `grok`        | grok        | poll    | 直连 | Grok API（OAuth device-code）    |
+| id            | provider    | 能力    | 形态 | 说明                                                                                                                                |
+| ------------- | ----------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `claude`      | claude      | local   | 直连 | 读 `~/.claude` 本地用量                                                                                                             |
+| `codex`       | codex       | local   | 直连 | 读 `~/.codex` 本地用量                                                                                                              |
+| `deepseek`    | deepseek    | poll    | 直连 | 官方用量 API                                                                                                                        |
+| `glm`         | glm         | poll    | 直连 | 智谱 API                                                                                                                            |
+| `minimax`     | minimax     | poll    | 直连 | MiniMax API                                                                                                                         |
+| `tavily`      | tavily      | poll    | 直连 | Tavily API                                                                                                                          |
+| `firecrawl`   | firecrawl   | poll    | 直连 | Firecrawl API                                                                                                                       |
+| `mimo`        | mimo        | session | 直连 | 受控网页登录捕获 cookie                                                                                                             |
+| `kimi`        | kimi        | poll    | 直连 | Kimi Code API（API Key）                                                                                                            |
+| `opencode_go` | opencode_go | session | 直连 | 受控网页登录捕获 cookie                                                                                                             |
+| `antigravity` | antigravity | local   | 直连 | 读 `~/.antigravity/session.json`                                                                                                    |
+| `grok`        | grok        | poll    | 直连 | Grok API（OAuth device-code）；billing 200 但零有效 usage 字段时 connector 须 `report_failed_account`，不得静默 `return []`（t039） |
 
 ## 能力分发（`refresh-service.execute_connector`）
 

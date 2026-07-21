@@ -22,7 +22,7 @@
 | config-store               | API      | 迁移自 omni_powers，无          | 2026-07-05   |
 | connector-cpa-runtime      | API      | 拆自 connector-cpa（t037）      | 2026-07-21   |
 | connector-cpa-ui           | Web      | 拆自 connector-cpa（t037）      | 2026-07-21   |
-| connector-direct           | API      | 迁移自 omni_powers，无          | 2026-07-05   |
+| connector-direct           | API      | 迁移自 omni_powers，t039        | 2026-07-22   |
 | connector-runtime          | API      | 迁移自 omni_powers，无          | 2026-07-05   |
 | connector-session          | Desktop  | 迁移自 omni_powers，无          | 2026-07-05   |
 | ipc-api                    | API      | 拆自 ipc（t037）                | 2026-07-21   |
@@ -30,7 +30,7 @@
 | observation-store          | API      | 迁移自 omni_powers，无          | 2026-07-05   |
 | platform-services-api      | API      | 拆自 platform-services（t037）  | 2026-07-21   |
 | platform-services-electron | Desktop  | 拆自 platform-services（t037）  | 2026-07-21   |
-| scheduler                  | API      | 迁移自 omni_powers，无          | 2026-07-05   |
+| scheduler                  | API      | 迁移自 omni_powers，t039        | 2026-07-22   |
 | secret-vault               | API      | 迁移自 omni_powers，无          | 2026-07-05   |
 | ui-views-web               | Web      | 拆自 ui-views（t037）           | 2026-07-21   |
 | ui-views-desktop           | Desktop  | 拆自 ui-views（t037）           | 2026-07-21   |

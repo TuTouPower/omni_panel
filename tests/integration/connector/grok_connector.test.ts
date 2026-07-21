@@ -232,4 +232,30 @@ describe("grok connector", () => {
         expect(result.failed_accounts).toHaveLength(1);
         expect(result.failed_accounts[0]?.provider).toBe("grok");
     });
+
+    it("reports failed_account when billing 200 returns config with no usable usage fields", async () => {
+        // t039：HTTP 200 + config 存在但 creditUsagePercent 缺失且 productUsage 全无
+        // usagePercent 时，connector 不得静默返回空 observations（否则 refresh 误判
+        // ready+空，清空历史、主面板显示"暂无账号"）。须上报 failed_account。
+        const ctx: ConnectorContext = {
+            ...create_ctx(),
+            http: {
+                get_json: () =>
+                    Promise.resolve({
+                        config: {
+                            productUsage: [],
+                        },
+                    }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+        };
+        const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toHaveLength(0);
+        expect(result.failed_accounts).toHaveLength(1);
+        expect(result.failed_accounts[0]?.provider).toBe("grok");
+        expect(result.failed_accounts[0]?.error).toMatch(/usage/i);
+    });
 });

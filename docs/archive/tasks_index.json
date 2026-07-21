@@ -295,6 +295,14 @@
             "status": "done",
             "branch": "t037_split_specs_by_verification",
             "note": ""
+        },
+        {
+            "tid": "t039",
+            "title": "Grok 零观测不得标记采集正常或覆盖历史数据",
+            "slug": "grok_empty_observation_failure",
+            "status": "done",
+            "branch": "t039_grok_empty_observation_failure",
+            "note": "根因已确认：HTTP 200 但 connector 返回空数组，refresh 写 ready+0 items"
         }
     ]
 }

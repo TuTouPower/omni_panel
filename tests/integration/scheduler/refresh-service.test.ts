@@ -153,6 +153,84 @@ async function create_service(plugins: ConnectorConfiguration[]) {
 }
 
 describe("refresh-service", () => {
+    it("does not clear history when script returns zero observations and zero failures (t039)", async () => {
+        // t039：脚本成功返回 [] + 零 failed_accounts 时，refresh-service 不得写
+        // ready + 空 items 清空历史（违反 domain 不变量 2，且主面板显示"暂无账号"）。
+        // 应保留上次成功数据。
+        const tempDir = await mkdtemp(join(tmpdir(), "zero-obs-"));
+        await writeFile(join(tempDir, "connector.js"), "return [];");
+        const observationStore = make_store();
+        const runtimeStore = createRuntimeStore();
+        const history_item = {
+            id: "deepseek-1:deepseek-1:deepseek:usage",
+            provider: "deepseek" as const,
+            source: "wrapper" as const,
+            sourceInstanceId: "deepseek-1",
+            accountId: "deepseek-1",
+            accountLabel: "DeepSeek",
+            raw_label: "usage",
+            normalized_label: "Usage",
+            used: 50,
+            limit: 1000,
+            cycleDurationMs: null,
+            displayStyle: "ratio" as const,
+            resetAt: null,
+            status: "normal" as const,
+            observedAt: 1780000000000,
+            stale: false,
+        };
+        runtimeStore.updateState("deepseek-1", {
+            status: "ready",
+            items: [history_item],
+            updatedAt: new Date(1780000000000),
+        });
+        const service = createRefreshService({
+            definitions: [definition(tempDir)],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([{ ...plugin_config(), executablePath: tempDir }]),
+            vault: create_vault(),
+        });
+        try {
+            await service.refresh("deepseek-1", { force: true });
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            // 历史不应被清空
+            expect((state as { items?: unknown[] }).items ?? []).toHaveLength(1);
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("marks failed when script reports failed_account and returns empty with no history (t039 f001)", async () => {
+        // 生产契约形状：Grok 零有效字段时 connector 调 ctx.report_failed_account
+        // 后 return []。首次（无历史）时不得写 ready+空（主面板"暂无账号"），
+        // 须标 failed 并带具体 error。
+        const tempDir = await mkdtemp(join(tmpdir(), "failed-empty-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            'ctx.report_failed_account("deepseek", "deepseek-1", "DeepSeek", "billing no usage fields"); return [];',
+        );
+        const observationStore = make_store();
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition(tempDir)],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([{ ...plugin_config(), executablePath: tempDir }]),
+            vault: create_vault(),
+        });
+        try {
+            await service.refresh("deepseek-1", { force: true });
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            expect(state.status).toBe("failed");
+            if (state.status === "failed") {
+                expect(state.error).toMatch(/billing no usage fields/);
+            }
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
     it("uses one trace id across refresh and connector logs", async () => {
         const previous_level = getLogLevel();
         const metas: unknown[] = [];

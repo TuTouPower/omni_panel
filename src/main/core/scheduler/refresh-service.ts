@@ -299,6 +299,37 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         ...observations,
                         ...stale_observations,
                     ]);
+
+                    // t039：脚本成功返回零观测（无论是否 report_failed_account）时，
+                    // 不得写 ready+空 items（违反 domain 不变量 2：不得覆盖删除上次成功；
+                    // 且主面板显示"暂无账号"）。生产契约如 Grok 零有效字段时
+                    // `return [] + ctx.report_failed_account(...)`，failed_accounts 非空，
+                    // 故条件只看 items 是否为空。有历史则保留，无历史则标 failed
+                    // （failed_accounts 有值时 error 取其首条，更精确）。
+                    if (items.length === 0) {
+                        const no_obs_error =
+                            failed_accounts[0]?.error ?? "connector returned no observations";
+                        if (prior !== undefined) {
+                            deps.runtimeStore.updateState(instanceId, {
+                                status: "ready",
+                                items: prior.items,
+                                updatedAt: new Date(prior.updatedAt),
+                            });
+                            trace_log.info(
+                                `Connector ${instanceId} (${connector_config.name}) returned no observations; kept ${String(prior.items.length)} prior item(s)`,
+                            );
+                        } else {
+                            deps.runtimeStore.updateState(instanceId, {
+                                status: "failed",
+                                error: no_obs_error,
+                            });
+                            trace_log.info(
+                                `Connector ${instanceId} (${connector_config.name}) returned no observations and no history; marked failed: ${no_obs_error}`,
+                            );
+                        }
+                        return;
+                    }
+
                     deps.runtimeStore.updateState(instanceId, {
                         status: "ready",
                         items,
