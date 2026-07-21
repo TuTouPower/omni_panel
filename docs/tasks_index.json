@@ -1,3 +1,36 @@
 {
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t038",
+            "title": "持久化内置账号删除状态，阻止重启后 auto-seed 复活",
+            "slug": "persist_deleted_connector_tombstones",
+            "status": "backlog",
+            "branch": "",
+            "note": "根因已确认：删除仅移除 plugins，启动 auto-seed 无 tombstone 会重新创建"
+        },
+        {
+            "tid": "t039",
+            "title": "Grok 零观测不得标记采集正常或覆盖历史数据",
+            "slug": "grok_empty_observation_failure",
+            "status": "backlog",
+            "branch": "",
+            "note": "根因已确认：HTTP 200 但 connector 返回空数组，refresh 写 ready+0 items"
+        },
+        {
+            "tid": "t040",
+            "title": "主面板展示首次采集失败的已配置账号",
+            "slug": "show_failed_configured_accounts",
+            "status": "backlog",
+            "branch": "",
+            "note": "根因已确认：账号列表只从 MetricRecord 构建，零历史失败实例无账号行"
+        },
+        {
+            "tid": "t041",
+            "title": "即将重置可配置阈值与账号级开关",
+            "slug": "upcoming_reset_threshold",
+            "status": "active",
+            "branch": "t041_upcoming_reset_threshold",
+            "note": ""
+        }
+    ]
 }
