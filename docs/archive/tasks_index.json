@@ -311,6 +311,14 @@
             "status": "done",
             "branch": "t038_persist_deleted_connector_tombstones",
             "note": "根因已确认：删除仅移除 plugins，启动 auto-seed 无 tombstone 会重新创建"
+        },
+        {
+            "tid": "t040",
+            "title": "主面板展示首次采集失败的已配置账号",
+            "slug": "show_failed_configured_accounts",
+            "status": "done",
+            "branch": "t040_show_failed_configured_accounts",
+            "note": "根因已确认：账号列表只从 MetricRecord 构建，零历史失败实例无账号行"
         }
     ]
 }
