@@ -90,6 +90,81 @@ function connectorInfo(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
     };
 }
 
+describe("build_provider_usage_groups failed-account placeholder (t040)", () => {
+    it("synthesizes a failed account for enabled direct connector that failed with no items", () => {
+        const connectors = [
+            connectorInfo({
+                instanceId: "kimi-fail",
+                sourceInstanceId: "kimi-fail-src",
+                name: "KIMI",
+                displayName: "失败账号",
+                enabled: true,
+                source: "poll",
+                supportedProviders: ["kimi"],
+                activeProviders: ["kimi"],
+                snapshot: { status: "failed", error: "HTTP 401" },
+            }),
+        ];
+        const groups = build_provider_usage_groups(connectors);
+        const kimi = groups.find((g) => g.provider === "kimi");
+        expect(kimi, "kimi group should exist for failed direct connector").toBeDefined();
+        if (!kimi) return;
+        expect(kimi.accounts).toHaveLength(1);
+        expect(kimi.accounts[0]?.accountLabel).toBe("失败账号");
+        expect(kimi.accounts[0]?.periods).toHaveLength(0);
+    });
+
+    it("does not synthesize for gateway (CPA) failed connector", () => {
+        const connectors = [
+            connectorInfo({
+                source: "gateway",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: { status: "failed", error: "manager down" },
+            }),
+        ];
+        const groups = build_provider_usage_groups(connectors);
+        expect(groups.find((g) => g.provider === "claude")).toBeUndefined();
+    });
+
+    it("does not synthesize when failed connector still has items (stale path keeps real account)", () => {
+        const connectors = [
+            connectorInfo({
+                source: "poll",
+                supportedProviders: ["kimi"],
+                activeProviders: ["kimi"],
+                snapshot: {
+                    status: "failed",
+                    error: "HTTP 500",
+                    updatedAt: "2026-01-01T00:00:00Z",
+                    items: [usageItem({ provider: "kimi", accountId: "real-kimi" })],
+                },
+            }),
+        ];
+        const groups = build_provider_usage_groups(connectors);
+        const kimi = groups.find((g) => g.provider === "kimi");
+        if (!kimi) return;
+        // 真实 item 聚合，不额外合成占位
+        expect(kimi.accounts).toHaveLength(1);
+        expect(kimi.accounts[0]?.accountId).toBe("real-kimi");
+    });
+
+    it("does not synthesize for disabled connector", () => {
+        const connectors = [
+            connectorInfo({
+                enabled: false,
+                source: "poll",
+                supportedProviders: ["kimi"],
+                activeProviders: ["kimi"],
+                snapshot: { status: "failed", error: "x" },
+            }),
+        ];
+        expect(
+            build_provider_usage_groups(connectors).find((g) => g.provider === "kimi"),
+        ).toBeUndefined();
+    });
+});
+
 describe("format_usage_period_label", () => {
     it("returns normalized_label when no override exists", () => {
         expect(format_usage_period_label("any_raw", "我的标签")).toBe("我的标签");

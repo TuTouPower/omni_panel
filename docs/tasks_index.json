@@ -4,8 +4,8 @@
             "tid": "t040",
             "title": "主面板展示首次采集失败的已配置账号",
             "slug": "show_failed_configured_accounts",
-            "status": "backlog",
-            "branch": "",
+            "status": "active",
+            "branch": "t040_show_failed_configured_accounts",
             "note": "根因已确认：账号列表只从 MetricRecord 构建，零历史失败实例无账号行"
         },
         {

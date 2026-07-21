@@ -47,7 +47,7 @@
 ## 4. 跨功能业务不变量
 
 1. **最新观测即真值**：同一 `(provider, accountId, metricId, sourceInstanceId)` 允许多来源多观测，`observedAt` 最新者胜出。去重、"实时上报"与"兜底探测"在数据层自然融合。
-2. **新鲜度必须可见**：每条带 `observedAt` + `source`；采集失败保留上次成功观测，挂 `stale:true` + `lastError`，绝不覆盖删除。脚本成功返回零有效观测（`items` 空，如上游 200 但无可用字段）同样视为采集异常：有上次成功则保留，无则标 `failed`，绝不写 `ready + 空`（t039）。消费方展示任何数字必须能取到 `observedAt + source`。
+2. **新鲜度必须可见**：每条带 `observedAt` + `source`；采集失败保留上次成功观测，挂 `stale:true` + `lastError`，绝不覆盖删除。脚本成功返回零有效观测（`items` 空，如上游 200 但无可用字段）同样视为采集异常：有上次成功则保留，无则标 `failed`，绝不写 `ready + 空`（t039）。首次采集即失败（无历史 observation）的直连账号须合成失败占位行（`periods:[]` + `error`），不得从主面板消失；CPA 多账号不合成（t040）。消费方展示任何数字必须能取到 `observedAt + source`。
 3. **accountId 必须稳定**：由聚合源返回的稳定账号标识（邮箱、UUID、workspace id、CPA auth_index）生成，**绝不用"实例 + 序号"**。否则远端账号顺序一变，本地隐藏设置/自定义标签/历史观测全部错位。
 4. **instance identity 归宿主**：`sourceInstanceId` 由宿主盖，脚本不可伪造，防同 provider 多实例 collapse。
 5. **CPA 错误归属到账号，不到渠道**：单账号失败只让那一行 stale，同 provider 其他账号照常刷新。绝不能因 Kimi 拉失败让整个 CPA 渠道挂掉、连带 Claude 不显示。仅 CPA 管理密钥失效/Manager 连不上时才整渠道 stale。

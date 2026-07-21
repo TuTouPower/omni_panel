@@ -32,7 +32,7 @@
 | platform-services-electron | Desktop  | 拆自 platform-services（t037）  | 2026-07-21   |
 | scheduler                  | API      | 迁移自 omni_powers，t039        | 2026-07-22   |
 | secret-vault               | API      | 迁移自 omni_powers，无          | 2026-07-05   |
-| ui-views-web               | Web      | 拆自 ui-views（t037）           | 2026-07-21   |
+| ui-views-web               | Web      | 拆自 ui-views（t037），t040     | 2026-07-22   |
 | ui-views-desktop           | Desktop  | 拆自 ui-views（t037）           | 2026-07-21   |
 | web-panel                  | Web      | 迁移自 omni_powers，无          | 2026-07-05   |
 | window-management          | Desktop  | 迁移自 omni_powers，无          | 2026-07-05   |

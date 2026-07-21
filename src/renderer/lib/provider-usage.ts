@@ -38,6 +38,8 @@ export interface ProviderUsageAccount {
     observedAt: number;
     stale: boolean;
     periods: ProviderUsagePeriod[];
+    /** t040：失败占位账号的错误文案（periods 为空时由它驱动 error badge）。 */
+    error?: string;
 }
 
 export interface ProviderUsageGroup {
@@ -181,23 +183,63 @@ export function build_provider_usage_groups(
         log.debug("provider usage input raw", { snapshots: connectors });
     }
     const periodsByProvider = new Map<UsageProvider, ProviderUsagePeriod[]>();
+    // t040：enabled 直连 connector failed 且无 items 时合成失败账号占位，
+    // 供 ProviderAccountList 渲染失败行（首次采集失败无 observation，否则
+    // 该账号从主面板消失）。CPA（gateway）多账号不合成。
+    const failedPlaceholdersByProvider = new Map<UsageProvider, ProviderUsageAccount[]>();
 
     for (const connector of connectors) {
         if (!connector.enabled) continue;
         const snapshot = connector.snapshot;
-        if (!("items" in snapshot)) continue;
-        if (!("updatedAt" in snapshot)) continue;
-
-        for (const item of snapshot.items) {
-            const periods = periodsByProvider.get(item.provider) ?? [];
-            periods.push(to_period(item, connector, snapshot.updatedAt));
-            periodsByProvider.set(item.provider, periods);
+        const items = "items" in snapshot ? snapshot.items : [];
+        const has_items = items.length > 0;
+        if (has_items && "updatedAt" in snapshot) {
+            for (const item of items) {
+                const periods = periodsByProvider.get(item.provider) ?? [];
+                periods.push(to_period(item, connector, snapshot.updatedAt));
+                periodsByProvider.set(item.provider, periods);
+            }
+            continue;
+        }
+        // t040：零 items（!has_items）且直连（非 gateway）failed connector 合成占位。
+        // 严格对齐 spec：items.length===0 才合成，避免 failed+有 items 但缺 updatedAt
+        // 的边缘形态误落合成。
+        if (
+            !has_items &&
+            snapshot.status === "failed" &&
+            connector.source !== "gateway" &&
+            connector.activeProviders.length > 0
+        ) {
+            const provider = connector.activeProviders[0];
+            if (provider === undefined) continue;
+            const label = connector.displayName || connector.name;
+            const placeholder: ProviderUsageAccount = {
+                id: `${connector.sourceInstanceId}|__failed__`,
+                sourceInstanceId: connector.sourceInstanceId,
+                accountId: "__failed__",
+                accountLabel: label,
+                status: "unknown",
+                updatedAt: "updatedAt" in snapshot ? snapshot.updatedAt : "",
+                observedAt: 0,
+                stale: false,
+                periods: [],
+                error: snapshot.error,
+            };
+            const list = failedPlaceholdersByProvider.get(provider) ?? [];
+            list.push(placeholder);
+            failedPlaceholdersByProvider.set(provider, list);
         }
     }
 
-    const groups = [...periodsByProvider.entries()]
-        .sort(([a], [b]) => compare_providers(a, b))
-        .map(([provider, periods]) => {
+    const allProviders = new Set<UsageProvider>([
+        ...periodsByProvider.keys(),
+        ...failedPlaceholdersByProvider.keys(),
+    ]);
+
+    const groups = [...allProviders]
+        .sort((a, b) => compare_providers(a, b))
+        .map((provider) => {
+            const periods = periodsByProvider.get(provider) ?? [];
             const accountsByKey = new Map<string, ProviderUsageAccount>();
             let groupStatus: MetricRecord["status"] = "normal";
             let groupUpdatedAt = periods[0]?.updatedAt ?? "";
@@ -232,6 +274,14 @@ export function build_provider_usage_groups(
                     stale: period.stale,
                     periods: [period],
                 });
+            }
+
+            // t040：并入失败占位账号（不覆盖真实账号）
+            for (const account of failedPlaceholdersByProvider.get(provider) ?? []) {
+                if (!accountsByKey.has(account.id)) {
+                    accountsByKey.set(account.id, account);
+                    groupStatus = worst_status(groupStatus, account.status);
+                }
             }
 
             const sources = new Set(periods.map((period) => period.source));
@@ -316,6 +366,15 @@ export function buildAccountErrors(
     const result = new Map<string, AccountError>();
     for (const group of groups) {
         for (const account of group.accounts) {
+            // t040：失败占位账号（periods 空 + account.error）直接记录
+            if (account.error) {
+                result.set(account.id, {
+                    provider: group.provider,
+                    accountLabel: account.accountLabel,
+                    error: account.error,
+                });
+                continue;
+            }
             for (const period of account.periods) {
                 if (period.error) {
                     result.set(account.id, {

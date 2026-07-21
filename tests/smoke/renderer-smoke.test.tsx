@@ -38,14 +38,18 @@ describe("Renderer smoke tests", () => {
             expect(screen.getByText("5000/10000")).toBeInTheDocument();
         });
 
-        it("shows failed provider source as an empty provider page", async () => {
+        it("shows failed direct provider as a failed account row (t040)", async () => {
             const user = userEvent.setup();
             render(<App />);
             await waitFor(() => {
                 expect(screen.getAllByText("Claude").length).toBeGreaterThanOrEqual(1);
             });
             await user.click(screen.getByRole("button", { name: "Claude" }));
-            expect(screen.getByText("该服务暂无账号。请到设置添加数据来源。")).toBeInTheDocument();
+            // t040：直连 failed connector 合成失败账号占位，显示"采集失败"badge 而非空页
+            expect(screen.getByText("采集失败")).toBeInTheDocument();
+            expect(
+                screen.queryByText("该服务暂无账号。请到设置添加数据来源。"),
+            ).not.toBeInTheDocument();
         });
 
         it("shows refresh button", async () => {

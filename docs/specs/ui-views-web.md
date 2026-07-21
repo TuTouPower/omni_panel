@@ -36,6 +36,7 @@
 - 用量条样式：`UsageBarStyle`（细线 / 粗胶囊）/ `UsageBarColorScheme`
 - **容器查询响应式**（t004，`.scroll-inner` 设 `container-type: inline-size`）：`overview-grid` 单列默认；`@container (min-width: 1024px)` 切 `repeat(auto-fill, minmax(320px, 1fr))`；`@container (max-width: 1023px) and (min-width: 640px)` 切两列。`.overview-row` 在 `≥1024px` 切 `minmax(0, 1fr) 264px` 主轨 + sticky rail。offscreen `.popup-mirror .scroll-inner` 关闭 container-type 以免 mirror 高度被压缩。
 - **per-account error badge**（t026/t027/t028）：`buildAccountErrors` 生成 `Map<accountId, error>`，传入 `ProviderAccountList` → `ProviderAccountRow.error`；账号行 `.rel-time` 内渲染 `<span className="error-badge" title={error}>采集失败</span>`。`providerErrors`（connector `failed` 时映射 `UsageProvider`）驱动 `ProviderOverview` 刷新按钮状态。
+- **失败账号占位（t040）**：`build_provider_usage_groups` 对 enabled 直连（非 gateway）`snapshot.status==="failed"` 且 `items` 空的 connector 合成失败账号占位（`ProviderUsageAccount`：`periods:[]`、`status:"unknown"`、`error=snapshot.error`、`accountLabel=displayName||name`、`accountId="__failed__"`），使首次采集失败（无 observation）的账号仍显示失败行而非"暂无账号"。CPA（gateway）failed 不合成（多账号无法确定具体行）；有 items 的 failed 走真实 item 聚合不占位。`buildAccountErrors` 先看 `account.error` 再看 `periods[].error`。
 - **用量面板无账号编辑入口**（T8）：账号设置仅在 Settings；用量面板 provider 卡片无更多操作菜单，关闭/管理操作在设置页进行
 - **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（用量面板 + 设置列表）
 - **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %

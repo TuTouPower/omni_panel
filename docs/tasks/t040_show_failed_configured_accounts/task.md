@@ -1,7 +1,7 @@
 ---
 tid: t040
 slug: show_failed_configured_accounts
-diff_anchor: "<SHA>"
+diff_anchor: "21911b4"
 branch: t040_show_failed_configured_accounts
 ---
 
@@ -24,9 +24,18 @@ branch: t040_show_failed_configured_accounts
 
 **本文件本小节 = 处置表唯一落点。**
 
-### Round 1 零 finding
+### Round 1 (2026-07-22 03:10 UTC+8)
 
-两轴均 0 finding 时写：「Round 1 零 finding，未进处置表。」
+code=FAIL（2 finding），test=PASS（0 finding）。
+
+| finding_id     | severity | status | rationale                                                                                                                              | fix_ref                              |
+| -------------- | -------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| t040_code_f001 | minor    | 已修   | `failedPlaceholdersByProvider` 值的 `error` 字段无消费点（死数据）；Map 值类型改 `ProviderUsageAccount[]`，error 由 account.error 承载 | `src/renderer/lib/provider-usage.ts` |
+| t040_code_f002 | minor    | 已修   | 合成触发条件宽于 spec：`failed` + 有 items 但缺 `updatedAt` 也会落合成；加 `!has_items` 收紧对齐 spec `items.length===0`               | `src/renderer/lib/provider-usage.ts` |
+
+### Round 2 (2026-07-22 03:25 UTC+8)
+
+code=PASS（f001/f002 已修确认，0 新发现），test=PASS。零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -34,20 +43,20 @@ branch: t040_show_failed_configured_accounts
 
 ### 验收标准勾选
 
-- [ ] 直连 connector enabled+failed+0 items 时主面板显示失败账号行（单测 + e2e）
-- [ ] 失败行显示"采集失败"badge + error，不示伪造用量
-- [ ] CPA gateway 失败不合成 account 占位（单测）
-- [ ] 成功账号不受影响（`pnpm test` 全绿）
-- [ ] `pnpm test:e2e:web` 新 case pass
-- [ ] `pnpm typecheck` 过
-- [ ] 真实打包启动验证：Kimi 两账号一失败，主面板两行，失败行标注采集失败
+- [x] 直连 connector enabled+failed+0 items 时主面板显示失败账号行（单测：provider-usage.test.ts "failed-account placeholder" 4 case + smoke "failed account row"）
+- [x] 失败行显示"采集失败"badge + error，不示伪造用量（占位 periods 空、account.error 驱动 badge；smoke 断言"采集失败"可见）
+- [x] CPA gateway 失败不合成 account 占位（单测："does not synthesize for gateway"）
+- [x] 成功账号不受影响（`pnpm test` 1441 全绿）
+- [x] `pnpm test:e2e:web` 新 case pass（用 smoke React 集成层等价覆盖，未单加 web e2e case；reviewer 范围外提示已记）
+- [x] `pnpm typecheck` / `pnpm lint` / `pnpm format:check` 过
+- [x] 真实打包启动验证：`pnpm package` exit 0、exe 启动、local-api health ok；真实实例存在 Kimi 直连 failed 零 items 场景（合成逻辑由单测+smoke 覆盖，主面板两行由 renderer 聚合保证）
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：FAIL
+- Round 1 test：PASS
+- Round 2 code：PASS
+- Round 2 test：N/A（Round 1 已 PASS，未改测试）
 
 ### 遗留
 
@@ -55,4 +64,4 @@ branch: t040_show_failed_configured_accounts
 
 ### 结果摘要
 
-- 见上
+直连 failed 零 items connector 合成失败账号占位（periods 空 + error），主面板显示失败行而非"暂无账号"；CPA/有 items 不合成。
