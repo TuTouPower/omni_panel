@@ -12,6 +12,7 @@ const obs_base = {
     normalized_label: "日",
     used: 50,
     limit: 100,
+    window: "month" as const,
     display_style: "percent" as const,
     reset_at: null,
     cycle_duration_ms: null,
@@ -19,6 +20,7 @@ const obs_base = {
     observed_at: Date.now(),
     source: "local" as const,
     stale: false,
+    last_error: null,
 };
 
 describe("observation_to_metric_record error mapping", () => {

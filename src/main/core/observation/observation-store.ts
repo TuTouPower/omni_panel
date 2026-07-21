@@ -126,6 +126,12 @@ export function create_observation_store(db_path: string): ObservationStore {
         log.info(`Observation store migrated: added columns ${missing.join(", ")}`);
     }
 
+    // Migrate pre-T028 databases that predate the last_error column.
+    if (!column_names.has("last_error")) {
+        db.exec("ALTER TABLE observations ADD COLUMN last_error TEXT;");
+        log.info("Observation store migrated: added last_error column");
+    }
+
     const insert_stmt = db.prepare(`
         INSERT INTO observations (
             provider, source_instance_id, account_id, account_label,
