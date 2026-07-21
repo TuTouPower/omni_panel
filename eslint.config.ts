@@ -57,6 +57,8 @@ export default defineConfig(
             "tests/e2e/fixtures/*.mjs",
             "scripts/e2e/*.mjs",
             "scripts/render_icon.mjs",
+            "scripts/render-test-icons.mjs",
+            "scripts/start-test.mjs",
         ],
     },
 );

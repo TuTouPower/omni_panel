@@ -64,15 +64,17 @@ export function getUserConnectorsDir(): string {
 }
 
 export function get_tray_icon_path(): string {
+    const suffix = process.env["TEST_INSTANCE"] === "1" ? "-test" : "";
     if (app.isPackaged) {
-        return join(process.resourcesPath, "tray-icon.png");
+        return join(process.resourcesPath, `tray-icon${suffix}.png`);
     }
-    return join(PROJECT_ROOT, "assets", "tray-icon.png");
+    return join(PROJECT_ROOT, "assets", `tray-icon${suffix}.png`);
 }
 
 export function get_app_icon_path(): string {
+    const suffix = process.env["TEST_INSTANCE"] === "1" ? "-test" : "";
     if (app.isPackaged) {
-        return join(process.resourcesPath, "icon.png");
+        return join(process.resourcesPath, `icon${suffix}.png`);
     }
-    return join(PROJECT_ROOT, "assets", "icon.png");
+    return join(PROJECT_ROOT, "assets", `icon${suffix}.png`);
 }

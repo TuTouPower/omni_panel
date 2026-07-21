@@ -271,6 +271,14 @@
             "status": "done",
             "branch": "t030_build_info_inject",
             "note": "gen-build-info.ts + IPC + renderer 展示"
+        },
+        {
+            "tid": "t035",
+            "title": "测试实例品牌隔离黄图标与端口",
+            "slug": "test_instance_branding",
+            "status": "done",
+            "branch": "t035_test_instance_branding",
+            "note": ""
         }
     ]
 }

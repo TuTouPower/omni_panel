@@ -7,6 +7,8 @@
     "private": true,
     "scripts": {
         "start": "node scripts/ensure_electron_abi.mjs && tsx scripts/gen-build-info.ts && electron-vite dev",
+        "start:test": "node scripts/start-test.mjs",
+        "icons:test": "node scripts/render-test-icons.mjs",
         "poststart": "node scripts/ensure_node_abi.mjs",
         "build": "tsx scripts/gen-build-info.ts && electron-vite build && vite build --config vite.web.config.ts",
         "build:web": "vite build --config vite.web.config.ts",

@@ -177,7 +177,9 @@ export function create_local_api_server(
     const config_deps = options?.config_deps;
     const connector_deps = options?.connector_deps;
     const web_root = options?.web_root;
-    let port = options?.port ?? DEFAULT_PORT;
+    const env_port = Number(process.env["OMNI_USAGE_PORT"] ?? "");
+    let port =
+        options?.port ?? (Number.isFinite(env_port) && env_port > 0 ? env_port : DEFAULT_PORT);
     let server: ReturnType<typeof createServer> | null = null;
 
     async function handle_ingest(req: IncomingMessage, res: ServerResponse): Promise<void> {
