@@ -907,6 +907,14 @@ export function SettingsView() {
     const [dataMsg, setDataMsg] = useState<string | null>(null);
     const data_msg_timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+    // Clear any pending data-msg timer on unmount so it can't fire setDataMsg
+    // after the component is gone (test teardown / route switch).
+    useEffect(() => {
+        return () => {
+            clearTimeout(data_msg_timer.current);
+        };
+    }, []);
+
     const up = useCallback((k: string, v: unknown) => {
         setLocalState((p) => ({ ...p, [k]: v }));
     }, []);
