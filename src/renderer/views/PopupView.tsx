@@ -83,6 +83,13 @@ export function PopupView() {
     const [account_over_id, set_account_over_id] = useState<string | null>(null);
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const synced_account_orders_ref = useRef<Record<string, string[]>>({});
+    const mounted_ref = useRef(true);
+    useEffect(() => {
+        mounted_ref.current = true;
+        return () => {
+            mounted_ref.current = false;
+        };
+    }, []);
     const [upcoming_reset_threshold_percent, set_upcoming_reset_threshold_percent] = useState<
         number | null | undefined
     >(undefined);
@@ -412,6 +419,7 @@ export function PopupView() {
                 const elapsed = Date.now() - started_at;
                 const remaining = Math.max(0, MIN_SPINNER_MS - elapsed);
                 setTimeout(() => {
+                    if (!mounted_ref.current) return;
                     set_refreshing_providers((prev) => {
                         const next = new Set(prev);
                         next.delete(provider);
