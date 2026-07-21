@@ -6,7 +6,7 @@
 
 - 普通变量、函数、文件、目录和 slug 使用小写 `snake_case`。
 - `AGENTS.md`、`CLAUDE.md`、`README.md` 是工具入口例外。
-- `TNNN_`、`SNN_` 是工作项类型前缀例外；前缀后 slug 仍使用小写 `snake_case`。
+- `{tid}_`、`{sid}_` 是工作项类型前缀例外（实际 tid 小写，如 `t001_slug`、`s001_slug`）；前缀后 slug 仍使用小写 `snake_case`。
 - Markdown 嵌套内容缩进 4 空格，禁止 tab。
 - 时间戳统一使用中国时间，格式 `YYYY-MM-DD HH:MM UTC+8`。
 - 语言和框架已有稳定惯例时，在本文件补充项目级例外，不强行覆盖生态要求。
@@ -23,48 +23,40 @@
 
 所有 active task 固定使用以下文件。任务很小时内容可以简短，但不合并文件。创建与使用流程见 AGENTS.md 单 task 流程。
 
-| 文件             | 字段                                                  |
-| ---------------- | ----------------------------------------------------- |
-| `spec.md`        | 背景；范围；非范围；验收标准；依赖与约束              |
-| `plan.md`        | 步骤及验证；风险与回退；完结时需更新的 blueprint 条目 |
-| `log.md`         | 进展；踩坑；中途决策；偏离 plan 的原因；关键验证结果  |
-| `review_code.md` | task review 报告（文档+代码 agent 写）                |
-| `review_test.md` | task review 报告（测试 agent 写）                     |
-| `adoption.md`    | review 处置清单                                       |
-| `task_report.md` | task 完结报告                                         |
+| 文件             | 字段                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `spec.md`        | 背景；范围；非范围；验收标准；依赖与约束                                                              |
+| `plan.md`        | 步骤及验证；风险与回退；完结时需更新的 blueprint 条目                                                 |
+| `task.md`        | 过程总账：过程记录 + `## Review 处置` + 收尾报告（front matter：`tid`/`slug`/`diff_anchor`/`branch`） |
+| `review_code.md` | code reviewer 报告（reviewer 写）                                                                     |
+| `review_test.md` | test reviewer 报告（reviewer 写）                                                                     |
 
-- `log.md` 记录有追溯价值的事项，不写命令流水账。
+- `task.md` 过程记录只记有追溯价值的事项，不写命令流水账。
+- reviewer 提示词由 `scripts/render_review_prompts.py` 从 `task.md` front matter + `docs/templates/review/*.txt` 渲染。
 
 ## review 报告字段
 
 `review_code.md` / `review_test.md` 共用以下字段；流程（两 agent 并行、续写规则、权限）见 AGENTS.md step 5。
 
-- task：`TNNN_slug`
-- spec：`docs/tasks/TNNN_slug/spec.md`
-- target：本 task 未提交改动（working tree）
-- reviewer_focus：`文档+代码` / `测试`
+- task：`{tid}_{slug}`
+- spec：`docs/tasks/{tid}_{slug}/spec.md`
+- diff_anchor：`<SHA>`（取自 `task.md` front matter）
+- target：`git diff <diff_anchor>`
+- round：{1/2}
 - reviewed_at：`YYYY-MM-DD HH:MM UTC+8`
-- findings：分类别前缀的 `TNNN_code_fNNN` / `TNNN_test_fNNN`，每条含严重度、位置、问题、建议
+- findings：分类别前缀的 `{tid}_code_fNNN` / `{tid}_test_fNNN`，每条含严重度、位置、问题、建议
+- verdict：末行 `verdict: PASS` 或 `verdict: FAIL`（由 `scripts/check_review_status.py` 解析）
 - conclusion：本 agent 总体判断
 
-`reviewer_focus` 与 finding 前缀映射：`文档+代码` → `code`，`测试` → `test`。
+## Review 处置（task.md 内）
 
-## adoption 字段
+处置表唯一落点为 `task.md` 的 `## Review 处置` 小节；流程见 AGENTS.md step 6。
 
-`adoption.md` 字段表；处置流程见 AGENTS.md step 6。
+| finding_id       | severity                 | status             | rationale | fix_ref   |
+| ---------------- | ------------------------ | ------------------ | --------- | --------- |
+| {tid}\_code_f001 | critical/important/minor | 已修 / 遗留 / 撤回 | {一句话}  | {文件:行} |
 
-| finding_id     | decision      | rationale    | status                 |
-| -------------- | ------------- | ------------ | ---------------------- |
-| TNNN_code_f001 | 采纳 / 不采纳 | {一句话理由} | 已修 / 遗留 / 无需修改 |
-
-字段说明：
-
-- `decision`：采纳 / 不采纳。
-- `rationale`：一句话理由；`遗留` 项在此写未修原因。
-- `status`：
-    - `已修`：在本 task commit 内修复。
-    - `遗留`：未在本 commit 修复。
-    - `无需修改`：不采纳项专用。
+`status` 仅三值：`已修` / `遗留` / `撤回`。
 
 ## specs_index 字段
 
@@ -72,7 +64,7 @@
 
 | slug     | task 清单  | 最后固化时间 |
 | -------- | ---------- | ------------ |
-| `<slug>` | T001, T002 | YYYY-MM-DD   |
+| `<slug>` | t001, t002 | YYYY-MM-DD   |
 
 - 表内 = 生效；废弃时整行删除。
 - 历史清单由 `docs/archive/specs/` 目录承载，不重复 index。
@@ -114,7 +106,7 @@
 
 完整命令清单与分层见 `docs/guides/testing.md`。本节记规范要点：
 
-- 命名 `snake_case`，E2E spec 以 `.spec.ts` 结尾；修 bug 时在对应测试层补回归用例，文件名带任务 ID（如 `tests/unit/parser/T042_empty_token.test.ts`）。
+- 命名 `snake_case`，E2E spec 以 `.spec.ts` 结尾；修 bug 时在对应测试层补回归用例，文件名带任务 ID（如 `tests/unit/parser/t042_empty_token.test.ts`）。
 - **少 mock，多真实**：外部服务用本地可控桩；本地能力（连接器发现、TS 编译、配置读写、SQLite、cookie 捕获）真实测。
 - **断言期望行为**：测试断言“应该怎样”，不锁死历史错误行为。
 - 覆盖率阈值（基线 2026-05-30，阈值 = 基线 − 5%）：Statements 15% / Branches 25% / Functions 25% / Lines 15%。

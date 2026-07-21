@@ -1,0 +1,244 @@
+{
+    "tasks": [
+        {
+            "tid": "t001",
+            "title": "fix preload route 分权同步 usage/setting",
+            "slug": "preload_route_sync",
+            "status": "done",
+            "branch": "main",
+            "note": "route 重构漏改 preload 层;代码已先实现"
+        },
+        {
+            "tid": "t002",
+            "title": "docs specs route 值同步代码 + 补 TokenStatsView",
+            "slug": "docs_route_sync",
+            "status": "done",
+            "branch": "main",
+            "note": "依赖 T001 代码真相"
+        },
+        {
+            "tid": "t003",
+            "title": "route 字面量收口 + route 值回归断言",
+            "slug": "route_literal_cleanup",
+            "status": "done",
+            "branch": "main",
+            "note": "T001/T002 遗留合并(T001_f001/T002_f003)"
+        },
+        {
+            "tid": "t004",
+            "title": "容器查询响应式（usage 窗横屏自适应）",
+            "slug": "responsive_container_query",
+            "status": "done",
+            "branch": "task_t004_responsive_container_query",
+            "note": "完结；视觉快照遗留"
+        },
+        {
+            "tid": "t005",
+            "title": "即将重置预警栏（rail + 横幅）",
+            "slug": "upcoming_reset_panel",
+            "status": "done",
+            "branch": "task_t005_upcoming_reset_panel",
+            "note": "完结;视觉/打包待人工签收"
+        },
+        {
+            "tid": "t006",
+            "title": "近 7 天趋势 sparkline",
+            "slug": "trend_sparkline",
+            "status": "done",
+            "branch": "task_t006_trend_sparkline",
+            "note": "完结;视觉/打包待人工签收"
+        },
+        {
+            "tid": "t007",
+            "title": "domain 趋势图政策修订（解锁 sparkline）",
+            "slug": "domain_trend_policy",
+            "status": "done",
+            "branch": "task_t007_domain_trend_policy",
+            "note": "完结；纯文档；T006 前置"
+        },
+        {
+            "tid": "t008",
+            "title": "dev CSP 放开 unsafe-inline 修复 renderer 黑屏",
+            "slug": "csp_dev_unsafe_inline",
+            "status": "done",
+            "branch": "task_t008_csp_dev_unsafe_inline",
+            "note": "完结;plugin-react preamble 被拦;抽纯函数+单测"
+        },
+        {
+            "tid": "t009",
+            "title": "e2e 改名 user_e2e→e2e + 引用更新",
+            "slug": "rename_user_e2e_to_e2e",
+            "status": "done",
+            "branch": "task_t009_rename_user_e2e_to_e2e",
+            "note": "完结;机械搬运;test:e2e 降级 T010 补"
+        },
+        {
+            "tid": "t010",
+            "title": "web e2e 基建(mock local-api+本机 fixture+chromium 驱动)",
+            "slug": "web_e2e_infrastructure",
+            "status": "done",
+            "branch": "task_t010_web_e2e_infrastructure",
+            "note": "完结;2 passed;CI/webServer 遗留 T013"
+        },
+        {
+            "tid": "t011",
+            "title": "web spec 批量迁移(specs→web,~15 个)",
+            "slug": "migrate_web_specs",
+            "status": "done",
+            "branch": "task_t011_migrate_web_specs",
+            "note": "完结;迁 5 个,21 passed;23 留 specs(T012)"
+        },
+        {
+            "tid": "t012",
+            "title": "electron project 整理(specs→electron 专属)",
+            "slug": "electron_project_reorg",
+            "status": "done",
+            "branch": "task_t012_electron_project_reorg",
+            "note": "完结;65 tests --list OK;CI test:e2e 引用已修"
+        },
+        {
+            "tid": "t013",
+            "title": "e2e 文档收尾(testing.md/AGENTS.md/ADR)",
+            "slug": "e2e_docs_finalize",
+            "status": "done",
+            "branch": "task_t013_e2e_docs_finalize",
+            "note": "完结;CI 策略+ADR 008+handoff;4 finding 全采纳"
+        },
+        {
+            "tid": "t014",
+            "title": "修复 app 图标(render_icon 产 .ico + 重打包)",
+            "slug": "fix_app_icon_ico",
+            "status": "done",
+            "branch": "task_t014_fix_app_icon_ico",
+            "note": "完结;icon.ico 重生成;vision 确认 OmniUsage logo"
+        },
+        {
+            "tid": "t015",
+            "title": "CI synthetic seed fixture(脱敏假账号入库供 CI web smoke)",
+            "slug": "ci_synthetic_seed_fixture",
+            "status": "done",
+            "branch": "task_t015_ci_synthetic_seed_fixture",
+            "note": "完结;synthetic.json 入库;CI web smoke 21 passed"
+        },
+        {
+            "tid": "t016",
+            "title": "seed_fake_plugin 类 9 spec 迁 web(改断言泛化)",
+            "slug": "migrate_seed_fake_specs",
+            "status": "done",
+            "branch": "task_t016_migrate_seed_fake_specs",
+            "note": "完结;迁 7 spec 37 passed;account_operations/plugin_failure_modes 留 electron"
+        },
+        {
+            "tid": "t017",
+            "title": "settings_view + popup_token_panel 迁 web + 删重复",
+            "slug": "migrate_settings_token",
+            "status": "done",
+            "branch": "task_t017_migrate_settings_token",
+            "note": "完结;settings_view 拆迁;删 popup_theme 重复;drag flaky 修;41 passed"
+        },
+        {
+            "tid": "t018",
+            "title": "trend gen_fixture 多录(provider×account×metric)",
+            "slug": "trend_fixture_multi",
+            "status": "done",
+            "branch": "task_t018_trend_fixture_multi",
+            "note": "完结;trend 全录+精确匹配;critical(双?)+days 修;38 passed"
+        },
+        {
+            "tid": "t019",
+            "title": "废弃 account_operations spec(popup 账号菜单功能已移除)",
+            "slug": "drop_account_operations",
+            "status": "done",
+            "branch": "task_t019_drop_account_operations",
+            "note": "完结;popup 重构后功能移 settings,spec 删除"
+        },
+        {
+            "tid": "t020",
+            "title": "CSS selector 改 getByRole 转义安全(T016 code_f004)",
+            "slug": "css_selector_getbyrole",
+            "status": "done",
+            "branch": "task_t020_css_selector_getbyrole",
+            "note": "完结;7 处改 getByRole exact;0 finding;41 passed"
+        },
+        {
+            "tid": "t021",
+            "title": "mock_server 单测(create_mock_handler 自保护)",
+            "slug": "mock_server_unit_test",
+            "status": "done",
+            "branch": "task_t021_mock_server_unit_test",
+            "note": "完结;9 用例;1416 passed;T018 critical 可抓"
+        },
+        {
+            "tid": "t022",
+            "title": "plugin_failure_modes 迁 web(手造 failed connector fixture)",
+            "slug": "plugin_failure_to_web",
+            "status": "done",
+            "branch": "task_t022_plugin_failure_to_web",
+            "note": "完结;synthetic 加 KIMI failed;43 passed;crash 单测遗留"
+        },
+        {
+            "tid": "t023",
+            "title": "settings_provider_accounts case 拆迁(单次 web/restart electron)",
+            "slug": "settings_accounts_split",
+            "status": "done",
+            "branch": "task_t023_settings_accounts_split",
+            "note": "完结;about 迁 web;class 修复;restart 留 electron"
+        },
+        {
+            "tid": "t024",
+            "title": "integration crash connector 单测(T022 test_f003)",
+            "slug": "crash_connector_test",
+            "status": "done",
+            "branch": "task_t024_crash_connector_test",
+            "note": "完结;process.exit vm=throw,1 case,13 passed"
+        },
+        {
+            "tid": "t025",
+            "title": "electron restart case 真跑验证(T023 class 改未跑)",
+            "slug": "electron_restart_verify",
+            "status": "done",
+            "branch": "task_t025_electron_restart_verify",
+            "note": "完结;1 passed(2.8s);selector 适配 SettingsView 重构"
+        },
+        {
+            "tid": "t026",
+            "title": "MetricRecord 加 per-account error 字段+PopupView accountErrors",
+            "slug": "metric_error_field",
+            "status": "done",
+            "branch": "task_t026_metric_error_field",
+            "note": "完结;data model+透传+buildAccountErrors;1425 passed;T027/T028 后置"
+        },
+        {
+            "tid": "t027",
+            "title": "ProviderAccountRow per-account error UI(indicator)",
+            "slug": "account_error_ui",
+            "status": "done",
+            "branch": "task_t027_account_error_ui",
+            "note": "完结;error badge UI+CSS;skip 因 T028 data;T028 后置待通"
+        },
+        {
+            "tid": "t028",
+            "title": "observation_to_metric_record error 映射(per-account error 数据通)",
+            "slug": "observation_error_mapping",
+            "status": "done",
+            "branch": "task_t028_observation_error_mapping",
+            "note": "完结;last_error→MetricRecord.error;1428 passed;e2e badge 遗留(T029/展开按钮)"
+        },
+        {
+            "tid": "t029",
+            "title": "observation-store 迁移(last_error 列兼容旧 observation.sqlite)",
+            "slug": "observation_store_migration",
+            "status": "done",
+            "branch": "task_t029_observation_store_migration",
+            "note": "完结;PRAGMA检查+ALTER ADD COLUMN last_error;1430 passed;数据恢复"
+        },
+        {
+            "tid": "t031",
+            "title": "对齐 repo_template 工作流(json+脚本+task.md+小写 tid)",
+            "slug": "align_repo_template",
+            "status": "done",
+            "branch": "t031_align_repo_template",
+            "note": "单 task 单 commit;归档目录仅改名 T→t;详见 plan"
+        }
+    ]
+}

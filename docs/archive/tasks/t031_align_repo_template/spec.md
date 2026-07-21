@@ -20,7 +20,7 @@ omni_usage 沿用 omni_powers 的 `tasks_index.md` + `log/adoption/task_report.m
 - 不改 src/ tests/ 逻辑代码
 - 不重构归档目录内部文件结构（log/adoption/task_report 保留作历史快照）
 - 不改历史 commit subject（大写 T 断代保留）
-- 8 个扁平 `T1-T8_*.md` legacy 文件原样保留
+- legacy 扁平文件 `T1-T8_*.md` 已在 `docs/archive/tasks/`，不纳入 tid 小写化，原样保留；`docs/tasks/` 顶层已干净（仅 `T031_*/` + `.gitkeep`）
 
 ## 验收标准
 
