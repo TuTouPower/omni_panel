@@ -348,6 +348,11 @@ const logs_methods = {
     export: () => invoke<{ saved: boolean }>(IPC_CHANNELS.LOG_EXPORT),
 };
 
+const build_info_methods = {
+    get: () =>
+        invoke<{ version: string; branch: string; commit: string }>(IPC_CHANNELS.APP_BUILD_INFO),
+};
+
 // Route-based API restriction: each window only gets the capabilities it needs.
 const current_route = window.location.hash.slice(1) || "usage";
 const route_grok_api = select_grok_api(current_route, grok_readonly_methods, grok_methods);
@@ -375,6 +380,7 @@ const api: UsageboardApi = (() => {
                 log: log_method,
                 tokenStats: token_stats_methods,
                 trend: route_trend_api,
+                buildInfo: build_info_methods,
             };
         case "tray":
             return {
@@ -409,6 +415,7 @@ const api: UsageboardApi = (() => {
                 log: log_method,
                 tokenStats: token_stats_methods,
                 trend: route_trend_api,
+                buildInfo: build_info_methods,
             };
         default: // popup
             return {
@@ -439,6 +446,7 @@ const api: UsageboardApi = (() => {
                 log: log_method,
                 tokenStats: token_stats_methods,
                 trend: route_trend_api,
+                buildInfo: build_info_methods,
             };
     }
 })();

@@ -6,9 +6,9 @@
     "main": "out/main/index.js",
     "private": true,
     "scripts": {
-        "start": "node scripts/ensure_electron_abi.mjs && electron-vite dev",
+        "start": "node scripts/ensure_electron_abi.mjs && tsx scripts/gen-build-info.ts && electron-vite dev",
         "poststart": "node scripts/ensure_node_abi.mjs",
-        "build": "electron-vite build && vite build --config vite.web.config.ts",
+        "build": "tsx scripts/gen-build-info.ts && electron-vite build && vite build --config vite.web.config.ts",
         "build:web": "vite build --config vite.web.config.ts",
         "package": "tsx scripts/package-and-run.ts",
         "package:build": "tsx scripts/package-and-run.ts",

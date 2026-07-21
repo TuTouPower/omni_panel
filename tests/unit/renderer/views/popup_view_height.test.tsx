@@ -207,6 +207,9 @@ describe("PopupView collapse + height report", () => {
             trend: { get: vi.fn().mockResolvedValue([]) },
             logs: { export: vi.fn() },
             log: vi.fn(),
+            buildInfo: {
+                get: vi.fn().mockResolvedValue({ version: "1.1.0", branch: "dev", commit: "dev" }),
+            },
         };
     });
 

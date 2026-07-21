@@ -165,6 +165,9 @@ function createMockApi() {
             get: vi.fn().mockResolvedValue([]),
         },
         log: vi.fn(),
+        buildInfo: {
+            get: vi.fn().mockResolvedValue({ version: "1.1.0", branch: "dev", commit: "dev" }),
+        },
         popup: {
             report_content_height: vi.fn(),
         },

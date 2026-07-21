@@ -63,6 +63,7 @@ import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
 import { resolve_effective_proxy_url } from "./core/network/effective_proxy";
 import { close_all_proxy_agents } from "./core/network/proxy-pool";
 import { registerLogIpc } from "./ipc/log-ipc";
+import { registerBuildInfoIpc } from "./ipc/build-info-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
 import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
@@ -355,6 +356,7 @@ void app.whenReady().then(async () => {
         await local_api.start();
         log.info(`Web panel: http://localhost:${String(local_api.get_port())}/v1/health`);
         await registerLogIpc(dataRoot);
+        registerBuildInfoIpc(() => app.getVersion());
         cleanupEventIpc = registerEventIpc({ runtimeStore });
         registerGrokAuthIpc({ manager: grokOAuthManager });
 

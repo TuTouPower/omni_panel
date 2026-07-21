@@ -708,6 +708,20 @@ function open_settings_account_dialog(
 export function SettingsView() {
     useTheme();
     const version = package_json.version;
+    const [build_info, set_build_info] = useState<{
+        branch: string;
+        commit: string;
+    } | null>(null);
+    useEffect(() => {
+        window.usageboard.buildInfo
+            .get()
+            .then((info) => {
+                set_build_info({ branch: info.branch, commit: info.commit });
+            })
+            .catch((err: unknown) => {
+                log.warn("加载 build info 失败，关于段不显示 branch@commit", err);
+            });
+    }, []);
     const { config, hasSecrets, loading, error, save, saveSecrets, duplicate } = use_config();
     const [pluginInfos, setConnectorInfos] = useState<ConnectorInfo[]>([]);
     const [section, setSection] = useState("general");
@@ -1870,6 +1884,11 @@ export function SettingsView() {
                                     </div>
                                     <div className="ah-name">OmniUsage</div>
                                     <div className="ah-ver">版本 {version}</div>
+                                    <div className="ah-build">
+                                        {build_info
+                                            ? `${build_info.branch}@${build_info.commit}`
+                                            : ""}
+                                    </div>
                                     <div className="ah-meta">
                                         {window.usageboard.platform === "darwin"
                                             ? "macOS"

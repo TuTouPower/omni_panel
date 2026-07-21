@@ -263,6 +263,14 @@
             "status": "done",
             "branch": "t034_sync_infra_specs",
             "note": ""
+        },
+        {
+            "tid": "t030",
+            "title": "build-info 注入(branch+commit SHA 显示在设置页版本号下方)",
+            "slug": "build_info_inject",
+            "status": "done",
+            "branch": "t030_build_info_inject",
+            "note": "gen-build-info.ts + IPC + renderer 展示"
         }
     ]
 }

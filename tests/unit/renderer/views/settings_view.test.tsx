@@ -246,6 +246,13 @@ describe("SettingsView", () => {
             trend: { get: vi.fn().mockResolvedValue([]) },
             logs: { export: vi.fn() },
             log: vi.fn(),
+            buildInfo: {
+                get: vi.fn().mockResolvedValue({
+                    version: "1.1.0",
+                    branch: "t030_test",
+                    commit: "abc1234",
+                }),
+            },
         };
     });
 
@@ -1294,6 +1301,17 @@ describe("SettingsView", () => {
         const meta = document.querySelector(".ah-meta");
         expect(meta).not.toBeNull();
         expect(meta?.textContent).toMatch(/Windows.*x64/);
+    });
+
+    it("shows build info branch@commit in about section", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-about"));
+        await waitFor(() => {
+            const build = document.querySelector(".ah-build");
+            expect(build?.textContent).toBe("t030_test@abc1234");
+        });
     });
 
     it("shows omniusage.app as site card subtitle", async () => {

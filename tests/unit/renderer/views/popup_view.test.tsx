@@ -202,6 +202,9 @@ describe("PopupView", () => {
             trend: { get: vi.fn().mockResolvedValue([]) },
             logs: { export: vi.fn() },
             log: usage_log,
+            buildInfo: {
+                get: vi.fn().mockResolvedValue({ version: "1.1.0", branch: "dev", commit: "dev" }),
+            },
         };
     });
     it("renders provider tabs without a CPA provider tab", async () => {

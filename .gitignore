@@ -9,6 +9,7 @@ build/Release
 artifacts/
 vendors/
 *.tgz
+src/generated/
 
 # 运行时数据
 data/

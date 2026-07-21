@@ -100,6 +100,9 @@ export const IPC_CHANNELS = {
 
     /** Sparkline trend:近 N 天某 metric 的走势(默认 7 天)。 */
     TREND_GET: "trend:get",
+
+    /** Build info:打包来源 branch + commit SHA，供设置页关于段显示。 */
+    APP_BUILD_INFO: "app:buildInfo",
 } as const;
 
 export interface PopupContentHeightReport {
@@ -378,4 +381,7 @@ export interface UsageboardApi {
         onUpdated(callback: () => void): () => void;
     };
     trend: TrendApi;
+    buildInfo: {
+        get(): Promise<{ version: string; branch: string; commit: string }>;
+    };
 }
