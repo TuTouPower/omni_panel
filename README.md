@@ -67,12 +67,14 @@ pnpm make:linux       # 仅打包 Linux
 - 渲染进程永远只拿 `hasSecret` 布尔，**不见明文密钥**
 - 配置导入导出含明文密钥，用户自行负责导出文件的安全（详见 [secret-vault spec](docs/specs/secret-vault.md)）
 - 网络请求仅由主进程宿主统一发出（[net-client](src/main/core/connector/net-client.ts)），连接器沙箱无直接出网能力
-- LocalAPI 仅监听 `127.0.0.1`，绝不变成通用开放代理
+- LocalAPI 默认监听 `0.0.0.0:17863`（供局域网 web 面板访问；SSRF/认证由 NetClient 层与端点级 Bearer token 负责，详见 [platform-services spec](docs/specs/platform-services.md)）
 
 ## 开发
 
 ```bash
 pnpm install          # 装依赖
+pnpm start            # 开发（electron-vite dev，读本机真实数据）
+pnpm start:test       # 测试实例（独立 userData 沙盒 + 黄图标 + 端口 17864，不碰真实数据）
 pnpm check            # typecheck + lint + format + deadcode + arch
 pnpm test             # vitest 单元 + 集成
 pnpm test:e2e:web     # Playwright 测 web SPA（chromium, mock 后端, 日常）
@@ -81,6 +83,8 @@ pnpm test:packaged    # 打包 smoke
 ```
 
 详见 [测试指南](docs/guides/testing.md)。
+
+测试实例与正常实例可同时运行：测试实例数据写 `.scratch/test-instance/`、LocalAPI 用 17864、托盘/窗口黄色图标（`TEST_INSTANCE=1`），与正常实例（17863、蓝图标、`%APPDATA%/omni_usage`）互不干扰。注意两个 dev 实例共享 `out/` 编译目录会冲突，同时跑时正常实例用打包 exe、测试用 `pnpm start:test`。
 
 ## 架构与文档
 

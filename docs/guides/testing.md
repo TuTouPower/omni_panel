@@ -18,6 +18,36 @@ pnpm typecheck && pnpm lint && pnpm check
 
 调试入口：打包 smoke 经 CDP 连 Electron 渲染进程；连接器脚本日志打 `connector-sandbox` logger。
 
+## 测试实例（沙盒隔离）
+
+`pnpm start:test` 启动一个与正常实例完全隔离的测试实例，用于验证改动而不碰真实数据：
+
+| 维度          | 正常实例 `pnpm start`   | 测试实例 `pnpm start:test`                           |
+| ------------- | ----------------------- | ---------------------------------------------------- |
+| userData      | `%APPDATA%/omni_usage`  | `.scratch/test-instance/`（gitignore）               |
+| LocalAPI 端口 | `17863`                 | `17864`（`OMNI_USAGE_PORT` env 覆盖）                |
+| 图标          | 蓝色（`assets/icon.*`） | 黄色（`assets/icon-test.*`，`TEST_INSTANCE=1` 切换） |
+| 视觉区分      | —                       | 托盘/窗口黄色                                        |
+
+实现：`scripts/start-test.mjs` 设 `TEST_INSTANCE=1` + `OMNI_USAGE_PORT=17864` + Electron `--user-data-dir=.scratch/test-instance`；`paths.ts` 按 env 切图标资源；`local-api/server.ts` 读 env 覆盖默认端口。
+
+### 同时运行两个实例
+
+两个 dev 实例共享 `out/` 编译目录会冲突，不能同时 `pnpm start` + `pnpm start:test`。同时运行方案：
+
+- **正常实例**：`pnpm make:win` 后跑 `artifacts/win-unpacked/OmniUsage.exe`（占 17863、蓝图标）
+- **测试实例**：`pnpm start:test`（占 17864、黄图标、沙盒数据）
+
+端口被占时 local-api 有回退机制（`EADDRINUSE` → 系统 0 分配），但测试实例固定 17864 避免回退随机端口，便于 web 面板/调试工具直连。
+
+### 重新生成测试图标
+
+```bash
+pnpm icons:test   # 从 assets/logo-test.svg 渲染 icon-test.png/ico + tray-icon-test.png
+```
+
+改 `assets/logo-test.svg`（黄色渐变）后重跑刷新。
+
 ## 测试分层
 
 | 层级         | 目录                  | 框架             | 职责                                                                                                             |

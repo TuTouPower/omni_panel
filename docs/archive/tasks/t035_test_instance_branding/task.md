@@ -25,7 +25,7 @@ SHA 由 `git log --grep t035` 查。
 ### 验收标准勾选
 
 - [x] pnpm icons:test 生成 icon-test.png(1024) + icon-test.ico + tray-icon-test.png(64)
-- [x] TEST_INSTANCE=1 时 paths.ts 返回 _-test._ 资源（窗口/托盘黄色）
+- [x] TEST*INSTANCE=1 时 paths.ts 返回 *-test.\_ 资源（窗口/托盘黄色）
 - [x] OMNI_USAGE_PORT=17864 时 local-api 监听 17864（启动日志确认）
 - [x] start:test 启动 TEST_INSTANCE=1 + 17864
 - [x] 正常 start 不受影响（无 env，蓝图标 + 17863）
