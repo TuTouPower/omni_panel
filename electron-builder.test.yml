@@ -1,0 +1,53 @@
+appId: com.omniusage.app.test
+productName: OmniUsageTest
+directories:
+    output: artifacts/test
+files:
+    - out/**
+    - package.json
+extraResources:
+    - from: connectors
+      to: connectors
+    - from: assets/tray-icon-test.png
+      to: tray-icon.png
+    - from: assets/icon-test.png
+      to: icon.png
+    - from: assets/test.marker
+      to: test.marker
+    - from: out/web
+      to: web
+      filter: ["**/*"]
+asar: true
+asarUnpack:
+    - out/main/collector.js
+    - out/main/chunks/**
+electronFuses:
+    enableEmbeddedAsarIntegrityValidation: true
+    onlyLoadAppFromAsar: true
+    runAsNode: false
+    enableCookieEncryption: true
+    enableNodeOptionsEnvironmentVariable: false
+    enableNodeCliInspectArguments: false
+win:
+    target:
+        - target: nsis
+          arch: [x64]
+    icon: assets/icon-test.ico
+nsis:
+    oneClick: false
+    perMachine: false
+    allowToChangeInstallationDirectory: true
+mac:
+    target:
+        - target: dmg
+          arch: [x64, arm64]
+        - target: zip
+          arch: [x64, arm64]
+    icon: assets/icon-test.png
+    hardenedRuntime: true
+linux:
+    target:
+        - AppImage
+        - deb
+        - rpm
+    icon: assets/icon-test.png

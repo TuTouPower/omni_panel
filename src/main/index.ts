@@ -22,6 +22,7 @@ import {
     getUserConnectorsDir,
     get_tray_icon_path,
     get_app_icon_path,
+    is_test_build,
     get_observations_db_path,
     get_token_stats_db_path,
     get_snapshot_cache_path,
@@ -88,6 +89,12 @@ process.on("unhandledRejection", (reason: unknown) => {
 
 // Prevent white screen on systems where GPU process crashes
 app.disableHardwareAcceleration();
+
+// 测试构建：setName 让单实例锁与 userData 独立于正常实例。
+// app.name 决定 requestSingleInstanceLock 的锁标识与 %APPDATA%/<name> 目录。
+if (is_test_build()) {
+    app.setName("OmniUsageTest");
+}
 
 // Single-instance lock — prevent duplicate app instances
 const gotTheLock = app.requestSingleInstanceLock();

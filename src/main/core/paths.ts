@@ -1,4 +1,5 @@
 import { app } from "electron";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 // In dev mode, main entry is at out/main/index.js.
@@ -77,4 +78,23 @@ export function get_app_icon_path(): string {
         return join(process.resourcesPath, `icon${suffix}.png`);
     }
     return join(PROJECT_ROOT, "assets", `icon${suffix}.png`);
+}
+
+/**
+ * 是否为测试构建/实例。
+ * - dev：`TEST_INSTANCE=1` env（start-test.mjs 设）
+ * - packaged：resources/test.marker 存在（electron-builder.test.yml 的 extraResources 标志）
+ *
+ * 测试实例：app.name=OmniUsageTest（锁/userData 独立）、local-api 端口 17864。
+ */
+export function is_test_build(): boolean {
+    if (process.env["TEST_INSTANCE"] === "1") return true;
+    try {
+        if (app.isPackaged) {
+            return existsSync(join(process.resourcesPath, "test.marker"));
+        }
+    } catch {
+        // 测试环境（vitest 无 electron app）落 false
+    }
+    return false;
 }

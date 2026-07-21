@@ -8,6 +8,7 @@ import type { Observation } from "../../../shared/types/observation";
 import type { ObservationStore } from "../observation/observation-store";
 import { build_trend_series, type TrendPoint } from "../../../shared/lib/trend";
 import type { TokenStatsStore } from "../token-stats/token-stats-store";
+import { is_test_build } from "../paths";
 import {
     handleConfigGet,
     handleConfigGetSecrets,
@@ -26,6 +27,7 @@ import type { IpcResult } from "../../../shared/types/ipc";
 
 const log = createLogger("local-api");
 const DEFAULT_PORT = 17863;
+const TEST_DEFAULT_PORT = 17864;
 const MAX_BODY_BYTES = 1024 * 1024;
 
 const MIME: Record<string, string> = {
@@ -178,8 +180,9 @@ export function create_local_api_server(
     const connector_deps = options?.connector_deps;
     const web_root = options?.web_root;
     const env_port = Number(process.env["OMNI_USAGE_PORT"] ?? "");
+    const default_port = is_test_build() ? TEST_DEFAULT_PORT : DEFAULT_PORT;
     let port =
-        options?.port ?? (Number.isFinite(env_port) && env_port > 0 ? env_port : DEFAULT_PORT);
+        options?.port ?? (Number.isFinite(env_port) && env_port > 0 ? env_port : default_port);
     let server: ReturnType<typeof createServer> | null = null;
 
     async function handle_ingest(req: IncomingMessage, res: ServerResponse): Promise<void> {
