@@ -19,7 +19,7 @@
 | ai-cli-token-stats-api     | API      | 拆自 ai-cli-token-stats（t037） | 2026-07-21   |
 | ai-cli-token-stats-desktop | Desktop  | 拆自 ai-cli-token-stats（t037） | 2026-07-21   |
 | ai-cli-token-stats-ui      | Web      | 拆自 ai-cli-token-stats（t037） | 2026-07-21   |
-| config-store               | API      | 迁移自 omni_powers，无          | 2026-07-05   |
+| config-store               | API      | 迁移自 omni_powers，t038        | 2026-07-22   |
 | connector-cpa-runtime      | API      | 拆自 connector-cpa（t037）      | 2026-07-21   |
 | connector-cpa-ui           | Web      | 拆自 connector-cpa（t037）      | 2026-07-21   |
 | connector-direct           | API      | 迁移自 omni_powers，t039        | 2026-07-22   |

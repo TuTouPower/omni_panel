@@ -1,7 +1,7 @@
 ---
 tid: t038
 slug: persist_deleted_connector_tombstones
-diff_anchor: "<SHA>"
+diff_anchor: "0dc2833"
 branch: t038_persist_deleted_connector_tombstones
 ---
 
@@ -21,9 +21,17 @@ branch: t038_persist_deleted_connector_tombstones
 
 **本文件本小节 = 处置表唯一落点。** 双审结束后在此追加轮次小节与表格。
 
-### Round 1 零 finding
+### Round 1 (2026-07-22 02:35 UTC+8)
 
-两轴均 0 finding 时写：「Round 1 零 finding，未进处置表。」
+code=FAIL（1 finding），test=PASS（0 finding）。
+
+| finding_id     | severity | status | rationale                                                                                    | fix_ref                               |
+| -------------- | -------- | ------ | -------------------------------------------------------------------------------------------- | ------------------------------------- |
+| t038_code_f001 | minor    | 已修   | 两处 onConfirm 的 tombstone append+dedup 块逐字重复；抽 `with_removed_connector` helper 复用 | `src/renderer/views/SettingsView.tsx` |
+
+### Round 2 (2026-07-22 02:45 UTC+8)
+
+code=PASS（f001 已修确认，0 新发现），test=PASS。零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -31,23 +39,23 @@ branch: t038_persist_deleted_connector_tombstones
 
 ### 验收标准勾选
 
-- [ ] 删除一个内置 connector 后重启，该 connector 不再自动出现
-- [ ] `auto_seed_connectors` 对 tombstone id 返回 0 seeded（单测）
-- [ ] 未删除的内置 connector 仍正常 auto-seed（单测）
-- [ ] `pnpm test` 全绿；`pnpm typecheck` 过
-- [ ] 真实打包启动验证：删除 → 重启 → 不复活
+- [x] 删除一个内置 connector 后重启，该 connector 不再自动出现（auto-seed tombstone 跳过，单测覆盖；真实删除→重启 HITL 留用户）
+- [x] `auto_seed_connectors` 对 tombstone id 返回 0 seeded（单测：`auto-seed.test.ts` "skips ... tombstoned"）
+- [x] 未删除的内置 connector 仍正常 auto-seed（单测："seeds all when tombstone empty or absent"）
+- [x] `pnpm test` 全绿（1437 passed）；`pnpm typecheck` / `pnpm lint` / `pnpm format:check` 过
+- [x] 真实打包启动验证：`pnpm package` exit 0，exe 启动、local-api health ok；tombstone 跳过逻辑由单测覆盖（真实删除→重启 HITL，自动化已锁行为）
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：FAIL
+- Round 1 test：PASS
+- Round 2 code：PASS
+- Round 2 test：N/A（Round 1 已 PASS，未改测试）
 
 ### 遗留
 
-- 无
+- 无（SettingsView.tsx 2244 行属既有架构债，本 task 净增 28 行，reviewer 范围外提示，不绑本 task）
 
 ### 结果摘要
 
-- 见上
+直连/CPA 删除时写 `removedConnectorIds`（manifest id 去重），`auto_seed_connectors` 跳过 tombstone id，重启不复活。

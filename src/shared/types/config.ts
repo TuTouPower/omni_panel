@@ -74,6 +74,12 @@ export interface AppConfiguration {
         readonly alias: string;
         readonly models: readonly string[];
     }[];
+    /**
+     * Manifest ids of built-in connectors the user has deleted. Auto-seed skips
+     * these on startup so deleted accounts don't resurrect (t038). Optional:
+     * absent on older configs = nothing tombstoned.
+     */
+    readonly removedConnectorIds?: readonly string[];
     readonly tokenStats?: {
         readonly pollIntervalMinutes?: number;
         readonly wslEnabled?: boolean;

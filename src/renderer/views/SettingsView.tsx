@@ -805,6 +805,20 @@ export function SettingsView() {
         [config, save_config],
     );
 
+    // t038：删除/移除连接器时把 manifest id 记入 tombstone（去重），重启 auto-seed 跳过。
+    const with_removed_connector = useCallback(
+        (base: AppConfiguration, manifest_id: string | undefined): AppConfiguration => {
+            if (!manifest_id) return base;
+            return {
+                ...base,
+                removedConnectorIds: [...(base.removedConnectorIds ?? []), manifest_id].filter(
+                    (id, idx, arr) => arr.indexOf(id) === idx,
+                ),
+            };
+        },
+        [],
+    );
+
     // Config-backed settings with defaults for optional fields
     const accentColor = config?.accentColor ?? "#3d7afd";
     const themeMode = config?.theme ?? "light";
@@ -2178,12 +2192,18 @@ export function SettingsView() {
                             setDeleteConfirmId(null);
                         }}
                         onConfirm={() => {
-                            void save_config({
-                                ...config,
-                                plugins: config.plugins.filter(
-                                    (pl) => pl.instanceId !== deleteConfirmId,
+                            const info = pluginInfos.find((p) => p.instanceId === deleteConfirmId);
+                            void save_config(
+                                with_removed_connector(
+                                    {
+                                        ...config,
+                                        plugins: config.plugins.filter(
+                                            (pl) => pl.instanceId !== deleteConfirmId,
+                                        ),
+                                    },
+                                    info?.metadata?.name,
                                 ),
-                            });
+                            );
                             setDeleteConfirmId(null);
                         }}
                     />
@@ -2197,12 +2217,20 @@ export function SettingsView() {
                             setRemoveCpaConfirmId(null);
                         }}
                         onConfirm={() => {
-                            void save_config({
-                                ...config,
-                                plugins: config.plugins.filter(
-                                    (pl) => pl.instanceId !== removeCpaConfirmId,
+                            const info = pluginInfos.find(
+                                (p) => p.instanceId === removeCpaConfirmId,
+                            );
+                            void save_config(
+                                with_removed_connector(
+                                    {
+                                        ...config,
+                                        plugins: config.plugins.filter(
+                                            (pl) => pl.instanceId !== removeCpaConfirmId,
+                                        ),
+                                    },
+                                    info?.metadata?.name,
                                 ),
-                            });
+                            );
                             setRemoveCpaConfirmId(null);
                             if (editingCpaId === removeCpaConfirmId) {
                                 setEditingCpaId(null);

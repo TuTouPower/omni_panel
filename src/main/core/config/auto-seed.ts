@@ -23,6 +23,7 @@ interface AutoSeedResult {
 export function auto_seed_connectors(
     existing: readonly ConnectorConfiguration[],
     definitions: readonly ConnectorDefinition[],
+    removed_ids?: ReadonlySet<string>,
 ): AutoSeedResult {
     const existing_by_id = new Map<string, ConnectorConfiguration>();
     for (const connector of existing) {
@@ -41,6 +42,9 @@ export function auto_seed_connectors(
     const updatedExisting: ConnectorConfiguration[] = [];
     let changed = false;
     for (const def of definitions) {
+        // t038：tombstone 内的 manifest id 不复活。删除内置连接器后记 id 到
+        // config.removedConnectorIds，重启 auto-seed 跳过，避免账号"复活"。
+        if (removed_ids?.has(def.manifest.id)) continue;
         const existing_match = existing_by_id.get(def.manifest.id);
         if (existing_match) {
             if (existing_match.executablePath !== def.executablePath) {

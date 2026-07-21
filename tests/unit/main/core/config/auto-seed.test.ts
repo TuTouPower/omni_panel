@@ -99,6 +99,26 @@ describe("auto_seed_connectors", () => {
         expect(result.seeded[0]?.name).toBe("CPA");
         expect(result.updatedExisting).toHaveLength(0);
     });
+
+    it("skips connectors whose manifest id is tombstoned (t038)", () => {
+        // 删除内置连接器后记 tombstone，重启 auto-seed 不得复活
+        const result = auto_seed_connectors(
+            [],
+            [make_definition("claude"), make_definition("glm")],
+            new Set(["glm"]),
+        );
+        expect(result.seeded).toHaveLength(1);
+        expect(result.seeded[0]?.name).toBe("CLAUDE");
+    });
+
+    it("seeds all when tombstone empty or absent (t038)", () => {
+        expect(
+            auto_seed_connectors([], [make_definition("claude"), make_definition("glm")]).seeded,
+        ).toHaveLength(2);
+        expect(
+            auto_seed_connectors([], [make_definition("claude")], new Set<string>()).seeded,
+        ).toHaveLength(1);
+    });
 });
 
 describe("resolve_refresh_interval", () => {

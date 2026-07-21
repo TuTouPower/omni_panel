@@ -161,6 +161,7 @@ void app.whenReady().then(async () => {
         const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
             config.plugins,
             allDefinitions,
+            new Set(config.removedConnectorIds ?? []),
         );
         if (seededPlugins.length > 0 || updatedExisting.length > 0) {
             const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));

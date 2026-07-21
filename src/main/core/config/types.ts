@@ -109,6 +109,7 @@ export const appConfigurationSchema = z.object({
     modelAliases: z
         .array(z.object({ alias: z.string().min(1), models: z.array(z.string()) }))
         .default([]),
+    removedConnectorIds: z.array(z.string()).optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {
