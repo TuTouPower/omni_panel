@@ -4,10 +4,17 @@
 
 ## LocalAPI（`src/main/core/local-api`）
 
-仅监听 `127.0.0.1`，端口默认自动分配并展示给用户（可固定）。Bearer token 由宿主生成、存 Vault。
+监听 `0.0.0.0`，端口默认 `17863`（被占则回退 `0` 由系统分配），启动后把 port/token 交给宿主展示。Bearer token 由宿主生成、存 Vault。绑 `0.0.0.0` 是 web-panel 决策——为局域网内其它设备访问 web 面板；SSRF/认证防护另由 NetClient 层和端点级 token 负责。
 
-- `POST /v1/ingest` — 接收外部 producer 观测上报（`observation_ingest_schema`，服务端补 `observed_at`/`stale`/`last_error`），校验后入 ObservationStore，`source` 按 producer 标记。
-- `GET /v1/health` — 健康检查。
+- `GET /v1/health` — 健康检查（无 auth，返回 `{status, uptime}`）。
+- `POST /v1/ingest` — 接收外部 producer 观测上报（`observation_ingest_schema`，服务端补 `observed_at`/`stale`/`last_error`），校验后入 ObservationStore，`source` 按 producer 标记。**Bearer token 必需**。
+- `GET /v1/config` / `POST /v1/config` — 读 / 写宿主配置（复用 `config-ipc` handler）。
+- `GET /v1/secrets?instanceId=...` / `POST /v1/secrets` — 读 / 写指定 instance 的 vault 明文。
+- `GET /v1/records` / `/v1/sessions` / `/v1/buckets` / `/v1/status` — token-stats 面板只读查询（无 auth，intranet 决策；`env`/`agent`/`start`/`end` 作 query 过滤）。
+- `GET /v1/trend?provider&accountId&metricId&days?` — sparkline 走势序列（`build_trend_series`，缺失日期填 null，默认 7 天）。
+- `GET /v1/connectors` / `POST /v1/connectors` — 连接器列表 / 全量刷新（POST = `refreshAll`）。
+- `GET /v1/connectors/:id/state` / `POST /v1/connectors/:id/refresh` — 单连接器快照 / 刷新。
+- 非 `/v1/` 路径 GET — web 面板 SPA 静态 fallback（web_root 存在时；`index.html` 不缓存，path-traversal 由 `is_within_web_root` 守）。
 - **不支持任意上游 URL** —— 绝不变成通用开放代理。
 
 `observation_ingest_schema = observation_schema.omit({observed_at, stale, last_error})`。
@@ -42,4 +49,10 @@
 
 ## paths（`src/main/core/paths.ts`）
 
-集中 userData 下文件路径常量（config.json / secrets.vault / vault.key / observations.db / snapshot-cache / logs）。
+集中 userData 下文件路径常量与资源定位。
+
+- 配置/密钥：`getConfigPath`（`config.json`）、`get_vault_path`（`secrets.vault`）、`get_vault_key_path`（`vault.key`）。
+- 数据：`get_observations_db_path`（`observations.sqlite`）、`get_token_stats_db_path`（当前与 observations 共享同一 SQLite 文件，A17 决策）、`get_snapshot_cache_path`（`snapshot-cache.json`）、`getStatesDir`（`states/`，连接器状态 JSON 目录）、`get_logs_dir`（`logs/`）。
+- 连接器目录：`getBundledConnectorsDir`（ packaged 取 `process.resourcesPath/connectors`，dev 取项目根 `connectors/`）、`getUserConnectorsDir`（userData 下 `connectors/`）。
+- 图标：`get_tray_icon_path`（`tray-icon.png`）、`get_app_icon_path`（`icon.png`），均按 `app.isPackaged` 切换 resourcesPath / 项目 `assets/`。
+- `getDataRoot()` = `app.getPath("userData")`；所有 `get_*` 路径函数接受可选 `base` 参数注入测试目录。

@@ -7,7 +7,7 @@
 - 桌面 app（Electron）启动时拉起 `local-api` HTTP server，绑 `0.0.0.0:17863`。
 - 同一份 React UI 编译为浏览器可加载的 SPA（`pnpm build:web` → `out/web/`），由 local-api 静态托管。
 - 浏览器里的 `window.usageboard` 由 `src/web/usageboard-web.ts` 提供，fetch local-api REST 端点。
-- 托盘菜单「网页访问」项用系统浏览器打开 `http://localhost:<port>/`。
+- 托盘菜单「网页访问」项用系统浏览器打开 `http://localhost:<port>/`，走 `tray:openWeb` 通道（`src/shared/types/ipc.ts` `TRAY_OPEN_WEB`）。
 
 ## 2. 安全决策（已确认）
 
@@ -18,14 +18,19 @@
 
 ## 3. 端点
 
-| 方法     | 路径                                                    | 说明                                        | 认证   |
-| -------- | ------------------------------------------------------- | ------------------------------------------- | ------ |
-| GET      | `/`、`/assets/*`                                        | web SPA 静态资源（SPA fallback index.html） | 无     |
-| GET      | `/v1/health`                                            | 存活检查                                    | 无     |
-| GET      | `/v1/records` `/v1/sessions` `/v1/buckets` `/v1/status` | 代理面板数据（query: agent/env/start/end）  | 无     |
-| GET/POST | `/v1/config`                                            | 设置面板配置读/写                           | 无     |
-| GET/POST | `/v1/secrets`                                           | 密钥明文读/写（query/field: instanceId）    | 无     |
-| POST     | `/v1/ingest`                                            | observation 注入                            | Bearer |
+| 方法     | 路径                                                    | 说明                                                       | 认证   |
+| -------- | ------------------------------------------------------- | ---------------------------------------------------------- | ------ |
+| GET      | 所有非 `/v1/` 的 GET                                    | web SPA 静态资源（未命中文件走 index.html）                | 无     |
+| GET      | `/v1/health`                                            | 存活检查                                                   | 无     |
+| GET      | `/v1/records` `/v1/sessions` `/v1/buckets` `/v1/status` | 代理面板数据（query: agent/env/start/end）                 | 无     |
+| GET      | `/v1/trend`                                             | 用量趋势序列（query: provider/accountId/metricId/days?=7） | 无     |
+| GET      | `/v1/connectors`                                        | 连接器列表                                                 | 无     |
+| POST     | `/v1/connectors`                                        | 触发全部连接器刷新                                         | 无     |
+| GET      | `/v1/connectors/:id/state`                              | 单连接器状态                                               | 无     |
+| POST     | `/v1/connectors/:id/refresh`                            | 触发单连接器刷新                                           | 无     |
+| GET/POST | `/v1/config`                                            | 设置面板配置读/写                                          | 无     |
+| GET/POST | `/v1/secrets`                                           | 密钥明文读/写（query/field: instanceId）                   | 无     |
+| POST     | `/v1/ingest`                                            | observation 注入                                           | Bearer |
 
 ## 4. 构建
 

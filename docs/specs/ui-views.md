@@ -10,7 +10,10 @@
 
 - `ProviderNav` — 顶部 provider 导航 tab（总览 + 各 provider）
 - `ProviderOverview` — 概览聚合卡片
-- `ProviderAccountList` — 单 provider 下账号列表
+- `UpcomingResetBanner` / `UpcomingResetRail` — 即将重置横幅 + 右侧轨道（t005，`<1024px` 仅 banner，`≥1024px` 出现右侧 sticky rail）
+- `ProviderAccountList` → `ProviderAccountRow` — 单 provider 账号列表 / 账号行
+- `TrendSparkline` — 账号展开时趋势迷你图（t006，懒加载 `trend:get`，缓存 key `${provider}||${accountId}||${metricId}`）
+- `DragGrip` — 账号行拖拽手柄（仅提供 `onDragStart` 时渲染）
 - `TokenPanel` — 用量条展示
 - `CollapsibleCard` — 可折叠卡片
 
@@ -18,7 +21,10 @@
 
 - `build_provider_usage_groups` — 按 provider 聚合观测
 - `visible_providers_from_groups` — 计算可见 provider
-- `apply_account_overrides` — 应用账号隐藏/标签/排序
+- `apply_account_overrides` — 应用账号隐藏/排序
+- `apply_account_labels` — 应用账号备注（`displayName`/`accountLabel`）
+- `collect_upcoming_resets` — 收集即将到来的重置项（驱动 Banner/Rail）
+- `buildAccountErrors` — per-account 错误消息（驱动 `ProviderAccountRow` error-badge）
 - `PROVIDER_ORDER` — provider 排序
 
 特性：
@@ -26,6 +32,8 @@
 - `use_popup_height_report` + `useResizeObserver` — 上报内容高度驱动窗口自适应
 - `useNowTick` — 周期 tick 刷新相对时间显示
 - 用量条样式：`UsageBarStyle`（细线 / 粗胶囊）/ `UsageBarColorScheme`
+- **容器查询响应式**（t004，`.scroll-inner` 设 `container-type: inline-size`）：`overview-grid` 单列默认；`@container (min-width: 1024px)` 切 `repeat(auto-fill, minmax(320px, 1fr))`；`@container (max-width: 1023px) and (min-width: 640px)` 切两列。`.overview-row` 在 `≥1024px` 切 `minmax(0, 1fr) 264px` 主轨 + sticky rail。offscreen `.popup-mirror .scroll-inner` 关闭 container-type 以免 mirror 高度被压缩。
+- **per-account error badge**（t026/t027/t028）：`buildAccountErrors` 生成 `Map<accountId, error>`，传入 `ProviderAccountList` → `ProviderAccountRow.error`；账号行 `.rel-time` 内渲染 `<span className="error-badge" title={error}>采集失败</span>`。`providerErrors`（connector `failed` 时映射 `UsageProvider`）驱动 `ProviderOverview` 刷新按钮状态。
 - **用量面板无账号编辑入口**（T8）：账号设置仅在 Settings；用量面板 provider 卡片无更多操作菜单，关闭/管理操作在设置页进行
 - **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（用量面板 + 设置列表）
 - **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %
@@ -33,6 +41,8 @@
 ### SettingsView（设置窗，route=setting）
 
 `SettingsForm` + `SecretInput`（密钥睁/闭）+ `VendorCard`（直连 provider 卡，内嵌 `AccountRow`）+ `CpaCard`（CPA 卡，父行自渲染 + `AccountRow mode="cpa-child"`）+ `CpaConnectorSettings`（CPA 数据源详情）+ `LabelMapDialog`（数据标签映射）+ `RenameAccountDialog`（账号备注）+ `ConfirmDelete`（删除确认）+ `AddAccountDialog`（新增账号）。
+
+**导航分区**（t017/t023/t027/t028，`NAV_ITEMS`）：`general`（常规）/ `accounts`（账号）/ `appearance`（外观）/ `data`（数据与隐私）/ `about`（关于），各项带 `icon`（gear/inbox/palette/shield/info）。
 
 编辑已存密钥时 `config:getSecrets` 回填明文；输入框 `spellCheck={false}`。
 
@@ -62,7 +72,7 @@
 
 ### TrayMenu（托盘菜单，route=tray）
 
-自定义 frameless 托盘菜单（非系统原生菜单）。`TrayMenuItem`：icon / label_zh / label_en / danger / checked / action。
+自定义 frameless 托盘菜单（非系统原生菜单）。`TrayMenuItem`：icon / label_zh / label_en / danger / checked / meta? / action。
 
 - `is_paused` — 暂停状态（`tray:pauseState`）
 - autostart 状态（`tray:autostartState`）
@@ -86,6 +96,7 @@
 - 全部 `useTheme()` 适配 dark/light
 - 经 `window.usageboard`（preload `UsageboardApi`）调主进程，不直接 Node
 - 日志经 `log:renderer` 转发主进程统一 scrubber 脱敏
+- **图标系统**（t014，`components/Icon.tsx`）：`Icon`（内置 `UI_ICONS` path 表，按 `name` 取）+ `VendorMark`（厂商标识，按 `VendorId` 优先查 `VENDOR_THEME_LOGOS` 主题切换 → `VENDOR_LOGOS` 单态 → `VENDOR_MARKS` 内联 SVG，兜底 `overview`）+ `VendorId`（`UsageProvider | "overview" | "cpa"`）。被 SettingsView/TrayMenu/ProviderAccountRow/ProviderNav 等共用。
 
 ## 国际化
 

@@ -255,6 +255,14 @@
             "status": "done",
             "branch": "t033_sync_connector_specs",
             "note": ""
+        },
+        {
+            "tid": "t034",
+            "title": "同步基础设施类 spec 到当前代码真相",
+            "slug": "sync_infra_specs",
+            "status": "done",
+            "branch": "t034_sync_infra_specs",
+            "note": ""
         }
     ]
 }
