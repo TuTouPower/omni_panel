@@ -7,6 +7,7 @@
     ],
     "project": ["src/**/*.ts", "src/**/*.tsx", "*.config.ts"],
     "ignoreDependencies": [
+        "@resvg/resvg-js",
         "@typescript-eslint/eslint-plugin",
         "@typescript-eslint/parser",
         "eslint-plugin-import",
@@ -19,6 +20,7 @@
         "eslint-plugin-sonarjs",
         "eslint-plugin-unicorn",
         "lodash",
+        "png-to-ico",
         "tailwindcss",
         "esbuild",
         "lucide-react",
