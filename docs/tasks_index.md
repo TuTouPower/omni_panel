@@ -38,3 +38,4 @@
 | T028 | observation_to_metric_record error 映射(per-account error 数据通) | done    | claude | task_t028_observation_error_mapping   | 完结;last_error→MetricRecord.error;1428 passed;e2e badge 遗留(T029/展开按钮) |
 | T029 | observation-store 迁移(last_error 列兼容旧 observation.sqlite)    | done    | claude | task_t029_observation_store_migration | 完结;PRAGMA检查+ALTER ADD COLUMN last_error;1430 passed;数据恢复             |
 | T030 | build-info 注入(branch+commit SHA 显示在设置页版本号下方)         | backlog |        |                                       | gen-build-info.ts + IPC + renderer 展示                                      |
+| T031 | 对齐 repo_template 工作流(json+脚本+task.md+小写 tid)             | active  | claude | t031_align_repo_template              | 单 task 单 commit;归档目录仅改名 T→t;详见 plan                               |

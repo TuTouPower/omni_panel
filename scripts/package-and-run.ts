@@ -1,7 +1,6 @@
 import { execSync, spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { platform } from "node:os";
-import { existsSync, rmSync } from "node:fs";
 
 const ROOT = process.cwd();
 
@@ -66,18 +65,11 @@ function wait_for_exit(max_ms = 5000): void {
 }
 
 function clear_runtime_state(): void {
-    const is_win = platform() === "win32";
-    const app_data = is_win
-        ? process.env["APPDATA"]
-        : process.env["HOME"]
-          ? resolve(process.env["HOME"], ".config")
-          : undefined;
-    if (!app_data) return;
-    const state_dir = resolve(app_data, "OmniUsage", "states");
-    if (existsSync(state_dir)) {
-        rmSync(state_dir, { recursive: true, force: true });
-        log(`cleared runtime state: ${state_dir}`);
-    }
+    // 之前删 states/ 整目录导致 runtime-store cache 丢失，
+    // app 重启后 snapshot instanceId 不匹配 observation-store 历史 -> 数据"丢失"。
+    // states/ 只存 runtime-store cache（非用户数据），删它弊大于利，不再清理。
+    // 如需重置 connector 运行时状态，应在 app 内通过 UI 操作（非打包脚本强制）。
+    log("clear_runtime_state: skipped (states/ preserved to avoid instanceId orphan)");
 }
 
 function run_packaged(): void {
