@@ -1,836 +1,1752 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agent Usage · Claude Code / OpenCode 用量面板</title>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#0b0e14; --bg-soft:#0f131c; --card:#131926; --card-2:#171e2e;
-    --line:#1f2739; --line-soft:#1a2233;
-    --text:#e6eaf2; --text-2:#9aa4b8; --text-3:#5d6878;
-    --accent:#7c6cf6; --accent-2:#4cc2ff; --green:#3ddc97; --amber:#ffb454; --red:#ff6b6b; --pink:#f56cc6;
-    --mono:'JetBrains Mono',ui-monospace,monospace;
-    --sans:'Inter',system-ui,-apple-system,sans-serif;
-  }
-  *{margin:0;padding:0;box-sizing:border-box}
-  html{background:var(--bg)}
-  body{
-    font-family:var(--sans); color:var(--text); background:var(--bg);
-    background-image:radial-gradient(1000px 500px at 80% -10%, rgba(124,108,246,.08), transparent 60%),
-                     radial-gradient(800px 400px at 10% 0%, rgba(76,194,255,.06), transparent 60%);
-    min-height:100vh; padding:28px 32px 64px;
-  }
-  header{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:24px}
-  .brand h1{font-size:22px; font-weight:700; letter-spacing:-.02em; display:flex; align-items:center; gap:10px}
-  .brand h1 .dot{width:10px;height:10px;border-radius:3px;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 0 12px rgba(124,108,246,.6)}
-  .controls{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-  .seg{display:flex; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:3px; gap:2px}
-  .seg button{appearance:none; border:0; background:transparent; color:var(--text-2); font:500 12px var(--sans); padding:6px 12px; border-radius:7px; cursor:pointer; transition:all .15s; white-space:nowrap}
-  .seg button:hover:not(:disabled){color:var(--text)}
-  .seg button.on{background:var(--card-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
-  .seg button:disabled{opacity:.3; cursor:not-allowed}
-  .seg.sm button{padding:4px 10px; font-size:11px}
-  .dtwrap{display:flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:5px 10px}
-  .dtwrap span{color:var(--text-3); font-size:11px; font-family:var(--mono)}
-  .dt{background:transparent; border:0; color:var(--text); font:500 11.5px var(--mono); color-scheme:dark; width:170px}
-  .dt:focus{outline:none}
-  .grid{display:grid; gap:16px; grid-template-columns:repeat(12,1fr)}
-  .card{background:linear-gradient(180deg, var(--card), var(--bg-soft)); border:1px solid var(--line); border-radius:14px; padding:18px 20px; min-width:0}
-  .card h3{font-size:12px; font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap}
-  .card h3 .hint{text-transform:none; letter-spacing:0; font-weight:400; color:var(--text-3); font-family:var(--mono); font-size:11px}
-  .card h3 .h3ctrl{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
-  .delta{font:500 11px var(--mono); color:var(--text-3); text-transform:none; letter-spacing:0}
-  .up{color:var(--green)} .down{color:var(--red)}
-  .span-3{grid-column:span 3}.span-4{grid-column:span 4}.span-8{grid-column:span 8}.span-12{grid-column:span 12}
-  @media(max-width:1100px){.span-3{grid-column:span 6}.span-4,.span-8{grid-column:span 12}}
-  @media(max-width:640px){.span-3{grid-column:span 12} body{padding:18px 14px 48px}}
-  .donut{height:210px}
-  #chartBar{height:410px} #chartHeat{height:410px}
-  .calwrap{position:relative}
-  .calbtn{appearance:none; background:var(--card); border:1px solid var(--line); color:var(--text-2); font:500 12px var(--sans); padding:8px 14px; border-radius:10px; cursor:pointer; transition:all .15s}
-  .calbtn:hover{color:var(--text)}
-  .calbtn.on{color:var(--text); border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent)}
-  .calpop{position:absolute; right:0; top:calc(100% + 8px); z-index:60; width:280px; background:var(--card-2); border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 12px 32px rgba(0,0,0,.55)}
-  .calrow{display:flex; align-items:center; gap:8px; margin-bottom:10px}
-  .calrow span{color:var(--text-3); font-size:11.5px; font-family:var(--mono); width:30px; flex:none}
-  .calrow .dt{flex:1; width:auto; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:6px 8px}
-  .calapply{width:100%; appearance:none; background:var(--accent); border:0; color:#fff; font:600 12px var(--sans); padding:8px; border-radius:8px; cursor:pointer}
-  .calapply:hover{filter:brightness(1.1)}
-  .pgselect{appearance:none; background:var(--card); border:1px solid var(--line); color:var(--text-2); font:500 11.5px var(--mono); padding:6px 10px; border-radius:8px; cursor:pointer; color-scheme:dark}
-  .tablewrap{overflow-x:auto; margin:0 -20px; padding:0 20px}
-  table{width:100%; border-collapse:collapse; font-size:12.5px; min-width:960px}
-  thead th{text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.07em; padding:10px 12px; border-bottom:1px solid var(--line); white-space:nowrap; cursor:pointer; user-select:none}
-  thead th .arr{opacity:.5; font-family:var(--mono)}
-  tbody td{padding:11px 12px; border-bottom:1px solid var(--line-soft); vertical-align:middle; white-space:nowrap}
-  tbody tr:hover{background:rgba(124,108,246,.05)}
-  .t-title{color:var(--text); font-weight:500; max-width:280px; overflow:hidden; text-overflow:ellipsis}
-  .t-dim{color:var(--text-2)} .t-mono{font-family:var(--mono); font-size:11.5px}
-  .chip{display:inline-flex; align-items:center; gap:5px; font:500 10.5px var(--mono); padding:3px 8px; border-radius:6px; border:1px solid var(--line)}
-  .chip.cc{color:#ffb78a; border-color:rgba(255,180,120,.25); background:rgba(255,180,120,.07)}
-  .chip.oc{color:#8ad8ff; border-color:rgba(140,216,255,.25); background:rgba(140,216,255,.07)}
-  .chip.sub{color:var(--pink); border-color:rgba(245,108,198,.25); background:rgba(245,108,198,.07); margin-left:4px}
-  .chip.ver{color:var(--text-2)}
-  .modeltag{font:500 10.5px var(--mono); padding:3px 8px; border-radius:6px; margin-right:4px; display:inline-block}
-  .bar-cell{display:flex; align-items:center; gap:10px}
-  .bar-cell .bar{height:5px; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); min-width:2px}
-  .bar-cell span{font-family:var(--mono); font-size:11.5px}
-  .pager{display:flex; align-items:center; justify-content:space-between; margin-top:14px; flex-wrap:wrap; gap:10px}
-  .pager .info{font:500 11.5px var(--mono); color:var(--text-3)}
-  .pager .btns{display:flex; gap:8px; align-items:center}
-  .pager button{appearance:none; background:var(--card); border:1px solid var(--line); color:var(--text-2); font:500 11.5px var(--mono); padding:6px 12px; border-radius:8px; cursor:pointer; transition:all .15s}
-  .pager button:hover:not(:disabled){color:var(--text); border-color:var(--accent)}
-  .pager button:disabled{opacity:.35; cursor:not-allowed}
-  .pager .cur{font:600 11.5px var(--mono); color:var(--text)}
-  footer{margin-top:28px; color:var(--text-3); font-size:11.5px; font-family:var(--mono); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px}
-  .empty{color:var(--text-3); text-align:center; padding:40px; font-family:var(--mono); font-size:12px}
-  /* 浅色主题 */
-  body.light{
-    --bg:#f4f6fa; --bg-soft:#eceff5; --card:#ffffff; --card-2:#f2f4f9;
-    --line:#e3e7f0; --line-soft:#edf0f7;
-    --text:#1d2433; --text-2:#566074; --text-3:#98a0b4;
-    background-image:radial-gradient(1000px 500px at 80% -10%, rgba(124,108,246,.10), transparent 60%),
-                     radial-gradient(800px 400px at 10% 0%, rgba(76,194,255,.08), transparent 60%);
-  }
-  body.light .card{background:#ffffff; box-shadow:0 1px 3px rgba(20,30,60,.06)}
-  body.light tbody tr:hover{background:rgba(124,108,246,.06)}
-  body.light .calpop{box-shadow:0 12px 32px rgba(30,40,80,.18)}
-  :root{color-scheme:dark; --scroll-thumb:#3a4356}
-  body.light{color-scheme:light; --scroll-thumb:#d5dbe8}
-  .tablewrap{scrollbar-width:thin; scrollbar-color:var(--scroll-thumb) transparent}
-  .tablewrap::-webkit-scrollbar{height:10px}
-  .tablewrap::-webkit-scrollbar-track{background:transparent}
-  .tablewrap::-webkit-scrollbar-thumb{background:var(--scroll-thumb); border-radius:5px}
-  .tablewrap::-webkit-scrollbar-thumb:hover{background:var(--text-3)}
-</style>
-</head>
-<body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Agent Usage · Claude Code / OpenCode 用量面板</title>
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --bg: #0b0e14;
+                --bg-soft: #0f131c;
+                --card: #131926;
+                --card-2: #171e2e;
+                --line: #1f2739;
+                --line-soft: #1a2233;
+                --text: #e6eaf2;
+                --text-2: #9aa4b8;
+                --text-3: #5d6878;
+                --accent: #7c6cf6;
+                --accent-2: #4cc2ff;
+                --green: #3ddc97;
+                --amber: #ffb454;
+                --red: #ff6b6b;
+                --pink: #f56cc6;
+                --mono: "JetBrains Mono", ui-monospace, monospace;
+                --sans: "Inter", system-ui, -apple-system, sans-serif;
+            }
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            html {
+                background: var(--bg);
+            }
+            body {
+                font-family: var(--sans);
+                color: var(--text);
+                background: var(--bg);
+                background-image:
+                    radial-gradient(
+                        1000px 500px at 80% -10%,
+                        rgba(124, 108, 246, 0.08),
+                        transparent 60%
+                    ),
+                    radial-gradient(
+                        800px 400px at 10% 0%,
+                        rgba(76, 194, 255, 0.06),
+                        transparent 60%
+                    );
+                min-height: 100vh;
+                padding: 28px 32px 64px;
+            }
+            header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 16px;
+                margin-bottom: 24px;
+            }
+            .brand h1 {
+                font-size: 22px;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .brand h1 .dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 3px;
+                background: linear-gradient(135deg, var(--accent), var(--accent-2));
+                box-shadow: 0 0 12px rgba(124, 108, 246, 0.6);
+            }
+            .controls {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+            .seg {
+                display: flex;
+                background: var(--card);
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                padding: 3px;
+                gap: 2px;
+            }
+            .seg button {
+                appearance: none;
+                border: 0;
+                background: transparent;
+                color: var(--text-2);
+                font: 500 12px var(--sans);
+                padding: 6px 12px;
+                border-radius: 7px;
+                cursor: pointer;
+                transition: all 0.15s;
+                white-space: nowrap;
+            }
+            .seg button:hover:not(:disabled) {
+                color: var(--text);
+            }
+            .seg button.on {
+                background: var(--card-2);
+                color: var(--text);
+                box-shadow: inset 0 0 0 1px var(--line);
+            }
+            .seg button:disabled {
+                opacity: 0.3;
+                cursor: not-allowed;
+            }
+            .seg.sm button {
+                padding: 4px 10px;
+                font-size: 11px;
+            }
+            .dtwrap {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                background: var(--card);
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                padding: 5px 10px;
+            }
+            .dtwrap span {
+                color: var(--text-3);
+                font-size: 11px;
+                font-family: var(--mono);
+            }
+            .dt {
+                background: transparent;
+                border: 0;
+                color: var(--text);
+                font: 500 11.5px var(--mono);
+                color-scheme: dark;
+                width: 170px;
+            }
+            .dt:focus {
+                outline: none;
+            }
+            .grid {
+                display: grid;
+                gap: 16px;
+                grid-template-columns: repeat(12, 1fr);
+            }
+            .card {
+                background: linear-gradient(180deg, var(--card), var(--bg-soft));
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                padding: 18px 20px;
+                min-width: 0;
+            }
+            .card h3 {
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--text-2);
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                margin-bottom: 8px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            .card h3 .hint {
+                text-transform: none;
+                letter-spacing: 0;
+                font-weight: 400;
+                color: var(--text-3);
+                font-family: var(--mono);
+                font-size: 11px;
+            }
+            .card h3 .h3ctrl {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            .delta {
+                font: 500 11px var(--mono);
+                color: var(--text-3);
+                text-transform: none;
+                letter-spacing: 0;
+            }
+            .up {
+                color: var(--green);
+            }
+            .down {
+                color: var(--red);
+            }
+            .span-3 {
+                grid-column: span 3;
+            }
+            .span-4 {
+                grid-column: span 4;
+            }
+            .span-8 {
+                grid-column: span 8;
+            }
+            .span-12 {
+                grid-column: span 12;
+            }
+            @media (max-width: 1100px) {
+                .span-3 {
+                    grid-column: span 6;
+                }
+                .span-4,
+                .span-8 {
+                    grid-column: span 12;
+                }
+            }
+            @media (max-width: 640px) {
+                .span-3 {
+                    grid-column: span 12;
+                }
+                body {
+                    padding: 18px 14px 48px;
+                }
+            }
+            .donut {
+                height: 210px;
+            }
+            #chartBar {
+                height: 410px;
+            }
+            #chartHeat {
+                height: 410px;
+            }
+            .calwrap {
+                position: relative;
+            }
+            .calbtn {
+                appearance: none;
+                background: var(--card);
+                border: 1px solid var(--line);
+                color: var(--text-2);
+                font: 500 12px var(--sans);
+                padding: 8px 14px;
+                border-radius: 10px;
+                cursor: pointer;
+                transition: all 0.15s;
+            }
+            .calbtn:hover {
+                color: var(--text);
+            }
+            .calbtn.on {
+                color: var(--text);
+                border-color: var(--accent);
+                box-shadow: inset 0 0 0 1px var(--accent);
+            }
+            .calpop {
+                position: absolute;
+                right: 0;
+                top: calc(100% + 8px);
+                z-index: 60;
+                width: 280px;
+                background: var(--card-2);
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                padding: 14px;
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+            }
+            .calrow {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+            .calrow span {
+                color: var(--text-3);
+                font-size: 11.5px;
+                font-family: var(--mono);
+                width: 30px;
+                flex: none;
+            }
+            .calrow .dt {
+                flex: 1;
+                width: auto;
+                background: var(--card);
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                padding: 6px 8px;
+            }
+            .calapply {
+                width: 100%;
+                appearance: none;
+                background: var(--accent);
+                border: 0;
+                color: #fff;
+                font: 600 12px var(--sans);
+                padding: 8px;
+                border-radius: 8px;
+                cursor: pointer;
+            }
+            .calapply:hover {
+                filter: brightness(1.1);
+            }
+            .pgselect {
+                appearance: none;
+                background: var(--card);
+                border: 1px solid var(--line);
+                color: var(--text-2);
+                font: 500 11.5px var(--mono);
+                padding: 6px 10px;
+                border-radius: 8px;
+                cursor: pointer;
+                color-scheme: dark;
+            }
+            .tablewrap {
+                overflow-x: auto;
+                margin: 0 -20px;
+                padding: 0 20px;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12.5px;
+                min-width: 960px;
+            }
+            thead th {
+                text-align: left;
+                font-size: 11px;
+                font-weight: 600;
+                color: var(--text-3);
+                text-transform: uppercase;
+                letter-spacing: 0.07em;
+                padding: 10px 12px;
+                border-bottom: 1px solid var(--line);
+                white-space: nowrap;
+                cursor: pointer;
+                user-select: none;
+            }
+            thead th .arr {
+                opacity: 0.5;
+                font-family: var(--mono);
+            }
+            tbody td {
+                padding: 11px 12px;
+                border-bottom: 1px solid var(--line-soft);
+                vertical-align: middle;
+                white-space: nowrap;
+            }
+            tbody tr:hover {
+                background: rgba(124, 108, 246, 0.05);
+            }
+            .t-title {
+                color: var(--text);
+                font-weight: 500;
+                max-width: 280px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .t-dim {
+                color: var(--text-2);
+            }
+            .t-mono {
+                font-family: var(--mono);
+                font-size: 11.5px;
+            }
+            .chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font: 500 10.5px var(--mono);
+                padding: 3px 8px;
+                border-radius: 6px;
+                border: 1px solid var(--line);
+            }
+            .chip.cc {
+                color: #ffb78a;
+                border-color: rgba(255, 180, 120, 0.25);
+                background: rgba(255, 180, 120, 0.07);
+            }
+            .chip.oc {
+                color: #8ad8ff;
+                border-color: rgba(140, 216, 255, 0.25);
+                background: rgba(140, 216, 255, 0.07);
+            }
+            .chip.sub {
+                color: var(--pink);
+                border-color: rgba(245, 108, 198, 0.25);
+                background: rgba(245, 108, 198, 0.07);
+                margin-left: 4px;
+            }
+            .chip.ver {
+                color: var(--text-2);
+            }
+            .modeltag {
+                font: 500 10.5px var(--mono);
+                padding: 3px 8px;
+                border-radius: 6px;
+                margin-right: 4px;
+                display: inline-block;
+            }
+            .bar-cell {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .bar-cell .bar {
+                height: 5px;
+                border-radius: 3px;
+                background: linear-gradient(90deg, var(--accent), var(--accent-2));
+                min-width: 2px;
+            }
+            .bar-cell span {
+                font-family: var(--mono);
+                font-size: 11.5px;
+            }
+            .pager {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-top: 14px;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .pager .info {
+                font: 500 11.5px var(--mono);
+                color: var(--text-3);
+            }
+            .pager .btns {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+            .pager button {
+                appearance: none;
+                background: var(--card);
+                border: 1px solid var(--line);
+                color: var(--text-2);
+                font: 500 11.5px var(--mono);
+                padding: 6px 12px;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.15s;
+            }
+            .pager button:hover:not(:disabled) {
+                color: var(--text);
+                border-color: var(--accent);
+            }
+            .pager button:disabled {
+                opacity: 0.35;
+                cursor: not-allowed;
+            }
+            .pager .cur {
+                font: 600 11.5px var(--mono);
+                color: var(--text);
+            }
+            footer {
+                margin-top: 28px;
+                color: var(--text-3);
+                font-size: 11.5px;
+                font-family: var(--mono);
+                display: flex;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .empty {
+                color: var(--text-3);
+                text-align: center;
+                padding: 40px;
+                font-family: var(--mono);
+                font-size: 12px;
+            }
+            /* 浅色主题 */
+            body.light {
+                --bg: #f4f6fa;
+                --bg-soft: #eceff5;
+                --card: #ffffff;
+                --card-2: #f2f4f9;
+                --line: #e3e7f0;
+                --line-soft: #edf0f7;
+                --text: #1d2433;
+                --text-2: #566074;
+                --text-3: #98a0b4;
+                background-image:
+                    radial-gradient(
+                        1000px 500px at 80% -10%,
+                        rgba(124, 108, 246, 0.1),
+                        transparent 60%
+                    ),
+                    radial-gradient(
+                        800px 400px at 10% 0%,
+                        rgba(76, 194, 255, 0.08),
+                        transparent 60%
+                    );
+            }
+            body.light .card {
+                background: #ffffff;
+                box-shadow: 0 1px 3px rgba(20, 30, 60, 0.06);
+            }
+            body.light tbody tr:hover {
+                background: rgba(124, 108, 246, 0.06);
+            }
+            body.light .calpop {
+                box-shadow: 0 12px 32px rgba(30, 40, 80, 0.18);
+            }
+            :root {
+                color-scheme: dark;
+                --scroll-thumb: #3a4356;
+            }
+            body.light {
+                color-scheme: light;
+                --scroll-thumb: #d5dbe8;
+            }
+            .tablewrap {
+                scrollbar-width: thin;
+                scrollbar-color: var(--scroll-thumb) transparent;
+            }
+            .tablewrap::-webkit-scrollbar {
+                height: 10px;
+            }
+            .tablewrap::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .tablewrap::-webkit-scrollbar-thumb {
+                background: var(--scroll-thumb);
+                border-radius: 5px;
+            }
+            .tablewrap::-webkit-scrollbar-thumb:hover {
+                background: var(--text-3);
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="brand">
+                <h1><span class="dot"></span>Agent Session Usage</h1>
+            </div>
+            <div class="controls">
+                <div class="seg" id="segAgent">
+                    <button data-v="all" class="on">全部工具</button>
+                    <button data-v="claude-code">Claude Code</button>
+                    <button data-v="opencode">OpenCode</button>
+                </div>
+                <div class="seg" id="segRange">
+                    <button data-ms="86400000">24 小时</button>
+                    <button data-ms="604800000">7 天</button>
+                    <button data-ms="2592000000" class="on">1 月</button>
+                </div>
+                <div class="seg" id="segTheme">
+                    <button data-v="dark" class="on">🌙 深色</button>
+                    <button data-v="light">☀️ 浅色</button>
+                </div>
+                <div class="calwrap">
+                    <button class="calbtn" id="btnCal" title="自定义时间范围">📅 自定义</button>
+                    <div class="calpop" id="calPop" style="display: none">
+                        <div class="calrow">
+                            <span>开始</span><input type="datetime-local" class="dt" id="dtStart" />
+                        </div>
+                        <div class="calrow">
+                            <span>结束</span><input type="datetime-local" class="dt" id="dtEnd" />
+                        </div>
+                        <button class="calapply" id="calApply">应用</button>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-<header>
-  <div class="brand">
-    <h1><span class="dot"></span>Agent Session Usage</h1>
-  </div>
-  <div class="controls">
-    <div class="seg" id="segAgent">
-      <button data-v="all" class="on">全部工具</button>
-      <button data-v="claude-code">Claude Code</button>
-      <button data-v="opencode">OpenCode</button>
-    </div>
-    <div class="seg" id="segRange">
-      <button data-ms="86400000">24 小时</button>
-      <button data-ms="604800000">7 天</button>
-      <button data-ms="2592000000" class="on">1 月</button>
-    </div>
-    <div class="seg" id="segTheme">
-      <button data-v="dark" class="on">🌙 深色</button>
-      <button data-v="light">☀️ 浅色</button>
-    </div>
-    <div class="calwrap">
-      <button class="calbtn" id="btnCal" title="自定义时间范围">📅 自定义</button>
-      <div class="calpop" id="calPop" style="display:none">
-        <div class="calrow"><span>开始</span><input type="datetime-local" class="dt" id="dtStart"></div>
-        <div class="calrow"><span>结束</span><input type="datetime-local" class="dt" id="dtEnd"></div>
-        <button class="calapply" id="calApply">应用</button>
-      </div>
-    </div>
-  </div>
-</header>
+        <div class="grid" style="margin-bottom: 16px">
+            <div class="card span-3">
+                <h3>总 Token 消耗 <span class="delta" id="dTokens"></span></h3>
+                <div id="donutTokens" class="donut"></div>
+            </div>
+            <div class="card span-3">
+                <h3>会话数 <span class="delta" id="dSessions"></span></h3>
+                <div id="donutSessions" class="donut"></div>
+            </div>
+            <div class="card span-3">
+                <h3>调用次数 <span class="delta" id="dCalls"></span></h3>
+                <div id="donutCalls" class="donut"></div>
+            </div>
+            <div class="card span-3">
+                <h3>缓存命中率 <span class="delta" id="dCache"></span></h3>
+                <div id="donutCache" class="donut"></div>
+            </div>
+        </div>
 
-<div class="grid" style="margin-bottom:16px">
-  <div class="card span-3">
-    <h3>总 Token 消耗 <span class="delta" id="dTokens"></span></h3>
-    <div id="donutTokens" class="donut"></div>
-  </div>
-  <div class="card span-3">
-    <h3>会话数 <span class="delta" id="dSessions"></span></h3>
-    <div id="donutSessions" class="donut"></div>
-  </div>
-  <div class="card span-3">
-    <h3>调用次数 <span class="delta" id="dCalls"></span></h3>
-    <div id="donutCalls" class="donut"></div>
-  </div>
-  <div class="card span-3">
-    <h3>缓存命中率 <span class="delta" id="dCache"></span></h3>
-    <div id="donutCache" class="donut"></div>
-  </div>
-</div>
+        <div class="grid" style="margin-bottom: 16px">
+            <div class="card span-8">
+                <h3>
+                    <span class="seg sm" id="segMetric">
+                        <button data-v="tokens" class="on">Token</button>
+                        <button data-v="sessions">Session</button>
+                        <button data-v="calls">调用次数</button>
+                    </span>
+                    <span class="h3ctrl">
+                        <span class="seg sm" id="segGran">
+                            <button data-v="hour">小时</button>
+                            <button data-v="day" class="on">天</button>
+                        </span>
+                        <span class="seg sm" id="segX">
+                            <button data-v="time" class="on">时间</button>
+                            <button data-v="project">项目</button>
+                            <button data-v="session">会话</button>
+                        </span>
+                    </span>
+                </h3>
+                <div id="chartBar" class="chart"></div>
+            </div>
+            <div class="card span-4">
+                <h3>时段热力</h3>
+                <div id="chartHeat" class="chart"></div>
+            </div>
+        </div>
 
-<div class="grid" style="margin-bottom:16px">
-  <div class="card span-8">
-    <h3>
-      <span class="seg sm" id="segMetric">
-        <button data-v="tokens" class="on">Token</button>
-        <button data-v="sessions">Session</button>
-        <button data-v="calls">调用次数</button>
-      </span>
-      <span class="h3ctrl">
-        <span class="seg sm" id="segGran">
-          <button data-v="hour">小时</button>
-          <button data-v="day" class="on">天</button>
-        </span>
-        <span class="seg sm" id="segX">
-          <button data-v="time" class="on">时间</button>
-          <button data-v="project">项目</button>
-          <button data-v="session">会话</button>
-        </span>
-      </span>
-    </h3>
-    <div id="chartBar" class="chart"></div>
-  </div>
-  <div class="card span-4">
-    <h3>时段热力</h3>
-    <div id="chartHeat" class="chart"></div>
-  </div>
-</div>
+        <div class="grid">
+            <div class="card span-12">
+                <h3>会话明细 <span class="hint">点击表头排序</span></h3>
+                <div class="tablewrap">
+                    <table id="sessTable">
+                        <thead>
+                            <tr>
+                                <th data-k="title">会话</th>
+                                <th data-k="agent">工具 / 版本</th>
+                                <th data-k="directory">工作目录</th>
+                                <th data-k="models">模型</th>
+                                <th data-k="calls">调用 <span class="arr">↕</span></th>
+                                <th data-k="tokens">Tokens <span class="arr">↕</span></th>
+                                <th data-k="cacheRate">缓存率 <span class="arr">↕</span></th>
+                                <th data-k="lastTs">最近活跃 <span class="arr">↕</span></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="pager">
+                    <span></span>
+                    <span class="btns">
+                        <select class="pgselect" id="pgSize">
+                            <option value="10">10 / 页</option>
+                            <option value="20">20 / 页</option>
+                            <option value="50">50 / 页</option>
+                        </select>
+                        <button id="pgPrev">‹ 上一页</button>
+                        <span class="cur" id="pageCur"></span>
+                        <button id="pgNext">下一页 ›</button>
+                    </span>
+                </div>
+            </div>
+        </div>
 
-<div class="grid">
-  <div class="card span-12">
-    <h3>会话明细 <span class="hint">点击表头排序</span></h3>
-    <div class="tablewrap">
-      <table id="sessTable">
-        <thead>
-          <tr>
-            <th data-k="title">会话</th>
-            <th data-k="agent">工具 / 版本</th>
-            <th data-k="directory">工作目录</th>
-            <th data-k="models">模型</th>
-            <th data-k="calls">调用 <span class="arr">↕</span></th>
-            <th data-k="tokens">Tokens <span class="arr">↕</span></th>
-            <th data-k="cacheRate">缓存率 <span class="arr">↕</span></th>
-            <th data-k="lastTs">最近活跃 <span class="arr">↕</span></th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div class="pager">
-      <span></span>
-      <span class="btns">
-        <select class="pgselect" id="pgSize">
-          <option value="10">10 / 页</option>
-          <option value="20">20 / 页</option>
-          <option value="50">50 / 页</option>
-        </select>
-        <button id="pgPrev">‹ 上一页</button>
-        <span class="cur" id="pageCur"></span>
-        <button id="pgNext">下一页 ›</button>
-      </span>
-    </div>
-  </div>
-</div>
+        <script>
+            /* Mock data —— 严格遵循 AgentSessionUsage schema（14 字段）
+             * agent 为面板附加元数据（标记 Claude Code / OpenCode 来源） */
+            const MODEL_COLORS = {
+                // 常用 5 模型：高区分度亮色
+                "claude-opus-4.5": "#7c6cf6",
+                "claude-sonnet-4.5": "#4cc2ff",
+                "deepseek-v4-pro": "#3ddc97",
+                "kimi-k3": "#ffb454",
+                "glm-4.7": "#f56cc6",
+                // 长尾模型：低饱和色
+                "qwen3-coder-plus": "#5f7d95",
+                "gpt-5.2": "#8d8a6d",
+                "gemini-3-pro": "#8f7d9e",
+                "llama-4-maverick": "#6d9a8a",
+                "mistral-large-3": "#a08676",
+                "codestral-2": "#7688a5",
+                "phi-5-mini": "#94a078",
+            };
+            let OTHER_COLOR = "#46506a";
+            const COMMON_MODELS = [
+                "claude-opus-4.5",
+                "claude-sonnet-4.5",
+                "deepseek-v4-pro",
+                "kimi-k3",
+                "glm-4.7",
+            ];
+            const TAIL_MODELS = Object.keys(MODEL_COLORS).filter((m) => !COMMON_MODELS.includes(m));
+            const PROJECT_COLORS = {
+                "/home/testuser/omni_eval": "#7c6cf6",
+                "/home/testuser/api-gateway": "#4cc2ff",
+                "/home/testuser/web-console": "#3ddc97",
+                "/home/testuser/llm-bench": "#ffb454",
+                "/home/testuser/dotfiles": "#f56cc6",
+                "/home/testuser/robot-firmware": "#9aa4b8",
+            };
+            const projColor = (d) => PROJECT_COLORS[d] || "#6b7890";
+            const modelColor = (m) => MODEL_COLORS[m] || OTHER_COLOR;
 
-<script>
+            function mulberry32(a) {
+                return function () {
+                    a |= 0;
+                    a = (a + 0x6d2b79f5) | 0;
+                    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+                    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+                    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+                };
+            }
+            const rnd = mulberry32(20260717);
+            const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+            const ri = (a, b) => Math.floor(rnd() * (b - a + 1)) + a;
+            const uuid = () =>
+                "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+                    const r = (rnd() * 16) | 0;
+                    return (c == "x" ? r : (r & 0x3) | 0x8).toString(16);
+                });
+            // 86% 常用模型，14% 长尾
+            function pickModel() {
+                return rnd() < 0.86 ? pick(COMMON_MODELS) : pick(TAIL_MODELS);
+            }
 
-/* Mock data —— 严格遵循 AgentSessionUsage schema（14 字段）
- * agent 为面板附加元数据（标记 Claude Code / OpenCode 来源） */
-const MODEL_COLORS = {
-  // 常用 5 模型：高区分度亮色
-  'claude-opus-4.5':   '#7c6cf6',
-  'claude-sonnet-4.5': '#4cc2ff',
-  'deepseek-v4-pro':   '#3ddc97',
-  'kimi-k3':           '#ffb454',
-  'glm-4.7':           '#f56cc6',
-  // 长尾模型：低饱和色
-  'qwen3-coder-plus':  '#5f7d95',
-  'gpt-5.2':           '#8d8a6d',
-  'gemini-3-pro':      '#8f7d9e',
-  'llama-4-maverick':  '#6d9a8a',
-  'mistral-large-3':   '#a08676',
-  'codestral-2':       '#7688a5',
-  'phi-5-mini':        '#94a078',
-};
-let OTHER_COLOR = '#46506a';
-const COMMON_MODELS = ['claude-opus-4.5','claude-sonnet-4.5','deepseek-v4-pro','kimi-k3','glm-4.7'];
-const TAIL_MODELS = Object.keys(MODEL_COLORS).filter(m=>!COMMON_MODELS.includes(m));
-const PROJECT_COLORS = {
-  '/home/testuser/omni_eval':      '#7c6cf6',
-  '/home/testuser/api-gateway':    '#4cc2ff',
-  '/home/testuser/web-console':    '#3ddc97',
-  '/home/testuser/llm-bench':      '#ffb454',
-  '/home/testuser/dotfiles':       '#f56cc6',
-  '/home/testuser/robot-firmware': '#9aa4b8',
-};
-const projColor = d => PROJECT_COLORS[d] || '#6b7890';
-const modelColor = m => MODEL_COLORS[m] || OTHER_COLOR;
+            const PROJECTS = [
+                [
+                    "/home/testuser/omni_eval",
+                    [
+                        "实现 token 统计页面",
+                        "修复缓存计数偏差",
+                        "重构评估流水线",
+                        "补充聚合单元测试",
+                    ],
+                ],
+                ["/home/testuser/api-gateway", ["接入鉴权中间件", "限流策略调优", "升级依赖修复 CVE"]],
+                [
+                    "/home/testuser/web-console",
+                    ["深色主题改版", "会话列表虚拟滚动", "图表懒加载优化", "登录页无障碍修复"],
+                ],
+                ["/home/testuser/llm-bench", ["新增 deepseek 基线", "跑分脚本并行化", "结果导出 CSV"]],
+                ["/home/testuser/dotfiles", ["tmux 配置整理", "zsh 启动提速"]],
+                ["/home/testuser/robot-firmware", ["CAN 总线解析", "PID 参数整定", "日志环形缓冲"]],
+            ];
+            const SLUG_A = [
+                "brave",
+                "calm",
+                "swift",
+                "lucky",
+                "quiet",
+                "bold",
+                "merry",
+                "rapid",
+                "clever",
+                "gentle",
+            ];
+            const SLUG_B = [
+                "fox",
+                "otter",
+                "falcon",
+                "badger",
+                "lynx",
+                "heron",
+                "mole",
+                "raven",
+                "wren",
+                "panda",
+            ];
+            const SLUG_C = [
+                "jumps",
+                "codes",
+                "builds",
+                "debugs",
+                "ships",
+                "hacks",
+                "tests",
+                "merges",
+                "reads",
+                "runs",
+            ];
+            const HOUR_W = (h) => {
+                if (h >= 9 && h <= 12) return 5;
+                if (h >= 14 && h <= 18) return 6;
+                if (h >= 20 && h <= 23) return 3;
+                if (h >= 0 && h <= 6) return 0.4;
+                return 1.6;
+            };
 
-function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-const rnd = mulberry32(20260717);
-const pick = arr => arr[Math.floor(rnd()*arr.length)];
-const ri = (a,b) => Math.floor(rnd()*(b-a+1))+a;
-const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=rnd()*16|0;return (c=='x'?r:(r&0x3|0x8)).toString(16)});
-// 86% 常用模型，14% 长尾
-function pickModel(){
-  return rnd()<0.86 ? pick(COMMON_MODELS) : pick(TAIL_MODELS);
-}
+            function buildData() {
+                const records = [];
+                const now = Date.now();
+                const dayMs = 86400000;
+                for (let s = 0; s < 46; s++) {
+                    const isSub = rnd() < 0.18;
+                    const agent = rnd() < 0.58 ? "claude-code" : "opencode";
+                    const version =
+                        agent === "claude-code" ? "2.1." + ri(160, 182) : "0.9." + ri(2, 14);
+                    const proj = pick(PROJECTS);
+                    const session = {
+                        session_id: uuid(),
+                        title: pick(proj[1]),
+                        directory: proj[0],
+                        slug: pick(SLUG_A) + "-" + pick(SLUG_B) + "-" + pick(SLUG_C),
+                        version: version,
+                        agent: agent,
+                        parent_session_id: isSub ? uuid() : null,
+                    };
+                    const dayOffset = Math.floor(Math.pow(rnd(), 1.25) * 30);
+                    const hourPool = [];
+                    for (let h = 0; h < 24; h++) {
+                        const w = HOUR_W(h);
+                        for (let k = 0; k < Math.round(w * 10); k++) hourPool.push(h);
+                    }
+                    let ts =
+                        now -
+                        dayOffset * dayMs -
+                        (23 - pick(hourPool)) * 3600000 -
+                        ri(0, 3599) * 1000;
+                    const nCalls = ri(3, 18);
+                    const modelMain = pickModel();
+                    for (let c = 0; c < nCalls; c++) {
+                        const model = rnd() < 0.12 ? pickModel() : modelMain;
+                        const heavy = rnd() < 0.15 ? 3.2 : 1;
+                        records.push({
+                            session_id: session.session_id,
+                            title: session.title,
+                            directory: session.directory,
+                            slug: session.slug,
+                            version: session.version,
+                            parent_session_id: session.parent_session_id,
+                            agent: session.agent,
+                            message_id: uuid(),
+                            role: "assistant",
+                            timestamp: Math.round(ts),
+                            model: model,
+                            input_tokens: Math.round(ri(180, 26000) * heavy),
+                            output_tokens: Math.round(ri(80, 3800) * (heavy > 1 ? 1.6 : 1)),
+                            cache_read_tokens: Math.round(ri(0, 220000) * heavy),
+                            cache_write_tokens: rnd() < 0.3 ? Math.round(ri(2000, 52000)) : 0,
+                        });
+                        ts += ri(20, 900) * 1000;
+                    }
+                }
+                return records;
+            }
+            const ALL = buildData();
 
-const PROJECTS = [
-  ['/home/testuser/omni_eval',      ['实现 token 统计页面','修复缓存计数偏差','重构评估流水线','补充聚合单元测试']],
-  ['/home/testuser/api-gateway',    ['接入鉴权中间件','限流策略调优','升级依赖修复 CVE']],
-  ['/home/testuser/web-console',    ['深色主题改版','会话列表虚拟滚动','图表懒加载优化','登录页无障碍修复']],
-  ['/home/testuser/llm-bench',      ['新增 deepseek 基线','跑分脚本并行化','结果导出 CSV']],
-  ['/home/testuser/dotfiles',       ['tmux 配置整理','zsh 启动提速']],
-  ['/home/testuser/robot-firmware', ['CAN 总线解析','PID 参数整定','日志环形缓冲']],
-];
-const SLUG_A=['brave','calm','swift','lucky','quiet','bold','merry','rapid','clever','gentle'];
-const SLUG_B=['fox','otter','falcon','badger','lynx','heron','mole','raven','wren','panda'];
-const SLUG_C=['jumps','codes','builds','debugs','ships','hacks','tests','merges','reads','runs'];
-const HOUR_W = h => {
-  if(h>=9&&h<=12) return 5; if(h>=14&&h<=18) return 6; if(h>=20&&h<=23) return 3;
-  if(h>=0&&h<=6) return 0.4; return 1.6;
-};
+            /* helpers */
+            const sumT = (r) =>
+                r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
+            const fmtTok = (n) =>
+                n >= 1e9
+                    ? (n / 1e9).toFixed(2) + "B"
+                    : n >= 1e6
+                      ? (n / 1e6).toFixed(2) + "M"
+                      : n >= 1e3
+                        ? (n / 1e3).toFixed(1) + "K"
+                        : "" + n;
+            const fmtInt = (n) => n.toLocaleString();
+            const fmtTime = (ts) => {
+                const d = new Date(ts),
+                    diff = (Date.now() - ts) / 86400000;
+                const hm =
+                    String(d.getHours()).padStart(2, "0") +
+                    ":" +
+                    String(d.getMinutes()).padStart(2, "0");
+                if (diff < 1) return "今天 " + hm;
+                if (diff < 2) return "昨天 " + hm;
+                return d.getMonth() + 1 + "/" + d.getDate() + " " + hm;
+            };
+            const toLocalInput = (ts) => {
+                const d = new Date(ts),
+                    p = (n) => String(n).padStart(2, "0");
+                return (
+                    d.getFullYear() +
+                    "-" +
+                    p(d.getMonth() + 1) +
+                    "-" +
+                    p(d.getDate()) +
+                    "T" +
+                    p(d.getHours()) +
+                    ":" +
+                    p(d.getMinutes())
+                );
+            };
+            const shortDir = (d) => {
+                const base = d.replace(/\/+$/, "").split("/").pop();
+                return base.length > 16 ? base.slice(0, 15) + "…" : base;
+            };
 
-function buildData(){
-  const records = [];
-  const now = Date.now();
-  const dayMs = 86400000;
-  for(let s=0;s<46;s++){
-    const isSub = rnd() < 0.18;
-    const agent = rnd() < 0.58 ? 'claude-code' : 'opencode';
-    const version = agent==='claude-code' ? '2.1.'+ri(160,182) : '0.9.'+ri(2,14);
-    const proj = pick(PROJECTS);
-    const session = {
-      session_id: uuid(),
-      title: pick(proj[1]),
-      directory: proj[0],
-      slug: pick(SLUG_A)+'-'+pick(SLUG_B)+'-'+pick(SLUG_C),
-      version: version,
-      agent: agent,
-      parent_session_id: isSub ? uuid() : null,
-    };
-    const dayOffset = Math.floor(Math.pow(rnd(),1.25)*30);
-    const hourPool=[]; for(let h=0;h<24;h++){const w=HOUR_W(h);for(let k=0;k<Math.round(w*10);k++)hourPool.push(h);}
-    let ts = now - dayOffset*dayMs - (23-pick(hourPool))*3600000 - ri(0,3599)*1000;
-    const nCalls = ri(3, 18);
-    const modelMain = pickModel();
-    for(let c=0;c<nCalls;c++){
-      const model = rnd()<0.12 ? pickModel() : modelMain;
-      const heavy = rnd()<0.15 ? 3.2 : 1;
-      records.push({
-        session_id: session.session_id,
-        title: session.title,
-        directory: session.directory,
-        slug: session.slug,
-        version: session.version,
-        parent_session_id: session.parent_session_id,
-        agent: session.agent,
-        message_id: uuid(),
-        role: 'assistant',
-        timestamp: Math.round(ts),
-        model: model,
-        input_tokens:       Math.round(ri(180, 26000) * heavy),
-        output_tokens:      Math.round(ri(80, 3800) * (heavy>1?1.6:1)),
-        cache_read_tokens:  Math.round(ri(0, 220000) * heavy),
-        cache_write_tokens: rnd()<0.3 ? Math.round(ri(2000, 52000)) : 0,
-      });
-      ts += ri(20, 900)*1000;
-    }
-  }
-  return records;
-}
-const ALL = buildData();
+            /* state */
+            const METRIC_LABEL = { tokens: "Token 用量", sessions: "会话数", calls: "调用次数" };
+            const state = {
+                agent: "all",
+                rangeMs: 2592000000,
+                custom: null,
+                metric: "tokens", // tokens | sessions | calls
+                xaxis: "time", // time | project | session
+                gran: "day", // hour | day
+                sortKey: "tokens",
+                sortDir: -1,
+                page: 1,
+                pageSize: 10,
+            };
+            function currentRange() {
+                if (state.custom) return { start: state.custom.start, end: state.custom.end };
+                const end = Date.now();
+                return { start: end - state.rangeMs, end: end };
+            }
+            function filtered() {
+                const { start, end } = currentRange();
+                return ALL.filter(
+                    (r) =>
+                        r.timestamp >= start &&
+                        r.timestamp <= end &&
+                        (state.agent === "all" || r.agent === state.agent),
+                );
+            }
+            function groupBy(arr, fn) {
+                const m = {};
+                arr.forEach((x) => {
+                    const k = fn(x);
+                    (m[k] = m[k] || []).push(x);
+                });
+                return m;
+            }
+            function bucketize(start, end, gran) {
+                const step = gran === "hour" ? 3600000 : 86400000;
+                const n = Math.max(1, Math.ceil((end - start) / step));
+                const idx = (ts) => Math.min(n - 1, Math.floor((ts - start) / step));
+                const label = (i) => {
+                    const d = new Date(start + i * step);
+                    const p = (x) => String(x).padStart(2, "0");
+                    return gran === "hour"
+                        ? d.getMonth() + 1 + "/" + d.getDate() + " " + p(d.getHours()) + ":00"
+                        : d.getMonth() + 1 + "/" + d.getDate();
+                };
+                return { step, n, idx, label };
+            }
+            /* Top N + 其他 */
+            function topGroups(totals, n) {
+                const sorted = Object.entries(totals)
+                    .filter(([, v]) => v > 0)
+                    .sort((a, b) => b[1] - a[1]);
+                return {
+                    top: sorted.slice(0, n).map(([k]) => k),
+                    rest: sorted.slice(n).map(([k]) => k),
+                };
+            }
+            const hitRateOf = (recs) => {
+                const cr = recs.reduce((a, r) => a + r.cache_read_tokens, 0);
+                const inp = recs.reduce((a, r) => a + r.input_tokens + r.cache_read_tokens, 0);
+                return inp ? cr / inp : 0;
+            };
 
-/* helpers */
-const sumT = r => r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
-const fmtTok = n => n>=1e9 ? (n/1e9).toFixed(2)+'B' : n>=1e6 ? (n/1e6).toFixed(2)+'M' : n>=1e3 ? (n/1e3).toFixed(1)+'K' : ''+n;
-const fmtInt = n => n.toLocaleString();
-const fmtTime = ts => {
-  const d=new Date(ts), diff=(Date.now()-ts)/86400000;
-  const hm = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-  if(diff<1) return '今天 '+hm;
-  if(diff<2) return '昨天 '+hm;
-  return (d.getMonth()+1)+'/'+d.getDate()+' '+hm;
-};
-const toLocalInput = ts => {
-  const d=new Date(ts), p=n=>String(n).padStart(2,'0');
-  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
-};
-const shortDir = d => {
-  const base = d.replace(/\/+$/,'').split('/').pop();
-  return base.length>16 ? base.slice(0,15)+'…' : base;
-};
+            /* charts */
+            const charts = {};
+            function mk(id) {
+                if (!charts[id])
+                    charts[id] = echarts.init(document.getElementById(id), null, {
+                        renderer: "canvas",
+                    });
+                return charts[id];
+            }
+            const PALETTES = {
+                dark: {
+                    axis: "#5d6878",
+                    axisLine: "#1f2739",
+                    split: "#161d2c",
+                    tipBg: "#171e2e",
+                    tipBorder: "#2a3450",
+                    tipText: "#e6eaf2",
+                    tipShadow: "box-shadow:0 8px 24px rgba(0,0,0,.4); border-radius:8px;",
+                    centerV: "#e6eaf2",
+                    centerL: "#5d6878",
+                    sliceBorder: "#0b0e14",
+                    heat: ["#161d2c", "#2c2a55", "#5a4fd0", "#7c6cf6", "#a99bff"],
+                    dzBg: "#0f131c",
+                    dzDataLine: "#2a3450",
+                    dzDataArea: "#161d2c",
+                    dzSelLine: "#7c6cf6",
+                    dzSelArea: "#2c2a55",
+                    dzText: "#5d6878",
+                    other: "#46506a",
+                },
+                light: {
+                    axis: "#8a93a8",
+                    axisLine: "#dfe3ec",
+                    split: "#eef1f6",
+                    tipBg: "#ffffff",
+                    tipBorder: "#e3e7f0",
+                    tipText: "#1d2433",
+                    tipShadow: "box-shadow:0 8px 24px rgba(30,40,80,.15); border-radius:8px;",
+                    centerV: "#1d2433",
+                    centerL: "#98a0b4",
+                    sliceBorder: "#ffffff",
+                    heat: ["#eef1f6", "#d6d2f4", "#a79df0", "#7c6cf6", "#5a4fd0"],
+                    dzBg: "#f2f4f9",
+                    dzDataLine: "#d5dae6",
+                    dzDataArea: "#eef1f6",
+                    dzSelLine: "#7c6cf6",
+                    dzSelArea: "#d9d5f8",
+                    dzText: "#8a93a8",
+                    other: "#ccd3e0",
+                },
+            };
+            let PAL = PALETTES.dark;
+            let AXIS = {},
+                TIP = {},
+                CENTER_RICH = {};
+            function applyChartTheme() {
+                OTHER_COLOR = PAL.other;
+                AXIS = {
+                    axisLine: { lineStyle: { color: PAL.axisLine } },
+                    axisTick: { show: false },
+                    axisLabel: { color: PAL.axis, fontFamily: "JetBrains Mono", fontSize: 10.5 },
+                    splitLine: { lineStyle: { color: PAL.split } },
+                };
+                TIP = {
+                    backgroundColor: PAL.tipBg,
+                    borderColor: PAL.tipBorder,
+                    textStyle: { color: PAL.tipText, fontSize: 12, fontFamily: "Inter" },
+                    extraCssText: PAL.tipShadow,
+                };
+                CENTER_RICH = {
+                    v: {
+                        color: PAL.centerV,
+                        fontSize: 21,
+                        fontWeight: 700,
+                        fontFamily: "JetBrains Mono",
+                        lineHeight: 27,
+                    },
+                    l: { color: PAL.centerL, fontSize: 11, fontFamily: "Inter" },
+                };
+            }
+            applyChartTheme();
 
-/* state */
-const METRIC_LABEL = {tokens:'Token 用量', sessions:'会话数', calls:'调用次数'};
-const state = {
-  agent:'all',
-  rangeMs: 2592000000,
-  custom: null,
-  metric: 'tokens',      // tokens | sessions | calls
-  xaxis: 'time',         // time | project | session
-  gran: 'day',           // hour | day
-  sortKey:'tokens', sortDir:-1,
-  page: 1, pageSize: 10,
-};
-function currentRange(){
-  if(state.custom) return {start:state.custom.start, end:state.custom.end};
-  const end = Date.now();
-  return {start:end-state.rangeMs, end:end};
-}
-function filtered(){
-  const {start,end} = currentRange();
-  return ALL.filter(r => r.timestamp>=start && r.timestamp<=end &&
-                         (state.agent==='all' || r.agent===state.agent));
-}
-function groupBy(arr, fn){ const m={}; arr.forEach(x=>{const k=fn(x); (m[k]=m[k]||[]).push(x)}); return m; }
-function bucketize(start, end, gran){
-  const step = gran==='hour' ? 3600000 : 86400000;
-  const n = Math.max(1, Math.ceil((end-start)/step));
-  const idx = ts => Math.min(n-1, Math.floor((ts-start)/step));
-  const label = i => {
-    const d = new Date(start + i*step);
-    const p = x=>String(x).padStart(2,'0');
-    return gran==='hour'
-      ? (d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':00'
-      : (d.getMonth()+1)+'/'+d.getDate();
-  };
-  return {step, n, idx, label};
-}
-/* Top N + 其他 */
-function topGroups(totals, n){
-  const sorted = Object.entries(totals).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  return { top: sorted.slice(0,n).map(([k])=>k), rest: sorted.slice(n).map(([k])=>k) };
-}
-const hitRateOf = recs => {
-  const cr = recs.reduce((a,r)=>a+r.cache_read_tokens,0);
-  const inp = recs.reduce((a,r)=>a+r.input_tokens+r.cache_read_tokens,0);
-  return inp? cr/inp : 0;
-};
+            /* ---------- 环图 ---------- */
+            function renderDonut(id, centerV, centerL, segs, fmt) {
+                mk(id).setOption(
+                    {
+                        tooltip: Object.assign({}, TIP, {
+                            formatter: (p) => {
+                                let h =
+                                    p.name +
+                                    "<br/><b>" +
+                                    fmt(p.value) +
+                                    "</b> · " +
+                                    p.percent +
+                                    "%";
+                                if (p.data.extra) h += p.data.extra;
+                                return h;
+                            },
+                        }),
+                        series: [
+                            {
+                                type: "pie",
+                                radius: ["58%", "78%"],
+                                center: ["50%", "50%"],
+                                label: {
+                                    show: true,
+                                    position: "center",
+                                    formatter: "{v|" + centerV + "}\n{l|" + centerL + "}",
+                                    rich: CENTER_RICH,
+                                },
+                                emphasis: { scaleSize: 4 },
+                                itemStyle: { borderColor: PAL.sliceBorder, borderWidth: 2 },
+                                data: segs,
+                            },
+                        ],
+                    },
+                    true,
+                );
+            }
+            /* 按模型聚合 segments（Top5 + 其他，其他的明细放 tooltip） */
+            function modelSegs(recs, valFn, fmt) {
+                const by = groupBy(recs, (r) => r.model);
+                const totals = Object.entries(by).map(([m, rs]) => [
+                    m,
+                    rs.reduce((a, r) => a + valFn(r), 0),
+                ]);
+                const { top, rest } = topGroups(Object.fromEntries(totals), 5);
+                const segs = top.map((m) => {
+                    const t = totals.find((x) => x[0] === m);
+                    return { name: m, value: t[1], itemStyle: { color: modelColor(m) } };
+                });
+                if (rest.length) {
+                    const items = totals
+                        .filter(([k]) => rest.includes(k))
+                        .sort((a, b) => b[1] - a[1]);
+                    const v = items.reduce((a, [, x]) => a + x, 0);
+                    segs.push({
+                        name: "其他（" + rest.length + " 个模型）",
+                        value: v,
+                        itemStyle: { color: OTHER_COLOR },
+                        extra: items
+                            .map(
+                                ([k, x]) =>
+                                    '<br/><span style="opacity:.75">· ' +
+                                    k +
+                                    ": " +
+                                    fmt(x) +
+                                    "</span>",
+                            )
+                            .join(""),
+                    });
+                }
+                return segs;
+            }
+            function deltaHtml(a, b, pp) {
+                if (!(b > 0) && !(pp && b !== 0))
+                    return '<b style="color:var(--text-3)">前段无数据</b>';
+                if (pp) {
+                    // 百分点
+                    const d = (a - b) * 100;
+                    return d >= 0
+                        ? '<b class="up">▲ ' + d.toFixed(1) + " pp</b>"
+                        : '<b class="down">▼ ' + Math.abs(d).toFixed(1) + " pp</b>";
+                }
+                const d = (a - b) / b;
+                return d >= 0
+                    ? '<b class="up">▲ ' + (d * 100).toFixed(1) + "%</b>"
+                    : '<b class="down">▼ ' + (Math.abs(d) * 100).toFixed(1) + "%</b>";
+            }
+            function renderDonuts(recs, prev) {
+                const tot = recs.reduce((a, r) => a + sumT(r), 0);
+                const sess = new Set(recs.map((r) => r.session_id)).size;
+                const calls = recs.length;
+                const hr = hitRateOf(recs);
+                const pTot = prev.reduce((a, r) => a + sumT(r), 0);
+                const pSess = new Set(prev.map((r) => r.session_id)).size;
+                const pCalls = prev.length;
+                const pHr = hitRateOf(prev);
+                document.getElementById("dTokens").innerHTML = deltaHtml(tot, pTot);
+                document.getElementById("dSessions").innerHTML = deltaHtml(sess, pSess);
+                document.getElementById("dCalls").innerHTML = deltaHtml(calls, pCalls);
+                document.getElementById("dCache").innerHTML = deltaHtml(hr, pHr, true);
 
-/* charts */
-const charts = {};
-function mk(id){ if(!charts[id]) charts[id]=echarts.init(document.getElementById(id),null,{renderer:'canvas'}); return charts[id]; }
-const PALETTES = {
-  dark: {
-    axis:'#5d6878', axisLine:'#1f2739', split:'#161d2c',
-    tipBg:'#171e2e', tipBorder:'#2a3450', tipText:'#e6eaf2',
-    tipShadow:'box-shadow:0 8px 24px rgba(0,0,0,.4); border-radius:8px;',
-    centerV:'#e6eaf2', centerL:'#5d6878', sliceBorder:'#0b0e14',
-    heat:['#161d2c','#2c2a55','#5a4fd0','#7c6cf6','#a99bff'],
-    dzBg:'#0f131c', dzDataLine:'#2a3450', dzDataArea:'#161d2c',
-    dzSelLine:'#7c6cf6', dzSelArea:'#2c2a55', dzText:'#5d6878',
-    other:'#46506a',
-  },
-  light: {
-    axis:'#8a93a8', axisLine:'#dfe3ec', split:'#eef1f6',
-    tipBg:'#ffffff', tipBorder:'#e3e7f0', tipText:'#1d2433',
-    tipShadow:'box-shadow:0 8px 24px rgba(30,40,80,.15); border-radius:8px;',
-    centerV:'#1d2433', centerL:'#98a0b4', sliceBorder:'#ffffff',
-    heat:['#eef1f6','#d6d2f4','#a79df0','#7c6cf6','#5a4fd0'],
-    dzBg:'#f2f4f9', dzDataLine:'#d5dae6', dzDataArea:'#eef1f6',
-    dzSelLine:'#7c6cf6', dzSelArea:'#d9d5f8', dzText:'#8a93a8',
-    other:'#ccd3e0',
-  },
-};
-let PAL = PALETTES.dark;
-let AXIS = {}, TIP = {}, CENTER_RICH = {};
-function applyChartTheme(){
-  OTHER_COLOR = PAL.other;
-  AXIS = {
-    axisLine:{lineStyle:{color:PAL.axisLine}}, axisTick:{show:false},
-    axisLabel:{color:PAL.axis, fontFamily:'JetBrains Mono', fontSize:10.5},
-    splitLine:{lineStyle:{color:PAL.split}},
-  };
-  TIP = {
-    backgroundColor:PAL.tipBg, borderColor:PAL.tipBorder,
-    textStyle:{color:PAL.tipText, fontSize:12, fontFamily:'Inter'},
-    extraCssText:PAL.tipShadow,
-  };
-  CENTER_RICH = {
-    v:{color:PAL.centerV,fontSize:21,fontWeight:700,fontFamily:'JetBrains Mono',lineHeight:27},
-    l:{color:PAL.centerL,fontSize:11,fontFamily:'Inter'},
-  };
-}
-applyChartTheme();
+                renderDonut(
+                    "donutTokens",
+                    fmtTok(tot),
+                    "tokens · 按模型",
+                    modelSegs(recs, sumT, fmtTok),
+                    fmtTok,
+                );
 
-/* ---------- 环图 ---------- */
-function renderDonut(id, centerV, centerL, segs, fmt){
-  mk(id).setOption({
-    tooltip:Object.assign({}, TIP, {formatter:p=>{
-      let h = p.name+'<br/><b>'+fmt(p.value)+'</b> · '+p.percent+'%';
-      if(p.data.extra) h += p.data.extra;
-      return h;
-    }}),
-    series:[{type:'pie', radius:['58%','78%'], center:['50%','50%'],
-      label:{show:true, position:'center', formatter:'{v|'+centerV+'}\n{l|'+centerL+'}', rich:CENTER_RICH},
-      emphasis:{scaleSize:4},
-      itemStyle:{borderColor:PAL.sliceBorder, borderWidth:2},
-      data:segs}],
-  },true);
-}
-/* 按模型聚合 segments（Top5 + 其他，其他的明细放 tooltip） */
-function modelSegs(recs, valFn, fmt){
-  const by = groupBy(recs, r=>r.model);
-  const totals = Object.entries(by).map(([m,rs])=>[m, rs.reduce((a,r)=>a+valFn(r),0)]);
-  const {top, rest} = topGroups(Object.fromEntries(totals), 5);
-  const segs = top.map(m=>{
-    const t = totals.find(x=>x[0]===m);
-    return {name:m, value:t[1], itemStyle:{color:modelColor(m)}};
-  });
-  if(rest.length){
-    const items = totals.filter(([k])=>rest.includes(k)).sort((a,b)=>b[1]-a[1]);
-    const v = items.reduce((a,[,x])=>a+x,0);
-    segs.push({
-      name:'其他（'+rest.length+' 个模型）', value:v, itemStyle:{color:OTHER_COLOR},
-      extra: items.map(([k,x])=>'<br/><span style="opacity:.75">· '+k+': '+fmt(x)+'</span>').join(''),
-    });
-  }
-  return segs;
-}
-function deltaHtml(a, b, pp){
-  if(!(b>0) && !(pp && b!==0)) return '<b style="color:var(--text-3)">前段无数据</b>';
-  if(pp){ // 百分点
-    const d = (a-b)*100;
-    return d>=0 ? '<b class="up">▲ '+d.toFixed(1)+' pp</b>' : '<b class="down">▼ '+Math.abs(d).toFixed(1)+' pp</b>';
-  }
-  const d = (a-b)/b;
-  return d>=0 ? '<b class="up">▲ '+(d*100).toFixed(1)+'%</b>' : '<b class="down">▼ '+(Math.abs(d)*100).toFixed(1)+'%</b>';
-}
-function renderDonuts(recs, prev){
-  const tot = recs.reduce((a,r)=>a+sumT(r),0);
-  const sess = new Set(recs.map(r=>r.session_id)).size;
-  const calls = recs.length;
-  const hr = hitRateOf(recs);
-  const pTot = prev.reduce((a,r)=>a+sumT(r),0);
-  const pSess = new Set(prev.map(r=>r.session_id)).size;
-  const pCalls = prev.length;
-  const pHr = hitRateOf(prev);
-  document.getElementById('dTokens').innerHTML = deltaHtml(tot, pTot);
-  document.getElementById('dSessions').innerHTML = deltaHtml(sess, pSess);
-  document.getElementById('dCalls').innerHTML = deltaHtml(calls, pCalls);
-  document.getElementById('dCache').innerHTML = deltaHtml(hr, pHr, true);
+                // 会话环：色块 = 项目
+                const byP = groupBy(recs, (r) => r.directory || "(unknown)");
+                const sessSegs = Object.entries(byP)
+                    .map(([d, rs]) => ({
+                        name: shortDir(d),
+                        value: new Set(rs.map((r) => r.session_id)).size,
+                        itemStyle: { color: projColor(d) },
+                    }))
+                    .sort((a, b) => b.value - a.value);
+                renderDonut("donutSessions", "" + sess, "sessions · 按项目", sessSegs, fmtInt);
 
-  renderDonut('donutTokens', fmtTok(tot), 'tokens · 按模型', modelSegs(recs, sumT, fmtTok), fmtTok);
+                renderDonut(
+                    "donutCalls",
+                    fmtInt(calls),
+                    "calls · 按模型",
+                    modelSegs(recs, () => 1, fmtInt),
+                    fmtInt,
+                );
 
-  // 会话环：色块 = 项目
-  const byP = groupBy(recs, r=>r.directory||'(unknown)');
-  const sessSegs = Object.entries(byP).map(([d,rs])=>({
-    name:shortDir(d), value:new Set(rs.map(r=>r.session_id)).size,
-    itemStyle:{color:projColor(d)},
-  })).sort((a,b)=>b.value-a.value);
-  renderDonut('donutSessions', ''+sess, 'sessions · 按项目', sessSegs, fmtInt);
+                // 命中率环：色块 = token 构成
+                const comp = [
+                    {
+                        name: "cache_read",
+                        v: recs.reduce((a, r) => a + r.cache_read_tokens, 0),
+                        c: "#3ddc97",
+                    },
+                    {
+                        name: "input",
+                        v: recs.reduce((a, r) => a + r.input_tokens, 0),
+                        c: "#4cc2ff",
+                    },
+                    {
+                        name: "cache_write",
+                        v: recs.reduce((a, r) => a + r.cache_write_tokens, 0),
+                        c: "#ffb454",
+                    },
+                    {
+                        name: "output",
+                        v: recs.reduce((a, r) => a + r.output_tokens, 0),
+                        c: "#7c6cf6",
+                    },
+                ];
+                renderDonut(
+                    "donutCache",
+                    (hr * 100).toFixed(1) + "%",
+                    "hit rate · 按 token 构成",
+                    comp.map((x) => ({ name: x.name, value: x.v, itemStyle: { color: x.c } })),
+                    fmtTok,
+                );
+            }
+            /*PART1-END*/
 
-  renderDonut('donutCalls', fmtInt(calls), 'calls · 按模型', modelSegs(recs, ()=>1, fmtInt), fmtInt);
+            /* ---------- 柱状图 ---------- */
+            function metricVal(rs, metric) {
+                if (metric === "tokens") return rs.reduce((a, r) => a + sumT(r), 0);
+                if (metric === "calls") return rs.length;
+                return new Set(rs.map((r) => r.session_id)).size;
+            }
+            function renderBar(recs) {
+                const metric = state.metric;
+                const colorDim = metric === "sessions" ? "project" : "model";
+                const keyOf = (r) => (colorDim === "model" ? r.model : r.directory || "(unknown)");
+                const fmtV = metric === "tokens" ? fmtTok : fmtInt;
+                const { start, end } = currentRange();
 
-  // 命中率环：色块 = token 构成
-  const comp = [
-    {name:'cache_read',  v:recs.reduce((a,r)=>a+r.cache_read_tokens,0),  c:'#3ddc97'},
-    {name:'input',       v:recs.reduce((a,r)=>a+r.input_tokens,0),       c:'#4cc2ff'},
-    {name:'cache_write', v:recs.reduce((a,r)=>a+r.cache_write_tokens,0), c:'#ffb454'},
-    {name:'output',      v:recs.reduce((a,r)=>a+r.output_tokens,0),      c:'#7c6cf6'},
-  ];
-  renderDonut('donutCache', (hr*100).toFixed(1)+'%', 'hit rate · 按 token 构成',
-    comp.map(x=>({name:x.name, value:x.v, itemStyle:{color:x.c}})), fmtTok);
-}
-/*PART1-END*/
+                // 1) 横轴类目
+                let labels = [],
+                    raw = [],
+                    idxOf;
+                if (state.xaxis === "time") {
+                    const bk = bucketize(start, end, state.gran);
+                    labels = Array.from({ length: bk.n }, (_, i) => bk.label(i));
+                    raw = labels;
+                    idxOf = (r) => bk.idx(r.timestamp);
+                } else if (state.xaxis === "project") {
+                    const by = groupBy(recs, (r) => r.directory || "(unknown)");
+                    raw = Object.entries(by)
+                        .map(([k, rs]) => [k, metricVal(rs, metric)])
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([k]) => k);
+                    labels = raw.map(shortDir);
+                    idxOf = (r) => raw.indexOf(r.directory || "(unknown)");
+                } else {
+                    const by = groupBy(recs, (r) => r.session_id);
+                    const rows = Object.values(by)
+                        .map((rs) => ({
+                            id: rs[0].session_id,
+                            title: rs[0].title || rs[0].slug || rs[0].session_id.slice(0, 8),
+                            full: (rs[0].title || "(无标题)") + " · " + (rs[0].slug || ""),
+                            v: metricVal(rs, metric),
+                        }))
+                        .sort((a, b) => b.v - a.v)
+                        .slice(0, 20);
+                    raw = rows;
+                    labels = rows.map((r) =>
+                        r.title.length > 7 ? r.title.slice(0, 7) + "…" : r.title,
+                    );
+                    idxOf = (r) => rows.findIndex((x) => x.id === r.session_id);
+                }
+                const nCat = labels.length;
 
-/* ---------- 柱状图 ---------- */
-function metricVal(rs, metric){
-  if(metric==='tokens') return rs.reduce((a,r)=>a+sumT(r),0);
-  if(metric==='calls') return rs.length;
-  return new Set(rs.map(r=>r.session_id)).size;
-}
-function renderBar(recs){
-  const metric = state.metric;
-  const colorDim = metric==='sessions' ? 'project' : 'model';
-  const keyOf = r => colorDim==='model' ? r.model : (r.directory||'(unknown)');
-  const fmtV = metric==='tokens' ? fmtTok : fmtInt;
-  const {start,end} = currentRange();
+                // 2) 类目 × 色块维度 聚合
+                const cell = Array.from({ length: nCat }, () => ({}));
+                const sets = Array.from({ length: nCat }, () => ({}));
+                recs.forEach((r) => {
+                    const ci = idxOf(r);
+                    if (ci < 0 || ci >= nCat) return;
+                    const k = keyOf(r);
+                    if (metric === "sessions") {
+                        (sets[ci][k] = sets[ci][k] || new Set()).add(r.session_id);
+                    } else cell[ci][k] = (cell[ci][k] || 0) + (metric === "tokens" ? sumT(r) : 1);
+                });
+                if (metric === "sessions") {
+                    sets.forEach((m, ci) =>
+                        Object.entries(m).forEach(([k, s]) => (cell[ci][k] = s.size)),
+                    );
+                }
+                const totals = {};
+                cell.forEach((m) =>
+                    Object.entries(m).forEach(([k, v]) => (totals[k] = (totals[k] || 0) + v)),
+                );
+                const { top, rest } = topGroups(totals, 5);
+                const restSet = new Set(rest);
+                const disp = (k) => (restSet.has(k) ? "其他" : k);
+                const seriesNames = rest.length ? [...top, "其他"] : top;
+                const colorOf = (k) =>
+                    k === "其他"
+                        ? OTHER_COLOR
+                        : colorDim === "model"
+                          ? modelColor(k)
+                          : projColor(k);
+                const otherBk = cell.map((m) =>
+                    Object.entries(m)
+                        .filter(([k]) => restSet.has(k))
+                        .sort((a, b) => b[1] - a[1]),
+                );
 
-  // 1) 横轴类目
-  let labels=[], raw=[], idxOf;
-  if(state.xaxis==='time'){
-    const bk = bucketize(start, end, state.gran);
-    labels = Array.from({length:bk.n},(_,i)=>bk.label(i));
-    raw = labels;
-    idxOf = r => bk.idx(r.timestamp);
-  } else if(state.xaxis==='project'){
-    const by = groupBy(recs, r=>r.directory||'(unknown)');
-    raw = Object.entries(by).map(([k,rs])=>[k, metricVal(rs,metric)]).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
-    labels = raw.map(shortDir);
-    idxOf = r => raw.indexOf(r.directory||'(unknown)');
-  } else {
-    const by = groupBy(recs, r=>r.session_id);
-    const rows = Object.values(by).map(rs=>({
-      id:rs[0].session_id,
-      title:rs[0].title||rs[0].slug||rs[0].session_id.slice(0,8),
-      full:(rs[0].title||'(无标题)')+' · '+(rs[0].slug||''),
-      v:metricVal(rs,metric),
-    })).sort((a,b)=>b.v-a.v).slice(0,20);
-    raw = rows;
-    labels = rows.map(r=>r.title.length>7?r.title.slice(0,7)+'…':r.title);
-    idxOf = r => rows.findIndex(x=>x.id===r.session_id);
-  }
-  const nCat = labels.length;
+                // 3) tooltip
+                const tipFmt = (ps) => {
+                    if (!ps.length) return "";
+                    const ci = ps[0].dataIndex;
+                    let label = labels[ci];
+                    if (state.xaxis === "session") label = raw[ci].full;
+                    if (state.xaxis === "project") label = raw[ci];
+                    const total = ps.reduce((a, p) => a + p.value, 0);
+                    let h =
+                        "<b>" +
+                        label +
+                        "</b><br/>" +
+                        METRIC_LABEL[metric] +
+                        ": <b>" +
+                        fmtV(total) +
+                        "</b>";
+                    ps.slice()
+                        .sort((a, b) => b.value - a.value)
+                        .forEach((p) => {
+                            if (p.value <= 0) return;
+                            h +=
+                                "<br/>" +
+                                p.marker +
+                                p.seriesName +
+                                ": <b>" +
+                                fmtV(p.value) +
+                                "</b>";
+                            if (p.seriesName === "其他") {
+                                otherBk[ci].slice(0, 10).forEach(([k, v]) => {
+                                    h +=
+                                        '<br/><span style="opacity:.7">&nbsp;&nbsp;· ' +
+                                        (colorDim === "project" ? shortDir(k) : k) +
+                                        ": " +
+                                        fmtV(v) +
+                                        "</span>";
+                                });
+                            }
+                        });
+                    return h;
+                };
 
-  // 2) 类目 × 色块维度 聚合
-  const cell = Array.from({length:nCat},()=>({}));
-  const sets = Array.from({length:nCat},()=>({}));
-  recs.forEach(r=>{
-    const ci = idxOf(r); if(ci<0||ci>=nCat) return;
-    const k = keyOf(r);
-    if(metric==='sessions'){ (sets[ci][k]=sets[ci][k]||new Set()).add(r.session_id); }
-    else cell[ci][k] = (cell[ci][k]||0) + (metric==='tokens'?sumT(r):1);
-  });
-  if(metric==='sessions'){
-    sets.forEach((m,ci)=>Object.entries(m).forEach(([k,s])=>cell[ci][k]=s.size));
-  }
-  const totals = {};
-  cell.forEach(m=>Object.entries(m).forEach(([k,v])=>totals[k]=(totals[k]||0)+v));
-  const {top, rest} = topGroups(totals, 5);
-  const restSet = new Set(rest);
-  const disp = k => restSet.has(k) ? '其他' : k;
-  const seriesNames = rest.length ? [...top, '其他'] : top;
-  const colorOf = k => k==='其他' ? OTHER_COLOR : (colorDim==='model'?modelColor(k):projColor(k));
-  const otherBk = cell.map(m=>Object.entries(m).filter(([k])=>restSet.has(k)).sort((a,b)=>b[1]-a[1]));
+                // 4) option
+                const rotate = state.xaxis === "time" ? (nCat > 14 ? 38 : 0) : 38;
+                const option = {
+                    grid: {
+                        left: 8,
+                        right: 8,
+                        top: 20,
+                        bottom: nCat > 14 ? 62 : 20,
+                        containLabel: true,
+                    },
+                    tooltip: Object.assign({}, TIP, {
+                        trigger: "axis",
+                        axisPointer: { type: "shadow" },
+                        formatter: tipFmt,
+                    }),
+                    xAxis: Object.assign({ type: "category", data: labels }, AXIS, {
+                        axisLabel: Object.assign({}, AXIS.axisLabel, {
+                            rotate: rotate,
+                            interval: state.xaxis === "time" ? "auto" : 0,
+                        }),
+                    }),
+                    yAxis: Object.assign({ type: "value" }, AXIS, {
+                        axisLabel: Object.assign({}, AXIS.axisLabel, {
+                            formatter: (v) => (metric === "tokens" ? fmtTok(v) : v),
+                        }),
+                    }),
+                    dataZoom:
+                        nCat <= 14
+                            ? [{ type: "inside" }]
+                            : [
+                                  { type: "inside" },
+                                  {
+                                      type: "slider",
+                                      height: 22,
+                                      bottom: 8,
+                                      borderColor: "transparent",
+                                      backgroundColor: PAL.dzBg,
+                                      fillerColor: "rgba(124,108,246,.18)",
+                                      handleStyle: { color: "#7c6cf6", borderColor: "#7c6cf6" },
+                                      moveHandleStyle: { color: "#7c6cf6" },
+                                      textStyle: {
+                                          color: PAL.dzText,
+                                          fontSize: 10,
+                                          fontFamily: "JetBrains Mono",
+                                      },
+                                      dataBackground: {
+                                          lineStyle: { color: PAL.dzDataLine },
+                                          areaStyle: { color: PAL.dzDataArea },
+                                      },
+                                      selectedDataBackground: {
+                                          lineStyle: { color: PAL.dzSelLine },
+                                          areaStyle: { color: PAL.dzSelArea },
+                                      },
+                                  },
+                              ],
+                    series: seriesNames.map((nm) => ({
+                        name: nm,
+                        type: "bar",
+                        stack: "t",
+                        data: cell.map((m) =>
+                            Object.entries(m).reduce(
+                                (a, [k, v]) => a + (disp(k) === nm ? v : 0),
+                                0,
+                            ),
+                        ),
+                        itemStyle: { color: colorOf(nm) },
+                        barMaxWidth: 26,
+                        emphasis: { focus: "series" },
+                    })),
+                };
+                mk("chartBar").setOption(option, true);
+            }
 
-  // 3) tooltip
-  const tipFmt = ps => {
-    if(!ps.length) return '';
-    const ci = ps[0].dataIndex;
-    let label = labels[ci];
-    if(state.xaxis==='session') label = raw[ci].full;
-    if(state.xaxis==='project') label = raw[ci];
-    const total = ps.reduce((a,p)=>a+p.value,0);
-    let h = '<b>'+label+'</b><br/>'+METRIC_LABEL[metric]+': <b>'+fmtV(total)+'</b>';
-    ps.slice().sort((a,b)=>b.value-a.value).forEach(p=>{
-      if(p.value<=0) return;
-      h += '<br/>'+p.marker+p.seriesName+': <b>'+fmtV(p.value)+'</b>';
-      if(p.seriesName==='其他'){
-        otherBk[ci].slice(0,10).forEach(([k,v])=>{
-          h += '<br/><span style="opacity:.7">&nbsp;&nbsp;· '+(colorDim==='project'?shortDir(k):k)+': '+fmtV(v)+'</span>';
-        });
-      }
-    });
-    return h;
-  };
+            /* ---------- 热力图 ---------- */
+            function renderHeat(recs) {
+                const metric = state.metric;
+                const fmtV = metric === "tokens" ? fmtTok : fmtInt;
+                const grid = Array.from({ length: 7 }, () => Array(24).fill(0));
+                const sets = Array.from({ length: 7 }, () =>
+                    Array.from({ length: 24 }, () => new Set()),
+                );
+                recs.forEach((r) => {
+                    const d = new Date(r.timestamp);
+                    const w = (d.getDay() + 6) % 7,
+                        h = d.getHours();
+                    if (metric === "tokens") grid[w][h] += sumT(r);
+                    else if (metric === "calls") grid[w][h] += 1;
+                    else sets[w][h].add(r.session_id);
+                });
+                if (metric === "sessions")
+                    sets.forEach((row, w) => row.forEach((s, h) => (grid[w][h] = s.size)));
+                const data = [];
+                let max = 0;
+                grid.forEach((row, w) =>
+                    row.forEach((v, h) => {
+                        data.push([h, w, v]);
+                        max = Math.max(max, v);
+                    }),
+                );
+                mk("chartHeat").setOption(
+                    {
+                        grid: { left: 8, right: 8, top: 10, bottom: 24, containLabel: true },
+                        tooltip: Object.assign({}, TIP, {
+                            formatter: (p) =>
+                                ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][
+                                    p.value[1]
+                                ] +
+                                " " +
+                                String(p.value[0]).padStart(2, "0") +
+                                ":00 — <b>" +
+                                fmtV(p.value[2]) +
+                                "</b> " +
+                                METRIC_LABEL[metric],
+                        }),
+                        xAxis: Object.assign(
+                            { type: "category", data: Array.from({ length: 24 }, (_, i) => i) },
+                            AXIS,
+                            {
+                                splitLine: { show: false },
+                                axisLabel: Object.assign({}, AXIS.axisLabel, {
+                                    interval: 3,
+                                    formatter: (v) => v + "h",
+                                }),
+                            },
+                        ),
+                        yAxis: Object.assign(
+                            {
+                                type: "category",
+                                data: ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+                                inverse: true,
+                            },
+                            AXIS,
+                            { splitLine: { show: false } },
+                        ),
+                        visualMap: {
+                            show: false,
+                            min: 0,
+                            max: Math.max(max, 1),
+                            inRange: { color: PAL.heat },
+                        },
+                        series: [
+                            {
+                                type: "heatmap",
+                                data: data,
+                                itemStyle: {
+                                    borderColor: PAL.sliceBorder,
+                                    borderWidth: 2,
+                                    borderRadius: 3,
+                                },
+                            },
+                        ],
+                    },
+                    true,
+                );
+            }
 
-  // 4) option
-  const rotate = state.xaxis==='time' ? (nCat>14?38:0) : 38;
-  const option = {
-    grid:{left:8,right:8,top:20,bottom:nCat>14?62:20,containLabel:true},
-    tooltip:Object.assign({}, TIP, {trigger:'axis', axisPointer:{type:'shadow'}, formatter:tipFmt}),
-    xAxis:Object.assign({type:'category',data:labels}, AXIS,
-      {axisLabel:Object.assign({}, AXIS.axisLabel, {rotate:rotate, interval: state.xaxis==='time'?'auto':0})}),
-    yAxis:Object.assign({type:'value'}, AXIS,
-      {axisLabel:Object.assign({}, AXIS.axisLabel, {formatter:v=>metric==='tokens'?fmtTok(v):v})}),
-    dataZoom: nCat<=14 ? [{type:'inside'}] : [
-      {type:'inside'},
-      {type:'slider', height:22, bottom:8, borderColor:'transparent',
-       backgroundColor:PAL.dzBg, fillerColor:'rgba(124,108,246,.18)',
-       handleStyle:{color:'#7c6cf6', borderColor:'#7c6cf6'},
-       moveHandleStyle:{color:'#7c6cf6'},
-       textStyle:{color:PAL.dzText, fontSize:10, fontFamily:'JetBrains Mono'},
-       dataBackground:{lineStyle:{color:PAL.dzDataLine}, areaStyle:{color:PAL.dzDataArea}},
-       selectedDataBackground:{lineStyle:{color:PAL.dzSelLine}, areaStyle:{color:PAL.dzSelArea}}},
-    ],
-    series: seriesNames.map(nm=>({
-      name:nm, type:'bar', stack:'t',
-      data: cell.map(m=>Object.entries(m).reduce((a,[k,v])=>a+(disp(k)===nm?v:0),0)),
-      itemStyle:{color:colorOf(nm)}, barMaxWidth:26,
-      emphasis:{focus:'series'},
-    })),
-  };
-  mk('chartBar').setOption(option, true);
-}
+            /* ---------- 表格 + 分页 ---------- */
+            function sessionRows(recs) {
+                const by = groupBy(recs, (r) => r.session_id);
+                const rows = Object.values(by).map((rs) => {
+                    const meta = rs[0];
+                    const cr = rs.reduce((a, r) => a + r.cache_read_tokens, 0);
+                    const inp = rs.reduce((a, r) => a + r.input_tokens + r.cache_read_tokens, 0);
+                    return {
+                        title: meta.title || "(无标题)",
+                        slug: meta.slug,
+                        directory: meta.directory || "—",
+                        agent: meta.agent,
+                        version: meta.version,
+                        sub: !!meta.parent_session_id,
+                        models: [...new Set(rs.map((r) => r.model))],
+                        calls: rs.length,
+                        tokens: rs.reduce((a, r) => a + sumT(r), 0),
+                        cacheRate: inp ? cr / inp : 0,
+                        lastTs: Math.max(...rs.map((r) => r.timestamp)),
+                    };
+                });
+                const k = state.sortKey;
+                rows.sort(
+                    (a, b) =>
+                        (typeof a[k] === "string"
+                            ? String(a[k]).localeCompare(String(b[k]))
+                            : a[k] - b[k]) * state.sortDir,
+                );
+                return rows;
+            }
+            function renderTable(recs) {
+                const rows = sessionRows(recs);
+                const pages = Math.max(1, Math.ceil(rows.length / state.pageSize));
+                if (state.page > pages) state.page = pages;
+                const slice = rows.slice(
+                    (state.page - 1) * state.pageSize,
+                    state.page * state.pageSize,
+                );
+                const maxTok = Math.max(...rows.map((r) => r.tokens), 1);
+                const tb = document.querySelector("#sessTable tbody");
+                if (!slice.length) {
+                    tb.innerHTML =
+                        '<tr><td colspan="8" class="empty">该筛选条件下暂无记录</td></tr>';
+                } else {
+                    tb.innerHTML = slice
+                        .map(
+                            (r) =>
+                                "<tr>" +
+                                '<td class="t-title" title="' +
+                                r.title +
+                                '">' +
+                                r.title +
+                                '<div class="t-dim t-mono" style="font-size:10.5px;margin-top:3px">' +
+                                (r.slug || "") +
+                                (r.sub ? '<span class="chip sub">sub-agent</span>' : "") +
+                                "</div>" +
+                                "</td>" +
+                                "<td>" +
+                                '<span class="chip ' +
+                                (r.agent === "claude-code" ? "cc" : "oc") +
+                                '">' +
+                                (r.agent === "claude-code" ? "Claude Code" : "OpenCode") +
+                                "</span> " +
+                                '<span class="chip ver">v' +
+                                (r.version || "?") +
+                                "</span>" +
+                                "</td>" +
+                                '<td class="t-dim t-mono">' +
+                                r.directory +
+                                "</td>" +
+                                "<td>" +
+                                r.models
+                                    .map(
+                                        (m) =>
+                                            '<span class="modeltag" style="color:' +
+                                            modelColor(m) +
+                                            ";background:" +
+                                            modelColor(m) +
+                                            "18;border:1px solid " +
+                                            modelColor(m) +
+                                            '30">' +
+                                            m +
+                                            "</span>",
+                                    )
+                                    .join("") +
+                                "</td>" +
+                                '<td class="t-mono t-dim">' +
+                                r.calls +
+                                "</td>" +
+                                '<td><div class="bar-cell"><div class="bar" style="width:' +
+                                Math.max(2, (r.tokens / maxTok) * 90) +
+                                'px"></div><span>' +
+                                fmtTok(r.tokens) +
+                                "</span></div></td>" +
+                                '<td class="t-mono" style="color:' +
+                                (r.cacheRate > 0.7
+                                    ? "var(--green)"
+                                    : r.cacheRate > 0.4
+                                      ? "var(--amber)"
+                                      : "var(--text-2)") +
+                                '">' +
+                                (r.cacheRate * 100).toFixed(0) +
+                                "%</td>" +
+                                '<td class="t-mono t-dim">' +
+                                fmtTime(r.lastTs) +
+                                "</td>" +
+                                "</tr>",
+                        )
+                        .join("");
+                }
+                document.getElementById("pageCur").textContent = state.page + " / " + pages;
+                document.getElementById("pgPrev").disabled = state.page <= 1;
+                document.getElementById("pgNext").disabled = state.page >= pages;
+            }
 
-/* ---------- 热力图 ---------- */
-function renderHeat(recs){
-  const metric = state.metric;
-  const fmtV = metric==='tokens' ? fmtTok : fmtInt;
-  const grid = Array.from({length:7},()=>Array(24).fill(0));
-  const sets = Array.from({length:7},()=>Array.from({length:24},()=>new Set()));
-  recs.forEach(r=>{
-    const d=new Date(r.timestamp);
-    const w=(d.getDay()+6)%7, h=d.getHours();
-    if(metric==='tokens') grid[w][h]+=sumT(r);
-    else if(metric==='calls') grid[w][h]+=1;
-    else sets[w][h].add(r.session_id);
-  });
-  if(metric==='sessions') sets.forEach((row,w)=>row.forEach((s,h)=>grid[w][h]=s.size));
-  const data=[]; let max=0;
-  grid.forEach((row,w)=>row.forEach((v,h)=>{data.push([h,w,v]); max=Math.max(max,v);}));
-  mk('chartHeat').setOption({
-    grid:{left:8,right:8,top:10,bottom:24,containLabel:true},
-    tooltip:Object.assign({}, TIP, {formatter:p=>['周一','周二','周三','周四','周五','周六','周日'][p.value[1]]+' '+String(p.value[0]).padStart(2,'0')+':00 — <b>'+fmtV(p.value[2])+'</b> '+METRIC_LABEL[metric]}),
-    xAxis:Object.assign({type:'category',data:Array.from({length:24},(_,i)=>i)}, AXIS, {splitLine:{show:false},
-      axisLabel:Object.assign({}, AXIS.axisLabel, {interval:3, formatter:v=>v+'h'})}),
-    yAxis:Object.assign({type:'category',data:['周一','周二','周三','周四','周五','周六','周日'], inverse:true}, AXIS, {splitLine:{show:false}}),
-    visualMap:{show:false,min:0,max:Math.max(max,1),inRange:{color:PAL.heat}},
-    series:[{type:'heatmap',data:data,itemStyle:{borderColor:PAL.sliceBorder,borderWidth:2,borderRadius:3}}],
-  },true);
-}
+            /* ---------- orchestrate ---------- */
+            function syncControls() {
+                const isSess = state.metric === "sessions";
+                if (isSess) state.xaxis = "time";
+                document.querySelectorAll("#segX button").forEach((b) => {
+                    b.disabled = isSess && b.dataset.v !== "time";
+                    b.classList.toggle("on", b.dataset.v === state.xaxis);
+                });
+                document.getElementById("segGran").style.display =
+                    state.xaxis === "time" ? "" : "none";
+            }
+            function render() {
+                const { start, end } = currentRange();
+                const recs = filtered();
+                const dur = end - start;
+                const prev = ALL.filter(
+                    (r) =>
+                        r.timestamp >= start - dur &&
+                        r.timestamp < start &&
+                        (state.agent === "all" || r.agent === state.agent),
+                );
+                syncControls();
+                renderDonuts(recs, prev);
+                renderBar(recs);
+                renderHeat(recs);
+                renderTable(recs);
+            }
 
-/* ---------- 表格 + 分页 ---------- */
-function sessionRows(recs){
-  const by = groupBy(recs,r=>r.session_id);
-  const rows = Object.values(by).map(rs=>{
-    const meta = rs[0];
-    const cr = rs.reduce((a,r)=>a+r.cache_read_tokens,0);
-    const inp = rs.reduce((a,r)=>a+r.input_tokens+r.cache_read_tokens,0);
-    return {
-      title:meta.title||'(无标题)', slug:meta.slug, directory:meta.directory||'—',
-      agent:meta.agent, version:meta.version, sub:!!meta.parent_session_id,
-      models:[...new Set(rs.map(r=>r.model))],
-      calls:rs.length, tokens:rs.reduce((a,r)=>a+sumT(r),0), cacheRate: inp?cr/inp:0,
-      lastTs:Math.max(...rs.map(r=>r.timestamp)),
-    };
-  });
-  const k = state.sortKey;
-  rows.sort((a,b)=> (typeof a[k]==='string' ? String(a[k]).localeCompare(String(b[k])) : a[k]-b[k]) * state.sortDir);
-  return rows;
-}
-function renderTable(recs){
-  const rows = sessionRows(recs);
-  const pages = Math.max(1, Math.ceil(rows.length/state.pageSize));
-  if(state.page>pages) state.page = pages;
-  const slice = rows.slice((state.page-1)*state.pageSize, state.page*state.pageSize);
-  const maxTok = Math.max(...rows.map(r=>r.tokens),1);
-  const tb = document.querySelector('#sessTable tbody');
-  if(!slice.length){
-    tb.innerHTML = '<tr><td colspan="8" class="empty">该筛选条件下暂无记录</td></tr>';
-  } else {
-    tb.innerHTML = slice.map(r=>
-      '<tr>'+
-        '<td class="t-title" title="'+r.title+'">'+r.title+
-          '<div class="t-dim t-mono" style="font-size:10.5px;margin-top:3px">'+(r.slug||'')+(r.sub?'<span class="chip sub">sub-agent</span>':'')+'</div>'+
-        '</td>'+
-        '<td>'+
-          '<span class="chip '+(r.agent==='claude-code'?'cc':'oc')+'">'+(r.agent==='claude-code'?'Claude Code':'OpenCode')+'</span> '+
-          '<span class="chip ver">v'+(r.version||'?')+'</span>'+
-        '</td>'+
-        '<td class="t-dim t-mono">'+r.directory+'</td>'+
-        '<td>'+r.models.map(m=>'<span class="modeltag" style="color:'+modelColor(m)+';background:'+modelColor(m)+'18;border:1px solid '+modelColor(m)+'30">'+m+'</span>').join('')+'</td>'+
-        '<td class="t-mono t-dim">'+r.calls+'</td>'+
-        '<td><div class="bar-cell"><div class="bar" style="width:'+Math.max(2,r.tokens/maxTok*90)+'px"></div><span>'+fmtTok(r.tokens)+'</span></div></td>'+
-        '<td class="t-mono" style="color:'+(r.cacheRate>0.7?'var(--green)':r.cacheRate>0.4?'var(--amber)':'var(--text-2)')+'">'+(r.cacheRate*100).toFixed(0)+'%</td>'+
-        '<td class="t-mono t-dim">'+fmtTime(r.lastTs)+'</td>'+
-      '</tr>').join('');
-  }
-  document.getElementById('pageCur').textContent = state.page+' / '+pages;
-  document.getElementById('pgPrev').disabled = state.page<=1;
-  document.getElementById('pgNext').disabled = state.page>=pages;
-}
+            /* events */
+            function bindSeg(id, fn) {
+                document.getElementById(id).addEventListener("click", (e) => {
+                    if (e.target.tagName !== "BUTTON" || e.target.disabled) return;
+                    fn(e.target);
+                });
+            }
+            bindSeg("segAgent", (t) => {
+                state.agent = t.dataset.v;
+                state.page = 1;
+                document
+                    .querySelectorAll("#segAgent button")
+                    .forEach((b) => b.classList.toggle("on", b === t));
+                render();
+            });
+            bindSeg("segRange", (t) => {
+                state.rangeMs = +t.dataset.ms;
+                state.custom = null;
+                state.gran = state.rangeMs <= 86400000 ? "hour" : "day";
+                document
+                    .querySelectorAll("#segRange button")
+                    .forEach((b) => b.classList.toggle("on", b === t));
+                document.getElementById("btnCal").classList.remove("on");
+                document
+                    .querySelectorAll("#segGran button")
+                    .forEach((b) => b.classList.toggle("on", b.dataset.v === state.gran));
+                state.page = 1;
+                render();
+            });
+            bindSeg("segGran", (t) => {
+                state.gran = t.dataset.v;
+                document
+                    .querySelectorAll("#segGran button")
+                    .forEach((b) => b.classList.toggle("on", b === t));
+                render();
+            });
+            bindSeg("segMetric", (t) => {
+                state.metric = t.dataset.v;
+                document
+                    .querySelectorAll("#segMetric button")
+                    .forEach((b) => b.classList.toggle("on", b === t));
+                render();
+            });
+            bindSeg("segX", (t) => {
+                state.xaxis = t.dataset.v;
+                document
+                    .querySelectorAll("#segX button")
+                    .forEach((b) => b.classList.toggle("on", b === t));
+                render();
+            });
 
-/* ---------- orchestrate ---------- */
-function syncControls(){
-  const isSess = state.metric==='sessions';
-  if(isSess) state.xaxis = 'time';
-  document.querySelectorAll('#segX button').forEach(b=>{
-    b.disabled = isSess && b.dataset.v!=='time';
-    b.classList.toggle('on', b.dataset.v===state.xaxis);
-  });
-  document.getElementById('segGran').style.display = state.xaxis==='time' ? '' : 'none';
-}
-function render(){
-  const {start,end} = currentRange();
-  const recs = filtered();
-  const dur = end-start;
-  const prev = ALL.filter(r => r.timestamp >= start-dur && r.timestamp < start &&
-                                 (state.agent==='all' || r.agent===state.agent));
-  syncControls();
-  renderDonuts(recs, prev);
-  renderBar(recs);
-  renderHeat(recs);
-  renderTable(recs);
-}
+            function applyCustom() {
+                const s = document.getElementById("dtStart").value;
+                const e = document.getElementById("dtEnd").value;
+                if (!s || !e) return;
+                const start = new Date(s).getTime(),
+                    end = new Date(e).getTime();
+                if (isNaN(start) || isNaN(end) || start >= end) return;
+                state.custom = { start: start, end: end };
+                document
+                    .querySelectorAll("#segRange button")
+                    .forEach((b) => b.classList.remove("on"));
+                document.getElementById("btnCal").classList.add("on");
+                state.page = 1;
+                render();
+            }
+            document.getElementById("dtStart").addEventListener("change", applyCustom);
+            document.getElementById("dtEnd").addEventListener("change", applyCustom);
 
-/* events */
-function bindSeg(id, fn){
-  document.getElementById(id).addEventListener('click',e=>{
-    if(e.target.tagName!=='BUTTON'||e.target.disabled) return;
-    fn(e.target);
-  });
-}
-bindSeg('segAgent', t=>{
-  state.agent=t.dataset.v; state.page=1;
-  document.querySelectorAll('#segAgent button').forEach(b=>b.classList.toggle('on',b===t));
-  render();
-});
-bindSeg('segRange', t=>{
-  state.rangeMs=+t.dataset.ms; state.custom=null;
-  state.gran = state.rangeMs<=86400000 ? 'hour' : 'day';
-  document.querySelectorAll('#segRange button').forEach(b=>b.classList.toggle('on',b===t));
-  document.getElementById('btnCal').classList.remove('on');
-  document.querySelectorAll('#segGran button').forEach(b=>b.classList.toggle('on', b.dataset.v===state.gran));
-  state.page=1; render();
-});
-bindSeg('segGran', t=>{
-  state.gran=t.dataset.v;
-  document.querySelectorAll('#segGran button').forEach(b=>b.classList.toggle('on',b===t));
-  render();
-});
-bindSeg('segMetric', t=>{
-  state.metric=t.dataset.v;
-  document.querySelectorAll('#segMetric button').forEach(b=>b.classList.toggle('on',b===t));
-  render();
-});
-bindSeg('segX', t=>{
-  state.xaxis=t.dataset.v;
-  document.querySelectorAll('#segX button').forEach(b=>b.classList.toggle('on',b===t));
-  render();
-});
+            document.querySelector("#sessTable thead").addEventListener("click", (e) => {
+                const th = e.target.closest("th");
+                if (!th) return;
+                const k = th.dataset.k;
+                if (state.sortKey === k) state.sortDir *= -1;
+                else {
+                    state.sortKey = k;
+                    state.sortDir = -1;
+                }
+                state.page = 1;
+                render();
+            });
+            const calPop = document.getElementById("calPop");
+            document.getElementById("btnCal").addEventListener("click", (e) => {
+                e.stopPropagation();
+                calPop.style.display = calPop.style.display === "none" ? "block" : "none";
+            });
+            calPop.addEventListener("click", (e) => e.stopPropagation());
+            document.addEventListener("click", () => {
+                calPop.style.display = "none";
+            });
+            document.getElementById("calApply").addEventListener("click", () => {
+                applyCustom();
+                calPop.style.display = "none";
+            });
+            function setTheme(t, skipRender) {
+                document.body.classList.toggle("light", t === "light");
+                PAL = PALETTES[t] || PALETTES.dark;
+                applyChartTheme();
+                try {
+                    localStorage.setItem("usage-theme", t);
+                } catch (e) {}
+                document
+                    .querySelectorAll("#segTheme button")
+                    .forEach((b) => b.classList.toggle("on", b.dataset.v === t));
+                if (!skipRender) render();
+            }
+            bindSeg("segTheme", (t) => setTheme(t.dataset.v));
+            document.getElementById("pgSize").addEventListener("change", (e) => {
+                state.pageSize = +e.target.value;
+                state.page = 1;
+                render();
+            });
+            document.getElementById("pgPrev").addEventListener("click", () => {
+                state.page--;
+                render();
+            });
+            document.getElementById("pgNext").addEventListener("click", () => {
+                state.page++;
+                render();
+            });
+            window.addEventListener("resize", () =>
+                Object.values(charts).forEach((c) => c.resize()),
+            );
 
-function applyCustom(){
-  const s = document.getElementById('dtStart').value;
-  const e = document.getElementById('dtEnd').value;
-  if(!s || !e) return;
-  const start = new Date(s).getTime(), end = new Date(e).getTime();
-  if(isNaN(start)||isNaN(end)||start>=end) return;
-  state.custom = {start:start, end:end};
-  document.querySelectorAll('#segRange button').forEach(b=>b.classList.remove('on'));
-  document.getElementById('btnCal').classList.add('on');
-  state.page=1; render();
-}
-document.getElementById('dtStart').addEventListener('change', applyCustom);
-document.getElementById('dtEnd').addEventListener('change', applyCustom);
-
-document.querySelector('#sessTable thead').addEventListener('click',e=>{
-  const th=e.target.closest('th'); if(!th)return;
-  const k=th.dataset.k;
-  if(state.sortKey===k) state.sortDir*=-1; else { state.sortKey=k; state.sortDir=-1; }
-  state.page=1; render();
-});
-const calPop = document.getElementById('calPop');
-document.getElementById('btnCal').addEventListener('click',e=>{
-  e.stopPropagation();
-  calPop.style.display = calPop.style.display==='none' ? 'block' : 'none';
-});
-calPop.addEventListener('click',e=>e.stopPropagation());
-document.addEventListener('click',()=>{ calPop.style.display='none'; });
-document.getElementById('calApply').addEventListener('click',()=>{
-  applyCustom();
-  calPop.style.display='none';
-});
-function setTheme(t, skipRender){
-  document.body.classList.toggle('light', t==='light');
-  PAL = PALETTES[t] || PALETTES.dark;
-  applyChartTheme();
-  try{ localStorage.setItem('usage-theme', t); }catch(e){}
-  document.querySelectorAll('#segTheme button').forEach(b=>b.classList.toggle('on', b.dataset.v===t));
-  if(!skipRender) render();
-}
-bindSeg('segTheme', t=>setTheme(t.dataset.v));
-document.getElementById('pgSize').addEventListener('change',e=>{
-  state.pageSize=+e.target.value; state.page=1; render();
-});
-document.getElementById('pgPrev').addEventListener('click',()=>{ state.page--; render(); });
-document.getElementById('pgNext').addEventListener('click',()=>{ state.page++; render(); });
-window.addEventListener('resize',()=>Object.values(charts).forEach(c=>c.resize()));
-
-/* init */
-(function(){
-  let saved = 'dark';
-  try{ saved = localStorage.getItem('usage-theme') || 'dark'; }catch(e){}
-  setTheme(saved, true);
-  const {start,end} = currentRange();
-  document.getElementById('dtStart').value = toLocalInput(start);
-  document.getElementById('dtEnd').value = toLocalInput(end);
-  render();
-})();
-/*PART2-END*/
-</script>
-</body>
+            /* init */
+            (function () {
+                let saved = "dark";
+                try {
+                    saved = localStorage.getItem("usage-theme") || "dark";
+                } catch (e) {}
+                setTheme(saved, true);
+                const { start, end } = currentRange();
+                document.getElementById("dtStart").value = toLocalInput(start);
+                document.getElementById("dtEnd").value = toLocalInput(end);
+                render();
+            })();
+            /*PART2-END*/
+        </script>
+    </body>
 </html>

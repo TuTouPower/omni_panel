@@ -48,7 +48,10 @@ export function create_mock_handler(responses) {
         if (req.method === "GET" && path === "/v1/trend") {
             return json(res, responses[`GET /v1/trend?${url.searchParams.toString()}`] ?? []);
         }
-        if (req.method === "GET" && ["/v1/records", "/v1/sessions", "/v1/buckets", "/v1/status"].includes(path)) {
+        if (
+            req.method === "GET" &&
+            ["/v1/records", "/v1/sessions", "/v1/buckets", "/v1/status"].includes(path)
+        ) {
             return json(res, responses[`${req.method} ${path}`] ?? []);
         }
         if (req.method === "POST") return json(res, empty_ipc());

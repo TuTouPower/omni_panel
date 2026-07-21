@@ -47,7 +47,9 @@ function redact_secrets(obj) {
 
 async function main() {
     if (!(await check_health())) {
-        console.error("[gen_fixture] localhost:17863 不在线。请先启动 OmniUsage（packaged 或 pnpm start），再跑本命令。");
+        console.error(
+            "[gen_fixture] localhost:17863 不在线。请先启动 OmniUsage（packaged 或 pnpm start），再跑本命令。",
+        );
         process.exit(1);
     }
 
@@ -71,7 +73,10 @@ async function main() {
     for (const inst of instances) {
         const id = inst.instanceId;
         if (!id) continue;
-        await get(`GET /v1/connectors/${id}/state`, `/v1/connectors/${encodeURIComponent(id)}/state`);
+        await get(
+            `GET /v1/connectors/${id}/state`,
+            `/v1/connectors/${encodeURIComponent(id)}/state`,
+        );
         try {
             const sec = await fetch_json(`/v1/secrets?instanceId=${encodeURIComponent(id)}`);
             responses[`GET /v1/secrets?instanceId=${id}`] = redact_secrets(sec);

@@ -10,7 +10,9 @@ const INSTANCE_COUNT = 3;
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
 if (!existsSync(SRC)) {
-    console.error("[gen_synthetic] tests/e2e/fixtures/data/responses.json 不存在，先跑 pnpm e2e:gen-data");
+    console.error(
+        "[gen_synthetic] tests/e2e/fixtures/data/responses.json 不存在，先跑 pnpm e2e:gen-data",
+    );
     process.exit(1);
 }
 
@@ -52,7 +54,8 @@ for (let i = 0; i < subset.length; i++) {
     if (resp[secKey] !== undefined) out[secKey] = redact(resp[secKey], provider, i);
 }
 
-out["GET /v1/config"] = resp["GET /v1/config"] !== undefined ? redact(resp["GET /v1/config"], "config", 0) : {};
+out["GET /v1/config"] =
+    resp["GET /v1/config"] !== undefined ? redact(resp["GET /v1/config"], "config", 0) : {};
 
 // trend：拷贝 real responses 全部 trend 条目（百分比点位，无账号邮箱）；key 也过 redact 防御（防 accountId 含邮箱）
 for (const [k, v] of Object.entries(resp)) {
