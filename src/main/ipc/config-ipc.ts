@@ -31,6 +31,7 @@ export interface ConfigIpcDeps {
     secretsStore: SecretsStore;
     secretParamKeys: ReadonlyMap<string, ReadonlySet<string>>;
     onConfigSaved?: (config: AppConfiguration) => void;
+    onConfigImported?: (config: AppConfiguration) => void;
 }
 
 function maskSecrets(
@@ -390,6 +391,7 @@ export async function handleConfigImport(
             throw import_err;
         }
         deps.onConfigSaved?.(parsed.data as AppConfiguration);
+        deps.onConfigImported?.(parsed.data as AppConfiguration);
         return ok({ imported: true });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

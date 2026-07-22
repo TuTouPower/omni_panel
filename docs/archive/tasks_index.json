@@ -351,6 +351,14 @@
             "status": "done",
             "branch": "t044_split_popup_view",
             "note": ""
+        },
+        {
+            "tid": "t045",
+            "title": "导入配置后自动全局刷新",
+            "slug": "auto_refresh_after_import",
+            "status": "done",
+            "branch": "t045_auto_refresh_after_import",
+            "note": ""
         }
     ]
 }

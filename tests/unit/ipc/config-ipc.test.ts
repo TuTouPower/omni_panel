@@ -547,6 +547,116 @@ describe("config-ipc", () => {
         expect(deps.secretsStore.importAll).toHaveBeenCalledWith({ "new:key": "new-val" });
     });
 
+    it("handleConfigImport invokes onConfigImported once on success", async () => {
+        const { dialog } = await import("electron");
+        const importPath = await tempFile("import-cb.json");
+        vi.mocked(dialog).showOpenDialog.mockResolvedValue({
+            canceled: false,
+            filePaths: [importPath],
+        });
+        const importData = {
+            formatVersion: 1,
+            exportedAt: "2026-05-31T00:00:00Z",
+            appVersion: "1.0.0",
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+            },
+            secrets: {},
+        };
+        await writeFile(importPath, JSON.stringify(importData), "utf8");
+
+        const deps = {
+            ...createMockDeps(),
+            onConfigSaved: vi.fn(),
+            onConfigImported: vi.fn(),
+        };
+        const { handleConfigImport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigImport(deps);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.data.imported).toBe(true);
+        expect(deps.onConfigImported).toHaveBeenCalledTimes(1);
+        expect(deps.onConfigSaved).toHaveBeenCalledTimes(1);
+    });
+
+    it("handleConfigImport does not invoke onConfigImported when dialog canceled", async () => {
+        const { dialog } = await import("electron");
+        vi.mocked(dialog).showOpenDialog.mockResolvedValue({
+            canceled: true,
+            filePaths: [],
+        });
+
+        const deps = {
+            ...createMockDeps(),
+            onConfigSaved: vi.fn(),
+            onConfigImported: vi.fn(),
+        };
+        const { handleConfigImport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigImport(deps);
+
+        expect(result.ok).toBe(true);
+        expect(deps.onConfigImported).not.toHaveBeenCalled();
+        expect(deps.onConfigSaved).not.toHaveBeenCalled();
+    });
+
+    it("handleConfigImport does not invoke onConfigImported on invalid formatVersion", async () => {
+        const { dialog } = await import("electron");
+        const importPath = await tempFile("import-bad-fmt.json");
+        vi.mocked(dialog).showOpenDialog.mockResolvedValue({
+            canceled: false,
+            filePaths: [importPath],
+        });
+        await writeFile(importPath, JSON.stringify({ formatVersion: 99 }), "utf8");
+
+        const deps = {
+            ...createMockDeps(),
+            onConfigSaved: vi.fn(),
+            onConfigImported: vi.fn(),
+        };
+        const { handleConfigImport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigImport(deps);
+
+        expect(result.ok).toBe(false);
+        expect(deps.onConfigImported).not.toHaveBeenCalled();
+        expect(deps.onConfigSaved).not.toHaveBeenCalled();
+    });
+
+    it("handleConfigImport does not invoke onConfigImported when secrets import fails", async () => {
+        const { dialog } = await import("electron");
+        const importPath = await tempFile("import-secret-fail.json");
+        vi.mocked(dialog).showOpenDialog.mockResolvedValue({
+            canceled: false,
+            filePaths: [importPath],
+        });
+        const importData = {
+            formatVersion: 1,
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+            },
+            secrets: { "new:key": "v" },
+        };
+        await writeFile(importPath, JSON.stringify(importData), "utf8");
+
+        const deps = {
+            ...createMockDeps(),
+            onConfigSaved: vi.fn(),
+            onConfigImported: vi.fn(),
+        };
+        deps.secretsStore.importAll = vi.fn().mockRejectedValue(new Error("vault write failed"));
+        const { handleConfigImport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigImport(deps);
+
+        expect(result.ok).toBe(false);
+        expect(deps.onConfigImported).not.toHaveBeenCalled();
+    });
+
     it("handleConfigImport prompts and aborts on endpointOverrides when user cancels (D9)", async () => {
         const { dialog } = await import("electron");
         const importPath = await tempFile("import-override.json");

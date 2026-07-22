@@ -58,6 +58,7 @@ import { create_token_stats_manager } from "./core/token-stats/manager";
 import { create_local_api_server } from "./core/local-api/server";
 import type { LocalAPIServer } from "./core/local-api/server";
 import type { AppConfiguration } from "../shared/types/config";
+import { createOnConfigImported } from "./config-callbacks";
 import type { TokenStatsConfig } from "../shared/types/token-stats";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
@@ -338,12 +339,14 @@ void app.whenReady().then(async () => {
             }
             main_panel_controller?.apply_config_change();
         };
+        const onConfigImported = createOnConfigImported(refreshService, log);
 
         await registerConfigIpc({
             configStore,
             secretsStore,
             secretParamKeys,
             onConfigSaved,
+            onConfigImported,
         });
 
         // Local HTTP API: serves the web panel UI + observation ingest.
