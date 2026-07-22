@@ -10,6 +10,7 @@ function make_item(overrides: Partial<UpcomingResetItem> = {}): UpcomingResetIte
         provider: "claude",
         accountLabel: "acct1@example.com",
         accountId: "acct1",
+        rawLabel: "5h",
         metricLabel: "5 小时",
         resetAt: Date.now() + 3 * 24 * 60 * 60 * 1000,
         percent: 72,

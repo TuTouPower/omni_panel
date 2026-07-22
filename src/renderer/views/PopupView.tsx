@@ -23,6 +23,7 @@ import {
     buildAccountErrors,
     PROVIDER_ORDER,
 } from "../lib/provider-usage";
+import { add_watched_metric, remove_watched_metric } from "../lib/account-overrides";
 import type { AppConfiguration } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import { compute_drag_reorder, build_reorder_base } from "../lib/drag-reorder";
@@ -284,7 +285,7 @@ export function PopupView() {
         () =>
             collect_upcoming_resets(providerGroups, {
                 thresholdPercent: upcoming_reset_threshold_percent,
-                offAccounts: account_overrides?.upcomingResetOff,
+                watchedMetrics: account_overrides?.upcomingResetWatched,
             }),
         [providerGroups, upcoming_reset_threshold_percent, account_overrides],
     );
@@ -453,6 +454,28 @@ export function PopupView() {
             });
         }
     };
+
+    // t043：切换某 (provider, accountKey, raw_label) 的「即将重置」监控。
+    // 默认全关；点击后显式加入 / 移出 watched 集合。
+    const handle_toggle_watched = useCallback(
+        (target: { provider: UsageProvider; accountKey: string; raw_label: string }) => {
+            const current = account_overrides;
+            const watched_list =
+                current?.upcomingResetWatched?.[target.provider]?.[target.accountKey];
+            const is_watched = watched_list?.includes(target.raw_label) ?? false;
+            const next_overrides = is_watched
+                ? remove_watched_metric(
+                      current ?? {},
+                      target.provider,
+                      target.accountKey,
+                      target.raw_label,
+                  )
+                : add_watched_metric(current, target.provider, target.accountKey, target.raw_label);
+            set_account_overrides(next_overrides);
+            patchConfig({ accountOverrides: next_overrides });
+        },
+        [account_overrides, patchConfig, set_account_overrides],
+    );
 
     // Drag-and-drop handlers for provider card reordering
     const handle_drag_start = (provider: UsageProvider, rect?: DOMRect) => {
@@ -826,6 +849,8 @@ export function PopupView() {
                                         true
                                     }
                                     accountErrors={accountErrors}
+                                    watchedMetrics={account_overrides?.upcomingResetWatched}
+                                    on_toggle_watched={is_live ? handle_toggle_watched : undefined}
                                 />
                             )}
 

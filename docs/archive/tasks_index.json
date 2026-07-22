@@ -335,6 +335,14 @@
             "status": "done",
             "branch": "t042_web_usage_panel_sse_refresh",
             "note": ""
+        },
+        {
+            "tid": "t043",
+            "title": "即将重置监控改 metric 级显式开启",
+            "slug": "upcoming_reset_metric_watch",
+            "status": "done",
+            "branch": "t043_upcoming_reset_metric_watch",
+            "note": ""
         }
     ]
 }

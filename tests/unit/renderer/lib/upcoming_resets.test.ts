@@ -75,100 +75,151 @@ function group(
     };
 }
 
+/** watchedMetrics[provider][accountId] = raw_label[] — t043 metric-level opt-in. */
+function watched(provider: UsageProvider, accountId: string, labels: string[]) {
+    return { [provider]: { [accountId]: labels } };
+}
+
 describe("collect_upcoming_resets threshold gate", () => {
     it("returns [] when thresholdPercent is null", () => {
         const g = group("claude", [
             { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 7 * DAY })] },
         ]);
-        expect(collect_upcoming_resets([g], { thresholdPercent: null, now: NOW })).toEqual([]);
+        expect(
+            collect_upcoming_resets([g], {
+                thresholdPercent: null,
+                watchedMetrics: watched("claude", "acct0", ["5小时"]),
+                now: NOW,
+            }),
+        ).toEqual([]);
     });
 
     it("returns [] when thresholdPercent is undefined (feature off)", () => {
         const g = group("claude", [
             { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 7 * DAY })] },
         ]);
-        expect(collect_upcoming_resets([g], { now: NOW })).toEqual([]);
-    });
-
-    it("returns [] when options is undefined entirely", () => {
-        const g = group("claude", [
-            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 7 * DAY })] },
-        ]);
-        expect(collect_upcoming_resets([g])).toEqual([]);
+        expect(
+            collect_upcoming_resets([g], {
+                watchedMetrics: watched("claude", "acct0", ["5小时"]),
+                now: NOW,
+            }),
+        ).toEqual([]);
     });
 });
 
-describe("collect_upcoming_resets filtering", () => {
-    it("includes period whose remaining% <= threshold", () => {
+describe("collect_upcoming_resets watchedMetrics gate (t043: default all off)", () => {
+    it("returns [] when watchedMetrics is absent (default off)", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + 0.7 * DAY, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW })).toEqual([]);
+    });
+
+    it("includes watched period whose remaining% <= threshold", () => {
         // cycle 7d, remaining 0.7d → 10%
         const g = group("claude", [
             { periods: [period({ resetAt: NOW + 0.7 * DAY, cycleDurationMs: 7 * DAY })] },
         ]);
-        const result = collect_upcoming_resets([g], { thresholdPercent: 10, now: NOW });
+        const result = collect_upcoming_resets([g], {
+            thresholdPercent: 10,
+            watchedMetrics: watched("claude", "acct0", ["5小时"]),
+            now: NOW,
+        });
         expect(result).toHaveLength(1);
         expect(result[0]?.resetAt).toBe(NOW + 0.7 * DAY);
+        expect(result[0]?.rawLabel).toBe("5小时");
     });
 
-    it("excludes period whose remaining% > threshold", () => {
-        // cycle 7d, remaining 5d → ~71.4%, threshold 50
+    it("excludes period whose raw_label is not watched", () => {
         const g = group("claude", [
-            { periods: [period({ resetAt: NOW + 5 * DAY, cycleDurationMs: 7 * DAY })] },
-        ]);
-        expect(collect_upcoming_resets([g], { thresholdPercent: 50, now: NOW })).toHaveLength(0);
-    });
-
-    it("skips period with cycleDurationMs null", () => {
-        const g = group("claude", [
-            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: null })] },
-        ]);
-        expect(collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW })).toHaveLength(0);
-    });
-
-    it("skips period with cycleDurationMs 0", () => {
-        const g = group("claude", [
-            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 0 })] },
-        ]);
-        expect(collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW })).toHaveLength(0);
-    });
-
-    it("skips period with resetAt null", () => {
-        const g = group("claude", [
-            { periods: [period({ resetAt: null, cycleDurationMs: 7 * DAY })] },
-        ]);
-        expect(collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW })).toHaveLength(0);
-    });
-
-    it("skips period with resetAt <= now (already reset)", () => {
-        const g = group("claude", [
-            { periods: [period({ resetAt: NOW - 1000, cycleDurationMs: 7 * DAY })] },
-        ]);
-        expect(collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW })).toHaveLength(0);
-    });
-
-    it("excludes account listed in offAccounts", () => {
-        const g = group("claude", [
-            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 7 * DAY })] },
+            { periods: [period({ resetAt: NOW + 0.7 * DAY, cycleDurationMs: 7 * DAY })] },
         ]);
         expect(
             collect_upcoming_resets([g], {
                 thresholdPercent: 100,
-                offAccounts: { claude: ["acct0"] },
+                watchedMetrics: watched("claude", "acct0", ["其他标签"]),
                 now: NOW,
             }),
         ).toHaveLength(0);
     });
 
-    it("keeps account not listed in offAccounts", () => {
+    it("excludes period whose account is not watched", () => {
         const g = group("claude", [
-            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: 7 * DAY })] },
+            { periods: [period({ resetAt: NOW + 0.7 * DAY, cycleDurationMs: 7 * DAY })] },
         ]);
         expect(
             collect_upcoming_resets([g], {
                 thresholdPercent: 100,
-                offAccounts: { claude: ["other"] },
+                watchedMetrics: watched("claude", "other", ["5小时"]),
                 now: NOW,
             }),
-        ).toHaveLength(1);
+        ).toHaveLength(0);
+    });
+
+    it("excludes period whose provider is not watched", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + 0.7 * DAY, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(
+            collect_upcoming_resets([g], {
+                thresholdPercent: 100,
+                watchedMetrics: watched("kimi", "acct0", ["5小时"]),
+                now: NOW,
+            }),
+        ).toHaveLength(0);
+    });
+
+    it("excludes watched period whose remaining% > threshold", () => {
+        // cycle 7d, remaining 5d → ~71.4%, threshold 50
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + 5 * DAY, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(
+            collect_upcoming_resets([g], {
+                thresholdPercent: 50,
+                watchedMetrics: watched("claude", "acct0", ["5小时"]),
+                now: NOW,
+            }),
+        ).toHaveLength(0);
+    });
+
+    it("skips watched period with cycleDurationMs null", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW + DAY, cycleDurationMs: null })] },
+        ]);
+        expect(
+            collect_upcoming_resets([g], {
+                thresholdPercent: 100,
+                watchedMetrics: watched("claude", "acct0", ["5小时"]),
+                now: NOW,
+            }),
+        ).toHaveLength(0);
+    });
+
+    it("skips watched period with resetAt null", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: null, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(
+            collect_upcoming_resets([g], {
+                thresholdPercent: 100,
+                watchedMetrics: watched("claude", "acct0", ["5小时"]),
+                now: NOW,
+            }),
+        ).toHaveLength(0);
+    });
+
+    it("skips watched period with resetAt <= now (already reset)", () => {
+        const g = group("claude", [
+            { periods: [period({ resetAt: NOW - 1000, cycleDurationMs: 7 * DAY })] },
+        ]);
+        expect(
+            collect_upcoming_resets([g], {
+                thresholdPercent: 100,
+                watchedMetrics: watched("claude", "acct0", ["5小时"]),
+                now: NOW,
+            }),
+        ).toHaveLength(0);
     });
 });
 
@@ -194,12 +245,16 @@ describe("collect_upcoming_resets output shape", () => {
                 ],
             },
         ]);
-        const result = collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW });
+        const result = collect_upcoming_resets([g], {
+            thresholdPercent: 100,
+            watchedMetrics: watched("deepseek", "acct0", ["5小时"]),
+            now: NOW,
+        });
         expect(result[0]?.percent).toBe(100); // clamp 120 → 100 (sorted first by resetAt)
         expect(result[1]?.percent).toBe(63); // 5/8 = 62.5 → 63
     });
 
-    it("reports percent 0 when used/limit invalid", () => {
+    it("reports percent 0 when watched period has invalid used/limit", () => {
         const g = group("claude", [
             {
                 periods: [
@@ -208,7 +263,11 @@ describe("collect_upcoming_resets output shape", () => {
                 ],
             },
         ]);
-        const result = collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW });
+        const result = collect_upcoming_resets([g], {
+            thresholdPercent: 100,
+            watchedMetrics: watched("claude", "acct0", ["5小时"]),
+            now: NOW,
+        });
         expect(result.map((r) => r.percent)).toEqual([0, 0]);
     });
 
@@ -222,7 +281,11 @@ describe("collect_upcoming_resets output shape", () => {
                 ],
             },
         ]);
-        const result = collect_upcoming_resets([g], { thresholdPercent: 100, now: NOW });
+        const result = collect_upcoming_resets([g], {
+            thresholdPercent: 100,
+            watchedMetrics: watched("claude", "acct0", ["一周", "5小时", "一月"]),
+            now: NOW,
+        });
         expect(result.map((r) => r.resetAt)).toEqual([NOW + DAY, NOW + 3 * DAY, NOW + 5 * DAY]);
     });
 
@@ -231,11 +294,24 @@ describe("collect_upcoming_resets output shape", () => {
         const g2 = group("kimi", [
             { periods: [period({ provider: "kimi", resetAt: NOW + 1 * DAY })] },
         ]);
-        const result = collect_upcoming_resets([g1, g2], { thresholdPercent: 100, now: NOW });
+        const result = collect_upcoming_resets([g1, g2], {
+            thresholdPercent: 100,
+            watchedMetrics: {
+                claude: { acct0: ["5小时"] },
+                kimi: { acct0: ["5小时"] },
+            },
+            now: NOW,
+        });
         expect(result.map((r) => r.provider)).toEqual(["kimi", "claude"]);
     });
 
     it("returns empty for empty groups", () => {
-        expect(collect_upcoming_resets([], { thresholdPercent: 50, now: NOW })).toEqual([]);
+        expect(
+            collect_upcoming_resets([], {
+                thresholdPercent: 50,
+                watchedMetrics: watched("claude", "acct0", ["5小时"]),
+                now: NOW,
+            }),
+        ).toEqual([]);
     });
 });

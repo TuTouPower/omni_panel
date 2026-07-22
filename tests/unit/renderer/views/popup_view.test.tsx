@@ -1075,6 +1075,12 @@ describe("PopupView", () => {
                 plugins: [],
                 launchAtLogin: false,
                 upcomingResetThresholdPercent: 100,
+                // t043: period 仅当 (provider, accountKey, raw_label) 在 watched 集合才进 upcoming。
+                accountOverrides: {
+                    upcomingResetWatched: {
+                        claude: { "cpa-main|label|Claude Account": ["claude-pro"] },
+                    },
+                },
             },
             hasSecrets: {},
         });

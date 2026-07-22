@@ -28,6 +28,10 @@ interface ProviderAccountRowProps {
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
     error?: string | undefined;
+    /** t043: 当前 account 下已监控的 raw_label 集合。 */
+    watched_labels?: ReadonlySet<string> | undefined;
+    /** t043: 切换某个 raw_label 的即将重置监控。 */
+    on_toggle_watched?: ((raw_label: string) => void) | undefined;
 }
 
 export const ProviderAccountRow = memo(function ProviderAccountRow({
@@ -45,6 +49,8 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
     desensitizeRemarks = false,
     forcePercent = false,
     error: _error,
+    watched_labels,
+    on_toggle_watched,
 }: ProviderAccountRowProps) {
     const display_label = desensitizeRemarks ? "" : account.accountLabel;
 
@@ -150,6 +156,8 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 barStyle={barStyle}
                 labelMap={labelMap}
                 forcePercent={forcePercent}
+                watched_labels={watched_labels}
+                on_toggle_watched={on_toggle_watched}
             />
             {!collapsed &&
                 account.periods.map((period) => {

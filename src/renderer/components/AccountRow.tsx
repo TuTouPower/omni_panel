@@ -17,10 +17,6 @@ interface AccountRowProps {
     on_unhide?: () => void;
     on_clear?: () => void;
     on_rename?: () => void;
-    /** t041: upcoming-reset monitoring is OFF for this account. */
-    upcoming_reset_off?: boolean | undefined;
-    /** t041: toggle upcoming-reset monitoring. */
-    on_toggle_upcoming?: (() => void) | undefined;
     desensitizeRemarks?: boolean | undefined;
 }
 
@@ -65,8 +61,6 @@ export function AccountRow({
     on_unhide,
     on_clear,
     on_rename,
-    upcoming_reset_off = false,
-    on_toggle_upcoming,
     desensitizeRemarks = false,
 }: AccountRowProps) {
     const is_cpa_child = mode === "cpa-child";
@@ -98,21 +92,6 @@ export function AccountRow({
                 </span>
             )}
             <div className="ar-actions">
-                {on_toggle_upcoming && (
-                    <button
-                        className="sp-ic"
-                        title="是否监控即将重置"
-                        aria-label="是否监控即将重置"
-                        aria-pressed={!upcoming_reset_off}
-                        onClick={on_toggle_upcoming}
-                    >
-                        <Icon
-                            name="bell"
-                            size={15}
-                            style={{ opacity: upcoming_reset_off ? 0.35 : 1 }}
-                        />
-                    </button>
-                )}
                 {is_cpa_child ? (
                     is_removed ? (
                         <button

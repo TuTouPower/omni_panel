@@ -7,6 +7,7 @@ import type { ProviderUsageAccount, ProviderUsagePeriod } from "../lib/provider-
 import { format_usage_period_label } from "../lib/provider-usage";
 import { format_reset_time, relative_time } from "../lib/utils";
 import { bar_fill_color, DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
+import { Icon } from "./Icon";
 
 interface UsageBarRowProps {
     period: Pick<
@@ -25,6 +26,10 @@ interface UsageBarRowProps {
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
     forcePercent?: boolean | undefined;
+    /** t043: 该 (provider, accountKey, raw_label) 是否监控即将重置。 */
+    watched?: boolean | undefined;
+    /** t043: 切换该 period 的即将重置监控。 */
+    on_toggle_watched?: (() => void) | undefined;
 }
 
 export function split_reset_time(value: string): { date: string; clock: string } {
@@ -57,6 +62,8 @@ export const UsageBarRow = memo(function UsageBarRow({
     barStyle = "thin",
     labelMap,
     forcePercent = false,
+    watched = false,
+    on_toggle_watched,
 }: UsageBarRowProps) {
     const label = format_usage_period_label(period.raw_label, period.name, labelMap);
     const elapsed =
@@ -114,6 +121,17 @@ export const UsageBarRow = memo(function UsageBarRow({
             {barStyle === "thin" && <span className="bar-pct">{value}</span>}
             <span className="bar-reset">{date}</span>
             <span className="bar-clock">{clock}</span>
+            {on_toggle_watched && (
+                <button
+                    className="sp-ic bar-watch"
+                    title="监控该数据标签的即将重置"
+                    aria-label="监控该数据标签的即将重置"
+                    aria-pressed={watched}
+                    onClick={on_toggle_watched}
+                >
+                    <Icon name="bell" size={15} style={{ opacity: watched ? 1 : 0.35 }} />
+                </button>
+            )}
         </div>
     );
 });

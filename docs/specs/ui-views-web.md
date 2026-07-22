@@ -12,7 +12,7 @@
 
 - `ProviderNav` — 顶部 provider 导航 tab（总览 + 各 provider）
 - `ProviderOverview` — 概览聚合卡片
-- `UpcomingResetBanner` / `UpcomingResetRail` — 即将重置横幅 + 右侧轨道（t005，`<1024px` 仅 banner，`≥1024px` 出现右侧 sticky rail）；t041 起 threshold（`upcomingResetThresholdPercent`）为 null 时整体不渲染，非 null 时 `collect_upcoming_resets` 按剩余%（`(resetAt-now)/cycleDurationMs*100 ≤ threshold`）+ 账号级开关（`accountOverrides.upcomingResetOff`）过滤
+- `UpcomingResetBanner` / `UpcomingResetRail` — 即将重置横幅 + 右侧轨道（t005，`<1024px` 仅 banner，`≥1024px` 出现右侧 sticky rail）；t041 起 threshold（`upcomingResetThresholdPercent`）为 null 时整体不渲染，非 null 时 `collect_upcoming_resets` 按剩余%（`(resetAt-now)/cycleDurationMs*100 ≤ threshold`）+ metric 级显式开启（`accountOverrides.upcomingResetWatched`，默认全关；period 仅当 (provider,accountKey,raw_label) 在 watched 集合才进面板）过滤。主面板 period 行 bell toggle 控监控开关（t043，取代 t041 account 级开关）。
 - `ProviderAccountList` → `ProviderAccountRow` — 单 provider 账号列表 / 账号行
 - `TrendSparkline` — 账号展开时趋势迷你图（t006，懒加载 `trend:get`，缓存 key `${provider}||${accountId}||${metricId}`）
 - `DragGrip` — 账号行拖拽手柄（仅提供 `onDragStart` 时渲染）

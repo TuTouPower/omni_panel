@@ -66,7 +66,7 @@ const floatingBoundsSchema = z.object({
 
 const accountOverridesSchema = z.object({
     hidden: z.record(z.array(z.string())).optional(),
-    upcomingResetOff: z.record(z.array(z.string())).optional(),
+    upcomingResetWatched: z.record(z.record(z.array(z.string()))).optional(),
 });
 
 export const appConfigurationSchema = z.object({

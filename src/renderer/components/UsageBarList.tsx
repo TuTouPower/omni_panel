@@ -15,6 +15,10 @@ interface UsageBarListProps {
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
     forcePercent?: boolean | undefined;
+    /** t043: 当前 account 下已监控的 raw_label 集合。 */
+    watched_labels?: ReadonlySet<string> | undefined;
+    /** t043: 切换某个 raw_label 的即将重置监控。 */
+    on_toggle_watched?: ((raw_label: string) => void) | undefined;
 }
 
 export function UsageBarList({
@@ -24,6 +28,8 @@ export function UsageBarList({
     barStyle = "thin",
     labelMap,
     forcePercent = false,
+    watched_labels,
+    on_toggle_watched,
 }: UsageBarListProps) {
     return (
         <div className={className}>
@@ -36,6 +42,14 @@ export function UsageBarList({
                     barStyle={barStyle}
                     labelMap={labelMap}
                     forcePercent={forcePercent}
+                    watched={watched_labels?.has(period.raw_label) ?? false}
+                    on_toggle_watched={
+                        on_toggle_watched
+                            ? () => {
+                                  on_toggle_watched(period.raw_label);
+                              }
+                            : undefined
+                    }
                 />
             ))}
         </div>

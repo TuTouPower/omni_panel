@@ -22,8 +22,13 @@ export interface FloatingBoundsConfiguration {
 
 export interface AccountOverrides {
     readonly hidden?: Readonly<Partial<Record<UsageProvider, readonly string[]>>>;
-    /** t041: 列出的 accountKey 不进「即将重置」面板（结构同 hidden）。 */
-    readonly upcomingResetOff?: Readonly<Partial<Record<UsageProvider, readonly string[]>>>;
+    /**
+     * t043: 显式开启「即将重置」监控的 (provider → accountKey → raw_label[])。
+     * 缺省/空 = 全关；用户在主面板 metric 行逐个显式开启。
+     */
+    readonly upcomingResetWatched?: Readonly<
+        Partial<Record<UsageProvider, Readonly<Partial<Record<string, readonly string[]>>>>>
+    >;
 }
 
 export type AccountLabels = Readonly<

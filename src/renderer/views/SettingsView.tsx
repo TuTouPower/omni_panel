@@ -13,7 +13,7 @@ import {
     remove_account_override,
     set_account_label,
 } from "../lib/account-overrides";
-import { accountKey, PROVIDER_LABELS } from "../lib/provider-usage";
+import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { AddAccountDialog } from "../components/AddAccountDialog";
@@ -28,7 +28,6 @@ import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc
 import type {
     ConnectorConfiguration,
     AppConfiguration,
-    AccountOverrides,
     MainPanelMode,
     FloatingHeightMode,
     UsageBarColorScheme,
@@ -779,7 +778,7 @@ export function SettingsView() {
     }, [pluginInfos]);
 
     const restoreOverrideAccount = useCallback(
-        (provider: UsageProvider, key: string, kind: "hidden" | "upcomingResetOff") => {
+        (provider: UsageProvider, key: string, kind: "hidden") => {
             if (!config?.accountOverrides) return;
             const newOverrides = remove_account_override(
                 config.accountOverrides,
@@ -802,47 +801,6 @@ export function SettingsView() {
                 item.accountId,
             );
             void save_config({ ...config, accountOverrides: newOverrides });
-        },
-        [config, save_config],
-    );
-
-    // t041：切换账号「是否监控即将重置」，accountKey 与 collect_upcoming_resets 对齐。
-    const toggle_upcoming_reset = useCallback(
-        (provider: UsageProvider, key: string) => {
-            if (!config) return;
-            const overrides = config.accountOverrides;
-            const is_off = overrides?.upcomingResetOff?.[provider]?.includes(key) ?? false;
-            const newOverrides =
-                is_off && overrides
-                    ? remove_account_override(overrides, "upcomingResetOff", provider, key)
-                    : add_account_override(overrides, "upcomingResetOff", provider, key);
-            void save_config({ ...config, accountOverrides: newOverrides });
-        },
-        [config, save_config],
-    );
-
-    // t041：直连 connector 单 instance 可能返回多账号 MetricRecord，bell 按钮一次
-    // 切换该 instance 全部 accountKey。all_off → 剩余全开；否则全部关闭。
-    const toggle_upcoming_reset_keys = useCallback(
-        (provider: UsageProvider, keys: readonly string[]) => {
-            if (!config || keys.length === 0) return;
-            const current = config.accountOverrides;
-            const off_list = current?.upcomingResetOff?.[provider] ?? [];
-            const off_set = new Set(off_list);
-            const turn_off = !keys.every((key) => off_set.has(key));
-            // turn_off=false → off_set 含全部 key → current 必已定义；
-            // turn_off=true → 每轮 add_account_override 返回非 undefined。
-            // 故循环结束 next 必为 AccountOverrides，下方 guard 仅为 TS narrow。
-            let next: AccountOverrides | undefined = current;
-            for (const key of keys) {
-                next = turn_off
-                    ? add_account_override(next, "upcomingResetOff", provider, key)
-                    : next
-                      ? remove_account_override(next, "upcomingResetOff", provider, key)
-                      : next;
-            }
-            if (!next) return;
-            void save_config({ ...config, accountOverrides: next });
         },
         [config, save_config],
     );
@@ -1539,32 +1497,11 @@ export function SettingsView() {
                                                     : plugin.enabled
                                                       ? "未连接"
                                                       : "已停用";
-                                                const items =
-                                                    info && plugin.enabled
-                                                        ? snapshot_items(info)
-                                                        : [];
-                                                const can_toggle_upcoming =
-                                                    provider_id !== "overview" && items.length > 0;
-                                                const off_list = can_toggle_upcoming
-                                                    ? (config.accountOverrides?.upcomingResetOff?.[
-                                                          provider_id
-                                                      ] ?? [])
-                                                    : [];
-                                                const all_off =
-                                                    items.length > 0 &&
-                                                    items.every((item) =>
-                                                        off_list.includes(accountKey(item)),
-                                                    );
                                                 const row = {
                                                     instance_id: plugin.instanceId,
                                                     account_label: info?.displayName ?? "",
                                                     enabled: plugin.enabled,
                                                     status: map_status(status_label),
-                                                    upcoming_reset_off:
-                                                        can_toggle_upcoming && all_off
-                                                            ? true
-                                                            : undefined,
-                                                    can_toggle_upcoming,
                                                 };
                                                 if (existing) {
                                                     existing.instance_ids.push(plugin.instanceId);
@@ -1631,25 +1568,6 @@ export function SettingsView() {
                                                                         instance_id,
                                                                 );
                                                             }}
-                                                            on_toggle_upcoming={(instance_id) => {
-                                                                if (provider_id === "overview")
-                                                                    return;
-                                                                const info = pluginInfos.find(
-                                                                    (p) =>
-                                                                        p.instanceId ===
-                                                                        instance_id,
-                                                                );
-                                                                if (!info) return;
-                                                                const items = snapshot_items(info);
-                                                                if (items.length === 0) return;
-                                                                const keys = items.map((item) =>
-                                                                    accountKey(item),
-                                                                );
-                                                                toggle_upcoming_reset_keys(
-                                                                    provider_id as UsageProvider,
-                                                                    keys,
-                                                                );
-                                                            }}
                                                             desensitizeRemarks={
                                                                 config.uiDesensitizeRemarks === true
                                                             }
@@ -1695,11 +1613,6 @@ export function SettingsView() {
                                                                         item.provider
                                                                     ]?.includes(item.accountId) ??
                                                                     false;
-                                                                const acct_key = accountKey(item);
-                                                                const is_upcoming_off =
-                                                                    config.accountOverrides?.upcomingResetOff?.[
-                                                                        item.provider
-                                                                    ]?.includes(acct_key) ?? false;
                                                                 const mapped_status:
                                                                     | "ok"
                                                                     | "error"
@@ -1720,9 +1633,6 @@ export function SettingsView() {
                                                                     status: mapped_status,
                                                                     is_hidden,
                                                                     is_removed: false,
-                                                                    upcoming_reset_off:
-                                                                        is_upcoming_off ||
-                                                                        undefined,
                                                                 };
                                                             })}
                                                             on_toggle={() => {
@@ -1781,20 +1691,6 @@ export function SettingsView() {
                                                                     target.provider as UsageProvider,
                                                                     target.account_id,
                                                                     "hidden",
-                                                                );
-                                                            }}
-                                                            on_toggle_upcoming={(target) => {
-                                                                const item = items.find(
-                                                                    (it) =>
-                                                                        it.provider ===
-                                                                            target.provider &&
-                                                                        it.accountId ===
-                                                                            target.account_id,
-                                                                );
-                                                                if (!item) return;
-                                                                toggle_upcoming_reset(
-                                                                    item.provider,
-                                                                    accountKey(item),
                                                                 );
                                                             }}
                                                             on_rename={(target) => {

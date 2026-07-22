@@ -549,6 +549,7 @@ export interface UpcomingResetItem {
     provider: UsageProvider;
     accountLabel: string;
     accountId: string;
+    rawLabel: string;
     metricLabel: string;
     resetAt: number;
     percent: number;
@@ -558,28 +559,32 @@ export interface UpcomingResetItem {
 /**
  * Collect accounts whose reset is "upcoming" — remaining time within the cycle
  * has dropped to ≤ thresholdPercent of the full cycle. `thresholdPercent` null
- * /undefined → feature off, returns []. `offAccounts` lists accountKeys
- * excluded per-provider (structure mirrors `hidden`). Periods lacking
- * `cycleDurationMs` (null/0/missing) or `resetAt` (null/≤now) are skipped.
+ * /undefined → feature off, returns []. t043: a period only enters if its
+ * (provider, accountKey, raw_label) is explicitly listed in `watchedMetrics`
+ * (default absent → all off). Periods lacking `cycleDurationMs`
+ * (null/0/missing) or `resetAt` (null/≤now) are skipped.
  */
 export function collect_upcoming_resets(
     groups: readonly ProviderUsageGroup[],
     options?: {
         thresholdPercent?: number | null | undefined;
-        offAccounts?: AccountOverrides["upcomingResetOff"];
+        watchedMetrics?: AccountOverrides["upcomingResetWatched"];
         now?: number;
     },
 ): UpcomingResetItem[] {
     const threshold = options?.thresholdPercent;
     if (threshold === null || threshold === undefined) return [];
     const now = options?.now ?? Date.now();
-    const off_accounts = options?.offAccounts;
+    const watched = options?.watchedMetrics;
     const items: UpcomingResetItem[] = [];
     for (const group of groups) {
-        const off_set = new Set([...(off_accounts?.[group.provider] ?? [])]);
+        const provider_watched = watched?.[group.provider];
         for (const account of group.accounts) {
-            if (off_set.has(account.id)) continue;
+            const watched_labels = provider_watched?.[account.id];
+            if (!watched_labels || watched_labels.length === 0) continue;
+            const watched_set = new Set(watched_labels);
             for (const period of account.periods) {
+                if (!watched_set.has(period.raw_label)) continue;
                 if (period.resetAt === null) continue;
                 if (period.resetAt <= now) continue;
                 const cycle = period.cycleDurationMs;
@@ -600,6 +605,7 @@ export function collect_upcoming_resets(
                     provider: group.provider,
                     accountLabel: account.accountLabel,
                     accountId: account.accountId,
+                    rawLabel: period.raw_label,
                     metricLabel: period.display_label ?? period.raw_label,
                     resetAt: period.resetAt,
                     percent,

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { UsageBarRow, split_reset_time } from "../../../../src/renderer/components/UsageRows";
 import type { ProviderUsagePeriod } from "../../../../src/renderer/lib/provider-usage";
@@ -108,5 +109,47 @@ describe("UsageBarRow", () => {
         );
         expect(container.querySelector(".bar-pct")?.textContent).toBe("30%");
         expect(container.querySelector(".bar-row.frac")).not.toBeInTheDocument();
+    });
+});
+
+describe("UsageBarRow upcoming-reset watch toggle (t043)", () => {
+    it("renders bell button when on_toggle_watched provided", () => {
+        render(<UsageBarRow period={make_period()} index={0} on_toggle_watched={vi.fn()} />);
+        const bell = screen.getByRole("button", { name: "监控该数据标签的即将重置" });
+        expect(bell).toBeInTheDocument();
+        expect(bell.getAttribute("title")).toBe("监控该数据标签的即将重置");
+    });
+
+    it("does not render bell button when on_toggle_watched is missing", () => {
+        const { container } = render(<UsageBarRow period={make_period()} index={0} />);
+        expect(container.querySelector(".bar-watch")).not.toBeInTheDocument();
+    });
+
+    it("reflects watched=false via aria-pressed=false and dimmed icon by default", () => {
+        render(<UsageBarRow period={make_period()} index={0} on_toggle_watched={vi.fn()} />);
+        const bell = screen.getByRole("button", { name: "监控该数据标签的即将重置" });
+        expect(bell).toHaveAttribute("aria-pressed", "false");
+        const icon = bell.querySelector("svg");
+        expect(icon).toHaveStyle({ opacity: "0.35" });
+    });
+
+    it("reflects watched=true via aria-pressed=true and full opacity icon", () => {
+        render(
+            <UsageBarRow period={make_period()} index={0} watched on_toggle_watched={vi.fn()} />,
+        );
+        const bell = screen.getByRole("button", { name: "监控该数据标签的即将重置" });
+        expect(bell).toHaveAttribute("aria-pressed", "true");
+        const icon = bell.querySelector("svg");
+        expect(icon).toHaveStyle({ opacity: "1" });
+    });
+
+    it("invokes on_toggle_watched callback on click", async () => {
+        const user = userEvent.setup();
+        const on_toggle_watched = vi.fn();
+        render(
+            <UsageBarRow period={make_period()} index={0} on_toggle_watched={on_toggle_watched} />,
+        );
+        await user.click(screen.getByRole("button", { name: "监控该数据标签的即将重置" }));
+        expect(on_toggle_watched).toHaveBeenCalledTimes(1);
     });
 });

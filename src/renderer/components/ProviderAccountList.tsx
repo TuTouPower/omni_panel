@@ -1,4 +1,5 @@
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
+import type { AccountOverrides } from "../../shared/types/config";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { AccountError, ProviderUsageGroup } from "../lib/provider-usage";
 import { ProviderAccountRow } from "./ProviderAccountRow";
@@ -23,6 +24,12 @@ interface ProviderAccountListProps {
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
     accountErrors?: Readonly<Map<string, AccountError>> | undefined;
+    /** t043: 即将重置监控的 metric 白名单（provider → accountKey → raw_label[]）。 */
+    watchedMetrics?: AccountOverrides["upcomingResetWatched"] | undefined;
+    /** t043: 切换某个 (provider, accountKey, raw_label) 的即将重置监控。 */
+    on_toggle_watched?:
+        | ((target: { provider: UsageProvider; accountKey: string; raw_label: string }) => void)
+        | undefined;
 }
 
 export function ProviderAccountList({
@@ -43,6 +50,8 @@ export function ProviderAccountList({
     desensitizeRemarks = false,
     forcePercent = false,
     accountErrors,
+    watchedMetrics,
+    on_toggle_watched,
 }: ProviderAccountListProps) {
     void _onReLogin;
     const per_provider_map = providerLabelMaps?.[group.provider] ?? {};
@@ -63,6 +72,18 @@ export function ProviderAccountList({
                         ? { ...labelMap, ...per_account_map, ...per_provider_map }
                         : labelMap;
 
+                const watched_for_account = watchedMetrics?.[group.provider]?.[account.id];
+                const watched_set = watched_for_account ? new Set(watched_for_account) : undefined;
+                const toggle_for_account = on_toggle_watched
+                    ? (raw_label: string) => {
+                          on_toggle_watched({
+                              provider: group.provider,
+                              accountKey: account.id,
+                              raw_label,
+                          });
+                      }
+                    : undefined;
+
                 if (!onToggleAccount) {
                     return (
                         <ProviderAccountRow
@@ -74,6 +95,8 @@ export function ProviderAccountList({
                             desensitizeRemarks={desensitizeRemarks}
                             forcePercent={forcePercent}
                             error={accountErrors?.get(account.id)?.error}
+                            watched_labels={watched_set}
+                            on_toggle_watched={toggle_for_account}
                         />
                     );
                 }
@@ -109,6 +132,8 @@ export function ProviderAccountList({
                         desensitizeRemarks={desensitizeRemarks}
                         forcePercent={forcePercent}
                         error={accountErrors?.get(account.id)?.error}
+                        watched_labels={watched_set}
+                        on_toggle_watched={toggle_for_account}
                     />
                 );
             })}

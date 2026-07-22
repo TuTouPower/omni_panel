@@ -9,7 +9,6 @@ interface CpaCardRow {
     status: "ok" | "error" | "auth" | "disabled" | "unknown";
     is_hidden: boolean;
     is_removed: boolean;
-    upcoming_reset_off?: boolean | undefined;
 }
 
 interface CpaCardProps {
@@ -26,7 +25,6 @@ interface CpaCardProps {
     on_unhide: (target: { provider: string; account_id: string }) => void;
     on_clear: (target: { provider: string; account_id: string }) => void;
     on_rename: (target: { provider: string; account_id: string }) => void;
-    on_toggle_upcoming?: (target: { provider: string; account_id: string }) => void;
     desensitizeRemarks?: boolean | undefined;
 }
 
@@ -59,7 +57,6 @@ export function CpaCard({
     on_unhide,
     on_clear,
     on_rename,
-    on_toggle_upcoming,
     desensitizeRemarks = false,
 }: CpaCardProps) {
     const cpa_status = get_cpa_status(status, enabled);
@@ -113,17 +110,6 @@ export function CpaCard({
                     status={row.status}
                     is_hidden={row.is_hidden}
                     is_removed={row.is_removed}
-                    upcoming_reset_off={row.upcoming_reset_off}
-                    on_toggle_upcoming={
-                        on_toggle_upcoming
-                            ? () => {
-                                  on_toggle_upcoming({
-                                      provider: row.provider,
-                                      account_id: row.account_id,
-                                  });
-                              }
-                            : undefined
-                    }
                     desensitizeRemarks={desensitizeRemarks}
                     on_hide={() => {
                         on_hide({ provider: row.provider, account_id: row.account_id });

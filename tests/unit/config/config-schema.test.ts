@@ -95,7 +95,22 @@ describe("appConfigurationSchema", () => {
         ).toThrow();
     });
 
-    it("accepts accountOverrides.upcomingResetOff", () => {
+    it("accepts accountOverrides.upcomingResetWatched (t043)", () => {
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            accountOverrides: {
+                upcomingResetWatched: { claude: { "si1|acct1": ["5小时"] } },
+            },
+        });
+        expect(parsed.accountOverrides?.upcomingResetWatched?.["claude"]?.["si1|acct1"]).toEqual([
+            "5小时",
+        ]);
+    });
+
+    it("t043: strips legacy upcomingResetOff on load (migration to watched)", () => {
         const parsed = appConfigurationSchema.parse({
             schemaVersion: 1,
             language: "zh-Hans",
@@ -105,6 +120,7 @@ describe("appConfigurationSchema", () => {
                 upcomingResetOff: { claude: ["si1|acct1"] },
             },
         });
-        expect(parsed.accountOverrides?.upcomingResetOff?.["claude"]).toEqual(["si1|acct1"]);
+        expect(parsed.accountOverrides).not.toHaveProperty("upcomingResetOff");
+        expect(parsed.accountOverrides?.upcomingResetWatched).toBeUndefined();
     });
 });

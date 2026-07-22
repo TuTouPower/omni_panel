@@ -258,19 +258,4 @@ describe("CpaCard", () => {
         // No group headers in flat layout
         expect(screen.queryByText("2 个")).not.toBeInTheDocument();
     });
-
-    it("t041: passes on_toggle_upcoming per child row with target payload", async () => {
-        const user = userEvent.setup();
-        const on_toggle_upcoming = vi.fn();
-        render_card({ on_toggle_upcoming });
-        // Claude child row is the first non-ds-row; its bell should fire target.
-        const claude_row = document.querySelector<HTMLElement>(".acc-row:not(.ds-row)");
-        const bell = claude_row?.querySelector('button[aria-label="是否监控即将重置"]');
-        if (!bell) throw new Error("missing upcoming bell on Claude child row");
-        await user.click(bell);
-        expect(on_toggle_upcoming).toHaveBeenCalledWith({
-            provider: "claude",
-            account_id: "claude-account",
-        });
-    });
 });
