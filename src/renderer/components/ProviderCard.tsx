@@ -7,7 +7,11 @@ import {
     resolve_convergent_time,
 } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
-import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
+import type {
+    AccountOverrides,
+    UsageBarColorScheme,
+    UsageBarStyle,
+} from "../../shared/types/config";
 import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
@@ -16,6 +20,7 @@ import { CollapsibleCard } from "./CollapsibleCard";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
 import { AccountUsageRow } from "./UsageRows";
+import type { ToggleWatchedMetric } from "../hooks/use_watched_metric_toggler";
 
 interface ProviderCardProps {
     provider: UsageProvider;
@@ -44,6 +49,10 @@ interface ProviderCardProps {
     convergentTimeMinutes?: number | undefined;
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
+    /** t046: account 级即将重置监控（upcomingResetWatched）。 */
+    watchedMetrics?: AccountOverrides["upcomingResetWatched"] | undefined;
+    /** t046: 切换 (provider, accountKey, raw_label) 监控。 */
+    on_toggle_watched?: ToggleWatchedMetric | undefined;
 }
 
 type CardStatus = "loading" | "ready" | "failed" | "empty";
@@ -84,6 +93,8 @@ export const ProviderCard = memo(function ProviderCard({
     convergentTimeMinutes,
     desensitizeRemarks = false,
     forcePercent = false,
+    watchedMetrics,
+    on_toggle_watched,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
@@ -325,6 +336,18 @@ export const ProviderCard = memo(function ProviderCard({
                         labelMap={label_map_for_account(account)}
                         desensitizeRemarks={desensitizeRemarks}
                         forcePercent={forcePercent}
+                        watched_labels={new Set(watchedMetrics?.[provider]?.[account.id] ?? [])}
+                        on_toggle_watched={
+                            on_toggle_watched
+                                ? (raw_label) => {
+                                      on_toggle_watched({
+                                          provider,
+                                          accountKey: account.id,
+                                          raw_label,
+                                      });
+                                  }
+                                : undefined
+                        }
                     />
                 ))}
             </div>

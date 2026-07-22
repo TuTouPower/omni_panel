@@ -359,6 +359,22 @@
             "status": "done",
             "branch": "t045_auto_refresh_after_import",
             "note": ""
+        },
+        {
+            "tid": "t047",
+            "title": "主面板 account 数据标签行缺失监控即将重置 bell",
+            "slug": "fix_account_row_reset_bell",
+            "status": "dropped",
+            "branch": "",
+            "note": "dropped: 误建，t046 已存在"
+        },
+        {
+            "tid": "t046",
+            "title": "修复主面板 account 数据标签行缺失监控 bell",
+            "slug": "fix_account_usage_row_watch_toggle",
+            "status": "done",
+            "branch": "t046_fix_account_usage_row_watch_toggle",
+            "note": ""
         }
     ]
 }

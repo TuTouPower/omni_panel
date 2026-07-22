@@ -638,6 +638,8 @@ export function PopupView() {
                                     convergentTimeMinutes={convergent_time_minutes}
                                     desensitizeRemarks={ui_desensitize_remarks}
                                     providerForcePercent={provider_force_percent}
+                                    watchedMetrics={account_overrides?.upcomingResetWatched}
+                                    on_toggle_watched={is_live ? handle_toggle_watched : undefined}
                                 />
                                 {show_upcoming && (
                                     <UpcomingResetRail

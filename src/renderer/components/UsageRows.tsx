@@ -145,6 +145,10 @@ interface AccountUsageRowProps {
     labelMap?: Readonly<Record<string, string>> | undefined;
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
+    /** t046: 当前 account 下已监控的 raw_label 集合。 */
+    watched_labels?: ReadonlySet<string> | undefined;
+    /** t046: 切换某 raw_label 的即将重置监控。 */
+    on_toggle_watched?: ((raw_label: string) => void) | undefined;
 }
 
 export function AccountUsageRow({
@@ -156,6 +160,8 @@ export function AccountUsageRow({
     labelMap,
     desensitizeRemarks = false,
     forcePercent = false,
+    watched_labels,
+    on_toggle_watched,
 }: AccountUsageRowProps) {
     const display_label = desensitizeRemarks ? "" : account.accountLabel;
     return (
@@ -179,6 +185,14 @@ export function AccountUsageRow({
                         barStyle={barStyle}
                         forcePercent={forcePercent}
                         labelMap={labelMap}
+                        watched={watched_labels?.has(period.raw_label) ?? false}
+                        on_toggle_watched={
+                            on_toggle_watched
+                                ? () => {
+                                      on_toggle_watched(period.raw_label);
+                                  }
+                                : undefined
+                        }
                     />
                 ))}
             </div>

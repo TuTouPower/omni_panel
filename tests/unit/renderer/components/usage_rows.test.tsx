@@ -2,8 +2,15 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { UsageBarRow, split_reset_time } from "../../../../src/renderer/components/UsageRows";
-import type { ProviderUsagePeriod } from "../../../../src/renderer/lib/provider-usage";
+import {
+    UsageBarRow,
+    AccountUsageRow,
+    split_reset_time,
+} from "../../../../src/renderer/components/UsageRows";
+import type {
+    ProviderUsageAccount,
+    ProviderUsagePeriod,
+} from "../../../../src/renderer/lib/provider-usage";
 
 function make_period(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsagePeriod {
     return {
@@ -151,5 +158,81 @@ describe("UsageBarRow upcoming-reset watch toggle (t043)", () => {
         );
         await user.click(screen.getByRole("button", { name: "监控该数据标签的即将重置" }));
         expect(on_toggle_watched).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("AccountUsageRow upcoming-reset watch toggle (t046)", () => {
+    function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUsageAccount {
+        return {
+            id: "glm-main",
+            sourceInstanceId: "cpa-main",
+            accountId: "glm-main",
+            accountLabel: "GLM Account",
+            status: "normal",
+            updatedAt: "2026-05-18T12:00:00Z",
+            observedAt: 1747567200000,
+            stale: false,
+            periods: [
+                make_period({ id: "p1", raw_label: "glm-4-plus" }),
+                make_period({ id: "p2", raw_label: "glm-4-air" }),
+            ],
+            ...overrides,
+        };
+    }
+
+    it("renders bell for each period when on_toggle_watched provided", () => {
+        render(
+            <AccountUsageRow
+                account={make_account()}
+                on_toggle_watched={vi.fn()}
+                watched_labels={new Set(["glm-4-plus"])}
+            />,
+        );
+        const bells = screen.getAllByRole("button", { name: "监控该数据标签的即将重置" });
+        expect(bells).toHaveLength(2);
+    });
+
+    it("does not render bells when on_toggle_watched is missing", () => {
+        const { container } = render(
+            <AccountUsageRow account={make_account()} watched_labels={new Set(["glm-4-plus"])} />,
+        );
+        expect(container.querySelectorAll(".bar-watch")).toHaveLength(0);
+    });
+
+    it("reflects watched state per raw_label via aria-pressed", () => {
+        render(
+            <AccountUsageRow
+                account={make_account()}
+                on_toggle_watched={vi.fn()}
+                watched_labels={new Set(["glm-4-plus"])}
+            />,
+        );
+        const bells = screen.getAllByRole("button", { name: "监控该数据标签的即将重置" });
+        // glm-4-plus is watched → aria-pressed=true
+        // glm-4-air is not watched → aria-pressed=false
+        const pressed = bells.map((b) => b.getAttribute("aria-pressed"));
+        expect(pressed).toContain("true");
+        expect(pressed).toContain("false");
+        expect(pressed.filter((v) => v === "true")).toHaveLength(1);
+    });
+
+    it("invokes on_toggle_watched with the period raw_label on click", async () => {
+        const user = userEvent.setup();
+        const on_toggle_watched = vi.fn();
+        render(
+            <AccountUsageRow
+                account={make_account()}
+                on_toggle_watched={on_toggle_watched}
+                watched_labels={new Set()}
+            />,
+        );
+        const bells = screen.getAllByRole("button", { name: "监控该数据标签的即将重置" });
+        expect(bells).toHaveLength(2);
+        const second = bells[1];
+        expect(second).toBeInTheDocument();
+        if (second) {
+            await user.click(second);
+        }
+        expect(on_toggle_watched).toHaveBeenCalledWith("glm-4-air");
     });
 });
