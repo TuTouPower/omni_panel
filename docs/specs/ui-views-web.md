@@ -8,7 +8,7 @@
 
 ### PopupView（用量面板，route=usage）
 
-托盘弹窗用量面板，默认视图。组合：
+托盘弹窗用量面板，默认视图。逻辑经自定义 hook 组织（t044 拆分）：`use_popup_derived`（派生 providerGroups/upcomingItems 等）、`use_dnd_handlers`（拖拽重排）、`use_tab_navigation`（tab 滚轮切换）、`use_watched_metric_toggler`（metric 级监控开关）。组合：
 
 - `ProviderNav` — 顶部 provider 导航 tab（总览 + 各 provider）
 - `ProviderOverview` — 概览聚合卡片

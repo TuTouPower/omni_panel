@@ -5,6 +5,10 @@ import { is_web } from "../lib/is-web";
 import { use_popup_height_report } from "../hooks/use-popup-height-report";
 import { useNowTick } from "../hooks/use-now-tick";
 import { usePopupUiConfig } from "../hooks/use-popup-ui-config";
+import { use_popup_derived } from "../hooks/use_popup_derived";
+import { use_dnd_handlers } from "../hooks/use_dnd_handlers";
+import { use_watched_metric_toggler } from "../hooks/use_watched_metric_toggler";
+import { use_tab_navigation } from "../hooks/use_tab_navigation";
 import { useTheme } from "../lib/theme";
 import { Icon } from "../components/Icon";
 import { ProviderAccountList } from "../components/ProviderAccountList";
@@ -14,19 +18,9 @@ import { TokenPanel } from "../components/TokenPanel";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { UpcomingResetRail } from "../components/UpcomingResetRail";
 import { UpcomingResetBanner } from "../components/UpcomingResetBanner";
-import {
-    build_provider_usage_groups,
-    visible_providers_from_groups,
-    apply_account_overrides,
-    apply_account_labels,
-    collect_upcoming_resets,
-    buildAccountErrors,
-    PROVIDER_ORDER,
-} from "../lib/provider-usage";
-import { add_watched_metric, remove_watched_metric } from "../lib/account-overrides";
+import { PROVIDER_ORDER, type ProviderUsageGroup } from "../lib/provider-usage";
 import type { AppConfiguration } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
-import { compute_drag_reorder, build_reorder_base } from "../lib/drag-reorder";
 import logo from "../assets/logo.svg";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
@@ -40,7 +34,7 @@ function errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
-function structural_signature(groups: ReturnType<typeof build_provider_usage_groups>): string {
+function structural_signature(groups: readonly ProviderUsageGroup[]): string {
     return groups.map((g) => g.provider + ":" + g.accounts.map((a) => a.id).join(",")).join("|");
 }
 
@@ -75,13 +69,6 @@ export function PopupView() {
     const [provider_order, set_provider_order] = useState<UsageProvider[]>([]);
     const save_queue_ref = useRef(Promise.resolve());
     const synced_order_ref = useRef<UsageProvider[]>([]);
-    const [drag_id, set_drag_id] = useState<UsageProvider | null>(null);
-    // Drag-card rect captured on dragStart; picks reorder axis (same row →
-    // "x" horizontal guard, else "y" vertical guard) for T004 D2=B.
-    const [drag_rect, set_drag_rect] = useState<DOMRect | null>(null);
-    const [over_id, set_over_id] = useState<UsageProvider | null>(null);
-    const [account_drag_id, set_account_drag_id] = useState<string | null>(null);
-    const [account_over_id, set_account_over_id] = useState<string | null>(null);
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const synced_account_orders_ref = useRef<Record<string, string[]>>({});
     const mounted_ref = useRef(true);
@@ -263,32 +250,28 @@ export function PopupView() {
     }, [collapsed_accounts, expanded_providers, patchConfig]);
 
     const tabsRef = useRef<HTMLDivElement>(null);
-    const wheel_at_ref = useRef(0);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
     const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
     const scroll_ref = useRef<HTMLDivElement>(null);
 
-    const rawGroups = useMemo(() => build_provider_usage_groups(plugins), [plugins]);
-    const providerGroups = useMemo(
-        () =>
-            apply_account_labels(
-                apply_account_overrides(rawGroups, account_overrides),
-                account_labels,
-            ),
-        [rawGroups, account_overrides, account_labels],
-    );
-    const visibleProviders = useMemo(
-        () => visible_providers_from_groups(rawGroups, plugins),
-        [rawGroups, plugins],
-    );
-    const upcomingItems = useMemo(
-        () =>
-            collect_upcoming_resets(providerGroups, {
-                thresholdPercent: upcoming_reset_threshold_percent,
-                watchedMetrics: account_overrides?.upcomingResetWatched,
-            }),
-        [providerGroups, upcoming_reset_threshold_percent, account_overrides],
-    );
+    const {
+        providerGroups,
+        visibleProviders,
+        upcomingItems,
+        orderedProviders,
+        providerErrors,
+        accountErrors,
+        activeGroup,
+        orderedActiveGroup,
+    } = use_popup_derived({
+        plugins,
+        account_overrides,
+        account_labels,
+        upcoming_reset_threshold_percent,
+        provider_order,
+        active_tab: activeTab,
+        account_orders,
+    });
     // t041：阈值非空时才挂载 Banner/Rail；抽局部常量避免两处 verbatim 重复。
     const show_upcoming = upcoming_reset_threshold_percent != null;
     const select_provider_from_upcoming = useCallback((provider: UsageProvider) => {
@@ -313,32 +296,6 @@ export function PopupView() {
             log.debug("popup usage bar color scheme raw", { usage_bar_color_scheme });
         }
     }, [usage_bar_color_scheme]);
-
-    // Apply persisted order to visible providers
-    const orderedProviders = useMemo(() => {
-        if (provider_order.length === 0) return visibleProviders;
-        const orderSet = new Set(provider_order);
-        const ordered = provider_order.filter((p) => visibleProviders.includes(p));
-        const remaining = visibleProviders.filter((p) => !orderSet.has(p));
-        return [...ordered, ...remaining];
-    }, [visibleProviders, provider_order]);
-    const providerErrors = useMemo(() => {
-        const map = new Map<UsageProvider, { displayName: string; error: string }>();
-        for (const c of plugins) {
-            if (c.snapshot.status !== "failed") continue;
-            for (const p of c.activeProviders) {
-                if (!map.has(p))
-                    map.set(p, { displayName: c.displayName, error: c.snapshot.error });
-            }
-        }
-        return map;
-    }, [plugins]);
-    const accountErrors = useMemo(() => buildAccountErrors(providerGroups), [providerGroups]);
-
-    const activeGroup =
-        activeTab === "overview"
-            ? undefined
-            : providerGroups.find((group) => group.provider === activeTab);
 
     // Prune collapse/expand state when provider/account structure changes,
     // removing entries for accounts/providers that no longer exist.
@@ -455,161 +412,38 @@ export function PopupView() {
         }
     };
 
-    // t043：切换某 (provider, accountKey, raw_label) 的「即将重置」监控。
-    // 默认全关；点击后显式加入 / 移出 watched 集合。
-    const handle_toggle_watched = useCallback(
-        (target: { provider: UsageProvider; accountKey: string; raw_label: string }) => {
-            const current = account_overrides;
-            const watched_list =
-                current?.upcomingResetWatched?.[target.provider]?.[target.accountKey];
-            const is_watched = watched_list?.includes(target.raw_label) ?? false;
-            const next_overrides = is_watched
-                ? remove_watched_metric(
-                      current ?? {},
-                      target.provider,
-                      target.accountKey,
-                      target.raw_label,
-                  )
-                : add_watched_metric(current, target.provider, target.accountKey, target.raw_label);
-            set_account_overrides(next_overrides);
-            patchConfig({ accountOverrides: next_overrides });
-        },
-        [account_overrides, patchConfig, set_account_overrides],
-    );
+    const handle_toggle_watched = use_watched_metric_toggler({
+        account_overrides,
+        set_account_overrides,
+        patchConfig,
+    });
 
-    // Drag-and-drop handlers for provider card reordering
-    const handle_drag_start = (provider: UsageProvider, rect?: DOMRect) => {
-        set_drag_id(provider);
-        set_drag_rect(rect ?? null);
-    };
+    const {
+        drag_id,
+        over_id,
+        account_drag_id,
+        account_over_id,
+        handle_drag_start,
+        handle_drag_enter,
+        handle_drag_over,
+        handle_drag_end,
+        handle_account_drag_start,
+        handle_account_drag_enter,
+        handle_account_drag_end,
+    } = use_dnd_handlers({
+        orderedProviders,
+        activeGroup,
+        activeTab,
+        set_provider_order,
+        set_account_orders,
+    });
 
-    const handle_drag_enter = (provider: UsageProvider) => {
-        if (!drag_id || drag_id === provider) return;
-        set_over_id(provider);
-    };
-
-    // Reorder uses a direction-aware midpoint guard (see compute_drag_reorder).
-    // Axis is picked from drag-card vs over-card rects: same row (top close)
-    // → "x" horizontal guard for multi-column grids (T004 D2=B); otherwise
-    // "y" vertical guard with anti-flicker for single-column lists.
-    const handle_drag_over = (
-        provider: UsageProvider,
-        clientX: number,
-        clientY: number,
-        rect: DOMRect,
-    ) => {
-        if (!drag_id || drag_id === provider) return;
-        set_over_id(provider);
-        set_provider_order((prev) => {
-            const base = build_reorder_base(prev, orderedProviders);
-            const same_row =
-                drag_rect !== null && Math.abs(drag_rect.top - rect.top) < rect.height / 2;
-            const axis: "x" | "y" = same_row ? "x" : "y";
-            const next = compute_drag_reorder(
-                base,
-                drag_id,
-                provider,
-                {
-                    pointer_y: clientY,
-                    rect_top: rect.top,
-                    rect_height: rect.height,
-                    pointer_x: clientX,
-                    rect_left: rect.left,
-                    rect_width: rect.width,
-                },
-                axis,
-            );
-            return next ?? prev;
-        });
-    };
-
-    const handle_drag_end = () => {
-        set_drag_id(null);
-        set_over_id(null);
-        set_drag_rect(null);
-    };
-
-    // Account drag handlers for single-provider tab view
-    const handle_account_drag_start = (accountId: string) => {
-        set_account_drag_id(accountId);
-    };
-
-    const handle_account_drag_enter = (accountId: string) => {
-        if (!account_drag_id || account_drag_id === accountId) return;
-        set_account_over_id(accountId);
-        if (!activeGroup) return;
-        const tabKey = activeTab as string;
-        set_account_orders((prev) => {
-            const baseIds = (prev[tabKey] ?? activeGroup.accounts.map((a) => a.id)).filter((id) =>
-                activeGroup.accounts.some((a) => a.id === id),
-            );
-            const from = baseIds.indexOf(account_drag_id);
-            const to = baseIds.indexOf(accountId);
-            if (from < 0 || to < 0) return prev;
-            const next = [...baseIds];
-            next.splice(from, 1);
-            next.splice(to, 0, account_drag_id);
-            return { ...prev, [tabKey]: next };
-        });
-    };
-
-    const handle_account_drag_end = () => {
-        set_account_drag_id(null);
-        set_account_over_id(null);
-    };
-
-    // Apply account order to active group
-    const orderedActiveGroup = useMemo(() => {
-        if (!activeGroup) return undefined;
-        const tabKey = activeTab as string;
-        const order = account_orders[tabKey];
-        if (!order || order.length === 0) return activeGroup;
-        const orderSet = new Set(order);
-        const ordered = order.flatMap((id) => {
-            const found = activeGroup.accounts.find((a) => a.id === id);
-            return found ? [found] : [];
-        });
-        const remaining = activeGroup.accounts.filter((a) => !orderSet.has(a.id));
-        return {
-            ...activeGroup,
-            accounts: [...ordered, ...remaining],
-        };
-    }, [activeGroup, account_orders, activeTab]);
-
-    // auto-scroll active tab into view
-    useEffect(() => {
-        const el = tabsRef.current?.querySelector(`[data-tab="${activeTab}"]`);
-        if (el && "scrollIntoView" in el) {
-            (el as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center" });
-        }
-    }, [activeTab]);
-
-    // wheel over the tab strip steps the selection one tab at a time (wraps around)
-    useEffect(() => {
-        const el = tabsRef.current;
-        if (!el) return;
-        const on_wheel = (e: WheelEvent) => {
-            const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-            if (!d) return;
-            e.preventDefault();
-            const now = Date.now();
-            if (now - wheel_at_ref.current < 200) return;
-            wheel_at_ref.current = now;
-            const dir = d > 0 ? 1 : -1;
-            setActiveTab((cur) => {
-                const tab_order: (UsageProvider | "overview")[] = ["overview", ...orderedProviders];
-                const i = tab_order.indexOf(cur);
-                const n = tab_order.length;
-                if (n === 0) return cur;
-                const ni = (((i + dir) % n) + n) % n;
-                return tab_order[ni] ?? cur;
-            });
-        };
-        el.addEventListener("wheel", on_wheel, { passive: false });
-        return () => {
-            el.removeEventListener("wheel", on_wheel);
-        };
-    }, [orderedProviders]);
+    use_tab_navigation({
+        tabsRef,
+        activeTab,
+        orderedProviders,
+        setActiveTab,
+    });
 
     const lastUpdated = plugins.reduce<string | null>((latest, p) => {
         if (p.snapshot.status !== "ready" && p.snapshot.status !== "failed") return latest;
