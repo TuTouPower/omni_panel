@@ -3337,6 +3337,23 @@ html[data-window="tray"] #root {
     color: var(--text-3);
     flex-shrink: 0;
 }
+.lm-watch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: var(--text-3);
+    cursor: pointer;
+    border-radius: 6px;
+}
+.lm-watch:hover {
+    background: var(--chip-bg);
+    color: var(--text-2);
+}
 .lm-inwrap {
     position: relative;
     width: 140px;

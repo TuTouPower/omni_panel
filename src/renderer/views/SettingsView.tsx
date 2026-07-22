@@ -12,8 +12,10 @@ import {
     add_account_override,
     remove_account_override,
     set_account_label,
+    add_watched_metric,
+    remove_watched_metric,
 } from "../lib/account-overrides";
-import { PROVIDER_LABELS } from "../lib/provider-usage";
+import { PROVIDER_LABELS, accountKey } from "../lib/provider-usage";
 import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
 import { AddAccountDialog } from "../components/AddAccountDialog";
@@ -33,6 +35,7 @@ import type {
     UsageBarColorScheme,
     UsageBarStyle,
     LogLevel,
+    AccountOverrides,
 } from "../../shared/types/config";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { createLogger } from "../../shared/lib/logger";
@@ -325,6 +328,8 @@ function AccountDialog({
     globalIntervalLabel,
     forcePercent,
     onForcePercentChange,
+    watchedMetrics,
+    onToggleWatched,
 }: {
     mode: "add" | "edit";
     instanceId: string | undefined;
@@ -351,6 +356,10 @@ function AccountDialog({
     globalIntervalLabel: string;
     forcePercent?: boolean | undefined;
     onForcePercentChange?: ((provider: UsageProvider, force: boolean) => Promise<void>) | undefined;
+    /** t048: upcomingResetWatched 查表，透传给 SettingsForm 数据标签映射 bell。 */
+    watchedMetrics?: AccountOverrides["upcomingResetWatched"];
+    /** t048: 切换某 raw_label 的监控（account_keys 聚合由上层算）。 */
+    onToggleWatched?: (raw_label: string) => void;
 }) {
     const isEdit = mode === "edit";
 
@@ -466,6 +475,8 @@ function AccountDialog({
                                     onSaveLabelMap={onSaveLabelMap}
                                     forcePercent={forcePercent}
                                     onForcePercentChange={onForcePercentChange}
+                                    watchedMetrics={watchedMetrics}
+                                    onToggleWatched={onToggleWatched}
                                 />
                             ) : mode === "edit" ? (
                                 <div className="text-sm text-[var(--text-3)]">加载中...</div>
@@ -2184,6 +2195,36 @@ export function SettingsView() {
                                     [provider]: force,
                                 },
                             });
+                        }}
+                        watchedMetrics={config.accountOverrides?.upcomingResetWatched}
+                        onToggleWatched={(raw_label) => {
+                            if (!dialog.instanceId) return;
+                            const info = pluginInfos.find(
+                                (p) => p.instanceId === dialog.instanceId,
+                            );
+                            const provider = info?.activeProviders[0];
+                            if (!info || !provider) return;
+                            const matching = snapshot_items(info).filter(
+                                (it) => it.provider === provider && it.raw_label === raw_label,
+                            );
+                            const keys = Array.from(new Set(matching.map((it) => accountKey(it))));
+                            if (keys.length === 0) return;
+                            const watched_map =
+                                config.accountOverrides?.upcomingResetWatched?.[provider];
+                            const all_watched = keys.every(
+                                (k) => watched_map?.[k]?.includes(raw_label) ?? false,
+                            );
+                            let next: AccountOverrides = config.accountOverrides ?? {};
+                            if (all_watched) {
+                                for (const k of keys) {
+                                    next = remove_watched_metric(next, provider, k, raw_label);
+                                }
+                            } else {
+                                for (const k of keys) {
+                                    next = add_watched_metric(next, provider, k, raw_label);
+                                }
+                            }
+                            void save_config({ ...config, accountOverrides: next });
                         }}
                     />
                 )}

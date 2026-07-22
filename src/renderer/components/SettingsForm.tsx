@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { PluginParameterMetadata } from "../../shared/schemas/plugin-metadata";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
+import type { AccountOverrides } from "../../shared/types/config";
 import {
     REFRESH_INTERVAL_OPTIONS,
     refresh_seconds_to_label,
@@ -40,6 +41,10 @@ interface SettingsFormProps {
         | undefined;
     forcePercent?: boolean | undefined;
     onForcePercentChange?: ((provider: UsageProvider, force: boolean) => Promise<void>) | undefined;
+    /** t048: upcomingResetWatched 查表（来自 config.accountOverrides）。 */
+    watchedMetrics?: AccountOverrides["upcomingResetWatched"] | undefined;
+    /** t048: 切换某 raw_label 的即将重置监控（按 account_keys 聚合由上层处理）。 */
+    onToggleWatched?: ((raw_label: string) => void) | undefined;
 }
 
 export function SettingsForm({
@@ -61,6 +66,8 @@ export function SettingsForm({
     onSaveLabelMap,
     forcePercent = false,
     onForcePercentChange,
+    watchedMetrics,
+    onToggleWatched,
 }: SettingsFormProps) {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -514,6 +521,10 @@ export function SettingsForm({
                                     </div>
                                     {labelRows.map((r) => {
                                         const v = labelEdits[r.raw] ?? r.display;
+                                        const provider_watched = watchedMetrics?.[providerId];
+                                        const watched = r.account_keys.every(
+                                            (k) => provider_watched?.[k]?.includes(r.raw) ?? false,
+                                        );
                                         return (
                                             <div className="lm-row" key={r.raw}>
                                                 <code className="lm-raw">{r.raw}</code>
@@ -531,6 +542,26 @@ export function SettingsForm({
                                                         handle_label_edit(r.raw, e.target.value);
                                                     }}
                                                 />
+                                                {onToggleWatched && (
+                                                    <button
+                                                        type="button"
+                                                        className="lm-watch"
+                                                        title="监控该数据标签的即将重置"
+                                                        aria-label="监控该数据标签的即将重置"
+                                                        aria-pressed={watched}
+                                                        onClick={() => {
+                                                            onToggleWatched(r.raw);
+                                                        }}
+                                                    >
+                                                        <Icon
+                                                            name="bell"
+                                                            size={14}
+                                                            style={{
+                                                                opacity: watched ? 1 : 0.35,
+                                                            }}
+                                                        />
+                                                    </button>
+                                                )}
                                             </div>
                                         );
                                     })}

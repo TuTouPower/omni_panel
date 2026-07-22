@@ -478,3 +478,149 @@ describe("SettingsForm cookie login", () => {
         expect(input.value).toHaveLength("sk-loaded-secret".length);
     });
 });
+
+describe("SettingsForm label-map watch bell (t048)", () => {
+    beforeEach(() => {
+        window.usageboard.connector.getState = vi.fn().mockResolvedValue({
+            status: "ready",
+            updatedAt: "2026-06-28T00:00:00.000Z",
+            items: [
+                {
+                    provider: "claude",
+                    source: "poll",
+                    sourceInstanceId: "inst-1",
+                    accountId: "acc-a",
+                    accountLabel: "Account A",
+                    raw_label: "five_hour",
+                    normalized_label: "5小时",
+                },
+                {
+                    provider: "claude",
+                    source: "poll",
+                    sourceInstanceId: "inst-1",
+                    accountId: "acc-b",
+                    accountLabel: "Account B",
+                    raw_label: "five_hour",
+                    normalized_label: "5小时",
+                },
+                {
+                    provider: "claude",
+                    source: "poll",
+                    sourceInstanceId: "inst-1",
+                    accountId: "acc-b",
+                    accountLabel: "Account B",
+                    raw_label: "seven_day",
+                    normalized_label: "一周",
+                },
+            ],
+        });
+    });
+
+    async function expand_label_map() {
+        const user = userEvent.setup();
+        render(
+            <SettingsForm
+                instanceId="inst-1"
+                providerId="claude"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+                onSaveLabelMap={vi.fn().mockResolvedValue(undefined)}
+                watchedMetrics={{
+                    claude: {
+                        "inst-1|acc-a": ["five_hour"],
+                        "inst-1|acc-b": ["five_hour"],
+                    },
+                }}
+                onToggleWatched={vi.fn()}
+            />,
+        );
+        await user.click(screen.getByText("数据标签映射"));
+        return user;
+    }
+
+    it("renders a bell per raw_label when on_toggle_watched is provided", async () => {
+        await expand_label_map();
+        const bells = screen.getAllByRole("button", { name: "监控该数据标签的即将重置" });
+        expect(bells).toHaveLength(2);
+    });
+
+    it("does not render bells when on_toggle_watched is absent", async () => {
+        const user = userEvent.setup();
+        render(
+            <SettingsForm
+                instanceId="inst-1"
+                providerId="claude"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+                onSaveLabelMap={vi.fn().mockResolvedValue(undefined)}
+                watchedMetrics={{ claude: { "inst-1|acc-a": ["five_hour"] } }}
+            />,
+        );
+        await user.click(screen.getByText("数据标签映射"));
+        expect(
+            screen.queryByRole("button", { name: "监控该数据标签的即将重置" }),
+        ).not.toBeInTheDocument();
+    });
+
+    it("marks the bell aria-pressed=true only when all account_keys are watched", async () => {
+        await expand_label_map();
+        const bells = screen.getAllByRole("button", { name: "监控该数据标签的即将重置" });
+        expect(bells[0]).toHaveAttribute("aria-pressed", "true");
+        expect(bells[1]).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("marks aria-pressed=false when only some account_keys are watched (t048 review test f002)", async () => {
+        // raw_label "five_hour" spans two account_keys (acc-a, acc-b).
+        // Only acc-a is in watchedMetrics -> not every -> aria-pressed=false.
+        const user = userEvent.setup();
+        render(
+            <SettingsForm
+                instanceId="inst-1"
+                providerId="claude"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+                onSaveLabelMap={vi.fn().mockResolvedValue(undefined)}
+                watchedMetrics={{ claude: { "inst-1|acc-a": ["five_hour"] } }}
+                onToggleWatched={vi.fn()}
+            />,
+        );
+        await user.click(screen.getByText("数据标签映射"));
+        const bells = await screen.findAllByRole("button", { name: "监控该数据标签的即将重置" });
+        // five_hour row bell: partial watched -> false
+        expect(bells[0]).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("calls on_toggle_watched(raw_label) when bell clicked", async () => {
+        const on_toggle_watched = vi.fn();
+        const user = userEvent.setup();
+        render(
+            <SettingsForm
+                instanceId="inst-1"
+                providerId="claude"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+                onSaveLabelMap={vi.fn().mockResolvedValue(undefined)}
+                watchedMetrics={{ claude: { "inst-1|acc-a": ["five_hour"] } }}
+                onToggleWatched={on_toggle_watched}
+            />,
+        );
+        await user.click(screen.getByText("数据标签映射"));
+        const bells = await screen.findAllByRole("button", { name: "监控该数据标签的即将重置" });
+        const first = bells[0];
+        if (!first) throw new Error("bell not rendered");
+        await user.click(first);
+        expect(on_toggle_watched).toHaveBeenCalledWith("five_hour");
+    });
+});

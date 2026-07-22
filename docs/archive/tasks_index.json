@@ -375,6 +375,14 @@
             "status": "done",
             "branch": "t046_fix_account_usage_row_watch_toggle",
             "note": ""
+        },
+        {
+            "tid": "t048",
+            "title": "监控即将重置入口移到设置页数据标签映射旁",
+            "slug": "settings_label_map_watch_toggle",
+            "status": "done",
+            "branch": "t048_settings_label_map_watch_toggle",
+            "note": ""
         }
     ]
 }

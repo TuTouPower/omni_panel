@@ -42,6 +42,7 @@ describe("build_label_map_rows", () => {
             raw: "seven_day",
             default: "一周",
             display: "一周",
+            account_keys: ["inst-1|acc-1"],
         } satisfies LabelMapRow);
     });
 
@@ -56,6 +57,7 @@ describe("build_label_map_rows", () => {
                 raw: "five_hour",
                 default: "5小时",
                 display: "自定义五小时",
+                account_keys: ["inst-1|acc-1"],
             },
         ]);
     });
@@ -86,6 +88,42 @@ describe("build_label_map_rows", () => {
         expect(rows.map((r) => r.raw)).toEqual(["primary_window", "secondary_window"]);
     });
 
+    it("merges distinct account_keys per raw_label (gateway keys by label)", () => {
+        const rows = build_label_map_rows([
+            metric({
+                raw_label: "primary_window",
+                normalized_label: "5小时",
+                source: "gateway",
+                sourceInstanceId: "cpa-1",
+                accountId: "id-a",
+                accountLabel: "Account A",
+            }),
+            metric({
+                raw_label: "primary_window",
+                normalized_label: "5小时",
+                source: "gateway",
+                sourceInstanceId: "cpa-1",
+                accountId: "id-b",
+                accountLabel: "Account B",
+            }),
+            metric({
+                raw_label: "primary_window",
+                normalized_label: "5小时",
+                source: "poll",
+                sourceInstanceId: "inst-1",
+                accountId: "acc-1",
+                accountLabel: "Account A",
+            }),
+        ]);
+
+        const row = rows.find((r) => r.raw === "primary_window");
+        expect(row?.account_keys).toEqual([
+            "cpa-1|label|Account A",
+            "cpa-1|label|Account B",
+            "inst-1|acc-1",
+        ]);
+    });
+
     it("uses normalize_for_display as display fallback without changing the key", () => {
         const rows = build_label_map_rows(
             [
@@ -104,6 +142,7 @@ describe("build_label_map_rows", () => {
                 raw: "primary_window",
                 default: "Codex · 5小时",
                 display: "Codex · 5小时",
+                account_keys: ["inst-1|acc-1"],
             },
         ]);
     });
@@ -122,5 +161,14 @@ describe("build_label_map_rows", () => {
 
     it("returns empty array for empty items", () => {
         expect(build_label_map_rows([])).toEqual([]);
+    });
+
+    it("dedupes account_keys when the same account repeats a raw_label", () => {
+        const rows = build_label_map_rows([
+            metric({ raw_label: "five_hour", normalized_label: "5小时", accountId: "acc-a" }),
+            metric({ raw_label: "five_hour", normalized_label: "5小时", accountId: "acc-a" }),
+        ]);
+
+        expect(rows[0]?.account_keys).toEqual(["inst-1|acc-a"]);
     });
 });
