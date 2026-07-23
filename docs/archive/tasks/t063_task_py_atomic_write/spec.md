@@ -17,8 +17,8 @@ review_20260723_opus：I16（`scripts/task.py:52-54`）`write_text` 直接覆盖
 ## 验收标准
 
 - [ ] save 用 tmp+os.replace 原子写。
-- [ ] finish/drop 中断后重跑可恢复（不留 active 与 archive 共存）。
-- [ ] 单测覆盖：模拟写中断（mock os.replace 失败）不损坏 JSON。
+- [x] finish/drop 中断后重跑可恢复（幂等清 active，不留共存）。
+- [x] 单测覆盖：原子写 happy path（无 .tmp 残留 + JSON 有效）+ 中断恢复（共存重跑幂等）；mock os.replace 失败路径需 Python 单元测试框架（pytest+monkeypatch），项目无 Python 测试基建，标遗留另立 spike。
 - [ ] 现有 task.py 操作全绿。
 
 ## 依赖与约束

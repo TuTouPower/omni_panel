@@ -495,6 +495,14 @@
             "status": "done",
             "branch": "t062_ipc_route_guard",
             "note": ""
+        },
+        {
+            "tid": "t063",
+            "title": "task.py 原子写与事务 (I16/I17)",
+            "slug": "task_py_atomic_write",
+            "status": "done",
+            "branch": "t063_task_py_atomic_write",
+            "note": ""
         }
     ]
 }

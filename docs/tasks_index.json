@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t063",
-            "title": "task.py 原子写与事务 (I16/I17)",
-            "slug": "task_py_atomic_write",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t064",
             "title": "测试反模式整改 (I18-I23)",
             "slug": "test_antipattern_cleanup",

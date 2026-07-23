@@ -21,13 +21,14 @@
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ACTIVE_PATH = REPO_ROOT / "docs/tasks_index.json"
-ARCHIVE_PATH = REPO_ROOT / "docs/archive/tasks_index.json"
+ACTIVE_PATH = Path(os.environ.get("OMNI_TASK_ACTIVE_PATH", "")) if os.environ.get("OMNI_TASK_ACTIVE_PATH") else REPO_ROOT / "docs/tasks_index.json"
+ARCHIVE_PATH = Path(os.environ.get("OMNI_TASK_ARCHIVE_PATH", "")) if os.environ.get("OMNI_TASK_ARCHIVE_PATH") else REPO_ROOT / "docs/archive/tasks_index.json"
 
 VALID_STATUSES = ("backlog", "active", "blocked", "done", "dropped")
 SLUG_RE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -50,8 +51,14 @@ def load(path: Path) -> dict:
 
 
 def save(path: Path, data: dict) -> None:
+    """原子写：tmp + os.replace，避免中断/掉电损坏权威 task JSON。"""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
 
 
 def find(tasks: list, tid: str):
@@ -140,11 +147,17 @@ def _move_to_archive(data: dict, tid: str) -> dict:
     arc = load(ARCHIVE_PATH)
     t = find(data["tasks"], tid)
     if not t:
+        # 中断恢复：archive 已含 tid（前次 save ARCHIVE 成功 + save ACTIVE 失败），
+        # 视为前次重放，从 active 补清（幂等，不强制手工修 JSON）。
+        existing = find(arc["tasks"], tid)
+        if existing:
+            data["tasks"] = [x for x in data["tasks"] if x["tid"] != tid]
+            return existing
         sys.exit(f"{tid} not found in active tasks")
     data["tasks"] = [x for x in data["tasks"] if x["tid"] != tid]
-    # archive 不允许同 tid 重复
     if find(arc["tasks"], tid):
-        sys.exit(f"{tid} already exists in archive (数据冲突，请提示用户)")
+        # archive 已含 + active 仍含（中断残留）-> 幂等清 active
+        return t
     arc["tasks"].append(t)
     save(ARCHIVE_PATH, arc)
     return t
@@ -157,7 +170,7 @@ def cmd_finish(args):
         sys.exit(f"{args.tid} not found in active tasks")
     require_status(t, "active")
     t["status"] = "done"
-    save(ACTIVE_PATH, data)
+    # I17: 先 archive 落盘，后清 active（archive 确认后才 remove，避免中断共存）
     _move_to_archive(data, args.tid)
     save(ACTIVE_PATH, data)
     print(f"{args.tid} status=done (archived)")
@@ -171,7 +184,7 @@ def cmd_drop(args):
     t["status"] = "dropped"
     note = f"dropped: {args.reason}"
     t["note"] = f"{t['note']}; {note}" if t.get("note") else note
-    save(ACTIVE_PATH, data)
+    # I17: 同 finish，先 archive 后 active
     _move_to_archive(data, args.tid)
     save(ACTIVE_PATH, data)
     print(f"{args.tid} status=dropped (archived)")
