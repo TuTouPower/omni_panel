@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
+import type { AddServiceId } from "../lib/common-services";
 import { VendorMark, Icon } from "./Icon";
 import { ADD_COMMON_SERVICES } from "../lib/common-services";
 import { parse_cookie_text } from "../../shared/lib/cookie_parser";
@@ -9,14 +10,19 @@ import { parse_cookie_text } from "../../shared/lib/cookie_parser";
 
 export type AuthMethod = "apikey" | "session" | "local";
 
-export const VENDOR_AUTH_MAP: Partial<Record<UsageProvider, AuthMethod>> = {
+export const VENDOR_AUTH_MAP: Partial<Record<AddServiceId, AuthMethod>> = {
     deepseek: "apikey",
     glm: "apikey",
     tavily: "apikey",
     minimax: "apikey",
     kimi: "apikey",
+    getoneapi: "apikey",
+    exa: "apikey",
+    tikhub: "apikey",
+    cpa: "apikey",
     mimo: "session",
     opencode_go: "session",
+    grok: "apikey",
     claude: "local",
     codex: "local",
     antigravity: "local",
@@ -73,7 +79,7 @@ const OPENCODE_GO_COOKIE_SCRIPT = `(() => {
     );
 })();`;
 
-const AUTH_LOCAL_PATHS: Partial<Record<UsageProvider, string[]>> = {
+const AUTH_LOCAL_PATHS: Partial<Record<AddServiceId, string[]>> = {
     claude: ["~/.claude/.credentials.json", "~/.config/claude/auth.json"],
     codex: ["~/.codex/auth.json"],
     antigravity: ["~/.antigravity/session.json"],
@@ -82,7 +88,7 @@ const AUTH_LOCAL_PATHS: Partial<Record<UsageProvider, string[]>> = {
 // ── Props ──
 
 export interface AddAccountParams {
-    vendor_id: UsageProvider;
+    vendor_id: AddServiceId;
     account_name: string;
     auth_method: AuthMethod;
     parameter_values: Record<string, string>;
@@ -92,27 +98,21 @@ export interface AddAccountParams {
 
 interface AddAccountDialogProps {
     plugin_infos: ConnectorInfo[];
-    has_cpa: boolean;
     on_close: () => void;
     on_save: (params: AddAccountParams) => Promise<void>;
-    on_cpa: () => void;
 }
 
 // ── Sub-components ──
 
 function VendorPicker({
-    has_cpa,
     on_select,
-    on_cpa,
 }: {
     plugin_infos: ConnectorInfo[];
-    has_cpa: boolean;
-    on_select: (vendor_id: UsageProvider) => void;
-    on_cpa: () => void;
+    on_select: (vendor_id: AddServiceId) => void;
 }) {
     // 内置 provider 始终可添加（auto_seed 保证 connector definition 存在）；
     // 用户删除账号后可重新添加，不因 plugin_infos 缺失而禁用。
-    const can_add = (_provider: UsageProvider) => true;
+    const can_add = (_provider: AddServiceId) => true;
 
     return (
         <div className="pick-body">
@@ -138,18 +138,6 @@ function VendorPicker({
                     );
                 })}
             </div>
-            {has_cpa && (
-                <>
-                    <div className="set-group-label" style={{ marginTop: 16 }}>
-                        高级方式
-                    </div>
-                    <button className="pick-card cpa" type="button" onClick={on_cpa}>
-                        <VendorMark id="cpa" size={28} />
-                        <span className="pick-label">CPA Manager</span>
-                        <span className="pick-note">管理平台集中接入</span>
-                    </button>
-                </>
-            )}
         </div>
     );
 }
@@ -160,12 +148,12 @@ function ApiKeyForm({
     set_account_name,
     form_ref,
 }: {
-    vendor_id: UsageProvider;
+    vendor_id: AddServiceId;
     account_name: string;
     set_account_name: (v: string) => void;
     form_ref: React.RefObject<{ api_key: string; endpoint_override?: string }>;
 }) {
-    const meta = AUTH_APIKEY_META[vendor_id] ?? {
+    const meta = AUTH_APIKEY_META[vendor_id as UsageProvider] ?? {
         prefix: "sk-",
         endpoint: "",
         docs: "",
@@ -258,12 +246,12 @@ function SessionForm({
     set_account_name,
     form_ref,
 }: {
-    vendor_id: UsageProvider;
+    vendor_id: AddServiceId;
     account_name: string;
     set_account_name: (v: string) => void;
     form_ref: React.RefObject<{ cookie: string }>;
 }) {
-    const meta = AUTH_SESSION_META[vendor_id] ?? {
+    const meta = AUTH_SESSION_META[vendor_id as UsageProvider] ?? {
         host: "",
         login_url: "",
         cookie_keys: [],
@@ -327,7 +315,7 @@ function SessionForm({
                 />
                 <div className="cookie-keys">
                     <span className="ck-label">需包含</span>
-                    {meta.cookie_keys.map((k) => (
+                    {meta.cookie_keys.map((k: string) => (
                         <code key={k} className="ck-chip">
                             {k}
                         </code>
@@ -342,7 +330,7 @@ function SessionForm({
     );
 }
 
-function LocalScanForm({ vendor_id }: { vendor_id: UsageProvider }) {
+function LocalScanForm({ vendor_id }: { vendor_id: AddServiceId }) {
     const paths = AUTH_LOCAL_PATHS[vendor_id] ?? [];
     const [phase, set_phase] = useState<"scanning" | "done">("scanning");
 
@@ -417,13 +405,11 @@ function LocalScanForm({ vendor_id }: { vendor_id: UsageProvider }) {
 
 export function AddAccountDialog({
     plugin_infos,
-    has_cpa,
     on_close,
     on_save,
-    on_cpa,
 }: AddAccountDialogProps) {
     const [step, set_step] = useState<"vendor" | "auth">("vendor");
-    const [vendor_id, set_vendor_id] = useState<UsageProvider | null>(null);
+    const [vendor_id, set_vendor_id] = useState<AddServiceId | null>(null);
     const [account_name, set_account_name] = useState("");
     const [saving, set_saving] = useState(false);
     const [error_message, set_error_message] = useState<string | null>(null);
@@ -460,7 +446,7 @@ export function AddAccountDialog({
         };
     }, [on_close]);
 
-    const handle_select_vendor = useCallback((id: UsageProvider) => {
+    const handle_select_vendor = useCallback((id: AddServiceId) => {
         set_vendor_id(id);
         set_account_name("");
         set_error_message(null);
@@ -567,9 +553,7 @@ export function AddAccountDialog({
                     {step === "vendor" && (
                         <VendorPicker
                             plugin_infos={plugin_infos}
-                            has_cpa={has_cpa}
                             on_select={handle_select_vendor}
-                            on_cpa={on_cpa}
                         />
                     )}
                     {step === "auth" && vendor_id && (

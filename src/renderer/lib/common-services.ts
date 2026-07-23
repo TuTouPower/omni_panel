@@ -1,6 +1,8 @@
 import type { UsageProvider } from "../../shared/schemas/plugin-output";
 
-export const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
+export type AddServiceId = UsageProvider | "cpa";
+
+export const ADD_COMMON_SERVICES: { id: AddServiceId; label: string }[] = [
     { id: "claude", label: "Claude" },
     { id: "codex", label: "Codex" },
     { id: "antigravity", label: "Antigravity" },
@@ -16,4 +18,5 @@ export const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
     { id: "mimo", label: "MiMo" },
     { id: "opencode_go", label: "OpenCode Go" },
     { id: "grok", label: "Grok" },
+    { id: "cpa", label: "CPA Manager" },
 ];

@@ -196,20 +196,12 @@ describe("VendorMark", () => {
         expect(svg).toContain('fill="#3859FF"');
     });
 
-    it("applies color via currentColor instead of hardcoded hex", () => {
+    it("renders cpa as img logo (CLIProxyAPI, t093)", () => {
         const { container } = render(<VendorMark id="cpa" color="red" />);
-        const svg = container.querySelector("span.vicon svg");
-        expect(svg).toBeTruthy();
-        if (!svg) return;
-        // SVG should use currentColor, not hardcoded hex colors
-        expect(svg.outerHTML).toContain("currentColor");
-        expect(svg.outerHTML).not.toContain("#3d7afd");
-        expect(svg.outerHTML).not.toContain("#22c55e");
-        // Wrapper should apply color via CSS
-        const wrapper = container.querySelector("span.vicon");
-        expect(wrapper).toBeTruthy();
-        if (!wrapper) return;
-        expect(wrapper.getAttribute("style")).toContain("color");
+        const img = container.querySelector("span.vicon img.vendor-logo-img");
+        expect(img).toBeTruthy();
+        if (!img) return;
+        expect(img.getAttribute("src")).toContain("cpa");
     });
 
     it("renders overview SVG as default for overview id", () => {
