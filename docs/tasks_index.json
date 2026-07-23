@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t068",
-            "title": "task.py mock os.replace 失败路径测试 (t063 遗留)",
-            "slug": "task_py_mock_replace_test",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t069",
             "title": "migration 测试改 import 生产迁移入口 (I19)",
             "slug": "test_migration_real_entry",
