@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t052",
-            "title": "用量卡片同行高度按最多行对齐",
-            "slug": "usage_card_row_height_align",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t053",
             "title": "mimo 余额阈值方向修复 (review C2)",
             "slug": "fix_mimo_balance_threshold",

@@ -352,7 +352,7 @@ html[data-window="tray"] #root {
     display: grid;
     grid-template-columns: 1fr;
     gap: 12px;
-    align-items: start;
+    align-items: stretch;
 }
 @container (min-width: 1024px) {
     .overview-grid {

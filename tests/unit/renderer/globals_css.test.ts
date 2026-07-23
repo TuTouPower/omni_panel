@@ -69,7 +69,7 @@ describe("globals usage bar css", () => {
         const grid_css = /\.overview-grid\s*\{[\s\S]*?\}/.exec(css)?.[0] ?? "";
         expect(grid_css).toContain("display: grid");
         expect(grid_css).toContain("grid-template-columns: 1fr");
-        expect(grid_css).toContain("align-items: start");
+        expect(grid_css).toContain("align-items: stretch");
     });
 
     it("defines @container breakpoints at 1024px (wide) and 640–1023px (mid)", () => {

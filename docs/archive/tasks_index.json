@@ -407,6 +407,14 @@
             "status": "done",
             "branch": "t051_tikhub_connector",
             "note": ""
+        },
+        {
+            "tid": "t052",
+            "title": "用量卡片同行高度按最多行对齐",
+            "slug": "usage_card_row_height_align",
+            "status": "done",
+            "branch": "t052_usage_card_row_height_align",
+            "note": ""
         }
     ]
 }
