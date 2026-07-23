@@ -8,7 +8,7 @@ review_20260723_opus：P3 cycleDurationMs 语义混淆；I8（`connectors/kimi/c
 
 - kimi：改固定周期常量（`7*24*3_600_000` 周窗口、`5*3_600_000` 5h 窗口）。
 - opencode_go：rolling 用 `null`，weekly/monthly 用固定常量。
-- minimax：`cycleDurationMs` 校验 `>=0`（end<start 时 null 或 throw）。
+- minimax：`cycleDurationMs` 校验 `>=0`（end<start 时 `Math.max(0)` 兜底为 0，下游与 null 等价）。
 - observation schema 注释明确：`cycleDurationMs` = 完整周期时长（非剩余）；host 层 `cycleDurationMs>=0` 校验。
 
 ## 非范围

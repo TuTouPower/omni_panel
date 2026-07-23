@@ -50,3 +50,30 @@
 - 总体判断：三条连接器 cycleDurationMs 计算路径本身正确（kimi 固定常量、opencode_go 按 raw_label 分发、minimax 防负），核心修复达标；但 spec 的 schema/host/测试三条 AC 完全未落地，连接器代码层留 minimax 字面偏差。AC 覆盖不全，不可直接收尾。
 
 verdict: FAIL
+
+## Round 2 (2026-07-23 18:12 UTC+8)
+
+### 前轮 finding 复核
+
+- **t056_code_f001**（schema JSDoc）：**已修**。`src/shared/types/observation.ts:33-36` 新增 JSDoc「完整周期时长（ms），非「距重置剩余时间」...必须 >=0」。位置从原 finding 指出的 `schemas/observation.ts:38` 迁到 `types/observation.ts`（TS 接口为规范类型源，IDE 悬浮从这读），spec AC4 措辞「observation.ts」对两个同名文件均成立。
+- **t056_code_f002**（host nonnegative）：**已修**。`src/shared/schemas/plugin-output.ts:67` 改为 `cycleDurationMs: finiteNumber.nonnegative().nullable().optional()`。spec AC4 经修订明确锚定为「plugin-output nonnegative」（非原 finding 建议的 `schemas/observation.ts`），契约层防御落地、spec 文本与实现一致。说明：`src/shared/schemas/observation.ts:38`（connector 边界 schema）仍允许负值通过，但这是 spec AC4 显式放行的设计选择（host 边界 = plugin-output），不再作为新 finding；缺失的 plugin-output 拒负值单测归 test reviewer（见 `review_test.md` Round 2）。
+- **t056_code_f003**（三连接器缺单测）：**已修**。
+    - kimi：`tests/integration/connector/kimi-connector.test.ts:84-94` 独立用例，对 weekly / five_hour 各做精确 `toBe(7*24*60*60*1000)` / `toBe(5*60*60*1000)` 断言；fixture `resetTime: "2099-01-01T00:00:00Z"` 距 now 极远，若回退到 `reset_at - now` 必失败。
+    - opencode_go：`tests/unit/connector/opencode_go.test.ts:134-137` 三条断言 rolling=null / weekly=7d / monthly=30d，rolling 用 `toBeNull()` 而非 falsy，避免 0 误混。
+    - minimax：`tests/integration/connector/minimax-connector.test.ts:100-101` 正常路径 `toBe(4*3600*1000)`，`104-126` 新增 end<start 用例断言 `toBe(0)`。
+- **t056_code_f004**（minimax AC 字面偏差）：**已修**（经 spec 修订）。spec AC3 改为「`Math.max(0,...)` 兜底为 0（下游 provider-usage 与 null 等价处理，无功能差异）」。`src/renderer/lib/provider-usage.ts:597` `if (!cycle || cycle <= 0) continue;` 对 0 和 null 均短路——等价性声明经代码验证成立。
+
+### t056_code_f005 - spec.md 范围与 AC3 措辞互斥
+
+- 严重度：minor
+- 位置：`docs/archive/tasks/t056_connector_cycle_duration_semantics/spec.md:11` vs `:22`
+- 问题：spec 内部矛盾。`spec.md:11`「范围」仍写「minimax：`cycleDurationMs` 校验 `>=0`（end<start 时 **null 或 throw**）」，而 `spec.md:22`「AC3」改为「minimax end<start 时 **`Math.max(0,...)` 兜底为 0**」。实现 `connectors/minimax/connector.ts:189` 实际走 `Math.max(0,...)` 路径——满足 AC3，但字面违反「范围」（0 既非 null 也非 throw）。本次 diff 改 AC3 而未同步「范围」，留下同一文档对 minimax 兜底行为的两种互斥表述。未来审计读「范围」会判实现违规，读 AC3 才知是已接受的设计。CLAUDE.md「文档修改规范」明令「完成后检查：矛盾结论」。
+- 建议：将 `spec.md:11` 改为「minimax：`cycleDurationMs` 校验 `>=0`（end<start 时 `Math.max(0,...)` 兜底为 0，与 null 在下游等价）」，与 AC3 措辞统一。
+
+## 结论
+
+- 前轮 finding 复核：f001 / f002 / f003 / f004 均已修（f004 经 spec 修订落地）。
+- 本轮新发现：1 条 minor（spec.md 范围与 AC3 措辞互斥）。
+- 总体判断：代码层修复全部达标——三条连接器 cycleDurationMs 路径正确，host 层 nonnegative 在 plugin-output 落地，三连接器回归断言齐全；唯一遗留是 spec.md 内部一致性——「范围」未随 AC3 同步更新，留下同一文档对 minimax 兜底行为的两种互斥表述。
+
+verdict: FAIL

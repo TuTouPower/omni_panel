@@ -447,6 +447,14 @@
             "status": "done",
             "branch": "t056_connector_cycle_duration_semantics",
             "note": ""
+        },
+        {
+            "tid": "t057",
+            "title": "连接器固定 account_id 多实例 collapse (P2/I6/I7)",
+            "slug": "connector_stable_account_id",
+            "status": "done",
+            "branch": "t057_connector_stable_account_id",
+            "note": ""
         }
     ]
 }

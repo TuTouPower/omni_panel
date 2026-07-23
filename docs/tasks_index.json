@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t057",
-            "title": "连接器固定 account_id 多实例 collapse (P2/I6/I7)",
-            "slug": "connector_stable_account_id",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t058",
             "title": "图表 tooltip XSS 转义 (I10/I11)",
             "slug": "fix_chart_tooltip_xss",
