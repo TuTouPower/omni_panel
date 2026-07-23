@@ -25,14 +25,6 @@
             "note": ""
         },
         {
-            "tid": "t079",
-            "title": "exa/getoneapi/tikhub 接入真实 logo 替换默认 fallback",
-            "slug": "vendor_logos_exa_getoneapi_tikhub",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t080",
             "title": "修复 exa cost_breakdown 重名聚合（面板重名行乱显）",
             "slug": "fix_exa_breakdown_aggregate",

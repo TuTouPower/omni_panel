@@ -1,0 +1,53 @@
+{
+    "id": "key_fixture000000000000",
+    "api_key_id": "7acfc959-65a5-4ecd-958d-0724e93ae978",
+    "api_key_name": "default",
+    "team_id": "cmkm5201j0015puibdqx0mbyx",
+    "period": { "start": "2026-06-23T18:01:28.134Z", "end": "2026-07-23T18:01:28.134Z" },
+    "total_cost_usd": 0.245,
+    "cost_breakdown": [
+        {
+            "price_id": "SGHQzDCgyY9iyMH5",
+            "price_name": "Contents endpoint: Text or Highlights",
+            "quantity": 2,
+            "amount_usd": 0.002
+        },
+        {
+            "price_id": "g7CfNiXjrD86QFAs",
+            "price_name": "Search",
+            "quantity": 11,
+            "amount_usd": 0.077
+        },
+        {
+            "price_id": "VYtrZD8WhGh5ViVU",
+            "price_name": "Search",
+            "quantity": 11,
+            "amount_usd": 0.077
+        },
+        {
+            "price_id": "6VfmkCsyZaiLEZo2",
+            "price_name": "Contents endpoint: Text or Highlights",
+            "quantity": 2,
+            "amount_usd": 0.002
+        },
+        {
+            "price_id": "a375xGVGAELgNaRG",
+            "price_name": "Answer",
+            "quantity": 1,
+            "amount_usd": 0.005
+        },
+        {
+            "price_id": "HxvbTTW3sY9NMBqn",
+            "price_name": "Answer",
+            "quantity": 1,
+            "amount_usd": 0.005
+        },
+        {
+            "price_id": "a8Vu7biSM6UggYMh",
+            "price_name": "Search",
+            "quantity": 11,
+            "amount_usd": 0.077
+        }
+    ],
+    "metadata": { "generated_at": "2026-07-23T18:01:42.367Z" }
+}

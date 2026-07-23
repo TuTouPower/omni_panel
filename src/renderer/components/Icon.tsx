@@ -4,7 +4,10 @@ import antigravity_svg from "../assets/vendor_logos/antigravity.svg";
 import claude_svg from "../assets/vendor_logos/claude.svg";
 import codex_svg from "../assets/vendor_logos/codex.svg";
 import deepseek_svg from "../assets/vendor_logos/deepseek.svg";
+import exa_light_png from "../assets/vendor_logos/exa_light.png";
+import exa_dark_png from "../assets/vendor_logos/exa_dark.png";
 import firecrawl_svg from "../assets/vendor_logos/firecrawl.svg";
+import getoneapi_png from "../assets/vendor_logos/getoneapi.png";
 import glm_svg from "../assets/vendor_logos/glm.svg";
 import grok_light_svg from "../assets/vendor_logos/grok_light.svg";
 import grok_dark_svg from "../assets/vendor_logos/grok_dark.svg";
@@ -13,6 +16,7 @@ import minimax_svg from "../assets/vendor_logos/minimax.svg";
 import opencode_go_dark_svg from "../assets/vendor_logos/opencode_go_dark.svg";
 import opencode_go_light_svg from "../assets/vendor_logos/opencode_go_light.svg";
 import tavily_svg from "../assets/vendor_logos/tavily.svg";
+import tikhub_jpeg from "../assets/vendor_logos/tikhub.jpeg";
 
 const UI_ICONS: Record<string, string> = {
     refresh: '<path d="M20 11a8 8 0 1 0-1.5 5.5M20 11V5m0 6h-6"/>',
@@ -92,6 +96,10 @@ export function Icon({ name, size = 18, strokeWidth = 1.7, color, style, classNa
 
 /* ── Vendor marks (SVG placeholder icons, used when no official logo available) ── */
 const VENDOR_THEME_LOGOS: Partial<Record<string, { light: string; dark: string }>> = {
+    exa: {
+        light: exa_light_png,
+        dark: exa_dark_png,
+    },
     opencode_go: {
         light: opencode_go_light_svg,
         dark: opencode_go_dark_svg,
@@ -109,9 +117,11 @@ const VENDOR_LOGOS: Record<string, string> = {
     kimi: kimi_svg,
     glm: glm_svg,
     deepseek: deepseek_svg,
+    getoneapi: getoneapi_png,
     minimax: minimax_svg,
     tavily: tavily_svg,
     firecrawl: firecrawl_svg,
+    tikhub: tikhub_jpeg,
 };
 
 const VENDOR_MARKS: Record<string, (s: number) => string> = {
