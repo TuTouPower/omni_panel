@@ -82,10 +82,15 @@ export const UsageBarRow = memo(function UsageBarRow({
         period.displayStyle === "ratio" &&
         period.limit !== null &&
         period.limit > 0;
+    // t097: ratio 但无有效 limit 时，显示原始 used 数值而非 0%
+    const no_limit_ratio =
+        !forcePercent && has_value && period.displayStyle === "ratio" && !is_ratio;
     const value = has_value
         ? is_ratio
             ? `${String(used)}/${String(period.limit)}`
-            : `${String(pct)}%`
+            : no_limit_ratio
+              ? `${String(used)}`
+              : `${String(pct)}%`
         : "";
     const reset_time =
         !has_value || is_ratio || !period.resetAt ? "" : format_reset_time(period.resetAt);

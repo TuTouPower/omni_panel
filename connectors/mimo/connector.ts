@@ -36,11 +36,9 @@ interface BalancePayload {
     };
 }
 
-const DEFAULT_LIMIT = 100;
-
 function parse_limit(raw: string | undefined): number {
     const value = Number(raw);
-    return value > 0 ? value : DEFAULT_LIMIT;
+    return value > 0 ? value : 0;
 }
 
 function to_number(value: unknown): number {
@@ -95,6 +93,7 @@ async function main(): Promise<ScriptObservation[]> {
     const cookie = (ctx.params["SESSION_COOKIE"] ?? "").trim();
     if (!cookie) return [];
     const limit = parse_limit(ctx.params["LIMIT"]);
+    const balance_limit: number | null = limit > 0 ? Math.round(limit * 100) / 100 : null;
     const headers = { ...HEADERS, Cookie: cookie };
     const now = Date.now();
 
@@ -160,12 +159,12 @@ async function main(): Promise<ScriptObservation[]> {
                 raw_label: "balance",
                 normalized_label: "余额",
                 used: Math.round(balance * 100) / 100,
-                limit: Math.round(limit * 100) / 100,
+                limit: balance_limit,
                 window: "total",
                 cycleDurationMs: null,
                 display_style: "ratio",
                 reset_at: null,
-                status: status_for_balance(balance, limit),
+                status: balance_limit !== null ? status_for_balance(balance, limit) : "unknown",
             });
         }
     }

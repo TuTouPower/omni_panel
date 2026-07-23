@@ -23,14 +23,6 @@
       "status": "backlog",
       "branch": "",
       "note": ""
-    },
-    {
-      "tid": "t097",
-      "title": "ratio 无 limit 时显示原始数值而非 0%",
-      "slug": "display_ratio_without_limit",
-      "status": "backlog",
-      "branch": "",
-      "note": "getoneapi/tikhub/exa/codex 余额成本类指标无上限时误导性显示 0%；mimo/deepseek 删除 DEFAULT_LIMIT"
     }
   ]
 }
