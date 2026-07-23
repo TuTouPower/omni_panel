@@ -137,7 +137,7 @@ describe("UsageBarRow upcoming-reset watch toggle (t043)", () => {
         const bell = screen.getByRole("button", { name: "监控该数据标签的即将重置" });
         expect(bell).toHaveAttribute("aria-pressed", "false");
         const icon = bell.querySelector("svg");
-        expect(icon).toHaveStyle({ opacity: "0.35" });
+        expect(icon).toHaveStyle({ opacity: "0.5" });
     });
 
     it("reflects watched=true via aria-pressed=true and full opacity icon", () => {

@@ -718,7 +718,7 @@ html[data-window="tray"] #root {
 }
 .bar-row {
     display: grid;
-    grid-template-columns: 4ic minmax(0, 1fr) 5ch 5ch 5ch;
+    grid-template-columns: 4ic minmax(0, 1fr) 5ch 5ch 5ch auto;
     align-items: center;
     column-gap: 6px;
 }
@@ -761,14 +761,14 @@ html[data-window="tray"] #root {
     color: var(--text-3);
 }
 .bar-row.frac {
-    grid-template-columns: 4ic minmax(0, 1fr) 5ch 5ch 5ch;
+    grid-template-columns: 4ic minmax(0, 1fr) 5ch 5ch 5ch auto;
 }
 .bars:has(.bar-row.capsule),
 .ai-bars:has(.bar-row.capsule) {
     gap: 7px;
 }
 .bar-row.capsule {
-    grid-template-columns: 4ic minmax(0, 1fr) 5ch 5ch;
+    grid-template-columns: 4ic minmax(0, 1fr) 5ch 5ch auto;
 }
 .bar-row.capsule .track {
     height: 22px;
@@ -3351,6 +3351,23 @@ html[data-window="tray"] #root {
     border-radius: 6px;
 }
 .lm-watch:hover {
+    background: var(--chip-bg);
+    color: var(--text-2);
+}
+.bar-watch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: var(--text-3);
+    cursor: pointer;
+    border-radius: 6px;
+}
+.bar-watch:hover {
     background: var(--chip-bg);
     color: var(--text-2);
 }

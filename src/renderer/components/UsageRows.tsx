@@ -129,7 +129,7 @@ export const UsageBarRow = memo(function UsageBarRow({
                     aria-pressed={watched}
                     onClick={on_toggle_watched}
                 >
-                    <Icon name="bell" size={15} style={{ opacity: watched ? 1 : 0.35 }} />
+                    <Icon name="bell" size={15} style={{ opacity: watched ? 1 : 0.5 }} />
                 </button>
             )}
         </div>

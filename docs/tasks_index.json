@@ -1,70 +1,6 @@
 {
   "tasks": [
     {
-      "tid": "t084",
-      "title": "connector per-account error 迁移（throw - + continue）",
-      "slug": "connector_per_account_error",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
-      "tid": "t085",
-      "title": "OpenCode Go 添加账号无弹窗（can_add 检查）",
-      "slug": "fix_opencode_go_add_dialog",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
-      "tid": "t086",
-      "title": "监控重置 bell 全厂商可见 + CSS 类修 + 同行布局",
-      "slug": "fix_bell_visibility_layout",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
-      "tid": "t087",
-      "title": "添加账号弹窗前黑色横线闪现",
-      "slug": "fix_add_dialog_black_line",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
-      "tid": "t088",
-      "title": "9 连接器迁移到 ctx.status（删内联 helper）",
-      "slug": "migrate_connectors_ctx_status",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
-      "tid": "t089",
-      "title": "拆分 refresh-service.ts（450 行 - 行/模块）",
-      "slug": "split_refresh_service_impl",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
-      "tid": "t090",
-      "title": "拆分 main index.ts 800行 多模块",
-      "slug": "split_main_index_impl",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
-      "tid": "t091",
-      "title": "继续拆分 PopupView.tsx 到400行以下",
-      "slug": "split_popup_view_impl",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
       "tid": "t092",
       "title": "CPA 合入常用服务网格（不再单独高级方式）",
       "slug": "cpa_merge_common_services",
@@ -92,6 +28,14 @@
       "tid": "t095",
       "title": "用户自定义 connector 脚本支持（schema 扩展 + 文档）",
       "slug": "user_custom_connector_support",
+      "status": "backlog",
+      "branch": "",
+      "note": ""
+    },
+    {
+      "tid": "t096",
+      "title": "修复 refreshAll 期间用量面板卡死（先实测归因再修）",
+      "slug": "fix_panel_refresh_freeze",
       "status": "backlog",
       "branch": "",
       "note": ""
