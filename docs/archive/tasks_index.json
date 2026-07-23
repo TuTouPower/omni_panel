@@ -623,6 +623,30 @@
       "status": "done",
       "branch": "t081_popup_height_full_workarea",
       "note": ""
+    },
+    {
+      "tid": "t076",
+      "title": "拆分 refresh-service.ts（超 400 行 minor 阈值，t039 遗留）",
+      "slug": "split_refresh_service",
+      "status": "done",
+      "branch": "t076_split_refresh_service",
+      "note": ""
+    },
+    {
+      "tid": "t077",
+      "title": "拆分 main 进程 index.ts（超 800 行 important 阈值，t045 遗留）",
+      "slug": "split_main_index",
+      "status": "done",
+      "branch": "t077_split_main_index",
+      "note": ""
+    },
+    {
+      "tid": "t078",
+      "title": "继续拆分 PopupView.tsx（仍超 400 行 minor 阈值，t043 遗留）",
+      "slug": "split_popup_view_further",
+      "status": "done",
+      "branch": "t078_split_popup_view_further",
+      "note": ""
     }
   ]
 }
