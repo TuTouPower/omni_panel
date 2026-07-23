@@ -147,7 +147,15 @@ async function main(): Promise<ScriptObservation[]> {
     }
 
     const models = response?.model_remains;
-    if (!Array.isArray(models) || models.length === 0) return [];
+    if (!Array.isArray(models) || models.length === 0) {
+        ctx.report_failed_account(
+            "minimax",
+            "minimax",
+            "MiniMax",
+            "MiniMax 返回空用量（model_remains 空）",
+        );
+        return [];
+    }
 
     const now = Date.now();
     const base = {

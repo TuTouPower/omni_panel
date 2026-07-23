@@ -170,6 +170,16 @@ async function main(): Promise<ScriptObservation[]> {
         }
     }
 
+    if (observations.length === 0) {
+        ctx.report_failed_account(
+            "mimo",
+            "mimo",
+            plan_name,
+            "MiMo 返回空用量（usage items 空 + 无 balance）",
+        );
+        return [];
+    }
+
     return observations;
 }
 

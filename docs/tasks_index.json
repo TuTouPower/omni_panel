@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t059",
-            "title": "连接器空响应静默处置 (P1/I5)",
-            "slug": "connector_empty_response",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t060",
             "title": "vault 主密钥与 auth 错误判定健壮性 (I1/I2)",
             "slug": "vault_auth_robustness",

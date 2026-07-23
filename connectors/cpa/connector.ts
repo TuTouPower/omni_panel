@@ -523,9 +523,16 @@ async function main(): Promise<ScriptObservation[]> {
         try {
             const body = await fetch_provider(auth_file.provider, mgmt_key, auth_file.auth_index);
             const keys = Object.keys(body);
-            if (keys.length > 0) {
-                ctx.log.debug(`CPA ${auth_file.provider} response: ${JSON.stringify(body)}`);
+            if (keys.length === 0) {
+                ctx.report_failed_account(
+                    auth_file.provider,
+                    account.account_id,
+                    account.account_label,
+                    `CPA ${auth_file.provider} 上游返回空响应`,
+                );
+                continue;
             }
+            ctx.log.debug(`CPA ${auth_file.provider} response: ${JSON.stringify(body)}`);
             observations.push(...parse_provider(auth_file.provider, body, account, now));
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);

@@ -135,6 +135,15 @@ describe("minimax connector", () => {
         expect(result.observations).toEqual([]);
     });
 
+    it("reports failed_account when model_remains empty", async () => {
+        const script = await readFile(join("connectors", "minimax", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, create_ctx([]));
+
+        expect(result.observations).toEqual([]);
+        expect(result.failed_accounts).toHaveLength(1);
+        expect(result.failed_accounts[0]?.provider).toBe("minimax");
+    });
+
     it("returns null reset_at when remains_time would produce a reset over 1 year away", async () => {
         const script = await readFile(join("connectors", "minimax", "connector.ts"), "utf8");
         // 400 days in milliseconds — exceeds 1-year sanity threshold

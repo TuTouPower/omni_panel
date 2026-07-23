@@ -463,6 +463,14 @@
             "status": "done",
             "branch": "t058_fix_chart_tooltip_xss",
             "note": ""
+        },
+        {
+            "tid": "t059",
+            "title": "连接器空响应静默处置 (P1/I5)",
+            "slug": "connector_empty_response",
+            "status": "done",
+            "branch": "t059_connector_empty_response",
+            "note": ""
         }
     ]
 }

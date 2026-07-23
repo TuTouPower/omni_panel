@@ -286,4 +286,20 @@ describe("mimo connector", () => {
         expect(result.observations.map((o) => o.metric_id)).toEqual(["mimo:plan_total_token"]);
         expect(result.observations[0]?.account_label).toBe("MiMo");
     });
+
+    it("reports failed_account when usage items empty and balance unavailable", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx(
+                { code: 0, data: { usage: { items: [] } } },
+                { code: 0, data: {} },
+                { code: 500 },
+            ),
+        );
+        expect(result.observations).toEqual([]);
+        expect(result.failed_accounts).toHaveLength(1);
+        expect(result.failed_accounts[0]?.provider).toBe("mimo");
+    });
 });
