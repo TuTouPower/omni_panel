@@ -735,6 +735,14 @@
       "status": "done",
       "branch": "t092_cpa_merge_common_services",
       "note": ""
+    },
+    {
+      "tid": "t093",
+      "title": "CPA logo 替换为 CLIProxyAPI 官方 logo",
+      "slug": "cpa_logo_replace",
+      "status": "done",
+      "branch": "t093_cpa_logo_replace",
+      "note": ""
     }
   ]
 }

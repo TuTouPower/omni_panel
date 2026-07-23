@@ -1,14 +1,6 @@
 {
   "tasks": [
     {
-      "tid": "t093",
-      "title": "CPA logo 替换为 CLIProxyAPI 官方 logo",
-      "slug": "cpa_logo_replace",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
       "tid": "t094",
       "title": "添加账号弹窗加打开脚本目录按钮",
       "slug": "add_dialog_open_script_dir",
