@@ -423,6 +423,14 @@
             "status": "done",
             "branch": "t053_fix_mimo_balance_threshold",
             "note": ""
+        },
+        {
+            "tid": "t054",
+            "title": "local-api 认证收紧评估 (review C1)",
+            "slug": "localapi_auth_hardening",
+            "status": "done",
+            "branch": "t054_localapi_auth_hardening",
+            "note": ""
         }
     ]
 }

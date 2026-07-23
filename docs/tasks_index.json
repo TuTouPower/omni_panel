@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t054",
-            "title": "local-api 认证收紧评估 (review C1)",
-            "slug": "localapi_auth_hardening",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t055",
             "title": "连接器阈值集中化与 status 硬编码 (P5/I3/I4)",
             "slug": "connector_threshold_centralize",

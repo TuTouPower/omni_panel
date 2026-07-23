@@ -1,8 +1,8 @@
 ---
 tid: t054
 slug: localapi_auth_hardening
-diff_anchor: ""
-branch: ""
+diff_anchor: "0fc956789083f06a4f1dd6af5ac936914150b6c9"
+branch: t054_localapi_auth_hardening
 ---
 
 # Task t054_localapi_auth_hardening
@@ -18,7 +18,7 @@ branch: ""
 
 ## Review 处置
 
-（双审结束后追加轮次小节与表格。）
+未改代码/测试，按 Step 6「否→改必要文档后直接收尾」，不走双审。
 
 ## 收尾报告
 
@@ -26,22 +26,19 @@ branch: ""
 
 ### 验收标准勾选
 
-- [ ] 产出 4 方案对比（绑定收紧 / 端点分级 / token 分级 / 保持现状），含利弊 + 推荐。
-- [ ] 向用户呈现决策点并等待显式选择。
-- [ ] 按决策实现：敏感端点落 auth 后；绑定/token 符合所选方案。
-- [ ] 测试：未授权拒敏感端点；授权后行为符合；web panel 读不破坏。
+- [x] 产出 4 方案对比（A 保持现状 / B 端点分级 / C 绑定收紧 / D 全收紧），含利弊 + 推荐 B。
+- [x] 向用户呈现决策点并等待显式选择（用户选 A）。
+- [x] 按决策 A 实现：不改代码；web-panel.md §2.1 补风险接受说明 + §8 记录评估。
+- [x] 测试：N/A（无代码改动）。
 
 ### Reviewer verdict
 
-- Round 1 code：N/A
-- Round 1 test：N/A
-- Round 2 code：N/A
-- Round 2 test：N/A
+- 未走双审（文档型 task，决策 A 无代码/测试改动）。
 
 ### 遗留
 
-- 无
+- 无（若部署到不可信网络，重评改 B/C/D）。
 
 ### 结果摘要
 
-- 见上
+- C1 评估完成，决策 A 保持现状，web-panel.md §2.1/§8 补风险接受记录。
