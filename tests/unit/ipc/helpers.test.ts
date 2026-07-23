@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { ConnectorSnapshotDTO } from "../../../src/shared/types/ipc";
 import {
     ok,
@@ -6,7 +6,37 @@ import {
     state_to_snapshot_dto,
     assert_valid_sender,
     assert_setting_route,
+    set_renderer_index_path,
 } from "../../../src/main/ipc/helpers";
+
+describe("assert_valid_sender rendererIndexPath whitelist (t067)", () => {
+    beforeEach(() => {
+        // 模拟生产：设置 renderer index path（Windows 绝对路径）
+        set_renderer_index_path("D:\\app\\out\\renderer\\index.html");
+    });
+
+    afterEach(() => {
+        set_renderer_index_path("");
+    });
+
+    it("accepts file:// sender matching rendererIndexPath pathname", () => {
+        const event = {
+            senderFrame: { url: "file:///D:/app/out/renderer/index.html#setting" },
+        } as unknown as Electron.IpcMainInvokeEvent;
+        expect(() => {
+            assert_valid_sender(event);
+        }).not.toThrow();
+    });
+
+    it("rejects file:// sender with different pathname (same index.html name)", () => {
+        const event = {
+            senderFrame: { url: "file:///D:/attacker/index.html" },
+        } as unknown as Electron.IpcMainInvokeEvent;
+        expect(() => {
+            assert_valid_sender(event);
+        }).toThrow("Invalid file:// sender path");
+    });
+});
 
 describe("IPC helpers", () => {
     it("ok() returns success envelope with data", () => {

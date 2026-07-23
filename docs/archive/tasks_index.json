@@ -527,6 +527,14 @@
             "status": "done",
             "branch": "t066_connector_threshold_ctx_centralize",
             "note": ""
+        },
+        {
+            "tid": "t067",
+            "title": "IPC file:// rendererIndexPath 完整白名单 (t062 遗留)",
+            "slug": "ipc_renderer_path_whitelist",
+            "status": "done",
+            "branch": "t067_ipc_renderer_path_whitelist",
+            "note": ""
         }
     ]
 }

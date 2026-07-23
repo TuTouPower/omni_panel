@@ -1,4 +1,5 @@
 import type { IpcMainInvokeEvent } from "electron";
+import { pathToFileURL } from "node:url";
 import type { IpcResult, ConnectorSnapshotDTO } from "../../shared/types/ipc";
 import type { ConnectorSnapshotState } from "../core/scheduler/types";
 
@@ -12,21 +13,36 @@ export function fail(code: string, message: string): IpcResult<never> {
     return { ok: false, error: { code, message } };
 }
 
+/** t067: 主进程启动时设置，file:// sender 精确比对 rendererIndexPath。 */
+let renderer_index_pathname: string | null = null;
+
+export function set_renderer_index_path(abs_path: string): void {
+    if (!abs_path) {
+        renderer_index_pathname = null;
+        return;
+    }
+    try {
+        renderer_index_pathname = pathToFileURL(abs_path).pathname;
+    } catch {
+        renderer_index_pathname = null;
+    }
+}
+
 export function assert_valid_sender(event: IpcMainInvokeEvent): void {
     const url = event.senderFrame?.url ?? "";
     if (!url || url === "about:blank") {
         throw new Error("IPC not allowed from unknown origin");
     }
-    // Allow the app's own packaged pages (file://) and, when running under
-    // electron-vite dev, the dev server. Do NOT gate on NODE_ENV — it is not
-    // reliably set in packaged Electron builds, so the production check could
-    // silently no-op and let any origin invoke privileged IPC.
     if (url.startsWith("file://")) {
-        // I15: 仅允许打包 renderer index.html 入口，拒绝其他 file:// HTML
-        // （如被 XSS 导航进入 renderer 的恶意页）。
         try {
             const u = new URL(url);
-            if (!u.pathname.endsWith("index.html")) {
+            if (renderer_index_pathname) {
+                // t067: 精确比对 rendererIndexPath pathname（非 endsWith index.html）。
+                if (u.pathname !== renderer_index_pathname) {
+                    throw new Error(`Invalid file:// sender path: ${u.pathname}`);
+                }
+            } else if (!u.pathname.endsWith("index.html")) {
+                // fallback（未初始化或测试环境）：endsWith 增量防御。
                 throw new Error(`Invalid file:// sender path: ${u.pathname}`);
             }
         } catch (err) {
@@ -38,7 +54,6 @@ export function assert_valid_sender(event: IpcMainInvokeEvent): void {
     }
     const dev_url = process.env["ELECTRON_RENDERER_URL"];
     if (dev_url) {
-        // I15: origin 比对，防 `localhost:5173evil.com` 前缀绕过。
         try {
             if (new URL(dev_url).origin === new URL(url).origin) return;
         } catch {

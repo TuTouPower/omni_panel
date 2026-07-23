@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t067",
-            "title": "IPC file:// rendererIndexPath 完整白名单 (t062 遗留)",
-            "slug": "ipc_renderer_path_whitelist",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t068",
             "title": "task.py mock os.replace 失败路径测试 (t063 遗留)",
             "slug": "task_py_mock_replace_test",
