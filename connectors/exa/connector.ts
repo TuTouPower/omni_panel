@@ -12,8 +12,8 @@ function to_number(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function round2(value: number): number {
-    return Math.round(value * 100) / 100;
+function round3(value: number): number {
+    return Math.round(value * 1000) / 1000;
 }
 
 /** 返回有效预算（>0）；缺失/非数/≤0 返回 0（表示无预算，status 走 unknown）。 */
@@ -85,7 +85,7 @@ async function main(): Promise<ScriptObservation[]> {
             metric_id: "exa:total_cost_usd",
             raw_label: "total_cost_usd",
             normalized_label: "总成本 (USD)",
-            used: round2(total),
+            used: round3(total),
             limit,
             status: limit_num > 0 ? status_for_cost(total, limit_num) : "unknown",
         },
@@ -93,18 +93,25 @@ async function main(): Promise<ScriptObservation[]> {
 
     const breakdown = response["cost_breakdown"];
     if (Array.isArray(breakdown)) {
+        // t080: 按 price_name 聚合（同名多项合并），metric_id 由 price_name slug 派生（稳定）。
+        const agg = new Map<string, number>();
         for (const item of breakdown) {
             if (!is_record(item)) continue;
-            const amount = to_number(item["amount_usd"]);
-            const price_id = typeof item["price_id"] === "string" ? item["price_id"] : "unknown";
             const price_name =
-                typeof item["price_name"] === "string" ? item["price_name"] : price_id;
+                typeof item["price_name"] === "string" ? item["price_name"] : "unknown";
+            const amount = to_number(item["amount_usd"]);
+            agg.set(price_name, (agg.get(price_name) ?? 0) + amount);
+        }
+        for (const [price_name, total_amount] of agg) {
+            const slug =
+                price_name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") ||
+                "unknown";
             observations.push({
                 ...base,
-                metric_id: `exa:${price_id}`,
-                raw_label: price_id,
+                metric_id: `exa:${slug}`,
+                raw_label: slug,
                 normalized_label: price_name,
-                used: round2(amount),
+                used: round3(total_amount),
                 limit: null,
                 status: "unknown",
             });
