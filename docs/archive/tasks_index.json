@@ -671,6 +671,14 @@
       "status": "done",
       "branch": "t084_connector_per_account_error",
       "note": ""
+    },
+    {
+      "tid": "t085",
+      "title": "OpenCode Go 添加账号无弹窗（can_add 检查）",
+      "slug": "fix_opencode_go_add_dialog",
+      "status": "done",
+      "branch": "t085_fix_opencode_go_add_dialog",
+      "note": ""
     }
   ]
 }

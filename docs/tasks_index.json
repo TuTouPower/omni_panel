@@ -1,14 +1,6 @@
 {
   "tasks": [
     {
-      "tid": "t085",
-      "title": "OpenCode Go 添加账号无弹窗（can_add 检查）",
-      "slug": "fix_opencode_go_add_dialog",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
       "tid": "t086",
       "title": "监控重置 bell 全厂商可见 + CSS 类修 + 同行布局",
       "slug": "fix_bell_visibility_layout",
@@ -84,6 +76,14 @@
       "tid": "t095",
       "title": "用户自定义 connector 脚本支持（schema 扩展 + 文档）",
       "slug": "user_custom_connector_support",
+      "status": "backlog",
+      "branch": "",
+      "note": ""
+    },
+    {
+      "tid": "t096",
+      "title": "修复 refreshAll 期间用量面板卡死（先实测归因再修）",
+      "slug": "fix_panel_refresh_freeze",
       "status": "backlog",
       "branch": "",
       "note": ""

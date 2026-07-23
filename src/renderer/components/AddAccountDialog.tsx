@@ -101,7 +101,6 @@ interface AddAccountDialogProps {
 // ── Sub-components ──
 
 function VendorPicker({
-    plugin_infos,
     has_cpa,
     on_select,
     on_cpa,
@@ -111,10 +110,9 @@ function VendorPicker({
     on_select: (vendor_id: UsageProvider) => void;
     on_cpa: () => void;
 }) {
-    // 允许添加有连接器定义的厂商账号，不要求已启用
-    const can_add = (provider: UsageProvider) =>
-        plugin_infos.some((p) => p.activeProviders.includes(provider)) ||
-        plugin_infos.some((p) => p.supportedProviders.includes(provider));
+    // 内置 provider 始终可添加（auto_seed 保证 connector definition 存在）；
+    // 用户删除账号后可重新添加，不因 plugin_infos 缺失而禁用。
+    const can_add = (_provider: UsageProvider) => true;
 
     return (
         <div className="pick-body">
