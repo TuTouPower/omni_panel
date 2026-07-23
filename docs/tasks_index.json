@@ -1,14 +1,6 @@
 {
   "tasks": [
     {
-      "tid": "t084",
-      "title": "connector per-account error 迁移（throw - + continue）",
-      "slug": "connector_per_account_error",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
       "tid": "t085",
       "title": "OpenCode Go 添加账号无弹窗（can_add 检查）",
       "slug": "fix_opencode_go_add_dialog",

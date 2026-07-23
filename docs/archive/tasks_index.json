@@ -663,6 +663,14 @@
       "status": "done",
       "branch": "t083_cleanup_bugs_handoff",
       "note": ""
+    },
+    {
+      "tid": "t084",
+      "title": "connector per-account error 迁移（throw - + continue）",
+      "slug": "connector_per_account_error",
+      "status": "done",
+      "branch": "t084_connector_per_account_error",
+      "note": ""
     }
   ]
 }
