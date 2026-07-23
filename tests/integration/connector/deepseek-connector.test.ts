@@ -110,6 +110,26 @@ describe("deepseek connector", () => {
         expect(result.observations[0]?.status).toBe("normal");
     });
 
+    it("limit=null and status=unknown when LIMIT param missing (t097)", async () => {
+        const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
+        const ctx_no_limit: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+            http: {
+                get_json: () => Promise.resolve({ balance_infos: [{ currency: "CNY", total_balance: "45.6" }] }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { API_KEY: "test-key" },
+            status: ctx_status,
+            report_failed_account: () => undefined,
+        };
+        const result = await run_connector(manifest, script, ctx_no_limit);
+        expect(result.observations[0]?.limit).toBeNull();
+        expect(result.observations[0]?.status).toBe("unknown");
+        expect(result.observations[0]?.used).toBe(45.6);
+    });
+
     it("throws when API returns error code", async () => {
         const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
