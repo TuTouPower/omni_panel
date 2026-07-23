@@ -10,6 +10,7 @@ export const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
     { id: "minimax", label: "MiniMax" },
     { id: "tavily", label: "Tavily" },
     { id: "firecrawl", label: "Firecrawl" },
+    { id: "exa", label: "Exa" },
     { id: "mimo", label: "MiMo" },
     { id: "opencode_go", label: "OpenCode Go" },
     { id: "grok", label: "Grok" },

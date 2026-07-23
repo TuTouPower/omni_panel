@@ -1,0 +1,43 @@
+{
+    "id": "exa",
+    "provider": "exa",
+    "capabilities": ["poll"],
+    "parameters": [
+        {
+            "name": "SERVICE_KEY",
+            "type": "secret",
+            "required": true,
+            "label": "Service Key",
+            "label@zh-Hans": "团队 Service Key",
+            "exposeToScript": true
+        },
+        {
+            "name": "API_KEY_ID",
+            "type": "string",
+            "required": true,
+            "label": "API Key ID",
+            "label@zh-Hans": "API Key ID (UUID)",
+            "exposeToScript": true
+        },
+        {
+            "name": "LIMIT",
+            "type": "number",
+            "required": false,
+            "label": "Budget Limit (USD)",
+            "label@zh-Hans": "预算上限 (USD)",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://admin-api.exa.ai"
+    },
+    "poll": {
+        "request": {
+            "endpoint": "default",
+            "path": "/team-management/api-keys/{API_KEY_ID}/usage",
+            "method": "GET"
+        },
+        "map": {}
+    },
+    "script": "connector.ts"
+}

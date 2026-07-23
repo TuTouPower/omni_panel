@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t049",
-            "title": "Exa 用量连接器（成本型）",
-            "slug": "exa_connector",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t050",
             "title": "GetOneAPI 余额连接器",
             "slug": "getoneapi_connector",

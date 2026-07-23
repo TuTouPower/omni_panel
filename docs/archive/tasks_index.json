@@ -383,6 +383,14 @@
             "status": "done",
             "branch": "t048_settings_label_map_watch_toggle",
             "note": ""
+        },
+        {
+            "tid": "t049",
+            "title": "Exa 用量连接器（成本型）",
+            "slug": "exa_connector",
+            "status": "done",
+            "branch": "t049_exa_connector",
+            "note": ""
         }
     ]
 }

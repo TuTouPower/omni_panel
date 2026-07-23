@@ -13,6 +13,7 @@
 | `minimax`     | minimax     | poll    | 直连 | MiniMax API                                                                                                                         |
 | `tavily`      | tavily      | poll    | 直连 | Tavily API                                                                                                                          |
 | `firecrawl`   | firecrawl   | poll    | 直连 | Firecrawl API                                                                                                                       |
+| `exa`         | exa         | poll    | 直连 | Exa 团队 API（`x-api-key` service key）；成本型 `total_cost_usd` + `cost_breakdown`，无远端 limit，用户自定预算 LIMIT（t049）       |
 | `mimo`        | mimo        | session | 直连 | 受控网页登录捕获 cookie                                                                                                             |
 | `kimi`        | kimi        | poll    | 直连 | Kimi Code API（API Key）                                                                                                            |
 | `opencode_go` | opencode_go | session | 直连 | 受控网页登录捕获 cookie                                                                                                             |
@@ -30,7 +31,7 @@
 
 - manifest `poll.request`（endpoint/path/method/auth/body）+ `poll.map`（used/limit/remaining 须 `$` 开头）。
 - secret 经 `apply_auth`（bearer/header/query）注入宿主请求，**不进沙箱**。
-- 例：tavily / firecrawl / deepseek / glm / minimax。
+- 例：tavily / firecrawl / deepseek / glm / minimax / exa（脚本读 `total_cost_usd`+`cost_breakdown`，成本正向 status，无远端 limit）。
 
 ## local 型行为
 

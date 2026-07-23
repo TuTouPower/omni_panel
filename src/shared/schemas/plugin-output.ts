@@ -13,6 +13,7 @@ export const usageProviderSchema = z.enum([
     "deepseek",
     "tavily",
     "firecrawl",
+    "exa",
     "mimo",
     "opencode_go",
     "grok",
