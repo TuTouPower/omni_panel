@@ -399,6 +399,14 @@
             "status": "done",
             "branch": "t050_getoneapi_connector",
             "note": ""
+        },
+        {
+            "tid": "t051",
+            "title": "TikHub 余额连接器",
+            "slug": "tikhub_connector",
+            "status": "done",
+            "branch": "t051_tikhub_connector",
+            "note": ""
         }
     ]
 }

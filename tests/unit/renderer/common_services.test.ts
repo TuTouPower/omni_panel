@@ -15,6 +15,7 @@ describe("add-account common services", () => {
             "tavily",
             "firecrawl",
             "exa",
+            "tikhub",
             "mimo",
             "opencode_go",
             "grok",

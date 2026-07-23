@@ -20,6 +20,7 @@
 | `opencode_go` | opencode_go | session | 直连 | 受控网页登录捕获 cookie                                                                                                             |
 | `antigravity` | antigravity | local   | 直连 | 读 `~/.antigravity/session.json`                                                                                                    |
 | `grok`        | grok        | poll    | 直连 | Grok API（OAuth device-code）；billing 200 但零有效 usage 字段时 connector 须 `report_failed_account`，不得静默 `return []`（t039） |
+| `tikhub`      | tikhub      | poll    | 直连 | TikHub 用户接口（`GET /api/v1/tikhub/user/get_user_info`）；`user_data.balance` 余额反向 + `free_credit`，account_id=email（t051）  |
 
 ## 能力分发（`refresh-service.execute_connector`）
 

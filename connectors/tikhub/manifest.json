@@ -1,0 +1,35 @@
+{
+    "id": "tikhub",
+    "provider": "tikhub",
+    "capabilities": ["poll"],
+    "parameters": [
+        {
+            "name": "API_KEY",
+            "type": "secret",
+            "required": true,
+            "label": "API Token",
+            "label@zh-Hans": "API Token",
+            "exposeToScript": true
+        },
+        {
+            "name": "LIMIT",
+            "type": "number",
+            "required": false,
+            "label": "Balance Limit (USD)",
+            "label@zh-Hans": "余额上限 (USD)",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://api.tikhub.io"
+    },
+    "poll": {
+        "request": {
+            "endpoint": "default",
+            "path": "/api/v1/tikhub/user/get_user_info",
+            "method": "GET"
+        },
+        "map": {}
+    },
+    "script": "connector.ts"
+}

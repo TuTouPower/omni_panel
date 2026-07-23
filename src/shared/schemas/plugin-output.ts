@@ -15,6 +15,7 @@ export const usageProviderSchema = z.enum([
     "tavily",
     "firecrawl",
     "exa",
+    "tikhub",
     "mimo",
     "opencode_go",
     "grok",
