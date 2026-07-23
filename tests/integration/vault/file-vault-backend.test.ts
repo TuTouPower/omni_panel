@@ -199,4 +199,13 @@ describe("file-vault-backend", () => {
         const bak = await readFile(join(temp_dir, "secrets.vault.bak"), "utf8");
         expect(bak).toBe(main);
     });
+
+    it("throws when vault.key file exists but has wrong length (corrupted, not overwritten)", async () => {
+        const { writeFile } = await import("node:fs/promises");
+        // vault 已生成 32 字节 key；覆写为异常长度
+        await writeFile(join(temp_dir, "vault.key"), Buffer.alloc(10));
+        await expect(create_file_vault_backend(temp_dir)).rejects.toThrow(
+            "Invalid vault key length",
+        );
+    });
 });

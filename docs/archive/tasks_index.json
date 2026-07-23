@@ -383,6 +383,142 @@
             "status": "done",
             "branch": "t048_settings_label_map_watch_toggle",
             "note": ""
+        },
+        {
+            "tid": "t049",
+            "title": "Exa 用量连接器（成本型）",
+            "slug": "exa_connector",
+            "status": "done",
+            "branch": "t049_exa_connector",
+            "note": ""
+        },
+        {
+            "tid": "t050",
+            "title": "GetOneAPI 余额连接器",
+            "slug": "getoneapi_connector",
+            "status": "done",
+            "branch": "t050_getoneapi_connector",
+            "note": ""
+        },
+        {
+            "tid": "t051",
+            "title": "TikHub 余额连接器",
+            "slug": "tikhub_connector",
+            "status": "done",
+            "branch": "t051_tikhub_connector",
+            "note": ""
+        },
+        {
+            "tid": "t052",
+            "title": "用量卡片同行高度按最多行对齐",
+            "slug": "usage_card_row_height_align",
+            "status": "done",
+            "branch": "t052_usage_card_row_height_align",
+            "note": ""
+        },
+        {
+            "tid": "t053",
+            "title": "mimo 余额阈值方向修复 (review C2)",
+            "slug": "fix_mimo_balance_threshold",
+            "status": "done",
+            "branch": "t053_fix_mimo_balance_threshold",
+            "note": ""
+        },
+        {
+            "tid": "t054",
+            "title": "local-api 认证收紧评估 (review C1)",
+            "slug": "localapi_auth_hardening",
+            "status": "done",
+            "branch": "t054_localapi_auth_hardening",
+            "note": ""
+        },
+        {
+            "tid": "t055",
+            "title": "连接器阈值集中化与 status 硬编码 (P5/I3/I4)",
+            "slug": "connector_threshold_centralize",
+            "status": "done",
+            "branch": "t055_connector_threshold_centralize",
+            "note": ""
+        },
+        {
+            "tid": "t056",
+            "title": "cycleDurationMs 语义统一 (P3/I8/I9)",
+            "slug": "connector_cycle_duration_semantics",
+            "status": "done",
+            "branch": "t056_connector_cycle_duration_semantics",
+            "note": ""
+        },
+        {
+            "tid": "t057",
+            "title": "连接器固定 account_id 多实例 collapse (P2/I6/I7)",
+            "slug": "connector_stable_account_id",
+            "status": "done",
+            "branch": "t057_connector_stable_account_id",
+            "note": ""
+        },
+        {
+            "tid": "t058",
+            "title": "图表 tooltip XSS 转义 (I10/I11)",
+            "slug": "fix_chart_tooltip_xss",
+            "status": "done",
+            "branch": "t058_fix_chart_tooltip_xss",
+            "note": ""
+        },
+        {
+            "tid": "t059",
+            "title": "连接器空响应静默处置 (P1/I5)",
+            "slug": "connector_empty_response",
+            "status": "done",
+            "branch": "t059_connector_empty_response",
+            "note": ""
+        },
+        {
+            "tid": "t060",
+            "title": "vault 主密钥与 auth 错误判定健壮性 (I1/I2)",
+            "slug": "vault_auth_robustness",
+            "status": "done",
+            "branch": "t060_vault_auth_robustness",
+            "note": ""
+        },
+        {
+            "tid": "t061",
+            "title": "renderer 账号状态与保存错误小修 (I12/I13)",
+            "slug": "renderer_small_fixes",
+            "status": "done",
+            "branch": "t061_renderer_small_fixes",
+            "note": ""
+        },
+        {
+            "tid": "t062",
+            "title": "IPC 越权防御 (I14/I15)",
+            "slug": "ipc_route_guard",
+            "status": "done",
+            "branch": "t062_ipc_route_guard",
+            "note": ""
+        },
+        {
+            "tid": "t063",
+            "title": "task.py 原子写与事务 (I16/I17)",
+            "slug": "task_py_atomic_write",
+            "status": "done",
+            "branch": "t063_task_py_atomic_write",
+            "note": ""
+        },
+        {
+            "tid": "t064",
+            "title": "测试反模式整改 (I18-I23)",
+            "slug": "test_antipattern_cleanup",
+            "status": "done",
+            "branch": "t064_test_antipattern_cleanup",
+            "note": ""
+        },
+        {
+            "tid": "t065",
+            "title": "构建配置与依赖清理 (I24-I28)",
+            "slug": "build_config_cleanup",
+            "status": "done",
+            "branch": "t065_build_config_cleanup",
+            "note": ""
         }
     ]
 }

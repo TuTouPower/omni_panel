@@ -3,7 +3,7 @@ import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
 import { fmtInt, fmtTok } from "../../lib/token-stats/format";
 import { paletteFor } from "../../lib/token-stats/palette";
-import { prepareBarData } from "../../lib/token-stats/chart-data";
+import { prepareBarData, escapeHtml } from "../../lib/token-stats/chart-data";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "../../lib/token-stats/types";
 
 interface BarChartProps {
@@ -24,6 +24,46 @@ const METRIC_LABEL: Record<Metric, string> = {
     sessions: "会话数",
     calls: "调用次数",
 };
+
+interface BarTooltipParam {
+    seriesName: string;
+    value: number;
+    marker: string;
+    dataIndex: number;
+}
+
+/**
+ * 构造 BarChart tooltip HTML。导出以便单测验证 XSS 转义。
+ * label（session 标题/目录名）、seriesName（model/项目名）、otherDetails key 经 escapeHtml。
+ */
+export function build_bar_tooltip_html(
+    params: unknown,
+    labels: readonly string[],
+    metric_label: string,
+    fmt_value: (v: number) => string,
+    other_details: readonly (readonly [string, number][])[],
+): string {
+    const ps = params as BarTooltipParam[];
+    if (!ps.length) return "";
+    const first = ps[0];
+    if (!first) return "";
+    const ci = first.dataIndex;
+    const label = labels[ci] ?? "";
+    const total = ps.reduce((sum, p) => sum + p.value, 0);
+    let html = `<b>${escapeHtml(label)}</b><br/>${metric_label}: <b>${fmt_value(total)}</b>`;
+    ps.slice()
+        .sort((a, b) => b.value - a.value)
+        .forEach((p) => {
+            if (p.value <= 0) return;
+            html += `<br/>${p.marker}${escapeHtml(p.seriesName)}: <b>${fmt_value(p.value)}</b>`;
+            if (p.seriesName === "其他") {
+                other_details[ci]?.slice(0, 10).forEach(([k, v]) => {
+                    html += `<br/><span style="opacity:.7">&nbsp;&nbsp;· ${escapeHtml(k)}: ${fmt_value(v)}</span>`;
+                });
+            }
+        });
+    return html;
+}
 
 export function BarChart({
     records,
@@ -75,33 +115,14 @@ export function BarChart({
                 extraCssText: pal.tipShadow,
                 trigger: "axis",
                 axisPointer: { type: "shadow" },
-                formatter: (params: unknown) => {
-                    const ps = params as {
-                        seriesName: string;
-                        value: number;
-                        marker: string;
-                        dataIndex: number;
-                    }[];
-                    if (!ps.length) return "";
-                    const first = ps[0];
-                    if (!first) return "";
-                    const ci = first.dataIndex;
-                    const label = labels[ci] ?? "";
-                    const total = ps.reduce((sum, p) => sum + p.value, 0);
-                    let html = `<b>${label}</b><br/>${METRIC_LABEL[metric]}: <b>${fmtV(total)}</b>`;
-                    ps.slice()
-                        .sort((a, b) => b.value - a.value)
-                        .forEach((p) => {
-                            if (p.value <= 0) return;
-                            html += `<br/>${p.marker}${p.seriesName}: <b>${fmtV(p.value)}</b>`;
-                            if (p.seriesName === "其他") {
-                                otherDetails[ci]?.slice(0, 10).forEach(([k, v]) => {
-                                    html += `<br/><span style="opacity:.7">&nbsp;&nbsp;· ${k}: ${fmtV(v)}</span>`;
-                                });
-                            }
-                        });
-                    return html;
-                },
+                formatter: (params: unknown) =>
+                    build_bar_tooltip_html(
+                        params,
+                        labels,
+                        METRIC_LABEL[metric],
+                        fmtV,
+                        otherDetails,
+                    ),
             },
             xAxis: {
                 type: "category",

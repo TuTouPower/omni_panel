@@ -56,7 +56,8 @@ export function is_auth_error(message: string): boolean {
     return (
         lower.includes("401") ||
         lower.includes("unauthorized") ||
-        lower.includes("token") ||
+        lower.includes("invalid_token") ||
+        lower.includes("invalid_grant") ||
         lower.includes("credential")
     );
 }

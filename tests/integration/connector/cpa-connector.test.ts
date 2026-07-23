@@ -97,6 +97,17 @@ function create_ctx(): ConnectorContext {
 }
 
 describe("cpa connector", () => {
+    it("reports failed_account when upstream returns non-2xx (empty body)", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.post_json = () => Promise.resolve({ status_code: 500, body: {} });
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toEqual([]);
+        expect(result.failed_accounts).toHaveLength(1);
+        expect(result.failed_accounts[0]?.provider).toBe("claude");
+    });
+
     it("fetches enabled Claude accounts through CPA manager", async () => {
         const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
         const result = await run_connector(manifest, script, create_ctx());

@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
 import { paletteFor } from "../../lib/token-stats/palette";
+import { escapeHtml } from "../../lib/token-stats/chart-data";
 import type { DonutSegment } from "../../lib/token-stats/chart-data";
 
 interface MetricDonutProps {
@@ -9,6 +10,22 @@ interface MetricDonutProps {
     segments: DonutSegment[];
     format: (n: number) => string;
     theme: "dark" | "light";
+}
+
+interface DonutTooltipParam {
+    name: string;
+    value: number;
+    percent: number;
+    data?: DonutSegment;
+}
+
+/** 构造 MetricDonut tooltip HTML。导出以便单测验证 XSS 转义（name 经 escapeHtml）。 */
+export function build_donut_tooltip_html(params: unknown, format: (n: number) => string): string {
+    const p = params as DonutTooltipParam | null;
+    if (!p) return "";
+    let html = `${escapeHtml(p.name)}<br/><b>${format(p.value)}</b> · ${String(p.percent)}%`;
+    if (p.data?.extra) html += p.data.extra;
+    return html;
 }
 
 export function MetricDonut({ centerValue, segments, format, theme }: MetricDonutProps) {
@@ -22,17 +39,7 @@ export function MetricDonut({ centerValue, segments, format, theme }: MetricDonu
                 borderColor: pal.tipBorder,
                 textStyle: { color: pal.tipText, fontSize: 12, fontFamily: "Inter" },
                 extraCssText: pal.tipShadow,
-                formatter: (params: unknown) => {
-                    const p = params as {
-                        name: string;
-                        value: number;
-                        percent: number;
-                        data?: DonutSegment;
-                    };
-                    let html = `${p.name}<br/><b>${format(p.value)}</b> · ${String(p.percent)}%`;
-                    if (p.data?.extra) html += p.data.extra;
-                    return html;
-                },
+                formatter: (params: unknown) => build_donut_tooltip_html(params, format),
             },
             series: [
                 {

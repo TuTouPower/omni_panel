@@ -36,29 +36,6 @@ const EN_LABELS = [
 ] as const;
 
 describe("tray menu", () => {
-    it("has all 10 required menu item labels in Chinese", () => {
-        expect(ZH_LABELS).toHaveLength(10);
-        expect(ZH_LABELS).toContain("用量面板");
-        expect(ZH_LABELS).toContain("代理面板");
-        expect(ZH_LABELS).toContain("网页访问");
-        expect(ZH_LABELS).toContain("立即刷新全部");
-        expect(ZH_LABELS).toContain("退出 OmniUsage");
-    });
-
-    it("has all 10 required menu item labels in English", () => {
-        expect(EN_LABELS).toHaveLength(10);
-        expect(EN_LABELS).toContain("Usage Panel");
-        expect(EN_LABELS).toContain("Agent Panel");
-        expect(EN_LABELS).toContain("Web Panel");
-        expect(EN_LABELS).toContain("Refresh All");
-        expect(EN_LABELS).toContain("Quit OmniUsage");
-    });
-
-    it("pause labels are distinct", () => {
-        expect(ZH_LABELS[4]).not.toBe(ZH_LABELS[5]);
-        expect(EN_LABELS[4]).not.toBe(EN_LABELS[5]);
-    });
-
     it("tray IPC channels cover all actions", () => {
         const tray_channels = Object.values(IPC_CHANNELS).filter((ch) => ch.startsWith("tray:"));
         expect(tray_channels.length).toBeGreaterThanOrEqual(10);

@@ -173,7 +173,12 @@ function observation(
         raw_label,
         normalized_label,
         window,
-        cycleDurationMs: reset_in_sec > 0 ? reset_in_sec * 1000 : null,
+        cycleDurationMs:
+            raw_label === "weekly"
+                ? 7 * 24 * 60 * 60 * 1000
+                : raw_label === "monthly"
+                  ? 30 * 24 * 60 * 60 * 1000
+                  : null,
         used,
         limit: 100,
         display_style: "percent",

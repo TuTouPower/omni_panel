@@ -114,6 +114,78 @@ describe("mimo connector", () => {
         expect(result.observations[2]?.used).toBe(75.5);
     });
 
+    it("balance status reversed: low -> critical, mid -> warning, high -> normal", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const empty_usage = { code: 0, data: { usage: { items: [] } } };
+
+        const low = await run_connector(
+            manifest,
+            script,
+            create_ctx(empty_usage, { code: 0, data: {} }, { code: 0, data: { balance: 5 } }),
+        );
+        expect(low.observations.find((o) => o.raw_label === "balance")?.status).toBe("critical");
+
+        const warn = await run_connector(
+            manifest,
+            script,
+            create_ctx(empty_usage, { code: 0, data: {} }, { code: 0, data: { balance: 15 } }),
+        );
+        expect(warn.observations.find((o) => o.raw_label === "balance")?.status).toBe("warning");
+
+        const ok = await run_connector(
+            manifest,
+            script,
+            create_ctx(
+                empty_usage,
+                { code: 0, data: {} },
+                {
+                    code: 0,
+                    data: { balance: 75.5 },
+                },
+            ),
+        );
+        expect(ok.observations.find((o) => o.raw_label === "balance")?.status).toBe("normal");
+    });
+
+    it("balance threshold boundaries 0.1/0.2 locked (<= semantics)", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const empty_usage = { code: 0, data: { usage: { items: [] } } };
+
+        const boundary_critical = await run_connector(
+            manifest,
+            script,
+            create_ctx(empty_usage, { code: 0, data: {} }, { code: 0, data: { balance: 10 } }),
+        );
+        // 10/100 = 0.1 -> critical（闭区间 <=0.1）
+        expect(boundary_critical.observations.find((o) => o.raw_label === "balance")?.status).toBe(
+            "critical",
+        );
+
+        const boundary_warning = await run_connector(
+            manifest,
+            script,
+            create_ctx(empty_usage, { code: 0, data: {} }, { code: 0, data: { balance: 20 } }),
+        );
+        // 20/100 = 0.2 -> warning（<=0.2，>0.1）
+        expect(boundary_warning.observations.find((o) => o.raw_label === "balance")?.status).toBe(
+            "warning",
+        );
+    });
+
+    it("balance near zero (0.01) -> critical", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx(
+                { code: 0, data: { usage: { items: [] } } },
+                { code: 0, data: {} },
+                { code: 0, data: { balance: 0.01 } },
+            ),
+        );
+        expect(result.observations.find((o) => o.raw_label === "balance")?.status).toBe("critical");
+    });
+
     it("returns empty when usage code is non-zero", async () => {
         const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
         const result = await run_connector(
@@ -213,5 +285,21 @@ describe("mimo connector", () => {
         expect(result.error).toBeNull();
         expect(result.observations.map((o) => o.metric_id)).toEqual(["mimo:plan_total_token"]);
         expect(result.observations[0]?.account_label).toBe("MiMo");
+    });
+
+    it("reports failed_account when usage items empty and balance unavailable", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx(
+                { code: 0, data: { usage: { items: [] } } },
+                { code: 0, data: {} },
+                { code: 500 },
+            ),
+        );
+        expect(result.observations).toEqual([]);
+        expect(result.failed_accounts).toHaveLength(1);
+        expect(result.failed_accounts[0]?.provider).toBe("mimo");
     });
 });

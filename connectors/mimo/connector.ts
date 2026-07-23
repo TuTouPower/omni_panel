@@ -56,6 +56,14 @@ function status_for_usage(used: number, limit: number): ScriptObservation["statu
     return "normal";
 }
 
+function status_for_balance(balance: number, limit: number): ScriptObservation["status"] {
+    if (limit <= 0) return "normal";
+    const ratio = balance / limit;
+    if (ratio <= 0.1) return "critical";
+    if (ratio <= 0.2) return "warning";
+    return "normal";
+}
+
 function to_reset_at(value: string | undefined): number | null {
     if (!value) return null;
     const ts = Date.parse(value);
@@ -157,9 +165,19 @@ async function main(): Promise<ScriptObservation[]> {
                 cycleDurationMs: null,
                 display_style: "ratio",
                 reset_at: null,
-                status: balance >= 0 ? "normal" : "critical",
+                status: status_for_balance(balance, limit),
             });
         }
+    }
+
+    if (observations.length === 0) {
+        ctx.report_failed_account(
+            "mimo",
+            "mimo",
+            plan_name,
+            "MiMo 返回空用量（usage items 空 + 无 balance）",
+        );
+        return [];
     }
 
     return observations;

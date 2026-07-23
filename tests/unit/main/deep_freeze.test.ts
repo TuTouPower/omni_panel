@@ -1,17 +1,5 @@
 import { describe, expect, it } from "vitest";
-
-// Re-implement deep_freeze for unit testing (private function)
-function deep_freeze<T>(value: T, seen = new WeakSet<object>()): T {
-    if (value !== null && typeof value === "object") {
-        if (seen.has(value)) return value;
-        seen.add(value);
-        for (const child of Object.values(value as Record<string, unknown>)) {
-            deep_freeze(child, seen);
-        }
-        Object.freeze(value);
-    }
-    return value;
-}
+import { deep_freeze } from "../../../src/main/core/connector/runtime";
 
 describe("deep_freeze", () => {
     it("freezes a flat object", () => {

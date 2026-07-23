@@ -147,7 +147,15 @@ async function main(): Promise<ScriptObservation[]> {
     }
 
     const models = response?.model_remains;
-    if (!Array.isArray(models) || models.length === 0) return [];
+    if (!Array.isArray(models) || models.length === 0) {
+        ctx.report_failed_account(
+            "minimax",
+            "minimax",
+            "MiniMax",
+            "MiniMax 返回空用量（model_remains 空）",
+        );
+        return [];
+    }
 
     const now = Date.now();
     const base = {
@@ -186,7 +194,10 @@ async function main(): Promise<ScriptObservation[]> {
                 used: Math.max(interval_used, 0),
                 limit: Math.max(interval_total, 0),
                 reset_at: reset_from_ms(model.remains_time),
-                cycleDurationMs: to_number(model.end_time) - to_number(model.start_time),
+                cycleDurationMs: Math.max(
+                    0,
+                    to_number(model.end_time) - to_number(model.start_time),
+                ),
                 status: status_for(interval_used, interval_total),
                 _model_sort: key ? (MODEL_SORT[key] ?? 99) : 99,
                 _period_sort: PERIOD_SORT[pk] ?? 99,

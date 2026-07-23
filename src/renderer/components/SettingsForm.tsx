@@ -71,6 +71,7 @@ export function SettingsForm({
 }: SettingsFormProps) {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [loginLoading, setLoginLoading] = useState(false);
     const [loginMessage, setLoginMessage] = useState<string | null>(null);
     const [labelMapExpanded, setLabelMapExpanded] = useState(false);
@@ -217,6 +218,7 @@ export function SettingsForm({
 
             setSaving(true);
             setSaved(false);
+            setSaveError(null);
             void onSave(
                 instanceId,
                 nonSecrets,
@@ -250,6 +252,12 @@ export function SettingsForm({
                             setSaved(false);
                         }
                     }, 1500);
+                })
+                .catch((err: unknown) => {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    if (mounted_ref.current) {
+                        setSaveError(msg);
+                    }
                 })
                 .finally(() => {
                     if (mounted_ref.current) {
@@ -593,6 +601,11 @@ export function SettingsForm({
                     >
                         {saving ? "保存中..." : saved ? "已保存" : "保存"}
                     </button>
+                    {saveError ? (
+                        <span className="ad-error" role="alert">
+                            {saveError}
+                        </span>
+                    ) : null}
                 </div>
             </div>
         </form>

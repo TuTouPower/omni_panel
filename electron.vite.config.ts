@@ -6,7 +6,6 @@ export default {
     main: {
         build: {
             rollupOptions: {
-                external: ["esbuild"],
                 input: {
                     index: resolve("src/main/index.ts"),
                     collector: resolve("src/main/core/token-stats/collector.ts"),

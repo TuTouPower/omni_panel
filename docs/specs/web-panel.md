@@ -16,6 +16,12 @@
 - **ingest 保留 token**：`POST /v1/ingest` 仍需 Bearer（不破坏现有采集客户端）。
 - **native 操作隐藏**：Electron-only 控件（隐藏到托盘、窗口 min/max/close、重启、开机自启、托盘菜单）在 web 隐藏或 no-op。判定依据 `src/renderer/lib/is-web.ts`（`<html data-web>` 由 `install_web_usageboard` 设置）。
 
+### 2.1 风险接受说明（review_20260723_opus C1 评估，2026-07-23）
+
+review C1 指出当前暴露面超「只读 panel」初衷：同 LAN 任意主机除读明文密钥外，可 `POST /v1/config` 篡改配置、`POST /v1/secrets` 注入密钥、`POST /v1/connectors/*/refresh` 触发刷新（敏感写端点均落 `check_auth` 前，见 `src/main/core/local-api/server.ts` 路由顺序）。
+
+经评估 4 方案（A 保持现状 / B 端点分级 / C 绑定收紧 / D 全收紧），**决策 A 保持现状**：遵循本节原决策，不收紧。接受风险前提为部署环境（家庭/办公 LAN 可信）。若后续部署到不可信网络，需重评改 B/C/D。
+
 ## 3. 端点
 
 | 方法     | 路径                                                    | 说明                                                       | 认证   |
@@ -61,3 +67,4 @@
 - connector/session 写端点（账号增删、登录、刷新触发）：T7。
 - SettingsView 窗口控制按钮的 `is_web` 精细化隐藏（当前 native 按钮在 web 点击为 no-op，不崩）。
 - HTTPS / 跨网段访问 / 认证增强：按当前「局域网不考虑安全」决策不做。
+- review_20260723_opus C1 评估（t054）：4 方案对比后决策 A 保持现状，风险接受说明见 §2.1。

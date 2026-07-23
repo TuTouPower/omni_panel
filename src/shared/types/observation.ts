@@ -30,6 +30,10 @@ export interface ScriptObservation {
      */
     readonly name?: string;
     readonly window: ObservationWindow;
+    /**
+     * 完整周期时长（ms），非「距重置剩余时间」。固定周期用常量（如 7d），
+     * rolling/未知用 null。下游进度/刷新节奏依赖此字段，必须 >= 0。
+     */
     readonly cycleDurationMs?: number | null;
     readonly used: number | null;
     readonly limit: number | null;

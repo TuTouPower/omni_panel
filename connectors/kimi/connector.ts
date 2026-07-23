@@ -59,8 +59,7 @@ async function main(): Promise<ScriptObservation[]> {
         const used = to_number(u.used);
         const limit = to_number(u.limit);
         const reset_at = parse_reset_time(u.resetTime);
-        const cycle_duration_ms =
-            reset_at !== null ? Math.max(0, reset_at - now) : 7 * 24 * 60 * 60 * 1000;
+        const cycle_duration_ms = 7 * 24 * 60 * 60 * 1000;
 
         results.push({
             provider: "kimi",
@@ -90,9 +89,7 @@ async function main(): Promise<ScriptObservation[]> {
         const used = to_number(d.used);
         const limit = to_number(d.limit);
         const reset_at = parse_reset_time(d.resetTime);
-        const duration_sec = rate_limit.window?.duration ?? 300;
-        const cycle_duration_ms =
-            reset_at !== null ? Math.max(0, reset_at - now) : duration_sec * 1000;
+        const cycle_duration_ms = 5 * 60 * 60 * 1000;
 
         results.push({
             provider: "kimi",

@@ -4,7 +4,7 @@ import { readFile, writeFile, stat } from "node:fs/promises";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { ConfigExportData } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
-import { ok, fail, assert_valid_sender } from "./helpers";
+import { ok, fail, assert_valid_sender, assert_setting_route } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
 import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfiguration, ConnectorConfiguration } from "../../shared/types/config";
@@ -431,6 +431,7 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     });
     ipcMain.handle(IPC_CHANNELS.CONFIG_GET_SECRETS, (e, payload: unknown) => {
         assert_valid_sender(e);
+        assert_setting_route(e);
         return logged(IPC_CHANNELS.CONFIG_GET_SECRETS, [payload], () => {
             const p = payload as { instanceId?: string } | string;
             const instance_id = typeof p === "string" ? p : (p.instanceId ?? "?");

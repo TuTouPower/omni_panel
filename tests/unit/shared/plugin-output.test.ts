@@ -62,6 +62,32 @@ describe("pluginSuccessOutputSchema", () => {
         expect(result.success).toBe(false);
     });
 
+    it("rejects negative cycleDurationMs (host >=0 contract)", () => {
+        const base_item = validOutput.items[0];
+        const result = pluginSuccessOutputSchema.safeParse({
+            ...validOutput,
+            items: base_item ? [{ ...base_item, cycleDurationMs: -1000 }] : [],
+        });
+
+        expect(result.success).toBe(false);
+    });
+
+    it("accepts zero and positive cycleDurationMs", () => {
+        const base_item = validOutput.items[0];
+        if (!base_item) throw new Error("fixture missing base item");
+        const zero = pluginSuccessOutputSchema.safeParse({
+            ...validOutput,
+            items: [{ ...base_item, cycleDurationMs: 0 }],
+        });
+        const positive = pluginSuccessOutputSchema.safeParse({
+            ...validOutput,
+            items: [{ ...base_item, cycleDurationMs: 86400_000 }],
+        });
+
+        expect(zero.success).toBe(true);
+        expect(positive.success).toBe(true);
+    });
+
     it("rejects item without provider metadata", () => {
         const result = pluginSuccessOutputSchema.safeParse({
             ...validOutput,

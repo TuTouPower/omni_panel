@@ -1,137 +1,73 @@
 {
     "tasks": [
         {
-            "tid": "t049",
-            "title": "Exa 用量连接器（成本型）",
-            "slug": "exa_connector",
+            "tid": "t066",
+            "title": "连接器阈值 ctx 共享 helper 集中化 (P5 spike)",
+            "slug": "connector_threshold_ctx_centralize",
             "status": "backlog",
             "branch": "",
             "note": ""
         },
         {
-            "tid": "t050",
-            "title": "GetOneAPI 余额连接器",
-            "slug": "getoneapi_connector",
+            "tid": "t067",
+            "title": "IPC file:// rendererIndexPath 完整白名单 (t062 遗留)",
+            "slug": "ipc_renderer_path_whitelist",
             "status": "backlog",
             "branch": "",
             "note": ""
         },
         {
-            "tid": "t051",
-            "title": "TikHub 余额连接器",
-            "slug": "tikhub_connector",
+            "tid": "t068",
+            "title": "task.py mock os.replace 失败路径测试 (t063 遗留)",
+            "slug": "task_py_mock_replace_test",
             "status": "backlog",
             "branch": "",
             "note": ""
         },
         {
-            "tid": "t052",
-            "title": "用量卡片同行高度按最多行对齐",
-            "slug": "usage_card_row_height_align",
+            "tid": "t069",
+            "title": "migration 测试改 import 生产迁移入口 (I19)",
+            "slug": "test_migration_real_entry",
             "status": "backlog",
             "branch": "",
             "note": ""
         },
         {
-            "tid": "t053",
-            "title": "mimo 余额阈值方向修复 (review C2)",
-            "slug": "fix_mimo_balance_threshold",
+            "tid": "t070",
+            "title": "e2e 断言真实刷新行为非死等 (I21)",
+            "slug": "e2e_assert_real_refresh",
             "status": "backlog",
             "branch": "",
             "note": ""
         },
         {
-            "tid": "t054",
-            "title": "local-api 认证收紧评估 (review C1)",
-            "slug": "localapi_auth_hardening",
+            "tid": "t071",
+            "title": "setupFiles 拆 renderer-only (I22)",
+            "slug": "setupfiles_renderer_only_split",
             "status": "backlog",
             "branch": "",
             "note": ""
         },
         {
-            "tid": "t055",
-            "title": "连接器阈值集中化与 status 硬编码 (P5/I3/I4)",
-            "slug": "connector_threshold_centralize",
+            "tid": "t072",
+            "title": "取消 skip 关键 case 补 real fixture (I23)",
+            "slug": "skip_cases_real_fixture",
             "status": "backlog",
             "branch": "",
             "note": ""
         },
         {
-            "tid": "t056",
-            "title": "cycleDurationMs 语义统一 (P3/I8/I9)",
-            "slug": "connector_cycle_duration_semantics",
+            "tid": "t073",
+            "title": "启用 7 eslint 插件 recommended 分批修 (I24 遗留)",
+            "slug": "eslint_recommended_enable",
             "status": "backlog",
             "branch": "",
             "note": ""
         },
         {
-            "tid": "t057",
-            "title": "连接器固定 account_id 多实例 collapse (P2/I6/I7)",
-            "slug": "connector_stable_account_id",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t058",
-            "title": "图表 tooltip XSS 转义 (I10/I11)",
-            "slug": "fix_chart_tooltip_xss",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t059",
-            "title": "连接器空响应静默处置 (P1/I5)",
-            "slug": "connector_empty_response",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t060",
-            "title": "vault 主密钥与 auth 错误判定健壮性 (I1/I2)",
-            "slug": "vault_auth_robustness",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t061",
-            "title": "renderer 账号状态与保存错误小修 (I12/I13)",
-            "slug": "renderer_small_fixes",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t062",
-            "title": "IPC 越权防御 (I14/I15)",
-            "slug": "ipc_route_guard",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t063",
-            "title": "task.py 原子写与事务 (I16/I17)",
-            "slug": "task_py_atomic_write",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t064",
-            "title": "测试反模式整改 (I18-I23)",
-            "slug": "test_antipattern_cleanup",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t065",
-            "title": "构建配置与依赖清理 (I24-I28)",
-            "slug": "build_config_cleanup",
+            "tid": "t074",
+            "title": "package-and-run 按路径过滤非 image-name (I26 遗留)",
+            "slug": "package_run_path_filter",
             "status": "backlog",
             "branch": "",
             "note": ""

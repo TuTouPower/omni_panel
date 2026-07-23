@@ -9,15 +9,18 @@
 | `claude`      | claude      | local   | 直连 | 读 `~/.claude` 本地用量                                                                                                             |
 | `codex`       | codex       | local   | 直连 | 读 `~/.codex` 本地用量                                                                                                              |
 | `deepseek`    | deepseek    | poll    | 直连 | 官方用量 API                                                                                                                        |
+| `getoneapi`   | getoneapi   | poll    | 直连 | GetOneAPI 余额 API（`POST /back/user/balance`）；余额型 `data.balance`（CNY），余额反向 status（t050）                              |
 | `glm`         | glm         | poll    | 直连 | 智谱 API                                                                                                                            |
 | `minimax`     | minimax     | poll    | 直连 | MiniMax API                                                                                                                         |
 | `tavily`      | tavily      | poll    | 直连 | Tavily API                                                                                                                          |
 | `firecrawl`   | firecrawl   | poll    | 直连 | Firecrawl API                                                                                                                       |
+| `exa`         | exa         | poll    | 直连 | Exa 团队 API（`x-api-key` service key）；成本型 `total_cost_usd` + `cost_breakdown`，无远端 limit，用户自定预算 LIMIT（t049）       |
 | `mimo`        | mimo        | session | 直连 | 受控网页登录捕获 cookie                                                                                                             |
 | `kimi`        | kimi        | poll    | 直连 | Kimi Code API（API Key）                                                                                                            |
 | `opencode_go` | opencode_go | session | 直连 | 受控网页登录捕获 cookie                                                                                                             |
 | `antigravity` | antigravity | local   | 直连 | 读 `~/.antigravity/session.json`                                                                                                    |
 | `grok`        | grok        | poll    | 直连 | Grok API（OAuth device-code）；billing 200 但零有效 usage 字段时 connector 须 `report_failed_account`，不得静默 `return []`（t039） |
+| `tikhub`      | tikhub      | poll    | 直连 | TikHub 用户接口（`GET /api/v1/tikhub/user/get_user_info`）；`user_data.balance` 余额反向 + `free_credit`，account_id=email（t051）  |
 
 ## 能力分发（`refresh-service.execute_connector`）
 
@@ -30,7 +33,7 @@
 
 - manifest `poll.request`（endpoint/path/method/auth/body）+ `poll.map`（used/limit/remaining 须 `$` 开头）。
 - secret 经 `apply_auth`（bearer/header/query）注入宿主请求，**不进沙箱**。
-- 例：tavily / firecrawl / deepseek / glm / minimax。
+- 例：tavily / firecrawl / deepseek / glm / minimax / exa（脚本读 `total_cost_usd`+`cost_breakdown`，成本正向 status，无远端 limit）。
 
 ## local 型行为
 

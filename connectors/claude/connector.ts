@@ -42,6 +42,12 @@ function pct(value: number | undefined): number {
     return Math.round(Math.min(number, 100) * 10) / 10;
 }
 
+function status_for_pct(used: number): ScriptObservation["status"] {
+    if (used >= 90) return "critical";
+    if (used >= 75) return "warning";
+    return "normal";
+}
+
 async function main(): Promise<ScriptObservation[]> {
     let credentials: ClaudeCredentials;
     try {
@@ -82,7 +88,7 @@ async function main(): Promise<ScriptObservation[]> {
             limit: 100,
             display_style: "percent",
             reset_at: to_reset_at(data.five_hour?.resets_at),
-            status: "normal",
+            status: status_for_pct(pct(data.five_hour?.utilization)),
             observed_at: now,
             source: "local",
             stale: false,
@@ -101,7 +107,7 @@ async function main(): Promise<ScriptObservation[]> {
             limit: 100,
             display_style: "percent",
             reset_at: to_reset_at(data.seven_day?.resets_at),
-            status: "normal",
+            status: status_for_pct(pct(data.seven_day?.utilization)),
             observed_at: now,
             source: "local",
             stale: false,

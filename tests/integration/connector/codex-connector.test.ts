@@ -116,7 +116,7 @@ describe("codex connector", () => {
                 used: 3000,
                 limit: null,
                 display_style: "ratio",
-                status: "normal",
+                status: "unknown",
                 source: "local",
             }),
         );
