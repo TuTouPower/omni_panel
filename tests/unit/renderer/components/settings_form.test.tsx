@@ -103,6 +103,15 @@ describe("SettingsForm", () => {
         expect(screen.getByTestId("settings-save-btn-deepseek")).toHaveTextContent("保存");
     });
 
+    it("shows save error when onSave rejects", async () => {
+        const onSave = vi.fn<SaveHandler>().mockRejectedValue(new Error("保存失败：网络错误"));
+        const user = userEvent.setup();
+        renderForm({ onSave });
+        await user.click(screen.getByTestId("settings-save-btn-deepseek"));
+        const alert = await screen.findByRole("alert");
+        expect(alert).toHaveTextContent("保存失败：网络错误");
+    });
+
     it("does not render duplicate button when onDuplicate is not provided", () => {
         renderForm();
         expect(screen.queryByTestId("settings-duplicate-btn-deepseek")).not.toBeInTheDocument();

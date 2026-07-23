@@ -36,6 +36,9 @@ function get_account_status(status: AccountRowProps["status"], enabled: boolean)
     if (status === "auth") {
         return { color: "var(--risk-red)", text: "凭证失效", severity_class: " err" };
     }
+    if (status === "unknown") {
+        return { color: "var(--text-3)", text: "未连接", severity_class: "" };
+    }
     return { color: "var(--green)", text: "正常", severity_class: "" };
 }
 

@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t061",
-            "title": "renderer 账号状态与保存错误小修 (I12/I13)",
-            "slug": "renderer_small_fixes",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t062",
             "title": "IPC 越权防御 (I14/I15)",
             "slug": "ipc_route_guard",

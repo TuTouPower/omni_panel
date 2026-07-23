@@ -479,6 +479,14 @@
             "status": "done",
             "branch": "t060_vault_auth_robustness",
             "note": ""
+        },
+        {
+            "tid": "t061",
+            "title": "renderer 账号状态与保存错误小修 (I12/I13)",
+            "slug": "renderer_small_fixes",
+            "status": "done",
+            "branch": "t061_renderer_small_fixes",
+            "note": ""
         }
     ]
 }
