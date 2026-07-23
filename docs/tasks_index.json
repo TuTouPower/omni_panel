@@ -1,3 +1,12 @@
 {
-  "tasks": []
+  "tasks": [
+    {
+      "tid": "t084",
+      "title": "connector per-account error 迁移（throw - + continue）",
+      "slug": "connector_per_account_error",
+      "status": "backlog",
+      "branch": "",
+      "note": ""
+    }
+  ]
 }

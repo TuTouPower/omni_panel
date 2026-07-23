@@ -647,6 +647,22 @@
       "status": "done",
       "branch": "t078_split_popup_view_further",
       "note": ""
+    },
+    {
+      "tid": "t082",
+      "title": "清理 esbuild unused devDep + knip ignoreDependencies",
+      "slug": "cleanup_esbuild_knip",
+      "status": "done",
+      "branch": "t082_cleanup_esbuild_knip",
+      "note": ""
+    },
+    {
+      "tid": "t083",
+      "title": "清理 bugs.md 已修条目 + handoff.md 更新",
+      "slug": "cleanup_bugs_handoff",
+      "status": "done",
+      "branch": "t083_cleanup_bugs_handoff",
+      "note": ""
     }
   ]
 }
