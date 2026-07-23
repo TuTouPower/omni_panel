@@ -511,6 +511,14 @@
             "status": "done",
             "branch": "t064_test_antipattern_cleanup",
             "note": ""
+        },
+        {
+            "tid": "t065",
+            "title": "构建配置与依赖清理 (I24-I28)",
+            "slug": "build_config_cleanup",
+            "status": "done",
+            "branch": "t065_build_config_cleanup",
+            "note": ""
         }
     ]
 }

@@ -10,7 +10,7 @@ function log(msg: string) {
 
 function kill_omni(): void {
     const is_win = platform() === "win32";
-    const procs = is_win ? ["OmniUsage.exe", "electron.exe"] : ["OmniUsage", "electron"];
+    const procs = is_win ? ["OmniUsage.exe"] : ["OmniUsage"];
 
     for (const proc of procs) {
         try {

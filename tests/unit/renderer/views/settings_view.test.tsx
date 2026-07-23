@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, act, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFile } from "node:fs/promises";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
 import { SettingsView } from "../../../../src/renderer/views/SettingsView";
 
@@ -893,9 +896,6 @@ describe("SettingsView", () => {
         // The .ao-actions element must have margin-left: auto to push
         // toggle/action buttons to the right edge of the flex row.
         // JSDOM doesn't load external CSS, so we verify the rule exists in the source.
-        const { readFile } = await import("node:fs/promises");
-        const { join, dirname } = await import("node:path");
-        const { fileURLToPath } = await import("node:url");
         const css = await readFile(
             join(
                 dirname(fileURLToPath(import.meta.url)),
