@@ -1,44 +1,28 @@
 {
-    "tasks": [
-        {
-            "tid": "t076",
-            "title": "拆分 refresh-service.ts（超 400 行 minor 阈值，t039 遗留）",
-            "slug": "split_refresh_service",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t077",
-            "title": "拆分 main 进程 index.ts（超 800 行 important 阈值，t045 遗留）",
-            "slug": "split_main_index",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t078",
-            "title": "继续拆分 PopupView.tsx（仍超 400 行 minor 阈值，t043 遗留）",
-            "slug": "split_popup_view_further",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t080",
-            "title": "修复 exa cost_breakdown 重名聚合（面板重名行乱显）",
-            "slug": "fix_exa_breakdown_aggregate",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t081",
-            "title": "放宽 popup 高度上限 75% → 工作区全高（面板拉不到顶）",
-            "slug": "popup_height_full_workarea",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        }
-    ]
+  "tasks": [
+    {
+      "tid": "t076",
+      "title": "拆分 refresh-service.ts（超 400 行 minor 阈值，t039 遗留）",
+      "slug": "split_refresh_service",
+      "status": "backlog",
+      "branch": "",
+      "note": ""
+    },
+    {
+      "tid": "t077",
+      "title": "拆分 main 进程 index.ts（超 800 行 important 阈值，t045 遗留）",
+      "slug": "split_main_index",
+      "status": "backlog",
+      "branch": "",
+      "note": ""
+    },
+    {
+      "tid": "t078",
+      "title": "继续拆分 PopupView.tsx（仍超 400 行 minor 阈值，t043 遗留）",
+      "slug": "split_popup_view_further",
+      "status": "backlog",
+      "branch": "",
+      "note": ""
+    }
+  ]
 }

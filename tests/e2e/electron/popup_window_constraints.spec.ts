@@ -2,7 +2,7 @@ import { expect, test } from "../fixtures/test";
 import { PopupPage } from "../pages/popup_page";
 
 /**
- * Phase 20 E2E: window height constraints — max 75%, internal scroll,
+ * Phase 20 E2E: window height constraints — max 100%, internal scroll,
  * collapsed min height, no bottom whitespace regression.
  */
 test.describe("popup window constraints", () => {

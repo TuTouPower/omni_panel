@@ -120,8 +120,8 @@ describe("exa connector", () => {
         expect(result.error).toBeNull();
         expect(result.observations.map((o) => o.metric_id)).toEqual([
             "exa:total_cost_usd",
-            "exa:price_neural_search",
-            "exa:price_content_retrieval",
+            "exa:neural_search",
+            "exa:content_retrieval",
         ]);
 
         expect(result.observations[0]).toEqual(
@@ -146,8 +146,8 @@ describe("exa connector", () => {
 
         expect(result.observations[1]).toEqual(
             expect.objectContaining({
-                metric_id: "exa:price_neural_search",
-                raw_label: "price_neural_search",
+                metric_id: "exa:neural_search",
+                raw_label: "neural_search",
                 normalized_label: "Neural Search",
                 used: 30,
                 limit: null,
@@ -156,12 +156,46 @@ describe("exa connector", () => {
         );
         expect(result.observations[2]).toEqual(
             expect.objectContaining({
-                metric_id: "exa:price_content_retrieval",
+                metric_id: "exa:content_retrieval",
                 used: 15.67,
                 limit: null,
                 status: "unknown",
             }),
         );
+    });
+
+    it("aggregates cost_breakdown by price_name (t080 real fixture)", async () => {
+        const { readFile } = await import("node:fs/promises");
+        const fixture = JSON.parse(
+            await readFile("tests/fixtures/exa-real-response.json", "utf8"),
+        ) as unknown;
+        const result = await run_exa(fixture, {
+            SERVICE_KEY: "test-service-key",
+            API_KEY_ID: "test-key-id",
+            LIMIT: "100",
+        });
+
+        expect(result.error).toBeNull();
+        // total + 3 聚合行（Search / Contents endpoint / Answer）
+        expect(result.observations).toHaveLength(4);
+        const total = result.observations.find((o) => o.raw_label === "total_cost_usd");
+        expect(total?.used).toBe(0.245);
+        const search = result.observations.find((o) => o.normalized_label === "Search");
+        expect(search?.used).toBe(0.231);
+        expect(search?.metric_id).toBe("exa:search");
+        const contents = result.observations.find((o) =>
+            o.normalized_label?.includes("Contents"),
+        );
+        expect(contents?.used).toBe(0.004);
+        const answer = result.observations.find((o) => o.normalized_label === "Answer");
+        expect(answer?.used).toBe(0.01);
+        // metric_id 不含 price_id（稳定 slug）
+        const breakdown_ids = result.observations
+            .filter((o) => o.raw_label !== "total_cost_usd")
+            .map((o) => o.metric_id);
+        for (const id of breakdown_ids) {
+            expect(id).not.toContain("price_");
+        }
     });
 
     it("marks total cost critical when ratio >= 0.9", async () => {

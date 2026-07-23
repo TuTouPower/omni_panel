@@ -1,612 +1,628 @@
 {
-    "tasks": [
-        {
-            "tid": "t001",
-            "title": "fix preload route 分权同步 usage/setting",
-            "slug": "preload_route_sync",
-            "status": "done",
-            "branch": "main",
-            "note": "route 重构漏改 preload 层;代码已先实现"
-        },
-        {
-            "tid": "t002",
-            "title": "docs specs route 值同步代码 + 补 TokenStatsView",
-            "slug": "docs_route_sync",
-            "status": "done",
-            "branch": "main",
-            "note": "依赖 T001 代码真相"
-        },
-        {
-            "tid": "t003",
-            "title": "route 字面量收口 + route 值回归断言",
-            "slug": "route_literal_cleanup",
-            "status": "done",
-            "branch": "main",
-            "note": "T001/T002 遗留合并(T001_f001/T002_f003)"
-        },
-        {
-            "tid": "t004",
-            "title": "容器查询响应式（usage 窗横屏自适应）",
-            "slug": "responsive_container_query",
-            "status": "done",
-            "branch": "task_t004_responsive_container_query",
-            "note": "完结；视觉快照遗留"
-        },
-        {
-            "tid": "t005",
-            "title": "即将重置预警栏（rail + 横幅）",
-            "slug": "upcoming_reset_panel",
-            "status": "done",
-            "branch": "task_t005_upcoming_reset_panel",
-            "note": "完结;视觉/打包待人工签收"
-        },
-        {
-            "tid": "t006",
-            "title": "近 7 天趋势 sparkline",
-            "slug": "trend_sparkline",
-            "status": "done",
-            "branch": "task_t006_trend_sparkline",
-            "note": "完结;视觉/打包待人工签收"
-        },
-        {
-            "tid": "t007",
-            "title": "domain 趋势图政策修订（解锁 sparkline）",
-            "slug": "domain_trend_policy",
-            "status": "done",
-            "branch": "task_t007_domain_trend_policy",
-            "note": "完结；纯文档；T006 前置"
-        },
-        {
-            "tid": "t008",
-            "title": "dev CSP 放开 unsafe-inline 修复 renderer 黑屏",
-            "slug": "csp_dev_unsafe_inline",
-            "status": "done",
-            "branch": "task_t008_csp_dev_unsafe_inline",
-            "note": "完结;plugin-react preamble 被拦;抽纯函数+单测"
-        },
-        {
-            "tid": "t009",
-            "title": "e2e 改名 user_e2e→e2e + 引用更新",
-            "slug": "rename_user_e2e_to_e2e",
-            "status": "done",
-            "branch": "task_t009_rename_user_e2e_to_e2e",
-            "note": "完结;机械搬运;test:e2e 降级 T010 补"
-        },
-        {
-            "tid": "t010",
-            "title": "web e2e 基建(mock local-api+本机 fixture+chromium 驱动)",
-            "slug": "web_e2e_infrastructure",
-            "status": "done",
-            "branch": "task_t010_web_e2e_infrastructure",
-            "note": "完结;2 passed;CI/webServer 遗留 T013"
-        },
-        {
-            "tid": "t011",
-            "title": "web spec 批量迁移(specs→web,~15 个)",
-            "slug": "migrate_web_specs",
-            "status": "done",
-            "branch": "task_t011_migrate_web_specs",
-            "note": "完结;迁 5 个,21 passed;23 留 specs(T012)"
-        },
-        {
-            "tid": "t012",
-            "title": "electron project 整理(specs→electron 专属)",
-            "slug": "electron_project_reorg",
-            "status": "done",
-            "branch": "task_t012_electron_project_reorg",
-            "note": "完结;65 tests --list OK;CI test:e2e 引用已修"
-        },
-        {
-            "tid": "t013",
-            "title": "e2e 文档收尾(testing.md/AGENTS.md/ADR)",
-            "slug": "e2e_docs_finalize",
-            "status": "done",
-            "branch": "task_t013_e2e_docs_finalize",
-            "note": "完结;CI 策略+ADR 008+handoff;4 finding 全采纳"
-        },
-        {
-            "tid": "t014",
-            "title": "修复 app 图标(render_icon 产 .ico + 重打包)",
-            "slug": "fix_app_icon_ico",
-            "status": "done",
-            "branch": "task_t014_fix_app_icon_ico",
-            "note": "完结;icon.ico 重生成;vision 确认 OmniUsage logo"
-        },
-        {
-            "tid": "t015",
-            "title": "CI synthetic seed fixture(脱敏假账号入库供 CI web smoke)",
-            "slug": "ci_synthetic_seed_fixture",
-            "status": "done",
-            "branch": "task_t015_ci_synthetic_seed_fixture",
-            "note": "完结;synthetic.json 入库;CI web smoke 21 passed"
-        },
-        {
-            "tid": "t016",
-            "title": "seed_fake_plugin 类 9 spec 迁 web(改断言泛化)",
-            "slug": "migrate_seed_fake_specs",
-            "status": "done",
-            "branch": "task_t016_migrate_seed_fake_specs",
-            "note": "完结;迁 7 spec 37 passed;account_operations/plugin_failure_modes 留 electron"
-        },
-        {
-            "tid": "t017",
-            "title": "settings_view + popup_token_panel 迁 web + 删重复",
-            "slug": "migrate_settings_token",
-            "status": "done",
-            "branch": "task_t017_migrate_settings_token",
-            "note": "完结;settings_view 拆迁;删 popup_theme 重复;drag flaky 修;41 passed"
-        },
-        {
-            "tid": "t018",
-            "title": "trend gen_fixture 多录(provider×account×metric)",
-            "slug": "trend_fixture_multi",
-            "status": "done",
-            "branch": "task_t018_trend_fixture_multi",
-            "note": "完结;trend 全录+精确匹配;critical(双?)+days 修;38 passed"
-        },
-        {
-            "tid": "t019",
-            "title": "废弃 account_operations spec(popup 账号菜单功能已移除)",
-            "slug": "drop_account_operations",
-            "status": "done",
-            "branch": "task_t019_drop_account_operations",
-            "note": "完结;popup 重构后功能移 settings,spec 删除"
-        },
-        {
-            "tid": "t020",
-            "title": "CSS selector 改 getByRole 转义安全(T016 code_f004)",
-            "slug": "css_selector_getbyrole",
-            "status": "done",
-            "branch": "task_t020_css_selector_getbyrole",
-            "note": "完结;7 处改 getByRole exact;0 finding;41 passed"
-        },
-        {
-            "tid": "t021",
-            "title": "mock_server 单测(create_mock_handler 自保护)",
-            "slug": "mock_server_unit_test",
-            "status": "done",
-            "branch": "task_t021_mock_server_unit_test",
-            "note": "完结;9 用例;1416 passed;T018 critical 可抓"
-        },
-        {
-            "tid": "t022",
-            "title": "plugin_failure_modes 迁 web(手造 failed connector fixture)",
-            "slug": "plugin_failure_to_web",
-            "status": "done",
-            "branch": "task_t022_plugin_failure_to_web",
-            "note": "完结;synthetic 加 KIMI failed;43 passed;crash 单测遗留"
-        },
-        {
-            "tid": "t023",
-            "title": "settings_provider_accounts case 拆迁(单次 web/restart electron)",
-            "slug": "settings_accounts_split",
-            "status": "done",
-            "branch": "task_t023_settings_accounts_split",
-            "note": "完结;about 迁 web;class 修复;restart 留 electron"
-        },
-        {
-            "tid": "t024",
-            "title": "integration crash connector 单测(T022 test_f003)",
-            "slug": "crash_connector_test",
-            "status": "done",
-            "branch": "task_t024_crash_connector_test",
-            "note": "完结;process.exit vm=throw,1 case,13 passed"
-        },
-        {
-            "tid": "t025",
-            "title": "electron restart case 真跑验证(T023 class 改未跑)",
-            "slug": "electron_restart_verify",
-            "status": "done",
-            "branch": "task_t025_electron_restart_verify",
-            "note": "完结;1 passed(2.8s);selector 适配 SettingsView 重构"
-        },
-        {
-            "tid": "t026",
-            "title": "MetricRecord 加 per-account error 字段+PopupView accountErrors",
-            "slug": "metric_error_field",
-            "status": "done",
-            "branch": "task_t026_metric_error_field",
-            "note": "完结;data model+透传+buildAccountErrors;1425 passed;T027/T028 后置"
-        },
-        {
-            "tid": "t027",
-            "title": "ProviderAccountRow per-account error UI(indicator)",
-            "slug": "account_error_ui",
-            "status": "done",
-            "branch": "task_t027_account_error_ui",
-            "note": "完结;error badge UI+CSS;skip 因 T028 data;T028 后置待通"
-        },
-        {
-            "tid": "t028",
-            "title": "observation_to_metric_record error 映射(per-account error 数据通)",
-            "slug": "observation_error_mapping",
-            "status": "done",
-            "branch": "task_t028_observation_error_mapping",
-            "note": "完结;last_error→MetricRecord.error;1428 passed;e2e badge 遗留(T029/展开按钮)"
-        },
-        {
-            "tid": "t029",
-            "title": "observation-store 迁移(last_error 列兼容旧 observation.sqlite)",
-            "slug": "observation_store_migration",
-            "status": "done",
-            "branch": "task_t029_observation_store_migration",
-            "note": "完结;PRAGMA检查+ALTER ADD COLUMN last_error;1430 passed;数据恢复"
-        },
-        {
-            "tid": "t031",
-            "title": "对齐 repo_template 工作流(json+脚本+task.md+小写 tid)",
-            "slug": "align_repo_template",
-            "status": "done",
-            "branch": "t031_align_repo_template",
-            "note": "单 task 单 commit;归档目录仅改名 T→t;详见 plan"
-        },
-        {
-            "tid": "t032",
-            "title": "conventions.md 对齐 repo_template 工作流字段段",
-            "slug": "align_conventions_repo",
-            "status": "done",
-            "branch": "t032_align_conventions_repo",
-            "note": ""
-        },
-        {
-            "tid": "t033",
-            "title": "同步连接器类 spec 到当前代码真相",
-            "slug": "sync_connector_specs",
-            "status": "done",
-            "branch": "t033_sync_connector_specs",
-            "note": ""
-        },
-        {
-            "tid": "t034",
-            "title": "同步基础设施类 spec 到当前代码真相",
-            "slug": "sync_infra_specs",
-            "status": "done",
-            "branch": "t034_sync_infra_specs",
-            "note": ""
-        },
-        {
-            "tid": "t030",
-            "title": "build-info 注入(branch+commit SHA 显示在设置页版本号下方)",
-            "slug": "build_info_inject",
-            "status": "done",
-            "branch": "t030_build_info_inject",
-            "note": "gen-build-info.ts + IPC + renderer 展示"
-        },
-        {
-            "tid": "t035",
-            "title": "测试实例品牌隔离黄图标与端口",
-            "slug": "test_instance_branding",
-            "status": "done",
-            "branch": "t035_test_instance_branding",
-            "note": ""
-        },
-        {
-            "tid": "t036",
-            "title": "测试应用打包配置两套独立",
-            "slug": "test_app_packaging",
-            "status": "done",
-            "branch": "t036_test_app_packaging",
-            "note": ""
-        },
-        {
-            "tid": "t037",
-            "title": "按验证方式拆分 spec 并改造 specs_index",
-            "slug": "split_specs_by_verification",
-            "status": "done",
-            "branch": "t037_split_specs_by_verification",
-            "note": ""
-        },
-        {
-            "tid": "t039",
-            "title": "Grok 零观测不得标记采集正常或覆盖历史数据",
-            "slug": "grok_empty_observation_failure",
-            "status": "done",
-            "branch": "t039_grok_empty_observation_failure",
-            "note": "根因已确认：HTTP 200 但 connector 返回空数组，refresh 写 ready+0 items"
-        },
-        {
-            "tid": "t038",
-            "title": "持久化内置账号删除状态，阻止重启后 auto-seed 复活",
-            "slug": "persist_deleted_connector_tombstones",
-            "status": "done",
-            "branch": "t038_persist_deleted_connector_tombstones",
-            "note": "根因已确认：删除仅移除 plugins，启动 auto-seed 无 tombstone 会重新创建"
-        },
-        {
-            "tid": "t040",
-            "title": "主面板展示首次采集失败的已配置账号",
-            "slug": "show_failed_configured_accounts",
-            "status": "done",
-            "branch": "t040_show_failed_configured_accounts",
-            "note": "根因已确认：账号列表只从 MetricRecord 构建，零历史失败实例无账号行"
-        },
-        {
-            "tid": "t041",
-            "title": "即将重置可配置阈值与账号级开关",
-            "slug": "upcoming_reset_threshold",
-            "status": "done",
-            "branch": "t041_upcoming_reset_threshold",
-            "note": ""
-        },
-        {
-            "tid": "t042",
-            "title": "web 用量面板数据实时刷新（SSE 推送）",
-            "slug": "web_usage_panel_sse_refresh",
-            "status": "done",
-            "branch": "t042_web_usage_panel_sse_refresh",
-            "note": ""
-        },
-        {
-            "tid": "t043",
-            "title": "即将重置监控改 metric 级显式开启",
-            "slug": "upcoming_reset_metric_watch",
-            "status": "done",
-            "branch": "t043_upcoming_reset_metric_watch",
-            "note": ""
-        },
-        {
-            "tid": "t044",
-            "title": "拆分 PopupView 降低文件体量",
-            "slug": "split_popup_view",
-            "status": "done",
-            "branch": "t044_split_popup_view",
-            "note": ""
-        },
-        {
-            "tid": "t045",
-            "title": "导入配置后自动全局刷新",
-            "slug": "auto_refresh_after_import",
-            "status": "done",
-            "branch": "t045_auto_refresh_after_import",
-            "note": ""
-        },
-        {
-            "tid": "t047",
-            "title": "主面板 account 数据标签行缺失监控即将重置 bell",
-            "slug": "fix_account_row_reset_bell",
-            "status": "dropped",
-            "branch": "",
-            "note": "dropped: 误建，t046 已存在"
-        },
-        {
-            "tid": "t046",
-            "title": "修复主面板 account 数据标签行缺失监控 bell",
-            "slug": "fix_account_usage_row_watch_toggle",
-            "status": "done",
-            "branch": "t046_fix_account_usage_row_watch_toggle",
-            "note": ""
-        },
-        {
-            "tid": "t048",
-            "title": "监控即将重置入口移到设置页数据标签映射旁",
-            "slug": "settings_label_map_watch_toggle",
-            "status": "done",
-            "branch": "t048_settings_label_map_watch_toggle",
-            "note": ""
-        },
-        {
-            "tid": "t049",
-            "title": "Exa 用量连接器（成本型）",
-            "slug": "exa_connector",
-            "status": "done",
-            "branch": "t049_exa_connector",
-            "note": ""
-        },
-        {
-            "tid": "t050",
-            "title": "GetOneAPI 余额连接器",
-            "slug": "getoneapi_connector",
-            "status": "done",
-            "branch": "t050_getoneapi_connector",
-            "note": ""
-        },
-        {
-            "tid": "t051",
-            "title": "TikHub 余额连接器",
-            "slug": "tikhub_connector",
-            "status": "done",
-            "branch": "t051_tikhub_connector",
-            "note": ""
-        },
-        {
-            "tid": "t052",
-            "title": "用量卡片同行高度按最多行对齐",
-            "slug": "usage_card_row_height_align",
-            "status": "done",
-            "branch": "t052_usage_card_row_height_align",
-            "note": ""
-        },
-        {
-            "tid": "t053",
-            "title": "mimo 余额阈值方向修复 (review C2)",
-            "slug": "fix_mimo_balance_threshold",
-            "status": "done",
-            "branch": "t053_fix_mimo_balance_threshold",
-            "note": ""
-        },
-        {
-            "tid": "t054",
-            "title": "local-api 认证收紧评估 (review C1)",
-            "slug": "localapi_auth_hardening",
-            "status": "done",
-            "branch": "t054_localapi_auth_hardening",
-            "note": ""
-        },
-        {
-            "tid": "t055",
-            "title": "连接器阈值集中化与 status 硬编码 (P5/I3/I4)",
-            "slug": "connector_threshold_centralize",
-            "status": "done",
-            "branch": "t055_connector_threshold_centralize",
-            "note": ""
-        },
-        {
-            "tid": "t056",
-            "title": "cycleDurationMs 语义统一 (P3/I8/I9)",
-            "slug": "connector_cycle_duration_semantics",
-            "status": "done",
-            "branch": "t056_connector_cycle_duration_semantics",
-            "note": ""
-        },
-        {
-            "tid": "t057",
-            "title": "连接器固定 account_id 多实例 collapse (P2/I6/I7)",
-            "slug": "connector_stable_account_id",
-            "status": "done",
-            "branch": "t057_connector_stable_account_id",
-            "note": ""
-        },
-        {
-            "tid": "t058",
-            "title": "图表 tooltip XSS 转义 (I10/I11)",
-            "slug": "fix_chart_tooltip_xss",
-            "status": "done",
-            "branch": "t058_fix_chart_tooltip_xss",
-            "note": ""
-        },
-        {
-            "tid": "t059",
-            "title": "连接器空响应静默处置 (P1/I5)",
-            "slug": "connector_empty_response",
-            "status": "done",
-            "branch": "t059_connector_empty_response",
-            "note": ""
-        },
-        {
-            "tid": "t060",
-            "title": "vault 主密钥与 auth 错误判定健壮性 (I1/I2)",
-            "slug": "vault_auth_robustness",
-            "status": "done",
-            "branch": "t060_vault_auth_robustness",
-            "note": ""
-        },
-        {
-            "tid": "t061",
-            "title": "renderer 账号状态与保存错误小修 (I12/I13)",
-            "slug": "renderer_small_fixes",
-            "status": "done",
-            "branch": "t061_renderer_small_fixes",
-            "note": ""
-        },
-        {
-            "tid": "t062",
-            "title": "IPC 越权防御 (I14/I15)",
-            "slug": "ipc_route_guard",
-            "status": "done",
-            "branch": "t062_ipc_route_guard",
-            "note": ""
-        },
-        {
-            "tid": "t063",
-            "title": "task.py 原子写与事务 (I16/I17)",
-            "slug": "task_py_atomic_write",
-            "status": "done",
-            "branch": "t063_task_py_atomic_write",
-            "note": ""
-        },
-        {
-            "tid": "t064",
-            "title": "测试反模式整改 (I18-I23)",
-            "slug": "test_antipattern_cleanup",
-            "status": "done",
-            "branch": "t064_test_antipattern_cleanup",
-            "note": ""
-        },
-        {
-            "tid": "t065",
-            "title": "构建配置与依赖清理 (I24-I28)",
-            "slug": "build_config_cleanup",
-            "status": "done",
-            "branch": "t065_build_config_cleanup",
-            "note": ""
-        },
-        {
-            "tid": "t066",
-            "title": "连接器阈值 ctx 共享 helper 集中化 (P5 spike)",
-            "slug": "connector_threshold_ctx_centralize",
-            "status": "done",
-            "branch": "t066_connector_threshold_ctx_centralize",
-            "note": ""
-        },
-        {
-            "tid": "t067",
-            "title": "IPC file:// rendererIndexPath 完整白名单 (t062 遗留)",
-            "slug": "ipc_renderer_path_whitelist",
-            "status": "done",
-            "branch": "t067_ipc_renderer_path_whitelist",
-            "note": ""
-        },
-        {
-            "tid": "t068",
-            "title": "task.py mock os.replace 失败路径测试 (t063 遗留)",
-            "slug": "task_py_mock_replace_test",
-            "status": "done",
-            "branch": "t068_task_py_mock_replace_test",
-            "note": ""
-        },
-        {
-            "tid": "t069",
-            "title": "migration 测试改 import 生产迁移入口 (I19)",
-            "slug": "test_migration_real_entry",
-            "status": "done",
-            "branch": "t069_test_migration_real_entry",
-            "note": ""
-        },
-        {
-            "tid": "t070",
-            "title": "e2e 断言真实刷新行为非死等 (I21)",
-            "slug": "e2e_assert_real_refresh",
-            "status": "done",
-            "branch": "t070_e2e_assert_real_refresh",
-            "note": ""
-        },
-        {
-            "tid": "t071",
-            "title": "setupFiles 拆 renderer-only (I22)",
-            "slug": "setupfiles_renderer_only_split",
-            "status": "done",
-            "branch": "t071_setupfiles_renderer_only_split",
-            "note": ""
-        },
-        {
-            "tid": "t072",
-            "title": "取消 skip 关键 case 补 real fixture (I23)",
-            "slug": "skip_cases_real_fixture",
-            "status": "done",
-            "branch": "t072_skip_cases_real_fixture",
-            "note": ""
-        },
-        {
-            "tid": "t073",
-            "title": "启用 7 eslint 插件 recommended 分批修 (I24 遗留)",
-            "slug": "eslint_recommended_enable",
-            "status": "done",
-            "branch": "t073_eslint_recommended_enable",
-            "note": ""
-        },
-        {
-            "tid": "t074",
-            "title": "package-and-run 按路径过滤非 image-name (I26 遗留)",
-            "slug": "package_run_path_filter",
-            "status": "done",
-            "branch": "t074_package_run_path_filter",
-            "note": ""
-        },
-        {
-            "tid": "t075",
-            "title": "网页标签页 favicon logo",
-            "slug": "web_panel_favicon",
-            "status": "done",
-            "branch": "t075_web_panel_favicon",
-            "note": ""
-        },
-        {
-            "tid": "t079",
-            "title": "exa/getoneapi/tikhub 接入真实 logo 替换默认 fallback",
-            "slug": "vendor_logos_exa_getoneapi_tikhub",
-            "status": "done",
-            "branch": "t079_vendor_logos_exa_getoneapi_tikhub",
-            "note": ""
-        }
-    ]
+  "tasks": [
+    {
+      "tid": "t001",
+      "title": "fix preload route 分权同步 usage/setting",
+      "slug": "preload_route_sync",
+      "status": "done",
+      "branch": "main",
+      "note": "route 重构漏改 preload 层;代码已先实现"
+    },
+    {
+      "tid": "t002",
+      "title": "docs specs route 值同步代码 + 补 TokenStatsView",
+      "slug": "docs_route_sync",
+      "status": "done",
+      "branch": "main",
+      "note": "依赖 T001 代码真相"
+    },
+    {
+      "tid": "t003",
+      "title": "route 字面量收口 + route 值回归断言",
+      "slug": "route_literal_cleanup",
+      "status": "done",
+      "branch": "main",
+      "note": "T001/T002 遗留合并(T001_f001/T002_f003)"
+    },
+    {
+      "tid": "t004",
+      "title": "容器查询响应式（usage 窗横屏自适应）",
+      "slug": "responsive_container_query",
+      "status": "done",
+      "branch": "task_t004_responsive_container_query",
+      "note": "完结；视觉快照遗留"
+    },
+    {
+      "tid": "t005",
+      "title": "即将重置预警栏（rail + 横幅）",
+      "slug": "upcoming_reset_panel",
+      "status": "done",
+      "branch": "task_t005_upcoming_reset_panel",
+      "note": "完结;视觉/打包待人工签收"
+    },
+    {
+      "tid": "t006",
+      "title": "近 7 天趋势 sparkline",
+      "slug": "trend_sparkline",
+      "status": "done",
+      "branch": "task_t006_trend_sparkline",
+      "note": "完结;视觉/打包待人工签收"
+    },
+    {
+      "tid": "t007",
+      "title": "domain 趋势图政策修订（解锁 sparkline）",
+      "slug": "domain_trend_policy",
+      "status": "done",
+      "branch": "task_t007_domain_trend_policy",
+      "note": "完结；纯文档；T006 前置"
+    },
+    {
+      "tid": "t008",
+      "title": "dev CSP 放开 unsafe-inline 修复 renderer 黑屏",
+      "slug": "csp_dev_unsafe_inline",
+      "status": "done",
+      "branch": "task_t008_csp_dev_unsafe_inline",
+      "note": "完结;plugin-react preamble 被拦;抽纯函数+单测"
+    },
+    {
+      "tid": "t009",
+      "title": "e2e 改名 user_e2e→e2e + 引用更新",
+      "slug": "rename_user_e2e_to_e2e",
+      "status": "done",
+      "branch": "task_t009_rename_user_e2e_to_e2e",
+      "note": "完结;机械搬运;test:e2e 降级 T010 补"
+    },
+    {
+      "tid": "t010",
+      "title": "web e2e 基建(mock local-api+本机 fixture+chromium 驱动)",
+      "slug": "web_e2e_infrastructure",
+      "status": "done",
+      "branch": "task_t010_web_e2e_infrastructure",
+      "note": "完结;2 passed;CI/webServer 遗留 T013"
+    },
+    {
+      "tid": "t011",
+      "title": "web spec 批量迁移(specs→web,~15 个)",
+      "slug": "migrate_web_specs",
+      "status": "done",
+      "branch": "task_t011_migrate_web_specs",
+      "note": "完结;迁 5 个,21 passed;23 留 specs(T012)"
+    },
+    {
+      "tid": "t012",
+      "title": "electron project 整理(specs→electron 专属)",
+      "slug": "electron_project_reorg",
+      "status": "done",
+      "branch": "task_t012_electron_project_reorg",
+      "note": "完结;65 tests --list OK;CI test:e2e 引用已修"
+    },
+    {
+      "tid": "t013",
+      "title": "e2e 文档收尾(testing.md/AGENTS.md/ADR)",
+      "slug": "e2e_docs_finalize",
+      "status": "done",
+      "branch": "task_t013_e2e_docs_finalize",
+      "note": "完结;CI 策略+ADR 008+handoff;4 finding 全采纳"
+    },
+    {
+      "tid": "t014",
+      "title": "修复 app 图标(render_icon 产 .ico + 重打包)",
+      "slug": "fix_app_icon_ico",
+      "status": "done",
+      "branch": "task_t014_fix_app_icon_ico",
+      "note": "完结;icon.ico 重生成;vision 确认 OmniUsage logo"
+    },
+    {
+      "tid": "t015",
+      "title": "CI synthetic seed fixture(脱敏假账号入库供 CI web smoke)",
+      "slug": "ci_synthetic_seed_fixture",
+      "status": "done",
+      "branch": "task_t015_ci_synthetic_seed_fixture",
+      "note": "完结;synthetic.json 入库;CI web smoke 21 passed"
+    },
+    {
+      "tid": "t016",
+      "title": "seed_fake_plugin 类 9 spec 迁 web(改断言泛化)",
+      "slug": "migrate_seed_fake_specs",
+      "status": "done",
+      "branch": "task_t016_migrate_seed_fake_specs",
+      "note": "完结;迁 7 spec 37 passed;account_operations/plugin_failure_modes 留 electron"
+    },
+    {
+      "tid": "t017",
+      "title": "settings_view + popup_token_panel 迁 web + 删重复",
+      "slug": "migrate_settings_token",
+      "status": "done",
+      "branch": "task_t017_migrate_settings_token",
+      "note": "完结;settings_view 拆迁;删 popup_theme 重复;drag flaky 修;41 passed"
+    },
+    {
+      "tid": "t018",
+      "title": "trend gen_fixture 多录(provider×account×metric)",
+      "slug": "trend_fixture_multi",
+      "status": "done",
+      "branch": "task_t018_trend_fixture_multi",
+      "note": "完结;trend 全录+精确匹配;critical(双?)+days 修;38 passed"
+    },
+    {
+      "tid": "t019",
+      "title": "废弃 account_operations spec(popup 账号菜单功能已移除)",
+      "slug": "drop_account_operations",
+      "status": "done",
+      "branch": "task_t019_drop_account_operations",
+      "note": "完结;popup 重构后功能移 settings,spec 删除"
+    },
+    {
+      "tid": "t020",
+      "title": "CSS selector 改 getByRole 转义安全(T016 code_f004)",
+      "slug": "css_selector_getbyrole",
+      "status": "done",
+      "branch": "task_t020_css_selector_getbyrole",
+      "note": "完结;7 处改 getByRole exact;0 finding;41 passed"
+    },
+    {
+      "tid": "t021",
+      "title": "mock_server 单测(create_mock_handler 自保护)",
+      "slug": "mock_server_unit_test",
+      "status": "done",
+      "branch": "task_t021_mock_server_unit_test",
+      "note": "完结;9 用例;1416 passed;T018 critical 可抓"
+    },
+    {
+      "tid": "t022",
+      "title": "plugin_failure_modes 迁 web(手造 failed connector fixture)",
+      "slug": "plugin_failure_to_web",
+      "status": "done",
+      "branch": "task_t022_plugin_failure_to_web",
+      "note": "完结;synthetic 加 KIMI failed;43 passed;crash 单测遗留"
+    },
+    {
+      "tid": "t023",
+      "title": "settings_provider_accounts case 拆迁(单次 web/restart electron)",
+      "slug": "settings_accounts_split",
+      "status": "done",
+      "branch": "task_t023_settings_accounts_split",
+      "note": "完结;about 迁 web;class 修复;restart 留 electron"
+    },
+    {
+      "tid": "t024",
+      "title": "integration crash connector 单测(T022 test_f003)",
+      "slug": "crash_connector_test",
+      "status": "done",
+      "branch": "task_t024_crash_connector_test",
+      "note": "完结;process.exit vm=throw,1 case,13 passed"
+    },
+    {
+      "tid": "t025",
+      "title": "electron restart case 真跑验证(T023 class 改未跑)",
+      "slug": "electron_restart_verify",
+      "status": "done",
+      "branch": "task_t025_electron_restart_verify",
+      "note": "完结;1 passed(2.8s);selector 适配 SettingsView 重构"
+    },
+    {
+      "tid": "t026",
+      "title": "MetricRecord 加 per-account error 字段+PopupView accountErrors",
+      "slug": "metric_error_field",
+      "status": "done",
+      "branch": "task_t026_metric_error_field",
+      "note": "完结;data model+透传+buildAccountErrors;1425 passed;T027/T028 后置"
+    },
+    {
+      "tid": "t027",
+      "title": "ProviderAccountRow per-account error UI(indicator)",
+      "slug": "account_error_ui",
+      "status": "done",
+      "branch": "task_t027_account_error_ui",
+      "note": "完结;error badge UI+CSS;skip 因 T028 data;T028 后置待通"
+    },
+    {
+      "tid": "t028",
+      "title": "observation_to_metric_record error 映射(per-account error 数据通)",
+      "slug": "observation_error_mapping",
+      "status": "done",
+      "branch": "task_t028_observation_error_mapping",
+      "note": "完结;last_error→MetricRecord.error;1428 passed;e2e badge 遗留(T029/展开按钮)"
+    },
+    {
+      "tid": "t029",
+      "title": "observation-store 迁移(last_error 列兼容旧 observation.sqlite)",
+      "slug": "observation_store_migration",
+      "status": "done",
+      "branch": "task_t029_observation_store_migration",
+      "note": "完结;PRAGMA检查+ALTER ADD COLUMN last_error;1430 passed;数据恢复"
+    },
+    {
+      "tid": "t031",
+      "title": "对齐 repo_template 工作流(json+脚本+task.md+小写 tid)",
+      "slug": "align_repo_template",
+      "status": "done",
+      "branch": "t031_align_repo_template",
+      "note": "单 task 单 commit;归档目录仅改名 T→t;详见 plan"
+    },
+    {
+      "tid": "t032",
+      "title": "conventions.md 对齐 repo_template 工作流字段段",
+      "slug": "align_conventions_repo",
+      "status": "done",
+      "branch": "t032_align_conventions_repo",
+      "note": ""
+    },
+    {
+      "tid": "t033",
+      "title": "同步连接器类 spec 到当前代码真相",
+      "slug": "sync_connector_specs",
+      "status": "done",
+      "branch": "t033_sync_connector_specs",
+      "note": ""
+    },
+    {
+      "tid": "t034",
+      "title": "同步基础设施类 spec 到当前代码真相",
+      "slug": "sync_infra_specs",
+      "status": "done",
+      "branch": "t034_sync_infra_specs",
+      "note": ""
+    },
+    {
+      "tid": "t030",
+      "title": "build-info 注入(branch+commit SHA 显示在设置页版本号下方)",
+      "slug": "build_info_inject",
+      "status": "done",
+      "branch": "t030_build_info_inject",
+      "note": "gen-build-info.ts + IPC + renderer 展示"
+    },
+    {
+      "tid": "t035",
+      "title": "测试实例品牌隔离黄图标与端口",
+      "slug": "test_instance_branding",
+      "status": "done",
+      "branch": "t035_test_instance_branding",
+      "note": ""
+    },
+    {
+      "tid": "t036",
+      "title": "测试应用打包配置两套独立",
+      "slug": "test_app_packaging",
+      "status": "done",
+      "branch": "t036_test_app_packaging",
+      "note": ""
+    },
+    {
+      "tid": "t037",
+      "title": "按验证方式拆分 spec 并改造 specs_index",
+      "slug": "split_specs_by_verification",
+      "status": "done",
+      "branch": "t037_split_specs_by_verification",
+      "note": ""
+    },
+    {
+      "tid": "t039",
+      "title": "Grok 零观测不得标记采集正常或覆盖历史数据",
+      "slug": "grok_empty_observation_failure",
+      "status": "done",
+      "branch": "t039_grok_empty_observation_failure",
+      "note": "根因已确认：HTTP 200 但 connector 返回空数组，refresh 写 ready+0 items"
+    },
+    {
+      "tid": "t038",
+      "title": "持久化内置账号删除状态，阻止重启后 auto-seed 复活",
+      "slug": "persist_deleted_connector_tombstones",
+      "status": "done",
+      "branch": "t038_persist_deleted_connector_tombstones",
+      "note": "根因已确认：删除仅移除 plugins，启动 auto-seed 无 tombstone 会重新创建"
+    },
+    {
+      "tid": "t040",
+      "title": "主面板展示首次采集失败的已配置账号",
+      "slug": "show_failed_configured_accounts",
+      "status": "done",
+      "branch": "t040_show_failed_configured_accounts",
+      "note": "根因已确认：账号列表只从 MetricRecord 构建，零历史失败实例无账号行"
+    },
+    {
+      "tid": "t041",
+      "title": "即将重置可配置阈值与账号级开关",
+      "slug": "upcoming_reset_threshold",
+      "status": "done",
+      "branch": "t041_upcoming_reset_threshold",
+      "note": ""
+    },
+    {
+      "tid": "t042",
+      "title": "web 用量面板数据实时刷新（SSE 推送）",
+      "slug": "web_usage_panel_sse_refresh",
+      "status": "done",
+      "branch": "t042_web_usage_panel_sse_refresh",
+      "note": ""
+    },
+    {
+      "tid": "t043",
+      "title": "即将重置监控改 metric 级显式开启",
+      "slug": "upcoming_reset_metric_watch",
+      "status": "done",
+      "branch": "t043_upcoming_reset_metric_watch",
+      "note": ""
+    },
+    {
+      "tid": "t044",
+      "title": "拆分 PopupView 降低文件体量",
+      "slug": "split_popup_view",
+      "status": "done",
+      "branch": "t044_split_popup_view",
+      "note": ""
+    },
+    {
+      "tid": "t045",
+      "title": "导入配置后自动全局刷新",
+      "slug": "auto_refresh_after_import",
+      "status": "done",
+      "branch": "t045_auto_refresh_after_import",
+      "note": ""
+    },
+    {
+      "tid": "t047",
+      "title": "主面板 account 数据标签行缺失监控即将重置 bell",
+      "slug": "fix_account_row_reset_bell",
+      "status": "dropped",
+      "branch": "",
+      "note": "dropped: 误建，t046 已存在"
+    },
+    {
+      "tid": "t046",
+      "title": "修复主面板 account 数据标签行缺失监控 bell",
+      "slug": "fix_account_usage_row_watch_toggle",
+      "status": "done",
+      "branch": "t046_fix_account_usage_row_watch_toggle",
+      "note": ""
+    },
+    {
+      "tid": "t048",
+      "title": "监控即将重置入口移到设置页数据标签映射旁",
+      "slug": "settings_label_map_watch_toggle",
+      "status": "done",
+      "branch": "t048_settings_label_map_watch_toggle",
+      "note": ""
+    },
+    {
+      "tid": "t049",
+      "title": "Exa 用量连接器（成本型）",
+      "slug": "exa_connector",
+      "status": "done",
+      "branch": "t049_exa_connector",
+      "note": ""
+    },
+    {
+      "tid": "t050",
+      "title": "GetOneAPI 余额连接器",
+      "slug": "getoneapi_connector",
+      "status": "done",
+      "branch": "t050_getoneapi_connector",
+      "note": ""
+    },
+    {
+      "tid": "t051",
+      "title": "TikHub 余额连接器",
+      "slug": "tikhub_connector",
+      "status": "done",
+      "branch": "t051_tikhub_connector",
+      "note": ""
+    },
+    {
+      "tid": "t052",
+      "title": "用量卡片同行高度按最多行对齐",
+      "slug": "usage_card_row_height_align",
+      "status": "done",
+      "branch": "t052_usage_card_row_height_align",
+      "note": ""
+    },
+    {
+      "tid": "t053",
+      "title": "mimo 余额阈值方向修复 (review C2)",
+      "slug": "fix_mimo_balance_threshold",
+      "status": "done",
+      "branch": "t053_fix_mimo_balance_threshold",
+      "note": ""
+    },
+    {
+      "tid": "t054",
+      "title": "local-api 认证收紧评估 (review C1)",
+      "slug": "localapi_auth_hardening",
+      "status": "done",
+      "branch": "t054_localapi_auth_hardening",
+      "note": ""
+    },
+    {
+      "tid": "t055",
+      "title": "连接器阈值集中化与 status 硬编码 (P5/I3/I4)",
+      "slug": "connector_threshold_centralize",
+      "status": "done",
+      "branch": "t055_connector_threshold_centralize",
+      "note": ""
+    },
+    {
+      "tid": "t056",
+      "title": "cycleDurationMs 语义统一 (P3/I8/I9)",
+      "slug": "connector_cycle_duration_semantics",
+      "status": "done",
+      "branch": "t056_connector_cycle_duration_semantics",
+      "note": ""
+    },
+    {
+      "tid": "t057",
+      "title": "连接器固定 account_id 多实例 collapse (P2/I6/I7)",
+      "slug": "connector_stable_account_id",
+      "status": "done",
+      "branch": "t057_connector_stable_account_id",
+      "note": ""
+    },
+    {
+      "tid": "t058",
+      "title": "图表 tooltip XSS 转义 (I10/I11)",
+      "slug": "fix_chart_tooltip_xss",
+      "status": "done",
+      "branch": "t058_fix_chart_tooltip_xss",
+      "note": ""
+    },
+    {
+      "tid": "t059",
+      "title": "连接器空响应静默处置 (P1/I5)",
+      "slug": "connector_empty_response",
+      "status": "done",
+      "branch": "t059_connector_empty_response",
+      "note": ""
+    },
+    {
+      "tid": "t060",
+      "title": "vault 主密钥与 auth 错误判定健壮性 (I1/I2)",
+      "slug": "vault_auth_robustness",
+      "status": "done",
+      "branch": "t060_vault_auth_robustness",
+      "note": ""
+    },
+    {
+      "tid": "t061",
+      "title": "renderer 账号状态与保存错误小修 (I12/I13)",
+      "slug": "renderer_small_fixes",
+      "status": "done",
+      "branch": "t061_renderer_small_fixes",
+      "note": ""
+    },
+    {
+      "tid": "t062",
+      "title": "IPC 越权防御 (I14/I15)",
+      "slug": "ipc_route_guard",
+      "status": "done",
+      "branch": "t062_ipc_route_guard",
+      "note": ""
+    },
+    {
+      "tid": "t063",
+      "title": "task.py 原子写与事务 (I16/I17)",
+      "slug": "task_py_atomic_write",
+      "status": "done",
+      "branch": "t063_task_py_atomic_write",
+      "note": ""
+    },
+    {
+      "tid": "t064",
+      "title": "测试反模式整改 (I18-I23)",
+      "slug": "test_antipattern_cleanup",
+      "status": "done",
+      "branch": "t064_test_antipattern_cleanup",
+      "note": ""
+    },
+    {
+      "tid": "t065",
+      "title": "构建配置与依赖清理 (I24-I28)",
+      "slug": "build_config_cleanup",
+      "status": "done",
+      "branch": "t065_build_config_cleanup",
+      "note": ""
+    },
+    {
+      "tid": "t066",
+      "title": "连接器阈值 ctx 共享 helper 集中化 (P5 spike)",
+      "slug": "connector_threshold_ctx_centralize",
+      "status": "done",
+      "branch": "t066_connector_threshold_ctx_centralize",
+      "note": ""
+    },
+    {
+      "tid": "t067",
+      "title": "IPC file:// rendererIndexPath 完整白名单 (t062 遗留)",
+      "slug": "ipc_renderer_path_whitelist",
+      "status": "done",
+      "branch": "t067_ipc_renderer_path_whitelist",
+      "note": ""
+    },
+    {
+      "tid": "t068",
+      "title": "task.py mock os.replace 失败路径测试 (t063 遗留)",
+      "slug": "task_py_mock_replace_test",
+      "status": "done",
+      "branch": "t068_task_py_mock_replace_test",
+      "note": ""
+    },
+    {
+      "tid": "t069",
+      "title": "migration 测试改 import 生产迁移入口 (I19)",
+      "slug": "test_migration_real_entry",
+      "status": "done",
+      "branch": "t069_test_migration_real_entry",
+      "note": ""
+    },
+    {
+      "tid": "t070",
+      "title": "e2e 断言真实刷新行为非死等 (I21)",
+      "slug": "e2e_assert_real_refresh",
+      "status": "done",
+      "branch": "t070_e2e_assert_real_refresh",
+      "note": ""
+    },
+    {
+      "tid": "t071",
+      "title": "setupFiles 拆 renderer-only (I22)",
+      "slug": "setupfiles_renderer_only_split",
+      "status": "done",
+      "branch": "t071_setupfiles_renderer_only_split",
+      "note": ""
+    },
+    {
+      "tid": "t072",
+      "title": "取消 skip 关键 case 补 real fixture (I23)",
+      "slug": "skip_cases_real_fixture",
+      "status": "done",
+      "branch": "t072_skip_cases_real_fixture",
+      "note": ""
+    },
+    {
+      "tid": "t073",
+      "title": "启用 7 eslint 插件 recommended 分批修 (I24 遗留)",
+      "slug": "eslint_recommended_enable",
+      "status": "done",
+      "branch": "t073_eslint_recommended_enable",
+      "note": ""
+    },
+    {
+      "tid": "t074",
+      "title": "package-and-run 按路径过滤非 image-name (I26 遗留)",
+      "slug": "package_run_path_filter",
+      "status": "done",
+      "branch": "t074_package_run_path_filter",
+      "note": ""
+    },
+    {
+      "tid": "t075",
+      "title": "网页标签页 favicon logo",
+      "slug": "web_panel_favicon",
+      "status": "done",
+      "branch": "t075_web_panel_favicon",
+      "note": ""
+    },
+    {
+      "tid": "t079",
+      "title": "exa/getoneapi/tikhub 接入真实 logo 替换默认 fallback",
+      "slug": "vendor_logos_exa_getoneapi_tikhub",
+      "status": "done",
+      "branch": "t079_vendor_logos_exa_getoneapi_tikhub",
+      "note": ""
+    },
+    {
+      "tid": "t080",
+      "title": "修复 exa cost_breakdown 重名聚合（面板重名行乱显）",
+      "slug": "fix_exa_breakdown_aggregate",
+      "status": "done",
+      "branch": "t080_fix_exa_breakdown_aggregate",
+      "note": ""
+    },
+    {
+      "tid": "t081",
+      "title": "放宽 popup 高度上限 75% → 工作区全高（面板拉不到顶）",
+      "slug": "popup_height_full_workarea",
+      "status": "done",
+      "branch": "t081_popup_height_full_workarea",
+      "note": ""
+    }
+  ]
 }
