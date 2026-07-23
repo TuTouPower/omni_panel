@@ -415,6 +415,14 @@
             "status": "done",
             "branch": "t052_usage_card_row_height_align",
             "note": ""
+        },
+        {
+            "tid": "t053",
+            "title": "mimo 余额阈值方向修复 (review C2)",
+            "slug": "fix_mimo_balance_threshold",
+            "status": "done",
+            "branch": "t053_fix_mimo_balance_threshold",
+            "note": ""
         }
     ]
 }

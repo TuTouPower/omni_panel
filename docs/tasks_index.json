@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t053",
-            "title": "mimo 余额阈值方向修复 (review C2)",
-            "slug": "fix_mimo_balance_threshold",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t054",
             "title": "local-api 认证收紧评估 (review C1)",
             "slug": "localapi_auth_hardening",
