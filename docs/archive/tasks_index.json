@@ -599,6 +599,14 @@
             "status": "done",
             "branch": "t075_web_panel_favicon",
             "note": ""
+        },
+        {
+            "tid": "t079",
+            "title": "exa/getoneapi/tikhub 接入真实 logo 替换默认 fallback",
+            "slug": "vendor_logos_exa_getoneapi_tikhub",
+            "status": "done",
+            "branch": "t079_vendor_logos_exa_getoneapi_tikhub",
+            "note": ""
         }
     ]
 }
