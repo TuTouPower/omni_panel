@@ -131,6 +131,10 @@ describe("opencode_go connector", () => {
         expect(result.observations[0]?.reset_at).toBe(
             (result.observations[0]?.observed_at ?? 0) + 60_000,
         );
+        // cycleDurationMs 按 raw_label：rolling=null / weekly=7d / monthly=30d（非剩余）
+        expect(result.observations[0]?.cycleDurationMs).toBeNull();
+        expect(result.observations[1]?.cycleDurationMs).toBe(7 * 24 * 60 * 60 * 1000);
+        expect(result.observations[2]?.cycleDurationMs).toBe(30 * 24 * 60 * 60 * 1000);
         expect(result.observations[1]?.reset_at).toBe(
             (result.observations[1]?.observed_at ?? 0) + 120_000,
         );

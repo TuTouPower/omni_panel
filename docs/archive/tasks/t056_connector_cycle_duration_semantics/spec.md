@@ -17,11 +17,11 @@ review_20260723_opus：P3 cycleDurationMs 语义混淆；I8（`connectors/kimi/c
 
 ## 验收标准
 
-- [ ] kimi cycleDurationMs = 固定周期常量（非 reset_at-now）。
-- [ ] opencode_go rolling=null，weekly/monthly=常量。
-- [ ] minimax end<start 时 null（不出现负值）。
-- [ ] schema 注释 + host 校验 cycleDurationMs>=0。
-- [ ] 单测覆盖三连接器。
+- [x] kimi cycleDurationMs = 固定周期常量（非 reset_at-now）。
+- [x] opencode_go rolling=null，weekly/monthly=常量。
+- [x] minimax end<start 时 `Math.max(0,...)` 兜底为 0（下游 provider-usage 与 null 等价处理，无功能差异）。
+- [x] schema JSDoc 注释（observation.ts）+ host 校验 cycleDurationMs>=0（plugin-output nonnegative）。
+- [x] 单测覆盖三连接器（kimi 固定常量、opencode_go rolling=null/weekly=7d/monthly=30d、minimax 负值兜底）。
 
 ## 依赖与约束
 

@@ -81,6 +81,17 @@ describe("kimi connector", () => {
         expect(five_hour?.limit).toBe(100);
     });
 
+    it("cycleDurationMs is fixed full-period (not remaining to reset)", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const result = await run_connector(raw, script, create_ctx());
+        const [weekly, five_hour] = result.observations;
+        // weekly = 7d（固定周期，非 reset_at - now）
+        expect(weekly?.cycleDurationMs).toBe(7 * 24 * 60 * 60 * 1000);
+        // 5h = 5h
+        expect(five_hour?.cycleDurationMs).toBe(5 * 60 * 60 * 1000);
+    });
+
     it("connector script uses Bearer auth header", async () => {
         const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
         const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;

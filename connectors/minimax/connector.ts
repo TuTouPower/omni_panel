@@ -186,7 +186,10 @@ async function main(): Promise<ScriptObservation[]> {
                 used: Math.max(interval_used, 0),
                 limit: Math.max(interval_total, 0),
                 reset_at: reset_from_ms(model.remains_time),
-                cycleDurationMs: to_number(model.end_time) - to_number(model.start_time),
+                cycleDurationMs: Math.max(
+                    0,
+                    to_number(model.end_time) - to_number(model.start_time),
+                ),
                 status: status_for(interval_used, interval_total),
                 _model_sort: key ? (MODEL_SORT[key] ?? 99) : 99,
                 _period_sort: PERIOD_SORT[pk] ?? 99,

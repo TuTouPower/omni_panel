@@ -97,6 +97,30 @@ describe("minimax connector", () => {
             }),
         );
         expect(text_interval?.reset_at).not.toBeNull();
+        // cycleDurationMs = end_time - start_time（4h，非剩余）
+        expect(text_interval?.cycleDurationMs).toBe(4 * 3600 * 1000);
+    });
+
+    it("cycleDurationMs clamps negative end-start to 0", async () => {
+        const script = await readFile(join("connectors", "minimax", "connector.ts"), "utf8");
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx([
+                {
+                    model_name: "MiniMax-M*",
+                    start_time: 2000,
+                    end_time: 1000, // end < start -> 负值
+                    current_interval_total_count: 100,
+                    current_interval_usage_count: 40,
+                    remains_time: 3600_000,
+                },
+            ]),
+        );
+        const interval = result.observations.find(
+            (o) => o.metric_id === "minimax:minimax-m*-interval",
+        );
+        expect(interval?.cycleDurationMs).toBe(0);
     });
 
     it("throws when base_resp status_code is non-zero", async () => {

@@ -439,6 +439,14 @@
             "status": "done",
             "branch": "t055_connector_threshold_centralize",
             "note": ""
+        },
+        {
+            "tid": "t056",
+            "title": "cycleDurationMs 语义统一 (P3/I8/I9)",
+            "slug": "connector_cycle_duration_semantics",
+            "status": "done",
+            "branch": "t056_connector_cycle_duration_semantics",
+            "note": ""
         }
     ]
 }
