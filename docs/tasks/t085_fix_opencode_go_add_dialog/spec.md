@@ -14,8 +14,9 @@ AddAccountDialog can_add('opencode_go') 检查 plugin_infos active/supportedProv
 
 ## 验收标准
 
-- [ ] 见范围具体条目。
-- [ ] pnpm test / typecheck / lint 全绿。
+- [ ] opencode_go connector 已注册但未启用时，添加账号弹窗对应按钮不再 disabled（先添加再启用），点击可进入 auth 表单。
+- [ ] `can_add` 对各 provider 的判定有单测覆盖（启用/未启用/未注册三态）。
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` 全绿。
 
 ## 依赖与约束
 

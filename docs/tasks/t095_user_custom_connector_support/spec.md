@@ -28,7 +28,7 @@
 - [ ] manifest provider 为任意 snake_case 字符串均被接受。
 - [ ] renderer 对未知 provider 显示 vendor mark fallback + provider 名作 label。
 - [ ] 文档 `docs/guides/custom-connector.md` 含完整模板 + 示例。
-- [ ] `pnpm test` / `pnpm typecheck` 全绿。
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` 全绿。
 
 ## 依赖与约束
 

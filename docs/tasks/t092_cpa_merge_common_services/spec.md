@@ -28,5 +28,6 @@ CPA（CLIProxyAPI Manager）在添加账号弹窗中单独拎出为"高级方式
 
 ## 依赖与约束
 
-- CPA 参数比普通 API Key 多（monitor_* 系列），需在 ApiKeyForm 扩展或加专用子表单。
+- CPA 参数比普通 API Key 多（monitor\_\* 系列），需在 ApiKeyForm 扩展或加专用子表单。
 - 与 t093（logo）协同。
+- 执行顺序：本 task 改动 AddAccountDialog 结构（删"高级方式"section），与 t094（同弹窗加"打开脚本目录"按钮）存在 UI 冲突，建议按 t092 → t094 → t095 顺序执行。

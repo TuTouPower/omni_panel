@@ -26,7 +26,7 @@
 - [ ] 添加账号弹窗有"打开脚本目录"按钮。
 - [ ] 点击后系统文件管理器打开 `userData/connectors` 目录。
 - [ ] 目录不存在时自动创建。
-- [ ] `pnpm test` / `pnpm typecheck` 全绿。
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` 全绿。
 
 ## 依赖与约束
 

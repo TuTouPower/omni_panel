@@ -14,8 +14,9 @@
 
 ## 验收标准
 
-- [ ] 见范围具体条目。
-- [ ] pnpm test / typecheck / lint 全绿。
+- [ ] CPA connector 单个 auth_file 失败时调 `ctx.report_failed_account` 并继续处理其余账号，不再整体 throw。
+- [ ] 单测覆盖混合成功/失败场景：成功账号正常发行 observation，失败账号进入 failed_accounts 且不影响成功账号。
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` 全绿。
 
 ## 依赖与约束
 

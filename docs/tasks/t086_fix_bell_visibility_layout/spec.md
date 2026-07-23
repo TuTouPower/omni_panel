@@ -14,8 +14,9 @@
 
 ## 验收标准
 
-- [ ] 见范围具体条目。
-- [ ] pnpm test / typecheck / lint 全绿。
+- [ ] 组件与 `globals.css` 的 watch 样式 class 统一（`bar-watch` / `lm-watch` 二选一，grep 无另一处残留）。
+- [ ] bell 与 bar-clock 同行不换行（`flex-shrink: 0` + `margin-left: auto`），测试断言 class 与可见性（透明度/颜色可辨）。
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` 全绿。
 
 ## 依赖与约束
 

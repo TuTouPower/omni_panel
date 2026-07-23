@@ -21,7 +21,7 @@ logo 已下载：`src/renderer/assets/vendor_logos/cpa.png`（460×460 PNG，来
 
 - [ ] `<VendorMark id="cpa" />` 渲染 `img.vendor-logo-img`（CLIProxyAPI logo）。
 - [ ] 不再回落 VENDOR_MARKS 四段圆环。
-- [ ] `pnpm test` / `pnpm typecheck` 全绿。
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` 全绿。
 
 ## 依赖与约束
 
