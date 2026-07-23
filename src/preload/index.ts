@@ -241,6 +241,9 @@ const settings_methods = {
     close: () => {
         void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CLOSE);
     },
+    openConnectorsDir: () => {
+        void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_OPEN_CONNECTORS_DIR);
+    },
 };
 
 const tray_methods = {

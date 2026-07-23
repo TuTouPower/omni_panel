@@ -95,7 +95,13 @@ describe("PopupView mirror isolation", () => {
                 report_content_height: vi.fn(),
             },
             main_panel: { hide: vi.fn(), get_mode: vi.fn().mockResolvedValue("popup") },
-            settings: { open: vi.fn(), minimize: vi.fn(), maximize: vi.fn(), close: vi.fn() },
+            settings: {
+                open: vi.fn(),
+                minimize: vi.fn(),
+                maximize: vi.fn(),
+                close: vi.fn(),
+                openConnectorsDir: vi.fn(),
+            },
             theme: { set: vi.fn() },
             tray: {
                 open_panel: vi.fn(),

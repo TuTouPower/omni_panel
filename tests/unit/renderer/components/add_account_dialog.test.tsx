@@ -48,11 +48,7 @@ describe("AddAccountDialog MIMO session cookie", () => {
     it("passes SESSION_COOKIE in secrets when adding a session-auth account (MiMo)", async () => {
         const user = userEvent.setup();
         render(
-            <AddAccountDialog
-                plugin_infos={[base_plugin]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
+            <AddAccountDialog plugin_infos={[base_plugin]} on_close={on_close} on_save={on_save} />,
         );
 
         // Step 1: select MiMo from vendor picker
@@ -92,11 +88,7 @@ describe("AddAccountDialog MIMO session cookie", () => {
         };
         const user = userEvent.setup();
         render(
-            <AddAccountDialog
-                plugin_infos={[kimi_plugin]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
+            <AddAccountDialog plugin_infos={[kimi_plugin]} on_close={on_close} on_save={on_save} />,
         );
 
         await user.click(screen.getByText("Kimi"));
@@ -374,11 +366,7 @@ describe("AddAccountDialog API key", () => {
     it("enables vendor button when plugin has supportedProviders even if disabled", () => {
         const disabled = apikey_plugin({ enabled: false, activeProviders: [] });
         render(
-            <AddAccountDialog
-                plugin_infos={[disabled]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
+            <AddAccountDialog plugin_infos={[disabled]} on_close={on_close} on_save={on_save} />,
         );
 
         const btn = screen.getByText("DeepSeek").closest("button");
@@ -395,11 +383,7 @@ describe("AddAccountDialog API key", () => {
         });
 
         render(
-            <AddAccountDialog
-                plugin_infos={[glm_plugin]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
+            <AddAccountDialog plugin_infos={[glm_plugin]} on_close={on_close} on_save={on_save} />,
         );
 
         const button = screen.getByText("GLM").closest("button");
@@ -417,28 +401,14 @@ describe("AddAccountDialog API key", () => {
     });
 
     it("shows CPA button when has_cpa is true", () => {
-        render(
-            <AddAccountDialog
-                plugin_infos={[]}
-                
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
+        render(<AddAccountDialog plugin_infos={[]} on_close={on_close} on_save={on_save} />);
 
         expect(screen.getByText("CPA Manager")).toBeInTheDocument();
     });
 
     it("calls on_cpa when CPA button is clicked", async () => {
         const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[]}
-                
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
+        render(<AddAccountDialog plugin_infos={[]} on_close={on_close} on_save={on_save} />);
 
         await user.click(screen.getByText("CPA Manager"));
         // CPA now goes through standard vendor select, not on_cpa callback
@@ -446,3 +416,47 @@ describe("AddAccountDialog API key", () => {
     });
 });
 
+describe("AddAccountDialog open connectors dir (t094)", () => {
+    afterEach(() => {
+        // @ts-expect-error tear down global mock injected per test
+        delete window.usageboard;
+    });
+
+    function mock_usageboard(open_connectors_dir: ReturnType<typeof vi.fn>) {
+        window.usageboard = {
+            platform: "win32",
+            log: vi.fn(),
+            settings: { openConnectorsDir: open_connectors_dir },
+        } as unknown as typeof window.usageboard;
+    }
+
+    it("renders the open-script-dir button in vendor picker", () => {
+        mock_usageboard(vi.fn());
+        render(
+            <AddAccountDialog
+                plugin_infos={[]}
+                on_close={vi.fn()}
+                on_save={vi.fn().mockResolvedValue(undefined)}
+            />,
+        );
+
+        expect(screen.getByText("打开脚本目录")).toBeInTheDocument();
+    });
+
+    it("invokes settings.openConnectorsDir when button clicked", async () => {
+        const open_connectors_dir = vi.fn();
+        mock_usageboard(open_connectors_dir);
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[]}
+                on_close={vi.fn()}
+                on_save={vi.fn().mockResolvedValue(undefined)}
+            />,
+        );
+
+        await user.click(screen.getByText("打开脚本目录"));
+
+        expect(open_connectors_dir).toHaveBeenCalledTimes(1);
+    });
+});

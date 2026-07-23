@@ -112,7 +112,7 @@ function VendorPicker({
 }) {
     // 内置 provider 始终可添加（auto_seed 保证 connector definition 存在）；
     // 用户删除账号后可重新添加，不因 plugin_infos 缺失而禁用。
-    const can_add = (_provider: AddServiceId) => true;
+    const can_add = () => true;
 
     return (
         <div className="pick-body">
@@ -121,7 +121,7 @@ function VendorPicker({
             </div>
             <div className="pick-grid">
                 {ADD_COMMON_SERVICES.map((s) => {
-                    const available = can_add(s.id);
+                    const available = can_add();
                     return (
                         <button
                             className={"pick-card" + (available ? "" : " disabled")}
@@ -137,6 +137,21 @@ function VendorPicker({
                         </button>
                     );
                 })}
+            </div>
+            <div
+                className="set-group-label"
+                style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}
+            >
+                <Icon name="folder" size={13} strokeWidth={1.8} />
+                <button
+                    type="button"
+                    className="ad-test"
+                    onClick={() => {
+                        window.usageboard.settings.openConnectorsDir();
+                    }}
+                >
+                    打开脚本目录
+                </button>
             </div>
         </div>
     );
@@ -403,11 +418,7 @@ function LocalScanForm({ vendor_id }: { vendor_id: AddServiceId }) {
 
 // ── Main Dialog ──
 
-export function AddAccountDialog({
-    plugin_infos,
-    on_close,
-    on_save,
-}: AddAccountDialogProps) {
+export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccountDialogProps) {
     const [step, set_step] = useState<"vendor" | "auth">("vendor");
     const [vendor_id, set_vendor_id] = useState<AddServiceId | null>(null);
     const [account_name, set_account_name] = useState("");
