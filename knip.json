@@ -5,9 +5,12 @@
         "src/renderer/index.tsx",
         "electron.vite.config.ts"
     ],
-    "project": ["src/**/*.ts", "src/**/*.tsx", "*.config.ts"],
+    "project": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "*.config.ts"
+    ],
     "ignoreDependencies": [
-        "@resvg/resvg-js",
         "eslint-plugin-jsx-a11y",
         "eslint-plugin-n",
         "eslint-plugin-perfectionist",
@@ -17,7 +20,6 @@
         "eslint-plugin-sonarjs",
         "eslint-plugin-unicorn",
         "lodash",
-        "png-to-ico",
         "tailwindcss",
         "lucide-react",
         "tslib"
