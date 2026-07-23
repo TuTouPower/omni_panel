@@ -3,6 +3,7 @@ import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import antigravity_svg from "../assets/vendor_logos/antigravity.svg";
 import claude_svg from "../assets/vendor_logos/claude.svg";
 import codex_svg from "../assets/vendor_logos/codex.svg";
+import cpa_png from "../assets/vendor_logos/cpa.png";
 import deepseek_svg from "../assets/vendor_logos/deepseek.svg";
 import exa_light_png from "../assets/vendor_logos/exa_light.png";
 import exa_dark_png from "../assets/vendor_logos/exa_dark.png";
@@ -122,6 +123,7 @@ const VENDOR_LOGOS: Record<string, string> = {
     tavily: tavily_svg,
     firecrawl: firecrawl_svg,
     tikhub: tikhub_jpeg,
+    cpa: cpa_png,
 };
 
 const VENDOR_MARKS: Record<string, (s: number) => string> = {

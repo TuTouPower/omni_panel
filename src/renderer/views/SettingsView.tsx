@@ -321,7 +321,6 @@ function AccountDialog({
     hasSecrets,
     onSave,
     onAddAccount,
-    onCpa,
     onClose,
     existingLabelMap,
     onSaveLabelMap,
@@ -347,7 +346,6 @@ function AccountDialog({
         displayName?: string,
     ) => Promise<void>;
     onAddAccount: (params: AddAccountParams) => Promise<void>;
-    onCpa: () => void;
     onClose: () => void;
     existingLabelMap?: Readonly<Record<string, string>> | undefined;
     onSaveLabelMap?:
@@ -387,10 +385,8 @@ function AccountDialog({
                 {mode === "add" && !instanceId ? (
                     <AddAccountDialog
                         plugin_infos={pluginInfos}
-                        has_cpa={true}
                         on_close={onClose}
                         on_save={onAddAccount}
-                        on_cpa={onCpa}
                     />
                 ) : (
                     <>
@@ -2117,7 +2113,10 @@ export function SettingsView() {
                             // 找到对应厂商的直连连接器（排除 CPA gateway），duplicate 后填入 secrets
                             const source = pluginInfos.find(
                                 (p) =>
-                                    p.supportedProviders.includes(params.vendor_id) &&
+                                    (p.supportedProviders.includes(
+                                        params.vendor_id as UsageProvider,
+                                    ) ||
+                                        params.vendor_id === "cpa") &&
                                     p.source !== "gateway",
                             );
                             if (!source) return;
@@ -2130,10 +2129,6 @@ export function SettingsView() {
                                 instanceId: created.instanceId,
                                 pluginName: params.account_name,
                             });
-                        }}
-                        onCpa={() => {
-                            setDialog(null);
-                            setShowCpaAdd(true);
                         }}
                         onClose={() => {
                             setDialog(null);

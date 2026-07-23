@@ -39,12 +39,10 @@ function get_saved_params(on_save: ReturnType<typeof vi.fn>): AddAccountParams {
 describe("AddAccountDialog MIMO session cookie", () => {
     let on_save: ReturnType<typeof vi.fn>;
     let on_close: ReturnType<typeof vi.fn>;
-    let on_cpa: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         on_save = vi.fn().mockResolvedValue(undefined);
         on_close = vi.fn();
-        on_cpa = vi.fn();
     });
 
     it("passes SESSION_COOKIE in secrets when adding a session-auth account (MiMo)", async () => {
@@ -52,10 +50,8 @@ describe("AddAccountDialog MIMO session cookie", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[base_plugin]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -98,10 +94,8 @@ describe("AddAccountDialog MIMO session cookie", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[kimi_plugin]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -137,10 +131,8 @@ describe("AddAccountDialog MIMO session cookie", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[opencode_go_plugin()]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -158,10 +150,8 @@ describe("AddAccountDialog MIMO session cookie", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[opencode_go_plugin()]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -189,10 +179,8 @@ describe("AddAccountDialog MIMO session cookie", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[opencode_go_plugin()]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -209,10 +197,8 @@ describe("AddAccountDialog MIMO session cookie", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[opencode_go_plugin()]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -239,10 +225,8 @@ describe("AddAccountDialog MIMO session cookie", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[opencode_go_plugin()]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -265,10 +249,8 @@ describe("AddAccountDialog MIMO session cookie", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[opencode_go_plugin()]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -282,7 +264,6 @@ describe("AddAccountDialog MIMO session cookie", () => {
 describe("AddAccountDialog API key", () => {
     let on_save: ReturnType<typeof vi.fn>;
     let on_close: ReturnType<typeof vi.fn>;
-    let on_cpa: ReturnType<typeof vi.fn>;
 
     function apikey_plugin(overrides: Partial<PluginInfo> = {}): PluginInfo {
         return {
@@ -313,7 +294,6 @@ describe("AddAccountDialog API key", () => {
     beforeEach(() => {
         on_save = vi.fn().mockResolvedValue(undefined);
         on_close = vi.fn();
-        on_cpa = vi.fn();
     });
 
     it("passes API_KEY in secrets when adding an apikey account", async () => {
@@ -321,10 +301,8 @@ describe("AddAccountDialog API key", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[apikey_plugin()]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -351,10 +329,8 @@ describe("AddAccountDialog API key", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[apikey_plugin()]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -379,10 +355,8 @@ describe("AddAccountDialog API key", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[apikey_plugin()]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -402,10 +376,8 @@ describe("AddAccountDialog API key", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[disabled]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -425,10 +397,8 @@ describe("AddAccountDialog API key", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[glm_plugin]}
-                has_cpa={false}
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -450,10 +420,9 @@ describe("AddAccountDialog API key", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[]}
-                has_cpa={true}
+                
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
@@ -465,14 +434,15 @@ describe("AddAccountDialog API key", () => {
         render(
             <AddAccountDialog
                 plugin_infos={[]}
-                has_cpa={true}
+                
                 on_close={on_close}
                 on_save={on_save}
-                on_cpa={on_cpa}
             />,
         );
 
         await user.click(screen.getByText("CPA Manager"));
-        expect(on_cpa).toHaveBeenCalled();
+        // CPA now goes through standard vendor select, not on_cpa callback
+        expect(screen.getByText("添加 CPA Manager 账号")).toBeInTheDocument();
     });
 });
+
