@@ -11,6 +11,7 @@ export const usageProviderSchema = z.enum([
     "glm",
     "minimax",
     "deepseek",
+    "getoneapi",
     "tavily",
     "firecrawl",
     "exa",

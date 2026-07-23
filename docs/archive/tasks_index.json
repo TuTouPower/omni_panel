@@ -391,6 +391,14 @@
             "status": "done",
             "branch": "t049_exa_connector",
             "note": ""
+        },
+        {
+            "tid": "t050",
+            "title": "GetOneAPI 余额连接器",
+            "slug": "getoneapi_connector",
+            "status": "done",
+            "branch": "t050_getoneapi_connector",
+            "note": ""
         }
     ]
 }

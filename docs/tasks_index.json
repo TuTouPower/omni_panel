@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t050",
-            "title": "GetOneAPI 余额连接器",
-            "slug": "getoneapi_connector",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t051",
             "title": "TikHub 余额连接器",
             "slug": "tikhub_connector",

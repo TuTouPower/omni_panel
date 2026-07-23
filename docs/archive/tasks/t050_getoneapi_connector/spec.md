@@ -23,9 +23,9 @@ GetOneAPI（getoneapi.com，OneAPI 站点）按人民币余额计费，用户需
 
 - [ ] `connectors/getoneapi/manifest.json` 注册成功，参数标签齐全。
 - [ ] 输入 API_KEY 返回余额 observation（used=balance、limit=LIMIT）。
-- [ ] status 余额反向：余额 0.01 → critical，充足 → normal。
-- [ ] code != 200 throw 错误；data 缺关键字段 throw（不静默空数组）。
-- [ ] 契约测试覆盖正常 / 错误码。
+- [ ] status 余额反向：余额 0.01 → critical，充足 → normal；LIMIT 缺失/≤0/非数 → unknown+null（不设 default，同 exa t049）。
+- [ ] code != 200 throw 错误；data 缺失或 data.balance 键缺失 throw（不静默回退 0）。
+- [ ] 契约测试覆盖正常 / 阈值三档 / LIMIT 异常 / 错误码 / 字段缺失。
 
 ## 依赖与约束
 

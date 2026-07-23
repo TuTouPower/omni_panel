@@ -9,6 +9,7 @@
 | `claude`      | claude      | local   | 直连 | 读 `~/.claude` 本地用量                                                                                                             |
 | `codex`       | codex       | local   | 直连 | 读 `~/.codex` 本地用量                                                                                                              |
 | `deepseek`    | deepseek    | poll    | 直连 | 官方用量 API                                                                                                                        |
+| `getoneapi`   | getoneapi   | poll    | 直连 | GetOneAPI 余额 API（`POST /back/user/balance`）；余额型 `data.balance`（CNY），余额反向 status（t050）                              |
 | `glm`         | glm         | poll    | 直连 | 智谱 API                                                                                                                            |
 | `minimax`     | minimax     | poll    | 直连 | MiniMax API                                                                                                                         |
 | `tavily`      | tavily      | poll    | 直连 | Tavily API                                                                                                                          |

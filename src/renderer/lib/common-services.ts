@@ -7,6 +7,7 @@ export const ADD_COMMON_SERVICES: { id: UsageProvider; label: string }[] = [
     { id: "glm", label: "GLM" },
     { id: "kimi", label: "Kimi" },
     { id: "deepseek", label: "DeepSeek" },
+    { id: "getoneapi", label: "GetOneAPI" },
     { id: "minimax", label: "MiniMax" },
     { id: "tavily", label: "Tavily" },
     { id: "firecrawl", label: "Firecrawl" },

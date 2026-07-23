@@ -10,6 +10,7 @@ describe("add-account common services", () => {
             "glm",
             "kimi",
             "deepseek",
+            "getoneapi",
             "minimax",
             "tavily",
             "firecrawl",

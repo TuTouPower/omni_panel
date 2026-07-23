@@ -1,0 +1,35 @@
+{
+    "id": "getoneapi",
+    "provider": "getoneapi",
+    "capabilities": ["poll"],
+    "parameters": [
+        {
+            "name": "API_KEY",
+            "type": "secret",
+            "required": true,
+            "label": "API Key",
+            "label@zh-Hans": "API 密钥",
+            "exposeToScript": true
+        },
+        {
+            "name": "LIMIT",
+            "type": "number",
+            "required": false,
+            "label": "Balance Limit (CNY)",
+            "label@zh-Hans": "余额上限 (CNY)",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://api.getoneapi.com"
+    },
+    "poll": {
+        "request": {
+            "endpoint": "default",
+            "path": "/back/user/balance",
+            "method": "POST"
+        },
+        "map": {}
+    },
+    "script": "connector.ts"
+}
