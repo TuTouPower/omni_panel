@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t055",
-            "title": "连接器阈值集中化与 status 硬编码 (P5/I3/I4)",
-            "slug": "connector_threshold_centralize",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t056",
             "title": "cycleDurationMs 语义统一 (P3/I8/I9)",
             "slug": "connector_cycle_duration_semantics",

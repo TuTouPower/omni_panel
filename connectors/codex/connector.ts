@@ -121,7 +121,7 @@ async function main(): Promise<ScriptObservation[]> {
             limit: null,
             display_style: "ratio",
             reset_at: null,
-            status: "normal",
+            status: "unknown",
             observed_at: now,
             source: "local",
             stale: false,

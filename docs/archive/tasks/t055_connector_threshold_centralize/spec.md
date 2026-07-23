@@ -18,10 +18,10 @@ review_20260723_opus：P5 阈值未集中化；I3（`connectors/claude/connector
 
 ## 验收标准
 
-- [ ] 共享阈值 helper 抽出，单测覆盖三函数边界。
-- [ ] claude/firecrawl status 按阈值（达上限 critical/warning）。
+- [ ] P5 ctx 共享 helper 集中化标遗留（架构改另立 spike）；本 task 各连接器内联 helper（与 deepseek/mimo/exa/tikhub/cpa 一致）。
+- [ ] claude/firecrawl status 按阈值（达上限 critical/warning），边界 90/75、0.9/0.75 闭区间覆盖。
 - [ ] codex limit=null → unknown。
-- [ ] cpa utilization 缺失 → null（跳过 status，不标 normal）。
+- [ ] cpa utilization 缺失（I5）移 t059（空响应处置），本 task 不动。
 - [ ] 现有连接器测试全绿，无回归。
 
 ## 依赖与约束

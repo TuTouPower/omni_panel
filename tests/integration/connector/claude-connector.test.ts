@@ -107,4 +107,51 @@ describe("claude connector", () => {
         expect(result.error).toContain("five_hour");
         expect(result.observations).toEqual([]);
     });
+
+    it("status reflects utilization threshold (pct)", async () => {
+        const script = await readFile(join("connectors", "claude", "connector.ts"), "utf8");
+        const mk = (util: number): ConnectorContext => {
+            const ctx = create_ctx();
+            ctx.http.get_json = () =>
+                Promise.resolve({
+                    five_hour: { utilization: util, resets_at: "2026-06-01T00:00:00Z" },
+                    seven_day: { utilization: util, resets_at: "2026-06-08T00:00:00Z" },
+                });
+            return ctx;
+        };
+        expect((await run_connector(manifest, script, mk(95))).observations[0]?.status).toBe(
+            "critical",
+        );
+        expect((await run_connector(manifest, script, mk(80))).observations[0]?.status).toBe(
+            "warning",
+        );
+        expect((await run_connector(manifest, script, mk(25))).observations[0]?.status).toBe(
+            "normal",
+        );
+    });
+
+    it("status threshold boundaries 90/75 locked (>= semantics)", async () => {
+        const script = await readFile(join("connectors", "claude", "connector.ts"), "utf8");
+        const mk = (util: number): ConnectorContext => {
+            const ctx = create_ctx();
+            ctx.http.get_json = () =>
+                Promise.resolve({
+                    five_hour: { utilization: util, resets_at: "2026-06-01T00:00:00Z" },
+                    seven_day: { utilization: util, resets_at: "2026-06-08T00:00:00Z" },
+                });
+            return ctx;
+        };
+        // 90 -> critical（>= 90 闭区间）
+        expect((await run_connector(manifest, script, mk(90))).observations[0]?.status).toBe(
+            "critical",
+        );
+        // 75 -> warning（>= 75）
+        expect((await run_connector(manifest, script, mk(75))).observations[0]?.status).toBe(
+            "warning",
+        );
+        // 74.9 -> normal（< 75）
+        expect((await run_connector(manifest, script, mk(74.9))).observations[0]?.status).toBe(
+            "normal",
+        );
+    });
 });

@@ -431,6 +431,14 @@
             "status": "done",
             "branch": "t054_localapi_auth_hardening",
             "note": ""
+        },
+        {
+            "tid": "t055",
+            "title": "连接器阈值集中化与 status 硬编码 (P5/I3/I4)",
+            "slug": "connector_threshold_centralize",
+            "status": "done",
+            "branch": "t055_connector_threshold_centralize",
+            "note": ""
         }
     ]
 }

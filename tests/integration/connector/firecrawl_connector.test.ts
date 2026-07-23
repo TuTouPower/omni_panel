@@ -172,6 +172,59 @@ describe("firecrawl connector", () => {
         expect(result.observations).toEqual([]);
     });
 
+    it("status reflects used/limit ratio threshold", async () => {
+        const result = await run_firecrawl(
+            {
+                success: true,
+                data: {
+                    remaining_credits: 50,
+                    plan_credits: 1000,
+                    billing_period_end: "2026-08-03T11:54:41.999Z",
+                },
+            },
+            {
+                success: true,
+                data: {
+                    remaining_tokens: 50,
+                    plan_tokens: 1000,
+                    billing_period_end: "2026-08-03T11:54:41.999Z",
+                },
+            },
+        );
+        // 950/1000 = 0.95 -> critical
+        expect(result.observations[0]?.status).toBe("critical");
+        expect(result.observations[1]?.status).toBe("critical");
+    });
+
+    it("status ratio boundaries 0.9/0.75 locked (>= semantics)", async () => {
+        const mk = (remaining: number, plan: number) => ({
+            success: true,
+            data: {
+                remaining_credits: remaining,
+                plan_credits: plan,
+                billing_period_end: "2026-08-03T11:54:41.999Z",
+            },
+        });
+        // 0.9 -> critical
+        const crit = await run_firecrawl(mk(100, 1000), mk(100, 1000));
+        expect(crit.observations[0]?.status).toBe("critical");
+        // 0.75 -> warning
+        const warn = await run_firecrawl(mk(250, 1000), mk(250, 1000));
+        expect(warn.observations[0]?.status).toBe("warning");
+        // 0.749 -> normal
+        const ok = await run_firecrawl(mk(251, 1000), mk(251, 1000));
+        expect(ok.observations[0]?.status).toBe("normal");
+    });
+
+    it("status unknown when limit <= 0 (plan missing)", async () => {
+        const result = await run_firecrawl(
+            { success: true, data: { remaining_credits: 50, plan_credits: 0 } },
+            { success: true, data: { remaining_tokens: 50, plan_tokens: 0 } },
+        );
+        expect(result.observations[0]?.status).toBe("unknown");
+        expect(result.observations[1]?.status).toBe("unknown");
+    });
+
     it("throws when API reports success:false", async () => {
         const result = await run_firecrawl(
             { success: false, error: "invalid api key" },

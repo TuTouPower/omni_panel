@@ -12,6 +12,14 @@ function is_record(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
 }
 
+function status_for_ratio(used: number, limit: number): ScriptObservation["status"] {
+    if (limit <= 0) return "unknown";
+    const ratio = used / limit;
+    if (ratio >= 0.9) return "critical";
+    if (ratio >= 0.75) return "warning";
+    return "normal";
+}
+
 interface Usage {
     readonly used: number;
     readonly limit: number;
@@ -74,7 +82,6 @@ async function main(): Promise<ScriptObservation[]> {
         source: "poll" as const,
         stale: false,
         last_error: null,
-        status: "normal" as const,
     };
 
     return [
@@ -85,6 +92,7 @@ async function main(): Promise<ScriptObservation[]> {
             normalized_label: "积分",
             used: credits.used,
             limit: credits.limit,
+            status: status_for_ratio(credits.used, credits.limit),
         },
         {
             ...base,
@@ -93,6 +101,7 @@ async function main(): Promise<ScriptObservation[]> {
             normalized_label: "Tokens",
             used: tokens.used,
             limit: tokens.limit,
+            status: status_for_ratio(tokens.used, tokens.limit),
         },
     ];
 }
