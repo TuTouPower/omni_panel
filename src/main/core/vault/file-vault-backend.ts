@@ -64,19 +64,29 @@ async function set_file_permissions(path: string): Promise<void> {
 }
 
 async function ensure_master_key(key_path: string): Promise<Buffer> {
+    let exists = false;
     try {
         await access(key_path);
-        const key = await readFile(key_path);
-        if (key.length === 32) return key;
-        throw new Error("Invalid vault key length");
+        exists = true;
     } catch {
-        const key = randomBytes(32);
-        await mkdir(dirname(key_path), { recursive: true });
-        await writeFile(key_path, key);
-        await set_file_permissions(key_path);
-        log.info("Generated new master key");
+        // key 文件不存在（ENOENT）-> 生成新 key
+    }
+    if (exists) {
+        const key = await readFile(key_path);
+        if (key.length !== 32) {
+            // key 文件存在但长度异常（截断/损坏）-> 不覆盖，强制从 .bak 恢复
+            throw new Error(
+                `Invalid vault key length: expected 32, got ${String(key.length)}. Key file may be corrupted; delete it to regenerate (will lose encrypted secrets) or restore from your external backup.`,
+            );
+        }
         return key;
     }
+    const key = randomBytes(32);
+    await mkdir(dirname(key_path), { recursive: true });
+    await writeFile(key_path, key);
+    await set_file_permissions(key_path);
+    log.info("Generated new master key");
+    return key;
 }
 
 function redact_key(key: string): string {

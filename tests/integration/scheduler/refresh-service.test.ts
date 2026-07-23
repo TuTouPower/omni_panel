@@ -4,7 +4,10 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createRefreshService } from "../../../src/main/core/scheduler/refresh-service";
+import {
+    createRefreshService,
+    is_auth_error,
+} from "../../../src/main/core/scheduler/refresh-service";
 import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
 import type { AppConfiguration, ConnectorConfiguration } from "../../../src/main/core/config/types";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
@@ -12,6 +15,25 @@ import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
 import type { Observation } from "../../../src/shared/types/observation";
 import { addTransport, getLogLevel, setLogLevel } from "../../../src/shared/lib/logger";
+
+describe("is_auth_error", () => {
+    it("matches 401 / unauthorized / invalid_token / credential", () => {
+        expect(is_auth_error("HTTP 401 Unauthorized")).toBe(true);
+        expect(is_auth_error("invalid_token")).toBe(true);
+        expect(is_auth_error("invalid credentials")).toBe(true);
+        expect(is_auth_error("Unauthorized access")).toBe(true);
+    });
+
+    it("does not match 'token' substring in non-auth errors (unexpected token / token pool)", () => {
+        expect(is_auth_error("SyntaxError: Unexpected token < in JSON")).toBe(false);
+        expect(is_auth_error("token pool exhausted")).toBe(false);
+    });
+
+    it("does not match unrelated errors", () => {
+        expect(is_auth_error("HTTP 500 internal")).toBe(false);
+        expect(is_auth_error("timeout")).toBe(false);
+    });
+});
 
 const script_body = `
 return [{

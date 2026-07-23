@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t060",
-            "title": "vault 主密钥与 auth 错误判定健壮性 (I1/I2)",
-            "slug": "vault_auth_robustness",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t061",
             "title": "renderer 账号状态与保存错误小修 (I12/I13)",
             "slug": "renderer_small_fixes",

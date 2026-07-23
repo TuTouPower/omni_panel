@@ -471,6 +471,14 @@
             "status": "done",
             "branch": "t059_connector_empty_response",
             "note": ""
+        },
+        {
+            "tid": "t060",
+            "title": "vault 主密钥与 auth 错误判定健壮性 (I1/I2)",
+            "slug": "vault_auth_robustness",
+            "status": "done",
+            "branch": "t060_vault_auth_robustness",
+            "note": ""
         }
     ]
 }
