@@ -5,6 +5,7 @@ import {
     fail,
     state_to_snapshot_dto,
     assert_valid_sender,
+    assert_setting_route,
 } from "../../../src/main/ipc/helpers";
 
 describe("IPC helpers", () => {
@@ -153,5 +154,63 @@ describe("assert_valid_sender", () => {
         expect(() => {
             assert_valid_sender(event);
         }).toThrow("Invalid sender protocol");
+    });
+
+    it("rejects file:// sender whose path is not index.html (I15)", () => {
+        delete process.env["ELECTRON_RENDERER_URL"];
+        const event = {
+            senderFrame: { url: "file:///evil/page.html" },
+        } as unknown as Electron.IpcMainInvokeEvent;
+        expect(() => {
+            assert_valid_sender(event);
+        }).toThrow("Invalid file:// sender path");
+    });
+
+    it("rejects dev-server sender with similar prefix (origin compare, I15)", () => {
+        process.env["ELECTRON_RENDERER_URL"] = "http://localhost:5173";
+        const event = {
+            senderFrame: { url: "http://localhost:5173evil.com/index.html" },
+        } as unknown as Electron.IpcMainInvokeEvent;
+        expect(() => {
+            assert_valid_sender(event);
+        }).toThrow("Invalid sender protocol");
+    });
+});
+
+describe("assert_setting_route", () => {
+    it("allows #setting hash", () => {
+        const event = {
+            senderFrame: { url: "file:///index.html#setting" },
+        } as unknown as Electron.IpcMainInvokeEvent;
+        expect(() => {
+            assert_setting_route(event);
+        }).not.toThrow();
+    });
+
+    it("rejects non-setting hash", () => {
+        const event = {
+            senderFrame: { url: "file:///index.html#usage" },
+        } as unknown as Electron.IpcMainInvokeEvent;
+        expect(() => {
+            assert_setting_route(event);
+        }).toThrow("only allowed from setting route");
+    });
+
+    it("rejects hash that merely contains setting substring", () => {
+        const event = {
+            senderFrame: { url: "file:///index.html#not-setting" },
+        } as unknown as Electron.IpcMainInvokeEvent;
+        expect(() => {
+            assert_setting_route(event);
+        }).toThrow("only allowed from setting route");
+    });
+
+    it("rejects empty hash", () => {
+        const event = {
+            senderFrame: { url: "file:///index.html" },
+        } as unknown as Electron.IpcMainInvokeEvent;
+        expect(() => {
+            assert_setting_route(event);
+        }).toThrow("only allowed from setting route");
     });
 });

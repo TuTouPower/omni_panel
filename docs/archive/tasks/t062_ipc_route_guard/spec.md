@@ -7,7 +7,7 @@ review_20260723_opus：I14（`src/main/ipc/config-ipc.ts:432`）`CONFIG_GET_SECR
 ## 范围
 
 - CONFIG_GET_SECRETS：主进程解析 `event.senderFrame.url` hash 或维护 webContents→route 映射，非 setting route 直接拒绝。
-- file:// 校验：与 `rendererIndexPath` 白名单比对，拒绝非打包 index.html 路径。
+- file:// 校验：pathname 须以 `index.html` 结尾（增量防御，拒非 renderer 入口的 file:// HTML）；完整 `rendererIndexPath` 白名单需 helpers 注入 path（架构改），标遗留另立 spike。
 - helpers `url.startsWith(dev_url)` 前缀匹配改 origin 比对（minor，顺带）。
 
 ## 非范围
@@ -18,7 +18,7 @@ review_20260723_opus：I14（`src/main/ipc/config-ipc.ts:432`）`CONFIG_GET_SECR
 ## 验收标准
 
 - [ ] 非 setting route 调 CONFIG_GET_SECRETS 被拒。
-- [ ] 非白名单 file:// 调 IPC 被拒。
+- [ ] 非 index.html 的 file:// 调 IPC 被拒（endsWith 增量防御）；完整 rendererIndexPath 白名单遗留。
 - [ ] dev_url 前缀匹配改为 origin 比对（防 `localhost:5173evil.com`）。
 - [ ] 单测覆盖三路径；设置窗正常拉密钥回填不破坏。
 

@@ -151,7 +151,7 @@ describe("config-ipc", () => {
             if (!handler) throw new Error("missing config:get handler");
 
             await handler({
-                senderFrame: { url: "file:///index.html" },
+                senderFrame: { url: "file:///index.html#setting" },
             } as Electron.IpcMainInvokeEvent);
 
             const joined = lines.join("\n");
@@ -452,7 +452,7 @@ describe("config-ipc", () => {
         if (!handler) throw new Error("missing config:duplicate handler");
 
         const result = await handler(
-            { senderFrame: { url: "file://settings" } } as Electron.IpcMainInvokeEvent,
+            { senderFrame: { url: "file:///index.html#setting" } } as Electron.IpcMainInvokeEvent,
             "claude",
         );
 
@@ -854,6 +854,25 @@ describe("config-ipc", () => {
         ).toThrow("IPC not allowed from unknown origin");
     });
 
+    it("rejects CONFIG_GET_SECRETS from non-setting route (I14)", async () => {
+        const deps = createMockDeps();
+        const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+        await registerConfigIpc(deps);
+        const handler = ipc_main_mock.handle.mock.calls.find(
+            ([channel]) => channel === "config:getSecrets",
+        )?.[1];
+        if (!handler) throw new Error("missing config:getSecrets handler");
+        // #usage route 不应拉明文密钥
+        expect(() =>
+            handler(
+                {
+                    senderFrame: { url: "file:///index.html#usage" },
+                } as Electron.IpcMainInvokeEvent,
+                "instance-1",
+            ),
+        ).toThrow("only allowed from setting route");
+    });
+
     // P1-3: 用户可见文案统一用「连接器」而非「插件」（domain.md §5）
     describe("user-facing messages use 连接器 wording", () => {
         it("handleConfigSave unknown instanceId message says 连接器 not 插件", async () => {
@@ -907,7 +926,9 @@ describe("config-ipc", () => {
             if (!handler) throw new Error("missing config:duplicate handler");
 
             const result = await handler(
-                { senderFrame: { url: "file://settings" } } as Electron.IpcMainInvokeEvent,
+                {
+                    senderFrame: { url: "file:///index.html#setting" },
+                } as Electron.IpcMainInvokeEvent,
                 "nonexistent-source",
             );
 
@@ -928,7 +949,9 @@ describe("config-ipc", () => {
             if (!handler) throw new Error("missing config:duplicate handler");
 
             const result = await handler(
-                { senderFrame: { url: "file://settings" } } as Electron.IpcMainInvokeEvent,
+                {
+                    senderFrame: { url: "file:///index.html#setting" },
+                } as Electron.IpcMainInvokeEvent,
                 "claude",
             );
 

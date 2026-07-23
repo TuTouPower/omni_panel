@@ -487,6 +487,14 @@
             "status": "done",
             "branch": "t061_renderer_small_fixes",
             "note": ""
+        },
+        {
+            "tid": "t062",
+            "title": "IPC 越权防御 (I14/I15)",
+            "slug": "ipc_route_guard",
+            "status": "done",
+            "branch": "t062_ipc_route_guard",
+            "note": ""
         }
     ]
 }

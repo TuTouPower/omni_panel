@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t062",
-            "title": "IPC 越权防御 (I14/I15)",
-            "slug": "ipc_route_guard",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t063",
             "title": "task.py 原子写与事务 (I16/I17)",
             "slug": "task_py_atomic_write",
