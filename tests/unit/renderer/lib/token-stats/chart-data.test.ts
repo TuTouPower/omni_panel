@@ -3,6 +3,7 @@ import type { AgentSessionUsage } from "../../../../../src/shared/types/token-st
 import {
     agentSegments,
     compositionSegments,
+    escapeHtml,
     modelColorMap,
     modelSegments,
     prepareBarData,
@@ -31,6 +32,20 @@ function record(overrides: Partial<AgentSessionUsage> = {}): AgentSessionUsage {
         ...overrides,
     };
 }
+
+describe("escapeHtml", () => {
+    it("escapes XSS-relevant characters", () => {
+        expect(escapeHtml(`<script>alert("x")</script>`)).toBe(
+            "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;",
+        );
+        expect(escapeHtml(`<img onerror='a' src=b>`)).toBe("&lt;img onerror=&#39;a&#39; src=b&gt;");
+        expect(escapeHtml("a & b < c > d")).toBe("a &amp; b &lt; c &gt; d");
+    });
+
+    it("leaves safe text unchanged", () => {
+        expect(escapeHtml("claude-code 项目 X")).toBe("claude-code 项目 X");
+    });
+});
 
 describe("agentSegments", () => {
     it("sums tokens per agent and skips agents with no usage", () => {

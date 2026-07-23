@@ -455,6 +455,14 @@
             "status": "done",
             "branch": "t057_connector_stable_account_id",
             "note": ""
+        },
+        {
+            "tid": "t058",
+            "title": "图表 tooltip XSS 转义 (I10/I11)",
+            "slug": "fix_chart_tooltip_xss",
+            "status": "done",
+            "branch": "t058_fix_chart_tooltip_xss",
+            "note": ""
         }
     ]
 }

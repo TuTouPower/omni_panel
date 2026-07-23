@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t058",
-            "title": "图表 tooltip XSS 转义 (I10/I11)",
-            "slug": "fix_chart_tooltip_xss",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t059",
             "title": "连接器空响应静默处置 (P1/I5)",
             "slug": "connector_empty_response",
