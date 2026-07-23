@@ -519,6 +519,14 @@
             "status": "done",
             "branch": "t065_build_config_cleanup",
             "note": ""
+        },
+        {
+            "tid": "t066",
+            "title": "连接器阈值 ctx 共享 helper 集中化 (P5 spike)",
+            "slug": "connector_threshold_ctx_centralize",
+            "status": "done",
+            "branch": "t066_connector_threshold_ctx_centralize",
+            "note": ""
         }
     ]
 }

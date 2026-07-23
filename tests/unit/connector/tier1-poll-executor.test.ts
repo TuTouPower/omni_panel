@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ctx_status } from "../../integration/connector/_ctx_status";
 import { execute_poll } from "../../../src/main/core/connector/tier1-poll-executor";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
@@ -39,6 +40,7 @@ function make_ctx(response: unknown): ConnectorContext {
             list: () => Promise.resolve([]),
         },
         params: {},
+        status: ctx_status,
         report_failed_account: () => undefined,
     };
 }
@@ -102,6 +104,7 @@ describe("tier1-poll-executor", () => {
                 list: () => Promise.resolve([]),
             },
             params: {},
+            status: ctx_status,
             report_failed_account: () => undefined,
         };
 
@@ -129,6 +132,7 @@ describe("tier1-poll-executor", () => {
                 list: () => Promise.resolve([]),
             },
             params: {},
+            status: ctx_status,
             report_failed_account: () => undefined,
         };
         await expect(execute_poll(tavily_manifest, ctx)).rejects.toThrow("network");

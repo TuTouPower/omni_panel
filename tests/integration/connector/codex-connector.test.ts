@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { ctx_status } from "./_ctx_status";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
@@ -47,6 +48,7 @@ function create_ctx(files: Record<string, string>): ConnectorContext {
             },
         },
         params: {},
+        status: ctx_status,
         report_failed_account: () => undefined,
     };
 }

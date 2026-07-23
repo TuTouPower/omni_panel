@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t066",
-            "title": "连接器阈值 ctx 共享 helper 集中化 (P5 spike)",
-            "slug": "connector_threshold_ctx_centralize",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t067",
             "title": "IPC file:// rendererIndexPath 完整白名单 (t062 遗留)",
             "slug": "ipc_renderer_path_whitelist",
