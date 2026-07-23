@@ -591,6 +591,14 @@
             "status": "done",
             "branch": "t074_package_run_path_filter",
             "note": ""
+        },
+        {
+            "tid": "t075",
+            "title": "网页标签页 favicon logo",
+            "slug": "web_panel_favicon",
+            "status": "done",
+            "branch": "t075_web_panel_favicon",
+            "note": ""
         }
     ]
 }
