@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t064",
-            "title": "测试反模式整改 (I18-I23)",
-            "slug": "test_antipattern_cleanup",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t065",
             "title": "构建配置与依赖清理 (I24-I28)",
             "slug": "build_config_cleanup",

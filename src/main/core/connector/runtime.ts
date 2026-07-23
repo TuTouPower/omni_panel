@@ -16,7 +16,7 @@ export interface ConnectorRunResult {
     readonly error: string | null;
 }
 
-function deep_freeze<T>(value: T, seen = new WeakSet<object>()): T {
+export function deep_freeze<T>(value: T, seen = new WeakSet<object>()): T {
     if (value !== null && typeof value === "object") {
         if (seen.has(value)) return value;
         seen.add(value);

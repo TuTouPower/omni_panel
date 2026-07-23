@@ -80,6 +80,6 @@ describe("task.py finish transaction recovery (I17)", () => {
         const archive = read_json(archive_path);
         expect(active.tasks).toHaveLength(0);
         expect(archive.tasks).toHaveLength(1);
-        expect(archive.tasks[0]?.status).toBe("done");
+        expect(archive.tasks[0]?.["status"]).toBe("done");
     });
 });

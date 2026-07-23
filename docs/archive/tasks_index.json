@@ -503,6 +503,14 @@
             "status": "done",
             "branch": "t063_task_py_atomic_write",
             "note": ""
+        },
+        {
+            "tid": "t064",
+            "title": "测试反模式整改 (I18-I23)",
+            "slug": "test_antipattern_cleanup",
+            "status": "done",
+            "branch": "t064_test_antipattern_cleanup",
+            "note": ""
         }
     ]
 }
