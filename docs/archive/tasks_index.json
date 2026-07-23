@@ -543,6 +543,54 @@
             "status": "done",
             "branch": "t068_task_py_mock_replace_test",
             "note": ""
+        },
+        {
+            "tid": "t069",
+            "title": "migration 测试改 import 生产迁移入口 (I19)",
+            "slug": "test_migration_real_entry",
+            "status": "done",
+            "branch": "t069_test_migration_real_entry",
+            "note": ""
+        },
+        {
+            "tid": "t070",
+            "title": "e2e 断言真实刷新行为非死等 (I21)",
+            "slug": "e2e_assert_real_refresh",
+            "status": "done",
+            "branch": "t070_e2e_assert_real_refresh",
+            "note": ""
+        },
+        {
+            "tid": "t071",
+            "title": "setupFiles 拆 renderer-only (I22)",
+            "slug": "setupfiles_renderer_only_split",
+            "status": "done",
+            "branch": "t071_setupfiles_renderer_only_split",
+            "note": ""
+        },
+        {
+            "tid": "t072",
+            "title": "取消 skip 关键 case 补 real fixture (I23)",
+            "slug": "skip_cases_real_fixture",
+            "status": "done",
+            "branch": "t072_skip_cases_real_fixture",
+            "note": ""
+        },
+        {
+            "tid": "t073",
+            "title": "启用 7 eslint 插件 recommended 分批修 (I24 遗留)",
+            "slug": "eslint_recommended_enable",
+            "status": "done",
+            "branch": "t073_eslint_recommended_enable",
+            "note": ""
+        },
+        {
+            "tid": "t074",
+            "title": "package-and-run 按路径过滤非 image-name (I26 遗留)",
+            "slug": "package_run_path_filter",
+            "status": "done",
+            "branch": "t074_package_run_path_filter",
+            "note": ""
         }
     ]
 }
