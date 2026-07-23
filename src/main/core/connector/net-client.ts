@@ -4,6 +4,11 @@ import { join, resolve, sep } from "node:path";
 import { request as undici_request, Agent, setGlobalDispatcher } from "undici";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, withLogContext } from "../../../shared/lib/logger";
+import {
+    status_for_pct,
+    status_for_ratio,
+    status_for_balance,
+} from "../../../shared/lib/connector-thresholds";
 import { MAX_CONNECTIONS_PER_ORIGIN, KEEPALIVE_TIMEOUT_MS } from "../../../shared/constants";
 import { get_proxy_agent } from "../network/proxy-pool";
 import type { Manifest } from "../../../shared/schemas/manifest";
@@ -447,6 +452,11 @@ export function create_connector_context(
             },
         },
         params: config.params ?? {},
+        status: {
+            for_pct: status_for_pct,
+            for_ratio: status_for_ratio,
+            for_balance: status_for_balance,
+        },
         // 实际收集由 run_connector 注入的 wrapper 负责；此处仅为满足
         // ConnectorContext 契约，脚本不会直接走到此 no-op（script 路径必经
         // run_connector 包装）。

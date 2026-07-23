@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { ctx_status } from "./_ctx_status";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
@@ -43,6 +44,7 @@ function create_ctx(usage: unknown, detail: unknown, balance: unknown): Connecto
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
+        status: ctx_status,
         report_failed_account: () => undefined,
     };
 }
@@ -216,6 +218,7 @@ describe("mimo connector", () => {
             },
             files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
             params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
+            status: ctx_status,
             report_failed_account: () => undefined,
         };
         const result = await run_connector(manifest, script, error_ctx);
@@ -278,6 +281,7 @@ describe("mimo connector", () => {
             },
             files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
             params: { SESSION_COOKIE: "cookie-value", LIMIT: "100" },
+            status: ctx_status,
             report_failed_account: () => undefined,
         };
         const result = await run_connector(manifest, script, detail_null_ctx);

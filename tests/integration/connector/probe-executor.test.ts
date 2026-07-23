@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { ctx_status } from "../../integration/connector/_ctx_status";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { execute_probe } from "../../../src/main/core/connector/probe-executor";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
@@ -56,6 +57,7 @@ function create_ctx(): ConnectorContext {
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: {},
+        status: ctx_status,
         report_failed_account: () => undefined,
     };
 }

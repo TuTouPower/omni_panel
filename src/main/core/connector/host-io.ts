@@ -19,6 +19,15 @@ export interface ConnectorContext {
         warn(message: string, meta?: unknown): void;
         error(message: string, meta?: unknown): void;
     };
+    /**
+     * 阈值 helper（t066 集中化）。连接器脚本用 ctx.status.for_pct / for_ratio /
+     * for_balance 替代各内联 helper，统一 conventions.md 阈值约定。
+     */
+    readonly status: {
+        for_pct(pct: number): "normal" | "warning" | "critical" | "unknown";
+        for_ratio(used: number, limit: number): "normal" | "warning" | "critical" | "unknown";
+        for_balance(balance: number, limit: number): "normal" | "warning" | "critical" | "unknown";
+    };
     readonly http: {
         get_json(endpoint_key: string, path: string, opts?: HttpOpts): Promise<unknown>;
         post_json(

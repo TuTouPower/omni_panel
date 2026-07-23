@@ -1,30 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t066",
-            "title": "连接器阈值 ctx 共享 helper 集中化 (P5 spike)",
-            "slug": "connector_threshold_ctx_centralize",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t067",
-            "title": "IPC file:// rendererIndexPath 完整白名单 (t062 遗留)",
-            "slug": "ipc_renderer_path_whitelist",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t068",
-            "title": "task.py mock os.replace 失败路径测试 (t063 遗留)",
-            "slug": "task_py_mock_replace_test",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t069",
             "title": "migration 测试改 import 生产迁移入口 (I19)",
             "slug": "test_migration_real_entry",

@@ -48,6 +48,7 @@ import { init_global_network } from "./core/connector/net-client";
 import { build_csp_header } from "./security/csp";
 import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
+import { set_renderer_index_path } from "./ipc/helpers";
 import { registerEventIpc } from "./ipc/event-ipc";
 import { registerAuthIpc, handleCookieLogin, trySilentCookieRefresh } from "./ipc/auth-ipc";
 import { registerGrokAuthIpc } from "./ipc/grok_auth_ipc";
@@ -112,6 +113,9 @@ const windowManager = createWindowManager({
     getIconPath: get_app_icon_path,
     rendererIndexPath: resolve(join(__dirname, "../renderer/index.html")),
 });
+
+// t067: IPC file:// sender 精确比对 rendererIndexPath。
+set_renderer_index_path(resolve(join(__dirname, "../renderer/index.html")));
 
 let cleanupEventIpc: (() => void) | null = null;
 let cleanupPopupIpc: (() => void) | null = null;

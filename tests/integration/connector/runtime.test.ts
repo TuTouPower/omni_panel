@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ctx_status } from "../../integration/connector/_ctx_status";
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
@@ -21,6 +22,7 @@ const stub_ctx: ConnectorContext = {
         list: () => Promise.resolve([]),
     },
     params: {},
+    status: ctx_status,
     report_failed_account: () => undefined,
 };
 
