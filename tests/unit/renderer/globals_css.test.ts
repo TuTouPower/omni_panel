@@ -20,15 +20,15 @@ describe("globals usage bar css", () => {
         expect(css).toContain("background: var(--bar-track)");
     });
 
-    it("keeps ratio rows aligned to the five-column layout", () => {
+    it("keeps ratio rows aligned to the five-column + bell auto layout", () => {
         expect(css).toMatch(
-            /\.bar-row\.frac\s*\{\s*grid-template-columns:\s*4ic minmax\(0, 1fr\) 5ch 5ch 5ch;\s*\}/,
+            /\.bar-row\.frac\s*\{\s*grid-template-columns:\s*4ic minmax\(0, 1fr\) 5ch 5ch 5ch auto;\s*\}/,
         );
     });
 
     it("keeps capsule bars aligned and isolated", () => {
         expect(css).toContain(".bar-row.capsule");
-        expect(css).toContain("grid-template-columns: 4ic minmax(0, 1fr) 5ch 5ch");
+        expect(css).toContain("grid-template-columns: 4ic minmax(0, 1fr) 5ch 5ch auto");
         expect(css).toContain("height: 22px");
         expect(css).toContain("background: color-mix(in srgb, var(--bar-fill) 16%, transparent)");
         expect(css).toContain("border-radius: 999px");
