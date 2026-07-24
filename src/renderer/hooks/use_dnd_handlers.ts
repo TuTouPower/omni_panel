@@ -1,32 +1,26 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useState, useCallback } from "react";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
 import { compute_drag_reorder, build_reorder_base } from "../lib/drag-reorder";
 
 export interface UseDndHandlersParams {
-    orderedProviders: readonly UsageProvider[];
+    orderedProviders: readonly string[];
     activeGroup: ProviderUsageGroup | undefined;
-    activeTab: UsageProvider | "overview";
-    set_provider_order: (update: (prev: UsageProvider[]) => UsageProvider[]) => void;
+    activeTab: string;
+    set_provider_order: (update: (prev: string[]) => string[]) => void;
     set_account_orders: (
         update: (prev: Record<string, string[]>) => Record<string, string[]>,
     ) => void;
 }
 
 export interface UseDndHandlersResult {
-    drag_id: UsageProvider | null;
-    over_id: UsageProvider | null;
+    drag_id: string | null;
+    over_id: string | null;
     account_drag_id: string | null;
     account_over_id: string | null;
-    handle_drag_start: (provider: UsageProvider, rect?: DOMRect) => void;
-    handle_drag_enter: (provider: UsageProvider) => void;
-    handle_drag_over: (
-        provider: UsageProvider,
-        clientX: number,
-        clientY: number,
-        rect: DOMRect,
-    ) => void;
+    handle_drag_start: (provider: string, rect?: DOMRect) => void;
+    handle_drag_enter: (provider: string) => void;
+    handle_drag_over: (provider: string, clientX: number, clientY: number, rect: DOMRect) => void;
     handle_drag_end: () => void;
     handle_account_drag_start: (accountId: string) => void;
     handle_account_drag_enter: (accountId: string) => void;
@@ -39,22 +33,22 @@ export function use_dnd_handlers(params: UseDndHandlersParams): UseDndHandlersRe
     const { orderedProviders, activeGroup, activeTab, set_provider_order, set_account_orders } =
         params;
 
-    const [drag_id, set_drag_id] = useState<UsageProvider | null>(null);
+    const [drag_id, set_drag_id] = useState<string | null>(null);
     // Drag-card rect captured on dragStart; picks reorder axis (same row →
     // "x" horizontal guard, else "y" vertical guard) for T004 D2=B.
     const [drag_rect, set_drag_rect] = useState<DOMRect | null>(null);
-    const [over_id, set_over_id] = useState<UsageProvider | null>(null);
+    const [over_id, set_over_id] = useState<string | null>(null);
     const [account_drag_id, set_account_drag_id] = useState<string | null>(null);
     const [account_over_id, set_account_over_id] = useState<string | null>(null);
 
     // Drag-and-drop handlers for provider card reordering
-    const handle_drag_start = useCallback((provider: UsageProvider, rect?: DOMRect) => {
+    const handle_drag_start = useCallback((provider: string, rect?: DOMRect) => {
         set_drag_id(provider);
         set_drag_rect(rect ?? null);
     }, []);
 
     const handle_drag_enter = useCallback(
-        (provider: UsageProvider) => {
+        (provider: string) => {
             if (!drag_id || drag_id === provider) return;
             set_over_id(provider);
         },
@@ -66,7 +60,7 @@ export function use_dnd_handlers(params: UseDndHandlersParams): UseDndHandlersRe
     // → "x" horizontal guard for multi-column grids (T004 D2=B); otherwise
     // "y" vertical guard with anti-flicker for single-column lists.
     const handle_drag_over = useCallback(
-        (provider: UsageProvider, clientX: number, clientY: number, rect: DOMRect) => {
+        (provider: string, clientX: number, clientY: number, rect: DOMRect) => {
             if (!drag_id || drag_id === provider) return;
             set_over_id(provider);
             set_provider_order((prev) => {
@@ -110,7 +104,7 @@ export function use_dnd_handlers(params: UseDndHandlersParams): UseDndHandlersRe
             if (!account_drag_id || account_drag_id === accountId) return;
             set_account_over_id(accountId);
             if (!activeGroup) return;
-            const tabKey = activeTab as string;
+            const tabKey = activeTab;
             set_account_orders((prev) => {
                 const baseIds = (prev[tabKey] ?? activeGroup.accounts.map((a) => a.id)).filter(
                     (id) => activeGroup.accounts.some((a) => a.id === id),

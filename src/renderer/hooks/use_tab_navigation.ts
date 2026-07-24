@@ -1,16 +1,11 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useEffect, useRef, type RefObject } from "react";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 
 export interface UseTabNavigationParams {
     tabsRef: RefObject<HTMLDivElement | null>;
-    activeTab: UsageProvider | "overview";
-    orderedProviders: readonly UsageProvider[];
-    setActiveTab: (
-        update:
-            | (UsageProvider | "overview")
-            | ((cur: UsageProvider | "overview") => UsageProvider | "overview"),
-    ) => void;
+    activeTab: string;
+    orderedProviders: readonly string[];
+    setActiveTab: (update: string | ((cur: string) => string)) => void;
 }
 
 // Tab strip 两个交互 effect：
@@ -41,7 +36,7 @@ export function use_tab_navigation(params: UseTabNavigationParams): void {
             wheel_at_ref.current = now;
             const dir = d > 0 ? 1 : -1;
             setActiveTab((cur) => {
-                const tab_order: (UsageProvider | "overview")[] = ["overview", ...orderedProviders];
+                const tab_order: string[] = ["overview", ...orderedProviders];
                 const i = tab_order.indexOf(cur);
                 const n = tab_order.length;
                 if (n === 0) return cur;

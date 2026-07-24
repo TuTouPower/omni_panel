@@ -1,6 +1,5 @@
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import type { AccountOverrides } from "../../shared/types/config";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { AccountError, ProviderUsageGroup } from "../lib/provider-usage";
 import { ProviderAccountRow } from "./ProviderAccountRow";
 
@@ -13,13 +12,13 @@ interface ProviderAccountListProps {
     onDragStart?: ((accountId: string) => void) | undefined;
     onDragEnter?: ((accountId: string) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
-    onReLogin?: ((provider: UsageProvider) => void) | undefined;
+    onReLogin?: ((provider: string) => void) | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
     accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>> | undefined;
     providerLabelMaps?:
-        | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
+        | Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>
         | undefined;
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
@@ -28,7 +27,7 @@ interface ProviderAccountListProps {
     watchedMetrics?: AccountOverrides["upcomingResetWatched"] | undefined;
     /** t043: 切换某个 (provider, accountKey, raw_label) 的即将重置监控。 */
     on_toggle_watched?:
-        | ((target: { provider: UsageProvider; accountKey: string; raw_label: string }) => void)
+        | ((target: { provider: string; accountKey: string; raw_label: string }) => void)
         | undefined;
 }
 

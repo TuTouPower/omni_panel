@@ -1531,7 +1531,7 @@ describe("SettingsView", () => {
                 const saved = (
                     save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
                 )?.[0];
-                expect(saved?.accountOverrides?.upcomingResetWatched?.deepseek).toEqual({
+                expect(saved?.accountOverrides?.upcomingResetWatched?.["deepseek"]).toEqual({
                     "deepseek-1|acc-a": ["five_hour"],
                     "deepseek-1|acc-b": ["five_hour"],
                 });
@@ -1580,7 +1580,7 @@ describe("SettingsView", () => {
                 const saved = (
                     save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
                 )?.[0];
-                expect(saved?.accountOverrides?.upcomingResetWatched?.deepseek).toEqual({
+                expect(saved?.accountOverrides?.upcomingResetWatched?.["deepseek"]).toEqual({
                     "deepseek-1|acc-a": ["five_hour"],
                     "deepseek-1|acc-b": ["five_hour"],
                     "deepseek-1|acc-c": ["five_hour"],

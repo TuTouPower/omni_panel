@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
+import type { MetricRecord } from "../../shared/schemas/plugin-output";
 import { build_label_map_rows, type LabelMapRow } from "../lib/label-map-util";
 import { Icon } from "./Icon";
 
@@ -18,7 +18,7 @@ function normalize_cpa_label(item: MetricRecord): string {
 
 interface LabelMapDialogProps {
     instance_id: string;
-    vendor_id: UsageProvider;
+    vendor_id: string;
     account_name: string;
     existing_map: Readonly<Record<string, string>>;
     on_save: (instance_id: string, map: Record<string, string>) => Promise<void>;

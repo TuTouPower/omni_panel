@@ -1,6 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useMemo } from "react";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { AccountLabels, AccountOverrides } from "../../shared/types/config";
 import {
@@ -20,18 +19,18 @@ export interface UsePopupDerivedParams {
     account_overrides: AccountOverrides | undefined;
     account_labels: AccountLabels | undefined;
     upcoming_reset_threshold_percent: number | null | undefined;
-    provider_order: UsageProvider[];
-    active_tab: UsageProvider | "overview";
+    provider_order: string[];
+    active_tab: string;
     account_orders: Record<string, string[]>;
 }
 
 export interface UsePopupDerivedResult {
     rawGroups: ProviderUsageGroup[];
     providerGroups: ProviderUsageGroup[];
-    visibleProviders: UsageProvider[];
+    visibleProviders: string[];
     upcomingItems: UpcomingResetItem[];
-    orderedProviders: UsageProvider[];
-    providerErrors: Map<UsageProvider, { displayName: string; error: string }>;
+    orderedProviders: string[];
+    providerErrors: Map<string, { displayName: string; error: string }>;
     accountErrors: Map<string, AccountError>;
     activeGroup: ProviderUsageGroup | undefined;
     orderedActiveGroup: ProviderUsageGroup | undefined;
@@ -81,7 +80,7 @@ export function use_popup_derived(params: UsePopupDerivedParams): UsePopupDerive
         return [...ordered, ...remaining];
     }, [visibleProviders, provider_order]);
     const providerErrors = useMemo(() => {
-        const map = new Map<UsageProvider, { displayName: string; error: string }>();
+        const map = new Map<string, { displayName: string; error: string }>();
         for (const c of plugins) {
             if (c.snapshot.status !== "failed") continue;
             for (const p of c.activeProviders) {
@@ -101,7 +100,7 @@ export function use_popup_derived(params: UsePopupDerivedParams): UsePopupDerive
     // Apply account order to active group
     const orderedActiveGroup = useMemo(() => {
         if (!activeGroup) return undefined;
-        const tabKey = active_tab as string;
+        const tabKey = active_tab;
         const order = account_orders[tabKey];
         if (!order || order.length === 0) return activeGroup;
         const orderSet = new Set(order);

@@ -1,5 +1,4 @@
 import type { AppLanguage } from "./plugin";
-import type { UsageProvider } from "../schemas/plugin-output";
 
 export interface ProxyConfiguration {
     readonly url: string;
@@ -21,19 +20,17 @@ export interface FloatingBoundsConfiguration {
 }
 
 export interface AccountOverrides {
-    readonly hidden?: Readonly<Partial<Record<UsageProvider, readonly string[]>>>;
+    readonly hidden?: Readonly<Partial<Record<string, readonly string[]>>>;
     /**
      * t043: 显式开启「即将重置」监控的 (provider → accountKey → raw_label[])。
      * 缺省/空 = 全关；用户在主面板 metric 行逐个显式开启。
      */
     readonly upcomingResetWatched?: Readonly<
-        Partial<Record<UsageProvider, Readonly<Partial<Record<string, readonly string[]>>>>>
+        Partial<Record<string, Readonly<Partial<Record<string, readonly string[]>>>>>
     >;
 }
 
-export type AccountLabels = Readonly<
-    Partial<Record<UsageProvider, Readonly<Record<string, string>>>>
->;
+export type AccountLabels = Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>;
 
 export interface AppConfiguration {
     readonly schemaVersion: number;
@@ -56,14 +53,14 @@ export interface AppConfiguration {
     readonly usageBarColorScheme?: UsageBarColorScheme;
     readonly usageBarStyle?: UsageBarStyle;
     readonly providerLabelMaps?: Readonly<
-        Partial<Record<UsageProvider, Readonly<Record<string, string>>>>
+        Partial<Record<string, Readonly<Record<string, string>>>>
     >;
     readonly accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>>;
     readonly labelMapSync?: boolean;
     /** When true, hide account remarks/display names in UI surfaces. */
     readonly uiDesensitizeRemarks?: boolean;
     /** Per-provider: force all metrics to percent display (not ratio). */
-    readonly providerForcePercent?: Readonly<Partial<Record<UsageProvider, boolean>>>;
+    readonly providerForcePercent?: Readonly<Partial<Record<string, boolean>>>;
     readonly settingsBounds?: FloatingBoundsConfiguration;
     readonly floatingBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;

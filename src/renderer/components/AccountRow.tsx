@@ -45,7 +45,7 @@ function get_account_status(status: AccountRowProps["status"], enabled: boolean)
 function get_vendor_name(provider: VendorId): string {
     if (provider === "cpa") return "CPA";
     if (provider === "overview") return "总览";
-    return provider in PROVIDER_LABELS ? PROVIDER_LABELS[provider] : provider;
+    return PROVIDER_LABELS[provider] ?? provider;
 }
 
 export function AccountRow({

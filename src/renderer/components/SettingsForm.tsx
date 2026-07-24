@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { PluginParameterMetadata } from "../../shared/schemas/plugin-metadata";
-import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
+import type { MetricRecord } from "../../shared/schemas/plugin-output";
 import type { AccountOverrides } from "../../shared/types/config";
 import {
     REFRESH_INTERVAL_OPTIONS,
@@ -23,7 +23,7 @@ interface SettingsFormProps {
     refreshIntervalSeconds: number;
     globalIntervalLabel: string;
     manualRefreshOnly?: boolean | undefined;
-    providerId?: UsageProvider | undefined;
+    providerId?: string | undefined;
     displayName?: string | undefined;
     onCookieLogin?: ((instanceId: string) => Promise<boolean>) | undefined;
     onSave: (
@@ -40,7 +40,7 @@ interface SettingsFormProps {
         | ((instanceId: string, map: Record<string, string>) => Promise<void>)
         | undefined;
     forcePercent?: boolean | undefined;
-    onForcePercentChange?: ((provider: UsageProvider, force: boolean) => Promise<void>) | undefined;
+    onForcePercentChange?: ((provider: string, force: boolean) => Promise<void>) | undefined;
     /** t048: upcomingResetWatched 查表（来自 config.accountOverrides）。 */
     watchedMetrics?: AccountOverrides["upcomingResetWatched"] | undefined;
     /** t048: 切换某 raw_label 的即将重置监控（按 account_keys 聚合由上层处理）。 */

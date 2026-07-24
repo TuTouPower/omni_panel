@@ -1,6 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useCallback } from "react";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { AccountOverrides, AppConfiguration } from "../../shared/types/config";
 import { add_watched_metric, remove_watched_metric } from "../lib/account-overrides";
 
@@ -11,7 +10,7 @@ export interface UseWatchedMetricTogglerParams {
 }
 
 export interface WatchedMetricTarget {
-    provider: UsageProvider;
+    provider: string;
     accountKey: string;
     raw_label: string;
 }

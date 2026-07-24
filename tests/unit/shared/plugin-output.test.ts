@@ -105,18 +105,18 @@ describe("pluginSuccessOutputSchema", () => {
         expect(result.success).toBe(false);
     });
 
-    it("rejects cpa provider", () => {
+    it("accepts arbitrary snake_case provider (t095 open namespace)", () => {
         const result = pluginSuccessOutputSchema.safeParse({
             ...validOutput,
             items: [
                 {
                     ...validOutput.items[0],
-                    provider: "cpa",
+                    provider: "custom_vendor",
                 },
             ],
         });
 
-        expect(result.success).toBe(false);
+        expect(result.success).toBe(true);
     });
 
     it("accepts raw_label and normalized_label on usage items", () => {

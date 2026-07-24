@@ -1,4 +1,3 @@
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
 import type {
     AccountOverrides,
@@ -15,18 +14,18 @@ export interface ProviderError {
 
 interface ProviderOverviewProps {
     groups: ProviderUsageGroup[];
-    visibleProviders: UsageProvider[];
-    providerErrors: Map<UsageProvider, ProviderError>;
-    onRefreshProvider: (provider: UsageProvider) => void;
+    visibleProviders: string[];
+    providerErrors: Map<string, ProviderError>;
+    onRefreshProvider: (provider: string) => void;
     expandedProviders?: Record<string, boolean> | undefined;
-    onToggleExpandProvider?: ((provider: UsageProvider) => void) | undefined;
-    onReLogin?: ((provider: UsageProvider) => void) | undefined;
-    draggingProvider?: UsageProvider | null | undefined;
-    overProvider?: UsageProvider | null | undefined;
-    onDragStart?: ((provider: UsageProvider, rect?: DOMRect) => void) | undefined;
-    onDragEnter?: ((provider: UsageProvider) => void) | undefined;
+    onToggleExpandProvider?: ((provider: string) => void) | undefined;
+    onReLogin?: ((provider: string) => void) | undefined;
+    draggingProvider?: string | null | undefined;
+    overProvider?: string | null | undefined;
+    onDragStart?: ((provider: string, rect?: DOMRect) => void) | undefined;
+    onDragEnter?: ((provider: string) => void) | undefined;
     onDragOver?:
-        | ((provider: UsageProvider, clientX: number, clientY: number, rect: DOMRect) => void)
+        | ((provider: string, clientX: number, clientY: number, rect: DOMRect) => void)
         | undefined;
     onDragEnd?: (() => void) | undefined;
     refreshingProviders?: Set<string> | undefined;
@@ -35,11 +34,11 @@ interface ProviderOverviewProps {
     labelMap?: Readonly<Record<string, string>> | undefined;
     accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>> | undefined;
     providerLabelMaps?:
-        | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
+        | Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>
         | undefined;
     convergentTimeMinutes?: number | undefined;
     desensitizeRemarks?: boolean | undefined;
-    providerForcePercent?: Readonly<Partial<Record<UsageProvider, boolean>>> | undefined;
+    providerForcePercent?: Readonly<Partial<Record<string, boolean>>> | undefined;
     /** t046: account 级即将重置监控。 */
     watchedMetrics?: AccountOverrides["upcomingResetWatched"] | undefined;
     /** t046: 切换 (provider, accountKey, raw_label) 监控。 */

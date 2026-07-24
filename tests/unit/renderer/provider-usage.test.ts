@@ -39,7 +39,7 @@ describe("PROVIDER_LABELS", () => {
                 PROVIDER_LABELS[provider],
                 `PROVIDER_LABELS missing "${provider}"`,
             ).toBeDefined();
-            expect(PROVIDER_LABELS[provider].length).toBeGreaterThan(0);
+            expect(PROVIDER_LABELS[provider]?.length).toBeGreaterThan(0);
         }
     });
 });
@@ -1167,5 +1167,74 @@ describe("provider-usage 命名约定 (snake_case)", () => {
     it("has_valid_quota 使用 snake_case 而非 hasValidQuota", () => {
         expect(source).toContain("function has_valid_quota(");
         expect(source).not.toContain("hasValidQuota");
+    });
+});
+
+describe("custom provider fallback (t095)", () => {
+    it("uses provider name as label when not in PROVIDER_LABELS", () => {
+        const items = [
+            usageItem({
+                id: "custom-usage",
+                provider: "my_vendor",
+                accountLabel: "自定义账号",
+            }),
+        ];
+        const connectors = [
+            connectorInfo({
+                instanceId: "my_vendor-conn",
+                sourceInstanceId: "my_vendor-src",
+                name: "my_vendor",
+                displayName: "my_vendor",
+                source: "poll",
+                supportedProviders: ["my_vendor"],
+                activeProviders: ["my_vendor"],
+                snapshot: {
+                    status: "ready",
+                    items,
+                    updatedAt: "2026-01-01T00:00:00Z",
+                },
+            }),
+        ];
+
+        const groups = build_provider_usage_groups(connectors);
+        const group = groups.find((g) => g.provider === "my_vendor");
+        expect(group, "custom provider group must be built").toBeDefined();
+        expect(group?.label).toBe("my_vendor");
+    });
+
+    it("sorts unknown providers after known ones (fallback to end)", () => {
+        const known = connectorInfo({
+            instanceId: "deepseek-conn",
+            sourceInstanceId: "deepseek-src",
+            name: "deepseek",
+            displayName: "DeepSeek",
+            source: "poll",
+            supportedProviders: ["deepseek"],
+            activeProviders: ["deepseek"],
+            snapshot: {
+                status: "ready",
+                items: [usageItem({ id: "deepseek-usage", provider: "deepseek" })],
+                updatedAt: "2026-01-01T00:00:00Z",
+            },
+        });
+        const custom = connectorInfo({
+            instanceId: "my_vendor-conn",
+            sourceInstanceId: "my_vendor-src",
+            name: "my_vendor",
+            displayName: "my_vendor",
+            source: "poll",
+            supportedProviders: ["my_vendor"],
+            activeProviders: ["my_vendor"],
+            snapshot: {
+                status: "ready",
+                items: [usageItem({ id: "my_vendor-usage", provider: "my_vendor" })],
+                updatedAt: "2026-01-01T00:00:00Z",
+            },
+        });
+
+        const providers = get_visible_providers([custom, known]);
+        const custom_idx = providers.indexOf("my_vendor");
+        const known_idx = providers.indexOf("deepseek");
+        expect(custom_idx).toBeGreaterThan(known_idx);
     });
 });

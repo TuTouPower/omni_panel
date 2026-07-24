@@ -50,13 +50,14 @@ describe("observations_to_ready_state", () => {
         expect(items[0]?.display_label).toBe("我的5h");
     });
 
-    it("drops observations with an invalid provider", () => {
+    it("keeps observations with an unknown provider (t095: mapping trusts manifest)", () => {
         const { items } = observations_to_ready_state([
-            obs({ provider: "not-a-real-vendor" as unknown as Observation["provider"] }),
+            obs({ provider: "custom_vendor" }),
             obs({ metric_id: "firecrawl:tokens" }),
         ]);
-        expect(items).toHaveLength(1);
-        expect(items[0]?.id).toContain("firecrawl:tokens");
+        expect(items).toHaveLength(2);
+        expect(items[0]?.provider).toBe("custom_vendor");
+        expect(items[1]?.id).toContain("firecrawl:tokens");
     });
 
     it("returns an empty item set for no observations, with a fresh updatedAt", () => {

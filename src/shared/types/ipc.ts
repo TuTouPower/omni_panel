@@ -1,9 +1,4 @@
-import type {
-    MetricRecord,
-    PluginChart,
-    UsageProvider,
-    UsageSource,
-} from "../schemas/plugin-output";
+import type { MetricRecord, PluginChart, UsageSource } from "../schemas/plugin-output";
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
 import type {
@@ -153,8 +148,8 @@ export interface ConnectorInfo {
     displayName: string;
     enabled: boolean;
     source: UsageSource;
-    supportedProviders: readonly UsageProvider[];
-    activeProviders: readonly UsageProvider[];
+    supportedProviders: readonly string[];
+    activeProviders: readonly string[];
     metadata: PluginMetadata | null;
     snapshot: ConnectorSnapshotDTO;
 }

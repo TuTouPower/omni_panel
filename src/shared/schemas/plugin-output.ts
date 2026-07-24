@@ -33,7 +33,7 @@ const finiteNumber = z.number().finite();
 
 const usageItemSchema = z.object({
     id: z.string(),
-    provider: usageProviderSchema,
+    provider: z.string().regex(/^[a-z][a-z0-9_]*$/),
     source: usageSourceSchema,
     sourceInstanceId: z.string(),
     accountId: z.string(),
