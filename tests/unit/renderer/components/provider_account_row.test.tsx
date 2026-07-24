@@ -65,7 +65,7 @@ describe("ProviderAccountRow", () => {
         );
 
         expect(screen.getByText("已过期")).toBeInTheDocument();
-        expect(container.querySelector(".card.stale")).toBeInTheDocument();
+        expect(container.querySelector(".card.stale")).not.toBeInTheDocument();
     });
 
     it("hides account label when desensitizeRemarks is on", () => {

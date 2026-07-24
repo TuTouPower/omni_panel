@@ -94,4 +94,8 @@ describe("globals usage bar css", () => {
             )?.[0] ?? "";
         expect(mid_block).toMatch(/repeat\(\s*2\s*,\s*minmax\(0,\s*1fr\)\s*\)/);
     });
+
+    it("does not style stale cards with an amber border", () => {
+        expect(css).not.toMatch(/\.card\.stale\s*\{/);
+    });
 });

@@ -166,7 +166,7 @@ describe("ProviderCard", () => {
         expect(screen.queryByText(/观测/)).not.toBeInTheDocument();
         expect(document.querySelector(".source-badge")).not.toBeInTheDocument();
         expect(document.querySelector(".stale-badge")).toBeInTheDocument();
-        expect(document.querySelector(".card.stale")).toBeInTheDocument();
+        expect(document.querySelector(".card.stale")).not.toBeInTheDocument();
     });
 
     it("does not render disabled card state", () => {
@@ -914,7 +914,7 @@ describe("ProviderCard", () => {
             />,
         );
         // stale styling on the card
-        expect(document.querySelector(".card.stale")).toBeInTheDocument();
+        expect(document.querySelector(".card.stale")).not.toBeInTheDocument();
         // error banner text
         expect(screen.getByText(/网络超时/)).toBeInTheDocument();
         // cached usage still rendered (not the empty state)

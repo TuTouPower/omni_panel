@@ -41,6 +41,7 @@
 - **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（用量面板 + 设置列表）
 - **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %
 - **多账号卡片 L2 状态**（t100）：账号明细仅在当前展开期间有效；卡片折叠后重置为概览，下一次展开默认显示聚合用量。
+- **卡片 stale 展示**（t102）：数据过期或采集失败时不为卡片渲染 amber 外框；保留「已过期」徽章和错误文字。
 
 ### SettingsView（设置窗，route=setting）
 

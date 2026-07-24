@@ -120,10 +120,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
         </div>
     );
 
-    const card_class =
-        (dragging ? " dragging" : "") +
-        (dragOver ? " drag-over" : "") +
-        (account.stale ? " stale" : "");
+    const card_class = (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "");
 
     const drag_root_props = onDragStart
         ? {

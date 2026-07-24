@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t102",
-            "title": "移除卡片 stale 黄色边框",
-            "slug": "remove_stale_amber_border",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t103",
             "title": "token-stats preset 按自然边界切片",
             "slug": "token_stats_natural_bucket",

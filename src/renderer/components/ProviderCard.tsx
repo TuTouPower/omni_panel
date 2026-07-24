@@ -111,10 +111,7 @@ export const ProviderCard = memo(function ProviderCard({
           : hasUsage
             ? "ready"
             : "empty";
-    const card_class =
-        (dragging ? " dragging" : "") +
-        (dragOver ? " drag-over" : "") +
-        (group?.stale || has_stale_error ? " stale" : "");
+    const card_class = (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "");
 
     const [l2open, set_l2open] = useState(false);
 

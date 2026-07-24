@@ -49,3 +49,11 @@
 - 历史：`804e3c2 feat: card header, L2 segmented control` (2026-06-09) 引入 L2 seg 时留下的设计漏洞。
 - 测试缺失：`tests/unit/renderer/components/provider_card.test.tsx` 只覆盖「展开时默认显示概览」（line 204）和「展开时点击账号明细切换」（line 852），无任何用例覆盖「展开 → 切账号明细 → 折叠 → 再展开」的状态序列。`tests/unit/renderer/views/popup_view.test.tsx` 的 collapsedAccounts/expandedProviders 测试聚焦 config 持久化，不触碰 L2 子状态。
 - 关联 task：t100。
+
+## task 索引序列化不符合仓库格式
+
+- 报告时间：2026-07-24。
+- 现象：`scripts/task.py` 写入 `docs/tasks_index.json` 后使用 CRLF 和 2 空格缩进；`git diff --check` 将 CRLF 报为 trailing whitespace，Prettier 也拒绝该文件。
+- 根因：`save()` 未指定 `newline="\n"`，且 `json.dumps(..., indent=2)` 与仓库的 4 空格格式不一致。
+- 需改：为 `save()` 固定 LF 和 4 空格缩进，补脚本测试；仅通过脚本重写 task index，禁止手工修改 JSON。
+- 关联 task：t102 review finding `t102_code_f002`。
