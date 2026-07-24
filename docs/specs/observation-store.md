@@ -42,7 +42,7 @@
 ## 行为（现在是什么）
 
 - **SQLite 单表 `observations`（追加，保留历史）**：字段对齐上表（**例外**：`cycleDurationMs` 仅存在于 zod 层，SQLite 表**无此列**，不持久化——用量条颜色计算只走内存 ready state）；PRAGMA `journal_mode=WAL`、`wal_autocheckpoint=1000`、`busy_timeout=5000`；索引 `idx_lookup(provider, account_id, metric_id, source_instance_id, observed_at)` 与 `idx_trend(provider, account_id, metric_id, observed_at)`（后者服务于 sparkline 范围扫描，因 `idx_lookup` 在 `metric_id` 后还挂 `source_instance_id`，无法覆盖只按 provider/account_id/metric_id 过滤的范围查询）。
-- **当前值 = observedAt 最新胜出**（不变量 1）：`get_latest` 用 `ORDER BY observed_at DESC LIMIT 1`；`list_latest_*` 用相关子查询选 `observed_at = MAX(...)` over 同键。
+- **当前值 = observedAt 最新胜出**（不变量 1）：`get_latest` 用 `ORDER BY observed_at DESC LIMIT 1`；`list_latest_*` 取每键最新行——`list_by_source_instance_id` 用 `ROW_NUMBER() OVER (PARTITION BY account_id, metric_id ORDER BY observed_at DESC)` window function（t096：旧相关子查询 `observed_at = MAX(...)` 在 64k 行下 53s，改 window 走 idx_lookup 覆盖索引降至 39ms；tied observed_at 时旧返回所有并列行、新每分区 1 行，ms 精度 + 网络间隔下 tie 不发生）。
 - **历史保留**：每次 insert 是新行（无 upsert）。`prune` 删 `observed_at < cutoff` 的行，但**每键最新行永不删**（当前值不丢）。当前无调用方定期调 prune。
 - **stale**：insert 写 `stale` 为 0/1；采集失败不覆盖 latest，靠 `stale:true`+`lastError` 标记。
 - **迁移**：ad-hoc 列存在性检查（`PRAGMA table_info`），**非** schemaVersion 驱动。三类迁移各自独立判断：
