@@ -1,5 +1,4 @@
 import { memo, useState, useMemo, useCallback } from "react";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
 import {
     PROVIDER_LABELS,
@@ -16,6 +15,7 @@ import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { VENDOR_AUTH_MAP } from "./AddAccountDialog";
+import type { AddServiceId } from "../lib/common-services";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
@@ -23,18 +23,18 @@ import { AccountUsageRow } from "./UsageRows";
 import type { ToggleWatchedMetric } from "../hooks/use_watched_metric_toggler";
 
 interface ProviderCardProps {
-    provider: UsageProvider;
+    provider: string;
     group?: ProviderUsageGroup | undefined;
     connectorError?: ProviderError | undefined;
-    onRefresh?: ((provider: UsageProvider) => void) | undefined;
+    onRefresh?: ((provider: string) => void) | undefined;
     expanded?: boolean | undefined;
-    onToggleExpand?: ((provider: UsageProvider) => void) | undefined;
+    onToggleExpand?: ((provider: string) => void) | undefined;
     dragging?: boolean | undefined;
     dragOver?: boolean | undefined;
-    onDragStart?: ((provider: UsageProvider, rect?: DOMRect) => void) | undefined;
-    onDragEnter?: ((provider: UsageProvider) => void) | undefined;
+    onDragStart?: ((provider: string, rect?: DOMRect) => void) | undefined;
+    onDragEnter?: ((provider: string) => void) | undefined;
     onDragOver?:
-        | ((provider: UsageProvider, clientX: number, clientY: number, rect: DOMRect) => void)
+        | ((provider: string, clientX: number, clientY: number, rect: DOMRect) => void)
         | undefined;
     onDragEnd?: (() => void) | undefined;
     refreshing?: boolean | undefined;
@@ -43,9 +43,9 @@ interface ProviderCardProps {
     labelMap?: Readonly<Record<string, string>> | undefined;
     accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>> | undefined;
     providerLabelMaps?:
-        | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
+        | Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>
         | undefined;
-    onReLogin?: ((provider: UsageProvider) => void) | undefined;
+    onReLogin?: ((provider: string) => void) | undefined;
     convergentTimeMinutes?: number | undefined;
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
@@ -98,7 +98,7 @@ export const ProviderCard = memo(function ProviderCard({
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
-    const label = group?.label ?? PROVIDER_LABELS[provider];
+    const label = group?.label ?? PROVIDER_LABELS[provider] ?? provider;
     const hasError = connectorError !== undefined;
     const isFailed = hasError && !hasUsage;
     const has_stale_error = hasError && hasUsage;
@@ -165,7 +165,7 @@ export const ProviderCard = memo(function ProviderCard({
     const render_state = () => {
         if (isFailed) {
             if (is_auth) {
-                const auth_method = VENDOR_AUTH_MAP[provider];
+                const auth_method = VENDOR_AUTH_MAP[provider as AddServiceId];
                 const auth_label =
                     auth_method === "session" ? "登录失效，请重新登录" : "凭证失效，请重新登录";
                 return (

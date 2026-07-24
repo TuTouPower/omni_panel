@@ -1,8 +1,5 @@
-import { createLogger } from "../../../shared/lib/logger";
-import { usageProviderSchema, type MetricRecord } from "../../../shared/schemas/plugin-output";
+import type { MetricRecord } from "../../../shared/schemas/plugin-output";
 import type { Observation } from "../../../shared/types/observation";
-
-const log = createLogger("observation-mapping");
 
 /**
  * The single source of truth for turning connector observations into the
@@ -15,7 +12,9 @@ const log = createLogger("observation-mapping");
  * refresh used the script-declared `obs.source`. They now share this module.
  *
  * Deep module: one small interface (`observations_to_ready_state`) hides
- * provider validation, field mapping, null-filtering, and updatedAt reduction.
+ * field mapping, null-filtering, and updatedAt reduction. Provider is trusted
+ * as-is from the manifest-declared value (t095 open namespace); no enum
+ * re-filtering here.
  */
 export interface ReadyState {
     readonly items: readonly MetricRecord[];
@@ -23,14 +22,9 @@ export interface ReadyState {
 }
 
 export function observation_to_metric_record(obs: Observation): MetricRecord | null {
-    const provider = usageProviderSchema.safeParse(obs.provider);
-    if (!provider.success) {
-        log.warn(`Skipping observation with invalid provider: ${obs.provider} (${obs.metric_id})`);
-        return null;
-    }
     return {
         id: `${obs.source_instance_id}:${obs.account_id}:${obs.metric_id}`,
-        provider: provider.data,
+        provider: obs.provider,
         source: obs.source,
         sourceInstanceId: obs.source_instance_id,
         accountId: obs.account_id,

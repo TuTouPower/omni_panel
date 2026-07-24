@@ -1,11 +1,10 @@
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { UpcomingResetItem } from "../lib/provider-usage";
 import { format_reset_time } from "../lib/utils";
 import { VendorMark } from "./Icon";
 
 export interface UpcomingResetRowProps {
     item: UpcomingResetItem;
-    onSelectProvider: (provider: UsageProvider) => void;
+    onSelectProvider: (provider: string) => void;
     desensitizeRemarks?: boolean | undefined;
 }
 

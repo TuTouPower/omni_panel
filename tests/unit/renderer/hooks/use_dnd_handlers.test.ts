@@ -34,11 +34,11 @@ const mock_group: ProviderUsageGroup = {
 function render_dnd(
     ordered_providers: UsageProvider[],
     active_group: ProviderUsageGroup | undefined,
-    active_tab: UsageProvider | "overview",
+    active_tab: string,
     initial_orders: Record<string, string[]> = {},
 ) {
     return renderHook(() => {
-        const [provider_order, set_provider_order] = useState<UsageProvider[]>(ordered_providers);
+        const [provider_order, set_provider_order] = useState<string[]>(ordered_providers);
         const [account_orders, set_account_orders] =
             useState<Record<string, string[]>>(initial_orders);
         const handlers = use_dnd_handlers({

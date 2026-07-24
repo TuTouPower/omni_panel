@@ -4,7 +4,6 @@ import { ConfirmDelete } from "./ConfirmDelete";
 import { SecretInput } from "./SecretInput";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { ConnectorConfiguration } from "../../shared/types/config";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
 import {
@@ -13,7 +12,7 @@ import {
     refresh_label_to_seconds,
 } from "../lib/refresh-intervals";
 
-const MONITORS: readonly { name: string; provider: UsageProvider }[] = [
+const MONITORS: readonly { name: string; provider: string }[] = [
     { name: "monitor_claude", provider: "claude" },
     { name: "monitor_codex", provider: "codex" },
     { name: "monitor_antigravity", provider: "antigravity" },
@@ -43,10 +42,10 @@ interface CpaConnectorSettingsProps {
     onRefresh: () => Promise<void> | void;
     onRemove?: () => Promise<void> | void;
     providerLabelMaps?:
-        | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
+        | Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>
         | undefined;
-    selectedProvider?: UsageProvider | undefined;
-    onEditLabelMap?: ((provider: UsageProvider) => void) | undefined;
+    selectedProvider?: string | undefined;
+    onEditLabelMap?: ((provider: string) => void) | undefined;
 }
 
 function get_default_value(connector: ConnectorInfo, name: string) {

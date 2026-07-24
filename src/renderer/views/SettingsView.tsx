@@ -353,7 +353,7 @@ function AccountDialog({
         | undefined;
     globalIntervalLabel: string;
     forcePercent?: boolean | undefined;
-    onForcePercentChange?: ((provider: UsageProvider, force: boolean) => Promise<void>) | undefined;
+    onForcePercentChange?: ((provider: string, force: boolean) => Promise<void>) | undefined;
     /** t048: upcomingResetWatched 查表，透传给 SettingsForm 数据标签映射 bell。 */
     watchedMetrics?: AccountOverrides["upcomingResetWatched"];
     /** t048: 切换某 raw_label 的监控（account_keys 聚合由上层算）。 */
@@ -736,7 +736,7 @@ export function SettingsView() {
     const [showCpaAdd, setShowCpaAdd] = useState(false);
     const [label_map_dialog, set_label_map_dialog] = useState<{
         instance_id: string;
-        vendor_id: UsageProvider;
+        vendor_id: string;
         account_name: string;
         save_target: "account" | "provider";
     } | null>(null);
@@ -1426,7 +1426,8 @@ export function SettingsView() {
                                                     set_label_map_dialog({
                                                         instance_id: editingCpaId,
                                                         vendor_id: provider,
-                                                        account_name: PROVIDER_LABELS[provider],
+                                                        account_name:
+                                                            PROVIDER_LABELS[provider] ?? provider,
                                                         save_target: "provider",
                                                     });
                                                 }}

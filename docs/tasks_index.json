@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t095",
-            "title": "用户自定义 connector 脚本支持（schema 扩展 + 文档）",
-            "slug": "user_custom_connector_support",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t096",
             "title": "修复 refreshAll 期间用量面板卡死（先实测归因再修）",
             "slug": "fix_panel_refresh_freeze",

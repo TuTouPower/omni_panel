@@ -32,9 +32,7 @@ function source_from_definition(definition: ConnectorDefinition | undefined): Us
     return "poll";
 }
 
-function supported_providers(
-    definition: ConnectorDefinition | undefined,
-): readonly UsageProvider[] {
+function supported_providers(definition: ConnectorDefinition | undefined): readonly string[] {
     if (!definition) return [];
     if (is_cpa_connector(definition)) {
         return definition.manifest.parameters
@@ -45,8 +43,7 @@ function supported_providers(
                 return result.success;
             });
     }
-    const provider = usageProviderSchema.safeParse(definition.manifest.provider);
-    return provider.success ? [provider.data] : [];
+    return [definition.manifest.provider];
 }
 
 function metadata_from_definition(
@@ -76,7 +73,7 @@ function metadata_from_definition(
 function activeProvidersForConnector(
     plugin: ConnectorConfiguration,
     definition: ConnectorDefinition | undefined,
-): readonly UsageProvider[] {
+): readonly string[] {
     const providers = supported_providers(definition);
     if (!definition) return providers;
     if (!is_cpa_connector(definition)) return providers;

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type {
     AccountLabels,
     AccountOverrides,
@@ -16,10 +15,10 @@ export interface PopupUiConfig {
     account_labels: AccountLabels | undefined;
     account_label_maps: Readonly<Record<string, Readonly<Record<string, string>>>> | undefined;
     provider_label_maps:
-        | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
+        | Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>
         | undefined;
     ui_desensitize_remarks: boolean;
-    provider_force_percent: Readonly<Partial<Record<UsageProvider, boolean>>> | undefined;
+    provider_force_percent: Readonly<Partial<Record<string, boolean>>> | undefined;
     token_panel_collapsed: boolean;
     set_main_panel_mode: (mode: "popup" | "floating") => void;
     set_usage_bar_color_scheme: (scheme: UsageBarColorScheme) => void;
@@ -31,13 +30,11 @@ export interface PopupUiConfig {
         maps: Readonly<Record<string, Readonly<Record<string, string>>>> | undefined,
     ) => void;
     set_provider_label_maps: (
-        maps:
-            | Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>>
-            | undefined,
+        maps: Readonly<Partial<Record<string, Readonly<Record<string, string>>>>> | undefined,
     ) => void;
     set_ui_desensitize_remarks: (value: boolean) => void;
     set_provider_force_percent: (
-        value: Readonly<Partial<Record<UsageProvider, boolean>>> | undefined,
+        value: Readonly<Partial<Record<string, boolean>>> | undefined,
     ) => void;
     set_token_panel_collapsed: (value: boolean | ((prev: boolean) => boolean)) => void;
 }
@@ -58,11 +55,11 @@ export function usePopupUiConfig(): PopupUiConfig {
         Readonly<Record<string, Readonly<Record<string, string>>>> | undefined
     >(undefined);
     const [provider_label_maps, set_provider_label_maps] = useState<
-        Readonly<Partial<Record<UsageProvider, Readonly<Record<string, string>>>>> | undefined
+        Readonly<Partial<Record<string, Readonly<Record<string, string>>>>> | undefined
     >(undefined);
     const [ui_desensitize_remarks, set_ui_desensitize_remarks] = useState(false);
     const [provider_force_percent, set_provider_force_percent] = useState<
-        Readonly<Partial<Record<UsageProvider, boolean>>> | undefined
+        Readonly<Partial<Record<string, boolean>>> | undefined
     >(undefined);
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
 

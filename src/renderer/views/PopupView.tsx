@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type CSSProperties } from "react";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { use_plugins } from "../hooks/use-plugins";
 import { is_web } from "../lib/is-web";
 import { use_popup_height_report } from "../hooks/use-popup-height-report";
@@ -18,7 +17,7 @@ import { TokenPanel } from "../components/TokenPanel";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { UpcomingResetRail } from "../components/UpcomingResetRail";
 import { UpcomingResetBanner } from "../components/UpcomingResetBanner";
-import { PROVIDER_ORDER, type ProviderUsageGroup } from "../lib/provider-usage";
+import { type ProviderUsageGroup } from "../lib/provider-usage";
 import type { AppConfiguration } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import logo from "../assets/logo.svg";
@@ -60,15 +59,13 @@ export function PopupView() {
     useNowTick();
     const { plugins, loading, error, refreshAll, reload } = use_plugins();
     const [refreshing, setRefreshing] = useState(false);
-    const [refreshing_providers, set_refreshing_providers] = useState<Set<UsageProvider>>(
-        new Set(),
-    );
-    const [activeTab, setActiveTab] = useState<UsageProvider | "overview">("overview");
+    const [refreshing_providers, set_refreshing_providers] = useState<Set<string>>(new Set());
+    const [activeTab, setActiveTab] = useState<string>("overview");
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
-    const [provider_order, set_provider_order] = useState<UsageProvider[]>([]);
+    const [provider_order, set_provider_order] = useState<string[]>([]);
     const save_queue_ref = useRef(Promise.resolve());
-    const synced_order_ref = useRef<UsageProvider[]>([]);
+    const synced_order_ref = useRef<string[]>([]);
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const synced_account_orders_ref = useRef<Record<string, string[]>>({});
     const mounted_ref = useRef(true);
@@ -105,13 +102,13 @@ export function PopupView() {
         set_provider_force_percent,
     } = usePopupUiConfig();
 
-    const valid_providers = useMemo(() => new Set(PROVIDER_ORDER as readonly string[]), []);
-
     const apply_config = useCallback(
         (config: AppConfiguration) => {
             const order = config.providerOrder;
             if (order && order.length > 0) {
-                const validated = order.filter((p): p is UsageProvider => valid_providers.has(p));
+                // 自定义 provider（t095）不在内置白名单内；信任 config 持久化的顺序，
+                // 残留无效 provider 由 config-store prune 兜底。
+                const validated = [...order];
                 if (validated.length > 0) {
                     set_provider_order((current) =>
                         arrays_equal(current, validated) ? current : validated,
@@ -149,7 +146,6 @@ export function PopupView() {
             }
         },
         [
-            valid_providers,
             set_usage_bar_color_scheme,
             set_usage_bar_style,
             set_convergent_time_minutes,
@@ -204,13 +200,11 @@ export function PopupView() {
         return window.usageboard.event.onConfigChange?.((config) => {
             apply_config(config);
             if (config.providerOrder && config.providerOrder.length > 0) {
-                synced_order_ref.current = config.providerOrder.filter((p): p is UsageProvider =>
-                    valid_providers.has(p),
-                );
+                synced_order_ref.current = [...config.providerOrder];
             }
             void reload();
         });
-    }, [apply_config, reload, valid_providers]);
+    }, [apply_config, reload]);
 
     // Persist provider order to config when user reorders (not from external config sync)
     useEffect(() => {
@@ -274,7 +268,7 @@ export function PopupView() {
     });
     // t041：阈值非空时才挂载 Banner/Rail；抽局部常量避免两处 verbatim 重复。
     const show_upcoming = upcoming_reset_threshold_percent != null;
-    const select_provider_from_upcoming = useCallback((provider: UsageProvider) => {
+    const select_provider_from_upcoming = useCallback((provider: string) => {
         setActiveTab(provider);
         scroll_ref.current?.scrollTo({ top: 0, behavior: "smooth" });
     }, []);
@@ -321,7 +315,7 @@ export function PopupView() {
         set_expanded_providers((prev_e) => {
             const next: Record<string, boolean> = {};
             for (const [p, v] of Object.entries(prev_e)) {
-                if (live_providers.has(p as UsageProvider)) next[p] = v;
+                if (live_providers.has(p)) next[p] = v;
             }
             return next;
         });
@@ -349,7 +343,7 @@ export function PopupView() {
             });
     };
 
-    const refreshProvider = (provider: UsageProvider) => {
+    const refreshProvider = (provider: string) => {
         if (refreshing_providers.has(provider)) return;
 
         const connectors = plugins.filter(
@@ -391,11 +385,11 @@ export function PopupView() {
         set_collapsed_accounts((prev) => ({ ...prev, [id]: !(prev[id] ?? false) }));
     };
 
-    const toggle_expand_provider = (provider: UsageProvider) => {
+    const toggle_expand_provider = (provider: string) => {
         set_expanded_providers((prev) => ({ ...prev, [provider]: !(prev[provider] ?? false) }));
     };
 
-    const handle_re_login = async (provider: UsageProvider) => {
+    const handle_re_login = async (provider: string) => {
         const connector = plugins.find((c) => c.enabled && c.activeProviders.includes(provider));
         if (!connector) return;
         try {
@@ -670,7 +664,7 @@ export function PopupView() {
                                     onDragEnd={is_live ? handle_account_drag_end : undefined}
                                     onReLogin={
                                         is_live
-                                            ? (p: UsageProvider) => {
+                                            ? (p: string) => {
                                                   void handle_re_login(p);
                                               }
                                             : undefined

@@ -759,6 +759,14 @@
             "status": "done",
             "branch": "t094_add_dialog_open_script_dir",
             "note": ""
+        },
+        {
+            "tid": "t095",
+            "title": "用户自定义 connector 脚本支持（schema 扩展 + 文档）",
+            "slug": "user_custom_connector_support",
+            "status": "done",
+            "branch": "t095_user_custom_connector_support",
+            "note": "blocked: review"
         }
     ]
 }

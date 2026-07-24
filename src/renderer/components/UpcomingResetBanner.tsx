@@ -1,12 +1,11 @@
 import { useState } from "react";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { UpcomingResetItem } from "../lib/provider-usage";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { UpcomingResetRow } from "./UpcomingResetRow";
 
 interface UpcomingResetBannerProps {
     items: UpcomingResetItem[];
-    onSelectProvider: (provider: UsageProvider) => void;
+    onSelectProvider: (provider: string) => void;
     desensitizeRemarks?: boolean | undefined;
 }
 

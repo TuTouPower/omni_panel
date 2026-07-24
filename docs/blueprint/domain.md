@@ -6,15 +6,15 @@
 
 数据自上而下：**连接器（定义）→ 数据源（实例）→ 厂商 → 账号 → 用量 → 用量条 → 观测（原子）**。
 
-| 中文   | 英文        | 代码标识                                              | 定义                                | 数量关系                                                                                                          |
-| ------ | ----------- | ----------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 连接器 | connector   | 目录 `manifest.json` + `connector.ts`                 | 采集逻辑的声明式定义，内置只读      | 一类接入一份定义                                                                                                  |
-| 数据源 | data source | `ConnectorConfiguration` / `instanceId`               | 用户配置的一份连接实例 = 设置页一行 | 见 §2                                                                                                             |
-| 厂商   | provider    | `provider`                                            | AI 服务商，UI 聚合维度              | `claude` `codex` `antigravity` `kimi` `glm` `minimax` `deepseek` `tavily` `firecrawl` `mimo` `opencode_go` `grok` |
-| 账号   | account     | `accountId` / `accountLabel`（显示名，不得含 secret） | 某厂商下一个真实账号                | 一厂商可多账号                                                                                                    |
-| 用量   | usage       | 某 account 下全部 observation 的集合                  | 一个账号的用量数据集                | 一账号 = 一份用量                                                                                                 |
-| 用量条 | metric      | `metricId` / `metricName`                             | 用量里的单条指标                    | 一账号多条（Claude 5小时+一周=2条）                                                                               |
-| 观测   | observation | `Observation`                                         | 单次采集产出的原子记录              | 最小单元                                                                                                          |
+| 中文   | 英文        | 代码标识                                              | 定义                                | 数量关系                                                                                                                                                                                                             |
+| ------ | ----------- | ----------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 连接器 | connector   | 目录 `manifest.json` + `connector.ts`                 | 采集逻辑的声明式定义，内置只读      | 一类接入一份定义                                                                                                                                                                                                     |
+| 数据源 | data source | `ConnectorConfiguration` / `instanceId`               | 用户配置的一份连接实例 = 设置页一行 | 见 §2                                                                                                                                                                                                                |
+| 厂商   | provider    | `provider`                                            | AI 服务商，UI 聚合维度              | 开放 snake*case 命名空间（`^[a-z]a-z0-9*]\*$`，t095）；内置：`claude` `codex` `antigravity` `kimi` `glm` `minimax` `deepseek` `tavily` `firecrawl` `mimo` `opencode_go` `grok`，用户可自定义任意 snake_case provider |
+| 账号   | account     | `accountId` / `accountLabel`（显示名，不得含 secret） | 某厂商下一个真实账号                | 一厂商可多账号                                                                                                                                                                                                       |
+| 用量   | usage       | 某 account 下全部 observation 的集合                  | 一个账号的用量数据集                | 一账号 = 一份用量                                                                                                                                                                                                    |
+| 用量条 | metric      | `metricId` / `metricName`                             | 用量里的单条指标                    | 一账号多条（Claude 5小时+一周=2条）                                                                                                                                                                                  |
+| 观测   | observation | `Observation`                                         | 单次采集产出的原子记录              | 最小单元                                                                                                                                                                                                             |
 
 **观测核心字段**：`provider` + `sourceInstanceId` + `accountId` + `metricId` + `used`/`limit` + `source` + `observedAt` + `stale`/`lastError` + `cycleDurationMs`。完整字段与 SQLite schema 见 `specs/observation-store.md`。
 
@@ -73,5 +73,5 @@
 - 不做完整多维趋势图 UI（柱状/热力/区间选择仍归 TokenStats 独立窗口）；账号展开区出近 7 天 sparkline 迷你走势（T006），SQLite 历史已用于此时序聚合。
 - 不做通用开放代理（LocalAPI 只白名单 ingest + health）。
 - 不做系统钥匙串/safeStorage（自管 Vault，见 `specs/secret-vault.md` 威胁模型）。
-- 不为第三方开放沙箱脚本连接器（`node:vm` 非真隔离，见 `architecture.md` §6 已知限制）。
+- 用户自定义连接器在 `node:vm` 沙箱执行（t095 开放 `userData/connectors` 自定义脚本），`node:vm` 非真隔离，见 `architecture.md` §6 已知限制；用户自负脚本风险，文档 `guides/custom-connector.md` 标注约束。
 - 界面语言切换、检查更新、问卷、赞助入口当前为占位，未落地实现。

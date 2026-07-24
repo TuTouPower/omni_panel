@@ -6,13 +6,13 @@ import type { UsageProvider } from "../../../../src/shared/schemas/plugin-output
 import { use_tab_navigation } from "../../../../src/renderer/hooks/use_tab_navigation";
 
 interface HarnessProps {
-    ordered: UsageProvider[];
+    ordered: string[];
     initial: UsageProvider | "overview";
 }
 
 function Harness({ ordered, initial }: HarnessProps) {
     const ref = useRef<HTMLDivElement>(null);
-    const [tab, setTab] = useState<UsageProvider | "overview">(initial);
+    const [tab, setTab] = useState<string>(initial);
     use_tab_navigation({
         tabsRef: ref,
         activeTab: tab,

@@ -19,7 +19,7 @@ import type { AccountOverrides } from "../../../src/shared/types/config";
 describe("add_account_override", () => {
     it("adds a hidden override into empty overrides", () => {
         const r = add_account_override(undefined, "hidden", "claude", "default");
-        expect(r.hidden?.claude).toEqual(["default"]);
+        expect(r.hidden?.["claude"]).toEqual(["default"]);
     });
 
     it("merges new account into an existing hidden list", () => {
@@ -29,7 +29,7 @@ describe("add_account_override", () => {
             "claude",
             "auth-b",
         );
-        expect(r.hidden?.claude).toEqual(["default", "auth-b"]);
+        expect(r.hidden?.["claude"]).toEqual(["default", "auth-b"]);
     });
 
     it("rejects 'disabled' as a kind at the type level", () => {
@@ -54,7 +54,7 @@ describe("remove_account_override", () => {
             "claude",
             "default",
         );
-        expect(r.hidden?.claude).toEqual(["auth-b"]);
+        expect(r.hidden?.["claude"]).toEqual(["auth-b"]);
     });
 
     it("drops the kind key when its last account is removed", () => {
@@ -78,7 +78,7 @@ describe("remove_account_override", () => {
 describe("add_watched_metric (t043)", () => {
     it("adds a watched raw_label into empty overrides", () => {
         const r = add_watched_metric(undefined, "claude", "acct1", "5小时");
-        expect(r.upcomingResetWatched?.claude?.["acct1"]).toEqual(["5小时"]);
+        expect(r.upcomingResetWatched?.["claude"]?.["acct1"]).toEqual(["5小时"]);
     });
 
     it("merges new raw_label into an existing watched list", () => {
@@ -88,7 +88,7 @@ describe("add_watched_metric (t043)", () => {
             "acct1",
             "一周",
         );
-        expect(r.upcomingResetWatched?.claude?.["acct1"]).toEqual(["5小时", "一周"]);
+        expect(r.upcomingResetWatched?.["claude"]?.["acct1"]).toEqual(["5小时", "一周"]);
     });
 
     it("does not duplicate an already-watched raw_label", () => {
@@ -98,7 +98,7 @@ describe("add_watched_metric (t043)", () => {
             "acct1",
             "5小时",
         );
-        expect(r.upcomingResetWatched?.claude?.["acct1"]).toEqual(["5小时"]);
+        expect(r.upcomingResetWatched?.["claude"]?.["acct1"]).toEqual(["5小时"]);
     });
 });
 
@@ -110,7 +110,7 @@ describe("remove_watched_metric (t043)", () => {
             "acct1",
             "5小时",
         );
-        expect(r.upcomingResetWatched?.claude?.["acct1"]).toEqual(["一周"]);
+        expect(r.upcomingResetWatched?.["claude"]?.["acct1"]).toEqual(["一周"]);
     });
 
     it("drops the account key when its last raw_label is removed", () => {
@@ -120,7 +120,7 @@ describe("remove_watched_metric (t043)", () => {
             "acct1",
             "5小时",
         );
-        expect(r.upcomingResetWatched?.claude?.["acct1"]).toBeUndefined();
+        expect(r.upcomingResetWatched?.["claude"]?.["acct1"]).toBeUndefined();
     });
 
     it("drops the provider key when its last account is removed", () => {
@@ -130,7 +130,7 @@ describe("remove_watched_metric (t043)", () => {
             "acct1",
             "5小时",
         );
-        expect(r.upcomingResetWatched?.claude).toBeUndefined();
+        expect(r.upcomingResetWatched?.["claude"]).toBeUndefined();
     });
 });
 

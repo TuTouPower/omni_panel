@@ -26,7 +26,7 @@ describe("use_watched_metric_toggler", () => {
         const add_call = set_account_overrides.mock.calls[0];
         if (!add_call) throw new Error("missing add call");
         const added = add_call[0] as AccountOverrides;
-        expect(added.upcomingResetWatched?.claude?.["acct1"]).toEqual(["5小时"]);
+        expect(added.upcomingResetWatched?.["claude"]?.["acct1"]).toEqual(["5小时"]);
         expect(patchConfig).toHaveBeenCalledWith({ accountOverrides: added });
 
         // rerender with watched state → now watched → remove

@@ -1,11 +1,11 @@
 import { createLogger } from "../../shared/lib/logger";
-import type { MetricRecord, UsageProvider, UsageSource } from "../../shared/schemas/plugin-output";
+import type { MetricRecord, UsageSource } from "../../shared/schemas/plugin-output";
 import type { AccountLabels, AccountOverrides } from "../../shared/types/config";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 
 export interface ProviderUsagePeriod {
     id: string;
-    provider: UsageProvider;
+    provider: string;
     source: UsageSource;
     sourceInstanceId: string;
     connectorInstanceId: string;
@@ -43,7 +43,7 @@ export interface ProviderUsageAccount {
 }
 
 export interface ProviderUsageGroup {
-    provider: UsageProvider;
+    provider: string;
     label: string;
     accountCount: number;
     status: MetricRecord["status"];
@@ -55,7 +55,7 @@ export interface ProviderUsageGroup {
     accounts: ProviderUsageAccount[];
 }
 
-export const PROVIDER_ORDER: readonly UsageProvider[] = [
+export const PROVIDER_ORDER: readonly string[] = [
     "claude",
     "codex",
     "antigravity",
@@ -73,7 +73,7 @@ export const PROVIDER_ORDER: readonly UsageProvider[] = [
     "grok",
 ];
 
-export const PROVIDER_LABELS: Record<UsageProvider, string> = {
+export const PROVIDER_LABELS: Record<string, string> = {
     claude: "Claude",
     codex: "Codex",
     antigravity: "Antigravity",
@@ -101,8 +101,13 @@ const STATUS_RANK: Record<MetricRecord["status"], number> = {
     critical: 3,
 };
 
-function compare_providers(a: UsageProvider, b: UsageProvider): number {
-    return PROVIDER_ORDER.indexOf(a) - PROVIDER_ORDER.indexOf(b);
+function compare_providers(a: string, b: string): number {
+    // 未知 provider 的 indexOf 为 -1；映射为 +∞ 使其排在已知 provider 之后（末尾）。
+    const rank = (p: string): number => {
+        const idx = PROVIDER_ORDER.indexOf(p);
+        return idx === -1 ? Number.POSITIVE_INFINITY : idx;
+    };
+    return rank(a) - rank(b);
 }
 
 function latest_timestamp(a: string, b: string): string {
@@ -195,11 +200,11 @@ export function build_provider_usage_groups(
     if (should_log_raw) {
         log.debug("provider usage input raw", { snapshots: connectors });
     }
-    const periodsByProvider = new Map<UsageProvider, ProviderUsagePeriod[]>();
+    const periodsByProvider = new Map<string, ProviderUsagePeriod[]>();
     // t040：enabled 直连 connector failed 且无 items 时合成失败账号占位，
     // 供 ProviderAccountList 渲染失败行（首次采集失败无 observation，否则
     // 该账号从主面板消失）。CPA（gateway）多账号不合成。
-    const failedPlaceholdersByProvider = new Map<UsageProvider, ProviderUsageAccount[]>();
+    const failedPlaceholdersByProvider = new Map<string, ProviderUsageAccount[]>();
 
     for (const connector of connectors) {
         if (!connector.enabled) continue;
@@ -244,7 +249,7 @@ export function build_provider_usage_groups(
         }
     }
 
-    const allProviders = new Set<UsageProvider>([
+    const allProviders = new Set<string>([
         ...periodsByProvider.keys(),
         ...failedPlaceholdersByProvider.keys(),
     ]);
@@ -303,7 +308,7 @@ export function build_provider_usage_groups(
 
             return {
                 provider,
-                label: PROVIDER_LABELS[provider],
+                label: PROVIDER_LABELS[provider] ?? provider,
                 accountCount: accountsByKey.size,
                 status: groupStatus,
                 updatedAt: groupUpdatedAt,
@@ -362,7 +367,7 @@ export function apply_account_labels(
 }
 
 export interface AccountError {
-    provider: UsageProvider;
+    provider: string;
     accountLabel: string;
     error: string;
 }
@@ -406,8 +411,8 @@ export function buildAccountErrors(
 export function visible_providers_from_groups(
     groups: readonly ProviderUsageGroup[],
     connectors: readonly ConnectorInfo[],
-): UsageProvider[] {
-    const providers = new Set<UsageProvider>(groups.map((g) => g.provider));
+): string[] {
+    const providers = new Set<string>(groups.map((g) => g.provider));
     for (const connector of connectors) {
         if (!connector.enabled) continue;
         for (const provider of connector.activeProviders) {
@@ -417,7 +422,7 @@ export function visible_providers_from_groups(
     return [...providers].sort(compare_providers);
 }
 
-export function get_visible_providers(connectors: readonly ConnectorInfo[]): UsageProvider[] {
+export function get_visible_providers(connectors: readonly ConnectorInfo[]): string[] {
     return visible_providers_from_groups(build_provider_usage_groups(connectors), connectors);
 }
 
@@ -552,7 +557,7 @@ export function build_overview_for_group(
 }
 
 export interface UpcomingResetItem {
-    provider: UsageProvider;
+    provider: string;
     accountLabel: string;
     accountId: string;
     rawLabel: string;

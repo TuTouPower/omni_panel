@@ -46,3 +46,12 @@ describe("observation_to_metric_record error mapping", () => {
         expect(rec?.error).toBeUndefined();
     });
 });
+
+describe("observation_to_metric_record custom provider (t095)", () => {
+    it("keeps observation for unknown snake_case provider instead of dropping it", () => {
+        const obs = { ...obs_base, provider: "my_vendor" };
+        const rec = observation_to_metric_record(obs);
+        expect(rec).not.toBeNull();
+        expect(rec?.provider).toBe("my_vendor");
+    });
+});

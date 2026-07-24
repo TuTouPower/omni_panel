@@ -1,12 +1,11 @@
 import { useRef } from "react";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 import { VendorMark } from "./Icon";
 
 interface ProviderNavProps {
-    activeTab: UsageProvider | "overview";
-    visibleProviders: UsageProvider[];
-    onChange: (tab: UsageProvider | "overview") => void;
+    activeTab: string;
+    visibleProviders: string[];
+    onChange: (tab: string) => void;
 }
 
 export function ProviderNav({ activeTab, visibleProviders, onChange }: ProviderNavProps) {

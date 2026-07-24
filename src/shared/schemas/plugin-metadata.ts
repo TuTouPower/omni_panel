@@ -1,5 +1,6 @@
 import { z } from "zod/v3";
-import { usageProviderSchema, usageSourceSchema } from "./plugin-output";
+import { usageSourceSchema } from "./plugin-output";
+import { connectorProviderSchema } from "./manifest";
 
 const pluginParameterTypeSchema = z.enum([
     "string",
@@ -49,7 +50,7 @@ export const pluginMetadataSchema = z
         icon: z.string().optional(),
         parameters: z.array(pluginParameterMetadataSchema).optional(),
         endpoints: pluginEndpointsSchema.optional(),
-        supportedProviders: z.array(usageProviderSchema).optional(),
+        supportedProviders: z.array(connectorProviderSchema).optional(),
         defaultSource: usageSourceSchema.optional(),
         // localization fields
         "name@zh-Hans": z.string().optional(),

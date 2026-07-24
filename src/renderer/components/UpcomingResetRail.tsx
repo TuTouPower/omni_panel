@@ -1,10 +1,9 @@
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { UpcomingResetItem } from "../lib/provider-usage";
 import { UpcomingResetRow } from "./UpcomingResetRow";
 
 interface UpcomingResetRailProps {
     items: UpcomingResetItem[];
-    onSelectProvider: (provider: UsageProvider) => void;
+    onSelectProvider: (provider: string) => void;
     desensitizeRemarks?: boolean | undefined;
 }
 

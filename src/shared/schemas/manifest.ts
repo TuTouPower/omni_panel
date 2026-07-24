@@ -1,14 +1,15 @@
 import { z } from "zod/v3";
-import { usageProviderSchema } from "./plugin-output";
 
 /**
- * Connector-level provider whitelist.
+ * Connector-level provider name.
  *
- * Extends `usageProviderSchema` with meta-providers that exist only at the
- * connector layer (e.g. "cpa" aggregates claude/codex/… but never appears
- * as a runtime usage provider).
+ * Open snake_case namespace: any `^[a-z][a-z0-9_]*$` provider is accepted so
+ * users can drop custom connectors into the user connectors dir (t095). The
+ * known enum `usageProviderSchema` is kept as a narrow type for built-in
+ * providers; runtime observation mapping trusts the manifest-declared provider
+ * rather than re-filtering against the enum.
  */
-export const connectorProviderSchema = usageProviderSchema.or(z.literal("cpa"));
+export const connectorProviderSchema = z.string().regex(/^[a-z][a-z0-9_]*$/);
 
 const capability_schema = z.enum(["poll", "local", "session", "observe"]);
 
