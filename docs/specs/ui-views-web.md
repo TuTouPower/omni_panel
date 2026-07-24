@@ -40,6 +40,7 @@
 - **用量面板无账号编辑入口**（T8）：账号设置仅在 Settings；用量面板 provider 卡片无更多操作菜单，关闭/管理操作在设置页进行
 - **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（用量面板 + 设置列表）
 - **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %
+- **多账号卡片 L2 状态**（t100）：账号明细仅在当前展开期间有效；卡片折叠后重置为概览，下一次展开默认显示聚合用量。
 
 ### SettingsView（设置窗，route=setting）
 

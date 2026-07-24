@@ -220,6 +220,42 @@ describe("ProviderCard", () => {
         expect(screen.queryByText("Account 1")).not.toBeInTheDocument();
     });
 
+    it("resets account detail to overview after the card is collapsed", () => {
+        const group = makeGroup({ accountCount: 2 });
+        const on_toggle_expand = vi.fn();
+        const { rerender } = render(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={on_toggle_expand}
+            />,
+        );
+
+        fireEvent.click(screen.getByTitle("账号明细"));
+        expect(screen.getByText("Account 1")).toBeInTheDocument();
+
+        rerender(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded={false}
+                onToggleExpand={on_toggle_expand}
+            />,
+        );
+        rerender(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={on_toggle_expand}
+            />,
+        );
+
+        expect(screen.queryByText("Account 1")).not.toBeInTheDocument();
+        expect(screen.getByTitle("概览")).toHaveClass("on");
+    });
+
     it("renders short usage period labels", () => {
         const periods = [
             makePeriod({ id: "long-5h", name: "5小时", used: 10, limit: 100 }),

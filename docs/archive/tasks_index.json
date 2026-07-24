@@ -791,6 +791,14 @@
             "status": "done",
             "branch": "t099_popup_width_cap_remove",
             "note": ""
+        },
+        {
+            "tid": "t100",
+            "title": "折叠重置 L2 子状态（l2open）",
+            "slug": "l2_state_reset_on_collapse",
+            "status": "done",
+            "branch": "t100_l2_state_reset_on_collapse",
+            "note": ""
         }
     ]
 }

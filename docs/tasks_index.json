@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t100",
-            "title": "折叠重置 L2 子状态（l2open）",
-            "slug": "l2_state_reset_on_collapse",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t101",
             "title": "数据标签映射默认展开",
             "slug": "label_map_default_expanded",
