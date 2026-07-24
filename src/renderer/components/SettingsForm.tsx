@@ -74,7 +74,6 @@ export function SettingsForm({
     const [saveError, setSaveError] = useState<string | null>(null);
     const [loginLoading, setLoginLoading] = useState(false);
     const [loginMessage, setLoginMessage] = useState<string | null>(null);
-    const [labelMapExpanded, setLabelMapExpanded] = useState(false);
     const [labelRows, setLabelRows] = useState<LabelMapRow[]>([]);
     const [labelLoading, setLabelLoading] = useState(false);
     const [labelEdits, setLabelEdits] = useState<Record<string, string>>({});
@@ -153,7 +152,7 @@ export function SettingsForm({
     );
 
     useEffect(() => {
-        if (!labelMapExpanded || !providerId || !onSaveLabelMap) return;
+        if (!providerId || !onSaveLabelMap) return;
         void (async () => {
             setLabelLoading(true);
             try {
@@ -175,7 +174,7 @@ export function SettingsForm({
                 if (mounted_ref.current) setLabelLoading(false);
             }
         })();
-    }, [labelMapExpanded, instanceId, providerId, existingLabelMap, onSaveLabelMap]);
+    }, [instanceId, providerId, existingLabelMap, onSaveLabelMap]);
 
     const handle_label_edit = (raw: string, value: string) => {
         setLabelEdits((prev) => ({ ...prev, [raw]: value }));
@@ -495,88 +494,65 @@ export function SettingsForm({
             )}
             {onSaveLabelMap && providerId && (
                 <div className="ad-field">
-                    <button
-                        type="button"
-                        className="ad-label"
-                        style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-                        onClick={() => {
-                            setLabelMapExpanded((v) => !v);
-                        }}
-                    >
-                        <Icon
-                            name="chevron"
-                            size={14}
-                            style={{
-                                transform: labelMapExpanded ? "rotate(90deg)" : "rotate(0deg)",
-                                transition: "transform 0.15s",
-                            }}
-                        />
-                        数据标签映射
-                    </button>
-                    {labelMapExpanded && (
-                        <div style={{ marginTop: 8 }}>
-                            {labelLoading ? (
-                                <div className="text-sm text-[var(--text-3)]">加载标签数据…</div>
-                            ) : labelRows.length === 0 ? (
-                                <div className="text-sm text-[var(--text-3)]">
-                                    暂无可映射的数据标签
+                    <label className="ad-label">数据标签映射</label>
+                    <div style={{ marginTop: 8 }}>
+                        {labelLoading ? (
+                            <div className="text-sm text-[var(--text-3)]">加载标签数据…</div>
+                        ) : labelRows.length === 0 ? (
+                            <div className="text-sm text-[var(--text-3)]">暂无可映射的数据标签</div>
+                        ) : (
+                            <>
+                                <div className="lm-cols">
+                                    <span>原始标签</span>
+                                    <span>显示名称</span>
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="lm-cols">
-                                        <span>原始标签</span>
-                                        <span>显示名称</span>
-                                    </div>
-                                    {labelRows.map((r) => {
-                                        const v = labelEdits[r.raw] ?? r.display;
-                                        const provider_watched = watchedMetrics?.[providerId];
-                                        const watched = r.account_keys.every(
-                                            (k) => provider_watched?.[k]?.includes(r.raw) ?? false,
-                                        );
-                                        return (
-                                            <div className="lm-row" key={r.raw}>
-                                                <code className="lm-raw">{r.raw}</code>
-                                                <span className="lm-arrow">
-                                                    <Icon name="chevron" size={14} />
-                                                </span>
-                                                <input
-                                                    className="lm-input"
-                                                    value={v}
-                                                    placeholder={r.raw}
-                                                    spellCheck={false}
-                                                    autoCorrect="off"
-                                                    autoCapitalize="off"
-                                                    onChange={(e) => {
-                                                        handle_label_edit(r.raw, e.target.value);
+                                {labelRows.map((r) => {
+                                    const v = labelEdits[r.raw] ?? r.display;
+                                    const provider_watched = watchedMetrics?.[providerId];
+                                    const watched = r.account_keys.every(
+                                        (k) => provider_watched?.[k]?.includes(r.raw) ?? false,
+                                    );
+                                    return (
+                                        <div className="lm-row" key={r.raw}>
+                                            <code className="lm-raw">{r.raw}</code>
+                                            <span className="lm-arrow">
+                                                <Icon name="chevron" size={14} />
+                                            </span>
+                                            <input
+                                                className="lm-input"
+                                                value={v}
+                                                placeholder={r.raw}
+                                                spellCheck={false}
+                                                autoCorrect="off"
+                                                autoCapitalize="off"
+                                                onChange={(e) => {
+                                                    handle_label_edit(r.raw, e.target.value);
+                                                }}
+                                            />
+                                            {onToggleWatched && (
+                                                <button
+                                                    type="button"
+                                                    className="lm-watch"
+                                                    title="监控该数据标签的即将重置"
+                                                    aria-label="监控该数据标签的即将重置"
+                                                    aria-pressed={watched}
+                                                    onClick={() => {
+                                                        onToggleWatched(r.raw);
                                                     }}
-                                                />
-                                                {onToggleWatched && (
-                                                    <button
-                                                        type="button"
-                                                        className="lm-watch"
-                                                        title="监控该数据标签的即将重置"
-                                                        aria-label="监控该数据标签的即将重置"
-                                                        aria-pressed={watched}
-                                                        onClick={() => {
-                                                            onToggleWatched(r.raw);
-                                                        }}
-                                                    >
-                                                        <Icon
-                                                            name="bell"
-                                                            size={14}
-                                                            style={{
-                                                                opacity: watched ? 1 : 0.35,
-                                                            }}
-                                                        />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </>
-                            )}
-                        </div>
-                    )}
+                                                >
+                                                    <Icon
+                                                        name="bell"
+                                                        size={14}
+                                                        style={{ opacity: watched ? 1 : 0.35 }}
+                                                    />
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
             <div className="ad-foot">

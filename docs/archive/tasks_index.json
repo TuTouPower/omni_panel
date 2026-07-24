@@ -799,6 +799,14 @@
             "status": "done",
             "branch": "t100_l2_state_reset_on_collapse",
             "note": ""
+        },
+        {
+            "tid": "t101",
+            "title": "数据标签映射默认展开",
+            "slug": "label_map_default_expanded",
+            "status": "done",
+            "branch": "t101_label_map_default_expanded",
+            "note": ""
         }
     ]
 }

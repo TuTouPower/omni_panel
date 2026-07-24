@@ -54,6 +54,7 @@
 
 - 映射配置 **key 永远是 `item.raw_label`**（与用量面板 `format_usage_period_label` 查找键一致）。禁止用 `normalized_label` 或显示名作 key。
 - `LabelMapRow`：`raw`（key）/ `default`（无用户覆盖时的显示回退）/ `display`（`existing_map[raw]` 或 `default`）。
+- **数据标签映射显示**（t101）：`SettingsForm` 以静态标题直接渲染映射内容，无折叠按钮；加载态、空态和标签行始终保留。
 - 直连（`SettingsForm`）与 CPA（`LabelMapDialog`）共用此 util；CPA 可用 `normalize_for_display` 剥账号名做默认显示，**不改 key**。
 - 按 `raw_label` 去重（first wins）。旧映射若误用 `normalized_label` 作 key 不迁移，用户重设。
 

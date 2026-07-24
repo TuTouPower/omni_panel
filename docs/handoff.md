@@ -35,3 +35,13 @@
 - 验证：红灯覆盖旧行为；绿灯后 `pnpm test` 158 files / 1619 tests、`pnpm typecheck`、改动文件 Prettier 通过。
 - 运行时验证：`BLOCKED`。隔离 Electron 已启动，但当前 harness 无法驱动原生窗口；直接访问 Vite renderer 缺 preload API，未将其作为 GUI 证据。
 - 双审：Round 1 test PASS；code FAIL，仅 `ProviderCard.tsx` 与 `provider_card.test.tsx` 文件膨胀 minor，均已记录为遗留。
+
+## 2026-07-24 t101 完成
+
+- branch：`t101_label_map_default_expanded`
+- head_commit：提交前 `4a8be33`；本条随 t101 task commit 更新。
+- 状态：`done`；task 已归档至 `docs/archive/tasks/t101_label_map_default_expanded/`。
+- 实现：移除标签映射折叠 state 与 chevron button，静态标题下立即加载并渲染标签映射。
+- 验证：`pnpm test` 158 files / 1621 tests、`pnpm typecheck`、改动文件 Prettier 通过。
+- 运行时验证：`BLOCKED`。当前 harness 无法驱动原生 Electron 窗口；自动化渲染测试覆盖标签行、无按钮、加载态、空态。
+- 双审：Round 1 code PASS / test FAIL（`t101_test_f001` 已修）；Round 2 code/test PASS。
