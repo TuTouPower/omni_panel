@@ -8,6 +8,7 @@ import type {
     RendererLogPayload,
     RendererPlatform,
     SessionLoginRequest,
+    SessionLoginResult,
     GrokDeviceCodeStart,
     GrokLoginStatus,
     GrokRefreshResult,
@@ -285,9 +286,14 @@ const auth_methods = {
 
 const session_methods = {
     login: (request: SessionLoginRequest) =>
-        invoke<{ saved: boolean }>(IPC_CHANNELS.SESSION_LOGIN, request),
+        invoke<SessionLoginResult>(IPC_CHANNELS.SESSION_LOGIN, request),
     refresh: (request: SessionLoginRequest) =>
-        invoke<{ saved: boolean }>(IPC_CHANNELS.SESSION_REFRESH, request),
+        invoke<SessionLoginResult>(IPC_CHANNELS.SESSION_REFRESH, request),
+};
+
+const session_disabled_methods: UsageboardApi["session"] = {
+    login: () => Promise.reject(new Error("Session login is only available from settings")),
+    refresh: () => Promise.reject(new Error("Session refresh is only available from settings")),
 };
 
 const grok_readonly_methods: GrokReadonlyApi = {
@@ -412,7 +418,7 @@ const api: UsageboardApi = (() => {
                 settings: settings_methods,
                 tray: tray_methods,
                 auth: auth_methods,
-                session: session_methods,
+                session: session_disabled_methods,
                 grok: route_grok_api,
                 logs: logs_methods,
                 log: log_method,
@@ -443,7 +449,7 @@ const api: UsageboardApi = (() => {
                 settings: settings_methods,
                 tray: tray_methods,
                 auth: auth_methods,
-                session: session_methods,
+                session: session_disabled_methods,
                 grok: route_grok_api,
                 logs: logs_methods,
                 log: log_method,

@@ -13,7 +13,6 @@ export async function handleSessionLogin(
     deps: SessionIpcDeps,
     request: SessionLoginRequest,
 ): Promise<IpcResult<SessionLoginResult>> {
-    if (!request.instance_id) return fail("VALIDATION_ERROR", "缺少 instance_id");
     if (!request.login_url) return fail("VALIDATION_ERROR", "缺少 login_url");
     if (!Array.isArray(request.cookie_names) || !request.cookie_names.length)
         return fail("VALIDATION_ERROR", "缺少 cookie_names");
@@ -29,7 +28,7 @@ export async function handleSessionLogin(
 
     try {
         const result = await deps.sessionManager.start_login({
-            instance_id: request.instance_id,
+            ...(request.instance_id ? { instance_id: request.instance_id } : {}),
             provider: request.provider,
             login_url: request.login_url,
             cookie_names: request.cookie_names,
@@ -55,7 +54,7 @@ export async function registerSessionIpc(deps: SessionIpcDeps): Promise<void> {
     ipcMain.handle(IPC_CHANNELS.SESSION_LOGIN, (e, request: SessionLoginRequest) =>
         logged(IPC_CHANNELS.SESSION_LOGIN, [request.instance_id], () => {
             assert_valid_sender(e);
-            log.info(`Session login requested for ${request.instance_id}`);
+            log.info(`Session login requested for ${request.instance_id ?? "anonymous"}`);
             return handleSessionLogin(deps, request);
         }),
     );
@@ -63,6 +62,9 @@ export async function registerSessionIpc(deps: SessionIpcDeps): Promise<void> {
     ipcMain.handle(IPC_CHANNELS.SESSION_REFRESH, (e, request: SessionLoginRequest) =>
         logged(IPC_CHANNELS.SESSION_REFRESH, [request.instance_id], () => {
             assert_valid_sender(e);
+            if (!request.instance_id) {
+                return Promise.resolve(fail("VALIDATION_ERROR", "缺少 instance_id"));
+            }
             log.info(`Session refresh requested for ${request.instance_id}`);
             return handleSessionLogin(deps, request);
         }),

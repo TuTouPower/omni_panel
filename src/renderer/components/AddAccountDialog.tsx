@@ -272,6 +272,8 @@ function SessionForm({
         cookie_keys: [],
     };
     const [cookie, set_cookie] = useState("");
+    const [login_error, set_login_error] = useState<string | null>(null);
+    const [logging_in, set_logging_in] = useState(false);
     const is_opencode_go = vendor_id === "opencode_go";
     const placeholder = is_opencode_go
         ? "支持 JSON、EditThisCookie、Netscape、k=v; k=v"
@@ -291,6 +293,27 @@ function SessionForm({
             alert("复制失败，请手动复制脚本");
         });
     }, []);
+
+    const handle_web_login = useCallback(async () => {
+        set_login_error(null);
+        set_logging_in(true);
+        try {
+            const result = await window.usageboard.session.login({
+                provider: "opencode_go",
+                login_url: meta.login_url,
+                cookie_names: ["*"],
+            });
+            if (!result.saved || !result.cookie) {
+                set_login_error("未捕获到 Cookie，请完成登录后再关闭窗口");
+                return;
+            }
+            set_cookie(result.cookie);
+        } catch (error) {
+            set_login_error(error instanceof Error ? error.message : "网页登录失败，请重试");
+        } finally {
+            set_logging_in(false);
+        }
+    }, [meta.login_url]);
 
     return (
         <>
@@ -313,9 +336,21 @@ function SessionForm({
             <div className="ad-field">
                 <label className="ad-label">Cookie 字符串</label>
                 {is_opencode_go && (
-                    <button className="ad-test" type="button" onClick={handle_copy_script}>
-                        复制脚本
-                    </button>
+                    <>
+                        <button
+                            className="ad-test"
+                            type="button"
+                            disabled={logging_in}
+                            onClick={() => {
+                                void handle_web_login();
+                            }}
+                        >
+                            {logging_in ? "正在打开登录窗口…" : "网页登录"}
+                        </button>
+                        <button className="ad-test" type="button" onClick={handle_copy_script}>
+                            复制脚本
+                        </button>
+                    </>
                 )}
                 <textarea
                     className="aa-textarea mono"
@@ -336,9 +371,12 @@ function SessionForm({
                         </code>
                     ))}
                 </div>
+                {login_error && <div className="ad-hint">{login_error}</div>}
                 <div className="ad-hint" style={{ marginTop: 6 }}>
                     <Icon name="info" size={12} strokeWidth={1.8} />
-                    保存后可在账号设置中使用网页登录自动捕获 Cookie
+                    {is_opencode_go
+                        ? "网页登录会自动填入 Cookie，也可手动粘贴或复制脚本"
+                        : "保存后可在账号设置中使用网页登录自动捕获 Cookie"}
                 </div>
             </div>
         </>

@@ -176,7 +176,7 @@ export interface IpcError {
 }
 
 export interface SessionLoginRequest {
-    readonly instance_id: string;
+    readonly instance_id?: string;
     readonly provider: string;
     readonly login_url: string;
     readonly cookie_names: readonly string[];
@@ -184,6 +184,7 @@ export interface SessionLoginRequest {
 
 export interface SessionLoginResult {
     readonly saved: boolean;
+    readonly cookie?: string;
 }
 
 export interface GrokDeviceCodeStart {

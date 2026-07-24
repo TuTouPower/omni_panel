@@ -17,7 +17,7 @@ OpenCode Go 添加账号弹窗当前只有「复制脚本」+ 手动粘贴 Cooki
 
 - 不改其他 provider（mimo/kimi）的添加弹窗。
 - 不改设置页 SettingsForm 已有的「网页登录」按钮。
-- 不改 session-manager 后端逻辑（`cookie_names: ["*"]` 已支持）。
+- 不改变既有正式实例的 session-manager 保存语义；添加账号阶段仅扩展匿名捕获，并为 wildcard Cookie 增加认证回跳门控。
 - 不引入新 IPC channel（复用 `SESSION_LOGIN`）。
 
 ## 验收标准

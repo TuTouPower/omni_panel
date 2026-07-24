@@ -775,6 +775,14 @@
             "status": "done",
             "branch": "t096_fix_panel_refresh_freeze",
             "note": ""
+        },
+        {
+            "tid": "t098",
+            "title": "OpenCode Go 添加账号弹窗内嵌网页登录",
+            "slug": "opencode_go_add_dialog_web_login",
+            "status": "done",
+            "branch": "t098_opencode_go_add_dialog_web_login",
+            "note": ""
         }
     ]
 }

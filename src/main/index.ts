@@ -397,7 +397,11 @@ void app.whenReady().then(async () => {
                 return {
                     on_before_send_headers(handler) {
                         ses.webRequest.onBeforeSendHeaders((details, callback) => {
-                            handler({ url: details.url, requestHeaders: details.requestHeaders });
+                            handler({
+                                url: details.url,
+                                requestHeaders: details.requestHeaders,
+                                resource_type: details.resourceType,
+                            });
                             callback({ requestHeaders: details.requestHeaders });
                         });
                     },
