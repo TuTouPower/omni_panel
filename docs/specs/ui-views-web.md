@@ -12,7 +12,7 @@
 
 - `ProviderNav` — 顶部 provider 导航 tab（总览 + 各 provider）
 - `ProviderOverview` — 概览聚合卡片
-- `UpcomingResetBanner` / `UpcomingResetRail` — 即将重置横幅 + 右侧轨道（t005，`<1024px` 仅 banner，`≥1024px` 出现右侧 sticky rail）；t041 起 threshold（`upcomingResetThresholdPercent`）为 null 时整体不渲染，非 null 时 `collect_upcoming_resets` 按剩余%（`(resetAt-now)/cycleDurationMs*100 ≤ threshold`）+ metric 级显式开启（`accountOverrides.upcomingResetWatched`，默认全关；period 仅当 (provider,accountKey,raw_label) 在 watched 集合才进面板）过滤。主面板 period 行 bell toggle 控监控开关（t043，取代 t041 account 级开关）；bell 透传经两条链：`ProviderAccountList → ProviderAccountRow → UsageBarList`（t043）与 `ProviderOverview → ProviderCard → AccountUsageRow`（t046 补齐）；设置页账号详情「数据标签映射」每行 bell（t048，per raw_label，多 accountKey 聚合 toggle）。两处入口 toggle 同一 watched 数据。
+- `UpcomingResetBanner` / `UpcomingResetRail` — 即将重置横幅 + 右侧轨道（t005，`<1024px` 仅 banner，`≥1024px` 出现右侧 sticky rail）；t041 起 threshold（`upcomingResetThresholdPercent`）为 null 时整体不渲染，非 null 时 `collect_upcoming_resets` 按剩余%（`(resetAt-now)/cycleDurationMs*100 ≤ threshold`）+ metric 级显式开启（`accountOverrides.upcomingResetWatched`，默认全关；period 仅当 (provider,accountKey,raw_label) 在 watched 集合才进面板）过滤。用量面板 period 行 bell toggle 控监控开关（t043，取代 t041 account 级开关）；bell 透传经两条链：`ProviderAccountList → ProviderAccountRow → UsageBarList`（t043）与 `ProviderOverview → ProviderCard → AccountUsageRow`（t046 补齐）；设置页账号详情「数据标签映射」每行 bell（t048，per raw_label，多 accountKey 聚合 toggle）。两处入口 toggle 同一 watched 数据。
 - `ProviderAccountList` → `ProviderAccountRow` — 单 provider 账号列表 / 账号行
 - `TrendSparkline` — 账号展开时趋势迷你图（t006，懒加载 `trend:get`，缓存 key `${provider}||${accountId}||${metricId}`）
 - `DragGrip` — 账号行拖拽手柄（仅提供 `onDragStart` 时渲染）
@@ -57,6 +57,7 @@
 - `LabelMapRow`：`raw`（key）/ `default`（无用户覆盖时的显示回退）/ `display`（`existing_map[raw]` 或 `default`）。
 - **数据标签映射显示**（t101）：`SettingsForm` 以静态标题直接渲染映射内容，无折叠按钮；加载态、空态和标签行始终保留。
 - 直连（`SettingsForm`）与 CPA（`LabelMapDialog`）共用此 util；CPA 可用 `normalize_for_display` 剥账号名做默认显示，**不改 key**。
+- **CPA 标签行监控（t104）**：`CpaLabelMapDialog` 向 `LabelMapDialog` 传入厂商的 watched map；每条 `raw_label` 行仅在同时收到 map 与回调时渲染 bell。全部 `account_keys` 已监控才 pressed；部分或全未监控时点击为全部 key 添加，全部已监控时移除全部。无监控记录时 CPA 传空 map，仍显示可添加监控的 bell。
 - 按 `raw_label` 去重（first wins）。旧映射若误用 `normalized_label` 作 key 不迁移，用户重设。
 
 **账号行布局**（`AccountRow` + `CpaCard`）：

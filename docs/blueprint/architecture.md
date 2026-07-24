@@ -102,7 +102,7 @@ web 浏览器经 LocalAPI `GET /v1/events`（SSE）订阅 runtimeStore 状态变
 - **vault 命名空间**：`keyFor(instanceId, name) = ${instanceId}:${name}`，`secrets-store` / `session-manager` / `net-client` 均经此，不内联拼接。
 - **endpoint 解析优先级**：用户 `endpointOverrides` > manifest `endpoints`；`requireExplicitEndpoints` 为真时无 override 即报错（CPA 用）。
 - **IPC 边界**：renderer 只能调 `window.usageboard.*` 白名单，按 route（usage/setting/tray/agent）分权。
-- **主面板宽度**：usage 窗口仅有 472px 最小宽度；floating 持久化宽度最多为所在 display 的 `workArea.width`，popup 不设固定最大宽度。
+- **用量窗口宽度**：usage 窗口仅有 472px 最小宽度；floating 持久化宽度最多为所在 display 的 `workArea.width`，popup 不设固定最大宽度。
 
 ## 6. 与旧 SPEC 的关键差异 & 已知限制
 

@@ -61,3 +61,12 @@
 - 实现：趋势图时间轴按本地自然日/整点切分；滑动窗口端点保持不变，首末可为 partial；小时刻度读取真实 bucket 起点。
 - 验证：`pnpm typecheck`、相关 ESLint、`pnpm test` 158 files / 1628 tests 通过。未单独启动含可控 token records 的代理面板进行人工截图。
 - 双审：Round 1 code PASS / test FAIL（`t103_test_f001` 已修）；Round 2 code/test PASS。
+
+## 2026-07-25 t104 完成
+
+- branch：`t104_cpa_account_reset_bell`。
+- 状态：`done`；task 已归档至 `docs/archive/tasks/t104_cpa_account_reset_bell/`。
+- 实现：CPA 厂商数据标签映射弹窗按 raw_label 显示即将重置 bell；同标签多个 gateway accountKey 全部已监控才 pressed，部分或全未监控时一并添加、全部已监控时一并移除。
+- 验证：定向 renderer 74 passed；`pnpm typecheck`；`pnpm test` 158 files / 1635 tests；真实 Electron CPA 流程 1 passed。
+- 双审：Round 1 code/test FAIL（`t104_code_f001`、`t104_test_f001`、`t104_test_f002` 已修）；Round 2 code PASS / test FAIL（`t104_test_f003`、`t104_test_f004`、`t104_test_f005` 已修）；Round 3 code/test PASS。
+- 收尾 lint 修正后追加 Round 4 code/test PASS；无 finding。

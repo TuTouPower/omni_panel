@@ -550,6 +550,142 @@ describe("SettingsView", () => {
         ).toBeInTheDocument();
     });
 
+    it("fills every CPA account watch when a raw label is only partially watched", async () => {
+        const user = userEvent.setup();
+        current_config = {
+            ...base_config,
+            accountOverrides: {
+                upcomingResetWatched: {
+                    claude: {
+                        "cpa-1|label|Account A": ["five_hour"],
+                    },
+                },
+            },
+        };
+        window.usageboard.connector.getState = vi.fn().mockResolvedValue({
+            status: "ready",
+            updatedAt: "2026-07-25T00:00:00.000Z",
+            items: [
+                {
+                    id: "claude-a",
+                    provider: "claude",
+                    source: "gateway",
+                    sourceInstanceId: "cpa-1",
+                    accountId: "account-a",
+                    accountLabel: "Account A",
+                    raw_label: "five_hour",
+                    normalized_label: "5 小时",
+                },
+                {
+                    id: "claude-b",
+                    provider: "claude",
+                    source: "gateway",
+                    sourceInstanceId: "cpa-1",
+                    accountId: "account-b",
+                    accountLabel: "Account B",
+                    raw_label: "five_hour",
+                    normalized_label: "5 小时",
+                },
+            ],
+        });
+        render(<SettingsView />);
+
+        await user.click(await screen.findByTestId("settings-plugin-nav-accounts"));
+        const cpa_card = (await screen.findByText("CPA")).closest<HTMLElement>(".acc-card");
+        const edit_button =
+            cpa_card?.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
+        if (!edit_button) throw new Error("missing CPA edit button");
+        await user.click(edit_button);
+        const label_map_button = (await screen.findAllByTitle("编辑数据标签映射"))[0];
+        if (!label_map_button) throw new Error("missing label map button");
+        await user.click(label_map_button);
+        await user.click(
+            await screen.findByRole("button", {
+                name: "监控该数据标签的即将重置",
+            }),
+        );
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    accountOverrides: {
+                        upcomingResetWatched: {
+                            claude: {
+                                "cpa-1|label|Account A": ["five_hour"],
+                                "cpa-1|label|Account B": ["five_hour"],
+                            },
+                        },
+                    },
+                }),
+            );
+        });
+    });
+
+    it("removes all CPA account watches when the label-map bell is fully watched", async () => {
+        const user = userEvent.setup();
+        current_config = {
+            ...base_config,
+            accountOverrides: {
+                upcomingResetWatched: {
+                    claude: {
+                        "cpa-1|label|Account A": ["five_hour"],
+                        "cpa-1|label|Account B": ["five_hour"],
+                    },
+                },
+            },
+        };
+        window.usageboard.connector.getState = vi.fn().mockResolvedValue({
+            status: "ready",
+            updatedAt: "2026-07-25T00:00:00.000Z",
+            items: [
+                {
+                    id: "claude-a",
+                    provider: "claude",
+                    source: "gateway",
+                    sourceInstanceId: "cpa-1",
+                    accountId: "account-a",
+                    accountLabel: "Account A",
+                    raw_label: "five_hour",
+                    normalized_label: "5 小时",
+                },
+                {
+                    id: "claude-b",
+                    provider: "claude",
+                    source: "gateway",
+                    sourceInstanceId: "cpa-1",
+                    accountId: "account-b",
+                    accountLabel: "Account B",
+                    raw_label: "five_hour",
+                    normalized_label: "5 小时",
+                },
+            ],
+        });
+        render(<SettingsView />);
+
+        await user.click(await screen.findByTestId("settings-plugin-nav-accounts"));
+        const cpa_card = (await screen.findByText("CPA")).closest<HTMLElement>(".acc-card");
+        const edit_button =
+            cpa_card?.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
+        if (!edit_button) throw new Error("missing CPA edit button");
+        await user.click(edit_button);
+        const label_map_button = (await screen.findAllByTitle("编辑数据标签映射"))[0];
+        if (!label_map_button) throw new Error("missing label map button");
+        await user.click(label_map_button);
+        await user.click(
+            await screen.findByRole("button", {
+                name: "监控该数据标签的即将重置",
+            }),
+        );
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    accountOverrides: {},
+                }),
+            );
+        });
+    });
+
     it("saves CPA remark without refreshing and returns to accounts list", async () => {
         const user = userEvent.setup();
         const refresh_spy = vi.fn();
