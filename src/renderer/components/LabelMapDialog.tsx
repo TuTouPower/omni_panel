@@ -21,8 +21,10 @@ interface LabelMapDialogProps {
     vendor_id: string;
     account_name: string;
     existing_map: Readonly<Record<string, string>>;
+    watched_metrics?: Readonly<Partial<Record<string, readonly string[]>>> | undefined;
     on_save: (instance_id: string, map: Record<string, string>) => Promise<void>;
     on_close: () => void;
+    on_toggle_watched?: ((raw_label: string, account_keys: readonly string[]) => void) | undefined;
 }
 
 export function LabelMapDialog({
@@ -30,8 +32,10 @@ export function LabelMapDialog({
     vendor_id,
     account_name,
     existing_map,
+    watched_metrics,
     on_save,
     on_close,
+    on_toggle_watched,
 }: LabelMapDialogProps) {
     const [rows, set_rows] = useState<LabelMapRow[]>([]);
     const [map, set_map] = useState<Record<string, string>>({});
@@ -161,6 +165,13 @@ export function LabelMapDialog({
                                 {rows.map((r) => {
                                     const v = effective(r);
                                     const changed = v !== r.default;
+                                    const watched =
+                                        r.account_keys.length > 0 &&
+                                        r.account_keys.every(
+                                            (account_key) =>
+                                                watched_metrics?.[account_key]?.includes(r.raw) ??
+                                                false,
+                                        );
                                     return (
                                         <div className="lm-row" key={r.raw}>
                                             <code className="lm-raw" title={r.raw}>
@@ -198,6 +209,24 @@ export function LabelMapDialog({
                                                     </button>
                                                 )}
                                             </div>
+                                            {watched_metrics && on_toggle_watched && (
+                                                <button
+                                                    className="lm-watch"
+                                                    title="监控该数据标签的即将重置"
+                                                    aria-label="监控该数据标签的即将重置"
+                                                    aria-pressed={watched}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        on_toggle_watched(r.raw, r.account_keys);
+                                                    }}
+                                                >
+                                                    <Icon
+                                                        name="bell"
+                                                        size={14}
+                                                        style={{ opacity: watched ? 1 : 0.35 }}
+                                                    />
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 })}

@@ -31,7 +31,7 @@
 - **auto-seed（`auto_seed_connectors`）**：把发现的连接器定义并入 config。新连接器 `randomUUID` 的 instanceId/stateId、`name = manifest.id.toUpperCase()`、`enabled:true`、`refreshIntervalSeconds:0`（跟随全局）、`manualRefreshOnly` 若 `manifest.manualDefault`、种非 secret 参数默认、`endpointOverrides:{}`。已存在项按 id 匹配，仅更新 executablePath。**tombstone（t038）**：第 3 参 `removed_ids: ReadonlySet<string>`（来自 `config.removedConnectorIds`），manifest id 命中则跳过 seed，删除的内置连接器重启不复活。
 - **`removedConnectorIds`（t038）**：`AppConfiguration` 可选字段，manifest id 数组。删除/移除连接器时（SettingsView `with_removed_connector`）把 manifest id（`info.metadata.name`）去重写入。旧 config 无此字段 = 空集合，向后兼容。
 - **`upcomingResetThresholdPercent`（t041）**：`AppConfiguration` 可选字段，`number | null`（zod `int().min(0).max(100).nullable().optional()`）。剩余时间占周期百分比 ≤ 此值时账号进「即将重置」面板；null/undefined = 不展示面板。设置页常规段阈值 input 控制（留空存 null）。
-- **`accountOverrides.upcomingResetWatched`（t043）**：`Partial<Record<UsageProvider, Partial<Record<string, readonly string[]>>>>`（provider → accountKey → `raw_label[]`）。显式开启「即将重置」监控的数据标签；缺省/空 = 全关。主面板 period 行 bell toggle 写入（t043 取代 t041 account 级 `upcomingResetOff`，旧字段 zod 默认 strip 迁移）。
+- **`accountOverrides.upcomingResetWatched`（t043/t104）**：`Partial<Record<UsageProvider, Partial<Record<string, readonly string[]>>>>`（provider → accountKey → `raw_label[]`）。显式开启「即将重置」监控的数据标签；缺省/空 = 全关。用量面板 period 行与 CPA 标签映射弹窗的 bell 均写入此字段（t043 取代 t041 account 级 `upcomingResetOff`，旧字段 zod 默认 strip 迁移）。
 
 ## 边界
 

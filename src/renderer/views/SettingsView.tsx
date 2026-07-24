@@ -22,7 +22,7 @@ import { AddAccountDialog } from "../components/AddAccountDialog";
 import type { AddAccountParams } from "../components/AddAccountDialog";
 import { VendorCard } from "../components/VendorCard";
 import { CpaCard } from "../components/CpaCard";
-import { LabelMapDialog } from "../components/LabelMapDialog";
+import { CpaLabelMapDialog } from "../components/CpaLabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon, VendorMark, type VendorId } from "../components/Icon";
@@ -2232,35 +2232,13 @@ export function SettingsView() {
                     />
                 )}
                 {label_map_dialog && (
-                    <LabelMapDialog
+                    <CpaLabelMapDialog
                         instance_id={label_map_dialog.instance_id}
                         vendor_id={label_map_dialog.vendor_id}
                         account_name={label_map_dialog.account_name}
-                        existing_map={
-                            label_map_dialog.save_target === "provider"
-                                ? (config.providerLabelMaps?.[label_map_dialog.vendor_id] ?? {})
-                                : (config.accountLabelMaps?.[label_map_dialog.instance_id] ?? {})
-                        }
-                        on_save={async (instance_id, map) => {
-                            if (label_map_dialog.save_target === "provider") {
-                                await save_config({
-                                    ...config,
-                                    providerLabelMaps: {
-                                        ...(config.providerLabelMaps ?? {}),
-                                        [label_map_dialog.vendor_id]: map,
-                                    },
-                                });
-                            } else {
-                                await save_config({
-                                    ...config,
-                                    accountLabelMaps: {
-                                        ...(config.accountLabelMaps ?? {}),
-                                        [instance_id]: map,
-                                    },
-                                });
-                            }
-                            set_label_map_dialog(null);
-                        }}
+                        save_target={label_map_dialog.save_target}
+                        config={config}
+                        on_save_config={save_config}
                         on_close={() => {
                             set_label_map_dialog(null);
                         }}

@@ -488,4 +488,149 @@ describe("LabelMapDialog", () => {
         fireEvent.mouseDown(dialog);
         expect(on_close).not.toHaveBeenCalled();
     });
+
+    it("does not render a bell without a watch callback", async () => {
+        mock_get_state.mockResolvedValue(mock_ready_state(sample_items()));
+        render(
+            <LabelMapDialog
+                instance_id="cpa-1"
+                vendor_id="claude"
+                account_name="CPA · Claude"
+                existing_map={{}}
+                on_save={on_save}
+                on_close={on_close}
+            />,
+        );
+
+        await screen.findByText("five_hour");
+        expect(
+            screen.queryByRole("button", {
+                name: "监控该数据标签的即将重置",
+            }),
+        ).toBeNull();
+    });
+
+    it("does not render a bell without watched metrics", async () => {
+        mock_get_state.mockResolvedValue(mock_ready_state(sample_items()));
+        render(
+            <LabelMapDialog
+                instance_id="cpa-1"
+                vendor_id="claude"
+                account_name="CPA · Claude"
+                existing_map={{}}
+                on_save={on_save}
+                on_close={on_close}
+                on_toggle_watched={vi.fn()}
+            />,
+        );
+
+        await screen.findByText("five_hour");
+        expect(
+            screen.queryByRole("button", {
+                name: "监控该数据标签的即将重置",
+            }),
+        ).toBeNull();
+    });
+
+    it("renders a titled bell for every raw label", async () => {
+        mock_get_state.mockResolvedValue(mock_ready_state(sample_items()));
+        render(
+            <LabelMapDialog
+                instance_id="cpa-1"
+                vendor_id="claude"
+                account_name="CPA · Claude"
+                existing_map={{}}
+                watched_metrics={{}}
+                on_save={on_save}
+                on_close={on_close}
+                on_toggle_watched={vi.fn()}
+            />,
+        );
+
+        await screen.findByText("five_hour");
+        const bells = screen.getAllByRole("button", {
+            name: "监控该数据标签的即将重置",
+        });
+        expect(bells).toHaveLength(2);
+        for (const bell of bells) {
+            expect(bell).toHaveAttribute("title", "监控该数据标签的即将重置");
+        }
+    });
+
+    it("renders a CPA bell as pressed only when every account key is watched", async () => {
+        const first_item = sample_items()[0];
+        if (!first_item) throw new Error("missing sample item");
+        const account_a: MetricRecord = {
+            ...first_item,
+            accountId: "account-a",
+            accountLabel: "Account A",
+        };
+        const account_b: MetricRecord = {
+            ...first_item,
+            id: "item-2",
+            accountId: "account-b",
+            accountLabel: "Account B",
+        };
+        mock_get_state.mockResolvedValue(mock_ready_state([account_a, account_b]));
+        render(
+            <LabelMapDialog
+                instance_id="cpa-1"
+                vendor_id="claude"
+                account_name="CPA · Claude"
+                existing_map={{}}
+                watched_metrics={{
+                    "cpa-1|label|Account A": ["five_hour"],
+                }}
+                on_save={on_save}
+                on_close={on_close}
+                on_toggle_watched={vi.fn()}
+            />,
+        );
+
+        const bell = await screen.findByRole("button", {
+            name: "监控该数据标签的即将重置",
+        });
+        expect(bell).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("passes every CPA account key for a raw label when its bell is clicked", async () => {
+        const user = userEvent.setup();
+        const on_toggle_watched = vi.fn();
+        const first_item = sample_items()[0];
+        if (!first_item) throw new Error("missing sample item");
+        const account_a: MetricRecord = {
+            ...first_item,
+            accountId: "account-a",
+            accountLabel: "Account A",
+        };
+        const account_b: MetricRecord = {
+            ...first_item,
+            id: "item-2",
+            accountId: "account-b",
+            accountLabel: "Account B",
+        };
+        mock_get_state.mockResolvedValue(mock_ready_state([account_a, account_b]));
+        render(
+            <LabelMapDialog
+                instance_id="cpa-1"
+                vendor_id="claude"
+                account_name="CPA · Claude"
+                existing_map={{}}
+                watched_metrics={{}}
+                on_save={on_save}
+                on_close={on_close}
+                on_toggle_watched={on_toggle_watched}
+            />,
+        );
+
+        await user.click(
+            await screen.findByRole("button", {
+                name: "监控该数据标签的即将重置",
+            }),
+        );
+        expect(on_toggle_watched).toHaveBeenCalledWith("five_hour", [
+            "cpa-1|label|Account A",
+            "cpa-1|label|Account B",
+        ]);
+    });
 });
