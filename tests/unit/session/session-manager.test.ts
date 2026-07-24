@@ -65,7 +65,11 @@ interface TestDeps extends SessionManagerDeps {
     readonly window: MockWindow;
     readonly partitions: string[];
     readonly cookie_urls: string[];
-    emit_before_send_headers(url: string, requestHeaders: Record<string, string>): void;
+    emit_before_send_headers(
+        url: string,
+        requestHeaders: Record<string, string>,
+        resource_type?: string,
+    ): void;
 }
 
 function create_deps(cookies: SessionCookie[] = []): TestDeps {
@@ -73,7 +77,11 @@ function create_deps(cookies: SessionCookie[] = []): TestDeps {
     const partitions: string[] = [];
     const cookie_urls: string[] = [];
     let before_send_headers:
-        | ((details: { url: string; requestHeaders: Record<string, string> }) => void)
+        | ((details: {
+              url: string;
+              requestHeaders: Record<string, string>;
+              resource_type: string;
+          }) => void)
         | null = null;
 
     return {
@@ -97,13 +105,34 @@ function create_deps(cookies: SessionCookie[] = []): TestDeps {
                 },
             };
         },
-        emit_before_send_headers(url: string, requestHeaders: Record<string, string>) {
-            before_send_headers?.({ url, requestHeaders });
+        emit_before_send_headers(
+            url: string,
+            requestHeaders: Record<string, string>,
+            resource_type = "xhr",
+        ) {
+            before_send_headers?.({ url, requestHeaders, resource_type });
         },
     };
 }
 
 describe("session-manager", () => {
+    it("rejects an invalid login URL before acquiring session resources", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        await expect(
+            manager.start_login({
+                instance_id: "mimo-1",
+                provider: "mimo",
+                login_url: "not a URL",
+                cookie_names: ["token"],
+            }),
+        ).rejects.toThrow("Invalid login URL");
+
+        expect(deps.window.loaded_urls).toEqual([]);
+        expect(deps.partitions).toEqual([]);
+    });
+
     it("opens login URL in controlled window", async () => {
         const deps = create_deps();
         const manager = create_session_manager(deps);
@@ -175,6 +204,99 @@ describe("session-manager", () => {
 
         await expect(promise).resolves.toEqual({ saved: true });
         await expect(deps.vault.get("opencode-go-1:SESSION_COOKIE")).resolves.toBe("session=abc");
+    });
+
+    it("returns captured Cookie without writing vault after anonymous wildcard login returns", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+        });
+        deps.emit_before_send_headers(
+            "https://auth.opencode.ai/authorize?client_id=app",
+            {},
+            "mainFrame",
+        );
+        deps.emit_before_send_headers(
+            "https://opencode.ai/workspace/workspace-1",
+            { Cookie: "session=abc; __Host-session=def" },
+            "mainFrame",
+        );
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({
+            saved: true,
+            cookie: "session=abc; __Host-session=def",
+        });
+        expect((deps.vault as ReturnType<typeof create_vault>).values).toEqual(new Map());
+        expect(deps.window.loaded_urls).toEqual(["https://opencode.ai/auth"]);
+        expect(deps.partitions[0]).toMatch(/^window:session-login:anonymous:/);
+        expect(deps.partitions[1]).toMatch(/^session:session-login:anonymous:/);
+    });
+
+    it("does not accept initial anonymous Cookie before wildcard login returns", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+        });
+        deps.emit_before_send_headers("https://opencode.ai/_server?id=abc", {
+            Cookie: "auth=anonymous",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: false });
+        expect((deps.vault as ReturnType<typeof create_vault>).values).toEqual(new Map());
+    });
+
+    it("does not accept wildcard Cookie after leaving for IdP without returning", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+        });
+        deps.emit_before_send_headers(
+            "https://auth.opencode.ai/authorize?client_id=app",
+            {},
+            "mainFrame",
+        );
+        deps.emit_before_send_headers("https://opencode.ai/_server?id=abc", {
+            Cookie: "auth=anonymous",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: false });
+    });
+
+    it("does not unlock wildcard Cookie capture for cross-origin subresources", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+        });
+        deps.emit_before_send_headers(
+            "https://auth.opencode.ai/authorize?client_id=app",
+            {},
+            "script",
+        );
+        deps.emit_before_send_headers("https://opencode.ai/_server?id=abc", {
+            Cookie: "auth=anonymous",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: false });
     });
 
     it("ignores third-party OpenCode Go _server Cookie headers", async () => {

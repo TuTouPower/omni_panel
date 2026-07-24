@@ -67,6 +67,7 @@
 - 系列：按模型拆分
 - 类型切换：折线 / 柱状（本版不做日历方块）
 - 数据源：`token_stats_buckets` 表，按筛选条件 GROUP BY
+- **自然时间 bucket**（t103）：时间轴保留筛选窗口原始起止；day/hour 分别按本地午夜/整点切分，首末 bucket 可为 partial。标签和小时刻度使用各 bucket 的真实起点；Heatmap 与前一窗口等长对比不变。
 
 ## 5. Session 列表
 

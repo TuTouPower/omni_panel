@@ -56,22 +56,55 @@ export function bucketize(
     end: number,
     gran: Granularity,
 ): {
-    step: number;
     n: number;
     idx: (ts: number) => number;
+    startOf: (i: number) => number;
     label: (i: number) => string;
 } {
-    const step = gran === "hour" ? 3600000 : 86400000;
-    const n = Math.max(1, Math.ceil((end - start) / step));
-    const idx = (ts: number) => Math.min(n - 1, Math.max(0, Math.floor((ts - start) / step)));
-    const label = (i: number) => {
-        const d = new Date(start + i * step);
-        const pad = (x: number) => String(x).padStart(2, "0");
-        return gran === "hour"
-            ? `${String(d.getMonth() + 1)}/${String(d.getDate())} ${pad(d.getHours())}:00`
-            : `${String(d.getMonth() + 1)}/${String(d.getDate())}`;
+    const next_boundary = (timestamp: number) => {
+        const date = new Date(timestamp);
+        if (gran === "hour") {
+            date.setMinutes(0, 0, 0);
+            date.setHours(date.getHours() + 1);
+        } else {
+            date.setHours(0, 0, 0, 0);
+            date.setDate(date.getDate() + 1);
+        }
+        return date.getTime();
     };
-    return { step, n, idx, label };
+    const starts = [start];
+    let boundary = next_boundary(start);
+    while (boundary < end) {
+        starts.push(boundary);
+        boundary = next_boundary(boundary);
+    }
+    const n = starts.length;
+    const idx = (ts: number) => {
+        if (ts <= start) return 0;
+        if (ts >= end) return n - 1;
+
+        let low = 0;
+        let high = n;
+        while (low < high) {
+            const mid = Math.floor((low + high) / 2);
+            const mid_start = starts[mid];
+            if (mid_start !== undefined && mid_start <= ts) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        return Math.max(0, low - 1);
+    };
+    const startOf = (i: number) => starts[i] ?? start;
+    const label = (i: number) => {
+        const date = new Date(startOf(i));
+        const pad = (value: number) => String(value).padStart(2, "0");
+        return gran === "hour"
+            ? `${String(date.getMonth() + 1)}/${String(date.getDate())} ${pad(date.getHours())}:00`
+            : `${String(date.getMonth() + 1)}/${String(date.getDate())}`;
+    };
+    return { n, idx, startOf, label };
 }
 
 /** Aggregate records into session rows for the detail table. */

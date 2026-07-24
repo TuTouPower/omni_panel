@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createLogger } from "../../../shared/lib/logger";
 import { keyFor } from "../config/secrets-store";
 import type { VaultBackend } from "../vault/vault-backend";
@@ -23,7 +24,11 @@ export interface SessionWindow {
 
 export interface SessionController {
     on_before_send_headers(
-        handler: (details: { url: string; requestHeaders: Record<string, string> }) => void,
+        handler: (details: {
+            url: string;
+            requestHeaders: Record<string, string>;
+            resource_type: string;
+        }) => void,
     ): void;
     get_cookies(url: string): Promise<SessionCookie[]>;
 }
@@ -35,7 +40,7 @@ export interface SessionManagerDeps {
 }
 
 export interface LoginRequest {
-    readonly instance_id: string;
+    readonly instance_id?: string;
     readonly provider: string;
     readonly login_url: string;
     readonly cookie_names: readonly string[];
@@ -44,6 +49,7 @@ export interface LoginRequest {
 
 export interface LoginResult {
     readonly saved: boolean;
+    readonly cookie?: string;
 }
 
 export interface SessionManager {
@@ -59,19 +65,31 @@ export function create_session_manager(
 
     return {
         start_login(request: LoginRequest): Promise<LoginResult> {
-            log.info(`start_login: ${request.instance_id}`);
-            if (in_progress.has(request.instance_id)) {
-                log.warn(`Concurrent login rejected for ${request.instance_id}`);
+            const instance_id = request.instance_id;
+            const login_id = instance_id ?? `anonymous:${randomUUID()}`;
+            let login_origin: string;
+            try {
+                login_origin = new URL(request.login_url).origin;
+            } catch {
+                return Promise.reject(new Error("Invalid login URL"));
+            }
+            log.info(`start_login: ${login_id}`);
+            if (in_progress.has(login_id)) {
+                log.warn(`Concurrent login rejected for ${login_id}`);
                 return Promise.reject(
-                    new Error(`Login already in progress for instance: ${request.instance_id}`),
+                    new Error(`Login already in progress for instance: ${login_id}`),
                 );
             }
-            in_progress.add(request.instance_id);
+            in_progress.add(login_id);
 
-            const partition = get_session_login_partition(request.instance_id);
+            const partition = instance_id
+                ? get_session_login_partition(instance_id)
+                : `session-login:${login_id}`;
             const window = deps.create_window(partition);
             const session = deps.create_session(partition);
-            const login_origin = new URL(request.login_url).origin;
+            const is_wildcard_login = request.cookie_names.includes(ALL_COOKIES);
+            let wildcard_left_login_origin = false;
+            let wildcard_returned_to_login_origin = false;
             let captured_cookie: string | null = null;
             let timeout: ReturnType<typeof setTimeout> | null = null;
             let auto_close_timer: ReturnType<typeof setTimeout> | null = null;
@@ -90,7 +108,7 @@ export function create_session_manager(
                 }
 
                 function release_lock(): void {
-                    in_progress.delete(request.instance_id);
+                    in_progress.delete(login_id);
                 }
 
                 function finish_with_error(error: Error): void {
@@ -113,16 +131,22 @@ export function create_session_manager(
                     try {
                         // 不从 cookie jar 回退：仅信任 webRequest 捕获的请求头 Cookie。
                         if (!captured_cookie) {
-                            log.warn(`No matching cookies captured for ${request.instance_id}`);
+                            log.warn(`No matching cookies captured for ${login_id}`);
                             resolve({ saved: false });
                             return;
                         }
 
+                        if (!instance_id) {
+                            log.info("Anonymous session cookie captured");
+                            resolve({ saved: true, cookie: captured_cookie });
+                            return;
+                        }
+
                         await deps.vault.set(
-                            keyFor(request.instance_id, SESSION_COOKIE_KEY),
+                            keyFor(instance_id, SESSION_COOKIE_KEY),
                             captured_cookie,
                         );
-                        log.info(`Session cookie saved for ${request.instance_id}`);
+                        log.info(`Session cookie saved for ${instance_id}`);
                         resolve({ saved: true });
                     } catch (error) {
                         reject(to_error(error));
@@ -133,21 +157,32 @@ export function create_session_manager(
                 }
 
                 session.on_before_send_headers((details) => {
-                    if (!should_capture_cookie(details.url, login_origin)) return;
+                    const request_origin = get_origin(details.url);
+                    if (!request_origin) return;
+
+                    if (is_wildcard_login && details.resource_type === "mainFrame") {
+                        if (request_origin !== login_origin) {
+                            wildcard_left_login_origin = true;
+                        } else if (wildcard_left_login_origin) {
+                            wildcard_returned_to_login_origin = true;
+                        }
+                    }
+
+                    if (request_origin !== login_origin) return;
+                    if (is_wildcard_login && !wildcard_returned_to_login_origin) return;
+
                     const cookie = extract_cookie_header(details.requestHeaders);
                     const selected_cookie = cookie
                         ? select_cookie_header_values(cookie, request.cookie_names)
                         : null;
                     if (selected_cookie) {
-                        log.info(`Cookie captured for ${request.instance_id}`);
+                        log.info(`Cookie captured for ${login_id}`);
                         captured_cookie = selected_cookie;
                         if (request.auto_close_ms != null) {
                             auto_close_timer ??= setTimeout(() => {
                                 auto_close_timer = null;
                                 if (!completed && !window.isDestroyed()) {
-                                    log.info(
-                                        `Auto-closing login window for ${request.instance_id}`,
-                                    );
+                                    log.info(`Auto-closing login window for ${login_id}`);
                                     window.close();
                                 }
                             }, request.auto_close_ms);
@@ -156,12 +191,12 @@ export function create_session_manager(
                 });
 
                 window.on("closed", () => {
-                    log.debug(`Login window closed for ${request.instance_id}`);
+                    log.debug(`Login window closed for ${login_id}`);
                     void save_cookie_on_close();
                 });
 
                 timeout = setTimeout(() => {
-                    log.warn(`Login timed out for ${request.instance_id}`);
+                    log.warn(`Login timed out for ${login_id}`);
                     finish_with_error(new Error("Login timed out"));
                 }, timeout_ms);
 
@@ -177,15 +212,11 @@ export function get_session_login_partition(instance_id: string): string {
     return `persist:session-login:${instance_id}`;
 }
 
-function should_capture_cookie(url: string, login_origin: string): boolean {
-    // Only the request origin matters - the path allowlist (/api/v1/, /_server)
-    // was a hardcoded callback-path guess that silently broke session connectors
-    // whose login flow uses a different path. cookieNames in the manifest is the
-    // sole contract for which cookies to accept; here we just keep it same-origin.
+function get_origin(url: string): string | null {
     try {
-        return new URL(url).origin === login_origin;
+        return new URL(url).origin;
     } catch {
-        return false;
+        return null;
     }
 }
 

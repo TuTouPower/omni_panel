@@ -166,7 +166,7 @@ describe("ProviderCard", () => {
         expect(screen.queryByText(/观测/)).not.toBeInTheDocument();
         expect(document.querySelector(".source-badge")).not.toBeInTheDocument();
         expect(document.querySelector(".stale-badge")).toBeInTheDocument();
-        expect(document.querySelector(".card.stale")).toBeInTheDocument();
+        expect(document.querySelector(".card.stale")).not.toBeInTheDocument();
     });
 
     it("does not render disabled card state", () => {
@@ -218,6 +218,42 @@ describe("ProviderCard", () => {
         // ratio mode: aggregated used=150, limit=400
         expect(screen.getByText("150/400")).toBeInTheDocument();
         expect(screen.queryByText("Account 1")).not.toBeInTheDocument();
+    });
+
+    it("resets account detail to overview after the card is collapsed", () => {
+        const group = makeGroup({ accountCount: 2 });
+        const on_toggle_expand = vi.fn();
+        const { rerender } = render(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={on_toggle_expand}
+            />,
+        );
+
+        fireEvent.click(screen.getByTitle("账号明细"));
+        expect(screen.getByText("Account 1")).toBeInTheDocument();
+
+        rerender(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded={false}
+                onToggleExpand={on_toggle_expand}
+            />,
+        );
+        rerender(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={on_toggle_expand}
+            />,
+        );
+
+        expect(screen.queryByText("Account 1")).not.toBeInTheDocument();
+        expect(screen.getByTitle("概览")).toHaveClass("on");
     });
 
     it("renders short usage period labels", () => {
@@ -878,7 +914,7 @@ describe("ProviderCard", () => {
             />,
         );
         // stale styling on the card
-        expect(document.querySelector(".card.stale")).toBeInTheDocument();
+        expect(document.querySelector(".card.stale")).not.toBeInTheDocument();
         // error banner text
         expect(screen.getByText(/网络超时/)).toBeInTheDocument();
         // cached usage still rendered (not the empty state)

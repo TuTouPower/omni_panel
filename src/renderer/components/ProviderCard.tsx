@@ -1,4 +1,4 @@
-import { memo, useState, useMemo, useCallback } from "react";
+import { memo, useState, useMemo, useCallback, useEffect } from "react";
 import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
 import {
     PROVIDER_LABELS,
@@ -111,12 +111,13 @@ export const ProviderCard = memo(function ProviderCard({
           : hasUsage
             ? "ready"
             : "empty";
-    const card_class =
-        (dragging ? " dragging" : "") +
-        (dragOver ? " drag-over" : "") +
-        (group?.stale || has_stale_error ? " stale" : "");
+    const card_class = (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "");
 
     const [l2open, set_l2open] = useState(false);
+
+    useEffect(() => {
+        if (expanded === false) set_l2open(false);
+    }, [expanded]);
 
     const is_multi = accountCount > 1;
     const label_map_for_connector = useCallback(

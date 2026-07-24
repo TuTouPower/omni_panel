@@ -775,6 +775,54 @@
             "status": "done",
             "branch": "t096_fix_panel_refresh_freeze",
             "note": ""
+        },
+        {
+            "tid": "t098",
+            "title": "OpenCode Go 添加账号弹窗内嵌网页登录",
+            "slug": "opencode_go_add_dialog_web_login",
+            "status": "done",
+            "branch": "t098_opencode_go_add_dialog_web_login",
+            "note": ""
+        },
+        {
+            "tid": "t099",
+            "title": "解除用量面板宽度 780px 上限",
+            "slug": "popup_width_cap_remove",
+            "status": "done",
+            "branch": "t099_popup_width_cap_remove",
+            "note": ""
+        },
+        {
+            "tid": "t100",
+            "title": "折叠重置 L2 子状态（l2open）",
+            "slug": "l2_state_reset_on_collapse",
+            "status": "done",
+            "branch": "t100_l2_state_reset_on_collapse",
+            "note": ""
+        },
+        {
+            "tid": "t101",
+            "title": "数据标签映射默认展开",
+            "slug": "label_map_default_expanded",
+            "status": "done",
+            "branch": "t101_label_map_default_expanded",
+            "note": ""
+        },
+        {
+            "tid": "t102",
+            "title": "移除卡片 stale 黄色边框",
+            "slug": "remove_stale_amber_border",
+            "status": "done",
+            "branch": "t102_remove_stale_amber_border",
+            "note": "blocked: review"
+        },
+        {
+            "tid": "t103",
+            "title": "token-stats preset 按自然边界切片",
+            "slug": "token_stats_natural_bucket",
+            "status": "done",
+            "branch": "t103_token_stats_natural_bucket",
+            "note": ""
         }
     ]
 }

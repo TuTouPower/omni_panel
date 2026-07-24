@@ -40,6 +40,8 @@
 - **用量面板无账号编辑入口**（T8）：账号设置仅在 Settings；用量面板 provider 卡片无更多操作菜单，关闭/管理操作在设置页进行
 - **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（用量面板 + 设置列表）
 - **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %
+- **多账号卡片 L2 状态**（t100）：账号明细仅在当前展开期间有效；卡片折叠后重置为概览，下一次展开默认显示聚合用量。
+- **卡片 stale 展示**（t102）：数据过期或采集失败时不为卡片渲染 amber 外框；保留「已过期」徽章和错误文字。
 
 ### SettingsView（设置窗，route=setting）
 
@@ -53,6 +55,7 @@
 
 - 映射配置 **key 永远是 `item.raw_label`**（与用量面板 `format_usage_period_label` 查找键一致）。禁止用 `normalized_label` 或显示名作 key。
 - `LabelMapRow`：`raw`（key）/ `default`（无用户覆盖时的显示回退）/ `display`（`existing_map[raw]` 或 `default`）。
+- **数据标签映射显示**（t101）：`SettingsForm` 以静态标题直接渲染映射内容，无折叠按钮；加载态、空态和标签行始终保留。
 - 直连（`SettingsForm`）与 CPA（`LabelMapDialog`）共用此 util；CPA 可用 `normalize_for_display` 剥账号名做默认显示，**不改 key**。
 - 按 `raw_label` 去重（first wins）。旧映射若误用 `normalized_label` 作 key 不迁移，用户重设。
 

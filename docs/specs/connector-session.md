@@ -8,19 +8,19 @@ session 能力的连接器（MiMo / OpenCode Go / Kimi）需要用户在受控�
 
 ## IPC（`src/shared/types/ipc.ts`）
 
-- `SESSION_LOGIN` / `session.login(request)` — `request: SessionLoginRequest = { instance_id, provider, login_url, cookie_names[] }`
-- `SESSION_REFRESH` / `session.refresh(request)` — 复用 `SESSION_LOGIN` handler，重新打开登录窗（无后台定时续期）
-- `AUTH_COOKIE_LOGIN` / `auth.cookieLogin(instanceId)` — 通用 cookie 登录（兼容旧路径，由 auth-ipc 注入固定 `auto_close_ms`）
+- `SESSION_LOGIN` / `session.login(request)` — `request: SessionLoginRequest = { instance_id?, provider, login_url, cookie_names[] }`。添加账号阶段可不传 `instance_id`：匿名会话捕获 Cookie 后仅在 IPC result 返回，不写 Vault；用户确认添加账号时沿既有 secret 保存链路写入正式实例。
+- `SESSION_REFRESH` / `session.refresh(request)` — 必须传 `instance_id`，重新打开实例受控登录窗（无后台定时续期）。
+- `AUTH_COOKIE_LOGIN` / `auth.cookieLogin(instanceId)` — 通用 cookie 登录（兼容旧路径，由 auth-ipc 注入固定 `auto_close_ms`）。
 
-`SessionLoginRequest`（shared 契约）4 字段；内部 `LoginRequest`（`session-manager.ts:37-43`）额外含可选 `auto_close_ms`，由宿主层注入，不暴露给渲染进程。
+`SessionLoginRequest` 的 `instance_id` 可选；内部 `LoginRequest`（`session-manager.ts`）额外含可选 `auto_close_ms`，由宿主层注入，不暴露给渲染进程。
 
-返回 `SessionLoginResult = { saved: boolean }`。成功保存后 UI 提示"网页登录成功，Cookie 已保存"，失败提示"未捕获到 Cookie"。
+正式实例返回 `SessionLoginResult = { saved: boolean }`；匿名捕获成功返回 `SessionLoginResult = { saved: true, cookie }`。未捕获时返回 `{ saved: false }`。
 
 ## 登录流程（SessionManager）
 
-1. 宿主打开受控 `BrowserWindow`，**按实例**独立持久化分区 `persist:session-login:{instance_id}`（`session-manager.ts:176-178`）。
-2. 通过 `webRequest` 捕获浏览器**实际发出**的目标接口请求头（尤其 Cookie）——**不从 cookie jar 猜拼**；同源匹配由 `should_capture_cookie` 判定，具体接收哪些 cookie 由 manifest `cookieNames` 声明（`"*"` 表示全部）。
-3. 命中 `cookie_names` 列表即捕获成功，写入 SecretsVault（key 命名见 `secret-vault.md`）。
+1. 宿主为正式实例打开独立持久化分区 `persist:session-login:{instance_id}`；添加账号阶段使用一次性非持久匿名分区 `session-login:anonymous:{uuid}`。
+2. 通过 `webRequest` 捕获浏览器**实际发出**的同源请求头 Cookie，**不从 cookie jar 猜拼**。具名 Cookie 按 manifest `cookieNames` 接纳；`"*"` 在顶层页面离开并回到登录 origin 后才接纳，避免把登录前匿名 Cookie 视为凭据。
+3. 正式实例命中 Cookie 后写入 SecretsVault（key 命名见 `secret-vault.md`）；匿名实例只把 Cookie 返回添加账号表单。
 4. 关闭登录窗口（若 `auto_close_ms` 设置，捕获后自动延时关闭）。
 
 ## 后台续期

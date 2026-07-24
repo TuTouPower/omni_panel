@@ -4,12 +4,12 @@
 
 ## 四类窗口（`WINDOW_CONFIGS`）
 
-| key         | route     | 尺寸                       | 特征                                                                   |
-| ----------- | --------- | -------------------------- | ---------------------------------------------------------------------- |
-| `usage`     | `usage`   | 482×480, min 472, max 1400 | frameless, resizable, 托盘弹窗用量面板（默认隐藏，托盘点击显示）       |
-| `setting`   | `setting` | 820×660                    | frameless, `titleBarStyle:hidden`, `showWhenReady`, 圆角，独立持久窗口 |
-| `tray_menu` | `tray`    | —                          | 自定义托盘菜单渲染窗口                                                 |
-| `agent`     | `agent`   | 900×700                    | `frame:true`, `showWhenReady`, 圆角，独立窗承载 TokenStatsView         |
+| key         | route     | 尺寸             | 特征                                                                   |
+| ----------- | --------- | ---------------- | ---------------------------------------------------------------------- |
+| `usage`     | `usage`   | 482×480, min 472 | frameless, resizable, 托盘弹窗用量面板（默认隐藏，托盘点击显示）       |
+| `setting`   | `setting` | 820×660          | frameless, `titleBarStyle:hidden`, `showWhenReady`, 圆角，独立持久窗口 |
+| `tray_menu` | `tray`    | —                | 自定义托盘菜单渲染窗口                                                 |
+| `agent`     | `agent`   | 900×700          | `frame:true`, `showWhenReady`, 圆角，独立窗承载 TokenStatsView         |
 
 URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在前 hash 在后）。
 
@@ -21,6 +21,7 @@ URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在�
 - `floating` — 常驻浮窗。
 - `system` — schema 已收纳（`types.ts` `mainPanelModeSchema` = `z.enum(["system","popup","floating"])`），但语义未落地。
 - `main_panel:get_mode()` 返回当前模式；`mainPanel:hide` 隐藏。
+- 宽度策略：`usage` 仅限制 `minWidth=472`，不设固定 `maxWidth`。floating 保存与恢复宽度以所在 display 的 `workArea.width` 为上限；popup 可由用户拉宽。
 
 > 已知分裂：schema 放行三值（含 `system`），但 preload `main_panel.get_mode()` 类型签名仍声明 `Promise<"popup" | "floating">`（`src/preload/index.ts`）。消费者按二值处理，`system` 值经 IPC 回流时类型层面不被承认。
 

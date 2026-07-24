@@ -58,6 +58,7 @@ describe("AddAccountDialog MIMO session cookie", () => {
         expect(screen.getByText("备注")).toBeInTheDocument();
         const cookie_textarea = screen.getByPlaceholderText(/在浏览器登录/);
         expect(cookie_textarea).toBeInTheDocument();
+        expect(screen.queryByText("网页登录")).not.toBeInTheDocument();
 
         // Step 3: type cookie value
         await user.type(cookie_textarea, "api-platform_serviceToken=test123");
@@ -94,6 +95,7 @@ describe("AddAccountDialog MIMO session cookie", () => {
         await user.click(screen.getByText("Kimi"));
         const api_key_input = screen.getByPlaceholderText(/sk-kimi/);
         expect(api_key_input).toBeInTheDocument();
+        expect(screen.queryByText("网页登录")).not.toBeInTheDocument();
 
         await user.type(api_key_input, "sk-kimi-test123");
         await user.click(screen.getByText("添加账号"));
@@ -181,6 +183,93 @@ describe("AddAccountDialog MIMO session cookie", () => {
 
         expect(on_save).not.toHaveBeenCalled();
         expect(screen.getByText("请粘贴 Cookie 或先网页登录")).toBeInTheDocument();
+    });
+
+    it("overwrites OpenCode Go Cookie from anonymous web login and saves it", async () => {
+        const login = vi.fn().mockResolvedValue({
+            saved: true,
+            cookie: "session=abc; __Host-session=def",
+        });
+        window.usageboard = {
+            session: { login, refresh: vi.fn() },
+        } as unknown as typeof window.usageboard;
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[opencode_go_plugin()]}
+                on_close={on_close}
+                on_save={on_save}
+            />,
+        );
+
+        await user.click(screen.getByText("OpenCode Go"));
+        const cookie_textarea = screen.getByPlaceholderText(
+            "支持 JSON、EditThisCookie、Netscape、k=v; k=v",
+        );
+        await user.type(cookie_textarea, "session=old");
+        await user.click(screen.getByText("网页登录"));
+
+        await vi.waitFor(() => {
+            expect(login).toHaveBeenCalledWith({
+                provider: "opencode_go",
+                login_url: "https://opencode.ai/auth",
+                cookie_names: ["*"],
+            });
+        });
+        await vi.waitFor(() => {
+            expect(cookie_textarea).toHaveValue("session=abc; __Host-session=def");
+        });
+
+        await user.click(screen.getByText("添加账号"));
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    secrets: { SESSION_COOKIE: "session=abc; __Host-session=def" },
+                }),
+            );
+        });
+    });
+
+    it("shows OpenCode Go web login failure", async () => {
+        const login = vi.fn().mockResolvedValue({ saved: false });
+        window.usageboard = {
+            session: { login, refresh: vi.fn() },
+        } as unknown as typeof window.usageboard;
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[opencode_go_plugin()]}
+                on_close={on_close}
+                on_save={on_save}
+            />,
+        );
+
+        await user.click(screen.getByText("OpenCode Go"));
+        await user.click(screen.getByText("网页登录"));
+
+        expect(
+            await screen.findByText("未捕获到 Cookie，请完成登录后再关闭窗口"),
+        ).toBeInTheDocument();
+    });
+
+    it("shows OpenCode Go web login error", async () => {
+        const login = vi.fn().mockRejectedValue(new Error("Login timed out"));
+        window.usageboard = {
+            session: { login, refresh: vi.fn() },
+        } as unknown as typeof window.usageboard;
+        const user = userEvent.setup();
+        render(
+            <AddAccountDialog
+                plugin_infos={[opencode_go_plugin()]}
+                on_close={on_close}
+                on_save={on_save}
+            />,
+        );
+
+        await user.click(screen.getByText("OpenCode Go"));
+        await user.click(screen.getByText("网页登录"));
+
+        expect(await screen.findByText("Login timed out")).toBeInTheDocument();
     });
 
     it("does not save OpenCode Go when pasted Cookie is invalid", async () => {

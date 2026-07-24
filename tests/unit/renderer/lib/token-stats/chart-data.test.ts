@@ -189,6 +189,78 @@ describe("chart-data", () => {
             expect(firstSeries.data[0]).toBe(105);
         });
 
+        it("keeps natural bucket starts and routes records across partial day buckets", () => {
+            const start = new Date("2026-07-17T15:30:00").getTime();
+            const end = new Date("2026-07-24T15:30:00").getTime();
+            const records = [
+                record({ timestamp: new Date("2026-07-17T16:00:00").getTime(), input_tokens: 100 }),
+                record({ timestamp: new Date("2026-07-18T01:00:00").getTime(), input_tokens: 100 }),
+                record({ timestamp: new Date("2026-07-24T10:00:00").getTime(), input_tokens: 100 }),
+            ];
+            const data = prepareBarData(records, "tokens", "time", "day", start, end, "dark");
+
+            expect(data.labels).toEqual([
+                "7/17",
+                "7/18",
+                "7/19",
+                "7/20",
+                "7/21",
+                "7/22",
+                "7/23",
+                "7/24",
+            ]);
+            expect(data.bucketStarts).toEqual([
+                start,
+                new Date("2026-07-18T00:00:00").getTime(),
+                new Date("2026-07-19T00:00:00").getTime(),
+                new Date("2026-07-20T00:00:00").getTime(),
+                new Date("2026-07-21T00:00:00").getTime(),
+                new Date("2026-07-22T00:00:00").getTime(),
+                new Date("2026-07-23T00:00:00").getTime(),
+                new Date("2026-07-24T00:00:00").getTime(),
+            ]);
+            const firstSeries = data.series[0];
+            if (!firstSeries) throw new Error("expected first series");
+            expect(firstSeries.data).toEqual([105, 105, 0, 0, 0, 0, 0, 105]);
+        });
+
+        it("routes partial-hour records into twenty-five time-axis buckets", () => {
+            const start = new Date("2026-07-23T15:30:00").getTime();
+            const end = new Date("2026-07-24T15:30:00").getTime();
+            const records = [
+                record({ timestamp: new Date("2026-07-23T15:45:00").getTime(), input_tokens: 100 }),
+                record({ timestamp: new Date("2026-07-24T05:00:00").getTime(), input_tokens: 100 }),
+                record({ timestamp: new Date("2026-07-24T15:10:00").getTime(), input_tokens: 100 }),
+            ];
+            const data = prepareBarData(records, "tokens", "time", "hour", start, end, "dark");
+            const firstSeries = data.series[0];
+            if (!firstSeries) throw new Error("expected first series");
+
+            expect(data.labels).toHaveLength(25);
+            expect(data.labels[0]).toBe("7/23 15:00");
+            expect(data.labels[14]).toBe("7/24 05:00");
+            expect(data.labels[24]).toBe("7/24 15:00");
+            expect(data.bucketStarts).toHaveLength(25);
+            expect(data.bucketStarts[0]).toBe(start);
+            expect(data.bucketStarts[14]).toBe(new Date("2026-07-24T05:00:00").getTime());
+            expect(data.bucketStarts[24]).toBe(new Date("2026-07-24T15:00:00").getTime());
+            expect(firstSeries.data[0]).toBe(105);
+            expect(firstSeries.data[14]).toBe(105);
+            expect(firstSeries.data[24]).toBe(105);
+        });
+
+        it("creates thirty-one natural day buckets through the bar-data path", () => {
+            const start = new Date("2026-06-24T15:30:00").getTime();
+            const end = new Date("2026-07-24T15:30:00").getTime();
+            const data = prepareBarData([], "tokens", "time", "day", start, end, "dark");
+
+            expect(data.labels).toHaveLength(31);
+            expect(data.labels[0]).toBe("6/24");
+            expect(data.labels[30]).toBe("7/24");
+            expect(data.bucketStarts[0]).toBe(start);
+            expect(data.bucketStarts[30]).toBe(new Date("2026-07-24T00:00:00").getTime());
+        });
+
         it("projects sessions by directory when metric is sessions", () => {
             const records = [
                 record({ directory: "/a", session_id: "x" }),

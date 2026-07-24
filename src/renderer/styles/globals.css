@@ -612,9 +612,6 @@ html[data-window="tray"] #root {
     color: var(--risk-red);
     font-weight: 650;
 }
-.card.stale {
-    border-color: color-mix(in srgb, var(--amber) 34%, var(--card-border));
-}
 
 /* card more-menu */
 .card-menu-wrap {

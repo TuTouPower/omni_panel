@@ -106,7 +106,9 @@ describe("handleSessionLogin", () => {
         }
     });
 
-    it("returns VALIDATION_ERROR when instance_id is missing", async () => {
+    it("allows anonymous login without instance_id", async () => {
+        vi.mocked(mock_session_manager.start_login).mockResolvedValue({ saved: false });
+
         const mod = await import("../../../src/main/ipc/session-ipc");
         const result = await mod.handleSessionLogin(
             { sessionManager: mock_session_manager },
@@ -118,11 +120,36 @@ describe("handleSessionLogin", () => {
             },
         );
 
-        expect(result.ok).toBe(false);
-        if (!result.ok) {
-            expect(result.error.code).toBe("VALIDATION_ERROR");
-        }
-        expect(mock_session_manager.start_login).not.toHaveBeenCalled();
+        expect(result).toEqual({ ok: true, data: { saved: false } });
+        expect(mock_session_manager.start_login).toHaveBeenCalledWith({
+            provider: "mimo",
+            login_url: "https://example.com/login",
+            cookie_names: ["SESSION"],
+        });
+    });
+
+    it("returns captured Cookie from anonymous login", async () => {
+        vi.mocked(mock_session_manager.start_login).mockResolvedValue({
+            saved: true,
+            cookie: "session=abc",
+        });
+
+        const mod = await import("../../../src/main/ipc/session-ipc");
+        const result = await mod.handleSessionLogin(
+            { sessionManager: mock_session_manager },
+            {
+                provider: "opencode_go",
+                login_url: "https://opencode.ai/auth",
+                cookie_names: ["*"],
+            },
+        );
+
+        expect(result).toEqual({ ok: true, data: { saved: true, cookie: "session=abc" } });
+        expect(mock_session_manager.start_login).toHaveBeenCalledWith({
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+        });
     });
 
     it("returns VALIDATION_ERROR when login_url is missing", async () => {

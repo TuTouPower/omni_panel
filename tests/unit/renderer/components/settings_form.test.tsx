@@ -130,8 +130,7 @@ describe("SettingsForm", () => {
         expect(onDuplicate).toHaveBeenCalledWith("deepseek");
     });
 
-    it("loads label map rows under React StrictMode", async () => {
-        const user = userEvent.setup();
+    it("renders label map rows without a disclosure button under React StrictMode", async () => {
         window.usageboard.connector.getState = vi.fn().mockResolvedValue({
             status: "ready",
             updatedAt: "2026-06-28T00:00:00.000Z",
@@ -159,9 +158,53 @@ describe("SettingsForm", () => {
             </StrictMode>,
         );
 
-        await user.click(screen.getByText("数据标签映射"));
-
+        expect(screen.getByText("数据标签映射")).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "数据标签映射" })).not.toBeInTheDocument();
         expect(await screen.findByDisplayValue("滚动")).toBeInTheDocument();
+    });
+
+    it("shows label map loading state by default", () => {
+        window.usageboard.connector.getState = vi
+            .fn()
+            .mockReturnValue(new Promise(() => undefined));
+
+        render(
+            <SettingsForm
+                instanceId="opencode-go-1"
+                providerId="opencode_go"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+                onSaveLabelMap={vi.fn().mockResolvedValue(undefined)}
+            />,
+        );
+
+        expect(screen.getByText("加载标签数据…")).toBeInTheDocument();
+    });
+
+    it("shows label map empty state by default", async () => {
+        window.usageboard.connector.getState = vi.fn().mockResolvedValue({
+            status: "ready",
+            updatedAt: "2026-06-28T00:00:00.000Z",
+            items: [],
+        });
+
+        render(
+            <SettingsForm
+                instanceId="opencode-go-1"
+                providerId="opencode_go"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+                onSaveLabelMap={vi.fn().mockResolvedValue(undefined)}
+            />,
+        );
+
+        expect(await screen.findByText("暂无可映射的数据标签")).toBeInTheDocument();
     });
 
     it("submits form and calls onSave with correct arguments", async () => {

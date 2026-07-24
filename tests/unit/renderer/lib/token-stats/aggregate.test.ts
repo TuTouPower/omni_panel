@@ -119,31 +119,82 @@ describe("aggregate", () => {
     });
 
     describe("bucketize", () => {
-        it("creates day buckets", () => {
-            const start = new Date("2026-07-10T00:00:00").getTime();
-            const end = new Date("2026-07-13T00:00:00").getTime();
+        it("splits a non-midnight seven-day window into natural day buckets", () => {
+            const start = new Date("2026-07-17T15:30:00").getTime();
+            const end = new Date("2026-07-24T15:30:00").getTime();
             const bk = bucketize(start, end, "day");
-            expect(bk.step).toBe(86400000);
-            expect(bk.n).toBe(3);
-            expect(bk.label(0)).toBe("7/10");
+
+            expect(bk.n).toBe(8);
+            expect(Array.from({ length: bk.n }, (_, i) => bk.label(i))).toEqual([
+                "7/17",
+                "7/18",
+                "7/19",
+                "7/20",
+                "7/21",
+                "7/22",
+                "7/23",
+                "7/24",
+            ]);
+            expect(bk.startOf(0)).toBe(start);
+            expect(bk.startOf(1)).toBe(new Date("2026-07-18T00:00:00").getTime());
+            expect(bk.startOf(7)).toBe(new Date("2026-07-24T00:00:00").getTime());
+            expect(bk.idx(new Date("2026-07-17T15:35:00").getTime())).toBe(0);
+            expect(bk.idx(new Date("2026-07-18T00:00:00").getTime())).toBe(1);
+            expect(bk.idx(new Date("2026-07-24T10:00:00").getTime())).toBe(7);
         });
 
-        it("creates hour buckets", () => {
-            const start = new Date("2026-07-10T00:00:00").getTime();
-            const end = new Date("2026-07-10T03:00:00").getTime();
+        it("splits a non-hour-aligned 24-hour window into natural hour buckets", () => {
+            const start = new Date("2026-07-23T15:30:00").getTime();
+            const end = new Date("2026-07-24T15:30:00").getTime();
             const bk = bucketize(start, end, "hour");
-            expect(bk.step).toBe(3600000);
-            expect(bk.n).toBe(3);
-            expect(bk.label(0)).toMatch(/^7\/10 00:00$/);
+
+            expect(bk.n).toBe(25);
+            expect(bk.label(0)).toBe("7/23 15:00");
+            expect(bk.label(1)).toBe("7/23 16:00");
+            expect(bk.label(24)).toBe("7/24 15:00");
+            expect(bk.startOf(1)).toBe(new Date("2026-07-23T16:00:00").getTime());
+            expect(bk.idx(new Date("2026-07-23T15:45:00").getTime())).toBe(0);
+            expect(bk.idx(new Date("2026-07-24T14:30:00").getTime())).toBe(23);
+            expect(bk.idx(new Date("2026-07-24T15:10:00").getTime())).toBe(24);
         });
 
-        it("maps timestamps to bucket indices", () => {
-            const start = new Date("2026-07-10T00:00:00").getTime();
-            const end = new Date("2026-07-11T00:00:00").getTime();
-            const bk = bucketize(start, end, "hour");
+        it("creates thirty-one natural day buckets for a non-midnight thirty-day window", () => {
+            const start = new Date("2026-06-24T15:30:00").getTime();
+            const end = new Date("2026-07-24T15:30:00").getTime();
+            const bk = bucketize(start, end, "day");
+
+            expect(bk.n).toBe(31);
+            expect(bk.label(0)).toBe("6/24");
+            expect(bk.label(30)).toBe("7/24");
+        });
+
+        it("does not create extra buckets when the range is already aligned", () => {
+            const day_start = new Date("2026-07-10T00:00:00").getTime();
+            const day_end = new Date("2026-07-13T00:00:00").getTime();
+            const day_buckets = bucketize(day_start, day_end, "day");
+            const hour_end = new Date("2026-07-10T03:00:00").getTime();
+            const hour_buckets = bucketize(day_start, hour_end, "hour");
+
+            expect(day_buckets.n).toBe(3);
+            expect(day_buckets.label(0)).toBe("7/10");
+            expect(day_buckets.label(2)).toBe("7/12");
+            expect(hour_buckets.n).toBe(3);
+            expect(hour_buckets.label(0)).toBe("7/10 00:00");
+            expect(hour_buckets.label(2)).toBe("7/10 02:00");
+        });
+
+        it("maps boundary timestamps into the next bucket and clamps range endpoints", () => {
+            const start = new Date("2026-07-17T15:30:00").getTime();
+            const end = new Date("2026-07-24T15:30:00").getTime();
+            const bk = bucketize(start, end, "day");
+            const first_boundary = new Date("2026-07-18T00:00:00").getTime();
+
             expect(bk.idx(start)).toBe(0);
-            expect(bk.idx(start + 3600000)).toBe(1);
-            expect(bk.idx(end - 1)).toBe(23);
+            expect(bk.idx(first_boundary - 1)).toBe(0);
+            expect(bk.idx(first_boundary)).toBe(1);
+            expect(bk.idx(end)).toBe(bk.n - 1);
+            expect(bk.idx(start - 1)).toBe(0);
+            expect(bk.idx(end + 1)).toBe(bk.n - 1);
         });
     });
 
