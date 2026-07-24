@@ -177,6 +177,7 @@ export function projectSegments(
 /** Prepared data for the stacked bar chart. */
 export interface BarData {
     labels: string[];
+    bucketStarts: number[];
     seriesNames: string[];
     series: { name: string; data: number[]; itemStyle: { color: string } }[];
     otherDetails: [string, number][][];
@@ -203,11 +204,13 @@ export function prepareBarData(
         colorDim === "model" ? model_resolver(r.model) : dir_key(r);
 
     let labels: string[] = [];
+    let bucket_starts: number[] = [];
     let idxOf: (r: AgentSessionUsage) => number;
 
     if (xaxis === "time") {
         const bk = bucketize(start, end, gran);
         labels = Array.from({ length: bk.n }, (_, i) => bk.label(i));
+        bucket_starts = Array.from({ length: bk.n }, (_, i) => bk.startOf(i));
         idxOf = (r) => bk.idx(r.timestamp);
     } else if (xaxis === "project") {
         const dirs = Object.entries(groupBy(records, dir_key))
@@ -289,7 +292,7 @@ export function prepareBarData(
         itemStyle: { color: colorOf(nm, i) },
     }));
 
-    return { labels, seriesNames, series, otherDetails };
+    return { labels, bucketStarts: bucket_starts, seriesNames, series, otherDetails };
 }
 
 function displayKey(key: string, restSet: Set<string>): string {

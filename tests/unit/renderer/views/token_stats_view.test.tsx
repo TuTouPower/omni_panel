@@ -7,8 +7,15 @@ import { TokenStatsView } from "../../../../src/renderer/views/TokenStatsView";
 vi.mock("../../../../src/renderer/components/token-stats/MetricDonut", () => ({
     MetricDonut: () => <div />,
 }));
+const mocked_bar_chart = vi.hoisted(() => ({
+    props: null as { gran: string } | null,
+}));
+
 vi.mock("../../../../src/renderer/components/token-stats/BarChart", () => ({
-    BarChart: () => <div />,
+    BarChart: (props: { gran: string }) => {
+        mocked_bar_chart.props = props;
+        return <div />;
+    },
 }));
 vi.mock("../../../../src/renderer/components/token-stats/Heatmap", () => ({
     Heatmap: () => <div />,
@@ -61,6 +68,7 @@ describe("TokenStatsView", () => {
 
     beforeEach(() => {
         get_records.mockReset();
+        mocked_bar_chart.props = null;
         get_records.mockResolvedValue([usage_record("all-record")]);
         window.usageboard = {
             tokenStats: {
@@ -175,6 +183,24 @@ describe("TokenStatsView", () => {
             preset?: string;
         };
         expect(prefs.preset).toBe("7d");
+    });
+
+    it("passes the selected preset granularity to the bar chart", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+
+        await screen.findByTestId("session-records");
+        expect(mocked_bar_chart.props?.gran).toBe("day");
+
+        await user.click(screen.getByRole("button", { name: "24 小时" }));
+        await waitFor(() => {
+            expect(mocked_bar_chart.props?.gran).toBe("hour");
+        });
+
+        await user.click(screen.getByRole("button", { name: "1 月" }));
+        await waitFor(() => {
+            expect(mocked_bar_chart.props?.gran).toBe("day");
+        });
     });
 
     it("renders nav buttons to usage panel and settings", async () => {

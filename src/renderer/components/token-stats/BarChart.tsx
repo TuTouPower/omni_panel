@@ -78,7 +78,7 @@ export function BarChart({
     modelAliases,
 }: BarChartProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const { labels, series, otherDetails } = useMemo(
+    const { labels, bucketStarts, series, otherDetails } = useMemo(
         () =>
             prepareBarData(
                 records,
@@ -135,19 +135,28 @@ export function BarChart({
                     fontSize: 10.5,
                     rotate,
                     interval: hourMode
-                        ? (index: number) => new Date(start + index * 3600000).getHours() % 6 === 0
+                        ? (index: number) => {
+                              const bucket_start = bucketStarts[index];
+                              return (
+                                  bucket_start !== undefined &&
+                                  new Date(bucket_start).getHours() % 6 === 0
+                              );
+                          }
                         : xaxis === "time"
                           ? "auto"
                           : 0,
                     ...(hourMode
                         ? {
                               formatter: (_v: string, index: number) => {
-                                  const d = new Date(start + index * 3600000);
-                                  const pad = (x: number) => String(x).padStart(2, "0");
-                                  const h = d.getHours();
-                                  return h === 0
-                                      ? `{b|${pad(d.getMonth() + 1)}-${pad(d.getDate())}}`
-                                      : `${pad(h)}:00`;
+                                  const bucket_start = bucketStarts[index];
+                                  if (bucket_start === undefined) return "";
+
+                                  const date = new Date(bucket_start);
+                                  const pad = (value: number) => String(value).padStart(2, "0");
+                                  const hour = date.getHours();
+                                  return hour === 0
+                                      ? `{b|${pad(date.getMonth() + 1)}-${pad(date.getDate())}}`
+                                      : `${pad(hour)}:00`;
                               },
                               rich: { b: { fontWeight: 700, color: pal.centerV } },
                           }
@@ -206,7 +215,7 @@ export function BarChart({
                 emphasis: { focus: "series" },
             })),
         };
-    }, [labels, series, otherDetails, metric, xaxis, gran, start, pal, fmtV, topOffset]);
+    }, [labels, bucketStarts, series, otherDetails, metric, xaxis, gran, pal, fmtV, topOffset]);
 
     useECharts(containerRef, () => option, [option]);
 

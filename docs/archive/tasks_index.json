@@ -815,6 +815,14 @@
             "status": "done",
             "branch": "t102_remove_stale_amber_border",
             "note": "blocked: review"
+        },
+        {
+            "tid": "t103",
+            "title": "token-stats preset 按自然边界切片",
+            "slug": "token_stats_natural_bucket",
+            "status": "done",
+            "branch": "t103_token_stats_natural_bucket",
+            "note": ""
         }
     ]
 }
