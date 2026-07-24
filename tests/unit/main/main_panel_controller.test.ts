@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { create_main_panel_controller } from "../../../src/main/core/main-panel/main-panel-controller";
 import type { MainPanelControllerDeps } from "../../../src/main/core/main-panel/main-panel-controller";
+import { WINDOW_CONFIGS } from "../../../src/main/window/window-manager";
 import type { AppConfiguration } from "../../../src/shared/types/config";
 
 const base_config: AppConfiguration = {
@@ -167,6 +168,35 @@ describe("main panel controller", () => {
         state.config = { ...state.config, mainPanelMode: "floating" };
         controller.apply_config_change();
         expect(controller.get_mode()).toBe("floating");
+    });
+
+    it("persists floating width above 780px within the display work area", () => {
+        const { controller, saved_configs, windows } = build({
+            ...base_config,
+            mainPanelMode: "floating",
+        });
+        controller.open_or_focus();
+
+        windows[0]?.setBounds({ width: 1200 });
+
+        expect(saved_configs.at(-1)?.floatingBounds?.width).toBe(1200);
+    });
+
+    it("restores floating width above 780px after restart", () => {
+        const { controller, windows } = build({
+            ...base_config,
+            mainPanelMode: "floating",
+            floatingBounds: { x: 100, y: 80, width: 1200, height: 480, displayId: "1" },
+        });
+        controller.open_or_focus();
+
+        expect(windows[0]?.setBounds).toHaveBeenCalledWith(
+            expect.objectContaining({ width: 1200 }),
+        );
+    });
+
+    it("does not configure a popup width cap", () => {
+        expect(WINDOW_CONFIGS["usage"]?.maxWidth).toBeUndefined();
     });
 
     it("hides floating shell instead of destroying it", () => {

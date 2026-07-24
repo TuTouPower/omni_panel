@@ -37,6 +37,6 @@
 | ui-views-web                 | Web      | 拆自 ui-views（t037），t040/t041/t046 | 2026-07-22   |
 | ui-views-desktop             | Desktop  | 拆自 ui-views（t037）                 | 2026-07-21   |
 | web-panel                    | Web      | 迁移自 omni_powers，无                | 2026-07-05   |
-| window-management            | Desktop  | 迁移自 omni_powers，无                | 2026-07-05   |
+| window-management            | Desktop  | 迁移自 omni_powers，t099              | 2026-07-24   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

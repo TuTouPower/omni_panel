@@ -783,6 +783,14 @@
             "status": "done",
             "branch": "t098_opencode_go_add_dialog_web_login",
             "note": ""
+        },
+        {
+            "tid": "t099",
+            "title": "解除用量面板宽度 780px 上限",
+            "slug": "popup_width_cap_remove",
+            "status": "done",
+            "branch": "t099_popup_width_cap_remove",
+            "note": ""
         }
     ]
 }
