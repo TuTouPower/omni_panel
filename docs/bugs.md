@@ -29,3 +29,23 @@
 - 现象：设置 > 账号 > 添加账号时，弹窗出现前先闪现一条黑色横线。
 - 猜测：AddAccountDialog 或其父容器的 CSS border/transition 在 dialog 打开瞬间渲染了一帧 border/border-top/border-bottom 但内容尚未渲染。
 - 关联：src/renderer/components/AddAccountDialog.tsx；可能 dialog container CSS border 在 animation/render 首帧可见。
+
+## 用量面板宽度无法任意拉伸（硬上限 780px）
+
+- 报告时间：2026-07-24。
+- 现象：用量面板（popup / floating）拖边角调整宽度时，最大只能拉到 780px，无法继续加宽；高宽比 1:3 永远达不到（780/1080 最大 0.72）。
+- 根因：
+    - `src/main/core/main-panel/main-panel-controller.ts:20-21` 硬编码 `MIN_PANEL_WIDTH=472`、`MAX_PANEL_WIDTH=780`；`save_floating_bounds` (line 90) 和 `create_panel_window` floating 分支 (line 139-142) 都把宽度 clamp 到该区间。
+    - `src/main/window/window-manager.ts:38-39` `WINDOW_CONFIGS.usage` 硬编码 `minWidth: 472, maxWidth: 1400`。
+- 历史：「修过」是误解。`d723d3d fix: resize usage panel for demo layout` (2026-06-06) 只是把上限 460 拉到 780 给 demo 腾空间，同时把 780 写死为新上限。从未支持任意宽度。
+- 测试缺失：`tests/unit/main/main_panel_controller.test.ts` 零断言 MIN/MAX_PANEL_WIDTH 或用户手动 resize 后 clamp 行为；`tests/unit/main/popup_height_controller.test.ts` 只测高度。无 e2e 拖边角验证。
+- 关联 task：t099。
+
+## 多账号卡片折叠后再展开仍停留「N账号」而非「概览」
+
+- 报告时间：2026-07-24。
+- 现象：多账号 provider 卡片展开后，点「N账号」切到账号明细；折叠卡片；再展开卡片，仍显示账号明细，L2 高亮仍停留在「N账号」。用户期望折叠后重置回「概览」。
+- 根因：`src/renderer/components/ProviderCard.tsx:119` `const [l2open, set_l2open] = useState(false)` 是组件内 useState，与 `expanded` prop 正交但未定义折叠时的语义。折叠时 L2 seg 不渲染但 `l2open` 保留；再展开时沿用旧值。
+- 历史：`804e3c2 feat: card header, L2 segmented control` (2026-06-09) 引入 L2 seg 时留下的设计漏洞。
+- 测试缺失：`tests/unit/renderer/components/provider_card.test.tsx` 只覆盖「展开时默认显示概览」（line 204）和「展开时点击账号明细切换」（line 852），无任何用例覆盖「展开 → 切账号明细 → 折叠 → 再展开」的状态序列。`tests/unit/renderer/views/popup_view.test.tsx` 的 collapsedAccounts/expandedProviders 测试聚焦 config 持久化，不触碰 L2 子状态。
+- 关联 task：t100。
