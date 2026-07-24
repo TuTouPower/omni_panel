@@ -75,6 +75,9 @@ export const IPC_CHANNELS = {
     TRAY_PAUSE_STATE: "tray:pauseState",
     TRAY_AUTOSTART_STATE: "tray:autostartState",
 
+    /** Settings — open user connectors script directory. */
+    SETTINGS_OPEN_CONNECTORS_DIR: "settings:openConnectorsDir",
+
     AUTH_COOKIE_LOGIN: "auth:cookieLogin",
 
     SESSION_LOGIN: "session:login",
@@ -330,6 +333,8 @@ export interface UsageboardApi {
         maximize(): void;
         /** Close the settings window. */
         close(): void;
+        /** Open the user connectors script directory in the OS file explorer. */
+        openConnectorsDir(): void;
     };
     tray: {
         open_panel(): void;

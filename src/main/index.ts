@@ -13,6 +13,8 @@ import {
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import { open_connectors_dir } from "./core/open-connectors-dir";
 import { createConfigStore } from "./core/config/config-store";
 import { auto_seed_connectors } from "./core/config/auto-seed";
 import {
@@ -751,6 +753,16 @@ void app.whenReady().then(async () => {
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_OPEN_WEB, () => {
                 void shell.openExternal(`http://localhost:${String(local_api.get_port())}/`);
+            });
+            ipcMain.handle(IPC_CHANNELS.SETTINGS_OPEN_CONNECTORS_DIR, async () => {
+                await open_connectors_dir({
+                    dir: getUserConnectorsDir(),
+                    mkdir: async (p) => {
+                        await mkdir(p, { recursive: true });
+                    },
+                    open_path: (p) => shell.openPath(p),
+                    log,
+                });
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_CHECK_UPDATE, () => {
                 log.info("Check for updates requested (not yet implemented)");

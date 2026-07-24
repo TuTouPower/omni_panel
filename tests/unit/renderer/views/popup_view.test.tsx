@@ -163,7 +163,13 @@ describe("PopupView", () => {
                 report_content_height: vi.fn(),
             },
             main_panel: { hide: main_panel_hide, get_mode: main_panel_get_mode },
-            settings: { open: vi.fn(), minimize: vi.fn(), maximize: vi.fn(), close: vi.fn() },
+            settings: {
+                open: vi.fn(),
+                minimize: vi.fn(),
+                maximize: vi.fn(),
+                close: vi.fn(),
+                openConnectorsDir: vi.fn(),
+            },
             theme: { set: vi.fn() },
             tray: {
                 open_panel: vi.fn(),

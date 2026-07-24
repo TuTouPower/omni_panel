@@ -1,28 +1,20 @@
 {
-  "tasks": [
-    {
-      "tid": "t094",
-      "title": "添加账号弹窗加打开脚本目录按钮",
-      "slug": "add_dialog_open_script_dir",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
-      "tid": "t095",
-      "title": "用户自定义 connector 脚本支持（schema 扩展 + 文档）",
-      "slug": "user_custom_connector_support",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    },
-    {
-      "tid": "t096",
-      "title": "修复 refreshAll 期间用量面板卡死（先实测归因再修）",
-      "slug": "fix_panel_refresh_freeze",
-      "status": "backlog",
-      "branch": "",
-      "note": ""
-    }
-  ]
+    "tasks": [
+        {
+            "tid": "t095",
+            "title": "用户自定义 connector 脚本支持（schema 扩展 + 文档）",
+            "slug": "user_custom_connector_support",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t096",
+            "title": "修复 refreshAll 期间用量面板卡死（先实测归因再修）",
+            "slug": "fix_panel_refresh_freeze",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        }
+    ]
 }

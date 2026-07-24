@@ -210,6 +210,7 @@ describe("SettingsView", () => {
                 minimize: vi.fn(),
                 maximize: vi.fn(),
                 close: vi.fn(),
+                openConnectorsDir: vi.fn(),
             },
             theme: { set: vi.fn() },
             tray: {
