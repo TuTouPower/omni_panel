@@ -12,19 +12,19 @@
 ### 阶段二：归因（基线不够清晰才做）
 
 5. **消融实验**（env 开关逐个关，对比卡死时长变化）：
-   - `DISABLE_MIRRORS=1`（不渲染两个镜像树）→ 掉的份额 = 渲染放大 + 高度回环；
-   - `SKIP_SQLITE_INSERT=1`（跳过 observation 落库）→ 掉的份额 = 同步 sqlite；
-   - connector 换假数据 stub（不走 vm）→ 掉的份额 = vm 沙箱执行；
-   - main 广播加 100ms 合批 → 卡死消失则说明事件风暴驱动。
-   → 验证：消融对比数字记入 `task.md`，写出主因阵营结论。
+    - `DISABLE_MIRRORS=1`（不渲染两个镜像树）→ 掉的份额 = 渲染放大 + 高度回环；
+    - `SKIP_SQLITE_INSERT=1`（跳过 observation 落库）→ 掉的份额 = 同步 sqlite；
+    - connector 换假数据 stub（不走 vm）→ 掉的份额 = vm 沙箱执行；
+    - main 广播加 100ms 合批 → 卡死消失则说明事件风暴驱动。
+      → 验证：消融对比数字记入 `task.md`，写出主因阵营结论。
 
 ### 阶段三：修复（按归因选用）
 
 6. 按主因实施（候选，不要求全做）：
-   - renderer：state-change 渲染合批（rAF / 100ms 窗口合并 `setPlugins`）、`VendorCard` memo、镜像树去重（仅渲染结构不渲染重组件）；
-   - 高度回环：report 阈值提高 / burst 期间抑制 resize；
-   - 主进程：observation insert 包单 transaction、stale 复制查询改仅取最新、刷新 stagger 持久化。
-   → 验证：修复点逐项对应 `task.md` 归因结论。
+    - renderer：state-change 渲染合批（rAF / 100ms 窗口合并 `setPlugins`）、`VendorCard` memo、镜像树去重（仅渲染结构不渲染重组件）；
+    - 高度回环：report 阈值提高 / burst 期间抑制 resize；
+    - 主进程：observation insert 包单 transaction、stale 复制查询改仅取最新、刷新 stagger 持久化。
+      → 验证：修复点逐项对应 `task.md` 归因结论。
 
 ### 阶段四：复测与回归
 

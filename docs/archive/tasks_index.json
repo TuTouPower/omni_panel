@@ -767,6 +767,14 @@
             "status": "done",
             "branch": "t095_user_custom_connector_support",
             "note": "blocked: review"
+        },
+        {
+            "tid": "t096",
+            "title": "修复 refreshAll 期间用量面板卡死（先实测归因再修）",
+            "slug": "fix_panel_refresh_freeze",
+            "status": "done",
+            "branch": "t096_fix_panel_refresh_freeze",
+            "note": ""
         }
     ]
 }

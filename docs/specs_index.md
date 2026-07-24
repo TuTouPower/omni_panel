@@ -29,7 +29,7 @@
 | connector-user-scripts       | Desktop  | t095                                  | 2026-07-24   |
 | ipc-api                      | API      | 拆自 ipc（t037）                      | 2026-07-21   |
 | ipc-electron                 | Desktop  | 拆自 ipc（t037）                      | 2026-07-21   |
-| observation-store            | API      | 迁移自 omni_powers，无                | 2026-07-05   |
+| observation-store            | API      | 迁移自 omni_powers，t096              | 2026-07-24   |
 | platform-services-api        | API      | 拆自 platform-services（t037）        | 2026-07-21   |
 | platform-services-electron   | Desktop  | 拆自 platform-services（t037）        | 2026-07-21   |
 | scheduler                    | API      | 迁移自 omni_powers，t039              | 2026-07-22   |

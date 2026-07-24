@@ -83,6 +83,25 @@ describe("observation-store", () => {
         expect(all[0].observed_at).toBe(3000);
     });
 
+    it("list_by_source_instance_id returns latest per (account, metric) across many groups (t096 perf regression)", () => {
+        // 两组 (account, metric)，各多条历史；只返回每组最新（含 stale 行混入）。
+        store.insert(make_observation({ account_id: "a1", metric_id: "m1", observed_at: 1000 }));
+        store.insert(
+            make_observation({ account_id: "a1", metric_id: "m1", observed_at: 2000, stale: true }),
+        );
+        store.insert(make_observation({ account_id: "a1", metric_id: "m1", observed_at: 3000 }));
+        store.insert(make_observation({ account_id: "a2", metric_id: "m2", observed_at: 1500 }));
+        store.insert(make_observation({ account_id: "a2", metric_id: "m2", observed_at: 2500 }));
+        const rows = store.list_by_source_instance_id("tavily-1");
+        expect(rows).toHaveLength(2);
+        const m1 = rows.find((r) => r.account_id === "a1" && r.metric_id === "m1");
+        const m2 = rows.find((r) => r.account_id === "a2" && r.metric_id === "m2");
+        assertNonNull(m1, "m1 row should exist");
+        assertNonNull(m2, "m2 row should exist");
+        expect(m1.observed_at).toBe(3000);
+        expect(m2.observed_at).toBe(2500);
+    });
+
     it("lists latest per unique (account, metric, source) within provider", () => {
         store.insert(
             make_observation({
