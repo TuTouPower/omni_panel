@@ -90,8 +90,13 @@ SELECT * FROM (
 
 ### 遗留
 
-- 无。renderer 渲染放大（三棵树 + 非 useCallback handler 击穿 memo）与高度回环（1px 阈值）为次要因素，主进程阻塞消除后卡死已解，未处理；如未来 burst 仍觉卡顿可再优化。
-- list_by_source_instance_id 旧/新查询在 tied observed_at（同 ms）场景下行为有差异（旧返回所有并列行，新每分区 1 行）；observed_at=Date.now() ms 精度 + 网络间隔远 >1ms，tie 实际不发生，3 个 caller 无 tie 依赖。
+主进程阻塞（主因）已修，卡死消除。以下三条为静态走查确认、实测属次要因素的渲染/布局问题，本 task 未处理，留作后续 burst 微卡顿时优化方向：
+
+1. **渲染放大 ×3（三棵完整树）**：`PopupView.tsx:730-764` 同时渲染 live 树 + content mirror + collapsed mirror 三棵完整树（`should_render_mirrors` 在 Chromium 永真），每次 state-change 事件三树全量重渲染；`use_popup_derived.ts:52,62,82` memo 依赖 `plugins` 引用，每事件 setPlugins 新数组全量重算。修复方向：state-change 渲染合批（rAF / 16ms 窗口合并多次 setPlugins）、burst 期间只渲染 live 树延迟 mirror。
+2. **ProviderCard memo 被击穿**：`ProviderCard.tsx:73` 已 memo，但 PopupView 传入的 handler（`refreshProvider` L346 / `handleRefreshAll` L330 / `toggle_account` L384 / `toggle_expand_provider` 等）非 useCallback，每渲染新引用 -> shallow compare 失效 -> 三棵树 × 每事件全量重渲染所有 ProviderCard。`ProviderOverview`（ProviderOverview.tsx:48）、`ProviderAccountList`（ProviderAccountList.tsx:34）未 memo。修复方向：handler 包 useCallback 稳定 props、ProviderOverview/ProviderAccountList memo。
+3. **高度回环（1px 阈值）**：`use-popup-height-report.ts:36-51` report 仅精确去重；`popup-height-controller.ts:11` `HEIGHT_REPORT_DEBOUNCE_PX=1`，L227 同步 setBounds -> 窗口 resize -> 再触发布局 -> ResizeObserver 再 report。burst 期间内容每次真变，1px 阈值拦不住回环。修复方向：report 加 rAF 节流、DEBOUNCE_PX 提到 4-8px、burst 期间（loading 态）抑制 height report。
+
+此外 list_by_source_instance_id 旧/新查询在 tied observed_at（同 ms）场景下行为有差异（旧返回所有并列行，新每分区 1 行）；observed_at=Date.now() ms 精度 + 网络间隔远 >1ms，tie 实际不发生，3 个 caller 无 tie 依赖。
 
 ### 结果摘要
 
