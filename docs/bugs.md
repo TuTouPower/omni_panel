@@ -32,6 +32,7 @@
 - 现象：设置 > 账号 > 添加账号时，弹窗出现前先闪现一条黑色横线。
 - 猜测：AddAccountDialog 或其父容器的 CSS border/transition 在 dialog 打开瞬间渲染了一帧 border/border-top/border-bottom 但内容尚未渲染。
 - 关联：src/renderer/components/AddAccountDialog.tsx；可能 dialog container CSS border 在 animation/render 首帧可见。
+- 修复：t106（commit `89dec60`，origin/main）`.acct-dialog` 的 `dialogIn` 动画 `from` 帧显式追加 `border-color: transparent; box-shadow: none;`，并加 `animation-fill-mode: backwards;`，消除首帧空容器 border/阴影闪现；新增 Playwright web e2e 首帧计算样式断言。
 
 ## 用量面板宽度无法任意拉伸（硬上限 780px）
 
