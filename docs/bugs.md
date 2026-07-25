@@ -7,6 +7,7 @@
 - 工作量：中等，分 connector 迁移。
 - 关联 task：t084（connector per-account error 迁移）。
 - t059 已对 cpa/mimo/minimax 空响应加 report_failed_account；本条扩展到 per-account catch（多账号 connector 如 CPA 逐 auth_file）。
+- 修复：t084 spike close（commit `311ee3d`）评估完结——CPA `connector.ts` 已对逐 auth_file 调 `ctx.report_failed_account`（`:527`/`:540`），grok/mimo 等单账号 connector 用 `throw` 整体 failed 判定为合理（单账号无 per-account 细化必要）。无需进一步迁移。
 
 ## OpenCode Go 添加账号无弹窗
 
@@ -14,6 +15,7 @@
 - 现象：设置 > 账号 > 添加账号 > 选择 OpenCode Go，点击后无弹窗（应有登录流程或 cookie 输入）。
 - 需确认：openCode Go connector 是 session 型（cookie），添加流程应触发登录弹窗或 cookie 输入框；可能 AddAccountDialog 对 session 型 connector 的分支缺失或 opencode_go 未在 ADD_COMMON_SERVICES 以外单独处理。
 - 关联：connectors/opencode_go/manifest.json capabilities=["session"]；AddAccountDialog 组件。
+- 修复：t098（commit `3aabba4`，origin/main）AddAccountDialog 加 `opencode_go: "session"` 与 `is_opencode_go` 分支，OpenCode Go 走内嵌网页登录流程。
 
 ## 用量条监控重置按钮仅 Tavily 有，其他厂商缺失
 
@@ -22,6 +24,7 @@
 - 期望：所有厂商所有账号的用量条都应有监控重置按钮，统一放在刷新时间后面同一行。
 - 现状：tavily 的 bell 按钮放到了第二行（应与刷新时间同行）。
 - 关联：t043（metric 级监控开关）+ t046（bell 透传 ProviderAccountRow → UsageBarList）+ t048（设置页 bell）。bell 透传链可能有条件分支导致仅部分厂商渲染。
+- 修复：t086（commit `cf8a55d`，origin/main）bell 全厂商可见 + `.bar-watch` CSS + bar-row grid 末列让 bell 与刷新时间同行。
 
 ## 添加账号弹窗前出现黑色横线
 
@@ -59,3 +62,4 @@
 - 根因：`save()` 未指定 `newline="\n"`，且 `json.dumps(..., indent=2)` 与仓库的 4 空格格式不一致。
 - 需改：为 `save()` 固定 LF 和 4 空格缩进，补脚本测试；仅通过脚本重写 task index，禁止手工修改 JSON。
 - 关联 task：t102 review finding `t102_code_f002`。
+- 修复：`5484704 fix(scripts): task.py save() 用 4 空格缩进 + LF`（origin/main）——`save()` 改 `indent=4` + `newline='\n'`，补 `scripts/test_task.py` 三条 pytest 钉住格式契约。
