@@ -266,8 +266,8 @@ describe("OAuthDeviceForm", () => {
             expect(on_save).toHaveBeenCalledTimes(1);
         });
         const saved_params = on_save.mock.calls[0]?.[0] as AddAccountParams;
-        expect(saved_params.secrets.OAUTH_TOKEN).toBe("kimi-access-token");
-        expect(saved_params.secrets.OAUTH_REFRESH_TOKEN).toBe("kimi-refresh-token");
-        expect(typeof saved_params.secrets.OAUTH_EXPIRES_AT).toBe("string");
+        expect(saved_params.secrets["OAUTH_TOKEN"]).toBe("kimi-access-token");
+        expect(saved_params.secrets["OAUTH_REFRESH_TOKEN"]).toBe("kimi-refresh-token");
+        expect(typeof saved_params.secrets["OAUTH_EXPIRES_AT"]).toBe("string");
     });
 });
