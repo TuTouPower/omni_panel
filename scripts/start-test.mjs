@@ -27,7 +27,7 @@ console.log("[start-test] TEST_INSTANCE=1 OMNI_USAGE_PORT=17864");
 
 // 1. 确保 better-sqlite3 匹配 Electron ABI（dev 必需）
 console.log("[start-test] ensure electron ABI...");
-spawnSync("node", ["scripts/ensure_electron_abi.mjs"], {
+spawnSync("node", ["scripts/ensure_sqlite_abi.mjs", "electron"], {
     cwd: root,
     stdio: "inherit",
 });

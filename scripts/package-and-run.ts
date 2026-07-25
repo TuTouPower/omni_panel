@@ -107,7 +107,7 @@ function main(): void {
     // Step 4: package (skip if --no-build)
     if (!no_build) {
         log("ensuring Electron ABI for better-sqlite3...");
-        execSync("node scripts/ensure_electron_abi.mjs", { cwd: ROOT, stdio: "inherit" });
+        execSync("node scripts/ensure_sqlite_abi.mjs electron", { cwd: ROOT, stdio: "inherit" });
         log("running electron-vite build...");
         execSync("electron-vite build", {
             cwd: ROOT,
@@ -128,7 +128,7 @@ function main(): void {
             },
         });
         log("restoring Node ABI for better-sqlite3...");
-        execSync("node scripts/ensure_node_abi.mjs", { cwd: ROOT, stdio: "inherit" });
+        execSync("node scripts/ensure_sqlite_abi.mjs node", { cwd: ROOT, stdio: "inherit" });
     }
 
     // Step 5: run
