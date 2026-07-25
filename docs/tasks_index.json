@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t116",
-            "title": "修复 oauth_device_form.test.tsx TS4111",
-            "slug": "fix_oauth_device_form_ts4111",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t117",
             "title": "token-stats collector serde 抽独立文件",
             "slug": "split_collector_serde",
