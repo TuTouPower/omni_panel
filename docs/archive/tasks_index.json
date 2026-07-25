@@ -935,6 +935,14 @@
             "status": "done",
             "branch": "t117_split_collector_serde",
             "note": ""
+        },
+        {
+            "tid": "t118",
+            "title": "grok/kimi oauth 共享提取（hook + manager）",
+            "slug": "extract_shared_oauth",
+            "status": "done",
+            "branch": "t118_extract_shared_oauth",
+            "note": ""
         }
     ]
 }
