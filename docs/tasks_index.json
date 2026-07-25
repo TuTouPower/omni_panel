@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t106",
-            "title": "修复添加账号弹窗首帧黑色横线",
-            "slug": "fix_add_dialog_black_line_impl",
-            "status": "active",
-            "branch": "t106_fix_add_dialog_black_line_impl",
-            "note": ""
-        },
-        {
             "tid": "t107",
             "title": "manifest auth descriptor",
             "slug": "manifest_auth_descriptor",

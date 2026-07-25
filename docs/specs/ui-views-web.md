@@ -47,6 +47,8 @@
 
 `SettingsForm` + `SecretInput`（密钥睁/闭）+ `VendorCard`（直连 provider 卡，内嵌 `AccountRow`）+ `CpaCard`（CPA 卡，父行自渲染 + `AccountRow mode="cpa-child"`）+ `CpaConnectorSettings`（CPA 数据源详情）+ `LabelMapDialog`（数据标签映射）+ `RenameAccountDialog`（账号备注）+ `ConfirmDelete`（删除确认）+ `AddAccountDialog`（新增账号）。
 
+- **AddAccountDialog 首帧无黑线**（t106）：`.acct-dialog` 动画 `from` 帧显式隐藏 `border-color` 与 `box-shadow`，并设 `animation-fill-mode: backwards`，避免空容器在内容填充前闪现黑色横线。首帧视觉行为由 Playwright e2e 在真实 Chromium 中验证。
+
 **导航分区**（t017/t023/t027/t028，`NAV_ITEMS`）：`general`（常规）/ `accounts`（账号）/ `appearance`（外观）/ `data`（数据与隐私）/ `about`（关于），各项带 `icon`（gear/inbox/palette/shield/info）。
 
 编辑已存密钥时 `config:getSecrets` 回填明文；输入框 `spellCheck={false}`。

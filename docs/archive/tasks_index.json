@@ -839,6 +839,14 @@
             "status": "done",
             "branch": "t105_upcoming_reset_unified_card",
             "note": ""
+        },
+        {
+            "tid": "t106",
+            "title": "修复添加账号弹窗首帧黑色横线",
+            "slug": "fix_add_dialog_black_line_impl",
+            "status": "done",
+            "branch": "t106_fix_add_dialog_black_line_impl",
+            "note": ""
         }
     ]
 }
