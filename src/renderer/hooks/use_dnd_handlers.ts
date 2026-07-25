@@ -30,6 +30,10 @@ export interface UseDndHandlersResult {
 // 拖拽状态 + 顺序回调封装。provider 卡片重排走方向感知中点守卫；
 // account 重排仅在单 provider tab 视图生效。
 export function use_dnd_handlers(params: UseDndHandlersParams): UseDndHandlersResult {
+    // orderedProviders is the full ordered card-id list visible on the
+    // overview grid (including the upcoming-reset pseudo-card). It is used
+    // to rebuild the persisted provider_order during drag reordering so
+    // that invisible cards are dropped but known non-provider cards stay.
     const { orderedProviders, activeGroup, activeTab, set_provider_order, set_account_orders } =
         params;
 

@@ -19,13 +19,14 @@
 
 ## 接口
 
-- `load()` / `scheduleSave(config, delayMs=500)` / `flushPendingSave` / `hasPendingSave`。
+- `load()` / `scheduleSave(config | () => config, delayMs=500)` / `flushPendingSave` / `hasPendingSave`。
 - `refreshIntervalSecondsSchema`：`0` = 跟随全局哨兵；非零 clamp `[60, 172800]`。
 
 ## 行为（现在是什么）
 
 - 文件 `{userData}/config.json`（`getConfigPath()`）。
 - **保存**：`scheduleSave` 防抖 500ms；所有写经串行 `saveTail` promise 链（并发写不交错，失败不毒化链）；`writeJsonAtomic` + `sortKeys` 稳定 diff。
+- **防抖 payload 用 thunk（t105）**：`scheduleSave` 接受 `AppConfiguration` 或返回它的 thunk，thunk 在防抖触发（及 `flushPendingSave`）时才求值。只改单个字段的调用方（`src/main/index.ts` 的 `save_settings_bounds`、main-panel `save_config` 窗口 bounds）必须传 thunk：窗口 resize/move 在事件发生时抓 `currentConfigSnapshot`，500ms 后落盘会把这期间 renderer 已保存的 `providerOrder` / `expandedProviders` 回滚（既有数据丢失 bug，t105 修）。
 - **载入加固**：schema 不匹配先试 `.bak` 恢复，否则把损坏文件备份为 `.bak` 并返回 `DEFAULT_CONFIGURATION`。
 - **零散迁移（非版本引擎）**：`instanceId ?? stateId` 回填；`stripRemovedConfigFields` 删已移除的 `overviewDisplayMode`；`prune_invalid_plugins` 删 manifest 缺失或 provider 不在白名单的插件并回写。
 - **auto-seed（`auto_seed_connectors`）**：把发现的连接器定义并入 config。新连接器 `randomUUID` 的 instanceId/stateId、`name = manifest.id.toUpperCase()`、`enabled:true`、`refreshIntervalSeconds:0`（跟随全局）、`manualRefreshOnly` 若 `manifest.manualDefault`、种非 secret 参数默认、`endpointOverrides:{}`。已存在项按 id 匹配，仅更新 executablePath。**tombstone（t038）**：第 3 参 `removed_ids: ReadonlySet<string>`（来自 `config.removedConnectorIds`），manifest id 命中则跳过 seed，删除的内置连接器重启不复活。

@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useState } from "react";
-import type { UsageProvider } from "../../../../src/shared/schemas/plugin-output";
 import type { ProviderUsageGroup } from "../../../../src/renderer/lib/provider-usage";
 import { use_dnd_handlers } from "../../../../src/renderer/hooks/use_dnd_handlers";
 
@@ -32,7 +31,7 @@ const mock_group: ProviderUsageGroup = {
 };
 
 function render_dnd(
-    ordered_providers: UsageProvider[],
+    ordered_providers: string[],
     active_group: ProviderUsageGroup | undefined,
     active_tab: string,
     initial_orders: Record<string, string[]> = {},
@@ -118,6 +117,66 @@ describe("use_dnd_handlers", () => {
         });
         expect(result.current.provider_order).toEqual(["codex", "claude"]);
         expect(result.current.handlers.over_id).toBe("codex");
+    });
+
+    it("handle_drag_over reorders the upcoming reset card with providers on the x-axis", () => {
+        const { result } = render_dnd(
+            ["__upcoming_reset__", "claude", "codex"],
+            undefined,
+            "overview",
+        );
+        const drag_rect = { top: 0, left: 0, height: 100, width: 100 } as DOMRect;
+        const over_rect = { top: 10, left: 0, height: 100, width: 100 } as DOMRect;
+
+        act(() => {
+            result.current.handlers.handle_drag_start("__upcoming_reset__", drag_rect);
+        });
+        act(() => {
+            result.current.handlers.handle_drag_over("claude", 80, 50, over_rect);
+        });
+
+        expect(result.current.provider_order).toEqual(["claude", "__upcoming_reset__", "codex"]);
+    });
+
+    it("handle_drag_over reorders the upcoming reset card with providers on the y-axis", () => {
+        const { result } = render_dnd(
+            ["claude", "__upcoming_reset__", "codex"],
+            undefined,
+            "overview",
+        );
+        const drag_rect = { top: 0, left: 0, height: 100, width: 100 } as DOMRect;
+        // Different row (|top diff| >= height/2) → axis y; pointer past midpoint → swap
+        const over_rect = { top: 200, left: 0, height: 100, width: 100 } as DOMRect;
+
+        act(() => {
+            result.current.handlers.handle_drag_start("__upcoming_reset__", drag_rect);
+        });
+        act(() => {
+            // middle_y = 200 + 100/2 = 250; pointer_y=280 >= 250 → reorder
+            result.current.handlers.handle_drag_over("codex", 50, 280, over_rect);
+        });
+
+        expect(result.current.provider_order).toEqual(["claude", "codex", "__upcoming_reset__"]);
+    });
+
+    it("handle_drag_over does not reorder the upcoming reset card before the y-axis midpoint", () => {
+        const { result } = render_dnd(
+            ["claude", "__upcoming_reset__", "codex"],
+            undefined,
+            "overview",
+        );
+        const drag_rect = { top: 0, left: 0, height: 100, width: 100 } as DOMRect;
+        const over_rect = { top: 200, left: 0, height: 100, width: 100 } as DOMRect;
+
+        act(() => {
+            result.current.handlers.handle_drag_start("__upcoming_reset__", drag_rect);
+        });
+        act(() => {
+            // middle_y = 250; pointer_y=210 < 250, from<to → no reorder
+            result.current.handlers.handle_drag_over("codex", 50, 210, over_rect);
+        });
+
+        expect(result.current.provider_order).toEqual(["claude", "__upcoming_reset__", "codex"]);
     });
 
     it("handle_drag_over does not reorder on y-axis before midpoint", () => {

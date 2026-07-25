@@ -831,6 +831,14 @@
             "status": "done",
             "branch": "t104_cpa_account_reset_bell",
             "note": "blocked: review"
+        },
+        {
+            "tid": "t105",
+            "title": "即将重置统一为可拖动卡片",
+            "slug": "upcoming_reset_unified_card",
+            "status": "done",
+            "branch": "t105_upcoming_reset_unified_card",
+            "note": ""
         }
     ]
 }

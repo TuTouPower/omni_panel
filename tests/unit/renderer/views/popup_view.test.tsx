@@ -1098,6 +1098,8 @@ describe("PopupView", () => {
         try {
             render(<PopupView />);
 
+            const expand_button = await screen.findByLabelText("展开即将重置");
+            fireEvent.click(expand_button);
             const rows = await screen.findAllByRole("button", { name: /切换到 claude/i });
             expect(rows.length).toBeGreaterThan(0);
             const first_row = rows[0];
@@ -1112,7 +1114,7 @@ describe("PopupView", () => {
         }
     });
 
-    it("mounts overview-row + Banner + Rail and derives upcomingItems from providerGroups", async () => {
+    it("mounts the upcoming reset card in the overview grid", async () => {
         const future = Date.now() + 3 * 24 * 60 * 60 * 1000;
         plugin_list.mockResolvedValue([
             connectorInfo({
@@ -1159,24 +1161,178 @@ describe("PopupView", () => {
 
         render(<PopupView />);
 
-        // wait for provider tabs to render (signals providerGroups computed)
         await screen.findByRole("button", { name: /^Claude$/ });
 
-        // Assembly: overview-row wraps overview-grid + Banner + Rail in the live tree.
-        // Mirror trees also render these classes; assert at least the live count.
+        const live_grid = document.querySelector(".window:not(.popup-mirror) .overview-grid");
         await waitFor(() => {
-            expect(document.querySelectorAll(".overview-row").length).toBeGreaterThan(0);
-            expect(document.querySelectorAll(".upcoming-banner").length).toBeGreaterThan(0);
-            expect(document.querySelectorAll(".upcoming-rail").length).toBeGreaterThan(0);
+            expect(live_grid?.querySelector('[data-card-id="__upcoming_reset__"]')).not.toBeNull();
         });
-
-        // upcomingItems derived from providerGroups: rail renders the row text in live tree.
-        const live_overview = document.querySelector(".window:not(.popup-mirror) .overview-row");
-        expect(live_overview?.querySelector(".ur-rail, .upcoming-rail")).not.toBeNull();
-        expect(live_overview?.querySelector(".upcoming-banner")).not.toBeNull();
+        expect(live_grid?.querySelector(".upcoming-banner")).toBeNull();
+        expect(live_grid?.querySelector(".upcoming-rail")).toBeNull();
+        // t105: the reset card is a normal grid child, so the old two-column
+        // banner/rail wrapper must be gone entirely.
+        expect(document.querySelector(".overview-row")).toBeNull();
     });
 
-    it("t041: threshold null → UpcomingResetBanner/Rail not rendered", async () => {
+    it("preserves upcoming reset card expansion across provider data refresh", async () => {
+        // Regression guard (t105 spec): the reserved key __upcoming_reset__ must
+        // survive structural pruning when provider data changes. Without the
+        // explicit entry in live_providers, expanding the card then refreshing
+        // data (changing structural_signature past the prev==="" guard) would
+        // drop the expansion and the card would collapse on every refresh.
+        let on_state_change_cb: ((instanceId: string, state: unknown) => void) | undefined;
+        window.usageboard.event.onStateChange = vi.fn(
+            (cb: (instanceId: string, state: unknown) => void) => {
+                on_state_change_cb = cb;
+                return vi.fn();
+            },
+        );
+        plugin_list.mockResolvedValue([
+            connectorInfo({
+                source: "gateway",
+                sourceInstanceId: "cpa-main",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        {
+                            id: "acc-a",
+                            provider: "claude",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "auth-a",
+                            accountLabel: "Account A",
+                            raw_label: "5h",
+                            normalized_label: "5小时",
+                            used: 10,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: null,
+                            observedAt: 1735689600000,
+                            stale: false,
+                            status: "normal",
+                        },
+                        {
+                            id: "acc-b",
+                            provider: "claude",
+                            source: "gateway",
+                            sourceInstanceId: "cpa-main",
+                            accountId: "auth-b",
+                            accountLabel: "Account B",
+                            raw_label: "5h",
+                            normalized_label: "5小时",
+                            used: 20,
+                            limit: 100,
+                            displayStyle: "percent",
+                            resetAt: null,
+                            observedAt: 1735689600000,
+                            stale: false,
+                            status: "normal",
+                        },
+                    ],
+                },
+            }),
+        ]);
+        window.usageboard.config.get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                upcomingResetThresholdPercent: 100,
+            },
+            hasSecrets: {},
+        });
+
+        render(<PopupView />);
+
+        const expand_button = await screen.findByLabelText("展开即将重置");
+        fireEvent.click(expand_button);
+        await waitFor(() => {
+            expect(screen.getByLabelText("折叠即将重置")).toBeInTheDocument();
+        });
+
+        // Simulate a provider data refresh that changes the account structure
+        // (drops Account B). This advances structural_signature past the
+        // first-load prev==="" guard into the pruning branch.
+        expect(on_state_change_cb).toBeDefined();
+        act(() => {
+            on_state_change_cb?.("gateway-connector", {
+                status: "ready",
+                updatedAt: "2026-01-01T12:10:00Z",
+                items: [
+                    {
+                        id: "acc-a",
+                        provider: "claude",
+                        source: "gateway",
+                        sourceInstanceId: "cpa-main",
+                        accountId: "auth-a",
+                        accountLabel: "Account A",
+                        raw_label: "5h",
+                        normalized_label: "5小时",
+                        used: 12,
+                        limit: 100,
+                        displayStyle: "percent",
+                        resetAt: null,
+                        status: "normal",
+                    },
+                ],
+            });
+        });
+
+        // The reset card must stay expanded — its reserved key was not pruned.
+        await waitFor(() => {
+            expect(screen.getByLabelText("折叠即将重置")).toBeInTheDocument();
+        });
+    });
+
+    it("persists upcoming reset card order and expansion", async () => {
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                upcomingResetThresholdPercent: 100,
+                providerOrder: ["__upcoming_reset__", "deepseek", "claude"],
+            },
+            hasSecrets: {},
+        });
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        const collapse_button = await screen.findByLabelText("展开即将重置");
+        const live_grid = document.querySelector(".window:not(.popup-mirror) .overview-grid");
+        // Every overview card carries data-card-id, and the persisted order
+        // drives the DOM order — the reserved card sits first here.
+        expect(
+            [...(live_grid?.children ?? [])].map((node) => node.getAttribute("data-card-id")),
+        ).toEqual(["__upcoming_reset__", "deepseek", "claude"]);
+
+        // Wait for the initial save queue (if any) to settle, then isolate the
+        // click that toggles expansion.
+        await waitFor(() => {
+            expect(config_save).toHaveBeenCalled();
+        });
+        const calls_before = config_save.mock.calls.length;
+
+        fireEvent.click(collapse_button);
+
+        await waitFor(() => {
+            expect(config_save.mock.calls.length).toBeGreaterThan(calls_before);
+        });
+        const click_call = config_save.mock.calls[calls_before];
+        if (!click_call) throw new Error("missing config save after click");
+        const saved = click_call[0] as AppConfiguration;
+        expect(saved.providerOrder).toEqual(["__upcoming_reset__", "deepseek", "claude"]);
+        expect(saved.expandedProviders).toMatchObject({ __upcoming_reset__: true });
+    });
+
+    it("t041: threshold null → upcoming reset card not rendered", async () => {
         const future = Date.now() + 3 * 24 * 60 * 60 * 1000;
         plugin_list.mockResolvedValue([
             connectorInfo({
@@ -1223,15 +1379,11 @@ describe("PopupView", () => {
 
         render(<PopupView />);
 
-        // provider tabs render → providerGroups computed, overview-row mounted.
         await screen.findByRole("button", { name: /^Claude$/ });
-        await waitFor(() => {
-            expect(document.querySelectorAll(".overview-row").length).toBeGreaterThan(0);
-        });
 
-        // Banner/Rail gated by `threshold != null` must not mount in any tree.
-        expect(document.querySelectorAll(".upcoming-banner").length).toBe(0);
-        expect(document.querySelectorAll(".upcoming-rail").length).toBe(0);
+        // Threshold null leaves the provider overview grid unchanged but omits the reset card.
+        expect(document.querySelectorAll(".overview-grid").length).toBeGreaterThan(0);
+        expect(document.querySelectorAll('[data-card-id="__upcoming_reset__"]')).toHaveLength(0);
         expect(screen.queryByText(/即将重置/)).toBeNull();
     });
 });

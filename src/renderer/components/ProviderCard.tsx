@@ -378,8 +378,9 @@ export const ProviderCard = memo(function ProviderCard({
                   }
               },
               onDragEnd: onDragEnd,
+              "data-card-id": provider,
           }
-        : undefined;
+        : { "data-card-id": provider };
 
     // Collapsible content. Failed-with-cached-data renders an error banner above
     // the (stale) usage so failures surface on the main panel instead of only

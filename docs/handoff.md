@@ -70,3 +70,13 @@
 - 验证：定向 renderer 74 passed；`pnpm typecheck`；`pnpm test` 158 files / 1635 tests；真实 Electron CPA 流程 1 passed。
 - 双审：Round 1 code/test FAIL（`t104_code_f001`、`t104_test_f001`、`t104_test_f002` 已修）；Round 2 code PASS / test FAIL（`t104_test_f003`、`t104_test_f004`、`t104_test_f005` 已修）；Round 3 code/test PASS。
 - 收尾 lint 修正后追加 Round 4 code/test PASS；无 finding。
+
+## 2026-07-25 t105 完成
+
+- branch：`t105_upcoming_reset_unified_card`。
+- 状态：`done`（待 finish + 归档）；双审 Round 3 code/test PASS。
+- 实现：将「即将重置」从 `UpcomingResetBanner`/`UpcomingResetRail` 改为 `UpcomingResetCard`，纳入 `.overview-grid`，复用 `CollapsibleCard`+`DragGrip`+`UpcomingResetRow`；保留键 `__upcoming_reset__` 同时承载 `providerOrder` 排序位与 `expandedProviders` 展开态，不新增 config 字段。
+- 顺手修两个既有缺陷（挡 AC「持久化/重启后保持」）：`ProviderCard` 根补 `data-card-id`；`AppConfigStore.scheduleSave` 支持 thunk，`index.ts` 两处 bounds 保存改传 thunk，消除 debounce 窗口内 renderer 配置被陈旧快照回滚（数据丢失 bug，stack 追踪确认 `save_floating_bounds → save_config → scheduleSave`）。
+- 验证：`pnpm test` 158 files / 1639 tests；E2E `upcoming_reset_card.spec.ts` 连跑 3 次全绿（Electron 下 Playwright 不触发 HTML5 DnD，改派发原生 `DragEvent`）；`pnpm typecheck`、ESLint、Prettier 通过。
+- 双审：Round 1 code/test FAIL（10 条全修）；Round 2 code PASS / test FAIL（f006/f007，补 `config-save-wiring.test.ts` 与裁剪保留键测试，全修）；Round 3 code/test PASS。`max_review_round` 用户提至 5。
+- 交出 head：`t105_upcoming_reset_unified_card` 分支当前 HEAD（commit 待提交）。
