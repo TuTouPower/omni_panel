@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t117",
-            "title": "token-stats collector serde 抽独立文件",
-            "slug": "split_collector_serde",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t118",
             "title": "grok/kimi oauth 共享提取（hook + manager）",
             "slug": "extract_shared_oauth",

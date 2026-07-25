@@ -12,7 +12,12 @@ import type { SessionScanState } from "./claude-reader";
 import { read_opencode_sessions } from "./opencode-reader";
 import { scan_kimi_wire_jsonls, create_kimi_scan_state } from "./kimi-reader";
 import type { KimiScanState } from "./kimi-reader";
-import { writeJsonAtomic } from "../storage/write-json";
+import {
+    serialize_state as scan_serialize,
+    save_state as scan_save,
+    load_state as scan_load,
+} from "./scan-state";
+import type { SerializedScanState } from "./scan-state";
 
 // --- Constants ---
 
@@ -88,163 +93,39 @@ const opencode_max_updated = new Map<string, number>();
 const jsonl_states = new Map<string, SessionScanState>();
 const kimi_states = new Map<string, KimiScanState>();
 
-// --- Scan-state persistence (t114) ---
+// --- Scan-state persistence (t114, extracted to scan-state.ts in t117) ---
 //
-// Persist mtime + session facts (minus records, already stored) so the
-// collector resumes incrementally after restart instead of rescanning every
-// jsonl. Loaded once on configure; saved after each collect.
-
-interface SerializedScanState {
-    costs_state?: Record<string, { offset: number; size: number }>;
-    opencode_max_updated?: Record<string, number>;
-    jsonl_states?: Record<string, SerializedScanBucket>;
-    kimi_states?: Record<string, SerializedScanBucket>;
-}
-
-interface SerializedScanBucket {
-    mtimes?: Record<string, number>;
-    files?: Record<
-        string,
-        {
-            session_id: string;
-            facts?: Record<string, unknown>;
-        }
-    >;
-}
-
-function serialize_bucket(state: SessionScanState | KimiScanState): SerializedScanBucket {
-    const mtimes: Record<string, number> = {};
-    // mtimeMs preserved as float so reader's strict === comparison still
-    // matches after a round-trip (rounding would mark every file dirty).
-    for (const [file, mtime] of state.mtimes) mtimes[file] = mtime;
-    const files: SerializedScanBucket["files"] = {};
-    for (const [file, entry] of state.files) {
-        // Shallow-clone facts, dropping `records` (store already persisted them)
-        // and flattening `daily` Map to a record. On reload, reader reuses the
-        // entry when mtime is unchanged and re-emits records only if it changes.
-        const facts = entry.facts as unknown as { records?: unknown; daily?: Map<string, unknown> };
-        const serialized_facts: Record<string, unknown> = { ...facts };
-        delete serialized_facts["records"];
-        const daily = facts.daily;
-        if (daily instanceof Map) {
-            serialized_facts["daily"] = Object.fromEntries(daily);
-        }
-        files[file] = {
-            session_id: entry.session_id,
-            facts: serialized_facts,
-        };
-    }
-    return { mtimes, files };
-}
-
-function deserialize_bucket(bucket: SerializedScanBucket): {
-    mtimes: Map<string, number>;
-    files: Map<string, { session_id: string; facts: unknown }>;
-} {
-    const mtimes = new Map<string, number>();
-    for (const [file, mtime] of Object.entries(bucket.mtimes ?? {})) {
-        mtimes.set(file, mtime);
-    }
-    const files = new Map<string, { session_id: string; facts: unknown }>();
-    for (const [file, entry] of Object.entries(bucket.files ?? {})) {
-        const facts = { ...(entry.facts ?? {}) } as Record<string, unknown>;
-        // records restored as []: mtime unchanged -> reader reuses entry, no dup.
-        facts["records"] = [];
-        const daily_raw = facts["daily"];
-        const daily_map = new Map<string, unknown>();
-        if (daily_raw && typeof daily_raw === "object") {
-            for (const [k, v] of Object.entries(daily_raw as Record<string, unknown>)) {
-                daily_map.set(k, v);
-            }
-        }
-        facts["daily"] = daily_map;
-        files.set(file, { session_id: entry.session_id, facts });
-    }
-    return { mtimes, files };
-}
+// serialize/save/load live in scan-state.ts; thin wrappers here read the
+// module-level maps and forward log warnings, keeping the public signatures
+// stable for tests.
 
 export function serialize_state(): SerializedScanState {
-    const jsonl: Record<string, SerializedScanBucket> = {};
-    for (const [key, state] of jsonl_states) jsonl[key] = serialize_bucket(state);
-    const kimi: Record<string, SerializedScanBucket> = {};
-    for (const [key, state] of kimi_states) kimi[key] = serialize_bucket(state);
-    const costs: Record<string, { offset: number; size: number }> = {};
-    for (const [key, c] of costs_state) costs[key] = c;
-    const opencode: Record<string, number> = {};
-    for (const [key, v] of opencode_max_updated) opencode[key] = v;
-    return {
-        costs_state: costs,
-        opencode_max_updated: opencode,
-        jsonl_states: jsonl,
-        kimi_states: kimi,
-    };
+    return scan_serialize({
+        costs_state,
+        opencode_max_updated,
+        jsonl_states,
+        kimi_states,
+    });
 }
 
 export async function save_state(state_path: string): Promise<void> {
-    if (!state_path) return;
-    try {
-        await writeJsonAtomic(state_path, serialize_state());
-    } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        forward_log("warn", "collector", `save_state failed: ${msg}`);
-    }
+    await scan_save(
+        { costs_state, opencode_max_updated, jsonl_states, kimi_states },
+        state_path,
+        (msg) => {
+            forward_log("warn", "collector", msg);
+        },
+    );
 }
 
 export async function load_state(state_path: string): Promise<void> {
-    if (!state_path) return;
-    let text: string;
-    try {
-        text = await fs.promises.readFile(state_path, "utf8");
-    } catch {
-        // Missing or unreadable state -> silent fallback to empty (full rescan).
-        return;
-    }
-    // Clear before attempting restore so any parse/deserialize failure leaves
-    // the maps empty (full rescan) rather than a half-populated mix.
-    costs_state.clear();
-    opencode_max_updated.clear();
-    jsonl_states.clear();
-    kimi_states.clear();
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(text) as unknown;
-    } catch {
-        forward_log("warn", "collector", `load_state: corrupt state file, ignoring`);
-        return;
-    }
-    if (typeof parsed !== "object" || parsed === null) return;
-    const s = parsed as Partial<SerializedScanState>;
-    try {
-        if (s.costs_state) {
-            for (const [k, v] of Object.entries(s.costs_state)) {
-                if (typeof v.offset === "number" && typeof v.size === "number") {
-                    costs_state.set(k, { offset: v.offset, size: v.size });
-                }
-            }
-        }
-        if (s.opencode_max_updated) {
-            for (const [k, v] of Object.entries(s.opencode_max_updated)) {
-                if (typeof v === "number") opencode_max_updated.set(k, v);
-            }
-        }
-        if (s.jsonl_states) {
-            for (const [k, bucket] of Object.entries(s.jsonl_states)) {
-                jsonl_states.set(k, deserialize_bucket(bucket) as unknown as SessionScanState);
-            }
-        }
-        if (s.kimi_states) {
-            for (const [k, bucket] of Object.entries(s.kimi_states)) {
-                kimi_states.set(k, deserialize_bucket(bucket) as unknown as KimiScanState);
-            }
-        }
-    } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        forward_log("warn", "collector", `load_state: failed to restore, ignoring: ${msg}`);
-        costs_state.clear();
-        opencode_max_updated.clear();
-        jsonl_states.clear();
-        kimi_states.clear();
-    }
+    await scan_load(
+        { costs_state, opencode_max_updated, jsonl_states, kimi_states },
+        state_path,
+        (msg) => {
+            forward_log("warn", "collector", msg);
+        },
+    );
 }
 
 const sources: SourceDef[] = [
