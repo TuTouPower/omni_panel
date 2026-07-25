@@ -1,3 +1,12 @@
 {
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t106",
+            "title": "修复添加账号弹窗首帧黑色横线",
+            "slug": "fix_add_dialog_black_line_impl",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        }
+    ]
 }
