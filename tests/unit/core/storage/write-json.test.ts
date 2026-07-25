@@ -22,7 +22,7 @@ describe("write-json atomic helpers", () => {
 
         vi.mocked(mkdir).mockImplementation(() => {
             order.push("mkdir");
-            return Promise.resolve();
+            return Promise.resolve("");
         });
         vi.mocked(writeFile).mockImplementation(() => {
             order.push("writeFile");
