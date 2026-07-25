@@ -7,6 +7,46 @@
             "status": "backlog",
             "branch": "",
             "note": ""
+        },
+        {
+            "tid": "t107",
+            "title": "manifest auth descriptor",
+            "slug": "manifest_auth_descriptor",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t108",
+            "title": "auth flow registry 替代 VENDOR_AUTH_MAP",
+            "slug": "auth_flow_registry",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t109",
+            "title": "OAuthDeviceForm + WebLoginForm 两个厂商子表单",
+            "slug": "vendor_forms_oauth_weblogin",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t110",
+            "title": "修复添加账号接线：精确匹配 source + displayName + exa/cpa 表单",
+            "slug": "fix_add_account_wiring",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t111",
+            "title": "config-store ENOENT/空文件 fallback 绕过 P0 保护",
+            "slug": "config_fallback_p0_protection",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
         }
     ]
 }
