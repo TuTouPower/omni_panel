@@ -101,6 +101,7 @@ web 浏览器经 LocalAPI `GET /v1/events`（SSE）订阅 runtimeStore 状态变
 - **instance identity 归宿主**：脚本运行时发现 account/metric，但不知自己在哪个实例下；`source_instance_id` 只由 `refresh-service` 盖，防同 provider 多实例在下游 collapse。
 - **vault 命名空间**：`keyFor(instanceId, name) = ${instanceId}:${name}`，`secrets-store` / `session-manager` / `net-client` 均经此，不内联拼接。
 - **endpoint 解析优先级**：用户 `endpointOverrides` > manifest `endpoints`；`requireExplicitEndpoints` 为真时无 override 即报错（CPA 用）。
+- **认证方式描述符**：manifest 可显式声明 `auth` 块（`method` + `secret_name` + 可选 `extra_fields`/`login_url`/`require_endpoint`）作为认证方式的唯一真相，渲染层据此选择添加账号表单，替代硬编码映射（t107）。
 - **IPC 边界**：renderer 只能调 `window.usageboard.*` 白名单，按 route（usage/setting/tray/agent）分权。
 - **用量窗口宽度**：usage 窗口仅有 472px 最小宽度；floating 持久化宽度最多为所在 display 的 `workArea.width`，popup 不设固定最大宽度。
 

@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t107",
-            "title": "manifest auth descriptor",
-            "slug": "manifest_auth_descriptor",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t108",
             "title": "auth flow registry 替代 VENDOR_AUTH_MAP",
             "slug": "auth_flow_registry",

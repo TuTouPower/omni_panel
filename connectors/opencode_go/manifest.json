@@ -2,6 +2,11 @@
     "id": "opencode_go",
     "provider": "opencode_go",
     "capabilities": ["session"],
+    "auth": {
+        "method": "web_login",
+        "secret_name": "SESSION_COOKIE",
+        "login_url": "https://opencode.ai/auth"
+    },
     "parameters": [
         {
             "name": "SESSION_COOKIE",

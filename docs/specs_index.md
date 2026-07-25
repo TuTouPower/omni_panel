@@ -20,6 +20,7 @@
 | ai-cli-token-stats-desktop   | Desktop  | 拆自 ai-cli-token-stats（t037）                                     | 2026-07-21   |
 | ai-cli-token-stats-ui        | Web      | 拆自 ai-cli-token-stats（t037），t103                               | 2026-07-24   |
 | config-store                 | API      | 迁移自 omni_powers，t038/t041/t105                                  | 2026-07-25   |
+| connector-auth               | API      | t107                                                                | 2026-07-25   |
 | connector-cpa-runtime        | API      | 拆自 connector-cpa（t037）                                          | 2026-07-21   |
 | connector-cpa-ui             | Web      | 拆自 connector-cpa（t037）                                          | 2026-07-21   |
 | connector-direct             | API      | 迁移自 omni_powers，t039                                            | 2026-07-22   |

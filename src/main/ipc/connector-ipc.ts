@@ -67,6 +67,7 @@ function metadata_from_definition(
         ),
         supportedProviders: [...supported_providers(definition)],
         defaultSource: source_from_definition(definition),
+        auth: definition.manifest.auth,
     };
 }
 

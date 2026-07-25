@@ -1,4 +1,5 @@
 import { z } from "zod/v3";
+import { authDescriptorSchema } from "./auth";
 
 /**
  * Connector-level provider name.
@@ -91,6 +92,8 @@ export const manifest_schema = z
         // 由 auth-ipc 读取，避免宿主硬编码（见 P1-4）。
         loginDomains: z.array(z.string().min(1)).optional(),
         cookieNames: z.array(z.string().min(1)).optional(),
+        // 认证方式描述符：渲染层据此选择添加账号表单，替代硬编码映射。
+        auth: authDescriptorSchema.optional(),
     })
     .strict()
     .refine(

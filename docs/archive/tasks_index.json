@@ -847,6 +847,14 @@
             "status": "done",
             "branch": "t106_fix_add_dialog_black_line_impl",
             "note": ""
+        },
+        {
+            "tid": "t107",
+            "title": "manifest auth descriptor",
+            "slug": "manifest_auth_descriptor",
+            "status": "done",
+            "branch": "t107_manifest_auth_descriptor",
+            "note": ""
         }
     ]
 }

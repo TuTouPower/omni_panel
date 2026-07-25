@@ -302,6 +302,184 @@ describe("connector-ipc", () => {
         expect(defaultConnector?.activeProviders).toEqual(["claude"]);
     });
 
+    describe("auth descriptor from manifest (t107)", () => {
+        function build_definition(manifest: ConnectorDefinition["manifest"]): ConnectorDefinition {
+            return {
+                directory: `/connectors/${manifest.id}`,
+                executablePath: `/connectors/${manifest.id}`,
+                manifest,
+            };
+        }
+
+        it("exposes grok oauth_device auth descriptor", async () => {
+            const { handleConnectorList } = await import("../../../src/main/ipc/connector-ipc");
+            const manifest: ConnectorDefinition["manifest"] = {
+                id: "grok",
+                provider: "grok",
+                capabilities: ["poll"],
+                parameters: [],
+                auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
+                poll: { request: { endpoint: "default", path: "/usage", method: "GET" }, map: {} },
+            };
+            const configStore = create_config_store([
+                {
+                    instanceId: "grok-1",
+                    stateId: "grok-1",
+                    name: "Grok",
+                    enabled: true,
+                    executablePath: "/connectors/grok",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ]);
+            const deps = {
+                configStore,
+                runtimeStore: create_runtime_store("idle"),
+                refreshService: createMockDeps().refreshService,
+                definitions: [build_definition(manifest)],
+            };
+            const result = await handleConnectorList(deps);
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data[0]?.metadata?.auth).toEqual({
+                method: "oauth_device",
+                secret_name: "OAUTH_TOKEN",
+            });
+        });
+
+        it("exposes exa apikey auth descriptor with extra_fields", async () => {
+            const { handleConnectorList } = await import("../../../src/main/ipc/connector-ipc");
+            const manifest: ConnectorDefinition["manifest"] = {
+                id: "exa",
+                provider: "exa",
+                capabilities: ["poll"],
+                parameters: [],
+                auth: {
+                    method: "apikey",
+                    secret_name: "SERVICE_KEY",
+                    extra_fields: ["API_KEY_ID"],
+                },
+                poll: { request: { endpoint: "default", path: "/usage", method: "GET" }, map: {} },
+            };
+            const configStore = create_config_store([
+                {
+                    instanceId: "exa-1",
+                    stateId: "exa-1",
+                    name: "Exa",
+                    enabled: true,
+                    executablePath: "/connectors/exa",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ]);
+            const deps = {
+                configStore,
+                runtimeStore: create_runtime_store("idle"),
+                refreshService: createMockDeps().refreshService,
+                definitions: [build_definition(manifest)],
+            };
+            const result = await handleConnectorList(deps);
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data[0]?.metadata?.auth).toEqual({
+                method: "apikey",
+                secret_name: "SERVICE_KEY",
+                extra_fields: ["API_KEY_ID"],
+            });
+        });
+
+        it("exposes cpa cpa_mgmt auth descriptor with require_endpoint", async () => {
+            const { handleConnectorList } = await import("../../../src/main/ipc/connector-ipc");
+            const manifest: ConnectorDefinition["manifest"] = {
+                id: "cpa",
+                provider: "cpa",
+                capabilities: ["poll"],
+                parameters: [
+                    {
+                        name: "monitor_claude",
+                        label: "Claude",
+                        type: "string",
+                        required: false,
+                        exposeToScript: false,
+                        default: "true",
+                    },
+                ],
+                auth: { method: "cpa_mgmt", secret_name: "cpa_mgmt_key", require_endpoint: true },
+                poll: { request: { endpoint: "default", path: "/usage", method: "GET" }, map: {} },
+            };
+            const configStore = create_config_store([
+                {
+                    instanceId: "cpa-1",
+                    stateId: "cpa-1",
+                    name: "CPA",
+                    enabled: true,
+                    executablePath: "/connectors/cpa",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: { monitor_claude: "true" },
+                    endpointOverrides: {},
+                },
+            ]);
+            const deps = {
+                configStore,
+                runtimeStore: create_runtime_store("idle"),
+                refreshService: createMockDeps().refreshService,
+                definitions: [build_definition(manifest)],
+            };
+            const result = await handleConnectorList(deps);
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data[0]?.metadata?.auth).toEqual({
+                method: "cpa_mgmt",
+                secret_name: "cpa_mgmt_key",
+                require_endpoint: true,
+            });
+        });
+
+        it("exposes opencode_go web_login auth descriptor with login_url", async () => {
+            const { handleConnectorList } = await import("../../../src/main/ipc/connector-ipc");
+            const manifest: ConnectorDefinition["manifest"] = {
+                id: "opencode_go",
+                provider: "opencode_go",
+                capabilities: ["session"],
+                parameters: [],
+                auth: {
+                    method: "web_login",
+                    secret_name: "SESSION_COOKIE",
+                    login_url: "https://opencode.ai/auth",
+                },
+                poll: { request: { endpoint: "default", path: "/usage", method: "GET" }, map: {} },
+            };
+            const configStore = create_config_store([
+                {
+                    instanceId: "opencode-go-1",
+                    stateId: "opencode-go-1",
+                    name: "OpenCode Go",
+                    enabled: true,
+                    executablePath: "/connectors/opencode_go",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ]);
+            const deps = {
+                configStore,
+                runtimeStore: create_runtime_store("idle"),
+                refreshService: createMockDeps().refreshService,
+                definitions: [build_definition(manifest)],
+            };
+            const result = await handleConnectorList(deps);
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data[0]?.metadata?.auth).toEqual({
+                method: "web_login",
+                secret_name: "SESSION_COOKIE",
+                login_url: "https://opencode.ai/auth",
+            });
+        });
+    });
+
     describe("is_cpa_connector", () => {
         it("exists and returns true for a cpa connector definition", async () => {
             const { is_cpa_connector } = await import("../../../src/main/ipc/connector-ipc");
