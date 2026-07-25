@@ -63,3 +63,16 @@
 - 需改：为 `save()` 固定 LF 和 4 空格缩进，补脚本测试；仅通过脚本重写 task index，禁止手工修改 JSON。
 - 关联 task：t102 review finding `t102_code_f002`。
 - 修复：`5484704 fix(scripts): task.py save() 用 4 空格缩进 + LF`（origin/main）——`save()` 改 `indent=4` + `newline='\n'`，补 `scripts/test_task.py` 三条 pytest 钉住格式契约。
+
+## config 数据丢失：fallback 路径绕过 P0 保护，auto_seed 覆盖账号
+
+- 报告时间：2026-07-25。
+- 现象：重启应用后 config.json 里配置的账号（plugins 数组）全部消失，被 auto_seed 重新生成的 connector（新 randomUUID）覆盖，密钥与 instanceId 对不上、账号全失联。
+- 根因链：
+    1. `writeBakAtomic` 在 `writeFile` 阶段进程被强杀（`taskkill /F`），`config.json.bak` 的 tmp 只剩预分配的 null 字节，rename 后变成纯 `\0` 文件。
+    2. 重启时主 `config.json` 解析失败，去读 `.bak` 也是 null 字节损坏。
+    3. `config-store.ts` 的 `load()` 在**主 + bak 都坏**时，只有 schema 解析失败路径才走「抛错、不 fallback、防 auto_seed 覆盖」的 P0 保护；而 ENOENT / 空文件分支直接 `return DEFAULT_CONFIGURATION`（空 plugins），**没抛错**。
+    4. `DEFAULT_CONFIGURATION` 空 plugins 触发 auto_seed，重新生成 connector（新 instanceId）写回 config.json，覆盖原账号。
+- 需改：`load()` 的 ENOENT / fallback 分支同样走「抛错 + 拒绝默认启动 + 不 auto_seed」保护，不能 `return DEFAULT_CONFIGURATION` 让 auto_seed 有机可乘；或 fallback 时禁止 auto_seed 运行。
+- 关联：`src/main/core/config/config-store.ts` `load()` 的 ENOENT / 空文件分支（约 line 244-246）；`writeBakAtomic` 中断留 null padding。
+- 数据恢复：2026-07-25 经 secrets.vault（aes-gcm master key）+ custom_env.py 明文 key 池反推重建，10 个 connector 全部密钥关联恢复。
