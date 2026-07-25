@@ -309,13 +309,15 @@ const grok_methods: GrokSettingsApi = {
         interval: number,
         expires_at_epoch_ms: number,
     ) =>
-        invoke<{ saved: boolean }>(
+        invoke<{ saved: boolean; token?: string }>(
             IPC_CHANNELS.GROK_LOGIN_POLL,
             instance_id,
             device_code,
             interval,
             expires_at_epoch_ms,
         ),
+    login_cancel: (instance_id: string) =>
+        invoke<undefined>(IPC_CHANNELS.GROK_LOGIN_CANCEL, instance_id),
     login_status: (instance_id: string) =>
         invoke<GrokLoginStatus>(IPC_CHANNELS.GROK_LOGIN_STATUS, instance_id),
     logout: (instance_id: string) =>

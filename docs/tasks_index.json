@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t109",
-            "title": "OAuthDeviceForm + WebLoginForm 两个厂商子表单",
-            "slug": "vendor_forms_oauth_weblogin",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t110",
             "title": "修复添加账号接线：精确匹配 source + displayName + exa/cpa 表单",
             "slug": "fix_add_account_wiring",

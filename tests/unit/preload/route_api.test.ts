@@ -15,6 +15,7 @@ function create_grok_apis(): {
             ...readonly_api,
             login_start: vi.fn(),
             login_poll: vi.fn(),
+            login_cancel: vi.fn(),
             logout: vi.fn(),
             refresh: vi.fn(),
         },
@@ -28,6 +29,7 @@ describe("select_grok_api", () => {
         const api = select_grok_api("setting", readonly_api, settings_api);
 
         expect(Object.keys(api).sort()).toEqual([
+            "login_cancel",
             "login_poll",
             "login_start",
             "login_status",

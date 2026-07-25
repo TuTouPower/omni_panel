@@ -150,7 +150,25 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         expect(saved.auth_method).toBe("session");
     });
 
-    it("renders placeholder for oauth_device descriptor (grok)", async () => {
+    it("renders OAuth device form for grok and saves after polling succeeds", async () => {
+        const grok = {
+            login_start: vi.fn().mockResolvedValue({
+                device_code: "dc-123",
+                user_code: "ABCD-EFGH",
+                verification_uri: "https://auth.x.ai/device",
+                verification_uri_complete: "https://auth.x.ai/device?user_code=ABCD-EFGH",
+                expires_in: 1800,
+                interval: 5,
+            }),
+            login_poll: vi.fn().mockResolvedValue({ saved: true, token: "grok-access-token" }),
+            login_cancel: vi.fn().mockResolvedValue(undefined),
+            login_status: vi
+                .fn()
+                .mockResolvedValue({ has_token: false, expires_at: null, can_refresh: false }),
+            logout: vi.fn().mockResolvedValue({ logged_out: true }),
+            refresh: vi.fn().mockResolvedValue({ success: true }),
+        };
+        (window as unknown as { usageboard: unknown }).usageboard = { grok };
         const plugin: PluginInfo = make_plugin({
             instanceId: "grok-1",
             name: "Grok",
@@ -167,11 +185,23 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
 
         await user.click(screen.getByText("Grok"));
-        expect(screen.getByText(/OAuth 设备码.*将在 t109\/t110 实现/)).toBeInTheDocument();
+        expect(screen.getByText("开始登录")).toBeInTheDocument();
         expect(screen.queryByPlaceholderText("sk-…")).not.toBeInTheDocument();
+
+        await user.click(screen.getByText("开始登录"));
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        expect(get_saved_params(on_save).auth_method).toBe("oauth_device");
+        expect(get_saved_params(on_save).secrets).toEqual({ OAUTH_TOKEN: "grok-access-token" });
     });
 
-    it("renders placeholder for web_login descriptor (opencode_go)", async () => {
+    it("renders web login form for opencode_go and saves cookie on success", async () => {
+        const session = {
+            login: vi.fn().mockResolvedValue({ saved: true, cookie: "session=abc" }),
+            refresh: vi.fn().mockResolvedValue({ saved: true, cookie: "" }),
+        };
+        (window as unknown as { usageboard: unknown }).usageboard = { session };
         const plugin: PluginInfo = make_plugin({
             instanceId: "opencode-go-1",
             name: "OpenCode Go",
@@ -192,9 +222,16 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
 
         await user.click(screen.getByText("OpenCode Go"));
-        expect(screen.getByText(/网页登录.*将在 t109\/t110 实现/)).toBeInTheDocument();
+        expect(screen.getByText("网页登录")).toBeInTheDocument();
         expect(screen.queryByPlaceholderText("sk-…")).not.toBeInTheDocument();
         expect(screen.queryByText("复制脚本")).not.toBeInTheDocument();
+
+        await user.click(screen.getByText("网页登录"));
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        expect(get_saved_params(on_save).auth_method).toBe("web_login");
+        expect(get_saved_params(on_save).secrets).toEqual({ SESSION_COOKIE: "session=abc" });
     });
 
     it("renders placeholder for cpa_mgmt descriptor (cpa)", async () => {
@@ -217,23 +254,23 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         expect(screen.getByText(/CPA 管理端.*将在 t109\/t110 实现/)).toBeInTheDocument();
     });
 
-    it("disables save for placeholder auth methods", async () => {
+    it("disables save for unsupported cpa_mgmt placeholder", async () => {
         const plugin: PluginInfo = make_plugin({
-            instanceId: "grok-1",
-            name: "Grok",
-            displayName: "Grok",
-            source: "poll",
-            supportedProviders: ["grok"],
-            activeProviders: ["grok"],
+            instanceId: "cpa-1",
+            name: "CPA Manager",
+            displayName: "CPA Manager",
+            source: "gateway",
+            supportedProviders: ["claude", "kimi"],
+            activeProviders: ["claude", "kimi"],
             metadata: {
-                name: "grok",
-                auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
+                name: "cpa",
+                auth: { method: "cpa_mgmt", secret_name: "cpa_mgmt_key", require_endpoint: true },
             },
         });
         const user = userEvent.setup();
         render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
 
-        await user.click(screen.getByText("Grok"));
+        await user.click(screen.getByText("CPA Manager"));
         const save_btn = screen.getByText("添加账号").closest("button");
         expect(save_btn).toBeDisabled();
         if (save_btn) {

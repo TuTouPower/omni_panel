@@ -52,6 +52,20 @@ export async function handle_grok_login_poll(
     }
 }
 
+export function handle_grok_login_cancel(
+    deps: GrokAuthIpcDeps,
+    instance_id: string,
+): Promise<IpcResult<void>> {
+    try {
+        deps.manager.cancel_device_login(instance_id);
+        return Promise.resolve(ok(undefined));
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error(`login_cancel failed for ${instance_id}: ${message}`);
+        return Promise.resolve(fail("INTERNAL_ERROR", message));
+    }
+}
+
 export async function handle_grok_login_status(
     deps: GrokAuthIpcDeps,
     instance_id: string,
@@ -118,6 +132,10 @@ export function registerGrokAuthIpc(deps: GrokAuthIpcDeps): void {
             );
         },
     );
+    ipcMain.handle(IPC_CHANNELS.GROK_LOGIN_CANCEL, (event, instance_id: string) => {
+        assert_valid_sender(event);
+        return handle_grok_login_cancel(deps, instance_id);
+    });
     ipcMain.handle(IPC_CHANNELS.GROK_LOGIN_STATUS, (event, instance_id: string) => {
         assert_valid_sender(event);
         return handle_grok_login_status(deps, instance_id);

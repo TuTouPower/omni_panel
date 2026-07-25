@@ -9,14 +9,17 @@ import {
     resolve_auth_method,
     type ResolvedAuthMethod,
 } from "../lib/auth-flow-registry";
+import { OAuthDeviceForm } from "./forms/OAuthDeviceForm";
+import { WebLoginForm } from "./forms/WebLoginForm";
+import { VendorPicker } from "./add_account/VendorPicker";
+import { ApiKeyForm } from "./add_account/ApiKeyForm";
+import { SessionForm } from "./add_account/SessionForm";
+import { LocalScanForm } from "./add_account/LocalScanForm";
+import { AuthPlaceholder } from "./add_account/AuthPlaceholder";
 
-const AUTH_LOCAL_PATHS: Partial<Record<AddServiceId, string[]>> = {
-    claude: ["~/.claude/.credentials.json", "~/.config/claude/auth.json"],
-    codex: ["~/.codex/auth.json"],
-    antigravity: ["~/.antigravity/session.json"],
-};
-
-// ── Props ──
+function generate_instance_id(vendor_id: AddServiceId): string {
+    return `${vendor_id}-${String(Date.now())}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export interface AddAccountParams {
     vendor_id: AddServiceId;
@@ -32,8 +35,6 @@ interface AddAccountDialogProps {
     on_close: () => void;
     on_save: (params: AddAccountParams) => Promise<void>;
 }
-
-// ── Helpers ──
 
 function find_connector(
     plugin_infos: ConnectorInfo[],
@@ -53,301 +54,6 @@ function find_connector(
     );
 }
 
-// ── Sub-components ──
-
-function VendorPicker({
-    on_select,
-}: {
-    plugin_infos: ConnectorInfo[];
-    on_select: (vendor_id: AddServiceId) => void;
-}) {
-    // 内置 provider 始终可添加（auto_seed 保证 connector definition 存在）；
-    // 用户删除账号后可重新添加，不因 plugin_infos 缺失而禁用。
-    const can_add = () => true;
-
-    return (
-        <div className="pick-body">
-            <div className="set-group-label" style={{ marginTop: 0 }}>
-                常用服务
-            </div>
-            <div className="pick-grid">
-                {ADD_COMMON_SERVICES.map((s) => {
-                    const available = can_add();
-                    return (
-                        <button
-                            className={"pick-card" + (available ? "" : " disabled")}
-                            key={s.id}
-                            type="button"
-                            disabled={!available}
-                            onClick={() => {
-                                on_select(s.id);
-                            }}
-                        >
-                            <VendorMark id={s.id} size={28} />
-                            <span className="pick-label">{s.label}</span>
-                        </button>
-                    );
-                })}
-            </div>
-            <div
-                className="set-group-label"
-                style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}
-            >
-                <Icon name="folder" size={13} strokeWidth={1.8} />
-                <button
-                    type="button"
-                    className="ad-test"
-                    onClick={() => {
-                        window.usageboard.settings.openConnectorsDir();
-                    }}
-                >
-                    打开脚本目录
-                </button>
-            </div>
-        </div>
-    );
-}
-
-function ApiKeyForm({
-    account_name,
-    set_account_name,
-    form_ref,
-}: {
-    vendor_id: AddServiceId;
-    account_name: string;
-    set_account_name: (v: string) => void;
-    form_ref: React.RefObject<{ api_key: string; endpoint_override?: string }>;
-}) {
-    const [key, set_key] = useState("");
-    const [show_key, set_show_key] = useState(false);
-    const [endpoint, set_endpoint] = useState("");
-
-    useEffect(() => {
-        form_ref.current = {
-            api_key: key,
-            ...(endpoint ? { endpoint_override: endpoint } : {}),
-        };
-    }, [key, endpoint, form_ref]);
-
-    return (
-        <div>
-            <div className="ad-field">
-                <label className="ad-label">
-                    备注<span className="ad-opt">显示用</span>
-                </label>
-                <input
-                    className="ad-input"
-                    spellCheck={false}
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    value={account_name}
-                    autoFocus
-                    onChange={(e) => {
-                        set_account_name(e.target.value);
-                    }}
-                    placeholder="例如：工作账号"
-                />
-            </div>
-            <div className="ad-field">
-                <label className="ad-label">API 密钥</label>
-                <div className="ad-key">
-                    <input
-                        className="ad-input mono"
-                        spellCheck={false}
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                        type={show_key ? "text" : "password"}
-                        value={key}
-                        onChange={(e) => {
-                            set_key(e.target.value);
-                        }}
-                        placeholder="sk-…"
-                    />
-                    <button
-                        className="ad-eye"
-                        type="button"
-                        onClick={() => {
-                            set_show_key((v) => !v);
-                        }}
-                        title={show_key ? "隐藏" : "显示"}
-                    >
-                        <Icon name={show_key ? "eye_off" : "eye"} size={16} />
-                    </button>
-                </div>
-                <div className="ad-hint">
-                    <Icon name="lock" size={12} strokeWidth={1.8} />
-                    密钥仅加密保存在本地
-                </div>
-            </div>
-            <div className="ad-field">
-                <label className="ad-label">
-                    接口地址<span className="ad-opt">可选</span>
-                </label>
-                <input
-                    className="ad-input mono"
-                    spellCheck={false}
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    value={endpoint}
-                    onChange={(e) => {
-                        set_endpoint(e.target.value);
-                    }}
-                    placeholder="默认（官方接口）"
-                />
-            </div>
-        </div>
-    );
-}
-
-function SessionForm({
-    account_name,
-    set_account_name,
-    form_ref,
-}: {
-    vendor_id: AddServiceId;
-    account_name: string;
-    set_account_name: (v: string) => void;
-    form_ref: React.RefObject<{ cookie: string }>;
-}) {
-    const [cookie, set_cookie] = useState("");
-
-    useEffect(() => {
-        form_ref.current = { cookie };
-    }, [cookie, form_ref]);
-
-    return (
-        <>
-            <div className="ad-field">
-                <label className="ad-label">
-                    备注<span className="ad-opt">显示用</span>
-                </label>
-                <input
-                    className="ad-input"
-                    spellCheck={false}
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    value={account_name}
-                    onChange={(e) => {
-                        set_account_name(e.target.value);
-                    }}
-                    placeholder="例如：工作账号"
-                />
-            </div>
-            <div className="ad-field">
-                <label className="ad-label">Cookie 字符串</label>
-                <textarea
-                    className="aa-textarea mono"
-                    spellCheck={false}
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    value={cookie}
-                    onChange={(e) => {
-                        set_cookie(e.target.value);
-                    }}
-                    placeholder="在浏览器登录后，从开发者工具复制完整 Cookie…"
-                />
-                <div className="ad-hint" style={{ marginTop: 6 }}>
-                    <Icon name="info" size={12} strokeWidth={1.8} />
-                    保存后可在账号设置中使用网页登录自动捕获 Cookie
-                </div>
-            </div>
-        </>
-    );
-}
-
-function LocalScanForm({ vendor_id }: { vendor_id: AddServiceId }) {
-    const paths = AUTH_LOCAL_PATHS[vendor_id] ?? [];
-    const [phase, set_phase] = useState<"scanning" | "done">("scanning");
-
-    // Mock scan — in production this would use IPC to read the filesystem
-    useEffect(() => {
-        const t = setTimeout(() => {
-            set_phase("done");
-            // For now, show the paths as being scanned; no real file I/O
-            // from the renderer. A future IPC channel can provide real results.
-        }, 800);
-        return () => {
-            clearTimeout(t);
-        };
-    }, [vendor_id]);
-
-    return (
-        <>
-            <div className="scan-paths">
-                <span className="sp-h">
-                    <Icon name="search" size={13} strokeWidth={1.8} />
-                    扫描位置
-                </span>
-                {paths.map((p) => (
-                    <code key={p} className="sp-path">
-                        {p}
-                    </code>
-                ))}
-            </div>
-
-            {phase === "scanning" ? (
-                <div className="scan-busy">
-                    <span className="sb-spin">
-                        <Icon name="refresh" size={16} />
-                    </span>
-                    正在扫描本地授权文件…
-                </div>
-            ) : (
-                <div className="scan-found">
-                    <div className="sf-head">
-                        <span className="sf-title">未发现有效凭证</span>
-                        <button
-                            className="sf-rescan"
-                            type="button"
-                            onClick={() => {
-                                set_phase("scanning");
-                            }}
-                        >
-                            <Icon name="refresh" size={13} strokeWidth={1.8} />
-                            重新扫描
-                        </button>
-                    </div>
-                    <div className="lm-empty" style={{ marginTop: 12 }}>
-                        <span className="lme-ic">
-                            <Icon name="file" size={20} />
-                        </span>
-                        <div className="lme-title">未找到本地授权文件</div>
-                        <div className="lme-sub">
-                            请确保已安装对应的 CLI 工具并完成登录，然后点击重新扫描。
-                        </div>
-                    </div>
-                    <button className="scan-manual" type="button" disabled title="尚未实现">
-                        <Icon name="folder" size={14} />
-                        手动选择文件…
-                    </button>
-                </div>
-            )}
-        </>
-    );
-}
-
-function AuthPlaceholder({
-    method,
-}: {
-    method: Exclude<ResolvedAuthMethod, "apikey" | "session" | "local_cli">;
-}) {
-    const labels: Record<typeof method, string> = {
-        oauth_device: "OAuth 设备码",
-        web_login: "网页登录",
-        cpa_mgmt: "CPA 管理端",
-    };
-    return (
-        <div className="ad-field">
-            <div className="ad-hint">
-                <Icon name="info" size={12} strokeWidth={1.8} />
-                {labels[method]}添加流程将在 t109/t110 实现。
-            </div>
-        </div>
-    );
-}
-
-// ── Main Dialog ──
-
 export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccountDialogProps) {
     const [step, set_step] = useState<"vendor" | "auth">("vendor");
     const [vendor_id, set_vendor_id] = useState<AddServiceId | null>(null);
@@ -360,6 +66,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
     const session_form_ref = useRef<{ cookie: string }>({
         cookie: "",
     });
+    const oauth_instance_id_ref = useRef("");
 
     const selected_connector = useMemo(
         () => (vendor_id ? find_connector(plugin_infos, vendor_id) : undefined),
@@ -389,8 +96,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
     const title = vendor_id ? `添加 ${vendor_label} 账号` : "添加账号";
     const sub = vendor_id ? sub_by_auth[auth_method] : "";
     const wide = auth_method === "local_cli";
-    const is_placeholder_auth =
-        auth_method === "oauth_device" || auth_method === "web_login" || auth_method === "cpa_mgmt";
+    const is_unsupported_auth = auth_method === "cpa_mgmt";
 
     // ESC to close
     useEffect(() => {
@@ -407,6 +113,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
         set_vendor_id(id);
         set_account_name("");
         set_error_message(null);
+        oauth_instance_id_ref.current = generate_instance_id(id);
         set_step("auth");
     }, []);
 
@@ -419,7 +126,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
 
     const handle_save = useCallback(async () => {
         if (!vendor_id || saving) return;
-        if (is_placeholder_auth) return;
+        if (is_unsupported_auth) return;
         set_error_message(null);
         set_saving(true);
         try {
@@ -464,10 +171,18 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
         selected_connector,
         vendor_label,
         saving,
-        is_placeholder_auth,
+        is_unsupported_auth,
         on_save,
         on_close,
     ]);
+
+    const handle_form_save = useCallback(
+        async (params: AddAccountParams) => {
+            await on_save(params);
+            on_close();
+        },
+        [on_save, on_close],
+    );
 
     return (
         <div className="acct-dialog-scrim" onMouseDown={on_close}>
@@ -519,7 +234,6 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                         <>
                             {auth_method === "apikey" && (
                                 <ApiKeyForm
-                                    vendor_id={vendor_id}
                                     account_name={account_name}
                                     set_account_name={set_account_name}
                                     form_ref={api_form_ref}
@@ -527,52 +241,74 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                             )}
                             {auth_method === "session" && (
                                 <SessionForm
-                                    vendor_id={vendor_id}
                                     account_name={account_name}
                                     set_account_name={set_account_name}
                                     form_ref={session_form_ref}
                                 />
                             )}
                             {auth_method === "local_cli" && <LocalScanForm vendor_id={vendor_id} />}
-                            {(auth_method === "oauth_device" ||
-                                auth_method === "web_login" ||
-                                auth_method === "cpa_mgmt") && (
-                                <AuthPlaceholder method={auth_method} />
+                            {auth_method === "oauth_device" && (
+                                <OAuthDeviceForm
+                                    key={vendor_id}
+                                    instance_id={oauth_instance_id_ref.current}
+                                    vendor_id={vendor_id}
+                                    secret_name={
+                                        auth_descriptor?.secret_name ??
+                                        fallback_secret_name(selected_connector)
+                                    }
+                                    account_name={account_name}
+                                    set_account_name={set_account_name}
+                                    on_save={handle_form_save}
+                                />
                             )}
+                            {auth_method === "web_login" && auth_descriptor?.login_url && (
+                                <WebLoginForm
+                                    key={vendor_id}
+                                    provider={vendor_id}
+                                    login_url={auth_descriptor.login_url}
+                                    secret_name={auth_descriptor.secret_name}
+                                    account_name={account_name}
+                                    set_account_name={set_account_name}
+                                    on_save={handle_form_save}
+                                />
+                            )}
+                            {auth_method === "cpa_mgmt" && <AuthPlaceholder method={auth_method} />}
                         </>
                     )}
                 </div>
 
                 {/* Footer */}
-                {step === "auth" && (
-                    <div className="ad-foot">
-                        {error_message && <div className="ad-hint">{error_message}</div>}
-                        {auth_method !== "local_cli" && (
-                            <button className="ad-test" type="button" disabled>
-                                <Icon name="refresh" size={14} strokeWidth={1.9} />
-                                测试连接
-                            </button>
-                        )}
-                        <div className="ad-foot-r">
-                            <button className="ad-btn ghost" type="button" onClick={on_close}>
-                                取消
-                            </button>
-                            <button
-                                className={
-                                    "ad-btn primary" +
-                                    (saving || is_placeholder_auth ? " disabled" : "")
-                                }
-                                type="button"
-                                disabled={saving || is_placeholder_auth}
-                                onClick={() => {
-                                    void handle_save();
-                                }}
-                            >
-                                {auth_method === "local_cli" ? "导入账号" : "添加账号"}
-                            </button>
+                {step === "auth" &&
+                    auth_method !== "oauth_device" &&
+                    auth_method !== "web_login" && (
+                        <div className="ad-foot">
+                            {error_message && <div className="ad-hint">{error_message}</div>}
+                            {auth_method !== "local_cli" && (
+                                <button className="ad-test" type="button" disabled>
+                                    <Icon name="refresh" size={14} strokeWidth={1.9} />
+                                    测试连接
+                                </button>
+                            )}
+                            <div className="ad-foot-r">
+                                <button className="ad-btn ghost" type="button" onClick={on_close}>
+                                    取消
+                                </button>
+                                <button
+                                    className={
+                                        "ad-btn primary" +
+                                        (saving || is_unsupported_auth ? " disabled" : "")
+                                    }
+                                    type="button"
+                                    disabled={saving || is_unsupported_auth}
+                                    onClick={() => {
+                                        void handle_save();
+                                    }}
+                                >
+                                    {auth_method === "local_cli" ? "导入账号" : "添加账号"}
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
             </div>
         </div>
     );

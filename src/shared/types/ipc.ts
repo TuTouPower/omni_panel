@@ -81,6 +81,7 @@ export const IPC_CHANNELS = {
     /** Grok OAuth device-code flow — independent token in OmniUsage vault. */
     GROK_LOGIN_START: "grok:loginStart",
     GROK_LOGIN_POLL: "grok:loginPoll",
+    GROK_LOGIN_CANCEL: "grok:loginCancel",
     GROK_LOGIN_STATUS: "grok:loginStatus",
     GROK_LOGOUT: "grok:logout",
     GROK_REFRESH: "grok:refresh",
@@ -262,7 +263,8 @@ export interface GrokSettingsApi extends GrokReadonlyApi {
         device_code: string,
         interval: number,
         expires_at_epoch_ms: number,
-    ): Promise<{ saved: boolean }>;
+    ): Promise<{ saved: boolean; token?: string }>;
+    login_cancel(instance_id: string): Promise<void>;
     logout(instance_id: string): Promise<{ logged_out: boolean }>;
     refresh(instance_id: string): Promise<GrokRefreshResult>;
 }

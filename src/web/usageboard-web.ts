@@ -142,8 +142,10 @@ export function create_web_usageboard(): UsageboardApi {
         },
         grok: {
             login_start: noop,
-            login_poll: () => Promise.resolve({ status: "idle" }),
-            login_status: () => Promise.resolve({ connected: false }),
+            login_poll: () => Promise.resolve({ saved: false }),
+            login_cancel: noop,
+            login_status: () =>
+                Promise.resolve({ has_token: false, expires_at: null, can_refresh: false }),
             logout: noop,
             refresh: noop,
         },

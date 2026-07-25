@@ -863,6 +863,14 @@
             "status": "done",
             "branch": "t108_auth_flow_registry",
             "note": ""
+        },
+        {
+            "tid": "t109",
+            "title": "OAuthDeviceForm + WebLoginForm 两个厂商子表单",
+            "slug": "vendor_forms_oauth_weblogin",
+            "status": "done",
+            "branch": "t109_vendor_forms_oauth_weblogin",
+            "note": "blocked: review"
         }
     ]
 }

@@ -28,6 +28,7 @@ function mock_grok_api(overrides?: {
     const grok = {
         login_start: vi.fn().mockResolvedValue(start),
         login_poll: vi.fn().mockResolvedValue({ saved: true }),
+        login_cancel: vi.fn().mockResolvedValue(undefined),
         login_status: vi.fn().mockResolvedValue(status),
         logout: vi.fn().mockResolvedValue({ logged_out: true }),
         refresh: vi.fn().mockResolvedValue({ success: true }),
