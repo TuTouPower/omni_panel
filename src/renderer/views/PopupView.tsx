@@ -15,9 +15,9 @@ import { ProviderNav } from "../components/ProviderNav";
 import { ProviderOverview } from "../components/ProviderOverview";
 import { TokenPanel } from "../components/TokenPanel";
 import { CollapsibleCard } from "../components/CollapsibleCard";
-import { UpcomingResetRail } from "../components/UpcomingResetRail";
-import { UpcomingResetBanner } from "../components/UpcomingResetBanner";
+import { UpcomingResetCard, UPCOMING_RESET_CARD_ID } from "../components/UpcomingResetCard";
 import { type ProviderUsageGroup } from "../lib/provider-usage";
+import { build_reorder_base } from "../lib/drag-reorder";
 import type { AppConfiguration } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import logo from "../assets/logo.svg";
@@ -266,8 +266,14 @@ export function PopupView() {
         active_tab: activeTab,
         account_orders,
     });
-    // t041：阈值非空时才挂载 Banner/Rail；抽局部常量避免两处 verbatim 重复。
+    // t041：阈值非空时才挂载即将重置卡片。
     const show_upcoming = upcoming_reset_threshold_percent != null;
+    const overview_card_order = useMemo(() => {
+        const visible_card_ids = show_upcoming
+            ? [...orderedProviders, UPCOMING_RESET_CARD_ID]
+            : orderedProviders;
+        return build_reorder_base(provider_order, visible_card_ids);
+    }, [orderedProviders, provider_order, show_upcoming]);
     const select_provider_from_upcoming = useCallback((provider: string) => {
         setActiveTab(provider);
         scroll_ref.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -311,7 +317,13 @@ export function PopupView() {
             }
             return next;
         });
-        const live_providers = new Set(providerGroups.map((g) => g.provider));
+        const live_providers = new Set([
+            ...providerGroups.map((group) => group.provider),
+            // Keep __upcoming_reset__ so structural pruning doesn't drop its
+            // expansion state; it's not a real provider but shares the same
+            // persistence key (T105).
+            UPCOMING_RESET_CARD_ID,
+        ]);
         set_expanded_providers((prev_e) => {
             const next: Record<string, boolean> = {};
             for (const [p, v] of Object.entries(prev_e)) {
@@ -425,7 +437,9 @@ export function PopupView() {
         handle_account_drag_enter,
         handle_account_drag_end,
     } = use_dnd_handlers({
-        orderedProviders,
+        // overview_card_order contains provider ids plus the upcoming-reset
+        // pseudo-card id, so reordering preserves the special card.
+        orderedProviders: overview_card_order,
         activeGroup,
         activeTab,
         set_provider_order,
@@ -590,63 +604,109 @@ export function PopupView() {
                         )}
 
                         {!loading && plugins.length > 0 && activeTab === "overview" && (
-                            <div className="overview-row">
-                                {show_upcoming && (
-                                    <UpcomingResetBanner
-                                        items={upcomingItems}
-                                        onSelectProvider={
-                                            is_live
-                                                ? select_provider_from_upcoming
-                                                : () => undefined
-                                        }
-                                        desensitizeRemarks={ui_desensitize_remarks}
-                                    />
-                                )}
-                                <ProviderOverview
-                                    groups={providerGroups}
-                                    visibleProviders={orderedProviders}
-                                    providerErrors={providerErrors}
-                                    onRefreshProvider={is_live ? refreshProvider : () => undefined}
-                                    expandedProviders={is_live ? expanded_providers : undefined}
-                                    onToggleExpandProvider={
-                                        is_live ? toggle_expand_provider : undefined
+                            <ProviderOverview
+                                groups={providerGroups}
+                                visibleProviders={orderedProviders}
+                                overviewCardOrder={overview_card_order}
+                                renderExtraCard={(card_id) => {
+                                    if (card_id !== UPCOMING_RESET_CARD_ID) {
+                                        return null;
                                     }
-                                    onReLogin={
-                                        is_live
-                                            ? (p) => {
-                                                  void handle_re_login(p);
-                                              }
-                                            : undefined
-                                    }
-                                    draggingProvider={is_live ? drag_id : null}
-                                    overProvider={is_live ? over_id : null}
-                                    onDragStart={is_live ? handle_drag_start : undefined}
-                                    onDragEnter={is_live ? handle_drag_enter : undefined}
-                                    onDragOver={is_live ? handle_drag_over : undefined}
-                                    onDragEnd={is_live ? handle_drag_end : undefined}
-                                    refreshingProviders={is_live ? refresh_providers : undefined}
-                                    barColorScheme={usage_bar_color_scheme}
-                                    barStyle={usage_bar_style}
-                                    providerLabelMaps={provider_label_maps}
-                                    accountLabelMaps={account_label_maps}
-                                    convergentTimeMinutes={convergent_time_minutes}
-                                    desensitizeRemarks={ui_desensitize_remarks}
-                                    providerForcePercent={provider_force_percent}
-                                    watchedMetrics={account_overrides?.upcomingResetWatched}
-                                    on_toggle_watched={is_live ? handle_toggle_watched : undefined}
-                                />
-                                {show_upcoming && (
-                                    <UpcomingResetRail
-                                        items={upcomingItems}
-                                        onSelectProvider={
-                                            is_live
-                                                ? select_provider_from_upcoming
-                                                : () => undefined
-                                        }
-                                        desensitizeRemarks={ui_desensitize_remarks}
-                                    />
-                                )}
-                            </div>
+                                    return (
+                                        <UpcomingResetCard
+                                            key={UPCOMING_RESET_CARD_ID}
+                                            items={upcomingItems}
+                                            onSelectProvider={
+                                                is_live
+                                                    ? select_provider_from_upcoming
+                                                    : () => undefined
+                                            }
+                                            desensitizeRemarks={ui_desensitize_remarks}
+                                            expanded={
+                                                is_live && !force_collapse
+                                                    ? (expanded_providers[UPCOMING_RESET_CARD_ID] ??
+                                                      false)
+                                                    : false
+                                            }
+                                            onToggleExpand={
+                                                is_live
+                                                    ? () => {
+                                                          toggle_expand_provider(
+                                                              UPCOMING_RESET_CARD_ID,
+                                                          );
+                                                      }
+                                                    : undefined
+                                            }
+                                            dragging={is_live && drag_id === UPCOMING_RESET_CARD_ID}
+                                            dragOver={
+                                                is_live &&
+                                                drag_id !== null &&
+                                                drag_id !== UPCOMING_RESET_CARD_ID &&
+                                                over_id === UPCOMING_RESET_CARD_ID
+                                            }
+                                            onDragStart={
+                                                is_live
+                                                    ? (rect) => {
+                                                          handle_drag_start(
+                                                              UPCOMING_RESET_CARD_ID,
+                                                              rect,
+                                                          );
+                                                      }
+                                                    : undefined
+                                            }
+                                            onDragEnter={
+                                                is_live
+                                                    ? () => {
+                                                          handle_drag_enter(UPCOMING_RESET_CARD_ID);
+                                                      }
+                                                    : undefined
+                                            }
+                                            onDragOver={
+                                                is_live
+                                                    ? (client_x, client_y, rect) => {
+                                                          handle_drag_over(
+                                                              UPCOMING_RESET_CARD_ID,
+                                                              client_x,
+                                                              client_y,
+                                                              rect,
+                                                          );
+                                                      }
+                                                    : undefined
+                                            }
+                                            onDragEnd={is_live ? handle_drag_end : undefined}
+                                        />
+                                    );
+                                }}
+                                providerErrors={providerErrors}
+                                onRefreshProvider={is_live ? refreshProvider : () => undefined}
+                                expandedProviders={is_live ? expanded_providers : undefined}
+                                onToggleExpandProvider={
+                                    is_live ? toggle_expand_provider : undefined
+                                }
+                                onReLogin={
+                                    is_live
+                                        ? (p) => {
+                                              void handle_re_login(p);
+                                          }
+                                        : undefined
+                                }
+                                draggingProvider={is_live ? drag_id : null}
+                                overProvider={is_live ? over_id : null}
+                                onDragStart={is_live ? handle_drag_start : undefined}
+                                onDragEnter={is_live ? handle_drag_enter : undefined}
+                                onDragOver={is_live ? handle_drag_over : undefined}
+                                onDragEnd={is_live ? handle_drag_end : undefined}
+                                refreshingProviders={is_live ? refresh_providers : undefined}
+                                barColorScheme={usage_bar_color_scheme}
+                                barStyle={usage_bar_style}
+                                providerLabelMaps={provider_label_maps}
+                                accountLabelMaps={account_label_maps}
+                                convergentTimeMinutes={convergent_time_minutes}
+                                desensitizeRemarks={ui_desensitize_remarks}
+                                providerForcePercent={provider_force_percent}
+                                watchedMetrics={account_overrides?.upcomingResetWatched}
+                                on_toggle_watched={is_live ? handle_toggle_watched : undefined}
+                            />
                         )}
 
                         {!loading &&

@@ -12,7 +12,7 @@
 
 - `ProviderNav` — 顶部 provider 导航 tab（总览 + 各 provider）
 - `ProviderOverview` — 概览聚合卡片
-- `UpcomingResetBanner` / `UpcomingResetRail` — 即将重置横幅 + 右侧轨道（t005，`<1024px` 仅 banner，`≥1024px` 出现右侧 sticky rail）；t041 起 threshold（`upcomingResetThresholdPercent`）为 null 时整体不渲染，非 null 时 `collect_upcoming_resets` 按剩余%（`(resetAt-now)/cycleDurationMs*100 ≤ threshold`）+ metric 级显式开启（`accountOverrides.upcomingResetWatched`，默认全关；period 仅当 (provider,accountKey,raw_label) 在 watched 集合才进面板）过滤。用量面板 period 行 bell toggle 控监控开关（t043，取代 t041 account 级开关）；bell 透传经两条链：`ProviderAccountList → ProviderAccountRow → UsageBarList`（t043）与 `ProviderOverview → ProviderCard → AccountUsageRow`（t046 补齐）；设置页账号详情「数据标签映射」每行 bell（t048，per raw_label，多 accountKey 聚合 toggle）。两处入口 toggle 同一 watched 数据。
+- `UpcomingResetCard` — 即将重置卡片（t105，取代 t005 的 `UpcomingResetBanner` / `UpcomingResetRail`）。与 provider 卡片同处 `.overview-grid`，复用 `CollapsibleCard` + `DragGrip` + `UpcomingResetRow`，可折叠可拖拽重排。保留键 `__upcoming_reset__`（`UPCOMING_RESET_CARD_ID`）同时承载 `providerOrder` 排序位与 `expandedProviders` 展开态，不新增 config 字段；`use_popup_derived` 派生 provider tab 时天然过滤该键，结构裁剪显式保留它。t041 起 threshold（`upcomingResetThresholdPercent`）为 null 时整体不渲染，非 null 时 `collect_upcoming_resets` 按剩余%（`(resetAt-now)/cycleDurationMs*100 ≤ threshold`）+ metric 级显式开启（`accountOverrides.upcomingResetWatched`，默认全关；period 仅当 (provider,accountKey,raw_label) 在 watched 集合才进面板）过滤。用量面板 period 行 bell toggle 控监控开关（t043，取代 t041 account 级开关）；bell 透传经两条链：`ProviderAccountList → ProviderAccountRow → UsageBarList`（t043）与 `ProviderOverview → ProviderCard → AccountUsageRow`（t046 补齐）；设置页账号详情「数据标签映射」每行 bell（t048，per raw_label，多 accountKey 聚合 toggle）。两处入口 toggle 同一 watched 数据。
 - `ProviderAccountList` → `ProviderAccountRow` — 单 provider 账号列表 / 账号行
 - `TrendSparkline` — 账号展开时趋势迷你图（t006，懒加载 `trend:get`，缓存 key `${provider}||${accountId}||${metricId}`）
 - `DragGrip` — 账号行拖拽手柄（仅提供 `onDragStart` 时渲染）
@@ -25,7 +25,7 @@
 - `visible_providers_from_groups` — 计算可见 provider
 - `apply_account_overrides` — 应用账号隐藏/排序
 - `apply_account_labels` — 应用账号备注（`displayName`/`accountLabel`）
-- `collect_upcoming_resets` — 收集即将到来的重置项（驱动 Banner/Rail）
+- `collect_upcoming_resets` — 收集即将到来的重置项（驱动 `UpcomingResetCard`）
 - `buildAccountErrors` — per-account 错误消息（驱动 `ProviderAccountRow` error-badge）
 - `PROVIDER_ORDER` — provider 排序
 
@@ -34,7 +34,7 @@
 - `use_popup_height_report` + `useResizeObserver` — 上报内容高度驱动窗口自适应
 - `useNowTick` — 周期 tick 刷新相对时间显示
 - 用量条样式：`UsageBarStyle`（细线 / 粗胶囊）/ `UsageBarColorScheme`
-- **容器查询响应式**（t004，`.scroll-inner` 设 `container-type: inline-size`）：`overview-grid` 单列默认；`@container (min-width: 1024px)` 切 `repeat(auto-fill, minmax(320px, 1fr))`；`@container (max-width: 1023px) and (min-width: 640px)` 切两列。`.overview-row` 在 `≥1024px` 切 `minmax(0, 1fr) 264px` 主轨 + sticky rail。offscreen `.popup-mirror .scroll-inner` 关闭 container-type 以免 mirror 高度被压缩。
+- **容器查询响应式**（t004，`.scroll-inner` 设 `container-type: inline-size`）：`overview-grid` 单列默认；`@container (min-width: 1024px)` 切 `repeat(auto-fill, minmax(320px, 1fr))`；`@container (max-width: 1023px) and (min-width: 640px)` 切两列。t105 起「即将重置」以普通卡片入网格，原 `.overview-row` 两列布局与 sticky rail 一并移除。offscreen `.popup-mirror .scroll-inner` 关闭 container-type 以免 mirror 高度被压缩。
 - **per-account error badge**（t026/t027/t028）：`buildAccountErrors` 生成 `Map<accountId, error>`，传入 `ProviderAccountList` → `ProviderAccountRow.error`；账号行 `.rel-time` 内渲染 `<span className="error-badge" title={error}>采集失败</span>`。`providerErrors`（connector `failed` 时映射 `UsageProvider`）驱动 `ProviderOverview` 刷新按钮状态。
 - **失败账号占位（t040）**：`build_provider_usage_groups` 对 enabled 直连（非 gateway）`snapshot.status==="failed"` 且 `items` 空的 connector 合成失败账号占位（`ProviderUsageAccount`：`periods:[]`、`status:"unknown"`、`error=snapshot.error`、`accountLabel=displayName||name`、`accountId="__failed__"`），使首次采集失败（无 observation）的账号仍显示失败行而非"暂无账号"。CPA（gateway）failed 不合成（多账号无法确定具体行）；有 items 的 failed 走真实 item 聚合不占位。`buildAccountErrors` 先看 `account.error` 再看 `periods[].error`。
 - **用量面板无账号编辑入口**（T8）：账号设置仅在 Settings；用量面板 provider 卡片无更多操作菜单，关闭/管理操作在设置页进行

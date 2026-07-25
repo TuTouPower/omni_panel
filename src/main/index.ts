@@ -448,7 +448,9 @@ void app.whenReady().then(async () => {
                 ...currentConfigSnapshot,
                 settingsBounds: { ...saved, displayId: display_id },
             };
-            configStore.scheduleSave(currentConfigSnapshot);
+            // Thunk, not a value: the debounce may fire after the renderer saved
+            // unrelated keys, and a snapshot captured here would revert them.
+            configStore.scheduleSave(() => currentConfigSnapshot);
         }
 
         function apply_settings_bounds(win: BrowserWindow): void {
@@ -568,7 +570,10 @@ void app.whenReady().then(async () => {
             get_config: () => currentConfigSnapshot,
             save_config: (next) => {
                 currentConfigSnapshot = next;
-                configStore.scheduleSave(next);
+                // Thunk, not a value: the debounce may fire after the renderer
+                // saved unrelated keys (card order, expansion), and a snapshot
+                // captured here would revert them.
+                configStore.scheduleSave(() => currentConfigSnapshot);
             },
             create_window: () => windowManager.createWindowFor("usage", { load: false }),
             get_renderer_url: (route: string) => windowManager.getRendererUrl(route),

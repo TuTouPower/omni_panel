@@ -77,4 +77,32 @@ describe("config-store debounce", () => {
         await vi.advanceTimersByTimeAsync(500);
         expect(writeFile).toHaveBeenCalledTimes(1);
     });
+
+    it("resolves a thunk payload when the debounce fires, not when it is scheduled", async () => {
+        const store = createConfigStore("/tmp/config.json");
+        // Window-bounds savers pass a thunk so a config saved by the renderer
+        // inside the debounce window is not reverted by a stale snapshot.
+        let live_config: AppConfiguration = { ...mockConfig, launchAtLogin: true };
+
+        store.scheduleSave(() => live_config);
+        live_config = { ...live_config, providerOrder: ["__upcoming_reset__", "claude"] };
+        await vi.advanceTimersByTimeAsync(500);
+
+        const written_json = vi.mocked(writeFile).mock.calls[0]?.[1] as string;
+        const written = JSON.parse(written_json) as AppConfiguration;
+        expect(written.providerOrder).toEqual(["__upcoming_reset__", "claude"]);
+    });
+
+    it("flushPendingSave resolves a pending thunk payload", async () => {
+        const store = createConfigStore("/tmp/config.json");
+        let live_config: AppConfiguration = { ...mockConfig };
+
+        store.scheduleSave(() => live_config);
+        live_config = { ...live_config, expandedProviders: { __upcoming_reset__: true } };
+        await store.flushPendingSave();
+
+        const written_json = vi.mocked(writeFile).mock.calls[0]?.[1] as string;
+        const written = JSON.parse(written_json) as AppConfiguration;
+        expect(written.expandedProviders).toEqual({ __upcoming_reset__: true });
+    });
 });

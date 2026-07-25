@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
 import type {
     AccountOverrides,
@@ -15,6 +16,8 @@ export interface ProviderError {
 interface ProviderOverviewProps {
     groups: ProviderUsageGroup[];
     visibleProviders: string[];
+    overviewCardOrder?: readonly string[] | undefined;
+    renderExtraCard?: ((card_id: string) => ReactNode) | undefined;
     providerErrors: Map<string, ProviderError>;
     onRefreshProvider: (provider: string) => void;
     expandedProviders?: Record<string, boolean> | undefined;
@@ -48,6 +51,8 @@ interface ProviderOverviewProps {
 export function ProviderOverview({
     groups,
     visibleProviders,
+    overviewCardOrder,
+    renderExtraCard,
     providerErrors,
     onRefreshProvider,
     expandedProviders,
@@ -72,41 +77,49 @@ export function ProviderOverview({
     on_toggle_watched,
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
+    const card_order = overviewCardOrder ?? visibleProviders;
+    const visible_provider_set = new Set(visibleProviders);
 
     return (
         <div className="overview-grid">
-            {visibleProviders.map((provider) => {
-                return (
-                    <ProviderCard
-                        key={provider}
-                        provider={provider}
-                        group={groupsByProvider.get(provider)}
-                        connectorError={providerErrors.get(provider)}
-                        onRefresh={onRefreshProvider}
-                        expanded={
-                            expandedProviders ? (expandedProviders[provider] ?? false) : undefined
-                        }
-                        onToggleExpand={onToggleExpandProvider}
-                        onReLogin={onReLogin}
-                        dragging={draggingProvider === provider}
-                        dragOver={overProvider === provider && draggingProvider !== provider}
-                        onDragStart={onDragStart}
-                        onDragEnter={onDragEnter}
-                        onDragOver={onDragOver}
-                        onDragEnd={onDragEnd}
-                        refreshing={refreshingProviders?.has(provider)}
-                        barColorScheme={barColorScheme}
-                        barStyle={barStyle}
-                        labelMap={labelMap}
-                        accountLabelMaps={accountLabelMaps}
-                        providerLabelMaps={providerLabelMaps}
-                        convergentTimeMinutes={convergentTimeMinutes}
-                        desensitizeRemarks={desensitizeRemarks}
-                        forcePercent={providerForcePercent?.[provider] === true}
-                        watchedMetrics={watchedMetrics}
-                        on_toggle_watched={on_toggle_watched}
-                    />
-                );
+            {card_order.map((card_id) => {
+                if (visible_provider_set.has(card_id)) {
+                    const provider = card_id;
+                    return (
+                        <ProviderCard
+                            key={provider}
+                            provider={provider}
+                            group={groupsByProvider.get(provider)}
+                            connectorError={providerErrors.get(provider)}
+                            onRefresh={onRefreshProvider}
+                            expanded={
+                                expandedProviders
+                                    ? (expandedProviders[provider] ?? false)
+                                    : undefined
+                            }
+                            onToggleExpand={onToggleExpandProvider}
+                            onReLogin={onReLogin}
+                            dragging={draggingProvider === provider}
+                            dragOver={overProvider === provider && draggingProvider !== provider}
+                            onDragStart={onDragStart}
+                            onDragEnter={onDragEnter}
+                            onDragOver={onDragOver}
+                            onDragEnd={onDragEnd}
+                            refreshing={refreshingProviders?.has(provider)}
+                            barColorScheme={barColorScheme}
+                            barStyle={barStyle}
+                            labelMap={labelMap}
+                            accountLabelMaps={accountLabelMaps}
+                            providerLabelMaps={providerLabelMaps}
+                            convergentTimeMinutes={convergentTimeMinutes}
+                            desensitizeRemarks={desensitizeRemarks}
+                            forcePercent={providerForcePercent?.[provider] === true}
+                            watchedMetrics={watchedMetrics}
+                            on_toggle_watched={on_toggle_watched}
+                        />
+                    );
+                }
+                return renderExtraCard?.(card_id) ?? null;
             })}
         </div>
     );

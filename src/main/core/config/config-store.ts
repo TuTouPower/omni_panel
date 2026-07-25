@@ -20,7 +20,14 @@ async function writeBakAtomic(bakPath: string, content: string): Promise<void> {
 export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
     save(config: AppConfiguration): Promise<void>;
-    scheduleSave(config: AppConfiguration, delayMs?: number): void;
+    /**
+     * Debounced save. `config` may be a thunk, which is resolved when the
+     * debounce fires rather than when it is scheduled — callers that merge a
+     * single field (window bounds) MUST pass a thunk, otherwise a config saved
+     * by the renderer inside the debounce window is reverted by the stale
+     * snapshot captured here.
+     */
+    scheduleSave(config: AppConfiguration | (() => AppConfiguration), delayMs?: number): void;
     flushPendingSave(): Promise<void>;
     hasPendingSave(): boolean;
 }
@@ -84,7 +91,7 @@ async function prune_invalid_plugins(
 
 export function createConfigStore(configPath: string): AppConfigStore {
     let pendingTimer: ReturnType<typeof setTimeout> | null = null;
-    let pendingConfig: AppConfiguration | null = null;
+    let pendingConfig: AppConfiguration | (() => AppConfiguration) | null = null;
     // Serializes saves so concurrent save() calls cannot interleave reads/writes
     // or lose the final state to a torn write. Modeled on vault-backend's lock:
     // each save awaits the prior tail, and a rejection on one save MUST NOT poison
@@ -268,7 +275,7 @@ export function createConfigStore(configPath: string): AppConfigStore {
             await enqueueSave(config);
         },
 
-        scheduleSave(config: AppConfiguration, delayMs = 500): void {
+        scheduleSave(config: AppConfiguration | (() => AppConfiguration), delayMs = 500): void {
             if (pendingTimer) {
                 clearTimeout(pendingTimer);
             }
@@ -278,9 +285,11 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 const cfg = pendingConfig;
                 pendingConfig = null;
                 if (cfg) {
-                    void this.save(cfg).catch((err: unknown) => {
-                        log.error("Debounced config save failed", err);
-                    });
+                    void this.save(typeof cfg === "function" ? cfg() : cfg).catch(
+                        (err: unknown) => {
+                            log.error("Debounced config save failed", err);
+                        },
+                    );
                 }
             }, delayMs);
         },
@@ -293,7 +302,7 @@ export function createConfigStore(configPath: string): AppConfigStore {
             if (pendingConfig) {
                 const cfg = pendingConfig;
                 pendingConfig = null;
-                await this.save(cfg);
+                await this.save(typeof cfg === "function" ? cfg() : cfg);
             }
             // Wait for any save that already started to finish writing (A5) —
             // otherwise will-quit could exit mid-write and truncate the file.
