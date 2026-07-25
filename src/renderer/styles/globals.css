@@ -2531,14 +2531,19 @@ html[data-window="tray"] #root {
     flex-direction: column;
     overflow: hidden;
     animation: dialogIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
+    animation-fill-mode: backwards;
 }
 @keyframes dialogIn {
     from {
         opacity: 0;
+        border-color: transparent;
+        box-shadow: none;
         transform: translateY(8px) scale(0.98);
     }
     to {
         opacity: 1;
+        border-color: var(--win-border);
+        box-shadow: var(--win-shadow);
         transform: none;
     }
 }

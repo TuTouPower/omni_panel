@@ -11,6 +11,7 @@ vi.mock("electron", () => ({
 function create_manager_mock(): GrokOAuthManager & {
     start_device_login: ReturnType<typeof vi.fn>;
     await_completion: ReturnType<typeof vi.fn>;
+    cancel_device_login: ReturnType<typeof vi.fn>;
     get_login_status: ReturnType<typeof vi.fn>;
     refresh_now: ReturnType<typeof vi.fn>;
     logout: ReturnType<typeof vi.fn>;
@@ -22,6 +23,7 @@ function create_manager_mock(): GrokOAuthManager & {
     return {
         start_device_login: vi.fn(),
         await_completion: vi.fn(),
+        cancel_device_login: vi.fn(),
         get_login_status: vi.fn(),
         refresh_now: vi.fn(),
         logout: vi.fn(),
@@ -208,6 +210,7 @@ describe("grok_auth_ipc handlers", () => {
         const arguments_by_channel: Record<string, unknown[]> = {
             "grok:loginStart": [],
             "grok:loginPoll": ["grok-inst-1", "dc-1", 5, Date.now() + 1800_000],
+            "grok:loginCancel": ["grok-inst-1"],
             "grok:loginStatus": ["grok-inst-1"],
             "grok:logout": ["grok-inst-1"],
             "grok:refresh": ["grok-inst-1"],
@@ -231,7 +234,7 @@ describe("grok_auth_ipc handlers", () => {
         }
     });
 
-    it("registerGrokAuthIpc registers all five handlers", async () => {
+    it("registerGrokAuthIpc registers all six handlers", async () => {
         const { ipcMain } = await import("electron");
         const manager = create_manager_mock();
 
@@ -242,6 +245,7 @@ describe("grok_auth_ipc handlers", () => {
         const registered_channels = handle_mock.calls.map((call: unknown[]) => call[0]);
         expect(registered_channels).toContain("grok:loginStart");
         expect(registered_channels).toContain("grok:loginPoll");
+        expect(registered_channels).toContain("grok:loginCancel");
         expect(registered_channels).toContain("grok:loginStatus");
         expect(registered_channels).toContain("grok:logout");
         expect(registered_channels).toContain("grok:refresh");

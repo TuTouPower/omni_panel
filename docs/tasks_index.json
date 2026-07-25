@@ -1,49 +1,25 @@
 {
     "tasks": [
         {
-            "tid": "t106",
-            "title": "修复添加账号弹窗首帧黑色横线",
-            "slug": "fix_add_dialog_black_line_impl",
+            "tid": "t116",
+            "title": "修复 oauth_device_form.test.tsx TS4111",
+            "slug": "fix_oauth_device_form_ts4111",
             "status": "backlog",
             "branch": "",
             "note": ""
         },
         {
-            "tid": "t107",
-            "title": "manifest auth descriptor",
-            "slug": "manifest_auth_descriptor",
+            "tid": "t117",
+            "title": "token-stats collector serde 抽独立文件",
+            "slug": "split_collector_serde",
             "status": "backlog",
             "branch": "",
             "note": ""
         },
         {
-            "tid": "t108",
-            "title": "auth flow registry 替代 VENDOR_AUTH_MAP",
-            "slug": "auth_flow_registry",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t109",
-            "title": "OAuthDeviceForm + WebLoginForm 两个厂商子表单",
-            "slug": "vendor_forms_oauth_weblogin",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t110",
-            "title": "修复添加账号接线：精确匹配 source + displayName + exa/cpa 表单",
-            "slug": "fix_add_account_wiring",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
-            "tid": "t111",
-            "title": "config-store ENOENT/空文件 fallback 绕过 P0 保护",
-            "slug": "config_fallback_p0_protection",
+            "tid": "t118",
+            "title": "grok/kimi oauth 共享提取（hook + manager）",
+            "slug": "extract_shared_oauth",
             "status": "backlog",
             "branch": "",
             "note": ""

@@ -202,6 +202,14 @@ describe("PopupView collapse + height report", () => {
                 logout: vi.fn(),
                 refresh: vi.fn(),
             },
+            kimi: {
+                login_start: vi.fn(),
+                login_poll: vi.fn(),
+                login_cancel: vi.fn(),
+                login_status: vi.fn(),
+                logout: vi.fn(),
+                refresh: vi.fn(),
+            },
             tokenStats: {
                 open: vi.fn(),
                 getBuckets: vi.fn().mockResolvedValue([]),

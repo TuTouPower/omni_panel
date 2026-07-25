@@ -60,12 +60,24 @@ describe("kimi connector", () => {
         expect(raw.capabilities).toContain("poll");
     });
 
-    it("manifest declares API_KEY parameter", async () => {
+    it("manifest declares OAUTH_TOKEN and optional API_KEY parameters", async () => {
         const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const oauth_param = raw.parameters.find((p) => p.name === "OAUTH_TOKEN");
+        expect(oauth_param).toBeDefined();
+        expect(oauth_param?.type).toBe("secret");
+        expect(oauth_param?.exposeToScript).toBe(true);
         const api_key_param = raw.parameters.find((p) => p.name === "API_KEY");
         expect(api_key_param).toBeDefined();
         expect(api_key_param?.type).toBe("secret");
-        expect(api_key_param?.required).toBe(true);
+        // API_KEY is an optional fallback now that OAuth device-code login exists.
+        expect(api_key_param?.required).toBe(false);
+        expect(api_key_param?.exposeToScript).toBe(true);
+    });
+
+    it("manifest declares oauth_device auth descriptor", async () => {
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        expect(raw.auth?.method).toBe("oauth_device");
+        expect(raw.auth?.secret_name).toBe("OAUTH_TOKEN");
     });
 
     it("connector script returns weekly and five_hour observations", async () => {
@@ -132,5 +144,187 @@ describe("kimi connector", () => {
         const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
         const result = await run_connector(raw, script, create_ctx({ params: {} }));
         expect(result.error).toBeTruthy();
+    });
+
+    it("connector prefers OAUTH_TOKEN over API_KEY when both present", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const http_get_json = vi.fn().mockResolvedValue({
+            usage: { limit: "100", used: "10", remaining: "90", resetTime: "2099-01-01T00:00:00Z" },
+            limits: [
+                {
+                    window: { duration: 300 },
+                    detail: {
+                        limit: "100",
+                        used: "5",
+                        remaining: "95",
+                        resetTime: "2099-01-01T00:00:00Z",
+                    },
+                },
+            ],
+        });
+        const ctx = create_ctx({
+            http: { get_json: http_get_json, post_json: vi.fn(), get_raw: vi.fn() },
+            params: { OAUTH_TOKEN: "oauth-token-xyz", API_KEY: "sk-kimi-test-key" },
+        });
+        await run_connector(raw, script, ctx);
+        const [, , opts] = http_get_json.mock.calls[0] as [
+            string,
+            string,
+            { headers: Record<string, string> },
+        ];
+        // OAuth token wins over API key.
+        expect(opts.headers["Authorization"]).toBe("Bearer oauth-token-xyz");
+    });
+
+    it("connector succeeds with OAUTH_TOKEN only (no API_KEY)", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const result = await run_connector(
+            raw,
+            script,
+            create_ctx({ params: { OAUTH_TOKEN: "oauth-only-token" } }),
+        );
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(2);
+    });
+
+    it("parses boosterWallet balance as yuan when status is active", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const ctx = create_ctx({
+            http: {
+                get_json: vi.fn().mockResolvedValue({
+                    usage: {
+                        limit: "100",
+                        used: "10",
+                        remaining: "90",
+                        resetTime: "2099-01-01T00:00:00Z",
+                    },
+                    boosterWallet: {
+                        status: "STATUS_ACTIVE",
+                        balance: { amountLeft: "315250700" }, // 1e-8 yuan -> 3.152507
+                    },
+                }),
+                post_json: vi.fn(),
+                get_raw: vi.fn(),
+            },
+        });
+        const result = await run_connector(raw, script, ctx);
+        expect(result.error).toBeNull();
+        const booster = result.observations.find((o) => o.metric_id === "kimi:booster_balance");
+        expect(booster).toBeDefined();
+        expect(booster?.display_style).toBe("ratio");
+        // 315250700 / 1e8 = 3.152507, clamped >= 0
+        expect(booster?.used).toBeCloseTo(3.152507, 5);
+        expect(booster?.normalized_label).toBe("加油包余额");
+    });
+
+    it("reports booster balance as 0 when wallet is not enabled", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const ctx = create_ctx({
+            http: {
+                get_json: vi.fn().mockResolvedValue({
+                    usage: {
+                        limit: "100",
+                        used: "10",
+                        remaining: "90",
+                        resetTime: "2099-01-01T00:00:00Z",
+                    },
+                    boosterWallet: {
+                        status: "STATUS_UNKNOWN",
+                        // Misleading value (monthly limit - used), must be ignored.
+                        balance: { amountLeft: "7500000000" }, // would be 75 yuan if trusted
+                    },
+                }),
+                post_json: vi.fn(),
+                get_raw: vi.fn(),
+            },
+        });
+        const result = await run_connector(raw, script, ctx);
+        const booster = result.observations.find((o) => o.metric_id === "kimi:booster_balance");
+        expect(booster).toBeDefined();
+        expect(booster?.used).toBe(0);
+    });
+
+    it("treats STATUS_ENABLED as active for booster balance", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const ctx = create_ctx({
+            http: {
+                get_json: vi.fn().mockResolvedValue({
+                    usage: {
+                        limit: "100",
+                        used: "10",
+                        remaining: "90",
+                        resetTime: "2099-01-01T00:00:00Z",
+                    },
+                    boosterWallet: {
+                        status: "STATUS_ENABLED",
+                        balance: { amountLeft: "500000000" }, // 1e-8 yuan -> 5
+                    },
+                }),
+                post_json: vi.fn(),
+                get_raw: vi.fn(),
+            },
+        });
+        const result = await run_connector(raw, script, ctx);
+        const booster = result.observations.find((o) => o.metric_id === "kimi:booster_balance");
+        expect(booster).toBeDefined();
+        expect(booster?.used).toBeCloseTo(5, 5);
+    });
+
+    it("parses totalQuota as percent via limit - remaining", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const ctx = create_ctx({
+            http: {
+                get_json: vi.fn().mockResolvedValue({
+                    usage: {
+                        limit: "100",
+                        used: "10",
+                        remaining: "90",
+                        resetTime: "2099-01-01T00:00:00Z",
+                    },
+                    totalQuota: { limit: "1000", remaining: "200" },
+                }),
+                post_json: vi.fn(),
+                get_raw: vi.fn(),
+            },
+        });
+        const result = await run_connector(raw, script, ctx);
+        const total = result.observations.find((o) => o.metric_id === "kimi:total_quota");
+        expect(total).toBeDefined();
+        expect(total?.display_style).toBe("percent");
+        // used = max(0, 1000 - 200) = 800
+        expect(total?.used).toBe(800);
+        expect(total?.limit).toBe(1000);
+        expect(total?.normalized_label).toBe("总配额");
+    });
+
+    it("carries user.membership.level into account_label", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const ctx = create_ctx({
+            http: {
+                get_json: vi.fn().mockResolvedValue({
+                    usage: {
+                        limit: "100",
+                        used: "10",
+                        remaining: "90",
+                        resetTime: "2099-01-01T00:00:00Z",
+                    },
+                    user: { membership: { level: "PRO" } },
+                }),
+                post_json: vi.fn(),
+                get_raw: vi.fn(),
+            },
+        });
+        const result = await run_connector(raw, script, ctx);
+        // Every observation carries the membership-decorated account label.
+        for (const obs of result.observations) {
+            expect(obs.account_label).toBe("Kimi（PRO）");
+        }
     });
 });

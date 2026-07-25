@@ -2,6 +2,11 @@
     "id": "exa",
     "provider": "exa",
     "capabilities": ["poll"],
+    "auth": {
+        "method": "apikey",
+        "secret_name": "SERVICE_KEY",
+        "extra_fields": ["API_KEY_ID"]
+    },
     "parameters": [
         {
             "name": "SERVICE_KEY",

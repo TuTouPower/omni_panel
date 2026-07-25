@@ -20,6 +20,15 @@ export function getStatesDir(): string {
     return join(getDataRoot(), "states");
 }
 
+/**
+ * Token-stats collector scan-state file. Persisted mtime/file facts so the
+ * collector resumes incrementally after restart instead of rescanning every
+ * jsonl. Lives under data root alongside usage.db (not checked in). Added t114.
+ */
+export function getTokenStatsStatePath(): string {
+    return join(getDataRoot(), "token-stats-scan-state.json");
+}
+
 // userData 下文件路径常量集中入口。可选 base 参数用于注入临时目录（测试场景），
 // 默认走 getDataRoot()，保持调用方零侵入。
 export function get_vault_path(base: string = getDataRoot()): string {

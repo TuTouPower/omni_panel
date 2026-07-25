@@ -3,6 +3,10 @@
     "provider": "grok",
     "capabilities": ["poll"],
     "parameters": [],
+    "auth": {
+        "method": "oauth_device",
+        "secret_name": "OAUTH_TOKEN"
+    },
     "endpoints": {
         "grok_billing": "https://cli-chat-proxy.grok.com"
     },

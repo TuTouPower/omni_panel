@@ -106,7 +106,6 @@ export async function handleConfigSave(
 
         const current = await deps.configStore.load();
         const incoming = parsed.data as AppConfiguration;
-
         // Validate: every incoming plugin instanceId must already exist
         const currentByInstanceId = new Map(current.plugins.map((p) => [p.instanceId, p]));
         for (const plugin of incoming.plugins) {

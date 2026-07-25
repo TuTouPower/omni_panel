@@ -1,9 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createConfigStore } from "../../../src/main/core/config/config-store";
 import type { AppConfiguration } from "../../../src/shared/types/config";
-import { writeFile, mkdir, rename } from "node:fs/promises";
+import { writeFile, mkdir, rename, open } from "node:fs/promises";
 
 vi.mock("node:fs/promises");
+
+const mockHandle = {
+    sync: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn().mockResolvedValue(undefined),
+};
 
 const mockConfig: AppConfiguration = {
     schemaVersion: 1,
@@ -19,6 +24,9 @@ describe("config-store debounce", () => {
         vi.mocked(writeFile).mockResolvedValue(undefined);
         vi.mocked(mkdir).mockResolvedValue(undefined);
         vi.mocked(rename).mockResolvedValue(undefined);
+        vi.mocked(open).mockResolvedValue(
+            mockHandle as unknown as Awaited<ReturnType<typeof open>>,
+        );
     });
 
     afterEach(() => {

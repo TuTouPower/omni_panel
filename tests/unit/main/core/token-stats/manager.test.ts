@@ -36,6 +36,7 @@ const base_config: TokenStatsConfig = {
     wsl_distro: "Ubuntu-22.04",
     wsl_user: "testuser",
     poll_interval_ms: 600000,
+    state_path: "",
 };
 
 function create_mock_store() {

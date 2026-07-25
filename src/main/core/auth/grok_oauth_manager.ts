@@ -58,6 +58,7 @@ export interface DeviceCodeStart {
 
 export interface OAuthLoginResult {
     readonly saved: boolean;
+    readonly token?: string;
 }
 
 export interface LoginStatus {
@@ -83,6 +84,7 @@ export interface GrokOAuthManager {
         expires_at_epoch_ms: number,
         instance_id: string,
     ): Promise<OAuthLoginResult>;
+    cancel_device_login(instance_id: string): void;
     get_login_status(instance_id: string): Promise<LoginStatus>;
     refresh_now(instance_id: string): Promise<RefreshResult>;
     logout(instance_id: string): Promise<void>;
@@ -205,6 +207,7 @@ export function create_grok_oauth_manager(deps: GrokOAuthManagerDeps): GrokOAuth
     const token_generations = new Map<string, number>();
     const token_mutation_tails = new Map<string, Promise<void>>();
     const refresh_in_flight = new Map<string, Promise<RefreshResult>>();
+    const active_login_cancels = new Map<string, () => void>();
 
     function form_headers(): Record<string, string> {
         return { "Content-Type": "application/x-www-form-urlencoded" };
@@ -296,54 +299,91 @@ export function create_grok_oauth_manager(deps: GrokOAuthManagerDeps): GrokOAuth
     ): Promise<OAuthLoginResult> {
         const generation = get_token_generation(instance_id);
         let current_interval = Math.max(1, interval);
+        const cancelled_ref = { current: false };
+
         const sleep = (ms: number) =>
             new Promise<void>((resolve) => {
                 const timer = setTimeout(() => {
+                    active_login_cancels.delete(instance_id);
                     resolve();
                 }, ms);
+                active_login_cancels.set(instance_id, () => {
+                    clearTimeout(timer);
+                    active_login_cancels.delete(instance_id);
+                    cancelled_ref.current = true;
+                    resolve();
+                });
                 timer.unref();
             });
 
-        // First poll is immediate.
-        let response = await poll_once(device_code);
+        const cleanup = () => {
+            active_login_cancels.delete(instance_id);
+        };
 
-        for (;;) {
-            if (is_token_response(response)) {
-                const token_response = response;
-                return enqueue_token_mutation(instance_id, async () => {
-                    if (generation !== get_token_generation(instance_id)) {
-                        return { saved: false };
-                    }
-                    await store_tokens(deps.vault, instance_id, token_response);
-                    advance_token_generation(instance_id);
-                    log.info(`Device-code login succeeded for ${instance_id}`);
-                    void schedule_auto_refresh_if_enabled(instance_id);
-                    return { saved: true };
-                });
-            }
-            if (!is_error_response(response)) {
-                throw new Error("Unexpected token endpoint response");
-            }
-            const err = response.error;
-            if (err === "authorization_pending") {
-                // continue polling after interval
-            } else if (err === "slow_down") {
-                current_interval += SLOW_DOWN_PENALTY_SECONDS;
-                log.warn(`Slow down received; interval now ${String(current_interval)}s`);
-            } else if (err === "expired_token") {
-                throw new Error("expired_token: device code expired before user completed login");
-            } else if (err === "access_denied") {
-                throw new Error("access_denied: user denied the authorization request");
-            } else {
-                throw new Error(`OAuth error: ${err}`);
-            }
+        try {
+            // First poll is immediate.
+            let response = await poll_once(device_code);
 
-            if (Date.now() >= expires_at_epoch_ms) {
-                throw new Error("device code expired before user completed login");
-            }
+            for (;;) {
+                if (cancelled_ref.current) {
+                    return { saved: false };
+                }
+                if (is_token_response(response)) {
+                    const token_response = response;
+                    return await enqueue_token_mutation(instance_id, async () => {
+                        if (
+                            generation !== get_token_generation(instance_id) ||
+                            cancelled_ref.current
+                        ) {
+                            return { saved: false };
+                        }
+                        await store_tokens(deps.vault, instance_id, token_response);
+                        advance_token_generation(instance_id);
+                        log.info(`Device-code login succeeded for ${instance_id}`);
+                        void schedule_auto_refresh_if_enabled(instance_id);
+                        return { saved: true, token: token_response.access_token };
+                    });
+                }
+                if (!is_error_response(response)) {
+                    throw new Error("Unexpected token endpoint response");
+                }
+                const err = response.error;
+                if (err === "authorization_pending") {
+                    // continue polling after interval
+                } else if (err === "slow_down") {
+                    current_interval += SLOW_DOWN_PENALTY_SECONDS;
+                    log.warn(`Slow down received; interval now ${String(current_interval)}s`);
+                } else if (err === "expired_token") {
+                    throw new Error(
+                        "expired_token: device code expired before user completed login",
+                    );
+                } else if (err === "access_denied") {
+                    throw new Error("access_denied: user denied the authorization request");
+                } else {
+                    throw new Error(`OAuth error: ${err}`);
+                }
 
-            await sleep(current_interval * 1000);
-            response = await poll_once(device_code);
+                if (Date.now() >= expires_at_epoch_ms) {
+                    throw new Error("device code expired before user completed login");
+                }
+
+                await sleep(current_interval * 1000);
+                // cancelled_ref may be set to true by the cancel closure registered in sleep().
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                if (cancelled_ref.current) {
+                    return { saved: false };
+                }
+                response = await poll_once(device_code);
+            }
+        } finally {
+            cleanup();
+        }
+    }
+
+    function cancel_device_login(instance_id: string): void {
+        const cancel = active_login_cancels.get(instance_id);
+        if (cancel) {
+            cancel();
         }
     }
 
@@ -535,6 +575,7 @@ export function create_grok_oauth_manager(deps: GrokOAuthManagerDeps): GrokOAuth
     return {
         start_device_login,
         await_completion,
+        cancel_device_login,
         get_login_status,
         refresh_now,
         logout,

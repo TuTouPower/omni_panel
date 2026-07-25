@@ -730,6 +730,10 @@ export function SettingsView() {
             });
     }, []);
     const { config, hasSecrets, loading, error, save, saveSecrets, duplicate } = use_config();
+    const configRef = useRef(config);
+    useEffect(() => {
+        configRef.current = config;
+    }, [config]);
     const [pluginInfos, setConnectorInfos] = useState<ConnectorInfo[]>([]);
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -961,14 +965,16 @@ export function SettingsView() {
             refreshIntervalSeconds: number,
             display_name?: string,
             refresh_after_save = true,
+            base_config?: AppConfiguration,
         ) => {
-            if (!config) return;
+            const current_config = base_config ?? configRef.current ?? config;
+            if (!current_config) return;
             if (Object.keys(secrets).length > 0) {
                 await saveSecrets(instanceId, secrets);
             }
             await save_config({
-                ...config,
-                plugins: config.plugins.map((plugin) => {
+                ...current_config,
+                plugins: current_config.plugins.map((plugin) => {
                     if (plugin.instanceId !== instanceId) return plugin;
                     const { displayName: _omit, ...rest } = plugin;
                     void _omit;
@@ -2111,20 +2117,31 @@ export function SettingsView() {
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
                         onAddAccount={async (params) => {
-                            // 找到对应厂商的直连连接器（排除 CPA gateway），duplicate 后填入 secrets
-                            const source = pluginInfos.find(
-                                (p) =>
-                                    (p.supportedProviders.includes(
-                                        params.vendor_id as UsageProvider,
-                                    ) ||
-                                        params.vendor_id === "cpa") &&
-                                    p.source !== "gateway",
-                            );
-                            if (!source) return;
-                            const created = await duplicate(source.instanceId);
-                            if (Object.keys(params.secrets).length > 0) {
-                                await savePluginSecrets(created.instanceId, params.secrets);
+                            // 用 AddAccountDialog 已选中的 connector instanceId 精确匹配源插件，避免按 name 大小写/_PROVIDER 启发式命中错误源
+                            const source = params.source_instance_id
+                                ? pluginInfos.find(
+                                      (p) => p.instanceId === params.source_instance_id,
+                                  )
+                                : undefined;
+                            if (!source) {
+                                log.warn(
+                                    `add account: no source for vendor_id=${params.vendor_id}`,
+                                );
+                                return;
                             }
+                            const created = await duplicate(source.instanceId);
+                            // duplicate 会 reload config；从 main 再取一次最新 config，避免闭包覆盖
+                            const latest = await window.usageboard.config.get();
+                            await savePluginSettings(
+                                created.instanceId,
+                                params.parameter_values,
+                                params.secrets,
+                                params.endpoint_overrides ?? {},
+                                0,
+                                params.account_name,
+                                false,
+                                latest.config,
+                            );
                             setDialog({
                                 mode: "edit",
                                 instanceId: created.instanceId,

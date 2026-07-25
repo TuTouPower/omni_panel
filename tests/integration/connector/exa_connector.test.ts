@@ -183,9 +183,7 @@ describe("exa connector", () => {
         const search = result.observations.find((o) => o.normalized_label === "Search");
         expect(search?.used).toBe(0.231);
         expect(search?.metric_id).toBe("exa:search");
-        const contents = result.observations.find((o) =>
-            o.normalized_label?.includes("Contents"),
-        );
+        const contents = result.observations.find((o) => o.normalized_label.includes("Contents"));
         expect(contents?.used).toBe(0.004);
         const answer = result.observations.find((o) => o.normalized_label === "Answer");
         expect(answer?.used).toBe(0.01);

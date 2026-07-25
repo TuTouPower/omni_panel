@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_renderer_log_throttle } from "./log-throttle";
-import { select_grok_api, select_trend_api } from "./route_api";
+import { select_grok_api, select_kimi_api, select_trend_api } from "./route_api";
 import type {
     UsageboardApi,
     ConnectorSnapshotDTO,
@@ -14,6 +14,12 @@ import type {
     GrokRefreshResult,
     GrokReadonlyApi,
     GrokSettingsApi,
+    KimiDeviceCodeStart,
+    KimiLoginStatus,
+    KimiLoginResult,
+    KimiRefreshResult,
+    KimiReadonlyApi,
+    KimiSettingsApi,
     TrendPoint,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
@@ -309,19 +315,51 @@ const grok_methods: GrokSettingsApi = {
         interval: number,
         expires_at_epoch_ms: number,
     ) =>
-        invoke<{ saved: boolean }>(
+        invoke<{ saved: boolean; token?: string }>(
             IPC_CHANNELS.GROK_LOGIN_POLL,
             instance_id,
             device_code,
             interval,
             expires_at_epoch_ms,
         ),
+    login_cancel: (instance_id: string) =>
+        invoke<undefined>(IPC_CHANNELS.GROK_LOGIN_CANCEL, instance_id),
     login_status: (instance_id: string) =>
         invoke<GrokLoginStatus>(IPC_CHANNELS.GROK_LOGIN_STATUS, instance_id),
     logout: (instance_id: string) =>
         invoke<{ logged_out: boolean }>(IPC_CHANNELS.GROK_LOGOUT, instance_id),
     refresh: (instance_id: string) =>
         invoke<GrokRefreshResult>(IPC_CHANNELS.GROK_REFRESH, instance_id),
+};
+
+const kimi_readonly_methods: KimiReadonlyApi = {
+    login_status: (instance_id: string) =>
+        invoke<KimiLoginStatus>(IPC_CHANNELS.KIMI_LOGIN_STATUS, instance_id),
+};
+
+const kimi_methods: KimiSettingsApi = {
+    login_start: () => invoke<KimiDeviceCodeStart>(IPC_CHANNELS.KIMI_LOGIN_START),
+    login_poll: (
+        instance_id: string,
+        device_code: string,
+        interval: number,
+        expires_at_epoch_ms: number,
+    ) =>
+        invoke<KimiLoginResult>(
+            IPC_CHANNELS.KIMI_LOGIN_POLL,
+            instance_id,
+            device_code,
+            interval,
+            expires_at_epoch_ms,
+        ),
+    login_cancel: (instance_id: string) =>
+        invoke<undefined>(IPC_CHANNELS.KIMI_LOGIN_CANCEL, instance_id),
+    login_status: (instance_id: string) =>
+        invoke<KimiLoginStatus>(IPC_CHANNELS.KIMI_LOGIN_STATUS, instance_id),
+    logout: (instance_id: string) =>
+        invoke<{ logged_out: boolean }>(IPC_CHANNELS.KIMI_LOGOUT, instance_id),
+    refresh: (instance_id: string) =>
+        invoke<KimiRefreshResult>(IPC_CHANNELS.KIMI_REFRESH, instance_id),
 };
 
 const renderer_log_throttle = create_renderer_log_throttle({ limit: 100, window_ms: 1000 });
@@ -365,6 +403,7 @@ const build_info_methods = {
 // Route-based API restriction: each window only gets the capabilities it needs.
 const current_route = window.location.hash.slice(1) || "usage";
 const route_grok_api = select_grok_api(current_route, grok_readonly_methods, grok_methods);
+const route_kimi_api = select_kimi_api(current_route, kimi_readonly_methods, kimi_methods);
 const route_trend_api = select_trend_api(current_route, trend_full_methods, trend_disabled_methods);
 
 // Build route-specific API: each window only gets capabilities it needs
@@ -385,6 +424,7 @@ const api: UsageboardApi = (() => {
                 auth: auth_methods,
                 session: session_methods,
                 grok: route_grok_api,
+                kimi: route_kimi_api,
                 logs: logs_methods,
                 log: log_method,
                 tokenStats: token_stats_methods,
@@ -420,6 +460,7 @@ const api: UsageboardApi = (() => {
                 auth: auth_methods,
                 session: session_disabled_methods,
                 grok: route_grok_api,
+                kimi: route_kimi_api,
                 logs: logs_methods,
                 log: log_method,
                 tokenStats: token_stats_methods,
@@ -451,6 +492,7 @@ const api: UsageboardApi = (() => {
                 auth: auth_methods,
                 session: session_disabled_methods,
                 grok: route_grok_api,
+                kimi: route_kimi_api,
                 logs: logs_methods,
                 log: log_method,
                 tokenStats: token_stats_methods,

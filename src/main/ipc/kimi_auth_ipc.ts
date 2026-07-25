@@ -1,0 +1,152 @@
+import { ipcMain } from "electron";
+import { IPC_CHANNELS } from "../../shared/types/ipc";
+import type { IpcResult } from "./helpers";
+import { ok, fail, assert_valid_sender } from "./helpers";
+import { createLogger } from "../../shared/lib/logger";
+import type {
+    DeviceCodeStart,
+    KimiOAuthManager,
+    LoginStatus,
+    OAuthLoginResult,
+    RefreshResult,
+} from "../core/auth/kimi_oauth_manager";
+
+const log = createLogger("ipc:kimi-auth");
+
+export interface KimiAuthIpcDeps {
+    readonly manager: KimiOAuthManager;
+}
+
+export async function handle_kimi_login_start(
+    deps: KimiAuthIpcDeps,
+): Promise<IpcResult<DeviceCodeStart>> {
+    try {
+        const result = await deps.manager.start_device_login();
+        return ok(result);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error(`login_start failed: ${message}`);
+        return fail("INTERNAL_ERROR", message);
+    }
+}
+
+export async function handle_kimi_login_poll(
+    deps: KimiAuthIpcDeps,
+    instance_id: string,
+    device_code: string,
+    interval: number,
+    expires_at_epoch_ms: number,
+): Promise<IpcResult<OAuthLoginResult>> {
+    try {
+        const result = await deps.manager.await_completion(
+            device_code,
+            interval,
+            expires_at_epoch_ms,
+            instance_id,
+        );
+        return ok(result);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error(`login_poll failed for ${instance_id}: ${message}`);
+        return fail("OAUTH_ERROR", message);
+    }
+}
+
+export function handle_kimi_login_cancel(
+    deps: KimiAuthIpcDeps,
+    instance_id: string,
+): Promise<IpcResult<void>> {
+    try {
+        deps.manager.cancel_device_login(instance_id);
+        return Promise.resolve(ok(undefined));
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error(`login_cancel failed for ${instance_id}: ${message}`);
+        return Promise.resolve(fail("INTERNAL_ERROR", message));
+    }
+}
+
+export async function handle_kimi_login_status(
+    deps: KimiAuthIpcDeps,
+    instance_id: string,
+): Promise<IpcResult<LoginStatus>> {
+    try {
+        const result = await deps.manager.get_login_status(instance_id);
+        return ok(result);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error(`login_status failed for ${instance_id}: ${message}`);
+        return fail("INTERNAL_ERROR", message);
+    }
+}
+
+export async function handle_kimi_logout(
+    deps: KimiAuthIpcDeps,
+    instance_id: string,
+): Promise<IpcResult<{ logged_out: boolean }>> {
+    try {
+        await deps.manager.logout(instance_id);
+        return ok({ logged_out: true });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error(`logout failed for ${instance_id}: ${message}`);
+        return fail("INTERNAL_ERROR", message);
+    }
+}
+
+export async function handle_kimi_refresh(
+    deps: KimiAuthIpcDeps,
+    instance_id: string,
+): Promise<IpcResult<RefreshResult>> {
+    try {
+        const result = await deps.manager.refresh_now(instance_id);
+        return ok(result);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error(`refresh failed for ${instance_id}: ${message}`);
+        return fail("INTERNAL_ERROR", message);
+    }
+}
+
+export function registerKimiAuthIpc(deps: KimiAuthIpcDeps): void {
+    ipcMain.handle(IPC_CHANNELS.KIMI_LOGIN_START, (event) => {
+        assert_valid_sender(event);
+        return handle_kimi_login_start(deps);
+    });
+    ipcMain.handle(
+        IPC_CHANNELS.KIMI_LOGIN_POLL,
+        (
+            event,
+            instance_id: string,
+            device_code: string,
+            interval: number,
+            expires_at_epoch_ms: number,
+        ) => {
+            assert_valid_sender(event);
+            return handle_kimi_login_poll(
+                deps,
+                instance_id,
+                device_code,
+                interval,
+                expires_at_epoch_ms,
+            );
+        },
+    );
+    ipcMain.handle(IPC_CHANNELS.KIMI_LOGIN_CANCEL, (event, instance_id: string) => {
+        assert_valid_sender(event);
+        return handle_kimi_login_cancel(deps, instance_id);
+    });
+    ipcMain.handle(IPC_CHANNELS.KIMI_LOGIN_STATUS, (event, instance_id: string) => {
+        assert_valid_sender(event);
+        return handle_kimi_login_status(deps, instance_id);
+    });
+    ipcMain.handle(IPC_CHANNELS.KIMI_LOGOUT, (event, instance_id: string) => {
+        assert_valid_sender(event);
+        return handle_kimi_logout(deps, instance_id);
+    });
+    ipcMain.handle(IPC_CHANNELS.KIMI_REFRESH, (event, instance_id: string) => {
+        assert_valid_sender(event);
+        return handle_kimi_refresh(deps, instance_id);
+    });
+    log.info("Kimi OAuth IPC handlers registered");
+}

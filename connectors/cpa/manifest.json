@@ -2,6 +2,11 @@
     "id": "cpa",
     "provider": "cpa",
     "capabilities": ["poll"],
+    "auth": {
+        "method": "cpa_mgmt",
+        "secret_name": "cpa_mgmt_key",
+        "require_endpoint": true
+    },
     "parameters": [
         {
             "name": "cpa_mgmt_key",

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { ctx_status } from "../../integration/connector/_ctx_status";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -303,4 +304,291 @@ describe("opencode_go connector", () => {
         expect(result.observations).toEqual([]);
         expect(result.error).toContain("OpenCode Go usage response invalid");
     });
+
+    // --- HTML direct-parse primary path (t115) ---
+    //
+    // /go HTML inlines usage data; the connector should produce observations
+    // from a single /auth + /go fetch and never touch JS bundles or /_server.
+
+    function ssr_html(field_order: "pct-first" | "reset-first"): string {
+        const windows: string[] = [];
+        const defs: [string, number, number][] = [
+            ["rollingUsage", 12, 60],
+            ["weeklyUsage", 34, 120],
+            ["monthlyUsage", 56, 180],
+        ];
+        defs.forEach(([name, pct, reset], i) => {
+            const body =
+                field_order === "pct-first"
+                    ? `usagePercent:${String(pct)},resetInSec:${String(reset)},status:"ok"`
+                    : `resetInSec:${String(reset)},usagePercent:${String(pct)},status:"ok"`;
+            windows.push(`${name}:$R[${String(10 + i)}]={${body}}`);
+        });
+        return `<html><script>${windows.join("")}</script></html>`;
+    }
+
+    it("primary path: parses SSR $R pct-first without fetching bundles", async () => {
+        const { manifest, script } = await load_connector();
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") {
+                return raw(302, "", { location: "https://opencode.ai/workspace/ws_html" });
+            }
+            if (path === "/workspace/ws_html/go") return raw(200, ssr_html("pct-first"));
+            throw new Error(`unexpected path ${path}`); // bundles/server must not be hit
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(3);
+        expect(result.observations.map((o) => o.raw_label)).toEqual([
+            "rolling",
+            "weekly",
+            "monthly",
+        ]);
+        expect(result.observations[0]?.used).toBe(12);
+        expect(result.observations[1]?.used).toBe(34);
+        expect(result.observations[2]?.used).toBe(56);
+    });
+
+    it("primary path: parses SSR $R reset-first field order", async () => {
+        const { manifest, script } = await load_connector();
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") {
+                return raw(302, "", { location: "https://opencode.ai/workspace/ws_html" });
+            }
+            if (path === "/workspace/ws_html/go") return raw(200, ssr_html("reset-first"));
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(3);
+        expect(result.observations[0]?.used).toBe(12);
+        expect(result.observations[0]?.reset_at).toBe(
+            (result.observations[0]?.observed_at ?? 0) + 60_000,
+        );
+    });
+
+    it("primary path: parses data-slot format with human-readable reset time", async () => {
+        const { manifest, script } = await load_connector();
+        const html =
+            '<div data-slot="usage">' +
+            '<div data-slot="usage-item">' +
+            '<span data-slot="usage-label">Rolling Usage</span>' +
+            '<span data-slot="usage-value"><!--$-->12<!--/-->%</span>' +
+            '<span data-slot="reset-time"><!--$-->Resets in<!--/--> <!--$-->6 days 2 hours<!--/--></span>' +
+            "</div>" +
+            '<div data-slot="usage-item">' +
+            '<span data-slot="usage-label">Weekly Usage</span>' +
+            '<span data-slot="usage-value"><!--$-->34<!--/-->%</span>' +
+            '<span data-slot="reset-time"><!--$-->Resets in<!--/--> <!--$-->1 hour 56 minutes<!--/--></span>' +
+            "</div>" +
+            '<div data-slot="usage-item">' +
+            '<span data-slot="usage-label">Monthly Usage</span>' +
+            '<span data-slot="usage-value"><!--$-->56<!--/-->%</span>' +
+            '<span data-slot="reset-time"><!--$-->Resets in<!--/--> <!--$-->15 days<!--/--></span>' +
+            "</div>" +
+            "</div>";
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") {
+                return raw(302, "", { location: "https://opencode.ai/workspace/ws_slot" });
+            }
+            if (path === "/workspace/ws_slot/go") return raw(200, html);
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(3);
+        // data-slot values must be parsed (not just reset times).
+        expect(result.observations[0]?.used).toBe(12);
+        expect(result.observations[1]?.used).toBe(34);
+        expect(result.observations[2]?.used).toBe(56);
+        // 6 days 2 hours = 525600s
+        expect(result.observations[0]?.reset_at).toBe(
+            (result.observations[0]?.observed_at ?? 0) + 525600_000,
+        );
+        // 1 hour 56 minutes = 6960s
+        expect(result.observations[1]?.reset_at).toBe(
+            (result.observations[1]?.observed_at ?? 0) + 6960_000,
+        );
+    });
+
+    it("primary path: data-slot reset-now yields 0 reset", async () => {
+        const { manifest, script } = await load_connector();
+        const html =
+            '<div data-slot="usage-item">' +
+            '<span data-slot="usage-label">Rolling Usage</span>' +
+            '<span data-slot="usage-value">5%</span>' +
+            '<span data-slot="reset-now">Resets now</span>' +
+            "</div>";
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") {
+                return raw(302, "", { location: "https://opencode.ai/workspace/ws_now" });
+            }
+            if (path === "/workspace/ws_now/go") return raw(200, html);
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(1);
+        expect(result.observations[0]?.used).toBe(5);
+        expect(result.observations[0]?.reset_at).toBe(result.observations[0]?.observed_at ?? 0);
+    });
+
+    it("primary path: returns partial observations when only some windows present", async () => {
+        const { manifest, script } = await load_connector();
+        const html =
+            "<html><script>" +
+            "rollingUsage:$R[10]={usagePercent:12,resetInSec:60}" +
+            "</script></html>";
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") {
+                return raw(302, "", { location: "https://opencode.ai/workspace/ws_partial" });
+            }
+            if (path === "/workspace/ws_partial/go") return raw(200, html);
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(1);
+        expect(result.observations[0]?.raw_label).toBe("rolling");
+    });
+
+    it("primary path: clamps negative usagePercent to 0", async () => {
+        const { manifest, script } = await load_connector();
+        const html =
+            "<html><script>" +
+            "rollingUsage:$R[10]={usagePercent:-5,resetInSec:60}" +
+            "</script></html>";
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") {
+                return raw(302, "", { location: "https://opencode.ai/workspace/ws_neg" });
+            }
+            if (path === "/workspace/ws_neg/go") return raw(200, html);
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations[0]?.used).toBe(0);
+    });
+
+    it("primary path: clamps negative data-slot usage value to 0", async () => {
+        const { manifest, script } = await load_connector();
+        const html =
+            '<div data-slot="usage-item">' +
+            '<span data-slot="usage-label">Rolling Usage</span>' +
+            '<span data-slot="usage-value">-5%</span>' +
+            '<span data-slot="reset-time">Resets in 1 hour</span>' +
+            "</div>";
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") {
+                return raw(302, "", { location: "https://opencode.ai/workspace/ws_slot_neg" });
+            }
+            if (path === "/workspace/ws_slot_neg/go") return raw(200, html);
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        // -5 must clamp to 0 (not silently become 5).
+        expect(result.observations[0]?.used).toBe(0);
+        expect(Number.isFinite(result.observations[0]?.used ?? NaN)).toBe(true);
+    });
+
+    it("error messages are sanitized (no HTML or cookie leakage)", async () => {
+        const { manifest, script } = await load_connector();
+        const cookie_value = "session=secret-leak-xyz";
+        const ctx = create_ctx(
+            (path) => {
+                if (path === "/auth") return raw(200, "login page");
+                throw new Error(`unexpected path ${path}`);
+            },
+            { SESSION_COOKIE: cookie_value },
+        );
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toEqual([]);
+        expect(result.error).toContain("Cookie 可能已失效，未跳转到 workspace");
+        // Error must not leak the cookie value or arbitrary HTML.
+        expect(result.error ?? "").not.toContain(cookie_value);
+    });
+
+    it("falls back to server-fn when HTML has no inline usage data", async () => {
+        const { manifest, script } = await load_connector();
+        const ctx = create_ctx((path) => {
+            if (path === "/auth") {
+                return raw(302, "", { location: "https://opencode.ai/workspace/ws_fb" });
+            }
+            if (path === "/workspace/ws_fb/go") {
+                // No inline usage -> must fall back to server-fn chain.
+                return raw(200, '<script src="/_build/assets/go.js"></script>');
+            }
+            if (path === "/workspace/ws_fb") {
+                return raw(200, '<script src="/_build/assets/app.js"></script>');
+            }
+            if (path === "/_build/assets/app.js") return raw(200, "no reference here");
+            if (path === "/_build/assets/go.js") {
+                return raw(
+                    200,
+                    `createServerReference("${other_hash}"); lite.subscription.get; createServerReference("${hash}"); query(${hash}, "lite.subscription.get");`,
+                );
+            }
+            if (path.startsWith(`/_server?id=${hash}&args=`)) {
+                return raw(
+                    200,
+                    `;0x;(($R)=>{rollingUsage:$R[1]={usagePercent:10,resetInSec:60,status:"ok"},weeklyUsage:$R[2]={usagePercent:20,resetInSec:120,status:"ok"},monthlyUsage:$R[3]={usagePercent:30,resetInSec:180,status:"ok"}})($R["server-fn:0"])`,
+                );
+            }
+            throw new Error(`unexpected path ${path}`);
+        });
+
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(3);
+        expect(result.observations[0]?.used).toBe(10);
+    });
+
+    // Live snapshot: when .scratch/opencode_go_probe/go.html exists (captured by
+    // the probe script against the real /go page), the connector must parse all
+    // three windows and match the values the vendor probe reported. Absent in CI
+    // (.scratch is not tracked) -> the test is skipped (not silently passed).
+    it.skipIf(!existsSync(".scratch/opencode_go_probe/go.html"))(
+        "parses a captured /go HTML snapshot when present",
+        async () => {
+            const html = await readFile(".scratch/opencode_go_probe/go.html", "utf8");
+            const { manifest, script } = await load_connector();
+            const ctx = create_ctx((path) => {
+                if (path === "/auth") {
+                    return raw(302, "", { location: "https://opencode.ai/workspace/ws_live" });
+                }
+                if (path === "/workspace/ws_live/go") return raw(200, html);
+                throw new Error(`unexpected ${path}`); // bundles/server must not be touched
+            });
+
+            const result = await run_connector(manifest, script, ctx);
+
+            expect(result.error).toBeNull();
+            expect(result.observations).toHaveLength(3);
+            // Values captured by the probe on 2026-07-26 against the real page.
+            expect(result.observations[0]?.raw_label).toBe("rolling");
+            expect(result.observations[0]?.used).toBe(0);
+            expect(result.observations[1]?.raw_label).toBe("weekly");
+            expect(result.observations[1]?.used).toBe(22);
+            expect(result.observations[2]?.raw_label).toBe("monthly");
+            expect(result.observations[2]?.used).toBe(100);
+        },
+    );
 });

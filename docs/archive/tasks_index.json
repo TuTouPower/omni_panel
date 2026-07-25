@@ -839,6 +839,86 @@
             "status": "done",
             "branch": "t105_upcoming_reset_unified_card",
             "note": ""
+        },
+        {
+            "tid": "t106",
+            "title": "修复添加账号弹窗首帧黑色横线",
+            "slug": "fix_add_dialog_black_line_impl",
+            "status": "done",
+            "branch": "t106_fix_add_dialog_black_line_impl",
+            "note": ""
+        },
+        {
+            "tid": "t107",
+            "title": "manifest auth descriptor",
+            "slug": "manifest_auth_descriptor",
+            "status": "done",
+            "branch": "t107_manifest_auth_descriptor",
+            "note": ""
+        },
+        {
+            "tid": "t108",
+            "title": "auth flow registry 替代 VENDOR_AUTH_MAP",
+            "slug": "auth_flow_registry",
+            "status": "done",
+            "branch": "t108_auth_flow_registry",
+            "note": ""
+        },
+        {
+            "tid": "t109",
+            "title": "OAuthDeviceForm + WebLoginForm 两个厂商子表单",
+            "slug": "vendor_forms_oauth_weblogin",
+            "status": "done",
+            "branch": "t109_vendor_forms_oauth_weblogin",
+            "note": "blocked: review"
+        },
+        {
+            "tid": "t110",
+            "title": "修复添加账号接线：精确匹配 source + displayName + exa/cpa 表单",
+            "slug": "fix_add_account_wiring",
+            "status": "done",
+            "branch": "t110_fix_add_account_wiring",
+            "note": "blocked: review"
+        },
+        {
+            "tid": "t111",
+            "title": "config-store ENOENT/空文件 fallback 绕过 P0 保护",
+            "slug": "config_fallback_p0_protection",
+            "status": "done",
+            "branch": "t111_config_fallback_p0_protection",
+            "note": ""
+        },
+        {
+            "tid": "t112",
+            "title": "Kimi device code OAuth 登录",
+            "slug": "kimi_oauth_device_code",
+            "status": "done",
+            "branch": "t112_kimi_oauth_device_code",
+            "note": ""
+        },
+        {
+            "tid": "t113",
+            "title": "Kimi connector 解析 boosterWallet/totalQuota/membership",
+            "slug": "kimi_booster_wallet_parsing",
+            "status": "done",
+            "branch": "t113_kimi_booster_wallet_parsing",
+            "note": ""
+        },
+        {
+            "tid": "t114",
+            "title": "token-stats collector 扫描状态落盘",
+            "slug": "token_stats_state_persistence",
+            "status": "done",
+            "branch": "t114_token_stats_state_persistence",
+            "note": ""
+        },
+        {
+            "tid": "t115",
+            "title": "OpenCode Go connector 简化：/go HTML 直解析 + vendor 健壮性改进",
+            "slug": "opencode_go_html_scrape",
+            "status": "done",
+            "branch": "t115_opencode_go_html_scrape",
+            "note": ""
         }
     ]
 }

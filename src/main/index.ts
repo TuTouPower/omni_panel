@@ -28,6 +28,7 @@ import {
     get_observations_db_path,
     get_token_stats_db_path,
     get_snapshot_cache_path,
+    getTokenStatsStatePath,
 } from "./core/paths";
 import { initLogging, defaultLogLevelForEnv } from "./core/logging";
 import { createLogger, setLogLevel } from "../shared/lib/logger";
@@ -54,6 +55,7 @@ import { set_renderer_index_path } from "./ipc/helpers";
 import { registerEventIpc } from "./ipc/event-ipc";
 import { registerAuthIpc, handleCookieLogin, trySilentCookieRefresh } from "./ipc/auth-ipc";
 import { registerGrokAuthIpc } from "./ipc/grok_auth_ipc";
+import { registerKimiAuthIpc } from "./ipc/kimi_auth_ipc";
 import { registerTokenStatsIpc } from "./ipc/token-stats-ipc";
 import { registerTrendIpc } from "./ipc/trend-ipc";
 import { create_token_stats_store } from "./core/token-stats/token-stats-store";
@@ -65,6 +67,7 @@ import { createOnConfigImported } from "./config-callbacks";
 import type { TokenStatsConfig } from "../shared/types/token-stats";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
+import { create_kimi_oauth_manager } from "./core/auth/kimi_oauth_manager";
 import { resolve_effective_proxy_url } from "./core/network/effective_proxy";
 import { close_all_proxy_agents } from "./core/network/proxy-pool";
 import { registerLogIpc } from "./ipc/log-ipc";
@@ -238,6 +241,16 @@ void app.whenReady().then(async () => {
                 ),
         });
 
+        // Kimi OAuth manager — mirrors Grok; device-code login + refresh.
+        const kimiOAuthManager = create_kimi_oauth_manager({
+            vault,
+            get_proxy_url: () =>
+                resolve_effective_proxy_url(
+                    currentConfigSnapshot.proxy?.url,
+                    detected_system_proxy,
+                ),
+        });
+
         const refreshService = createRefreshService({
             definitions: allDefinitions,
             observationStore,
@@ -295,6 +308,7 @@ void app.whenReady().then(async () => {
             wsl_distro: cfg.tokenStats?.wslDistro ?? "Ubuntu-22.04",
             wsl_user: cfg.tokenStats?.wslUser ?? "", // 空 = collector 自动探测
             poll_interval_ms: (cfg.tokenStats?.pollIntervalMinutes ?? 10) * 60_000,
+            state_path: getTokenStatsStatePath(),
         });
         tokenStatsManager.start(build_token_stats_config(currentConfigSnapshot));
 
@@ -331,6 +345,16 @@ void app.whenReady().then(async () => {
                       .map((plugin) => plugin.instanceId)
                 : [];
             grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
+            const kimiDef = allDefinitions.find((d) => d.manifest.provider === "kimi");
+            const active_kimi_instance_ids = kimiDef
+                ? updatedConfig.plugins
+                      .filter(
+                          (plugin) =>
+                              plugin.enabled && plugin.executablePath === kimiDef.executablePath,
+                      )
+                      .map((plugin) => plugin.instanceId)
+                : [];
+            kimiOAuthManager.reconcile_auto_refresh(active_kimi_instance_ids);
             // Update token stats config if changed
             tokenStatsManager.update_config(build_token_stats_config(updatedConfig));
             // Re-detect system proxy (D12): a config save is a reasonable hook for
@@ -376,6 +400,7 @@ void app.whenReady().then(async () => {
         registerBuildInfoIpc(() => app.getVersion());
         cleanupEventIpc = registerEventIpc({ runtimeStore });
         registerGrokAuthIpc({ manager: grokOAuthManager });
+        registerKimiAuthIpc({ manager: kimiOAuthManager });
 
         // Session manager — controlled login window + credential capture
         const sessionManager = create_session_manager({
@@ -626,6 +651,19 @@ void app.whenReady().then(async () => {
                       .map((plugin) => plugin.instanceId)
                 : [];
             grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
+        }
+        // Kimi mirrors grok: start auto-refresh for enabled kimi instances on launch.
+        {
+            const kimiDef = allDefinitions.find((d) => d.manifest.provider === "kimi");
+            const active_kimi_instance_ids = kimiDef
+                ? currentConfig.plugins
+                      .filter(
+                          (plugin) =>
+                              plugin.enabled && plugin.executablePath === kimiDef.executablePath,
+                      )
+                      .map((plugin) => plugin.instanceId)
+                : [];
+            kimiOAuthManager.reconcile_auto_refresh(active_kimi_instance_ids);
         }
 
         // Sleep/wake handling
@@ -884,6 +922,7 @@ void app.whenReady().then(async () => {
             main_panel_controller = null;
             orchestrator.shutdown();
             grokOAuthManager.shutdown();
+            kimiOAuthManager.shutdown();
             void close_all_proxy_agents();
             void runtimeStore.flushPendingCache();
             cleanupEventIpc?.();

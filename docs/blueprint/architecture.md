@@ -41,6 +41,7 @@ src/
 │   │   │   ├── endpoint-resolver.ts       # 子进程 env 路径解析
 │   │   │   └── types.ts                   # 调度器内部类型定义
 │   │   ├── observation/observation-store.ts  # SQLite（见 specs/observation-store.md）
+│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）
 │   │   ├── config/                # config-store / secrets-store / auto-seed / types
 │   │   ├── storage/               # write-json（原子写 JSON）
 │   │   ├── vault/                 # file-vault-backend + VaultBackend 接口
@@ -49,6 +50,7 @@ src/
 │   │   ├── main-panel/            # 托盘弹出/悬浮窗控制 + floating-bounds
 │   │   ├── popup/popup-height-controller.ts  # 动态高度纯函数
 │   │   ├── auth/grok_oauth_manager.ts          # Grok device-code OAuth + token rotation
+│   │   ├── auth/kimi_oauth_manager.ts          # Kimi device-code OAuth（仿 grok；独立 client_id/设备头/无 scope）
 │   │   ├── network/effective_proxy.ts           # configured/detected proxy 运行时合并
 │   │   ├── logging.ts / paths.ts / settings-close-action.ts
 │   ├── ipc/                       # 按域拆的 IPC handler（见 specs/ipc-api.md + ipc-electron.md）
@@ -101,6 +103,9 @@ web 浏览器经 LocalAPI `GET /v1/events`（SSE）订阅 runtimeStore 状态变
 - **instance identity 归宿主**：脚本运行时发现 account/metric，但不知自己在哪个实例下；`source_instance_id` 只由 `refresh-service` 盖，防同 provider 多实例在下游 collapse。
 - **vault 命名空间**：`keyFor(instanceId, name) = ${instanceId}:${name}`，`secrets-store` / `session-manager` / `net-client` 均经此，不内联拼接。
 - **endpoint 解析优先级**：用户 `endpointOverrides` > manifest `endpoints`；`requireExplicitEndpoints` 为真时无 override 即报错（CPA 用）。
+- **认证方式描述符**：manifest 可显式声明 `auth` 块（`method` + `secret_name` + 可选 `extra_fields`/`login_url`/`require_endpoint`）作为认证方式的唯一真相；渲染层通过 `src/renderer/lib/auth-flow-registry.ts` 的 `resolve_auth_method` 读取 descriptor，未声明时按 connector `source` 回退到 `session`/`local_cli`/`apikey`，不再硬编码厂商映射（t107/t108）。
+- **厂商子表单实现**：grok 与 kimi 的添加账号表单由 `OAuthDeviceForm` 实现 device-code 登录流程，表单按 `vendor` prop（"grok" | "kimi"）选用对应 `useGrokDeviceLogin` / `useKimiDeviceLogin` hook；opencode_go 的添加账号表单由 `WebLoginForm` 实现网页登录流程（t109/t112）。device-code 登录在 temp instance id 下完成，`OAuthLoginResult` 携带 refresh_token/expires_at，`OAuthDeviceForm.on_save` 把 OAUTH_TOKEN/OAUTH_REFRESH_TOKEN/OAUTH_EXPIRES_AT 写到 real connector instance，使 auto-refresh 在 real instance 可用（t112）。
+- **config-store 损坏处理（t111）**：主文件 schema 失败、空文件/仅空白字符、IO 错误等非 ENOENT 情况均不 fallback 到 `DEFAULT_CONFIGURATION`；ENOENT 时仅当配置目录不存在才返回 defaults 并允许 auto_seed，目录存在但 `config.json` 缺失视为异常抛错。`writeFileAtomic` 采用 tmp → `fsync` → `close` → `rename` 顺序，避免进程强杀后产生 null padding。
 - **IPC 边界**：renderer 只能调 `window.usageboard.*` 白名单，按 route（usage/setting/tray/agent）分权。
 - **用量窗口宽度**：usage 窗口仅有 472px 最小宽度；floating 持久化宽度最多为所在 display 的 `workArea.width`，popup 不设固定最大宽度。
 

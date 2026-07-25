@@ -1,6 +1,7 @@
 import { z } from "zod/v3";
 import { usageSourceSchema } from "./plugin-output";
 import { connectorProviderSchema } from "./manifest";
+import { authDescriptorSchema } from "./auth";
 
 const pluginParameterTypeSchema = z.enum([
     "string",
@@ -52,6 +53,7 @@ export const pluginMetadataSchema = z
         endpoints: pluginEndpointsSchema.optional(),
         supportedProviders: z.array(connectorProviderSchema).optional(),
         defaultSource: usageSourceSchema.optional(),
+        auth: authDescriptorSchema.optional(),
         // localization fields
         "name@zh-Hans": z.string().optional(),
         "name@en": z.string().optional(),
@@ -62,3 +64,4 @@ export const pluginMetadataSchema = z
 
 export type PluginMetadata = z.infer<typeof pluginMetadataSchema>;
 export type PluginParameterMetadata = z.infer<typeof pluginParameterMetadataSchema>;
+export type { AuthDescriptor, AuthMethod } from "./auth";

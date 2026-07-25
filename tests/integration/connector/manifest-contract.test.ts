@@ -7,7 +7,6 @@ import { connectorProviderSchema } from "../../../src/shared/schemas/manifest";
 const CONNECTORS_DIR = join(process.cwd(), "connectors");
 
 const EXPECTED_PROVIDERS = {
-    kimi: { secret_param: "API_KEY", label: "API 密钥" },
     deepseek: { secret_param: "API_KEY", label: "API 密钥" },
     getoneapi: { secret_param: "API_KEY", label: "API 密钥" },
     tikhub: { secret_param: "API_KEY", label: "API Token" },
@@ -46,7 +45,6 @@ describe("connector manifest contract", () => {
 
     it("all UI-exposed API key providers have connectors", async () => {
         const api_key_providers = [
-            "kimi",
             "deepseek",
             "getoneapi",
             "tikhub",

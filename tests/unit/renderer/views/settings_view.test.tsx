@@ -28,7 +28,7 @@ const base_config: AppConfiguration = {
         {
             instanceId: "deepseek-1",
             stateId: "deepseek-1",
-            name: "DeepSeek",
+            name: "deepseek",
             enabled: true,
             executablePath: "plugins/deepseek.ts",
             refreshIntervalSeconds: 300,
@@ -38,7 +38,7 @@ const base_config: AppConfiguration = {
         {
             instanceId: "cpa-1",
             stateId: "cpa-1",
-            name: "CPA",
+            name: "cpa",
             enabled: true,
             executablePath: "plugins/cpa.ts",
             refreshIntervalSeconds: 300,
@@ -84,7 +84,7 @@ describe("SettingsView", () => {
                     instanceId: "deepseek-1",
                     sourceInstanceId: "deepseek-1",
                     stateId: "deepseek-1",
-                    name: "DeepSeek",
+                    name: "deepseek",
                     displayName: "DeepSeek",
                     enabled: true,
                     source: "poll",
@@ -109,13 +109,19 @@ describe("SettingsView", () => {
                     instanceId: "cpa-1",
                     sourceInstanceId: "cpa-1",
                     stateId: "cpa-1",
-                    name: "CPA",
+                    name: "cpa",
                     displayName: "CPA",
                     enabled: true,
                     source: "gateway",
                     supportedProviders: ["claude", "codex", "antigravity", "kimi"],
                     activeProviders: ["claude"],
                     metadata: {
+                        name: "cpa",
+                        auth: {
+                            method: "cpa_mgmt",
+                            secret_name: "cpa_mgmt_key",
+                            require_endpoint: true,
+                        },
                         parameters: [
                             {
                                 name: "cpa_mgmt_key",
@@ -188,7 +194,11 @@ describe("SettingsView", () => {
 
             plugin: connectorMock,
             config: {
-                get: vi.fn(),
+                get: vi
+                    .fn()
+                    .mockImplementation(() =>
+                        Promise.resolve({ config: current_config, hasSecrets: {} }),
+                    ),
                 save: vi.fn(),
                 getSecrets: vi.fn().mockResolvedValue({ cpa_mgmt_key: "vault-secret-key" }),
                 saveSecrets: vi.fn(),
@@ -236,6 +246,14 @@ describe("SettingsView", () => {
                 login_start: vi.fn(),
                 login_poll: vi.fn(),
                 login_status: grok_login_status,
+                logout: vi.fn(),
+                refresh: vi.fn(),
+            },
+            kimi: {
+                login_start: vi.fn(),
+                login_poll: vi.fn(),
+                login_cancel: vi.fn(),
+                login_status: vi.fn(),
                 logout: vi.fn(),
                 refresh: vi.fn(),
             },
@@ -343,7 +361,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "grok-1",
                     stateId: "grok-1",
-                    name: "Grok",
+                    name: "grok",
                     enabled: true,
                     executablePath: "plugins/grok.ts",
                     refreshIntervalSeconds: 300,
@@ -358,7 +376,7 @@ describe("SettingsView", () => {
                 instanceId: "grok-1",
                 sourceInstanceId: "grok-1",
                 stateId: "grok-1",
-                name: "Grok",
+                name: "grok",
                 displayName: "Grok",
                 enabled: true,
                 source: "poll",
@@ -1056,7 +1074,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "mimo-1",
                     stateId: "mimo-1",
-                    name: "MiMo",
+                    name: "mimo",
                     enabled: true,
                     executablePath: "plugins/mimo.ts",
                     refreshIntervalSeconds: 300,
@@ -1074,7 +1092,7 @@ describe("SettingsView", () => {
                 instanceId: "mimo-1",
                 sourceInstanceId: "mimo-1",
                 stateId: "mimo-1",
-                name: "MiMo",
+                name: "mimo",
                 displayName: "MiMo",
                 enabled: true,
                 source: "poll",
@@ -1121,7 +1139,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "opencode-go-1",
                     stateId: "opencode-go-1",
-                    name: "OpenCode Go",
+                    name: "opencode_go",
                     enabled: true,
                     executablePath: "connectors/opencode_go/connector.ts",
                     refreshIntervalSeconds: 300,
@@ -1139,7 +1157,7 @@ describe("SettingsView", () => {
                 instanceId: "opencode-go-1",
                 sourceInstanceId: "opencode-go-1",
                 stateId: "opencode-go-1",
-                name: "OpenCode Go",
+                name: "opencode_go",
                 displayName: "OpenCode Go",
                 enabled: true,
                 source: "session",
@@ -1184,7 +1202,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "mimo-1",
                     stateId: "mimo-1",
-                    name: "MiMo",
+                    name: "mimo",
                     enabled: true,
                     executablePath: "plugins/mimo.ts",
                     refreshIntervalSeconds: 300,
@@ -1202,7 +1220,7 @@ describe("SettingsView", () => {
                 instanceId: "mimo-1",
                 sourceInstanceId: "mimo-1",
                 stateId: "mimo-1",
-                name: "MiMo",
+                name: "mimo",
                 displayName: "MiMo",
                 enabled: true,
                 source: "poll",
@@ -1290,7 +1308,7 @@ describe("SettingsView", () => {
                 instanceId: "opencode-go-1",
                 sourceInstanceId: "workspace-1",
                 stateId: "opencode-go-1",
-                name: "OpenCode Go",
+                name: "opencode_go",
                 displayName: "OpenCode Go",
                 enabled: true,
                 source: "session",
@@ -1309,7 +1327,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "opencode-go-1",
                     stateId: "opencode-go-1",
-                    name: "OpenCode Go",
+                    name: "opencode_go",
                     enabled: true,
                     executablePath: "connectors/opencode_go/connector.ts",
                     refreshIntervalSeconds: 300,
@@ -1359,7 +1377,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "deepseek-2",
                     stateId: "deepseek-2",
-                    name: "DeepSeek",
+                    name: "deepseek",
                     enabled: true,
                     executablePath: "plugins/deepseek.ts",
                     refreshIntervalSeconds: 300,
@@ -1373,7 +1391,7 @@ describe("SettingsView", () => {
                 instanceId: "deepseek-1",
                 sourceInstanceId: "deepseek-1",
                 stateId: "deepseek-1",
-                name: "DeepSeek",
+                name: "deepseek",
                 displayName: "DeepSeek old account",
                 enabled: true,
                 source: "poll",
@@ -1386,7 +1404,7 @@ describe("SettingsView", () => {
                 instanceId: "deepseek-2",
                 sourceInstanceId: "deepseek-2",
                 stateId: "deepseek-2",
-                name: "DeepSeek",
+                name: "deepseek",
                 displayName: "DeepSeek",
                 enabled: true,
                 source: "poll",
@@ -1404,6 +1422,76 @@ describe("SettingsView", () => {
         // AddAccountDialog should open with vendor picker
         const dialog = await screen.findByRole("dialog");
         expect(within(dialog).getByText("添加账号")).toBeInTheDocument();
+    });
+
+    it("duplicates CPA source by exact manifest id and saves displayName", async () => {
+        current_config = {
+            ...base_config,
+            plugins: [
+                ...base_config.plugins,
+                {
+                    instanceId: "deepseek-2",
+                    stateId: "deepseek-2",
+                    name: "cpa",
+                    enabled: true,
+                    executablePath: "plugins/cpa.ts",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        const user = userEvent.setup();
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        await user.click(screen.getByRole("button", { name: /^添加$/ }));
+
+        const dialog = await screen.findByRole("dialog");
+        await user.click(within(dialog).getByText("CPA Manager"));
+        await waitFor(() => {
+            expect(screen.getByPlaceholderText("cpa-…")).toBeInTheDocument();
+        });
+
+        await user.type(screen.getByPlaceholderText("例如：工作账号"), "CPA 工作账号");
+        await user.type(screen.getByPlaceholderText("cpa-…"), "cpa-secret");
+        await user.click(screen.getByText("添加账号"));
+
+        await vi.waitFor(() => {
+            expect(duplicate).toHaveBeenCalledWith("cpa-1");
+        });
+        expect(saveSecrets).toHaveBeenCalledWith("deepseek-2", { cpa_mgmt_key: "cpa-secret" });
+
+        await vi.waitFor(() => {
+            expect(save).toHaveBeenCalled();
+        });
+        const last_call = save.mock.calls.at(-1) as unknown as [AppConfiguration] | undefined;
+        if (!last_call) throw new Error("save was not called");
+        const saved_config = last_call[0];
+        const created = saved_config.plugins.find((p) => p.instanceId === "deepseek-2");
+        expect(created?.displayName).toBe("CPA 工作账号");
+        expect(created?.name).toBe("cpa");
+    });
+
+    it("does not match CPA vendor to deepseek source", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        await user.click(screen.getByRole("button", { name: /^添加$/ }));
+
+        const dialog = await screen.findByRole("dialog");
+        await user.click(within(dialog).getByText("CPA Manager"));
+        await waitFor(() => {
+            expect(screen.getByPlaceholderText("cpa-…")).toBeInTheDocument();
+        });
+
+        await user.type(screen.getByPlaceholderText("cpa-…"), "cpa-secret");
+        await user.type(screen.getByPlaceholderText("http://127.0.0.1:17863"), "http://cpa.local");
+        await user.click(screen.getByText("添加账号"));
+
+        await vi.waitFor(() => {
+            expect(duplicate).toHaveBeenCalledWith("cpa-1");
+        });
+        expect(duplicate).not.toHaveBeenCalledWith("deepseek-1");
     });
 
     it("shows VendorMark in edit dialog header", async () => {
@@ -1541,7 +1629,7 @@ describe("SettingsView", () => {
                 instanceId: "cpa-1",
                 sourceInstanceId: "cpa-1",
                 stateId: "cpa-1",
-                name: "CPA",
+                name: "cpa",
                 displayName: "CPA",
                 enabled: true,
                 source: "gateway",
@@ -1613,7 +1701,7 @@ describe("SettingsView", () => {
                     instanceId: "deepseek-1",
                     sourceInstanceId: "deepseek-1",
                     stateId: "deepseek-1",
-                    name: "DeepSeek",
+                    name: "deepseek",
                     displayName: "DeepSeek",
                     enabled: true,
                     source: "poll",
