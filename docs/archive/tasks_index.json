@@ -766,7 +766,7 @@
             "slug": "user_custom_connector_support",
             "status": "done",
             "branch": "t095_user_custom_connector_support",
-            "note": "blocked: review"
+            "note": ""
         },
         {
             "tid": "t096",
@@ -814,7 +814,7 @@
             "slug": "remove_stale_amber_border",
             "status": "done",
             "branch": "t102_remove_stale_amber_border",
-            "note": "blocked: review"
+            "note": ""
         },
         {
             "tid": "t103",
@@ -830,7 +830,7 @@
             "slug": "cpa_account_reset_bell",
             "status": "done",
             "branch": "t104_cpa_account_reset_bell",
-            "note": "blocked: review"
+            "note": ""
         },
         {
             "tid": "t105",
