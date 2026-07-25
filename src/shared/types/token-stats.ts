@@ -137,6 +137,12 @@ export const tokenStatsConfigSchema = z.object({
     wsl_distro: z.string().default("Ubuntu-22.04"),
     wsl_user: z.string(),
     poll_interval_ms: z.number().int().positive().default(600000),
+    /**
+     * Path to the scan-state file under the data root. The collector loads it on
+     * start to resume incrementally and writes it after each scan. Empty/absent
+     * disables persistence (tests). Added in t114.
+     */
+    state_path: z.string().default(""),
 });
 
 // --- Types ---

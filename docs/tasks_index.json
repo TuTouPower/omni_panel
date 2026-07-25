@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t114",
-            "title": "token-stats collector 扫描状态落盘",
-            "slug": "token_stats_state_persistence",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t115",
             "title": "OpenCode Go connector 简化：/go HTML 直解析 + vendor 健壮性改进",
             "slug": "opencode_go_html_scrape",

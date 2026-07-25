@@ -903,6 +903,14 @@
             "status": "done",
             "branch": "t113_kimi_booster_wallet_parsing",
             "note": ""
+        },
+        {
+            "tid": "t114",
+            "title": "token-stats collector 扫描状态落盘",
+            "slug": "token_stats_state_persistence",
+            "status": "done",
+            "branch": "t114_token_stats_state_persistence",
+            "note": ""
         }
     ]
 }

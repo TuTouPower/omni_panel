@@ -28,6 +28,7 @@ import {
     get_observations_db_path,
     get_token_stats_db_path,
     get_snapshot_cache_path,
+    getTokenStatsStatePath,
 } from "./core/paths";
 import { initLogging, defaultLogLevelForEnv } from "./core/logging";
 import { createLogger, setLogLevel } from "../shared/lib/logger";
@@ -307,6 +308,7 @@ void app.whenReady().then(async () => {
             wsl_distro: cfg.tokenStats?.wslDistro ?? "Ubuntu-22.04",
             wsl_user: cfg.tokenStats?.wslUser ?? "", // 空 = collector 自动探测
             poll_interval_ms: (cfg.tokenStats?.pollIntervalMinutes ?? 10) * 60_000,
+            state_path: getTokenStatsStatePath(),
         });
         tokenStatsManager.start(build_token_stats_config(currentConfigSnapshot));
 
