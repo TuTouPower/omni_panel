@@ -14,6 +14,7 @@ pnpm test:packaged        # 打包 smoke（CDP 连 exe）
 ./artifacts/win-unpacked/OmniUsage.exe   # 打包后真实启动
 pnpm test:contract:live   # 连接器 live 契约测试（打真实上游）
 pnpm typecheck && pnpm lint && pnpm check
+python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 pnpm test）
 ```
 
 调试入口：打包 smoke 经 CDP 连 Electron 渲染进程；连接器脚本日志打 `connector-sandbox` logger。

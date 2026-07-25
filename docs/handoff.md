@@ -1,12 +1,12 @@
 # handoff
 
-- 最后更新：2026-07-24
+- 最后更新：2026-07-25
 - branch：main
-- head_commit：87d7fac
-- 当前状态：t049-t081 全部 done；t082-t084 backlog
-- 已知 bug：bugs.md 仅 T029 per-account error（t084 跟进）
-- 3 个大重构 spike close：t076 refresh-service / t077 main index / t078 PopupView
-- 连接器迁移 ctx.status（t066 遗留）：helper 就绪，9 连接器内联未删
+- head_commit：6eb524b
+- 当前状态：t001-t105 全部 done（t047 dropped）；最新发布见 origin/main。
+- 已知 bug：见 `docs/bugs.md`。仍存在的代码遗留：T029 per-account error（t084 跟进）、OpenCode Go 添加账号无弹窗、监控重置按钮仅 Tavily、t087 添加账号弹窗黑色横线（spike close 未实施）、task 索引序列化 CRLF/2 空格（`scripts/task.py` 未修，t102_code_f002）。t099 宽度上限、t100 L2 折叠重置已修（见 bugs.md 修复行）。
+- 大重构：t076 refresh-service / t077 main index / t078 PopupView 三轮拆分均 done（t089/t090/t091 后续拆分完成）。
+- 连接器迁移 ctx.status（原 t066 遗留）：t088 已完成（9 连接器删内联 helper）。
 
 ## 2026-07-24 t099 交接
 

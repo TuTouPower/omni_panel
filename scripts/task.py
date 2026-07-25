@@ -51,11 +51,16 @@ def load(path: Path) -> dict:
 
 
 def save(path: Path, data: dict) -> None:
-    """原子写：tmp + os.replace，避免中断/掉电损坏权威 task JSON。"""
+    """原子写：tmp + os.replace，避免中断/掉电损坏权威 task JSON。
+
+    格式契约（t102_code_f002）：4 空格缩进 + LF，匹配仓库 Prettier 规则；
+    newline='\\n' 必须，否则 Windows 文本模式把 \\n 翻成 \\r\\n，git diff --check
+    报 trailing whitespace、Prettier 拒绝。契约由 scripts/test_task.py 钉住。
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(data, ensure_ascii=False, indent=4) + "\n")
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp, path)
