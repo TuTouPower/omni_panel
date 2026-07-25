@@ -879,6 +879,14 @@
             "status": "done",
             "branch": "t110_fix_add_account_wiring",
             "note": "blocked: review"
+        },
+        {
+            "tid": "t111",
+            "title": "config-store ENOENT/空文件 fallback 绕过 P0 保护",
+            "slug": "config_fallback_p0_protection",
+            "status": "done",
+            "branch": "t111_config_fallback_p0_protection",
+            "note": ""
         }
     ]
 }

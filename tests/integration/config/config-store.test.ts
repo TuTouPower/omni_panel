@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createConfigStore } from "../../../src/main/core/config/config-store";
 import type { AppConfiguration } from "../../../src/main/core/config/types";
+import { writeJsonAtomic } from "../../../src/main/core/storage/write-json";
 
 let tempDir: string;
 
@@ -16,12 +17,41 @@ afterEach(async () => {
 });
 
 describe("config-store", () => {
-    it("returns default config when file does not exist", async () => {
-        const store = createConfigStore(join(tempDir, "config.json"));
+    it("returns default config when config directory does not exist (first start)", async () => {
+        const store = createConfigStore(join(tempDir, "fresh", "config.json"));
         const config = await store.load();
         expect(config.schemaVersion).toBe(1);
         expect(config.language).toBe("zh-Hans");
         expect(config.plugins).toEqual([]);
+    });
+
+    it("throws when config directory exists but config.json is missing", async () => {
+        const subDir = join(tempDir, "existing");
+        await mkdir(subDir);
+        const store = createConfigStore(join(subDir, "config.json"));
+        await expect(store.load()).rejects.toThrow(/Config file missing/);
+    });
+
+    it("throws on empty config file (no silent fallback to defaults)", async () => {
+        await writeFile(join(tempDir, "config.json"), "", "utf8");
+        const store = createConfigStore(join(tempDir, "config.json"));
+        await expect(store.load()).rejects.toThrow(/Config load failed|Config corrupt/);
+    });
+
+    it("throws on whitespace-only config file", async () => {
+        await writeFile(join(tempDir, "config.json"), "   \n\t  ", "utf8");
+        const store = createConfigStore(join(tempDir, "config.json"));
+        await expect(store.load()).rejects.toThrow(/Config load failed|Config corrupt/);
+    });
+
+    it("writeJsonAtomic writes exact content with no null padding and cleans up tmp", async () => {
+        const configPath = join(tempDir, "atomic.json");
+        const payload = { schemaVersion: 1, plugins: [] };
+        await writeJsonAtomic(configPath, payload);
+        const raw = await readFile(configPath, "utf8");
+        expect(raw).toBe(JSON.stringify(payload, null, 2));
+        expect(raw).not.toContain("\0");
+        await expect(readFile(`${configPath}.tmp`, "utf8")).rejects.toThrow();
     });
 
     it("saves and loads config", async () => {

@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t111",
-            "title": "config-store ENOENT/空文件 fallback 绕过 P0 保护",
-            "slug": "config_fallback_p0_protection",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t112",
             "title": "Kimi device code OAuth 登录",
             "slug": "kimi_oauth_device_code",

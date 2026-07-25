@@ -30,11 +30,9 @@ ENOENT 分支把「首次启动」与「config.json 被误删/移动」混为一
 - 改 `src/main/core/storage/write-json.ts`：
     - `writeJsonAtomic` 在 `writeFile` 前 `fsync` 目录，确保 tmp 文件元数据落盘后再 rename（防强杀留 null padding）。
     - `writeBakAtomic` 同步修改（复用同一实现）。
-- 补单测：`tests/unit/main/core/config/config-store.test.ts` 覆盖：
-    - 空文件 → 抛错，不返回 defaults。
-    - 目录存在但 config.json 缺失 → 抛错，不 auto_seed。
-    - 目录不存在 → 返回 defaults（首次启动）。
-    - writeJsonAtomic 中断后 tmp 文件无 null padding。
+- 补测试覆盖：
+    - 集成测试 `tests/integration/config/config-store.test.ts`：空文件 → 抛错；目录存在但 config.json 缺失 → 抛错；目录不存在 → 返回 defaults；writeJsonAtomic 正常写入结果无 null padding。
+    - 单元测试 `tests/unit/core/storage/write-json.test.ts`：mock `node:fs/promises`，校验 `open → sync → close → rename` 时序，以及 `sync` 抛错时句柄仍被关闭。
 
 ## 非范围
 

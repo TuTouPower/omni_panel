@@ -1,20 +1,18 @@
-import { readFile, writeFile, rename } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { type AppConfiguration, DEFAULT_CONFIGURATION, appConfigurationSchema } from "./types";
 import { createLogger } from "../../../shared/lib/logger";
 import { redact_config_json, redact_config_raw } from "../../../shared/lib/config_redaction";
-import { writeJsonAtomic } from "../storage/write-json";
+import { writeJsonAtomic, writeFileAtomic } from "../storage/write-json";
 import { connectorProviderSchema, manifest_schema } from "../../../shared/schemas/manifest";
 
 /**
- * 原子写 bak 文件：先写 tmp 再 rename，防强杀中断致 bak 损坏。
+ * 原子写 bak 文件：先写 tmp 再 fsync 再 rename，防强杀中断致 bak 损坏。
  * 之前用 writeFile 直接写 bak，进程 mid-write 被杀时 bak 变 null bytes，
  * 导致 configStore corrupt 检测后 bak 也不可恢复 -> fallback defaults -> auto_seed 覆盖 -> 用户数据丢失。
  */
 async function writeBakAtomic(bakPath: string, content: string): Promise<void> {
-    const tmpPath = `${bakPath}.tmp`;
-    await writeFile(tmpPath, content, "utf8");
-    await rename(tmpPath, bakPath);
+    await writeFileAtomic(bakPath, content);
 }
 
 export interface AppConfigStore {
@@ -147,7 +145,9 @@ export function createConfigStore(configPath: string): AppConfigStore {
                         raw: redact_config_json(raw),
                     });
                 }
-                const parsed = JSON.parse(raw) as unknown;
+                // 空文件或仅空白字符视为损坏，走 backup+throw 路径，不 fallback defaults。
+                // 强制 schema 失败，以便复用「先尝试 .bak 恢复，再决定是否备份主文件」的 corrupt 路径。
+                const parsed = raw.trim().length === 0 ? null : (JSON.parse(raw) as unknown);
                 const normalized =
                     parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
                         ? stripRemovedConfigFields(parsed as Record<string, unknown>)
@@ -230,7 +230,10 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 // index.ts which overwrites config.json with new instanceIds,
                 // orphaning all observation-store data (P0 data loss).
                 try {
-                    await writeBakAtomic(`${configPath}.bak`, raw);
+                    // 空/仅空白的主文件不备份，避免覆盖可能仍然有效的 .bak。
+                    if (raw.trim().length > 0) {
+                        await writeBakAtomic(`${configPath}.bak`, raw);
+                    }
                 } catch {
                     // non-critical
                 }
@@ -249,13 +252,38 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 // load() 本身抛错（非 ENOENT）：config 文件存在但 readFile/parse 异常。
                 // 同样不 fallback defaults（防 auto_seed 覆盖），而是抛错停止启动。
                 if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-                    // config.json 不存在 = 首次启动，返回 defaults 合理（auto_seed 填内置 connector）
-                    return { ...DEFAULT_CONFIGURATION };
+                    // 区分「首次启动（配置目录不存在）」与「config.json 被误删/移动（目录存在但文件缺失）」。
+                    // 后者不能返回 defaults，否则会触发 auto_seed 覆盖用户数据（P0）。
+                    const configDir = dirname(configPath);
+                    try {
+                        await stat(configDir);
+                    } catch (dirErr: unknown) {
+                        if ((dirErr as NodeJS.ErrnoException).code === "ENOENT") {
+                            // 首次启动：目录不存在，返回 defaults，由 auto_seed 填充内置 connector。
+                            return { ...DEFAULT_CONFIGURATION };
+                        }
+                        // 目录 stat 出现其它错误，直接抛出原错误。
+                        throw err;
+                    }
+                    // 目录存在但 config.json 缺失，视为异常。
+                    log.error(
+                        `Config file missing at ${configPath} but directory exists. ` +
+                            `NOT falling back to defaults to prevent auto_seed overwrite. ` +
+                            `Restore config.json manually or remove the directory to reset.`,
+                    );
+                    throw new Error(
+                        `Config file missing at ${configPath} but directory exists. ` +
+                            `Refusing to start with defaults to prevent data loss. ` +
+                            `Restore config.json manually or remove the directory to reset.`,
+                    );
                 }
                 // 已有 config 但读取失败（IO 错误等）→ 备份损坏文件后抛错
                 try {
                     const raw = await readFile(configPath, "utf8").catch(() => null);
-                    if (raw) await writeBakAtomic(`${configPath}.bak`, raw);
+                    // 空/仅空白的主文件不备份，避免覆盖可能仍然有效的 .bak。
+                    if (raw && raw.trim().length > 0) {
+                        await writeBakAtomic(`${configPath}.bak`, raw);
+                    }
                 } catch {
                     // non-critical
                 }

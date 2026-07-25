@@ -1,8 +1,29 @@
-import { writeFile, mkdir, rename, readdir, unlink } from "node:fs/promises";
+import { writeFile, mkdir, rename, readdir, unlink, open } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createLogger } from "../../../shared/lib/logger";
 
 const log = createLogger("write-json");
+
+/**
+ * 原子写文本文件：先写 .tmp，fsync 落盘后再 rename 到目标路径。
+ * 在 writeFile 后直接 fsync 可防止进程 mid-write 被杀时 tmp 文件只留预分配的 null bytes，
+ * 从而避免 rename 后的目标文件变成全 \0 损坏文件。
+ */
+export async function writeFileAtomic(
+    filePath: string,
+    content: string,
+    options?: { chmod?: number },
+): Promise<void> {
+    const tmpPath = `${filePath}.tmp`;
+    await writeFile(tmpPath, content, options?.chmod ? { mode: options.chmod } : "utf8");
+    const handle = await open(tmpPath, "r+");
+    try {
+        await handle.sync();
+    } finally {
+        await handle.close();
+    }
+    await rename(tmpPath, filePath);
+}
 
 export async function writeJsonAtomic(
     filePath: string,
@@ -12,13 +33,7 @@ export async function writeJsonAtomic(
     log.debug(`writeJsonAtomic: start ${filePath}`);
     try {
         await mkdir(dirname(filePath), { recursive: true });
-        const tmpPath = `${filePath}.tmp`;
-        await writeFile(
-            tmpPath,
-            JSON.stringify(data, null, 2),
-            options?.chmod ? { mode: options.chmod } : undefined,
-        );
-        await rename(tmpPath, filePath);
+        await writeFileAtomic(filePath, JSON.stringify(data, null, 2), options);
         log.debug(`writeJsonAtomic: done ${filePath}`);
     } catch (error) {
         log.error(`writeJsonAtomic: failed ${filePath}`, error);
