@@ -855,6 +855,14 @@
             "status": "done",
             "branch": "t107_manifest_auth_descriptor",
             "note": ""
+        },
+        {
+            "tid": "t108",
+            "title": "auth flow registry 替代 VENDOR_AUTH_MAP",
+            "slug": "auth_flow_registry",
+            "status": "done",
+            "branch": "t108_auth_flow_registry",
+            "note": ""
         }
     ]
 }

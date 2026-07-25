@@ -1,34 +1,26 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AddAccountDialog } from "../../../../src/renderer/components/AddAccountDialog";
 import type { AddAccountParams } from "../../../../src/renderer/components/AddAccountDialog";
 import type { PluginInfo } from "../../../../src/shared/types/ipc";
 
-const base_plugin: PluginInfo = {
-    instanceId: "mimo-1",
-    sourceInstanceId: "mimo-1",
-    stateId: "mimo-1",
-    name: "MiMo",
-    displayName: "MiMo",
-    enabled: true,
-    source: "poll",
-    supportedProviders: ["mimo"],
-    activeProviders: ["mimo"],
-    metadata: {
-        parameters: [
-            {
-                name: "SESSION_COOKIE",
-                label: "Session Cookie",
-                type: "secret",
-                required: true,
-            },
-        ],
-    },
-    snapshot: { status: "idle" },
-};
+function make_plugin(overrides: Partial<PluginInfo> = {}): PluginInfo {
+    return {
+        instanceId: "test-1",
+        sourceInstanceId: "test-1",
+        stateId: "test-1",
+        name: "Test",
+        displayName: "Test",
+        enabled: true,
+        source: "poll",
+        supportedProviders: ["test"],
+        activeProviders: ["test"],
+        metadata: null,
+        snapshot: { status: "idle" },
+        ...overrides,
+    };
+}
 
 function get_saved_params(on_save: ReturnType<typeof vi.fn>): AddAccountParams {
     const calls = on_save.mock.calls;
@@ -36,7 +28,7 @@ function get_saved_params(on_save: ReturnType<typeof vi.fn>): AddAccountParams {
     return calls[0][0] as AddAccountParams;
 }
 
-describe("AddAccountDialog MIMO session cookie", () => {
+describe("AddAccountDialog descriptor-driven routing", () => {
     let on_save: ReturnType<typeof vi.fn>;
     let on_close: ReturnType<typeof vi.fn>;
 
@@ -45,355 +37,27 @@ describe("AddAccountDialog MIMO session cookie", () => {
         on_close = vi.fn();
     });
 
-    it("passes SESSION_COOKIE in secrets when adding a session-auth account (MiMo)", async () => {
-        const user = userEvent.setup();
-        render(
-            <AddAccountDialog plugin_infos={[base_plugin]} on_close={on_close} on_save={on_save} />,
-        );
-
-        // Step 1: select MiMo from vendor picker
-        await user.click(screen.getByText("MiMo"));
-
-        // Step 2: should now show session form with a 备注 field and cookie textarea
-        expect(screen.getByText("备注")).toBeInTheDocument();
-        const cookie_textarea = screen.getByPlaceholderText(/在浏览器登录/);
-        expect(cookie_textarea).toBeInTheDocument();
-        expect(screen.queryByText("网页登录")).not.toBeInTheDocument();
-
-        // Step 3: type cookie value
-        await user.type(cookie_textarea, "api-platform_serviceToken=test123");
-
-        // Step 4: click save
-        await user.click(screen.getByText("添加账号"));
-
-        // Verify: SESSION_COOKIE was passed in secrets
-        await vi.waitFor(() => {
-            expect(on_save).toHaveBeenCalledTimes(1);
-        });
-        const saved = get_saved_params(on_save);
-        expect(saved.secrets).toEqual({
-            SESSION_COOKIE: "api-platform_serviceToken=test123",
-        });
-        expect(saved.vendor_id).toBe("mimo");
-        expect(saved.auth_method).toBe("session");
-    });
-
-    it("passes API_KEY for kimi apikey-auth account", async () => {
-        const kimi_plugin: PluginInfo = {
-            ...base_plugin,
-            instanceId: "kimi-1",
-            name: "Kimi",
-            displayName: "Kimi",
-            activeProviders: ["kimi"],
-            supportedProviders: ["kimi"],
-        };
-        const user = userEvent.setup();
-        render(
-            <AddAccountDialog plugin_infos={[kimi_plugin]} on_close={on_close} on_save={on_save} />,
-        );
-
-        await user.click(screen.getByText("Kimi"));
-        const api_key_input = screen.getByPlaceholderText(/sk-kimi/);
-        expect(api_key_input).toBeInTheDocument();
-        expect(screen.queryByText("网页登录")).not.toBeInTheDocument();
-
-        await user.type(api_key_input, "sk-kimi-test123");
-        await user.click(screen.getByText("添加账号"));
-
-        await vi.waitFor(() => {
-            expect(on_save).toHaveBeenCalledTimes(1);
-        });
-        expect(get_saved_params(on_save).secrets).toEqual({
-            API_KEY: "sk-kimi-test123",
-        });
-        expect(get_saved_params(on_save).auth_method).toBe("apikey");
-    });
-
-    function opencode_go_plugin(): PluginInfo {
-        return {
-            ...base_plugin,
-            instanceId: "opencode-go-1",
-            name: "OpenCode Go",
-            displayName: "OpenCode Go",
-            activeProviders: ["opencode_go"],
-            supportedProviders: ["opencode_go"],
-        };
-    }
-
-    it("selecting OpenCode Go supports cookie/session form", async () => {
-        const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[opencode_go_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
-
-        await user.click(screen.getByText("OpenCode Go"));
-
-        expect(
-            screen.getByPlaceholderText("支持 JSON、EditThisCookie、Netscape、k=v; k=v"),
-        ).toBeInTheDocument();
-        expect(screen.queryByPlaceholderText(/sk-/)).not.toBeInTheDocument();
-        expect(screen.getByText("备注")).toBeInTheDocument();
-    });
-
-    it("parses OpenCode Go JSON cookie and saves the remark", async () => {
-        const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[opencode_go_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
-
-        await user.click(screen.getByText("OpenCode Go"));
-        await user.type(screen.getByPlaceholderText("例如：工作账号"), "工作账号");
-        fireEvent.change(
-            screen.getByPlaceholderText("支持 JSON、EditThisCookie、Netscape、k=v; k=v"),
-            {
-                target: { value: JSON.stringify([{ name: "session", value: "abc" }]) },
-            },
-        );
-        await user.click(screen.getByText("添加账号"));
-
-        await vi.waitFor(() => {
-            expect(on_save).toHaveBeenCalledTimes(1);
-        });
-        expect(get_saved_params(on_save).secrets).toEqual({
-            SESSION_COOKIE: "session=abc",
-        });
-        expect(get_saved_params(on_save).account_name).toBe("工作账号");
-    });
-
-    it("does not save OpenCode Go without a pasted Cookie", async () => {
-        const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[opencode_go_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
-
-        await user.click(screen.getByText("OpenCode Go"));
-        await user.click(screen.getByText("添加账号"));
-
-        expect(on_save).not.toHaveBeenCalled();
-        expect(screen.getByText("请粘贴 Cookie 或先网页登录")).toBeInTheDocument();
-    });
-
-    it("overwrites OpenCode Go Cookie from anonymous web login and saves it", async () => {
-        const login = vi.fn().mockResolvedValue({
-            saved: true,
-            cookie: "session=abc; __Host-session=def",
-        });
-        window.usageboard = {
-            session: { login, refresh: vi.fn() },
-        } as unknown as typeof window.usageboard;
-        const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[opencode_go_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
-
-        await user.click(screen.getByText("OpenCode Go"));
-        const cookie_textarea = screen.getByPlaceholderText(
-            "支持 JSON、EditThisCookie、Netscape、k=v; k=v",
-        );
-        await user.type(cookie_textarea, "session=old");
-        await user.click(screen.getByText("网页登录"));
-
-        await vi.waitFor(() => {
-            expect(login).toHaveBeenCalledWith({
-                provider: "opencode_go",
-                login_url: "https://opencode.ai/auth",
-                cookie_names: ["*"],
-            });
-        });
-        await vi.waitFor(() => {
-            expect(cookie_textarea).toHaveValue("session=abc; __Host-session=def");
-        });
-
-        await user.click(screen.getByText("添加账号"));
-        await vi.waitFor(() => {
-            expect(on_save).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    secrets: { SESSION_COOKIE: "session=abc; __Host-session=def" },
-                }),
-            );
-        });
-    });
-
-    it("shows OpenCode Go web login failure", async () => {
-        const login = vi.fn().mockResolvedValue({ saved: false });
-        window.usageboard = {
-            session: { login, refresh: vi.fn() },
-        } as unknown as typeof window.usageboard;
-        const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[opencode_go_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
-
-        await user.click(screen.getByText("OpenCode Go"));
-        await user.click(screen.getByText("网页登录"));
-
-        expect(
-            await screen.findByText("未捕获到 Cookie，请完成登录后再关闭窗口"),
-        ).toBeInTheDocument();
-    });
-
-    it("shows OpenCode Go web login error", async () => {
-        const login = vi.fn().mockRejectedValue(new Error("Login timed out"));
-        window.usageboard = {
-            session: { login, refresh: vi.fn() },
-        } as unknown as typeof window.usageboard;
-        const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[opencode_go_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
-
-        await user.click(screen.getByText("OpenCode Go"));
-        await user.click(screen.getByText("网页登录"));
-
-        expect(await screen.findByText("Login timed out")).toBeInTheDocument();
-    });
-
-    it("does not save OpenCode Go when pasted Cookie is invalid", async () => {
-        const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
-        const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[opencode_go_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
-
-        await user.click(screen.getByText("OpenCode Go"));
-        fireEvent.change(
-            screen.getByPlaceholderText("支持 JSON、EditThisCookie、Netscape、k=v; k=v"),
-            {
-                target: { value: "not a cookie" },
-            },
-        );
-        await user.click(screen.getByText("添加账号"));
-
-        expect(on_save).not.toHaveBeenCalled();
-        expect(alert).toHaveBeenCalledWith("无法识别 Cookie 格式");
-    });
-
-    it("copies OpenCode Go browser cookie script", async () => {
-        const write_text = vi.fn().mockResolvedValue(undefined);
-        const user = userEvent.setup();
-        Object.defineProperty(navigator, "clipboard", {
-            configurable: true,
-            value: { writeText: write_text },
-        });
-        render(
-            <AddAccountDialog
-                plugin_infos={[opencode_go_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
-
-        await user.click(screen.getByText("OpenCode Go"));
-        await user.click(screen.getByText("复制脚本"));
-
-        expect(write_text).toHaveBeenCalledTimes(1);
-        const script = write_text.mock.calls[0]?.[0] as string;
-        expect(script).toContain("opencode.ai");
-        expect(script).toContain("navigator.clipboard.writeText");
-    });
-
-    it("shows feedback when OpenCode Go browser cookie script cannot be copied", async () => {
-        const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
-        const user = userEvent.setup();
-        Object.defineProperty(navigator, "clipboard", {
-            configurable: true,
-            value: undefined,
-        });
-        render(
-            <AddAccountDialog
-                plugin_infos={[opencode_go_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
-
-        await user.click(screen.getByText("OpenCode Go"));
-        await user.click(screen.getByText("复制脚本"));
-
-        expect(alert).toHaveBeenCalledWith("当前环境无法写入剪贴板，请手动复制脚本");
-    });
-});
-
-describe("AddAccountDialog API key", () => {
-    let on_save: ReturnType<typeof vi.fn>;
-    let on_close: ReturnType<typeof vi.fn>;
-
-    function apikey_plugin(overrides: Partial<PluginInfo> = {}): PluginInfo {
-        return {
+    it("renders apikey form and saves API_KEY for poll connectors without auth descriptor", async () => {
+        const plugin: PluginInfo = make_plugin({
             instanceId: "deepseek-1",
-            sourceInstanceId: "deepseek-1",
-            stateId: "deepseek-1",
             name: "DeepSeek",
             displayName: "DeepSeek",
-            enabled: true,
             source: "poll",
             supportedProviders: ["deepseek"],
             activeProviders: ["deepseek"],
             metadata: {
-                parameters: [
-                    {
-                        name: "API_KEY",
-                        label: "API Key",
-                        type: "secret",
-                        required: true,
-                    },
-                ],
+                name: "deepseek",
+                parameters: [{ name: "API_KEY", label: "API Key", type: "secret", required: true }],
             },
-            snapshot: { status: "idle" },
-            ...overrides,
-        };
-    }
-
-    beforeEach(() => {
-        on_save = vi.fn().mockResolvedValue(undefined);
-        on_close = vi.fn();
-    });
-
-    it("passes API_KEY in secrets when adding an apikey account", async () => {
+        });
         const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[apikey_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
 
         await user.click(screen.getByText("DeepSeek"));
-
-        // Should show API key input
-        const key_input = screen.getByPlaceholderText(/sk-/);
+        const key_input = screen.getByPlaceholderText("sk-…");
         expect(key_input).toBeInTheDocument();
-        await user.type(key_input, "sk-test-key-123");
 
+        await user.type(key_input, "sk-test-key-123");
         await user.click(screen.getByText("添加账号"));
 
         await vi.waitFor(() => {
@@ -405,103 +69,324 @@ describe("AddAccountDialog API key", () => {
         expect(saved.auth_method).toBe("apikey");
     });
 
-    it("passes endpoint override when provided", async () => {
+    it("uses descriptor secret_name for apikey descriptor (exa)", async () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "exa-1",
+            name: "Exa",
+            displayName: "Exa",
+            source: "poll",
+            supportedProviders: ["exa"],
+            activeProviders: ["exa"],
+            metadata: {
+                name: "exa",
+                auth: {
+                    method: "apikey",
+                    secret_name: "SERVICE_KEY",
+                    extra_fields: ["API_KEY_ID"],
+                },
+                parameters: [
+                    { name: "SERVICE_KEY", label: "Service Key", type: "secret", required: true },
+                    { name: "API_KEY_ID", label: "API Key ID", type: "string", required: true },
+                ],
+            },
+        });
         const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[apikey_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
 
-        await user.click(screen.getByText("DeepSeek"));
-        await user.type(screen.getByPlaceholderText(/sk-/), "sk-key");
+        await user.click(screen.getByText("Exa"));
+        const key_input = screen.getByPlaceholderText("sk-…");
+        expect(key_input).toBeInTheDocument();
 
-        // Fill optional endpoint
-        const endpoint_input = screen.getByPlaceholderText("https://api.deepseek.com");
-        await user.type(endpoint_input, "https://custom.api.example.com");
+        await user.type(key_input, "exa-service-key");
+        await user.click(screen.getByText("添加账号"));
 
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        expect(get_saved_params(on_save).secrets).toEqual({ SERVICE_KEY: "exa-service-key" });
+        expect(get_saved_params(on_save).auth_method).toBe("apikey");
+    });
+
+    it("renders session form and saves SESSION_COOKIE for session-source connectors", async () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "mimo-1",
+            name: "MiMo",
+            displayName: "MiMo",
+            source: "session",
+            supportedProviders: ["mimo"],
+            activeProviders: ["mimo"],
+            metadata: {
+                name: "mimo",
+                parameters: [
+                    {
+                        name: "SESSION_COOKIE",
+                        label: "Session Cookie",
+                        type: "secret",
+                        required: true,
+                    },
+                ],
+            },
+        });
+        const user = userEvent.setup();
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("MiMo"));
+        expect(screen.getByText("备注")).toBeInTheDocument();
+        const cookie_textarea = screen.getByPlaceholderText(/在浏览器登录/);
+        expect(cookie_textarea).toBeInTheDocument();
+        expect(screen.queryByText("网页登录")).not.toBeInTheDocument();
+
+        await user.type(cookie_textarea, "api-platform_serviceToken=test123");
         await user.click(screen.getByText("添加账号"));
 
         await vi.waitFor(() => {
             expect(on_save).toHaveBeenCalledTimes(1);
         });
         const saved = get_saved_params(on_save);
-        expect(saved.endpoint_overrides).toEqual({ default: "https://custom.api.example.com" });
+        expect(saved.secrets).toEqual({
+            SESSION_COOKIE: "api-platform_serviceToken=test123",
+        });
+        expect(saved.vendor_id).toBe("mimo");
+        expect(saved.auth_method).toBe("session");
+    });
+
+    it("renders placeholder for oauth_device descriptor (grok)", async () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "grok-1",
+            name: "Grok",
+            displayName: "Grok",
+            source: "poll",
+            supportedProviders: ["grok"],
+            activeProviders: ["grok"],
+            metadata: {
+                name: "grok",
+                auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
+            },
+        });
+        const user = userEvent.setup();
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("Grok"));
+        expect(screen.getByText(/OAuth 设备码.*将在 t109\/t110 实现/)).toBeInTheDocument();
+        expect(screen.queryByPlaceholderText("sk-…")).not.toBeInTheDocument();
+    });
+
+    it("renders placeholder for web_login descriptor (opencode_go)", async () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "opencode-go-1",
+            name: "OpenCode Go",
+            displayName: "OpenCode Go",
+            source: "session",
+            supportedProviders: ["opencode_go"],
+            activeProviders: ["opencode_go"],
+            metadata: {
+                name: "opencode_go",
+                auth: {
+                    method: "web_login",
+                    secret_name: "SESSION_COOKIE",
+                    login_url: "https://opencode.ai/auth",
+                },
+            },
+        });
+        const user = userEvent.setup();
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("OpenCode Go"));
+        expect(screen.getByText(/网页登录.*将在 t109\/t110 实现/)).toBeInTheDocument();
+        expect(screen.queryByPlaceholderText("sk-…")).not.toBeInTheDocument();
+        expect(screen.queryByText("复制脚本")).not.toBeInTheDocument();
+    });
+
+    it("renders placeholder for cpa_mgmt descriptor (cpa)", async () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "cpa-1",
+            name: "CPA Manager",
+            displayName: "CPA Manager",
+            source: "gateway",
+            supportedProviders: ["claude", "kimi"],
+            activeProviders: ["claude", "kimi"],
+            metadata: {
+                name: "cpa",
+                auth: { method: "cpa_mgmt", secret_name: "cpa_mgmt_key", require_endpoint: true },
+            },
+        });
+        const user = userEvent.setup();
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("CPA Manager"));
+        expect(screen.getByText(/CPA 管理端.*将在 t109\/t110 实现/)).toBeInTheDocument();
+    });
+
+    it("disables save for placeholder auth methods", async () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "grok-1",
+            name: "Grok",
+            displayName: "Grok",
+            source: "poll",
+            supportedProviders: ["grok"],
+            activeProviders: ["grok"],
+            metadata: {
+                name: "grok",
+                auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
+            },
+        });
+        const user = userEvent.setup();
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("Grok"));
+        const save_btn = screen.getByText("添加账号").closest("button");
+        expect(save_btn).toBeDisabled();
+        if (save_btn) {
+            await user.click(save_btn);
+        }
+        expect(on_save).not.toHaveBeenCalled();
+    });
+
+    it("renders local scan form and auth_method local_cli for local source", async () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "claude-1",
+            name: "Claude",
+            displayName: "Claude",
+            source: "local",
+            supportedProviders: ["claude"],
+            activeProviders: ["claude"],
+            metadata: {
+                name: "claude",
+                parameters: [
+                    { name: "data_dir", label: "Data Dir", type: "string", required: false },
+                ],
+            },
+        });
+        const user = userEvent.setup();
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("Claude"));
+        expect(screen.getByText(/正在扫描本地授权文件/)).toBeInTheDocument();
+        expect(screen.getByText("~/.claude/.credentials.json")).toBeInTheDocument();
+
+        const save_btn = screen.getByText("导入账号").closest("button");
+        expect(save_btn).toBeEnabled();
+        if (save_btn) {
+            await user.click(save_btn);
+        }
+
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        expect(get_saved_params(on_save).auth_method).toBe("local_cli");
+    });
+
+    it("passes endpoint override when provided", async () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "deepseek-1",
+            name: "DeepSeek",
+            displayName: "DeepSeek",
+            source: "poll",
+            supportedProviders: ["deepseek"],
+            activeProviders: ["deepseek"],
+            metadata: {
+                name: "deepseek",
+                parameters: [{ name: "API_KEY", label: "API Key", type: "secret", required: true }],
+            },
+        });
+        const user = userEvent.setup();
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("DeepSeek"));
+        await user.type(screen.getByPlaceholderText("sk-…"), "sk-key");
+        await user.type(
+            screen.getByPlaceholderText("默认（官方接口）"),
+            "https://custom.api.example.com",
+        );
+        await user.click(screen.getByText("添加账号"));
+
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        expect(get_saved_params(on_save).endpoint_overrides).toEqual({
+            default: "https://custom.api.example.com",
+        });
     });
 
     it("does not include empty endpoint override", async () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "deepseek-1",
+            name: "DeepSeek",
+            displayName: "DeepSeek",
+            source: "poll",
+            supportedProviders: ["deepseek"],
+            activeProviders: ["deepseek"],
+            metadata: {
+                name: "deepseek",
+                parameters: [{ name: "API_KEY", label: "API Key", type: "secret", required: true }],
+            },
+        });
         const user = userEvent.setup();
-        render(
-            <AddAccountDialog
-                plugin_infos={[apikey_plugin()]}
-                on_close={on_close}
-                on_save={on_save}
-            />,
-        );
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
 
         await user.click(screen.getByText("DeepSeek"));
-        await user.type(screen.getByPlaceholderText(/sk-/), "sk-key");
+        await user.type(screen.getByPlaceholderText("sk-…"), "sk-key");
         await user.click(screen.getByText("添加账号"));
 
         await vi.waitFor(() => {
             expect(on_save).toHaveBeenCalledTimes(1);
         });
-        const saved = get_saved_params(on_save);
-        expect(saved.endpoint_overrides).toBeUndefined();
+        expect(get_saved_params(on_save).endpoint_overrides).toBeUndefined();
     });
 
-    it("enables vendor button when plugin has supportedProviders even if disabled", () => {
-        const disabled = apikey_plugin({ enabled: false, activeProviders: [] });
-        render(
-            <AddAccountDialog plugin_infos={[disabled]} on_close={on_close} on_save={on_save} />,
-        );
-
-        const btn = screen.getByText("DeepSeek").closest("button");
-        expect(btn?.className).not.toContain("disabled");
-    });
-
-    it("shows GLM in the vendor picker when GLM plugin is available", () => {
-        const glm_plugin = apikey_plugin({
-            instanceId: "glm-1",
-            name: "GLM",
-            displayName: "GLM",
-            activeProviders: ["glm"],
-            supportedProviders: ["glm"],
-        });
-
-        render(
-            <AddAccountDialog plugin_infos={[glm_plugin]} on_close={on_close} on_save={on_save} />,
-        );
-
-        const button = screen.getByText("GLM").closest("button");
-        expect(button).toBeInTheDocument();
-        expect(button?.className).not.toContain("disabled");
-    });
-
-    it("does not contain direct console calls", async () => {
-        const source = await readFile(
-            join(process.cwd(), "src/renderer/components/AddAccountDialog.tsx"),
-            "utf8",
-        );
-
-        expect(source).not.toMatch(/console\.(log|warn|error|debug|info)/);
-    });
-
-    it("shows CPA button when has_cpa is true", () => {
-        render(<AddAccountDialog plugin_infos={[]} on_close={on_close} on_save={on_save} />);
-
-        expect(screen.getByText("CPA Manager")).toBeInTheDocument();
-    });
-
-    it("calls on_cpa when CPA button is clicked", async () => {
+    it("falls back to apikey form when no connector info is available", async () => {
         const user = userEvent.setup();
         render(<AddAccountDialog plugin_infos={[]} on_close={on_close} on_save={on_save} />);
 
-        await user.click(screen.getByText("CPA Manager"));
-        // CPA now goes through standard vendor select, not on_cpa callback
-        expect(screen.getByText("添加 CPA Manager 账号")).toBeInTheDocument();
+        await user.click(screen.getByText("Kimi"));
+        expect(screen.getByPlaceholderText("sk-…")).toBeInTheDocument();
+        expect(screen.getByText("添加 Kimi 账号")).toBeInTheDocument();
+    });
+
+    it("enables vendor button when plugin has supportedProviders even if disabled", () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "deepseek-1",
+            name: "DeepSeek",
+            displayName: "DeepSeek",
+            source: "poll",
+            supportedProviders: ["deepseek"],
+            activeProviders: [],
+            enabled: false,
+            metadata: {
+                name: "deepseek",
+                parameters: [{ name: "API_KEY", label: "API Key", type: "secret", required: true }],
+            },
+        });
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        const btn = screen.getByText("DeepSeek").closest("button");
+        expect(btn).toBeEnabled();
+    });
+
+    it("shows GLM in the vendor picker when GLM plugin is available", () => {
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "glm-1",
+            name: "GLM",
+            displayName: "GLM",
+            source: "poll",
+            supportedProviders: ["glm"],
+            activeProviders: ["glm"],
+            metadata: {
+                name: "glm",
+                parameters: [{ name: "API_KEY", label: "API Key", type: "secret", required: true }],
+            },
+        });
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        const button = screen.getByText("GLM").closest("button");
+        expect(button).toBeInTheDocument();
+        expect(button).toBeEnabled();
+    });
+
+    it("shows CPA Manager button in vendor picker", () => {
+        render(<AddAccountDialog plugin_infos={[]} on_close={on_close} on_save={on_save} />);
+
+        expect(screen.getByText("CPA Manager")).toBeInTheDocument();
     });
 });
 

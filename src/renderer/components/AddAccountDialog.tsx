@@ -1,83 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConnectorInfo } from "../../shared/types/ipc";
-import type { UsageProvider } from "../../shared/schemas/plugin-output";
 import type { AddServiceId } from "../lib/common-services";
 import { VendorMark, Icon } from "./Icon";
 import { ADD_COMMON_SERVICES } from "../lib/common-services";
-import { parse_cookie_text } from "../../shared/lib/cookie_parser";
-
-// ── Auth method routing ──
-
-export type AuthMethod = "apikey" | "session" | "local";
-
-export const VENDOR_AUTH_MAP: Partial<Record<AddServiceId, AuthMethod>> = {
-    deepseek: "apikey",
-    glm: "apikey",
-    tavily: "apikey",
-    minimax: "apikey",
-    kimi: "apikey",
-    getoneapi: "apikey",
-    exa: "apikey",
-    tikhub: "apikey",
-    cpa: "apikey",
-    mimo: "session",
-    opencode_go: "session",
-    grok: "apikey",
-    claude: "local",
-    codex: "local",
-    antigravity: "local",
-};
-
-const AUTH_APIKEY_META: Partial<
-    Record<UsageProvider, { prefix: string; endpoint: string; docs: string }>
-> = {
-    deepseek: {
-        prefix: "sk-",
-        endpoint: "https://api.deepseek.com",
-        docs: "platform.deepseek.com → API Keys",
-    },
-    kimi: {
-        prefix: "sk-kimi-",
-        endpoint: "https://api.kimi.com/coding/v1",
-        docs: "kimi.com/code/console → 创建 API Key",
-    },
-    tavily: {
-        prefix: "tvly-",
-        endpoint: "https://api.tavily.com",
-        docs: "app.tavily.com → API Keys",
-    },
-};
-
-const AUTH_SESSION_META: Partial<
-    Record<UsageProvider, { host: string; login_url: string; cookie_keys: string[] }>
-> = {
-    mimo: {
-        host: "platform.xiaomimimo.com",
-        login_url: "https://platform.xiaomimimo.com/console/plan-manage",
-        cookie_keys: ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph"],
-    },
-    opencode_go: {
-        host: "opencode.ai",
-        login_url: "https://opencode.ai/auth",
-        cookie_keys: ["session", "__Host-session", "__Secure-session"],
-    },
-};
-
-const OPENCODE_GO_COOKIE_SCRIPT = `(() => {
-    if (!location.hostname.endsWith("opencode.ai")) {
-        alert("请先打开 opencode.ai 后再运行脚本");
-        return;
-    }
-    const cookie = document.cookie;
-    if (!cookie) {
-        alert("未读取到 Cookie。可能是 HttpOnly 限制，请改用浏览器导出的 Cookie JSON 或 Netscape 格式。");
-        return;
-    }
-    navigator.clipboard.writeText(cookie).then(
-        () => alert("Cookie 已复制"),
-        () => alert("复制失败，请手动复制 document.cookie"),
-    );
-})();`;
+import {
+    fallback_secret_name,
+    resolve_auth_descriptor,
+    resolve_auth_method,
+    type ResolvedAuthMethod,
+} from "../lib/auth-flow-registry";
 
 const AUTH_LOCAL_PATHS: Partial<Record<AddServiceId, string[]>> = {
     claude: ["~/.claude/.credentials.json", "~/.config/claude/auth.json"],
@@ -90,7 +21,7 @@ const AUTH_LOCAL_PATHS: Partial<Record<AddServiceId, string[]>> = {
 export interface AddAccountParams {
     vendor_id: AddServiceId;
     account_name: string;
-    auth_method: AuthMethod;
+    auth_method: ResolvedAuthMethod;
     parameter_values: Record<string, string>;
     endpoint_overrides?: Record<string, string>;
     secrets: Record<string, string>;
@@ -100,6 +31,26 @@ interface AddAccountDialogProps {
     plugin_infos: ConnectorInfo[];
     on_close: () => void;
     on_save: (params: AddAccountParams) => Promise<void>;
+}
+
+// ── Helpers ──
+
+function find_connector(
+    plugin_infos: ConnectorInfo[],
+    vendor_id: AddServiceId,
+): ConnectorInfo | undefined {
+    if (vendor_id === "cpa") {
+        return (
+            plugin_infos.find((c) => c.metadata?.name === "cpa") ??
+            plugin_infos.find((c) => c.source === "gateway")
+        );
+    }
+    return plugin_infos.find(
+        (c) =>
+            c.supportedProviders.includes(vendor_id) ||
+            c.activeProviders.includes(vendor_id) ||
+            c.metadata?.name === vendor_id,
+    );
 }
 
 // ── Sub-components ──
@@ -158,7 +109,6 @@ function VendorPicker({
 }
 
 function ApiKeyForm({
-    vendor_id,
     account_name,
     set_account_name,
     form_ref,
@@ -168,11 +118,6 @@ function ApiKeyForm({
     set_account_name: (v: string) => void;
     form_ref: React.RefObject<{ api_key: string; endpoint_override?: string }>;
 }) {
-    const meta = AUTH_APIKEY_META[vendor_id as UsageProvider] ?? {
-        prefix: "sk-",
-        endpoint: "",
-        docs: "",
-    };
     const [key, set_key] = useState("");
     const [show_key, set_show_key] = useState(false);
     const [endpoint, set_endpoint] = useState("");
@@ -216,7 +161,7 @@ function ApiKeyForm({
                         onChange={(e) => {
                             set_key(e.target.value);
                         }}
-                        placeholder={(meta.prefix || "sk-") + "…"}
+                        placeholder="sk-…"
                     />
                     <button
                         className="ad-eye"
@@ -232,7 +177,6 @@ function ApiKeyForm({
                 <div className="ad-hint">
                     <Icon name="lock" size={12} strokeWidth={1.8} />
                     密钥仅加密保存在本地
-                    {meta.docs ? `，在 ${meta.docs} 获取` : ""}
                 </div>
             </div>
             <div className="ad-field">
@@ -248,7 +192,7 @@ function ApiKeyForm({
                     onChange={(e) => {
                         set_endpoint(e.target.value);
                     }}
-                    placeholder={meta.endpoint || "默认（官方接口）"}
+                    placeholder="默认（官方接口）"
                 />
             </div>
         </div>
@@ -256,7 +200,6 @@ function ApiKeyForm({
 }
 
 function SessionForm({
-    vendor_id,
     account_name,
     set_account_name,
     form_ref,
@@ -266,54 +209,11 @@ function SessionForm({
     set_account_name: (v: string) => void;
     form_ref: React.RefObject<{ cookie: string }>;
 }) {
-    const meta = AUTH_SESSION_META[vendor_id as UsageProvider] ?? {
-        host: "",
-        login_url: "",
-        cookie_keys: [],
-    };
     const [cookie, set_cookie] = useState("");
-    const [login_error, set_login_error] = useState<string | null>(null);
-    const [logging_in, set_logging_in] = useState(false);
-    const is_opencode_go = vendor_id === "opencode_go";
-    const placeholder = is_opencode_go
-        ? "支持 JSON、EditThisCookie、Netscape、k=v; k=v"
-        : "在浏览器登录 " + meta.host + " 后，从开发者工具复制完整 Cookie…";
 
     useEffect(() => {
         form_ref.current = { cookie };
     }, [cookie, form_ref]);
-
-    const handle_copy_script = useCallback(() => {
-        const clipboard = "clipboard" in navigator ? navigator.clipboard : null;
-        if (!clipboard) {
-            alert("当前环境无法写入剪贴板，请手动复制脚本");
-            return;
-        }
-        void clipboard.writeText(OPENCODE_GO_COOKIE_SCRIPT).catch(() => {
-            alert("复制失败，请手动复制脚本");
-        });
-    }, []);
-
-    const handle_web_login = useCallback(async () => {
-        set_login_error(null);
-        set_logging_in(true);
-        try {
-            const result = await window.usageboard.session.login({
-                provider: "opencode_go",
-                login_url: meta.login_url,
-                cookie_names: ["*"],
-            });
-            if (!result.saved || !result.cookie) {
-                set_login_error("未捕获到 Cookie，请完成登录后再关闭窗口");
-                return;
-            }
-            set_cookie(result.cookie);
-        } catch (error) {
-            set_login_error(error instanceof Error ? error.message : "网页登录失败，请重试");
-        } finally {
-            set_logging_in(false);
-        }
-    }, [meta.login_url]);
 
     return (
         <>
@@ -335,23 +235,6 @@ function SessionForm({
             </div>
             <div className="ad-field">
                 <label className="ad-label">Cookie 字符串</label>
-                {is_opencode_go && (
-                    <>
-                        <button
-                            className="ad-test"
-                            type="button"
-                            disabled={logging_in}
-                            onClick={() => {
-                                void handle_web_login();
-                            }}
-                        >
-                            {logging_in ? "正在打开登录窗口…" : "网页登录"}
-                        </button>
-                        <button className="ad-test" type="button" onClick={handle_copy_script}>
-                            复制脚本
-                        </button>
-                    </>
-                )}
                 <textarea
                     className="aa-textarea mono"
                     spellCheck={false}
@@ -361,22 +244,11 @@ function SessionForm({
                     onChange={(e) => {
                         set_cookie(e.target.value);
                     }}
-                    placeholder={placeholder}
+                    placeholder="在浏览器登录后，从开发者工具复制完整 Cookie…"
                 />
-                <div className="cookie-keys">
-                    <span className="ck-label">需包含</span>
-                    {meta.cookie_keys.map((k: string) => (
-                        <code key={k} className="ck-chip">
-                            {k}
-                        </code>
-                    ))}
-                </div>
-                {login_error && <div className="ad-hint">{login_error}</div>}
                 <div className="ad-hint" style={{ marginTop: 6 }}>
                     <Icon name="info" size={12} strokeWidth={1.8} />
-                    {is_opencode_go
-                        ? "网页登录会自动填入 Cookie，也可手动粘贴或复制脚本"
-                        : "保存后可在账号设置中使用网页登录自动捕获 Cookie"}
+                    保存后可在账号设置中使用网页登录自动捕获 Cookie
                 </div>
             </div>
         </>
@@ -454,6 +326,26 @@ function LocalScanForm({ vendor_id }: { vendor_id: AddServiceId }) {
     );
 }
 
+function AuthPlaceholder({
+    method,
+}: {
+    method: Exclude<ResolvedAuthMethod, "apikey" | "session" | "local_cli">;
+}) {
+    const labels: Record<typeof method, string> = {
+        oauth_device: "OAuth 设备码",
+        web_login: "网页登录",
+        cpa_mgmt: "CPA 管理端",
+    };
+    return (
+        <div className="ad-field">
+            <div className="ad-hint">
+                <Icon name="info" size={12} strokeWidth={1.8} />
+                {labels[method]}添加流程将在 t109/t110 实现。
+            </div>
+        </div>
+    );
+}
+
 // ── Main Dialog ──
 
 export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccountDialogProps) {
@@ -469,20 +361,36 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
         cookie: "",
     });
 
-    const auth_method: AuthMethod = (vendor_id && VENDOR_AUTH_MAP[vendor_id]) ?? "apikey";
+    const selected_connector = useMemo(
+        () => (vendor_id ? find_connector(plugin_infos, vendor_id) : undefined),
+        [plugin_infos, vendor_id],
+    );
+    const auth_descriptor = useMemo(
+        () => resolve_auth_descriptor(selected_connector),
+        [selected_connector],
+    );
+    const auth_method: ResolvedAuthMethod = useMemo(
+        () => (vendor_id ? resolve_auth_method(selected_connector) : "apikey"),
+        [selected_connector, vendor_id],
+    );
 
     const vendor_label =
         ADD_COMMON_SERVICES.find((s) => s.id === vendor_id)?.label ?? vendor_id ?? "";
 
-    const sub_by_auth: Record<AuthMethod, string> = {
+    const sub_by_auth: Record<ResolvedAuthMethod, string> = {
         apikey: "粘贴 API 密钥即可接入",
         session: "网页登录或粘贴 Cookie",
-        local: "扫描本地 CLI 授权文件",
+        local_cli: "扫描本地 CLI 授权文件",
+        oauth_device: "OAuth 设备码授权",
+        web_login: "网页登录授权",
+        cpa_mgmt: "CPA 管理端授权",
     };
 
     const title = vendor_id ? `添加 ${vendor_label} 账号` : "添加账号";
     const sub = vendor_id ? sub_by_auth[auth_method] : "";
-    const wide = auth_method === "local";
+    const wide = auth_method === "local_cli";
+    const is_placeholder_auth =
+        auth_method === "oauth_device" || auth_method === "web_login" || auth_method === "cpa_mgmt";
 
     // ESC to close
     useEffect(() => {
@@ -511,6 +419,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
 
     const handle_save = useCallback(async () => {
         if (!vendor_id || saving) return;
+        if (is_placeholder_auth) return;
         set_error_message(null);
         set_saving(true);
         try {
@@ -522,10 +431,13 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                 secrets: {},
             };
 
+            const secret_name =
+                auth_descriptor?.secret_name ?? fallback_secret_name(selected_connector);
+
             // Collect form data based on auth method
             if (auth_method === "apikey") {
                 const data = api_form_ref.current;
-                params.secrets = { API_KEY: data.api_key };
+                params.secrets = { [secret_name]: data.api_key };
                 if (data.endpoint_override) {
                     params.endpoint_overrides = {
                         default: data.endpoint_override,
@@ -534,21 +446,8 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
             } else if (auth_method === "session") {
                 const data = session_form_ref.current;
                 const cookie = data.cookie.trim();
-                if (vendor_id === "opencode_go" && !cookie) {
-                    set_error_message("请粘贴 Cookie 或先网页登录");
-                    return;
-                }
                 if (cookie) {
-                    let session_cookie = cookie;
-                    if (vendor_id === "opencode_go") {
-                        try {
-                            session_cookie = parse_cookie_text(cookie).header;
-                        } catch (error) {
-                            alert(error instanceof Error ? error.message : "无法识别 Cookie 格式");
-                            return;
-                        }
-                    }
-                    params.secrets = { SESSION_COOKIE: session_cookie };
+                    params.secrets = { [secret_name]: cookie };
                 }
             }
 
@@ -557,7 +456,18 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
         } finally {
             set_saving(false);
         }
-    }, [vendor_id, account_name, auth_method, vendor_label, saving, on_save, on_close]);
+    }, [
+        vendor_id,
+        account_name,
+        auth_method,
+        auth_descriptor,
+        selected_connector,
+        vendor_label,
+        saving,
+        is_placeholder_auth,
+        on_save,
+        on_close,
+    ]);
 
     return (
         <div className="acct-dialog-scrim" onMouseDown={on_close}>
@@ -623,7 +533,12 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                                     form_ref={session_form_ref}
                                 />
                             )}
-                            {auth_method === "local" && <LocalScanForm vendor_id={vendor_id} />}
+                            {auth_method === "local_cli" && <LocalScanForm vendor_id={vendor_id} />}
+                            {(auth_method === "oauth_device" ||
+                                auth_method === "web_login" ||
+                                auth_method === "cpa_mgmt") && (
+                                <AuthPlaceholder method={auth_method} />
+                            )}
                         </>
                     )}
                 </div>
@@ -632,7 +547,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                 {step === "auth" && (
                     <div className="ad-foot">
                         {error_message && <div className="ad-hint">{error_message}</div>}
-                        {auth_method !== "local" && (
+                        {auth_method !== "local_cli" && (
                             <button className="ad-test" type="button" disabled>
                                 <Icon name="refresh" size={14} strokeWidth={1.9} />
                                 测试连接
@@ -643,14 +558,17 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                                 取消
                             </button>
                             <button
-                                className={"ad-btn primary" + (saving ? " disabled" : "")}
+                                className={
+                                    "ad-btn primary" +
+                                    (saving || is_placeholder_auth ? " disabled" : "")
+                                }
                                 type="button"
-                                disabled={saving}
+                                disabled={saving || is_placeholder_auth}
                                 onClick={() => {
                                     void handle_save();
                                 }}
                             >
-                                {auth_method === "local" ? "导入账号" : "添加账号"}
+                                {auth_method === "local_cli" ? "导入账号" : "添加账号"}
                             </button>
                         </div>
                     </div>

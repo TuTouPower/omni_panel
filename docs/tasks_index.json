@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t108",
-            "title": "auth flow registry 替代 VENDOR_AUTH_MAP",
-            "slug": "auth_flow_registry",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t109",
             "title": "OAuthDeviceForm + WebLoginForm 两个厂商子表单",
             "slug": "vendor_forms_oauth_weblogin",
