@@ -44,6 +44,15 @@
 
 `source` 取值：`poll` / `local` / `session` / `probe` / `wrapper` / `gateway`（CPA 走 `gateway`）。
 
+## 3.1 Kimi 用量字段口径（t113）
+
+`connectors/kimi/connector.ts` 解析 `/coding/v1/usages` 响应，参考实现 `vendors/KimiCodeBar/macOS/KimiCodeBar/KimiCodeBarQuotaService.swift`：
+
+- **周用量 / 5 小时限额**：沿用既有 `usage` 与 `limits[].duration==300`。
+- **加油包余额 `kimi:booster_balance`**：取自顶层 `boosterWallet`。仅当 `status`（uppercase）∈ {`STATUS_ACTIVE`, `STATUS_ENABLED`} 时 `balance.amountLeft` 为真余额；其余状态（含 `STATUS_UNKNOWN`）返回的 `amountLeft` 是「月度上限 − 月度消费」误导值，必须显示 0。`amountLeft` 单位 **1e-8 元**（`315250700 = ¥3.15`），`balance_yuan = max(0, amountLeft / 1e8)`。display_style `ratio` + limit=0（复用 t097 显示原值），不参与 warning/critical 阈值。
+- **总配额 `kimi:total_quota`**：顶层 `totalQuota`，无 `used` 字段，`used = max(0, limit - remaining)`，display_style `percent`。
+- **会员等级**：顶层 `user.membership.level` 装饰到 `account_label`（`Kimi（${level}）`），无 level 时回退 `Kimi`；不新增 metric。
+
 ## 4. 跨功能业务不变量
 
 1. **最新观测即真值**：同一 `(provider, accountId, metricId, sourceInstanceId)` 允许多来源多观测，`observedAt` 最新者胜出。去重、"实时上报"与"兜底探测"在数据层自然融合。

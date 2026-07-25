@@ -15,9 +15,26 @@ interface RateLimitWindow {
     readonly detail?: UsageDetail;
 }
 
+interface BoosterWallet {
+    readonly status?: string;
+    readonly balance?: { readonly amountLeft?: string };
+}
+
+interface TotalQuota {
+    readonly limit?: string;
+    readonly remaining?: string;
+}
+
+interface UserInfo {
+    readonly membership?: { readonly level?: string };
+}
+
 interface KimiUsageResponse {
     readonly usage?: UsageDetail;
     readonly limits?: readonly RateLimitWindow[];
+    readonly boosterWallet?: BoosterWallet;
+    readonly totalQuota?: TotalQuota;
+    readonly user?: UserInfo;
 }
 
 function to_number(value: string | undefined): number {
@@ -37,6 +54,20 @@ function status_for_percent(used: number, limit: number): ScriptObservation["sta
     if (pct >= 90) return "critical";
     if (pct >= 75) return "warning";
     return "normal";
+}
+
+// Booster wallet balance is denominated in 1e-8 yuan (KimiCodeBarQuotaService.swift).
+const BOOSTER_AMOUNT_DIVISOR = 100_000_000;
+const MONTH_CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
+
+function booster_balance_yuan(wallet: BoosterWallet): number {
+    // Only STATUS_ACTIVE / STATUS_ENABLED report the true remaining balance; other
+    // statuses return a misleading (monthly limit − used) value that must be 0.
+    const status = (wallet.status ?? "STATUS_UNKNOWN").toUpperCase();
+    const enabled = status === "STATUS_ACTIVE" || status === "STATUS_ENABLED";
+    if (!enabled) return 0;
+    const amount_left = to_number(wallet.balance?.amountLeft);
+    return Math.max(0, amount_left / BOOSTER_AMOUNT_DIVISOR);
 }
 
 async function main(): Promise<ScriptObservation[]> {
@@ -59,6 +90,10 @@ async function main(): Promise<ScriptObservation[]> {
     const now = Date.now();
     const results: ScriptObservation[] = [];
 
+    // Membership level decorates the account label so it surfaces on every metric.
+    const membership_level = response?.user?.membership?.level?.trim();
+    const account_label = membership_level ? `Kimi（${membership_level}）` : "Kimi";
+
     // 周用量（usage）
     if (response?.usage) {
         const u = response.usage;
@@ -70,7 +105,7 @@ async function main(): Promise<ScriptObservation[]> {
         results.push({
             provider: "kimi",
             account_id: "kimi",
-            account_label: "Kimi",
+            account_label,
             metric_id: "kimi:weekly",
             raw_label: "weekly",
             normalized_label: "一周",
@@ -100,7 +135,7 @@ async function main(): Promise<ScriptObservation[]> {
         results.push({
             provider: "kimi",
             account_id: "kimi",
-            account_label: "Kimi",
+            account_label,
             metric_id: "kimi:five_hour",
             raw_label: "five_hour",
             normalized_label: "5小时",
@@ -110,6 +145,57 @@ async function main(): Promise<ScriptObservation[]> {
             limit,
             display_style: "percent",
             reset_at,
+            status: status_for_percent(used, limit),
+            observed_at: now,
+            source: "poll",
+            stale: false,
+            last_error: null,
+        });
+    }
+
+    // 加油包余额（boosterWallet）。display_style: ratio + limit=0 复用 t097
+    // 「ratio 无 limit 显示原值」行为呈现余额（元）；不参与阈值，仅展示。
+    if (response?.boosterWallet) {
+        const balance_yuan = booster_balance_yuan(response.boosterWallet);
+        results.push({
+            provider: "kimi",
+            account_id: "kimi",
+            account_label,
+            metric_id: "kimi:booster_balance",
+            raw_label: "booster_balance",
+            normalized_label: "加油包余额",
+            window: "month",
+            cycleDurationMs: MONTH_CYCLE_MS,
+            used: balance_yuan,
+            limit: 0,
+            display_style: "ratio",
+            reset_at: null,
+            status: "normal",
+            observed_at: now,
+            source: "poll",
+            stale: false,
+            last_error: null,
+        });
+    }
+
+    // 总配额（totalQuota，无 used 字段，按 limit - remaining 推导）。
+    if (response?.totalQuota) {
+        const limit = to_number(response.totalQuota.limit);
+        const remaining = to_number(response.totalQuota.remaining);
+        const used = Math.max(0, limit - remaining);
+        results.push({
+            provider: "kimi",
+            account_id: "kimi",
+            account_label,
+            metric_id: "kimi:total_quota",
+            raw_label: "total_quota",
+            normalized_label: "总配额",
+            window: "month",
+            cycleDurationMs: MONTH_CYCLE_MS,
+            used,
+            limit,
+            display_style: "percent",
+            reset_at: null,
             status: status_for_percent(used, limit),
             observed_at: now,
             source: "poll",

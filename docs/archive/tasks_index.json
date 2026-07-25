@@ -895,6 +895,14 @@
             "status": "done",
             "branch": "t112_kimi_oauth_device_code",
             "note": ""
+        },
+        {
+            "tid": "t113",
+            "title": "Kimi connector 解析 boosterWallet/totalQuota/membership",
+            "slug": "kimi_booster_wallet_parsing",
+            "status": "done",
+            "branch": "t113_kimi_booster_wallet_parsing",
+            "note": ""
         }
     ]
 }

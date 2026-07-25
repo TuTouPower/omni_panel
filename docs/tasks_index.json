@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t113",
-            "title": "Kimi connector 解析 boosterWallet/totalQuota/membership",
-            "slug": "kimi_booster_wallet_parsing",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t114",
             "title": "token-stats collector 扫描状态落盘",
             "slug": "token_stats_state_persistence",
