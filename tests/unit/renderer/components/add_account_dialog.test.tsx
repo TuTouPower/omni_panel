@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AddAccountDialog } from "../../../../src/renderer/components/AddAccountDialog";
 import type { AddAccountParams } from "../../../../src/renderer/components/AddAccountDialog";
@@ -67,6 +67,7 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         expect(saved.secrets).toEqual({ API_KEY: "sk-test-key-123" });
         expect(saved.vendor_id).toBe("deepseek");
         expect(saved.auth_method).toBe("apikey");
+        expect(saved.source_instance_id).toBe("deepseek-1");
     });
 
     it("uses descriptor secret_name for apikey descriptor (exa)", async () => {
@@ -94,17 +95,22 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
 
         await user.click(screen.getByText("Exa"));
-        const key_input = screen.getByPlaceholderText("sk-…");
+        const key_input = screen.getByPlaceholderText("exa-…");
         expect(key_input).toBeInTheDocument();
+        expect(screen.getByPlaceholderText("例如：my-key-id")).toBeInTheDocument();
 
         await user.type(key_input, "exa-service-key");
+        await user.type(screen.getByPlaceholderText("例如：my-key-id"), "key-id-1");
         await user.click(screen.getByText("添加账号"));
 
         await vi.waitFor(() => {
             expect(on_save).toHaveBeenCalledTimes(1);
         });
-        expect(get_saved_params(on_save).secrets).toEqual({ SERVICE_KEY: "exa-service-key" });
-        expect(get_saved_params(on_save).auth_method).toBe("apikey");
+        const saved = get_saved_params(on_save);
+        expect(saved.secrets).toEqual({ SERVICE_KEY: "exa-service-key" });
+        expect(saved.parameter_values).toEqual({ API_KEY_ID: "key-id-1" });
+        expect(saved.auth_method).toBe("apikey");
+        expect(saved.source_instance_id).toBe("exa-1");
     });
 
     it("renders session form and saves SESSION_COOKIE for session-source connectors", async () => {
@@ -148,6 +154,7 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         });
         expect(saved.vendor_id).toBe("mimo");
         expect(saved.auth_method).toBe("session");
+        expect(saved.source_instance_id).toBe("mimo-1");
     });
 
     it("renders OAuth device form for grok and saves after polling succeeds", async () => {
@@ -192,8 +199,10 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         await vi.waitFor(() => {
             expect(on_save).toHaveBeenCalledTimes(1);
         });
-        expect(get_saved_params(on_save).auth_method).toBe("oauth_device");
-        expect(get_saved_params(on_save).secrets).toEqual({ OAUTH_TOKEN: "grok-access-token" });
+        const saved = get_saved_params(on_save);
+        expect(saved.auth_method).toBe("oauth_device");
+        expect(saved.secrets).toEqual({ OAUTH_TOKEN: "grok-access-token" });
+        expect(saved.source_instance_id).toBe("grok-1");
     });
 
     it("renders web login form for opencode_go and saves cookie on success", async () => {
@@ -230,11 +239,13 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         await vi.waitFor(() => {
             expect(on_save).toHaveBeenCalledTimes(1);
         });
-        expect(get_saved_params(on_save).auth_method).toBe("web_login");
-        expect(get_saved_params(on_save).secrets).toEqual({ SESSION_COOKIE: "session=abc" });
+        const saved = get_saved_params(on_save);
+        expect(saved.auth_method).toBe("web_login");
+        expect(saved.secrets).toEqual({ SESSION_COOKIE: "session=abc" });
+        expect(saved.source_instance_id).toBe("opencode-go-1");
     });
 
-    it("renders placeholder for cpa_mgmt descriptor (cpa)", async () => {
+    it("renders CpaMgmtForm for cpa_mgmt descriptor (cpa)", async () => {
         const plugin: PluginInfo = make_plugin({
             instanceId: "cpa-1",
             name: "CPA Manager",
@@ -251,10 +262,11 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
 
         await user.click(screen.getByText("CPA Manager"));
-        expect(screen.getByText(/CPA 管理端.*将在 t109\/t110 实现/)).toBeInTheDocument();
+        expect(screen.getByText("CPA 管理密钥")).toBeInTheDocument();
+        expect(screen.getByPlaceholderText("http://127.0.0.1:17863")).toBeInTheDocument();
     });
 
-    it("disables save for unsupported cpa_mgmt placeholder", async () => {
+    it("disables CpaMgmtForm save until management key is entered", async () => {
         const plugin: PluginInfo = make_plugin({
             instanceId: "cpa-1",
             name: "CPA Manager",
@@ -277,6 +289,19 @@ describe("AddAccountDialog descriptor-driven routing", () => {
             await user.click(save_btn);
         }
         expect(on_save).not.toHaveBeenCalled();
+
+        await user.type(screen.getByPlaceholderText("cpa-…"), "cpa-secret");
+        await waitFor(() => {
+            expect(save_btn).not.toBeDisabled();
+        });
+        if (save_btn) {
+            await user.click(save_btn);
+        }
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        const saved = get_saved_params(on_save);
+        expect(saved.source_instance_id).toBe("cpa-1");
     });
 
     it("renders local scan form and auth_method local_cli for local source", async () => {
@@ -310,7 +335,9 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         await vi.waitFor(() => {
             expect(on_save).toHaveBeenCalledTimes(1);
         });
-        expect(get_saved_params(on_save).auth_method).toBe("local_cli");
+        const saved = get_saved_params(on_save);
+        expect(saved.auth_method).toBe("local_cli");
+        expect(saved.source_instance_id).toBe("claude-1");
     });
 
     it("passes endpoint override when provided", async () => {

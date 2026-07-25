@@ -125,6 +125,33 @@
             "type": "string",
             "enum": ["poll", "local", "session", "wrapper", "probe", "gateway"]
         },
+        "auth": {
+            "type": "object",
+            "properties": {
+                "method": {
+                    "type": "string",
+                    "enum": ["apikey", "oauth_device", "web_login", "cpa_mgmt", "local_cli"]
+                },
+                "secret_name": {
+                    "type": "string"
+                },
+                "extra_fields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "login_url": {
+                    "type": "string",
+                    "format": "uri"
+                },
+                "require_endpoint": {
+                    "type": "boolean"
+                }
+            },
+            "required": ["method", "secret_name"],
+            "additionalProperties": false
+        },
         "name@zh-Hans": {
             "type": "string"
         },

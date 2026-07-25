@@ -89,7 +89,7 @@ export const UsageBarRow = memo(function UsageBarRow({
         ? is_ratio
             ? `${String(used)}/${String(period.limit)}`
             : no_limit_ratio
-              ? `${String(used)}`
+              ? String(used)
               : `${String(pct)}%`
         : "";
     const reset_time =

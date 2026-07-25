@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t110",
-            "title": "修复添加账号接线：精确匹配 source + displayName + exa/cpa 表单",
-            "slug": "fix_add_account_wiring",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t111",
             "title": "config-store ENOENT/空文件 fallback 绕过 P0 保护",
             "slug": "config_fallback_p0_protection",

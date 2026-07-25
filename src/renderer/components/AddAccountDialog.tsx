@@ -11,11 +11,12 @@ import {
 } from "../lib/auth-flow-registry";
 import { OAuthDeviceForm } from "./forms/OAuthDeviceForm";
 import { WebLoginForm } from "./forms/WebLoginForm";
+import { CpaMgmtForm } from "./forms/CpaMgmtForm";
+import { ExaServiceKeyForm } from "./forms/ExaServiceKeyForm";
 import { VendorPicker } from "./add_account/VendorPicker";
 import { ApiKeyForm } from "./add_account/ApiKeyForm";
 import { SessionForm } from "./add_account/SessionForm";
 import { LocalScanForm } from "./add_account/LocalScanForm";
-import { AuthPlaceholder } from "./add_account/AuthPlaceholder";
 
 function generate_instance_id(vendor_id: AddServiceId): string {
     return `${vendor_id}-${String(Date.now())}-${Math.random().toString(36).slice(2, 10)}`;
@@ -23,6 +24,7 @@ function generate_instance_id(vendor_id: AddServiceId): string {
 
 export interface AddAccountParams {
     vendor_id: AddServiceId;
+    source_instance_id?: string;
     account_name: string;
     auth_method: ResolvedAuthMethod;
     parameter_values: Record<string, string>;
@@ -40,17 +42,11 @@ function find_connector(
     plugin_infos: ConnectorInfo[],
     vendor_id: AddServiceId,
 ): ConnectorInfo | undefined {
-    if (vendor_id === "cpa") {
-        return (
-            plugin_infos.find((c) => c.metadata?.name === "cpa") ??
-            plugin_infos.find((c) => c.source === "gateway")
-        );
-    }
     return plugin_infos.find(
         (c) =>
+            c.metadata?.name === vendor_id ||
             c.supportedProviders.includes(vendor_id) ||
-            c.activeProviders.includes(vendor_id) ||
-            c.metadata?.name === vendor_id,
+            c.activeProviders.includes(vendor_id),
     );
 }
 
@@ -96,7 +92,12 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
     const title = vendor_id ? `添加 ${vendor_label} 账号` : "添加账号";
     const sub = vendor_id ? sub_by_auth[auth_method] : "";
     const wide = auth_method === "local_cli";
-    const is_unsupported_auth = auth_method === "cpa_mgmt";
+    const has_extra_fields = (auth_descriptor?.extra_fields?.length ?? 0) > 0;
+    const form_handles_save =
+        auth_method === "oauth_device" ||
+        auth_method === "web_login" ||
+        auth_method === "cpa_mgmt" ||
+        (auth_method === "apikey" && vendor_id === "exa" && has_extra_fields);
 
     // ESC to close
     useEffect(() => {
@@ -126,7 +127,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
 
     const handle_save = useCallback(async () => {
         if (!vendor_id || saving) return;
-        if (is_unsupported_auth) return;
+        if (form_handles_save) return;
         set_error_message(null);
         set_saving(true);
         try {
@@ -136,6 +137,9 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                 auth_method,
                 parameter_values: {},
                 secrets: {},
+                ...(selected_connector?.instanceId
+                    ? { source_instance_id: selected_connector.instanceId }
+                    : {}),
             };
 
             const secret_name =
@@ -171,17 +175,22 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
         selected_connector,
         vendor_label,
         saving,
-        is_unsupported_auth,
+        form_handles_save,
         on_save,
         on_close,
     ]);
 
     const handle_form_save = useCallback(
         async (params: AddAccountParams) => {
-            await on_save(params);
+            await on_save({
+                ...params,
+                ...(selected_connector?.instanceId
+                    ? { source_instance_id: selected_connector.instanceId }
+                    : {}),
+            });
             on_close();
         },
-        [on_save, on_close],
+        [on_save, on_close, selected_connector],
     );
 
     return (
@@ -232,7 +241,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                     )}
                     {step === "auth" && vendor_id && (
                         <>
-                            {auth_method === "apikey" && (
+                            {auth_method === "apikey" && !has_extra_fields && (
                                 <ApiKeyForm
                                     account_name={account_name}
                                     set_account_name={set_account_name}
@@ -272,43 +281,65 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                                     on_save={handle_form_save}
                                 />
                             )}
-                            {auth_method === "cpa_mgmt" && <AuthPlaceholder method={auth_method} />}
+                            {auth_method === "cpa_mgmt" && (
+                                <CpaMgmtForm
+                                    key={vendor_id}
+                                    vendor_id={vendor_id}
+                                    default_endpoint={
+                                        selected_connector?.metadata?.endpoints?.["default"] ??
+                                        undefined
+                                    }
+                                    account_name={account_name}
+                                    set_account_name={set_account_name}
+                                    on_save={handle_form_save}
+                                />
+                            )}
+                            {auth_method === "apikey" &&
+                                vendor_id === "exa" &&
+                                has_extra_fields && (
+                                    <ExaServiceKeyForm
+                                        key={vendor_id}
+                                        vendor_id={vendor_id}
+                                        secret_name={
+                                            auth_descriptor?.secret_name ??
+                                            fallback_secret_name(selected_connector)
+                                        }
+                                        account_name={account_name}
+                                        set_account_name={set_account_name}
+                                        on_save={handle_form_save}
+                                    />
+                                )}
                         </>
                     )}
                 </div>
 
                 {/* Footer */}
-                {step === "auth" &&
-                    auth_method !== "oauth_device" &&
-                    auth_method !== "web_login" && (
-                        <div className="ad-foot">
-                            {error_message && <div className="ad-hint">{error_message}</div>}
-                            {auth_method !== "local_cli" && (
-                                <button className="ad-test" type="button" disabled>
-                                    <Icon name="refresh" size={14} strokeWidth={1.9} />
-                                    测试连接
-                                </button>
-                            )}
-                            <div className="ad-foot-r">
-                                <button className="ad-btn ghost" type="button" onClick={on_close}>
-                                    取消
-                                </button>
-                                <button
-                                    className={
-                                        "ad-btn primary" +
-                                        (saving || is_unsupported_auth ? " disabled" : "")
-                                    }
-                                    type="button"
-                                    disabled={saving || is_unsupported_auth}
-                                    onClick={() => {
-                                        void handle_save();
-                                    }}
-                                >
-                                    {auth_method === "local_cli" ? "导入账号" : "添加账号"}
-                                </button>
-                            </div>
+                {step === "auth" && !form_handles_save && (
+                    <div className="ad-foot">
+                        {error_message && <div className="ad-hint">{error_message}</div>}
+                        {auth_method !== "local_cli" && (
+                            <button className="ad-test" type="button" disabled>
+                                <Icon name="refresh" size={14} strokeWidth={1.9} />
+                                测试连接
+                            </button>
+                        )}
+                        <div className="ad-foot-r">
+                            <button className="ad-btn ghost" type="button" onClick={on_close}>
+                                取消
+                            </button>
+                            <button
+                                className={"ad-btn primary" + (saving ? " disabled" : "")}
+                                type="button"
+                                disabled={saving}
+                                onClick={() => {
+                                    void handle_save();
+                                }}
+                            >
+                                {auth_method === "local_cli" ? "导入账号" : "添加账号"}
+                            </button>
                         </div>
-                    )}
+                    </div>
+                )}
             </div>
         </div>
     );

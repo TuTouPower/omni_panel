@@ -871,6 +871,14 @@
             "status": "done",
             "branch": "t109_vendor_forms_oauth_weblogin",
             "note": "blocked: review"
+        },
+        {
+            "tid": "t110",
+            "title": "修复添加账号接线：精确匹配 source + displayName + exa/cpa 表单",
+            "slug": "fix_add_account_wiring",
+            "status": "done",
+            "branch": "t110_fix_add_account_wiring",
+            "note": "blocked: review"
         }
     ]
 }
