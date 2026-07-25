@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t112",
-            "title": "Kimi device code OAuth 登录",
-            "slug": "kimi_oauth_device_code",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t113",
             "title": "Kimi connector 解析 boosterWallet/totalQuota/membership",
             "slug": "kimi_booster_wallet_parsing",
@@ -20,6 +12,14 @@
             "tid": "t114",
             "title": "token-stats collector 扫描状态落盘",
             "slug": "token_stats_state_persistence",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t115",
+            "title": "OpenCode Go connector 简化：/go HTML 直解析 + vendor 健壮性改进",
+            "slug": "opencode_go_html_scrape",
             "status": "backlog",
             "branch": "",
             "note": ""

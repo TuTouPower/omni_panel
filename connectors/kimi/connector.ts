@@ -40,12 +40,18 @@ function status_for_percent(used: number, limit: number): ScriptObservation["sta
 }
 
 async function main(): Promise<ScriptObservation[]> {
+    // Token precedence: OAuth access token (device-code login) → API Key fallback.
+    // Either is accepted as a Bearer credential by the Kimi quota API.
+    const oauth_token = (ctx.params["OAUTH_TOKEN"] ?? "").trim();
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
-    if (!api_key) throw new Error("Missing required secret: API_KEY");
+    const token = oauth_token || api_key;
+    if (!token) {
+        throw new Error("Missing required secret: OAUTH_TOKEN or API_KEY");
+    }
 
     const response = (await ctx.http.get_json("default", "coding/v1/usages", {
         headers: {
-            Authorization: `Bearer ${api_key}`,
+            Authorization: `Bearer ${token}`,
             "User-Agent": "KimiCLI/1.6",
         },
     })) as KimiUsageResponse | null;

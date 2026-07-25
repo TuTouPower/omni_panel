@@ -86,6 +86,14 @@ export const IPC_CHANNELS = {
     GROK_LOGOUT: "grok:logout",
     GROK_REFRESH: "grok:refresh",
 
+    /** Kimi OAuth device-code flow — mirrors Grok; token stored in vault. */
+    KIMI_LOGIN_START: "kimi:loginStart",
+    KIMI_LOGIN_POLL: "kimi:loginPoll",
+    KIMI_LOGIN_CANCEL: "kimi:loginCancel",
+    KIMI_LOGIN_STATUS: "kimi:loginStatus",
+    KIMI_LOGOUT: "kimi:logout",
+    KIMI_REFRESH: "kimi:refresh",
+
     /** Token stats */
     TOKEN_STATS_BUCKETS: "tokenStats:buckets",
     TOKEN_STATS_SESSIONS: "tokenStats:sessions",
@@ -208,6 +216,27 @@ export interface GrokRefreshResult {
     readonly error?: string;
 }
 
+/**
+ * Kimi OAuth mirrors Grok's device-code shape: same device-code start/login
+ * status/refresh result contracts. Distinct type names keep the IPC surface
+ * self-documenting and allow future divergence.
+ */
+export type KimiDeviceCodeStart = GrokDeviceCodeStart;
+export type KimiLoginStatus = GrokLoginStatus;
+export type KimiRefreshResult = GrokRefreshResult;
+
+/**
+ * Kimi login poll result. Carries refresh_token/expires_at so the add-account
+ * flow can persist the full token set onto the real connector instance (the
+ * device-code login runs under a temporary instance id).
+ */
+export interface KimiLoginResult {
+    readonly saved: boolean;
+    readonly token?: string;
+    readonly refresh_token?: string;
+    readonly expires_at?: string;
+}
+
 /** 单个走势点:UTC 日期 + 已用百分比(0–100)。 */
 export interface TrendPoint {
     readonly date: string;
@@ -267,6 +296,23 @@ export interface GrokSettingsApi extends GrokReadonlyApi {
     login_cancel(instance_id: string): Promise<void>;
     logout(instance_id: string): Promise<{ logged_out: boolean }>;
     refresh(instance_id: string): Promise<GrokRefreshResult>;
+}
+
+export interface KimiReadonlyApi {
+    login_status(instance_id: string): Promise<KimiLoginStatus>;
+}
+
+export interface KimiSettingsApi extends KimiReadonlyApi {
+    login_start(): Promise<KimiDeviceCodeStart>;
+    login_poll(
+        instance_id: string,
+        device_code: string,
+        interval: number,
+        expires_at_epoch_ms: number,
+    ): Promise<KimiLoginResult>;
+    login_cancel(instance_id: string): Promise<void>;
+    logout(instance_id: string): Promise<{ logged_out: boolean }>;
+    refresh(instance_id: string): Promise<KimiRefreshResult>;
 }
 
 export interface UsageboardApi {
@@ -360,6 +406,7 @@ export interface UsageboardApi {
         refresh(request: SessionLoginRequest): Promise<SessionLoginResult>;
     };
     grok: GrokReadonlyApi | GrokSettingsApi;
+    kimi: KimiReadonlyApi | KimiSettingsApi;
     logs: {
         export(): Promise<{ saved: boolean }>;
     };

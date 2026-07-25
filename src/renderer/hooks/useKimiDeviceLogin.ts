@@ -8,7 +8,7 @@ export interface DeviceCodeDisplay {
     readonly verification_uri_complete: string | null;
 }
 
-export interface UseGrokDeviceLoginResult {
+export interface UseKimiDeviceLoginResult {
     readonly phase: LoginPhase;
     readonly device_code: DeviceCodeDisplay | null;
     readonly error: string | null;
@@ -23,7 +23,7 @@ export interface UseGrokDeviceLoginResult {
     readonly reset: () => void;
 }
 
-export function useGrokDeviceLogin(instance_id: string): UseGrokDeviceLoginResult {
+export function useKimiDeviceLogin(instance_id: string): UseKimiDeviceLoginResult {
     const [phase, set_phase] = useState<LoginPhase>("idle");
     const [device_code, set_device_code] = useState<DeviceCodeDisplay | null>(null);
     const [error, set_error] = useState<string | null>(null);
@@ -37,9 +37,9 @@ export function useGrokDeviceLogin(instance_id: string): UseGrokDeviceLoginResul
         return () => {
             mounted_ref.current = false;
             if (active_ref.current) {
-                const grok_api = window.usageboard.grok;
-                if ("login_cancel" in grok_api) {
-                    void grok_api.login_cancel(instance_id);
+                const kimi_api = window.usageboard.kimi;
+                if ("login_cancel" in kimi_api) {
+                    void kimi_api.login_cancel(instance_id);
                 }
             }
         };
@@ -67,8 +67,8 @@ export function useGrokDeviceLogin(instance_id: string): UseGrokDeviceLoginResul
         if (active_ref.current) {
             return null;
         }
-        const grok_api = window.usageboard.grok;
-        if (!("login_start" in grok_api)) {
+        const kimi_api = window.usageboard.kimi;
+        if (!("login_start" in kimi_api)) {
             set_phase("error");
             set_error("当前环境不支持 OAuth 设备码登录");
             return null;
@@ -77,7 +77,7 @@ export function useGrokDeviceLogin(instance_id: string): UseGrokDeviceLoginResul
         set_error(null);
         active_ref.current = true;
         try {
-            const start = await grok_api.login_start();
+            const start = await kimi_api.login_start();
             if (!is_mounted()) return null;
             set_device_code({
                 user_code: start.user_code,
@@ -86,7 +86,7 @@ export function useGrokDeviceLogin(instance_id: string): UseGrokDeviceLoginResul
             });
             set_phase("polling");
             const expires_at = Date.now() + start.expires_in * 1000;
-            const result = await grok_api.login_poll(
+            const result = await kimi_api.login_poll(
                 instance_id,
                 start.device_code,
                 start.interval,

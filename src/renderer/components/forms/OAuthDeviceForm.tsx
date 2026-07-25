@@ -1,11 +1,16 @@
 import { useCallback } from "react";
 import { Icon } from "../Icon";
 import { useGrokDeviceLogin } from "../../hooks/useGrokDeviceLogin";
+import { useKimiDeviceLogin } from "../../hooks/useKimiDeviceLogin";
 import type { AddAccountParams } from "../AddAccountDialog";
 import type { AddServiceId } from "../../lib/common-services";
 
+/** Vendors that share the OAuth device-code form but dispatch to their own IPC. */
+export type OAuthDeviceVendor = "grok" | "kimi";
+
 export interface OAuthDeviceFormProps {
     readonly instance_id: string;
+    readonly vendor: OAuthDeviceVendor;
     readonly vendor_id: AddServiceId;
     readonly secret_name: string;
     readonly account_name: string;
@@ -15,24 +20,43 @@ export interface OAuthDeviceFormProps {
 
 export function OAuthDeviceForm({
     instance_id,
+    vendor,
     vendor_id,
     secret_name,
     account_name,
     set_account_name,
     on_save,
 }: OAuthDeviceFormProps) {
-    const { phase, device_code, error, start, set_phase_error } = useGrokDeviceLogin(instance_id);
+    // Both hooks are called unconditionally (Rules of Hooks); the active vendor's
+    // result is selected. The idle hook performs no network calls unless started.
+    const grok_login = useGrokDeviceLogin(instance_id);
+    const kimi_login = useKimiDeviceLogin(instance_id);
+    const { phase, device_code, error, start, set_phase_error } =
+        vendor === "kimi" ? kimi_login : grok_login;
 
     const handle_start = useCallback(async () => {
         const result = await start();
         if (!result?.saved) return;
         try {
+            // Persist the full token set onto the real connector instance. The
+            // device-code login ran under a temporary instance id; without also
+            // carrying refresh_token/expires_at, auto-refresh on the real instance
+            // would have no refresh_token to use.
+            const secrets: Record<string, string> = {
+                [secret_name]: result.token ?? "",
+            };
+            if (result.refresh_token) {
+                secrets["OAUTH_REFRESH_TOKEN"] = result.refresh_token;
+            }
+            if (result.expires_at) {
+                secrets["OAUTH_EXPIRES_AT"] = result.expires_at;
+            }
             await on_save({
                 vendor_id,
                 account_name: account_name || vendor_id,
                 auth_method: "oauth_device",
                 parameter_values: {},
-                secrets: { [secret_name]: result.token ?? "" },
+                secrets,
             });
         } catch (save_error) {
             set_phase_error(

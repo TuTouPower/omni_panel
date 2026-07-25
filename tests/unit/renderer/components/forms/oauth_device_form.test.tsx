@@ -60,6 +60,7 @@ describe("OAuthDeviceForm", () => {
         render(
             <OAuthDeviceForm
                 instance_id={instance_id}
+                vendor="grok"
                 vendor_id="grok"
                 secret_name="OAUTH_TOKEN"
                 account_name=""
@@ -79,6 +80,7 @@ describe("OAuthDeviceForm", () => {
         render(
             <OAuthDeviceForm
                 instance_id={instance_id}
+                vendor="grok"
                 vendor_id="grok"
                 secret_name="OAUTH_TOKEN"
                 account_name=""
@@ -112,6 +114,7 @@ describe("OAuthDeviceForm", () => {
         render(
             <OAuthDeviceForm
                 instance_id={instance_id}
+                vendor="grok"
                 vendor_id="grok"
                 secret_name="OAUTH_TOKEN"
                 account_name="工作账号"
@@ -138,6 +141,7 @@ describe("OAuthDeviceForm", () => {
         render(
             <OAuthDeviceForm
                 instance_id={instance_id}
+                vendor="grok"
                 vendor_id="grok"
                 secret_name="OAUTH_TOKEN"
                 account_name=""
@@ -162,6 +166,7 @@ describe("OAuthDeviceForm", () => {
         render(
             <OAuthDeviceForm
                 instance_id={instance_id}
+                vendor="grok"
                 vendor_id="grok"
                 secret_name="OAUTH_TOKEN"
                 account_name=""
@@ -188,6 +193,7 @@ describe("OAuthDeviceForm", () => {
         render(
             <OAuthDeviceForm
                 instance_id={instance_id}
+                vendor="grok"
                 vendor_id="grok"
                 secret_name="OAUTH_TOKEN"
                 account_name=""
@@ -200,5 +206,68 @@ describe("OAuthDeviceForm", () => {
 
         const link = await screen.findByRole("link", { name: "https://auth.x.ai/device" });
         expect(link).toHaveAttribute("href", "https://auth.x.ai/device");
+    });
+
+    it("dispatches to kimi api namespace when vendor is kimi", async () => {
+        const kimi_start: GrokDeviceCodeStart = {
+            device_code: "kimi-dc",
+            user_code: "KIMI-CODE",
+            verification_uri: "https://auth.kimi.com/device",
+            verification_uri_complete: "https://auth.kimi.com/device?user_code=KIMI-CODE",
+            expires_in: 1800,
+            interval: 5,
+        };
+        const kimi = {
+            login_start: vi.fn().mockResolvedValue(kimi_start),
+            login_poll: vi.fn().mockResolvedValue({
+                saved: true,
+                token: "kimi-access-token",
+                refresh_token: "kimi-refresh-token",
+                expires_at: String(Date.now() + 3600_000),
+            }),
+            login_cancel: vi.fn().mockResolvedValue(undefined),
+            login_status: vi.fn().mockResolvedValue({
+                has_token: false,
+                expires_at: null,
+                can_refresh: false,
+            }),
+            logout: vi.fn().mockResolvedValue({ logged_out: true }),
+            refresh: vi.fn().mockResolvedValue({ success: true }),
+        };
+        (window as unknown as { usageboard: unknown }).usageboard = { kimi };
+        const on_save = make_on_save();
+        const user = userEvent.setup();
+        render(
+            <OAuthDeviceForm
+                instance_id="kimi-inst-1"
+                vendor="kimi"
+                vendor_id="kimi"
+                secret_name="OAUTH_TOKEN"
+                account_name=""
+                set_account_name={() => undefined}
+                on_save={on_save}
+            />,
+        );
+
+        await user.click(screen.getByText("开始登录"));
+
+        await waitFor(() => {
+            expect(kimi.login_start).toHaveBeenCalledTimes(1);
+        });
+        expect(kimi.login_poll).toHaveBeenCalledWith(
+            "kimi-inst-1",
+            "kimi-dc",
+            5,
+            expect.any(Number),
+        );
+        // The full token set (access + refresh + expires_at) is persisted onto
+        // the real connector instance via on_save.
+        await waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        const saved_params = on_save.mock.calls[0]?.[0] as AddAccountParams;
+        expect(saved_params.secrets.OAUTH_TOKEN).toBe("kimi-access-token");
+        expect(saved_params.secrets.OAUTH_REFRESH_TOKEN).toBe("kimi-refresh-token");
+        expect(typeof saved_params.secrets.OAUTH_EXPIRES_AT).toBe("string");
     });
 });

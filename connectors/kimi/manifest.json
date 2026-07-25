@@ -4,14 +4,26 @@
     "capabilities": ["poll"],
     "parameters": [
         {
+            "name": "OAUTH_TOKEN",
+            "type": "secret",
+            "required": false,
+            "label": "OAuth Access Token (device-code login)",
+            "label@zh-Hans": "OAuth 令牌",
+            "exposeToScript": true
+        },
+        {
             "name": "API_KEY",
             "type": "secret",
-            "required": true,
+            "required": false,
             "label": "API Key (sk-kimi-xxx from Kimi Code Console)",
             "label@zh-Hans": "API 密钥",
             "exposeToScript": true
         }
     ],
+    "auth": {
+        "method": "oauth_device",
+        "secret_name": "OAUTH_TOKEN"
+    },
     "endpoints": {
         "default": "https://api.kimi.com"
     },

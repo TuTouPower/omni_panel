@@ -1,10 +1,28 @@
-import type { GrokReadonlyApi, GrokSettingsApi, TrendApi } from "../shared/types/ipc";
+import type {
+    GrokReadonlyApi,
+    GrokSettingsApi,
+    KimiReadonlyApi,
+    KimiSettingsApi,
+    TrendApi,
+} from "../shared/types/ipc";
 
 export function select_grok_api(
     route: string,
     readonly_api: GrokReadonlyApi,
     settings_api: GrokSettingsApi,
 ): GrokReadonlyApi | GrokSettingsApi {
+    return route === "setting" ? settings_api : readonly_api;
+}
+
+/**
+ * Kimi OAuth mirrors Grok's route split: settings page gets the full flow
+ * (start/poll/cancel/logout/refresh), other windows only get login_status.
+ */
+export function select_kimi_api(
+    route: string,
+    readonly_api: KimiReadonlyApi,
+    settings_api: KimiSettingsApi,
+): KimiReadonlyApi | KimiSettingsApi {
     return route === "setting" ? settings_api : readonly_api;
 }
 

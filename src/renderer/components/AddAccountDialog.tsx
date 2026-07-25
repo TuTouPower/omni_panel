@@ -260,6 +260,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                                 <OAuthDeviceForm
                                     key={vendor_id}
                                     instance_id={oauth_instance_id_ref.current}
+                                    vendor={vendor_id === "kimi" ? "kimi" : "grok"}
                                     vendor_id={vendor_id}
                                     secret_name={
                                         auth_descriptor?.secret_name ??

@@ -60,12 +60,24 @@ describe("kimi connector", () => {
         expect(raw.capabilities).toContain("poll");
     });
 
-    it("manifest declares API_KEY parameter", async () => {
+    it("manifest declares OAUTH_TOKEN and optional API_KEY parameters", async () => {
         const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const oauth_param = raw.parameters.find((p) => p.name === "OAUTH_TOKEN");
+        expect(oauth_param).toBeDefined();
+        expect(oauth_param?.type).toBe("secret");
+        expect(oauth_param?.exposeToScript).toBe(true);
         const api_key_param = raw.parameters.find((p) => p.name === "API_KEY");
         expect(api_key_param).toBeDefined();
         expect(api_key_param?.type).toBe("secret");
-        expect(api_key_param?.required).toBe(true);
+        // API_KEY is an optional fallback now that OAuth device-code login exists.
+        expect(api_key_param?.required).toBe(false);
+        expect(api_key_param?.exposeToScript).toBe(true);
+    });
+
+    it("manifest declares oauth_device auth descriptor", async () => {
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        expect(raw.auth?.method).toBe("oauth_device");
+        expect(raw.auth?.secret_name).toBe("OAUTH_TOKEN");
     });
 
     it("connector script returns weekly and five_hour observations", async () => {
@@ -132,5 +144,48 @@ describe("kimi connector", () => {
         const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
         const result = await run_connector(raw, script, create_ctx({ params: {} }));
         expect(result.error).toBeTruthy();
+    });
+
+    it("connector prefers OAUTH_TOKEN over API_KEY when both present", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const http_get_json = vi.fn().mockResolvedValue({
+            usage: { limit: "100", used: "10", remaining: "90", resetTime: "2099-01-01T00:00:00Z" },
+            limits: [
+                {
+                    window: { duration: 300 },
+                    detail: {
+                        limit: "100",
+                        used: "5",
+                        remaining: "95",
+                        resetTime: "2099-01-01T00:00:00Z",
+                    },
+                },
+            ],
+        });
+        const ctx = create_ctx({
+            http: { get_json: http_get_json, post_json: vi.fn(), get_raw: vi.fn() },
+            params: { OAUTH_TOKEN: "oauth-token-xyz", API_KEY: "sk-kimi-test-key" },
+        });
+        await run_connector(raw, script, ctx);
+        const [, , opts] = http_get_json.mock.calls[0] as [
+            string,
+            string,
+            { headers: Record<string, string> },
+        ];
+        // OAuth token wins over API key.
+        expect(opts.headers["Authorization"]).toBe("Bearer oauth-token-xyz");
+    });
+
+    it("connector succeeds with OAUTH_TOKEN only (no API_KEY)", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const result = await run_connector(
+            raw,
+            script,
+            create_ctx({ params: { OAUTH_TOKEN: "oauth-only-token" } }),
+        );
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(2);
     });
 });

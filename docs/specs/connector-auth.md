@@ -39,14 +39,22 @@ interface AuthDescriptor {
 
 ## 内置连接器映射
 
-| 连接器      | method       | secret_name    | 备注                                |
-| ----------- | ------------ | -------------- | ----------------------------------- |
-| grok        | oauth_device | OAUTH_TOKEN    | 设备码 OAuth 流程                   |
-| exa         | apikey       | SERVICE_KEY    | 额外字段 `API_KEY_ID`               |
-| cpa         | cpa_mgmt     | cpa_mgmt_key   | 强制 endpoint override              |
-| opencode_go | web_login    | SESSION_COOKIE | 登录入口 `https://opencode.ai/auth` |
+| 连接器      | method       | secret_name    | 备注                                                                                                        |
+| ----------- | ------------ | -------------- | ----------------------------------------------------------------------------------------------------------- |
+| grok        | oauth_device | OAUTH_TOKEN    | 设备码 OAuth 流程                                                                                           |
+| kimi        | oauth_device | OAUTH_TOKEN    | 设备码 OAuth（t112），token 读取 OAUTH_TOKEN -> API_KEY 回退；API_KEY 为可选 fallback，保留 apikey 登录路径 |
+| exa         | apikey       | SERVICE_KEY    | 额外字段 `API_KEY_ID`                                                                                       |
+| cpa         | cpa_mgmt     | cpa_mgmt_key   | 强制 endpoint override                                                                                      |
+| opencode_go | web_login    | SESSION_COOKIE | 登录入口 `https://opencode.ai/auth`                                                                         |
 
-其余 12 个内置连接器暂不补 `auth` 块，由 capabilities（`session` / `local` / 默认 `apikey`）回退推导。
+其余 11 个内置连接器暂不补 `auth` 块，由 capabilities（`session` / `local` / 默认 `apikey`）回退推导。
+
+## oauth_device device-code 流程（grok / kimi）
+
+- device-code 登录在 temp instance id 下完成（`AddAccountDialog.oauth_instance_id_ref`），登录成功后 `on_save` 才创建 real connector instance。
+- `OAuthDeviceForm` 按 `vendor` prop 选用 `useGrokDeviceLogin` / `useKimiDeviceLogin`，分别走 `window.usageboard.grok` / `window.usageboard.kimi` IPC。
+- `OAuthLoginResult` 携带 `refresh_token` / `expires_at`；`OAuthDeviceForm.on_save` 把 `OAUTH_TOKEN` + `OAUTH_REFRESH_TOKEN` + `OAUTH_EXPIRES_AT` 写到 real connector instance 的 vault，使该 instance 的 auto-refresh / `refresh_now` / `login_status` / `logout` 可用。
+- `*_oauth_manager` 在 main 进程持有 auto-refresh 调度（`reconcile_auto_refresh` 在启动段 + `onConfigSaved` 接线，`shutdown` 清理）。
 
 ## 渲染层消费
 
