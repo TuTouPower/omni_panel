@@ -927,6 +927,22 @@
             "status": "dropped",
             "branch": "",
             "note": "dropped: TS4111 已在 main hotfix (commit 3ac6e34) 修复，spec 范围已完成，无需重复实现"
+        },
+        {
+            "tid": "t117",
+            "title": "token-stats collector serde 抽独立文件",
+            "slug": "split_collector_serde",
+            "status": "done",
+            "branch": "t117_split_collector_serde",
+            "note": ""
+        },
+        {
+            "tid": "t118",
+            "title": "grok/kimi oauth 共享提取（hook + manager）",
+            "slug": "extract_shared_oauth",
+            "status": "done",
+            "branch": "t118_extract_shared_oauth",
+            "note": ""
         }
     ]
 }
