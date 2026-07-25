@@ -1,4 +1,4 @@
-import type { ConnectorContext } from "../../src/main/core/connector/host-io";
+import type { ConnectorContext, RawHttpResponse } from "../../src/main/core/connector/host-io";
 import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
@@ -143,6 +143,165 @@ function parse_usage_payload(text: string): UsagePayload {
     };
 }
 
+// --- HTML direct parsing (t115): primary path, /go page inlines usage data ---
+//
+// The /go HTML may inline usage in two concurrent formats; SSR $R hydration
+// takes priority, data-slot="usage-item" is the fallback within the HTML path.
+// Field order within each $R[N]={...} is not stable across deploys, so each
+// window is matched against two regexes (usagePercent-first / resetInSec-first).
+
+const NUM_PATTERN = "(-?\\d+(?:\\.\\d+)?)";
+
+function make_window(pct_str: string, reset_str: string): UsageWindow | null {
+    const pct = Number(pct_str);
+    if (!Number.isFinite(pct)) return null; // percent is required; reject garbage
+    const reset = Number(reset_str);
+    return {
+        usagePercent: Math.max(0, pct),
+        resetInSec: Number.isFinite(reset) ? Math.max(0, reset) : 0,
+    };
+}
+
+function parse_ssr_window(html: string, name: string): UsageWindow | null {
+    const pct_first = new RegExp(
+        `${name}:\\$R\\[\\d+\\]=\\{[^}]*usagePercent:${NUM_PATTERN}[^}]*resetInSec:${NUM_PATTERN}[^}]*\\}`,
+    );
+    let m = pct_first.exec(html);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (m?.[1] !== undefined && m?.[2] !== undefined) return make_window(m[1], m[2]);
+    const reset_first = new RegExp(
+        `${name}:\\$R\\[\\d+\\]=\\{[^}]*resetInSec:${NUM_PATTERN}[^}]*usagePercent:${NUM_PATTERN}[^}]*\\}`,
+    );
+    m = reset_first.exec(html);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (m?.[1] !== undefined && m?.[2] !== undefined) return make_window(m[2], m[1]); // m[1]=reset, m[2]=pct
+    return null;
+}
+
+function parse_human_readable_reset(text: string | undefined): number | null {
+    if (!text) return null;
+    const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
+    if (["reset-now", "reset now", "now", "resets now"].includes(normalized)) return 0;
+    const day_match = /(\d+(?:\.\d+)?)\s*days?/.exec(normalized);
+    const hour_match = /(\d+(?:\.\d+)?)\s*hours?/.exec(normalized);
+    const min_match = /(\d+(?:\.\d+)?)\s*minutes?/.exec(normalized);
+    const sec_match = /(\d+(?:\.\d+)?)\s*seconds?/.exec(normalized);
+    if (!day_match && !hour_match && !min_match && !sec_match) return null;
+    let total = 0;
+    if (day_match) total += Number(day_match[1]) * 86400;
+    if (hour_match) total += Number(hour_match[1]) * 3600;
+    if (min_match) total += Number(min_match[1]) * 60;
+    if (sec_match) total += Number(sec_match[1]);
+    return Math.max(0, Math.round(total));
+}
+
+function parse_data_slot_reset(item: string): number {
+    if (item.includes('data-slot="reset-now"')) return 0;
+    const reset_time = /data-slot="reset-time"[^>]*>([\s\S]*?)<\/span>/.exec(item);
+    if (reset_time?.[1]) {
+        const text = reset_time[1]
+            .replace(/<!--\$-->/g, "")
+            .replace(/<!--\/-->/g, "")
+            .replace(/Resets?\s*in/i, "")
+            .trim();
+        return parse_human_readable_reset(text) ?? 0;
+    }
+    return 0;
+}
+
+function parse_data_slot_window(html: string, label_keyword: string): UsageWindow | null {
+    const segments = html.split('data-slot="usage-item"').slice(1);
+    for (const item of segments) {
+        const label_match = /data-slot="usage-label"[^>]*>([^<]+)/.exec(item);
+        if (!label_match?.[1]) continue;
+        if (!label_match[1].toLowerCase().includes(label_keyword)) continue;
+        const value_match = /data-slot="usage-value"[^>]*>[\s\S]*?(-?\d+(?:\.\d+)?)/.exec(item);
+        if (!value_match) continue;
+        const pct = Number(value_match[1]);
+        if (!Number.isFinite(pct)) continue;
+        return {
+            usagePercent: Math.max(0, pct),
+            resetInSec: parse_data_slot_reset(item),
+        };
+    }
+    return null;
+}
+
+/**
+ * Parse usage from /go page HTML. Returns the parsed payload (possibly partial)
+ * or null when no usage data is found (caller should fall back to server-fn).
+ * SSR $R hydration wins over data-slot when both are present.
+ */
+function parse_usage_from_html(html: string): UsagePayload | null {
+    const rolling_ssr = parse_ssr_window(html, "rollingUsage");
+    const weekly_ssr = parse_ssr_window(html, "weeklyUsage");
+    const monthly_ssr = parse_ssr_window(html, "monthlyUsage");
+    if (rolling_ssr || weekly_ssr || monthly_ssr) {
+        return {
+            ...(rolling_ssr ? { rollingUsage: rolling_ssr } : {}),
+            ...(weekly_ssr ? { weeklyUsage: weekly_ssr } : {}),
+            ...(monthly_ssr ? { monthlyUsage: monthly_ssr } : {}),
+        };
+    }
+    const rolling_slot = parse_data_slot_window(html, "rolling");
+    const weekly_slot = parse_data_slot_window(html, "weekly");
+    const monthly_slot = parse_data_slot_window(html, "monthly");
+    if (!rolling_slot && !weekly_slot && !monthly_slot) return null;
+    return {
+        ...(rolling_slot ? { rollingUsage: rolling_slot } : {}),
+        ...(weekly_slot ? { weeklyUsage: weekly_slot } : {}),
+        ...(monthly_slot ? { monthlyUsage: monthly_slot } : {}),
+    };
+}
+
+function build_observations(
+    workspace_id: string,
+    payload: UsagePayload,
+    now: number,
+): ScriptObservation[] {
+    const observations: ScriptObservation[] = [];
+    if (payload.rollingUsage) {
+        observations.push(
+            observation(
+                workspace_id,
+                workspace_id,
+                "rolling",
+                "滚动",
+                "second",
+                payload.rollingUsage,
+                now,
+            ),
+        );
+    }
+    if (payload.weeklyUsage) {
+        observations.push(
+            observation(
+                workspace_id,
+                workspace_id,
+                "weekly",
+                "一周",
+                "day",
+                payload.weeklyUsage,
+                now,
+            ),
+        );
+    }
+    if (payload.monthlyUsage) {
+        observations.push(
+            observation(
+                workspace_id,
+                workspace_id,
+                "monthly",
+                "一月",
+                "month",
+                payload.monthlyUsage,
+                now,
+            ),
+        );
+    }
+    return observations;
+}
+
 function to_number(value: unknown): number {
     const parsed = typeof value === "number" ? value : Number(value ?? 0);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -205,11 +364,26 @@ async function main(): Promise<ScriptObservation[]> {
         throw new Error("Cookie 可能已失效，未跳转到 workspace");
     }
 
-    const [workspace, go_page] = await Promise.all([
-        ctx.http.get_raw("default", `/workspace/${workspace_id}`, { headers }),
-        ctx.http.get_raw("default", `/workspace/${workspace_id}/go`, { headers }),
-    ]);
+    // Primary path (t115): the /go page inlines usage data (SSR $R and/or
+    // data-slot), so a single GET beyond /auth is enough. No JS bundles, no
+    // /_server call.
+    const go_page = await ctx.http.get_raw("default", `/workspace/${workspace_id}/go`, { headers });
+    const html_payload = parse_usage_from_html(go_page.body);
+    if (html_payload) {
+        const observations = build_observations(workspace_id, html_payload, Date.now());
+        if (observations.length > 0) return observations;
+    }
 
+    // Fallback: legacy server-fn chain when the HTML carries no inline data.
+    return server_fn_fallback(workspace_id, go_page, headers);
+}
+
+async function server_fn_fallback(
+    workspace_id: string,
+    go_page: RawHttpResponse,
+    headers: Record<string, string>,
+): Promise<ScriptObservation[]> {
+    const workspace = await ctx.http.get_raw("default", `/workspace/${workspace_id}`, { headers });
     const asset_paths = [
         ...new Set([...extract_assets(workspace.body), ...extract_assets(go_page.body)]),
     ];

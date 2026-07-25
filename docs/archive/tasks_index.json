@@ -911,6 +911,14 @@
             "status": "done",
             "branch": "t114_token_stats_state_persistence",
             "note": ""
+        },
+        {
+            "tid": "t115",
+            "title": "OpenCode Go connector 简化：/go HTML 直解析 + vendor 健壮性改进",
+            "slug": "opencode_go_html_scrape",
+            "status": "done",
+            "branch": "t115_opencode_go_html_scrape",
+            "note": ""
         }
     ]
 }
