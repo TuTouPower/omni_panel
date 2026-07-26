@@ -15,6 +15,14 @@
             "status": "backlog",
             "branch": "",
             "note": ""
+        },
+        {
+            "tid": "t156",
+            "title": "Grok 设备码登录展示完整授权地址并默认浏览器打开",
+            "slug": "device_login_full_url",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
         }
     ]
 }
