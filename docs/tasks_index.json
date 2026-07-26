@@ -1,3 +1,12 @@
 {
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t154",
+            "title": "日志 50MB 上限改分段轮转，禁止静默停写",
+            "slug": "log_rotation",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        }
+    ]
 }
