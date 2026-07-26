@@ -397,7 +397,9 @@ const logs_methods = {
 
 const build_info_methods = {
     get: () =>
-        invoke<{ version: string; branch: string; commit: string }>(IPC_CHANNELS.APP_BUILD_INFO),
+        invoke<{ version: string; branch: string; commit: string; subject: string }>(
+            IPC_CHANNELS.APP_BUILD_INFO,
+        ),
 };
 
 // Route-based API restriction: each window only gets the capabilities it needs.

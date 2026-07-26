@@ -432,6 +432,6 @@ export interface UsageboardApi {
     };
     trend: TrendApi;
     buildInfo: {
-        get(): Promise<{ version: string; branch: string; commit: string }>;
+        get(): Promise<{ version: string; branch: string; commit: string; subject: string }>;
     };
 }
