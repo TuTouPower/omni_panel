@@ -1,3 +1,20 @@
 {
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t122",
+            "title": "拆分 SettingsView：抽 AccountDialog + catalog hook + 工具函数",
+            "slug": "split_settings_view",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t123",
+            "title": "OAuthDeviceForm 表单层 secret_name 断言",
+            "slug": "oauth_device_form_secret_assertion",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        }
+    ]
 }
