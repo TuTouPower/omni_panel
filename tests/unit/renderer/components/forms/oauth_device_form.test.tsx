@@ -73,7 +73,7 @@ describe("OAuthDeviceForm", () => {
         expect(screen.getByText("开始登录")).toBeInTheDocument();
     });
 
-    it("shows device code and verification URL after starting", async () => {
+    it("shows the complete authorization URL and hides the user-code line (t156)", async () => {
         const grok = mock_grok_api();
         grok.login_poll.mockImplementation(() => new Promise(() => undefined));
         const user = userEvent.setup();
@@ -103,8 +103,62 @@ describe("OAuthDeviceForm", () => {
             );
         });
 
-        expect(screen.getByText("https://auth.x.ai/device")).toBeInTheDocument();
-        expect(screen.getByText("ABCD-EFGH")).toBeInTheDocument();
+        const link = await screen.findByRole("link", {
+            name: "https://auth.x.ai/device?user_code=ABCD-EFGH",
+        });
+        expect(link).toHaveAttribute("href", "https://auth.x.ai/device?user_code=ABCD-EFGH");
+        expect(screen.queryByText(/输入代码/)).not.toBeInTheDocument();
+    });
+
+    it("constructs a complete URL from verification_uri when the server omits verification_uri_complete (t156)", async () => {
+        const grok = mock_grok_api({ login_start: { verification_uri_complete: null } });
+        grok.login_poll.mockImplementation(() => new Promise(() => undefined));
+        const user = userEvent.setup();
+        render(
+            <OAuthDeviceForm
+                instance_id={instance_id}
+                vendor="grok"
+                vendor_id="grok"
+                secret_name="OAUTH_TOKEN"
+                account_name=""
+                set_account_name={() => undefined}
+                on_save={make_on_save()}
+            />,
+        );
+
+        await user.click(screen.getByText("开始登录"));
+
+        const link = await screen.findByRole("link", {
+            name: "https://auth.x.ai/device?user_code=ABCD-EFGH",
+        });
+        expect(link).toHaveAttribute("href", "https://auth.x.ai/device?user_code=ABCD-EFGH");
+        expect(screen.queryByText(/输入代码/)).not.toBeInTheDocument();
+    });
+
+    it("falls back to the user-code line when user_code is empty (t156)", async () => {
+        const grok = mock_grok_api({
+            login_start: { verification_uri_complete: null, user_code: "" },
+        });
+        grok.login_poll.mockImplementation(() => new Promise(() => undefined));
+        const user = userEvent.setup();
+        render(
+            <OAuthDeviceForm
+                instance_id={instance_id}
+                vendor="grok"
+                vendor_id="grok"
+                secret_name="OAUTH_TOKEN"
+                account_name=""
+                set_account_name={() => undefined}
+                on_save={make_on_save()}
+            />,
+        );
+
+        await user.click(screen.getByText("开始登录"));
+
+        await waitFor(() => {
+            expect(screen.getByText(/输入代码/)).toBeInTheDocument();
+        });
+        expect(screen.queryByRole("link")).not.toBeInTheDocument();
     });
 
     it("calls on_save with oauth_device params after polling succeeds", async () => {
@@ -184,28 +238,6 @@ describe("OAuthDeviceForm", () => {
             expect(screen.getByText(/保存账号失败/)).toBeInTheDocument();
         });
         expect(screen.getByText("重新登录")).toBeInTheDocument();
-    });
-
-    it("falls back to verification URI when no complete URL is returned", async () => {
-        const grok = mock_grok_api({ login_start: { verification_uri_complete: null } });
-        grok.login_poll.mockImplementation(() => new Promise(() => undefined));
-        const user = userEvent.setup();
-        render(
-            <OAuthDeviceForm
-                instance_id={instance_id}
-                vendor="grok"
-                vendor_id="grok"
-                secret_name="OAUTH_TOKEN"
-                account_name=""
-                set_account_name={() => undefined}
-                on_save={make_on_save()}
-            />,
-        );
-
-        await user.click(screen.getByText("开始登录"));
-
-        const link = await screen.findByRole("link", { name: "https://auth.x.ai/device" });
-        expect(link).toHaveAttribute("href", "https://auth.x.ai/device");
     });
 
     it("dispatches to kimi api namespace when vendor is kimi", async () => {

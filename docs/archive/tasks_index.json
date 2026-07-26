@@ -1231,6 +1231,14 @@
             "status": "done",
             "branch": "t155_auth_error_no_retry",
             "note": ""
+        },
+        {
+            "tid": "t156",
+            "title": "Grok 设备码登录展示完整授权地址并默认浏览器打开",
+            "slug": "device_login_full_url",
+            "status": "done",
+            "branch": "t156_device_login_full_url",
+            "note": ""
         }
     ]
 }
