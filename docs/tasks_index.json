@@ -1,12 +1,3 @@
 {
-    "tasks": [
-        {
-            "tid": "t122",
-            "title": "拆分 SettingsView：抽 AccountDialog + catalog hook + 工具函数",
-            "slug": "split_settings_view",
-            "status": "active",
-            "branch": "t122_split_settings_view",
-            "note": ""
-        }
-    ]
+    "tasks": []
 }

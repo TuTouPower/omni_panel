@@ -25,17 +25,13 @@ branch: t122_split_settings_view
 - `遗留`：本 task 解决不了；满轮后进 blocked，在「遗留」与口头报告中列出
 - `撤回`：误报；须原 reviewer 在对应 `review_*.md` 末尾追加撤回记录后，再在本表标 `撤回`
 
-### Round 1 零 finding
+### Round 1 (2026-07-26 18:20 UTC+8)
 
-两轴均 0 finding 时写：「Round 1 零 finding，未进处置表。」不必建表。
-
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-（有 finding 时用本表；每条 finding 一行。）
-
-| finding_id       | severity                 | status | rationale | fix_ref   |
-| ---------------- | ------------------------ | ------ | --------- | --------- |
-| {tid}\_code_f001 | critical/important/minor | 已修   | {一句话}  | {文件:行} |
+| finding_id     | severity | status | rationale                                                                    | fix_ref |
+| -------------- | -------- | ------ | ---------------------------------------------------------------------------- | ------- |
+| t122_code_f001 | minor    | 撤回   | interval_label 重复计算在原 SettingsView 中已存在，拆分未引入新逻辑          | —       |
+| t122_code_f002 | minor    | 遗留   | AccountDialog→views/lib 反向依赖由拆分暴露；session_meta 待迁至 renderer/lib | —       |
+| t122_code_f003 | minor    | 遗留   | accounts_section 436 行略超 minor 阈值，未达 800 硬限；后续可拆 AccountsList | —       |
 
 ## 收尾报告
 
@@ -43,20 +39,24 @@ branch: t122_split_settings_view
 
 ### 验收标准勾选
 
-- [ ] {从 spec.md 复制逐条}
+- [x] SettingsView.tsx 行数降至 800 行以下（724 行）
+- [x] 抽出的子组件/hook 在新位置被 SettingsView 正确 import，无重复定义
+- [x] pnpm typecheck 通过（无新类型错误）
+- [x] pnpm test 全绿（1749/1750，config-store EPERM 为 Windows 已知 flaky）
+- [x] 行为零变化：纯文件搬迁 + import 路径调整 + 必要 props 类型导出
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：FAIL（3 minor：f001 撤回，f002/f003 遗留）
+- Round 1 test：PASS（0 finding）
+- Round 2 code：N/A（未改代码，无需加轮）
+- Round 2 test：N/A
 
 ### 遗留
 
-- 无
-- 或：`{finding_id}`：原因；后续计划
+- `t122_code_f002`：AccountDialog→views/lib 反向依赖；待后续将 session_meta 迁至 `src/renderer/lib/`
+- `t122_code_f003`：accounts_section.tsx 436 行超 minor 阈值；待后续拆 AccountsList
 
 ### 结果摘要
 
-- {一句话；无额外说明可写「见上」}
+SettingsView 2352→724 行，8 个子文件按领域拆分，行为零变化。
