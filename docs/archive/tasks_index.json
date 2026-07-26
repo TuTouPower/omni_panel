@@ -1119,6 +1119,14 @@
             "status": "done",
             "branch": "t149_docs_token_stats_spec_cleanup",
             "note": ""
+        },
+        {
+            "tid": "t129",
+            "title": "use-plugins rAF 合批减少 burst 渲染",
+            "slug": "plugins_raf_batching",
+            "status": "done",
+            "branch": "t129_plugins_raf_batching",
+            "note": ""
         }
     ]
 }

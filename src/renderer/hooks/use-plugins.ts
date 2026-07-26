@@ -51,14 +51,48 @@ export function use_plugins(): UsePluginsResult {
     }, [reload]);
 
     useEffect(() => {
+        const pending = new Map<string, ConnectorSnapshotDTO>();
+        let raf_handle: number | undefined;
+
+        const flush = () => {
+            if (pending.size === 0) return;
+            const states = new Map(pending);
+            pending.clear();
+            setPlugins((prev) =>
+                prev.map((p) => {
+                    const state = states.get(p.instanceId);
+                    return state !== undefined ? { ...p, snapshot: state } : p;
+                }),
+            );
+        };
+
+        const schedule = () => {
+            if (raf_handle !== undefined) return;
+            if (typeof requestAnimationFrame === "undefined") {
+                flush();
+                return;
+            }
+            raf_handle = requestAnimationFrame(() => {
+                raf_handle = undefined;
+                flush();
+            });
+        };
+
         const unsub = window.usageboard.event.onStateChange(
             (instanceId: string, state: ConnectorSnapshotDTO) => {
-                setPlugins((prev) =>
-                    prev.map((p) => (p.instanceId === instanceId ? { ...p, snapshot: state } : p)),
-                );
+                pending.set(instanceId, state);
+                schedule();
             },
         );
-        return unsub;
+
+        return () => {
+            unsub();
+            if (raf_handle !== undefined) {
+                cancelAnimationFrame(raf_handle);
+                raf_handle = undefined;
+            }
+            pending.clear();
+        };
     }, []);
 
     const refresh = useCallback(async (instanceId: string) => {
