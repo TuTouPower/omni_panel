@@ -1,8 +1,8 @@
 ---
 tid: t126
 slug: split_provider_card
-diff_anchor: "TBD"
-branch: ""
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+branch: "t126_split_provider_card"
 ---
 
 # Task t126_split_provider_card
@@ -25,9 +25,9 @@ branch: ""
 - `遗留`：本 task 解决不了；满轮后进 blocked，在「遗留」与口头报告中列出
 - `撤回`：误报；须原 reviewer 在对应 `review_*.md` 末尾追加撤回记录后，再在本表标 `撤回`
 
-### Round 1 零 finding
+### Round 1 (2026-07-26 17:54 UTC+8)
 
-两轴均 0 finding 时写：「Round 1 零 finding，未进处置表。」不必建表。
+Round 1 零 finding，未进处置表。
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -43,20 +43,20 @@ branch: ""
 
 ### 验收标准勾选
 
-- [ ] `ProviderCard.tsx` 行数 < 400。
-- [ ] 拆分出的源码新文件行数亦在阈值内，命名合规。
-- [ ] 测试拆分后各文件 < 600 行，共享 fixture 集中，无重复定义。
-- [ ] 拆分前后 `it` 数量一致，无遗漏。
-- [ ] typecheck 通过。
-- [ ] `pnpm test` 全绿。
-- [ ] 行为零变化。
+- [x] `ProviderCard.tsx` 行数 < 400（322 行）。
+- [x] 拆分出的源码新文件行数亦在阈值内，命名合规（`provider_card_states.tsx` 118 行、`provider_card_content.tsx` 102 行）。
+- [x] 测试拆分后各文件 < 600 行，共享 fixture 集中在 `provider_card_fixture.ts`，无重复定义。
+- [x] 拆分前后 `it` 数量一致，无遗漏（32 个）。
+- [x] typecheck 通过。
+- [x] `pnpm test` 全绿（黑盒全量仅 `file-vault-backend` 并发写测试 flaky 超时，单独重跑通过；与本 task 无关）。
+- [x] 行为零变化（仅结构性搬运，未改逻辑）。
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
+- Round 2 code：N/A
+- Round 2 test：N/A
 
 ### 遗留
 
@@ -64,4 +64,5 @@ branch: ""
 
 ### 结果摘要
 
-- 见上
+- 源码：`ProviderCard.tsx` 拆出 `provider_card_states.tsx`（错误态/状态判定）与 `provider_card_content.tsx`（概览/账号明细渲染），主文件降至 322 行；对外 props 与 memo 行为保持不变。
+- 测试：原单文件 32 个 `it` 按功能域拆为 7 个文件，共享 fixture 归集；定向测试 7 文件 32 测试全绿；typecheck 通过。

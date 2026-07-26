@@ -1,0 +1,120 @@
+import { Icon } from "./Icon";
+import type { ProviderError } from "./ProviderOverview";
+
+export function is_auth_error(error: string): boolean {
+    const lower = error.toLowerCase();
+    return (
+        lower.includes("token") ||
+        lower.includes("credential") ||
+        lower.includes("unauthorized") ||
+        lower.includes("auth") ||
+        lower.includes("凭证") ||
+        lower.includes("登录") ||
+        lower.includes("密钥")
+    );
+}
+
+interface ProviderCardStateProps {
+    provider: string;
+    connectorError: ProviderError | undefined;
+    isFailed: boolean;
+    isAuth: boolean;
+    hasUsage: boolean;
+    onReLogin?: ((provider: string) => void) | undefined;
+    onRefresh?: ((provider: string) => void) | undefined;
+}
+
+export function ProviderCardState({
+    provider,
+    connectorError,
+    isFailed,
+    isAuth,
+    hasUsage,
+    onReLogin,
+    onRefresh,
+}: ProviderCardStateProps) {
+    if (isFailed) {
+        if (!connectorError) return null;
+        if (isAuth) {
+            const auth_label = "凭证失效，请重新登录";
+            return (
+                <div className="card-state auth">
+                    <span className="cs-ic">
+                        <Icon name="lock" size={15} />
+                    </span>
+                    <span>{auth_label}</span>
+                    <span
+                        className="cs-action"
+                        onClick={() => {
+                            if (onReLogin) {
+                                onReLogin(provider);
+                            } else {
+                                window.usageboard.settings.open({ provider });
+                            }
+                        }}
+                    >
+                        重新登录
+                    </span>
+                </div>
+            );
+        }
+        return (
+            <div className="card-state err">
+                <span className="cs-ic">
+                    <Icon name="cloud_off" size={15} />
+                </span>
+                <span>{connectorError.error}</span>
+                {onRefresh && (
+                    <span
+                        className="cs-action"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onRefresh(provider);
+                        }}
+                    >
+                        重试
+                    </span>
+                )}
+            </div>
+        );
+    }
+    if (!hasUsage) {
+        return <div className="card-state off">暂无账号。请到设置添加数据来源。</div>;
+    }
+    return null;
+}
+
+interface ProviderCardErrorBannerProps {
+    provider: string;
+    connectorError: ProviderError | undefined;
+    onRefresh?: ((provider: string) => void) | undefined;
+}
+
+// Shown when collection is failing but cached usage still exists. Sits ABOVE
+// the stale data so the failure is visible on the main panel.
+export function ProviderCardErrorBanner({
+    provider,
+    connectorError,
+    onRefresh,
+}: ProviderCardErrorBannerProps) {
+    if (!connectorError) return null;
+    return (
+        <div className="card-state err">
+            <span className="cs-ic">
+                <Icon name="cloud_off" size={15} />
+            </span>
+            <span>采集失败：{connectorError.error}</span>
+            {onRefresh && (
+                <span
+                    className="cs-action"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRefresh(provider);
+                    }}
+                >
+                    重试
+                </span>
+            )}
+        </div>
+    );
+}

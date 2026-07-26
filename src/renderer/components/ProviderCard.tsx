@@ -17,8 +17,9 @@ import { Icon, VendorMark } from "./Icon";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
-import { AccountUsageRow } from "./UsageRows";
 import type { ToggleWatchedMetric } from "../hooks/use_watched_metric_toggler";
+import { is_auth_error, ProviderCardState, ProviderCardErrorBanner } from "./provider_card_states";
+import { ProviderCardOverview, ProviderCardAccountDetail } from "./provider_card_content";
 
 interface ProviderCardProps {
     provider: string;
@@ -54,19 +55,6 @@ interface ProviderCardProps {
 }
 
 type CardStatus = "loading" | "ready" | "failed" | "empty";
-
-function is_auth_error(error: string): boolean {
-    const lower = error.toLowerCase();
-    return (
-        lower.includes("token") ||
-        lower.includes("credential") ||
-        lower.includes("unauthorized") ||
-        lower.includes("auth") ||
-        lower.includes("凭证") ||
-        lower.includes("登录") ||
-        lower.includes("密钥")
-    );
-}
 
 export const ProviderCard = memo(function ProviderCard({
     provider,
@@ -161,79 +149,6 @@ export const ProviderCard = memo(function ProviderCard({
 
     const updated_text = overview_updated_at ? relative_time(overview_updated_at) : "";
 
-    const render_state = () => {
-        if (isFailed) {
-            if (is_auth) {
-                const auth_label = "凭证失效，请重新登录";
-                return (
-                    <div className="card-state auth">
-                        <span className="cs-ic">
-                            <Icon name="lock" size={15} />
-                        </span>
-                        <span>{auth_label}</span>
-                        <span
-                            className="cs-action"
-                            onClick={() => {
-                                if (onReLogin) {
-                                    onReLogin(provider);
-                                } else {
-                                    window.usageboard.settings.open({ provider });
-                                }
-                            }}
-                        >
-                            重新登录
-                        </span>
-                    </div>
-                );
-            }
-            return (
-                <div className="card-state err">
-                    <span className="cs-ic">
-                        <Icon name="cloud_off" size={15} />
-                    </span>
-                    <span>{connectorError.error}</span>
-                    {onRefresh && (
-                        <span
-                            className="cs-action"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onRefresh(provider);
-                            }}
-                        >
-                            重试
-                        </span>
-                    )}
-                </div>
-            );
-        }
-        if (!hasUsage) {
-            return <div className="card-state off">暂无账号。请到设置添加数据来源。</div>;
-        }
-        return null;
-    };
-
-    // Shown when collection is failing but cached usage still exists. Sits ABOVE
-    // the stale data so the failure is visible on the main panel.
-    const render_error_banner = () => (
-        <div className="card-state err">
-            <span className="cs-ic">
-                <Icon name="cloud_off" size={15} />
-            </span>
-            <span>采集失败：{connectorError?.error}</span>
-            {onRefresh && (
-                <span
-                    className="cs-action"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onRefresh(provider);
-                    }}
-                >
-                    重试
-                </span>
-            )}
-        </div>
-    );
-
     const header = (
         <>
             {onDragStart && <DragGrip iconSize={18} />}
@@ -294,63 +209,6 @@ export const ProviderCard = memo(function ProviderCard({
         </>
     );
 
-    const render_overview = () => {
-        if (is_refreshing && !overview_periods.length) {
-            return (
-                <div className="skeleton-bars">
-                    <div className="skel-row">
-                        <div className="skel lbl" />
-                        <div className="skel" />
-                    </div>
-                    <div className="skel-row">
-                        <div className="skel lbl" />
-                        <div className="skel" />
-                    </div>
-                </div>
-            );
-        }
-        if (!overview_periods.length) return <div className="card-state off">暂无有效用量数据</div>;
-        return (
-            <UsageBarList
-                periods={overview_periods}
-                colorScheme={barColorScheme}
-                barStyle={barStyle}
-                forcePercent={forcePercent}
-            />
-        );
-    };
-
-    const render_account_detail = () => {
-        if (!group) return null;
-        return (
-            <div className="acct-detail">
-                {group.accounts.map((account) => (
-                    <AccountUsageRow
-                        key={account.id}
-                        account={account}
-                        barColorScheme={barColorScheme}
-                        barStyle={barStyle}
-                        labelMap={label_map_for_account(account)}
-                        desensitizeRemarks={desensitizeRemarks}
-                        forcePercent={forcePercent}
-                        watched_labels={new Set(watchedMetrics?.[provider]?.[account.id] ?? [])}
-                        on_toggle_watched={
-                            on_toggle_watched
-                                ? (raw_label) => {
-                                      on_toggle_watched({
-                                          provider,
-                                          accountKey: account.id,
-                                          raw_label,
-                                      });
-                                  }
-                                : undefined
-                        }
-                    />
-                ))}
-            </div>
-        );
-    };
-
     const drag_root_props = onDragStart
         ? {
               draggable: true as const,
@@ -382,29 +240,57 @@ export const ProviderCard = memo(function ProviderCard({
     // the (stale) usage so failures surface on the main panel instead of only
     // in account settings.
     const usage_content =
-        is_multi && l2open
-            ? render_account_detail()
-            : is_multi && !l2open
-              ? render_overview()
-              : group
-                ? group.accounts.map((account) => (
-                      <UsageBarList
-                          key={account.id}
-                          periods={account.periods}
-                          colorScheme={barColorScheme}
-                          barStyle={barStyle}
-                          labelMap={label_map_for_account(account)}
-                          forcePercent={forcePercent}
-                      />
-                  ))
-                : null;
+        is_multi && l2open && group ? (
+            <ProviderCardAccountDetail
+                provider={provider}
+                group={group}
+                barColorScheme={barColorScheme}
+                barStyle={barStyle}
+                labelMapForAccount={label_map_for_account}
+                desensitizeRemarks={desensitizeRemarks}
+                forcePercent={forcePercent}
+                watchedMetrics={watchedMetrics}
+                onToggleWatched={on_toggle_watched}
+            />
+        ) : is_multi && !l2open ? (
+            <ProviderCardOverview
+                isRefreshing={is_refreshing}
+                overviewPeriods={overview_periods}
+                barColorScheme={barColorScheme}
+                barStyle={barStyle}
+                forcePercent={forcePercent}
+            />
+        ) : group ? (
+            group.accounts.map((account) => (
+                <UsageBarList
+                    key={account.id}
+                    periods={account.periods}
+                    colorScheme={barColorScheme}
+                    barStyle={barStyle}
+                    labelMap={label_map_for_account(account)}
+                    forcePercent={forcePercent}
+                />
+            ))
+        ) : null;
 
     const collapse_children =
         isFailed || !hasUsage ? (
-            render_state()
+            <ProviderCardState
+                provider={provider}
+                connectorError={connectorError}
+                isFailed={isFailed}
+                isAuth={is_auth}
+                hasUsage={hasUsage}
+                onReLogin={onReLogin}
+                onRefresh={onRefresh}
+            />
         ) : has_stale_error ? (
             <>
-                {render_error_banner()}
+                <ProviderCardErrorBanner
+                    provider={provider}
+                    connectorError={connectorError}
+                    onRefresh={onRefresh}
+                />
                 {usage_content}
             </>
         ) : (

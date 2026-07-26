@@ -1119,6 +1119,14 @@
             "status": "done",
             "branch": "t149_docs_token_stats_spec_cleanup",
             "note": ""
+        },
+        {
+            "tid": "t126",
+            "title": "拆分 ProviderCard.tsx 与其测试文件",
+            "slug": "split_provider_card",
+            "status": "done",
+            "branch": "t126_split_provider_card",
+            "note": ""
         }
     ]
 }

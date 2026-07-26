@@ -17,14 +17,6 @@
             "note": ""
         },
         {
-            "tid": "t126",
-            "title": "拆分 ProviderCard.tsx 与其测试文件",
-            "slug": "split_provider_card",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t127",
             "title": "提取 grok/kimi OAuth 共享 helper 模块",
             "slug": "extract_oauth_helpers",
