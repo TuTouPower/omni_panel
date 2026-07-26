@@ -25,9 +25,22 @@ describe("config-store", () => {
         expect(config.plugins).toEqual([]);
     });
 
-    it("throws when config directory exists but config.json is missing", async () => {
+    it("returns default config when config directory exists but has no prior user data", async () => {
         const subDir = join(tempDir, "existing");
         await mkdir(subDir);
+        const store = createConfigStore(join(subDir, "config.json"));
+        const config = await store.load();
+        expect(config.schemaVersion).toBe(1);
+        expect(config.plugins).toEqual([]);
+    });
+
+    it("throws when config directory exists and contains prior user data but config.json is missing", async () => {
+        const subDir = join(tempDir, "existing-with-data");
+        await mkdir(subDir);
+        // snapshot-cache.json is created after a successful run and is tied to
+        // config instanceIds; its presence means fallback to defaults would
+        // orphan existing data.
+        await writeFile(join(subDir, "snapshot-cache.json"), "{}", "utf8");
         const store = createConfigStore(join(subDir, "config.json"));
         await expect(store.load()).rejects.toThrow(/Config file missing/);
     });

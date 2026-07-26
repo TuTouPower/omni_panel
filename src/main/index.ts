@@ -129,11 +129,47 @@ void app.whenReady().then(async () => {
     try {
         const dataRoot = getDataRoot();
         await cleanup_temp_files(dataRoot);
-        const cleanupLogging = await initLogging(dataRoot);
+
+        // Load and seed configuration before writing any other files to the
+        // user data directory. Otherwise initLogging/vault/observation-store
+        // create the directory first, and config-store mistakes a fresh start
+        // for a "config.json missing but directory exists" data-loss scenario.
+        const configPath = getConfigPath();
+        const configStore = createConfigStore(configPath);
+
+        const bundledDir = getBundledConnectorsDir();
+        const userDir = getUserConnectorsDir();
+        const allDefinitions = await discover_connector_definitions(bundledDir, userDir);
+
+        let currentConfig = await configStore.load();
+        const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
+            currentConfig.plugins,
+            allDefinitions,
+            new Set(currentConfig.removedConnectorIds ?? []),
+        );
+        if (seededPlugins.length > 0 || updatedExisting.length > 0) {
+            const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));
+            const mergedPlugins = currentConfig.plugins.map(
+                (p) => updatedById.get(p.instanceId) ?? p,
+            );
+            await configStore.save({
+                ...currentConfig,
+                plugins: [...mergedPlugins, ...seededPlugins],
+            });
+            currentConfig = await configStore.load();
+        }
+
+        const cleanupLogging = await initLogging(dataRoot, {
+            logLevel: currentConfig.logLevel ?? defaultLogLevelForEnv(),
+        });
         let logging_cleanup_done = false;
         const log = createLogger("main");
 
         log.info("Application starting");
+        log.info(`Discovered ${String(allDefinitions.length)} connectors`);
+        if (seededPlugins.length > 0) {
+            log.info(`Auto-seeded ${String(seededPlugins.length)} connectors`);
+        }
 
         // 全局连接池：每 origin 连接上限 + keepAlive 复用，消除并发 TLS 握手风暴
         init_global_network();
@@ -153,40 +189,12 @@ void app.whenReady().then(async () => {
                 },
             });
         });
-        const configPath = getConfigPath();
 
-        const configStore = createConfigStore(configPath);
         const runtimeStore = createRuntimeStore(get_snapshot_cache_path());
         await runtimeStore.hydrateFromCache();
         const vault = await create_file_vault_backend(dataRoot);
         const secretsStore = createSecretsStore(vault);
         const observationStore = create_observation_store(get_observations_db_path());
-
-        const bundledDir = getBundledConnectorsDir();
-        const userDir = getUserConnectorsDir();
-        const allDefinitions = await discover_connector_definitions(bundledDir, userDir);
-        log.info(`Discovered ${String(allDefinitions.length)} connectors`);
-
-        const config = await configStore.load();
-        const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
-            config.plugins,
-            allDefinitions,
-            new Set(config.removedConnectorIds ?? []),
-        );
-        if (seededPlugins.length > 0 || updatedExisting.length > 0) {
-            const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));
-            const mergedPlugins = config.plugins.map((p) => updatedById.get(p.instanceId) ?? p);
-            await configStore.save({
-                ...config,
-                plugins: [...mergedPlugins, ...seededPlugins],
-            });
-            if (seededPlugins.length > 0) {
-                log.info(`Auto-seeded ${String(seededPlugins.length)} connectors`);
-            }
-        }
-
-        const currentConfig = await configStore.load();
-        setLogLevel(currentConfig.logLevel ?? defaultLogLevelForEnv());
 
         // Resolve system proxy for OAuth and connector HTTP requests.
         // If the user hasn't configured a proxy in settings, fall back to the

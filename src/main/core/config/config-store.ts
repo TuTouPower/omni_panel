@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { type AppConfiguration, DEFAULT_CONFIGURATION, appConfigurationSchema } from "./types";
 import { createLogger } from "../../../shared/lib/logger";
@@ -13,6 +13,50 @@ import { connectorProviderSchema, manifest_schema } from "../../../shared/schema
  */
 async function writeBakAtomic(bakPath: string, content: string): Promise<void> {
     await writeFileAtomic(bakPath, content);
+}
+
+/**
+ * Electron creates the user data directory before app code runs, so "directory
+ * exists" is no longer a reliable signal for "this is not a first start". Check
+ * for files that are only created after a successful config-driven
+ * initialization; if none exist, treat the missing config.json as a first start
+ * and seed defaults. Otherwise refuse to overwrite existing user data.
+ */
+async function has_previous_user_data(configDir: string, configPath: string): Promise<boolean> {
+    let entries: string[];
+    try {
+        entries = await readdir(configDir);
+    } catch {
+        return false;
+    }
+
+    const evidenceFiles = new Set([
+        `${configPath}.bak`,
+        `${configPath}.before_restore`,
+        join(configDir, "secrets.json"),
+        join(configDir, "secrets.vault"),
+        join(configDir, "secrets.vault.bak"),
+        join(configDir, "snapshot-cache.json"),
+        join(configDir, "token-stats-scan-state.json"),
+    ]);
+
+    for (const name of entries) {
+        const fullPath = join(configDir, name);
+        if (evidenceFiles.has(fullPath)) {
+            return true;
+        }
+        if (name === "plugin-caches" || name === "connectors") {
+            try {
+                const children = await readdir(fullPath);
+                if (children.length > 0) {
+                    return true;
+                }
+            } catch {
+                // ignore
+            }
+        }
+    }
+    return false;
 }
 
 export interface AppConfigStore {
@@ -252,8 +296,10 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 // load() 本身抛错（非 ENOENT）：config 文件存在但 readFile/parse 异常。
                 // 同样不 fallback defaults（防 auto_seed 覆盖），而是抛错停止启动。
                 if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-                    // 区分「首次启动（配置目录不存在）」与「config.json 被误删/移动（目录存在但文件缺失）」。
-                    // 后者不能返回 defaults，否则会触发 auto_seed 覆盖用户数据（P0）。
+                    // 区分「首次启动」与「config.json 被误删/移动」。Electron 会在 app 代码运行前
+                    // 创建 userData 目录，因此不能仅靠「目录是否存在」判断；改检查是否留有成功
+                    // 初始化后才会产生的用户数据文件。后者不能返回 defaults，否则会触发 auto_seed
+                    // 覆盖用户数据（P0）。
                     const configDir = dirname(configPath);
                     try {
                         await stat(configDir);
@@ -265,7 +311,12 @@ export function createConfigStore(configPath: string): AppConfigStore {
                         // 目录 stat 出现其它错误，直接抛出原错误。
                         throw err;
                     }
-                    // 目录存在但 config.json 缺失，视为异常。
+                    const hasUserData = await has_previous_user_data(configDir, configPath);
+                    if (!hasUserData) {
+                        // 目录存在但里面只有 Electron 自动文件或空的初始化产物，视为首次启动。
+                        return { ...DEFAULT_CONFIGURATION };
+                    }
+                    // 目录存在且有此前成功运行留下的用户数据文件，但 config.json 缺失，视为异常。
                     log.error(
                         `Config file missing at ${configPath} but directory exists. ` +
                             `NOT falling back to defaults to prevent auto_seed overwrite. ` +
