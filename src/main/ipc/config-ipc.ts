@@ -9,6 +9,8 @@ import type { AppConfigStore } from "../core/config/config-store";
 import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfiguration, ConnectorConfiguration } from "../../shared/types/config";
 import { appConfigurationSchema } from "../core/config/types";
+import { FOLLOW_GLOBAL_REFRESH_SENTINEL } from "../core/config/auto-seed";
+import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
 import { createLoggedIpcHandler } from "./logged";
@@ -32,6 +34,8 @@ export interface ConfigIpcDeps {
     secretParamKeys: ReadonlyMap<string, ReadonlySet<string>>;
     onConfigSaved?: (config: AppConfiguration) => void;
     onConfigImported?: (config: AppConfiguration) => void;
+    /** t121: discovered connector definitions, for createInstance from manifest id. */
+    definitions?: readonly ConnectorDefinition[];
 }
 
 function maskSecrets(
@@ -277,6 +281,63 @@ async function handleConfigDuplicate(
     }
 }
 
+/**
+ * t121: create a new connector instance directly from a manifest id, bypassing
+ * the duplicate-from-existing path. Used by the add-account flow when no live
+ * instance of the vendor exists (e.g. manifest id is in the removedConnectorIds
+ * tombstone). Clears the manifest id from the tombstone so auto-seed won't
+ * resurrect-or-skip it inconsistently on next launch.
+ *
+ * Mirrors auto_seed_connectors for instance shape (follow-global refresh
+ * sentinel, manualDefault, non-secret default parameterValues).
+ */
+export async function handleConfigCreateInstance(
+    deps: ConfigIpcDeps,
+    manifestId: unknown,
+): Promise<IpcResult<{ instanceId: string }>> {
+    try {
+        if (typeof manifestId !== "string" || !manifestId) {
+            return fail("VALIDATION_ERROR", "无效的 manifest id");
+        }
+        const definitions = deps.definitions ?? [];
+        const definition = definitions.find((d) => d.manifest.id === manifestId);
+        if (!definition) {
+            return fail("VALIDATION_ERROR", `未知连接器 manifest id: ${manifestId}`);
+        }
+        const newInstance: ConnectorConfiguration = {
+            instanceId: randomUUID(),
+            stateId: randomUUID(),
+            name: definition.manifest.id.toUpperCase(),
+            enabled: true,
+            executablePath: definition.executablePath,
+            refreshIntervalSeconds: FOLLOW_GLOBAL_REFRESH_SENTINEL,
+            ...(definition.manifest.manualDefault === true && { manualRefreshOnly: true }),
+            parameterValues: Object.fromEntries(
+                definition.manifest.parameters
+                    .filter((param) => param.type !== "secret" && param.default !== undefined)
+                    .map((param) => [param.name, param.default ?? ""]),
+            ),
+            endpointOverrides: {},
+        };
+        const config = await deps.configStore.load();
+        const remaining_removed = (config.removedConnectorIds ?? []).filter(
+            (id) => id !== manifestId,
+        );
+        const updated: AppConfiguration = {
+            ...config,
+            plugins: [...config.plugins, newInstance],
+            removedConnectorIds: remaining_removed,
+        };
+        await deps.configStore.save(updated);
+        deps.onConfigSaved?.(updated);
+        log.info(`Created instance for manifest ${manifestId}: ${newInstance.instanceId}`);
+        return ok({ instanceId: newInstance.instanceId });
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `创建连接器失败: ${msg}`);
+    }
+}
+
 export async function handleConfigExport(
     deps: ConfigIpcDeps,
 ): Promise<IpcResult<{ saved: boolean }>> {
@@ -446,6 +507,13 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
         return logged(IPC_CHANNELS.CONFIG_DUPLICATE, [instanceId], () => {
             log.info(`Duplicating plugin ${instanceId}`);
             return handleConfigDuplicate(deps, instanceId);
+        });
+    });
+    ipcMain.handle(IPC_CHANNELS.CONFIG_CREATE_INSTANCE, (e, manifestId: unknown) => {
+        assert_valid_sender(e);
+        return logged(IPC_CHANNELS.CONFIG_CREATE_INSTANCE, [manifestId], () => {
+            log.info(`Creating instance for manifest ${String(manifestId)}`);
+            return handleConfigCreateInstance(deps, manifestId);
         });
     });
     ipcMain.handle(IPC_CHANNELS.CONFIG_EXPORT, (e) => {

@@ -132,6 +132,7 @@ describe("PopupView", () => {
             },
             connector: {
                 list: plugin_list,
+                catalog: vi.fn().mockResolvedValue([]),
                 getState: vi.fn(),
                 refresh: plugin_refresh,
                 refreshAll: plugin_refresh_all,
@@ -151,6 +152,7 @@ describe("PopupView", () => {
                 getSecrets: vi.fn().mockResolvedValue({}),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
+                createInstance: vi.fn().mockResolvedValue({ instanceId: "new" }),
                 export: vi.fn(),
                 import: vi.fn(),
             },

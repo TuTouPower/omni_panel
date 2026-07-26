@@ -512,4 +512,151 @@ describe("connector-ipc", () => {
             expect(is_cpa_connector(undefined)).toBe(false);
         });
     });
+
+    describe("handleConnectorCatalog (t121)", () => {
+        it("lists definitions independent of config.plugins and tombstone, without reading configStore", async () => {
+            const { handleConnectorCatalog } = await import("../../../src/main/ipc/connector-ipc");
+            const grok_def: ConnectorDefinition = {
+                directory: "/connectors/grok",
+                executablePath: "/connectors/grok",
+                manifest: {
+                    id: "grok",
+                    provider: "grok",
+                    capabilities: ["poll"],
+                    parameters: [],
+                    auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
+                    poll: { request: { endpoint: "default", path: "/u", method: "GET" }, map: {} },
+                },
+            };
+            const cpa_def: ConnectorDefinition = {
+                directory: "/connectors/cpa",
+                executablePath: "/connectors/cpa",
+                manifest: {
+                    id: "cpa",
+                    provider: "cpa",
+                    capabilities: ["poll"],
+                    parameters: [
+                        {
+                            name: "monitor_claude",
+                            type: "string",
+                            required: false,
+                            default: "true",
+                            exposeToScript: true,
+                        },
+                    ],
+                    auth: {
+                        method: "cpa_mgmt",
+                        secret_name: "cpa_mgmt_key",
+                        require_endpoint: true,
+                    },
+                    poll: { request: { endpoint: "default", path: "/u", method: "GET" }, map: {} },
+                },
+            };
+            // f002: 显式构造墓碑 + 空 plugins，证明 catalog 与 config.plugins/墓碑解耦
+            const configStore = {
+                load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
+                    schemaVersion: 1,
+                    language: "zh-Hans" as const,
+                    plugins: [],
+                    launchAtLogin: false,
+                    removedConnectorIds: ["grok", "cpa"],
+                }),
+                save: vi.fn(),
+                scheduleSave: vi.fn(),
+                flushPendingSave: vi.fn().mockResolvedValue(undefined),
+                hasPendingSave: vi.fn().mockReturnValue(false),
+            };
+            const deps = {
+                configStore,
+                runtimeStore: create_runtime_store("idle"),
+                refreshService: createMockDeps().refreshService,
+                definitions: [grok_def, cpa_def],
+            };
+            const result = handleConnectorCatalog(deps);
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data).toHaveLength(2);
+            // f002: 墓碑内的 manifest id 仍出现在 catalog
+            const grok = result.data.find((c) => c.manifest_id === "grok");
+            expect(grok?.metadata.auth).toEqual({
+                method: "oauth_device",
+                secret_name: "OAUTH_TOKEN",
+            });
+            expect(grok?.supported_providers).toEqual(["grok"]);
+            expect(grok?.source).toBe("poll");
+            const cpa = result.data.find((c) => c.manifest_id === "cpa");
+            expect(cpa?.metadata.auth).toEqual({
+                method: "cpa_mgmt",
+                secret_name: "cpa_mgmt_key",
+                require_endpoint: true,
+            });
+            expect(cpa?.supported_providers).toEqual(["claude"]);
+            expect(cpa?.source).toBe("gateway");
+            // catalog 不读 configStore（独立于 config 状态）
+            expect(configStore.load).not.toHaveBeenCalled();
+        });
+
+        it("does not leak secret values from config.plugins or secret param defaults", async () => {
+            const { handleConnectorCatalog } = await import("../../../src/main/ipc/connector-ipc");
+            const def: ConnectorDefinition = {
+                directory: "/connectors/claude",
+                executablePath: "/connectors/claude",
+                manifest: {
+                    id: "claude",
+                    provider: "claude",
+                    capabilities: ["poll"],
+                    parameters: [
+                        {
+                            name: "API_KEY",
+                            label: "Api Key",
+                            type: "secret",
+                            required: true,
+                            exposeToScript: false,
+                            // secret 参数不该有 default；若误设，catalog 也不应泄漏
+                            default: "should-not-leak-default",
+                        },
+                    ],
+                    poll: { request: { endpoint: "default", path: "/u", method: "GET" }, map: {} },
+                },
+            };
+            // f001: config.plugins 放真实 secret 值，证明 catalog 不读 configStore.parameterValues
+            const configStore = {
+                load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
+                    schemaVersion: 1,
+                    language: "zh-Hans" as const,
+                    plugins: [
+                        {
+                            instanceId: "claude-1",
+                            stateId: "claude-1",
+                            name: "Claude",
+                            enabled: true,
+                            executablePath: "/connectors/claude",
+                            refreshIntervalSeconds: 300,
+                            parameterValues: { API_KEY: "sk-real-key-xyz" },
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+                save: vi.fn(),
+                scheduleSave: vi.fn(),
+                flushPendingSave: vi.fn().mockResolvedValue(undefined),
+                hasPendingSave: vi.fn().mockReturnValue(false),
+            };
+            const deps = {
+                configStore,
+                runtimeStore: create_runtime_store("idle"),
+                refreshService: createMockDeps().refreshService,
+                definitions: [def],
+            };
+            const result = handleConnectorCatalog(deps);
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            const serialized = JSON.stringify(result.data);
+            // configStore 里的 secret 值不得进入 catalog
+            expect(serialized).not.toContain("sk-real-key-xyz");
+            // manifest 里 secret 参数的 default 也不得泄漏
+            expect(serialized).not.toContain("should-not-leak-default");
+        });
+    });
 });

@@ -377,6 +377,7 @@ void app.whenReady().then(async () => {
             secretParamKeys,
             onConfigSaved,
             onConfigImported,
+            definitions: allDefinitions,
         });
 
         // Local HTTP API: serves the web panel UI + observation ingest.

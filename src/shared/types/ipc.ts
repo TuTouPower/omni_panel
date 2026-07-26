@@ -22,12 +22,16 @@ export const IPC_CHANNELS = {
     CONNECTOR_REFRESH: "connector:refresh",
     CONNECTOR_REFRESH_ALL: "connector:refreshAll",
     CONNECTOR_SNAPSHOT: "connector:snapshot",
+    /** t121: manifest-driven catalog, independent of config.plugins / tombstone. */
+    CONNECTOR_CATALOG: "connector:catalog",
 
     CONFIG_GET: "config:get",
     CONFIG_SAVE: "config:save",
     CONFIG_SAVE_SECRETS: "config:saveSecrets",
     CONFIG_GET_SECRETS: "config:getSecrets",
     CONFIG_DUPLICATE: "config:duplicate",
+    /** t121: create a new connector instance directly from a manifest id. */
+    CONFIG_CREATE_INSTANCE: "config:createInstance",
     CONFIG_EXPORT: "config:export",
     CONFIG_IMPORT: "config:import",
     CONFIG_CHANGED: "config:changed",
@@ -161,6 +165,23 @@ export interface ConnectorInfo {
     activeProviders: readonly string[];
     metadata: PluginMetadata | null;
     snapshot: ConnectorSnapshotDTO;
+}
+
+/**
+ * t121: manifest-driven catalog entry. Independent of config.plugins and the
+ * removedConnectorIds tombstone — every discovered connector manifest appears
+ * here regardless of whether a live instance exists, so the add-account dialog
+ * can resolve the auth form for a vendor even after the user deleted all its
+ * instances.
+ *
+ * `metadata` mirrors {@link ConnectorInfo.metadata} so existing auth-resolution
+ * helpers (resolve_auth_method / resolve_auth_descriptor) work unchanged.
+ */
+export interface ConnectorCatalogEntry {
+    manifest_id: string;
+    source: UsageSource;
+    supported_providers: readonly string[];
+    metadata: PluginMetadata;
 }
 
 // Historical IPC channel names still say plugin, but renderer treats these as connectors.
@@ -320,6 +341,7 @@ export interface UsageboardApi {
     platform: RendererPlatform;
     connector: {
         list(): Promise<ConnectorInfo[]>;
+        catalog(): Promise<ConnectorCatalogEntry[]>;
         getState(instanceId: string): Promise<ConnectorSnapshotDTO>;
         refresh(instanceId: string): Promise<void>;
         refreshAll(): Promise<void>;
@@ -342,6 +364,8 @@ export interface UsageboardApi {
         /** Load vault plaintext for settings edit forms (settings window only). */
         getSecrets(instanceId: string): Promise<Record<string, string>>;
         duplicate(instanceId: string): Promise<{ instanceId: string }>;
+        /** t121: create a new instance directly from a manifest id (clears tombstone). */
+        createInstance(manifestId: string): Promise<{ instanceId: string }>;
         export(): Promise<{ saved: boolean }>;
         import(): Promise<{ imported: boolean }>;
     };

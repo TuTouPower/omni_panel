@@ -1,6 +1,10 @@
 import { z } from "zod/v3";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
-import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc";
+import type {
+    ConnectorCatalogEntry,
+    ConnectorInfo,
+    ConnectorSnapshotDTO,
+} from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail, state_to_snapshot_dto, assert_valid_sender } from "./helpers";
 import type { AppConfigStore } from "../core/config/config-store";
@@ -46,6 +50,10 @@ function supported_providers(definition: ConnectorDefinition | undefined): reado
     return [definition.manifest.provider];
 }
 
+function metadata_from_definition(definition: ConnectorDefinition): PluginMetadata;
+function metadata_from_definition(
+    definition: ConnectorDefinition | undefined,
+): PluginMetadata | null;
 function metadata_from_definition(
     definition: ConnectorDefinition | undefined,
 ): PluginMetadata | null {
@@ -57,7 +65,9 @@ function metadata_from_definition(
             label: param.label ?? param.name,
             type: param.type === "number" ? "integer" : param.type,
             required: param.required,
-            ...(param.default !== undefined && { defaultValue: param.default }),
+            // secret 参数的 default 不得进入元数据（t121 code: catalog/list 不泄漏密钥默认值）
+            ...(param.type !== "secret" &&
+                param.default !== undefined && { defaultValue: param.default }),
             ...(param["label@zh-Hans"] !== undefined && {
                 "label@zh-Hans": param["label@zh-Hans"],
             }),
@@ -126,6 +136,33 @@ export async function handleConnectorList(
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return fail("INTERNAL_ERROR", `获取连接器列表失败: ${msg}`);
+    }
+}
+
+/**
+ * t121: manifest-driven catalog. Lists every discovered connector definition
+ * independent of `config.plugins` and the `removedConnectorIds` tombstone, so
+ * the add-account dialog can resolve the correct auth form for a vendor even
+ * when no live instance exists (e.g. user previously deleted all instances).
+ *
+ * Returns no secret values — only manifest metadata.
+ */
+export function handleConnectorCatalog(deps: ConnectorIpcDeps): IpcResult<ConnectorCatalogEntry[]> {
+    try {
+        const entries: ConnectorCatalogEntry[] = deps.definitions.map((def) => {
+            // def 非 undefined，重载返回 PluginMetadata（非 null）
+            const metadata = metadata_from_definition(def);
+            return {
+                manifest_id: def.manifest.id,
+                source: source_from_definition(def),
+                supported_providers: supported_providers(def),
+                metadata,
+            };
+        });
+        return ok(entries);
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `获取连接器目录失败: ${msg}`);
     }
 }
 
@@ -198,6 +235,12 @@ export async function registerConnectorIpc(deps: ConnectorIpcDeps): Promise<void
         logged(IPC_CHANNELS.CONNECTOR_LIST, [], () => {
             assert_valid_sender(e);
             return handleConnectorList(deps);
+        }),
+    );
+    ipcMain.handle(IPC_CHANNELS.CONNECTOR_CATALOG, (e) =>
+        logged(IPC_CHANNELS.CONNECTOR_CATALOG, [], () => {
+            assert_valid_sender(e);
+            return Promise.resolve(handleConnectorCatalog(deps));
         }),
     );
     ipcMain.handle(IPC_CHANNELS.CONNECTOR_GET_STATE, (e, instanceId: string) =>
