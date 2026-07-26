@@ -1,0 +1,17 @@
+{
+    "outdir": "D:/Dev/Code/omni_usage/docs/reviews/review_20260726_054747",
+    "meta_dir": "D:/Dev/Code/omni_usage/docs/reviews/review_20260726_054747/_meta",
+    "elapsed_sec": 593,
+    "timeout_sec": 900,
+    "remaining_sec": 307,
+    "phase": "done",
+    "source": "wait_reports",
+    "done": [
+        "review_main_core_claude_current.md",
+        "review_renderer_claude_current.md",
+        "review_shared_claude_current.md",
+        "review_docs_active_claude_current.md"
+    ],
+    "pending": [],
+    "updated_at": "2026-07-26T05:58:48Z"
+}
