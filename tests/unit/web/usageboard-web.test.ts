@@ -43,6 +43,58 @@ describe("web usageboard bridge", () => {
         );
     });
 
+    it("session.login returns { saved: false }", async () => {
+        const api = create_web_usageboard();
+        const result = await api.session.login({ provider: "kimi" } as never);
+        expect(result).toEqual({ saved: false });
+    });
+
+    it("session.refresh returns { saved: false }", async () => {
+        const api = create_web_usageboard();
+        const result = await api.session.refresh({ provider: "kimi" } as never);
+        expect(result).toEqual({ saved: false });
+    });
+
+    it("connector.catalog fetches /v1/catalog", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const result = await api.connector.catalog();
+        expect(result).toEqual([]);
+        expect(fetch_mock).toHaveBeenCalledWith(expect.stringContaining("/v1/catalog"));
+    });
+
+    it("config.createInstance returns stub instance id", async () => {
+        const api = create_web_usageboard();
+        const result = await api.config.createInstance("some-manifest");
+        expect(result.instanceId).toBe("");
+    });
+
+    it("settings.openConnectorsDir is a no-op", () => {
+        const api = create_web_usageboard();
+        expect(() => {
+            api.settings.openConnectorsDir();
+        }).not.toThrow();
+    });
+
+    it("kimi surface is present and returns safe defaults", async () => {
+        const api = create_web_usageboard();
+        const status = await api.kimi.login_status("inst-1");
+        expect(status).toEqual({ has_token: false, expires_at: null, can_refresh: false });
+    });
+
+    it("buildInfo.get returns web stub", async () => {
+        const api = create_web_usageboard();
+        const info = await api.buildInfo.get();
+        expect(info).toEqual({
+            version: "web",
+            branch: "web",
+            commit: "web",
+            subject: "web",
+        });
+    });
+
     it("native surfaces are no-ops", () => {
         const api = create_web_usageboard();
         expect(() => {

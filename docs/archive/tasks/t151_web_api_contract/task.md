@@ -1,8 +1,8 @@
 ---
 tid: t151
 slug: web_api_contract
-diff_anchor: "<SHA>"
-branch: ""
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+branch: "t151_web_api_contract"
 ---
 
 # Task t151_web_api_contract
@@ -13,7 +13,8 @@ branch: ""
 
 只记有追溯价值的进展、踩坑、中途决策、偏离 plan、关键验证；不写命令流水账。
 
-- 无事项时写：无
+- 按 spec 补齐 web `UsageboardApi` 契约成员，移除双重强转，新增契约测试。
+- Round 1 双审均 PASS，零 finding。
 
 ## Review 处置
 
@@ -43,14 +44,16 @@ branch: ""
 
 ### 验收标准勾选
 
-- [ ] {从 spec.md 复制逐条}
+- [x] web session stub 返回 `{ saved: false }`。
+- [x] api 无双重强转，编译期可发现成员缺失。
+- [x] web API 契约测试通过；`pnpm test` 通过。
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
+- Round 2 code：N/A
+- Round 2 test：N/A
 
 ### 遗留
 
@@ -59,4 +62,4 @@ branch: ""
 
 ### 结果摘要
 
-- {一句话；无额外说明可写「见上」}
+- 完成 review_20260726_054747 采纳项 17/18：web `session.login/refresh` 返回契约修正、`UsageboardApi` 补齐缺失成员与类型、新增 web API 契约测试。

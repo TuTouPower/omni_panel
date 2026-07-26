@@ -5,14 +5,14 @@
  * bridge. Native-only surfaces (tray, window controls) are no-ops; the
  * renderer hides their buttons in web mode (see is_web flag).
  */
-import type { UsageboardApi, ConnectorSnapshotDTO } from "../shared/types/ipc";
+import type { UsageboardApi, ConnectorSnapshotDTO, RendererLogPayload } from "../shared/types/ipc";
 
 const POLL_MS = 10_000;
 
-async function get_json(path: string): Promise<unknown> {
+async function get_json<T>(path: string): Promise<T> {
     const res = await fetch(path);
     if (!res.ok) throw new Error(`GET ${path} failed: ${String(res.status)}`);
-    return res.json();
+    return res.json() as Promise<T>;
 }
 
 async function post_json(path: string, body: unknown): Promise<unknown> {
@@ -27,6 +27,27 @@ async function post_json(path: string, body: unknown): Promise<unknown> {
 
 const noop = (): void => undefined;
 const return_noop = (): (() => void) => noop;
+const noop_promise_void = (): Promise<void> => Promise.resolve();
+const noop_promise_logged_out = (): Promise<{ logged_out: boolean }> =>
+    Promise.resolve({ logged_out: false });
+const noop_promise_refresh_result = (): Promise<{ success: boolean; error?: string }> =>
+    Promise.resolve({ success: false });
+const noop_promise_device_start = (): Promise<{
+    device_code: string;
+    user_code: string;
+    verification_uri: string;
+    verification_uri_complete: string | null;
+    expires_in: number;
+    interval: number;
+}> =>
+    Promise.resolve({
+        device_code: "",
+        user_code: "",
+        verification_uri: "",
+        verification_uri_complete: null,
+        expires_in: 0,
+        interval: 0,
+    });
 
 export function create_web_usageboard(): UsageboardApi {
     const token_stats_callbacks = new Set<() => void>();
@@ -58,15 +79,19 @@ export function create_web_usageboard(): UsageboardApi {
         });
     }
 
-    const api = {
+    const api: UsageboardApi = {
         platform: "win32" as const,
         connector: {
             list: () => get_json("/v1/connectors"),
+            catalog: () => get_json("/v1/catalog"),
             getState: (instanceId: string) =>
                 get_json(`/v1/connectors/${encodeURIComponent(instanceId)}/state`),
             refresh: (instanceId: string) =>
-                post_json(`/v1/connectors/${encodeURIComponent(instanceId)}/refresh`, {}),
-            refreshAll: () => post_json("/v1/connectors", {}),
+                post_json(
+                    `/v1/connectors/${encodeURIComponent(instanceId)}/refresh`,
+                    {},
+                ) as Promise<void>,
+            refreshAll: () => post_json("/v1/connectors", {}) as Promise<void>,
             snapshot: () => Promise.resolve({}),
         },
         plugin: {
@@ -74,8 +99,11 @@ export function create_web_usageboard(): UsageboardApi {
             getState: (instanceId: string) =>
                 get_json(`/v1/connectors/${encodeURIComponent(instanceId)}/state`),
             refresh: (instanceId: string) =>
-                post_json(`/v1/connectors/${encodeURIComponent(instanceId)}/refresh`, {}),
-            refreshAll: () => post_json("/v1/connectors", {}),
+                post_json(
+                    `/v1/connectors/${encodeURIComponent(instanceId)}/refresh`,
+                    {},
+                ) as Promise<void>,
+            refreshAll: () => post_json("/v1/connectors", {}) as Promise<void>,
         },
         config: {
             get: () => get_json("/v1/config"),
@@ -88,6 +116,7 @@ export function create_web_usageboard(): UsageboardApi {
                 await post_json("/v1/secrets", payload);
             },
             duplicate: () => Promise.resolve({ instanceId: "" }),
+            createInstance: () => Promise.resolve({ instanceId: "" }),
             export: () => Promise.resolve({ saved: false }),
             import: () => Promise.resolve({ imported: false }),
         },
@@ -115,6 +144,7 @@ export function create_web_usageboard(): UsageboardApi {
             close: () => {
                 window.location.hash = "usage";
             },
+            openConnectorsDir: noop,
         },
         tray: {
             open_panel: () => {
@@ -137,20 +167,29 @@ export function create_web_usageboard(): UsageboardApi {
         },
         auth: { cookieLogin: () => Promise.resolve({ saved: false }) },
         session: {
-            login: () => Promise.resolve({ ok: false, error: "not supported on web" }),
-            refresh: () => Promise.resolve({ ok: false, error: "not supported on web" }),
+            login: () => Promise.resolve({ saved: false }),
+            refresh: () => Promise.resolve({ saved: false }),
         },
         grok: {
-            login_start: noop,
+            login_start: noop_promise_device_start,
             login_poll: () => Promise.resolve({ saved: false }),
-            login_cancel: noop,
+            login_cancel: noop_promise_void,
             login_status: () =>
                 Promise.resolve({ has_token: false, expires_at: null, can_refresh: false }),
-            logout: noop,
-            refresh: noop,
+            logout: noop_promise_logged_out,
+            refresh: noop_promise_refresh_result,
+        },
+        kimi: {
+            login_start: noop_promise_device_start,
+            login_poll: () => Promise.resolve({ saved: false }),
+            login_cancel: noop_promise_void,
+            login_status: () =>
+                Promise.resolve({ has_token: false, expires_at: null, can_refresh: false }),
+            logout: noop_promise_logged_out,
+            refresh: noop_promise_refresh_result,
         },
         logs: { export: () => Promise.resolve({ saved: false }) },
-        log: (payload: unknown) => {
+        log: (payload: RendererLogPayload) => {
             console.debug("[usageboard]", payload);
         },
         tokenStats: {
@@ -176,13 +215,22 @@ export function create_web_usageboard(): UsageboardApi {
                     metricId,
                 });
                 if (days !== undefined) params.set("days", String(days));
-                return get_json(`/v1/trend?${params.toString()}`) as Promise<
-                    ({ date: string; percent: number } | null)[]
-                >;
+                return get_json<({ date: string; percent: number } | null)[]>(
+                    `/v1/trend?${params.toString()}`,
+                );
             },
         },
+        buildInfo: {
+            get: () =>
+                Promise.resolve({
+                    version: "web",
+                    branch: "web",
+                    commit: "web",
+                    subject: "web",
+                }),
+        },
     };
-    return api as unknown as UsageboardApi;
+    return api;
 }
 
 export function install_web_usageboard(): void {
