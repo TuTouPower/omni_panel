@@ -62,8 +62,13 @@ export function use_config(): UseConfigResult {
     // Listen for config changes from other windows (e.g. popup toggling a provider)
     useEffect(() => {
         const unsub = window.usageboard.event.onConfigChange?.((incoming) => {
+            const current = config_ref.current;
             // Skip if this is the echo of our own save (same reference)
-            if (incoming === config_ref.current) return;
+            if (incoming === current) return;
+            // t153: IPC broadcasts are deserialized, so the echo never matches
+            // by reference — compare by value to avoid re-rendering every
+            // window on every config save.
+            if (current !== null && JSON.stringify(incoming) === JSON.stringify(current)) return;
             config_ref.current = incoming;
             setConfig(incoming);
         });

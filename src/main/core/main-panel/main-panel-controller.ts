@@ -50,6 +50,10 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
     let mode: MainPanelShellMode = resolve_main_panel_mode(deps.get_config(), deps.platform);
     let height_controller: PopupHeightController | null = null;
     let suppress_bounds_save = 0;
+    // t153: last pinToTop value applied to the window; apply_config_change
+    // runs on every config save, so re-applying an unchanged value (a visible
+    // flicker on Windows) must be skipped.
+    let last_pin_to_top: boolean | null = null;
 
     const current_mode = () => resolve_main_panel_mode(deps.get_config(), deps.platform);
 
@@ -120,7 +124,8 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         void target.loadURL(deps.get_renderer_url("usage")).catch((error: unknown) => {
             log.error("Failed to load main panel", error);
         });
-        target.setAlwaysOnTop(deps.get_config().pinToTop ?? false);
+        last_pin_to_top = deps.get_config().pinToTop ?? false;
+        target.setAlwaysOnTop(last_pin_to_top);
         if (deps.platform === "win32") {
             target.setSkipTaskbar(next_mode === "popup");
         }
@@ -216,7 +221,11 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 target.focus();
                 return;
             }
-            win.setAlwaysOnTop(deps.get_config().pinToTop ?? false);
+            const pin_to_top = deps.get_config().pinToTop ?? false;
+            if (pin_to_top !== last_pin_to_top) {
+                last_pin_to_top = pin_to_top;
+                win.setAlwaysOnTop(pin_to_top);
+            }
         },
         report_content_height(report: PopupContentHeightReport) {
             if (!win || win.isDestroyed() || !height_controller) return null;

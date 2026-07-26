@@ -9,6 +9,11 @@ function snapshot_equal(a: ConnectorSnapshotDTO, b: ConnectorSnapshotDTO): boole
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function plugin_list_equal(a: ConnectorInfo[], b: ConnectorInfo[]): boolean {
+    if (a === b) return true;
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+
 interface UsePluginsResult {
     plugins: ConnectorInfo[];
     loading: boolean;
@@ -36,7 +41,10 @@ export function use_plugins(): UsePluginsResult {
                 module: MODULE,
                 message: `Loaded ${String(list.length)} plugins`,
             });
-            setPlugins(list);
+            // t153: connector:list always returns a fresh array. Keep the
+            // previous reference when the list is value-equal so a reload
+            // triggered by a config broadcast does not re-render the panel.
+            setPlugins((prev) => (plugin_list_equal(prev, list) ? prev : list));
             setError(null);
             setLoading(false);
         } catch (err: unknown) {

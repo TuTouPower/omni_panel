@@ -291,4 +291,28 @@ describe("main panel controller", () => {
         expect(controller.get_mode()).toBe("floating");
         expect(windows[1]?.show).toHaveBeenCalled();
     });
+
+    it("does not re-call setAlwaysOnTop when pinToTop is unchanged across config changes (t153)", () => {
+        const { controller, windows } = build({ ...base_config, pinToTop: false });
+        controller.open_or_focus();
+        const win = windows[0];
+        expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(1);
+
+        controller.apply_config_change();
+        controller.apply_config_change();
+
+        expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(1);
+    });
+
+    it("re-applies setAlwaysOnTop when pinToTop actually changes", () => {
+        const { controller, windows, state } = build({ ...base_config, pinToTop: false });
+        controller.open_or_focus();
+        const win = windows[0];
+
+        state.config = { ...state.config, pinToTop: true };
+        controller.apply_config_change();
+
+        expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(2);
+        expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
+    });
 });

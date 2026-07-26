@@ -499,3 +499,47 @@ describe("use_plugins", () => {
         expect(result.current.derived.providerErrors).toBe(prev_provider_errors);
     });
 });
+
+describe("use_plugins reload identity (t153)", () => {
+    it("keeps plugins reference when reload returns a deep-equal list", async () => {
+        connector_list.mockImplementation(() => Promise.resolve([make_connector()]));
+
+        const { use_plugins } = await import("../../../../src/renderer/hooks/use-plugins");
+        const { result } = renderHook(() => use_plugins());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        const prev_plugins = result.current.plugins;
+
+        await act(async () => {
+            await result.current.reload();
+        });
+
+        expect(connector_list).toHaveBeenCalledTimes(2);
+        expect(result.current.plugins).toBe(prev_plugins);
+    });
+
+    it("updates plugins when reload returns a structurally different list", async () => {
+        let enabled = true;
+        connector_list.mockImplementation(() => Promise.resolve([make_connector({ enabled })]));
+
+        const { use_plugins } = await import("../../../../src/renderer/hooks/use-plugins");
+        const { result } = renderHook(() => use_plugins());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        const prev_plugins = result.current.plugins;
+        enabled = false;
+
+        await act(async () => {
+            await result.current.reload();
+        });
+
+        expect(result.current.plugins).not.toBe(prev_plugins);
+        expect(result.current.plugins[0]?.enabled).toBe(false);
+    });
+});

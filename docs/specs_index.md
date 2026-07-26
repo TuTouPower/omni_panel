@@ -39,7 +39,7 @@
 | scheduler                     | API      | 迁移自 omni_powers，t039                                            | 2026-07-22   |
 | secret-vault                  | API      | 迁移自 omni_powers，t045                                            | 2026-07-22   |
 | ui-views-web                  | Web      | 拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106 | 2026-07-25   |
-| ui-views-desktop              | Desktop  | 拆自 ui-views（t037）                                               | 2026-07-21   |
+| ui-views-desktop              | Desktop  | 拆自 ui-views（t037），t153                                         | 2026-07-27   |
 | vendor-forms-oauth-weblogin   | Web      | t109                                                                | 2026-07-25   |
 | fix_add_account_wiring        | Desktop  | t110                                                                | 2026-07-25   |
 | web-panel                     | Web      | 迁移自 omni_powers，无                                              | 2026-07-05   |

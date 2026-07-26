@@ -126,6 +126,7 @@ branch: t032_align_conventions_repo
 - 缩进 **4 空格**，禁止 tab（prettier 强制）。
 - 严格 TypeScript；共享类型放 `src/shared/`，主/渲染各自不重复定义。
 - 不可变优先：runtime-store `getAll` 返回拷贝；observation/config 经 Zod 校验后视为只读 DTO。
+- renderer 响应配置广播（`onConfigChange`）只准同步 state 与「已同步 ref」，绝不因此反向 `config.save`；持久化 effect 仅在 state 偏离已同步 ref（真实用户操作）时保存；插件列表重载须过 `plugins_structure_signature` 门槛且值相等时保留数组引用（t153）。
 - 精准修改：只动必须动的，删除因自己修改而变无用的 import/变量，不动既有死代码。
 
 ### 日志

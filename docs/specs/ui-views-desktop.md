@@ -6,6 +6,16 @@
 
 ## 视图
 
+### PopupView / 主面板（route=usage）
+
+用量面板。UI 态（provider 顺序、账号顺序、折叠/展开）持久化到 config，经 `CONFIG_CHANGED` 广播在多窗间同步。同步不变量（t153，修复保存回环闪烁）：
+
+- `apply_config` 是广播唯一入口：对每个持久化字段「先同步已同步 ref、值相等则保留 state 引用」，广播回显绝不触发 persist effect 反向保存。
+- 插件列表只在 `plugins_structure_signature`（`config.plugins` 整体序列化）变化时 `reload()`；`use_plugins.reload` 对值相等的新列表保留原数组引用，冗余 reload 零重渲染。
+- 结构剪枝（provider/账号消失时清理折叠态）产生的保存是合法的一次性收敛，不构成回环。
+- `use_config` 回显按值深比较跳过（IPC 反序列化后引用比较恒 false）。
+- 主面板 `apply_config_change` 仅在 `pinToTop` 实际变化时 `setAlwaysOnTop`（Windows 上重复调用可见闪烁）。
+
 ### TrayMenu（托盘菜单，route=tray）
 
 自定义 frameless 托盘菜单（非系统原生菜单）。`TrayMenuItem`：icon / label_zh / label_en / danger / checked / meta? / action。

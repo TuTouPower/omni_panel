@@ -161,4 +161,31 @@ describe("use_config", () => {
         // (i.e. an echo of the local save).
         expect(result.current.config).toBe(new_config);
     });
+
+    it("keeps config reference when echo arrives as a deep-equal but different object (t153)", async () => {
+        let captured_callback: ((config: AppConfiguration) => void) | undefined;
+        on_config_change.mockImplementation((cb: (config: AppConfiguration) => void) => {
+            captured_callback = cb;
+            return vi.fn();
+        });
+
+        const { use_config } = await import("../../../../src/renderer/hooks/use-config");
+        const { result } = renderHook(() => use_config());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        const before = result.current.config;
+        expect(before).not.toBeNull();
+
+        // IPC broadcasts are deserialized: the echo of our own state always
+        // arrives as a fresh object, never the same reference.
+        const echo = JSON.parse(JSON.stringify(before)) as AppConfiguration;
+        act(() => {
+            captured_callback?.(echo);
+        });
+
+        expect(result.current.config).toBe(before);
+    });
 });

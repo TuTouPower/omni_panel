@@ -18,6 +18,7 @@ import { CollapsibleCard } from "../components/CollapsibleCard";
 import { UpcomingResetCard, UPCOMING_RESET_CARD_ID } from "../components/UpcomingResetCard";
 import { type ProviderUsageGroup } from "../lib/provider-usage";
 import { build_reorder_base } from "../lib/drag-reorder";
+import { plugins_structure_signature } from "../lib/config-sync";
 import type { AppConfiguration } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import logo from "../assets/logo.svg";
@@ -79,6 +80,14 @@ export function PopupView() {
     const synced_order_ref = useRef<string[]>([]);
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const synced_account_orders_ref = useRef<Record<string, string[]>>({});
+    // Last values adopted from config for the collapse/expand persist effect.
+    // Synced inside apply_config so a config broadcast is never mistaken for
+    // a user toggle and re-saved (t153).
+    const prev_collapsed_ref = useRef<Record<string, boolean>>({});
+    const prev_expanded_ref = useRef<Record<string, boolean>>({});
+    // Structural signature of config.plugins from the last applied config;
+    // reload() only runs when it changes (t153).
+    const last_plugins_sig_ref = useRef<string | null>(null);
     const mounted_ref = useRef(true);
     useEffect(() => {
         mounted_ref.current = true;
@@ -115,12 +124,15 @@ export function PopupView() {
 
     const apply_config = useCallback(
         (config: AppConfiguration) => {
+            last_plugins_sig_ref.current = plugins_structure_signature(config.plugins);
             const order = config.providerOrder;
             if (order && order.length > 0) {
                 // 自定义 provider（t095）不在内置白名单内；信任 config 持久化的顺序，
                 // 残留无效 provider 由 config-store prune 兜底。
                 const validated = [...order];
                 if (validated.length > 0) {
+                    // t153：同步 ref，配置回显不再被误当作用户拖拽而回写。
+                    synced_order_ref.current = validated;
                     set_provider_order((current) =>
                         arrays_equal(current, validated) ? current : validated,
                     );
@@ -149,11 +161,20 @@ export function PopupView() {
                     account_orders_equal(current, next_orders) ? current : next_orders,
                 );
             }
-            if (config.collapsedAccounts) {
-                set_collapsed_accounts(config.collapsedAccounts);
+            const next_collapsed = config.collapsedAccounts;
+            if (next_collapsed) {
+                // t153：同步 ref + 值相等时保留 state 引用，广播回显不触发 persist。
+                prev_collapsed_ref.current = next_collapsed;
+                set_collapsed_accounts((current) =>
+                    record_bool_equal(current, next_collapsed) ? current : next_collapsed,
+                );
             }
-            if (config.expandedProviders) {
-                set_expanded_providers(config.expandedProviders);
+            const next_expanded = config.expandedProviders;
+            if (next_expanded) {
+                prev_expanded_ref.current = next_expanded;
+                set_expanded_providers((current) =>
+                    record_bool_equal(current, next_expanded) ? current : next_expanded,
+                );
             }
         },
         [
@@ -209,11 +230,13 @@ export function PopupView() {
 
     useEffect(() => {
         return window.usageboard.event.onConfigChange?.((config) => {
+            const prev_sig = last_plugins_sig_ref.current;
             apply_config(config);
-            if (config.providerOrder && config.providerOrder.length > 0) {
-                synced_order_ref.current = [...config.providerOrder];
+            // t153: UI-level saves (order/collapse) dominate config broadcasts;
+            // only a structural plugin change warrants a connector:list reload.
+            if (last_plugins_sig_ref.current !== prev_sig) {
+                void reload();
             }
-            void reload();
         });
     }, [apply_config, reload]);
 
@@ -235,8 +258,6 @@ export function PopupView() {
     }, [account_orders, patchConfig]);
 
     // Persist collapsed/expanded state to config
-    const prev_collapsed_ref = useRef<Record<string, boolean>>({});
-    const prev_expanded_ref = useRef<Record<string, boolean>>({});
     useEffect(() => {
         const prev_c = prev_collapsed_ref.current;
         const prev_e = prev_expanded_ref.current;

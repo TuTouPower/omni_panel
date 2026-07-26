@@ -1215,6 +1215,14 @@
             "status": "done",
             "branch": "t152_rename_to_omni_panel",
             "note": ""
+        },
+        {
+            "tid": "t153",
+            "title": "修复用量面板配置保存回环导致闪烁",
+            "slug": "popup_config_save_loop",
+            "status": "done",
+            "branch": "t153_popup_config_save_loop",
+            "note": ""
         }
     ]
 }

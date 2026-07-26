@@ -52,6 +52,19 @@ const plugin_refresh_all = vi.fn<() => Promise<void>>().mockResolvedValue(undefi
 const main_panel_hide = vi.fn<() => void>();
 const main_panel_get_mode = vi.fn<() => Promise<"popup" | "floating">>().mockResolvedValue("popup");
 const usage_log = vi.fn<(payload: { level: string; module: string; message: string }) => void>();
+const config_get = vi.fn();
+const config_save = vi.fn<() => Promise<void>>();
+const on_config_change = vi.fn((callback: (config: AppConfiguration) => void) => {
+    void callback;
+    return vi.fn();
+});
+
+const base_popup_config: AppConfiguration = {
+    schemaVersion: 1,
+    language: "zh-Hans",
+    plugins: [],
+    launchAtLogin: false,
+};
 
 describe("PopupView", () => {
     beforeEach(() => {
@@ -59,6 +72,12 @@ describe("PopupView", () => {
         main_panel_get_mode.mockResolvedValue("popup");
         plugin_refresh.mockResolvedValue(undefined);
         plugin_refresh_all.mockResolvedValue(undefined);
+        config_get.mockResolvedValue({ config: base_popup_config, hasSecrets: {} });
+        config_save.mockResolvedValue(undefined);
+        on_config_change.mockImplementation((callback: (config: AppConfiguration) => void) => {
+            void callback;
+            return vi.fn();
+        });
         plugin_list.mockResolvedValue([
             connectorInfo({
                 source: "gateway",
@@ -139,16 +158,8 @@ describe("PopupView", () => {
                 snapshot: vi.fn().mockResolvedValue({}),
             },
             config: {
-                get: vi.fn().mockResolvedValue({
-                    config: {
-                        schemaVersion: 1,
-                        language: "zh-Hans",
-                        plugins: [],
-                        launchAtLogin: false,
-                    },
-                    hasSecrets: {},
-                }),
-                save: vi.fn().mockResolvedValue(undefined),
+                get: config_get,
+                save: config_save,
                 getSecrets: vi.fn().mockResolvedValue({}),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
@@ -160,6 +171,7 @@ describe("PopupView", () => {
                 onStateChange: vi.fn(() => vi.fn()),
                 onThemeChange: vi.fn(),
                 onSettingsNavigate: vi.fn(() => vi.fn()),
+                onConfigChange: on_config_change,
             },
             popup: {
                 report_content_height: vi.fn(),
@@ -1323,11 +1335,8 @@ describe("PopupView", () => {
             [...(live_grid?.children ?? [])].map((node) => node.getAttribute("data-card-id")),
         ).toEqual(["__upcoming_reset__", "deepseek", "claude"]);
 
-        // Wait for the initial save queue (if any) to settle, then isolate the
-        // click that toggles expansion.
-        await waitFor(() => {
-            expect(config_save).toHaveBeenCalled();
-        });
+        // t153: mount no longer re-saves already-persisted UI state, so there
+        // is no initial save to settle — any save from here is click-driven.
         const calls_before = config_save.mock.calls.length;
 
         fireEvent.click(collapse_button);
@@ -1395,6 +1404,95 @@ describe("PopupView", () => {
         expect(document.querySelectorAll(".overview-grid").length).toBeGreaterThan(0);
         expect(document.querySelectorAll('[data-card-id="__upcoming_reset__"]')).toHaveLength(0);
         expect(screen.queryByText(/即将重置/)).toBeNull();
+    });
+
+    it("does not save config on mount when persisted UI state already exists (t153)", async () => {
+        config_get.mockResolvedValue({
+            config: {
+                ...base_popup_config,
+                providerOrder: ["claude", "deepseek"],
+                collapsedAccounts: {},
+                expandedProviders: { deepseek: true },
+            },
+            hasSecrets: {},
+        });
+
+        render(<PopupView />);
+
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /总览/ })).toBeInTheDocument();
+        });
+        // Flush the save queue: any persist effect that fired would have
+        // chained config.get → config.save by now.
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(config_save).not.toHaveBeenCalled();
+    });
+
+    it("ignores config broadcasts that change nothing relevant (t153)", async () => {
+        let broadcast: ((config: AppConfiguration) => void) | undefined;
+        on_config_change.mockImplementation((callback: (config: AppConfiguration) => void) => {
+            broadcast = callback;
+            return vi.fn();
+        });
+
+        render(<PopupView />);
+
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /总览/ })).toBeInTheDocument();
+        });
+        const list_calls = plugin_list.mock.calls.length;
+
+        // IPC broadcasts arrive deserialized — a fresh object every time.
+        const echo = JSON.parse(JSON.stringify(base_popup_config)) as AppConfiguration;
+        act(() => {
+            broadcast?.(echo);
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(plugin_list.mock.calls.length).toBe(list_calls);
+        expect(config_save).not.toHaveBeenCalled();
+    });
+
+    it("reloads plugins when a broadcast changes plugin structure (t153)", async () => {
+        let broadcast: ((config: AppConfiguration) => void) | undefined;
+        on_config_change.mockImplementation((callback: (config: AppConfiguration) => void) => {
+            broadcast = callback;
+            return vi.fn();
+        });
+
+        render(<PopupView />);
+
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /总览/ })).toBeInTheDocument();
+        });
+        const list_calls = plugin_list.mock.calls.length;
+
+        act(() => {
+            broadcast?.({
+                ...base_popup_config,
+                plugins: [
+                    {
+                        instanceId: "p1",
+                        stateId: "p1",
+                        name: "deepseek",
+                        enabled: true,
+                        executablePath: "connectors/deepseek/connector.ts",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+            });
+        });
+
+        await waitFor(() => {
+            expect(plugin_list.mock.calls.length).toBeGreaterThan(list_calls);
+        });
     });
 });
 
