@@ -1,8 +1,31 @@
-import { request as undici_request } from "undici";
 import { createLogger } from "../../../shared/lib/logger";
-import { keyFor } from "../config/secrets-store";
-import { get_proxy_agent } from "../network/proxy-pool";
 import type { VaultBackend } from "../vault/vault-backend";
+import {
+    DEVICE_CODE_GRANT,
+    REFRESH_TOKEN_GRANT,
+    type HttpPost,
+    type DeviceCodeStart,
+    type OAuthLoginResult,
+    type LoginStatus,
+    type RefreshResult,
+    type AutoRefreshOptions,
+    is_token_response,
+    is_error_response,
+    form_encode,
+    to_error,
+    make_default_http_post,
+    load_tokens,
+    store_tokens,
+    clear_tokens,
+    is_terminal_grant_error,
+    REFRESH_MARGIN_MS,
+    REFRESH_RETRY_DELAY_MS,
+    MAX_REFRESH_RETRIES,
+    MIN_REFRESH_DELAY_MS,
+    MAX_TIMEOUT_MS,
+    SLOW_DOWN_PENALTY_SECONDS,
+    compute_expires_at,
+} from "./oauth_helpers";
 
 const log = createLogger("grok-oauth");
 
@@ -16,64 +39,20 @@ export const GROK_TOKEN_URL = "https://auth.x.ai/oauth2/token";
 export const GROK_CLIENT_ID = "b1a00492-073a-47ea-816f-4c329264a828";
 export const GROK_SCOPE = "offline_access grok-cli:access";
 
-const DEVICE_CODE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
-const REFRESH_TOKEN_GRANT = "refresh_token";
-
-const OAUTH_TOKEN_KEY = "OAUTH_TOKEN";
-const OAUTH_REFRESH_TOKEN_KEY = "OAUTH_REFRESH_TOKEN";
-const OAUTH_EXPIRES_AT_KEY = "OAUTH_EXPIRES_AT";
-
-const SLOW_DOWN_PENALTY_SECONDS = 5;
-const REFRESH_MARGIN_MS = 5 * 60 * 1000;
-const REFRESH_RETRY_DELAY_MS = 60 * 1000;
-// A16: cap consecutive refresh retries so a permanently-failing token (e.g. xAI
-// 5xx storm) doesn't poll every 60s forever. Terminal grant errors already
-// stop; this bounds non-terminal failures.
-const MAX_REFRESH_RETRIES = 10;
-const MIN_REFRESH_DELAY_MS = 1000;
-const MAX_TIMEOUT_MS = 2_147_483_647;
-
-export type HttpPost = (
-    url: string,
-    body: string,
-    headers: Record<string, string>,
-    proxy_url?: string,
-) => Promise<unknown>;
+export type {
+    HttpPost,
+    DeviceCodeStart,
+    OAuthLoginResult,
+    LoginStatus,
+    RefreshResult,
+    AutoRefreshOptions,
+};
 
 export interface GrokOAuthManagerDeps {
     readonly vault: VaultBackend;
     readonly get_proxy_url?: () => string | undefined;
     /** Injectable HTTP transport for testing. Defaults to undici with optional proxy. */
     readonly http_post?: HttpPost;
-}
-
-export interface DeviceCodeStart {
-    readonly device_code: string;
-    readonly user_code: string;
-    readonly verification_uri: string;
-    readonly verification_uri_complete: string | null;
-    readonly expires_in: number;
-    readonly interval: number;
-}
-
-export interface OAuthLoginResult {
-    readonly saved: boolean;
-    readonly token?: string;
-}
-
-export interface LoginStatus {
-    readonly has_token: boolean;
-    readonly expires_at: string | null;
-    readonly can_refresh: boolean;
-}
-
-export interface RefreshResult {
-    readonly success: boolean;
-    readonly error?: string;
-}
-
-export interface AutoRefreshOptions {
-    readonly refresh_before_ms?: number;
 }
 
 export interface GrokOAuthManager {
@@ -92,110 +71,6 @@ export interface GrokOAuthManager {
     stop_auto_refresh(instance_id: string): void;
     reconcile_auto_refresh(instance_ids: readonly string[]): void;
     shutdown(): void;
-}
-
-interface TokenResponse {
-    access_token: string;
-    refresh_token?: string;
-    expires_in?: number;
-    token_type?: string;
-}
-
-interface TokenErrorResponse {
-    error: string;
-    error_description?: string;
-}
-
-function is_token_response(v: unknown): v is TokenResponse {
-    if (typeof v !== "object" || v === null) return false;
-    const obj = v as Record<string, unknown>;
-    return typeof obj["access_token"] === "string";
-}
-
-function is_error_response(v: unknown): v is TokenErrorResponse {
-    if (typeof v !== "object" || v === null) return false;
-    const obj = v as Record<string, unknown>;
-    return typeof obj["error"] === "string";
-}
-
-function form_encode(pairs: readonly (readonly [string, string])[]): string {
-    return pairs.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
-}
-
-function to_error(error: unknown): Error {
-    return error instanceof Error ? error : new Error(String(error));
-}
-
-function make_default_http_post(): HttpPost {
-    return async (url, body, headers, proxy_url) => {
-        // Shared process-level ProxyAgent (pooled by proxy URL). Reusing the
-        // agent restores TCP/TLS connection reuse across refreshes; lifecycle is
-        // managed centrally at shutdown, so no per-request close here.
-        const dispatcher = proxy_url ? get_proxy_agent(proxy_url) : undefined;
-        const response = await undici_request(url, {
-            method: "POST",
-            headers,
-            body,
-            headersTimeout: 15_000,
-            bodyTimeout: 15_000,
-            ...(dispatcher ? { dispatcher } : {}),
-        });
-        const text = await response.body.text();
-        if (text.length === 0) {
-            return {};
-        }
-        try {
-            return JSON.parse(text) as unknown;
-        } catch {
-            // Some OAuth error responses may be non-JSON; surface the raw text.
-            throw new Error(`Non-JSON response from ${url}: ${text.slice(0, 200)}`);
-        }
-    };
-}
-
-interface StoredTokens {
-    access: string | null;
-    refresh: string | null;
-    expires_at: string | null;
-}
-
-async function load_tokens(vault: VaultBackend, instance_id: string): Promise<StoredTokens> {
-    const access = await vault.get(keyFor(instance_id, OAUTH_TOKEN_KEY));
-    const refresh = await vault.get(keyFor(instance_id, OAUTH_REFRESH_TOKEN_KEY));
-    const expires_at = await vault.get(keyFor(instance_id, OAUTH_EXPIRES_AT_KEY));
-    return { access, refresh, expires_at };
-}
-
-async function store_tokens(
-    vault: VaultBackend,
-    instance_id: string,
-    tokens: TokenResponse,
-): Promise<void> {
-    await vault.set(keyFor(instance_id, OAUTH_TOKEN_KEY), tokens.access_token);
-    // Refresh token rotation: store the new refresh_token if returned; otherwise
-    // keep the existing one (some servers do not return a new refresh_token).
-    if (tokens.refresh_token) {
-        await vault.set(keyFor(instance_id, OAUTH_REFRESH_TOKEN_KEY), tokens.refresh_token);
-    }
-    if (typeof tokens.expires_in === "number") {
-        const expires_at_epoch = Date.now() + tokens.expires_in * 1000;
-        await vault.set(keyFor(instance_id, OAUTH_EXPIRES_AT_KEY), String(expires_at_epoch));
-    }
-}
-
-async function clear_tokens(vault: VaultBackend, instance_id: string): Promise<void> {
-    await vault.delete(keyFor(instance_id, OAUTH_TOKEN_KEY));
-    await vault.delete(keyFor(instance_id, OAUTH_REFRESH_TOKEN_KEY));
-    await vault.delete(keyFor(instance_id, OAUTH_EXPIRES_AT_KEY));
-}
-
-function is_terminal_grant_error(error: string): boolean {
-    return (
-        error === "invalid_grant" ||
-        error === "refresh_token_expired" ||
-        error === "refresh_token_reused" ||
-        error === "refresh_token_invalidated"
-    );
 }
 
 export function create_grok_oauth_manager(deps: GrokOAuthManagerDeps): GrokOAuthManager {
@@ -341,7 +216,15 @@ export function create_grok_oauth_manager(deps: GrokOAuthManagerDeps): GrokOAuth
                         advance_token_generation(instance_id);
                         log.info(`Device-code login succeeded for ${instance_id}`);
                         void schedule_auto_refresh_if_enabled(instance_id);
-                        return { saved: true, token: token_response.access_token };
+                        const expires_at = compute_expires_at(token_response);
+                        return {
+                            saved: true,
+                            token: token_response.access_token,
+                            ...(token_response.refresh_token
+                                ? { refresh_token: token_response.refresh_token }
+                                : {}),
+                            ...(expires_at ? { expires_at } : {}),
+                        };
                     });
                 }
                 if (!is_error_response(response)) {

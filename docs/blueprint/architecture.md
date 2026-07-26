@@ -51,6 +51,7 @@ src/
 │   │   ├── popup/popup-height-controller.ts  # 动态高度纯函数
 │   │   ├── auth/grok_oauth_manager.ts          # Grok device-code OAuth + token rotation
 │   │   ├── auth/kimi_oauth_manager.ts          # Kimi device-code OAuth（仿 grok；独立 client_id/设备头/无 scope）
+│   │   ├── auth/oauth_helpers.ts               # Grok/Kimi OAuth 共享常量、类型与纯函数（Layer 1）
 │   │   ├── network/effective_proxy.ts           # configured/detected proxy 运行时合并
 │   │   ├── logging.ts / paths.ts / settings-close-action.ts
 │   ├── ipc/                       # 按域拆的 IPC handler（见 specs/ipc-api.md + ipc-electron.md）
