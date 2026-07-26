@@ -1119,6 +1119,14 @@
             "status": "done",
             "branch": "t149_docs_token_stats_spec_cleanup",
             "note": ""
+        },
+        {
+            "tid": "t127",
+            "title": "提取 grok/kimi OAuth 共享 helper 模块",
+            "slug": "extract_oauth_helpers",
+            "status": "done",
+            "branch": "t127_extract_oauth_helpers",
+            "note": ""
         }
     ]
 }

@@ -2,11 +2,34 @@ import { randomUUID } from "node:crypto";
 import { promises as fsp } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { request as undici_request } from "undici";
 import { createLogger } from "../../../shared/lib/logger";
-import { keyFor } from "../config/secrets-store";
-import { get_proxy_agent } from "../network/proxy-pool";
 import type { VaultBackend } from "../vault/vault-backend";
+import {
+    DEVICE_CODE_GRANT,
+    REFRESH_TOKEN_GRANT,
+    type HttpPost,
+    type DeviceCodeStart,
+    type OAuthLoginResult,
+    type LoginStatus,
+    type RefreshResult,
+    type AutoRefreshOptions,
+    is_token_response,
+    is_error_response,
+    form_encode,
+    to_error,
+    make_default_http_post,
+    load_tokens,
+    store_tokens,
+    clear_tokens,
+    is_terminal_grant_error,
+    REFRESH_MARGIN_MS,
+    REFRESH_RETRY_DELAY_MS,
+    MAX_REFRESH_RETRIES,
+    MIN_REFRESH_DELAY_MS,
+    MAX_TIMEOUT_MS,
+    SLOW_DOWN_PENALTY_SECONDS,
+    compute_expires_at,
+} from "./oauth_helpers";
 
 const log = createLogger("kimi-oauth");
 
@@ -19,26 +42,14 @@ export const KIMI_DEVICE_AUTH_URL = "https://auth.kimi.com/api/oauth/device_auth
 export const KIMI_TOKEN_URL = "https://auth.kimi.com/api/oauth/token";
 export const KIMI_CLIENT_ID = "17e5f671-d194-4dfb-9706-5516cb48c098";
 
-const DEVICE_CODE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
-const REFRESH_TOKEN_GRANT = "refresh_token";
-
-const OAUTH_TOKEN_KEY = "OAUTH_TOKEN";
-const OAUTH_REFRESH_TOKEN_KEY = "OAUTH_REFRESH_TOKEN";
-const OAUTH_EXPIRES_AT_KEY = "OAUTH_EXPIRES_AT";
-
-const SLOW_DOWN_PENALTY_SECONDS = 5;
-const REFRESH_MARGIN_MS = 5 * 60 * 1000;
-const REFRESH_RETRY_DELAY_MS = 60 * 1000;
-const MAX_REFRESH_RETRIES = 10;
-const MIN_REFRESH_DELAY_MS = 1000;
-const MAX_TIMEOUT_MS = 2_147_483_647;
-
-export type HttpPost = (
-    url: string,
-    body: string,
-    headers: Record<string, string>,
-    proxy_url?: string,
-) => Promise<unknown>;
+export type {
+    HttpPost,
+    DeviceCodeStart,
+    OAuthLoginResult,
+    LoginStatus,
+    RefreshResult,
+    AutoRefreshOptions,
+};
 
 export type GetDeviceId = () => Promise<string | null>;
 
@@ -52,42 +63,6 @@ export interface KimiOAuthManagerDeps {
      * `~/.kimi-code/device_id` with 0600 permissions. Return null to omit the header.
      */
     readonly get_device_id?: GetDeviceId;
-}
-
-export interface DeviceCodeStart {
-    readonly device_code: string;
-    readonly user_code: string;
-    readonly verification_uri: string;
-    readonly verification_uri_complete: string | null;
-    readonly expires_in: number;
-    readonly interval: number;
-}
-
-/**
- * Login result. `refresh_token`/`expires_at` are surfaced so the caller can
- * persist the full token set onto the real connector instance (the device-code
- * flow is started under a temporary instance id; see OAuthDeviceForm).
- */
-export interface OAuthLoginResult {
-    readonly saved: boolean;
-    readonly token?: string;
-    readonly refresh_token?: string;
-    readonly expires_at?: string;
-}
-
-export interface LoginStatus {
-    readonly has_token: boolean;
-    readonly expires_at: string | null;
-    readonly can_refresh: boolean;
-}
-
-export interface RefreshResult {
-    readonly success: boolean;
-    readonly error?: string;
-}
-
-export interface AutoRefreshOptions {
-    readonly refresh_before_ms?: number;
 }
 
 export interface KimiOAuthManager {
@@ -106,59 +81,6 @@ export interface KimiOAuthManager {
     stop_auto_refresh(instance_id: string): void;
     reconcile_auto_refresh(instance_ids: readonly string[]): void;
     shutdown(): void;
-}
-
-interface TokenResponse {
-    access_token: string;
-    refresh_token?: string;
-    expires_in?: number;
-    token_type?: string;
-}
-
-interface TokenErrorResponse {
-    error: string;
-    error_description?: string;
-}
-
-function is_token_response(v: unknown): v is TokenResponse {
-    if (typeof v !== "object" || v === null) return false;
-    const obj = v as Record<string, unknown>;
-    return typeof obj["access_token"] === "string";
-}
-
-function is_error_response(v: unknown): v is TokenErrorResponse {
-    if (typeof v !== "object" || v === null) return false;
-    const obj = v as Record<string, unknown>;
-    return typeof obj["error"] === "string";
-}
-
-function form_encode(pairs: readonly (readonly [string, string])[]): string {
-    return pairs.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
-}
-
-function to_error(error: unknown): Error {
-    return error instanceof Error ? error : new Error(String(error));
-}
-
-function make_default_http_post(): HttpPost {
-    return async (url, body, headers, proxy_url) => {
-        const dispatcher = proxy_url ? get_proxy_agent(proxy_url) : undefined;
-        const response = await undici_request(url, {
-            method: "POST",
-            headers,
-            body,
-            headersTimeout: 15_000,
-            bodyTimeout: 15_000,
-            ...(dispatcher ? { dispatcher } : {}),
-        });
-        const text = await response.body.text();
-        if (text.length === 0) return {};
-        try {
-            return JSON.parse(text) as unknown;
-        } catch {
-            throw new Error(`Non-JSON response from ${url}: ${text.slice(0, 200)}`);
-        }
-    };
 }
 
 /**
@@ -187,58 +109,6 @@ function make_default_get_device_id(): GetDeviceId {
             return null;
         }
     };
-}
-
-interface StoredTokens {
-    access: string | null;
-    refresh: string | null;
-    expires_at: string | null;
-}
-
-async function load_tokens(vault: VaultBackend, instance_id: string): Promise<StoredTokens> {
-    const [access, refresh, expires_at] = await Promise.all([
-        vault.get(keyFor(instance_id, OAUTH_TOKEN_KEY)),
-        vault.get(keyFor(instance_id, OAUTH_REFRESH_TOKEN_KEY)),
-        vault.get(keyFor(instance_id, OAUTH_EXPIRES_AT_KEY)),
-    ]);
-    return { access, refresh, expires_at };
-}
-
-function compute_expires_at(token_response: TokenResponse): string | undefined {
-    if (typeof token_response.expires_in !== "number") return undefined;
-    return String(Date.now() + token_response.expires_in * 1000);
-}
-
-async function store_tokens(
-    vault: VaultBackend,
-    instance_id: string,
-    tokens: TokenResponse,
-): Promise<void> {
-    await vault.set(keyFor(instance_id, OAUTH_TOKEN_KEY), tokens.access_token);
-    // Refresh token rotation: store the new refresh_token if returned; otherwise
-    // keep the existing one (KimiOAuthService.swift:324 confirms server may omit it).
-    if (tokens.refresh_token) {
-        await vault.set(keyFor(instance_id, OAUTH_REFRESH_TOKEN_KEY), tokens.refresh_token);
-    }
-    const expires_at = compute_expires_at(tokens);
-    if (expires_at) {
-        await vault.set(keyFor(instance_id, OAUTH_EXPIRES_AT_KEY), expires_at);
-    }
-}
-
-async function clear_tokens(vault: VaultBackend, instance_id: string): Promise<void> {
-    await vault.delete(keyFor(instance_id, OAUTH_TOKEN_KEY));
-    await vault.delete(keyFor(instance_id, OAUTH_REFRESH_TOKEN_KEY));
-    await vault.delete(keyFor(instance_id, OAUTH_EXPIRES_AT_KEY));
-}
-
-function is_terminal_grant_error(error: string): boolean {
-    return (
-        error === "invalid_grant" ||
-        error === "refresh_token_expired" ||
-        error === "refresh_token_reused" ||
-        error === "refresh_token_invalidated"
-    );
 }
 
 export function create_kimi_oauth_manager(deps: KimiOAuthManagerDeps): KimiOAuthManager {

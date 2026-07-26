@@ -27,6 +27,7 @@
 | connector-cpa-ui              | Web      | 拆自 connector-cpa（t037）                                          | 2026-07-21   |
 | connector-direct              | API      | 迁移自 omni_powers，t039                                            | 2026-07-22   |
 | connector-runtime             | API      | 迁移自 omni_powers，无                                              | 2026-07-05   |
+| extract_oauth_helpers         | API      | t127                                                                | 2026-07-26   |
 | connector-session             | Desktop  | 迁移自 omni_powers，t098                                            | 2026-07-24   |
 | connector-user-scripts-entry  | Desktop  | t094                                                                | 2026-07-24   |
 | connector-user-scripts        | Desktop  | t095                                                                | 2026-07-24   |

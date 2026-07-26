@@ -25,14 +25,6 @@
             "note": ""
         },
         {
-            "tid": "t127",
-            "title": "提取 grok/kimi OAuth 共享 helper 模块",
-            "slug": "extract_oauth_helpers",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t128",
             "title": "use-plugins 快照相等性检查消除 memo 失效",
             "slug": "plugins_snapshot_equality",
