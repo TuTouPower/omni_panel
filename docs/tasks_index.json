@@ -65,14 +65,6 @@
             "note": ""
         },
         {
-            "tid": "t148",
-            "title": "renderer 修复：占位按钮置灰 + 契约小修",
-            "slug": "renderer_fixes",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t150",
             "title": "Kimi OAuth 并发保护：token 写入序列化 + refresh 去重",
             "slug": "kimi_oauth_concurrency",

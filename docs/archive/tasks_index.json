@@ -1119,6 +1119,14 @@
             "status": "done",
             "branch": "t149_docs_token_stats_spec_cleanup",
             "note": ""
+        },
+        {
+            "tid": "t148",
+            "title": "renderer 修复：占位按钮置灰 + 契约小修",
+            "slug": "renderer_fixes",
+            "status": "done",
+            "branch": "t148_renderer_fixes",
+            "note": ""
         }
     ]
 }

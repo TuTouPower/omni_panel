@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { PopupView } from "../../../../src/renderer/views/PopupView";
+import { PopupView, record_bool_equal } from "../../../../src/renderer/views/PopupView";
 import type { ConnectorInfo } from "../../../../src/shared/types/ipc";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
 
@@ -1395,5 +1395,27 @@ describe("PopupView", () => {
         expect(document.querySelectorAll(".overview-grid").length).toBeGreaterThan(0);
         expect(document.querySelectorAll('[data-card-id="__upcoming_reset__"]')).toHaveLength(0);
         expect(screen.queryByText(/即将重置/)).toBeNull();
+    });
+});
+
+describe("record_bool_equal", () => {
+    it("returns true for identical records", () => {
+        expect(record_bool_equal({ a: true, b: false }, { a: true, b: false })).toBe(true);
+    });
+
+    it("returns true when key order differs", () => {
+        expect(record_bool_equal({ a: true, b: false }, { b: false, a: true })).toBe(true);
+    });
+
+    it("returns false when values differ", () => {
+        expect(record_bool_equal({ a: true }, { a: false })).toBe(false);
+    });
+
+    it("returns false when key counts differ", () => {
+        expect(record_bool_equal({ a: true }, { a: true, b: false })).toBe(false);
+    });
+
+    it("returns true for empty records", () => {
+        expect(record_bool_equal({}, {})).toBe(true);
     });
 });

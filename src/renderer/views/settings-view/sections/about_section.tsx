@@ -111,7 +111,7 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                             };
                             const url = urls[c.id];
                             if (url) {
-                                const win = window.open(url, "_blank");
+                                const win = window.open(url, "_blank", "noopener,noreferrer");
                                 if (!win) window.location.href = url;
                             }
                         }}
