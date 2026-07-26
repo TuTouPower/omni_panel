@@ -51,7 +51,7 @@ describe("GrokLoginSection", () => {
         });
     });
 
-    it("shows device code and verification URL after clicking login", async () => {
+    it("shows the complete authorization URL and hides the user-code line (t156)", async () => {
         const grok = mock_grok_api();
         grok.login_poll.mockImplementation(() => new Promise(() => undefined)); // never resolves
         render(<GrokLoginSection instance_id={instance_id} />);
@@ -71,8 +71,42 @@ describe("GrokLoginSection", () => {
             );
         });
 
-        expect(screen.getByText("https://auth.x.ai/device")).toBeInTheDocument();
-        expect(screen.getByText("ABCD-EFGH")).toBeInTheDocument();
+        const link = await screen.findByRole("link", {
+            name: "https://auth.x.ai/device?user_code=ABCD-EFGH",
+        });
+        expect(link).toHaveAttribute("href", "https://auth.x.ai/device?user_code=ABCD-EFGH");
+        expect(screen.queryByText(/输入代码/)).not.toBeInTheDocument();
+    });
+
+    it("constructs a complete URL from verification_uri when no complete URL is returned (t156)", async () => {
+        const grok = mock_grok_api({
+            login_start: { verification_uri_complete: null },
+        });
+        grok.login_poll.mockImplementation(() => new Promise(() => undefined));
+        render(<GrokLoginSection instance_id={instance_id} />);
+
+        await userEvent.click(await screen.findByText("Grok 登录"));
+
+        const link = await screen.findByRole("link", {
+            name: "https://auth.x.ai/device?user_code=ABCD-EFGH",
+        });
+        expect(link).toHaveAttribute("href", "https://auth.x.ai/device?user_code=ABCD-EFGH");
+        expect(screen.queryByText(/输入代码/)).not.toBeInTheDocument();
+    });
+
+    it("falls back to the user-code line when user_code is empty (t156)", async () => {
+        const grok = mock_grok_api({
+            login_start: { verification_uri_complete: null, user_code: "" },
+        });
+        grok.login_poll.mockImplementation(() => new Promise(() => undefined));
+        render(<GrokLoginSection instance_id={instance_id} />);
+
+        await userEvent.click(await screen.findByText("Grok 登录"));
+
+        await waitFor(() => {
+            expect(screen.getByText(/输入代码/)).toBeInTheDocument();
+        });
+        expect(screen.queryByRole("link")).not.toBeInTheDocument();
     });
 
     it("shows success after polling completes", async () => {
@@ -115,19 +149,6 @@ describe("GrokLoginSection", () => {
         await waitFor(() => {
             expect(screen.getByText("退出登录")).toBeInTheDocument();
         });
-    });
-
-    it("falls back to the verification URI when no complete URL is returned", async () => {
-        const grok = mock_grok_api({
-            login_start: { verification_uri_complete: null },
-        });
-        grok.login_poll.mockImplementation(() => new Promise(() => undefined));
-        render(<GrokLoginSection instance_id={instance_id} />);
-
-        await userEvent.click(await screen.findByText("Grok 登录"));
-
-        const link = await screen.findByRole("link", { name: "https://auth.x.ai/device" });
-        expect(link).toHaveAttribute("href", "https://auth.x.ai/device");
     });
 
     it("shows logout failure and keeps the logged-in state", async () => {

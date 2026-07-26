@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useGrokDeviceLogin } from "../hooks/useGrokDeviceLogin";
+import { build_device_login_url } from "../lib/device-login-url";
 
 export interface GrokLoginSectionProps {
     readonly instance_id: string;
@@ -88,22 +89,22 @@ export function GrokLoginSection({ instance_id }: GrokLoginSectionProps) {
             {phase === "starting" && <p className="ad-hint">正在获取设备码...</p>}
             {phase === "polling" && device_code && (
                 <div>
-                    <p className="ad-hint">
-                        请访问{" "}
-                        <a
-                            href={
-                                device_code.verification_uri_complete ??
-                                device_code.verification_uri
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            {device_code.verification_uri}
-                        </a>
-                    </p>
-                    <p className="ad-hint">
-                        输入代码：<code>{device_code.user_code}</code>
-                    </p>
+                    {device_code.user_code ? (
+                        <p className="ad-hint">
+                            请访问{" "}
+                            <a
+                                href={build_device_login_url(device_code)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {build_device_login_url(device_code)}
+                            </a>
+                        </p>
+                    ) : (
+                        <p className="ad-hint">
+                            输入代码：<code>{device_code.user_code}</code>
+                        </p>
+                    )}
                     <p className="ad-hint">等待授权完成...</p>
                 </div>
             )}

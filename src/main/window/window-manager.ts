@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeTheme } from "electron";
+import { BrowserWindow, nativeTheme, shell } from "electron";
 import { createLogger } from "../../shared/lib/logger";
 
 const log = createLogger("window-manager");
@@ -122,9 +122,22 @@ export function createWindowManager(opts: {
                 preload: opts.getPreloadPath(),
             },
         });
+
         if (process.platform === "win32") {
             win.setAppDetails({ appId: "omni-panel" });
         }
+        // Open external http(s) links in the system default browser instead of
+        // spawning a new Electron window (t156).
+        win.webContents.setWindowOpenHandler(({ url }) => {
+            const parsed = new URL(url);
+            if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+                void shell.openExternal(url);
+            } else {
+                log.warn(`Blocked window-open for non-http(s) URL: ${url}`);
+            }
+            return { action: "deny" };
+        });
+
         if (cfg.autoHideMenuBar) {
             win.setMenuBarVisibility(false);
         }
