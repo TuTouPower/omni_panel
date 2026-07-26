@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t124",
-            "title": "session_meta 迁至 renderer/lib 消除反向依赖",
-            "slug": "move_session_meta_to_lib",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t125",
             "title": "拆分 accounts_section.tsx 抽 AccountsList",
             "slug": "split_accounts_section",
@@ -52,8 +44,8 @@
             "tid": "t146",
             "title": "blueprint 文档同步：handoff/architecture/domain/specs 一致性",
             "slug": "docs_blueprint_sync",
-            "status": "backlog",
-            "branch": "",
+            "status": "active",
+            "branch": "t146_docs_blueprint_sync",
             "note": ""
         },
         {

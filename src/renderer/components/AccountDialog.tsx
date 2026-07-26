@@ -5,7 +5,7 @@ import type { AddAccountParams } from "./AddAccountDialog";
 import { Icon, VendorMark } from "./Icon";
 import type { ConnectorCatalogEntry, ConnectorInfo } from "../../shared/types/ipc";
 import type { ConnectorConfiguration, AccountOverrides } from "../../shared/types/config";
-import { session_meta } from "../views/settings-view/lib";
+import { session_meta } from "../lib/session_meta";
 
 export function AccountDialog({
     mode,

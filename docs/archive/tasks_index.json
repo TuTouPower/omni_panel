@@ -1111,6 +1111,14 @@
             "status": "dropped",
             "branch": "",
             "note": "dropped: 重组：合并至新 task"
+        },
+        {
+            "tid": "t124",
+            "title": "session_meta 迁至 renderer/lib 消除反向依赖",
+            "slug": "move_session_meta_to_lib",
+            "status": "done",
+            "branch": "t124_move_session_meta_to_lib",
+            "note": ""
         }
     ]
 }
