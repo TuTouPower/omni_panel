@@ -1,7 +1,7 @@
 ---
 tid: t122
 slug: split_settings_view
-diff_anchor: "<SHA>"
+diff_anchor: "847e43beeb0ce3382923526c90cd3c1e7d809599"
 branch: t122_split_settings_view
 ---
 
