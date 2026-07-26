@@ -27,23 +27,20 @@ describe("observation_to_metric_record error mapping", () => {
     it("maps last_error to MetricRecord.error when present", () => {
         const obs = { ...obs_base, last_error: "API key expired" };
         const rec = observation_to_metric_record(obs);
-        expect(rec).not.toBeNull();
-        expect(rec?.error).toBe("API key expired");
+        expect(rec.error).toBe("API key expired");
     });
 
     it("omits error when last_error is null", () => {
         const obs = { ...obs_base, last_error: null };
         const rec = observation_to_metric_record(obs);
-        expect(rec).not.toBeNull();
-        expect(rec?.error).toBeUndefined();
+        expect(rec.error).toBeUndefined();
     });
 
     it("omits error when last_error absent (pre-existing observations)", () => {
         const obs = { ...obs_base };
         delete (obs as Record<string, unknown>)["last_error"];
         const rec = observation_to_metric_record(obs);
-        expect(rec).not.toBeNull();
-        expect(rec?.error).toBeUndefined();
+        expect(rec.error).toBeUndefined();
     });
 });
 
@@ -51,7 +48,6 @@ describe("observation_to_metric_record custom provider (t095)", () => {
     it("keeps observation for unknown snake_case provider instead of dropping it", () => {
         const obs = { ...obs_base, provider: "my_vendor" };
         const rec = observation_to_metric_record(obs);
-        expect(rec).not.toBeNull();
-        expect(rec?.provider).toBe("my_vendor");
+        expect(rec.provider).toBe("my_vendor");
     });
 });

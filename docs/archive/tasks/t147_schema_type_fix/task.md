@@ -1,8 +1,8 @@
 ---
 tid: t147
 slug: schema_type_fix
-diff_anchor: "<SHA>"
-branch: ""
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+branch: "t147_schema_type_fix"
 ---
 
 # Task t147_schema_type_fix
@@ -13,7 +13,8 @@ branch: ""
 
 只记有追溯价值的进展、踩坑、中途决策、偏离 plan、关键验证；不写命令流水账。
 
-- 无事项时写：无
+- 按 spec 完成 observation-mapping 返回类型收窄、cycleDurationMs schema 加 nonnegative、reader helper 提取。
+- Round 1 双审均 PASS；test reviewer 无 finding，code reviewer 指出 observation_mapping_error.test.ts 中因返回类型收窄导致的冗余可选链 lint 失败，已修复。
 
 ## Review 处置
 
@@ -43,14 +44,17 @@ branch: ""
 
 ### 验收标准勾选
 
-- [ ] {从 spec.md 复制逐条}
+- [x] mapping 返回类型与实现一致，无残留 null 分支。
+- [x] 负 cycleDurationMs 被 schema 拒绝，测试通过。
+- [x] 三 reader 共用同一 calendar_date_of/num，token-stats 测试不回归。
+- [x] `pnpm test` 通过。
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
+- Round 2 code：N/A
+- Round 2 test：N/A
 
 ### 遗留
 
@@ -59,4 +63,4 @@ branch: ""
 
 ### 结果摘要
 
-- {一句话；无额外说明可写「见上」}
+- 完成 review_20260726_054747 采纳项 12/14/19：`observation_to_metric_record` 返回类型收窄、`cycleDurationMs` schema 拒绝负值、三 token reader 共用 `reader-utils.ts`。
