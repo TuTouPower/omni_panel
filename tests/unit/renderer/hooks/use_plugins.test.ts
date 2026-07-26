@@ -110,6 +110,19 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+});
+
+beforeEach(() => {
+    // use-plugins batches state-change updates via requestAnimationFrame.
+    // In jsdom the real rAF never fires synchronously, so flush it
+    // immediately to keep these synchronous assertions valid.
+    let raf_id = 0;
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+        cb(performance.now());
+        return ++raf_id;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
 });
 
 describe("use_plugins", () => {
