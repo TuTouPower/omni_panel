@@ -273,6 +273,7 @@ describe("SettingsView", () => {
                     version: "1.1.0",
                     branch: "t030_test",
                     commit: "abc1234",
+                    subject: "feat: do thing",
                 }),
             },
         };
@@ -1571,14 +1572,14 @@ describe("SettingsView", () => {
         expect(meta?.textContent).toMatch(/Windows.*x64/);
     });
 
-    it("shows build info branch@commit in about section", async () => {
+    it("shows build info branch@commit subject in about section", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-about"));
         await waitFor(() => {
             const build = document.querySelector(".ah-build");
-            expect(build?.textContent).toBe("t030_test@abc1234");
+            expect(build?.textContent).toBe("t030_test@abc1234 feat: do thing");
         });
     });
 
