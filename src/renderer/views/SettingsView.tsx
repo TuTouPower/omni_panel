@@ -25,14 +25,11 @@ import { CpaLabelMapDialog } from "../components/CpaLabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon, type VendorId } from "../components/Icon";
-import type {
-    ConnectorCatalogEntry,
-    ConnectorInfo,
-    ConnectorSnapshotDTO,
-} from "../../shared/types/ipc";
+import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc";
 import type { AppConfiguration, AccountOverrides } from "../../shared/types/config";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
+import { useConnectorCatalog, create_instance_and_save } from "../hooks/use_connector_catalog";
 import { Toggle } from "../components/settings/Toggle";
 import { SetRow } from "../components/settings/SetRow";
 import { Select } from "../components/settings/Select";
@@ -365,21 +362,7 @@ export function SettingsView() {
 
     // t121: load manifest catalog once. Independent of config.plugins / tombstone,
     // so the add-account dialog can resolve auth for vendors with no live instance.
-    const [catalog, setCatalog] = useState<ConnectorCatalogEntry[]>([]);
-    useEffect(() => {
-        let cancelled = false;
-        window.usageboard.connector
-            .catalog()
-            .then((entries) => {
-                if (!cancelled) setCatalog(entries);
-            })
-            .catch((err: unknown) => {
-                log.warn("加载 connector catalog 失败", err);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, []);
+    const catalog = useConnectorCatalog();
 
     const savePluginSettings = useCallback(
         async (
@@ -1545,34 +1528,17 @@ export function SettingsView() {
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
                         onAddAccount={async (params) => {
-                            // t121: 从 manifest 直接建实例，不再依赖"先有同类实例可 duplicate"。
-                            // 解决墓碑内 vendor（无现存实例）无法添加账号的问题。
-                            const manifest_id = params.manifest_id;
-                            if (!manifest_id) {
-                                log.warn(
-                                    `add account: no manifest_id for vendor_id=${params.vendor_id}`,
-                                );
-                                return;
-                            }
-                            const created =
-                                await window.usageboard.config.createInstance(manifest_id);
-                            // createInstance 会 reload config；从 main 再取一次最新 config，避免闭包覆盖
-                            const latest = await window.usageboard.config.get();
-                            await savePluginSettings(
-                                created.instanceId,
-                                params.parameter_values,
-                                params.secrets,
-                                params.endpoint_overrides ?? {},
-                                0,
-                                params.account_name,
-                                false,
-                                latest.config,
+                            const result = await create_instance_and_save(
+                                params,
+                                savePluginSettings,
                             );
-                            setDialog({
-                                mode: "edit",
-                                instanceId: created.instanceId,
-                                pluginName: params.account_name,
-                            });
+                            if (result) {
+                                setDialog({
+                                    mode: "edit",
+                                    instanceId: result.instanceId,
+                                    pluginName: result.pluginName,
+                                });
+                            }
                         }}
                         onClose={() => {
                             setDialog(null);
