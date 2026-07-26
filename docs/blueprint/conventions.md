@@ -133,6 +133,7 @@ branch: t032_align_conventions_repo
 
 - **禁止 `print`/`console.log` 调试输出**，一律走 `src/shared/lib/logger.ts` 模块化 logger（scheduler / runtime / connector-sandbox / vault / session / local-api / ipc）。
 - 日志 7 天滚动；scrubber 强制内联在写入路径，**开发期同样脱敏**，secret 一律记为 `***`。
+- 主进程单日志文件达 50MB 后自动分段轮转（`app-<date>.log` → `app-<date>.1.log`，当前文件继续写新段），单日最多 10 段；达到段数上限后停写并 warn，防止循环日志写爆磁盘。
 - renderer 日志经 `LOG_RENDERER` IPC 转发主进程，preload 侧限流（100 条/秒），meta 仅 dev 保留。
 
 ### 测试
