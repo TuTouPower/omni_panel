@@ -9,31 +9,27 @@ import {
     add_watched_metric,
     remove_watched_metric,
 } from "../lib/account-overrides";
-import { PROVIDER_LABELS, accountKey } from "../lib/provider-usage";
-import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
+import { accountKey } from "../lib/provider-usage";
 import { AccountDialog } from "../components/AccountDialog";
 import { CpaAddDialog } from "../components/CpaAddDialog";
 import { TitleBar } from "../components/TitleBar";
-import { VendorCard } from "../components/VendorCard";
-import { CpaCard } from "../components/CpaCard";
 import { CpaLabelMapDialog } from "../components/CpaLabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
-import { Icon, type VendorId } from "../components/Icon";
+import { Icon } from "../components/Icon";
 import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc";
 import type { AppConfiguration, AccountOverrides } from "../../shared/types/config";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
 import { useConnectorCatalog, create_instance_and_save } from "../hooks/use_connector_catalog";
 import {
-    connection_status,
     log,
-    map_status,
     should_log_raw,
     snapshot_items,
     trigger_background_refresh,
 } from "./settings-view/lib";
 import { AboutSection } from "./settings-view/sections/about_section";
+import { AccountsSection } from "./settings-view/sections/accounts_section";
 import { AppearanceSection } from "./settings-view/sections/appearance_section";
 import { DataSection } from "./settings-view/sections/data_section";
 import { GeneralSection } from "./settings-view/sections/general_section";
@@ -404,402 +400,28 @@ export function SettingsView() {
                         )}
 
                         {/* ── Added Connections / CPA Detail ── */}
-                        {section === "accounts" &&
-                            editingCpaId &&
-                            (() => {
-                                const editingPlugin = config.plugins.find(
-                                    (p) => p.instanceId === editingCpaId,
-                                );
-                                const editingInfo = pluginInfos.find(
-                                    (p) => p.instanceId === editingCpaId,
-                                );
-                                if (!editingPlugin || !editingInfo) return null;
-                                const editingPluginConfig = editingPlugin;
-                                return (
-                                    <>
-                                        <div className="sp-head">
-                                            <div className="sp-crumb">
-                                                <span
-                                                    className="sp-crumb-link"
-                                                    onClick={() => {
-                                                        setEditingCpaId(null);
-                                                    }}
-                                                >
-                                                    账号
-                                                </span>
-                                                <span className="cc-sep">
-                                                    <Icon name="chevron" size={15} />
-                                                </span>
-                                                <span className="cc-cur">
-                                                    {editingInfo.displayName}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: "flex", flex: 1 }}>
-                                            <CpaConnectorSettings
-                                                connector={editingInfo}
-                                                config={{
-                                                    endpointOverrides:
-                                                        editingPluginConfig.endpointOverrides,
-                                                    parameterValues:
-                                                        editingPluginConfig.parameterValues,
-                                                    refreshIntervalSeconds:
-                                                        editingPluginConfig.refreshIntervalSeconds,
-                                                    enabled: editingPluginConfig.enabled,
-                                                }}
-                                                enabled={editingPluginConfig.enabled}
-                                                displayName={editingPluginConfig.displayName ?? ""}
-                                                globalIntervalLabel={interval_label}
-                                                hasSecrets={hasSecrets[editingCpaId] ?? {}}
-                                                onSave={async (
-                                                    nonSecrets,
-                                                    endpointOverrides,
-                                                    refreshIntervalSeconds,
-                                                    newDisplayName,
-                                                ) => {
-                                                    await savePluginSettings(
-                                                        editingCpaId,
-                                                        nonSecrets,
-                                                        {},
-                                                        endpointOverrides,
-                                                        refreshIntervalSeconds,
-                                                        newDisplayName,
-                                                        false,
-                                                    );
-                                                }}
-                                                onSaveSecrets={async (secrets) => {
-                                                    await savePluginSecrets(editingCpaId, secrets);
-                                                }}
-                                                onSaved={(shouldRefresh) => {
-                                                    if (shouldRefresh) {
-                                                        trigger_background_refresh(editingCpaId);
-                                                    }
-                                                    setEditingCpaId(null);
-                                                }}
-                                                onToggleEnabled={(nextEnabled) => {
-                                                    void save_config({
-                                                        ...config,
-                                                        plugins: config.plugins.map((pl) =>
-                                                            pl.instanceId === editingCpaId
-                                                                ? { ...pl, enabled: nextEnabled }
-                                                                : pl,
-                                                        ),
-                                                    });
-                                                }}
-                                                onRefresh={async () => {
-                                                    await refreshPlugin(editingCpaId);
-                                                }}
-                                                onRemove={() => {
-                                                    setRemoveCpaConfirmId(editingCpaId);
-                                                    setRemoveCpaConfirmName(
-                                                        editingInfo.displayName,
-                                                    );
-                                                }}
-                                                onEditLabelMap={(provider) => {
-                                                    set_label_map_dialog({
-                                                        instance_id: editingCpaId,
-                                                        vendor_id: provider,
-                                                        account_name:
-                                                            PROVIDER_LABELS[provider] ?? provider,
-                                                        save_target: "provider",
-                                                    });
-                                                }}
-                                                providerLabelMaps={config.providerLabelMaps}
-                                            />
-                                        </div>
-                                    </>
-                                );
-                            })()}
-                        {section === "accounts" && !editingCpaId && (
-                            <>
-                                <div className="sp-head">
-                                    <span className="sp-title">已添加</span>
-                                    <button
-                                        className="sp-action"
-                                        onClick={() => {
-                                            setDialog({
-                                                mode: "add",
-                                                instanceId: undefined,
-                                                pluginName: undefined,
-                                            });
-                                        }}
-                                        type="button"
-                                    >
-                                        <Icon name="plus" size={15} strokeWidth={2} />
-                                        添加
-                                    </button>
-                                </div>
-                                <div className="set-group-label" style={{ marginTop: 16 }}>
-                                    已添加
-                                </div>
-                                {config.plugins.length === 0 ? (
-                                    <div className="text-sm text-[var(--text-3)] py-4">
-                                        暂无已添加连接
-                                    </div>
-                                ) : pluginInfos.length === 0 ? (
-                                    <div className="text-sm text-[var(--text-3)] py-4">
-                                        加载中...
-                                    </div>
-                                ) : (
-                                    (() => {
-                                        /* ── build view model ── */
-                                        const direct_groups = new Map<
-                                            VendorId,
-                                            {
-                                                instance_ids: string[];
-                                                rows: {
-                                                    instance_id: string;
-                                                    account_label: string;
-                                                    enabled: boolean;
-                                                    status:
-                                                        | "ok"
-                                                        | "error"
-                                                        | "auth"
-                                                        | "disabled"
-                                                        | "unknown";
-                                                }[];
-                                            }
-                                        >();
-                                        const cpa_plugins: (typeof config.plugins)[number][] = [];
-
-                                        for (const plugin of config.plugins) {
-                                            const info = pluginInfos.find(
-                                                (item) => item.instanceId === plugin.instanceId,
-                                            );
-                                            const is_cpa = info?.source === "gateway";
-                                            if (is_cpa) {
-                                                cpa_plugins.push(plugin);
-                                            } else {
-                                                const provider_id =
-                                                    info?.activeProviders[0] ?? "overview";
-                                                const existing = direct_groups.get(provider_id);
-                                                const status_label = info
-                                                    ? connection_status(info, plugin.enabled)
-                                                    : plugin.enabled
-                                                      ? "未连接"
-                                                      : "已停用";
-                                                const row = {
-                                                    instance_id: plugin.instanceId,
-                                                    account_label: info?.displayName ?? "",
-                                                    enabled: plugin.enabled,
-                                                    status: map_status(status_label),
-                                                };
-                                                if (existing) {
-                                                    existing.instance_ids.push(plugin.instanceId);
-                                                    existing.rows.push(row);
-                                                } else {
-                                                    direct_groups.set(provider_id, {
-                                                        instance_ids: [plugin.instanceId],
-                                                        rows: [row],
-                                                    });
-                                                }
-                                            }
-                                        }
-
-                                        return (
-                                            <div className="acct-list">
-                                                {Array.from(direct_groups.entries()).map(
-                                                    ([provider_id, group]) => (
-                                                        <VendorCard
-                                                            key={provider_id}
-                                                            provider={provider_id}
-                                                            rows={group.rows}
-                                                            on_toggle={(instance_id) => {
-                                                                void save_config({
-                                                                    ...config,
-                                                                    plugins: config.plugins.map(
-                                                                        (pl) =>
-                                                                            pl.instanceId ===
-                                                                            instance_id
-                                                                                ? {
-                                                                                      ...pl,
-                                                                                      enabled:
-                                                                                          !pl.enabled,
-                                                                                  }
-                                                                                : pl,
-                                                                    ),
-                                                                });
-                                                            }}
-                                                            on_refresh={(instance_id) => {
-                                                                void window.usageboard.connector.refresh(
-                                                                    instance_id,
-                                                                );
-                                                            }}
-                                                            on_edit={(instance_id) => {
-                                                                const info = pluginInfos.find(
-                                                                    (p) =>
-                                                                        p.instanceId ===
-                                                                        instance_id,
-                                                                );
-                                                                setDialog({
-                                                                    mode: "edit",
-                                                                    instanceId: instance_id,
-                                                                    pluginName: info?.displayName,
-                                                                });
-                                                            }}
-                                                            on_delete={(instance_id) => {
-                                                                const info = pluginInfos.find(
-                                                                    (p) =>
-                                                                        p.instanceId ===
-                                                                        instance_id,
-                                                                );
-                                                                setDeleteConfirmId(instance_id);
-                                                                setDeleteConfirmName(
-                                                                    info?.displayName ??
-                                                                        instance_id,
-                                                                );
-                                                            }}
-                                                            desensitizeRemarks={
-                                                                config.uiDesensitizeRemarks === true
-                                                            }
-                                                        />
-                                                    ),
-                                                )}
-                                                {cpa_plugins.map((plugin) => {
-                                                    const info = pluginInfos.find(
-                                                        (item) =>
-                                                            item.instanceId === plugin.instanceId,
-                                                    );
-                                                    const items = info ? snapshot_items(info) : [];
-                                                    const connector_status:
-                                                        | "ok"
-                                                        | "partial"
-                                                        | "error"
-                                                        | "disabled"
-                                                        | "unknown" = plugin.enabled
-                                                        ? info?.snapshot.status === "ready"
-                                                            ? items.length > 0
-                                                                ? "ok"
-                                                                : "unknown"
-                                                            : info?.snapshot.status === "failed"
-                                                              ? items.length > 0
-                                                                  ? "partial"
-                                                                  : "error"
-                                                              : "unknown"
-                                                        : "disabled";
-
-                                                    return (
-                                                        <CpaCard
-                                                            key={plugin.instanceId}
-                                                            instance_id={plugin.instanceId}
-                                                            display_name={info?.displayName ?? ""}
-                                                            enabled={plugin.enabled}
-                                                            status={connector_status}
-                                                            desensitizeRemarks={
-                                                                config.uiDesensitizeRemarks === true
-                                                            }
-                                                            rows={items.map((item) => {
-                                                                const is_hidden =
-                                                                    config.accountOverrides?.hidden?.[
-                                                                        item.provider
-                                                                    ]?.includes(item.accountId) ??
-                                                                    false;
-                                                                const mapped_status:
-                                                                    | "ok"
-                                                                    | "error"
-                                                                    | "unknown" =
-                                                                    item.status === "normal" ||
-                                                                    item.status === "warning" ||
-                                                                    item.status === "critical"
-                                                                        ? "ok"
-                                                                        : "unknown";
-                                                                return {
-                                                                    provider: item.provider,
-                                                                    account_id: item.accountId,
-                                                                    account_label:
-                                                                        config.accountLabels?.[
-                                                                            item.provider
-                                                                        ]?.[item.accountId] ??
-                                                                        item.accountLabel,
-                                                                    status: mapped_status,
-                                                                    is_hidden,
-                                                                    is_removed: false,
-                                                                };
-                                                            })}
-                                                            on_toggle={() => {
-                                                                void save_config({
-                                                                    ...config,
-                                                                    plugins: config.plugins.map(
-                                                                        (pl) =>
-                                                                            pl.instanceId ===
-                                                                            plugin.instanceId
-                                                                                ? {
-                                                                                      ...pl,
-                                                                                      enabled:
-                                                                                          !pl.enabled,
-                                                                                  }
-                                                                                : pl,
-                                                                    ),
-                                                                });
-                                                            }}
-                                                            on_refresh={() => {
-                                                                void window.usageboard.connector.refresh(
-                                                                    plugin.instanceId,
-                                                                );
-                                                            }}
-                                                            on_edit={() => {
-                                                                setEditingCpaId(plugin.instanceId);
-                                                            }}
-                                                            on_delete={() => {
-                                                                setRemoveCpaConfirmId(
-                                                                    plugin.instanceId,
-                                                                );
-                                                                setRemoveCpaConfirmName(
-                                                                    info?.displayName ??
-                                                                        plugin.instanceId,
-                                                                );
-                                                            }}
-                                                            on_hide={(target) => {
-                                                                const item = items.find(
-                                                                    (it) =>
-                                                                        it.provider ===
-                                                                            target.provider &&
-                                                                        it.accountId ===
-                                                                            target.account_id,
-                                                                );
-                                                                if (!item) return;
-                                                                hide_account(item);
-                                                            }}
-                                                            on_unhide={(target) => {
-                                                                restoreOverrideAccount(
-                                                                    target.provider as UsageProvider,
-                                                                    target.account_id,
-                                                                    "hidden",
-                                                                );
-                                                            }}
-                                                            on_clear={(target) => {
-                                                                restoreOverrideAccount(
-                                                                    target.provider as UsageProvider,
-                                                                    target.account_id,
-                                                                    "hidden",
-                                                                );
-                                                            }}
-                                                            on_rename={(target) => {
-                                                                set_rename_target({
-                                                                    provider: target.provider,
-                                                                    account_id: target.account_id,
-                                                                    label:
-                                                                        config.accountLabels?.[
-                                                                            target.provider as UsageProvider
-                                                                        ]?.[target.account_id] ??
-                                                                        items.find(
-                                                                            (it) =>
-                                                                                it.provider ===
-                                                                                    target.provider &&
-                                                                                it.accountId ===
-                                                                                    target.account_id,
-                                                                        )?.accountLabel ??
-                                                                        "",
-                                                                });
-                                                            }}
-                                                        />
-                                                    );
-                                                })}
-                                            </div>
-                                        );
-                                    })()
-                                )}
-                            </>
+                        {section === "accounts" && (
+                            <AccountsSection
+                                config={config}
+                                editing_cpa_id={editingCpaId}
+                                has_secrets={hasSecrets}
+                                hide_account={hide_account}
+                                interval_label={interval_label}
+                                plugin_infos={pluginInfos}
+                                refresh_plugin={refreshPlugin}
+                                restore_override_account={restoreOverrideAccount}
+                                save_config={save_config}
+                                save_plugin_secrets={savePluginSecrets}
+                                save_plugin_settings={savePluginSettings}
+                                set_delete_confirm_id={setDeleteConfirmId}
+                                set_delete_confirm_name={setDeleteConfirmName}
+                                set_dialog={setDialog}
+                                set_editing_cpa_id={setEditingCpaId}
+                                set_label_map_dialog={set_label_map_dialog}
+                                set_remove_cpa_confirm_id={setRemoveCpaConfirmId}
+                                set_remove_cpa_confirm_name={setRemoveCpaConfirmName}
+                                set_rename_target={set_rename_target}
+                            />
                         )}
 
                         {/* ── Appearance ── */}
