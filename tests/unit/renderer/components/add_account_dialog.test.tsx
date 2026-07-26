@@ -529,6 +529,10 @@ describe("AddAccountDialog descriptor-driven routing", () => {
             await user.click(screen.getByText("Grok"));
             expect(screen.getByText("开始登录")).toBeInTheDocument();
             expect(screen.queryByPlaceholderText("sk-…")).not.toBeInTheDocument();
+            // 表单层 secret_name 绑定（t123）：catalog entry 声明 OAUTH_TOKEN，
+            // 表单根容器暴露该值，证明 secret_name 从 catalog → form 正确传递
+            const oauth_form = document.querySelector("[data-secret-name]");
+            expect(oauth_form?.getAttribute("data-secret-name")).toBe("OAUTH_TOKEN");
 
             await user.click(screen.getByText("开始登录"));
             await vi.waitFor(() => {
