@@ -79,14 +79,6 @@
             "status": "backlog",
             "branch": "",
             "note": ""
-        },
-        {
-            "tid": "t151",
-            "title": "web UsageboardApi 契约补齐 + session stub 返回类型",
-            "slug": "web_api_contract",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
         }
     ]
 }
