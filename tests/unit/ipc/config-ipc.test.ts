@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AppConfiguration } from "../../../src/shared/types/config";
+import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 
 type Ipc_handler = (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 type Ipc_handle = (channel: string, listener: Ipc_handler) => void;
@@ -997,6 +998,170 @@ describe("config-ipc", () => {
             expect(saved).not.toHaveProperty("extraDangerousField");
             // Valid fields from incoming are preserved
             expect(saved["launchAtLogin"]).toBe(true);
+        });
+    });
+
+    describe("handleConfigCreateInstance (t121)", () => {
+        // f004: 独立 secretsStore stub，避免复用 createMockDeps 的 claude 实例 mock
+        const isolated_secrets_store = () => ({
+            get: vi.fn().mockResolvedValue(null),
+            set: vi.fn().mockResolvedValue(undefined),
+            delete: vi.fn().mockResolvedValue(undefined),
+            exportAll: vi.fn().mockResolvedValue({}),
+            importAll: vi.fn().mockResolvedValue(undefined),
+        });
+
+        const cpa_def: ConnectorDefinition = {
+            directory: "/connectors/cpa",
+            executablePath: "/connectors/cpa",
+            manifest: {
+                id: "cpa",
+                provider: "cpa",
+                capabilities: ["poll"],
+                parameters: [
+                    {
+                        name: "monitor_claude",
+                        type: "string",
+                        required: false,
+                        default: "true",
+                        exposeToScript: true,
+                    },
+                    {
+                        name: "cpa_mgmt_key",
+                        type: "secret",
+                        required: true,
+                        exposeToScript: true,
+                    },
+                ],
+                auth: { method: "cpa_mgmt", secret_name: "cpa_mgmt_key", require_endpoint: true },
+                poll: { request: { endpoint: "default", path: "/u", method: "GET" }, map: {} },
+            },
+        };
+
+        it("creates a new instance from manifest_id, seeding non-secret defaults", async () => {
+            const { handleConfigCreateInstance } = await import("../../../src/main/ipc/config-ipc");
+            const base: AppConfiguration = {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                removedConnectorIds: ["cpa", "grok"],
+            };
+            const configStore = {
+                load: vi.fn().mockResolvedValue(structuredClone(base)),
+                save: vi.fn().mockResolvedValue(undefined),
+                scheduleSave: vi.fn(),
+                flushPendingSave: vi.fn().mockResolvedValue(undefined),
+                hasPendingSave: vi.fn().mockReturnValue(false),
+            };
+            const onConfigSaved = vi.fn();
+            const deps = {
+                configStore,
+                secretsStore: isolated_secrets_store(),
+                secretParamKeys: new Map<string, ReadonlySet<string>>(),
+                onConfigSaved,
+                definitions: [cpa_def],
+            };
+            const result = await handleConfigCreateInstance(deps, "cpa");
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data.instanceId).toBeTruthy();
+
+            const saved = configStore.save.mock.calls[0]?.[0] as AppConfiguration;
+            expect(saved.plugins).toHaveLength(1);
+            const newInstance = saved.plugins[0];
+            expect(newInstance?.executablePath).toBe("/connectors/cpa");
+            expect(newInstance?.name).toBe("CPA");
+            expect(newInstance?.enabled).toBe(true);
+            expect(newInstance?.refreshIntervalSeconds).toBe(0);
+            expect(newInstance?.parameterValues["monitor_claude"]).toBe("true");
+            // secret 参数不得落入 parameterValues
+            expect(newInstance?.parameterValues).not.toHaveProperty("cpa_mgmt_key");
+            // endpointOverrides 初始化为空对象
+            expect(newInstance?.endpointOverrides).toEqual({});
+        });
+
+        it("sets manualRefreshOnly when manifest declares manualDefault", async () => {
+            const { handleConfigCreateInstance } = await import("../../../src/main/ipc/config-ipc");
+            const manual_def: ConnectorDefinition = {
+                directory: "/connectors/manual",
+                executablePath: "/connectors/manual",
+                manifest: {
+                    id: "manual",
+                    provider: "manual",
+                    capabilities: ["poll"],
+                    manualDefault: true,
+                    parameters: [],
+                    poll: { request: { endpoint: "default", path: "/u", method: "GET" }, map: {} },
+                },
+            };
+            const configStore = {
+                load: vi.fn().mockResolvedValue({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [],
+                    launchAtLogin: false,
+                }),
+                save: vi.fn().mockResolvedValue(undefined),
+                scheduleSave: vi.fn(),
+                flushPendingSave: vi.fn().mockResolvedValue(undefined),
+                hasPendingSave: vi.fn().mockReturnValue(false),
+            };
+            const deps = {
+                configStore,
+                secretsStore: isolated_secrets_store(),
+                secretParamKeys: new Map<string, ReadonlySet<string>>(),
+                onConfigSaved: vi.fn(),
+                definitions: [manual_def],
+            };
+            const result = await handleConfigCreateInstance(deps, "manual");
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            const saved = configStore.save.mock.calls[0]?.[0] as AppConfiguration;
+            expect(saved.plugins[0]?.manualRefreshOnly).toBe(true);
+        });
+
+        it("clears only the created manifest id from the tombstone", async () => {
+            const { handleConfigCreateInstance } = await import("../../../src/main/ipc/config-ipc");
+            const base: AppConfiguration = {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                removedConnectorIds: ["cpa", "grok", "kimi"],
+            };
+            const configStore = {
+                load: vi.fn().mockResolvedValue(structuredClone(base)),
+                save: vi.fn().mockResolvedValue(undefined),
+                scheduleSave: vi.fn(),
+                flushPendingSave: vi.fn().mockResolvedValue(undefined),
+                hasPendingSave: vi.fn().mockReturnValue(false),
+            };
+            const deps = {
+                configStore,
+                secretsStore: isolated_secrets_store(),
+                secretParamKeys: new Map<string, ReadonlySet<string>>(),
+                onConfigSaved: vi.fn(),
+                definitions: [cpa_def],
+            };
+            const result = await handleConfigCreateInstance(deps, "cpa");
+            expect(result.ok).toBe(true);
+            const saved = configStore.save.mock.calls[0]?.[0] as AppConfiguration;
+            expect(saved.removedConnectorIds).toEqual(["grok", "kimi"]);
+            expect(saved.removedConnectorIds).not.toContain("cpa");
+        });
+
+        it("rejects unknown manifest id", async () => {
+            const { handleConfigCreateInstance } = await import("../../../src/main/ipc/config-ipc");
+            const deps = {
+                ...createMockDeps(),
+                definitions: [cpa_def],
+            };
+            const result = await handleConfigCreateInstance(deps, "nonexistent");
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error.code).toBe("VALIDATION_ERROR");
+            }
         });
     });
 });

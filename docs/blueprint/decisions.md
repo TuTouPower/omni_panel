@@ -89,3 +89,11 @@
     - **fixture 存放**：`tests/e2e/fixtures/data/` gitignore（含本机真实账号邮箱，不入库）；`pnpm e2e:gen-data` 手动录制（需 app 跑着提供 local-api）。
 - 替代：无（A/C 否决理由见上）
 - 遗留：CI fixture 策略（T013）、webServer 顶层污染（T013）、trend query 覆盖（T011）。
+
+## 008 墓碑仅抑制自动 seed，不抑制用户主动添加（2026-07-26）
+
+- 背景：t038 引入 `removedConnectorIds` 墓碑防止删除账号后重启 auto-seed 复活。但添加账号对话框原先从 `connector:list`（只遍历 `config.plugins`）解析 auth，墓碑内 vendor 不在 `config.plugins` → 找不到 → 回落通用 apikey 表单，用户无法重新添加 grok/exa/opencode_go/cpa（删除全部实例后）。
+- 选项：A) 去掉墓碑机制（回退 t038，删除后重启复活）；B) auto-seed 时忽略墓碑（同 A 效果）；C) 保留墓碑仅抑制自动 seed，添加流程另走 manifest catalog 通道（与 `config.plugins` 解耦）。
+- 结论：选 C。墓碑的目的是"删除后不自动复活"，不应波及"用户主动添加"。新增 `connector:catalog` IPC 从 manifest 出目录（不读 config/墓碑），`AddAccountDialog` 优先按 catalog 解析 auth；`config:createInstance` 按 manifest_id 建实例时清对应墓碑 id。A/B 破坏 t038 的删除语义。
+- 替代：无
+- 遗留：无。

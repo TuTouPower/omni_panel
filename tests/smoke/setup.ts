@@ -114,6 +114,7 @@ function createMockApi() {
 
     const pluginMock = {
         list: vi.fn<() => Promise<PluginInfo[]>>().mockResolvedValue(plugins),
+        catalog: vi.fn().mockResolvedValue([]),
         getState: vi.fn().mockResolvedValue({ status: "idle" } satisfies ConnectorSnapshotDTO),
         refresh: vi.fn().mockResolvedValue(undefined),
         refreshAll: vi.fn().mockResolvedValue(undefined),
@@ -142,6 +143,7 @@ function createMockApi() {
             getSecrets: vi.fn().mockResolvedValue({}),
             saveSecrets: vi.fn().mockResolvedValue(undefined),
             duplicate: vi.fn().mockResolvedValue(undefined),
+            createInstance: vi.fn().mockResolvedValue(undefined),
         },
         event: {
             onStateChange(cb: StateChangeCallback) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ConnectorInfo } from "../../shared/types/ipc";
+import type { ConnectorCatalogEntry, ConnectorInfo } from "../../shared/types/ipc";
 import type { AddServiceId } from "../lib/common-services";
 import { VendorMark, Icon } from "./Icon";
 import { ADD_COMMON_SERVICES } from "../lib/common-services";
@@ -25,6 +25,8 @@ function generate_instance_id(vendor_id: AddServiceId): string {
 export interface AddAccountParams {
     vendor_id: AddServiceId;
     source_instance_id?: string;
+    /** t121: manifest id used by config.createInstance to spawn a new instance. */
+    manifest_id?: string;
     account_name: string;
     auth_method: ResolvedAuthMethod;
     parameter_values: Record<string, string>;
@@ -34,23 +36,80 @@ export interface AddAccountParams {
 
 interface AddAccountDialogProps {
     plugin_infos: ConnectorInfo[];
+    /** t121: manifest catalog; resolves auth even when no live instance exists. */
+    catalog?: ConnectorCatalogEntry[];
     on_close: () => void;
     on_save: (params: AddAccountParams) => Promise<void>;
 }
 
-function find_connector(
-    plugin_infos: ConnectorInfo[],
+/**
+ * t121: prefer the manifest catalog (independent of config.plugins and the
+ * removedConnectorIds tombstone). Falls back to plugin_infos so legacy
+ * instance-backed lookups still work.
+ *
+ * Two-phase catalog match (f002): exact `manifest_id` first, then
+ * `supported_providers` — prevents a vendor that equals a cpa monitored
+ * provider (e.g. "claude") from matching the cpa entry by accident.
+ *
+ * Returns the resolved `manifest_id` explicitly (f004) so handle_save does not
+ * depend on the implicit `metadata.name === manifest id` contract.
+ */
+interface ResolvedVendor {
+    connector: ConnectorInfo;
+    manifest_id: string | undefined;
+}
+
+function catalog_entry_to_connector(entry: ConnectorCatalogEntry): ConnectorInfo {
+    // Pseudo ConnectorInfo: no live instance, but metadata drives auth form.
+    return {
+        instanceId: "",
+        sourceInstanceId: "",
+        stateId: "",
+        name: entry.metadata.name ?? entry.manifest_id,
+        displayName: "",
+        enabled: true,
+        source: entry.source,
+        supportedProviders: entry.supported_providers,
+        activeProviders: entry.supported_providers,
+        metadata: entry.metadata,
+        snapshot: { status: "idle" },
+    };
+}
+
+function find_vendor(
+    catalog: readonly ConnectorCatalogEntry[],
+    plugin_infos: readonly ConnectorInfo[],
     vendor_id: AddServiceId,
-): ConnectorInfo | undefined {
-    return plugin_infos.find(
+): ResolvedVendor | undefined {
+    const exact = catalog.find((c) => c.manifest_id === vendor_id);
+    if (exact)
+        return { connector: catalog_entry_to_connector(exact), manifest_id: exact.manifest_id };
+    const by_provider = catalog.find((c) => c.supported_providers.includes(vendor_id));
+    if (by_provider) {
+        return {
+            connector: catalog_entry_to_connector(by_provider),
+            manifest_id: by_provider.manifest_id,
+        };
+    }
+    const info = plugin_infos.find(
         (c) =>
             c.metadata?.name === vendor_id ||
             c.supportedProviders.includes(vendor_id) ||
             c.activeProviders.includes(vendor_id),
     );
+    if (info) {
+        // metadata.name is set to manifest id by metadata_from_definition (connector-ipc.ts).
+        return { connector: info, manifest_id: info.metadata?.name };
+    }
+    return undefined;
 }
 
-export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccountDialogProps) {
+export function AddAccountDialog({
+    plugin_infos,
+    catalog = [],
+    on_close,
+    on_save,
+}: AddAccountDialogProps) {
     const [step, set_step] = useState<"vendor" | "auth">("vendor");
     const [vendor_id, set_vendor_id] = useState<AddServiceId | null>(null);
     const [account_name, set_account_name] = useState("");
@@ -64,10 +123,12 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
     });
     const oauth_instance_id_ref = useRef("");
 
-    const selected_connector = useMemo(
-        () => (vendor_id ? find_connector(plugin_infos, vendor_id) : undefined),
-        [plugin_infos, vendor_id],
+    const resolved_vendor = useMemo(
+        () => (vendor_id ? find_vendor(catalog, plugin_infos, vendor_id) : undefined),
+        [catalog, plugin_infos, vendor_id],
     );
+    const selected_connector = resolved_vendor?.connector;
+    const selected_manifest_id = resolved_vendor?.manifest_id;
     const auth_descriptor = useMemo(
         () => resolve_auth_descriptor(selected_connector),
         [selected_connector],
@@ -137,6 +198,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
                 auth_method,
                 parameter_values: {},
                 secrets: {},
+                ...(selected_manifest_id ? { manifest_id: selected_manifest_id } : {}),
                 ...(selected_connector?.instanceId
                     ? { source_instance_id: selected_connector.instanceId }
                     : {}),
@@ -173,6 +235,7 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
         auth_method,
         auth_descriptor,
         selected_connector,
+        selected_manifest_id,
         vendor_label,
         saving,
         form_handles_save,
@@ -184,13 +247,14 @@ export function AddAccountDialog({ plugin_infos, on_close, on_save }: AddAccount
         async (params: AddAccountParams) => {
             await on_save({
                 ...params,
+                ...(selected_manifest_id ? { manifest_id: selected_manifest_id } : {}),
                 ...(selected_connector?.instanceId
                     ? { source_instance_id: selected_connector.instanceId }
                     : {}),
             });
             on_close();
         },
-        [on_save, on_close, selected_connector],
+        [on_save, on_close, selected_connector, selected_manifest_id],
     );
 
     return (

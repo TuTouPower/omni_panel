@@ -64,6 +64,7 @@ describe("PopupView mirror isolation", () => {
             },
             connector: {
                 list: plugin_list,
+                catalog: vi.fn().mockResolvedValue([]),
                 getState: vi.fn(),
                 refresh: vi.fn().mockResolvedValue(undefined),
                 refreshAll: vi.fn().mockResolvedValue(undefined),
@@ -83,6 +84,7 @@ describe("PopupView mirror isolation", () => {
                 getSecrets: vi.fn().mockResolvedValue({}),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
+                createInstance: vi.fn().mockResolvedValue({ instanceId: "new" }),
                 export: vi.fn(),
                 import: vi.fn(),
             },

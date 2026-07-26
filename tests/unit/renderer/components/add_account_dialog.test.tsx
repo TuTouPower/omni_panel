@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AddAccountDialog } from "../../../../src/renderer/components/AddAccountDialog";
 import type { AddAccountParams } from "../../../../src/renderer/components/AddAccountDialog";
-import type { PluginInfo } from "../../../../src/shared/types/ipc";
+import type { ConnectorCatalogEntry, PluginInfo } from "../../../../src/shared/types/ipc";
 
 function make_plugin(overrides: Partial<PluginInfo> = {}): PluginInfo {
     return {
@@ -451,6 +451,162 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         render(<AddAccountDialog plugin_infos={[]} on_close={on_close} on_save={on_save} />);
 
         expect(screen.getByText("CPA Manager")).toBeInTheDocument();
+    });
+
+    describe("catalog-driven auth resolution (t121)", () => {
+        function make_catalog_entry(
+            id: string,
+            auth: ConnectorCatalogEntry["metadata"]["auth"],
+            overrides: Partial<ConnectorCatalogEntry> = {},
+        ): ConnectorCatalogEntry {
+            return {
+                manifest_id: id,
+                source: "poll",
+                supported_providers: [id],
+                metadata: { name: id, auth, parameters: [] },
+                ...overrides,
+            };
+        }
+
+        const grok_entry = make_catalog_entry("grok", {
+            method: "oauth_device",
+            secret_name: "OAUTH_TOKEN",
+        });
+        const exa_entry = make_catalog_entry("exa", {
+            method: "apikey",
+            secret_name: "SERVICE_KEY",
+            extra_fields: ["API_KEY_ID"],
+        });
+        const opencode_entry: ConnectorCatalogEntry = {
+            manifest_id: "opencode_go",
+            source: "session",
+            supported_providers: ["opencode_go"],
+            metadata: {
+                name: "opencode_go",
+                auth: {
+                    method: "web_login",
+                    secret_name: "SESSION_COOKIE",
+                    login_url: "https://opencode.ai/auth",
+                },
+                parameters: [],
+            },
+        };
+        const cpa_entry = make_catalog_entry(
+            "cpa",
+            { method: "cpa_mgmt", secret_name: "cpa_mgmt_key", require_endpoint: true },
+            { supported_providers: ["claude", "kimi"], source: "gateway" },
+        );
+
+        it("renders OAuthDeviceForm for grok when only catalog is available", async () => {
+            const grok = {
+                login_start: vi.fn().mockResolvedValue({
+                    device_code: "dc-123",
+                    user_code: "ABCD-EFGH",
+                    verification_uri: "https://auth.x.ai/device",
+                    verification_uri_complete: "https://auth.x.ai/device?user_code=ABCD-EFGH",
+                    expires_in: 1800,
+                    interval: 5,
+                }),
+                login_poll: vi.fn().mockResolvedValue({ saved: true, token: "grok-access-token" }),
+                login_cancel: vi.fn().mockResolvedValue(undefined),
+                login_status: vi
+                    .fn()
+                    .mockResolvedValue({ has_token: false, expires_at: null, can_refresh: false }),
+                logout: vi.fn().mockResolvedValue({ logged_out: true }),
+                refresh: vi.fn().mockResolvedValue({ success: true }),
+            };
+            (window as unknown as { usageboard: unknown }).usageboard = { grok };
+            const user = userEvent.setup();
+            render(
+                <AddAccountDialog
+                    plugin_infos={[]}
+                    catalog={[grok_entry]}
+                    on_close={on_close}
+                    on_save={on_save}
+                />,
+            );
+
+            await user.click(screen.getByText("Grok"));
+            expect(screen.getByText("开始登录")).toBeInTheDocument();
+            expect(screen.queryByPlaceholderText("sk-…")).not.toBeInTheDocument();
+
+            await user.click(screen.getByText("开始登录"));
+            await vi.waitFor(() => {
+                expect(on_save).toHaveBeenCalledTimes(1);
+            });
+            const saved = get_saved_params(on_save);
+            expect(saved.auth_method).toBe("oauth_device");
+            expect(saved.secrets).toEqual({ OAUTH_TOKEN: "grok-access-token" });
+        });
+
+        it("renders ExaServiceKeyForm with two required inputs when only catalog is available", async () => {
+            const user = userEvent.setup();
+            render(
+                <AddAccountDialog
+                    plugin_infos={[]}
+                    catalog={[exa_entry]}
+                    on_close={on_close}
+                    on_save={on_save}
+                />,
+            );
+
+            await user.click(screen.getByText("Exa"));
+            expect(screen.getByPlaceholderText("exa-…")).toBeInTheDocument();
+            expect(screen.getByPlaceholderText("例如：my-key-id")).toBeInTheDocument();
+            expect(screen.queryByPlaceholderText("sk-…")).not.toBeInTheDocument();
+        });
+
+        it("renders WebLoginForm for opencode_go when only catalog is available", async () => {
+            const session = {
+                login: vi.fn().mockResolvedValue({ saved: true, cookie: "session=abc" }),
+                refresh: vi.fn().mockResolvedValue({ saved: true, cookie: "" }),
+            };
+            (window as unknown as { usageboard: unknown }).usageboard = { session };
+            const user = userEvent.setup();
+            render(
+                <AddAccountDialog
+                    plugin_infos={[]}
+                    catalog={[opencode_entry]}
+                    on_close={on_close}
+                    on_save={on_save}
+                />,
+            );
+
+            await user.click(screen.getByText("OpenCode Go"));
+            expect(screen.getByText("网页登录")).toBeInTheDocument();
+            expect(screen.queryByPlaceholderText("sk-…")).not.toBeInTheDocument();
+        });
+
+        it("renders CpaMgmtForm for cpa when only catalog is available", async () => {
+            const user = userEvent.setup();
+            render(
+                <AddAccountDialog
+                    plugin_infos={[]}
+                    catalog={[cpa_entry]}
+                    on_close={on_close}
+                    on_save={on_save}
+                />,
+            );
+
+            await user.click(screen.getByText("CPA Manager"));
+            expect(screen.getByText("CPA 管理密钥")).toBeInTheDocument();
+            expect(screen.getByPlaceholderText("http://127.0.0.1:17863")).toBeInTheDocument();
+        });
+
+        it("falls back to apikey form when vendor not in catalog either", async () => {
+            const user = userEvent.setup();
+            render(
+                <AddAccountDialog
+                    plugin_infos={[]}
+                    catalog={[]}
+                    on_close={on_close}
+                    on_save={on_save}
+                />,
+            );
+
+            await user.click(screen.getByText("Kimi"));
+            expect(screen.getByPlaceholderText("sk-…")).toBeInTheDocument();
+        });
     });
 });
 

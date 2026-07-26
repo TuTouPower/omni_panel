@@ -26,7 +26,11 @@ import { CpaLabelMapDialog } from "../components/CpaLabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon, VendorMark, type VendorId } from "../components/Icon";
-import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc";
+import type {
+    ConnectorCatalogEntry,
+    ConnectorInfo,
+    ConnectorSnapshotDTO,
+} from "../../shared/types/ipc";
 import type {
     ConnectorConfiguration,
     AppConfiguration,
@@ -318,6 +322,7 @@ function AccountDialog({
     pluginInfo,
     pluginConfig,
     pluginInfos,
+    catalog,
     hasSecrets,
     onSave,
     onAddAccount,
@@ -336,6 +341,8 @@ function AccountDialog({
     pluginInfo: ConnectorInfo | undefined;
     pluginConfig: ConnectorConfiguration | undefined;
     pluginInfos: ConnectorInfo[];
+    /** t121: manifest catalog,透传给 AddAccountDialog 解析 auth。 */
+    catalog: ConnectorCatalogEntry[];
     hasSecrets: Record<string, boolean> | undefined;
     onSave: (
         instanceId: string,
@@ -385,6 +392,7 @@ function AccountDialog({
                 {mode === "add" && !instanceId ? (
                     <AddAccountDialog
                         plugin_infos={pluginInfos}
+                        catalog={catalog}
                         on_close={onClose}
                         on_save={onAddAccount}
                     />
@@ -734,7 +742,7 @@ export function SettingsView() {
                 log.warn("加载 build info 失败，关于段不显示 branch@commit", err);
             });
     }, []);
-    const { config, hasSecrets, loading, error, save, saveSecrets, duplicate } = use_config();
+    const { config, hasSecrets, loading, error, save, saveSecrets } = use_config();
     const configRef = useRef(config);
     useEffect(() => {
         configRef.current = config;
@@ -961,6 +969,24 @@ export function SettingsView() {
         return unsub;
     }, []);
 
+    // t121: load manifest catalog once. Independent of config.plugins / tombstone,
+    // so the add-account dialog can resolve auth for vendors with no live instance.
+    const [catalog, setCatalog] = useState<ConnectorCatalogEntry[]>([]);
+    useEffect(() => {
+        let cancelled = false;
+        window.usageboard.connector
+            .catalog()
+            .then((entries) => {
+                if (!cancelled) setCatalog(entries);
+            })
+            .catch((err: unknown) => {
+                log.warn("加载 connector catalog 失败", err);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const savePluginSettings = useCallback(
         async (
             instanceId: string,
@@ -985,7 +1011,9 @@ export function SettingsView() {
                     void _omit;
                     return {
                         ...rest,
-                        parameterValues: nonSecrets,
+                        // 合并而非整体替换（t121 code_f001）：保留 createInstance 写入的
+                        // manifest 默认参数（如 cpa 的 monitor_*），仅用表单提交值覆盖。
+                        parameterValues: { ...plugin.parameterValues, ...nonSecrets },
                         endpointOverrides,
                         refreshIntervalSeconds,
                         ...(display_name ? { displayName: display_name } : {}),
@@ -2119,23 +2147,22 @@ export function SettingsView() {
                             (p) => p.instanceId === dialog.instanceId,
                         )}
                         pluginInfos={pluginInfos}
+                        catalog={catalog}
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
                         onAddAccount={async (params) => {
-                            // 用 AddAccountDialog 已选中的 connector instanceId 精确匹配源插件，避免按 name 大小写/_PROVIDER 启发式命中错误源
-                            const source = params.source_instance_id
-                                ? pluginInfos.find(
-                                      (p) => p.instanceId === params.source_instance_id,
-                                  )
-                                : undefined;
-                            if (!source) {
+                            // t121: 从 manifest 直接建实例，不再依赖"先有同类实例可 duplicate"。
+                            // 解决墓碑内 vendor（无现存实例）无法添加账号的问题。
+                            const manifest_id = params.manifest_id;
+                            if (!manifest_id) {
                                 log.warn(
-                                    `add account: no source for vendor_id=${params.vendor_id}`,
+                                    `add account: no manifest_id for vendor_id=${params.vendor_id}`,
                                 );
                                 return;
                             }
-                            const created = await duplicate(source.instanceId);
-                            // duplicate 会 reload config；从 main 再取一次最新 config，避免闭包覆盖
+                            const created =
+                                await window.usageboard.config.createInstance(manifest_id);
+                            // createInstance 会 reload config；从 main 再取一次最新 config，避免闭包覆盖
                             const latest = await window.usageboard.config.get();
                             await savePluginSettings(
                                 created.instanceId,

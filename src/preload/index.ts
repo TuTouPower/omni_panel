@@ -75,6 +75,10 @@ const connector_methods = {
         invoke<UnwrapPromise<ReturnType<UsageboardApi["connector"]["list"]>>>(
             IPC_CHANNELS.CONNECTOR_LIST,
         ),
+    catalog: () =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["connector"]["catalog"]>>>(
+            IPC_CHANNELS.CONNECTOR_CATALOG,
+        ),
     getState: (instanceId: string) =>
         invoke<ConnectorSnapshotDTO>(IPC_CHANNELS.CONNECTOR_GET_STATE, instanceId),
     refresh: (instanceId: string) =>
@@ -176,6 +180,11 @@ const config_full = {
         invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["duplicate"]>>>(
             IPC_CHANNELS.CONFIG_DUPLICATE,
             instanceId,
+        ),
+    createInstance: (manifestId: string) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["createInstance"]>>>(
+            IPC_CHANNELS.CONFIG_CREATE_INSTANCE,
+            manifestId,
         ),
     export: () =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["export"]>>>(
@@ -450,6 +459,7 @@ const api: UsageboardApi = (() => {
                     },
                     getSecrets: () => Promise.resolve({}),
                     duplicate: () => Promise.resolve({ instanceId: "" }),
+                    createInstance: () => Promise.resolve({ instanceId: "" }),
                     export: () => Promise.resolve({ saved: false }),
                     import: () => Promise.resolve({ imported: false }),
                 },
@@ -482,6 +492,7 @@ const api: UsageboardApi = (() => {
                     },
                     getSecrets: () => Promise.resolve({}),
                     duplicate: () => Promise.resolve({ instanceId: "" }),
+                    createInstance: () => Promise.resolve({ instanceId: "" }),
                     export: () => Promise.resolve({ saved: false }),
                     import: () => Promise.resolve({ imported: false }),
                 },

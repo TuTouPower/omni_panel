@@ -14,6 +14,11 @@ const duplicate = vi
     .mockResolvedValue({
         instanceId: "deepseek-2",
     });
+const createInstance = vi
+    .fn<(manifestId: string) => Promise<{ instanceId: string }>>()
+    .mockResolvedValue({
+        instanceId: "deepseek-2",
+    });
 const grok_login_status = vi.fn().mockResolvedValue({
     has_token: false,
     expires_at: null,
@@ -187,6 +192,7 @@ describe("SettingsView", () => {
             refresh: vi.fn(),
             refreshAll: vi.fn(),
             snapshot: vi.fn(),
+            catalog: vi.fn().mockResolvedValue([]),
         };
         window.usageboard = {
             platform: "win32",
@@ -203,6 +209,7 @@ describe("SettingsView", () => {
                 getSecrets: vi.fn().mockResolvedValue({ cpa_mgmt_key: "vault-secret-key" }),
                 saveSecrets: vi.fn(),
                 duplicate: vi.fn(),
+                createInstance,
                 export: vi.fn(),
                 import: vi.fn(),
             },
@@ -1458,7 +1465,7 @@ describe("SettingsView", () => {
         await user.click(screen.getByText("添加账号"));
 
         await vi.waitFor(() => {
-            expect(duplicate).toHaveBeenCalledWith("cpa-1");
+            expect(createInstance).toHaveBeenCalledWith("cpa");
         });
         expect(saveSecrets).toHaveBeenCalledWith("deepseek-2", { cpa_mgmt_key: "cpa-secret" });
 
@@ -1473,7 +1480,7 @@ describe("SettingsView", () => {
         expect(created?.name).toBe("cpa");
     });
 
-    it("does not match CPA vendor to deepseek source", async () => {
+    it("createInstance uses the clicked vendor's manifest id", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
@@ -1490,9 +1497,10 @@ describe("SettingsView", () => {
         await user.click(screen.getByText("添加账号"));
 
         await vi.waitFor(() => {
-            expect(duplicate).toHaveBeenCalledWith("cpa-1");
+            expect(createInstance).toHaveBeenCalledWith("cpa");
         });
-        expect(duplicate).not.toHaveBeenCalledWith("deepseek-1");
+        // createInstance 入参是 manifest id（来自点击的 vendor），不再有"匹配 source instance"歧义
+        expect(createInstance).toHaveBeenCalledTimes(1);
     });
 
     it("shows VendorMark in edit dialog header", async () => {

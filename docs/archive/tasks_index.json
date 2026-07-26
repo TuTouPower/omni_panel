@@ -959,6 +959,14 @@
             "status": "dropped",
             "branch": "",
             "note": "dropped: 用户取消"
+        },
+        {
+            "tid": "t121",
+            "title": "添加账号按 manifest catalog 解析 auth，绕过墓碑",
+            "slug": "add_account_manifest_catalog",
+            "status": "done",
+            "branch": "t121_add_account_manifest_catalog",
+            "note": ""
         }
     ]
 }
