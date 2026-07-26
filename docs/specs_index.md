@@ -32,6 +32,7 @@
 | connector-user-scripts        | Desktop  | t095                                                                | 2026-07-24   |
 | ipc-api                       | API      | 拆自 ipc（t037）                                                    | 2026-07-21   |
 | ipc-electron                  | Desktop  | 拆自 ipc（t037）                                                    | 2026-07-21   |
+| log_rotation                  | Desktop  | t154                                                                | 2026-07-27   |
 | observation-store             | API      | 迁移自 omni_powers，t096                                            | 2026-07-24   |
 | opencode_go_html_scrape       | API      | t115                                                                | 2026-07-26   |
 | platform-services-api         | API      | 拆自 platform-services（t037）                                      | 2026-07-21   |
