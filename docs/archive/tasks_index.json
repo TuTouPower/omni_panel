@@ -1247,6 +1247,14 @@
             "status": "done",
             "branch": "t154_log_rotation",
             "note": ""
+        },
+        {
+            "tid": "t157",
+            "title": "统一添加/编辑账号的认证表单",
+            "slug": "unify_account_auth_forms",
+            "status": "done",
+            "branch": "t157_unify_account_auth_forms",
+            "note": "blocked: review"
         }
     ]
 }

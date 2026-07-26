@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SettingsForm } from "../../../../src/renderer/components/SettingsForm";
 import type { PluginParameterMetadata } from "../../../../src/shared/schemas/plugin-metadata";
@@ -327,170 +327,267 @@ describe("SettingsForm", () => {
     });
 });
 
-describe("SettingsForm cookie login", () => {
-    it("renders 网页登录 button for MiMo SESSION_COOKIE parameter", () => {
-        renderForm({
-            instanceId: "mimo-1",
-            name: "MiMo",
-            providerId: "mimo",
+describe("SettingsForm OAuth device login (t157)", () => {
+    function mock_grok_api() {
+        return {
+            login_start: vi.fn().mockResolvedValue({
+                device_code: "dc-grok",
+                user_code: "GROK-CODE",
+                verification_uri: "https://auth.x.ai/device",
+                verification_uri_complete: "https://auth.x.ai/device?user_code=GROK-CODE",
+                expires_in: 1800,
+                interval: 5,
+            }),
+            login_poll: vi.fn().mockResolvedValue({ saved: true, token: "grok-token" }),
+            login_cancel: vi.fn().mockResolvedValue(undefined),
+            login_status: vi
+                .fn()
+                .mockResolvedValue({ has_token: false, expires_at: null, can_refresh: false }),
+            logout: vi.fn().mockResolvedValue({ logged_out: true }),
+            refresh: vi.fn().mockResolvedValue({ success: true }),
+        };
+    }
+
+    function renderOAuthForm(overrides: Record<string, unknown> = {}) {
+        const grok = mock_grok_api();
+        (window as unknown as { usageboard: unknown }).usageboard = {
+            platform: "win32",
+            config: {
+                getSecrets: vi.fn().mockResolvedValue({ OAUTH_TOKEN: "grok-token" }),
+                get: vi.fn(),
+                save: vi.fn(),
+                saveSecrets: vi.fn(),
+                duplicate: vi.fn(),
+                export: vi.fn(),
+                import: vi.fn(),
+            },
+            connector: {
+                getState: vi.fn().mockResolvedValue({ status: "idle" }),
+                list: vi.fn(),
+                refresh: vi.fn(),
+                refreshAll: vi.fn(),
+                snapshot: vi.fn(),
+            },
+            log: vi.fn(),
+            grok,
+        };
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        const defaults = {
+            instanceId: "grok-1",
+            providerId: "grok",
+            authMethod: "oauth_device" as const,
             parameters: [
                 {
-                    name: "SESSION_COOKIE",
-                    label: "Cookie",
-                    type: "secret",
+                    name: "OAUTH_TOKEN",
+                    label: "OAuth Token",
+                    type: "secret" as const,
                     required: true,
                 },
             ],
             values: {},
             hasSecrets: {},
-            onCookieLogin: vi.fn().mockResolvedValue(true),
+            refreshIntervalSeconds: 300,
+            globalIntervalLabel: "5 分钟",
+            onSave,
+        };
+        return { ...render(<SettingsForm {...defaults} {...overrides} />), onSave, grok };
+    }
+
+    it("renders device login section for grok and hides secret input", async () => {
+        renderOAuthForm();
+        await waitFor(() => {
+            expect(screen.getByTestId("device-login-section-grok-1")).toBeInTheDocument();
         });
-        expect(screen.getByText("网页登录")).toBeInTheDocument();
+        expect(screen.queryByLabelText("OAuth Token")).not.toBeInTheDocument();
     });
 
-    it("renders 网页登录 and 备注 for OpenCode Go without 账号名称", () => {
-        renderForm({
-            instanceId: "opencode-go-1",
-            name: "OpenCode Go",
-            providerId: "opencode_go",
-            parameters: [
-                {
-                    name: "SESSION_COOKIE",
-                    label: "Cookie",
-                    type: "secret",
-                    required: true,
-                },
-                {
-                    name: "ACCOUNT_LABEL",
-                    label: "Account Label",
-                    "label@zh-Hans": "账号名称",
-                    type: "string",
-                    required: false,
-                },
-            ],
-            values: {},
-            hasSecrets: {},
-            onCookieLogin: vi.fn().mockResolvedValue(true),
-        });
-        expect(screen.getByText("网页登录")).toBeInTheDocument();
-        expect(screen.getByText("备注")).toBeInTheDocument();
-        expect(screen.queryByText("账号名称")).not.toBeInTheDocument();
-    });
-
-    it("calls OpenCode Go cookie login with instance id", async () => {
-        const onCookieLogin = vi.fn().mockResolvedValue(true);
+    it("calls onSave with token after grok device login succeeds", async () => {
+        const { onSave, grok } = renderOAuthForm();
         const user = userEvent.setup();
-        renderForm({
+        await user.click(await screen.findByText("Grok 登录"));
+        await waitFor(() => {
+            expect(grok.login_start).toHaveBeenCalledTimes(1);
+        });
+        await waitFor(() => {
+            expect(onSave).toHaveBeenCalledTimes(1);
+        });
+        const call = onSave.mock.calls[0];
+        expect(call).toBeDefined();
+        if (!call) return;
+        const [, , secrets] = call;
+        expect(secrets).toEqual({ OAUTH_TOKEN: "grok-token" });
+    });
+
+    it("renders device login section for kimi with authMethod oauth_device", async () => {
+        const kimi = {
+            login_start: vi.fn().mockResolvedValue({
+                device_code: "dc-kimi",
+                user_code: "KIMI-CODE",
+                verification_uri: "https://auth.kimi.com/device",
+                verification_uri_complete: "https://auth.kimi.com/device?user_code=KIMI-CODE",
+                expires_in: 1800,
+                interval: 5,
+            }),
+            login_poll: vi.fn().mockResolvedValue({ saved: true, token: "kimi-token" }),
+            login_cancel: vi.fn().mockResolvedValue(undefined),
+            login_status: vi
+                .fn()
+                .mockResolvedValue({ has_token: false, expires_at: null, can_refresh: false }),
+            logout: vi.fn().mockResolvedValue({ logged_out: true }),
+            refresh: vi.fn().mockResolvedValue({ success: true }),
+        };
+        (window as unknown as { usageboard: unknown }).usageboard = {
+            ...(window.usageboard as object),
+            kimi,
+        };
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        render(
+            <SettingsForm
+                instanceId="kimi-1"
+                providerId="kimi"
+                authMethod="oauth_device"
+                parameters={[
+                    {
+                        name: "OAUTH_TOKEN",
+                        label: "OAuth Token",
+                        type: "secret" as const,
+                        required: true,
+                    },
+                ]}
+                values={{}}
+                hasSecrets={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={onSave}
+            />,
+        );
+        await waitFor(() => {
+            expect(screen.getByTestId("device-login-section-kimi-1")).toBeInTheDocument();
+        });
+        expect(screen.queryByLabelText("OAuth Token")).not.toBeInTheDocument();
+    });
+});
+
+describe("SettingsForm web_login editing (t157)", () => {
+    let sessionLoginMock: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+        sessionLoginMock = vi.fn().mockResolvedValue({ saved: true, cookie: "captured-cookie" });
+        window.usageboard.session = {
+            login: sessionLoginMock,
+        } as unknown as typeof window.usageboard.session;
+    });
+
+    function renderWebLoginForm(overrides: Record<string, unknown> = {}) {
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        const defaults = {
             instanceId: "opencode-go-1",
-            name: "OpenCode Go",
             providerId: "opencode_go",
+            authMethod: "web_login" as const,
+            authDescriptor: {
+                method: "web_login" as const,
+                secret_name: "SESSION_COOKIE",
+                login_url: "https://opencode.ai/auth",
+            },
             parameters: [
                 {
                     name: "SESSION_COOKIE",
                     label: "Cookie",
-                    type: "secret",
+                    type: "secret" as const,
                     required: true,
                 },
             ],
             values: {},
             hasSecrets: {},
-            onCookieLogin,
-        });
+            refreshIntervalSeconds: 300,
+            globalIntervalLabel: "5 分钟",
+            onSave,
+        };
+        return { ...render(<SettingsForm {...defaults} {...overrides} />), onSave };
+    }
 
+    it("renders WebLoginSection for authMethod web_login and hides secret input", () => {
+        renderWebLoginForm();
+        expect(screen.getByTestId("web-login-section-opencode_go")).toBeInTheDocument();
+        expect(screen.queryByLabelText("Cookie")).not.toBeInTheDocument();
+    });
+
+    it("calls session.login and saves cookie when web login succeeds", async () => {
+        const { onSave } = renderWebLoginForm();
+        const user = userEvent.setup();
         await user.click(screen.getByText("网页登录"));
 
-        expect(onCookieLogin).toHaveBeenCalledWith("opencode-go-1");
+        await waitFor(() => {
+            expect(sessionLoginMock).toHaveBeenCalledWith({
+                provider: "opencode_go",
+                login_url: "https://opencode.ai/auth",
+                cookie_names: ["*"],
+                instance_id: "opencode-go-1",
+            });
+        });
+        await waitFor(() => {
+            expect(onSave).toHaveBeenCalledTimes(1);
+        });
+        const call = onSave.mock.calls[0];
+        expect(call).toBeDefined();
+        if (!call) return;
+        const [, , secrets] = call;
+        expect(secrets).toEqual({ SESSION_COOKIE: "captured-cookie" });
     });
 
-    it("does not render 网页登录 without login handler", () => {
-        renderForm({
-            instanceId: "kimi-1",
-            name: "Kimi",
-            providerId: "kimi",
-            parameters: [
-                {
-                    name: "SESSION_COOKIE",
-                    label: "Cookie",
-                    type: "secret",
-                    required: true,
-                },
-            ],
-            values: {},
-            hasSecrets: {},
+    it("does not save when web login returns empty cookie", async () => {
+        sessionLoginMock.mockResolvedValue({
+            saved: true,
+            cookie: "",
         });
-        expect(screen.queryByText("网页登录")).not.toBeInTheDocument();
-    });
-
-    it("shows 登录中... while cookieLogin is in progress", async () => {
-        // Use a deferred promise so we can observe the loading state
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        let resolve_login: (v: boolean) => void = () => {};
-        const login_promise = new Promise<boolean>((r) => {
-            resolve_login = r;
-        });
-        const onCookieLogin = vi.fn().mockReturnValue(login_promise);
+        const { onSave } = renderWebLoginForm();
         const user = userEvent.setup();
-
-        renderForm({
-            instanceId: "mimo-1",
-            name: "MiMo",
-            providerId: "mimo",
-            parameters: [
-                {
-                    name: "SESSION_COOKIE",
-                    label: "Cookie",
-                    type: "secret",
-                    required: true,
-                },
-            ],
-            values: {},
-            hasSecrets: {},
-            onCookieLogin,
-        });
-
-        await user.click(screen.getByText("网页登录"));
-        expect(onCookieLogin).toHaveBeenCalledWith("mimo-1");
-        // Button should show loading text and be disabled
-        const btn = screen.getByText("登录中...");
-        expect(btn).toBeDisabled();
-
-        await act(async () => {
-            resolve_login(true);
-            await Promise.resolve();
-        });
-        await vi.waitFor(() => {
-            expect(screen.getByText("网页登录")).toBeInTheDocument();
-            expect(screen.getByText("网页登录成功，Cookie 已保存")).toBeInTheDocument();
-        });
-    });
-
-    it("shows feedback when cookie login captures nothing", async () => {
-        const onCookieLogin = vi.fn().mockResolvedValue(false);
-        const user = userEvent.setup();
-        renderForm({
-            instanceId: "opencode-go-1",
-            name: "OpenCode Go",
-            providerId: "opencode_go",
-            parameters: [
-                {
-                    name: "SESSION_COOKIE",
-                    label: "Cookie",
-                    type: "secret",
-                    required: true,
-                },
-            ],
-            values: {},
-            hasSecrets: {},
-            onCookieLogin,
-        });
-
         await user.click(screen.getByText("网页登录"));
 
-        await vi.waitFor(() => {
-            expect(
-                screen.getByText("未捕获到 Cookie，请确认登录成功后再关闭窗口"),
-            ).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText("未捕获到 Cookie，请完成登录后再关闭窗口")).toBeInTheDocument();
         });
+        expect(onSave).not.toHaveBeenCalled();
+    });
+});
+
+describe("SettingsForm session editing (t157)", () => {
+    it("renders SessionSection for authMethod session and textarea participates in save", async () => {
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        const user = userEvent.setup();
+        render(
+            <SettingsForm
+                instanceId="mimo-1"
+                providerId="mimo"
+                authMethod="session"
+                parameters={[
+                    {
+                        name: "SESSION_COOKIE",
+                        label: "Cookie",
+                        type: "secret" as const,
+                        required: true,
+                    },
+                ]}
+                values={{}}
+                hasSecrets={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={onSave}
+            />,
+        );
+
+        expect(screen.getByTestId("session-section-SESSION_COOKIE")).toBeInTheDocument();
+        const textarea = screen.getByPlaceholderText(
+            "在浏览器登录后，从开发者工具复制完整 Cookie…",
+        );
+        await user.type(textarea, "manual-cookie-value");
+        await user.click(screen.getByTestId("settings-save-btn-mimo-1"));
+
+        const call = onSave.mock.calls[0];
+        expect(call).toBeDefined();
+        if (!call) return;
+        const [, , secrets] = call;
+        expect(secrets).toEqual({ SESSION_COOKIE: "manual-cookie-value" });
     });
 
     it("uses label@zh-Hans when available", () => {

@@ -1,18 +1,11 @@
 import { useCallback } from "react";
-import { Icon } from "../Icon";
-import { useGrokDeviceLogin } from "../../hooks/useGrokDeviceLogin";
-import { useKimiDeviceLogin } from "../../hooks/useKimiDeviceLogin";
-import { build_device_login_url } from "../../lib/device-login-url";
+import { DeviceLoginSection, type OAuthDeviceVendor } from "../DeviceLoginSection";
 import type { AddAccountParams } from "../AddAccountDialog";
-import type { AddServiceId } from "../../lib/common-services";
-
-/** Vendors that share the OAuth device-code form but dispatch to their own IPC. */
-export type OAuthDeviceVendor = "grok" | "kimi";
 
 export interface OAuthDeviceFormProps {
     readonly instance_id: string;
     readonly vendor: OAuthDeviceVendor;
-    readonly vendor_id: AddServiceId;
+    readonly vendor_id: AddAccountParams["vendor_id"];
     readonly secret_name: string;
     readonly account_name: string;
     readonly set_account_name: (v: string) => void;
@@ -28,30 +21,8 @@ export function OAuthDeviceForm({
     set_account_name,
     on_save,
 }: OAuthDeviceFormProps) {
-    // Both hooks are called unconditionally (Rules of Hooks); the active vendor's
-    // result is selected. The idle hook performs no network calls unless started.
-    const grok_login = useGrokDeviceLogin(instance_id);
-    const kimi_login = useKimiDeviceLogin(instance_id);
-    const { phase, device_code, error, start, set_phase_error } =
-        vendor === "kimi" ? kimi_login : grok_login;
-
-    const handle_start = useCallback(async () => {
-        const result = await start();
-        if (!result?.saved) return;
-        try {
-            // Persist the full token set onto the real connector instance. The
-            // device-code login ran under a temporary instance id; without also
-            // carrying refresh_token/expires_at, auto-refresh on the real instance
-            // would have no refresh_token to use.
-            const secrets: Record<string, string> = {
-                [secret_name]: result.token ?? "",
-            };
-            if (result.refresh_token) {
-                secrets["OAUTH_REFRESH_TOKEN"] = result.refresh_token;
-            }
-            if (result.expires_at) {
-                secrets["OAUTH_EXPIRES_AT"] = result.expires_at;
-            }
+    const handle_secrets = useCallback(
+        async (secrets: Record<string, string>) => {
             await on_save({
                 vendor_id,
                 account_name: account_name || vendor_id,
@@ -59,12 +30,9 @@ export function OAuthDeviceForm({
                 parameter_values: {},
                 secrets,
             });
-        } catch (save_error) {
-            set_phase_error(
-                save_error instanceof Error ? save_error.message : "保存账号失败，请重试",
-            );
-        }
-    }, [start, on_save, vendor_id, account_name, secret_name, set_phase_error]);
+        },
+        [on_save, vendor_id, account_name],
+    );
 
     return (
         <div data-secret-name={secret_name}>
@@ -85,56 +53,14 @@ export function OAuthDeviceForm({
                     placeholder="例如：工作账号"
                 />
             </div>
-            <div className="ad-field">
-                <label className="ad-label">OAuth 设备码登录</label>
-                {phase === "idle" && (
-                    <button
-                        type="button"
-                        className="cf-secondary"
-                        onClick={() => void handle_start()}
-                    >
-                        开始登录
-                    </button>
-                )}
-                {phase === "starting" && <p className="ad-hint">正在获取设备码…</p>}
-                {phase === "polling" && device_code && (
-                    <div>
-                        {device_code.user_code ? (
-                            <p className="ad-hint">
-                                请访问{" "}
-                                <a
-                                    href={build_device_login_url(device_code)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    {build_device_login_url(device_code)}
-                                </a>
-                            </p>
-                        ) : (
-                            <p className="ad-hint">
-                                输入代码：<code>{device_code.user_code}</code>
-                            </p>
-                        )}
-                        <p className="ad-hint">等待授权完成…</p>
-                    </div>
-                )}
-                {phase === "success" && <p className="ad-hint">登录成功</p>}
-                {phase === "error" && (
-                    <p className="ad-hint">
-                        <Icon name="alert_circle" size={12} strokeWidth={1.8} />
-                        登录失败：{error}
-                    </p>
-                )}
-                {phase === "error" && (
-                    <button
-                        type="button"
-                        className="cf-secondary"
-                        onClick={() => void handle_start()}
-                    >
-                        重新登录
-                    </button>
-                )}
-            </div>
+            <DeviceLoginSection
+                vendor={vendor}
+                instance_id={instance_id}
+                secret_name={secret_name}
+                buttonLabel="开始登录"
+                checkStatus={false}
+                onSecrets={handle_secrets}
+            />
         </div>
     );
 }

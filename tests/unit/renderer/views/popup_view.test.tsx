@@ -328,6 +328,40 @@ describe("PopupView", () => {
         expect(plugin_refresh).not.toHaveBeenCalledWith("kimi-direct-1");
     });
 
+    it("opens settings for re-login when provider auth fails (t157)", async () => {
+        plugin_list.mockResolvedValue([
+            connectorInfo({
+                source: "poll",
+                sourceInstanceId: "kimi-direct-1",
+                name: "kimi",
+                displayName: "Kimi",
+                supportedProviders: ["kimi"],
+                activeProviders: ["kimi"],
+                snapshot: {
+                    status: "failed",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    error: "401 Unauthorized: token expired",
+                    items: [],
+                },
+            }),
+        ]);
+
+        const settings_open = vi.fn();
+        const cookie_login = vi.fn();
+        window.usageboard.settings.open = settings_open;
+        window.usageboard.auth.cookieLogin = cookie_login;
+
+        render(<PopupView />);
+
+        const re_login = await screen.findByText("重新登录");
+        fireEvent.click(re_login);
+
+        await waitFor(() => {
+            expect(settings_open).toHaveBeenCalledWith({ provider: "kimi" });
+        });
+        expect(cookie_login).not.toHaveBeenCalled();
+    });
+
     it("logs provider refresh failures", async () => {
         plugin_refresh.mockRejectedValueOnce(new Error("refresh failed"));
 

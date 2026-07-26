@@ -297,7 +297,10 @@ export const ProviderCard = memo(function ProviderCard({
             usage_content
         );
 
-    const can_collapse = onToggleExpand !== undefined && (hasAccounts || isFailed);
+    // Auth failures surface a "re-login" action; collapsing would hide the only
+    // recovery path, so keep them expanded when a toggle handler is present.
+    const can_collapse =
+        onToggleExpand !== undefined && (hasAccounts || isFailed) && !(isFailed && is_auth);
 
     // Unified: always use CollapsibleCard, even for non-collapsible (failed/no-data)
     return (

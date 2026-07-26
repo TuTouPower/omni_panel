@@ -49,5 +49,6 @@
 | move_session_meta_to_lib      | Web      | t124                                                                | 2026-07-26   |
 | extract_oauth_helpers         | API      | t127                                                                | 2026-07-26   |
 | kimi_oauth_concurrency        | API      | t150                                                                | 2026-07-26   |
+| unify_account_auth_forms      | Web      | t157                                                                | 2026-07-27   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

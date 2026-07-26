@@ -98,6 +98,74 @@ function stripRemovedConfigFields(config: Record<string, unknown>): Record<strin
     return rest;
 }
 
+/**
+ * Parse, migrate and prune a config JSON string. Returns `null` for empty or
+ * schema-invalid input so callers can decide whether to try backups.
+ *
+ * When `configPath` is provided and pruning occurs, the cleaned config is
+ * persisted so the prune is durable (matches original load() behavior).
+ */
+async function parse_config(raw: string, configPath?: string): Promise<AppConfiguration | null> {
+    const parsed = raw.trim().length === 0 ? null : (JSON.parse(raw) as unknown);
+    const normalized =
+        parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+            ? stripRemovedConfigFields(parsed as Record<string, unknown>)
+            : parsed;
+    const result = appConfigurationSchema.safeParse(normalized);
+    if (!result.success) {
+        return null;
+    }
+    let migrated = {
+        ...result.data,
+        plugins: result.data.plugins.map((p) => ({
+            ...p,
+            instanceId: p.instanceId ?? p.stateId,
+        })),
+    } as AppConfiguration;
+
+    const keep_indices = await prune_invalid_plugins(migrated.plugins);
+    if (keep_indices.length !== migrated.plugins.length) {
+        const dropped = migrated.plugins.length - keep_indices.length;
+        log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath ?? "config"}`);
+        const pruned_plugins = keep_indices
+            .map((i) => migrated.plugins[i])
+            .filter((p): p is NonNullable<typeof p> => p !== undefined);
+        migrated = {
+            ...migrated,
+            plugins: pruned_plugins,
+        };
+        if (configPath) {
+            try {
+                await writeJsonAtomic(configPath, sortKeys(migrated));
+            } catch (err) {
+                log.warn(`Failed to persist pruned config at ${configPath}`, err);
+            }
+        }
+    }
+    return migrated;
+}
+
+/**
+ * Try to load a valid config from a backup file. Returns null if unavailable or
+ * invalid. If `configPath` is provided, a recovered config is persisted back to
+ * the main file so the next start does not re-hit the missing-file path.
+ */
+async function try_load_backup(
+    backupPath: string,
+    configPath?: string,
+): Promise<AppConfiguration | null> {
+    try {
+        const raw = await readFile(backupPath, "utf8");
+        const parsed = await parse_config(raw, configPath);
+        if (parsed) {
+            log.warn(`Recovered config from backup ${backupPath}`);
+        }
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
 // Returns true when the plugin's connector manifest exists and declares a
 // provider that survives the connectorProviderSchema whitelist
 // (usageProviderSchema ∪ {"cpa"}). Returns false for orphan plugins (no
@@ -189,83 +257,23 @@ export function createConfigStore(configPath: string): AppConfigStore {
                         raw: redact_config_json(raw),
                     });
                 }
-                // 空文件或仅空白字符视为损坏，走 backup+throw 路径，不 fallback defaults。
-                // 强制 schema 失败，以便复用「先尝试 .bak 恢复，再决定是否备份主文件」的 corrupt 路径。
-                const parsed = raw.trim().length === 0 ? null : (JSON.parse(raw) as unknown);
-                const normalized =
-                    parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
-                        ? stripRemovedConfigFields(parsed as Record<string, unknown>)
-                        : parsed;
-                const result = appConfigurationSchema.safeParse(normalized);
-                if (result.success) {
-                    let migrated = {
-                        ...result.data,
-                        plugins: result.data.plugins.map((p) => ({
-                            ...p,
-                            instanceId: p.instanceId ?? p.stateId,
-                        })),
-                    } as AppConfiguration;
-
-                    // Prune plugins whose connector manifest is missing or
-                    // declares a provider that is no longer whitelisted
-                    // (e.g. leftover `test-observe` entries from before the
-                    // fixture was moved out of the bundled connectors dir).
-                    const keep_indices = await prune_invalid_plugins(migrated.plugins);
-                    if (keep_indices.length !== migrated.plugins.length) {
-                        const dropped = migrated.plugins.length - keep_indices.length;
-                        log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath}`);
-                        const pruned_plugins = keep_indices
-                            .map((i) => migrated.plugins[i])
-                            .filter((p): p is NonNullable<typeof p> => p !== undefined);
-                        const pruned = {
-                            ...migrated,
-                            plugins: pruned_plugins,
-                        };
-                        // Persist the cleaned config so the prune is durable
-                        // and does not repeat on every load.
-                        try {
-                            await writeJsonAtomic(configPath, sortKeys(pruned));
-                        } catch (err) {
-                            log.warn(`Failed to persist pruned config at ${configPath}`, err);
-                        }
-                        migrated = pruned;
-                    }
-
+                const parsed = await parse_config(raw, configPath);
+                if (parsed) {
                     if (shouldLogRawStorage()) {
                         log.debug("config parsed raw", {
                             filePath: configPath,
-                            config: redact_config_raw(migrated),
+                            config: redact_config_raw(parsed),
                         });
                     }
-                    return migrated;
+                    return parsed;
                 }
-                // Try recovering from .bak before backing up corrupted file
-                let recovered_from_bak: AppConfiguration | null = null;
-                try {
-                    const bak_raw = await readFile(`${configPath}.bak`, "utf8");
-                    const bak_parsed = JSON.parse(bak_raw) as unknown;
-                    const bak_normalized =
-                        bak_parsed !== null &&
-                        typeof bak_parsed === "object" &&
-                        !Array.isArray(bak_parsed)
-                            ? stripRemovedConfigFields(bak_parsed as Record<string, unknown>)
-                            : bak_parsed;
-                    const bak_result = appConfigurationSchema.safeParse(bak_normalized);
-                    if (bak_result.success) {
-                        recovered_from_bak = bak_result.data as AppConfiguration;
-                    }
-                } catch {
-                    // .bak not available or also corrupt
-                }
-                if (recovered_from_bak) {
-                    // Don't overwrite the good .bak with the corrupted main
-                    // content (D13) — that would destroy the only known-good
-                    // backup on the next corruption.
-                    log.warn(
-                        `Config schema mismatch at ${configPath}, recovered from backup`,
-                        result.error.issues,
-                    );
-                    return recovered_from_bak;
+                // Main config is empty/corrupt: try backups before backing up the bad file.
+                const recovered =
+                    (await try_load_backup(`${configPath}.bak`, configPath)) ??
+                    (await try_load_backup(`${configPath}.before_restore`, configPath));
+                if (recovered) {
+                    log.warn(`Config schema mismatch at ${configPath}, recovered from backup`);
+                    return recovered;
                 }
                 // Main is corrupt AND no valid .bak to recover - back up the
                 // corrupted main content before throwing, so there's still
@@ -285,7 +293,6 @@ export function createConfigStore(configPath: string): AppConfigStore {
                     `Config schema mismatch at ${configPath}, backup also invalid. ` +
                         `NOT falling back to defaults to prevent auto_seed overwrite. ` +
                         `Manual recovery required (restore config.json from backup or reconfigure).`,
-                    result.error.issues,
                 );
                 throw new Error(
                     `Config corrupt at ${configPath} and no valid .bak. ` +
@@ -316,7 +323,19 @@ export function createConfigStore(configPath: string): AppConfigStore {
                         // 目录存在但里面只有 Electron 自动文件或空的初始化产物，视为首次启动。
                         return { ...DEFAULT_CONFIGURATION };
                     }
-                    // 目录存在且有此前成功运行留下的用户数据文件，但 config.json 缺失，视为异常。
+                    // 目录存在且有此前成功运行留下的用户数据文件，但 config.json 缺失：
+                    // 先尝试从备份恢复，避免一次误删/写坏就拒绝启动。
+                    const recovered =
+                        (await try_load_backup(`${configPath}.bak`, configPath)) ??
+                        (await try_load_backup(`${configPath}.before_restore`, configPath));
+                    if (recovered) {
+                        log.warn(
+                            `Config file missing at ${configPath} but directory exists. ` +
+                                `Recovered from backup; a manual check is still recommended.`,
+                        );
+                        return recovered;
+                    }
+                    // 无可用备份时才拒绝启动，防止 auto_seed 覆盖已有数据。
                     log.error(
                         `Config file missing at ${configPath} but directory exists. ` +
                             `NOT falling back to defaults to prevent auto_seed overwrite. ` +

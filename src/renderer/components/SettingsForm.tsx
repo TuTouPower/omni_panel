@@ -10,8 +10,12 @@ import {
 import { format_usage_period_label } from "../lib/provider-usage";
 import { build_label_map_rows, type LabelMapRow } from "../lib/label-map-util";
 import { Icon } from "./Icon";
-import { GrokLoginSection } from "./GrokLoginSection";
+import { DeviceLoginSection } from "./DeviceLoginSection";
+import { WebLoginSection } from "./WebLoginSection";
+import { SessionSection } from "./SessionSection";
 import { SecretInput } from "./SecretInput";
+import type { ResolvedAuthMethod } from "../lib/auth-flow-registry";
+import type { AuthDescriptor } from "../../shared/schemas/auth";
 
 interface SettingsFormProps {
     instanceId: string;
@@ -24,8 +28,10 @@ interface SettingsFormProps {
     globalIntervalLabel: string;
     manualRefreshOnly?: boolean | undefined;
     providerId?: string | undefined;
+    authMethod?: ResolvedAuthMethod | undefined;
+    /** t157: manifest auth descriptor used to render dedicated auth sections. */
+    authDescriptor?: AuthDescriptor | null | undefined;
     displayName?: string | undefined;
-    onCookieLogin?: ((instanceId: string) => Promise<boolean>) | undefined;
     onSave: (
         instanceId: string,
         nonSecrets: Record<string, string>,
@@ -58,8 +64,9 @@ export function SettingsForm({
     globalIntervalLabel,
     manualRefreshOnly,
     providerId,
+    authMethod,
+    authDescriptor,
     displayName,
-    onCookieLogin,
     onSave,
     onDuplicate,
     existingLabelMap,
@@ -72,8 +79,6 @@ export function SettingsForm({
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [loginLoading, setLoginLoading] = useState(false);
-    const [loginMessage, setLoginMessage] = useState<string | null>(null);
     const [labelRows, setLabelRows] = useState<LabelMapRow[]>([]);
     const [labelLoading, setLabelLoading] = useState(false);
     const [labelEdits, setLabelEdits] = useState<Record<string, string>>({});
@@ -119,38 +124,6 @@ export function SettingsForm({
         };
     }, [instanceId]);
 
-    const handle_cookie_login = useCallback(
-        (_secret_name: string) => {
-            void _secret_name;
-            if (!onCookieLogin) return;
-            setLoginLoading(true);
-            setLoginMessage(null);
-            void onCookieLogin(instanceId)
-                .then(async (ok) => {
-                    if (!mounted_ref.current) return;
-                    setLoginLoading(false);
-                    if (ok) {
-                        try {
-                            const secrets = await window.usageboard.config.getSecrets(instanceId);
-                            set_loaded_secrets(secrets);
-                            set_secret_values(secrets);
-                        } catch {
-                            /* keep previous */
-                        }
-                        setLoginMessage("网页登录成功，Cookie 已保存");
-                    } else {
-                        setLoginMessage("未捕获到 Cookie，请确认登录成功后再关闭窗口");
-                    }
-                })
-                .catch(() => {
-                    if (!mounted_ref.current) return;
-                    setLoginLoading(false);
-                    setLoginMessage("网页登录失败，请重试");
-                });
-        },
-        [instanceId, onCookieLogin],
-    );
-
     useEffect(() => {
         if (!providerId || !onSaveLabelMap) return;
         void (async () => {
@@ -179,6 +152,75 @@ export function SettingsForm({
     const handle_label_edit = (raw: string, value: string) => {
         setLabelEdits((prev) => ({ ...prev, [raw]: value }));
     };
+
+    const perform_save = useCallback(
+        async (
+            nonSecrets: Record<string, string>,
+            secrets: Record<string, string>,
+            endpointOverrides: Record<string, string>,
+            intervalSeconds: number,
+            displayName?: string,
+            options?: { refresh?: boolean },
+        ): Promise<boolean> => {
+            setSaving(true);
+            setSaved(false);
+            setSaveError(null);
+            try {
+                await onSave(
+                    instanceId,
+                    nonSecrets,
+                    secrets,
+                    endpointOverrides,
+                    intervalSeconds,
+                    displayName,
+                );
+                if (onSaveLabelMap && Object.keys(labelEdits).length > 0) {
+                    const map: Record<string, string> = {};
+                    for (const [raw, display] of Object.entries(labelEdits)) {
+                        map[raw] = display;
+                    }
+                    await onSaveLabelMap(instanceId, map);
+                }
+                if (providerId && onForcePercentChange && force_percent_local !== forcePercent) {
+                    await onForcePercentChange(providerId, force_percent_local);
+                }
+                if (!mounted_ref.current) return true;
+                if (Object.keys(secrets).length > 0) {
+                    set_loaded_secrets((prev) => ({ ...prev, ...secrets }));
+                }
+                setSaved(true);
+                saved_timeout_ref.current = setTimeout(() => {
+                    if (mounted_ref.current) {
+                        setSaved(false);
+                    }
+                }, 1500);
+                if (options?.refresh) {
+                    void window.usageboard.connector.refresh(instanceId);
+                }
+                return true;
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                if (mounted_ref.current) {
+                    setSaveError(msg);
+                }
+                return false;
+            } finally {
+                if (mounted_ref.current) {
+                    setSaving(false);
+                }
+            }
+        },
+        [
+            instanceId,
+            onSave,
+            labelEdits,
+            onSaveLabelMap,
+            providerId,
+            onForcePercentChange,
+            force_percent_local,
+            forcePercent,
+        ],
+    );
 
     const handle_submit = useCallback(
         (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -215,76 +257,44 @@ export function SettingsForm({
             const intervalSeconds = followGlobal ? 0 : refresh_label_to_seconds(syncInterval);
             const display_name = (formData.get("displayName") as string | null)?.trim();
 
-            setSaving(true);
-            setSaved(false);
-            setSaveError(null);
-            void onSave(
-                instanceId,
+            void perform_save(
                 nonSecrets,
                 secrets,
                 endpointOverrides,
                 intervalSeconds,
                 display_name,
-            )
-                .then(async () => {
-                    if (onSaveLabelMap && Object.keys(labelEdits).length > 0) {
-                        const map: Record<string, string> = {};
-                        for (const [raw, display] of Object.entries(labelEdits)) {
-                            map[raw] = display;
-                        }
-                        await onSaveLabelMap(instanceId, map);
-                    }
-                    if (
-                        providerId &&
-                        onForcePercentChange &&
-                        force_percent_local !== forcePercent
-                    ) {
-                        await onForcePercentChange(providerId, force_percent_local);
-                    }
-                    if (!mounted_ref.current) return;
-                    if (Object.keys(secrets).length > 0) {
-                        set_loaded_secrets((prev) => ({ ...prev, ...secrets }));
-                    }
-                    setSaved(true);
-                    saved_timeout_ref.current = setTimeout(() => {
-                        if (mounted_ref.current) {
-                            setSaved(false);
-                        }
-                    }, 1500);
-                })
-                .catch((err: unknown) => {
-                    const msg = err instanceof Error ? err.message : String(err);
-                    if (mounted_ref.current) {
-                        setSaveError(msg);
-                    }
-                })
-                .finally(() => {
-                    if (mounted_ref.current) {
-                        setSaving(false);
-                    }
-                });
+            );
         },
         [
             endpoints,
             followGlobal,
-            instanceId,
-            onSave,
             parameters,
             saving,
             syncInterval,
-            labelEdits,
-            onSaveLabelMap,
             secret_values,
             loaded_secrets,
-            providerId,
-            onForcePercentChange,
-            force_percent_local,
-            forcePercent,
+            perform_save,
         ],
     );
 
+    const supports_oauth_device_section =
+        authMethod === "oauth_device" &&
+        providerId &&
+        (providerId === "grok" || providerId === "kimi");
+    const supports_web_login_section = authMethod === "web_login" && !!authDescriptor?.login_url;
+    const supports_session_section = authMethod === "session";
+    const has_dedicated_auth_section = [
+        supports_oauth_device_section,
+        supports_web_login_section,
+        supports_session_section,
+    ].some(Boolean);
+    const web_login_url = authDescriptor?.login_url ?? "";
+    const auth_secret_name = parameters.find((p) => p.type === "secret")?.name ?? "OAUTH_TOKEN";
+
     const visible_parameters = parameters.filter(
-        (param) => providerId !== "opencode_go" || param.name !== "ACCOUNT_LABEL",
+        (param) =>
+            (providerId !== "opencode_go" || param.name !== "ACCOUNT_LABEL") &&
+            !(has_dedicated_auth_section && param.type === "secret"),
     );
 
     return (
@@ -309,7 +319,66 @@ export function SettingsForm({
                     autoCapitalize="off"
                 />
             </div>
-            {providerId === "grok" && <GrokLoginSection instance_id={instanceId} />}
+            {supports_oauth_device_section && (
+                <DeviceLoginSection
+                    vendor={providerId}
+                    instance_id={instanceId}
+                    secret_name={auth_secret_name}
+                    onSecrets={async (secrets) => {
+                        const ok = await perform_save(
+                            {},
+                            secrets,
+                            endpointValues ?? {},
+                            refreshIntervalSeconds,
+                            displayName,
+                            { refresh: true },
+                        );
+                        if (!ok) return;
+                        const loaded = await window.usageboard.config
+                            .getSecrets(instanceId)
+                            .catch(() => ({}));
+                        if (mounted_ref.current) {
+                            set_loaded_secrets(loaded);
+                            set_secret_values(loaded);
+                        }
+                    }}
+                />
+            )}
+            {supports_web_login_section && (
+                <WebLoginSection
+                    provider={providerId ?? ""}
+                    login_url={web_login_url}
+                    secret_name={auth_secret_name}
+                    instance_id={instanceId}
+                    onSecrets={async (secrets) => {
+                        const ok = await perform_save(
+                            {},
+                            secrets,
+                            endpointValues ?? {},
+                            refreshIntervalSeconds,
+                            displayName,
+                            { refresh: true },
+                        );
+                        if (!ok) return;
+                        const loaded = await window.usageboard.config
+                            .getSecrets(instanceId)
+                            .catch(() => ({}));
+                        if (mounted_ref.current) {
+                            set_loaded_secrets(loaded);
+                            set_secret_values(loaded);
+                        }
+                    }}
+                />
+            )}
+            {supports_session_section && (
+                <SessionSection
+                    secret_name={auth_secret_name}
+                    value={secret_values[auth_secret_name] ?? ""}
+                    onChange={(v) => {
+                        set_secret_values((prev) => ({ ...prev, [auth_secret_name]: v }));
+                    }}
+                />
+            )}
             {visible_parameters.map((param) => (
                 <div className="ad-field" key={param.name}>
                     <label className="ad-label" htmlFor={param.name}>
@@ -356,21 +425,6 @@ export function SettingsForm({
                                 required={param.required && !hasSecrets?.[param.name]}
                                 disabled={!secrets_loaded}
                             />
-                            {providerId && param.name === "SESSION_COOKIE" && onCookieLogin && (
-                                <button
-                                    type="button"
-                                    className="cf-secondary"
-                                    disabled={loginLoading}
-                                    onClick={() => {
-                                        handle_cookie_login(param.name);
-                                    }}
-                                >
-                                    {loginLoading ? "登录中..." : "网页登录"}
-                                </button>
-                            )}
-                            {providerId && param.name === "SESSION_COOKIE" && loginMessage ? (
-                                <p className="ad-hint">{loginMessage}</p>
-                            ) : null}
                         </div>
                     ) : (
                         <input

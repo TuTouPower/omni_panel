@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Icon } from "../Icon";
+import { SessionSection } from "../SessionSection";
 
 export interface SessionFormProps {
     readonly account_name: string;
@@ -32,24 +32,7 @@ export function SessionForm({ account_name, set_account_name, form_ref }: Sessio
                     placeholder="例如：工作账号"
                 />
             </div>
-            <div className="ad-field">
-                <label className="ad-label">Cookie 字符串</label>
-                <textarea
-                    className="aa-textarea mono"
-                    spellCheck={false}
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    value={cookie}
-                    onChange={(e) => {
-                        set_cookie(e.target.value);
-                    }}
-                    placeholder="在浏览器登录后，从开发者工具复制完整 Cookie…"
-                />
-                <div className="ad-hint" style={{ marginTop: 6 }}>
-                    <Icon name="info" size={12} strokeWidth={1.8} />
-                    保存后可在账号设置中使用网页登录自动捕获 Cookie
-                </div>
-            </div>
+            <SessionSection secret_name="SESSION_COOKIE" value={cookie} onChange={set_cookie} />
         </>
     );
 }

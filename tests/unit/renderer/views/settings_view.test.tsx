@@ -391,6 +391,7 @@ describe("SettingsView", () => {
                 supportedProviders: ["grok"],
                 activeProviders: ["grok"],
                 metadata: {
+                    auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
                     parameters: [],
                     endpoints: {
                         grok_billing: "https://cli-chat-proxy.grok.com",
@@ -1074,72 +1075,7 @@ describe("SettingsView", () => {
         expect(match[1]).toContain("auto");
     });
 
-    it("calls session.login and plugin.refresh after cookie login succeeds", async () => {
-        const user = userEvent.setup();
-        current_config = {
-            ...base_config,
-            plugins: [
-                {
-                    instanceId: "mimo-1",
-                    stateId: "mimo-1",
-                    name: "mimo",
-                    enabled: true,
-                    executablePath: "plugins/mimo.ts",
-                    refreshIntervalSeconds: 300,
-                    parameterValues: {},
-                    endpointOverrides: {},
-                },
-            ],
-        };
-        const mock_session_login = vi.fn().mockResolvedValue({ saved: true });
-        const mock_refresh = vi.fn();
-        window.usageboard.session.login = mock_session_login;
-        window.usageboard.connector.refresh = mock_refresh;
-        window.usageboard.connector.list = vi.fn().mockResolvedValue([
-            {
-                instanceId: "mimo-1",
-                sourceInstanceId: "mimo-1",
-                stateId: "mimo-1",
-                name: "mimo",
-                displayName: "MiMo",
-                enabled: true,
-                source: "poll",
-                supportedProviders: ["mimo"],
-                activeProviders: ["mimo"],
-                metadata: {
-                    parameters: [
-                        {
-                            name: "SESSION_COOKIE",
-                            label: "Cookie",
-                            type: "secret",
-                            required: true,
-                        },
-                    ],
-                    endpoints: {},
-                },
-                snapshot: { status: "idle" },
-            },
-        ]);
-
-        render(<SettingsView />);
-        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
-        await user.click(await screen.findByTitle("编辑"));
-        await user.click(await screen.findByText("网页登录"));
-
-        await waitFor(() => {
-            expect(mock_session_login).toHaveBeenCalledWith({
-                instance_id: "mimo-1",
-                provider: "mimo",
-                login_url: "https://platform.xiaomimimo.com/console/plan-manage",
-                cookie_names: ["api-platform_serviceToken", "api-platform_slh", "api-platform_ph"],
-            });
-        });
-        expect(mock_refresh).toHaveBeenCalledWith("mimo-1");
-        const config_get = Reflect.get(window.usageboard.config, "get") as ReturnType<typeof vi.fn>;
-        expect(config_get).toHaveBeenCalled();
-    });
-
-    it("calls session.login with OpenCode Go session metadata and refreshes", async () => {
+    it("calls session.login and plugin.refresh after OpenCode Go web login succeeds", async () => {
         const user = userEvent.setup();
         current_config = {
             ...base_config,
@@ -1156,7 +1092,7 @@ describe("SettingsView", () => {
                 },
             ],
         };
-        const mock_session_login = vi.fn().mockResolvedValue({ saved: true });
+        const mock_session_login = vi.fn().mockResolvedValue({ saved: true, cookie: "cookie" });
         const mock_refresh = vi.fn();
         window.usageboard.session.login = mock_session_login;
         window.usageboard.connector.refresh = mock_refresh;
@@ -1172,6 +1108,11 @@ describe("SettingsView", () => {
                 supportedProviders: ["opencode_go"],
                 activeProviders: ["opencode_go"],
                 metadata: {
+                    auth: {
+                        method: "web_login",
+                        secret_name: "SESSION_COOKIE",
+                        login_url: "https://opencode.ai/auth",
+                    },
                     parameters: [
                         {
                             name: "SESSION_COOKIE",
@@ -1202,17 +1143,17 @@ describe("SettingsView", () => {
         expect(mock_refresh).toHaveBeenCalledWith("opencode-go-1");
     });
 
-    it("does not call plugin.refresh when cookie login fails", async () => {
+    it("does not call plugin.refresh when OpenCode Go web login fails", async () => {
         const user = userEvent.setup();
         current_config = {
             ...base_config,
             plugins: [
                 {
-                    instanceId: "mimo-1",
-                    stateId: "mimo-1",
-                    name: "mimo",
+                    instanceId: "opencode-go-1",
+                    stateId: "opencode-go-1",
+                    name: "opencode_go",
                     enabled: true,
-                    executablePath: "plugins/mimo.ts",
+                    executablePath: "connectors/opencode_go/connector.ts",
                     refreshIntervalSeconds: 300,
                     parameterValues: {},
                     endpointOverrides: {},
@@ -1225,16 +1166,21 @@ describe("SettingsView", () => {
         window.usageboard.connector.refresh = mock_refresh;
         window.usageboard.connector.list = vi.fn().mockResolvedValue([
             {
-                instanceId: "mimo-1",
-                sourceInstanceId: "mimo-1",
-                stateId: "mimo-1",
-                name: "mimo",
-                displayName: "MiMo",
+                instanceId: "opencode-go-1",
+                sourceInstanceId: "opencode-go-1",
+                stateId: "opencode-go-1",
+                name: "opencode_go",
+                displayName: "OpenCode Go",
                 enabled: true,
-                source: "poll",
-                supportedProviders: ["mimo"],
-                activeProviders: ["mimo"],
+                source: "session",
+                supportedProviders: ["opencode_go"],
+                activeProviders: ["opencode_go"],
                 metadata: {
+                    auth: {
+                        method: "web_login",
+                        secret_name: "SESSION_COOKIE",
+                        login_url: "https://opencode.ai/auth",
+                    },
                     parameters: [
                         {
                             name: "SESSION_COOKIE",

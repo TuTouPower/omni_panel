@@ -433,21 +433,10 @@ export function PopupView() {
         set_expanded_providers((prev) => ({ ...prev, [provider]: !(prev[provider] ?? false) }));
     };
 
-    const handle_re_login = async (provider: string) => {
+    const handle_re_login = (provider: string) => {
         const connector = plugins.find((c) => c.enabled && c.activeProviders.includes(provider));
         if (!connector) return;
-        try {
-            const result = await window.usageboard.auth.cookieLogin(connector.instanceId);
-            if (result.saved) {
-                await window.usageboard.connector.refresh(connector.sourceInstanceId);
-            }
-        } catch (err: unknown) {
-            window.usageboard.log({
-                level: "error",
-                module: MODULE,
-                message: `重新登录 ${provider} 失败: ${err instanceof Error ? err.message : String(err)}`,
-            });
-        }
+        window.usageboard.settings.open({ provider });
     };
 
     const handle_toggle_watched = use_watched_metric_toggler({
@@ -720,13 +709,7 @@ export function PopupView() {
                                 onToggleExpandProvider={
                                     is_live ? toggle_expand_provider : undefined
                                 }
-                                onReLogin={
-                                    is_live
-                                        ? (p) => {
-                                              void handle_re_login(p);
-                                          }
-                                        : undefined
-                                }
+                                onReLogin={is_live ? handle_re_login : undefined}
                                 draggingProvider={is_live ? drag_id : null}
                                 overProvider={is_live ? over_id : null}
                                 onDragStart={is_live ? handle_drag_start : undefined}
@@ -759,13 +742,7 @@ export function PopupView() {
                                     onDragStart={is_live ? handle_account_drag_start : undefined}
                                     onDragEnter={is_live ? handle_account_drag_enter : undefined}
                                     onDragEnd={is_live ? handle_account_drag_end : undefined}
-                                    onReLogin={
-                                        is_live
-                                            ? (p: string) => {
-                                                  void handle_re_login(p);
-                                              }
-                                            : undefined
-                                    }
+                                    onReLogin={is_live ? handle_re_login : undefined}
                                     barColorScheme={usage_bar_color_scheme}
                                     barStyle={usage_bar_style}
                                     accountLabelMaps={account_label_maps}

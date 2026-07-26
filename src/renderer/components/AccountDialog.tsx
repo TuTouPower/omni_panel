@@ -5,7 +5,7 @@ import type { AddAccountParams } from "./AddAccountDialog";
 import { Icon, VendorMark } from "./Icon";
 import type { ConnectorCatalogEntry, ConnectorInfo } from "../../shared/types/ipc";
 import type { ConnectorConfiguration, AccountOverrides } from "../../shared/types/config";
-import { session_meta } from "../lib/session_meta";
+import { resolve_auth_method, resolve_auth_descriptor } from "../lib/auth-flow-registry";
 
 export function AccountDialog({
     mode,
@@ -133,36 +133,14 @@ export function AccountDialog({
                                     endpointValues={pluginConfig.endpointOverrides}
                                     refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
                                     globalIntervalLabel={globalIntervalLabel}
+                                    authMethod={resolve_auth_method(pluginInfo)}
+                                    authDescriptor={resolve_auth_descriptor(pluginInfo)}
                                     {...(pluginConfig.manualRefreshOnly
                                         ? { manualRefreshOnly: true }
                                         : {})}
                                     {...(pluginInfo.activeProviders[0]
                                         ? { providerId: pluginInfo.activeProviders[0] }
                                         : {})}
-                                    onCookieLogin={async (id) => {
-                                        try {
-                                            const provider = pluginInfo.activeProviders[0];
-                                            const meta = provider
-                                                ? session_meta[provider]
-                                                : undefined;
-                                            const result =
-                                                meta && provider
-                                                    ? await window.usageboard.session.login({
-                                                          instance_id: id,
-                                                          provider,
-                                                          login_url: meta.login_url,
-                                                          cookie_names: meta.cookie_names,
-                                                      })
-                                                    : await window.usageboard.auth.cookieLogin(id);
-                                            if (result.saved) {
-                                                await window.usageboard.connector.refresh(id);
-                                                await window.usageboard.config.get();
-                                            }
-                                            return result.saved;
-                                        } catch {
-                                            return false;
-                                        }
-                                    }}
                                     onSave={async (...args) => {
                                         await onSave(...args);
                                         onClose();
