@@ -943,6 +943,22 @@
             "status": "done",
             "branch": "t118_extract_shared_oauth",
             "note": ""
+        },
+        {
+            "tid": "t119",
+            "title": "Kimi 高用量重置提醒语义与链路回归",
+            "slug": "kimi_high_usage_reset_alert",
+            "status": "dropped",
+            "branch": "",
+            "note": "dropped: 用户取消"
+        },
+        {
+            "tid": "t120",
+            "title": "多账号概览按最高风险账号着色",
+            "slug": "multi_account_overview_risk_color",
+            "status": "dropped",
+            "branch": "",
+            "note": "dropped: 用户取消"
         }
     ]
 }
