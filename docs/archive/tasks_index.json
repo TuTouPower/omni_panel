@@ -1207,6 +1207,14 @@
             "status": "done",
             "branch": "t151_web_api_contract",
             "note": ""
+        },
+        {
+            "tid": "t152",
+            "title": "Rename project from omni_usage to omni_panel",
+            "slug": "rename_to_omni_panel",
+            "status": "done",
+            "branch": "t152_rename_to_omni_panel",
+            "note": ""
         }
     ]
 }
