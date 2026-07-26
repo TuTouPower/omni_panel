@@ -291,15 +291,15 @@ interface TokenStatsUpdate {
 
 ## 8. 涉及文件清单（数据采集层）
 
-| 文件                                             | 改动                                                                            | Task     |
-| ------------------------------------------------ | ------------------------------------------------------------------------------- | -------- |
-| `scripts/token-stats-spike.ts`                   | 新建：Phase 0 验证脚本（一次性）                                                | 0        |
-| `src/shared/types/token-stats.ts`                | 新建：共享类型 + Zod schema（含 `AgentSessionUsage` / `TokenStatsDailyUpsert`） | 1.1      |
-| `src/main/core/token-stats/token-stats-store.ts` | 新建：token*stats*\* 表建表 + 读写（复用 usage.db），含 user_version v2/v3 迁移 | 1.2      |
-| `src/main/core/token-stats/claude-reader.ts`     | 新建：costs.jsonl + session JSONL 解析                                          | 2.1, 2.2 |
-| `src/main/core/token-stats/opencode-reader.ts`   | 新建：opencode.db 只读查询                                                      | 3.1      |
-| `src/main/core/token-stats/kimi-reader.ts`       | 新建：Kimi Code wire.jsonl + session_index 解析                                 | 3.2      |
-| `src/main/core/token-stats/collector.ts`         | 新建：utilityProcess 子进程入口，定时采集循环，内联按模型/天聚合                | 4.2, 6.1 |
+| 文件                                             | 改动                                                                                    | Task     |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- | -------- |
+| `scripts/token-stats-spike.ts`                   | 新建：Phase 0 验证脚本（一次性）                                                        | 0        |
+| `src/shared/types/token-stats.ts`                | 新建：共享类型 + Zod schema（含 `AgentSessionUsage` / `TokenStatsDailyUpsert`）         | 1.1      |
+| `src/main/core/token-stats/token-stats-store.ts` | 新建：token*stats*\* 表建表 + 读写（复用 usage.db），含 user_version v2/v3 迁移         | 1.2      |
+| `src/main/core/token-stats/claude-reader.ts`     | 新建：costs.jsonl + session JSONL 解析                                                  | 2.1, 2.2 |
+| `src/main/core/token-stats/opencode-reader.ts`   | 新建：opencode.db 只读查询                                                              | 3.1      |
+| `src/main/core/token-stats/kimi-reader.ts`       | 新建：Kimi Code wire.jsonl + session_index 解析                                         | 3.2      |
+| `src/main/core/token-stats/collector.ts`         | 新建：utilityProcess 子进程入口，定时采集循环，内联按模型/天聚合；4.2 扩展 WSL 路径合并 | 4.1, 4.2 |
 
 `manager.ts` / `index.ts` / IPC / preload / window / 视图等见 `-desktop` 与 `-ui`。
 
@@ -393,18 +393,12 @@ opencode.db: ...行
 
 ### Phase 4（采集管道，部分）
 
-| Task | Commit 前缀                                | 内容                                                                                                                                                                          | 前置     |
-| ---- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 4.1  | `feat(token-stats): add aggregator`        | `src/main/core/token-stats/aggregator.ts` — 合并 Claude + OpenCode 读取结果，按 `(source, env, bucket_date, model)` 聚合。单元测试                                            | 2.1, 3.1 |
-| 4.2  | `feat(token-stats): add collector process` | `src/main/core/token-stats/collector.ts` — `child_process.fork` 入口，`setInterval` 按配置间隔（默认 10 分钟）循环，调用 reader + aggregator，`process.send()` 结果。集成测试 | 4.1      |
+| Task | Commit 前缀                                  | 内容                                                                                                                                                                                                                               | 前置     |
+| ---- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 4.1  | `feat(token-stats): add collector`           | `src/main/core/token-stats/collector.ts` — `child_process.fork` 入口，`setInterval` 按配置间隔（默认 10 分钟）循环，调用 readers 后**内联**按 `(source, env, bucket_date, model)` 聚合，`process.send()` 结果。单元测试 + 集成测试 | 2.1, 3.1 |
+| 4.2  | `feat(token-stats): add wsl path resolution` | `collector.ts` 扩展 — 从 config 读 `wsl_distro` + `wsl_user`，拼接 UNC 路径，合并 Win + WSL。配置 schema 新增字段。集成测试                                                                                                        | 4.1      |
 
 Task 4.3（manager）见 `-desktop`。
-
-### Phase 6（WSL，部分）
-
-| Task | Commit 前缀                                  | 内容                                                                                                                        | 前置 |
-| ---- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---- |
-| 6.1  | `feat(token-stats): add wsl path resolution` | `collector.ts` 扩展 — 从 config 读 `wsl_distro` + `wsl_user`，拼接 UNC 路径，合并 Win + WSL。配置 schema 新增字段。集成测试 | 4.2  |
 
 ### 依赖总览（本 spec 范围）
 
@@ -412,7 +406,7 @@ Task 4.3（manager）见 `-desktop`。
 1.1 → 1.2 ──────────────────────→ (4.3 in -desktop)
   ↓
   2.1 → 2.2 ─┐
-  3.1, 3.2 ──→ 4.1 → 4.2 → 6.1
+  3.1, 3.2 ──→ 4.1 → 4.2
 ```
 
 ## 12. 后续可扩展（数据采集层）

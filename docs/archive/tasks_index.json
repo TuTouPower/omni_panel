@@ -1111,6 +1111,14 @@
             "status": "dropped",
             "branch": "",
             "note": "dropped: 重组：合并至新 task"
+        },
+        {
+            "tid": "t149",
+            "title": "token-stats spec 清理 aggregator.ts 旧计划",
+            "slug": "docs_token_stats_spec_cleanup",
+            "status": "done",
+            "branch": "t149_docs_token_stats_spec_cleanup",
+            "note": ""
         }
     ]
 }

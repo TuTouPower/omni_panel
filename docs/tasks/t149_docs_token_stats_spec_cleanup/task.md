@@ -1,8 +1,8 @@
 ---
 tid: t149
 slug: docs_token_stats_spec_cleanup
-diff_anchor: "<SHA>"
-branch: ""
+diff_anchor: "f8c7610cbefe1113f9a8b0bac1a8e4773de1299c"
+branch: "t149_docs_token_stats_spec_cleanup"
 ---
 
 # Task t149_docs_token_stats_spec_cleanup
@@ -13,7 +13,9 @@ branch: ""
 
 只记有追溯价值的进展、踩坑、中途决策、偏离 plan、关键验证；不写命令流水账。
 
-- 无事项时写：无
+- 清理 `docs/specs/ai-cli-token-stats-api.md` §11 Phase 4 Task 4.1，将「创建独立 `aggregator.ts`」改为「聚合逻辑已按 §4 内联 collector.ts，不创建 aggregator.ts」。
+- `pnpm typecheck` 通过，确认无类型破坏。
+- Round 1 双审均 PASS，零 finding。
 
 ## Review 处置
 
@@ -43,14 +45,14 @@ branch: ""
 
 ### 验收标准勾选
 
-- [ ] {从 spec.md 复制逐条}
+- [x] §11 不再要求创建独立 aggregator.ts，与 §4 一致。
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
+- Round 2 code：N/A
+- Round 2 test：N/A
 
 ### 遗留
 
@@ -59,4 +61,4 @@ branch: ""
 
 ### 结果摘要
 
-- {一句话；无额外说明可写「见上」}
+- 已按 review_20260726_054747 采纳项 6 清理 `ai-cli-token-stats-api.md` §11 Phase 4 Task 4.1，消除与 §4「聚合内联 collector.ts」的矛盾，并同步后续前置依赖。

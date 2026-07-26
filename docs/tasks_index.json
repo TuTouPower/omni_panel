@@ -73,14 +73,6 @@
             "note": ""
         },
         {
-            "tid": "t149",
-            "title": "token-stats spec 清理 aggregator.ts 旧计划",
-            "slug": "docs_token_stats_spec_cleanup",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t150",
             "title": "Kimi OAuth 并发保护：token 写入序列化 + refresh 去重",
             "slug": "kimi_oauth_concurrency",
