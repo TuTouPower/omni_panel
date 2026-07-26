@@ -1,8 +1,8 @@
 ---
 tid: t125
 slug: split_accounts_section
-diff_anchor: "TBD"
-branch: ""
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+branch: "t125_split_accounts_section"
 ---
 
 # Task t125_split_accounts_section
@@ -13,7 +13,8 @@ branch: ""
 
 只记有追溯价值的进展、踩坑、中途决策、偏离 plan、关键验证；不写命令流水账。
 
-- 无事项时写：无
+- 将 `AccountsList` 从 `accounts_section.tsx` 拆出到 `accounts_list.tsx`，props 与行为不变；`accounts_section.tsx` 行数降至 208。
+- Round 1 双审均 PASS，零 finding。
 
 ## Review 处置
 
@@ -43,19 +44,19 @@ branch: ""
 
 ### 验收标准勾选
 
-- [ ] `accounts_section.tsx` 行数 < 400。
-- [ ] `AccountsList` 位于 `accounts_list.tsx`，props 与行为不变。
-- [ ] 共用 interface 无重复定义、无循环依赖。
-- [ ] typecheck 通过。
-- [ ] `pnpm test` 全绿。
-- [ ] 行为零变化。
+- [x] `accounts_section.tsx` 行数 < 400。
+- [x] `AccountsList` 位于 `accounts_list.tsx`，props 与行为不变。
+- [x] 共用 interface 无重复定义、无循环依赖。
+- [x] typecheck 通过。
+- [x] `pnpm test` 全绿。
+- [x] 行为零变化。
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
+- Round 2 code：N/A
+- Round 2 test：N/A
 
 ### 遗留
 
@@ -63,4 +64,4 @@ branch: ""
 
 ### 结果摘要
 
-- 见上
+- 已将 `AccountsList` 拆分为独立文件 `accounts_list.tsx`，`accounts_section.tsx` 行数从 436 降至 208，行为与测试均零变化。
