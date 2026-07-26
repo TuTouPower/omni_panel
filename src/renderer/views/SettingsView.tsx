@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
-import { is_web } from "../lib/is-web";
 import { AliasEditor } from "../components/AliasEditor";
 import {
     REFRESH_INTERVAL_OPTIONS,
@@ -16,26 +15,22 @@ import {
     remove_watched_metric,
 } from "../lib/account-overrides";
 import { PROVIDER_LABELS, accountKey } from "../lib/provider-usage";
-import { SettingsForm } from "../components/SettingsForm";
 import { CpaConnectorSettings } from "../components/CpaConnectorSettings";
-import { AddAccountDialog } from "../components/AddAccountDialog";
-import type { AddAccountParams } from "../components/AddAccountDialog";
+import { AccountDialog } from "../components/AccountDialog";
+import { CpaAddDialog } from "../components/CpaAddDialog";
+import { TitleBar } from "../components/TitleBar";
 import { VendorCard } from "../components/VendorCard";
 import { CpaCard } from "../components/CpaCard";
 import { CpaLabelMapDialog } from "../components/CpaLabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
-import { Icon, VendorMark, type VendorId } from "../components/Icon";
+import { Icon, type VendorId } from "../components/Icon";
 import type {
     ConnectorCatalogEntry,
     ConnectorInfo,
     ConnectorSnapshotDTO,
 } from "../../shared/types/ipc";
-import type {
-    ConnectorConfiguration,
-    AppConfiguration,
-    AccountOverrides,
-} from "../../shared/types/config";
+import type { AppConfiguration, AccountOverrides } from "../../shared/types/config";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
 import { Toggle } from "../components/settings/Toggle";
@@ -57,7 +52,6 @@ import {
     main_panel_mode_label_to_value,
     main_panel_mode_value_to_label,
     map_status,
-    session_meta,
     should_log_raw,
     snapshot_items,
     trigger_background_refresh,
@@ -83,376 +77,6 @@ const NAV_ITEMS = [
 ] as const;
 
 const ACCENTS = ["#3d7afd", "#6f5cf6", "#0ea5a3", "#f5772f", "#e23744"];
-
-/* ── Add / Edit Account Dialog ── */
-function AccountDialog({
-    mode,
-    instanceId,
-    pluginName,
-    pluginInfo,
-    pluginConfig,
-    pluginInfos,
-    catalog,
-    hasSecrets,
-    onSave,
-    onAddAccount,
-    onClose,
-    existingLabelMap,
-    onSaveLabelMap,
-    globalIntervalLabel,
-    forcePercent,
-    onForcePercentChange,
-    watchedMetrics,
-    onToggleWatched,
-}: {
-    mode: "add" | "edit";
-    instanceId: string | undefined;
-    pluginName: string | undefined;
-    pluginInfo: ConnectorInfo | undefined;
-    pluginConfig: ConnectorConfiguration | undefined;
-    pluginInfos: ConnectorInfo[];
-    /** t121: manifest catalog,透传给 AddAccountDialog 解析 auth。 */
-    catalog: ConnectorCatalogEntry[];
-    hasSecrets: Record<string, boolean> | undefined;
-    onSave: (
-        instanceId: string,
-        nonSecrets: Record<string, string>,
-        secrets: Record<string, string>,
-        endpointOverrides: Record<string, string>,
-        refreshIntervalSeconds: number,
-        displayName?: string,
-    ) => Promise<void>;
-    onAddAccount: (params: AddAccountParams) => Promise<void>;
-    onClose: () => void;
-    existingLabelMap?: Readonly<Record<string, string>> | undefined;
-    onSaveLabelMap?:
-        | ((instanceId: string, map: Record<string, string>) => Promise<void>)
-        | undefined;
-    globalIntervalLabel: string;
-    forcePercent?: boolean | undefined;
-    onForcePercentChange?: ((provider: string, force: boolean) => Promise<void>) | undefined;
-    /** t048: upcomingResetWatched 查表，透传给 SettingsForm 数据标签映射 bell。 */
-    watchedMetrics?: AccountOverrides["upcomingResetWatched"];
-    /** t048: 切换某 raw_label 的监控（account_keys 聚合由上层算）。 */
-    onToggleWatched?: (raw_label: string) => void;
-}) {
-    const isEdit = mode === "edit";
-
-    useEffect(() => {
-        const h = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", h);
-        return () => {
-            window.removeEventListener("keydown", h);
-        };
-    }, [onClose]);
-
-    return (
-        <div className="acct-dialog-scrim" onMouseDown={onClose}>
-            <div
-                className="acct-dialog"
-                onMouseDown={(e) => {
-                    e.stopPropagation();
-                }}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="acct-dialog-title"
-            >
-                {mode === "add" && !instanceId ? (
-                    <AddAccountDialog
-                        plugin_infos={pluginInfos}
-                        catalog={catalog}
-                        on_close={onClose}
-                        on_save={onAddAccount}
-                    />
-                ) : (
-                    <>
-                        <div className="ad-head">
-                            {isEdit && pluginInfo && (
-                                <span className="ad-mark">
-                                    <VendorMark
-                                        id={pluginInfo.activeProviders[0] ?? "overview"}
-                                        size={24}
-                                    />
-                                </span>
-                            )}
-                            <div className="ad-htext">
-                                <div className="ad-title" id="acct-dialog-title">
-                                    {isEdit ? "编辑账号" : "添加账号"}
-                                </div>
-                                <div className="ad-sub">
-                                    {isEdit ? (pluginName ?? "新账号") : "选择要添加的服务"}
-                                </div>
-                            </div>
-                            <button
-                                className="ad-close"
-                                onClick={onClose}
-                                title="关闭"
-                                type="button"
-                            >
-                                <Icon name="close" size={17} strokeWidth={2} />
-                            </button>
-                        </div>
-
-                        <div className="ad-body">
-                            {instanceId && pluginInfo && pluginConfig ? (
-                                <SettingsForm
-                                    instanceId={instanceId}
-                                    displayName={pluginConfig.displayName}
-                                    parameters={pluginInfo.metadata?.parameters ?? []}
-                                    values={Object.fromEntries(
-                                        Object.entries(pluginConfig.parameterValues).map(
-                                            ([k, v]) => [k, String(v)],
-                                        ),
-                                    )}
-                                    hasSecrets={hasSecrets ?? {}}
-                                    endpoints={pluginInfo.metadata?.endpoints ?? {}}
-                                    endpointValues={pluginConfig.endpointOverrides}
-                                    refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
-                                    globalIntervalLabel={globalIntervalLabel}
-                                    {...(pluginConfig.manualRefreshOnly
-                                        ? { manualRefreshOnly: true }
-                                        : {})}
-                                    {...(pluginInfo.activeProviders[0]
-                                        ? { providerId: pluginInfo.activeProviders[0] }
-                                        : {})}
-                                    onCookieLogin={async (id) => {
-                                        try {
-                                            const provider = pluginInfo.activeProviders[0];
-                                            const meta = provider
-                                                ? session_meta[provider]
-                                                : undefined;
-                                            const result =
-                                                meta && provider
-                                                    ? await window.usageboard.session.login({
-                                                          instance_id: id,
-                                                          provider,
-                                                          login_url: meta.login_url,
-                                                          cookie_names: meta.cookie_names,
-                                                      })
-                                                    : await window.usageboard.auth.cookieLogin(id);
-                                            if (result.saved) {
-                                                await window.usageboard.connector.refresh(id);
-                                                await window.usageboard.config.get();
-                                            }
-                                            return result.saved;
-                                        } catch {
-                                            return false;
-                                        }
-                                    }}
-                                    onSave={async (...args) => {
-                                        await onSave(...args);
-                                        onClose();
-                                    }}
-                                    existingLabelMap={existingLabelMap}
-                                    onSaveLabelMap={onSaveLabelMap}
-                                    forcePercent={forcePercent}
-                                    onForcePercentChange={onForcePercentChange}
-                                    watchedMetrics={watchedMetrics}
-                                    onToggleWatched={onToggleWatched}
-                                />
-                            ) : mode === "edit" ? (
-                                <div className="text-sm text-[var(--text-3)]">加载中...</div>
-                            ) : (
-                                <div className="text-sm text-[var(--text-3)]">
-                                    暂不支持在此添加新账号
-                                </div>
-                            )}
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
-}
-
-const CPA_SCOPE: UsageProvider[] = ["claude", "codex", "antigravity", "kimi"];
-
-/* ── CPA Add Data Source Dialog ── */
-function CpaAddDialog({ onClose }: { onClose: () => void }) {
-    const [url, setUrl] = useState("");
-    const [key, setKey] = useState("");
-    const [showKey, setShowKey] = useState(false);
-    const [scope, setScope] = useState<Set<UsageProvider>>(() => new Set(CPA_SCOPE));
-
-    const toggleScope = (id: UsageProvider) => {
-        setScope((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
-    };
-
-    const canSave = url.trim().length > 0 && key.trim().length > 0;
-
-    return (
-        <div className="acct-dialog-scrim" onMouseDown={onClose}>
-            <div
-                className="acct-dialog wide"
-                onMouseDown={(e) => {
-                    e.stopPropagation();
-                }}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="cpa-dialog-title"
-            >
-                <div className="ad-head">
-                    <div className="ad-htext">
-                        <div className="ad-title" id="cpa-dialog-title">
-                            添加 CPA Manager
-                        </div>
-                        <div className="ad-sub">批量接入多个服务商账号</div>
-                    </div>
-                    <button className="ad-close" onClick={onClose} title="关闭" type="button">
-                        <Icon name="close" size={17} strokeWidth={2} />
-                    </button>
-                </div>
-                <div className="ad-body">
-                    <div className="ad-field">
-                        <label className="ad-label">CPA-Manager URL</label>
-                        <input
-                            className="ad-input mono"
-                            value={url}
-                            onChange={(e) => {
-                                setUrl(e.target.value);
-                            }}
-                            placeholder="https://cpa.example.com"
-                            autoFocus
-                            spellCheck={false}
-                            autoCorrect="off"
-                            autoCapitalize="off"
-                        />
-                    </div>
-                    <div className="ad-field">
-                        <label className="ad-label">管理密钥</label>
-                        <div className="ad-key">
-                            <input
-                                className="ad-input mono"
-                                type={showKey ? "text" : "password"}
-                                value={key}
-                                onChange={(e) => {
-                                    setKey(e.target.value);
-                                }}
-                                placeholder="cpa_sk_..."
-                                spellCheck={false}
-                                autoCorrect="off"
-                                autoCapitalize="off"
-                            />
-                            <button
-                                className="ad-eye"
-                                onClick={() => {
-                                    setShowKey(!showKey);
-                                }}
-                                title={showKey ? "隐藏" : "显示"}
-                                type="button"
-                            >
-                                <Icon name={showKey ? "eye_off" : "eye"} size={16} />
-                            </button>
-                        </div>
-                    </div>
-                    <div className="ad-field">
-                        <label className="ad-label">同步范围</label>
-                        <div className="scope-list">
-                            {CPA_SCOPE.map((id) => (
-                                <div className="scope-item" key={id}>
-                                    <VendorMark id={id} size={20} />
-                                    <span className="si-name">{PROVIDER_LABELS[id]}</span>
-                                    <Toggle
-                                        on={scope.has(id)}
-                                        onClick={() => {
-                                            toggleScope(id);
-                                        }}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-                <div className="ad-foot">
-                    <button className="ad-test" type="button">
-                        <Icon name="refresh" size={14} />
-                        测试连接
-                    </button>
-                    <div className="ad-foot-r">
-                        <button className="ad-btn ghost" onClick={onClose} type="button">
-                            取消
-                        </button>
-                        <button
-                            className={`ad-btn primary${canSave ? "" : " disabled"}`}
-                            disabled={!canSave}
-                            type="button"
-                        >
-                            保存并同步
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-/* ── Title Bar (frameless window controls) ── */
-function TitleBar() {
-    return (
-        <div className="settings-titlebar">
-            <span className="st-title">设置</span>
-            {!is_web() && (
-                <div className="st-controls">
-                    <button
-                        className="st-btn"
-                        onClick={() => {
-                            window.usageboard.settings.minimize();
-                        }}
-                        title="最小化"
-                        type="button"
-                    >
-                        <svg width="10" height="1" viewBox="0 0 10 1">
-                            <rect width="10" height="1" fill="currentColor" />
-                        </svg>
-                    </button>
-                    <button
-                        className="st-btn"
-                        onClick={() => {
-                            window.usageboard.settings.maximize();
-                        }}
-                        title="最大化"
-                        type="button"
-                    >
-                        <svg width="10" height="10" viewBox="0 0 10 10">
-                            <rect
-                                x="0.5"
-                                y="0.5"
-                                width="9"
-                                height="9"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1"
-                            />
-                        </svg>
-                    </button>
-                    <button
-                        className="st-btn close"
-                        onClick={() => {
-                            window.usageboard.settings.close();
-                        }}
-                        title="关闭"
-                        type="button"
-                    >
-                        <svg width="10" height="10" viewBox="0 0 10 10">
-                            <path
-                                d="M0.5 0.5L9.5 9.5M9.5 0.5L0.5 9.5"
-                                stroke="currentColor"
-                                strokeWidth="1.2"
-                            />
-                        </svg>
-                    </button>
-                </div>
-            )}
-        </div>
-    );
-}
 
 // Listen for navigate events from main panel (edit account)
 function open_settings_account_dialog(
