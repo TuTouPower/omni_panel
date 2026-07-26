@@ -1,3 +1,52 @@
 {
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t124",
+            "title": "session_meta 迁至 renderer/lib 消除反向依赖",
+            "slug": "move_session_meta_to_lib",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t125",
+            "title": "拆分 accounts_section.tsx 抽 AccountsList",
+            "slug": "split_accounts_section",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t126",
+            "title": "拆分 ProviderCard.tsx 与其测试文件",
+            "slug": "split_provider_card",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t127",
+            "title": "提取 grok/kimi OAuth 共享 helper 模块",
+            "slug": "extract_oauth_helpers",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t128",
+            "title": "use-plugins 快照相等性检查消除 memo 失效",
+            "slug": "plugins_snapshot_equality",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t129",
+            "title": "use-plugins rAF 合批减少 burst 渲染",
+            "slug": "plugins_raf_batching",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        }
+    ]
 }
