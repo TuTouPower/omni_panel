@@ -237,9 +237,64 @@ export function SettingsView() {
     const [localState, setLocalState] = useState({
         lang: "简体中文",
     });
+    const [dataMsg, setDataMsg] = useState<string | null>(null);
+    const data_msg_timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+    // Clear any pending data-msg timer on unmount so it can't fire setDataMsg
+    // after the component is gone (test teardown / route switch).
+    useEffect(() => {
+        return () => {
+            clearTimeout(data_msg_timer.current);
+        };
+    }, []);
 
     const up = useCallback((k: string, v: unknown) => {
         setLocalState((p) => ({ ...p, [k]: v }));
+    }, []);
+
+    const handleExport = useCallback(async () => {
+        try {
+            const { saved } = await window.usageboard.config.export();
+            setDataMsg(saved ? "设置已导出" : null);
+        } catch {
+            setDataMsg("导出失败");
+        }
+        clearTimeout(data_msg_timer.current);
+        data_msg_timer.current = setTimeout(() => {
+            setDataMsg(null);
+        }, 2000);
+    }, []);
+
+    const handleExportLogs = useCallback(async () => {
+        try {
+            const { saved } = await window.usageboard.logs.export();
+            setDataMsg(saved ? "日志已导出" : null);
+        } catch {
+            setDataMsg("导出失败");
+        }
+        clearTimeout(data_msg_timer.current);
+        data_msg_timer.current = setTimeout(() => {
+            setDataMsg(null);
+        }, 2000);
+    }, []);
+
+    const handleImport = useCallback(async () => {
+        if (!window.confirm("导入将覆盖当前所有设置，确定继续？")) return;
+        try {
+            const { imported } = await window.usageboard.config.import();
+            if (imported) {
+                setDataMsg("导入成功，正在刷新...");
+                window.location.reload();
+            } else {
+                setDataMsg(null);
+            }
+        } catch {
+            setDataMsg("导入失败");
+            clearTimeout(data_msg_timer.current);
+            data_msg_timer.current = setTimeout(() => {
+                setDataMsg(null);
+            }, 2000);
+        }
     }, []);
 
     useEffect(() => {
@@ -431,7 +486,14 @@ export function SettingsView() {
 
                         {/* ── Data & Privacy ── */}
                         {section === "data" && (
-                            <DataSection config={config} save_config={save_config} />
+                            <DataSection
+                                config={config}
+                                data_msg={dataMsg}
+                                handle_export={handleExport}
+                                handle_export_logs={handleExportLogs}
+                                handle_import={handleImport}
+                                save_config={save_config}
+                            />
                         )}
 
                         {/* ── About ── */}
