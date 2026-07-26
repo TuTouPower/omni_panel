@@ -1,0 +1,11 @@
+{
+    "t0_unix": 1785044867,
+    "timeout_sec": 900,
+    "cwd": "D:/Dev/Code/omni_usage",
+    "outdir": "D:/Dev/Code/omni_usage/docs/reviews/review_20260726_054747",
+    "outdir_rel": "docs/reviews/review_20260726_054747",
+    "meta_dir": "D:/Dev/Code/omni_usage/docs/reviews/review_20260726_054747/_meta",
+    "deadman_pid": 488,
+    "skill_scripts": "C:/Users/TestUser/.claude/skills/my-review/scripts",
+    "created_at": "2026-07-26T05:47:48Z"
+}

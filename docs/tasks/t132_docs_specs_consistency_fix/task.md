@@ -1,11 +1,11 @@
 ---
-tid: t122
-slug: split_settings_view
+tid: t132
+slug: docs_specs_consistency_fix
 diff_anchor: "<SHA>"
-branch: t122_split_settings_view
+branch: ""
 ---
 
-# Task t122_split_settings_view
+# Task t132_docs_specs_consistency_fix
 
 过程总账。reviewer **只写** `review_code.md` / `review_test.md`，不改本文件。
 

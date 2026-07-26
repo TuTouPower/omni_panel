@@ -1,9 +1,145 @@
 {
     "tasks": [
         {
-            "tid": "t122",
-            "title": "拆分 SettingsView：抽 AccountDialog + catalog hook + 工具函数",
-            "slug": "split_settings_view",
+            "tid": "t124",
+            "title": "session_meta 迁至 renderer/lib 消除反向依赖",
+            "slug": "move_session_meta_to_lib",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t125",
+            "title": "拆分 accounts_section.tsx 抽 AccountsList",
+            "slug": "split_accounts_section",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t126",
+            "title": "拆分 ProviderCard.tsx 与其测试文件",
+            "slug": "split_provider_card",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t127",
+            "title": "提取 grok/kimi OAuth 共享 helper 模块",
+            "slug": "extract_oauth_helpers",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t128",
+            "title": "use-plugins 快照相等性检查消除 memo 失效",
+            "slug": "plugins_snapshot_equality",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t129",
+            "title": "use-plugins rAF 合批减少 burst 渲染",
+            "slug": "plugins_raf_batching",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t130",
+            "title": "文档同步：handoff 汇总 + architecture 目录/LocalAPI 描述",
+            "slug": "docs_handoff_architecture_sync",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t131",
+            "title": "文档修正：domain provider 枚举 + bugs t111 修复行",
+            "slug": "docs_domain_bugs_fix",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t132",
+            "title": "文档修正：specs slug/交叉引用/ADR 编号/续期/类型",
+            "slug": "docs_specs_consistency_fix",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t133",
+            "title": "token-stats spec 清理 aggregator.ts 旧计划",
+            "slug": "docs_token_stats_aggregator_cleanup",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t134",
+            "title": "Kimi OAuth 并发保护：token 写入序列化 + refresh 去重",
+            "slug": "kimi_oauth_concurrency_protection",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t136",
+            "title": "connector sandbox 信任模型文档化 + D8 失效引用修正",
+            "slug": "docs_sandbox_trust_model",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t138",
+            "title": "observation mapping 返回类型 + cycleDurationMs 非负校验",
+            "slug": "observation_schema_type_fix",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t139",
+            "title": "token reader 共用 helper 提取",
+            "slug": "token_reader_utils_extract",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t141",
+            "title": "web UsageboardApi 契约补齐 + session stub 返回类型",
+            "slug": "web_api_contract_fix",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t143",
+            "title": "设置页占位按钮置灰 + TokenStats 持久化写入 spec",
+            "slug": "settings_placeholder_disable_spec",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t144",
+            "title": "renderer 小修：noopener/托盘分隔符/JSON.stringify 比较/声明顺序",
+            "slug": "renderer_minor_fixes",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t145",
+            "title": "conventions 记录 renderer 命名迁移策略",
+            "slug": "docs_naming_migration_policy",
             "status": "backlog",
             "branch": "",
             "note": ""
