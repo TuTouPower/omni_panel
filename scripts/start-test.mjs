@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 启动测试实例：独立 userData 目录（.scratch/test-instance/），
- * 不触碰原 %APPDATA%/omni_usage 数据。
+ * 不触碰原 %APPDATA%/omni_panel 数据。
  *
  * 流程：ensure electron ABI → gen build-info → electron-vite dev --user-data-dir=<sandbox>
  *
@@ -22,8 +22,8 @@ console.log(`[start-test] 数据沙盒: ${dataDir}`);
 
 // 测试实例品牌隔离：黄色图标 + 独立 local-api 端口（与正常实例 17863 不撞）
 process.env["TEST_INSTANCE"] = "1";
-process.env["OMNI_USAGE_PORT"] = "17864";
-console.log("[start-test] TEST_INSTANCE=1 OMNI_USAGE_PORT=17864");
+process.env["OMNI_PANEL_PORT"] = "17864";
+console.log("[start-test] TEST_INSTANCE=1 OMNI_PANEL_PORT=17864");
 
 // 1. 确保 better-sqlite3 匹配 Electron ABI（dev 必需）
 console.log("[start-test] ensure electron ABI...");

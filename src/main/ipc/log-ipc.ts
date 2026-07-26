@@ -48,7 +48,7 @@ export async function handleLogExport(
         const { dialog } = await import("electron");
         const { filePath, canceled } = await dialog.showSaveDialog({
             title: "导出运行日志",
-            defaultPath: `omni-usage-log-${new Date().toISOString().slice(0, 10)}.log`,
+            defaultPath: `omni-panel-log-${new Date().toISOString().slice(0, 10)}.log`,
             filters: [{ name: "Log", extensions: ["log"] }],
         });
         if (canceled || !filePath) return ok({ saved: false });

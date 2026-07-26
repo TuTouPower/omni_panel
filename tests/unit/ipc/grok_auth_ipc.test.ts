@@ -219,7 +219,7 @@ describe("grok_auth_ipc handlers", () => {
             senderFrame: { url: "https://evil.example/" },
         } as IpcMainInvokeEvent;
         const app_event = {
-            senderFrame: { url: "file:///D:/Dev/Code/omni_usage/out/renderer/index.html#settings" },
+            senderFrame: { url: "file:///D:/Dev/Code/omni_panel/out/renderer/index.html#settings" },
         } as IpcMainInvokeEvent;
 
         for (const [channel, handler] of calls) {

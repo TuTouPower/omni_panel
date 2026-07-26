@@ -82,7 +82,7 @@ export const IPC_CHANNELS = {
     SESSION_LOGIN: "session:login",
     SESSION_REFRESH: "session:refresh",
 
-    /** Grok OAuth device-code flow — independent token in OmniUsage vault. */
+    /** Grok OAuth device-code flow — independent token in OmniPanel vault. */
     GROK_LOGIN_START: "grok:loginStart",
     GROK_LOGIN_POLL: "grok:loginPoll",
     GROK_LOGIN_CANCEL: "grok:loginCancel",

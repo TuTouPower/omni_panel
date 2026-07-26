@@ -1,4 +1,4 @@
-# OmniUsage
+# OmniPanel
 
 常驻桌面进程，把多个 AI 服务商的用量/额度/余额集中读出来、统一展示，如实标注来源与新鲜度。对标 macOS 原生版 UsageBoard，跨 Windows / macOS / Linux。
 
@@ -197,10 +197,10 @@ flowchart TD
 
 - `docs/tasks_index.json` 与 `docs/archive/tasks_index.json` **只能由 `scripts/task.py` 修改**。agent 禁止直接编辑这两个 JSON。脚本失败必须停下提示用户，禁止在未告知用户的情况下手工修 JSON。
 - 密钥规则：公网开放的密钥、token、密码、secret 必须由用户提供随机生成值，禁止自设默认值/示例值/弱口令。日常只拿 `hasSecret` 布尔；设置编辑时经 `config:getSecrets` 按实例拉明文回填；用量面板/托盘不拉密钥；日志强制脱敏，开发期同样生效。
-- 禁写路径：未经用户允许绝不写 `D:\Dev\Code\omni_usage\` 以外路径（读不受限）。
+- 禁写路径：未经用户允许绝不写 `D:\Dev\Code\omni_panel\` 以外路径（读不受限）。
 - WSL 禁 Docker；Docker 服务在宿主机 Win 运行。
 - `{test_cmd}`：日常测试命令（单元/集成/E2E/打包 smoke/契约 live 分层）见 `docs/guides/testing.md`，命令多不在此内联；TDD 红/绿循环（Step 2、3）按该指南运行。
-- `{blackbox_cmd}`：`pnpm test`（主）；涉及打包须真实启动 `artifacts/win-unpacked/OmniUsage.exe`（`pnpm test:packaged` 打包 smoke）；涉及连接器 live 契约用 `pnpm test:contract:live`。
+- `{blackbox_cmd}`：`pnpm test`（主）；涉及打包须真实启动 `artifacts/win-unpacked/OmniPanel.exe`（`pnpm test:packaged` 打包 smoke）；涉及连接器 live 契约用 `pnpm test:contract:live`。
 - 测试规范（命名、层级、回归规则、覆盖率）见 `docs/blueprint/conventions.md` 「编码与测试」小节，不在此重复。
 
 ## 文档修改规范

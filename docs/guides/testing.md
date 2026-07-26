@@ -1,6 +1,6 @@
 # 测试指南
 
-OmniUsage 测试命令、分层、覆盖率与打包 smoke 指南。硬约束入口见 `AGENTS.md`；测试规范（命名、层级、回归）见 `docs/blueprint/conventions.md` “编码与测试”小节。
+OmniPanel 测试命令、分层、覆盖率与打包 smoke 指南。硬约束入口见 `AGENTS.md`；测试规范（命名、层级、回归）见 `docs/blueprint/conventions.md` “编码与测试”小节。
 
 ## 运行命令
 
@@ -11,7 +11,7 @@ pnpm test:e2e:web        # Playwright chromium 测 web SPA（日常, mock local-
 pnpm test:e2e:electron   # Playwright Electron 驱动（托盘/多窗口等专属, 手动跑）
 pnpm package              # 打包
 pnpm test:packaged        # 打包 smoke（CDP 连 exe）
-./artifacts/win-unpacked/OmniUsage.exe   # 打包后真实启动
+./artifacts/win-unpacked/OmniPanel.exe   # 打包后真实启动
 pnpm test:contract:live   # 连接器 live 契约测试（打真实上游）
 pnpm typecheck && pnpm lint && pnpm check
 python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 pnpm test）
@@ -25,18 +25,18 @@ python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 
 
 | 维度          | 正常实例 `pnpm start`   | 测试实例 `pnpm start:test`                           |
 | ------------- | ----------------------- | ---------------------------------------------------- |
-| userData      | `%APPDATA%/omni_usage`  | `.scratch/test-instance/`（gitignore）               |
-| LocalAPI 端口 | `17863`                 | `17864`（`OMNI_USAGE_PORT` env 覆盖）                |
+| userData      | `%APPDATA%/omni_panel`  | `.scratch/test-instance/`（gitignore）               |
+| LocalAPI 端口 | `17863`                 | `17864`（`OMNI_PANEL_PORT` env 覆盖）                |
 | 图标          | 蓝色（`assets/icon.*`） | 黄色（`assets/icon-test.*`，`TEST_INSTANCE=1` 切换） |
 | 视觉区分      | —                       | 托盘/窗口黄色                                        |
 
-实现：`scripts/start-test.mjs` 设 `TEST_INSTANCE=1` + `OMNI_USAGE_PORT=17864` + Electron `--user-data-dir=.scratch/test-instance`；`paths.ts` 按 env 切图标资源；`local-api/server.ts` 读 env 覆盖默认端口。
+实现：`scripts/start-test.mjs` 设 `TEST_INSTANCE=1` + `OMNI_PANEL_PORT=17864` + Electron `--user-data-dir=.scratch/test-instance`；`paths.ts` 按 env 切图标资源；`local-api/server.ts` 读 env 覆盖默认端口。
 
 ### 同时运行两个实例
 
 两个 dev 实例共享 `out/` 编译目录会冲突，不能同时 `pnpm start` + `pnpm start:test`。同时运行方案：
 
-- **正常实例**：`pnpm make:win` 后跑 `artifacts/win-unpacked/OmniUsage.exe`（占 17863、蓝图标）
+- **正常实例**：`pnpm make:win` 后跑 `artifacts/win-unpacked/OmniPanel.exe`（占 17863、蓝图标）
 - **测试实例**：`pnpm start:test`（占 17864、黄图标、沙盒数据）
 
 端口被占时 local-api 有回退机制（`EADDRINUSE` → 系统 0 分配），但测试实例固定 17864 避免回退随机端口，便于 web 面板/调试工具直连。
@@ -56,7 +56,7 @@ pnpm icons:test   # 从 assets/logo-test.svg 渲染 icon-test.png/ico + tray-ico
 | 单元         | `tests/unit/`         | Vitest           | 纯函数、工具、schema 校验、parser、连接器解析逻辑                                                                |
 | 集成         | `tests/integration/`  | Vitest           | Node 环境可真实运行的主进程模块（config/cache/scheduler/runtime/vault/observation-store）                        |
 | Electron E2E | `tests/e2e/electron/` | Playwright       | 真实 Electron 实例，模拟真实用户操作（`.spec.ts`），手动跑 Electron 专属能力（托盘/多窗口/powerMonitor/restart） |
-| 打包 smoke   | `tests/e2e/packaged/` | Playwright + CDP | 验证 `artifacts/win-unpacked/OmniUsage.exe` 启动、渲染、发现内置连接器、popup 高度回归                           |
+| 打包 smoke   | `tests/e2e/packaged/` | Playwright + CDP | 验证 `artifacts/win-unpacked/OmniPanel.exe` 启动、渲染、发现内置连接器、popup 高度回归                           |
 
 三层职责不重叠：
 
@@ -70,10 +70,10 @@ web e2e（`tests/e2e/web/`）由 Playwright chromium 驱动 `out/web` SPA，后�
 
 ### 录制 fixture（一次性，本地）
 
-1. 启动 OmniUsage 提供 local-api :17863（择一）：
-    - packaged：先 `pnpm package`，再 `./artifacts/win-unpacked/OmniUsage.exe`
+1. 启动 OmniPanel 提供 local-api :17863（择一）：
+    - packaged：先 `pnpm package`，再 `./artifacts/win-unpacked/OmniPanel.exe`
     - dev：`pnpm start`（electron-vite dev）
-      两者均读本机 `%APPDATA%/OmniUsage` 真实数据。确认 `curl http://localhost:17863/v1/health` 返回 `{"status":"ok"}` 后继续。
+      两者均读本机 `%APPDATA%/OmniPanel` 真实数据。确认 `curl http://localhost:17863/v1/health` 返回 `{"status":"ok"}` 后继续。
 2. `pnpm e2e:gen-data` → 录全部 responses 到 `tests/e2e/fixtures/data/responses.json`（不入库；secrets 黑名单正则脱敏 `***`）。响应数随本机 instance 数变化（T010 基线 61）。
 3. `pnpm test:e2e:web` → chromium 驱动，`vite preview` 内嵌 `mock_api_plugin` 回放
 
@@ -121,7 +121,7 @@ Electron 驱动 `pnpm test:e2e:electron` 在 nightly 跑（Xvfb）；real fixtur
 
 自动化不能单独宣称已解决：
 
-- `OmniUsage.exe` 首次启动；托盘真实显示、popup 位置。
+- `OmniPanel.exe` 首次启动；托盘真实显示、popup 位置。
 - Popup 根容器填满窗口高度（防底部背景空白）；动态高度跟随 `popup:reportContentHeight`、不超 75% 工作区、无额外底部留白（多显示器/DPI 下 `setBounds` 只能人工验收）。
 - 渲染进程正常加载（白屏即失败）；ASAR 内资源路径可访问。
 

@@ -23,7 +23,7 @@ afterEach(async () => {
 
 describe("initLogging", () => {
     it("writes the active log file path to the log", async () => {
-        temp_dir = await mkdtemp(join(tmpdir(), "omni-usage-logs-"));
+        temp_dir = await mkdtemp(join(tmpdir(), "omni-panel-logs-"));
 
         remove_logging = await initLogging(temp_dir);
 
@@ -46,7 +46,7 @@ describe("initLogging", () => {
     });
 
     it("cleanup flushes queued file writes", async () => {
-        temp_dir = await mkdtemp(join(tmpdir(), "omni-usage-logs-"));
+        temp_dir = await mkdtemp(join(tmpdir(), "omni-panel-logs-"));
 
         remove_logging = await initLogging(temp_dir, { logLevel: "debug" });
         createLogger("test").info("queued");

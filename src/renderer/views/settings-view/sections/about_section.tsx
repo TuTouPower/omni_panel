@@ -14,9 +14,9 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
         <div className="about-wrap">
             <div className="about-hero">
                 <div className="ah-logo-wrap">
-                    <img className="ah-logo" src={logo} alt="OmniUsage" width="96" height="96" />
+                    <img className="ah-logo" src={logo} alt="OmniPanel" width="96" height="96" />
                 </div>
-                <div className="ah-name">OmniUsage</div>
+                <div className="ah-name">OmniPanel</div>
                 <div className="ah-ver">版本 {version}</div>
                 <div className="ah-build">
                     {build_info
@@ -31,7 +31,7 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                     跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex 等各服务的用量限制与 Token
                     趋势。
                 </div>
-                <div className="ah-copyright">© 2026 OmniUsage · 保留所有权利</div>
+                <div className="ah-copyright">© 2026 OmniPanel · 保留所有权利</div>
             </div>
             <div className="about-grid">
                 {(
@@ -47,7 +47,7 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                             id: "site",
                             icon: "globe",
                             label: "官网",
-                            sub: "omniusage.app",
+                            sub: "omnipanel.app",
                             tint: "#3d7afd",
                         },
                         {
@@ -101,13 +101,13 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                         type="button"
                         onClick={() => {
                             const urls: Record<string, string> = {
-                                site: "https://omniusage.app",
-                                docs: "https://omniusage.app/docs",
-                                contact: "https://omniusage.app/feedback",
-                                donate: "https://omniusage.app/sponsor",
-                                privacy: "https://omniusage.app/privacy",
-                                terms: "https://omniusage.app/terms",
-                                oss: "https://omniusage.app/oss",
+                                site: "https://omnipanel.app",
+                                docs: "https://omnipanel.app/docs",
+                                contact: "https://omnipanel.app/feedback",
+                                donate: "https://omnipanel.app/sponsor",
+                                privacy: "https://omnipanel.app/privacy",
+                                terms: "https://omnipanel.app/terms",
+                                oss: "https://omnipanel.app/oss",
                             };
                             const url = urls[c.id];
                             if (url) {

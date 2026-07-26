@@ -1,4 +1,4 @@
-# OmniUsage 领域模型
+# OmniPanel 领域模型
 
 术语与跨功能业务不变量的唯一真相源。技术栈/目录见 `architecture.md`；编码风格见 `conventions.md`。
 

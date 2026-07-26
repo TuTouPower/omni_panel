@@ -11,7 +11,7 @@ test.describe("popup view (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
         const title = await popup.getTitle();
-        expect(title).toContain("OmniUsage");
+        expect(title).toContain("OmniPanel");
     });
 
     test("refresh button is visible and clickable", async ({ webPage }) => {

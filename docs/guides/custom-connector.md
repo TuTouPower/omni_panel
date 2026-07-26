@@ -1,6 +1,6 @@
 # 自定义 Connector 指南
 
-从「设置 → 账号 → 添加账号 → 打开脚本目录」可打开用户 connector 目录（`userData/connectors`）。在其中新建子目录，放入 `manifest.json` + `connector.ts` 即可让 OmniUsage 自动发现并采集自定义数据源。
+从「设置 → 账号 → 添加账号 → 打开脚本目录」可打开用户 connector 目录（`userData/connectors`）。在其中新建子目录，放入 `manifest.json` + `connector.ts` 即可让 OmniPanel 自动发现并采集自定义数据源。
 
 ## 目录结构
 
@@ -11,7 +11,7 @@ userData/connectors/
     └── connector.ts      # 采集脚本（必填，manifest.script 指向）
 ```
 
-启动时 OmniUsage 扫描 `userData/connectors/*`，每个含合法 `manifest.json` 的子目录注册为一个 connector；添加账号弹窗会出现该 vendor。
+启动时 OmniPanel 扫描 `userData/connectors/*`，每个含合法 `manifest.json` 的子目录注册为一个 connector；添加账号弹窗会出现该 vendor。
 
 ## provider 命名
 

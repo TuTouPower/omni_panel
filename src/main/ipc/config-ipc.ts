@@ -358,7 +358,7 @@ export async function handleConfigExport(
 
         const { filePath, canceled } = await dialog.showSaveDialog({
             title: "导出设置",
-            defaultPath: `omni-usage-settings-${new Date().toISOString().slice(0, 10)}.json`,
+            defaultPath: `omni-panel-settings-${new Date().toISOString().slice(0, 10)}.json`,
             filters: [{ name: "JSON", extensions: ["json"] }],
         });
 

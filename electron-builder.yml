@@ -1,5 +1,5 @@
-appId: com.omniusage.app
-productName: OmniUsage
+appId: com.omnipanel.app
+productName: OmniPanel
 directories:
     output: artifacts
 files:

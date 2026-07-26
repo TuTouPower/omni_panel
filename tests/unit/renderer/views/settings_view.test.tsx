@@ -1591,12 +1591,12 @@ describe("SettingsView", () => {
         });
     });
 
-    it("shows omniusage.app as site card subtitle", async () => {
+    it("shows omnipanel.app as site card subtitle", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-about"));
-        expect(screen.getByText("omniusage.app")).toBeInTheDocument();
+        expect(screen.getByText("omnipanel.app")).toBeInTheDocument();
     });
 
     it("shows '当前已是最新' as update card subtitle", async () => {

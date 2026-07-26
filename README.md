@@ -1,4 +1,4 @@
-# OmniUsage
+# OmniPanel
 
 > 一处看全多家 AI 服务的用量、额度与费用。常驻桌面进程，跨 Windows / macOS / Linux。
 
@@ -41,11 +41,11 @@
 
 ### 方式一：下载安装包（推荐）
 
-到 [Releases](https://github.com/TuTouPower/omni_usage/releases) 下载对应平台的安装包：
+到 [Releases](https://github.com/TuTouPower/omni_panel/releases) 下载对应平台的安装包：
 
-- Windows：`OmniUsage-Setup-x.y.z.exe`（NSIS 安装器）
-- macOS：`OmniUsage-x.y.z.dmg` / `.zip`（x64 + arm64）
-- Linux：`OmniUsage-x.y.z.AppImage` / `.deb` / `.rpm`
+- Windows：`OmniPanel-Setup-x.y.z.exe`（NSIS 安装器）
+- macOS：`OmniPanel-x.y.z.dmg` / `.zip`（x64 + arm64）
+- Linux：`OmniPanel-x.y.z.AppImage` / `.deb` / `.rpm`
 
 ### 方式二：从源码构建
 
@@ -84,7 +84,7 @@ pnpm test:packaged    # 打包 smoke
 
 详见 [测试指南](docs/guides/testing.md)。
 
-测试实例与正常实例可同时运行：测试实例数据写 `.scratch/test-instance/`、LocalAPI 用 17864、托盘/窗口黄色图标（`TEST_INSTANCE=1`），与正常实例（17863、蓝图标、`%APPDATA%/omni_usage`）互不干扰。注意两个 dev 实例共享 `out/` 编译目录会冲突，同时跑时正常实例用打包 exe、测试用 `pnpm start:test`。
+测试实例与正常实例可同时运行：测试实例数据写 `.scratch/test-instance/`、LocalAPI 用 17864、托盘/窗口黄色图标（`TEST_INSTANCE=1`），与正常实例（17863、蓝图标、`%APPDATA%/omni_panel`）互不干扰。注意两个 dev 实例共享 `out/` 编译目录会冲突，同时跑时正常实例用打包 exe、测试用 `pnpm start:test`。
 
 ## 架构与文档
 

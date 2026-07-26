@@ -88,7 +88,7 @@ describe("scan_kimi_wire_jsonls", () => {
 
     it("maps a single turn usage.record to one record with correct fields", () => {
         const index = write_index(tmp, [
-            { sessionId: "session_abc", workDir: "D:/Dev/Code/omni_usage" },
+            { sessionId: "session_abc", workDir: "D:/Dev/Code/omni_panel" },
         ]);
         const file = write_wire(sessions_dir, "wd_x", "session_abc", [
             usage_record({
@@ -114,7 +114,7 @@ describe("scan_kimi_wire_jsonls", () => {
             output_tokens: 52,
             cache_read_tokens: 17920,
             cache_write_tokens: 0,
-            directory: "D:/Dev/Code/omni_usage",
+            directory: "D:/Dev/Code/omni_panel",
         });
 
         expect(result.sessions).toHaveLength(1);
@@ -128,7 +128,7 @@ describe("scan_kimi_wire_jsonls", () => {
             output_tokens: 52,
             cache_read_tokens: 17920,
             cache_write_tokens: 0,
-            directory: "D:/Dev/Code/omni_usage",
+            directory: "D:/Dev/Code/omni_panel",
             started_at: T0,
             ended_at: T0,
         });

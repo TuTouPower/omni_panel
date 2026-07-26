@@ -10,7 +10,7 @@ function log(msg: string) {
 
 function kill_omni(): void {
     const is_win = platform() === "win32";
-    const procs = is_win ? ["OmniUsage.exe"] : ["OmniUsage"];
+    const procs = is_win ? ["OmniPanel.exe"] : ["OmniPanel"];
 
     for (const proc of procs) {
         try {
@@ -32,20 +32,20 @@ function wait_for_exit(max_ms = 5000): void {
         let running = false;
         try {
             if (is_win) {
-                running = execSync('tasklist /fi "imagename eq OmniUsage.exe" /nh', {
+                running = execSync('tasklist /fi "imagename eq OmniPanel.exe" /nh', {
                     stdio: "pipe",
                 })
                     .toString()
-                    .includes("OmniUsage.exe");
+                    .includes("OmniPanel.exe");
             } else {
-                execSync("pgrep -f OmniUsage", { stdio: "pipe" });
+                execSync("pgrep -f OmniPanel", { stdio: "pipe" });
                 running = true;
             }
         } catch {
             // not running
         }
         if (!running) {
-            log("all OmniUsage processes exited");
+            log("all OmniPanel processes exited");
             return;
         }
         execSync("timeout /t 1 /nobreak >nul 2>&1 || sleep 1", {
@@ -53,9 +53,9 @@ function wait_for_exit(max_ms = 5000): void {
             stdio: "pipe",
         });
     }
-    log("warning: OmniUsage still running after timeout, forcing kill");
+    log("warning: OmniPanel still running after timeout, forcing kill");
     try {
-        execSync("taskkill /f /t /im OmniUsage.exe 2>nul || pkill -9 -f OmniUsage", {
+        execSync("taskkill /f /t /im OmniPanel.exe 2>nul || pkill -9 -f OmniPanel", {
             shell: platform() === "win32" ? "cmd.exe" : "/bin/sh",
             stdio: "pipe",
         });
@@ -77,8 +77,8 @@ function run_packaged(): void {
     const exe = resolve(
         ROOT,
         is_win
-            ? "artifacts/win-unpacked/OmniUsage.exe"
-            : "artifacts/mac/OmniUsage.app/Contents/MacOS/OmniUsage",
+            ? "artifacts/win-unpacked/OmniPanel.exe"
+            : "artifacts/mac/OmniPanel.app/Contents/MacOS/OmniPanel",
     );
 
     log(`starting: ${exe}`);

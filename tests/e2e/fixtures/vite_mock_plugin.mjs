@@ -6,7 +6,7 @@ import { create_mock_handler } from "./mock_server.mjs";
 
 export function mock_api_plugin() {
     return {
-        name: "omniusage-mock-api",
+        name: "omnipanel-mock-api",
         configurePreviewServer(server) {
             const f =
                 process.env["MOCK_FIXTURE"] === "synthetic"

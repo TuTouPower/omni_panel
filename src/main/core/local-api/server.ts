@@ -181,7 +181,7 @@ export function create_local_api_server(
     const config_deps = options?.config_deps;
     const connector_deps = options?.connector_deps;
     const web_root = options?.web_root;
-    const env_port = Number(process.env["OMNI_USAGE_PORT"] ?? "");
+    const env_port = Number(process.env["OMNI_PANEL_PORT"] ?? "");
     const default_port = is_test_build() ? TEST_DEFAULT_PORT : DEFAULT_PORT;
     let port =
         options?.port ?? (Number.isFinite(env_port) && env_port > 0 ? env_port : default_port);

@@ -5,7 +5,7 @@
 ## 检查步骤
 
 1. **启动应用**
-    - 运行打包产物（如 `./artifacts/win-unpacked/OmniUsage.exe`）
+    - 运行打包产物（如 `./artifacts/win-unpacked/OmniPanel.exe`）
     - 确认无启动崩溃
 
 2. **渲染进程**
@@ -20,7 +20,7 @@
     - 点击"退出"确认应用退出
 
 4. **Popup 窗口**
-    - 确认标题显示 "OmniUsage"
+    - 确认标题显示 "OmniPanel"
     - 确认 Popup 显示插件卡片或空状态
     - 确认刷新按钮可用
     - 确认设置按钮可跳转
@@ -43,5 +43,5 @@
 
 ```bash
 # 打包并启动
-pnpm package && ./artifacts/win-unpacked/OmniUsage.exe
+pnpm package && ./artifacts/win-unpacked/OmniPanel.exe
 ```

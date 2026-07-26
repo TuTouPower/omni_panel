@@ -1,5 +1,5 @@
 // 一次性录制本机 local-api 真实响应 → tests/e2e/fixtures/data/responses.json
-// 用法：先启动 OmniUsage（packaged 或 dev，读本机 %APPDATA%/OmniUsage 真实数据），
+// 用法：先启动 OmniPanel（packaged 或 dev，读本机 %APPDATA%/OmniPanel 真实数据），
 // 再跑 `pnpm e2e:gen-data`。录完 mock 回放，日常 e2e 不再开桌面 app。
 //
 // 不录明文 secret：/v1/secrets 响应的 value 字段统一替换为 "***"。
@@ -48,7 +48,7 @@ function redact_secrets(obj) {
 async function main() {
     if (!(await check_health())) {
         console.error(
-            "[gen_fixture] localhost:17863 不在线。请先启动 OmniUsage（packaged 或 pnpm start），再跑本命令。",
+            "[gen_fixture] localhost:17863 不在线。请先启动 OmniPanel（packaged 或 pnpm start），再跑本命令。",
         );
         process.exit(1);
     }

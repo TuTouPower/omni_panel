@@ -36,7 +36,7 @@ afterEach(async () => {
 });
 
 async function tempFile(name: string): Promise<string> {
-    temp_dir ??= await mkdtemp(join(tmpdir(), "omni-usage-config-ipc-"));
+    temp_dir ??= await mkdtemp(join(tmpdir(), "omni-panel-config-ipc-"));
     return join(temp_dir, name);
 }
 

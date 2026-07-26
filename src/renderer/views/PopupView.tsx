@@ -497,13 +497,13 @@ export function PopupView() {
                 <div className={titlebar_class}>
                     <img
                         src={logo}
-                        alt="OmniUsage"
+                        alt="OmniPanel"
                         className="app-logo"
                         width="30"
                         height="30"
                         style={{ borderRadius: 9 }}
                     />
-                    <span className="app-title">OmniUsage</span>
+                    <span className="app-title">OmniPanel</span>
                     <div className="tb-actions">
                         {footerTime && (
                             <span className="tb-time" title="上次更新时间">

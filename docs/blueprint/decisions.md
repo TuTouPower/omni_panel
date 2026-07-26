@@ -15,7 +15,7 @@
 
 ## 001 从 omni_powers 迁移到 repo_template 工作流（2026-07-20）
 
-- 背景：OmniUsage 原用 omni_powers 三区工作流（`op_blueprint`/`op_execution`/`op_record`）+ 全局 skill（`/opintake` 等），与用户维护的 `repo_template` 通用仓库模板不兼容。
+- 背景：OmniPanel 原用 omni_powers 三区工作流（`op_blueprint`/`op_execution`/`op_record`）+ 全局 skill（`/opintake` 等），与用户维护的 `repo_template` 通用仓库模板不兼容。
 - 选项：A) 保留 omni_powers；B) 全量迁移到 repo_template 纯文档工作流（`AGENTS.md` + `blueprint/tasks/specs/reviews/spikes/archive`）。
 - 结论：选 B。废弃 omni_powers 三区（整体归档至 `docs/archive/omni_powers_sunset/`），引入 `AGENTS.md` + `blueprint/tasks/specs/reviews/spikes/archive` 结构。task ID 从 T001 起编。本次元重构本身不挂 TNNN，由本 ADR 追溯。
 - 替代：无

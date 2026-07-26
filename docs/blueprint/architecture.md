@@ -1,4 +1,4 @@
-# OmniUsage 架构
+# OmniPanel 架构
 
 本文是**技术栈、目录结构、模块划分、数据流、跨模块契约的唯一真相源**。命名/编码风格见 `conventions.md`；业务不变量与术语见 `domain.md`；测试见 `test.md`。
 
@@ -65,7 +65,6 @@ src/
 └── shared/                        # 主/渲染共享：schemas/ types/ lib/ constants.ts
 connectors/                        # 16 个内置连接器（manifest.json + connector.ts）
 tests/                             # unit / integration / e2e(specs/packaged) / smoke
-docs/design/omni-usage/            # 前端 UI 设计 demo（历史设计参考）
 ```
 
 ## 3. 进程与安全边界
