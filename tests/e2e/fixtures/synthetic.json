@@ -647,7 +647,7 @@
                     "name": "CPA",
                     "displayName": "Oracle",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\cpa",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\cpa",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {
                         "monitor_antigravity": "true",
@@ -666,7 +666,7 @@
                     "name": "DEEPSEEK",
                     "displayName": "13800000000",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\deepseek",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\deepseek",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {
                         "LIMIT": "100"
@@ -681,7 +681,7 @@
                     "name": "FIRECRAWL",
                     "displayName": "1",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -694,7 +694,7 @@
                     "name": "TAVILY",
                     "displayName": "搜索",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\tavily",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\tavily",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -707,7 +707,7 @@
                     "name": "FIRECRAWL",
                     "displayName": "2",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -720,7 +720,7 @@
                     "name": "FIRECRAWL",
                     "displayName": "3",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -733,7 +733,7 @@
                     "name": "FIRECRAWL",
                     "displayName": "4",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -746,7 +746,7 @@
                     "name": "FIRECRAWL",
                     "displayName": "5",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -759,7 +759,7 @@
                     "name": "FIRECRAWL",
                     "displayName": "6",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\firecrawl",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -772,7 +772,7 @@
                     "name": "OPENCODE_GO",
                     "displayName": "demo_config_0@example.com",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -786,7 +786,7 @@
                     "name": "GROK",
                     "displayName": "SuperGrok",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\grok",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\grok",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {}
@@ -797,7 +797,7 @@
                     "name": "OPENCODE_GO",
                     "displayName": "demo_config_0@example.com",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -811,7 +811,7 @@
                     "name": "OPENCODE_GO",
                     "displayName": "demo_config_0@example.com",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -825,7 +825,7 @@
                     "name": "OPENCODE_GO",
                     "displayName": "demo_config_0@example.com",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -839,7 +839,7 @@
                     "name": "OPENCODE_GO",
                     "displayName": "demo_config_0@example.com",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -853,7 +853,7 @@
                     "name": "OPENCODE_GO",
                     "displayName": "demo_config_0@example.com",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -867,7 +867,7 @@
                     "name": "OPENCODE_GO",
                     "displayName": "!!!demo_config_0@example.com",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -881,7 +881,7 @@
                     "name": "OPENCODE_GO",
                     "displayName": "demo_config_0@example.com",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\opencode_go",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -895,7 +895,7 @@
                     "name": "KIMI",
                     "displayName": "173",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\kimi",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\kimi",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -907,7 +907,7 @@
                     "stateId": "2ecaf947-55e6-4f79-90db-5583225e58ae",
                     "name": "ANTIGRAVITY",
                     "enabled": false,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\antigravity",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\antigravity",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {}
@@ -917,7 +917,7 @@
                     "stateId": "91ead207-d1f2-4989-b3e0-94f5ba451698",
                     "name": "CLAUDE",
                     "enabled": false,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\claude",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\claude",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {
                         "data_dir": "~/.claude"
@@ -929,7 +929,7 @@
                     "stateId": "2ec76b49-414f-47f7-a67d-d81bdebf8f50",
                     "name": "CODEX",
                     "enabled": false,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\codex",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\codex",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {}
@@ -939,7 +939,7 @@
                     "stateId": "b728c988-044d-45d7-a112-b0a03d974ba5",
                     "name": "GLM",
                     "enabled": false,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\glm",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\glm",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {}
@@ -949,7 +949,7 @@
                     "stateId": "b3f9598f-3bbc-43bc-b083-5676b0e703e5",
                     "name": "MIMO",
                     "enabled": false,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\mimo",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\mimo",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {
                         "LIMIT": "100"
@@ -961,7 +961,7 @@
                     "stateId": "12f679eb-c38d-4d87-9931-af7309a809a0",
                     "name": "MINIMAX",
                     "enabled": false,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\minimax",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\minimax",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {}
@@ -972,7 +972,7 @@
                     "name": "KIMI",
                     "displayName": "188",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\kimi",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\kimi",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {
@@ -985,7 +985,7 @@
                     "name": "KIMI",
                     "displayName": "177",
                     "enabled": true,
-                    "executablePath": "D:\\Dev\\Code\\omni_usage\\artifacts\\win-unpacked\\resources\\connectors\\kimi",
+                    "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\kimi",
                     "refreshIntervalSeconds": 0,
                     "parameterValues": {},
                     "endpointOverrides": {

@@ -122,7 +122,7 @@ function extract_model_id(raw: string | null): string | null {
 function copy_db_to_temp(db_path: string, env: TokenStatsEnv): string | null {
     let dir: string | null = null;
     try {
-        dir = fs.mkdtempSync(path.join(os.tmpdir(), `omni-usage-opencode-${env}-`));
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), `omni-panel-opencode-${env}-`));
         const copy = path.join(dir, "opencode.db");
         fs.copyFileSync(db_path, copy);
         for (const suffix of ["-wal", "-shm"]) {

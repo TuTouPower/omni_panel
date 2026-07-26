@@ -1,5 +1,5 @@
-appId: com.omniusage.app.test
-productName: OmniUsageTest
+appId: com.omnipanel.app.test
+productName: OmniPanelTest
 directories:
     output: artifacts/test
 files:

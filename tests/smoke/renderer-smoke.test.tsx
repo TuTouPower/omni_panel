@@ -17,10 +17,10 @@ function deferred_promise<T>() {
 
 describe("Renderer smoke tests", () => {
     describe("PopupView", () => {
-        it("renders OmniUsage header", async () => {
+        it("renders OmniPanel header", async () => {
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByText("OmniUsage")).toBeInTheDocument();
+                expect(screen.getByText("OmniPanel")).toBeInTheDocument();
             });
         });
 

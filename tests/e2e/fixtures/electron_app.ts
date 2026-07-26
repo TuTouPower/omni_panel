@@ -8,7 +8,7 @@ const MAIN_ENTRY = resolve(ROOT, "out/main/index.js");
 
 /** Returns a fresh isolated userData dir for each test. */
 export function getDefaultUserData(): string {
-    return mkdtempSync(join(tmpdir(), "omniusage-e2e-"));
+    return mkdtempSync(join(tmpdir(), "omnipanel-e2e-"));
 }
 
 function getElectronPath(): string {
@@ -35,7 +35,7 @@ export interface LaunchAppOptions {
 export async function launchApp(options?: LaunchAppOptions): Promise<LaunchedApp> {
     // When explicit dir is given, reuse it. When onReady is provided without dir, create fresh.
     // Otherwise reuse the shared default dir.
-    const userDataDir = options?.userDataDir ?? mkdtempSync(join(tmpdir(), "omniusage-e2e-"));
+    const userDataDir = options?.userDataDir ?? mkdtempSync(join(tmpdir(), "omnipanel-e2e-"));
 
     options?.onReady?.(userDataDir);
 

@@ -270,7 +270,7 @@ interface TokenStatsUpdate {
 
 ## 7. LocalAPI 端点契约
 
-> 注：原 `ai-cli-token-stats` 未明确 HTTP 端点契约。OmniUsage LocalAPI 把渲染端 IPC 暴露为 HTTP，以下端点按 §6 数据模型与 §8 文件清单（`token-stats-ipc.ts`）推导，作为契约建议；具体实现细节随 `-desktop` IPC handler 落地。
+> 注：原 `ai-cli-token-stats` 未明确 HTTP 端点契约。OmniPanel LocalAPI 把渲染端 IPC 暴露为 HTTP，以下端点按 §6 数据模型与 §8 文件清单（`token-stats-ipc.ts`）推导，作为契约建议；具体实现细节随 `-desktop` IPC handler 落地。
 
 只读查询端点，均 GET，返回 JSON。
 

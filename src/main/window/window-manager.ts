@@ -123,7 +123,7 @@ export function createWindowManager(opts: {
             },
         });
         if (process.platform === "win32") {
-            win.setAppDetails({ appId: "omni-usage" });
+            win.setAppDetails({ appId: "omni-panel" });
         }
         if (cfg.autoHideMenuBar) {
             win.setMenuBarVisibility(false);

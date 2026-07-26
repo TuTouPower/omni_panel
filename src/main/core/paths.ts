@@ -94,7 +94,7 @@ export function get_app_icon_path(): string {
  * - dev：`TEST_INSTANCE=1` env（start-test.mjs 设）
  * - packaged：resources/test.marker 存在（electron-builder.test.yml 的 extraResources 标志）
  *
- * 测试实例：app.name=OmniUsageTest（锁/userData 独立）、local-api 端口 17864。
+ * 测试实例：app.name=OmniPanelTest（锁/userData 独立）、local-api 端口 17864。
  */
 export function is_test_build(): boolean {
     if (process.env["TEST_INSTANCE"] === "1") return true;

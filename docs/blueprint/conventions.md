@@ -1,6 +1,6 @@
 # 约定（内容细节）
 
-行为规则和工作顺序见 `AGENTS.md`。本文定义两类内容：上半”文档字段元约定”（task/review/specs_index/spike/decisions 格式，工作流用）；下半”项目编码细则”（OmniUsage 代码命名、风格、日志、测试、网络、连接器开发）。
+行为规则和工作顺序见 `AGENTS.md`。本文定义两类内容：上半”文档字段元约定”（task/review/specs_index/spike/decisions 格式，工作流用）；下半”项目编码细则”（OmniPanel 代码命名、风格、日志、测试、网络、连接器开发）。
 
 ## 命名与格式
 

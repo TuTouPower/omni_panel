@@ -100,7 +100,7 @@ app.disableHardwareAcceleration();
 // 测试构建：setName 让单实例锁与 userData 独立于正常实例。
 // app.name 决定 requestSingleInstanceLock 的锁标识与 %APPDATA%/<name> 目录。
 if (is_test_build()) {
-    app.setName("OmniUsageTest");
+    app.setName("OmniPanelTest");
 }
 
 // Single-instance lock — prevent duplicate app instances
@@ -686,7 +686,7 @@ void app.whenReady().then(async () => {
             }
             const tray = new Tray(trayIcon);
             tray_ref = tray;
-            tray.setToolTip("OmniUsage — AI 用量监控");
+            tray.setToolTip("OmniPanel — AI 用量监控");
             log.info("System tray created");
             if (process.env["E2E"] === "1") {
                 // Expose tray click for E2E tests via IPC
@@ -968,7 +968,7 @@ void app.whenReady().then(async () => {
         try {
             const { dialog } = await import("electron");
             dialog.showErrorBox(
-                "OmniUsage 启动失败",
+                "OmniPanel 启动失败",
                 `应用启动遇到错误：\n${err instanceof Error ? err.message : String(err)}\n\n请查看日志后重试。`,
             );
         } catch {

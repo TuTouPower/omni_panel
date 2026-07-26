@@ -58,7 +58,7 @@ test.describe("tray interaction", () => {
         // E2E_WITH_TRAY=1: tray created, popup auto-opens
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
-        await expect(page.locator('[data-popup="live"]').getByText("OmniUsage")).toBeVisible({
+        await expect(page.locator('[data-popup="live"]').getByText("OmniPanel")).toBeVisible({
             timeout: 10_000,
         });
     });
@@ -66,7 +66,7 @@ test.describe("tray interaction", () => {
     test("tray click closes open popup when main panel mode is popup", async ({ omni }) => {
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
-        await expect(page.locator('[data-popup="live"]').getByText("OmniUsage")).toBeVisible({
+        await expect(page.locator('[data-popup="live"]').getByText("OmniPanel")).toBeVisible({
             timeout: 10_000,
         });
 

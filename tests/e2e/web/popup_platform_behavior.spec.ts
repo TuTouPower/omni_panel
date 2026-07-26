@@ -12,7 +12,7 @@ test.describe("popup platform behavior (web)", () => {
 
         // 浏览器无独立 window title；改为断言 app-title 渲染
         const title = await popup.getTitle();
-        expect(title).toContain("OmniUsage");
+        expect(title).toContain("OmniPanel");
     });
 
     test("titlebar drag region is rendered", async ({ webPage }) => {

@@ -149,8 +149,8 @@ export function TrayMenu() {
             },
             {
                 icon: "exit",
-                label_zh: "退出 OmniUsage",
-                label_en: "Quit OmniUsage",
+                label_zh: "退出 OmniPanel",
+                label_en: "Quit OmniPanel",
                 danger: true,
                 separator_before: true,
                 action: () => {
@@ -184,7 +184,7 @@ export function TrayMenu() {
         <div className="tray-window" ref={menu_ref}>
             <div className="tray-win-head">
                 <img className="app-logo sm" src={logo} alt="" width={24} height={24} />
-                <span>OmniUsage</span>
+                <span>OmniPanel</span>
             </div>
             <div className="tray-menu-body">
                 {items.map((item, i) => (

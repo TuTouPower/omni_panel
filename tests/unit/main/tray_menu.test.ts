@@ -19,7 +19,7 @@ const ZH_LABELS = [
     "开机自启",
     "设置…",
     "检查更新",
-    "退出 OmniUsage",
+    "退出 OmniPanel",
 ] as const;
 
 const EN_LABELS = [
@@ -32,7 +32,7 @@ const EN_LABELS = [
     "Launch at Login",
     "Settings…",
     "Check for Updates",
-    "Quit OmniUsage",
+    "Quit OmniPanel",
 ] as const;
 
 describe("tray menu", () => {

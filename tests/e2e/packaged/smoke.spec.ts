@@ -9,9 +9,9 @@ import { scrubber } from "../../../src/shared/lib/logger";
 const ROOT = process.cwd();
 
 const EXE_BY_PLATFORM: Record<string, string> = {
-    win32: resolve(ROOT, "artifacts/win-unpacked/OmniUsage.exe"),
-    darwin: resolve(ROOT, "artifacts/mac/OmniUsage.app/Contents/MacOS/OmniUsage"),
-    linux: resolve(ROOT, "artifacts/linux-unpacked/omni-usage"),
+    win32: resolve(ROOT, "artifacts/win-unpacked/OmniPanel.exe"),
+    darwin: resolve(ROOT, "artifacts/mac/OmniPanel.app/Contents/MacOS/OmniPanel"),
+    linux: resolve(ROOT, "artifacts/linux-unpacked/omni-panel"),
 };
 const PACKAGED_EXE = EXE_BY_PLATFORM[process.platform];
 
@@ -67,7 +67,7 @@ async function firstRendererPage(browser: Browser): Promise<Page> {
 async function launchPackagedApp(port: number): Promise<PackagedAppHandle> {
     if (!PACKAGED_EXE) throw new Error("PACKAGED_EXE is undefined");
 
-    const userData = mkdtempSync(join(tmpdir(), "omniusage-smoke-"));
+    const userData = mkdtempSync(join(tmpdir(), "omnipanel-smoke-"));
     const logs: string[] = [];
     const child = spawn(
         PACKAGED_EXE,
@@ -111,7 +111,7 @@ test.describe("packaged binary smoke", () => {
             const pageErrors: Error[] = [];
             app.page.on("pageerror", (err) => pageErrors.push(err));
 
-            await expect(app.page.locator(".app-title").first()).toContainText("OmniUsage", {
+            await expect(app.page.locator(".app-title").first()).toContainText("OmniPanel", {
                 timeout: 15_000,
             });
             expect(pageErrors).toEqual([]);
@@ -142,7 +142,7 @@ test.describe("packaged binary smoke", () => {
 
         const app = await launchPackagedApp(59302 + testInfo.workerIndex * 10);
         try {
-            await expect(app.page.locator(".app-title").first()).toContainText("OmniUsage", {
+            await expect(app.page.locator(".app-title").first()).toContainText("OmniPanel", {
                 timeout: 15_000,
             });
 

@@ -1,6 +1,6 @@
 {
-    "name": "omni_usage",
-    "productName": "OmniUsage",
+    "name": "omni_panel",
+    "productName": "OmniPanel",
     "version": "1.1.0",
     "description": "Multi-platform AI service usage monitoring desktop app.",
     "main": "out/main/index.js",
