@@ -9,14 +9,6 @@
             "note": ""
         },
         {
-            "tid": "t125",
-            "title": "拆分 accounts_section.tsx 抽 AccountsList",
-            "slug": "split_accounts_section",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t126",
             "title": "拆分 ProviderCard.tsx 与其测试文件",
             "slug": "split_provider_card",

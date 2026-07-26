@@ -1119,6 +1119,14 @@
             "status": "done",
             "branch": "t149_docs_token_stats_spec_cleanup",
             "note": ""
+        },
+        {
+            "tid": "t125",
+            "title": "拆分 accounts_section.tsx 抽 AccountsList",
+            "slug": "split_accounts_section",
+            "status": "done",
+            "branch": "t125_split_accounts_section",
+            "note": ""
         }
     ]
 }
