@@ -16,13 +16,15 @@ function run(cmd: string): string {
 
 const branch = run("git rev-parse --abbrev-ref HEAD") || "unknown";
 const commit = run("git rev-parse --short HEAD") || "unknown";
+const subject = run("git log -1 --pretty=%s") || "unknown";
 
 const content = `// 自动生成，勿手改。由 scripts/gen-build-info.ts 在构建期覆写。
 export const BUILD_INFO = {
     branch: ${JSON.stringify(branch)},
     commit: ${JSON.stringify(commit)},
+    subject: ${JSON.stringify(subject)},
 } as const;
 `;
 
 writeFileSync(out_path, content);
-console.log(`build-info: ${branch}@${commit}`);
+console.log(`build-info: ${branch}@${commit} ${subject}`);
