@@ -104,8 +104,10 @@ async function main(): Promise<ScriptObservation[]> {
         }
         for (const [price_name, total_amount] of agg) {
             const slug =
-                price_name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") ||
-                "unknown";
+                price_name
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "_")
+                    .replace(/^_|_$/g, "") || "unknown";
             observations.push({
                 ...base,
                 metric_id: `exa:${slug}`,

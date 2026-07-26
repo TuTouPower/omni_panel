@@ -5,11 +5,7 @@
         "src/renderer/index.tsx",
         "electron.vite.config.ts"
     ],
-    "project": [
-        "src/**/*.ts",
-        "src/**/*.tsx",
-        "*.config.ts"
-    ],
+    "project": ["src/**/*.ts", "src/**/*.tsx", "*.config.ts"],
     "ignoreDependencies": [
         "eslint-plugin-jsx-a11y",
         "eslint-plugin-n",

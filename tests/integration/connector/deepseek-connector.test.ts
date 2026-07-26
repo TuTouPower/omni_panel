@@ -115,7 +115,10 @@ describe("deepseek connector", () => {
         const ctx_no_limit: ConnectorContext = {
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
-                get_json: () => Promise.resolve({ balance_infos: [{ currency: "CNY", total_balance: "45.6" }] }),
+                get_json: () =>
+                    Promise.resolve({
+                        balance_infos: [{ currency: "CNY", total_balance: "45.6" }],
+                    }),
                 post_json: () => Promise.resolve({}),
                 get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
             },
