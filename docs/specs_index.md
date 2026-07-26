@@ -32,6 +32,7 @@
 | connector-user-scripts        | Desktop  | t095                                                                | 2026-07-24   |
 | ipc-api                       | API      | 拆自 ipc（t037）                                                    | 2026-07-21   |
 | ipc-electron                  | Desktop  | 拆自 ipc（t037）                                                    | 2026-07-21   |
+| move_session_meta_to_lib      | Web      | t124                                                                | 2026-07-26   |
 | observation-store             | API      | 迁移自 omni_powers，t096                                            | 2026-07-24   |
 | opencode_go_html_scrape       | API      | t115                                                                | 2026-07-26   |
 | platform-services-api         | API      | 拆自 platform-services（t037）                                      | 2026-07-21   |
@@ -40,7 +41,7 @@
 | secret-vault                  | API      | 迁移自 omni_powers，t045                                            | 2026-07-22   |
 | ui-views-web                  | Web      | 拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106 | 2026-07-25   |
 | ui-views-desktop              | Desktop  | 拆自 ui-views（t037）                                               | 2026-07-21   |
-| vendor-forms-oauth-weblogin   | Web      | t109                                                                | 2026-07-25   |
+| vendor_forms_oauth_weblogin   | Web      | t109                                                                | 2026-07-25   |
 | fix_add_account_wiring        | Desktop  | t110                                                                | 2026-07-25   |
 | web-panel                     | Web      | 迁移自 omni_powers，无                                              | 2026-07-05   |
 | window-management             | Desktop  | 迁移自 omni_powers，t099                                            | 2026-07-24   |

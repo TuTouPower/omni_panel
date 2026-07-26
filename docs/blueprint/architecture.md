@@ -46,7 +46,7 @@ src/
 │   │   ├── storage/               # write-json（原子写 JSON）
 │   │   ├── vault/                 # file-vault-backend + VaultBackend 接口
 │   │   ├── session/session-manager.ts        # 登录窗 + cookie 捕获
-│   │   ├── local-api/server.ts    # 127.0.0.1 ingest + health
+│   │   ├── local-api/server.ts    # 0.0.0.0 local-api，仅 /v1/ingest 需 Bearer，其余 web 路由在可信 LAN 下免认证
 │   │   ├── main-panel/            # 托盘弹出/悬浮窗控制 + floating-bounds
 │   │   ├── popup/popup-height-controller.ts  # 动态高度纯函数
 │   │   ├── auth/grok_oauth_manager.ts          # Grok device-code OAuth + token rotation
@@ -60,8 +60,9 @@ src/
 │   ├── log-throttle.ts            # preload 侧 100条/秒日志限流
 │   └── route_api.ts               # route 能力查询辅助
 ├── renderer/                      # React：views/ components/ hooks/ lib/ styles/
+│   └── views/settings-view/       #   t122 拆分：sections/ + lib.ts
 └── shared/                        # 主/渲染共享：schemas/ types/ lib/ constants.ts
-connectors/                        # 13 个内置连接器（manifest.json + connector.ts）
+connectors/                        # 16 个内置连接器（manifest.json + connector.ts）
 tests/                             # unit / integration / e2e(specs/packaged) / smoke
 docs/design/omni-usage/            # 前端 UI 设计 demo（历史设计参考）
 ```
@@ -74,7 +75,7 @@ docs/design/omni-usage/            # 前端 UI 设计 demo（历史设计参考�
 | Connector 沙箱 | `node:vm` realm，无 `require/process/fs/fetch/timer`；只有注入的 `ctx`；禁 `import/export`；15s 超时。**注意：node:vm 非真隔离**（见 §6）                |
 | 主进程         | 唯一持有密钥明文、文件系统、网络、浏览器会话                                                                                                             |
 | IPC sender     | `assert_valid_sender` 按 URL 协议白名单校验（`file://` 或 dev renderer URL），**不依赖 NODE_ENV**                                                        |
-| LocalAPI       | 仅 `127.0.0.1`，Bearer token，只 ingest+health，非通用代理                                                                                               |
+| LocalAPI       | 绑 `0.0.0.0`；仅 `/v1/ingest` 需 Bearer；其余 web 路由在可信 LAN 下免认证（见 `specs/web-panel.md`）                                                     |
 | SSRF           | NetClient 阻断云元数据主机（169.254.169.254 / metadata.google.internal / metadata.azure.com）                                                            |
 
 ## 4. 数据流（单向：采集 → 观测 → 消费）
@@ -116,7 +117,7 @@ web 浏览器经 LocalAPI `GET /v1/events`（SSE）订阅 runtimeStore 状态变
 代码现状**已偏离** `docs/archive/_pre_opinit_20260705/` 的旧 SPEC 与 v2 设计愿景，以下为"现在是什么"：
 
 - **连接器执行**：旧 SPEC 说"子进程 + esbuild + SHA-256 缓存 + stdin 传 secret"；现状是 `node:vm` 同进程沙箱 + `typescript.transpileModule`，**无 esbuild、无编译缓存、无内置连接器 SHA-256 完整性清单**。
-- **Tier 1 纯声明式未落地**：v2 设想简单 poll 连接器零代码；现状 12 个连接器**全部**带 `connector.ts`，`poll.map` 均为空，解析都在脚本里。
+- **Tier 1 纯声明式未落地**：v2 设想简单 poll 连接器零代码；现状 16 个连接器**全部**带 `connector.ts`，`poll.map` 均为空，解析都在脚本里。
 - **secret 默认进脚本**：v2 设想"明文默认不进沙箱"；现状连接器 secret 参数**全部** `exposeToScript:true`，明文经 `ctx.params` 进脚本。
 - **无自适应探测/退避**：调度器固定间隔，无指数退避，`observe` 探测自适应未实现。
 - **沙箱非真隔离**（已知安全限制）：`node:vm` 官方明示非安全边界，恶意脚本可 `(0,eval)("this")` 逃逸到主进程。缓解：禁 import/export、超时、能力受控。待办：`isolated-vm` 或子进程隔离。

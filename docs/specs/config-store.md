@@ -9,7 +9,7 @@
 `schemaVersion`、`language`（zh-Hans|en）、`plugins: ConnectorConfiguration[]`、`launchAtLogin`，及可选：`proxy{url,noProxy?}`、`accentColor`、`theme`、`logLevel`、`pinToTop`、`minimizeToTray`、`globalRefreshIntervalSeconds`、`pauseAutoRefresh`、`providerOrder`、`accountOrders`、`cacheMaxMb`、`mainPanelMode`（`system|popup|floating`，见 `window-management.md`）、`floatingHeightMode`、`usageBarColorScheme`、`usageBarStyle`、`providerLabelMaps`、`accountLabelMaps`、`labelMapSync`、`uiDesensitizeRemarks`、`providerForcePercent`、`settingsBounds`、`floatingBounds`、`collapsedAccounts`、`expandedProviders`、`convergentTimeMinutes`、`accountLabels`、`dirAliases`、`modelAliases`。
 
 - `uiDesensitizeRemarks`：为 true 时用量面板与设置账号列表隐藏备注/displayName。
-- `providerForcePercent`：`Partial<Record<UsageProvider, boolean>>`，厂商级强制用量数字显示为百分比。
+- `providerForcePercent`：`Partial<Record<string, boolean>>`，厂商级强制用量数字显示为百分比。
 
 > `accountOverrides` 已纳入 Zod schema（`accountOverridesSchema`，结构 `{ hidden?: Record<provider, string[]> }`）；`accountLabels`、`dirAliases`（default `[]`）、`modelAliases`（default `[]`）同样在 schema 内。
 
@@ -37,4 +37,4 @@
 ## 边界
 
 - `schemaVersion` 字段存在但**无版本分支迁移引擎**（`architecture.md` §6）。
-- 导入导出见 `ipc.md`（`CONFIG_EXPORT`/`CONFIG_IMPORT`，**密钥明文导出**，权限完全开放给用户）与 `secret-vault.md`。
+- 导入导出见 `ipc-api.md`/`ipc-electron.md`（`CONFIG_EXPORT`/`CONFIG_IMPORT`，**密钥明文导出**，权限完全开放给用户）与 `secret-vault.md`。

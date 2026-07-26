@@ -77,3 +77,4 @@
 - 需改：`load()` 的 ENOENT / fallback 分支同样走「抛错 + 拒绝默认启动 + 不 auto_seed」保护，不能 `return DEFAULT_CONFIGURATION` 让 auto_seed 有机可乘；或 fallback 时禁止 auto_seed 运行。
 - 关联：`src/main/core/config/config-store.ts` `load()` 的 ENOENT / 空文件分支（约 line 244-246）；`writeBakAtomic` 中断留 null padding。
 - 数据恢复：2026-07-25 经 secrets.vault（aes-gcm master key）+ custom_env.py 明文 key 池反推重建，10 个 connector 全部密钥关联恢复。
+- 修复：t111（commit `994139c`）`load()` ENOENT / 空文件 / 仅空白字符分支走 P0 保护，目录存在但 `config.json` 缺失抛错；`writeFileAtomic` tmp → fsync → close → rename，避免 null padding。

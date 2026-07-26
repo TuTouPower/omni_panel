@@ -94,3 +94,17 @@
     - `docs/specs/config_fallback_p0_protection.md`、`docs/specs_index.md`、`docs/blueprint/architecture.md` 已同步。
 - 后续 backlog：t112 Kimi device code OAuth 登录、t113 Kimi connector 解析 boosterWallet/totalQuota/membership、t114 token-stats collector 扫描状态落盘。
 - 用户指示完成 t111 后结束，t112 未启动实现。已创建空 task 目录 `docs/tasks/t112_kimi_oauth_device_code/` 与分支 `t112_kimi_oauth_device_code`（仅模板文件，未提交），接手时可直接从 `scripts/task.py show t112` 与 spec/plan 开始。
+
+## 2026-07-26 t121+t122 完成
+
+- branch：`t121_add_account_manifest_catalog` / `t122_split_settings_view`
+- head_commit：`bacf5a32`（t121 merge）/ `3ba76c28`（t122 merge）
+- 状态：`done`；task 已归档至 `docs/archive/tasks/t121_add_account_manifest_catalog/`、`docs/archive/tasks/t122_split_settings_view/`。
+- t121 实现：`connector:catalog` IPC 从 manifest 出目录（不读 config/墓碑/密钥）；`config:createInstance` 按 manifest_id 直接建实例并清对应墓碑；`AddAccountDialog` 优先按 catalog 解析 auth，grok/exa/opencode_go/cpa 在无实例+墓碑场景下正确渲染对应表单。
+- t122 实现：`SettingsView.tsx` 2352→724 行，按领域拆出 `src/renderer/views/settings-view/lib.ts` 与 `sections/{about,accounts,appearance,data,general}_section.tsx`，行为零变化。
+- 验证：t121 `pnpm test` 1749/1749 绿；t122 `pnpm test` 1749/1750（config-store EPERM 为 Windows 已知 flaky）。
+- 遗留 finding：
+    - t121_code_f005：`SettingsView.tsx` 2345 行超 800 行 important 阈值，本 task 未拆，后续 task 抽出 `AccountDialogHost` / `useConnectorCatalog` / `useAccountDialogState`。
+    - t121_test_f006：`OAuthDeviceForm` 表单层未断言 secret_name 绑定到内部 input；on_save secrets 断言已覆盖端到端 secret_name 流向，增益有限。
+    - t122_code_f002：`AccountDialog`→`views/lib` 反向依赖由拆分暴露；待后续将 `session_meta` 迁至 `src/renderer/lib/`。
+    - t122_code_f003：`accounts_section.tsx` 436 行略超 minor 阈值，未达 800 硬限；后续可拆 `AccountsList`。

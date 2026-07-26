@@ -49,14 +49,6 @@
             "note": ""
         },
         {
-            "tid": "t146",
-            "title": "blueprint 文档同步：handoff/architecture/domain/specs 一致性",
-            "slug": "docs_blueprint_sync",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t147",
             "title": "observation schema 类型修正 + token reader helper 提取",
             "slug": "schema_type_fix",

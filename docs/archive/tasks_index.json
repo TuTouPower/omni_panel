@@ -1111,6 +1111,14 @@
             "status": "dropped",
             "branch": "",
             "note": "dropped: 重组：合并至新 task"
+        },
+        {
+            "tid": "t146",
+            "title": "blueprint 文档同步：handoff/architecture/domain/specs 一致性",
+            "slug": "docs_blueprint_sync",
+            "status": "done",
+            "branch": "t146_docs_blueprint_sync",
+            "note": ""
         }
     ]
 }

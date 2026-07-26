@@ -20,6 +20,13 @@
 - 常量用 `UPPER_SNAKE_CASE`（`DEFAULT_TIMEOUT_MS`、`MAX_HEIGHT_RATIO`）。
 - 术语中英一律以 `domain.md` §5 废弃对照为准，落后词先改表再改代码。
 
+### renderer 命名随触碰迁移策略
+
+渲染层历史文件存在 `camelCase` hook/工具名（如 `useGrokDeviceLogin.ts`、`useKimiDeviceLogin.ts`）。新文件一律 `snake_case`；**仅当修改某文件时才将其重命名为 `snake_case`**，不单独做全量重命名，避免无意义 diff 与跨分支冲突。
+
+- 可复用的共享 React 组件文件与组件名保持 `PascalCase`。
+- 由大视图拆出的局部 section 子组件（如 `src/renderer/views/settings-view/sections/accounts_section.tsx`）沿用所在目录的 `snake_case` 文件名，组件名仍用 `PascalCase`。
+
 ## schema 类型落点
 
 | 类型                                                          | 落点                                    |
