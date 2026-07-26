@@ -249,6 +249,38 @@ export function create_kimi_oauth_manager(deps: KimiOAuthManagerDeps): KimiOAuth
     const auto_refresh_options = new Map<string, AutoRefreshOptions>();
     const enabled_auto_refresh_ids = new Set<string>();
     const retry_failure_counts = new Map<string, number>();
+    const token_generations = new Map<string, number>();
+    const token_mutation_tails = new Map<string, Promise<void>>();
+    const refresh_in_flight = new Map<string, Promise<RefreshResult>>();
+
+    function get_token_generation(instance_id: string): number {
+        return token_generations.get(instance_id) ?? 0;
+    }
+
+    function advance_token_generation(instance_id: string): number {
+        const next = get_token_generation(instance_id) + 1;
+        token_generations.set(instance_id, next);
+        return next;
+    }
+
+    function enqueue_token_mutation<T>(
+        instance_id: string,
+        mutation: () => Promise<T>,
+    ): Promise<T> {
+        const previous = token_mutation_tails.get(instance_id) ?? Promise.resolve();
+        const operation = previous.then(mutation, mutation);
+        const tail = operation.then(
+            () => undefined,
+            () => undefined,
+        );
+        token_mutation_tails.set(instance_id, tail);
+        void tail.then(() => {
+            if (token_mutation_tails.get(instance_id) === tail) {
+                token_mutation_tails.delete(instance_id);
+            }
+        });
+        return operation;
+    }
 
     async function build_headers(): Promise<Record<string, string>> {
         const headers: Record<string, string> = {
@@ -314,6 +346,7 @@ export function create_kimi_oauth_manager(deps: KimiOAuthManagerDeps): KimiOAuth
         expires_at_epoch_ms: number,
         instance_id: string,
     ): Promise<OAuthLoginResult> {
+        const generation = get_token_generation(instance_id);
         let current_interval = Math.max(1, interval);
         const cancelled_ref = { current: false };
 
@@ -345,23 +378,27 @@ export function create_kimi_oauth_manager(deps: KimiOAuthManagerDeps): KimiOAuth
                 }
                 if (is_token_response(response)) {
                     const token_response = response;
-                    // cancelled_ref may have been set while awaiting poll_once.
-                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                    if (cancelled_ref.current) {
-                        return { saved: false };
-                    }
-                    await store_tokens(deps.vault, instance_id, token_response);
-                    log.info(`Device-code login succeeded for ${instance_id}`);
-                    void schedule_auto_refresh_if_enabled(instance_id);
-                    const expires_at = compute_expires_at(token_response);
-                    return {
-                        saved: true,
-                        token: token_response.access_token,
-                        ...(token_response.refresh_token
-                            ? { refresh_token: token_response.refresh_token }
-                            : {}),
-                        ...(expires_at ? { expires_at } : {}),
-                    };
+                    return await enqueue_token_mutation(instance_id, async () => {
+                        if (
+                            generation !== get_token_generation(instance_id) ||
+                            cancelled_ref.current
+                        ) {
+                            return { saved: false };
+                        }
+                        await store_tokens(deps.vault, instance_id, token_response);
+                        advance_token_generation(instance_id);
+                        log.info(`Device-code login succeeded for ${instance_id}`);
+                        void schedule_auto_refresh_if_enabled(instance_id);
+                        const expires_at = compute_expires_at(token_response);
+                        return {
+                            saved: true,
+                            token: token_response.access_token,
+                            ...(token_response.refresh_token
+                                ? { refresh_token: token_response.refresh_token }
+                                : {}),
+                            ...(expires_at ? { expires_at } : {}),
+                        };
+                    });
                 }
                 if (!is_error_response(response)) {
                     throw new Error("Unexpected token endpoint response");
@@ -418,42 +455,65 @@ export function create_kimi_oauth_manager(deps: KimiOAuthManagerDeps): KimiOAuth
         };
     }
 
-    async function refresh_now(instance_id: string): Promise<RefreshResult> {
-        const stored = await load_tokens(deps.vault, instance_id);
-        if (!stored.refresh) {
-            log.warn(`refresh_now: no refresh_token stored for ${instance_id}`);
-            return { success: false, error: "no refresh_token stored" };
+    function refresh_now(instance_id: string): Promise<RefreshResult> {
+        const current = refresh_in_flight.get(instance_id);
+        if (current) {
+            return current;
         }
-        try {
-            const response = await post_form(KIMI_TOKEN_URL, [
-                ["grant_type", REFRESH_TOKEN_GRANT],
-                ["client_id", KIMI_CLIENT_ID],
-                ["refresh_token", stored.refresh],
-            ]);
-            if (is_error_response(response)) {
-                const err = response.error;
-                if (is_terminal_grant_error(err)) {
-                    log.warn(
-                        `refresh_now: refresh_token rejected (${err}); clearing tokens for ${instance_id}`,
-                    );
-                    await clear_tokens(deps.vault, instance_id);
-                    cancel_auto_refresh_timer(instance_id);
-                    return { success: false, error: err };
-                }
-                return { success: false, error: err };
+
+        const generation = get_token_generation(instance_id);
+        const refresh = (async (): Promise<RefreshResult> => {
+            const stored = await load_tokens(deps.vault, instance_id);
+            if (!stored.refresh) {
+                log.warn(`refresh_now: no refresh_token stored for ${instance_id}`);
+                return { success: false, error: "no refresh_token stored" };
             }
-            if (!is_token_response(response)) {
-                return { success: false, error: "unexpected token response shape" };
+            try {
+                const response = await post_form(KIMI_TOKEN_URL, [
+                    ["grant_type", REFRESH_TOKEN_GRANT],
+                    ["client_id", KIMI_CLIENT_ID],
+                    ["refresh_token", stored.refresh],
+                ]);
+                return await enqueue_token_mutation(instance_id, async () => {
+                    if (generation !== get_token_generation(instance_id)) {
+                        return { success: false, error: "token state changed during refresh" };
+                    }
+                    if (is_error_response(response)) {
+                        const err = response.error;
+                        if (is_terminal_grant_error(err)) {
+                            log.warn(
+                                `refresh_now: refresh_token rejected (${err}); clearing tokens for ${instance_id}`,
+                            );
+                            await clear_tokens(deps.vault, instance_id);
+                            advance_token_generation(instance_id);
+                            cancel_auto_refresh_timer(instance_id);
+                            return { success: false, error: err };
+                        }
+                        return { success: false, error: err };
+                    }
+                    if (!is_token_response(response)) {
+                        return { success: false, error: "unexpected token response shape" };
+                    }
+                    await store_tokens(deps.vault, instance_id, response);
+                    advance_token_generation(instance_id);
+                    log.info(`refresh_now: refreshed tokens for ${instance_id}`);
+                    void schedule_auto_refresh_if_enabled(instance_id);
+                    return { success: true };
+                });
+            } catch (error) {
+                const msg = to_error(error).message;
+                log.error(`refresh_now failed for ${instance_id}: ${msg}`);
+                return { success: false, error: msg };
             }
-            await store_tokens(deps.vault, instance_id, response);
-            log.info(`refresh_now: refreshed tokens for ${instance_id}`);
-            void schedule_auto_refresh_if_enabled(instance_id);
-            return { success: true };
-        } catch (error) {
-            const msg = to_error(error).message;
-            log.error(`refresh_now failed for ${instance_id}: ${msg}`);
-            return { success: false, error: msg };
-        }
+        })();
+
+        refresh_in_flight.set(instance_id, refresh);
+        void refresh.finally(() => {
+            if (refresh_in_flight.get(instance_id) === refresh) {
+                refresh_in_flight.delete(instance_id);
+            }
+        });
+        return refresh;
     }
 
     async function logout(instance_id: string): Promise<void> {
@@ -461,7 +521,10 @@ export function create_kimi_oauth_manager(deps: KimiOAuthManagerDeps): KimiOAuth
         cancel_device_login(instance_id);
         cancel_auto_refresh_timer(instance_id);
         retry_failure_counts.delete(instance_id);
-        await clear_tokens(deps.vault, instance_id);
+        await enqueue_token_mutation(instance_id, async () => {
+            advance_token_generation(instance_id);
+            await clear_tokens(deps.vault, instance_id);
+        });
     }
 
     function cancel_auto_refresh_timer(instance_id: string): void {

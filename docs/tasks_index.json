@@ -73,14 +73,6 @@
             "note": ""
         },
         {
-            "tid": "t150",
-            "title": "Kimi OAuth 并发保护：token 写入序列化 + refresh 去重",
-            "slug": "kimi_oauth_concurrency",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t151",
             "title": "web UsageboardApi 契约补齐 + session stub 返回类型",
             "slug": "web_api_contract",

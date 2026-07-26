@@ -33,6 +33,59 @@ function create_vault(): VaultBackend & { values: Map<string, string> } {
     };
 }
 
+function create_deferred(): {
+    readonly promise: Promise<void>;
+    readonly resolve: () => void;
+} {
+    let resolve_promise: (() => void) | undefined;
+    const promise = new Promise<void>((resolve) => {
+        resolve_promise = resolve;
+    });
+    return {
+        promise,
+        resolve: () => resolve_promise?.(),
+    };
+}
+
+function create_blocking_token_vault(): VaultBackend & {
+    readonly values: Map<string, string>;
+    readonly first_token_set_started: Promise<void>;
+    readonly release_first_token_set: () => void;
+} {
+    const values = new Map<string, string>();
+    const started = create_deferred();
+    const release = create_deferred();
+    let should_block = true;
+    return {
+        values,
+        first_token_set_started: started.promise,
+        release_first_token_set: release.resolve,
+        get(key: string) {
+            return Promise.resolve(values.get(key) ?? null);
+        },
+        async set(key: string, value: string) {
+            if (should_block && key.endsWith(":OAUTH_TOKEN")) {
+                should_block = false;
+                started.resolve();
+                await release.promise;
+            }
+            values.set(key, value);
+        },
+        delete(key: string) {
+            values.delete(key);
+            return Promise.resolve();
+        },
+        has(key: string) {
+            return Promise.resolve(values.has(key));
+        },
+        list_keys(prefix?: string) {
+            return Promise.resolve(
+                [...values.keys()].filter((key) => (prefix ? key.startsWith(prefix) : true)),
+            );
+        },
+    };
+}
+
 interface HttpCall {
     url: string;
     body: string;
@@ -633,5 +686,174 @@ describe("kimi_oauth_manager", () => {
         await vi.advanceTimersByTimeAsync(10_000);
 
         expect(refresh_count).toBe(count_after_shutdown);
+    });
+
+    it("does not restore tokens when logout completes during device login", async () => {
+        const vault = create_vault();
+        let resolve_login: ((value: unknown) => void) | undefined;
+        const login_response = new Promise<unknown>((resolve) => {
+            resolve_login = resolve;
+        });
+        const http = create_http_mock({ token: () => login_response });
+        const manager = create_kimi_oauth_manager({
+            vault,
+            http_post: http.post,
+            get_device_id: () => Promise.resolve("dev-id"),
+        });
+
+        const login = manager.await_completion(
+            "dc-logout",
+            5,
+            Date.now() + 1_800_000,
+            "kimi-inst-login-logout",
+        );
+        await vi.waitFor(() => {
+            expect(http.calls).toHaveLength(1);
+        });
+        await manager.logout("kimi-inst-login-logout");
+        resolve_login?.({
+            access_token: "access-after-logout",
+            refresh_token: "refresh-after-logout",
+            expires_in: 3600,
+        });
+
+        await expect(login).resolves.toEqual({ saved: false });
+        await expect(vault.get("kimi-inst-login-logout:OAUTH_TOKEN")).resolves.toBeNull();
+        await expect(vault.get("kimi-inst-login-logout:OAUTH_REFRESH_TOKEN")).resolves.toBeNull();
+        await expect(vault.get("kimi-inst-login-logout:OAUTH_EXPIRES_AT")).resolves.toBeNull();
+    });
+
+    it("serializes logout after an in-progress device login token write", async () => {
+        const vault = create_blocking_token_vault();
+        const http = create_http_mock({
+            token: () =>
+                Promise.resolve({
+                    access_token: "access-new",
+                    refresh_token: "refresh-new",
+                    expires_in: 3600,
+                }),
+        });
+        const manager = create_kimi_oauth_manager({
+            vault,
+            http_post: http.post,
+            get_device_id: () => Promise.resolve("dev-id"),
+        });
+
+        const login = manager.await_completion(
+            "dc-mutation-race",
+            5,
+            Date.now() + 1_800_000,
+            "kimi-inst-mutation-race",
+        );
+        await vault.first_token_set_started;
+        const logout = manager.logout("kimi-inst-mutation-race");
+        let logout_finished = false;
+        void logout.then(() => {
+            logout_finished = true;
+        });
+        await Promise.resolve();
+
+        expect(logout_finished).toBe(false);
+        vault.release_first_token_set();
+        await login;
+        await logout;
+
+        expect(vault.values.size).toBe(0);
+    });
+
+    it("coalesces concurrent refresh calls for the same instance", async () => {
+        const vault = create_vault();
+        await vault.set("kimi-inst-race:OAUTH_TOKEN", "access-old");
+        await vault.set("kimi-inst-race:OAUTH_REFRESH_TOKEN", "refresh-old");
+        let resolve_refresh: ((value: unknown) => void) | undefined;
+        const refresh_response = new Promise<unknown>((resolve) => {
+            resolve_refresh = resolve;
+        });
+        const http = create_http_mock({
+            token: () => refresh_response,
+        });
+        const manager = create_kimi_oauth_manager({
+            vault,
+            http_post: http.post,
+            get_device_id: () => Promise.resolve("dev-id"),
+        });
+
+        const first = manager.refresh_now("kimi-inst-race");
+        const second = manager.refresh_now("kimi-inst-race");
+        await vi.waitFor(() => {
+            expect(http.calls).toHaveLength(1);
+        });
+        resolve_refresh?.({
+            access_token: "access-new",
+            refresh_token: "refresh-new",
+            expires_in: 3600,
+        });
+
+        await expect(Promise.all([first, second])).resolves.toEqual([
+            { success: true },
+            { success: true },
+        ]);
+        expect(http.calls).toHaveLength(1);
+    });
+
+    it("does not restore tokens when logout completes during refresh", async () => {
+        const vault = create_vault();
+        await vault.set("kimi-inst-logout:OAUTH_TOKEN", "access-old");
+        await vault.set("kimi-inst-logout:OAUTH_REFRESH_TOKEN", "refresh-old");
+        let resolve_refresh: ((value: unknown) => void) | undefined;
+        const refresh_response = new Promise<unknown>((resolve) => {
+            resolve_refresh = resolve;
+        });
+        const http = create_http_mock({ token: () => refresh_response });
+        const manager = create_kimi_oauth_manager({
+            vault,
+            http_post: http.post,
+            get_device_id: () => Promise.resolve("dev-id"),
+        });
+
+        const refresh = manager.refresh_now("kimi-inst-logout");
+        await vi.waitFor(() => {
+            expect(http.calls).toHaveLength(1);
+        });
+        const logout = manager.logout("kimi-inst-logout");
+        resolve_refresh?.({
+            access_token: "access-after-logout",
+            refresh_token: "refresh-after-logout",
+            expires_in: 3600,
+        });
+        await logout;
+        await refresh;
+
+        await expect(vault.get("kimi-inst-logout:OAUTH_TOKEN")).resolves.toBeNull();
+        await expect(vault.get("kimi-inst-logout:OAUTH_REFRESH_TOKEN")).resolves.toBeNull();
+        await expect(vault.get("kimi-inst-logout:OAUTH_EXPIRES_AT")).resolves.toBeNull();
+    });
+
+    it("serializes logout after an in-progress refresh token rotation write", async () => {
+        const vault = create_blocking_token_vault();
+        vault.values.set("kimi-inst-refresh-mutation:OAUTH_TOKEN", "access-old");
+        vault.values.set("kimi-inst-refresh-mutation:OAUTH_REFRESH_TOKEN", "refresh-old");
+        const http = create_http_mock({
+            token: () =>
+                Promise.resolve({
+                    access_token: "access-new",
+                    refresh_token: "refresh-new",
+                    expires_in: 3600,
+                }),
+        });
+        const manager = create_kimi_oauth_manager({
+            vault,
+            http_post: http.post,
+            get_device_id: () => Promise.resolve("dev-id"),
+        });
+
+        const refresh = manager.refresh_now("kimi-inst-refresh-mutation");
+        await vault.first_token_set_started;
+        const logout = manager.logout("kimi-inst-refresh-mutation");
+        vault.release_first_token_set();
+        await refresh;
+        await logout;
+
+        expect(vault.values.size).toBe(0);
     });
 });

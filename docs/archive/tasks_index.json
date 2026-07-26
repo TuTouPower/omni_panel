@@ -1119,6 +1119,14 @@
             "status": "done",
             "branch": "t149_docs_token_stats_spec_cleanup",
             "note": ""
+        },
+        {
+            "tid": "t150",
+            "title": "Kimi OAuth 并发保护：token 写入序列化 + refresh 去重",
+            "slug": "kimi_oauth_concurrency",
+            "status": "done",
+            "branch": "t150_kimi_oauth_concurrency",
+            "note": ""
         }
     ]
 }
