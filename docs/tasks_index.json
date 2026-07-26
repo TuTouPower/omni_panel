@@ -7,14 +7,6 @@
             "status": "backlog",
             "branch": "",
             "note": ""
-        },
-        {
-            "tid": "t123",
-            "title": "OAuthDeviceForm 表单层 secret_name 断言",
-            "slug": "oauth_device_form_secret_assertion",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
         }
     ]
 }

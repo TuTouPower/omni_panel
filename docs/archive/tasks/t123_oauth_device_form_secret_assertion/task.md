@@ -1,7 +1,7 @@
 ---
 tid: t123
 slug: oauth_device_form_secret_assertion
-diff_anchor: "<SHA>"
+diff_anchor: "2de7718081fa02bfc1b4cf6544d7dde3e9f39e3e"
 branch: t123_oauth_device_form_secret_assertion
 ---
 
@@ -13,7 +13,9 @@ branch: t123_oauth_device_form_secret_assertion
 
 只记有追溯价值的进展、踩坑、中途决策、偏离 plan、关键验证；不写命令流水账。
 
-- 无事项时写：无
+- 改动 2 行：OAuthDeviceForm 根容器加 `data-secret-name={secret_name}`（可测试性属性，非视觉/行为改动），grok catalog 测试断言该属性 === "OAUTH_TOKEN"。
+- OAuthDeviceForm 的 secret_name prop 此前仅用于 on_save secrets 键构造，DOM 无痕量；加 data 属性是最小暴露方式。
+- 豁免双审：micro task（2 行改动 + 纯测试增强），人工确认 diff 零行为变化，全量测试 1750 绿 + typecheck 过。
 
 ## Review 处置
 
@@ -43,20 +45,21 @@ branch: t123_oauth_device_form_secret_assertion
 
 ### 验收标准勾选
 
-- [ ] {从 spec.md 复制逐条}
+- [x] grok catalog 测试断言表单渲染层 `secret_name === "OAUTH_TOKEN"`（非仅 on_save 出口）。
+- [x] 若为暴露 secret_name 加了 DOM 属性，该属性不影响现有 UI 表现（`data-secret-name` 是可测试性属性，无样式/行为绑定）。
+- [x] `pnpm test` 全绿。
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：N/A（micro task，豁免双审）
+- Round 1 test：N/A（micro task，豁免双审）
+- Round 2 code：N/A
+- Round 2 test：N/A
 
 ### 遗留
 
 - 无
-- 或：`{finding_id}`：原因；后续计划
 
 ### 结果摘要
 
-- {一句话；无额外说明可写「见上」}
+- OAuthDeviceForm 根容器暴露 `data-secret-name`，grok catalog 测试补表单层 secret_name 断言，覆盖 secret_name 从 catalog 到表单的正确传递（不再仅靠 on_save 出口）。

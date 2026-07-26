@@ -66,7 +66,7 @@ export function OAuthDeviceForm({
     }, [start, on_save, vendor_id, account_name, secret_name, set_phase_error]);
 
     return (
-        <div>
+        <div data-secret-name={secret_name}>
             <div className="ad-field">
                 <label className="ad-label">
                     备注<span className="ad-opt">显示用</span>
