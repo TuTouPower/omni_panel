@@ -57,14 +57,6 @@
             "note": ""
         },
         {
-            "tid": "t147",
-            "title": "observation schema 类型修正 + token reader helper 提取",
-            "slug": "schema_type_fix",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t148",
             "title": "renderer 修复：占位按钮置灰 + 契约小修",
             "slug": "renderer_fixes",

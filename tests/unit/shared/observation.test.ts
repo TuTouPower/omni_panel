@@ -58,6 +58,23 @@ describe("observation_schema", () => {
         expect(result.success).toBe(false);
     });
 
+    it("rejects negative cycleDurationMs", () => {
+        const result = observation_schema.safeParse({
+            ...valid_observation,
+            cycleDurationMs: -1,
+        });
+        expect(result.success).toBe(false);
+    });
+
+    it("accepts cycleDurationMs as zero", () => {
+        const result = observation_schema.safeParse({
+            ...valid_observation,
+            cycleDurationMs: 0,
+        });
+        expect(result.success).toBe(true);
+        expect(result.data?.cycleDurationMs).toBe(0);
+    });
+
     it("rejects empty provider", () => {
         const result = observation_schema.safeParse({
             ...valid_observation,

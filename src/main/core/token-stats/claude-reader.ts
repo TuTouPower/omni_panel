@@ -1,6 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { calendar_date_of, num } from "./reader-utils";
 import type {
     AgentSessionUsageRecord,
     TokenStatsDailyUpsert,
@@ -238,20 +239,6 @@ function extract_user_text(message: unknown): string | null {
         }
     }
     return null;
-}
-
-/**
- * Local calendar date (YYYY-MM-DD) using the system timezone, so per-day
- * bucketing matches the user's local day (what they see in Claude Code /stats).
- */
-function calendar_date_of(ts: number): string {
-    const d = new Date(ts);
-    const pad = (x: number) => String(x).padStart(2, "0");
-    return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function num(v: unknown): number {
-    return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
 }
 
 /**

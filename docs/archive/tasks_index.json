@@ -1119,6 +1119,14 @@
             "status": "done",
             "branch": "t149_docs_token_stats_spec_cleanup",
             "note": ""
+        },
+        {
+            "tid": "t147",
+            "title": "observation schema 类型修正 + token reader helper 提取",
+            "slug": "schema_type_fix",
+            "status": "done",
+            "branch": "t147_schema_type_fix",
+            "note": ""
         }
     ]
 }

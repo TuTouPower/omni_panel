@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { calendar_date_of, num } from "./reader-utils";
 import type {
     AgentSessionUsageRecord,
     TokenStatsDailyUpsert,
@@ -110,17 +111,6 @@ function extract_model_id(raw: string | null): string | null {
     } catch {
         return null;
     }
-}
-
-function num(v: unknown): number {
-    return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
-}
-
-/** Local calendar date (YYYY-MM-DD) — matches Claude/Kimi reader bucketing. */
-function calendar_date_of(ts: number): string {
-    const d = new Date(ts);
-    const pad = (x: number) => String(x).padStart(2, "0");
-    return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /**

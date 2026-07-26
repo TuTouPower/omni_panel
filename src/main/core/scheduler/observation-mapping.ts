@@ -12,16 +12,15 @@ import type { Observation } from "../../../shared/types/observation";
  * refresh used the script-declared `obs.source`. They now share this module.
  *
  * Deep module: one small interface (`observations_to_ready_state`) hides
- * field mapping, null-filtering, and updatedAt reduction. Provider is trusted
- * as-is from the manifest-declared value (t095 open namespace); no enum
- * re-filtering here.
+ * field mapping and updatedAt reduction. Provider is trusted as-is from the
+ * manifest-declared value (t095 open namespace); no enum re-filtering here.
  */
 export interface ReadyState {
     readonly items: readonly MetricRecord[];
     readonly updatedAt: Date;
 }
 
-export function observation_to_metric_record(obs: Observation): MetricRecord | null {
+export function observation_to_metric_record(obs: Observation): MetricRecord {
     return {
         id: `${obs.source_instance_id}:${obs.account_id}:${obs.metric_id}`,
         provider: obs.provider,
@@ -47,8 +46,7 @@ export function observation_to_metric_record(obs: Observation): MetricRecord | n
 export function observations_to_ready_state(observations: readonly Observation[]): ReadyState {
     const items: MetricRecord[] = [];
     for (const obs of observations) {
-        const record = observation_to_metric_record(obs);
-        if (record) items.push(record);
+        items.push(observation_to_metric_record(obs));
     }
     const latest_observed_at =
         observations.length > 0
