@@ -865,8 +865,8 @@ describe("PopupView", () => {
         // Account A should still be collapsed; Account B gone from DOM
         await waitFor(() => {
             expect(screen.getByRole("button", { name: /展开 Account A/ })).toBeInTheDocument();
+            expect(screen.queryByText("Account B")).not.toBeInTheDocument();
         });
-        expect(screen.queryByText("Account B")).not.toBeInTheDocument();
     });
 
     it("loads accountOrders from config on startup", async () => {

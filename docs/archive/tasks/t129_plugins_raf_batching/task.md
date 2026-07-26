@@ -1,8 +1,8 @@
 ---
 tid: t129
 slug: plugins_raf_batching
-diff_anchor: "TBD"
-branch: ""
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+branch: "t129_plugins_raf_batching"
 ---
 
 # Task t129_plugins_raf_batching
@@ -25,9 +25,9 @@ branch: ""
 - `遗留`：本 task 解决不了；满轮后进 blocked，在「遗留」与口头报告中列出
 - `撤回`：误报；须原 reviewer 在对应 `review_*.md` 末尾追加撤回记录后，再在本表标 `撤回`
 
-### Round 1 零 finding
+### Round 1 (2026-07-26 18:31 UTC+8)
 
-两轴均 0 finding 时写：「Round 1 零 finding，未进处置表。」不必建表。
+Round 1 零 finding，未进处置表。
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -43,24 +43,25 @@ branch: ""
 
 ### 验收标准勾选
 
-- [ ] 同帧 burst N 个 `state-change` 事件合并为 1 次 `setPlugins`（render 次数从 N 降至 1-2）
-- [ ] unmount 时 pending rAF 被 `cancelAnimationFrame` 取消，无 setState-after-unmount 警告、无泄漏
-- [ ] 测试环境无 rAF 时行为正确（fallback 或 mock 生效）
-- [ ] `pnpm typecheck` 通过
-- [ ] `pnpm test` 全绿
+- [x] 同帧 burst N 个 `state-change` 事件合并为 1 次 `setPlugins`（pending Map + rAF flush）。
+- [x] unmount 时 pending rAF 被 `cancelAnimationFrame` 取消，pending 清空。
+- [x] 测试环境无 rAF 时退化为同步 flush。
+- [x] `pnpm typecheck` 通过。
+- [x] `pnpm test` 全绿（定向测试与 popup_view 回归测试通过；全量运行中存在多处与 vault/secrets/connector 相关的 flaky 超时，单独重跑通过；与本 task 无关）。
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
+- Round 2 code：N/A
+- Round 2 test：N/A
 
 ### 遗留
 
 - 无
-- 或：`{finding_id}`：原因；后续计划
 
 ### 结果摘要
 
-- {一句话；无额外说明可写「见上」}
+- `use-plugins.ts` 的 `onStateChange` 改为写入 pending Map 并用 `requestAnimationFrame` 合批 flush；同帧 N 次事件合并为 1 次 `setPlugins`。
+- unmount cleanup 取消 rAF 并清空 pending；无 rAF 时同步 fallback。
+- 新增 `use_plugins_raf_batching.test.ts` 3 个用例覆盖合批、取消、fallback；调整 `popup_view.test.tsx` 一处因 rAF 延迟需 waitFor 的回归断言。

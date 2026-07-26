@@ -56,20 +56,52 @@ export function use_plugins(): UsePluginsResult {
     }, [reload]);
 
     useEffect(() => {
+        const pending = new Map<string, ConnectorSnapshotDTO>();
+        let raf_handle: number | undefined;
+
+        const flush = () => {
+            if (pending.size === 0) return;
+            const states = new Map(pending);
+            pending.clear();
+            setPlugins((prev) => {
+                const next = prev.map((p) => {
+                    const state = states.get(p.instanceId);
+                    if (state === undefined) return p;
+                    if (p.snapshot === state) return p;
+                    if (snapshot_equal(p.snapshot, state)) return p;
+                    return { ...p, snapshot: state };
+                });
+                return next.every((p, index) => p === prev[index]) ? prev : next;
+            });
+        };
+
+        const schedule = () => {
+            if (raf_handle !== undefined) return;
+            if (typeof requestAnimationFrame === "undefined") {
+                flush();
+                return;
+            }
+            raf_handle = requestAnimationFrame(() => {
+                raf_handle = undefined;
+                flush();
+            });
+        };
+
         const unsub = window.usageboard.event.onStateChange(
             (instanceId: string, state: ConnectorSnapshotDTO) => {
-                setPlugins((prev) => {
-                    const next = prev.map((p) => {
-                        if (p.instanceId !== instanceId) return p;
-                        if (p.snapshot === state) return p;
-                        if (snapshot_equal(p.snapshot, state)) return p;
-                        return { ...p, snapshot: state };
-                    });
-                    return next.every((p, index) => p === prev[index]) ? prev : next;
-                });
+                pending.set(instanceId, state);
+                schedule();
             },
         );
-        return unsub;
+
+        return () => {
+            unsub();
+            if (raf_handle !== undefined) {
+                cancelAnimationFrame(raf_handle);
+                raf_handle = undefined;
+            }
+            pending.clear();
+        };
     }, []);
 
     const refresh = useCallback(async (instanceId: string) => {
