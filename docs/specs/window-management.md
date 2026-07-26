@@ -1,6 +1,6 @@
 # 窗口管理
 
-`src/main/window/window-manager.ts`（commit `e50dc26` 从 index.ts 提取）。IPC 见 `ipc.md`；UI 视图见 `ui-views.md`。
+`src/main/window/window-manager.ts`（commit `e50dc26` 从 index.ts 提取）。IPC 见 `ipc-api.md`（共享契约）与 `ipc-electron.md`（Electron 实现）；UI 视图见 `ui-views-desktop.md` 与 `ui-views-web.md`。
 
 ## 四类窗口（`WINDOW_CONFIGS`）
 
@@ -44,7 +44,7 @@ URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在�
 
 ## 安全 prefs（所有窗口）
 
-`SECURE_WEB_PREFS`：contextIsolation / no nodeIntegration / sandbox / webSecurity / no insecure content。详见 `ipc.md` 安全段。
+`SECURE_WEB_PREFS`：contextIsolation / no nodeIntegration / sandbox / webSecurity / no insecure content。详见 `ipc-electron.md` 安全段。
 
 ## close-action
 

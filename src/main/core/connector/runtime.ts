@@ -39,7 +39,7 @@ function create_sandbox_context(ctx: ConnectorContext): vm.Context {
 // Known node:vm sandbox-escape vectors. node:vm is NOT a security boundary
 // (architecture.md §6), but a user-contributed connector could trivially grab
 // host fs/child_process/secrets via these patterns. Reject them at compile time
-// as a short-term mitigation before moving to isolated-vm (D8).
+// as a short-term mitigation before moving to isolated-vm.
 const SANDBOX_ESCAPE_PATTERNS: readonly { pattern: RegExp; label: string }[] = [
     // Direct/indirect eval - (0, eval)("this") reaches the global scope.
     { pattern: /(^|[^.\w])eval\s*\(/, label: "eval" },
