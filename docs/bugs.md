@@ -78,3 +78,14 @@
 - 关联：`src/main/core/config/config-store.ts` `load()` 的 ENOENT / 空文件分支（约 line 244-246）；`writeBakAtomic` 中断留 null padding。
 - 数据恢复：2026-07-25 经 secrets.vault（aes-gcm master key）+ custom_env.py 明文 key 池反推重建，10 个 connector 全部密钥关联恢复。
 - 修复：t111（commit `994139c`）`load()` ENOENT / 空文件 / 仅空白字符分支走 P0 保护，目录存在但 `config.json` 缺失抛错；`writeFileAtomic` tmp → fsync → close → rename，避免 null padding。
+
+## OmniPanel web 面板默认端口抢占 CPA 端口，CPA 连接器打到自身报 HTML 错误
+
+- 报告时间：2026-07-26。
+- 现象：CPA 实例刷新报 "Received HTML response instead of JSON (possible interception page)"，重试 3 次均失败。
+- 根因链：
+    1. `src/main/core/local-api/server.ts` 的 `DEFAULT_PORT` 原为 17863，与 CPA（CLIProxyAPI）本机管理 API 知名端口相同，也是 `connectors/cpa/manifest.json` `endpoints.default` 的默认值。
+    2. OmniPanel 先于 CPA 启动时抢占 17863（`server.ts` 端口占用回退只在后启动时生效）。
+    3. CPA 实例 endpoint 为默认 `http://127.0.0.1:17863` 时，请求打到 OmniPanel 自身 web 面板，200 返回 web UI HTML，`net-client.ts` 按 content-type text/html 报错。
+- 放大因素（本次实例）：用户真实 CPA 在服务器上（`https://cpa.example.com`），重建实例时 endpoint 留默认值，才会踩到本机 17863。
+- 修复：2026-07-26 直接把 `DEFAULT_PORT` 改为 18263（含注释钉住不得用 17863）；同时把该 CPA 实例 endpoint 改回服务器地址。未经 task 流程，属紧急 hotfix；后续如需端口可配置化再立 task。

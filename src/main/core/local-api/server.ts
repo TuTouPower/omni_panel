@@ -28,7 +28,10 @@ import type { ConnectorSnapshotState } from "../scheduler/types";
 import type { IpcResult } from "../../../shared/types/ipc";
 
 const log = createLogger("local-api");
-const DEFAULT_PORT = 17863;
+// 不得使用 17863：那是 CPA（CLIProxyAPI）本机管理 API 的知名端口，
+// CPA 连接器默认 base URL 指向它。曾撞车：OmniPanel 先启动抢占 17863，
+// CPA 连接器打到 OmniPanel 自身 web 面板，返回 HTML 报 "Received HTML response"。
+const DEFAULT_PORT = 18263;
 const TEST_DEFAULT_PORT = 17864;
 const MAX_BODY_BYTES = 1024 * 1024;
 
