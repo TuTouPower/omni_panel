@@ -4,6 +4,11 @@ import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc
 
 const MODULE = "use-plugins";
 
+function snapshot_equal(a: ConnectorSnapshotDTO, b: ConnectorSnapshotDTO): boolean {
+    if (a === b) return true;
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+
 interface UsePluginsResult {
     plugins: ConnectorInfo[];
     loading: boolean;
@@ -53,9 +58,15 @@ export function use_plugins(): UsePluginsResult {
     useEffect(() => {
         const unsub = window.usageboard.event.onStateChange(
             (instanceId: string, state: ConnectorSnapshotDTO) => {
-                setPlugins((prev) =>
-                    prev.map((p) => (p.instanceId === instanceId ? { ...p, snapshot: state } : p)),
-                );
+                setPlugins((prev) => {
+                    const next = prev.map((p) => {
+                        if (p.instanceId !== instanceId) return p;
+                        if (p.snapshot === state) return p;
+                        if (snapshot_equal(p.snapshot, state)) return p;
+                        return { ...p, snapshot: state };
+                    });
+                    return next.every((p, index) => p === prev[index]) ? prev : next;
+                });
             },
         );
         return unsub;

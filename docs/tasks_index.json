@@ -33,14 +33,6 @@
             "note": ""
         },
         {
-            "tid": "t128",
-            "title": "use-plugins 快照相等性检查消除 memo 失效",
-            "slug": "plugins_snapshot_equality",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t129",
             "title": "use-plugins rAF 合批减少 burst 渲染",
             "slug": "plugins_raf_batching",

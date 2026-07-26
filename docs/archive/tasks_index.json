@@ -1119,6 +1119,14 @@
             "status": "done",
             "branch": "t149_docs_token_stats_spec_cleanup",
             "note": ""
+        },
+        {
+            "tid": "t128",
+            "title": "use-plugins 快照相等性检查消除 memo 失效",
+            "slug": "plugins_snapshot_equality",
+            "status": "done",
+            "branch": "t128_plugins_snapshot_equality",
+            "note": ""
         }
     ]
 }
