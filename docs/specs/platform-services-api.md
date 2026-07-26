@@ -6,7 +6,7 @@
 
 ## LocalAPI（`src/main/core/local-api`）
 
-监听 `0.0.0.0`，端口默认 `17863`（被占则回退 `0` 由系统分配），启动后把 port/token 交给宿主展示。Bearer token 由宿主生成、存 Vault。绑 `0.0.0.0` 是 web-panel 决策--为局域网内其它设备访问 web 面板；SSRF/认证防护另由 NetClient 层和端点级 token 负责。
+监听 `0.0.0.0`，端口默认 `18263`（被占则回退 `0` 由系统分配），启动后把 port/token 交给宿主展示。Bearer token 由宿主生成、存 Vault。绑 `0.0.0.0` 是 web-panel 决策--为局域网内其它设备访问 web 面板；SSRF/认证防护另由 NetClient 层和端点级 token 负责。
 
 - `GET /v1/health` - 健康检查（无 auth，返回 `{status, uptime}`）。
 - `POST /v1/ingest` - 接收外部 producer 观测上报（`observation_ingest_schema`，服务端补 `observed_at`/`stale`/`last_error`），校验后入 ObservationStore，`source` 按 producer 标记。**Bearer token 必需**。
