@@ -8,6 +8,7 @@ export interface BuildInfo {
     version: string;
     branch: string;
     commit: string;
+    subject: string;
 }
 
 export function handleBuildInfo(version: string): IpcResult<BuildInfo> {
@@ -15,6 +16,7 @@ export function handleBuildInfo(version: string): IpcResult<BuildInfo> {
         version,
         branch: BUILD_INFO.branch,
         commit: BUILD_INFO.commit,
+        subject: BUILD_INFO.subject,
     });
 }
 

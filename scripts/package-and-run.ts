@@ -108,6 +108,8 @@ function main(): void {
     if (!no_build) {
         log("ensuring Electron ABI for better-sqlite3...");
         execSync("node scripts/ensure_sqlite_abi.mjs electron", { cwd: ROOT, stdio: "inherit" });
+        log("regenerating build-info...");
+        execSync("tsx scripts/gen-build-info.ts", { cwd: ROOT, stdio: "inherit" });
         log("running electron-vite build...");
         execSync("electron-vite build", {
             cwd: ROOT,

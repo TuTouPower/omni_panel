@@ -718,12 +718,17 @@ export function SettingsView() {
     const [build_info, set_build_info] = useState<{
         branch: string;
         commit: string;
+        subject: string;
     } | null>(null);
     useEffect(() => {
         window.usageboard.buildInfo
             .get()
             .then((info) => {
-                set_build_info({ branch: info.branch, commit: info.commit });
+                set_build_info({
+                    branch: info.branch,
+                    commit: info.commit,
+                    subject: info.subject,
+                });
             })
             .catch((err: unknown) => {
                 log.warn("加载 build info 失败，关于段不显示 branch@commit", err);
@@ -1958,7 +1963,7 @@ export function SettingsView() {
                                     <div className="ah-ver">版本 {version}</div>
                                     <div className="ah-build">
                                         {build_info
-                                            ? `${build_info.branch}@${build_info.commit}`
+                                            ? `${build_info.branch}@${build_info.commit} ${build_info.subject}`
                                             : ""}
                                     </div>
                                     <div className="ah-meta">
