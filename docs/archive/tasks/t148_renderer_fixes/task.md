@@ -1,8 +1,8 @@
 ---
 tid: t148
 slug: renderer_fixes
-diff_anchor: "<SHA>"
-branch: ""
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+branch: "t148_renderer_fixes"
 ---
 
 # Task t148_renderer_fixes
@@ -13,7 +13,8 @@ branch: ""
 
 只记有追溯价值的进展、踩坑、中途决策、偏离 plan、关键验证；不写命令流水账。
 
-- 无事项时写：无
+- 完成 6 项 renderer 修复：占位按钮 disabled + 暂未开放、`about_section` 外部链接 noopener、托盘分隔符字段化、`refresh_providers` 前置、`record_bool_equal` 替换 JSON.stringify、token-stats spec 补充独立持久化说明。
+- Round 1 双审均 PASS，零 finding。
 
 ## Review 处置
 
@@ -43,14 +44,20 @@ branch: ""
 
 ### 验收标准勾选
 
-- [ ] {从 spec.md 复制逐条}
+- [x] 两占位按钮 disabled 且显示「暂未开放」。
+- [x] token-stats spec 声明独立持久化。
+- [x] 外部链接带 noopener/noreferrer。
+- [x] 托盘分隔符由字段控制，数量不变。
+- [x] refresh_providers 不再先使用后声明。
+- [x] 布尔记录浅比较替换，测试通过。
+- [x] `pnpm test` 通过。
 
 ### Reviewer verdict
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-- Round 2 code：N/A / PASS / FAIL
-- Round 2 test：N/A / PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
+- Round 2 code：N/A
+- Round 2 test：N/A
 
 ### 遗留
 
@@ -59,4 +66,4 @@ branch: ""
 
 ### 结果摘要
 
-- {一句话；无额外说明可写「见上」}
+- 完成 review_20260726_054747 采纳项 15/16/25/26/28/29/30：设置页占位按钮置灰、外部链接 noopener、托盘分隔符字段化、PopupView 声明顺序与布尔记录比较修复、token-stats 独立持久化文档化。

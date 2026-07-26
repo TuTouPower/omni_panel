@@ -12,6 +12,7 @@ interface TrayMenuItem {
     danger?: boolean;
     checked?: boolean;
     meta?: string;
+    separator_before?: boolean;
     action: () => void;
 }
 
@@ -85,12 +86,12 @@ export function TrayMenu() {
                     window.usageboard.tray.refresh_all();
                 },
             },
-            // separator rendered by UI
             {
                 icon: "pause",
                 label_zh: is_paused ? "恢复自动刷新" : "暂停自动刷新",
                 label_en: is_paused ? "Resume Auto-Refresh" : "Pause Auto-Refresh",
                 checked: is_paused,
+                separator_before: true,
                 action: () => {
                     window.usageboard.tray.toggle_pause();
                 },
@@ -104,11 +105,11 @@ export function TrayMenu() {
                     window.usageboard.tray.toggle_autostart();
                 },
             },
-            // separator
             {
                 icon: "gear",
                 label_zh: "设置…",
                 label_en: "Settings…",
+                separator_before: true,
                 action: () => {
                     window.usageboard.tray.open_settings();
                 },
@@ -146,12 +147,12 @@ export function TrayMenu() {
                     window.usageboard.tray.restart();
                 },
             },
-            // separator
             {
                 icon: "exit",
                 label_zh: "退出 OmniUsage",
                 label_en: "Quit OmniUsage",
                 danger: true,
+                separator_before: true,
                 action: () => {
                     window.usageboard.tray.quit();
                 },
@@ -179,8 +180,6 @@ export function TrayMenu() {
 
     useResizeObserver(menu_ref, report_menu_size, [items]);
 
-    const sep_indexes = new Set([3, 5, 10]); // indexes where separators appear
-
     return (
         <div className="tray-window" ref={menu_ref}>
             <div className="tray-win-head">
@@ -190,7 +189,7 @@ export function TrayMenu() {
             <div className="tray-menu-body">
                 {items.map((item, i) => (
                     <div key={i}>
-                        {sep_indexes.has(i) && <div className="ctx-sep" />}
+                        {item.separator_before && <div className="ctx-sep" />}
                         <div
                             className={`ctx-item${item.danger ? " danger" : ""}`}
                             onClick={() => {

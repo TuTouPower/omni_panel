@@ -38,13 +38,14 @@ export function DataSection({
                     options={["50 MB", "100 MB", "200 MB", "500 MB", "不限制"]}
                 />
             </SetRow>
-            <SetRow title="本地用量缓存" sub="历史趋势数据 · 占用 4.2 MB">
+            <SetRow title="本地用量缓存" sub="历史趋势数据 · 占用 4.2 MB（暂未开放）">
                 <button
                     className="set-select"
                     style={{ background: "var(--field-bg)" }}
                     type="button"
+                    disabled
                 >
-                    清除
+                    暂未开放
                 </button>
             </SetRow>
             <div className="set-group-label">数据</div>
@@ -87,7 +88,7 @@ export function DataSection({
             <div className="set-group-label" style={{ color: "var(--red)" }}>
                 危险区域
             </div>
-            <SetRow title="重置应用" sub="清除全部账号、设置与缓存">
+            <SetRow title="重置应用" sub="清除全部账号、设置与缓存（暂未开放）">
                 <button
                     className="set-select"
                     style={{
@@ -95,8 +96,9 @@ export function DataSection({
                         borderColor: "color-mix(in srgb,var(--red) 35%,transparent)",
                     }}
                     type="button"
+                    disabled
                 >
-                    重置
+                    暂未开放
                 </button>
             </SetRow>
         </>

@@ -54,6 +54,17 @@ function account_orders_equal(
     });
 }
 
+/** Shallow equality for boolean dictionaries (collapsed/expanded state). */
+export function record_bool_equal(
+    left: Readonly<Record<string, boolean>>,
+    right: Readonly<Record<string, boolean>>,
+): boolean {
+    const left_keys = Object.keys(left);
+    const right_keys = Object.keys(right);
+    if (left_keys.length !== right_keys.length) return false;
+    return left_keys.every((key) => right[key] === left[key]);
+}
+
 export function PopupView() {
     useTheme();
     useNowTick();
@@ -230,8 +241,8 @@ export function PopupView() {
         const prev_c = prev_collapsed_ref.current;
         const prev_e = prev_expanded_ref.current;
         if (
-            JSON.stringify(prev_c) === JSON.stringify(collapsed_accounts) &&
-            JSON.stringify(prev_e) === JSON.stringify(expanded_providers)
+            record_bool_equal(prev_c, collapsed_accounts) &&
+            record_bool_equal(prev_e, expanded_providers)
         ) {
             return;
         }
@@ -465,6 +476,11 @@ export function PopupView() {
     // Win/Linux popups stay draggable via the existing CSS rule.
     const platform = window.usageboard.platform;
     const titlebar_class = "titlebar" + (platform === "darwin" ? " titlebar-no-drag" : "");
+
+    // Set of provider ids currently refreshing; passed to the provider card for
+    // spin-state. Computed before render_body so the function is declared before
+    // use.
+    const refresh_providers = useMemo(() => new Set(refreshing_providers), [refreshing_providers]);
 
     // Render is shared between the live tree and the offscreen mirrors used
     // for height measurement. Only the live tree binds refs and interactive
@@ -779,11 +795,6 @@ export function PopupView() {
             </>
         );
     };
-
-    // Mirrors are only useful for live height measurement; skip them in
-    // environments without ResizeObserver (jsdom in vitest by default) so the
-    // duplicate DOM does not confuse `screen.getByText` queries in tests.
-    const refresh_providers = useMemo(() => new Set(refreshing_providers), [refreshing_providers]);
 
     const should_render_mirrors = typeof ResizeObserver !== "undefined";
 
