@@ -28,6 +28,15 @@ export interface RefreshServiceDeps {
     vault: VaultBackend;
     sessionLogin?: (instanceId: string) => Promise<{ saved: boolean }>;
     resolve_proxy_url?: (config: AppConfiguration) => string | undefined;
+    /** Test seam: override the connector executor to assert call counts. */
+    execute_connector?: (
+        connector_config: ConnectorConfiguration,
+        definition: ConnectorDefinition,
+        vault: VaultBackend,
+        proxy_url?: string,
+        trace_id?: string,
+        reset?: boolean,
+    ) => Promise<{ observations: Observation[]; failed_accounts: FailedAccount[] }>;
 }
 
 export interface ConnectorRefreshService {
@@ -55,9 +64,13 @@ export function is_auth_error(message: string): boolean {
     const lower = message.toLowerCase();
     return (
         lower.includes("401") ||
+        lower.includes("403") ||
         lower.includes("unauthorized") ||
+        lower.includes("forbidden") ||
         lower.includes("invalid_token") ||
         lower.includes("invalid_grant") ||
+        /\binvalid\b.*\bkey\b/.test(lower) ||
+        lower.includes("ip banned") ||
         lower.includes("credential")
     );
 }
@@ -191,6 +204,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
     const log = createLogger("refresh-service");
     const locks = new Map<string, number>();
     const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+    const run_connector = deps.execute_connector ?? execute_connector;
 
     function is_locked(instanceId: string): boolean {
         const locked_at = locks.get(instanceId);
@@ -245,7 +259,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
 
             for (let attempt = 0; attempt < max_attempts; attempt++) {
                 try {
-                    const { observations, failed_accounts } = await execute_connector(
+                    const { observations, failed_accounts } = await run_connector(
                         connector_config,
                         definition,
                         deps.vault,
@@ -346,28 +360,47 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         `Connector ${instanceId} (${connector_config.name}) attempt ${String(attempt + 1)}/${String(max_attempts)} failed: ${last_error}`,
                     );
 
-                    // Auto re-login for session-based connectors on first auth error
-                    if (
-                        !session_relogin_done &&
-                        deps.sessionLogin &&
-                        definition.manifest.capabilities.includes("session") &&
-                        is_auth_error(last_error)
-                    ) {
-                        session_relogin_done = true;
-                        trace_log.info(`Auto-triggering re-login for ${connector_config.name}`);
-                        try {
-                            const result = await deps.sessionLogin(instanceId);
-                            if (result.saved) {
-                                trace_log.info(
-                                    `Re-login succeeded for ${connector_config.name}, waiting before retry`,
+                    // Auto re-login for session-based connectors on first auth error.
+                    // Auth errors are not retried unless this is the first auth failure
+                    // of a session connector and we still need to trigger re-login.
+                    if (is_auth_error(last_error)) {
+                        if (
+                            !session_relogin_done &&
+                            deps.sessionLogin &&
+                            definition.manifest.capabilities.includes("session")
+                        ) {
+                            session_relogin_done = true;
+                            trace_log.info(`Auto-triggering re-login for ${connector_config.name}`);
+                            let relogin_ok = false;
+                            try {
+                                const result = await deps.sessionLogin(instanceId);
+                                if (result.saved) {
+                                    trace_log.info(
+                                        `Re-login succeeded for ${connector_config.name}, waiting before retry`,
+                                    );
+                                    await new Promise((resolve) => setTimeout(resolve, 2000));
+                                    relogin_ok = true;
+                                }
+                            } catch (login_error: unknown) {
+                                trace_log.error(
+                                    `Auto re-login failed for ${connector_config.name}: ${login_error instanceof Error ? login_error.message : String(login_error)}`,
                                 );
-                                await new Promise((resolve) => setTimeout(resolve, 2000));
                             }
-                        } catch (login_error: unknown) {
-                            trace_log.error(
-                                `Auto re-login failed for ${connector_config.name}: ${login_error instanceof Error ? login_error.message : String(login_error)}`,
-                            );
+
+                            if (relogin_ok) {
+                                if (attempt < max_attempts - 1) {
+                                    await new Promise((resolve) =>
+                                        setTimeout(resolve, retry_delay_ms),
+                                    );
+                                }
+                                continue;
+                            }
                         }
+
+                        // Auth error and either (a) not a session connector, or (b) re-login
+                        // already attempted/failed: give up immediately to avoid hammering the
+                        // server and tripping IP bans (t155).
+                        break;
                     }
 
                     // 连接级错误（TCP 重置/TLS 失败/超时）：需连续两次才升级为

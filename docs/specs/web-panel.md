@@ -4,7 +4,7 @@
 
 ## 1. 定位
 
-- 桌面 app（Electron）启动时拉起 `local-api` HTTP server，绑 `0.0.0.0:17863`。
+- 桌面 app（Electron）启动时拉起 `local-api` HTTP server，默认绑 `0.0.0.0:18263`（被占则回退系统随机端口）。
 - 同一份 React UI 编译为浏览器可加载的 SPA（`pnpm build:web` → `out/web/`），由 local-api 静态托管。
 - 浏览器里的 `window.usageboard` 由 `src/web/usageboard-web.ts` 提供，fetch local-api REST 端点。
 - 托盘菜单「网页访问」项用系统浏览器打开 `http://localhost:<port>/`，走 `tray:openWeb` 通道（`src/shared/types/ipc.ts` `TRAY_OPEN_WEB`）。

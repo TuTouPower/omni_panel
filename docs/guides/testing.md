@@ -26,7 +26,7 @@ python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 
 | 维度          | 正常实例 `pnpm start`   | 测试实例 `pnpm start:test`                           |
 | ------------- | ----------------------- | ---------------------------------------------------- |
 | userData      | `%APPDATA%/omni_panel`  | `.scratch/test-instance/`（gitignore）               |
-| LocalAPI 端口 | `17863`                 | `17864`（`OMNI_PANEL_PORT` env 覆盖）                |
+| LocalAPI 端口 | `18263`                 | `17864`（`OMNI_PANEL_PORT` env 覆盖）                |
 | 图标          | 蓝色（`assets/icon.*`） | 黄色（`assets/icon-test.*`，`TEST_INSTANCE=1` 切换） |
 | 视觉区分      | —                       | 托盘/窗口黄色                                        |
 
@@ -36,7 +36,7 @@ python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 
 
 两个 dev 实例共享 `out/` 编译目录会冲突，不能同时 `pnpm start` + `pnpm start:test`。同时运行方案：
 
-- **正常实例**：`pnpm make:win` 后跑 `artifacts/win-unpacked/OmniPanel.exe`（占 17863、蓝图标）
+- **正常实例**：`pnpm make:win` 后跑 `artifacts/win-unpacked/OmniPanel.exe`（占 18263、蓝图标）
 - **测试实例**：`pnpm start:test`（占 17864、黄图标、沙盒数据）
 
 端口被占时 local-api 有回退机制（`EADDRINUSE` → 系统 0 分配），但测试实例固定 17864 避免回退随机端口，便于 web 面板/调试工具直连。
@@ -70,10 +70,10 @@ web e2e（`tests/e2e/web/`）由 Playwright chromium 驱动 `out/web` SPA，后�
 
 ### 录制 fixture（一次性，本地）
 
-1. 启动 OmniPanel 提供 local-api :17863（择一）：
+1. 启动 OmniPanel 提供 local-api :18263（择一）：
     - packaged：先 `pnpm package`，再 `./artifacts/win-unpacked/OmniPanel.exe`
     - dev：`pnpm start`（electron-vite dev）
-      两者均读本机 `%APPDATA%/OmniPanel` 真实数据。确认 `curl http://localhost:17863/v1/health` 返回 `{"status":"ok"}` 后继续。
+      两者均读本机 `%APPDATA%/OmniPanel` 真实数据。确认 `curl http://localhost:18263/v1/health` 返回 `{"status":"ok"}` 后继续。
 2. `pnpm e2e:gen-data` → 录全部 responses 到 `tests/e2e/fixtures/data/responses.json`（不入库；secrets 黑名单正则脱敏 `***`）。响应数随本机 instance 数变化（T010 基线 61）。
 3. `pnpm test:e2e:web` → chromium 驱动，`vite preview` 内嵌 `mock_api_plugin` 回放
 

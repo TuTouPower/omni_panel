@@ -838,7 +838,7 @@ return [{
         }
     });
 
-    it("does not auto re-login for non-session connectors", async () => {
+    it("does not auto re-login or retry auth errors for non-session connectors (t155)", async () => {
         const tempDir = await mkdtemp(join(tmpdir(), "connector-no-relogin-"));
         await writeFile(
             join(tempDir, "connector.js"),
@@ -846,6 +846,16 @@ return [{
         );
         const runtimeStore = createRuntimeStore();
         const sessionLogin = vi.fn();
+        const previous_level = getLogLevel();
+        const log_messages: string[] = [];
+        const remove_transport = addTransport({
+            write(_level, module, message) {
+                if (module === "refresh-service") {
+                    log_messages.push(message);
+                }
+            },
+        });
+        setLogLevel("debug");
         const service = createRefreshService({
             definitions: [definition(tempDir)],
             observationStore: make_store(),
@@ -864,12 +874,19 @@ return [{
             await service.refresh("deepseek-1", { force: true });
 
             expect(sessionLogin).not.toHaveBeenCalled();
+            const attempt_logs = log_messages.filter(
+                (m) => m.includes("attempt") && m.includes("failed"),
+            );
+            expect(attempt_logs).toHaveLength(1);
             const state = runtimeStore.getSnapshot("deepseek-1");
             expect(state.status).toBe("failed");
         } finally {
+            remove_transport();
+            setLogLevel(previous_level);
             await rm(tempDir, { recursive: true, force: true });
         }
     });
+
     it("retries failing non-session connector 3 times before marking failed", async () => {
         const previous_level = getLogLevel();
         const log_messages: string[] = [];

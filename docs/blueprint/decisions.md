@@ -80,7 +80,7 @@
 
 ## 007 web e2e 用 mock local-api 回放录的真实响应，不开桌面 app（2026-07-21）
 
-- 背景：T009 改名后 e2e 仍靠 Electron 驱动（开桌面 app），平台绑定、慢、CI 重。用户要求日常 e2e 跑浏览器测网站。web SPA（`out/web`）数据全来自 local-api（端口 17863），后端必须有。
+- 背景：T009 改名后 e2e 仍靠 Electron 驱动（开桌面 app），平台绑定、慢、CI 重。用户要求日常 e2e 跑浏览器测网站。web SPA（`out/web`）数据全来自 local-api（端口 18263），后端必须有。
 - 选项：A) Electron 后端（浏览器前端 + 真实 Electron 提供 local-api，仍开桌面 app）；B) mock local-api（录本机真实响应，Playwright chromium 纯浏览器驱动）；C) 读 config/snapshot 文件合成 mock（零 Electron 但合成逻辑要复刻 local-api）。
 - 结论：选 B。A 仍开桌面 app 违背初衷；C 合成逻辑易漏字段。B 录真实响应 100% 保真，mock 回放零 Electron、跨平台、CI 友好（fixture gitignore，CI 策略另定）。
 - 子决策：

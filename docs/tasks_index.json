@@ -9,14 +9,6 @@
             "note": ""
         },
         {
-            "tid": "t155",
-            "title": "401/403 认证错误不重试，避免刷出服务端 IP 封禁",
-            "slug": "auth_error_no_retry",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t156",
             "title": "Grok 设备码登录展示完整授权地址并默认浏览器打开",
             "slug": "device_login_full_url",

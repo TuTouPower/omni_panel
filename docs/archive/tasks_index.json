@@ -1223,6 +1223,14 @@
             "status": "done",
             "branch": "t153_popup_config_save_loop",
             "note": ""
+        },
+        {
+            "tid": "t155",
+            "title": "401/403 认证错误不重试，避免刷出服务端 IP 封禁",
+            "slug": "auth_error_no_retry",
+            "status": "done",
+            "branch": "t155_auth_error_no_retry",
+            "note": ""
         }
     ]
 }

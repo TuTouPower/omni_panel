@@ -11,6 +11,14 @@ describe("is_auth_error", () => {
         expect(is_auth_error("missing credentials")).toBe(true);
     });
 
+    it("matches 403 / forbidden / invalid key / IP ban (t155)", () => {
+        expect(is_auth_error("HTTP 403: request failed")).toBe(true);
+        expect(is_auth_error("invalid management key")).toBe(true);
+        expect(is_auth_error("IP banned due to too many failed attempts")).toBe(true);
+        expect(is_auth_error("forbidden: access denied")).toBe(true);
+        expect(is_auth_error("invalid api key")).toBe(true);
+    });
+
     it("is not fooled by 'auth' substring in non-auth contexts (A11)", () => {
         // "auth" alone matched too broadly - a rate-limit or preflight message
         // would trigger an unnecessary interactive re-login.
