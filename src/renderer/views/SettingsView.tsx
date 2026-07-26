@@ -34,13 +34,15 @@ import type {
 import type {
     ConnectorConfiguration,
     AppConfiguration,
-    UsageBarColorScheme,
     AccountOverrides,
 } from "../../shared/types/config";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
+import { Toggle } from "../components/settings/Toggle";
+import { SetRow } from "../components/settings/SetRow";
+import { Select } from "../components/settings/Select";
+import { BarSchemeField } from "../components/settings/BarSchemeField";
 import {
-    BAR_COLOR_SCHEMES,
     BAR_STYLE_LABELS,
     FLOATING_HEIGHT_MODE_LABELS,
     LOG_LEVEL_OPTIONS,
@@ -81,124 +83,6 @@ const NAV_ITEMS = [
 ] as const;
 
 const ACCENTS = ["#3d7afd", "#6f5cf6", "#0ea5a3", "#f5772f", "#e23744"];
-
-/* ── helpers ── */
-function Toggle({
-    on,
-    onClick,
-    disabled,
-}: {
-    on: boolean;
-    onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
-    disabled?: boolean;
-}) {
-    return (
-        <button
-            className="sw"
-            data-on={on ? "1" : "0"}
-            disabled={disabled}
-            onClick={disabled ? undefined : onClick}
-            type="button"
-        >
-            <i />
-        </button>
-    );
-}
-
-function SetRow({
-    title,
-    sub,
-    children,
-}: {
-    title: string;
-    sub?: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <div className="set-row">
-            <div className="sr-text">
-                <div className="sr-title">{title}</div>
-                {sub && <div className="sr-sub">{sub}</div>}
-            </div>
-            <div className="sr-ctrl">{children}</div>
-        </div>
-    );
-}
-
-function Select({
-    value,
-    onChange,
-    options,
-    ariaLabel,
-}: {
-    value: string;
-    onChange: (v: string) => void;
-    options: string[];
-    ariaLabel?: string;
-}) {
-    return (
-        <select
-            aria-label={ariaLabel}
-            className="set-select"
-            value={value}
-            onChange={(e) => {
-                onChange(e.target.value);
-            }}
-        >
-            {options.map((o) => (
-                <option key={o} value={o}>
-                    {o}
-                </option>
-            ))}
-        </select>
-    );
-}
-
-function BarSchemeField({
-    value,
-    onChange,
-}: {
-    value: UsageBarColorScheme;
-    onChange: (value: UsageBarColorScheme) => void;
-}) {
-    return (
-        <div className="bsf-list">
-            {BAR_COLOR_SCHEMES.map((scheme) => {
-                const on = value === scheme.value;
-                return (
-                    <button
-                        key={scheme.value}
-                        className={`bsf-opt${on ? " on" : ""}`}
-                        type="button"
-                        onClick={() => {
-                            onChange(scheme.value);
-                        }}
-                    >
-                        <span className={`bsf-radio${on ? " on" : ""}`}>
-                            <i />
-                        </span>
-                        <span className="bsf-text">
-                            <span className="bsf-title-row">
-                                <span className="bsf-title">{scheme.title}</span>
-                                {scheme.badge && <span className="bsf-badge">{scheme.badge}</span>}
-                            </span>
-                            <span className="bsf-sub">{scheme.sub}</span>
-                        </span>
-                        <span className="bsf-swatch">
-                            {scheme.swatch.map((color, idx) => (
-                                <span
-                                    key={`${scheme.value}-${String(idx)}`}
-                                    className="bsf-dot"
-                                    style={{ background: color }}
-                                />
-                            ))}
-                        </span>
-                    </button>
-                );
-            })}
-        </div>
-    );
-}
 
 /* ── Add / Edit Account Dialog ── */
 function AccountDialog({
