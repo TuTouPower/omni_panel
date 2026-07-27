@@ -628,7 +628,7 @@ export function collect_upcoming_resets(
                     accountLabel: account.accountLabel,
                     accountId: account.accountId,
                     rawLabel: period.raw_label,
-                    metricLabel: period.display_label ?? period.raw_label,
+                    metricLabel: period.display_label ?? period.name,
                     resetAt: period.resetAt,
                     percent,
                     status: period.status,
