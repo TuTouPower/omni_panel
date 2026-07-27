@@ -89,3 +89,14 @@
     3. CPA 实例 endpoint 为默认 `http://127.0.0.1:17863` 时，请求打到 OmniPanel 自身 web 面板，200 返回 web UI HTML，`net-client.ts` 按 content-type text/html 报错。
 - 放大因素（本次实例）：用户真实 CPA 在服务器上（`https://cpa.example.com`），重建实例时 endpoint 留默认值，才会踩到本机 17863。
 - 修复：2026-07-26 直接把 `DEFAULT_PORT` 改为 18263（含注释钉住不得用 17863）；同时把该 CPA 实例 endpoint 改回服务器地址。未经 task 流程，属紧急 hotfix；后续如需端口可配置化再立 task。
+
+## 主面板 401 重新登录错位打开同 provider 其他账号
+
+- 报告时间：2026-07-27。
+- 现象：用户本地有两条 GroK 实例并存的场景下，新登录成功的实例正常显示，旧实例持续 401。点概览卡片或账号行任一「重新登录」入口时：
+    - `PopupView.handle_re_login(provider)` 用 `find(c => c.activeProviders.includes(provider))` 拿**第一个**命中 connector，永远打开「第一个 GroK」的编辑弹窗（或另一个账号）。
+    - `use_popup_derived.providerErrors` 按 provider 分桶先到先得，overview 卡片只显示一条 error 横幅，丢掉后续失败 instance 的 `instanceId`。
+    - `ProviderAccountList` 把 `onReLogin` 改名 `_onReLogin` 后 `void` 丢弃，账号行（`ProviderAccountRow`）根本收不到 re-login 回调；t027 当时明确「只 badge，不展开」让账号行没有可点击的重新登录入口。
+    - 后果：报 401 的旧实例永远不会被精确打开，旧连接器持续刷 401。
+- 关联：`AccountError`（`provider-usage.ts`）缺 `sourceInstanceId`；`ProviderError`（`ProviderOverview.tsx`）缺 `instanceIds`；`SettingsView.open_settings_account_dialog` 已支持 `instanceId` 优先匹配（main/index.ts 透传），但 `handle_re_login` 主动放弃 instanceId。
+- 修复：t158 — `providerErrors` 按 instanceId 分桶 / `onReLogin` 签名升级到 `(provider, instanceId)` / `handle_re_login(instanceId)` 直接 `settings.open({ instanceId })` / `ProviderAccountList` 透传 + `ProviderAccountRow` 加 `row-relogin-btn`（按 `sourceInstanceId`/`accountId` 路由）。

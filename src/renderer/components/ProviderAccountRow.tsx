@@ -15,6 +15,8 @@ const log = createLogger("renderer:provider-account-row");
 
 interface ProviderAccountRowProps {
     account: ProviderUsageAccount;
+    /** t158: provider context for the row (group.provider); needed to route re-login target. */
+    provider?: string | undefined;
     collapsed?: boolean | undefined;
     onToggleCollapsed?: (() => void) | undefined;
     dragging?: boolean | undefined;
@@ -28,6 +30,16 @@ interface ProviderAccountRowProps {
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
     error?: string | undefined;
+    /**
+     * t158: per-account re-login callback. Caller receives the specific
+     * (sourceInstanceId, accountId, provider) trio so the settings dialog
+     * opens on the failing instance — bypassing the provider-level
+     * "first active connector" match that previously misrouted multi-instance
+     * setups.
+     */
+    onReLogin?:
+        | ((sourceInstanceId: string, accountId: string, provider: string) => void)
+        | undefined;
     /** t043: 当前 account 下已监控的 raw_label 集合。 */
     watched_labels?: ReadonlySet<string> | undefined;
     /** t043: 切换某个 raw_label 的即将重置监控。 */
@@ -36,6 +48,7 @@ interface ProviderAccountRowProps {
 
 export const ProviderAccountRow = memo(function ProviderAccountRow({
     account,
+    provider = "",
     collapsed = false,
     onToggleCollapsed,
     dragging,
@@ -49,6 +62,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
     desensitizeRemarks = false,
     forcePercent = false,
     error: _error,
+    onReLogin: _onReLogin,
     watched_labels,
     on_toggle_watched,
 }: ProviderAccountRowProps) {
@@ -102,6 +116,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
         // eslint-disable-next-line react-hooks/exhaustive-deps -- account.periods is the precise dep; full account would cause spurious refetches
     }, [collapsed, account.periods]);
 
+    const show_relogin_button = _error !== undefined && _onReLogin !== undefined && provider !== "";
     const header = (
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {onDragStart && <DragGrip />}
@@ -117,6 +132,17 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                     )}
                 </div>
             </div>
+            {show_relogin_button && (
+                <button
+                    type="button"
+                    className="row-relogin-btn"
+                    onClick={() => {
+                        _onReLogin(account.sourceInstanceId, account.accountId, provider);
+                    }}
+                >
+                    重新登录
+                </button>
+            )}
         </div>
     );
 

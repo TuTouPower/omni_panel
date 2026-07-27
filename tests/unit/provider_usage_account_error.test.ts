@@ -141,11 +141,20 @@ describe("buildAccountErrors", () => {
         ];
         const result = buildAccountErrors(groups);
         expect(result.size).toBe(1);
-        expect(result.get("inst1|acc1")).toEqual({
-            provider: "claude",
-            accountLabel: "Primary",
-            error: "API key expired",
-        });
+        expect(result.get("inst1|acc1")?.provider).toBe("claude");
+        expect(result.get("inst1|acc1")?.accountLabel).toBe("Primary");
+        expect(result.get("inst1|acc1")?.error).toBe("API key expired");
+    });
+
+    // t158: AccountError must include sourceInstanceId so ProviderAccountRow can route
+    // re-login to the failing instance rather than collapsing by provider.
+    it("each AccountError entry exposes sourceInstanceId and accountId (t158)", () => {
+        const groups = [make_group({ accountErrors: [{ accountId: "acc1", error: "HTTP 401" }] })];
+        const result = buildAccountErrors(groups);
+        const entry = result.get("inst1|acc1");
+        expect(entry).toBeDefined();
+        expect(entry?.sourceInstanceId).toBe("inst1");
+        expect(entry?.accountId).toBe("acc1");
     });
 
     it("returns empty map when no accounts have errors", () => {

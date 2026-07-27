@@ -433,20 +433,22 @@ export function PopupView() {
         set_expanded_providers((prev) => ({ ...prev, [provider]: !(prev[provider] ?? false) }));
     };
 
-    const handle_re_login = async (provider: string) => {
+    // t158: re-login handler takes a specific instanceId so multi-instance 401
+    // (e.g. two GroK accounts) opens the failing account's edit dialog — not
+    // the first connector with that provider. Per-row re-login in
+    // ProviderAccountRow is the primary entry; this is the overview-banner
+    // fallback that routes the first failed instance for the provider.
+    const handle_re_login = (provider: string, instanceId: string) => {
+        if (instanceId) {
+            window.usageboard.settings.open({ instanceId });
+            return;
+        }
+        // Defensive fallback: caller didn't supply a specific instance.
+        // Defer to the legacy provider-level match so we never silently
+        // swallow the click. (No connector-found → still no-op.)
         const connector = plugins.find((c) => c.enabled && c.activeProviders.includes(provider));
-        if (!connector) return;
-        try {
-            const result = await window.usageboard.auth.cookieLogin(connector.instanceId);
-            if (result.saved) {
-                await window.usageboard.connector.refresh(connector.sourceInstanceId);
-            }
-        } catch (err: unknown) {
-            window.usageboard.log({
-                level: "error",
-                module: MODULE,
-                message: `重新登录 ${provider} 失败: ${err instanceof Error ? err.message : String(err)}`,
-            });
+        if (connector) {
+            window.usageboard.settings.open({ instanceId: connector.instanceId });
         }
     };
 
@@ -722,8 +724,8 @@ export function PopupView() {
                                 }
                                 onReLogin={
                                     is_live
-                                        ? (p) => {
-                                              void handle_re_login(p);
+                                        ? (p, instanceId) => {
+                                              handle_re_login(p, instanceId);
                                           }
                                         : undefined
                                 }
@@ -761,8 +763,13 @@ export function PopupView() {
                                     onDragEnd={is_live ? handle_account_drag_end : undefined}
                                     onReLogin={
                                         is_live
-                                            ? (p: string) => {
-                                                  void handle_re_login(p);
+                                            ? (sourceInstanceId, _accountId, p: string) => {
+                                                  // t158: row-level re-login — drive settings.open by
+                                                  // the connector's sourceInstanceId (composite keys
+                                                  // like `${sourceInstanceId}|${accountId}` aren't
+                                                  // settings targets; only the connector's own
+                                                  // instanceId is).
+                                                  handle_re_login(p, sourceInstanceId);
                                               }
                                             : undefined
                                     }

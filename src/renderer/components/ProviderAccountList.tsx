@@ -12,7 +12,14 @@ interface ProviderAccountListProps {
     onDragStart?: ((accountId: string) => void) | undefined;
     onDragEnter?: ((accountId: string) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
-    onReLogin?: ((provider: string) => void) | undefined;
+    /**
+     * t158: per-account re-login callback. Receiver is the row-level
+     * (sourceInstanceId, accountId, provider) so settings.open can target the
+     * exact failing instance instead of guessing by provider.
+     */
+    onReLogin?:
+        | ((sourceInstanceId: string, accountId: string, provider: string) => void)
+        | undefined;
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
@@ -52,8 +59,12 @@ export function ProviderAccountList({
     watchedMetrics,
     on_toggle_watched,
 }: ProviderAccountListProps) {
-    void _onReLogin;
     const per_provider_map = providerLabelMaps?.[group.provider] ?? {};
+    const handleRowReLogin = _onReLogin
+        ? (sourceInstanceId: string, accountId: string) => {
+              _onReLogin(sourceInstanceId, accountId, group.provider);
+          }
+        : undefined;
 
     return (
         <div className="provider-account-list">
@@ -88,12 +99,14 @@ export function ProviderAccountList({
                         <ProviderAccountRow
                             key={account.id}
                             account={account}
+                            provider={group.provider}
                             barColorScheme={barColorScheme}
                             barStyle={barStyle}
                             labelMap={merged_label_map}
                             desensitizeRemarks={desensitizeRemarks}
                             forcePercent={forcePercent}
                             error={accountErrors?.get(account.id)?.error}
+                            onReLogin={handleRowReLogin}
                             watched_labels={watched_set}
                             on_toggle_watched={toggle_for_account}
                         />
@@ -106,6 +119,7 @@ export function ProviderAccountList({
                     <ProviderAccountRow
                         key={account.id}
                         account={account}
+                        provider={group.provider}
                         collapsed={collapsed}
                         onToggleCollapsed={onToggle}
                         dragging={isDragging}
@@ -131,6 +145,7 @@ export function ProviderAccountList({
                         desensitizeRemarks={desensitizeRemarks}
                         forcePercent={forcePercent}
                         error={accountErrors?.get(account.id)?.error}
+                        onReLogin={handleRowReLogin}
                         watched_labels={watched_set}
                         on_toggle_watched={toggle_for_account}
                     />

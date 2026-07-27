@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProviderAccountRow } from "../../../../src/renderer/components/ProviderAccountRow";
@@ -85,6 +85,50 @@ describe("ProviderAccountRow", () => {
         const { container } = render(<ProviderAccountRow account={account} />);
         expect(container.querySelector(".card")).toBeInTheDocument();
         expect(container.querySelector(".card--critical")).not.toBeInTheDocument();
+    });
+
+    // t158: per-account re-login entry — independent from the overview-level
+    // re-login button so multi-instance 401 can target the specific failing account.
+    describe("t158 per-account re-login", () => {
+        it("shows account-row 重新登录 link when error and onReLogin provided", () => {
+            const onReLogin = vi.fn();
+            const account = make_account({
+                sourceInstanceId: "cpa-main",
+                accountId: "auth-a",
+            });
+            render(
+                <ProviderAccountRow
+                    account={account}
+                    provider="claude"
+                    error="HTTP 401 unauthorized"
+                    onReLogin={onReLogin}
+                />,
+            );
+            // row-level link present (scope: account row only, not header-of-card)
+            const link = screen.getByRole("button", { name: /重新登录/ });
+            expect(link).toBeInTheDocument();
+            fireEvent.click(link);
+            expect(onReLogin).toHaveBeenCalledWith("cpa-main", "auth-a", "claude");
+        });
+
+        it("does not show re-login link when error is absent", () => {
+            const onReLogin = vi.fn();
+            render(
+                <ProviderAccountRow
+                    account={make_account()}
+                    provider="claude"
+                    onReLogin={onReLogin}
+                />,
+            );
+            expect(screen.queryByRole("button", { name: /重新登录/ })).not.toBeInTheDocument();
+        });
+
+        it("does not show re-login link when onReLogin is not provided", () => {
+            render(
+                <ProviderAccountRow account={make_account()} provider="claude" error="HTTP 401" />,
+            );
+            expect(screen.queryByRole("button", { name: /重新登录/ })).not.toBeInTheDocument();
+        });
     });
 
     describe("trend sparkline integration", () => {

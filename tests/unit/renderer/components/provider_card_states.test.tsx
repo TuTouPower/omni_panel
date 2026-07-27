@@ -16,11 +16,54 @@ describe("ProviderCard - states", () => {
         render(
             <ProviderCard
                 provider="deepseek"
-                connectorError={{ displayName: "DeepSeek", error: "unauthorized access" }}
+                connectorError={{
+                    displayName: "DeepSeek",
+                    error: "unauthorized access",
+                    instanceIds: [],
+                }}
             />,
         );
         expect(screen.getByText("凭证失效，请重新登录")).toBeInTheDocument();
         expect(screen.getByText("重新登录")).toBeInTheDocument();
+    });
+
+    // t158: provider-level re-login button now passes both provider AND the
+    // instanceId of the failed connector so multi-instance setups open the
+    // failing account (not the first match by provider).
+    it("calls onReLogin with (provider, instanceId) when provider-level reconnect clicked", () => {
+        const onReLogin = vi.fn();
+        render(
+            <ProviderCard
+                provider="grok"
+                connectorError={{
+                    displayName: "Grok",
+                    error: "401 invalid_token",
+                    instanceIds: ["grok-uuid-A"],
+                }}
+                onReLogin={onReLogin}
+            />,
+        );
+        fireEvent.click(screen.getByText("重新登录"));
+        expect(onReLogin).toHaveBeenCalledTimes(1);
+        expect(onReLogin).toHaveBeenCalledWith("grok", "grok-uuid-A");
+    });
+
+    it("passes first instanceId when multiple failed share provider (overview fallback)", () => {
+        const onReLogin = vi.fn();
+        render(
+            <ProviderCard
+                provider="grok"
+                connectorError={{
+                    displayName: "Grok",
+                    error: "HTTP 401 unauthorized token invalid",
+                    instanceIds: ["uuid-A", "grok-ts-B"],
+                }}
+                onReLogin={onReLogin}
+            />,
+        );
+        fireEvent.click(screen.getByText("重新登录"));
+        // First instance preferred; per-row re-login covers the rest.
+        expect(onReLogin).toHaveBeenCalledWith("grok", "uuid-A");
     });
 
     it("shows network error with retry action", () => {
@@ -28,7 +71,7 @@ describe("ProviderCard - states", () => {
         render(
             <ProviderCard
                 provider="deepseek"
-                connectorError={{ displayName: "DeepSeek", error: "网络超时" }}
+                connectorError={{ displayName: "DeepSeek", error: "网络超时", instanceIds: [] }}
                 onRefresh={onRefresh}
             />,
         );
@@ -42,7 +85,11 @@ describe("ProviderCard - states", () => {
         render(
             <ProviderCard
                 provider="minimax"
-                connectorError={{ error: "NETWORK_ERROR", displayName: "MiniMax" }}
+                connectorError={{
+                    error: "NETWORK_ERROR",
+                    displayName: "MiniMax",
+                    instanceIds: [],
+                }}
                 onToggleExpand={onToggleExpand}
                 expanded={false}
             />,
@@ -78,7 +125,7 @@ describe("ProviderCard - states", () => {
             <ProviderCard
                 provider="minimax"
                 group={group}
-                connectorError={{ error: "NETWORK_ERROR", displayName: "MiniMax" }}
+                connectorError={{ error: "NETWORK_ERROR", displayName: "MiniMax", instanceIds: [] }}
                 onToggleExpand={onToggleExpand}
                 expanded={false}
             />,
@@ -92,7 +139,7 @@ describe("ProviderCard - states", () => {
             <ProviderCard
                 provider="deepseek"
                 group={makeGroup()}
-                connectorError={{ displayName: "DeepSeek", error: "网络超时" }}
+                connectorError={{ displayName: "DeepSeek", error: "网络超时", instanceIds: [] }}
             />,
         );
         // stale styling on the card

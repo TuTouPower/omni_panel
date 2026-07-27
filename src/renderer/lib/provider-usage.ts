@@ -368,6 +368,13 @@ export function apply_account_labels(
 
 export interface AccountError {
     provider: string;
+    /**
+     * t158: source-side connector instance id. Required so the row-level re-login
+     * button can route to the specific failing instance rather than collapsing by provider.
+     */
+    sourceInstanceId: string;
+    /** t158: stable per-connector account id (mirrors `accountId` on `ProviderUsageAccount`). */
+    accountId: string;
     accountLabel: string;
     error: string;
 }
@@ -388,6 +395,8 @@ export function buildAccountErrors(
             if (account.error) {
                 result.set(account.id, {
                     provider: group.provider,
+                    sourceInstanceId: account.sourceInstanceId,
+                    accountId: account.accountId,
                     accountLabel: account.accountLabel,
                     error: account.error,
                 });
@@ -397,6 +406,8 @@ export function buildAccountErrors(
                 if (period.error) {
                     result.set(account.id, {
                         provider: group.provider,
+                        sourceInstanceId: account.sourceInstanceId,
+                        accountId: account.accountId,
                         accountLabel: account.accountLabel,
                         error: period.error,
                     });

@@ -48,6 +48,7 @@
 | device_login_full_url         | Desktop  | t156                                                                | 2026-07-27   |
 | move_session_meta_to_lib      | Web      | t124                                                                | 2026-07-26   |
 | extract_oauth_helpers         | API      | t127                                                                | 2026-07-26   |
+| relogin-instance-routing      | Web      | t158                                                                | 2026-07-27   |
 | kimi_oauth_concurrency        | API      | t150                                                                | 2026-07-26   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

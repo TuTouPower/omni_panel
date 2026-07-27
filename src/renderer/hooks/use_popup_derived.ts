@@ -13,6 +13,7 @@ import {
     type ProviderUsageGroup,
     type UpcomingResetItem,
 } from "../lib/provider-usage";
+import type { ProviderError } from "../components/ProviderOverview";
 
 export interface UsePopupDerivedParams {
     plugins: ConnectorInfo[];
@@ -30,7 +31,7 @@ export interface UsePopupDerivedResult {
     visibleProviders: string[];
     upcomingItems: UpcomingResetItem[];
     orderedProviders: string[];
-    providerErrors: Map<string, { displayName: string; error: string }>;
+    providerErrors: Map<string, ProviderError>;
     accountErrors: Map<string, AccountError>;
     activeGroup: ProviderUsageGroup | undefined;
     orderedActiveGroup: ProviderUsageGroup | undefined;
@@ -79,13 +80,27 @@ export function use_popup_derived(params: UsePopupDerivedParams): UsePopupDerive
         const remaining = visibleProviders.filter((p) => !orderSet.has(p));
         return [...ordered, ...remaining];
     }, [visibleProviders, provider_order]);
+    // t158: providerErrors stays keyed by provider (overview shows ONE banner per
+    // provider for layout compactness) but each entry carries ALL failed
+    // instanceIds so multi-instance re-login can route to the actual failure —
+    // not "the first connector with this provider".
     const providerErrors = useMemo(() => {
-        const map = new Map<string, { displayName: string; error: string }>();
+        const map = new Map<string, ProviderError>();
         for (const c of plugins) {
             if (c.snapshot.status !== "failed") continue;
             for (const p of c.activeProviders) {
-                if (!map.has(p))
-                    map.set(p, { displayName: c.displayName, error: c.snapshot.error });
+                const existing = map.get(p);
+                if (existing) {
+                    if (!existing.instanceIds.includes(c.instanceId)) {
+                        existing.instanceIds.push(c.instanceId);
+                    }
+                    continue;
+                }
+                map.set(p, {
+                    displayName: c.displayName,
+                    error: c.snapshot.error,
+                    instanceIds: [c.instanceId],
+                });
             }
         }
         return map;
