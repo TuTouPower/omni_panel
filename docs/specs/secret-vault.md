@@ -43,6 +43,7 @@ listKeys(prefix?): Promise<string[]>
 ## 导入/导出（`CONFIG_EXPORT` / `CONFIG_IMPORT`）
 
 - 配置可明文导出，**密钥明文导出**——`ConfigExportData.secrets: Record<string, string>` 在文件中即为 vault 解密后的真实密钥。用户决策（待澄清-1）：权限完全开放给用户，不脱敏、不加密，用户自己负责导出文件的安全。
+- **导出范围仅含配置与 vault 密钥**，不含历史用量数据库 `observations.sqlite`、snapshot-cache、日志文件、runtime states 等。导入后新实例会重新采集用量；如需迁移历史观测，须单独拷贝 `{userData}/observations.sqlite`。
 - 导入时 `secretsStore.importAll` 走 delete-all + replace 语义（原子化 + 快照回滚，commit `d053992`），导入文件中的 secrets 字段直接写入 vault。
 - 导入成功后触发一次全局刷新：`CONFIG_IMPORT` 成功路径先经 `onConfigSaved`（rebuild scheduler、注册新 connector runtime），再触发 `onConfigImported -> refreshService.refreshAll()`（t045，fire-and-forget + `.catch(log.error)`），使新增连接器立即采集一次，无需等 scheduler 周期或手动刷新。导入取消 / 格式无效 / secrets 回滚 throw 等非成功路径不触达。
 - **安全提示**：导出文件含明文密钥，应避免放入云盘同步、版本控制或公共位置。

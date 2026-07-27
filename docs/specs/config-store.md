@@ -11,7 +11,7 @@
 - `uiDesensitizeRemarks`：为 true 时用量面板与设置账号列表隐藏备注/displayName。
 - `providerForcePercent`：`Partial<Record<string, boolean>>`，厂商级强制用量数字显示为百分比。
 
-> `accountOverrides` 已纳入 Zod schema（`accountOverridesSchema`，结构 `{ hidden?: Record<provider, string[]> }`）；`accountLabels`、`dirAliases`（default `[]`）、`modelAliases`（default `[]`）同样在 schema 内。
+> `accountOverrides` 已纳入 Zod schema（`accountOverridesSchema`，结构 `{ hidden?: Record<provider, string[]>, upcomingResetWatched?: Record<provider, Record<accountKey, raw_label[]>> }`）；`accountLabels`、`dirAliases`（default `[]`）、`modelAliases`（default `[]`）同样在 schema 内。
 
 ### ConnectorConfiguration
 
