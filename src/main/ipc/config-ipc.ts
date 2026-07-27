@@ -132,6 +132,46 @@ export async function handleConfigSave(
             merged[key] = (incoming as unknown as Record<string, unknown>)[key];
         }
 
+        // Protect against stale renderer windows overwriting the entire plugins
+        // array. A settings window preloaded before the latest config change may
+        // save an outdated plugin list; without this guard, the merge above would
+        // drop every plugin added after the window loaded. Deletions are still
+        // honoured when the removed manifest id is recorded in removedConnectorIds
+        // (the path used by SettingsView's delete/confirm handlers).
+        const incomingPluginIds = new Set(incoming.plugins.map((p) => p.instanceId));
+        const removedManifestIds = new Set(incoming.removedConnectorIds ?? []);
+        const protectedPlugins: ConnectorConfiguration[] = [];
+        for (const plugin of current.plugins) {
+            if (incomingPluginIds.has(plugin.instanceId)) continue;
+            const definition = deps.definitions?.find(
+                (d) => d.executablePath === plugin.executablePath,
+            );
+            const manifestId = definition?.manifest.id;
+            if (manifestId && removedManifestIds.has(manifestId)) {
+                // Legitimate deletion via settings UI.
+                continue;
+            }
+            protectedPlugins.push(plugin);
+            if (manifestId) {
+                log.warn(
+                    `Protected plugin ${plugin.instanceId} (${plugin.name}) from stale save; ` +
+                        `manifest id ${manifestId} not in removedConnectorIds`,
+                );
+            } else {
+                log.warn(
+                    `Protected plugin ${plugin.instanceId} (${plugin.name}) from stale save; ` +
+                        `no manifest definition found`,
+                );
+            }
+        }
+        if (protectedPlugins.length > 0) {
+            merged["plugins"] = [...incoming.plugins, ...protectedPlugins];
+            log.warn(
+                `Config save would have dropped ${String(protectedPlugins.length)} plugin(s); ` +
+                    `restored them to the merged config`,
+            );
+        }
+
         // Post-merge validation: the merged result may carry extra fields from
         // current that aren't in the schema (e.g. leftover from a bug or manual
         // edit). Validate against schema to strip unknown keys and ensure the

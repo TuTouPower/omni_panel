@@ -999,6 +999,101 @@ describe("config-ipc", () => {
             // Valid fields from incoming are preserved
             expect(saved["launchAtLogin"]).toBe(true);
         });
+
+        it("protects plugins dropped by a stale renderer save", async () => {
+            // Regression: a hidden/preloaded settings window holding an outdated
+            // plugin list could overwrite the entire plugins array, deleting
+            // every plugin added after the window loaded.
+            const deps = createMockDeps();
+            const current = (await deps.configStore.load()) as AppConfiguration;
+            // Add a second plugin that the stale incoming config does not know.
+            const protectedPlugin = {
+                instanceId: "firecrawl",
+                stateId: "firecrawl",
+                name: "FIRECRAWL",
+                enabled: true,
+                executablePath: "/plugins/firecrawl.py",
+                refreshIntervalSeconds: 300,
+                parameterValues: {},
+                endpointOverrides: {},
+            };
+            current.plugins = [...current.plugins, protectedPlugin];
+
+            // Provide a matching definition so the guard can resolve the manifest id.
+            (deps as unknown as Record<string, unknown>)["definitions"] = [
+                {
+                    executablePath: "/plugins/claude.py",
+                    manifest: { id: "claude", provider: "claude" },
+                },
+                {
+                    executablePath: "/plugins/firecrawl.py",
+                    manifest: { id: "firecrawl", provider: "firecrawl" },
+                },
+            ];
+
+            const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
+
+            // Stale incoming only knows the original claude plugin.
+            const incoming = {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [structuredClone(current.plugins[0])],
+                launchAtLogin: false,
+            };
+
+            const result = await handleConfigSave(deps, incoming);
+            expect(result.ok).toBe(true);
+
+            const saved = deps.configStore.save.mock.calls[0]?.[0] as {
+                plugins: { instanceId: string }[];
+            };
+            expect(saved).toBeDefined();
+            const savedIds = saved.plugins.map((p) => p.instanceId);
+            expect(savedIds).toContain("claude");
+            expect(savedIds).toContain("firecrawl");
+        });
+
+        it("still honours legitimate plugin deletions recorded in removedConnectorIds", async () => {
+            const deps = createMockDeps();
+            const current = (await deps.configStore.load()) as AppConfiguration;
+            const deletedPlugin = {
+                instanceId: "firecrawl",
+                stateId: "firecrawl",
+                name: "FIRECRAWL",
+                enabled: true,
+                executablePath: "/plugins/firecrawl.py",
+                refreshIntervalSeconds: 300,
+                parameterValues: {},
+                endpointOverrides: {},
+            };
+            current.plugins = [deletedPlugin];
+
+            (deps as unknown as Record<string, unknown>)["definitions"] = [
+                {
+                    executablePath: "/plugins/firecrawl.py",
+                    manifest: { id: "firecrawl", provider: "firecrawl" },
+                },
+            ];
+
+            const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
+
+            const incoming = {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                removedConnectorIds: ["firecrawl"],
+                launchAtLogin: false,
+            };
+
+            const result = await handleConfigSave(deps, incoming);
+            expect(result.ok).toBe(true);
+
+            const saved = deps.configStore.save.mock.calls[0]?.[0] as {
+                plugins: { instanceId: string }[];
+            };
+            expect(saved).toBeDefined();
+            expect(saved.plugins).toHaveLength(0);
+        });
     });
 
     describe("handleConfigCreateInstance (t121)", () => {
