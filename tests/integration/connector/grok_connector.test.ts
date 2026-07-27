@@ -101,7 +101,7 @@ describe("grok connector", () => {
             expect.objectContaining({
                 provider: "grok",
                 account_id: "grok",
-                account_label: "SuperGrok",
+                account_label: "Grok",
                 metric_id: "grok:credits",
                 raw_label: "credits",
                 normalized_label: "额度",

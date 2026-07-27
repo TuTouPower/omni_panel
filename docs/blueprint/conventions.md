@@ -178,7 +178,7 @@ branch: t032_align_conventions_repo
 
 ### Grok 连接器：OAuth device-code 授权
 
-Grok（SuperGrok）连接器与本仓库其他连接器的 cookie/API-key 授权不同，采用 **OAuth 2.0 device-code flow**（RFC 8628），与 grok CLI 的 `~/.grok/auth.json` **完全独立**——本应用持有自己的 token pair，互不干扰。
+Grok 连接器与本仓库其他连接器的 cookie/API-key 授权不同，采用 **OAuth 2.0 device-code flow**（RFC 8628），与 grok CLI 的 `~/.grok/auth.json` **完全独立**——本应用持有自己的 token pair，互不干扰。
 
 关键组件：
 

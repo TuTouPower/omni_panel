@@ -784,7 +784,7 @@
                     "instanceId": "d04f60da-8d38-4a55-bd3c-75b2e05fbe7a",
                     "stateId": "be182ddb-9162-456f-9ec8-c5c6de20276d",
                     "name": "GROK",
-                    "displayName": "SuperGrok",
+                    "displayName": "Grok",
                     "enabled": true,
                     "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\grok",
                     "refreshIntervalSeconds": 0,

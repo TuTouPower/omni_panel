@@ -22,7 +22,7 @@ interface BillingResponse {
 }
 
 const ACCOUNT_ID = "grok";
-const ACCOUNT_LABEL = "SuperGrok";
+const ACCOUNT_LABEL = "Grok";
 const ENDPOINT_KEY = "grok_billing";
 const BILLING_PATH = "/v1/billing?format=credits";
 
