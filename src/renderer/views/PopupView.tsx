@@ -433,10 +433,23 @@ export function PopupView() {
         set_expanded_providers((prev) => ({ ...prev, [provider]: !(prev[provider] ?? false) }));
     };
 
-    const handle_re_login = (provider: string) => {
+    // t158: re-login handler takes a specific instanceId so multi-instance 401
+    // (e.g. two GroK accounts) opens the failing account's edit dialog — not
+    // the first connector with that provider. Per-row re-login in
+    // ProviderAccountRow is the primary entry; this is the overview-banner
+    // fallback that routes the first failed instance for the provider.
+    const handle_re_login = (provider: string, instanceId: string) => {
+        if (instanceId) {
+            window.usageboard.settings.open({ instanceId });
+            return;
+        }
+        // Defensive fallback: caller didn't supply a specific instance.
+        // Defer to the legacy provider-level match so we never silently
+        // swallow the click. (No connector-found → still no-op.)
         const connector = plugins.find((c) => c.enabled && c.activeProviders.includes(provider));
-        if (!connector) return;
-        window.usageboard.settings.open({ provider });
+        if (connector) {
+            window.usageboard.settings.open({ instanceId: connector.instanceId });
+        }
     };
 
     const handle_toggle_watched = use_watched_metric_toggler({
@@ -709,7 +722,13 @@ export function PopupView() {
                                 onToggleExpandProvider={
                                     is_live ? toggle_expand_provider : undefined
                                 }
-                                onReLogin={is_live ? handle_re_login : undefined}
+                                onReLogin={
+                                    is_live
+                                        ? (p, instanceId) => {
+                                              handle_re_login(p, instanceId);
+                                          }
+                                        : undefined
+                                }
                                 draggingProvider={is_live ? drag_id : null}
                                 overProvider={is_live ? over_id : null}
                                 onDragStart={is_live ? handle_drag_start : undefined}
@@ -742,7 +761,18 @@ export function PopupView() {
                                     onDragStart={is_live ? handle_account_drag_start : undefined}
                                     onDragEnter={is_live ? handle_account_drag_enter : undefined}
                                     onDragEnd={is_live ? handle_account_drag_end : undefined}
-                                    onReLogin={is_live ? handle_re_login : undefined}
+                                    onReLogin={
+                                        is_live
+                                            ? (sourceInstanceId, _accountId, p: string) => {
+                                                  // t158: row-level re-login — drive settings.open by
+                                                  // the connector's sourceInstanceId (composite keys
+                                                  // like `${sourceInstanceId}|${accountId}` aren't
+                                                  // settings targets; only the connector's own
+                                                  // instanceId is).
+                                                  handle_re_login(p, sourceInstanceId);
+                                              }
+                                            : undefined
+                                    }
                                     barColorScheme={usage_bar_color_scheme}
                                     barStyle={usage_bar_style}
                                     accountLabelMaps={account_label_maps}

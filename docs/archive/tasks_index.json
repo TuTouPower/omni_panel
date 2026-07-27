@@ -1254,7 +1254,15 @@
             "slug": "unify_account_auth_forms",
             "status": "done",
             "branch": "t157_unify_account_auth_forms",
-            "note": "blocked: review"
+            "note": ""
+        },
+        {
+            "tid": "t158",
+            "title": "修复主面板 401 重新登录错位：provider 级改 account/instance 级",
+            "slug": "fix_relogin_account_targeting",
+            "status": "done",
+            "branch": "t158_fix_relogin_account_targeting",
+            "note": ""
         }
     ]
 }

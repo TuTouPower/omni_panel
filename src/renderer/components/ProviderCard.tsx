@@ -44,7 +44,12 @@ interface ProviderCardProps {
     providerLabelMaps?:
         | Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>
         | undefined;
-    onReLogin?: ((provider: string) => void) | undefined;
+    /**
+     * t158: re-login callback takes BOTH provider and a specific instanceId
+     * so multi-instance 401 can target the failing account (not the first
+     * connector with this provider).
+     */
+    onReLogin?: ((provider: string, instanceId: string) => void) | undefined;
     convergentTimeMinutes?: number | undefined;
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;

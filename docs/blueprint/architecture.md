@@ -102,6 +102,7 @@ web 浏览器经 LocalAPI `GET /v1/events`（SSE）订阅 runtimeStore 状态变
 
 - **观测契约**：脚本产出 `script_observation_schema`（snake_case，无 `source_instance_id`）；宿主 extend 出 `observation_schema`。字段语义见 `specs/observation-store.md`。
 - **instance identity 归宿主**：脚本运行时发现 account/metric，但不知自己在哪个实例下；`source_instance_id` 只由 `refresh-service` 盖，防同 provider 多实例在下游 collapse。
+- **重新登录按 instanceId 路由（t158）**：401/认证错误触发的「重新登录」入口（overview banner + 每行）必须把 `instanceId` 透传到 `settings.open({ instanceId })`——多账号场景下不能用 `activeProviders.includes(provider)` 模糊匹配第一个 connector，否则会打开错账号。`AccountError.sourceInstanceId` / `ProviderError.instanceIds` 字段须贯穿到 renderer 链路。
 - **vault 命名空间**：`keyFor(instanceId, name) = ${instanceId}:${name}`，`secrets-store` / `session-manager` / `net-client` 均经此，不内联拼接。
 - **endpoint 解析优先级**：用户 `endpointOverrides` > manifest `endpoints`；`requireExplicitEndpoints` 为真时无 override 即报错（CPA 用）。
 - **认证方式描述符**：manifest 可显式声明 `auth` 块（`method` + `secret_name` + 可选 `extra_fields`/`login_url`/`require_endpoint`）作为认证方式的唯一真相；渲染层通过 `src/renderer/lib/auth-flow-registry.ts` 的 `resolve_auth_method` 读取 descriptor，未声明时按 connector `source` 回退到 `session`/`local_cli`/`apikey`，不再硬编码厂商映射（t107/t108）。

@@ -20,7 +20,12 @@ interface ProviderCardStateProps {
     isFailed: boolean;
     isAuth: boolean;
     hasUsage: boolean;
-    onReLogin?: ((provider: string) => void) | undefined;
+    /**
+     * t158: re-login callback now takes BOTH provider AND a specific instanceId.
+     * Multi-instance setups (e.g. two GroK accounts) need the caller to be able
+     * to pin which instance the settings dialog should target.
+     */
+    onReLogin?: ((provider: string, instanceId: string) => void) | undefined;
     onRefresh?: ((provider: string) => void) | undefined;
 }
 
@@ -37,6 +42,10 @@ export function ProviderCardState({
         if (!connectorError) return null;
         if (isAuth) {
             const auth_label = "凭证失效，请重新登录";
+            // t158: overview banner re-login target = first failed instance.
+            // Per-row re-login in ProviderAccountRow covers the rest of the
+            // instanceIds when multiple connectors share this provider.
+            const first_instance_id = connectorError.instanceIds[0] ?? "";
             return (
                 <div className="card-state auth">
                     <span className="cs-ic">
@@ -47,9 +56,11 @@ export function ProviderCardState({
                         className="cs-action"
                         onClick={() => {
                             if (onReLogin) {
-                                onReLogin(provider);
+                                onReLogin(provider, first_instance_id);
                             } else {
-                                window.usageboard.settings.open({ provider });
+                                window.usageboard.settings.open({
+                                    instanceId: first_instance_id,
+                                });
                             }
                         }}
                     >

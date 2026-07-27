@@ -11,6 +11,13 @@ import type { ToggleWatchedMetric } from "../hooks/use_watched_metric_toggler";
 export interface ProviderError {
     displayName: string;
     error: string;
+    /**
+     * t158: every failed connector instance sharing this provider.
+     * Multi-instance setups (e.g. two GroK accounts) need per-instance routing for
+     * the overview-level re-login fallback (first wins) plus per-row re-login buttons
+     * for the rest.
+     */
+    instanceIds: string[];
 }
 
 interface ProviderOverviewProps {
@@ -22,7 +29,12 @@ interface ProviderOverviewProps {
     onRefreshProvider: (provider: string) => void;
     expandedProviders?: Record<string, boolean> | undefined;
     onToggleExpandProvider?: ((provider: string) => void) | undefined;
-    onReLogin?: ((provider: string) => void) | undefined;
+    /**
+     * t158: re-login callback now takes BOTH provider AND a specific instanceId
+     * so multi-instance setups (e.g. two GroK accounts) can target the actual
+     * failing instance, not the first connector with this provider.
+     */
+    onReLogin?: ((provider: string, instanceId: string) => void) | undefined;
     draggingProvider?: string | null | undefined;
     overProvider?: string | null | undefined;
     onDragStart?: ((provider: string, rect?: DOMRect) => void) | undefined;

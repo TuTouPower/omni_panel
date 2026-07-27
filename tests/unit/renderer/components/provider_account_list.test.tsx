@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ProviderAccountList } from "../../../../src/renderer/components/ProviderAccountList";
@@ -86,5 +86,35 @@ describe("ProviderAccountList", () => {
 
         expect(screen.getByText("五小时自定义")).toBeInTheDocument();
         expect(screen.queryByText("5小时")).not.toBeInTheDocument();
+    });
+
+    // t158: onReLogin must reach ProviderAccountRow (was being discarded before).
+    it("forwards onReLogin to each account row's re-login button", () => {
+        const onReLogin = vi.fn();
+        const group = make_group();
+        // Inject an error for the only account so the row renders a re-login button.
+        const accountErrors = new Map([
+            [
+                "cpa-main:label:Account A",
+                {
+                    provider: "codex",
+                    sourceInstanceId: "cpa-main",
+                    accountId: "auth-a",
+                    accountLabel: "Account A",
+                    error: "HTTP 401",
+                },
+            ],
+        ]);
+        render(
+            <ProviderAccountList
+                group={group}
+                onReLogin={onReLogin}
+                accountErrors={accountErrors}
+            />,
+        );
+        const link = screen.getByRole("button", { name: /重新登录/ });
+        fireEvent.click(link);
+        // onReLogin called with instanceId + accountId + provider
+        expect(onReLogin).toHaveBeenCalledWith("cpa-main", "auth-a", "codex");
     });
 });
