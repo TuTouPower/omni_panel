@@ -2,8 +2,12 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { AppConfiguration } from "../../../src/shared/types/config";
+import type { AppConfiguration, ConnectorConfiguration } from "../../../src/shared/types/config";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
+
+type Mutable_plugins_config = Omit<AppConfiguration, "plugins"> & {
+    plugins: ConnectorConfiguration[];
+};
 
 type Ipc_handler = (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 type Ipc_handle = (channel: string, listener: Ipc_handler) => void;
@@ -1005,7 +1009,7 @@ describe("config-ipc", () => {
             // plugin list could overwrite the entire plugins array, deleting
             // every plugin added after the window loaded.
             const deps = createMockDeps();
-            const current = (await deps.configStore.load()) as AppConfiguration;
+            const current = (await deps.configStore.load()) as Mutable_plugins_config;
             // Add a second plugin that the stale incoming config does not know.
             const protectedPlugin = {
                 instanceId: "firecrawl",
@@ -1055,7 +1059,7 @@ describe("config-ipc", () => {
 
         it("still honours legitimate plugin deletions recorded in removedConnectorIds", async () => {
             const deps = createMockDeps();
-            const current = (await deps.configStore.load()) as AppConfiguration;
+            const current = (await deps.configStore.load()) as Mutable_plugins_config;
             const deletedPlugin = {
                 instanceId: "firecrawl",
                 stateId: "firecrawl",

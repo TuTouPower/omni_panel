@@ -27,11 +27,12 @@ export function OAuthDeviceForm({
                 vendor_id,
                 account_name: account_name || vendor_id,
                 auth_method: "oauth_device",
+                oauth_source_instance_id: instance_id,
                 parameter_values: {},
                 secrets,
             });
         },
-        [on_save, vendor_id, account_name],
+        [on_save, vendor_id, account_name, instance_id],
     );
 
     return (

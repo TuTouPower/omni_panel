@@ -1,6 +1,7 @@
 import type { MetricRecord, PluginChart, UsageSource } from "../schemas/plugin-output";
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
+import type { GrokLoginResult, KimiLoginResult } from "./oauth";
 import type {
     AgentSessionUsage,
     TokenStatsBucket,
@@ -15,6 +16,7 @@ export interface TokenStatsStatus {
     last_updated: number | null;
 }
 export type { AppConfiguration } from "./config";
+export type { GrokLoginResult, KimiLoginResult } from "./oauth";
 
 export const IPC_CHANNELS = {
     CONNECTOR_LIST: "connector:list",
@@ -246,18 +248,6 @@ export type KimiDeviceCodeStart = GrokDeviceCodeStart;
 export type KimiLoginStatus = GrokLoginStatus;
 export type KimiRefreshResult = GrokRefreshResult;
 
-/**
- * Kimi login poll result. Carries refresh_token/expires_at so the add-account
- * flow can persist the full token set onto the real connector instance (the
- * device-code login runs under a temporary instance id).
- */
-export interface KimiLoginResult {
-    readonly saved: boolean;
-    readonly token?: string;
-    readonly refresh_token?: string;
-    readonly expires_at?: string;
-}
-
 /** 单个走势点:UTC 日期 + 已用百分比(0–100)。 */
 export interface TrendPoint {
     readonly date: string;
@@ -313,7 +303,7 @@ export interface GrokSettingsApi extends GrokReadonlyApi {
         device_code: string,
         interval: number,
         expires_at_epoch_ms: number,
-    ): Promise<{ saved: boolean; token?: string }>;
+    ): Promise<GrokLoginResult>;
     login_cancel(instance_id: string): Promise<void>;
     logout(instance_id: string): Promise<{ logged_out: boolean }>;
     refresh(instance_id: string): Promise<GrokRefreshResult>;

@@ -17,7 +17,7 @@ pnpm typecheck && pnpm lint && pnpm check
 python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 pnpm test）
 ```
 
-调试入口：打包 smoke 经 CDP 连 Electron 渲染进程；连接器脚本日志打 `connector-sandbox` logger。
+调试入口：打包 smoke 以 `--remote-debugging-port=0` 启动 Electron，从隔离 user-data 目录的 `DevToolsActivePort` 读取动态 CDP 端口后连接；连接器脚本日志打 `connector-sandbox` logger。
 
 ## 测试实例（沙盒隔离）
 

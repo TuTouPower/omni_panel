@@ -3,6 +3,7 @@ import { spawn, type ChildProcessByStdio } from "node:child_process";
 import type { Readable } from "node:stream";
 import { resolve, join } from "node:path";
 import { existsSync, mkdtempSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { scrubber } from "../../../src/shared/lib/logger";
 
@@ -64,14 +65,29 @@ async function firstRendererPage(browser: Browser): Promise<Page> {
     return context.waitForEvent("page", { timeout: 15_000 });
 }
 
-async function launchPackagedApp(port: number): Promise<PackagedAppHandle> {
+async function read_debug_port(user_data: string): Promise<number> {
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+        try {
+            const content = await readFile(join(user_data, "DevToolsActivePort"), "utf8");
+            const port = Number.parseInt(content.split("\n")[0] ?? "", 10);
+            if (Number.isInteger(port) && port > 0) return port;
+        } catch {
+            // Chrome creates DevToolsActivePort only after the CDP listener is ready.
+        }
+        await wait(250);
+    }
+    throw new Error("Timed out waiting for packaged app dynamic CDP port");
+}
+
+async function launchPackagedApp(): Promise<PackagedAppHandle> {
     if (!PACKAGED_EXE) throw new Error("PACKAGED_EXE is undefined");
 
     const userData = mkdtempSync(join(tmpdir(), "omnipanel-smoke-"));
     const logs: string[] = [];
     const child = spawn(
         PACKAGED_EXE,
-        [`--user-data-dir=${userData}`, `--remote-debugging-port=${String(port)}`],
+        [`--user-data-dir=${userData}`, "--remote-debugging-port=0"],
         {
             env: {
                 ...process.env,
@@ -88,6 +104,7 @@ async function launchPackagedApp(port: number): Promise<PackagedAppHandle> {
         logs.push(scrub_log_text(data.toString()));
     });
 
+    const port = await read_debug_port(userData);
     const browser = await connectToDebugPort(port, logs);
     const page = await firstRendererPage(browser);
     await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
@@ -103,10 +120,10 @@ async function closePackagedApp(handle: PackagedAppHandle): Promise<void> {
 }
 
 test.describe("packaged binary smoke", () => {
-    test("packaged app launches without white screen", async ({}, testInfo) => {
+    test("packaged app launches without white screen", async () => {
         test.skip(skipIfNoExe.skip, skipIfNoExe.reason);
 
-        const app = await launchPackagedApp(59300 + testInfo.workerIndex * 10);
+        const app = await launchPackagedApp();
         try {
             const pageErrors: Error[] = [];
             app.page.on("pageerror", (err) => pageErrors.push(err));
@@ -120,10 +137,10 @@ test.describe("packaged binary smoke", () => {
         }
     });
 
-    test("provider overview is available without CPA provider tab", async ({}, testInfo) => {
+    test("provider overview is available without CPA provider tab", async () => {
         test.skip(skipIfNoExe.skip, skipIfNoExe.reason);
 
-        const app = await launchPackagedApp(59301 + testInfo.workerIndex * 10);
+        const app = await launchPackagedApp();
         try {
             const providerNav = app.page.locator(".tabs-wrap");
             await expect(providerNav.getByRole("button", { name: /总览/ })).toBeVisible({
@@ -137,10 +154,10 @@ test.describe("packaged binary smoke", () => {
         }
     });
 
-    test("popup root fills the packaged window height", async ({}, testInfo) => {
+    test("popup root fills the packaged window height", async () => {
         test.skip(skipIfNoExe.skip, skipIfNoExe.reason);
 
-        const app = await launchPackagedApp(59302 + testInfo.workerIndex * 10);
+        const app = await launchPackagedApp();
         try {
             await expect(app.page.locator(".app-title").first()).toContainText("OmniPanel", {
                 timeout: 15_000,
