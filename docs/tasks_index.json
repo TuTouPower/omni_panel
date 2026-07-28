@@ -1,3 +1,12 @@
 {
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t159",
+            "title": "修复 Grok OAuth 实例绑定与 billing 响应解析",
+            "slug": "fix_grok_oauth_binding_billing_parse",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        }
+    ]
 }
