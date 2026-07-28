@@ -1271,6 +1271,14 @@
             "status": "done",
             "branch": "t159_fix_grok_oauth_binding_billing_parse",
             "note": "blocked: review"
+        },
+        {
+            "tid": "t160",
+            "title": "修复 Grok 0% 周用量字段省略误判",
+            "slug": "fix_grok_zero_percent_omission",
+            "status": "done",
+            "branch": "t160_fix_grok_zero_percent_omission",
+            "note": "blocked: review; blocked: review"
         }
     ]
 }

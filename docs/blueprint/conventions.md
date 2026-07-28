@@ -183,7 +183,7 @@ Grok 连接器与本仓库其他连接器的 cookie/API-key 授权不同，采�
 关键组件：
 
 - `connectors/grok/manifest.json`：script 模式连接器，`poll.request.auth.secret = "OAUTH_TOKEN"`，由宿主 `apply_request_auth` 自动注入 bearer token 到 billing 请求。
-- `connectors/grok/connector.ts`：解析 `GET /v1/billing?format=credits`，返回 `creditUsagePercent`（总量）+ `productUsage[]`（分产品），window = `"week"`，display_style = `"percent"`。
+- `connectors/grok/connector.ts`：解析 `GET /v1/billing?format=credits`。显式有限 `creditUsagePercent` 生成总额度；字段省略但 `currentPeriod` 完整有效时按 proto3 默认 `0%` 生成总额度，并按 weekly/monthly type 映射 window 与 reset。`productUsage[]` 保留 legacy weekly 行为。缺少有效周期与有限百分比时上报失败，不返回 `ready + []`。deprecated `monthlyLimit.val` / `used.val` 是 USD cents，不作为 weekly usage 数据源。display_style = `"percent"`。
 - `src/main/core/auth/grok_oauth_manager.ts`：OAuth 管理器，职责：
     - `start_device_login()`：向 `https://auth.x.ai/oauth2/device/code` 发 form-urlencoded POST，返回 `{ device_code, user_code, verification_uri, ... }`。
     - `await_completion()`：轮询 `https://auth.x.ai/oauth2/token`，处理 `authorization_pending` / `slow_down`（+5s 惩罚）/ `expired_token` / `access_denied`。
