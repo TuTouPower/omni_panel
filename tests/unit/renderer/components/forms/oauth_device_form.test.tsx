@@ -10,7 +10,12 @@ const instance_id = "grok-inst-1";
 function mock_grok_api(overrides?: {
     login_status?: Partial<GrokLoginStatus>;
     login_start?: Partial<GrokDeviceCodeStart>;
-    login_poll?: { saved: boolean; token?: string };
+    login_poll?: {
+        saved: boolean;
+        token?: string;
+        refresh_token?: string;
+        expires_at?: string;
+    };
     login_poll_reject?: Error;
 }) {
     const status: GrokLoginStatus = {
@@ -161,8 +166,15 @@ describe("OAuthDeviceForm", () => {
         expect(screen.queryByRole("link")).not.toBeInTheDocument();
     });
 
-    it("calls on_save with oauth_device params after polling succeeds", async () => {
-        mock_grok_api();
+    it("calls on_save with the temp instance id and complete OAuth params", async () => {
+        mock_grok_api({
+            login_poll: {
+                saved: true,
+                token: "access-token-xyz",
+                refresh_token: "refresh-token-xyz",
+                expires_at: "1785210000000",
+            },
+        });
         const on_save = make_on_save();
         const user = userEvent.setup();
         render(
@@ -186,7 +198,12 @@ describe("OAuthDeviceForm", () => {
         expect(params.vendor_id).toBe("grok");
         expect(params.account_name).toBe("工作账号");
         expect(params.auth_method).toBe("oauth_device");
-        expect(params.secrets).toEqual({ OAUTH_TOKEN: "access-token-xyz" });
+        expect(params.oauth_source_instance_id).toBe(instance_id);
+        expect(params.secrets).toEqual({
+            OAUTH_TOKEN: "access-token-xyz",
+            OAUTH_REFRESH_TOKEN: "refresh-token-xyz",
+            OAUTH_EXPIRES_AT: "1785210000000",
+        });
     });
 
     it("shows error and retry button when polling fails", async () => {
@@ -298,6 +315,7 @@ describe("OAuthDeviceForm", () => {
             expect(on_save).toHaveBeenCalledTimes(1);
         });
         const saved_params = on_save.mock.calls[0]?.[0] as AddAccountParams;
+        expect(saved_params.oauth_source_instance_id).toBe("kimi-inst-1");
         expect(saved_params.secrets["OAUTH_TOKEN"]).toBe("kimi-access-token");
         expect(saved_params.secrets["OAUTH_REFRESH_TOKEN"]).toBe("kimi-refresh-token");
         expect(typeof saved_params.secrets["OAUTH_EXPIRES_AT"]).toBe("string");

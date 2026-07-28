@@ -67,6 +67,19 @@ export async function create_instance_and_save(
         false,
         latest.config,
     );
+    if (params.auth_method === "oauth_device" && params.oauth_source_instance_id) {
+        if (params.vendor_id === "grok") {
+            const grok_api = window.usageboard.grok;
+            if ("logout" in grok_api) {
+                await grok_api.logout(params.oauth_source_instance_id);
+            }
+        } else if (params.vendor_id === "kimi") {
+            const kimi_api = window.usageboard.kimi;
+            if ("logout" in kimi_api) {
+                await kimi_api.logout(params.oauth_source_instance_id);
+            }
+        }
+    }
     return {
         instanceId: created.instanceId,
         pluginName: params.account_name,

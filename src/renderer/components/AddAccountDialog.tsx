@@ -17,21 +17,12 @@ import { VendorPicker } from "./add_account/VendorPicker";
 import { ApiKeyForm } from "./add_account/ApiKeyForm";
 import { SessionForm } from "./add_account/SessionForm";
 import { LocalScanForm } from "./add_account/LocalScanForm";
+import type { AddAccountParams } from "./add_account/add_account_params";
+
+export type { AddAccountParams } from "./add_account/add_account_params";
 
 function generate_instance_id(vendor_id: AddServiceId): string {
     return `${vendor_id}-${String(Date.now())}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-export interface AddAccountParams {
-    vendor_id: AddServiceId;
-    source_instance_id?: string;
-    /** t121: manifest id used by config.createInstance to spawn a new instance. */
-    manifest_id?: string;
-    account_name: string;
-    auth_method: ResolvedAuthMethod;
-    parameter_values: Record<string, string>;
-    endpoint_overrides?: Record<string, string>;
-    secrets: Record<string, string>;
 }
 
 interface AddAccountDialogProps {

@@ -11,10 +11,18 @@ interface ProductUsage {
     readonly usagePercent?: number;
 }
 
+interface BillingValue {
+    readonly val?: number;
+}
+
 interface BillingConfig {
     readonly creditUsagePercent?: number;
     readonly productUsage?: readonly ProductUsage[];
     readonly billingPeriodEnd?: string;
+    readonly onDemandCap?: BillingValue;
+    readonly onDemandUsed?: BillingValue;
+    readonly prepaidBalance?: BillingValue;
+    readonly isUnifiedBillingUser?: boolean;
 }
 
 interface BillingResponse {
@@ -125,11 +133,18 @@ async function main(): Promise<ScriptObservation[]> {
     // observations（否则 refresh-service 误判 ready+空，清空历史、主面板"暂无账号"）。
     // 上报 failed_account，让 refresh-service 走 stale 保留 / failed 状态。
     if (observations.length === 0) {
+        const has_no_available_usage =
+            config.isUnifiedBillingUser === true &&
+            config.onDemandCap?.val === 0 &&
+            config.onDemandUsed?.val === 0 &&
+            config.prepaidBalance?.val === 0;
         ctx.report_failed_account(
             "grok",
             ACCOUNT_ID,
             ACCOUNT_LABEL,
-            "billing response has no usable usage fields",
+            has_no_available_usage
+                ? "billing account has no available quota or usage data"
+                : "billing response has no usable usage fields",
         );
     }
 

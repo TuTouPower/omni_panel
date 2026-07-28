@@ -51,9 +51,10 @@ interface AuthDescriptor {
 
 ## oauth_device device-code 流程（grok / kimi）
 
-- device-code 登录在 temp instance id 下完成（`AddAccountDialog.oauth_instance_id_ref`），登录成功后 `on_save` 才创建 real connector instance。
+- device-code 登录在 temp instance id 下完成（`AddAccountDialog.oauth_instance_id_ref`）；`OAuthDeviceForm.on_save` 必须透传该 id 为 `oauth_source_instance_id`，再创建 real connector instance。
 - `OAuthDeviceForm` 按 `vendor` prop 选用 `useGrokDeviceLogin` / `useKimiDeviceLogin`，分别走 `window.usageboard.grok` / `window.usageboard.kimi` IPC。
-- `OAuthLoginResult` 携带 `refresh_token` / `expires_at`；`OAuthDeviceForm.on_save` 把 `OAUTH_TOKEN` + `OAUTH_REFRESH_TOKEN` + `OAUTH_EXPIRES_AT` 写到 real connector instance 的 vault，使该 instance 的 auto-refresh / `refresh_now` / `login_status` / `logout` 可用。
+- `oauth_device` 实例的 secret 白名单由 manifest `auth.secret_name` 补充主 token，并补 `OAUTH_REFRESH_TOKEN` / `OAUTH_EXPIRES_AT`；非 OAuth 连接器仍只接受声明为 `type: "secret"` 的参数。
+- `GrokLoginResult` / `KimiLoginResult` 携带 `refresh_token` / `expires_at`；正式实例必须先持久化 `OAUTH_TOKEN` + `OAUTH_REFRESH_TOKEN` + `OAUTH_EXPIRES_AT`，再清理 temp namespace。清理失败向调用方报错，禁止报告添加成功；正式实例凭证不回滚。
 - `*_oauth_manager` 在 main 进程持有 auto-refresh 调度（`reconcile_auto_refresh` 在启动段 + `onConfigSaved` 接线，`shutdown` 清理）。
 
 ## 渲染层消费

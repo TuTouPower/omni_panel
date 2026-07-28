@@ -48,6 +48,23 @@ const billing_response = {
     },
 };
 
+const billing_response_without_usage = {
+    config: {
+        currentPeriod: {
+            type: "USAGE_PERIOD_TYPE_WEEKLY",
+            start: "2026-07-27T00:00:00.000000+00:00",
+            end: "2026-08-03T00:00:00.000000+00:00",
+        },
+        onDemandCap: { val: 0 },
+        onDemandUsed: { val: 0 },
+        isUnifiedBillingUser: true,
+        prepaidBalance: { val: 0 },
+        topUpMethod: "TOP_UP_METHOD_SAVED_PAYMENT_METHOD",
+        billingPeriodStart: "2026-07-27T00:00:00.000000+00:00",
+        billingPeriodEnd: "2026-08-03T00:00:00.000000+00:00",
+    },
+};
+
 function create_ctx(): ConnectorContext {
     return {
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -233,6 +250,25 @@ describe("grok connector", () => {
         expect(result.observations).toHaveLength(0);
         expect(result.failed_accounts).toHaveLength(1);
         expect(result.failed_accounts[0]?.provider).toBe("grok");
+    });
+
+    it("reports a precise error for the verified no-usage billing response", async () => {
+        const ctx: ConnectorContext = {
+            ...create_ctx(),
+            http: {
+                get_json: () => Promise.resolve(billing_response_without_usage),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+        };
+        const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toHaveLength(0);
+        expect(result.failed_accounts).toHaveLength(1);
+        expect(result.failed_accounts[0]?.error).toBe(
+            "billing account has no available quota or usage data",
+        );
     });
 
     it("reports failed_account when billing 200 returns config with no usable usage fields", async () => {

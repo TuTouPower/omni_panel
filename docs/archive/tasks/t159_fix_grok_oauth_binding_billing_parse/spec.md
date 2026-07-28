@@ -4,7 +4,7 @@
 
 2026-07-28 10:32（UTC+8）日志确认 Grok 删除账号后重新添加存在两段故障：
 
-1. 首次 device-code 登录成功时 token 写入临时实例 `grok-1785205934131-61sec0rq`，随后 `config:createInstance` 才创建正式实例 `cc9934d9-5ebf-42f6-ad95-f6c4c25279f7`。首次采集从正式实例读取 `OAUTH_TOKEN`，上游返回 `401 ... reason=no auth context`。
+1. 首次 device-code 登录成功时 token 写入临时实例，随后 `config:createInstance` 才创建正式实例。首次采集从正式实例读取 `OAUTH_TOKEN`，上游返回 `401 ... reason=no auth context`。
 2. 对正式实例再次登录后，`auto_refresh` 已排程，连续六次 billing 请求均返回 HTTP 200（body 413 bytes），但 Grok connector 报 `billing response has no usable usage fields`，账号仍显示采集失败。
 
 已确认实现偏差：

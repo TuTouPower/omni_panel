@@ -16,6 +16,7 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { open_connectors_dir } from "./core/open-connectors-dir";
 import { createConfigStore } from "./core/config/config-store";
+import { build_secret_param_keys } from "./core/config/secret_param_keys";
 import { auto_seed_connectors } from "./core/config/auto-seed";
 import {
     getConfigPath,
@@ -218,23 +219,7 @@ void app.whenReady().then(async () => {
         let detected_system_proxy = await detect_system_proxy();
         let currentConfigSnapshot = currentConfig;
 
-        function buildSecretParamKeys(cfg: typeof currentConfig): Map<string, ReadonlySet<string>> {
-            const map = new Map<string, ReadonlySet<string>>();
-            for (const plugin of cfg.plugins) {
-                const def = allDefinitions.find((d) => d.executablePath === plugin.executablePath);
-                map.set(
-                    plugin.instanceId,
-                    new Set(
-                        def?.manifest.parameters
-                            .filter((param) => param.type === "secret")
-                            .map((param) => param.name) ?? [],
-                    ),
-                );
-            }
-            return map;
-        }
-
-        const secretParamKeys = buildSecretParamKeys(currentConfig);
+        const secretParamKeys = build_secret_param_keys(currentConfig, allDefinitions);
 
         nativeTheme.themeSource = currentConfig.theme ?? "system";
 
@@ -334,7 +319,7 @@ void app.whenReady().then(async () => {
             currentConfigSnapshot = updatedConfig;
             setLogLevel(updatedConfig.logLevel ?? defaultLogLevelForEnv());
             log.info("Config saved — reconciling scheduler and secret keys");
-            const newKeys = buildSecretParamKeys(updatedConfig);
+            const newKeys = build_secret_param_keys(updatedConfig, allDefinitions);
             secretParamKeys.clear();
             for (const [k, v] of newKeys) {
                 secretParamKeys.set(k, v);

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/types/ipc";
+import { create_grok_oauth_apis, create_kimi_oauth_apis } from "./oauth_api";
 import { create_renderer_log_throttle } from "./log-throttle";
 import { select_grok_api, select_kimi_api, select_trend_api } from "./route_api";
 import type {
@@ -9,17 +10,6 @@ import type {
     RendererPlatform,
     SessionLoginRequest,
     SessionLoginResult,
-    GrokDeviceCodeStart,
-    GrokLoginStatus,
-    GrokRefreshResult,
-    GrokReadonlyApi,
-    GrokSettingsApi,
-    KimiDeviceCodeStart,
-    KimiLoginStatus,
-    KimiLoginResult,
-    KimiRefreshResult,
-    KimiReadonlyApi,
-    KimiSettingsApi,
     TrendPoint,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
@@ -311,65 +301,12 @@ const session_disabled_methods: UsageboardApi["session"] = {
     refresh: () => Promise.reject(new Error("Session refresh is only available from settings")),
 };
 
-const grok_readonly_methods: GrokReadonlyApi = {
-    login_status: (instance_id: string) =>
-        invoke<GrokLoginStatus>(IPC_CHANNELS.GROK_LOGIN_STATUS, instance_id),
-};
-
-const grok_methods: GrokSettingsApi = {
-    login_start: () => invoke<GrokDeviceCodeStart>(IPC_CHANNELS.GROK_LOGIN_START),
-    login_poll: (
-        instance_id: string,
-        device_code: string,
-        interval: number,
-        expires_at_epoch_ms: number,
-    ) =>
-        invoke<{ saved: boolean; token?: string }>(
-            IPC_CHANNELS.GROK_LOGIN_POLL,
-            instance_id,
-            device_code,
-            interval,
-            expires_at_epoch_ms,
-        ),
-    login_cancel: (instance_id: string) =>
-        invoke<undefined>(IPC_CHANNELS.GROK_LOGIN_CANCEL, instance_id),
-    login_status: (instance_id: string) =>
-        invoke<GrokLoginStatus>(IPC_CHANNELS.GROK_LOGIN_STATUS, instance_id),
-    logout: (instance_id: string) =>
-        invoke<{ logged_out: boolean }>(IPC_CHANNELS.GROK_LOGOUT, instance_id),
-    refresh: (instance_id: string) =>
-        invoke<GrokRefreshResult>(IPC_CHANNELS.GROK_REFRESH, instance_id),
-};
-
-const kimi_readonly_methods: KimiReadonlyApi = {
-    login_status: (instance_id: string) =>
-        invoke<KimiLoginStatus>(IPC_CHANNELS.KIMI_LOGIN_STATUS, instance_id),
-};
-
-const kimi_methods: KimiSettingsApi = {
-    login_start: () => invoke<KimiDeviceCodeStart>(IPC_CHANNELS.KIMI_LOGIN_START),
-    login_poll: (
-        instance_id: string,
-        device_code: string,
-        interval: number,
-        expires_at_epoch_ms: number,
-    ) =>
-        invoke<KimiLoginResult>(
-            IPC_CHANNELS.KIMI_LOGIN_POLL,
-            instance_id,
-            device_code,
-            interval,
-            expires_at_epoch_ms,
-        ),
-    login_cancel: (instance_id: string) =>
-        invoke<undefined>(IPC_CHANNELS.KIMI_LOGIN_CANCEL, instance_id),
-    login_status: (instance_id: string) =>
-        invoke<KimiLoginStatus>(IPC_CHANNELS.KIMI_LOGIN_STATUS, instance_id),
-    logout: (instance_id: string) =>
-        invoke<{ logged_out: boolean }>(IPC_CHANNELS.KIMI_LOGOUT, instance_id),
-    refresh: (instance_id: string) =>
-        invoke<KimiRefreshResult>(IPC_CHANNELS.KIMI_REFRESH, instance_id),
-};
+const { readonly_api: grok_readonly_methods, settings_api: grok_methods } = create_grok_oauth_apis({
+    invoke,
+});
+const { readonly_api: kimi_readonly_methods, settings_api: kimi_methods } = create_kimi_oauth_apis({
+    invoke,
+});
 
 const renderer_log_throttle = create_renderer_log_throttle({ limit: 100, window_ms: 1000 });
 
