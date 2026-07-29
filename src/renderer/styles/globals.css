@@ -3573,6 +3573,23 @@ html[data-window="tray"] #root {
 }
 .card-head .card-name {
     white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Narrow cards (e.g. high-DPI portrait monitors where the window lands in the
+   tightest 4-column band): the expanded header (l2seg + rel-time + tools) can
+   exceed the card width and push the toggle outside the card. Let the card be
+   a query container and drop the relative time first; card-name above is the
+   last-resort shrink via ellipsis. */
+.overview-grid .card {
+    container-type: inline-size;
+}
+@container (max-width: 360px) {
+    .overview-grid .card .card-head .rel-time {
+        display: none;
+    }
 }
 
 .acct-detail {
