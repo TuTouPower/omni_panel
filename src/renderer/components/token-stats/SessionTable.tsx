@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { fmtTime, fmtTok } from "../../lib/token-stats/format";
 import { paletteFor } from "../../lib/token-stats/palette";
-import { modelColorMap } from "../../lib/token-stats/chart-data";
+import { modelColorMap, build_resolver } from "../../lib/token-stats/chart-data";
 import { sessionRows } from "../../lib/token-stats/aggregate";
 import type { AgentSessionUsage, Metric, SessionRow } from "../../lib/token-stats/types";
 
@@ -9,6 +9,8 @@ interface SessionTableProps {
     records: AgentSessionUsage[];
     metric: Metric;
     theme: "dark" | "light";
+    /** Models grouped under one label; tags display the alias and merge. */
+    modelAliases?: readonly { alias: string; models: readonly string[] }[] | undefined;
 }
 
 const PAGE_SIZES = [10, 20, 50] as const;
@@ -25,7 +27,7 @@ type SortKey =
     | "lastTs";
 type SortDir = 1 | -1;
 
-export function SessionTable({ records, metric, theme }: SessionTableProps) {
+export function SessionTable({ records, metric, theme, modelAliases }: SessionTableProps) {
     const [sortKey, setSortKey] = useState<SortKey>("tokens");
     const [sortDir, setSortDir] = useState<SortDir>(-1);
     const [page, setPage] = useState(1);
@@ -42,6 +44,23 @@ export function SessionTable({ records, metric, theme }: SessionTableProps) {
     );
     const otherColor = paletteFor(theme).other;
     const colorForModel = (m: string) => topModelColors.get(m) ?? otherColor;
+
+    const resolve_model = useMemo(
+        () => build_resolver((modelAliases ?? []).map((a) => ({ alias: a.alias, keys: a.models }))),
+        [modelAliases],
+    );
+    /** Alias-resolved, deduped model tags; color follows the first raw model. */
+    const display_models = (models: string[]) => {
+        const out: { label: string; color: string }[] = [];
+        const seen = new Set<string>();
+        for (const m of models) {
+            const label = resolve_model(m);
+            if (seen.has(label)) continue;
+            seen.add(label);
+            out.push({ label, color: colorForModel(m) });
+        }
+        return out;
+    };
 
     const pages = Math.max(1, Math.ceil(rows.length / pageSize));
     const safePage = Math.min(page, pages);
@@ -164,22 +183,19 @@ export function SessionTable({ records, metric, theme }: SessionTableProps) {
                                     </td>
                                     <td className="t-dim t-mono">{r.directory}</td>
                                     <td>
-                                        {r.models.map((m) => {
-                                            const c = colorForModel(m);
-                                            return (
-                                                <span
-                                                    key={m}
-                                                    className="modeltag"
-                                                    style={{
-                                                        color: c,
-                                                        background: `${c}18`,
-                                                        border: `1px solid ${c}30`,
-                                                    }}
-                                                >
-                                                    {m}
-                                                </span>
-                                            );
-                                        })}
+                                        {display_models(r.models).map(({ label, color: c }) => (
+                                            <span
+                                                key={label}
+                                                className="modeltag"
+                                                style={{
+                                                    color: c,
+                                                    background: `${c}18`,
+                                                    border: `1px solid ${c}30`,
+                                                }}
+                                            >
+                                                {label}
+                                            </span>
+                                        ))}
                                     </td>
                                     <td className="t-mono t-dim">{r.calls}</td>
                                     <td>

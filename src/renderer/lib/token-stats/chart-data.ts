@@ -19,7 +19,7 @@ export const sumTokensValue: RecordValue = (r) => sumTokens(r);
 export const oneValue: RecordValue = () => 1;
 
 /** Build a key→alias resolver so multiple keys collapse into one label. */
-function build_resolver(
+export function build_resolver(
     aliases: readonly { alias: string; keys: readonly string[] }[],
 ): (key: string) => string {
     const map: Record<string, string> = {};

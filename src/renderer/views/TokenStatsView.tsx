@@ -485,7 +485,12 @@ export function TokenStatsView() {
                     </div>
 
                     <div className="grid">
-                        <SessionTable records={currentRecords} metric={metric} theme={theme} />
+                        <SessionTable
+                            records={currentRecords}
+                            metric={metric}
+                            theme={theme}
+                            modelAliases={modelAliases}
+                        />
                     </div>
                 </>
             )}
