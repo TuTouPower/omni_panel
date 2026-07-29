@@ -25,7 +25,7 @@
 | connector-auth                       | API           | t107, t112, t159                                                    | 2026-07-28   |
 | connector-cpa-runtime                | API           | 拆自 connector-cpa（t037）                                          | 2026-07-21   |
 | connector-cpa-ui                     | Web           | 拆自 connector-cpa（t037）                                          | 2026-07-21   |
-| connector-direct                     | API           | 迁移自 omni_powers，t039, t159                                      | 2026-07-28   |
+| connector-direct                     | API           | 迁移自 omni_powers，t039, t159, t160                                | 2026-07-29   |
 | connector-runtime                    | API           | 迁移自 omni_powers，无                                              | 2026-07-05   |
 | connector-session                    | Desktop       | 迁移自 omni_powers，t098                                            | 2026-07-24   |
 | connector-user-scripts-entry         | Desktop       | t094                                                                | 2026-07-24   |
@@ -48,7 +48,8 @@
 | device_login_full_url                | Desktop       | t156                                                                | 2026-07-27   |
 | move_session_meta_to_lib             | Web           | t124                                                                | 2026-07-26   |
 | extract_oauth_helpers                | API           | t127                                                                | 2026-07-26   |
-| fix_grok_oauth_binding_billing_parse | API + Desktop | t159                                                                | 2026-07-28   |
+| fix_grok_oauth_binding_billing_parse | API + Desktop | t159                                                                | 2026-07-29   |
+| fix_grok_zero_percent_omission       | API + Desktop | t160                                                                | 2026-07-29   |
 | relogin-instance-routing             | Web           | t158                                                                | 2026-07-27   |
 | kimi_oauth_concurrency               | API           | t150                                                                | 2026-07-26   |
 | unify_account_auth_forms             | Web           | t157                                                                | 2026-07-27   |

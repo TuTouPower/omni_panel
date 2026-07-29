@@ -44,24 +44,26 @@ const billing_response = {
         prepaidBalance: { val: 0 },
         topUpMethod: "TOP_UP_METHOD_SAVED_PAYMENT_METHOD",
         billingPeriodStart: "2026-07-13T23:10:25.819831+00:00",
-        billingPeriodEnd: "2026-07-20T23:10:25.819831+00:00",
+        billingPeriodEnd: "2026-07-21T23:10:25.819831+00:00",
     },
 };
 
-const billing_response_without_usage = {
+const billing_response_zero_usage = {
     config: {
         currentPeriod: {
             type: "USAGE_PERIOD_TYPE_WEEKLY",
-            start: "2026-07-27T00:00:00.000000+00:00",
-            end: "2026-08-03T00:00:00.000000+00:00",
+            start: "2026-01-04T00:00:00.000000+00:00",
+            end: "2026-01-11T00:00:00.000000+00:00",
         },
+        monthlyLimit: { val: 15_000 },
+        used: { val: 13_434 },
         onDemandCap: { val: 0 },
         onDemandUsed: { val: 0 },
         isUnifiedBillingUser: true,
         prepaidBalance: { val: 0 },
         topUpMethod: "TOP_UP_METHOD_SAVED_PAYMENT_METHOD",
-        billingPeriodStart: "2026-07-27T00:00:00.000000+00:00",
-        billingPeriodEnd: "2026-08-03T00:00:00.000000+00:00",
+        billingPeriodStart: "2026-01-05T00:00:00.000000+00:00",
+        billingPeriodEnd: "2026-01-12T00:00:00.000000+00:00",
     },
 };
 
@@ -146,6 +148,10 @@ describe("grok connector", () => {
             }),
         );
 
+        expect(result.observations[1]?.reset_at).toBe(
+            Date.parse("2026-07-21T23:10:25.819831+00:00"),
+        );
+
         // GrokBuild
         expect(result.observations[2]).toEqual(
             expect.objectContaining({
@@ -154,6 +160,9 @@ describe("grok connector", () => {
                 used: 7,
                 limit: 100,
             }),
+        );
+        expect(result.observations[2]?.reset_at).toBe(
+            Date.parse("2026-07-21T23:10:25.819831+00:00"),
         );
     });
 
@@ -252,11 +261,297 @@ describe("grok connector", () => {
         expect(result.failed_accounts[0]?.provider).toBe("grok");
     });
 
-    it("reports a precise error for the verified no-usage billing response", async () => {
+    it("interprets an omitted weekly creditUsagePercent as zero usage", async () => {
         const ctx: ConnectorContext = {
             ...create_ctx(),
             http: {
-                get_json: () => Promise.resolve(billing_response_without_usage),
+                get_json: () => Promise.resolve(billing_response_zero_usage),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+        };
+        const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.failed_accounts).toHaveLength(0);
+        expect(result.observations).toHaveLength(1);
+        expect(result.observations[0]).toEqual(
+            expect.objectContaining({
+                metric_id: "grok:credits",
+                window: "week",
+                used: 0,
+                limit: 100,
+                status: "normal",
+                reset_at: Date.parse("2026-01-11T00:00:00.000000+00:00"),
+            }),
+        );
+    });
+
+    it.each([
+        ["missing type", { start: "2026-01-04T00:00:00Z", end: "2026-01-11T00:00:00Z" }],
+        ["missing start", { type: "USAGE_PERIOD_TYPE_WEEKLY", end: "2026-01-11T00:00:00Z" }],
+        ["missing end", { type: "USAGE_PERIOD_TYPE_WEEKLY", start: "2026-01-04T00:00:00Z" }],
+        ["non-string dates", { type: "USAGE_PERIOD_TYPE_WEEKLY", start: 1, end: 2 }],
+        [
+            "invalid dates",
+            { type: "USAGE_PERIOD_TYPE_WEEKLY", start: "invalid", end: "also-invalid" },
+        ],
+        [
+            "invalid calendar date",
+            {
+                type: "USAGE_PERIOD_TYPE_WEEKLY",
+                start: "2026-02-23T00:00:00Z",
+                end: "2026-02-30T00:00:00Z",
+            },
+        ],
+        [
+            "non-increasing dates",
+            {
+                type: "USAGE_PERIOD_TYPE_WEEKLY",
+                start: "2026-01-11T00:00:00Z",
+                end: "2026-01-04T00:00:00Z",
+            },
+        ],
+        [
+            "unknown type",
+            {
+                type: "USAGE_PERIOD_TYPE_UNKNOWN",
+                start: "2026-01-04T00:00:00Z",
+                end: "2026-01-11T00:00:00Z",
+            },
+        ],
+    ])("rejects omitted usage with an invalid currentPeriod: %s", async (_name, currentPeriod) => {
+        const ctx: ConnectorContext = {
+            ...create_ctx(),
+            http: {
+                get_json: () => Promise.resolve({ config: { currentPeriod } }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+        };
+        const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.observations).toHaveLength(0);
+        expect(result.failed_accounts).toHaveLength(1);
+    });
+
+    it("accepts lowercase RFC3339 separators for an omitted percentage", async () => {
+        const reset_at = "2026-01-11t00:00:00z";
+        const ctx: ConnectorContext = {
+            ...create_ctx(),
+            http: {
+                get_json: () =>
+                    Promise.resolve({
+                        config: {
+                            currentPeriod: {
+                                type: "USAGE_PERIOD_TYPE_WEEKLY",
+                                start: "2026-01-04t00:00:00z",
+                                end: reset_at,
+                            },
+                        },
+                    }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+        };
+        const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.failed_accounts).toHaveLength(0);
+        expect(result.observations).toEqual([
+            expect.objectContaining({
+                metric_id: "grok:credits",
+                window: "week",
+                used: 0,
+                reset_at: Date.parse(reset_at),
+            }),
+        ]);
+    });
+
+    it.each([
+        ["missing", undefined],
+        [
+            "invalid",
+            {
+                type: "USAGE_PERIOD_TYPE_UNKNOWN",
+                start: "2026-01-04T00:00:00Z",
+                end: "2026-01-11T00:00:00Z",
+            },
+        ],
+    ])("preserves an explicit percentage with a %s currentPeriod", async (_name, currentPeriod) => {
+        const legacy_reset = "2026-01-12T00:00:00Z";
+        const ctx: ConnectorContext = {
+            ...create_ctx(),
+            http: {
+                get_json: () =>
+                    Promise.resolve({
+                        config: {
+                            currentPeriod,
+                            creditUsagePercent: 19,
+                            billingPeriodEnd: legacy_reset,
+                        },
+                    }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+        };
+        const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.failed_accounts).toHaveLength(0);
+        expect(result.observations).toEqual([
+            expect.objectContaining({
+                metric_id: "grok:credits",
+                window: "week",
+                used: 19,
+                reset_at: Date.parse(legacy_reset),
+            }),
+        ]);
+    });
+
+    it.each([null, "0", Number.NaN, Number.POSITIVE_INFINITY])(
+        "rejects an explicitly invalid creditUsagePercent: %s",
+        async (creditUsagePercent) => {
+            const ctx: ConnectorContext = {
+                ...create_ctx(),
+                http: {
+                    get_json: () =>
+                        Promise.resolve({
+                            config: {
+                                ...billing_response_zero_usage.config,
+                                creditUsagePercent,
+                            },
+                        }),
+                    post_json: () => Promise.resolve({}),
+                    get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+                },
+            };
+            const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+            const result = await run_connector(manifest, script, ctx);
+
+            expect(result.observations).toHaveLength(0);
+            expect(result.failed_accounts).toHaveLength(1);
+        },
+    );
+
+    it("maps a valid monthly currentPeriod to a monthly observation", async () => {
+        const ctx: ConnectorContext = {
+            ...create_ctx(),
+            http: {
+                get_json: () =>
+                    Promise.resolve({
+                        config: {
+                            currentPeriod: {
+                                type: "USAGE_PERIOD_TYPE_MONTHLY",
+                                start: "2026-01-01T00:00:00Z",
+                                end: "2026-02-01T00:00:00Z",
+                            },
+                            creditUsagePercent: 25,
+                        },
+                    }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+        };
+        const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.failed_accounts).toHaveLength(0);
+        expect(result.observations).toEqual([
+            expect.objectContaining({
+                metric_id: "grok:credits",
+                window: "month",
+                cycleDurationMs: 30 * 24 * 3_600_000,
+                used: 25,
+                reset_at: Date.parse("2026-02-01T00:00:00Z"),
+            }),
+        ]);
+    });
+
+    it("maps an omitted monthly percentage to zero usage", async () => {
+        const reset_at = "2026-02-01T00:00:00Z";
+        const ctx: ConnectorContext = {
+            ...create_ctx(),
+            http: {
+                get_json: () =>
+                    Promise.resolve({
+                        config: {
+                            currentPeriod: {
+                                type: "USAGE_PERIOD_TYPE_MONTHLY",
+                                start: "2026-01-01T00:00:00Z",
+                                end: reset_at,
+                            },
+                        },
+                    }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+        };
+        const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.failed_accounts).toHaveLength(0);
+        expect(result.observations).toEqual([
+            expect.objectContaining({
+                metric_id: "grok:credits",
+                window: "month",
+                cycleDurationMs: 30 * 24 * 3_600_000,
+                used: 0,
+                limit: 100,
+                reset_at: Date.parse(reset_at),
+            }),
+        ]);
+    });
+
+    it("treats explicit and omitted zero percentages identically", async () => {
+        const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+        const omitted_result = await run_connector(manifest, script, {
+            ...create_ctx(),
+            http: {
+                get_json: () => Promise.resolve(billing_response_zero_usage),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+        });
+        const explicit_result = await run_connector(manifest, script, {
+            ...create_ctx(),
+            http: {
+                get_json: () =>
+                    Promise.resolve({
+                        config: {
+                            ...billing_response_zero_usage.config,
+                            creditUsagePercent: 0,
+                        },
+                    }),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+        });
+
+        expect(omitted_result.failed_accounts).toHaveLength(0);
+        expect(explicit_result.failed_accounts).toHaveLength(0);
+        expect(omitted_result.observations).toHaveLength(1);
+        expect(explicit_result.observations).toHaveLength(1);
+        expect(omitted_result.observations[0]).toEqual({
+            ...explicit_result.observations[0],
+            observed_at: omitted_result.observations[0]?.observed_at,
+        });
+    });
+
+    it("does not map deprecated monthly cent fields to weekly usage", async () => {
+        const ctx: ConnectorContext = {
+            ...create_ctx(),
+            http: {
+                get_json: () =>
+                    Promise.resolve({
+                        config: {
+                            monthlyLimit: { val: 15_000 },
+                            used: { val: 13_434 },
+                            billingPeriodStart: "2026-07-01T00:00:00.000000+00:00",
+                            billingPeriodEnd: "2026-08-01T00:00:00.000000+00:00",
+                        },
+                    }),
                 post_json: () => Promise.resolve({}),
                 get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
             },
@@ -267,7 +562,7 @@ describe("grok connector", () => {
         expect(result.observations).toHaveLength(0);
         expect(result.failed_accounts).toHaveLength(1);
         expect(result.failed_accounts[0]?.error).toBe(
-            "billing account has no available quota or usage data",
+            "billing response has no usable usage fields",
         );
     });
 

@@ -6,7 +6,7 @@ Grok 新增账号的 device-code OAuth 凭证先位于临时 instance namespace�
 
 OAuth secret 白名单从 manifest `auth` 描述符推导主 token，并允许 refresh token 与 expiry；非 OAuth 行为保持 fail-closed。
 
-Grok billing 对已确认的 unified billing 零额度形状保留 failed/stale，错误为 `billing account has no available quota or usage data`，不生成虚假的 0% observation。
+Grok credits 响应遵循 proto3 JSON：`creditUsagePercent=0` 可被省略。字段省略且 `currentPeriod` 完整有效时按 0% 解析；真正缺少有效周期与有限百分比的响应继续 failed/stale。deprecated `monthlyLimit.val` / `used.val` 是 USD cents，不得映射 SuperGrok weekly usage。详细语义由 [`fix_grok_zero_percent_omission.md`](fix_grok_zero_percent_omission.md) 固化。
 
 详细契约：
 
