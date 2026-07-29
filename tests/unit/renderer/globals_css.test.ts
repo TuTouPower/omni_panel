@@ -65,34 +65,23 @@ describe("globals usage bar css", () => {
         expect(css).toMatch(/\.popup-mirror\s+\.scroll-inner\s*\{[\s\S]*?container-type:\s*normal/);
     });
 
-    it("introduces .overview-grid for responsive provider card layout", () => {
+    it("uses a single auto-fill rule with a 420px card floor so headers always fit", () => {
+        // t161: information must never be lost — the grid drops columns instead
+        // of squeezing cards below the width the widest card-head needs.
         const grid_css = /\.overview-grid\s*\{[\s\S]*?\}/.exec(css)?.[0] ?? "";
         expect(grid_css).toContain("display: grid");
-        expect(grid_css).toContain("grid-template-columns: 1fr");
+        expect(grid_css).toMatch(/repeat\(\s*auto-fill\s*,\s*minmax\(\s*420px\s*,\s*1fr\s*\)\s*\)/);
         expect(grid_css).toContain("align-items: stretch");
     });
 
-    it("defines @container breakpoints at 1024px (wide) and 640–1023px (mid)", () => {
-        expect(css).toMatch(/@container\s*\(\s*min-width:\s*1024px\s*\)/);
-        expect(css).toMatch(
-            /@container\s*\(\s*max-width:\s*1023px\s*\)\s*and\s*\(\s*min-width:\s*640px\s*\)/,
-        );
+    it("has no width-tiered breakpoints or forced two-column rule on .overview-grid", () => {
+        expect(css).not.toMatch(/@container[^{]*\{\s*\.overview-grid/);
+        expect(css).not.toMatch(/\.overview-grid\s*\{[^}]*repeat\(\s*2\s*,/);
     });
 
-    it("uses minmax(320px,1fr) auto-fill in the wide breakpoint", () => {
-        const wide_block =
-            /@container\s*\(\s*min-width:\s*1024px\s*\)\s*\{[\s\S]*?\}/.exec(css)?.[0] ?? "";
-        expect(wide_block).toMatch(
-            /repeat\(\s*auto-fill\s*,\s*minmax\(\s*320px\s*,\s*1fr\s*\)\s*\)/,
-        );
-    });
-
-    it("forces two columns in the mid breakpoint to satisfy spec acceptance", () => {
-        const mid_block =
-            /@container\s*\(\s*max-width:\s*1023px\s*\)\s*and\s*\(\s*min-width:\s*640px\s*\)\s*\{[\s\S]*?\}/.exec(
-                css,
-            )?.[0] ?? "";
-        expect(mid_block).toMatch(/repeat\(\s*2\s*,\s*minmax\(0,\s*1fr\)\s*\)/);
+    it("never hides card-head information (rel-time stays visible at any width)", () => {
+        // Regression guard for f2c1c705, which hid .rel-time under 360px cards.
+        expect(css).not.toMatch(/\.rel-time[^{}]*\{[^}]*display:\s*none/);
     });
 
     it("does not style stale cards with an amber border", () => {

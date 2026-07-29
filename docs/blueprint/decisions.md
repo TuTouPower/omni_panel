@@ -97,3 +97,11 @@
 - 结论：选 C。墓碑的目的是"删除后不自动复活"，不应波及"用户主动添加"。新增 `connector:catalog` IPC 从 manifest 出目录（不读 config/墓碑），`AddAccountDialog` 优先按 catalog 解析 auth；`config:createInstance` 按 manifest_id 建实例时清对应墓碑 id。A/B 破坏 t038 的删除语义。
 - 替代：无
 - 遗留：无。
+
+## 010 overview-grid 减列保信息，替代 320px 下限与强制两列（2026-07-29）
+
+- 背景：t161 修「竖屏 4 列下展开的多账号卡片箭头溢出」时，最初把下限从 320px 提到 420px；后因 f2c1c705 的 `display: none` 隐藏 `.rel-time` 在 3~4 列布局中误伤大量卡片，被用户否决。用户明确要求"信息不丢，放不下就减少列数"。
+- 选项：A) 保留 320px 下限 + 640–1023 强制两列 + 在窄卡处隐藏部分头部信息；B) 用单一 `auto-fill` 规则并提高下限，让容器不足时自动减列，头部信息完整保留。
+- 结论：选 B。`.overview-grid` 改为 `repeat(auto-fill, minmax(420px, 1fr))`，删除 `@container (min-width: 1024px)` 与 `@container (max-width: 1023px) and (min-width: 640px)` 断点及 640–1023 强制两列；删除 `.rel-time { display: none }` 隐藏规则。`420px` 覆盖最宽头部形态（长名称 + l2seg + rel-time + tools）+ padding；更极端情况由 `.card-name` 省略号兜底。
+- 替代：002（仍保留容器查询机制本身，但断点数值与断点数量被本条取代；003 的 maxWidth=1400 不变）。
+- 落地：t161。

@@ -1279,6 +1279,14 @@
             "status": "done",
             "branch": "t160_fix_grok_zero_percent_omission",
             "note": "blocked: review; blocked: review"
+        },
+        {
+            "tid": "t161",
+            "title": "用量面板网格减列保信息：卡片最小宽度保证头部完整，禁止隐藏内容",
+            "slug": "overview_grid_keep_info",
+            "status": "done",
+            "branch": "t161_overview_grid_keep_info",
+            "note": ""
         }
     ]
 }

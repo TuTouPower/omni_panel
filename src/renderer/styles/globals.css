@@ -350,19 +350,13 @@ html[data-window="tray"] #root {
 }
 .overview-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    /* 420px floor keeps every card-head shape (expanded multi-account l2seg +
+       rel-time + tools) inside the card. When the container cannot fit another
+       ≥420px column the grid drops a column instead of squeezing cards until
+       content has to be clipped or hidden. */
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
     gap: 12px;
     align-items: stretch;
-}
-@container (min-width: 1024px) {
-    .overview-grid {
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    }
-}
-@container (max-width: 1023px) and (min-width: 640px) {
-    .overview-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
 }
 
 /* Shared upcoming reset card row + list styles */
@@ -3578,19 +3572,9 @@ html[data-window="tray"] #root {
     text-overflow: ellipsis;
 }
 
-/* Narrow cards (e.g. high-DPI portrait monitors where the window lands in the
-   tightest 4-column band): the expanded header (l2seg + rel-time + tools) can
-   exceed the card width and push the toggle outside the card. Let the card be
-   a query container and drop the relative time first; card-name above is the
-   last-resort shrink via ellipsis. */
-.overview-grid .card {
-    container-type: inline-size;
-}
-@container (max-width: 360px) {
-    .overview-grid .card .card-head .rel-time {
-        display: none;
-    }
-}
+/* .card-name above shrinks with ellipsis as the last resort, but information
+   must never be hidden: the .overview-grid 420px column floor guarantees the
+   widest card-head shape fits, so no display:none rules exist here (t161). */
 
 .acct-detail {
     margin-top: 14px;
