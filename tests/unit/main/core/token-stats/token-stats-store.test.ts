@@ -445,6 +445,114 @@ describe("token-stats-store", () => {
         });
     });
 
+    describe("migration v4 (records env+timestamp index)", () => {
+        it("creates idx_records_env_ts and bumps user_version to 4 on legacy DB", () => {
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-store-mig4-"));
+            try {
+                const db_path = path.join(dir, "obs.sqlite");
+                const legacy = create_token_stats_store(db_path);
+                legacy.upsert_records([record({ env: "win", timestamp: T0 })]);
+                legacy.close();
+                // Simulate a v3 DB (index not yet present)
+                const raw = new Database(db_path);
+                raw.pragma("user_version = 3");
+                raw.close();
+
+                const migrated = create_token_stats_store(db_path);
+                migrated.close();
+
+                const check = new Database(db_path);
+                check.pragma("wal_checkpoint(TRUNCATE)");
+                expect(check.pragma("user_version", { simple: true })).toBe(4);
+                const idx = check
+                    .prepare(
+                        "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_records_env_ts'",
+                    )
+                    .get() as { name: string } | undefined;
+                expect(idx?.name).toBe("idx_records_env_ts");
+                check.close();
+            } finally {
+                // Windows may hold WAL handles briefly after close; retry, but
+                // downgrade a lingering cleanup failure to a warning so the
+                // assertion result is not masked by an EBUSY on temp teardown.
+                let cleanup_err: Error | undefined;
+                for (let i = 0; i < 20; i++) {
+                    try {
+                        fs.rmSync(dir, { recursive: true, force: true });
+                        cleanup_err = undefined;
+                        break;
+                    } catch (err) {
+                        cleanup_err = err as Error;
+                        if (i < 19) {
+                            const until = Date.now() + 100;
+                            while (Date.now() < until) {
+                                /* spin */
+                            }
+                        }
+                    }
+                }
+                if (cleanup_err) {
+                    console.warn(`[t163] temp cleanup retry exhausted: ${cleanup_err.message}`);
+                }
+            }
+        });
+
+        it("query_records env+timestamp window uses idx_records_env_ts (not full scan)", () => {
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-plan-"));
+            let check: Database.Database | null = null;
+            try {
+                const db_path = path.join(dir, "obs.sqlite");
+                const store = create_token_stats_store(db_path);
+                const recs: AgentSessionUsageRecord[] = [];
+                for (let i = 0; i < 200; i++) {
+                    recs.push(
+                        record({
+                            message_id: `m${String(i)}`,
+                            env: i % 2 === 0 ? "win" : "wsl",
+                            timestamp: T0 + i * 1000,
+                        }),
+                    );
+                }
+                store.upsert_records(recs);
+                store.close();
+
+                check = new Database(db_path);
+                const plan = check
+                    .prepare(
+                        "EXPLAIN QUERY PLAN SELECT message_id FROM token_stats_records WHERE env = 'win' AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC",
+                    )
+                    .all(T0, T0 + 200000) as { detail: string }[];
+                const plan_text = plan.map((p) => p.detail).join("\n");
+                expect(plan_text).toContain("idx_records_env_ts");
+                expect(plan_text).not.toContain("SCAN");
+            } finally {
+                check?.close();
+                // Windows WAL handles release asynchronously; retry, but downgrade
+                // a lingering cleanup failure to a warning so the assertion result
+                // (the actual test signal) is not masked by an EBUSY on temp teardown.
+                let cleanup_err: Error | undefined;
+                for (let i = 0; i < 20; i++) {
+                    try {
+                        fs.rmSync(dir, { recursive: true, force: true });
+                        cleanup_err = undefined;
+                        break;
+                    } catch (err) {
+                        cleanup_err = err as Error;
+                        if (i < 19) {
+                            const until = Date.now() + 100;
+                            while (Date.now() < until) {
+                                /* spin */
+                            }
+                        }
+                    }
+                }
+                if (cleanup_err) {
+                    console.warn(`[t163] temp cleanup retry exhausted: ${cleanup_err.message}`);
+                }
+            }
+        });
+    });
+
     it("close() works without error", () => {
         const temp_store = create_token_stats_store(":memory:");
         expect(() => {
@@ -472,7 +580,8 @@ describe("token-stats-store", () => {
 
                 const check = new Database(db_path);
                 check.pragma("wal_checkpoint(TRUNCATE)");
-                expect(check.pragma("user_version", { simple: true })).toBe(3);
+                // Pre-migration DB reopened → all migrations run to latest (v4).
+                expect(check.pragma("user_version", { simple: true })).toBe(4);
                 for (const table of [
                     "token_stats_daily",
                     "token_stats_buckets",
@@ -488,15 +597,16 @@ describe("token-stats-store", () => {
             } finally {
                 // Windows may hold WAL handles briefly after close; retry cleanup.
                 let last_err: Error | undefined;
-                for (let i = 0; i < 10; i++) {
+                for (let i = 0; i < 20; i++) {
                     try {
                         fs.rmSync(dir, { recursive: true, force: true });
+                        last_err = undefined;
                         break;
                     } catch (err) {
                         last_err = err as Error;
-                        if (i < 9) {
+                        if (i < 19) {
                             // small busy-wait to let the kernel release the handle
-                            const until = Date.now() + 50;
+                            const until = Date.now() + 100;
                             while (Date.now() < until) {
                                 /* spin */
                             }
@@ -504,7 +614,14 @@ describe("token-stats-store", () => {
                     }
                 }
                 if (last_err) {
-                    throw last_err;
+                    // Downgrade a lingering cleanup failure to a warning: the
+                    // assertion result (the actual test signal) must not be
+                    // masked by an EBUSY on Windows temp teardown, which is
+                    // unrelated to correctness.
+
+                    console.warn(
+                        `[token-stats-store] temp cleanup retry exhausted: ${last_err.message}`,
+                    );
                 }
             }
         });

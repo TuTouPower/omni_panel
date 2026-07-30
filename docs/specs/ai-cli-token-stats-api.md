@@ -215,7 +215,7 @@ CREATE TABLE IF NOT EXISTS token_stats_records (
 
 - `token_stats_sessions`：`UPDATE ... COALESCE(@field, field)` 已存在行（null 字段保留旧值；`started_at` 取 MIN、`ended_at` 取 MAX）；未命中再 `INSERT`。
 - `token_stats_daily`：reader 每次扫描某 session 时全量重算当日数据，`INSERT OR REPLACE` by PK。每次 upsert 批处理后 `DELETE FROM token_stats_buckets` + `INSERT ... SELECT ... FROM token_stats_daily GROUP BY source, env, date, model` 重建 buckets。
-- `token_stats_records`：reader 全量重发变更 session 的 message 记录，`INSERT OR REPLACE` by `(message_id, source, env)`。
+- `token_stats_records`：reader 全量重发变更 session 的 message 记录，`INSERT OR REPLACE` by `(message_id, source, env)`。查询走 env+timestamp 窗口（`query_records`），故额外维护 `idx_records_env_ts (env, timestamp DESC)` 复合索引（migration v4）；主键 `(message_id, source, env)` 仅服务于写入去重，不支撑查询过滤。
 
 ### 6.2 source 枚举与 agent 字段
 
@@ -228,6 +228,7 @@ wipe-rebuild 驱动（派生表都是从采集数据重建）：
 
 - v2：把 daily `date` 从 collector 本地时区改为 UTC bucketing；同时清理已删除 transcript 残留的 session 行。`DELETE FROM token_stats_daily; DELETE FROM token_stats_buckets; DELETE FROM token_stats_sessions;`，`PRAGMA user_version = 2`。
 - v3：引入 `token_stats_records` 表时，`DELETE FROM token_stats_records;`，`PRAGMA user_version = 3`。
+- v4：为 `token_stats_records` 补 `idx_records_env_ts (env, timestamp DESC)` 复合索引，消除 `query_records` 的 env+timestamp 窗口查询全表扫描。`CREATE INDEX IF NOT EXISTS`，`PRAGMA user_version = 4`。fresh DB 由 INIT_SQL 直接建索引，此迁移仅 backfill 已存在库。
 
 collector 启动时会做 full rescan，wipe 后自然重建。
 

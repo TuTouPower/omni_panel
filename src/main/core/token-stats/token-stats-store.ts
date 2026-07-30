@@ -114,6 +114,12 @@ CREATE TABLE IF NOT EXISTS token_stats_records (
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (message_id, source, env)
 );
+
+-- query_records filters by (env, timestamp range) with ORDER BY timestamp DESC.
+-- Without this index the planner full-scans token_stats_records, which reaches
+-- hundreds of thousands of rows. Composite (env, timestamp DESC) serves both the
+-- range predicate and the ordering direction.
+CREATE INDEX IF NOT EXISTS idx_records_env_ts ON token_stats_records(env, timestamp DESC);
 `;
 
 // Buckets are fully derived from the daily usage table: rebuilt on every
@@ -221,6 +227,16 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
     if ((db.pragma("user_version", { simple: true }) as number) < 3) {
         db.exec("DELETE FROM token_stats_records;");
         db.pragma("user_version = 3");
+    }
+    // Migration v4: add idx_records_env_ts so query_records' (env, timestamp)
+    // range + ORDER BY timestamp DESC uses an index seek instead of a full
+    // scan. CREATE INDEX IF NOT EXISTS is idempotent; INIT_SQL already creates
+    // it on fresh DBs, this branch backfills existing installs.
+    if ((db.pragma("user_version", { simple: true }) as number) < 4) {
+        db.exec(
+            "CREATE INDEX IF NOT EXISTS idx_records_env_ts ON token_stats_records(env, timestamp DESC);",
+        );
+        db.pragma("user_version = 4");
     }
     log.debug(`Token stats store initialized: ${db_path}`);
 

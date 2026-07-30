@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t163",
-            "title": "token_stats_records 加 env+timestamp 索引消除全表扫描",
-            "slug": "records_index_env_ts",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t164",
             "title": "TokenStats 图表改用 daily 聚合，records 仅服务 SessionTable 分页",
             "slug": "tokenstats_charts_use_daily",
