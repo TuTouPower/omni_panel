@@ -100,7 +100,7 @@ describe("TokenStatsView", () => {
         const user = userEvent.setup();
 
         await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(1, {});
+            expect(get_records).toHaveBeenNthCalledWith(1, expect.objectContaining({}));
         });
         expect(await screen.findByTestId("session-records")).toHaveTextContent("all-record");
 
@@ -109,21 +109,50 @@ describe("TokenStatsView", () => {
 
         await user.click(screen.getByRole("button", { name: "Win" }));
         await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(2, { env: "win" });
+            expect(get_records).toHaveBeenNthCalledWith(2, expect.objectContaining({ env: "win" }));
         });
         expect(await screen.findByTestId("session-records")).toHaveTextContent("win-record");
 
         await user.click(screen.getByRole("button", { name: "WSL" }));
         await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(3, { env: "wsl" });
+            expect(get_records).toHaveBeenNthCalledWith(3, expect.objectContaining({ env: "wsl" }));
         });
         expect(await screen.findByText("该筛选条件下暂无记录")).toBeInTheDocument();
 
         await user.click(screen.getByRole("button", { name: "全平台" }));
         await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(4, {});
+            expect(get_records).toHaveBeenNthCalledWith(4, expect.objectContaining({}));
+            expect(get_records).toHaveBeenNthCalledWith(
+                4,
+                expect.not.objectContaining({ env: "wsl" }),
+            );
         });
         expect(await screen.findByTestId("session-records")).toHaveTextContent("all-again");
+    });
+
+    it("passes the current time window (start/end) to getRecords", async () => {
+        const now = Date.now();
+        const day = 86400000;
+        get_records.mockResolvedValue([usage_record_at("win-msg", now - 1 * day)]);
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+
+        await waitFor(() => {
+            const last_call = get_records.mock.calls.at(-1)?.[0] as {
+                start?: number;
+                end?: number;
+            };
+            expect(last_call).toBeDefined();
+            const { start, end } = last_call;
+            expect(typeof start).toBe("number");
+            expect(typeof end).toBe("number");
+            // 7d window: end ≈ now, start ≈ now - 7d
+            expect(end).toBeGreaterThan(now - 5000);
+            expect(start).toBeGreaterThan(now - 7 * day - 5000);
+            expect(start).toBeLessThan(now - 7 * day + 5000);
+        });
     });
 
     it("ignores an older platform response after a faster switch", async () => {

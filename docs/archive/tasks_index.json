@@ -1287,6 +1287,14 @@
             "status": "done",
             "branch": "t161_overview_grid_keep_info",
             "note": ""
+        },
+        {
+            "tid": "t162",
+            "title": "代理面板内存止血：query_records 加 LIMIT 与时间窗下推",
+            "slug": "records_query_limit_window",
+            "status": "done",
+            "branch": "t162_records_query_limit_window",
+            "note": ""
         }
     ]
 }

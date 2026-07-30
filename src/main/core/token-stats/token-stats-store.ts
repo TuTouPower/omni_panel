@@ -10,6 +10,15 @@ import type {
 } from "../../../shared/types/token-stats";
 import { createLogger } from "../../../shared/lib/logger";
 
+/**
+ * Default cap on records returned by query_records when the caller omits an
+ * explicit limit. The agent panel's charts only render a bounded recent slice,
+ * and the full table can reach hundreds of thousands of rows — an unbounded
+ * SELECT materializes the whole result set in main-process memory and ships it
+ * over IPC. Callers needing more must pass an explicit `limit`.
+ */
+export const DEFAULT_RECORDS_LIMIT = 5000;
+
 export interface TokenStatsStore {
     /** Merge session deltas + daily usage rows, then recompute daily buckets. */
     upsert_sessions(deltas: TokenStatsSessionUpsert[], daily: TokenStatsDailyUpsert[]): void;
@@ -449,7 +458,9 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             }
 
             const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-            const sql = `SELECT session_id, title, directory, slug, version, parent_session_id, message_id, role, timestamp, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, agent FROM token_stats_records ${where} ORDER BY timestamp DESC`;
+            const limit = filters.limit ?? DEFAULT_RECORDS_LIMIT;
+            params["limit"] = limit;
+            const sql = `SELECT session_id, title, directory, slug, version, parent_session_id, message_id, role, timestamp, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, agent FROM token_stats_records ${where} ORDER BY timestamp DESC LIMIT @limit`;
             const rows = db.prepare(sql).all(params) as Record<string, unknown>[];
             return rows.map(row_to_record);
         },

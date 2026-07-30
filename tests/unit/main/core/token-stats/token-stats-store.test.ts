@@ -6,6 +6,7 @@ import * as path from "node:path";
 import Database from "better-sqlite3";
 import { create_token_stats_store } from "../../../../../src/main/core/token-stats/token-stats-store";
 import type { TokenStatsStore } from "../../../../../src/main/core/token-stats/token-stats-store";
+import { DEFAULT_RECORDS_LIMIT } from "../../../../../src/main/core/token-stats/token-stats-store";
 import type {
     AgentSessionUsageRecord,
     TokenStatsDailyUpsert,
@@ -405,6 +406,42 @@ describe("token-stats-store", () => {
             const rows = store.query_records({});
             expect("source" in rows[0]!).toBe(false);
             expect("env" in rows[0]!).toBe(false);
+        });
+
+        it("applies an explicit limit (keeps newest by timestamp DESC)", () => {
+            store.upsert_records([
+                record({ message_id: "m1", timestamp: T0 }),
+                record({ message_id: "m2", timestamp: T1 }),
+                record({ message_id: "m3", timestamp: T2 }),
+            ]);
+
+            const rows = store.query_records({ limit: 2 });
+            expect(rows).toHaveLength(2);
+            // ORDER BY timestamp DESC → newest two kept
+            expect(rows.map((r) => r.message_id)).toEqual(["m3", "m2"]);
+        });
+
+        it("applies a default limit when filters omit limit", () => {
+            // Insert more than the default cap; query without limit should still cap.
+            const recs: AgentSessionUsageRecord[] = [];
+            for (let i = 0; i < DEFAULT_RECORDS_LIMIT + 5; i++) {
+                recs.push(record({ message_id: `m${String(i)}`, timestamp: T0 + i }));
+            }
+            store.upsert_records(recs);
+
+            expect(store.query_records({})).toHaveLength(DEFAULT_RECORDS_LIMIT);
+        });
+
+        it("respects limit alongside window filters", () => {
+            const recs: AgentSessionUsageRecord[] = [];
+            for (let i = 0; i < 10; i++) {
+                recs.push(record({ message_id: `m${String(i)}`, timestamp: T0 + i }));
+            }
+            store.upsert_records(recs);
+
+            const rows = store.query_records({ start: T0, end: T0 + 9, limit: 3 });
+            expect(rows).toHaveLength(3);
+            expect(rows.map((r) => r.message_id)).toEqual(["m9", "m8", "m7"]);
         });
     });
 

@@ -160,9 +160,11 @@ export function TokenStatsView() {
             if (!silent) setLoading(true);
             try {
                 const [recs, st, cfg] = await Promise.all([
-                    window.usageboard.tokenStats.getRecords(
-                        platform === "all" ? {} : { env: platform },
-                    ),
+                    window.usageboard.tokenStats.getRecords({
+                        ...(platform === "all" ? {} : { env: platform }),
+                        start: currentRange.start,
+                        end: currentRange.end,
+                    }),
                     window.usageboard.tokenStats.getStatus(),
                     window.usageboard.config.get(),
                 ]);
@@ -194,7 +196,7 @@ export function TokenStatsView() {
                 }
             }
         },
-        [platform],
+        [platform, currentRange],
     );
 
     useEffect(() => {
