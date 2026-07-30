@@ -151,6 +151,8 @@ Session 列表 `SessionTable` 虚拟滚动；长列表按可视高度分段渲�
 
 `TokenStatsView.loadData` 一次拉 buckets（env/source/date filter）+ sessions（env/source）+ records（env/agent/start/end/limit）。records 降为 Bar/Heatmap 专用辅助，不再作为 KPI/donut/SessionTable 的主数据源。
 
+24h preset 例外（t168）：短窗口（≤25h）下 buckets 日级聚合无法对称切分 current/prev（48h vs 24h），KPI/donut delta 改用 records 驱动（精确 epoch 切分，prevRangeRecords 半开区间）。loadData 短窗口 records 拉 2 倍宽 + limit 50000 覆盖前段。≥7d preset 仍走 buckets（日级误差占比小）。
+
 24h preset 下 buckets 按日聚合使 current(48h)/prev(24h) 窗口不对称，KPI delta 偏大——日级聚合固有取舍（`t164_code_f003`）；精确 24h delta 需 records 或 hourly 聚合，留后续。
 
 ## 12. 成功标准（Web 验证）
