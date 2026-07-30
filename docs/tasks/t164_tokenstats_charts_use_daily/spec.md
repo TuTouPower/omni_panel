@@ -11,7 +11,8 @@
     - `MetricDonut`（model / project / agent / composition）：改用 `token_stats_daily`（model 维度）+ `token_stats_sessions`（directory 维度）。
     - `BarChart`（时间 / 项目 / 会话轴）：时间轴用 `token_stats_daily`；项目/会话轴用 `token_stats_sessions`。
     - `Heatmap`（7×24）：需要小时级，daily 不够——评估是否新增 `token_stats_hourly` 聚合表，或保留 records 但仅拉时间窗内。
-- `TokenStatsView`：不再 `getRecords` 全量；改为 `getDaily`/`getSessions` + 按需 `getRecords`（SessionTable 当前页 + Heatmap 时间窗）。
+- `TokenStatsView`：不再 `getRecords` 全量；改为 `getBuckets`/`getSessions`（**已存在**）+ 按需 `getRecords`（SessionTable 当前页 + Heatmap 时间窗）。
+    - 审阅核实：tokenStats IPC 现有 `getBuckets`/`getSessions`/`getRecords`/`getStatus`，**`getDaily` 不存在**。daily 维度数据经 `getBuckets`（按 source/env/date/model 聚合）获取；若 buckets 字段不足以覆盖 model/project/directory 维度，则在本 task 范围内**新增 `getDaily` IPC**（工作量计入）。
 - SessionTable：分页改为服务端分页（`query_sessions` 已支持 limit/offset）。
 
 ## 非范围
@@ -32,4 +33,4 @@
 
 - 前置：t162（records query limit）——Heatmap 若仍用 records 需 limit 兜底。
 - 前置：t163（索引）——daily/sessions 查询性能。
-- `getDaily`/`getSessions` IPC 已存在；`getBuckets` 也可用。确认数据字段是否覆盖 model/project/directory 维度。
+- IPC 现状：`getBuckets`/`getSessions`/`getRecords`/`getStatus` 已存在；`getDaily` 不存在，若需要则在本 task 新增（含 IPC handler + preload + 类型）。

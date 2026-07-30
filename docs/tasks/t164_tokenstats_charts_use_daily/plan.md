@@ -2,11 +2,12 @@
 
 ## 步骤与验证
 
-1. 审计 `chart-data.ts` 每个 export 函数的输入需求（modelSegments/projectSegments/agentSegments/compositionSegments/prepareBarData/prepareHeatmapData/modelColorMap），标注哪些可由 daily/sessions 满足、哪些必须 records → 验证：表格产出。
-2. 为可迁移函数写 daily/sessions 版本（同名新签名或新函数），保留 records 版本供 Heatmap → 验证：单测对比两版本在同输入下的聚合结果一致。
-3. `TokenStatsView` 重构数据流：`getDaily`/`getSessions` 主数据 + records 仅 Heatmap 时间窗 → 验证：渲染端 records 持有量下降，图表数值一致。
-4. SessionTable 改服务端分页（`getSessions` limit/offset） → 验证：翻页只请求当前页。
-5. `pnpm test` + 手动对比改动前后面板数值 → 验证：视觉与数值一致。
+1. 审计 `chart-data.ts` 每个 export 函数的输入需求（modelSegments/projectSegments/agentSegments/compositionSegments/prepareBarData/prepareHeatmapData/modelColorMap），标注哪些可由 buckets/sessions 满足、哪些必须 records → 验证：表格产出。
+2. 若 buckets 字段不足以覆盖所需维度（model/project/directory），新增 `getDaily` IPC（handler + preload + 类型）；否则复用 `getBuckets` → 验证：typecheck + 单测。
+3. 为可迁移函数写 buckets/sessions 版本（同名新签名或新函数），保留 records 版本供 Heatmap → 验证：单测对比两版本在同输入下的聚合结果一致。
+4. `TokenStatsView` 重构数据流：`getBuckets`/`getSessions`（或新 `getDaily`）主数据 + records 仅 Heatmap 时间窗 → 验证：渲染端 records 持有量下降，图表数值一致。
+5. SessionTable 改服务端分页（`getSessions` limit/offset） → 验证：翻页只请求当前页。
+6. `pnpm test` + 手动对比改动前后面板数值 → 验证：视觉与数值一致。
 
 ## 风险与回退
 

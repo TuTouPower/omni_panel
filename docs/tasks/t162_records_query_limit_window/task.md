@@ -32,10 +32,11 @@ branch: t162_records_query_limit_window
 
 ### 验收标准勾选
 
-- [ ] `query_records` SQL 含 `WHERE timestamp BETWEEN` 与 `LIMIT`，且在空 filters 时有默认 limit 兜底。
+- [ ] `query_records` SQL 含 `LIMIT`，且 `filters.limit` 缺省时有默认兜底（默认 5000）。
+- [ ] `TokenStatsView.loadData` 向 `getRecords` 传入当前时间窗 start/end。
 - [ ] 打开代理面板后渲染进程持有的 records 数 ≤ limit（默认 5000）。
-- [ ] KPI/donut/bar/heatmap/session 表数据与改动前视觉一致。
-- [ ] 新增/更新单测覆盖 `query_records` 的 start/end/limit 下推。
+- [ ] 窗口内 records ≤ limit 时数据与改动前一致；超限时仅保留最新 N 条（视觉一致由 t164 兜底）。
+- [ ] 新增/更新单测覆盖 `query_records` 的 limit 下推。
 
 ### Reviewer verdict
 
