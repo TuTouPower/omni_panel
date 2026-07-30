@@ -60,6 +60,12 @@ sessions ≤ 10,000，daily ≤ 50,000，records ≤ 200,000（见 `src/main/cor
 
 LocalAPI HTTP 端点契约（`/v1/buckets` / `/v1/sessions` / `/v1/records` / `/v1/status`）见 `-api` §7；本地实现由 `token-stats-ipc.ts` 与 LocalAPI 桥接承担。
 
+### 2.4 配置更新去抖（t166）
+
+主进程每次保存 config（卡片排序、展开折叠等无关变更）都会调 `tokenStatsManager.update_config`，而 collector 收到 config 消息即重跑一次 `collect()`。去抖：`update_config` 用 `same_config`（`JSON.stringify` 字节对比，config 为平坦原始类型对象）对比新旧，相同则跳过 `postMessage`，消除无关 config 保存触发的全量采集。
+
+放大器 C（records 全量重发增量协议）遗留：活跃 session jsonl 变化时 collector 仍对该 session 全量 re-merge records。查询/渲染端已优化（t162/t164），此处属写入端放大（IPC/WAL），增量协议需 claude-reader + scan-state + collector 三处协同，留独立 task。
+
 ## 3. 窗口与入口
 
 ### 3.1 入口

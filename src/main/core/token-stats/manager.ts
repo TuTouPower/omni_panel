@@ -29,6 +29,15 @@ function resolve_collector_path(): string {
     return fs.existsSync(unpacked) ? unpacked : candidate;
 }
 
+/**
+ * Byte-compare two token-stats configs. The config is a flat object of
+ * primitives (strings/numbers/boolean), so JSON.stringify is a stable,
+ * order-independent equality check. Used to debounce update_config.
+ */
+function same_config(a: TokenStatsConfig, b: TokenStatsConfig): boolean {
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function create_token_stats_manager(deps: {
     store: TokenStatsStore;
     on_update?: () => void;
@@ -154,6 +163,13 @@ export function create_token_stats_manager(deps: {
     }
 
     function update_config(config: TokenStatsConfig): void {
+        // Debounce (D): index.ts calls update_config on EVERY config save
+        // (card reorder, expansion toggle, ...), and the collector re-runs a
+        // full collect() on each config message. Skip the postMessage when the
+        // token-stats-relevant fields are byte-identical to the current config.
+        if (current_config && same_config(current_config, config)) {
+            return;
+        }
         current_config = config;
         if (child) {
             child.postMessage({ type: "config", config });
