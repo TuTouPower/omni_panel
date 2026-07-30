@@ -161,4 +161,5 @@ export interface TokenStatsRecordFilters {
     env?: TokenStatsEnv;
     start?: number;
     end?: number;
+    limit?: number;
 }

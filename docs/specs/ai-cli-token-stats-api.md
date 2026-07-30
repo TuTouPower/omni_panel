@@ -278,7 +278,7 @@ interface TokenStatsUpdate {
 | ------------------ | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------- |
 | `GET /v1/buckets`  | `source?`, `env?`, `model?`, `from?`, `to?`                     | `{ buckets: TokenStatsBucket[] }`（按天聚合，用于趋势图）                              | `token_stats_buckets`  |
 | `GET /v1/sessions` | `source?`, `env?`, `model?`, `q?`, `sort?`, `limit?`, `offset?` | `{ sessions: TokenStatsSession[], total: number }`（用于 Session 列表）                | `token_stats_sessions` |
-| `GET /v1/records`  | `session_id`, `source?`, `env?`                                 | `{ records: AgentSessionUsageRecord[] }`（单 session 逐次调用时间线）                  | `token_stats_records`  |
+| `GET /v1/records`  | `session_id`, `source?`, `env?`, `start?`, `end?`, `limit?`     | `{ records: AgentSessionUsageRecord[] }`（单 session 逐次调用时间线）                  | `token_stats_records`  |
 | `GET /v1/status`   | —                                                               | `{ last_updated: number, envs: string[], sources: string[], counts: {...} }`（新鲜度） | 聚合多表               |
 
 约束：
@@ -287,6 +287,8 @@ interface TokenStatsUpdate {
 - `source` 取值：`claude_code` / `opencode` / `kimi_code`。
 - `env` 取值：`win` / `wsl`；缺省=全部合并。
 - 时间参数 `from` / `to`：ISO date（`YYYY-MM-DD`）或 epoch ms，按 `bucket_date` / `started_at` 过滤。
+- `start` / `end`（`/v1/records`）：epoch ms，按 `timestamp` 过滤，与 `from`/`to`（日期）区分。
+- `/v1/records` 的 `limit`：最大返回行数，缺省走 `DEFAULT_RECORDS_LIMIT`（5000）。records 表可累积至数十万行，无 limit 的全量查询会把整表物化进主进程内存并经 IPC 传输，渲染端按时间窗分页消费，故查询必须带 limit 兜底。`ORDER BY timestamp DESC` 保证超限时保留最新 N 条。
 - `last_updated` 取相关表 `MAX(updated_at)`，UI 据此标注新鲜度。
 
 ## 8. 涉及文件清单（数据采集层）
