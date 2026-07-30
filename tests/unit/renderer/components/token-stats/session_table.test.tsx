@@ -1,40 +1,37 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { AgentSessionUsage } from "../../../../../src/shared/types/token-stats";
 import { SessionTable } from "../../../../../src/renderer/components/token-stats/SessionTable";
+import type { SessionRow } from "../../../../../src/renderer/lib/token-stats/types";
 
-function rec(overrides: Partial<AgentSessionUsage>): AgentSessionUsage {
+function row(overrides: Partial<SessionRow>): SessionRow {
     return {
         session_id: "s1",
         title: "session",
-        directory: "D:/p",
         slug: null,
-        version: null,
-        parent_session_id: null,
-        message_id: "m1",
-        role: "assistant",
-        timestamp: Date.now() - 1000,
-        model: "m",
-        input_tokens: 1,
-        output_tokens: 1,
-        cache_read_tokens: 0,
-        cache_write_tokens: 0,
+        directory: "D:/p",
         agent: "claude-code",
+        version: null,
+        sub: false,
+        models: ["m"],
+        calls: 1,
+        tokens: 2,
+        cacheRate: 0,
+        lastTs: Date.now() - 1000,
         ...overrides,
     };
 }
 
 describe("SessionTable agent chip", () => {
-    it("labels claude-code / opencode / kimi-code records with the right tool name", () => {
+    it("labels claude-code / opencode / kimi-code rows with the right tool name", () => {
         render(
             <SessionTable
-                records={[
-                    rec({ session_id: "s1", agent: "claude-code", message_id: "m1" }),
-                    rec({ session_id: "s2", agent: "opencode", message_id: "m2" }),
-                    rec({ session_id: "s3", agent: "kimi-code", message_id: "m3" }),
+                rows={[
+                    row({ session_id: "s1", agent: "claude-code" }),
+                    row({ session_id: "s2", agent: "opencode" }),
+                    row({ session_id: "s3", agent: "kimi-code" }),
                 ]}
-                metric="tokens"
                 theme="dark"
+                modelColors={new Map([["m", "#fff"]])}
             />,
         );
 

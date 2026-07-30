@@ -137,6 +137,22 @@ Session 列表 `SessionTable` 虚拟滚动；长列表按可视高度分段渲�
 
 注：`token_stats_records` 表与 `AgentSessionUsage` 类型已在 `-api` 本版引入，为 per-message 记录提供数据层契约；UI 层的「Session 详情（逐次调用时间线）」视图留待后续 Phase 在此基础上扩展。
 
+### 数据源分工（t164）
+
+代理面板各可视化区域的数据源已分层（避免渲染端对数十万 records 做 reduce）：
+
+| 区域                                           | 数据源                            | 说明                                                                                   |
+| ---------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------- |
+| KPI（总 Token / 会话 / 调用 / 缓存命中率）     | `token_stats_buckets`             | `kpiFromBuckets` / `compositionSegmentsFromBuckets`，按时间窗 2 倍宽切 current/prev    |
+| Donut（model / project / agent / composition） | `buckets` + `sessions`            | model/composition/agent 走 buckets；project（按 directory 分组 session 数）走 sessions |
+| SessionTable                                   | `token_stats_sessions`            | `sessionRowsFromSessions` 派生行，前端分页                                             |
+| BarChart（时间 / 项目 / 会话轴）               | `token_stats_records`（带 limit） | 小时级精度需 per-message；受 `DEFAULT_RECORDS_LIMIT` 保护                              |
+| Heatmap（7×24）                                | `token_stats_records`（带 limit） | 小时级精度需 per-message；同上                                                         |
+
+`TokenStatsView.loadData` 一次拉 buckets（env/source/date filter）+ sessions（env/source）+ records（env/agent/start/end/limit）。records 降为 Bar/Heatmap 专用辅助，不再作为 KPI/donut/SessionTable 的主数据源。
+
+24h preset 下 buckets 按日聚合使 current(48h)/prev(24h) 窗口不对称，KPI delta 偏大——日级聚合固有取舍（`t164_code_f003`）；精确 24h delta 需 records 或 hourly 聚合，留后续。
+
 ## 12. 成功标准（Web 验证）
 
 | #   | 标准                                      | 验证方式 |

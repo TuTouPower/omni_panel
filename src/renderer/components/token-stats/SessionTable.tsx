@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
 import { fmtTime, fmtTok } from "../../lib/token-stats/format";
 import { paletteFor } from "../../lib/token-stats/palette";
-import { modelColorMap, build_resolver } from "../../lib/token-stats/chart-data";
-import { sessionRows } from "../../lib/token-stats/aggregate";
-import type { AgentSessionUsage, Metric, SessionRow } from "../../lib/token-stats/types";
+import { build_resolver } from "../../lib/token-stats/chart-data";
+import type { SessionRow } from "../../lib/token-stats/types";
 
 interface SessionTableProps {
-    records: AgentSessionUsage[];
-    metric: Metric;
+    /** Pre-derived session rows (from token_stats_sessions, not raw records). */
+    rows: SessionRow[];
     theme: "dark" | "light";
+    /** model → color map for tags (derived from buckets Top5 by the parent). */
+    modelColors: Map<string, string>;
     /** Models grouped under one label; tags display the alias and merge. */
     modelAliases?: readonly { alias: string; models: readonly string[] }[] | undefined;
 }
@@ -27,23 +28,24 @@ type SortKey =
     | "lastTs";
 type SortDir = 1 | -1;
 
-export function SessionTable({ records, metric, theme, modelAliases }: SessionTableProps) {
+export function SessionTable({
+    rows: input_rows,
+    theme,
+    modelColors,
+    modelAliases,
+}: SessionTableProps) {
     const [sortKey, setSortKey] = useState<SortKey>("tokens");
     const [sortDir, setSortDir] = useState<SortDir>(-1);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState<PageSize>(10);
 
-    const rows = useMemo(() => {
-        const unsorted = sessionRows(records);
-        return sortSessionRows(unsorted, sortKey, sortDir);
-    }, [records, sortKey, sortDir]);
-
-    const topModelColors = useMemo(
-        () => modelColorMap(records, metric, theme),
-        [records, metric, theme],
+    const rows = useMemo(
+        () => sortSessionRows(input_rows, sortKey, sortDir),
+        [input_rows, sortKey, sortDir],
     );
+
     const otherColor = paletteFor(theme).other;
-    const colorForModel = (m: string) => topModelColors.get(m) ?? otherColor;
+    const colorForModel = (m: string) => modelColors.get(m) ?? otherColor;
 
     const resolve_model = useMemo(
         () => build_resolver((modelAliases ?? []).map((a) => ({ alias: a.alias, keys: a.models }))),
