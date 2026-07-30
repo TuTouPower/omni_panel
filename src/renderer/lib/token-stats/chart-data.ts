@@ -296,6 +296,86 @@ export function prepareBarData(
     return { labels, bucketStarts: bucket_starts, seriesNames, series, otherDetails };
 }
 
+/**
+ * Time-axis bar data from pre-aggregated buckets (day granularity). Used for
+ * >=7d windows where per-message records exceed the fetch LIMIT (7d ~ 137k
+ * rows). Buckets are already day+model grouped, so this just lays them out on
+ * a date axis. `gran` must be "day" for buckets (hourly needs records).
+ */
+export function prepareBarDataFromBuckets(
+    buckets: TokenStatsBucket[],
+    metric: Metric,
+    start: number,
+    end: number,
+    theme: "dark" | "light",
+): BarData {
+    // Build the full day axis from the window (UTC dates, matching bucket_date).
+    const dates: string[] = [];
+    const cursor = new Date(start);
+    cursor.setUTCHours(0, 0, 0, 0);
+    const end_day = new Date(end);
+    end_day.setUTCHours(23, 59, 59, 999);
+    while (cursor.getTime() <= end_day.getTime()) {
+        const y = cursor.getUTCFullYear();
+        const m = String(cursor.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(cursor.getUTCDate()).padStart(2, "0");
+        dates.push(`${String(y)}-${m}-${d}`);
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    const labels = dates.map((d) => {
+        const parts = d.split("-");
+        const mm = parts[1] ?? "00";
+        const dd = parts[2] ?? "00";
+        return `${mm}/${dd}`;
+    });
+
+    // cells[date_idx][model] = aggregated value
+    const cells: Record<string, number>[] = Array.from({ length: dates.length }, () => ({}));
+    const date_idx = new Map(dates.map((d, i) => [d, i]));
+
+    for (const b of buckets) {
+        const ci = date_idx.get(b.bucket_date);
+        if (ci === undefined) continue;
+        const cell = cells[ci];
+        if (!cell) continue;
+        const v =
+            metric === "tokens" ? bucket_tokens(b) : metric === "calls" ? b.calls : b.sessions;
+        cell[b.model] = (cell[b.model] ?? 0) + v;
+    }
+
+    // Top5 models across the window + "其他".
+    const totals: Record<string, number> = {};
+    cells.forEach((c) => {
+        Object.entries(c).forEach(([k, v]) => {
+            totals[k] = (totals[k] ?? 0) + v;
+        });
+    });
+    const { top, rest } = topGroups(totals, 5);
+    const restSet = new Set(rest);
+    const palette = paletteFor(theme);
+    const seriesNames = rest.length ? [...top, "其他"] : top;
+    const otherDetails: [string, number][][] = cells.map((c) =>
+        Object.entries(c)
+            .filter(([k]) => restSet.has(k))
+            .sort((a, b) => b[1] - a[1]),
+    );
+    const colorOf = (k: string, index: number) =>
+        k === "其他" ? palette.other : colorForTopModel(k, index, theme);
+
+    const series = seriesNames.map((nm, i) => ({
+        name: nm,
+        data: cells.map((c) =>
+            Object.entries(c).reduce(
+                (sum, [k, v]) => sum + (displayKey(k, restSet) === nm ? v : 0),
+                0,
+            ),
+        ),
+        itemStyle: { color: colorOf(nm, i) },
+    }));
+
+    return { labels, bucketStarts: [], seriesNames, series, otherDetails };
+}
+
 function displayKey(key: string, restSet: Set<string>): string {
     return restSet.has(key) ? "其他" : key;
 }

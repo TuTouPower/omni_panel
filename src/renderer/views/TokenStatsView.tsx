@@ -611,6 +611,7 @@ export function TokenStatsView() {
                             <div className="bar-chart-wrap">
                                 <BarChart
                                     records={currentRecords}
+                                    buckets={currentBuckets}
                                     metric={metric}
                                     xaxis={effectiveXaxis}
                                     gran={gran}

@@ -3,11 +3,19 @@ import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
 import { fmtInt, fmtTok } from "../../lib/token-stats/format";
 import { paletteFor } from "../../lib/token-stats/palette";
-import { prepareBarData, escapeHtml } from "../../lib/token-stats/chart-data";
+import {
+    prepareBarData,
+    prepareBarDataFromBuckets,
+    escapeHtml,
+} from "../../lib/token-stats/chart-data";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "../../lib/token-stats/types";
+import type { TokenStatsBucket } from "../../../shared/types/token-stats";
 
 interface BarChartProps {
     records: AgentSessionUsage[];
+    /** Day-aggregated buckets; when provided, the time axis uses these instead
+     * of records (>=7d windows where records exceed the fetch LIMIT). */
+    buckets?: TokenStatsBucket[];
     metric: Metric;
     xaxis: XAxis;
     gran: Granularity;
@@ -67,6 +75,7 @@ export function build_bar_tooltip_html(
 
 export function BarChart({
     records,
+    buckets,
     metric,
     xaxis,
     gran,
@@ -78,21 +87,25 @@ export function BarChart({
     modelAliases,
 }: BarChartProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const { labels, bucketStarts, series, otherDetails } = useMemo(
-        () =>
-            prepareBarData(
-                records,
-                metric,
-                xaxis,
-                gran,
-                start,
-                end,
-                theme,
-                dirAliases,
-                modelAliases,
-            ),
-        [records, metric, xaxis, gran, start, end, theme, dirAliases, modelAliases],
-    );
+    const { labels, bucketStarts, series, otherDetails } = useMemo(() => {
+        // Time axis at day granularity can use pre-aggregated buckets (>=7d
+        // windows where per-message records exceed the fetch LIMIT). Hourly /
+        // project / session axes still need records.
+        if (xaxis === "time" && gran === "day" && buckets) {
+            return prepareBarDataFromBuckets(buckets, metric, start, end, theme);
+        }
+        return prepareBarData(
+            records,
+            metric,
+            xaxis,
+            gran,
+            start,
+            end,
+            theme,
+            dirAliases,
+            modelAliases,
+        );
+    }, [records, buckets, metric, xaxis, gran, start, end, theme, dirAliases, modelAliases]);
     const fmtV = metric === "tokens" ? fmtTok : fmtInt;
     const pal = paletteFor(theme);
 

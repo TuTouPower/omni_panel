@@ -15,6 +15,7 @@ import {
     modelSegments,
     modelSegmentsFromBuckets,
     prepareBarData,
+    prepareBarDataFromBuckets,
     prepareHeatmapData,
     projectSegments,
     projectSegmentsFromSessions,
@@ -310,6 +311,46 @@ describe("chart-data", () => {
             const proj_idx = data.labels.indexOf("proj-x");
             const total = data.series.reduce((sum, s) => sum + (s.data[proj_idx] ?? 0), 0);
             expect(total).toBe(30);
+        });
+    });
+
+    describe("prepareBarDataFromBuckets", () => {
+        it("lays day buckets out on a date axis and stacks by model", () => {
+            const start = new Date("2026-07-10T00:00:00Z").getTime();
+            const end = new Date("2026-07-12T23:59:59Z").getTime();
+            const buckets = [
+                bucket({ bucket_date: "2026-07-10", model: "sonnet", input_tokens: 100 }),
+                bucket({ bucket_date: "2026-07-10", model: "opus", input_tokens: 50 }),
+                bucket({ bucket_date: "2026-07-11", model: "sonnet", input_tokens: 80 }),
+                bucket({ bucket_date: "2026-07-12", model: "haiku", input_tokens: 10 }),
+            ];
+            const data = prepareBarDataFromBuckets(buckets, "tokens", start, end, "dark");
+            // 3 day labels (07-10..07-12)
+            expect(data.labels).toHaveLength(3);
+            // total per day: 150, 80, 10
+            const totals = data.series.reduce<Record<number, number>>((acc, s) => {
+                s.data.forEach((v, i) => {
+                    acc[i] = (acc[i] ?? 0) + v;
+                });
+                return acc;
+            }, {});
+            expect(totals[0]).toBe(150);
+            expect(totals[1]).toBe(80);
+            expect(totals[2]).toBe(10);
+        });
+
+        it("skips buckets outside the window", () => {
+            const start = new Date("2026-07-10T00:00:00Z").getTime();
+            const end = new Date("2026-07-10T23:59:59Z").getTime();
+            const buckets = [
+                bucket({ bucket_date: "2026-07-10", input_tokens: 100 }),
+                bucket({ bucket_date: "2026-07-09", input_tokens: 999 }),
+                bucket({ bucket_date: "2026-07-11", input_tokens: 999 }),
+            ];
+            const data = prepareBarDataFromBuckets(buckets, "tokens", start, end, "dark");
+            expect(data.labels).toHaveLength(1);
+            const total = data.series.reduce((sum, s) => sum + (s.data[0] ?? 0), 0);
+            expect(total).toBe(100);
         });
     });
 
