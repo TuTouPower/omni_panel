@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t167",
-            "title": "collector records emit 增量化：per-session message_id diff 协议",
-            "slug": "collector_records_message_id_diff",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t168",
             "title": "代理面板 24h preset 精确 delta：hourly 聚合或 records 驱动 KPI",
             "slug": "tokenstats_24h_precise_delta",
