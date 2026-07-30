@@ -77,6 +77,7 @@ import { registerPopupIpc } from "./ipc/popup-ipc";
 import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
+import { create_agent_window_controller } from "./core/main-panel/agent-window-controller";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
 import { cleanup_temp_files } from "./core/storage/write-json";
 
@@ -604,6 +605,12 @@ void app.whenReady().then(async () => {
             get_primary_display: () => screen.getPrimaryDisplay(),
         });
 
+        // Agent (token-stats) window singleton: tokenStats.open() reuses an
+        // existing window instead of stacking multiple agent BrowserWindows.
+        const agent_window_controller = create_agent_window_controller({
+            create_window: () => windowManager.createWindowFor("agent"),
+        });
+
         cleanupPopupIpc = registerPopupIpc({
             report_content_height: (report) =>
                 main_panel_controller?.report_content_height(report) ?? null,
@@ -788,9 +795,7 @@ void app.whenReady().then(async () => {
             });
             ipcMain.handle(IPC_CHANNELS.TOKEN_STATS_OPEN, () => {
                 hideTrayMenu();
-                const win = windowManager.createWindowFor("agent");
-                win.show();
-                win.focus();
+                agent_window_controller.open_or_focus();
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_OPEN_WEB, () => {
                 void shell.openExternal(`http://localhost:${String(local_api.get_port())}/`);
@@ -912,6 +917,7 @@ void app.whenReady().then(async () => {
                 settingsWin.destroy();
                 settingsWin = null;
             }
+            agent_window_controller.shutdown();
             main_panel_controller?.close_for_mode_switch();
             main_panel_controller = null;
             orchestrator.shutdown();

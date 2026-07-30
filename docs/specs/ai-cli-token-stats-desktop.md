@@ -69,6 +69,7 @@ LocalAPI HTTP 端点契约（`/v1/buckets` / `/v1/sessions` / `/v1/records` / `/
 - 从托盘菜单打开（新增「代理面板」菜单项）
 - 从 PopupView 顶部按钮打开（新增图标按钮）
 - 窗口配置：`WINDOW_CONFIGS` 新增 `tokenStats` 条目（`src/main/window/window-manager.ts` 扩展）
+- **单例**（t165）：`TOKEN_STATS_OPEN` handler 经 `agent-window-controller`（`src/main/core/main-panel/agent-window-controller.ts`）复用已存在的 agent 窗口（focus）而非每次 `createWindowFor`，避免多窗口叠加各持全量 records。窗口 `closed` 后释放引用，下次 open 重建；`before-quit` 经 `shutdown()` 销毁。
 
 ### 3.2 自动重启 + 熔断
 
