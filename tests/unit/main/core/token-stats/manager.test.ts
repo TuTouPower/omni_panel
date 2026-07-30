@@ -200,6 +200,34 @@ describe("token-stats manager", () => {
         manager.stop();
     });
 
+    it("update_config skips postMessage when config is unchanged (D debounce)", () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+
+        manager.start(base_config);
+        // start() posts config once (1 call). An identical update_config must
+        // NOT post again - frequent unrelated config saves (card reorder, etc.)
+        // were triggering full collector rescans ~4720x/day.
+        const calls_before = last_child!.postMessage.mock.calls.length;
+        manager.update_config(base_config);
+        expect(last_child!.postMessage.mock.calls.length).toBe(calls_before);
+        manager.stop();
+    });
+
+    it("update_config posts when only a nested tokenStats field changes", () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+
+        manager.start(base_config);
+        manager.update_config({ ...base_config, wsl_distro: "Debian" });
+
+        expect(last_child!.postMessage).toHaveBeenLastCalledWith({
+            type: "config",
+            config: { ...base_config, wsl_distro: "Debian" },
+        });
+        manager.stop();
+    });
+
     it("stop kills the child", () => {
         const store = create_mock_store();
         const manager = create_token_stats_manager({ store });
