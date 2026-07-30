@@ -1287,6 +1287,14 @@
             "status": "done",
             "branch": "t161_overview_grid_keep_info",
             "note": ""
+        },
+        {
+            "tid": "t163",
+            "title": "token_stats_records 加 env+timestamp 索引消除全表扫描",
+            "slug": "records_index_env_ts",
+            "status": "done",
+            "branch": "t163_records_index_env_ts",
+            "note": ""
         }
     ]
 }
