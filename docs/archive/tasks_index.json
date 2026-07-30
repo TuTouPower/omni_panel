@@ -1303,6 +1303,14 @@
             "status": "done",
             "branch": "t163_records_index_env_ts",
             "note": ""
+        },
+        {
+            "tid": "t165",
+            "title": "agent 窗口单例化，避免多窗口叠加",
+            "slug": "agent_window_singleton",
+            "status": "done",
+            "branch": "t165_agent_window_singleton",
+            "note": ""
         }
     ]
 }

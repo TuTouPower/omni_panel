@@ -9,14 +9,6 @@
             "note": ""
         },
         {
-            "tid": "t165",
-            "title": "agent 窗口单例化，避免多窗口叠加",
-            "slug": "agent_window_singleton",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t166",
             "title": "collector records emit 增量化与 config 保存去抖",
             "slug": "collector_records_incremental",
