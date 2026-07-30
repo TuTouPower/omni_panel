@@ -66,6 +66,14 @@ LocalAPI HTTP 端点契约（`/v1/buckets` / `/v1/sessions` / `/v1/records` / `/
 
 放大器 C（records 全量重发增量协议）遗留：活跃 session jsonl 变化时 collector 仍对该 session 全量 re-merge records。查询/渲染端已优化（t162/t164），此处属写入端放大（IPC/WAL），增量协议需 claude-reader + scan-state + collector 三处协同，留独立 task。
 
+### 2.5 records emit 增量化（t167）
+
+collector 维护内存 `emitted_record_keys: Set<string>`（key = `source|env|message_id`，与 records PK 一致）。`collect()` 收集 records 时，已 emit 的 key 跳过，只 postMessage 新增 message_id。消除 dirty session 重 merge 导致的整 session 全量重发（单 session 最高 1.2 万 records）。
+
+容量上限判断在 `emitted_record_keys.add` **之前**：超 `MAX_RECORDS * 20` 时 break 不标记 key，下次 collect 重试，避免超限 record 永久丢失。
+
+Set 不持久化（scan-state 不改）：进程重启后首次 collect 全量 emit（与 scan-state `records=[]` 语义一致），之后增量。Set 单调增长，上限为全量 distinct message 数（本机约 38 万 × ~40 字符 ≈ 15MB，可接受）。
+
 ## 3. 窗口与入口
 
 ### 3.1 入口

@@ -93,6 +93,18 @@ const opencode_max_updated = new Map<string, number>();
 const jsonl_states = new Map<string, SessionScanState>();
 const kimi_states = new Map<string, KimiScanState>();
 
+// Records the collector has already emitted (by PK source|env|message_id).
+// A dirty session re-merge re-derives the session's full record set; without
+// this filter every mtime change would re-ship the whole session (observed
+// ~200k records/collect on active installs). The set is in-memory only: a
+// restart emits full once (same as before), then incrementally. It grows
+// monotonically but is bounded by the total distinct message count.
+const emitted_record_keys = new Set<string>();
+
+function record_key(r: { source: string; env: string; message_id: string }): string {
+    return `${r.source}|${r.env}|${r.message_id}`;
+}
+
 // --- Scan-state persistence (t114, extracted to scan-state.ts in t117) ---
 //
 // serialize/save/load live in scan-state.ts; thin wrappers here read the
@@ -302,7 +314,14 @@ function collect(): void {
             all_daily.push(d);
         }
         for (const r of result.records) {
+            const key = record_key(r);
+            if (emitted_record_keys.has(key)) continue;
+            // Capacity check BEFORE marking emitted: a break here must leave the
+            // key unseen so the next collect retries it, otherwise a record that
+            // hit the cap would be silently dropped forever (it is marked emitted
+            // but never written to the DB).
             if (all_records.length >= MAX_RECORDS * 20) break;
+            emitted_record_keys.add(key);
             all_records.push(r);
         }
         if (
@@ -348,6 +367,7 @@ function reset_config(): void {
     opencode_max_updated.clear();
     jsonl_states.clear();
     kimi_states.clear();
+    emitted_record_keys.clear();
     wsl_user_cache = null;
     wsl_user_cache_distro = null;
     if (interval_id) {

@@ -1327,6 +1327,14 @@
             "status": "done",
             "branch": "t166_collector_records_incremental",
             "note": ""
+        },
+        {
+            "tid": "t167",
+            "title": "collector records emit 增量化：per-session message_id diff 协议",
+            "slug": "collector_records_message_id_diff",
+            "status": "done",
+            "branch": "t167_collector_records_message_id_diff",
+            "note": ""
         }
     ]
 }

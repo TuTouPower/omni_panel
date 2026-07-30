@@ -85,7 +85,12 @@ function upsert(overrides: Partial<TokenStatsSessionUpsert> = {}): TokenStatsSes
     };
 }
 
-function record(overrides: Partial<AgentSessionUsage> = {}): AgentSessionUsage {
+function record(
+    overrides: Partial<AgentSessionUsage> & {
+        source?: "claude_code" | "opencode" | "kimi_code";
+        env?: "win" | "wsl";
+    } = {},
+): AgentSessionUsage & { source: "claude_code" | "opencode" | "kimi_code"; env: "win" | "wsl" } {
     return {
         session_id: "s1",
         title: null,
@@ -102,6 +107,8 @@ function record(overrides: Partial<AgentSessionUsage> = {}): AgentSessionUsage {
         cache_read_tokens: 10,
         cache_write_tokens: 5,
         agent: "claude-code",
+        source: "claude_code",
+        env: "win",
         ...overrides,
     };
 }
@@ -274,6 +281,127 @@ describe("collector", () => {
                 "kimi-r1",
                 "oc-r1",
             ]);
+        });
+
+        it("emits only newly-seen records on subsequent collects (message_id diff)", () => {
+            // First collect: reader returns 2 records for session s1.
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [upsert({ id: "s1" })],
+                daily: [],
+                records: [
+                    record({ message_id: "m1", source: "claude_code", env: "win" }),
+                    record({ message_id: "m2", source: "claude_code", env: "win" }),
+                ],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            const first = mock_post_message.mock.calls[0]![0] as {
+                records: AgentSessionUsage[];
+            };
+            expect(first.records).toHaveLength(2);
+
+            // Second collect: same 2 records re-emitted by reader (mtime unchanged
+            // would normally skip, but simulate a dirty session that re-merges),
+            // plus 1 new record. Only the new one should be posted.
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [upsert({ id: "s1" })],
+                daily: [],
+                records: [
+                    record({ message_id: "m1", source: "claude_code", env: "win" }),
+                    record({ message_id: "m2", source: "claude_code", env: "win" }),
+                    record({ message_id: "m3", source: "claude_code", env: "win" }),
+                ],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            collect();
+            const second = mock_post_message.mock.calls[1]![0] as {
+                records: AgentSessionUsage[];
+            };
+            expect(second.records).toHaveLength(1);
+            expect(second.records[0]!.message_id).toBe("m3");
+        });
+
+        it("emits nothing when no records changed since the last collect", () => {
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [upsert({ id: "s1" })],
+                daily: [],
+                records: [
+                    record({ message_id: "m1", source: "claude_code", env: "win" }),
+                    record({ message_id: "m2", source: "claude_code", env: "win" }),
+                ],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            // First collect emits both.
+            const first = mock_post_message.mock.calls[0]![0] as {
+                records: AgentSessionUsage[];
+            };
+            expect(first.records).toHaveLength(2);
+
+            // Second collect returns the identical set -> 0 emitted.
+            collect();
+            const second = mock_post_message.mock.calls[1]![0] as {
+                records: AgentSessionUsage[];
+            };
+            expect(second.records).toHaveLength(0);
+        });
+
+        it("does not dedup records that share message_id across source/env", () => {
+            // Same message_id "shared" under different (source, env) is two
+            // distinct PK rows; both must emit.
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [upsert({ id: "s1" })],
+                daily: [],
+                records: [
+                    record({ message_id: "shared", source: "claude_code", env: "win" }),
+                    record({
+                        message_id: "shared",
+                        source: "claude_code",
+                        env: "wsl",
+                        agent: "claude-code",
+                    }),
+                    record({
+                        message_id: "shared",
+                        source: "opencode",
+                        env: "win",
+                        agent: "opencode",
+                    }),
+                ],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            const update = mock_post_message.mock.calls[0]![0] as {
+                records: AgentSessionUsage[];
+            };
+            expect(update.records).toHaveLength(3);
+        });
+
+        it("re-emits a record after the emitted set is reset (file-truncation analog)", () => {
+            // Files truncated and rewritten would reuse old message_ids. The
+            // in-memory set is wiped on reset_config (restart equivalent), so a
+            // post-restart collect re-emits everything - mirroring full rescan.
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [upsert({ id: "s1" })],
+                daily: [],
+                records: [record({ message_id: "m1", source: "claude_code", env: "win" })],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            expect(
+                (mock_post_message.mock.calls[0]![0] as { records: AgentSessionUsage[] }).records,
+            ).toHaveLength(1);
+
+            reset_config();
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [upsert({ id: "s1" })],
+                daily: [],
+                records: [record({ message_id: "m1", source: "claude_code", env: "win" })],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            expect(
+                (mock_post_message.mock.calls[1]![0] as { records: AgentSessionUsage[] }).records,
+            ).toHaveLength(1);
         });
 
         it("tracks incremental state per source kind", () => {
