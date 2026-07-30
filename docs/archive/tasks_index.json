@@ -1311,6 +1311,14 @@
             "status": "done",
             "branch": "t165_agent_window_singleton",
             "note": ""
+        },
+        {
+            "tid": "t164",
+            "title": "TokenStats 图表改用 daily 聚合，records 仅服务 SessionTable 分页",
+            "slug": "tokenstats_charts_use_daily",
+            "status": "done",
+            "branch": "t164_tokenstats_charts_use_daily",
+            "note": ""
         }
     ]
 }

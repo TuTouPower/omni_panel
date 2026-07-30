@@ -1,4 +1,5 @@
 import type { AgentSessionUsage, Granularity, Metric, SessionRow } from "./types";
+import type { TokenStatsSession } from "../../../shared/types/token-stats";
 
 /** Sum all token kinds for a single record. */
 export function sumTokens(r: AgentSessionUsage): number {
@@ -135,6 +136,33 @@ export function sessionRows(records: AgentSessionUsage[]): SessionRow[] {
             tokens,
             cacheRate: inputWithCache ? cacheRead / inputWithCache : 0,
             lastTs: Math.max(...rs.map((r) => r.timestamp)),
+        };
+    });
+}
+
+/**
+ * Derive SessionRow[] from pre-aggregated token_stats_sessions rows (one row
+ * per session). Mirrors `sessionRows(records)` but avoids reducing hundreds of
+ * thousands of per-message records. `source` (snake) maps to `agent` (kebab).
+ */
+export function sessionRowsFromSessions(sessions: TokenStatsSession[]): SessionRow[] {
+    return sessions.map((s) => {
+        const tokens =
+            s.input_tokens + s.output_tokens + s.cache_read_tokens + s.cache_write_tokens;
+        const inputWithCache = s.input_tokens + s.cache_read_tokens;
+        return {
+            session_id: s.id,
+            title: s.title ?? "(无标题)",
+            slug: null,
+            directory: s.directory ?? "—",
+            agent: s.source.replace(/_/g, "-"),
+            version: null,
+            sub: false,
+            models: s.model ? [s.model] : [],
+            calls: s.calls,
+            tokens,
+            cacheRate: inputWithCache ? s.cache_read_tokens / inputWithCache : 0,
+            lastTs: s.ended_at,
         };
     });
 }

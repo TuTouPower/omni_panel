@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AgentSessionUsage } from "../../../../src/shared/types/token-stats";
+import type { TokenStatsBucket, TokenStatsSession } from "../../../../src/shared/types/token-stats";
 import { TokenStatsView } from "../../../../src/renderer/views/TokenStatsView";
 
 vi.mock("../../../../src/renderer/components/token-stats/MetricDonut", () => ({
@@ -21,38 +21,47 @@ vi.mock("../../../../src/renderer/components/token-stats/Heatmap", () => ({
     Heatmap: () => <div />,
 }));
 vi.mock("../../../../src/renderer/components/token-stats/SessionTable", () => ({
-    SessionTable: ({ records }: { records: AgentSessionUsage[] }) => (
-        <div data-testid="session-records">
-            {records.map((record) => record.message_id).join(",")}
-        </div>
+    SessionTable: ({ rows }: { rows: { session_id: string }[] }) => (
+        <div data-testid="session-records">{rows.map((r) => r.session_id).join(",")}</div>
     ),
 }));
 vi.mock("../../../../src/renderer/components/token-stats/RangePicker", () => ({
     RangePicker: () => <div />,
 }));
 
-function usage_record(message_id: string): AgentSessionUsage {
+function session(id: string, overrides: Partial<TokenStatsSession> = {}): TokenStatsSession {
     return {
-        session_id: "session-1",
+        id,
+        source: "claude_code",
+        env: "win",
+        model: "model-1",
         title: "Session",
         directory: "D:\\project",
-        slug: null,
-        version: null,
-        parent_session_id: null,
-        message_id,
-        role: "assistant",
-        timestamp: Date.now() - 1000,
+        input_tokens: 100,
+        output_tokens: 10,
+        cache_read_tokens: 5,
+        cache_write_tokens: 0,
+        calls: 1,
+        started_at: Date.now() - 1000,
+        ended_at: Date.now(),
+        ...overrides,
+    };
+}
+
+function bucket(overrides: Partial<TokenStatsBucket> = {}): TokenStatsBucket {
+    return {
+        source: "claude_code",
+        env: "win",
+        bucket_date: "2026-07-29",
         model: "model-1",
         input_tokens: 100,
         output_tokens: 10,
         cache_read_tokens: 5,
         cache_write_tokens: 0,
-        agent: "claude-code",
+        sessions: 1,
+        calls: 1,
+        ...overrides,
     };
-}
-
-function usage_record_at(message_id: string, timestamp: number): AgentSessionUsage {
-    return { ...usage_record(message_id), timestamp };
 }
 
 function deferred<T>() {
@@ -65,16 +74,22 @@ function deferred<T>() {
 
 describe("TokenStatsView", () => {
     const get_records = vi.fn();
+    const get_sessions = vi.fn();
+    const get_buckets = vi.fn();
 
     beforeEach(() => {
         get_records.mockReset();
+        get_sessions.mockReset();
+        get_buckets.mockReset();
         mocked_bar_chart.props = null;
-        get_records.mockResolvedValue([usage_record("all-record")]);
+        get_records.mockResolvedValue([]);
+        get_sessions.mockResolvedValue([]);
+        get_buckets.mockResolvedValue([]);
         window.usageboard = {
             tokenStats: {
                 open: vi.fn(),
-                getBuckets: vi.fn(),
-                getSessions: vi.fn(),
+                getBuckets: get_buckets,
+                getSessions: get_sessions,
                 getRecords: get_records,
                 getStatus: vi.fn().mockResolvedValue({ running: true, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
@@ -90,11 +105,11 @@ describe("TokenStatsView", () => {
     });
 
     it("loads all platforms by default and switches between Win, WSL, and all", async () => {
-        get_records
-            .mockResolvedValueOnce([usage_record("all-record")])
-            .mockResolvedValueOnce([usage_record("win-record")])
+        get_sessions
+            .mockResolvedValueOnce([session("all-session")])
+            .mockResolvedValueOnce([session("win-session")])
             .mockResolvedValueOnce([])
-            .mockResolvedValueOnce([usage_record("all-again")]);
+            .mockResolvedValueOnce([session("all-again")]);
 
         render(<TokenStatsView />);
         const user = userEvent.setup();
@@ -102,7 +117,7 @@ describe("TokenStatsView", () => {
         await waitFor(() => {
             expect(get_records).toHaveBeenNthCalledWith(1, expect.objectContaining({}));
         });
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("all-record");
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("all-session");
 
         // Kimi Code option is present in the agent filter.
         expect(screen.getByRole("button", { name: "Kimi Code" })).toBeInTheDocument();
@@ -111,7 +126,7 @@ describe("TokenStatsView", () => {
         await waitFor(() => {
             expect(get_records).toHaveBeenNthCalledWith(2, expect.objectContaining({ env: "win" }));
         });
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("win-record");
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("win-session");
 
         await user.click(screen.getByRole("button", { name: "WSL" }));
         await waitFor(() => {
@@ -133,7 +148,7 @@ describe("TokenStatsView", () => {
     it("passes the current time window (start/end) to getRecords", async () => {
         const now = Date.now();
         const day = 86400000;
-        get_records.mockResolvedValue([usage_record_at("win-msg", now - 1 * day)]);
+        get_records.mockResolvedValue([]);
 
         render(<TokenStatsView />);
         const user = userEvent.setup();
@@ -156,10 +171,10 @@ describe("TokenStatsView", () => {
     });
 
     it("ignores an older platform response after a faster switch", async () => {
-        const all_request = deferred<AgentSessionUsage[]>();
-        get_records.mockImplementation((filters: { env?: "win" | "wsl" }) => {
+        const all_request = deferred<TokenStatsSession[]>();
+        get_sessions.mockImplementation((filters: { env?: "win" | "wsl" }) => {
             if (filters.env === "wsl") {
-                return Promise.resolve([usage_record("wsl-record")]);
+                return Promise.resolve([session("wsl-session")]);
             }
             return all_request.promise;
         });
@@ -168,30 +183,37 @@ describe("TokenStatsView", () => {
         const user = userEvent.setup();
         await user.click(screen.getByRole("button", { name: "WSL" }));
 
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("wsl-record");
-        all_request.resolve([usage_record("stale-all-record")]);
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("wsl-session");
+        all_request.resolve([session("stale-all-session")]);
 
         await waitFor(() => {
-            expect(screen.getByTestId("session-records")).toHaveTextContent("wsl-record");
+            expect(screen.getByTestId("session-records")).toHaveTextContent("wsl-session");
         });
-        expect(screen.getByTestId("session-records")).not.toHaveTextContent("stale-all-record");
+        expect(screen.getByTestId("session-records")).not.toHaveTextContent("stale-all-session");
     });
 
-    it("shows period-over-period delta when the prior window has records", async () => {
+    it("shows period-over-period delta when the prior window has buckets", async () => {
         const now = Date.now();
-        const day = 86400000;
-        // preset "7d" → current = [now-7d, now], prior = [now-14d, now-7d]
-        const current_rec = usage_record_at("current-msg", now - 1 * day);
-        const prior_rec = usage_record_at("prior-msg", now - 8 * day);
-        get_records.mockResolvedValue([current_rec, prior_rec]);
+        const today = new Date(now);
+        const ymd = (d: Date) =>
+            `${String(d.getUTCFullYear())}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+        const today_str = ymd(today);
+        // prior bucket ~8 days ago
+        const prior_date = new Date(now - 8 * 86400000);
+        const prior_str = ymd(prior_date);
+        get_buckets.mockResolvedValue([
+            bucket({ bucket_date: today_str, input_tokens: 100, output_tokens: 50 }),
+            bucket({ bucket_date: prior_str, input_tokens: 40, output_tokens: 20 }),
+        ]);
+        get_sessions.mockResolvedValue([session("current-session")]);
 
         render(<TokenStatsView />);
         const user = userEvent.setup();
 
         await user.click(screen.getByRole("button", { name: "7 天" }));
 
-        // current-window record reaches the table
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("current-msg");
+        // current-window session reaches the table
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("current-session");
 
         // KPI deltas must show a percentage arrow, not "前段无数据"
         await waitFor(() => {
@@ -201,7 +223,7 @@ describe("TokenStatsView", () => {
     });
 
     it("persists agent and preset selection across remount", async () => {
-        get_records.mockResolvedValue([usage_record("r")]);
+        get_sessions.mockResolvedValue([session("s")]);
         const user = userEvent.setup();
 
         const { unmount } = render(<TokenStatsView />);
@@ -215,6 +237,8 @@ describe("TokenStatsView", () => {
     });
 
     it("passes the selected preset granularity to the bar chart", async () => {
+        get_sessions.mockResolvedValue([session("s")]);
+        get_buckets.mockResolvedValue([bucket()]);
         render(<TokenStatsView />);
         const user = userEvent.setup();
 
@@ -233,7 +257,7 @@ describe("TokenStatsView", () => {
     });
 
     it("renders nav buttons to usage panel and settings", async () => {
-        get_records.mockResolvedValue([usage_record("r")]);
+        get_sessions.mockResolvedValue([session("s")]);
         render(<TokenStatsView />);
         await waitFor(() => expect(screen.getByText("代理面板")).toBeInTheDocument());
         expect(screen.getByRole("button", { name: "用量面板" })).toBeInTheDocument();

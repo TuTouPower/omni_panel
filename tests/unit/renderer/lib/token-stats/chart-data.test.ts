@@ -1,14 +1,23 @@
 import { describe, it, expect } from "vitest";
-import type { AgentSessionUsage } from "../../../../../src/shared/types/token-stats";
+import type {
+    AgentSessionUsage,
+    TokenStatsBucket,
+    TokenStatsSession,
+} from "../../../../../src/shared/types/token-stats";
 import {
     agentSegments,
+    agentSegmentsFromBuckets,
     compositionSegments,
+    compositionSegmentsFromBuckets,
     escapeHtml,
+    kpiFromBuckets,
     modelColorMap,
     modelSegments,
+    modelSegmentsFromBuckets,
     prepareBarData,
     prepareHeatmapData,
     projectSegments,
+    projectSegmentsFromSessions,
     sumTokensValue,
 } from "../../../../../src/renderer/lib/token-stats/chart-data";
 
@@ -313,6 +322,178 @@ describe("chart-data", () => {
             if (!point) throw new Error("expected heatmap point");
             expect(point[2]).toBe(105);
             expect(max).toBe(105);
+        });
+    });
+
+    // --- buckets/sessions-based aggregates (t164) ---
+    // These mirror the records-based functions but consume the pre-aggregated
+    // token_stats_buckets / token_stats_sessions rows so the renderer no longer
+    // reduces hundreds of thousands of per-message records.
+
+    function bucket(overrides: Partial<TokenStatsBucket> = {}): TokenStatsBucket {
+        return {
+            source: "claude_code",
+            env: "win",
+            bucket_date: "2026-07-10",
+            model: "claude-sonnet-4",
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            sessions: 0,
+            calls: 0,
+            ...overrides,
+        };
+    }
+
+    describe("agentSegmentsFromBuckets", () => {
+        it("maps source to agent label and sums tokens, skipping zero agents", () => {
+            const buckets = [
+                bucket({ source: "claude_code", input_tokens: 100, output_tokens: 50 }),
+                bucket({ source: "claude_code", input_tokens: 10 }),
+                bucket({ source: "opencode", input_tokens: 30, output_tokens: 10 }),
+                bucket({ source: "kimi_code", input_tokens: 5 }),
+            ];
+            const segs = agentSegmentsFromBuckets(buckets);
+            const byName = new Map(segs.map((s) => [s.name, s.value]));
+            // tokens = input + output + cache_read + cache_write
+            expect(byName.get("Claude Code")).toBe(160); // (100+50) + 10
+            expect(byName.get("OpenCode")).toBe(40);
+            expect(byName.get("Kimi Code")).toBe(5);
+            expect(segs).toHaveLength(3);
+        });
+    });
+
+    describe("modelSegmentsFromBuckets", () => {
+        it("groups buckets by model and returns top 5 + others", () => {
+            const buckets = [
+                bucket({ model: "a", input_tokens: 100 }),
+                bucket({ model: "b", input_tokens: 80 }),
+                bucket({ model: "c", input_tokens: 60 }),
+                bucket({ model: "d", input_tokens: 40 }),
+                bucket({ model: "e", input_tokens: 20 }),
+                bucket({ model: "f", input_tokens: 10 }),
+            ];
+            const segs = modelSegmentsFromBuckets(buckets, "dark");
+            const names = segs.map((s) => s.name);
+            expect(names).toContain("a");
+            expect(names.some((n) => n.startsWith("其他"))).toBe(true);
+            const other = segs.find((s) => s.name.startsWith("其他"));
+            expect(other?.value).toBe(10);
+        });
+
+        it("sums tokens across envs for the same model+date", () => {
+            const buckets = [
+                bucket({ model: "a", env: "win", input_tokens: 100 }),
+                bucket({ model: "a", env: "wsl", input_tokens: 50 }),
+            ];
+            const segs = modelSegmentsFromBuckets(buckets, "dark");
+            const a = segs.find((s) => s.name === "a");
+            expect(a?.value).toBe(150);
+        });
+    });
+
+    describe("compositionSegmentsFromBuckets", () => {
+        it("sums each token component across all buckets", () => {
+            const buckets = [
+                bucket({
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 30,
+                    cache_write_tokens: 20,
+                }),
+                bucket({
+                    input_tokens: 10,
+                    output_tokens: 5,
+                    cache_read_tokens: 3,
+                    cache_write_tokens: 2,
+                }),
+            ];
+            const segs = compositionSegmentsFromBuckets(buckets);
+            const byName = new Map(segs.map((s) => [s.name, s.value]));
+            expect(byName.get("input")).toBe(110);
+            expect(byName.get("output")).toBe(55);
+            expect(byName.get("cache_read")).toBe(33);
+            expect(byName.get("cache_write")).toBe(22);
+        });
+    });
+
+    describe("kpiFromBuckets", () => {
+        it("returns total tokens, sessions, calls summed across buckets", () => {
+            const buckets = [
+                bucket({
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 10,
+                    cache_write_tokens: 5,
+                    sessions: 3,
+                    calls: 7,
+                }),
+                bucket({
+                    input_tokens: 20,
+                    output_tokens: 10,
+                    sessions: 2,
+                    calls: 4,
+                }),
+            ];
+            const kpi = kpiFromBuckets(buckets);
+            // tokens = input+output+cache_read+cache_write per row, summed
+            expect(kpi.tokens).toBe(100 + 50 + 10 + 5 + 20 + 10);
+            expect(kpi.sessions).toBe(5);
+            expect(kpi.calls).toBe(11);
+        });
+
+        it("returns zeros for empty buckets", () => {
+            const kpi = kpiFromBuckets([]);
+            expect(kpi.tokens).toBe(0);
+            expect(kpi.sessions).toBe(0);
+            expect(kpi.calls).toBe(0);
+        });
+    });
+
+    function session_row(overrides: Partial<TokenStatsSession> = {}): TokenStatsSession {
+        return {
+            id: "s1",
+            source: "claude_code",
+            env: "win",
+            model: "claude-sonnet-4",
+            title: null,
+            directory: "/p/x",
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            calls: 0,
+            started_at: 1000,
+            ended_at: 2000,
+            ...overrides,
+        };
+    }
+
+    describe("projectSegmentsFromSessions", () => {
+        it("counts distinct session ids per directory, top 5 + others", () => {
+            const sessions = [
+                session_row({ id: "a", directory: "/p/1" }),
+                session_row({ id: "b", directory: "/p/1" }),
+                session_row({ id: "c", directory: "/p/2" }),
+                session_row({ id: "d", directory: "/p/3" }),
+                session_row({ id: "e", directory: "/p/4" }),
+                session_row({ id: "f", directory: "/p/5" }),
+                session_row({ id: "g", directory: "/p/6" }),
+            ];
+            const segs = projectSegmentsFromSessions(sessions, "dark");
+            // /p/1 has 2 sessions (top), others 1 each; top5 dirs + 其他
+            // shortDir("/p/1") = "1"
+            const one = segs.find((s) => s.name === "1");
+            expect(one).toBeDefined();
+            expect(one?.value).toBe(2);
+            expect(segs.some((s) => s.name.startsWith("其他"))).toBe(true);
+        });
+
+        it("treats null directory as unknown", () => {
+            const sessions = [session_row({ id: "a", directory: null })];
+            const segs = projectSegmentsFromSessions(sessions, "dark");
+            expect(segs).toHaveLength(1);
         });
     });
 });

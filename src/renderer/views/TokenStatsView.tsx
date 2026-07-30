@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AgentSessionUsage, TokenStatsEnv } from "../../shared/types/token-stats";
+import type {
+    AgentSessionUsage,
+    TokenStatsBucket,
+    TokenStatsEnv,
+    TokenStatsSession,
+} from "../../shared/types/token-stats";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
 import { MetricDonut } from "../components/token-stats/MetricDonut";
 import { BarChart } from "../components/token-stats/BarChart";
@@ -8,20 +13,36 @@ import { SessionTable } from "../components/token-stats/SessionTable";
 import { Segmented } from "../components/token-stats/Segmented";
 import { RangePicker } from "../components/token-stats/RangePicker";
 import { filtered } from "../lib/token-stats/filter";
-import { metricValue, prevRangeRecords, hitRateOf } from "../lib/token-stats/aggregate";
+import { sessionRowsFromSessions } from "../lib/token-stats/aggregate";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import {
-    agentSegments,
-    compositionSegments,
-    modelSegments,
-    projectSegments,
-    oneValue,
-    sumTokensValue,
+    agentSegmentsFromBuckets,
+    compositionSegmentsFromBuckets,
+    kpiFromBuckets,
+    modelColorMapFromBuckets,
+    modelSegmentsFromBuckets,
+    projectSegmentsFromSessions,
 } from "../lib/token-stats/chart-data";
 import type { AgentFilter, Granularity, Metric, XAxis } from "../lib/token-stats/types";
 import "../styles/token-stats.css";
 
 const MODULE = "TokenStatsView";
+
+/** Map agent filter (kebab) to token_stats source (snake). */
+const AGENT_TO_SOURCE: Record<Exclude<AgentFilter, "all">, string> = {
+    "claude-code": "claude_code",
+    opencode: "opencode",
+    "kimi-code": "kimi_code",
+};
+
+/** epoch ms -> YYYY-MM-DD (UTC) to match bucket_date (daily table is UTC-dated). */
+function utc_date(ms: number): string {
+    const d = new Date(ms);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    return `${String(y)}-${m}-${day}`;
+}
 
 type Theme = "dark" | "light";
 type RangePreset = "24h" | "7d" | "30d";
@@ -126,6 +147,8 @@ function save_prefs(p: TokenStatsPrefs): void {
 export function TokenStatsView() {
     const saved = useMemo(() => load_prefs(), []);
     const [records, setRecords] = useState<AgentSessionUsage[]>([]);
+    const [buckets, setBuckets] = useState<TokenStatsBucket[]>([]);
+    const [sessions, setSessions] = useState<TokenStatsSession[]>([]);
     const [status, setStatus] = useState<TokenStatsStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [agent, setAgent] = useState<AgentFilter>(saved.agent ?? "all");
@@ -159,17 +182,44 @@ export function TokenStatsView() {
             // the loading state.
             if (!silent) setLoading(true);
             try {
-                const [recs, st, cfg] = await Promise.all([
+                const env_filter = platform === "all" ? {} : { env: platform };
+                // buckets/sessions filters accept `source` (snake); records filter
+                // accepts `agent` (kebab). Map the agent selector to both.
+                const source_filter = agent === "all" ? {} : { source: AGENT_TO_SOURCE[agent] };
+                const agent_filter = agent === "all" ? {} : { agent };
+                // Pull buckets across [start - width, end] so the renderer can
+                // derive both the current window and the equal-width prior
+                // window (for delta arrows) by splitting on bucket_date.
+                const width = Math.max(0, currentRange.end - currentRange.start);
+                const bucket_filter = {
+                    ...env_filter,
+                    ...source_filter,
+                    from_date: utc_date(currentRange.start - width),
+                    to_date: utc_date(currentRange.end),
+                };
+                // records feed the Bar/Heatmap only (hourly resolution); bounded
+                // by the window + default LIMIT so the renderer never holds the
+                // full table. KPI/donut/session-table use buckets+sessions.
+                const [recs, bkts, sess, st, cfg] = await Promise.all([
                     window.usageboard.tokenStats.getRecords({
-                        ...(platform === "all" ? {} : { env: platform }),
+                        ...env_filter,
+                        ...agent_filter,
                         start: currentRange.start,
                         end: currentRange.end,
+                    }),
+                    window.usageboard.tokenStats.getBuckets(bucket_filter),
+                    window.usageboard.tokenStats.getSessions({
+                        ...env_filter,
+                        ...source_filter,
+                        limit: 500,
                     }),
                     window.usageboard.tokenStats.getStatus(),
                     window.usageboard.config.get(),
                 ]);
                 if (request_id !== load_request_id.current) return;
                 setRecords(recs);
+                setBuckets(bkts);
+                setSessions(sess);
                 setStatus(st);
                 setDirAliases(
                     (cfg.config.dirAliases ?? []).map((a) => ({
@@ -196,7 +246,7 @@ export function TokenStatsView() {
                 }
             }
         },
-        [platform, currentRange],
+        [platform, agent, currentRange],
     );
 
     useEffect(() => {
@@ -228,9 +278,33 @@ export function TokenStatsView() {
         [agentFiltered, currentRange],
     );
 
-    const prevRecords = useMemo(
-        () => prevRangeRecords(agentFiltered, currentRange),
-        [agentFiltered, currentRange],
+    // Split the 2x-wide buckets into current and equal-width prior windows by
+    // bucket_date (UTC YYYY-MM-DD). Day-level granularity means the boundary
+    // aligns to the date containing currentRange.start, not the exact epoch -
+    // acceptable for KPI/donut deltas which are day-granular anyway.
+    const currentBuckets = useMemo(() => {
+        const start_date = utc_date(currentRange.start);
+        const end_date = utc_date(currentRange.end);
+        return buckets.filter((b) => b.bucket_date >= start_date && b.bucket_date <= end_date);
+    }, [buckets, currentRange]);
+
+    const prevBuckets = useMemo(() => {
+        const start_date = utc_date(currentRange.start);
+        const width = Math.max(0, currentRange.end - currentRange.start);
+        const prev_start_date = utc_date(currentRange.start - width);
+        return buckets.filter(
+            (b) => b.bucket_date >= prev_start_date && b.bucket_date < start_date,
+        );
+    }, [buckets, currentRange]);
+
+    // Sessions overlapping the current window (started before end, ended after
+    // start). getSessions has no date filter, so filter client-side.
+    const currentSessions = useMemo(
+        () =>
+            sessions.filter(
+                (s) => s.started_at <= currentRange.end && s.ended_at >= currentRange.start,
+            ),
+        [sessions, currentRange],
     );
 
     const isSessionMetric = metric === "sessions";
@@ -262,17 +336,30 @@ export function TokenStatsView() {
         );
     }, []);
 
-    const totalTokens = metricValue(currentRecords, "tokens");
-    const totalSessions = metricValue(currentRecords, "sessions");
-    const totalCalls = metricValue(currentRecords, "calls");
-    const hitRate = hitRateOf(currentRecords);
+    const currentKpi = kpiFromBuckets(currentBuckets);
+    const currentComp = compositionSegmentsFromBuckets(currentBuckets);
+    const compInput = currentComp.find((c) => c.name === "input")?.value ?? 0;
+    const compCacheRead = currentComp.find((c) => c.name === "cache_read")?.value ?? 0;
+    const hitRate = compCacheRead + compInput > 0 ? compCacheRead / (compCacheRead + compInput) : 0;
 
-    const prevTokens = metricValue(prevRecords, "tokens");
-    const prevSessions = metricValue(prevRecords, "sessions");
-    const prevCalls = metricValue(prevRecords, "calls");
-    const prevHitRate = hitRateOf(prevRecords);
+    const prevKpi = kpiFromBuckets(prevBuckets);
+    const prevComp = compositionSegmentsFromBuckets(prevBuckets);
+    const prevCompInput = prevComp.find((c) => c.name === "input")?.value ?? 0;
+    const prevCompCacheRead = prevComp.find((c) => c.name === "cache_read")?.value ?? 0;
+    const prevHitRate =
+        prevCompCacheRead + prevCompInput > 0
+            ? prevCompCacheRead / (prevCompCacheRead + prevCompInput)
+            : 0;
 
-    const agentSegmentsData = agentSegments(currentRecords);
+    const totalTokens = currentKpi.tokens;
+    const totalSessions = currentKpi.sessions;
+    const totalCalls = currentKpi.calls;
+
+    const prevTokens = prevKpi.tokens;
+    const prevSessions = prevKpi.sessions;
+    const prevCalls = prevKpi.calls;
+
+    const agentSegmentsData = agentSegmentsFromBuckets(currentBuckets);
     const topAgentSeg = agentSegmentsData.reduce<{ name: string; value: number } | null>(
         (acc, b) => (!acc || b.value > acc.value ? b : acc),
         null,
@@ -363,7 +450,7 @@ export function TokenStatsView() {
 
             {loading ? (
                 <div className="empty">加载中...</div>
-            ) : currentRecords.length === 0 ? (
+            ) : currentBuckets.length === 0 && currentSessions.length === 0 ? (
                 <div className="empty">该筛选条件下暂无记录</div>
             ) : (
                 <>
@@ -375,7 +462,7 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtTok(totalTokens)}
-                                segments={modelSegments(currentRecords, sumTokensValue, theme)}
+                                segments={modelSegmentsFromBuckets(currentBuckets, theme)}
                                 format={fmtTok}
                                 theme={theme}
                             />
@@ -389,7 +476,7 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtInt(totalSessions)}
-                                segments={projectSegments(currentRecords, theme)}
+                                segments={projectSegmentsFromSessions(currentSessions, theme)}
                                 format={fmtInt}
                                 theme={theme}
                             />
@@ -401,7 +488,11 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtInt(totalCalls)}
-                                segments={modelSegments(currentRecords, oneValue, theme)}
+                                segments={modelSegmentsFromBuckets(
+                                    currentBuckets,
+                                    theme,
+                                    (b) => b.calls,
+                                )}
                                 format={fmtInt}
                                 theme={theme}
                             />
@@ -424,7 +515,7 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={`${(hitRate * 100).toFixed(1)}%`}
-                                segments={compositionSegments(currentRecords)}
+                                segments={currentComp}
                                 format={fmtTok}
                                 theme={theme}
                             />
@@ -488,9 +579,17 @@ export function TokenStatsView() {
 
                     <div className="grid">
                         <SessionTable
-                            records={currentRecords}
-                            metric={metric}
+                            rows={sessionRowsFromSessions(currentSessions)}
                             theme={theme}
+                            modelColors={modelColorMapFromBuckets(
+                                currentBuckets,
+                                theme,
+                                metric === "calls"
+                                    ? (b) => b.calls
+                                    : metric === "sessions"
+                                      ? (b) => b.sessions
+                                      : undefined,
+                            )}
                             modelAliases={modelAliases}
                         />
                     </div>

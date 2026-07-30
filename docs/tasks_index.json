@@ -1,14 +1,6 @@
 {
     "tasks": [
         {
-            "tid": "t164",
-            "title": "TokenStats 图表改用 daily 聚合，records 仅服务 SessionTable 分页",
-            "slug": "tokenstats_charts_use_daily",
-            "status": "backlog",
-            "branch": "",
-            "note": ""
-        },
-        {
             "tid": "t166",
             "title": "collector records emit 增量化与 config 保存去抖",
             "slug": "collector_records_incremental",

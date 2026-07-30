@@ -3,6 +3,7 @@ import { bucketize, groupBy, metricValue, sessionRows, sumTokens, topGroups } fr
 import { fmtTok, shortDir } from "./format";
 import { TOP5_COLORS, colorForTopModel, colorForTopProject, paletteFor } from "./palette";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "./types";
+import type { TokenStatsBucket, TokenStatsSession } from "../../../shared/types/token-stats";
 
 /** A single donut segment. */
 export interface DonutSegment {
@@ -407,3 +408,210 @@ export function prepareHeatmapData(records: AgentSessionUsage[], metric: Metric)
 
 /** Minimal re-export of EChartsOption for convenience. */
 export type { EChartsOption };
+
+// --- buckets-based aggregates (t164) ---
+//
+// These mirror the records-based segment/KPI functions but consume the
+// pre-aggregated `token_stats_buckets` rows (one row per source/env/date/model
+// with summed token components). The renderer reduces ~hundreds of rows here
+// instead of hundreds of thousands of per-message records.
+
+/** Sum the four token components on a single bucket row. */
+function bucket_tokens(b: TokenStatsBucket): number {
+    return b.input_tokens + b.output_tokens + b.cache_read_tokens + b.cache_write_tokens;
+}
+
+/** Fixed source → agent label/color mapping (mirrors records' AGENT_* maps). */
+const BUCKET_AGENT_COLORS: Record<string, string> = {
+    claude_code: "#ffb78a",
+    opencode: "#8ad8ff",
+    kimi_code: "#7ee8b0",
+};
+const BUCKET_AGENT_LABELS: Record<string, string> = {
+    claude_code: "Claude Code",
+    opencode: "OpenCode",
+    kimi_code: "Kimi Code",
+};
+
+/** Donut segments comparing token usage across agents (source → agent). */
+export function agentSegmentsFromBuckets(buckets: TokenStatsBucket[]): DonutSegment[] {
+    const totals: Record<string, number> = {
+        claude_code: 0,
+        opencode: 0,
+        kimi_code: 0,
+    };
+    for (const b of buckets) {
+        totals[b.source] = (totals[b.source] ?? 0) + bucket_tokens(b);
+    }
+    return (["claude_code", "opencode", "kimi_code"] as const)
+        .filter((s) => (totals[s] ?? 0) > 0)
+        .map((s) => ({
+            name: BUCKET_AGENT_LABELS[s] ?? s,
+            value: totals[s] ?? 0,
+            itemStyle: { color: BUCKET_AGENT_COLORS[s] ?? "#6b7890" },
+        }));
+}
+
+/** Segments for the cache-hit-rate donut, summed across all buckets. */
+export function compositionSegmentsFromBuckets(buckets: TokenStatsBucket[]): DonutSegment[] {
+    const colors: Record<string, string> = {
+        cache_read: "#3ddc97",
+        input: "#4cc2ff",
+        cache_write: "#ffb454",
+        output: "#7c6cf6",
+    };
+    const totals = {
+        cache_read: buckets.reduce((s, b) => s + b.cache_read_tokens, 0),
+        input: buckets.reduce((s, b) => s + b.input_tokens, 0),
+        cache_write: buckets.reduce((s, b) => s + b.cache_write_tokens, 0),
+        output: buckets.reduce((s, b) => s + b.output_tokens, 0),
+    };
+    return (Object.keys(totals) as (keyof typeof totals)[])
+        .filter((k) => totals[k] > 0)
+        .map((k) => ({
+            name: k,
+            value: totals[k],
+            itemStyle: { color: colors[k] ?? "#6b7890" },
+        }));
+}
+
+/**
+ * Top5 + "其他" donut segments by model from buckets. `valFn` selects the
+ * per-bucket value to sum (default: token total). Sums across env/date for
+ * the same model.
+ */
+export function modelSegmentsFromBuckets(
+    buckets: TokenStatsBucket[],
+    theme: "dark" | "light",
+    valFn: (b: TokenStatsBucket) => number = bucket_tokens,
+): DonutSegment[] {
+    const totals: Record<string, number> = {};
+    for (const b of buckets) {
+        totals[b.model] = (totals[b.model] ?? 0) + valFn(b);
+    }
+    const { top, rest } = topGroups(totals, 5);
+    const palette = paletteFor(theme);
+    const segs: DonutSegment[] = top.map((m, i) => ({
+        name: m,
+        value: totals[m] ?? 0,
+        itemStyle: { color: colorForTopModel(m, i, theme) },
+    }));
+    if (rest.length) {
+        const restItems = rest
+            .map((m) => [m, totals[m] ?? 0] as const)
+            .filter(([, v]) => v > 0)
+            .sort((a, b) => b[1] - a[1]);
+        const restTotal = restItems.reduce((sum, [, v]) => sum + v, 0);
+        segs.push({
+            name: `其他（${String(rest.length)} 个模型）`,
+            value: restTotal,
+            itemStyle: { color: palette.other },
+            extra:
+                restItems
+                    .slice(0, 5)
+                    .map(
+                        ([k, v]) =>
+                            `<br/><span style="opacity:.75">· ${escapeHtml(k)}: ${escapeHtml(fmtTok(v))}</span>`,
+                    )
+                    .join("") +
+                (restItems.length > 5
+                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
+                    : ""),
+        });
+    }
+    return segs;
+}
+
+/** KPI totals (tokens / sessions / calls) summed across buckets. */
+export function kpiFromBuckets(buckets: TokenStatsBucket[]): {
+    tokens: number;
+    sessions: number;
+    calls: number;
+} {
+    let tokens = 0;
+    let sessions = 0;
+    let calls = 0;
+    for (const b of buckets) {
+        tokens += bucket_tokens(b);
+        sessions += b.sessions;
+        calls += b.calls;
+    }
+    return { tokens, sessions, calls };
+}
+
+/**
+ * Build a model → color map from buckets' Top5 ranking by `valFn` (default:
+ * token total). Mirrors the records-based `modelColorMap(records, metric)`
+ * so session-table tags stay consistent with the metric's donut/bar Top5.
+ * Models outside Top5 fall back to theme gray.
+ */
+export function modelColorMapFromBuckets(
+    buckets: TokenStatsBucket[],
+    theme: "dark" | "light",
+    valFn: (b: TokenStatsBucket) => number = bucket_tokens,
+): Map<string, string> {
+    const totals: Record<string, number> = {};
+    for (const b of buckets) {
+        totals[b.model] = (totals[b.model] ?? 0) + valFn(b);
+    }
+    const { top } = topGroups(totals, 5);
+    const map = new Map<string, string>();
+    const fallback = paletteFor(theme).other;
+    top.forEach((m, i) => {
+        map.set(m, TOP5_COLORS[i] ?? fallback);
+    });
+    return map;
+}
+
+/**
+ * Sessions donut segments by project (directory): counts distinct session ids
+ * per directory, Top5 + "其他". Mirrors the records-based `projectSegments`
+ * but consumes `token_stats_sessions` rows.
+ */
+export function projectSegmentsFromSessions(
+    sessions: TokenStatsSession[],
+    theme: "dark" | "light",
+): DonutSegment[] {
+    const byDir = new Map<string, Set<string>>();
+    for (const s of sessions) {
+        const dir = s.directory ?? "(unknown)";
+        const set = byDir.get(dir) ?? new Set<string>();
+        set.add(s.id);
+        byDir.set(dir, set);
+    }
+    const totals: Record<string, number> = {};
+    for (const [dir, set] of byDir) {
+        totals[dir] = set.size;
+    }
+    const { top, rest } = topGroups(totals, 5);
+    const palette = paletteFor(theme);
+    const segs: DonutSegment[] = top.map((dir, i) => ({
+        name: shortDir(dir),
+        value: totals[dir] ?? 0,
+        itemStyle: { color: colorForTopProject(dir, i, theme) },
+    }));
+    if (rest.length) {
+        const restItems = rest
+            .map((d) => [d, totals[d] ?? 0] as const)
+            .filter(([, v]) => v > 0)
+            .sort((a, b) => b[1] - a[1]);
+        const restTotal = restItems.reduce((sum, [, v]) => sum + v, 0);
+        segs.push({
+            name: `其他（${String(rest.length)} 个项目）`,
+            value: restTotal,
+            itemStyle: { color: palette.other },
+            extra:
+                restItems
+                    .slice(0, 5)
+                    .map(
+                        ([k, v]) =>
+                            `<br/><span style="opacity:.75">· ${escapeHtml(shortDir(k))}: ${escapeHtml(String(v))}</span>`,
+                    )
+                    .join("") +
+                (restItems.length > 5
+                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
+                    : ""),
+        });
+    }
+    return segs;
+}
