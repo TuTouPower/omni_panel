@@ -1335,6 +1335,14 @@
             "status": "done",
             "branch": "t167_collector_records_message_id_diff",
             "note": ""
+        },
+        {
+            "tid": "t168",
+            "title": "代理面板 24h preset 精确 delta：hourly 聚合或 records 驱动 KPI",
+            "slug": "tokenstats_24h_precise_delta",
+            "status": "done",
+            "branch": "t168_tokenstats_24h_precise_delta",
+            "note": ""
         }
     ]
 }

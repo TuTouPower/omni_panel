@@ -222,6 +222,67 @@ describe("TokenStatsView", () => {
         expect(screen.getAllByText(/▲|▼/).length).toBeGreaterThan(0);
     });
 
+    it("derives 24h delta from records (not day-bucketed) so windows are symmetric", async () => {
+        const now = Date.now();
+        const hour = 3600000;
+        // current window: 1 record ~1h ago; prior window: 1 record ~25h ago.
+        // Return both across the 2x-wide records fetch ([now-48h, now]).
+        get_records.mockImplementation((filters: { start?: number; end?: number }) => {
+            const start = filters.start ?? 0;
+            const end = filters.end ?? now;
+            const recs: {
+                session_id: string;
+                timestamp: number;
+                input_tokens: number;
+                output_tokens: number;
+            }[] = [];
+            const cur = now - 1 * hour;
+            const prev = now - 25 * hour;
+            if (cur >= start && cur <= end) {
+                recs.push({
+                    session_id: "cur",
+                    timestamp: cur,
+                    input_tokens: 100,
+                    output_tokens: 50,
+                });
+            }
+            if (prev >= start && prev <= end) {
+                recs.push({
+                    session_id: "prev",
+                    timestamp: prev,
+                    input_tokens: 40,
+                    output_tokens: 20,
+                });
+            }
+            return Promise.resolve(
+                recs.map((r) => ({
+                    ...session(r.session_id),
+                    timestamp: r.timestamp,
+                    input_tokens: r.input_tokens,
+                    output_tokens: r.output_tokens,
+                })),
+            );
+        });
+        // A bucket for today keeps the panel non-empty (render gate) while KPI
+        // delta itself comes from records in the 24h branch.
+        const today_str = `${String(new Date(now).getUTCFullYear())}-${String(
+            new Date(now).getUTCMonth() + 1,
+        ).padStart(2, "0")}-${String(new Date(now).getUTCDate()).padStart(2, "0")}`;
+        get_buckets.mockResolvedValue([bucket({ bucket_date: today_str, sessions: 1 })]);
+        get_sessions.mockResolvedValue([session("cur")]);
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await user.click(screen.getByRole("button", { name: "24 小时" }));
+
+        // current-window record must be reflected; delta must show an arrow
+        // (not "前段无数据"), proving the prior 24h window has data via records.
+        await waitFor(() => {
+            expect(screen.queryAllByText("前段无数据")).toHaveLength(0);
+        });
+        expect(screen.getAllByText(/▲|▼/).length).toBeGreaterThan(0);
+    });
+
     it("persists agent and preset selection across remount", async () => {
         get_sessions.mockResolvedValue([session("s")]);
         const user = userEvent.setup();

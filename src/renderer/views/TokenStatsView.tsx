@@ -13,15 +13,25 @@ import { SessionTable } from "../components/token-stats/SessionTable";
 import { Segmented } from "../components/token-stats/Segmented";
 import { RangePicker } from "../components/token-stats/RangePicker";
 import { filtered } from "../lib/token-stats/filter";
-import { sessionRowsFromSessions } from "../lib/token-stats/aggregate";
+import {
+    metricValue,
+    hitRateOf,
+    prevRangeRecords,
+    sessionRowsFromSessions,
+} from "../lib/token-stats/aggregate";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import {
+    agentSegments,
     agentSegmentsFromBuckets,
+    compositionSegments,
     compositionSegmentsFromBuckets,
     kpiFromBuckets,
     modelColorMapFromBuckets,
+    modelSegments,
     modelSegmentsFromBuckets,
+    oneValue,
     projectSegmentsFromSessions,
+    sumTokensValue,
 } from "../lib/token-stats/chart-data";
 import type { AgentFilter, Granularity, Metric, XAxis } from "../lib/token-stats/types";
 import "../styles/token-stats.css";
@@ -168,6 +178,9 @@ export function TokenStatsView() {
             custom ? { ...custom } : preset ? presetRange(preset) : { start: 0, end: Date.now() },
         [custom, preset],
     );
+    // Short windows (<=25h) cannot be split symmetrically on day-granular
+    // buckets, so KPI/donut deltas fall back to per-message records there.
+    const is_short_window = currentRange.end - currentRange.start <= 25 * 3600000;
 
     const updatedAgo = useMemo(() => {
         if (!status?.last_updated) return null;
@@ -197,15 +210,19 @@ export function TokenStatsView() {
                     from_date: utc_date(currentRange.start - width),
                     to_date: utc_date(currentRange.end),
                 };
-                // records feed the Bar/Heatmap only (hourly resolution); bounded
-                // by the window + default LIMIT so the renderer never holds the
-                // full table. KPI/donut/session-table use buckets+sessions.
+                // records feed the Bar/Heatmap (hourly resolution) AND, short
+                // windows (<=25h, e.g. 24h preset), the KPI/donut delta — day
+                // buckets cannot split a 24h window symmetrically, so we fall
+                // back to per-message records there. Fetch 2x wide so the prior
+                // window is available for delta; bounded by LIMIT.
+                const records_fetch = is_short_window
+                    ? { start: currentRange.start - width, end: currentRange.end, limit: 50000 }
+                    : { start: currentRange.start, end: currentRange.end };
                 const [recs, bkts, sess, st, cfg] = await Promise.all([
                     window.usageboard.tokenStats.getRecords({
                         ...env_filter,
                         ...agent_filter,
-                        start: currentRange.start,
-                        end: currentRange.end,
+                        ...records_fetch,
                     }),
                     window.usageboard.tokenStats.getBuckets(bucket_filter),
                     window.usageboard.tokenStats.getSessions({
@@ -246,7 +263,7 @@ export function TokenStatsView() {
                 }
             }
         },
-        [platform, agent, currentRange],
+        [platform, agent, currentRange, is_short_window],
     );
 
     useEffect(() => {
@@ -275,6 +292,15 @@ export function TokenStatsView() {
 
     const currentRecords = useMemo(
         () => filtered(agentFiltered, { agent: "all", ...currentRange }),
+        [agentFiltered, currentRange],
+    );
+
+    // Prior-window records for short-window (24h) delta — per-message epoch
+    // split avoids the day-bucket asymmetry that inflates 24h deltas. Reuse
+    // prevRangeRecords (half-open [start-width, start)) so the boundary record
+    // is not double-counted in both current and prior windows.
+    const prevRecords = useMemo(
+        () => prevRangeRecords(agentFiltered, currentRange),
         [agentFiltered, currentRange],
     );
 
@@ -336,20 +362,39 @@ export function TokenStatsView() {
         );
     }, []);
 
-    const currentKpi = kpiFromBuckets(currentBuckets);
-    const currentComp = compositionSegmentsFromBuckets(currentBuckets);
+    const currentKpi = is_short_window
+        ? {
+              tokens: metricValue(currentRecords, "tokens"),
+              sessions: metricValue(currentRecords, "sessions"),
+              calls: metricValue(currentRecords, "calls"),
+          }
+        : kpiFromBuckets(currentBuckets);
+    const currentComp = is_short_window
+        ? compositionSegments(currentRecords)
+        : compositionSegmentsFromBuckets(currentBuckets);
     const compInput = currentComp.find((c) => c.name === "input")?.value ?? 0;
     const compCacheRead = currentComp.find((c) => c.name === "cache_read")?.value ?? 0;
-    const hitRate = compCacheRead + compInput > 0 ? compCacheRead / (compCacheRead + compInput) : 0;
+    const hitRate = is_short_window
+        ? hitRateOf(currentRecords)
+        : compCacheRead + compInput > 0
+          ? compCacheRead / (compCacheRead + compInput)
+          : 0;
 
-    const prevKpi = kpiFromBuckets(prevBuckets);
-    const prevComp = compositionSegmentsFromBuckets(prevBuckets);
-    const prevCompInput = prevComp.find((c) => c.name === "input")?.value ?? 0;
-    const prevCompCacheRead = prevComp.find((c) => c.name === "cache_read")?.value ?? 0;
-    const prevHitRate =
-        prevCompCacheRead + prevCompInput > 0
-            ? prevCompCacheRead / (prevCompCacheRead + prevCompInput)
-            : 0;
+    const prevKpi = is_short_window
+        ? {
+              tokens: metricValue(prevRecords, "tokens"),
+              sessions: metricValue(prevRecords, "sessions"),
+              calls: metricValue(prevRecords, "calls"),
+          }
+        : kpiFromBuckets(prevBuckets);
+    const prevComp = is_short_window ? [] : compositionSegmentsFromBuckets(prevBuckets);
+    const prevHitRate = is_short_window
+        ? hitRateOf(prevRecords)
+        : (() => {
+              const pi = prevComp.find((c) => c.name === "input")?.value ?? 0;
+              const pc = prevComp.find((c) => c.name === "cache_read")?.value ?? 0;
+              return pc + pi > 0 ? pc / (pc + pi) : 0;
+          })();
 
     const totalTokens = currentKpi.tokens;
     const totalSessions = currentKpi.sessions;
@@ -359,7 +404,17 @@ export function TokenStatsView() {
     const prevSessions = prevKpi.sessions;
     const prevCalls = prevKpi.calls;
 
-    const agentSegmentsData = agentSegmentsFromBuckets(currentBuckets);
+    const agentSegmentsData = is_short_window
+        ? agentSegments(currentRecords)
+        : agentSegmentsFromBuckets(currentBuckets);
+    // Donut segments: short windows derive from records (precise epoch window),
+    // longer windows from buckets (day-granular, fine for >=7d).
+    const modelTokenSegs = is_short_window
+        ? modelSegments(currentRecords, sumTokensValue, theme)
+        : modelSegmentsFromBuckets(currentBuckets, theme);
+    const modelCallSegs = is_short_window
+        ? modelSegments(currentRecords, oneValue, theme)
+        : modelSegmentsFromBuckets(currentBuckets, theme, (b) => b.calls);
     const topAgentSeg = agentSegmentsData.reduce<{ name: string; value: number } | null>(
         (acc, b) => (!acc || b.value > acc.value ? b : acc),
         null,
@@ -462,7 +517,7 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtTok(totalTokens)}
-                                segments={modelSegmentsFromBuckets(currentBuckets, theme)}
+                                segments={modelTokenSegs}
                                 format={fmtTok}
                                 theme={theme}
                             />
@@ -488,11 +543,7 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtInt(totalCalls)}
-                                segments={modelSegmentsFromBuckets(
-                                    currentBuckets,
-                                    theme,
-                                    (b) => b.calls,
-                                )}
+                                segments={modelCallSegs}
                                 format={fmtInt}
                                 theme={theme}
                             />
