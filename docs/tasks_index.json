@@ -1,3 +1,44 @@
 {
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t162",
+            "title": "代理面板内存止血：query_records 加 LIMIT 与时间窗下推",
+            "slug": "records_query_limit_window",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t163",
+            "title": "token_stats_records 加 env+timestamp 索引消除全表扫描",
+            "slug": "records_index_env_ts",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t164",
+            "title": "TokenStats 图表改用 daily 聚合，records 仅服务 SessionTable 分页",
+            "slug": "tokenstats_charts_use_daily",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t165",
+            "title": "agent 窗口单例化，避免多窗口叠加",
+            "slug": "agent_window_singleton",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        },
+        {
+            "tid": "t166",
+            "title": "collector records emit 增量化与 config 保存去抖",
+            "slug": "collector_records_incremental",
+            "status": "backlog",
+            "branch": "",
+            "note": ""
+        }
+    ]
 }
