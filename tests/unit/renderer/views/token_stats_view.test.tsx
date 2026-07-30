@@ -8,11 +8,19 @@ vi.mock("../../../../src/renderer/components/token-stats/MetricDonut", () => ({
     MetricDonut: () => <div />,
 }));
 const mocked_bar_chart = vi.hoisted(() => ({
-    props: null as { gran: string } | null,
+    props: null as {
+        gran: string;
+        records?: unknown[];
+        buckets?: { bucket_date: string }[];
+    } | null,
 }));
 
 vi.mock("../../../../src/renderer/components/token-stats/BarChart", () => ({
-    BarChart: (props: { gran: string }) => {
+    BarChart: (props: {
+        gran: string;
+        records?: unknown[];
+        buckets?: { bucket_date: string }[];
+    }) => {
         mocked_bar_chart.props = props;
         return <div />;
     },
@@ -315,6 +323,40 @@ describe("TokenStatsView", () => {
         await waitFor(() => {
             expect(mocked_bar_chart.props?.gran).toBe("day");
         });
+    });
+
+    it("feeds BarChart full multi-day buckets (not truncated records) on 7d window", async () => {
+        // Regression (t164): 7d records (~137k rows on real installs) get
+        // truncated by the fetch LIMIT, so the bar chart only showed the last
+        // day or two. The fix routes the day-axis through buckets, which are
+        // pre-aggregated and never truncated. This test mocks a wide buckets
+        // set spanning the window and asserts BarChart receives it intact.
+        const now = Date.now();
+        const ymd = (offset_days: number) => {
+            const d = new Date(now - offset_days * 86400000);
+            return `${String(d.getUTCFullYear())}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+        };
+        const wide_buckets = [0, 1, 2, 3, 4, 5, 6].map((i) =>
+            bucket({ bucket_date: ymd(i), input_tokens: 100 * (i + 1) }),
+        );
+        // records deliberately empty (simulating full truncation) - BarChart
+        // must still render via buckets.
+        get_records.mockResolvedValue([]);
+        get_buckets.mockResolvedValue(wide_buckets);
+        get_sessions.mockResolvedValue([session("s")]);
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+
+        await waitFor(() => {
+            const bar_buckets = mocked_bar_chart.props?.buckets;
+            expect(bar_buckets).toBeDefined();
+            expect(bar_buckets?.length).toBe(7);
+        });
+        // All 7 distinct days present (not collapsed to 1-2).
+        const dates = new Set(mocked_bar_chart.props?.buckets?.map((b) => b.bucket_date));
+        expect(dates.size).toBe(7);
     });
 
     it("renders nav buttons to usage panel and settings", async () => {
