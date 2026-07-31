@@ -25,7 +25,9 @@ reviewer 判 AC 时只看本区。
 
 ### 验收标准
 
-只写用户或调用方可观察行为，每条可独立验证。
+只写用户或调用方可观察行为，每条可独立验证。普通版本号、底层库和目录结构不作为验收标准；需要长期约束后续工作的技术选择写入 `docs/blueprint/decisions.md`。
+
+需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
 - [ ] 选定任意 >=7d 窗口，热力图窗口内实际有数据的 weekday 列都有着色（非全空白）。
 - [ ] 选定一个已知含周六数据的 >=7d 窗口，周六列出现着色（复现 p010 场景，验证修复）。
@@ -33,6 +35,8 @@ reviewer 判 AC 时只看本区。
 - [ ] 30d 窗口下热力图仍可加载（性能不退化到不可用；具体阈值见上下文区测试策略）。
 
 ### 可测试性声明
+
+逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
 
 - AC1/AC2：可自动测试（构造跨多 weekday 的 records，断言着色覆盖）。
 - AC3：可自动测试（对比新实现与全量 records 聚合结果）。
@@ -44,15 +48,27 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 
 ### 有意不测
 
+已判定不写测试的分支与原因。reviewer 不得据此出 blocking finding。无则写「无」。
+
 无。
 
 ### 测试策略
+
+mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
 - 现有 `tests/unit/renderer/lib/token-stats/chart-data.test.ts` 覆盖 `prepareHeatmapData` 的 weekday/hour 映射；需补「窗口跨多 weekday 且某 weekday 仅在早期日期」场景。
 - 后端若新增聚合查询：`token-stats-store` 测试需覆盖 weekday×hour GROUP BY 与窗口边界。
 - AC4 性能：30d 窗口热力图加载时间断言（需实测基线后定阈值，或断言「不拉全量 records 到 renderer」）。
 
 ### 未知契约清单
+
+尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
+
+`UNVERIFIED-BLOCKING`：只有用户或外部环境能核实；核实前 `start` 失败。
+
+`UNVERIFIED-SPIKE`：agent 可在执行期 Step 1 实验核实；未核实前不得进入实现。
+
+裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
 实现方案三选一，Step 1 实验确认数据量与性能后选定：
 
