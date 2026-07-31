@@ -2,5 +2,21 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t171",
+            "slug": "deepseek_mixed_protocol_cache_normalize",
+            "title": "deepseek 混合接入按行归一化 cache 语义（替代按模型名一刀切）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t171_deepseek_mixed_protocol_cache_normalize"
+        }
+    ]
 }
