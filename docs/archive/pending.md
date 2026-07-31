@@ -35,3 +35,12 @@
 - 来源：t171 黑盒（顺手发现）
 - 内容：`tests/integration/config/config-store.test.ts > serializes concurrent saves so final state is consistent` 在 t171 worktree 首次 `pnpm test` 失败、单独重跑即过，疑似时序敏感 flaky。与本 task 改动无关（未碰 config-store）。需复查是否真 flaky 或存在并发断言过弱。
 - 处理：手动修复（2026-07-31）——复查确认无并发竞态（`enqueueSave` 串行链严格），失败为 Windows `rename(tmp → config.json)` 覆盖已存在目标时偶发 `EPERM`（目标被短暂句柄锁，如 Defender 扫描），单独重跑即过印证环境瞬态。`writeFileAtomic` 对 rename 的瞬态 EPERM/EBUSY/EACCES 加有限重试（3 次递增间隔）；补 `tests/unit/core/storage/write-json.test.ts` 两用例（瞬态 EPERM 重试成功、耗尽后仍抛）。config-store 21 测试 + write-json 4 测试全绿。
+
+### p014 代理面板 7d+小时粒度柱状图缺最早数天数据（2026-07-31 发现）
+
+- 现象：代理面板选「最近七天」+「小时」粒度查看 token 统计，柱状图缺 7.24/7.25/7.26 数据（7/26 仅剩 23:40 后不足一天）。期望窗口内每天每小时都有数据。
+- 影响：7d 窗口下小时粒度图表数据不全；随记录增长（当前 40.5 万行/周 14 万行）缺失天数继续扩大。
+- 根因：产品缺陷——`TokenStatsView.loadData` 对非短窗口 records 用 `{ start, end, limit: 100000 }`（TokenStatsView.tsx:221-223），后端 `query_records` 为 `WHERE timestamp>=@start AND <=@end ORDER BY timestamp DESC LIMIT @limit`（token-stats-store.ts:483）。7d 窗口 140,481 行超 LIMIT，倒序截断丢最早日期（保留最早 `2026-07-26T15:40Z`）。t162/t164 已把 >=7d 柱状图 day 粒度改走 buckets（无截断），t170 把热力图改走 query_heatmap 聚合（无截断）；但 hour 粒度柱状图仍走 records + LIMIT，是 p010 同类根因在「小时粒度柱状图」路径的遗留。BarChart 仅 `gran==="day"` 用 buckets（BarChart.tsx:94）。
+- 测试缺口：`tests/unit/renderer/lib/token-stats/chart-data.test.ts` 测 `prepareBarData` 用小型数据集，不涉及 LIMIT 截断语义；store `query_records` 测试未断言「宽窗口倒序 LIMIT 会丢窗口早期日期」。补测方向：(1) store 集成层断言 7d 窗口 records 行数与 LIMIT 关系、或断言 hour 聚合路径不截断；(2) renderer 层补「hour 粒度宽窗口数据来自聚合、窗口内每天每小时有值」回归。
+- 线索：`.scratch/t173/probe.mjs`（实测 DB：7d 窗口 140,481 行，倒序 LIMIT 100000 最早保留 7/26 15:40Z）；`.scratch/t173/probe2.mjs`（hour+model 聚合仅 429 行）。
+- 处理：t173——`query_hour_buckets`（UTC+8 本地整点小时 × model 聚合）经 IPC / preload / local-api / web bridge 接线，BarChart 在宽窗口 + 时间轴 + 小时粒度选源聚合；越界桶补 whole-hour 范围守卫。打包实测：7d 窗口最早保留 `7/25 01:00Z`（窗口首个整点小时），30d 窗口 7/24/25/26 均有数据。全量测试 1957 passed。
