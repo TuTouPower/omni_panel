@@ -2554,6 +2554,21 @@
             "dir": "docs/archive/tasks/t170_fix_heatmap_weekday_gap"
         },
         {
+            "tid": "t171",
+            "slug": "deepseek_mixed_protocol_cache_normalize",
+            "title": "deepseek 混合接入按行归一化 cache 语义（替代按模型名一刀切）",
+            "status": "done",
+            "branch": "t171_deepseek_mixed_protocol_cache_normalize",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "112f604e760205c257f9d0bb90a55fc0d4cd9865",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t171_deepseek_mixed_protocol_cache_normalize"
+        },
+        {
             "tid": "t172",
             "slug": "classify_collect_failure",
             "title": "采集失败区分凭证失效：重新登录按钮门控 + OAuth 401 即时刷新兜底",
