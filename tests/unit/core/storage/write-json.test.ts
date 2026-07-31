@@ -100,4 +100,63 @@ describe("write-json atomic helpers", () => {
         expect(mockHandle.close).toHaveBeenCalledTimes(1);
         expect(rename).not.toHaveBeenCalled();
     });
+
+    it("retries rename on transient EPERM then succeeds (Windows file lock)", async () => {
+        // p012: config-store 并发保存测试在 Windows 偶发
+        // `EPERM: rename config.json.tmp -> config.json`——rename 覆盖已存在目标时
+        // 目标被短暂句柄锁。writeFileAtomic 应对瞬态 EPERM/EBUSY 有限重试。
+        const filePath = "/tmp/omni/config.json";
+        const payload: AppConfiguration = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            plugins: [],
+            launchAtLogin: false,
+        };
+
+        vi.mocked(mkdir).mockResolvedValue(undefined);
+        vi.mocked(writeFile).mockResolvedValue(undefined);
+        vi.mocked(open).mockResolvedValue({
+            sync: vi.fn().mockResolvedValue(undefined),
+            close: vi.fn().mockResolvedValue(undefined),
+        } as unknown as Awaited<ReturnType<typeof open>>);
+        const rename_spy = vi
+            .mocked(rename)
+            .mockRejectedValueOnce(
+                Object.assign(new Error("EPERM: operation not permitted"), { code: "EPERM" }),
+            )
+            .mockRejectedValueOnce(
+                Object.assign(new Error("EPERM: operation not permitted"), { code: "EPERM" }),
+            )
+            .mockResolvedValueOnce(undefined);
+
+        await expect(writeJsonAtomic(filePath, payload)).resolves.toBeUndefined();
+
+        expect(rename_spy).toHaveBeenCalledTimes(3);
+        expect(rename_spy).toHaveBeenLastCalledWith(`${filePath}.tmp`, filePath);
+    });
+
+    it("propagates rename EPERM once retries are exhausted", async () => {
+        const filePath = "/tmp/omni/config.json";
+        const payload: AppConfiguration = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            plugins: [],
+            launchAtLogin: false,
+        };
+
+        vi.mocked(mkdir).mockResolvedValue(undefined);
+        vi.mocked(writeFile).mockResolvedValue(undefined);
+        vi.mocked(open).mockResolvedValue({
+            sync: vi.fn().mockResolvedValue(undefined),
+            close: vi.fn().mockResolvedValue(undefined),
+        } as unknown as Awaited<ReturnType<typeof open>>);
+        vi.mocked(rename).mockRejectedValue(
+            Object.assign(new Error("EPERM: operation not permitted"), { code: "EPERM" }),
+        );
+
+        await expect(writeJsonAtomic(filePath, payload)).rejects.toMatchObject({
+            code: "EPERM",
+        });
+        expect(rename).toHaveBeenCalledTimes(3);
+    });
 });
