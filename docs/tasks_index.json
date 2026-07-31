@@ -4,21 +4,6 @@
     "workspace": ".",
     "tasks": [
         {
-            "tid": "t169",
-            "slug": "align_scripts_layer",
-            "title": "脚本层移植：task.py 全量替换 + 数据迁移 + pending/findings",
-            "status": "active",
-            "branch": "t169_align_scripts_layer",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "71b61b2",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "模板 task.py 2216 行替换本仓 282 行；165 归档目录补 task.md front matter；移植 pending/findings/render/check 脚本与 repo_template 测试",
-            "dir": "docs/tasks/t169_align_scripts_layer"
-        },
-        {
             "tid": "t170",
             "slug": "fix_heatmap_weekday_gap",
             "title": "热力图修复： 窗口走 buckets 避免 LIMIT 截断丢 weekday",
