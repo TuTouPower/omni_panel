@@ -1,18 +1,8 @@
 import { Icon } from "./Icon";
 import type { ProviderError } from "./ProviderOverview";
+import { is_auth_error } from "../../shared/lib/auth-error";
 
-export function is_auth_error(error: string): boolean {
-    const lower = error.toLowerCase();
-    return (
-        lower.includes("token") ||
-        lower.includes("credential") ||
-        lower.includes("unauthorized") ||
-        lower.includes("auth") ||
-        lower.includes("凭证") ||
-        lower.includes("登录") ||
-        lower.includes("密钥")
-    );
-}
+export { is_auth_error };
 
 interface ProviderCardStateProps {
     provider: string;

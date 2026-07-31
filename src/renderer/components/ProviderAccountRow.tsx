@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import type { TrendPoint } from "../../shared/types/ipc";
 import { createLogger } from "../../shared/lib/logger";
+import { is_auth_error } from "../../shared/lib/auth-error";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import { format_usage_period_label } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
@@ -116,7 +117,13 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
         // eslint-disable-next-line react-hooks/exhaustive-deps -- account.periods is the precise dep; full account would cause spurious refetches
     }, [collapsed, account.periods]);
 
-    const show_relogin_button = _error !== undefined && _onReLogin !== undefined && provider !== "";
+    // t172: 重新登录入口只对凭证失效类错误显示；连接超时/5xx/解析失败等
+    // 非认证错误只展示「已过期」/「采集失败」badge。
+    const show_relogin_button =
+        _error !== undefined &&
+        is_auth_error(_error) &&
+        _onReLogin !== undefined &&
+        provider !== "";
     const header = (
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {onDragStart && <DragGrip />}
