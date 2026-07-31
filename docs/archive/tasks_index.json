@@ -2582,6 +2582,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t172_classify_collect_failure"
+        },
+        {
+            "tid": "t173",
+            "slug": "tokenstats_hour_aggregate",
+            "title": "代理面板 7d+小时粒度柱状图改走 hour 聚合（消除 records LIMIT 截断）",
+            "status": "done",
+            "branch": "t173_tokenstats_hour_aggregate",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "b39c6f105c2840b87aaacf4f246a07d6ba249e3d",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t173_tokenstats_hour_aggregate"
         }
     ]
 }

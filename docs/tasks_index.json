@@ -2,21 +2,5 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t173",
-            "slug": "tokenstats_hour_aggregate",
-            "title": "代理面板 7d+小时粒度柱状图改走 hour 聚合（消除 records LIMIT 截断）",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t173_tokenstats_hour_aggregate"
-        }
-    ]
+    "tasks": []
 }
