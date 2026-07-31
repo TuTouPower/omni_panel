@@ -2,11 +2,11 @@
 tid: "t171"
 slug: "deepseek_mixed_protocol_cache_normalize"
 title: "deepseek 混合接入按行归一化 cache 语义（替代按模型名一刀切）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t171_deepseek_mixed_protocol_cache_normalize"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "112f604e760205c257f9d0bb90a55fc0d4cd9865"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,9 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+Step 1（spike 核实，2026-07-31）：创建期 UNVERIFIED-SPIKE 设想用 `cache_creation_input_tokens > 0` 作 Anthropic 接入信号按行改逻辑。建 spike `s004`，扫 Win（1508 jsonl）+ WSL（7242 jsonl）真实数据。结果推翻该信号：`cache_creation` 在全部 deepseek 行恒为 0。但意外发现——**现有守卫 `inp >= cache_read` 已对混合接入按行正确分流**：按用户提供的协议切换时间（当日 20:00 前 Anthropic / 20:40 后 OpenAI）分窗，Anthropic 窗 4034 行全 `inp<cr` 正确未减、OpenAI 窗 135 行全 `inp>=cr` 正确减去，零误判。该数值判别对 OpenAI 语义数学恒真（`prompt_tokens >= cached_tokens`）。
+
+据此与用户确认收敛 spec 契约区：不改判断逻辑，范围转为「补测试锁定已正确行为 + 修正 `is_openai_semantic_model` 命名/注释与文档的『按模型名一刀切』误导表述」。spec 已重写，UNVERIFIED-SPIKE 已改写为验证结论，严格 preflight PASS。
 
 ## Review 处置
 
@@ -40,18 +42,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### Round 1 场景说明
 
-- **无 finding**：写「Round 1 零 finding，未进处置表。」
-- **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
-- **有 critical / important**：建表，逐条填 status（不得留空）。
-
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+Round 1 零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -60,24 +51,24 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+    - AC1（OpenAI 语义 deepseek 行减）：既有用例「deepseek-v4-pro 命中时归一化 input」+ 新增混合用例，`38083-38016=67`。
+    - AC2（互斥语义 deepseek 行不减）：新增「deepseek 互斥语义行（inp<cache_read）保留原始 input」，`461` 未减。
+    - AC3（混合 session 三类一致）：新增「混合 deepseek 接入」用例，records/session/daily 三类 input 总量均为 `67+461`。
+    - AC4（longcat 不变）：既有「LongCat-2.0 大小写不敏感」用例保留。
+    - AC5（注释/命名正名）：`is_openai_semantic_model` → `is_cache_normalization_candidate`，注释讲清模型名圈候选、`inp>=cache_read` 守卫决定执行；reviewer 核对通过。
+    - 黑盒：`pnpm test` 全绿（184 文件、1925 通过）。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `tasks-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
-`single`：
-
-- Round 1 general：PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- deepseek 混合接入归一化实测本已正确（数值守卫零误判），本 task 补 3 个单测锁定 + 函数/注释正名 + findings d003；生产判断逻辑零改动。

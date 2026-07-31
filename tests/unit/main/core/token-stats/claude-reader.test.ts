@@ -680,4 +680,73 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
         expect(total_input).toBe(67 + 5000); // (38083-38016) + (20000-15000)
         expect(total_read).toBe(38016 + 15000);
     });
+
+    // 构造 Anthropic 互斥语义的 assistant 行：input 为纯非缓存输入，与 cache_read
+    // 互斥（read >> input）。真实形态见 spike s004（WSL v4-flash 20:00 前窗口）。
+    function exclusive_semantic_line(
+        timestamp: string,
+        model: string,
+        input: number,
+        cache_read: number,
+        output = 5,
+    ) {
+        return session_line("assistant", timestamp, {
+            message: {
+                model,
+                usage: {
+                    input_tokens: input,
+                    output_tokens: output,
+                    cache_read_input_tokens: cache_read,
+                    cache_creation_input_tokens: 0,
+                },
+            },
+        });
+    }
+
+    it("deepseek 互斥语义行（inp < cache_read）保留原始 input 不被扣减", () => {
+        // Anthropic 上游互斥语义：input=461 纯新输入，cache_read=244224 命中。
+        // 若误按 OpenAI 语义减会砍成负数，守卫 inp>=cache_read 拦下。
+        write_session("p/s.jsonl", [exclusive_semantic_line(T2, "deepseek-v4-flash", 461, 244224)]);
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        expect(result.records[0]!.input_tokens).toBe(461); // 未减
+        expect(result.records[0]!.cache_read_tokens).toBe(244224);
+        expect(result.sessions[0]!.input_tokens).toBe(461);
+    });
+
+    it("数值边界 inp == cache_read 时减至 0", () => {
+        write_session("p/s.jsonl", [openai_semantic_line(T2, "deepseek-v4-pro", 5000, 5000)]);
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        expect(result.records[0]!.input_tokens).toBe(0); // 5000 - 5000
+        expect(result.records[0]!.cache_read_tokens).toBe(5000);
+    });
+
+    it("混合 deepseek 接入：OpenAI 行减 + 互斥行不减，session/daily/records 三类一致", () => {
+        // 同一 session 混合两种上游语义（真实场景见 spike s004）：
+        // - OpenAI 行 inp=38083 cr=38016 -> 减至 67
+        // - 互斥行 inp=461  cr=244224 -> 保留 461
+        write_session("p/sess-mix.jsonl", [
+            session_line("user", T1, { cwd: "/work/mix", message: { content: "mixed" } }),
+            openai_semantic_line(T2, "deepseek-v4-pro", 38083, 38016),
+            exclusive_semantic_line(T3, "deepseek-v4-flash", 461, 244224),
+        ]);
+        const result = scan_session_jsonls(projects_dir, "win", create_session_scan_state());
+
+        const expected_input = 67 + 461; // OpenAI 行已减 + 互斥行未减
+        // records 逐行
+        const recs = result.records;
+        expect(recs).toHaveLength(2);
+        const openai_rec = recs.find((r) => r.model === "deepseek-v4-pro")!;
+        const exclusive_rec = recs.find((r) => r.model === "deepseek-v4-flash")!;
+        expect(openai_rec.input_tokens).toBe(67);
+        expect(exclusive_rec.input_tokens).toBe(461);
+        // session 总量
+        expect(result.sessions[0]!.input_tokens).toBe(expected_input);
+        // daily 总量（跨 model 两行聚合）
+        const daily_input = result.daily.reduce((s, d) => s + d.input_tokens, 0);
+        expect(daily_input).toBe(expected_input);
+        const daily_read = result.daily.reduce((s, d) => s + d.cache_read_tokens, 0);
+        expect(daily_read).toBe(38016 + 244224);
+    });
 });
