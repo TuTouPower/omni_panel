@@ -2552,6 +2552,21 @@
             "schedule_status": "",
             "note": "p010",
             "dir": "docs/archive/tasks/t170_fix_heatmap_weekday_gap"
+        },
+        {
+            "tid": "t172",
+            "slug": "classify_collect_failure",
+            "title": "采集失败区分凭证失效：重新登录按钮门控 + OAuth 401 即时刷新兜底",
+            "status": "done",
+            "branch": "t172_classify_collect_failure",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "82b0db63138940357918ff5de4eeaaffc792fd36",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t172_classify_collect_failure"
         }
     ]
 }

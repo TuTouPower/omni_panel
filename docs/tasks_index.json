@@ -17,21 +17,6 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t171_deepseek_mixed_protocol_cache_normalize"
-        },
-        {
-            "tid": "t172",
-            "slug": "classify_collect_failure",
-            "title": "采集失败区分凭证失效：重新登录按钮门控 + OAuth 401 即时刷新兜底",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t172_classify_collect_failure"
         }
     ]
 }
