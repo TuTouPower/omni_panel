@@ -6,25 +6,25 @@ OmniUsage 用量面板的 `UsageBarRow` 把 `used/limit` 渲染为百分比或�
 
 受影响场景（经全仓排查）：
 
-| 连接器 | 指标 | limit 何时为 null |
-| ------ | ---- | ----------------- |
-| getoneapi | 余额 (CNY) | 用户未填 `LIMIT` |
-| tikhub | 付费余额 (USD) | 用户未填 `LIMIT`；`free_credit` 永远无 limit |
-| exa | 总成本 (USD) | 用户未填 `LIMIT`；breakdown 子项永远无 limit |
-| codex | 每日各 model token 用量 | 本地日志无 limit 概念，永远为 null |
+| 连接器    | 指标                    | limit 何时为 null                            |
+| --------- | ----------------------- | -------------------------------------------- |
+| getoneapi | 余额 (CNY)              | 用户未填 `LIMIT`                             |
+| tikhub    | 付费余额 (USD)          | 用户未填 `LIMIT`；`free_credit` 永远无 limit |
+| exa       | 总成本 (USD)            | 用户未填 `LIMIT`；breakdown 子项永远无 limit |
+| codex     | 每日各 model token 用量 | 本地日志无 limit 概念，永远为 null           |
 
 mimo / deepseek 当前通过硬编码 `DEFAULT_LIMIT = 100` 规避了该问题，但这是错误做法：用户没设置上限时，界面应如实显示为无上限的原始数值，而不是伪造一个 100 的默认上限。
 
 ## 范围
 
 - 修改 `src/renderer/components/UsageRows.tsx`：
-  - 当 `displayStyle === "ratio"` 且 `limit` 无效（`null` 或 `≤0`）时，显示原始 `used` 数值（例如 `4.84`），而不是 `0%`。
-  - 进度条宽度此时可固定为 0 或隐藏，但数值必须可读。
+    - 当 `displayStyle === "ratio"` 且 `limit` 无效（`null` 或 `≤0`）时，显示原始 `used` 数值（例如 `4.84`），而不是 `0%`。
+    - 进度条宽度此时可固定为 0 或隐藏，但数值必须可读。
 - 修改 `src/renderer/lib/provider-usage.ts`：
-  - `build_overview_for_group` 中的 `has_valid_quota` 不应把「有 used 但无 limit」的 ratio 周期过滤掉，否则概览会显示「暂无有效用量数据」。
+    - `build_overview_for_group` 中的 `has_valid_quota` 不应把「有 used 但无 limit」的 ratio 周期过滤掉，否则概览会显示「暂无有效用量数据」。
 - 修改 `connectors/mimo/connector.ts` 与 `connectors/deepseek/connector.ts`：
-  - 删除硬编码 `DEFAULT_LIMIT = 100`。
-  - 用户未设置 `LIMIT` 时，`limit` 应为 `null`，`status` 为 `"unknown"`，与 getoneapi / exa / tikhub 保持一致语义。
+    - 删除硬编码 `DEFAULT_LIMIT = 100`。
+    - 用户未设置 `LIMIT` 时，`limit` 应为 `null`，`status` 为 `"unknown"`，与 getoneapi / exa / tikhub 保持一致语义。
 - 新增/更新测试覆盖上述无 limit 场景以及 mimo / deepseek 的 LIMIT 缺失行为。
 
 ## 非范围

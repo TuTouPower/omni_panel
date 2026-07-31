@@ -26,7 +26,7 @@
     - 同行判定 `Math.abs(drag_rect.top - rect.top) < rect.height / 2` → 轴 `"x" | "y"`；
     - 委托 `compute_drag_reorder` 做方向感知中点守卫；
     - `drag_rect` 来自 `handle_drag_start` 闭包，存在 stale-closure 风险面。
-    既有集成网 `popup_view.test.tsx:996-998` 仅触发 `fireEvent.dragStart / dragEnter / dragEnd` 于账号卡（走 `handle_account_drag_enter`），**未触发 `fireEvent.dragOver`**；账号行 `ProviderAccountRow.tsx:133` 的 `onDragOver` 是 `e.preventDefault()` 空转，不会进 provider 重排。因此该路径在 unit 与 integration 两层均无证据。
+      既有集成网 `popup_view.test.tsx:996-998` 仅触发 `fireEvent.dragStart / dragEnter / dragEnd` 于账号卡（走 `handle_account_drag_enter`），**未触发 `fireEvent.dragOver`**；账号行 `ProviderAccountRow.tsx:133` 的 `onDragOver` 是 `e.preventDefault()` 空转，不会进 provider 重排。因此该路径在 unit 与 integration 两层均无证据。
 - 失败场景：重构若把 `same_row` 阈值改成 `>`、把 axis 默认值写反、或在 `useCallback` 依赖中漏掉 `drag_rect`（产生 stale closure），所有现有测试仍 PASS，但真实拖拽场景下 provider 卡片不再换位或换错位——属静默回归。
 - AC 关联：spec.md L24「抽出的 hook/组件有单测（若可独立测）」——`handle_drag_over` 是本 hook 内**最可独立测且最易回归**的一段；缺测使该 AC 仅部分满足。
 - 建议（最小修复方向）：在 `use_dnd_handlers.test.ts` 加 2 个用例——(a) `handle_drag_start("claude", same_row_rect)` → `handle_drag_over("codex", x, y, same_row_rect)`，断言 `provider_order` 变为 `["codex", "claude"]`（x 轴路径）；(b) 用 `different_row_rect` 触发 y 轴路径，断言中点反向时不换位（覆盖 `next ?? prev` 的 null 分支）。可直接复用现有 `render_dnd` 工厂。

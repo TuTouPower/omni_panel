@@ -1,50 +1,50 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<style>
-:root {
-  --win-bg: #ffffff;
-  --win-border: rgba(0,0,0,0.12);
-  --win-shadow: 0 20px 60px rgba(0,0,0,0.18);
-  --hairline: rgba(0,0,0,0.08);
-  --text: #111111;
-  --text-3: #888888;
-}
-body {
-  margin: 0;
-  background: #f0f0f0;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.acct-dialog {
-    width: 100%;
-    max-width: 372px;
-    min-height: 80px;
-    background: var(--win-bg);
-    border: 0.5px solid var(--win-border);
-    border-radius: 16px;
-    box-shadow: var(--win-shadow);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    animation: dialogIn 10s cubic-bezier(0.2, 0.8, 0.3, 1);
-}
-@keyframes dialogIn {
-    from {
-        opacity: 0;
-        transform: translateY(8px) scale(0.98);
-    }
-    to {
-        opacity: 1;
-        transform: none;
-    }
-}
-</style>
-</head>
-<body>
-<div class="acct-dialog"></div>
-</body>
+    <head>
+        <meta charset="utf-8" />
+        <style>
+            :root {
+                --win-bg: #ffffff;
+                --win-border: rgba(0, 0, 0, 0.12);
+                --win-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+                --hairline: rgba(0, 0, 0, 0.08);
+                --text: #111111;
+                --text-3: #888888;
+            }
+            body {
+                margin: 0;
+                background: #f0f0f0;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .acct-dialog {
+                width: 100%;
+                max-width: 372px;
+                min-height: 80px;
+                background: var(--win-bg);
+                border: 0.5px solid var(--win-border);
+                border-radius: 16px;
+                box-shadow: var(--win-shadow);
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                animation: dialogIn 10s cubic-bezier(0.2, 0.8, 0.3, 1);
+            }
+            @keyframes dialogIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(8px) scale(0.98);
+                }
+                to {
+                    opacity: 1;
+                    transform: none;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="acct-dialog"></div>
+    </body>
 </html>

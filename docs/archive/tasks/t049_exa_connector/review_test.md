@@ -24,6 +24,7 @@
 - 严重度：critical
 - 位置：`tests/integration/connector/exa_connector.test.ts:189-197`（用例「uses default limit 100 when LIMIT missing or invalid」）
 - 问题：spec AC 第 3 条要求「LIMIT 缺失/≤0 时 unknown」。实现 `connectors/exa/connector.ts:12-15` `parse_limit` 将缺失/`≤0`/非数一律替换为 `DEFAULT_LIMIT=100`，于是 `status_for_cost(45.67, 100)` 走 ratio 分支返回 `"normal"`，**违反 AC**。本测试进一步将此遗留行为固化：
+
     ```ts
     expect(total?.limit).toBe(100); // 与 AC 矛盾：AC 要求 status=unknown
     ```
@@ -31,6 +32,7 @@
     - 用例标题写「missing or invalid」实际仅测 missing（无 `LIMIT:"0"` / `"-5"` / `"abc"` 用例），标题/ body 不一致；
     - 「LIMIT 缺失/≤0」整个分支无任何 `status === "unknown"` 断言；
     - 测试断言的是实现当前（违反 AC 的）行为，而非期望行为，属「断言遗留 bug」critical（参考本项目 MEMORY：tests must assert desired behavior, not legacy broken behavior）。
+
 - 建议：(1) 实现侧修：`parse_limit` 在缺失/`≤0` 时返回 `0` 或 `null`，使 `status_for_cost` 走 `limit<=0 → "unknown"` 分支；(2) 测试侧改为断言 `status === "unknown"`、`limit` 字段语义随之；(3) 补 `LIMIT="0"`、`LIMIT="-5"`、`LIMIT="abc"` 三种 invalid 输入的断言。
 
 ### t049_test_f003 - 「≥0.75 warning」阈值未覆盖
