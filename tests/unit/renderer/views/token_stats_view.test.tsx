@@ -1,7 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { TokenStatsBucket, TokenStatsSession } from "../../../../src/shared/types/token-stats";
+import type {
+    TokenStatsBucket,
+    TokenStatsHeatmapCell,
+    TokenStatsSession,
+} from "../../../../src/shared/types/token-stats";
 import { TokenStatsView } from "../../../../src/renderer/views/TokenStatsView";
 
 const mocked_donuts = vi.hoisted(() => ({ centers: [] as string[] }));
@@ -31,11 +35,11 @@ vi.mock("../../../../src/renderer/components/token-stats/BarChart", () => ({
     },
 }));
 const mocked_heatmap = vi.hoisted(() => ({
-    props: null as { records?: { timestamp: number }[] } | null,
+    props: null as { cells?: TokenStatsHeatmapCell[] } | null,
 }));
 
 vi.mock("../../../../src/renderer/components/token-stats/Heatmap", () => ({
-    Heatmap: (props: { records?: { timestamp: number }[] }) => {
+    Heatmap: (props: { cells?: TokenStatsHeatmapCell[] }) => {
         mocked_heatmap.props = props;
         return <div />;
     },
@@ -96,23 +100,27 @@ describe("TokenStatsView", () => {
     const get_records = vi.fn();
     const get_sessions = vi.fn();
     const get_buckets = vi.fn();
+    const get_heatmap = vi.fn();
 
     beforeEach(() => {
         get_records.mockReset();
         get_sessions.mockReset();
         get_buckets.mockReset();
+        get_heatmap.mockReset();
         mocked_bar_chart.props = null;
         mocked_heatmap.props = null;
         mocked_donuts.centers = [];
         get_records.mockResolvedValue([]);
         get_sessions.mockResolvedValue([]);
         get_buckets.mockResolvedValue([]);
+        get_heatmap.mockResolvedValue([]);
         window.usageboard = {
             tokenStats: {
                 open: vi.fn(),
                 getBuckets: get_buckets,
                 getSessions: get_sessions,
                 getRecords: get_records,
+                getHeatmap: get_heatmap,
                 getStatus: vi.fn().mockResolvedValue({ running: true, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
             },
@@ -381,24 +389,43 @@ describe("TokenStatsView", () => {
         expect(dates.size).toBe(7);
     });
 
-    it("fetches wide-window records with a high LIMIT so the Heatmap sees more than a few hours", async () => {
-        // Regression: 7d Heatmap only showed the last ~6h because records were
-        // fetched with the default LIMIT (5000), which covers <6h of a busy
-        // install. Wide windows must raise the LIMIT so the weekday×hour
-        // distribution has enough sample days.
-        get_records.mockResolvedValue([]);
+    it("feeds the Heatmap from the getHeatmap aggregate scoped to the window (not truncated records)", async () => {
+        // Regression (t170/p010): the 7d Heatmap dropped early-week weekdays
+        // because records were fetched ORDER BY DESC LIMIT 100000, cutting rows
+        // before ~6h of recent activity. The Heatmap now consumes the SQL
+        // weekday×hour aggregate directly, so the window's whole week is present
+        // regardless of the records LIMIT.
         get_buckets.mockResolvedValue([bucket()]);
         get_sessions.mockResolvedValue([session("s")]);
+        get_heatmap.mockResolvedValue([
+            { weekday: 1, hour: 9, calls: 1, sessions: 1, tokens: 100 },
+        ]);
 
         render(<TokenStatsView />);
         const user = userEvent.setup();
         await user.click(screen.getByRole("button", { name: "7 天" }));
 
         await waitFor(() => {
-            const calls = get_records.mock.calls as { limit?: number }[][];
-            const last_call = calls.at(-1)?.[0];
-            expect(last_call?.limit).toBe(100000);
+            expect(get_heatmap).toHaveBeenCalled();
+            const last_call = get_heatmap.mock.calls.at(-1)?.[0] as
+                | { start?: number; end?: number }
+                | undefined;
+            if (!last_call) throw new Error("expected getHeatmap to be called");
+            const { start, end } = last_call;
+            if (start === undefined || end === undefined) {
+                throw new Error("expected getHeatmap window start/end");
+            }
+            const now = Date.now();
+            const day = 86400000;
+            // 7d window forwarded to the aggregate: end ≈ now, start ≈ now - 7d.
+            expect(end).toBeGreaterThan(now - 5000);
+            expect(end).toBeLessThanOrEqual(now);
+            expect(start).toBeLessThanOrEqual(end - 7 * day);
+            expect(start).toBeGreaterThan(end - 7 * day - 60000);
         });
+        expect(mocked_heatmap.props?.cells).toEqual([
+            { weekday: 1, hour: 9, calls: 1, sessions: 1, tokens: 100 },
+        ]);
     });
 
     it("counts distinct sessions for the session KPI on wide windows (not bucket sum)", async () => {

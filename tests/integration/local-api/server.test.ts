@@ -247,9 +247,56 @@ describe("local-api web read endpoints", () => {
         expect(data[0]).toMatchObject({ message_id: "m1", agent: "claude-code" });
     });
 
+    it("GET /v1/heatmap returns weekday×hour aggregate cells without auth", async () => {
+        // 2026-07-06 09:00 UTC+8 = Monday (strftime %w=1), hour 9.
+        const ts = Date.parse("2026-07-06T09:00:00+08:00");
+        token_stats_store.upsert_records([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "s1",
+                title: null,
+                directory: null,
+                slug: null,
+                version: null,
+                parent_session_id: null,
+                message_id: "m1",
+                role: "assistant",
+                timestamp: ts,
+                model: "sonnet",
+                input_tokens: 10,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent: "claude-code",
+            },
+        ]);
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/heatmap?env=win&start=${String(
+                ts - 1,
+            )}&end=${String(ts + 1)}`,
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as {
+            weekday: number;
+            hour: number;
+            calls: number;
+            tokens: number;
+        }[];
+        expect(data).toHaveLength(1);
+        expect(data[0]).toMatchObject({ weekday: 1, hour: 9, calls: 1, tokens: 11 });
+    });
+
     it("web read endpoints do not require bearer auth", async () => {
         await api.start();
-        for (const path of ["/v1/records", "/v1/sessions", "/v1/buckets", "/v1/status"]) {
+        for (const path of [
+            "/v1/records",
+            "/v1/sessions",
+            "/v1/buckets",
+            "/v1/heatmap",
+            "/v1/status",
+        ]) {
             const res = await fetch(`http://127.0.0.1:${String(api.get_port())}${path}`);
             expect(res.status, path).toBe(200);
         }

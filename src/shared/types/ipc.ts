@@ -5,6 +5,8 @@ import type { GrokLoginResult, KimiLoginResult } from "./oauth";
 import type {
     AgentSessionUsage,
     TokenStatsBucket,
+    TokenStatsHeatmapCell,
+    TokenStatsHeatmapFilters,
     TokenStatsRecordFilters,
     TokenStatsSession,
 } from "./token-stats";
@@ -104,6 +106,7 @@ export const IPC_CHANNELS = {
     TOKEN_STATS_BUCKETS: "tokenStats:buckets",
     TOKEN_STATS_SESSIONS: "tokenStats:sessions",
     TOKEN_STATS_RECORDS: "tokenStats:records",
+    TOKEN_STATS_HEATMAP: "tokenStats:heatmap",
     TOKEN_STATS_STATUS: "tokenStats:status",
     TOKEN_STATS_UPDATED: "tokenStats:updated",
     TOKEN_STATS_OPEN: "tokenStats:open",
@@ -441,6 +444,7 @@ export interface UsageboardApi {
             offset?: number;
         }): Promise<TokenStatsSession[]>;
         getRecords(filters?: TokenStatsRecordFilters): Promise<AgentSessionUsage[]>;
+        getHeatmap(filters?: TokenStatsHeatmapFilters): Promise<TokenStatsHeatmapCell[]>;
         getStatus(): Promise<TokenStatsStatus>;
         onUpdated(callback: () => void): () => void;
     };

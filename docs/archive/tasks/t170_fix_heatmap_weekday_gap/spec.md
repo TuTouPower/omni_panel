@@ -70,15 +70,13 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-实现方案三选一，Step 1 实验确认数据量与性能后选定：
+方案选型（s003 已实验核实，见 `docs/spikes/s003_heatmap_aggregate/`）：选**方案 A（热力图专用聚合查询）**。SQLite `strftime('%w'/'%H', timestamp/1000, 'unixepoch', '+8 hours')` 对 epoch ms 的 weekday/hour 提取与 UTC+8 一致（d002）；30d 全表聚合 ~592ms、返回 ≤168 格，7d ~148ms，与现 records 路径 LIMIT 100000（~169ms 拉 10 万行）相当且 renderer 不再拉全量。方案 B（去 LIMIT/自适应）30d 全量到 renderer 过重弃用；方案 C（轻量列）不解决行数截断弃用。
 
-- **方案 A：热力图专用聚合查询**：后端加 `query_heatmap(env, start, end)` SQL 直接 `GROUP BY weekday,hour` 返回 ≤168 格，renderer 不再拉 records。优点：数据量固定小，30d 也能用；缺点：SQL 需处理本地时区（+8）的 weekday/hour 计算（strftime + '8 hours'）。`UNVERIFIED-SPIKE`：实测 strftime 在 SQLite 对 epoch ms 的 weekday/hour 提取正确性（probe 已验证 strftime('%w', ..., '+8 hours') 可用）。
-- **方案 B：去 LIMIT / 窗口自适应 LIMIT**：热力图路径单独传极大 LIMIT 或分页拉全 records。优点：改动小；缺点：30d 全量 records 到 renderer 重（probe 见 7d 已 14 万行，30d ~60 万行），性能风险。
-- **方案 C：热力图只用 records 的 timestamp/session_id/model 轻量列**：后端加专用轻量查询（只 SELECT 这几列，去 LIMIT 或高 LIMIT）。介于 A/B 之间。
+方案 A 具体形态：后端 `token-stats-store` 新增聚合查询 `query_heatmap(env, start, end)`，按 `strftime` 算出的 weekday×hour `GROUP BY`，一次性返回 tokens/calls/sessions 三种聚合；renderer 热力图改走该查询，不再用 `query_records`。热力图 `(getDay()+6)%7` 映射周一=0..周日=6，SQL 侧 `%w` 为 0=周日，转换在 renderer 收拢处统一做。
 
 ### 风险与回退
 
-- 风险：方案 A 的 SQLite 时区/weekday 计算边界（跨日、DST 本仓无 DST）；方案 B 的 30d 性能。
+- 风险：方案 A 的 SQLite 时区/weekday 计算边界（跨日、DST 本仓无 DST；s003 已覆盖边界用例验证正确）；磁盘 I/O 下 30d 聚合耗时会高于内存值。
 - 回退：保留现 records 路径作 feature flag；新查询灰度；出问题回退到当前实现（接受 LIMIT 截断）。
 
 ### 依赖与约束

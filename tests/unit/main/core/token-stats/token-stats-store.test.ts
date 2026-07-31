@@ -626,4 +626,122 @@ describe("token-stats-store", () => {
             }
         });
     });
+
+    describe("heatmap aggregate (t170)", () => {
+        // Beijing time (UTC+8) → epoch ms. The store aggregates in UTC+8, so
+        // timestamps here are pinned with an explicit offset.
+        const bj = (iso: string): number => Date.parse(`${iso}+08:00`);
+
+        it("returns a row for every weekday present in the window (no LIMIT truncation)", () => {
+            // One record at 12:00 on each of the seven days of 2026-07-06..12
+            // (Mon..Sun). The old records path truncated with ORDER BY DESC
+            // LIMIT, dropping early-week days; the aggregate must keep them all.
+            const weekdays = [
+                "2026-07-06",
+                "2026-07-07",
+                "2026-07-08",
+                "2026-07-09",
+                "2026-07-10",
+                "2026-07-11",
+                "2026-07-12",
+            ];
+            store.upsert_records(
+                weekdays.map((day, i) =>
+                    record({ message_id: `m${String(i)}`, timestamp: bj(`${day} 12:00:00`) }),
+                ),
+            );
+
+            const cells = store.query_heatmap({
+                start: bj("2026-07-06 00:00:00"),
+                end: bj("2026-07-12 23:59:59"),
+            });
+            // 7 distinct weekday rows, every one non-empty.
+            expect(cells).toHaveLength(7);
+            expect(new Set(cells.map((c) => c.weekday)).size).toBe(7);
+            for (const c of cells) {
+                expect(c.calls).toBeGreaterThan(0);
+            }
+        });
+
+        it("aggregates tokens/calls/sessions per weekday×hour (matches full-record reduce)", () => {
+            // Two records in the same session+slot (tokens 100+50+10+5 and
+            // 200+60+0+30), one record in a different session same slot.
+            const ts = bj("2026-07-06 09:00:00"); // Monday 09:00
+            store.upsert_records([
+                record({
+                    message_id: "m1",
+                    session_id: "s1",
+                    timestamp: ts,
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 10,
+                    cache_write_tokens: 5,
+                }),
+                record({
+                    message_id: "m2",
+                    session_id: "s1",
+                    timestamp: ts,
+                    input_tokens: 200,
+                    output_tokens: 60,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 30,
+                }),
+                record({
+                    message_id: "m3",
+                    session_id: "s2",
+                    timestamp: ts,
+                    input_tokens: 7,
+                    output_tokens: 3,
+                    cache_read_tokens: 1,
+                    cache_write_tokens: 1,
+                }),
+            ]);
+
+            const cells = store.query_heatmap({});
+            const cell = cells.find((c) => c.weekday === 1 && c.hour === 9);
+            if (!cell) throw new Error("expected Monday 09:00 cell");
+            expect(cell.calls).toBe(3);
+            expect(cell.sessions).toBe(2);
+            // 165 + 290 + 12
+            expect(cell.tokens).toBe(467);
+        });
+
+        it("filters by time range, env and agent", () => {
+            const t1 = bj("2026-07-06 10:00:00");
+            const t2 = bj("2026-07-07 10:00:00");
+            const t3 = bj("2026-07-08 10:00:00");
+            store.upsert_records([
+                record({ message_id: "m1", timestamp: t1, env: "win", agent: "claude-code" }),
+                record({ message_id: "m2", timestamp: t2, env: "wsl", agent: "opencode" }),
+                record({ message_id: "m3", timestamp: t3, env: "win", agent: "claude-code" }),
+            ]);
+
+            expect(store.query_heatmap({ start: t2, end: t3 })).toHaveLength(2);
+            expect(store.query_heatmap({ env: "win" })).toHaveLength(2);
+            expect(store.query_heatmap({ agent: "opencode" })).toHaveLength(1);
+            expect(store.query_heatmap({ env: "win", agent: "claude-code" })).toHaveLength(2);
+        });
+
+        it("reports weekday as strftime('%w') 0=Sunday", () => {
+            // 2026-07-12 is a Sunday. 23:59 Beijing is the same calendar day.
+            const ts = bj("2026-07-12 23:59:59");
+            store.upsert_records([record({ message_id: "m1", timestamp: ts })]);
+            const cell = store.query_heatmap({})[0];
+            if (!cell) throw new Error("expected a cell");
+            expect(cell.weekday).toBe(0);
+            expect(cell.hour).toBe(23);
+        });
+
+        it("shifts the calendar day by +8 across the UTC date boundary", () => {
+            // 2026-07-11T20:00:00Z is Saturday in UTC but Sunday 04:00 in
+            // Beijing. Without '+8 hours' the aggregate would bucket it as
+            // Saturday (weekday 6) hour 20.
+            const ts = Date.parse("2026-07-11T20:00:00Z");
+            store.upsert_records([record({ message_id: "m1", timestamp: ts })]);
+            const cell = store.query_heatmap({})[0];
+            if (!cell) throw new Error("expected a cell");
+            expect(cell.weekday).toBe(0); // Sunday
+            expect(cell.hour).toBe(4);
+        });
+    });
 });

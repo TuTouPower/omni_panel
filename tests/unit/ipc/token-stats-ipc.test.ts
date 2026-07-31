@@ -18,6 +18,7 @@ function createMockDeps() {
         query_buckets: vi.fn().mockReturnValue([]),
         query_sessions: vi.fn().mockReturnValue([]),
         query_records: vi.fn().mockReturnValue([]),
+        query_heatmap: vi.fn().mockReturnValue([]),
         last_updated: vi.fn().mockReturnValue(null),
     } as unknown as TokenStatsStore;
     const manager = {
@@ -70,6 +71,14 @@ describe("token-stats-ipc sender validation", () => {
         );
     });
 
+    it("TOKEN_STATS_HEATMAP rejects unknown sender", async () => {
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, createMockDeps());
+        expect(() => pick_handler("tokenStats:heatmap")(bad_event())).toThrow(
+            "IPC not allowed from unknown origin",
+        );
+    });
+
     it("TOKEN_STATS_STATUS rejects unknown sender", async () => {
         const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
         registerTokenStatsIpc((await import("electron")).ipcMain, createMockDeps());
@@ -82,6 +91,19 @@ describe("token-stats-ipc sender validation", () => {
         const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
         registerTokenStatsIpc((await import("electron")).ipcMain, createMockDeps());
         const result = pick_handler("tokenStats:buckets")(good_event());
+        expect(result).toEqual({ ok: true, data: [] });
+    });
+
+    it("TOKEN_STATS_HEATMAP allows valid sender and delegates to query_heatmap", async () => {
+        const deps = createMockDeps();
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+        const result = pick_handler("tokenStats:heatmap")(good_event(), {
+            start: 1,
+            end: 2,
+        });
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        expect(vi.mocked(deps.store).query_heatmap).toHaveBeenCalledWith({ start: 1, end: 2 });
         expect(result).toEqual({ ok: true, data: [] });
     });
 });

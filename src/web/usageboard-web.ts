@@ -6,6 +6,7 @@
  * renderer hides their buttons in web mode (see is_web flag).
  */
 import type { UsageboardApi, ConnectorSnapshotDTO, RendererLogPayload } from "../shared/types/ipc";
+import type { TokenStatsHeatmapFilters } from "../shared/types/token-stats";
 
 const POLL_MS = 10_000;
 
@@ -199,6 +200,15 @@ export function create_web_usageboard(): UsageboardApi {
             getBuckets: () => get_json("/v1/buckets"),
             getSessions: () => get_json("/v1/sessions"),
             getRecords: () => get_json("/v1/records"),
+            getHeatmap: (filters?: TokenStatsHeatmapFilters) => {
+                const params = new URLSearchParams();
+                if (filters?.agent) params.set("agent", filters.agent);
+                if (filters?.env) params.set("env", filters.env);
+                if (filters?.start !== undefined) params.set("start", String(filters.start));
+                if (filters?.end !== undefined) params.set("end", String(filters.end));
+                const qs = params.toString();
+                return get_json(`/v1/heatmap${qs ? `?${qs}` : ""}`);
+            },
             getStatus: () => get_json("/v1/status"),
             onUpdated: (cb: () => void) => {
                 token_stats_callbacks.add(cb);

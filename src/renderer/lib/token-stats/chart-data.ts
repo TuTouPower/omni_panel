@@ -3,7 +3,11 @@ import { bucketize, groupBy, metricValue, sessionRows, sumTokens, topGroups } fr
 import { fmtTok, shortDir } from "./format";
 import { TOP5_COLORS, colorForTopModel, colorForTopProject, paletteFor } from "./palette";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "./types";
-import type { TokenStatsBucket, TokenStatsSession } from "../../../shared/types/token-stats";
+import type {
+    TokenStatsBucket,
+    TokenStatsHeatmapCell,
+    TokenStatsSession,
+} from "../../../shared/types/token-stats";
 
 /** A single donut segment. */
 export interface DonutSegment {
@@ -454,6 +458,11 @@ export function prepareHeatmapData(records: AgentSessionUsage[], metric: Metric)
             });
         });
     }
+    return build_heat_data(grid);
+}
+
+/** Turn a filled 7x24 grid into ECharts heatmap data + quantile bands. */
+function build_heat_data(grid: number[][]): HeatData {
     const data: [number, number, number][] = [];
     let max = 1;
     grid.forEach((row, w) => {
@@ -478,12 +487,33 @@ export function prepareHeatmapData(records: AgentSessionUsage[], metric: Metric)
         if (lo === hi) return vlo;
         return Math.floor(vlo + (vhi - vlo) * (idx - lo));
     };
-    const quantiles = {
-        q1: quantile(nonzero, 25),
-        q2: quantile(nonzero, 50),
-        q3: quantile(nonzero, 75),
+    return {
+        data,
+        max,
+        quantiles: {
+            q1: quantile(nonzero, 25),
+            q2: quantile(nonzero, 50),
+            q3: quantile(nonzero, 75),
+        },
     };
-    return { data, max, quantiles };
+}
+
+/**
+ * Build heatmap data from the backend's weekday×hour aggregate (t170).
+ * `weekday` follows strftime('%w'): 0=Sunday, mapped to the Monday-first
+ * grid with `(weekday + 6) % 7` — matching prepareHeatmapData's getDay() map.
+ */
+export function prepareHeatmapFromCells(cells: TokenStatsHeatmapCell[], metric: Metric): HeatData {
+    const grid: number[][] = Array.from({ length: 7 }, (): number[] =>
+        Array.from({ length: 24 }, () => 0),
+    );
+    for (const c of cells) {
+        const row = grid[(c.weekday + 6) % 7];
+        if (!row) continue;
+        const v = metric === "tokens" ? c.tokens : metric === "calls" ? c.calls : c.sessions;
+        row[c.hour] = (row[c.hour] ?? 0) + v;
+    }
+    return build_heat_data(grid);
 }
 
 /** Minimal re-export of EChartsOption for convenience. */
