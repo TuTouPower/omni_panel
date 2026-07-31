@@ -3,6 +3,7 @@ import type {
     AgentSessionUsage,
     TokenStatsBucket,
     TokenStatsEnv,
+    TokenStatsHeatmapCell,
     TokenStatsSession,
 } from "../../shared/types/token-stats";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
@@ -157,6 +158,7 @@ function save_prefs(p: TokenStatsPrefs): void {
 export function TokenStatsView() {
     const saved = useMemo(() => load_prefs(), []);
     const [records, setRecords] = useState<AgentSessionUsage[]>([]);
+    const [heatCells, setHeatCells] = useState<TokenStatsHeatmapCell[]>([]);
     const [buckets, setBuckets] = useState<TokenStatsBucket[]>([]);
     const [sessions, setSessions] = useState<TokenStatsSession[]>([]);
     const [status, setStatus] = useState<TokenStatsStatus | null>(null);
@@ -210,19 +212,26 @@ export function TokenStatsView() {
                     from_date: utc_date(currentRange.start - width),
                     to_date: utc_date(currentRange.end),
                 };
-                // records feed the Bar project/session axes, the Heatmap (hourly
-                // weekday×hour distribution), and short-window KPI/donut. Day-axis
-                // Bar uses buckets (see BarChart), so records here are for the
-                // hourly-resolution views. Wide windows need a higher LIMIT so the
-                // Heatmap sees more than the last few hours (7d ~ 137k rows).
+                // records feed the Bar project/session axes and short-window
+                // KPI/donut. Day-axis Bar uses buckets (see BarChart). The
+                // Heatmap (hourly weekday×hour) is fed by the dedicated
+                // getHeatmap aggregate instead — ORDER BY DESC LIMIT on records
+                // truncates wide windows (7d ~ 137k rows), dropping early-week
+                // weekdays entirely (t170).
                 const records_fetch = is_short_window
                     ? { start: currentRange.start - width, end: currentRange.end, limit: 50000 }
                     : { start: currentRange.start, end: currentRange.end, limit: 100000 };
-                const [recs, bkts, sess, st, cfg] = await Promise.all([
+                const [recs, cells, bkts, sess, st, cfg] = await Promise.all([
                     window.usageboard.tokenStats.getRecords({
                         ...env_filter,
                         ...agent_filter,
                         ...records_fetch,
+                    }),
+                    window.usageboard.tokenStats.getHeatmap({
+                        ...env_filter,
+                        ...agent_filter,
+                        start: currentRange.start,
+                        end: currentRange.end,
                     }),
                     window.usageboard.tokenStats.getBuckets(bucket_filter),
                     window.usageboard.tokenStats.getSessions({
@@ -235,6 +244,7 @@ export function TokenStatsView() {
                 ]);
                 if (request_id !== load_request_id.current) return;
                 setRecords(recs);
+                setHeatCells(cells);
                 setBuckets(bkts);
                 setSessions(sess);
                 setStatus(st);
@@ -639,7 +649,7 @@ export function TokenStatsView() {
                         </div>
                         <div className="card span-4">
                             <h3>时段热力</h3>
-                            <Heatmap records={currentRecords} metric={metric} theme={theme} />
+                            <Heatmap cells={heatCells} metric={metric} theme={theme} />
                         </div>
                     </div>
 

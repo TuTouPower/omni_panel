@@ -163,3 +163,25 @@ export interface TokenStatsRecordFilters {
     end?: number;
     limit?: number;
 }
+
+/**
+ * One weekday×hour cell of the hourly heatmap, aggregated in SQL so the
+ * renderer never pulls per-message records for wide windows (t170).
+ * `weekday` follows SQLite strftime('%w'): 0=Sunday..6=Saturday; the renderer
+ * maps it to Monday-first grid index with `(weekday + 6) % 7`.
+ */
+export const tokenStatsHeatmapCellSchema = z.object({
+    weekday: z.number().int().min(0).max(6),
+    hour: z.number().int().min(0).max(23),
+    calls: z.number().int().nonnegative(),
+    sessions: z.number().int().nonnegative(),
+    tokens: z.number().int().nonnegative(),
+});
+export type TokenStatsHeatmapCell = z.infer<typeof tokenStatsHeatmapCellSchema>;
+
+export interface TokenStatsHeatmapFilters {
+    agent?: "claude-code" | "opencode" | "kimi-code";
+    env?: TokenStatsEnv;
+    start?: number;
+    end?: number;
+}

@@ -4,6 +4,8 @@ import type {
     AgentSessionUsageRecord,
     TokenStatsBucket,
     TokenStatsDailyUpsert,
+    TokenStatsHeatmapCell,
+    TokenStatsHeatmapFilters,
     TokenStatsRecordFilters,
     TokenStatsSession,
     TokenStatsSessionUpsert,
@@ -38,6 +40,8 @@ export interface TokenStatsStore {
         offset?: number;
     }): TokenStatsSession[];
     query_records(filters: TokenStatsRecordFilters): AgentSessionUsage[];
+    /** Weekday×hour aggregation over the records table (hourly heatmap, t170). */
+    query_heatmap(filters: TokenStatsHeatmapFilters): TokenStatsHeatmapCell[];
     /** Latest session upsert time (ms epoch), null when store is empty. */
     last_updated(): number | null;
     close(): void;
@@ -479,6 +483,41 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             const sql = `SELECT session_id, title, directory, slug, version, parent_session_id, message_id, role, timestamp, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, agent FROM token_stats_records ${where} ORDER BY timestamp DESC LIMIT @limit`;
             const rows = db.prepare(sql).all(params) as Record<string, unknown>[];
             return rows.map(row_to_record);
+        },
+
+        query_heatmap(filters) {
+            const conditions: string[] = [];
+            const params: Record<string, unknown> = {};
+
+            if (filters.agent) {
+                conditions.push("agent = @agent");
+                params["agent"] = filters.agent;
+            }
+            if (filters.env) {
+                conditions.push("env = @env");
+                params["env"] = filters.env;
+            }
+            if (filters.start !== undefined) {
+                conditions.push("timestamp >= @start");
+                params["start"] = filters.start;
+            }
+            if (filters.end !== undefined) {
+                conditions.push("timestamp <= @end");
+                params["end"] = filters.end;
+            }
+
+            const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+            // Weekday/hour are computed in UTC+8 (the panel's fixed timezone, no
+            // DST). %w is 0=Sunday..6=Saturday; the renderer maps it Monday-first.
+            const sql = `SELECT
+                CAST(strftime('%w', timestamp/1000, 'unixepoch', '+8 hours') AS INTEGER) AS weekday,
+                CAST(strftime('%H', timestamp/1000, 'unixepoch', '+8 hours') AS INTEGER) AS hour,
+                COUNT(*) AS calls,
+                COUNT(DISTINCT session_id) AS sessions,
+                SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
+            FROM token_stats_records ${where}
+            GROUP BY weekday, hour`;
+            return db.prepare(sql).all(params) as TokenStatsHeatmapCell[];
         },
 
         last_updated() {

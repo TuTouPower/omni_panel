@@ -3,11 +3,12 @@ import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
 import { fmtInt, fmtTok } from "../../lib/token-stats/format";
 import { paletteFor } from "../../lib/token-stats/palette";
-import { prepareHeatmapData } from "../../lib/token-stats/chart-data";
-import type { AgentSessionUsage, Metric } from "../../lib/token-stats/types";
+import { prepareHeatmapFromCells } from "../../lib/token-stats/chart-data";
+import type { Metric } from "../../lib/token-stats/types";
+import type { TokenStatsHeatmapCell } from "../../../shared/types/token-stats";
 
 interface HeatmapProps {
-    records: AgentSessionUsage[];
+    cells: TokenStatsHeatmapCell[];
     metric: Metric;
     theme: "dark" | "light";
 }
@@ -20,11 +21,11 @@ const METRIC_LABEL: Record<Metric, string> = {
 
 const WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
-export function Heatmap({ records, metric, theme }: HeatmapProps) {
+export function Heatmap({ cells, metric, theme }: HeatmapProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const { data, quantiles } = useMemo(
-        () => prepareHeatmapData(records, metric),
-        [records, metric],
+        () => prepareHeatmapFromCells(cells, metric),
+        [cells, metric],
     );
     const fmtV = metric === "tokens" ? fmtTok : fmtInt;
     const pal = paletteFor(theme);

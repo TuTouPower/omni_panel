@@ -13,7 +13,10 @@ import type {
     TrendPoint,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
-import type { TokenStatsRecordFilters } from "../shared/types/token-stats";
+import type {
+    TokenStatsHeatmapFilters,
+    TokenStatsRecordFilters,
+} from "../shared/types/token-stats";
 import "./usageboard-api";
 
 // Apply theme synchronously before first paint to avoid white flash.
@@ -112,6 +115,11 @@ const token_stats_methods = {
     getRecords: (filters?: TokenStatsRecordFilters) =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getRecords"]>>>(
             IPC_CHANNELS.TOKEN_STATS_RECORDS,
+            filters,
+        ),
+    getHeatmap: (filters?: TokenStatsHeatmapFilters) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getHeatmap"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_HEATMAP,
             filters,
         ),
     getStatus: () =>

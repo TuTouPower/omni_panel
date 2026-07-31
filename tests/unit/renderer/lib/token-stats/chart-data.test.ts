@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type {
     AgentSessionUsage,
     TokenStatsBucket,
+    TokenStatsHeatmapCell,
     TokenStatsSession,
 } from "../../../../../src/shared/types/token-stats";
 import {
@@ -17,6 +18,7 @@ import {
     prepareBarData,
     prepareBarDataFromBuckets,
     prepareHeatmapData,
+    prepareHeatmapFromCells,
     projectSegments,
     projectSegmentsFromSessions,
     sumTokensValue,
@@ -363,6 +365,50 @@ describe("chart-data", () => {
             if (!point) throw new Error("expected heatmap point");
             expect(point[2]).toBe(105);
             expect(max).toBe(105);
+        });
+    });
+
+    describe("prepareHeatmapFromCells", () => {
+        function cell(overrides: Partial<TokenStatsHeatmapCell> = {}): TokenStatsHeatmapCell {
+            return {
+                weekday: 1, // Monday (strftime %w 0=Sunday)
+                hour: 9,
+                calls: 3,
+                sessions: 2,
+                tokens: 500,
+                ...overrides,
+            };
+        }
+
+        it("maps cells into the Monday-first 7x24 grid", () => {
+            const { data } = prepareHeatmapFromCells(
+                [cell({ weekday: 1, hour: 9, tokens: 120 })],
+                "tokens",
+            );
+            // weekday 1 (Monday) → grid index (1+6)%7 = 0
+            const point = data.find(([h, w]) => h === 9 && w === 0);
+            if (!point) throw new Error("expected Monday 09:00 point");
+            expect(point[2]).toBe(120);
+        });
+
+        it("maps Sunday (weekday 0) to the last grid column", () => {
+            const { data } = prepareHeatmapFromCells(
+                [cell({ weekday: 0, hour: 12, calls: 7 })],
+                "calls",
+            );
+            const point = data.find(([h, w]) => h === 12 && w === 6);
+            if (!point) throw new Error("expected Sunday 12:00 point");
+            expect(point[2]).toBe(7);
+        });
+
+        it("selects the metric column: sessions uses cell.sessions", () => {
+            const { data } = prepareHeatmapFromCells(
+                [cell({ weekday: 1, hour: 9, sessions: 4 })],
+                "sessions",
+            );
+            const point = data.find(([h, w]) => h === 9 && w === 0);
+            if (!point) throw new Error("expected point");
+            expect(point[2]).toBe(4);
         });
     });
 

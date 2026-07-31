@@ -4,6 +4,7 @@ import type { TokenStatsStatus } from "../../shared/types/ipc";
 import type {
     AgentSessionUsage,
     TokenStatsBucket,
+    TokenStatsHeatmapFilters,
     TokenStatsRecordFilters,
     TokenStatsSession,
 } from "../../shared/types/token-stats";
@@ -56,6 +57,17 @@ export function registerTokenStatsIpc(
         ): IpcResult<AgentSessionUsage[]> => {
             assert_valid_sender(event);
             return ok(deps.store.query_records(filters ?? {}));
+        },
+    );
+
+    ipc.handle(
+        IPC_CHANNELS.TOKEN_STATS_HEATMAP,
+        (
+            event: IpcMainInvokeEvent,
+            filters?: TokenStatsHeatmapFilters,
+        ): IpcResult<ReturnType<TokenStatsStore["query_heatmap"]>> => {
+            assert_valid_sender(event);
+            return ok(deps.store.query_heatmap(filters ?? {}));
         },
     );
 
