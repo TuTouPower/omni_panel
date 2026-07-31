@@ -54,6 +54,10 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 
 - 非 UTC+8 时区主机上的小时桶对齐：项目时间统一 UTC+8（A17 决策，热力图已按 `+8 hours` 聚合），跨时区行为不覆盖。
 
+### sessions 口径
+
+`query_hour_buckets` 按 (hour, model) 分组 `COUNT(DISTINCT session_id)`，渲染层跨 model 求和——与 t164 day 桶路径语义一致。同会话同小时内切换 model 时，该小时会话数计 2 次；而 24h 短窗口仍走 records，按 project 去重（同项目跨 model 计 1 次），两窗口在会话跨 model 时口径不同。此为聚合路径与 records 路径的固有差异，非 t173 回归，不属 AC3「同一会话跨小时不重复计入各小时」范围。
+
 ### 测试策略
 
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
@@ -61,7 +65,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 - AC1/AC3：store 集成测试（真实 better-sqlite3），`upsert_records` 造跨多天、多小时、同 session 跨小时的 records，`query_hour_buckets` 断言：窗口最早日期有数据、无截断、hour 桶对齐本地整点、sessions 为 distinct。
 - AC2：断言 `query_hour_buckets` 返回行数 = hour×model 组合数（远小于明细行数）。
 - AC4：store 聚合带 agent/env 过滤的用例。
-- 渲染层：`chart-data.test.ts` 新增 `prepareBarDataFromHourBuckets` 用例——零桶补全、168 桶、model series、tokens/calls/sessions 值。
+- 渲染层：`chart-data.test.ts` 新增 `prepareBarDataFromHourBuckets` 用例——零桶补全、model series、tokens/calls/sessions 值、越界桶丢弃。铺桶窗口用小小时数（2-4 桶）参数化覆盖，语义等价于 7d 的 168 整点小时（`bucketize` 的 hour 轴逻辑与窗口大小无关）。
 
 ### 未知契约清单
 
@@ -73,7 +77,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- hour 桶时区/起点语义：聚合按 UTC+8 本地整点小时分组，渲染层桶序列需与之一致（7d preset 的 start 非整点，首桶需对齐到整点小时）；实现期用真实 DB（`.scratch/t173/probe.mjs` 思路）验证聚合结果与渲染层铺桶对齐，并落集成测试锁定。UNVERIFIED-SPIKE。
+- hour 桶时区/起点语义已核实：聚合按 UTC+8 本地整点小时分组（`timestamp - ((timestamp + 28800000) % 3600000)` 给出本地整点小时起点的 UTC 毫秒），7d 窗口聚合 428 行/141 小时，首个小时 7/24 14:00Z（最早日期不丢）；内部小时与渲染层 `bucketize` 桶起点全部对齐，含 start 的偏首小时桶经 `idx(ts<=start)→0` 正确映射。验证方式：s005 探针对真实 DB 比对聚合 hour_start_epoch 与 bucketize 桶起点，结论记录于 `docs/spikes/s005_tokenstats_hour_agg/report.md`。
 
 ### 风险与回退
 

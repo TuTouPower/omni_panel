@@ -6,6 +6,7 @@ import type { AgentSessionUsage, Granularity, Metric, XAxis } from "./types";
 import type {
     TokenStatsBucket,
     TokenStatsHeatmapCell,
+    TokenStatsHourBucket,
     TokenStatsSession,
 } from "../../../shared/types/token-stats";
 
@@ -347,7 +348,64 @@ export function prepareBarDataFromBuckets(
         cell[b.model] = (cell[b.model] ?? 0) + v;
     }
 
-    // Top5 models across the window + "其他".
+    return { labels, bucketStarts: [], ...cells_to_bar_data(cells, theme) };
+}
+
+/**
+ * Time-axis bar data from pre-aggregated hour buckets (t173). Used for >=7d
+ * windows at hour granularity, where per-message records exceed the fetch LIMIT
+ * (query_records truncates early hours). `hour_start` aligns with the
+ * renderer's bucketize hour boundaries; the axis is zero-filled so every hour
+ * of the window is present.
+ */
+export function prepareBarDataFromHourBuckets(
+    buckets: TokenStatsHourBucket[],
+    metric: Metric,
+    start: number,
+    end: number,
+    theme: "dark" | "light",
+): BarData {
+    const bk = bucketize(start, end, "hour");
+    const n = bk.n;
+    const cells: Record<string, number>[] = Array.from({ length: n }, () => ({}));
+
+    // bucketize.idx clamps any ts<=start to 0 and ts>=end to n-1, so a bucket
+    // whose whole hour lies outside the window would land in the first/last
+    // axis bucket and shift the data one hour. Only buckets whose hour_start
+    // falls in the window's whole-hour span are legal (the first window hour
+    // may be partial when start is not on the hour, matching the SQL's
+    // timestamp>=start filter).
+    const first_hour = new Date(start);
+    first_hour.setMinutes(0, 0, 0);
+    const last_hour = new Date(end);
+    last_hour.setMinutes(0, 0, 0);
+
+    for (const b of buckets) {
+        if (b.hour_start < first_hour.getTime() || b.hour_start > last_hour.getTime()) continue;
+        const ci = bk.idx(b.hour_start);
+        if (ci < 0 || ci >= n) continue;
+        const cell = cells[ci];
+        if (!cell) continue;
+        // sessions are per-hour-per-model distinct (same as the day-buckets
+        // path); summing across models mirrors that path. The 24h window still
+        // uses records, which dedupe sessions per project instead, so the two
+        // windows can differ when one session spans models in an hour.
+        const v = metric === "tokens" ? b.tokens : metric === "calls" ? b.calls : b.sessions;
+        cell[b.model] = (cell[b.model] ?? 0) + v;
+    }
+
+    return {
+        labels: Array.from({ length: n }, (_, i) => bk.label(i)),
+        bucketStarts: Array.from({ length: n }, (_, i) => bk.startOf(i)),
+        ...cells_to_bar_data(cells, theme),
+    };
+}
+
+/** Shared "Top5 + 其他" series derivation for pre-aggregated cell grids. */
+function cells_to_bar_data(
+    cells: Record<string, number>[],
+    theme: "dark" | "light",
+): Pick<BarData, "seriesNames" | "series" | "otherDetails"> {
     const totals: Record<string, number> = {};
     cells.forEach((c) => {
         Object.entries(c).forEach(([k, v]) => {
@@ -377,7 +435,7 @@ export function prepareBarDataFromBuckets(
         itemStyle: { color: colorOf(nm, i) },
     }));
 
-    return { labels, bucketStarts: [], seriesNames, series, otherDetails };
+    return { seriesNames, series, otherDetails };
 }
 
 function displayKey(key: string, restSet: Set<string>): string {

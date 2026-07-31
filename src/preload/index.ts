@@ -15,6 +15,7 @@ import type {
 import type { AppConfiguration } from "../shared/types/config";
 import type {
     TokenStatsHeatmapFilters,
+    TokenStatsHourFilters,
     TokenStatsRecordFilters,
 } from "../shared/types/token-stats";
 import "./usageboard-api";
@@ -120,6 +121,11 @@ const token_stats_methods = {
     getHeatmap: (filters?: TokenStatsHeatmapFilters) =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getHeatmap"]>>>(
             IPC_CHANNELS.TOKEN_STATS_HEATMAP,
+            filters,
+        ),
+    getHourBuckets: (filters?: TokenStatsHourFilters) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getHourBuckets"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_HOUR_BUCKETS,
             filters,
         ),
     getStatus: () =>

@@ -48,6 +48,26 @@ describe("web usageboard bridge", () => {
         expect(fetch_mock).toHaveBeenCalledWith(expect.stringContaining("/v1/heatmap"));
     });
 
+    it("tokenStats.getHourBuckets forwards filters to /v1/hourBuckets (t173)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const buckets = await api.tokenStats.getHourBuckets({
+            agent: "claude-code",
+            env: "win",
+            start: 100,
+            end: 200,
+        });
+        expect(buckets).toEqual([]);
+        const url = fetch_mock.mock.calls[0]?.[0] as string;
+        expect(url).toContain("/v1/hourBuckets");
+        expect(url).toContain("agent=claude-code");
+        expect(url).toContain("env=win");
+        expect(url).toContain("start=100");
+        expect(url).toContain("end=200");
+    });
+
     it("config.get fetches /v1/config", async () => {
         const fetch_mock = vi
             .fn<typeof fetch>()

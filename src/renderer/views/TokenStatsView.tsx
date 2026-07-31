@@ -4,6 +4,7 @@ import type {
     TokenStatsBucket,
     TokenStatsEnv,
     TokenStatsHeatmapCell,
+    TokenStatsHourBucket,
     TokenStatsSession,
 } from "../../shared/types/token-stats";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
@@ -159,6 +160,7 @@ export function TokenStatsView() {
     const saved = useMemo(() => load_prefs(), []);
     const [records, setRecords] = useState<AgentSessionUsage[]>([]);
     const [heatCells, setHeatCells] = useState<TokenStatsHeatmapCell[]>([]);
+    const [hourBuckets, setHourBuckets] = useState<TokenStatsHourBucket[]>([]);
     const [buckets, setBuckets] = useState<TokenStatsBucket[]>([]);
     const [sessions, setSessions] = useState<TokenStatsSession[]>([]);
     const [status, setStatus] = useState<TokenStatsStatus | null>(null);
@@ -221,7 +223,25 @@ export function TokenStatsView() {
                 const records_fetch = is_short_window
                     ? { start: currentRange.start - width, end: currentRange.end, limit: 50000 }
                     : { start: currentRange.start, end: currentRange.end, limit: 100000 };
-                const [recs, cells, bkts, sess, st, cfg] = await Promise.all([
+                // Hour bar data for wide windows at hour granularity:
+                // pre-aggregated hour×model buckets instead of records (t173).
+                // query_records' ORDER BY DESC LIMIT truncates wide windows,
+                // dropping early hours. Only fetched when the bar chart can
+                // consume it (time x-axis + gran "hour"); other combos skip it
+                // so the default 30d/day view does not run a full-table
+                // aggregate. (effectiveXaxis forces "time" for the sessions
+                // metric regardless of the raw xaxis selector.)
+                const time_axis = metric === "sessions" || xaxis === "time";
+                const hour_fetch =
+                    is_short_window || gran !== "hour" || !time_axis
+                        ? Promise.resolve([] as TokenStatsHourBucket[])
+                        : window.usageboard.tokenStats.getHourBuckets({
+                              ...env_filter,
+                              ...agent_filter,
+                              start: currentRange.start,
+                              end: currentRange.end,
+                          });
+                const [recs, cells, hour_bkts, bkts, sess, st, cfg] = await Promise.all([
                     window.usageboard.tokenStats.getRecords({
                         ...env_filter,
                         ...agent_filter,
@@ -233,6 +253,7 @@ export function TokenStatsView() {
                         start: currentRange.start,
                         end: currentRange.end,
                     }),
+                    hour_fetch,
                     window.usageboard.tokenStats.getBuckets(bucket_filter),
                     window.usageboard.tokenStats.getSessions({
                         ...env_filter,
@@ -245,6 +266,7 @@ export function TokenStatsView() {
                 if (request_id !== load_request_id.current) return;
                 setRecords(recs);
                 setHeatCells(cells);
+                setHourBuckets(hour_bkts);
                 setBuckets(bkts);
                 setSessions(sess);
                 setStatus(st);
@@ -273,7 +295,7 @@ export function TokenStatsView() {
                 }
             }
         },
-        [platform, agent, currentRange, is_short_window],
+        [platform, agent, metric, xaxis, gran, currentRange, is_short_window],
     );
 
     useEffect(() => {
@@ -636,6 +658,7 @@ export function TokenStatsView() {
                                 <BarChart
                                     records={currentRecords}
                                     buckets={currentBuckets}
+                                    hourBuckets={hourBuckets}
                                     metric={metric}
                                     xaxis={effectiveXaxis}
                                     gran={gran}

@@ -21,6 +21,7 @@ const mocked_bar_chart = vi.hoisted(() => ({
         gran: string;
         records?: unknown[];
         buckets?: { bucket_date: string }[];
+        hourBuckets?: { hour_start: number }[];
     } | null,
 }));
 
@@ -29,6 +30,7 @@ vi.mock("../../../../src/renderer/components/token-stats/BarChart", () => ({
         gran: string;
         records?: unknown[];
         buckets?: { bucket_date: string }[];
+        hourBuckets?: { hour_start: number }[];
     }) => {
         mocked_bar_chart.props = props;
         return <div />;
@@ -101,12 +103,14 @@ describe("TokenStatsView", () => {
     const get_sessions = vi.fn();
     const get_buckets = vi.fn();
     const get_heatmap = vi.fn();
+    const get_hour_buckets = vi.fn();
 
     beforeEach(() => {
         get_records.mockReset();
         get_sessions.mockReset();
         get_buckets.mockReset();
         get_heatmap.mockReset();
+        get_hour_buckets.mockReset();
         mocked_bar_chart.props = null;
         mocked_heatmap.props = null;
         mocked_donuts.centers = [];
@@ -114,6 +118,7 @@ describe("TokenStatsView", () => {
         get_sessions.mockResolvedValue([]);
         get_buckets.mockResolvedValue([]);
         get_heatmap.mockResolvedValue([]);
+        get_hour_buckets.mockResolvedValue([]);
         window.usageboard = {
             tokenStats: {
                 open: vi.fn(),
@@ -121,6 +126,7 @@ describe("TokenStatsView", () => {
                 getSessions: get_sessions,
                 getRecords: get_records,
                 getHeatmap: get_heatmap,
+                getHourBuckets: get_hour_buckets,
                 getStatus: vi.fn().mockResolvedValue({ running: true, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
             },
@@ -466,5 +472,83 @@ describe("TokenStatsView", () => {
         await waitFor(() => expect(screen.getByText("代理面板")).toBeInTheDocument());
         expect(screen.getByRole("button", { name: "用量面板" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "设置" })).toBeInTheDocument();
+    });
+
+    it("feeds BarChart hour buckets on wide windows at hour granularity (t173)", async () => {
+        // Regression: the hour bar must switch to the pre-aggregated
+        // getHourBuckets source on >=7d windows; if the wiring regresses the
+        // chart silently falls back to LIMIT-truncated records and drops early
+        // hours again (parallel to the t164 day-buckets wiring test).
+        const now = Date.now();
+        const hour = 3600000;
+        get_sessions.mockResolvedValue([session("s")]);
+        get_hour_buckets.mockResolvedValue([
+            { hour_start: now - hour, model: "model-1", calls: 2, sessions: 1, tokens: 100 },
+        ]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await user.click(screen.getByRole("button", { name: "小时" }));
+
+        await waitFor(() => {
+            expect(get_hour_buckets).toHaveBeenCalled();
+            const last_call = get_hour_buckets.mock.calls.at(-1)?.[0] as
+                | { start?: number; end?: number }
+                | undefined;
+            expect(last_call?.start).toBeDefined();
+            expect(last_call?.end).toBeDefined();
+        });
+        // The window must be forwarded to the aggregate (7d: end ≈ now, start ≈ now - 7d).
+        const last_call = get_hour_buckets.mock.calls.at(-1)?.[0] as {
+            start: number;
+            end: number;
+        };
+        const day = 86400000;
+        expect(last_call.end).toBeGreaterThan(now - 5000);
+        expect(last_call.start).toBeLessThanOrEqual(last_call.end - 7 * day);
+        expect(mocked_bar_chart.props?.hourBuckets).toBeDefined();
+        expect(mocked_bar_chart.props?.hourBuckets?.length).toBeGreaterThan(0);
+    });
+
+    it("skips the hour bucket fetch on short windows and day granularity (t173)", async () => {
+        // Prior tests persist prefs (incl. gran=hour) to localStorage; clear so
+        // this test starts from the default day granularity.
+        localStorage.clear();
+        get_sessions.mockResolvedValue([session("s")]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+
+        // Default 30d window at day granularity: no hour fetch.
+        await screen.findByTestId("session-records");
+        expect(get_hour_buckets).not.toHaveBeenCalled();
+
+        // 24h (short window) at hour granularity: still no hour fetch.
+        await user.click(screen.getByRole("button", { name: "24 小时" }));
+        await waitFor(() => {
+            expect(get_hour_buckets).not.toHaveBeenCalled();
+        });
+    });
+
+    it("skips the hour bucket fetch when the bar axis is not time (t173)", async () => {
+        // gran=hour retained while a project/session x-axis is active; the
+        // hour aggregate would be fetched but never consumed by the chart.
+        get_sessions.mockResolvedValue([session("s")]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await user.click(screen.getByRole("button", { name: "小时" }));
+        // The hour branch is exercised once while the time axis is active.
+        await waitFor(() => {
+            expect(get_hour_buckets).toHaveBeenCalled();
+        });
+        get_hour_buckets.mockClear();
+
+        // Switching to a project axis must not issue the (unconsumed) fetch.
+        await user.click(screen.getByRole("button", { name: "项目" }));
+        await waitFor(() => {
+            expect(get_hour_buckets).not.toHaveBeenCalled();
+        });
     });
 });

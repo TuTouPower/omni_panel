@@ -3,6 +3,7 @@ import type {
     AgentSessionUsage,
     TokenStatsBucket,
     TokenStatsHeatmapCell,
+    TokenStatsHourBucket,
     TokenStatsSession,
 } from "../../../../../src/shared/types/token-stats";
 import {
@@ -17,6 +18,7 @@ import {
     modelSegmentsFromBuckets,
     prepareBarData,
     prepareBarDataFromBuckets,
+    prepareBarDataFromHourBuckets,
     prepareHeatmapData,
     prepareHeatmapFromCells,
     projectSegments,
@@ -353,6 +355,136 @@ describe("chart-data", () => {
             expect(data.labels).toHaveLength(1);
             const total = data.series.reduce((sum, s) => sum + (s.data[0] ?? 0), 0);
             expect(total).toBe(100);
+        });
+    });
+
+    describe("prepareBarDataFromHourBuckets", () => {
+        function hb(overrides: Partial<TokenStatsHourBucket> = {}): TokenStatsHourBucket {
+            return {
+                hour_start: new Date("2026-07-10T02:00:00Z").getTime(),
+                model: "claude-sonnet-4",
+                calls: 3,
+                sessions: 2,
+                tokens: 500,
+                ...overrides,
+            };
+        }
+
+        it("lays hour buckets on the bucketize axis and stacks by model", () => {
+            const start = new Date("2026-07-10T01:30:00Z").getTime();
+            const end = new Date("2026-07-10T04:30:00Z").getTime();
+            const buckets = [
+                // hour 01:00 (start is 01:30) → partial first bucket via idx(ts<=start)→0
+                hb({
+                    hour_start: new Date("2026-07-10T01:00:00Z").getTime(),
+                    model: "claude-sonnet-4",
+                    tokens: 100,
+                }),
+                hb({
+                    hour_start: new Date("2026-07-10T02:00:00Z").getTime(),
+                    model: "claude-sonnet-4",
+                    tokens: 200,
+                }),
+                hb({
+                    hour_start: new Date("2026-07-10T03:00:00Z").getTime(),
+                    model: "opus",
+                    tokens: 50,
+                }),
+            ];
+            const data = prepareBarDataFromHourBuckets(buckets, "tokens", start, end, "dark");
+            // bucketize hour boundaries: [01:30, 02:00, 03:00, 04:00] → 4 buckets
+            expect(data.labels).toHaveLength(4);
+            const totals = data.series.reduce<Record<number, number>>((acc, s) => {
+                s.data.forEach((v, i) => {
+                    acc[i] = (acc[i] ?? 0) + v;
+                });
+                return acc;
+            }, {});
+            expect(totals[0]).toBe(100);
+            expect(totals[1]).toBe(200);
+            expect(totals[2]).toBe(50);
+            // 04:00 hour empty → zero-filled
+            expect(totals[3]).toBe(0);
+        });
+
+        it("aggregates tokens/calls/sessions per model and zero-fills empty hours", () => {
+            const start = new Date("2026-07-10T00:00:00Z").getTime();
+            const end = new Date("2026-07-10T02:30:00Z").getTime();
+            const buckets = [
+                hb({
+                    hour_start: new Date("2026-07-10T00:00:00Z").getTime(),
+                    model: "claude-sonnet-4",
+                    calls: 2,
+                    sessions: 1,
+                    tokens: 400,
+                }),
+                hb({
+                    hour_start: new Date("2026-07-10T01:00:00Z").getTime(),
+                    model: "opus",
+                    calls: 1,
+                    sessions: 1,
+                    tokens: 60,
+                }),
+            ];
+            // 3 buckets: 00:00, 01:00, 02:00 (partial)
+            const data = prepareBarDataFromHourBuckets(buckets, "calls", start, end, "dark");
+            expect(data.labels).toHaveLength(3);
+            const totals = data.series.reduce<Record<number, number>>((acc, s) => {
+                s.data.forEach((v, i) => {
+                    acc[i] = (acc[i] ?? 0) + v;
+                });
+                return acc;
+            }, {});
+            expect(totals[0]).toBe(2);
+            expect(totals[1]).toBe(1);
+            // hour 02:00 has no bucket → 0
+            expect(totals[2]).toBe(0);
+            // series named by model
+            expect(data.seriesNames).toContain("claude-sonnet-4");
+            expect(data.seriesNames).toContain("opus");
+            // per-model values land on the owning model's series, not another's
+            expect(data.series.find((s) => s.name === "claude-sonnet-4")?.data[0]).toBe(2);
+            expect(data.series.find((s) => s.name === "opus")?.data[1]).toBe(1);
+        });
+
+        it("drops buckets outside the window instead of overflowing the axis", () => {
+            const start = new Date("2026-07-10T02:00:00Z").getTime();
+            const end = new Date("2026-07-10T03:30:00Z").getTime();
+            const buckets = [
+                // before the window's first whole hour
+                hb({ hour_start: new Date("2026-07-10T01:00:00Z").getTime(), tokens: 999 }),
+                hb({ hour_start: new Date("2026-07-10T02:00:00Z").getTime(), tokens: 200 }),
+                // after the window's last whole hour
+                hb({ hour_start: new Date("2026-07-10T04:00:00Z").getTime(), tokens: 888 }),
+            ];
+            const data = prepareBarDataFromHourBuckets(buckets, "tokens", start, end, "dark");
+            // axis: 02:00, 03:00 (start 02:00 is an exact hour; end 03:30 → partial 03:00)
+            expect(data.labels).toHaveLength(2);
+            const totals = data.series.reduce<Record<number, number>>((acc, s) => {
+                s.data.forEach((v, i) => {
+                    acc[i] = (acc[i] ?? 0) + v;
+                });
+                return acc;
+            }, {});
+            expect(totals[0]).toBe(200);
+            expect(totals[1]).toBe(0);
+            expect(totals[2]).toBeUndefined();
+        });
+
+        it("sessions metric uses per-hour distinct session counts", () => {
+            const start = new Date("2026-07-10T00:00:00Z").getTime();
+            const end = new Date("2026-07-10T01:30:00Z").getTime();
+            const buckets = [
+                hb({
+                    hour_start: new Date("2026-07-10T00:00:00Z").getTime(),
+                    sessions: 5,
+                    calls: 9,
+                    tokens: 0,
+                }),
+            ];
+            const data = prepareBarDataFromHourBuckets(buckets, "sessions", start, end, "dark");
+            const total = data.series.reduce((sum, s) => sum + (s.data[0] ?? 0), 0);
+            expect(total).toBe(5);
         });
     });
 
