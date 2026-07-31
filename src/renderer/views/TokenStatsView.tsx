@@ -210,14 +210,14 @@ export function TokenStatsView() {
                     from_date: utc_date(currentRange.start - width),
                     to_date: utc_date(currentRange.end),
                 };
-                // records feed the Bar/Heatmap (hourly resolution) AND, short
-                // windows (<=25h, e.g. 24h preset), the KPI/donut delta — day
-                // buckets cannot split a 24h window symmetrically, so we fall
-                // back to per-message records there. Fetch 2x wide so the prior
-                // window is available for delta; bounded by LIMIT.
+                // records feed the Bar project/session axes, the Heatmap (hourly
+                // weekday×hour distribution), and short-window KPI/donut. Day-axis
+                // Bar uses buckets (see BarChart), so records here are for the
+                // hourly-resolution views. Wide windows need a higher LIMIT so the
+                // Heatmap sees more than the last few hours (7d ~ 137k rows).
                 const records_fetch = is_short_window
                     ? { start: currentRange.start - width, end: currentRange.end, limit: 50000 }
-                    : { start: currentRange.start, end: currentRange.end };
+                    : { start: currentRange.start, end: currentRange.end, limit: 100000 };
                 const [recs, bkts, sess, st, cfg] = await Promise.all([
                     window.usageboard.tokenStats.getRecords({
                         ...env_filter,

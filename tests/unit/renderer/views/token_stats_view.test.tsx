@@ -25,8 +25,15 @@ vi.mock("../../../../src/renderer/components/token-stats/BarChart", () => ({
         return <div />;
     },
 }));
+const mocked_heatmap = vi.hoisted(() => ({
+    props: null as { records?: { timestamp: number }[] } | null,
+}));
+
 vi.mock("../../../../src/renderer/components/token-stats/Heatmap", () => ({
-    Heatmap: () => <div />,
+    Heatmap: (props: { records?: { timestamp: number }[] }) => {
+        mocked_heatmap.props = props;
+        return <div />;
+    },
 }));
 vi.mock("../../../../src/renderer/components/token-stats/SessionTable", () => ({
     SessionTable: ({ rows }: { rows: { session_id: string }[] }) => (
@@ -90,6 +97,7 @@ describe("TokenStatsView", () => {
         get_sessions.mockReset();
         get_buckets.mockReset();
         mocked_bar_chart.props = null;
+        mocked_heatmap.props = null;
         get_records.mockResolvedValue([]);
         get_sessions.mockResolvedValue([]);
         get_buckets.mockResolvedValue([]);
@@ -357,6 +365,26 @@ describe("TokenStatsView", () => {
         // All 7 distinct days present (not collapsed to 1-2).
         const dates = new Set(mocked_bar_chart.props?.buckets?.map((b) => b.bucket_date));
         expect(dates.size).toBe(7);
+    });
+
+    it("fetches wide-window records with a high LIMIT so the Heatmap sees more than a few hours", async () => {
+        // Regression: 7d Heatmap only showed the last ~6h because records were
+        // fetched with the default LIMIT (5000), which covers <6h of a busy
+        // install. Wide windows must raise the LIMIT so the weekday×hour
+        // distribution has enough sample days.
+        get_records.mockResolvedValue([]);
+        get_buckets.mockResolvedValue([bucket()]);
+        get_sessions.mockResolvedValue([session("s")]);
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+
+        await waitFor(() => {
+            const calls = get_records.mock.calls as { limit?: number }[][];
+            const last_call = calls.at(-1)?.[0];
+            expect(last_call?.limit).toBe(100000);
+        });
     });
 
     it("renders nav buttons to usage panel and settings", async () => {
