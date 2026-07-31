@@ -2,7 +2,7 @@
 tid: "t169"
 slug: "align_scripts_layer"
 title: "脚本层移植：task.py 全量替换 + 数据迁移 + pending/findings"
-status: "active"
+status: "done"
 branch: "t169_align_scripts_layer"
 worktree: ""
 review_level: "full"
