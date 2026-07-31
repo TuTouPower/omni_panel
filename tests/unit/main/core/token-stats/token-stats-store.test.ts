@@ -744,4 +744,106 @@ describe("token-stats-store", () => {
             expect(cell.hour).toBe(4);
         });
     });
+
+    describe("hour bucket aggregate (t173)", () => {
+        // Beijing time (UTC+8) → epoch ms. The store aggregates in UTC+8, so
+        // timestamps here are pinned with an explicit offset.
+        const bj = (iso: string): number => Date.parse(`${iso}+08:00`);
+
+        it("returns a row for every hour present across the window (no LIMIT truncation)", () => {
+            // Records across three days; the earliest day must survive the
+            // aggregate (the old records path truncated with ORDER BY DESC LIMIT).
+            store.upsert_records([
+                record({ message_id: "m1", timestamp: bj("2026-07-24 22:05:00") }),
+                record({ message_id: "m2", timestamp: bj("2026-07-25 01:30:00") }),
+                record({ message_id: "m3", timestamp: bj("2026-07-25 01:45:00"), model: "opus" }),
+                record({ message_id: "m4", timestamp: bj("2026-07-26 10:00:00") }),
+            ]);
+
+            const rows = store.query_hour_buckets({
+                start: bj("2026-07-24 00:00:00"),
+                end: bj("2026-07-26 23:59:59"),
+            });
+            const hours = new Set(rows.map((r) => r.hour_start));
+            expect(hours.has(bj("2026-07-24 22:00:00"))).toBe(true);
+            expect(hours.has(bj("2026-07-25 01:00:00"))).toBe(true);
+            expect(hours.has(bj("2026-07-26 10:00:00"))).toBe(true);
+            // One session spans the hours; each hour×model row counts it once.
+            for (const row of rows) expect(row.sessions).toBe(1);
+        });
+
+        it("aggregates tokens/calls/sessions per hour×model", () => {
+            const ts = bj("2026-07-24 22:00:00");
+            store.upsert_records([
+                record({
+                    message_id: "m1",
+                    session_id: "s1",
+                    timestamp: ts,
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 10,
+                    cache_write_tokens: 5,
+                }),
+                record({
+                    message_id: "m2",
+                    session_id: "s1",
+                    timestamp: ts + 1000,
+                    input_tokens: 200,
+                    output_tokens: 60,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                }),
+                record({
+                    message_id: "m3",
+                    session_id: "s2",
+                    timestamp: ts,
+                    model: "opus",
+                    input_tokens: 7,
+                    output_tokens: 3,
+                }),
+            ]);
+
+            const rows = store.query_hour_buckets({});
+            const sonnet = rows.find((r) => r.model === "sonnet-4");
+            const opus = rows.find((r) => r.model === "opus");
+            if (!sonnet || !opus) throw new Error("expected both model rows");
+            expect(sonnet.hour_start).toBe(ts);
+            // (100+50+10+5) + (200+60+0+0)
+            expect(sonnet.tokens).toBe(425);
+            expect(sonnet.calls).toBe(2);
+            expect(sonnet.sessions).toBe(1);
+            // (7+3) + fixture cache defaults (10+5)
+            expect(opus.tokens).toBe(25);
+            expect(opus.calls).toBe(1);
+            // 3 detail rows collapse to 2 hour×model rows (2 sonnet + 1 opus),
+            // far fewer than the raw record count — the whole point of AC2.
+            expect(rows.length).toBe(2);
+        });
+
+        it("filters by time range, env and agent", () => {
+            const t1 = bj("2026-07-24 10:00:00");
+            const t2 = bj("2026-07-25 10:00:00");
+            const t3 = bj("2026-07-26 10:00:00");
+            store.upsert_records([
+                record({ message_id: "m1", timestamp: t1, env: "win", agent: "claude-code" }),
+                record({ message_id: "m2", timestamp: t2, env: "wsl", agent: "opencode" }),
+                record({ message_id: "m3", timestamp: t3, env: "win", agent: "claude-code" }),
+            ]);
+
+            expect(store.query_hour_buckets({ start: t2, end: t3 })).toHaveLength(2);
+            expect(store.query_hour_buckets({ env: "win" })).toHaveLength(2);
+            expect(store.query_hour_buckets({ agent: "opencode" })).toHaveLength(1);
+            expect(store.query_hour_buckets({ env: "win", agent: "claude-code" })).toHaveLength(2);
+        });
+
+        it("shifts the hour boundary by +8 across the UTC hour boundary", () => {
+            // 2026-07-24T15:59:00Z is 23:59 Beijing the same calendar day.
+            store.upsert_records([
+                record({ message_id: "m1", timestamp: Date.parse("2026-07-24T15:59:00Z") }),
+            ]);
+            const rows = store.query_hour_buckets({});
+            if (!rows[0]) throw new Error("expected a row");
+            expect(rows[0].hour_start).toBe(bj("2026-07-24 23:00:00"));
+        });
+    });
 });

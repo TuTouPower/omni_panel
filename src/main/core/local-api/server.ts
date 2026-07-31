@@ -307,6 +307,20 @@ export function create_local_api_server(
                     }),
                 );
                 return true;
+            case "/v1/hourBuckets":
+                json_response(
+                    res,
+                    200,
+                    store.query_hour_buckets({
+                        ...(agent
+                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" }
+                            : {}),
+                        ...(env ? { env: env as "win" | "wsl" } : {}),
+                        ...(start ? { start: Number(start) } : {}),
+                        ...(end ? { end: Number(end) } : {}),
+                    }),
+                );
+                return true;
             case "/v1/sessions":
                 json_response(
                     res,

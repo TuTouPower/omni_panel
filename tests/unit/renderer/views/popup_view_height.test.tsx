@@ -218,6 +218,7 @@ describe("PopupView collapse + height report", () => {
                 getSessions: vi.fn().mockResolvedValue([]),
                 getRecords: vi.fn().mockResolvedValue([]),
                 getHeatmap: vi.fn().mockResolvedValue([]),
+                getHourBuckets: vi.fn().mockResolvedValue([]),
                 getStatus: vi.fn().mockResolvedValue({ running: false, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
             },

@@ -7,6 +7,8 @@ import type {
     TokenStatsBucket,
     TokenStatsHeatmapCell,
     TokenStatsHeatmapFilters,
+    TokenStatsHourBucket,
+    TokenStatsHourFilters,
     TokenStatsRecordFilters,
     TokenStatsSession,
 } from "./token-stats";
@@ -107,6 +109,7 @@ export const IPC_CHANNELS = {
     TOKEN_STATS_SESSIONS: "tokenStats:sessions",
     TOKEN_STATS_RECORDS: "tokenStats:records",
     TOKEN_STATS_HEATMAP: "tokenStats:heatmap",
+    TOKEN_STATS_HOUR_BUCKETS: "tokenStats:hourBuckets",
     TOKEN_STATS_STATUS: "tokenStats:status",
     TOKEN_STATS_UPDATED: "tokenStats:updated",
     TOKEN_STATS_OPEN: "tokenStats:open",
@@ -445,6 +448,7 @@ export interface UsageboardApi {
         }): Promise<TokenStatsSession[]>;
         getRecords(filters?: TokenStatsRecordFilters): Promise<AgentSessionUsage[]>;
         getHeatmap(filters?: TokenStatsHeatmapFilters): Promise<TokenStatsHeatmapCell[]>;
+        getHourBuckets(filters?: TokenStatsHourFilters): Promise<TokenStatsHourBucket[]>;
         getStatus(): Promise<TokenStatsStatus>;
         onUpdated(callback: () => void): () => void;
     };

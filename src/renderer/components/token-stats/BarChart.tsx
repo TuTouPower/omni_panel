@@ -6,16 +6,20 @@ import { paletteFor } from "../../lib/token-stats/palette";
 import {
     prepareBarData,
     prepareBarDataFromBuckets,
+    prepareBarDataFromHourBuckets,
     escapeHtml,
 } from "../../lib/token-stats/chart-data";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "../../lib/token-stats/types";
-import type { TokenStatsBucket } from "../../../shared/types/token-stats";
+import type { TokenStatsBucket, TokenStatsHourBucket } from "../../../shared/types/token-stats";
 
 interface BarChartProps {
     records: AgentSessionUsage[];
     /** Day-aggregated buckets; when provided, the time axis uses these instead
      * of records (>=7d windows where records exceed the fetch LIMIT). */
     buckets?: TokenStatsBucket[];
+    /** Hour-aggregated buckets; when provided, the time-axis hour bar uses
+     * these instead of records (>=7d + hour granularity, t173). */
+    hourBuckets?: TokenStatsHourBucket[];
     metric: Metric;
     xaxis: XAxis;
     gran: Granularity;
@@ -76,6 +80,7 @@ export function build_bar_tooltip_html(
 export function BarChart({
     records,
     buckets,
+    hourBuckets,
     metric,
     xaxis,
     gran,
@@ -88,9 +93,14 @@ export function BarChart({
 }: BarChartProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const { labels, bucketStarts, series, otherDetails } = useMemo(() => {
-        // Time axis at day granularity can use pre-aggregated buckets (>=7d
-        // windows where per-message records exceed the fetch LIMIT). Hourly /
-        // project / session axes still need records.
+        // Time axis can use pre-aggregated data for wide windows (>=7d) where
+        // per-message records exceed the fetch LIMIT: hour buckets at hour
+        // granularity (t173), day buckets at day granularity. Hourly records
+        // are only used for short windows; project / session axes still need
+        // records.
+        if (xaxis === "time" && gran === "hour" && hourBuckets && hourBuckets.length > 0) {
+            return prepareBarDataFromHourBuckets(hourBuckets, metric, start, end, theme);
+        }
         if (xaxis === "time" && gran === "day" && buckets) {
             return prepareBarDataFromBuckets(buckets, metric, start, end, theme);
         }
@@ -105,7 +115,19 @@ export function BarChart({
             dirAliases,
             modelAliases,
         );
-    }, [records, buckets, metric, xaxis, gran, start, end, theme, dirAliases, modelAliases]);
+    }, [
+        records,
+        buckets,
+        hourBuckets,
+        metric,
+        xaxis,
+        gran,
+        start,
+        end,
+        theme,
+        dirAliases,
+        modelAliases,
+    ]);
     const fmtV = metric === "tokens" ? fmtTok : fmtInt;
     const pal = paletteFor(theme);
 

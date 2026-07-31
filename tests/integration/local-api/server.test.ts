@@ -288,6 +288,54 @@ describe("local-api web read endpoints", () => {
         expect(data[0]).toMatchObject({ weekday: 1, hour: 9, calls: 1, tokens: 11 });
     });
 
+    it("GET /v1/hourBuckets returns hour×model aggregates without auth (t173)", async () => {
+        // 2026-07-06 09:00 UTC+8 is an exact local whole hour.
+        const ts = Date.parse("2026-07-06T09:00:00+08:00");
+        token_stats_store.upsert_records([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "s1",
+                title: null,
+                directory: null,
+                slug: null,
+                version: null,
+                parent_session_id: null,
+                message_id: "m1",
+                role: "assistant",
+                timestamp: ts,
+                model: "sonnet",
+                input_tokens: 10,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent: "claude-code",
+            },
+        ]);
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/hourBuckets?env=win&start=${String(
+                ts - 1,
+            )}&end=${String(ts + 1)}`,
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as {
+            hour_start: number;
+            model: string;
+            calls: number;
+            sessions: number;
+            tokens: number;
+        }[];
+        expect(data).toHaveLength(1);
+        expect(data[0]).toMatchObject({
+            hour_start: ts,
+            model: "sonnet",
+            calls: 1,
+            sessions: 1,
+            tokens: 11,
+        });
+    });
+
     it("web read endpoints do not require bearer auth", async () => {
         await api.start();
         for (const path of [
@@ -295,6 +343,7 @@ describe("local-api web read endpoints", () => {
             "/v1/sessions",
             "/v1/buckets",
             "/v1/heatmap",
+            "/v1/hourBuckets",
             "/v1/status",
         ]) {
             const res = await fetch(`http://127.0.0.1:${String(api.get_port())}${path}`);

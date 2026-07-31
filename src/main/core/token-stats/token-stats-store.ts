@@ -6,6 +6,8 @@ import type {
     TokenStatsDailyUpsert,
     TokenStatsHeatmapCell,
     TokenStatsHeatmapFilters,
+    TokenStatsHourBucket,
+    TokenStatsHourFilters,
     TokenStatsRecordFilters,
     TokenStatsSession,
     TokenStatsSessionUpsert,
@@ -42,6 +44,12 @@ export interface TokenStatsStore {
     query_records(filters: TokenStatsRecordFilters): AgentSessionUsage[];
     /** Weekday×hour aggregation over the records table (hourly heatmap, t170). */
     query_heatmap(filters: TokenStatsHeatmapFilters): TokenStatsHeatmapCell[];
+    /**
+     * Hour×model aggregation over the records table (time-axis hour bar, t173).
+     * Groups by UTC+8 local whole hour; no LIMIT, so wide windows (>=7d) cannot
+     * truncate early hours the way query_records' ORDER BY DESC LIMIT does.
+     */
+    query_hour_buckets(filters: TokenStatsHourFilters): TokenStatsHourBucket[];
     /** Latest session upsert time (ms epoch), null when store is empty. */
     last_updated(): number | null;
     close(): void;
@@ -518,6 +526,42 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             FROM token_stats_records ${where}
             GROUP BY weekday, hour`;
             return db.prepare(sql).all(params) as TokenStatsHeatmapCell[];
+        },
+
+        query_hour_buckets(filters) {
+            const conditions: string[] = [];
+            const params: Record<string, unknown> = {};
+
+            if (filters.agent) {
+                conditions.push("agent = @agent");
+                params["agent"] = filters.agent;
+            }
+            if (filters.env) {
+                conditions.push("env = @env");
+                params["env"] = filters.env;
+            }
+            if (filters.start !== undefined) {
+                conditions.push("timestamp >= @start");
+                params["start"] = filters.start;
+            }
+            if (filters.end !== undefined) {
+                conditions.push("timestamp <= @end");
+                params["end"] = filters.end;
+            }
+
+            const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+            // Local (UTC+8, the panel's fixed timezone) whole-hour start as UTC
+            // epoch: round the timestamp down to its containing local hour. This
+            // matches the renderer's bucketize hour boundaries (s005).
+            const sql = `SELECT
+                (timestamp - ((timestamp + 28800000) % 3600000)) AS hour_start,
+                model,
+                COUNT(*) AS calls,
+                COUNT(DISTINCT session_id) AS sessions,
+                SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
+            FROM token_stats_records ${where}
+            GROUP BY hour_start, model`;
+            return db.prepare(sql).all(params) as TokenStatsHourBucket[];
         },
 
         last_updated() {

@@ -185,3 +185,25 @@ export interface TokenStatsHeatmapFilters {
     start?: number;
     end?: number;
 }
+
+/**
+ * One hour×model bucket of the time-axis bar chart, aggregated in SQL (UTC+8
+ * local whole hours) so wide windows (>=7d) never pull per-message records into
+ * the renderer (t173). `hour_start` is the UTC epoch of the start of the local
+ * hour, matching the renderer's bucketize boundaries.
+ */
+export const tokenStatsHourBucketSchema = z.object({
+    hour_start: z.number(),
+    model: z.string(),
+    calls: z.number().int().nonnegative(),
+    sessions: z.number().int().nonnegative(),
+    tokens: z.number().int().nonnegative(),
+});
+export type TokenStatsHourBucket = z.infer<typeof tokenStatsHourBucketSchema>;
+
+export interface TokenStatsHourFilters {
+    agent?: "claude-code" | "opencode" | "kimi-code";
+    env?: TokenStatsEnv;
+    start?: number;
+    end?: number;
+}
