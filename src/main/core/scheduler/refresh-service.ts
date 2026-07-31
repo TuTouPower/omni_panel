@@ -12,6 +12,10 @@ import type {
 import { observations_to_ready_state } from "./observation-mapping";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, createTraceId, withLogContext } from "../../../shared/lib/logger";
+import { is_auth_error } from "../../../shared/lib/auth-error";
+import type { RefreshResult } from "../auth/oauth_helpers";
+
+export { is_auth_error };
 import type { ConnectorDefinition } from "../connector/manifest-loader";
 import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";
@@ -37,6 +41,15 @@ export interface RefreshServiceDeps {
         trace_id?: string,
         reset?: boolean,
     ) => Promise<{ observations: Observation[]; failed_accounts: FailedAccount[] }>;
+    /**
+     * t172: OAuth 连接器（grok/kimi）即时 token 刷新入口。poll 因 auth 错误
+     * （401/403）失败时调用一次；返回 undefined 表示该连接器无可用刷新器。
+     * manager 自带 per-instance 刷新去重与 token mutation 串行化。
+     */
+    oauth_refresh?: (
+        instanceId: string,
+        definition: ConnectorDefinition,
+    ) => Promise<RefreshResult | undefined>;
 }
 
 export interface ConnectorRefreshService {
@@ -58,21 +71,6 @@ function last_success_snapshot(state: ConnectorSnapshotState): SnapshotSuccess |
         return state.lastSuccess;
     }
     return undefined;
-}
-
-export function is_auth_error(message: string): boolean {
-    const lower = message.toLowerCase();
-    return (
-        lower.includes("401") ||
-        lower.includes("403") ||
-        lower.includes("unauthorized") ||
-        lower.includes("forbidden") ||
-        lower.includes("invalid_token") ||
-        lower.includes("invalid_grant") ||
-        /\binvalid\b.*\bkey\b/.test(lower) ||
-        lower.includes("ip banned") ||
-        lower.includes("credential")
-    );
 }
 
 export function is_connection_error(message: string): boolean {
@@ -252,10 +250,41 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
 
             let last_error = "";
             let session_relogin_done = false;
+            let oauth_refresh_done = false;
             let force_fresh_connection = false;
             let connection_error_count = 0;
-            const max_attempts = 3;
+            let max_attempts = 3;
             const retry_delay_ms = 1000;
+
+            // t172: OAuth(poll) 连接器 401/403 时的即时 token 刷新，成功/失败各调用至多一次。
+            // 返回 true 表示已刷新成功，调用方应继续重试采集。
+            const try_oauth_refresh = async (): Promise<boolean> => {
+                if (
+                    oauth_refresh_done ||
+                    !deps.oauth_refresh ||
+                    definition.manifest.auth?.method !== "oauth_device"
+                ) {
+                    return false;
+                }
+                oauth_refresh_done = true;
+                try {
+                    const result = await deps.oauth_refresh(instanceId, definition);
+                    if (result?.success) {
+                        trace_log.info(
+                            `OAuth token refreshed for ${connector_config.name}, retrying collection`,
+                        );
+                        return true;
+                    }
+                    trace_log.info(
+                        `OAuth token refresh failed for ${connector_config.name}: ${result?.error ?? "unknown"}`,
+                    );
+                } catch (refresh_error: unknown) {
+                    trace_log.error(
+                        `OAuth token refresh error for ${connector_config.name}: ${refresh_error instanceof Error ? refresh_error.message : String(refresh_error)}`,
+                    );
+                }
+                return false;
+            };
 
             for (let attempt = 0; attempt < max_attempts; attempt++) {
                 try {
@@ -267,6 +296,22 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         trace_id,
                         force_fresh_connection,
                     );
+
+                    // t172: OAuth(poll) 连接器因 auth 错误（401/403）失败时，对该实例
+                    // 即时刷新一次 token 并重试采集；刷新失败/无 refresh token 时维持
+                    // 现有 stale 标记行为（AC3）。刷新成功必须给一次重试预算——即使已到
+                    // 最后一轮，否则重试会因无预算而空转（AC2 边界）。
+                    const auth_failed = failed_accounts.some((failed) =>
+                        is_auth_error(failed.error),
+                    );
+                    if (auth_failed && (await try_oauth_refresh())) {
+                        max_attempts += 1;
+                        if (attempt < max_attempts - 1) {
+                            await new Promise((resolve) => setTimeout(resolve, retry_delay_ms));
+                        }
+                        continue;
+                    }
+
                     for (const obs of observations) {
                         try {
                             deps.observationStore.insert(obs);
@@ -395,6 +440,16 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                 }
                                 continue;
                             }
+                        }
+
+                        // t172: OAuth(poll) 连接器在抛错路径的即时刷新兜底
+                        // （非 script 的 tier-1 poll 401 会 throw 到这里）。
+                        if (await try_oauth_refresh()) {
+                            max_attempts += 1;
+                            if (attempt < max_attempts - 1) {
+                                await new Promise((resolve) => setTimeout(resolve, retry_delay_ms));
+                            }
+                            continue;
                         }
 
                         // Auth error and either (a) not a session connector, or (b) re-login

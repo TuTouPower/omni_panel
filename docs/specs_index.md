@@ -51,6 +51,7 @@
 | fix_grok_oauth_binding_billing_parse | API + Desktop | t159                                                                | 2026-07-29   |
 | fix_grok_zero_percent_omission       | API + Desktop | t160                                                                | 2026-07-29   |
 | relogin-instance-routing             | Web           | t158                                                                | 2026-07-27   |
+| classify_collect_failure             | API           | t172                                                                | 2026-07-31   |
 | kimi_oauth_concurrency               | API           | t150                                                                | 2026-07-26   |
 | unify_account_auth_forms             | Web           | t157                                                                | 2026-07-27   |
 

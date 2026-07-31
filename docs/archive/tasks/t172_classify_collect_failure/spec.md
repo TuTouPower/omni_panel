@@ -37,9 +37,9 @@ reviewer 判 AC 时只看本区。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] AC1：账号行在采集错误为非凭证类（如连接超时、5xx、解析失败）时不显示「重新登录」按钮；错误为凭证失效类（401/403、token 失效文案）时仍显示。
-- [ ] AC2：OAuth poll 连接器采集因 auth 错误失败时，对该实例触发一次即时 `refresh_now`；刷新成功后本轮重新采集，成功则观测不标 stale。
-- [ ] AC3：即时刷新失败（refresh_token 终态失效、无 refresh token、网络仍不通）时，行为退化为现有路径：历史观测标 stale、状态按失败处理，不引入额外重试风暴（每个实例每轮刷新周期至多一次即时刷新尝试）。
+- [x] AC1：账号行在采集错误为非凭证类（如连接超时、5xx、解析失败）时不显示「重新登录」按钮；错误为凭证失效类（401/403、token 失效文案）时仍显示。
+- [x] AC2：OAuth poll 连接器采集因 auth 错误失败时，对该实例触发一次即时 `refresh_now`；刷新成功后本轮重新采集，成功则观测不标 stale。
+- [x] AC3：即时刷新失败（refresh_token 终态失效、无 refresh token、网络仍不通）时，行为退化为现有路径：历史观测标 stale、状态按失败处理，不引入额外重试风暴（每个实例每轮刷新周期至多一次即时刷新尝试）。
 
 ### 可测试性声明
 
@@ -74,8 +74,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- `is_auth_error` 现有匹配规则对 grok 实际错误文案（`HTTP 401: request failed`、连接超时文案）的覆盖度：UNVERIFIED-SPIKE，执行期读取真实错误文案与现有匹配规则核对，必要时补匹配词并补测。
-- refresh-service 与 grok/kimi 两个 OAuth manager 之间目前是否存在可调用的依赖注入通道（refresh-service 能否拿到 manager 实例）：UNVERIFIED-SPIKE，执行期读码确认；若不存在，按现有依赖注入模式接线。
+- `is_auth_error` 现有匹配规则已核实：`net-client` 对 HTTP 错误生成 `HTTP <status>: request failed (<bytes> bytes)`；renderer 判定当前不匹配裸 `HTTP 401/403`，连接超时文案（如 `ETIMEDOUT`、`socket hang up`）不匹配；refresh-service 判定已匹配 401/403。实现需统一认证错误语义并补真实文案回归测试。验证方式：读取 `net-client.ts`、Grok connector、两处判定函数与现有测试，结论记录于 `docs/spikes/s004_classify_collect_failure/report.md`。
+- refresh-service 与 grok/kimi OAuth manager 之间已核实无现成依赖注入入口；`main/index.ts` 在创建 refresh-service 前已创建两个 manager，且 manager 均暴露 `refresh_now(instance_id)`。实现通过 `RefreshServiceDeps` 注入按 connector/instance 调用的 OAuth refresh 回调；Grok/Kimi script auth 失败位于 `failed_accounts` 路径，需在该路径触发兜底。验证方式：读取 refresh-service、OAuth manager、manifest 与主进程接线，结论记录于 `docs/spikes/s004_classify_collect_failure/report.md`。
 
 ### 风险与回退
 

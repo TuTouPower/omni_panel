@@ -90,7 +90,7 @@ describe("ProviderAccountRow", () => {
     // t158: per-account re-login entry — independent from the overview-level
     // re-login button so multi-instance 401 can target the specific failing account.
     describe("t158 per-account re-login", () => {
-        it("shows account-row 重新登录 link when error and onReLogin provided", () => {
+        it("shows account-row 重新登录 link for a 401 error", () => {
             const onReLogin = vi.fn();
             const account = make_account({
                 sourceInstanceId: "cpa-main",
@@ -100,7 +100,7 @@ describe("ProviderAccountRow", () => {
                 <ProviderAccountRow
                     account={account}
                     provider="claude"
-                    error="HTTP 401 unauthorized"
+                    error="HTTP 401: request failed (37 bytes)"
                     onReLogin={onReLogin}
                 />,
             );
@@ -109,6 +109,19 @@ describe("ProviderAccountRow", () => {
             expect(link).toBeInTheDocument();
             fireEvent.click(link);
             expect(onReLogin).toHaveBeenCalledWith("cpa-main", "auth-a", "claude");
+        });
+
+        it("does not show re-login link for a connection timeout", () => {
+            const onReLogin = vi.fn();
+            render(
+                <ProviderAccountRow
+                    account={make_account()}
+                    provider="grok"
+                    error="request failed: ETIMEDOUT"
+                    onReLogin={onReLogin}
+                />,
+            );
+            expect(screen.queryByRole("button", { name: /重新登录/ })).not.toBeInTheDocument();
         });
 
         it("does not show re-login link when error is absent", () => {

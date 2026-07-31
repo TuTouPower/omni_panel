@@ -48,6 +48,7 @@ import {
 } from "./core/scheduler/scheduler-orchestrator";
 import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
+import type { ConnectorDefinition } from "./core/connector/manifest-loader";
 import { init_global_network } from "./core/connector/net-client";
 import { build_csp_header } from "./security/csp";
 import { registerConnectorIpc } from "./ipc/connector-ipc";
@@ -270,6 +271,18 @@ void app.whenReady().then(async () => {
                 );
                 if (!result.ok) throw new Error(result.error.message);
                 return result.data;
+            },
+            oauth_refresh: async (instanceId: string, definition: ConnectorDefinition) => {
+                // t172: OAuth(poll) 连接器 401/403 时的即时 token 刷新。manager 自带
+                // per-instance 刷新去重与 token mutation 串行化；非 grok/kimi 的
+                // oauth_device 连接器无内置刷新器，返回 undefined 走退化路径。
+                if (definition.manifest.provider === "grok") {
+                    return grokOAuthManager.refresh_now(instanceId);
+                }
+                if (definition.manifest.provider === "kimi") {
+                    return kimiOAuthManager.refresh_now(instanceId);
+                }
+                return undefined;
             },
         });
 
