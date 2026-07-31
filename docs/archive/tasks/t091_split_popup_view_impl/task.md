@@ -1,8 +1,16 @@
 ---
-tid: t091
-slug: split_popup_view_impl
+tid: "t091"
+slug: "split_popup_view_impl"
+title: "继续拆分 PopupView.tsx 到400行以下"
+status: "done"
+branch: "t091_split_popup_view_impl"
+worktree: ""
+review_level: "full"
 diff_anchor: "278247c"
-branch: "spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t091_split_popup_view_impl

@@ -2,211 +2,116 @@
 
 常驻桌面进程，把多个 AI 服务商的用量/额度/余额集中读出来、统一展示，如实标注来源与新鲜度。对标 macOS 原生版 UsageBoard，跨 Windows / macOS / Linux。
 
-本文件是 agent 行为入口，包含工作流规则与按需导航。只读取当前任务需要的文档，禁止无目的全量加载。
+本文件是 agent 行为入口：目录权责、状态机与 skill 路由。只加载当前任务所需文档。
 
-## 命名（本文件内只在此定义）
-
-- `{tid}`：task 编号，形如 `t001`、`t042`（小写 `t` + 数字）。
-- `{sid}`：spike 编号，形如 `s001`、`s003`（小写 `s` + 数字）。
-- `{slug}`：小写 `snake_case`。
+命名与格式约定见 `docs/blueprint/conventions.md`「命名与格式」。
 
 ## 目录与读写规则
 
-| 路径                                                                                          | 用途                                                     | 读取规则                                                                                                                   | 写入规则                                                                                            |
-| --------------------------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `docs/specs_index.md`                                                                         | 当前生效 spec 清单（在表即生效）                         | 追溯已固化需求时                                                                                                           | task**收尾**时更新；废弃时删除行                                                                    |
-| `docs/specs/<slug>.md`                                                                        | 需求级 spec（按已完成 task 累积）                        | 追溯需求实现与验收时                                                                                                       | task**收尾**时累积更新；废弃时移入 `docs/archive/specs/`                                            |
-| `docs/tasks_index.json`                                                                       | 活跃 task：tid、状态、branch                             | 接到新需求或状态流转时                                                                                                     | **只能通过 `scripts/task.py` 操作**；禁止直接编辑                                                   |
-| `docs/archive/tasks_index.json`                                                               | 归档 task（`done` / `dropped`）                          | 追溯历史 tid 时                                                                                                            | `scripts/task.py finish` / `drop` 自动移入；禁止直接编辑                                            |
-| `docs/tasks/{tid}_{slug}/`                                                                    | task 工作区（backlog 起即存在）                          | 执行或审阅 task 时                                                                                                         | 实现侧：`spec.md` `plan.md` `task.md`；reviewer：`review_code.md` `review_test.md`                  |
-| `docs/handoff.md`                                                                             | 项目级交接                                               | 接手工作时第一个读                                                                                                         | 只追加                                                                                              |
-| `docs/bugs.md`                                                                                | 已知未修复 bug 追加式记录                                | 追溯已知 bug 时                                                                                                            | 发现不立即修复的 bug 追加新条目；修复后在原条目追加「修复」行，不删原条目                           |
-| `docs/blueprint/`                                                                             | 当前长期真相：架构、领域、约定、决策                     | 改跨模块行为前读 `architecture.md`；写代码或文档前读 `conventions.md`；新业务概念读 `domain.md`；历史取舍读 `decisions.md` | finalization 时更新；实施与 review 期间仅写入已稳定结论                                             |
-| `docs/reviews/review_<TS>/`                                                                   | 独立 review：多模型报告 + adoption 决策                  | 审阅全代码 / diff / 指定范围时                                                                                             | 由 `/multi-model-review` 和 `/multi-model-adoption` skill 生成；本地无独立 review 模板；落地拆 task |
-| `docs/spikes/{sid}_{slug}/`                                                                   | 当前 spike                                               | 技术选型或未知风险验证时                                                                                                   | `report.md` 必需；有实验代码再建 `code/`                                                            |
-| `docs/templates/`                                                                             | task / spike 等模板                                      | 创建工作项时复制                                                                                                           | 复制使用，不代表 active 数据                                                                        |
-| `docs/guides/`                                                                                | 给人看的使用指南（含 `testing.md` 测试命令清单）         | 按需                                                                                                                       | 给人读，不写入 agent 行为规则                                                                       |
-| `docs/archive/`                                                                               | 完结或终止的历史                                         | 追溯历史时                                                                                                                 | 镜像原路径；内部文件只准新增                                                                        |
-| `src/` `tests/` `scripts/` `assets/` `config/` `connectors/` `schemas/` `vendors/` `patches/` | 源码、测试、脚本、静态源、配置、连接器、契约、依赖、补丁 | 正常开发                                                                                                                   | 正常开发                                                                                            |
-| `artifacts/` `data/` `.scratch/`                                                              | 产物、运行数据、一次性草稿                               | —                                                                                                                          | 运行与草稿；临时日志放 `.scratch/`；不入库                                                          |
+写权归属列声明路径的写入责任与时机；具体步骤见对应 skill 或文件内注释。
 
-## 开发原则
-
-- specs driven：先拆 task 并填写 spec/plan（验收标准非空）；后置 task 的 spec/plan 随前置完成修订。
-- TDD：可测部分先红后绿。
+| 路径                                                                     | 用途                                                                 | 写权归属                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `docs/specs_index.md`                                                    | 当前生效 spec 清单（在表即生效）                                     | task 收尾时更新；废弃删除行                                                                                                                                                                                                          |
+| `docs/specs/<slug>.md`                                                   | 需求级 spec（按已完成 task 累积）                                    | task 收尾时累积更新；废弃移入 `docs/archive/specs/`                                                                                                                                                                                  |
+| `docs/tasks/{tid}_{slug}/`                                               | task 工作区兼**状态权威**（backlog 起即存在）                        | `spec.md` / `task.md` 正文由实现侧写；`task.md` front matter 只经 `scripts/task.py`；reviewer 写 `review_code.md` / `review_test.md`（`single` 级写 `review_general.md`）；`finish`/`drop` 由脚本移入 archive                        |
+| `docs/tasks/task_template/`                                              | task 文件模板（非工作项）                                            | 只改模板本身                                                                                                                                                                                                                         |
+| `docs/archive/tasks/{tid}_{slug}/`                                       | 已归档 task 工作区                                                   | 仅由 `scripts/task.py finish` / `drop` 从 `docs/tasks/` 移入；内部文件只准新增                                                                                                                                                       |
+| `docs/tasks_index.json` / `docs/archive/tasks_index.json`                | 活跃/归档 task 派生索引                                              | 仅主仓协调点由 `scripts/task.py` 重建；`list` 只读，`list --rebuild` 手动重建；入库但不进 task worktree 的执行 commit                                                                                                                |
+| `docs/archive/tasks_audit.log`                                           | rewind/purge 审计（append-only）                                     | 仅 `scripts/task.py rewind` / `purge` 独占 append，禁止 agent 手动修改                                                                                                                                                               |
+| `docs/handoff.md`                                                        | 项目级交接（仅最新一节）                                             | 记录须含 branch 与交出时 head_commit；过时段落迁 `docs/archive/handoff.md`                                                                                                                                                           |
+| `docs/pending.md`                                                        | 待办与不办总账（统一 `pNNN`；「不办」节=用户确认暂搁，不迁 archive） | `task-bug` 登记 bug；`tasks-run` 收尾闭环迁 archive、遗留登「待办」节；`pending-to-task` 只捞「待办」节建 task；`repo-hygiene` 补迁漏项、不办节保留不动                                                                              |
+| `docs/findings.md`                                                       | 已验证的技术发现（跨 task 复用，`dNNN`）                             | 只追加与就地修订，不迁 archive；spike 收尾或日常验证出的事实写入                                                                                                                                                                     |
+| `docs/archive/{handoff,pending}.md`                                      | 对应文件的已闭环/过时历史                                            | 只追加；由对应 skill 在用户调用时迁入                                                                                                                                                                                                |
+| `docs/blueprint/`                                                        | 当前长期真相：架构、领域、约定、决策、测试                           | finalization 时更新；写代码或文档前读 `conventions.md`，改跨模块行为前读 `architecture.md`，历史取舍读 `decisions.md`，`{doctor_cmd}` / `{test_cmd}` / `{blackbox_verify}` 在 `testing.md`                                           |
+| `docs/reviews/prompts/`                                                  | review prompt 模板                                                   | 改审查标准时更新                                                                                                                                                                                                                     |
+| `docs/reviews/review_*/`                                                 | 多路 review 会话产物（my-review 等外部评审生成）                     | 报告 `review_*.md` 入库；`_meta/` 过程文件已 gitignore；确认过时由 `repo-hygiene` 迁 `docs/archive/reviews/`                                                                                                                         |
+| `docs/spikes/report_template.md`                                         | spike 报告模板                                                       | 只改模板本身                                                                                                                                                                                                                         |
+| `docs/spikes/{sid}_{slug}/`                                              | 当前 spike（`report.md` 必需；有实验代码建 `code/`）                 | 流程见 `tasks-run`（Step 1 spike 项）；结论入 `docs/findings.md`；完结由 `repo-hygiene` 迁 `docs/archive/spikes/`                                                                                                                    |
+| `.agents/skills/`                                                        | 项目 skill 正文                                                      | 改 skill 走文档纪律；不放业务代码                                                                                                                                                                                                    |
+| `.claude/skills/`                                                        | 指向 `.agents/skills/` 的软链                                        | 只维护软链                                                                                                                                                                                                                           |
+| `docs/guides/`                                                           | 给人看的使用指南                                                     | 给人读，不写 agent 行为规则                                                                                                                                                                                                          |
+| `docs/archive/`                                                          | 完结或终止的历史                                                     | 镜像原路径；内部文件只准新增                                                                                                                                                                                                         |
+| `schemas/`                                                               | 跨服务接口契约                                                       | 改契约走 task 流程                                                                                                                                                                                                                   |
+| `config/`                                                                | 配置（默认 + 环境覆盖 + `.env.example`）                             | 仅 `.env.example` 入库；真值写本地 `.env`                                                                                                                                                                                            |
+| `src/` `tests/` `scripts/` `assets/` `connectors/` `vendors/` `patches/` | 源码、测试、脚本、静态源、连接器、依赖、补丁                         | 仅在 task 执行期按 spec 修改；debug 复现不得写入                                                                                                                                                                                     |
+| `artifacts/` `data/` `.scratch/`                                         | 产物、运行数据、一次性草稿                                           | 运行与草稿；debug 复现和临时实验只写 `.scratch/`（已 gitignore）；需保留的 spike 验证材料写 `docs/spikes/{sid}_{slug}/code/`                                                                                                         |
+| `../omni_usage_{tid}/`（仓库外）                                         | task 工作副本（git worktree）                                        | `start` 仅从干净主仓默认分支调用；首 task 基于主干，后续 task 基于上一 task 分支；active/blocked task 的实施、测试、review、finish/drop 只在自身 worktree 执行；task commit 后从主仓清理 worktree 并保留分支；本地 `.env` 软链回主仓 |
 
 ## 开发工作流
 
-### 总览
+### 开发原则
 
-- 一个**需求**拆成 N 个 **task**（每个结果独立可验证；过大则继续拆；一个 task 内一个 commit）。
-- 每个 task 走一遍「单 task 详细步骤」。
-
-### 命名
-
-- task 目录：`docs/tasks/{tid}_{slug}/`
-- task 分支：`{tid}_{slug}`（如 `t001_foo`）
-- finding：`{tid}_code_fNNN` / `{tid}_test_fNNN`（NNN 在本 task 内**跨轮累计递增**，不按轮重置）
-- 门禁默认上限：
-    - `max_verify_round = 5`（黑盒验证轮次上限）；
-    - `max_review_round = 2`（双审轮次上限）。
+- specs driven：需求拆分为可独立验证的 task，填写 `spec.md`（契约区行为 AC 须非空）；版本号、底层库选型、目录结构不写进行为 AC，需要长期约束的写 `docs/blueprint/decisions.md`。
+- TDD：可测部分先红后绿；测试须触达生产逻辑。实现变更让旧测试语义失效时，新增覆盖新语义的测试；旧测试原样保留或整体删除并写明理由，**禁止就地把旧测试的预期改成当前实现的输出**。
+- 用户未明确允许或者不在 skill 流程时，绝不准手动直接更改未被 gitignore 的代码文件。
+- 主仓负责 task 创建、从主干或上一 task 分支启动 worktree、task commit 后清理 worktree、整批最终合并与合并后的派生 index 重建；除非用户明确允许否则不在主仓直接 `task-run`。
+- `start` 无绕过参数；只能从干净主仓默认分支调用。首 task 基于本地主干，后续 task 基于上一已完成且已清理 worktree 的 task 分支；批次执行期间允许 main 并行推进，链与 main 的对齐在合并阶段处理。
+- task 状态读取优先级：登记 worktree -> 未合并 task 分支链尾 ref -> main。批次期间 main 中 task 状态可能滞后；`list/show/preflight --ref` 用于只读分支快照，不能据 main 旧 backlog 重复 start 或维护。
+- task 执行期一个实现 commit；创建期、状态维护、index 维护与 merge commit 分开。task worktree 的执行 commit 不提交派生 index；整批完成并获用户批准后只合并链尾分支，再在主仓重建并提交 index。每个 commit 必须独立可验证，有工程意义。
+- 发现 commit 混入不属于当前工作的改动时，立即停止工作并向用户汇报；未经用户确认，不继续提交、合并或修正。
 - task 状态：`backlog` / `active` / `blocked` / `done` / `dropped`。
 
-### 新需求拆分与创建 task
+### skill 调用
 
-1. 跑 `scripts/task.py list` 看现有 task（活跃 + 归档），新 task 从最大 `tid` 加一分配（脚本自动扫主 + archive）；可一次分配多个。
-2. 对每个 task：
-    - 跑 `scripts/task.py add --title "..." --slug "..."`：脚本分配 `tid`、写 `status: backlog`、`branch` 留空；
-    - 创建 task 目录 `docs/tasks/{tid}_{slug}/`（`tid`/`slug` 从脚本输出取）；
-    - 从 `docs/templates/task/` 复制并填写 `spec.md`、`plan.md`、`task.md`（front matter：`tid`/`slug`；`diff_anchor` 可占位，**开干**时写实值）。
+仅在用户斜杠或其它 skill 链式调用时进入；**禁止**自行进入。
 
-### 单 task 流程图
+| 用户意图                           | skill             | 职责                                                                    |
+| ---------------------------------- | ----------------- | ----------------------------------------------------------------------- |
+| 待做 task 还缺我什么               | `tasks-preflight` | 只读汇总缺口                                                            |
+| 分析 backlog task 调度图并输出首批 | `tasks-schedule`  | Agent 首次分析依赖/冲突并落盘；后续批次由 `task.py next-batch` 机械计算 |
+| 修 bug / 复现 / 根因立项           | `task-bug`        | 复现/根因（仅 `.scratch/`）-> 建修复 task + 补测分析 -> commit 创建物   |
+| 新需求拆 task                      | `task-create`     | 按**需求**拆建 backlog task；批量落盘后统一一个创建 commit              |
+| 把待办转成 task                    | `pending-to-task` | 从 `docs/pending.md` 重建 task 并回写归档                               |
+| 多个 backlog task 合并成一个       | `tasks-merge`     | 仅 backlog；并 spec/task -> `edit` 目标 -> `drop` 源                    |
+| 串行跑完待做 task                  | `tasks-run`       | **串行**执行；每个 task 在自身 worktree 实施                            |
+| 整理 handoff/pending/过时文档      | `repo-hygiene`    | 迁 archive；不手改 task 状态                                            |
+| 清理缓存/无用文件                  | `repo-clean`      | 默认 dry-run                                                            |
 
-下图只示意分支；**以步骤正文为权威**。
+### `scripts/task.py` 使用示例
 
-```mermaid
-flowchart TD
-    S1["Step 1：开干"]
-    S2["Step 2：红"]
-    S3["Step 3：绿"]
-    S4["Step 4：黑盒"]
-    B1{"黑盒过?"}
-    B2{"黑盒轮次≥max_verify_round?"}
-    S5["Step 5：双审"]
-    D1{"Step 6：PASS?"}
-    W_PASS["记零 finding"]
-    D2{"轮次≥max_review_round?"}
-    W_FAIL1["写处置"]
-    W_FAIL2["写处置·标完"]
-    D3{"改代码/测试?"}
-    DOC["改文档·标完"]
-    BLK["blocked 等用户"]
-    S7["Step 7：收尾"]
-    S8["Step 8：提交"]
-
-    S1 --> S2 --> S3 --> S4 --> B1
-    B1 -->|是| S5 --> D1
-    B1 -->|否| B2
-    B2 -->|否| S3
-    B2 -->|是| BLK
-    D1 -->|是| W_PASS --> S7
-    D1 -->|否| D2
-    D2 -->|否| W_FAIL1 --> D3
-    D3 -->|是| S3
-    D3 -->|否| DOC --> S7
-    D2 -->|是| W_FAIL2 --> BLK
-    BLK -->|用户加轮后过门禁| S7
-    S7 --> S8
+```bash
+python3 scripts/task.py --help                  # 显示完整子命令与参数
+python3 scripts/task.py list                    # 当前工作区所有 task
+python3 scripts/task.py list --status backlog   # 按状态过滤
+python3 scripts/task.py show t001               # 当前工作区某 task 详情
+python3 scripts/task.py show t001 --ref t003_x  # 某本地分支中的累计状态
+python3 scripts/task.py preflight t002 --allow-backlog --ref t001_x # 只读检查链中 backlog
+python3 scripts/task.py start t002 --base t001_x # 从上一已完成 task 分支启动
+python3 scripts/task.py cleanup-worktree t001    # task commit 后清理 worktree，保留分支
+python3 scripts/task.py edit t001 --title "新标题" --review-level single
+python3 scripts/task.py edit t005 --depends-on "t001,t003" --conflicts-with "t006" --schedule-status scheduled
+python3 scripts/task.py next-batch --done t11,t012 13 # 宽松解析已完成 task，机械计算下一批
+python3 scripts/task.py rewind t001 --to backlog --reason "需补 spec"   # active/blocked -> backlog
+python3 scripts/task.py purge t001 --reason "误建"                       # backlog -> deleted（仅从未开干）
+scripts/pending.py next                         # 扫描所有本地分支+worktree 的下一个 pNNN
+scripts/pending.py archive p112 p113 p120-p146 --fix-ref t012           # dry-run：拟迁闭环条目到 archive
+scripts/pending.py archive p112 p113 p120-p146 --fix-ref t012 --write   # 落盘迁移（拒迁「不办」节）
 ```
 
-### 单 task 详细步骤
+## 命名
 
-- **Step 1：开干**
-    - 创建并切换工作分支；跑 `scripts/task.py start <tid>`（状态 → `active`，自动填 `branch` 为 `{tid}_{slug}`），再校验 `git branch --show-current` 与之一致。
-    - `task.md` front matter：写入 `diff_anchor`（当前 HEAD SHA）、`branch`（`tid`/`slug` 在 backlog 已填）。
-    - `spec.md` 验收标准非空后再进入 **Step 2**。
-
-- **Step 2：红**
-    - 可测试部分先写失败测试；运行 `{test_cmd}` 确认失败。
-
-- **Step 3：绿**
-    - 实现至测试通过；运行 `{test_cmd}` 确认通过。任务量大可派 sub agent。
-
-- **Step 4：黑盒**
-    - 运行 `{blackbox_cmd}`。
-    - **通过** → 进入 **Step 5**。
-    - **未通过** 且黑盒轮次 **< `max_verify_round`** → 回 **Step 3** 修复后再跑本步。
-    - **未通过** 且黑盒轮次 **≥ `max_verify_round`** → **blocked**（见下「blocked」）。
-
-- **Step 5：双审**
-    - 跑 `git add -N` 把 untracked 文件以 intent-to-add 形式纳入索引，让 `git diff {diff_anchor}` 能显示其完整内容；随后 `git status` / `git diff --stat` 甄别，把与本 task 无关的文件（编辑器临时文件、IDE 缓存、`.scratch/` 等）用 `git reset <path>` 移出索引，只留本 task 实际产出文件进入审阅（`diff_anchor` 取自 `task.md` front matter）。
-    - 渲染 reviewer 提示词：
-        ```bash
-        scripts/render_review_prompts.py \
-          --task-dir docs/tasks/{tid}_{slug} \
-          --out-dir .scratch/review_prompts
-        ```
-    - 派两个 sub agent **并行**执行：一个拿 `.scratch/review_prompts/code_review_prompt.md` 全文作 code reviewer，一个拿 `.scratch/review_prompts/test_review_prompt.md` 全文作 test reviewer。
-
-- **Step 6：处置**（每轮双审结束后执行）
-    - **处置表位置（唯一）**：本 task 目录 `task.md` 中的二级标题 **`## Review 处置`**。在其下按轮追加 `### Round N (YYYY-MM-DD HH:MM UTC+8)`，再写 Markdown 表（列：`finding_id | severity | status | rationale | fix_ref`）。格式见 `docs/templates/task/task.md` 同名小节。
-    - **`status` 仅三值**：
-        - `已修`（本 task 已改完）
-        - `遗留`（本 task 解决不了；满轮 blocked 后在「遗留」与口头报告中列出）
-        - `撤回`（误报；须原 reviewer 在对应 `review_*.md` 末尾追加撤回记录后才能标撤回）。
-
-    - 跑状态脚本：
-
-        ```bash
-        scripts/check_review_status.py --task-dir docs/tasks/{tid}_{slug}
-        ```
-
-        读 `code_verdict` / `test_verdict` / `overall` / `round` / `max_review_round`。
-
-    - **`overall=PASS`**：在 `## Review 处置` 下写本轮「零 finding，未进处置表」（或前轮已处置完毕）→ 进入 **Step 7**。
-    - **`overall=FAIL` 且 `round < max_review_round`**：在 `## Review 处置` 追加本轮表，逐条填 status（不得留空）。
-        - **是（改了代码或测试）** → 回 **Step 3** → **Step 4** → **Step 5** → **Step 6**。
-        - **否（未改代码或测试）** → 改必要文档后 **直接收尾**（不再开下一轮双审）。典型：仅文档、全标 `撤回`、或认为无需再实现。`review_*` verdict **不改写**。
-
-    - **`overall=FAIL` 且 `round ≥ max_review_round`**：在 `## Review 处置` 追加本轮表，未修项 status 全部填完 → **blocked**（见下）。
-
-- **Step 7：收尾**
-    - 更新 `docs/specs/<slug>.md` 与 `docs/specs_index.md`（本 task 对应累积）。
-    - 更新本 task 影响到的 `docs/blueprint/`、`docs/guides/`、`README.md`、API 文档等。
-    - 写全 `task.md`「收尾报告」（验收勾选、两轴 verdict、遗留列出）。
-    - 跑 `scripts/task.py finish <tid>`：状态 → `done`，自动移入 `docs/archive/tasks_index.json`。
-    - 后置 task（非 `done`）受影响则修订其 `spec.md` / `plan.md`。
-    - 将 task 目录移入 `docs/archive/tasks/`。
-
-- **Step 8：提交**
-    - 本 task 全部改动（含 specs、文档、归档移动）做一个 commit。
-    - subject 含 `{tid}`；只在本 task 工作分支上提交。合并进默认分支由外部流程负责。
-    - **blocked 未放行前**：不把本 task 当 done 提交；可在分支上保留工作区，不归档。
-
-### blocked
-
-| 触发                                             | 动作                                                                                                                      |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| 黑盒轮次达`max_verify_round` 仍未通过            | 过程记录写明原因与轮次；`scripts/task.py block <tid> --reason blackbox`；`task.md` 过程记录同步说明；口头说明；停自动推进 |
-| 双审`overall=FAIL` 且 `round ≥ max_review_round` | 处置表填完；`scripts/task.py block <tid> --reason review`；`task.md` 过程记录同步说明；口头说明；停自动推进               |
-
-进入 blocked 后，agent **必须停下来向用户请求选择**（不得自行决定下一步，不得自动推进）。把下述两个选项呈现给用户并等待显式答复：
-
-- **加轮**：用户批准加轮并指定新上限（新 `max_verify_round` / 新 `max_review_round`）；
-    - 跑 `scripts/task.py resume <tid>`（状态 → `active`）；
-    - 在 `task.md` 过程记录写新上限；**计数累计不清零**。
-    - 黑盒加轮从 **Step 3** 再跑黑盒；双审加轮继续跑 **Step 5** → **Step 6**。
-- **dropped**：
-    - backlog：`scripts/task.py drop <tid> --reason "..."`（自动移入 archive）；task 目录进 `docs/archive/tasks/`；做一个提交。
-    - active / blocked：`task.md`「过程记录」写终止原因；`scripts/task.py drop <tid> --reason "..."`；半成品代码保留在 task 分支（不合并主线）；task 目录移入 `docs/archive/tasks/`；**必须做一个提交**（含 `task.md`、JSON 改动、归档移动、半成品代码），否则切工作区或清理时丢失。
-
-## handoff
-
-- 仅项目级，追加 `docs/handoff.md`。
-- 接手先读 `docs/handoff.md`。
-- 记录须含 branch 与交出时已有的 head_commit。
-
-## spike
-
-- 选型或未知风险时用；非默认必做。
-- 建 `docs/spikes/{sid}_{slug}/`，复制 `docs/templates/spike/report.md`；`sid` 取 spikes 与 archive 中最大编号加一。
-- 有实验代码再建 `code/`；可入库，仅作验证材料。
-- 结论后移入 `docs/archive/spikes/`。
+- `{tid}`：task 编号，形如 `t001`、`t042`（小写 `t` + 数字）。目录 / 分支 / finding / worktree：`docs/tasks/{tid}_{slug}/`、`{tid}_{slug}`、`{tid}_code_fNNN`、`../omni_usage_{tid}`。
+- `{sid}`：spike 编号，形如 `s001`、`s003`（小写 `s` + 数字）。目录：`docs/spikes/{sid}_{slug}/`。
+- `{slug}`：小写 `snake_case`。
+- `docs/pending.md` 条目统一 `pNNN`；`docs/findings.md` 用 `dNNN`。编号递增不复用，新增前用 `scripts/pending.py next` / `scripts/findings.py next` 取号。
 
 ## 硬约束
 
-- `docs/tasks_index.json` 与 `docs/archive/tasks_index.json` **只能由 `scripts/task.py` 修改**。agent 禁止直接编辑这两个 JSON。脚本失败必须停下提示用户，禁止在未告知用户的情况下手工修 JSON。
+- `docs/tasks_index.json` 与 `docs/archive/tasks_index.json` 只能由 `scripts/task.py` 修改。agent 禁止直接编辑这两个 JSON。脚本失败必须停下提示用户，禁止在未告知用户的情况下手工修 JSON。
 - 密钥规则：公网开放的密钥、token、密码、secret 必须由用户提供随机生成值，禁止自设默认值/示例值/弱口令。日常只拿 `hasSecret` 布尔；设置编辑时经 `config:getSecrets` 按实例拉明文回填；用量面板/托盘不拉密钥；日志强制脱敏，开发期同样生效。
-- 禁写路径：未经用户允许绝不写 `D:\Dev\Code\omni_panel\` 以外路径（读不受限）。
+- 禁写路径：未经用户允许绝不写 `D:\Dev\Code\omni_usage\` 以外路径（读不受限）。
 - WSL 禁 Docker；Docker 服务在宿主机 Win 运行。
-- `{test_cmd}`：日常测试命令（单元/集成/E2E/打包 smoke/契约 live 分层）见 `docs/guides/testing.md`，命令多不在此内联；TDD 红/绿循环（Step 2、3）按该指南运行。
-- `{blackbox_cmd}`：`pnpm test`（主）；涉及打包须真实启动 `artifacts/win-unpacked/OmniPanel.exe`（`pnpm test:packaged` 打包 smoke）；涉及连接器 live 契约用 `pnpm test:contract:live`。
-- 测试规范（命名、层级、回归规则、覆盖率）见 `docs/blueprint/conventions.md` 「编码与测试」小节，不在此重复。
+- `{doctor_cmd}` / `{test_cmd}` / `{blackbox_verify}` 见 `docs/blueprint/testing.md`。日常测试分层命令见 `docs/guides/testing.md`（人读清单，权威定义在 blueprint）。
+- `{blackbox_cmd}` 速查：`pnpm test`（主）；涉及打包须真实启动 `artifacts/win-unpacked/OmniPanel.exe`（`pnpm test:packaged` 打包 smoke）；涉及连接器 live 契约用 `pnpm test:contract:live`。
+- 测试规范（命名、层级、回归规则、覆盖率）见 `docs/blueprint/conventions.md`「编码与测试」小节。
+- 门禁默认上限：`max_verify_round = 5`（黑盒）；`max_review_round = 5`（审阅）。两数与状态机、blocked 处置等权威规则见 `tasks-run` skill。
 
-## 文档修改规范
+## 文档规范
 
 - 结构或语义变化时，先确定最终表述，修改最小完整语义块，禁止逐句打补丁。
 - 同一事实、规则或结论只保留一个权威定义；其他位置使用稳定标题或标识引用，避免复制正文和可能失效的编号引用。
+- 文档正文直接陈述事实，禁止元引用：不嵌入决策/spike/ticket/task 编号（`(D24-N3)` `(S15)` `(t012)`）；不嵌入来源或实现位置标注（`(根据 D24 决定)` `(D25 wrapper)` `(impl at ts/X.ts)`）；不嵌入「本节根据 X 决定 Y」式叙述。结构化字段（表格列、`fix_ref`、spec 上下文区的 `来源`、commit subject、测试文件名）按各文件格式约定使用，不受此限。
 - 存在多种合理理解时，先澄清再做跨文档修改。
 - 优先使用正向描述；仅安全、不可逆操作、明确禁区三类场景使用否定句。
-- 完成后检查：旧表述、重复内容、矛盾结论、失效引用、遗漏同步。
+- 完成后检查：旧表述、重复内容、矛盾结论、失效引用、遗漏同步、元引用残留。

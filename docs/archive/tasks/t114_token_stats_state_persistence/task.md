@@ -1,9 +1,16 @@
 ---
-tid: t114
-slug: token_stats_state_persistence
+tid: "t114"
+slug: "token_stats_state_persistence"
+title: "token-stats collector 扫描状态落盘"
+status: "done"
+branch: "t114_token_stats_state_persistence"
+worktree: ""
+review_level: "full"
 diff_anchor: "095ac2230fc27f9668dacdfeec079c01864cf6a2"
-branch: t114_token_stats_state_persistence
-max_review_round: 5
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t114_token_stats_state_persistence

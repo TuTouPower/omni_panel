@@ -1,8 +1,16 @@
 ---
-tid: t030
-slug: build_info_inject
+tid: "t030"
+slug: "build_info_inject"
+title: "build-info 注入(branch+commit SHA 显示在设置页版本号下方)"
+status: "done"
+branch: "t030_build_info_inject"
+worktree: ""
+review_level: "full"
 diff_anchor: "0167f66"
-branch: t030_build_info_inject
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "gen-build-info.ts + IPC + renderer 展示"
 ---
 
 # Task t030_build_info_inject

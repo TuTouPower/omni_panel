@@ -1,8 +1,16 @@
 ---
-tid: t163
-slug: records_index_env_ts
+tid: "t163"
+slug: "records_index_env_ts"
+title: "token_stats_records 加 env+timestamp 索引消除全表扫描"
+status: "done"
+branch: "t163_records_index_env_ts"
+worktree: ""
+review_level: "full"
 diff_anchor: "43c6d1637387694101c1113bc138afa69d81df04"
-branch: t163_records_index_env_ts
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t163_records_index_env_ts

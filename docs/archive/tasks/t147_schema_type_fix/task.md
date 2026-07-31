@@ -1,8 +1,16 @@
 ---
-tid: t147
-slug: schema_type_fix
-diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+tid: "t147"
+slug: "schema_type_fix"
+title: "observation schema 类型修正 + token reader helper 提取"
+status: "done"
 branch: "t147_schema_type_fix"
+worktree: ""
+review_level: "full"
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t147_schema_type_fix

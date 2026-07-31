@@ -1,8 +1,16 @@
 ---
-tid: t150
-slug: kimi_oauth_concurrency
-diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+tid: "t150"
+slug: "kimi_oauth_concurrency"
+title: "Kimi OAuth 并发保护：token 写入序列化 + refresh 去重"
+status: "done"
 branch: "t150_kimi_oauth_concurrency"
+worktree: ""
+review_level: "full"
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t150_kimi_oauth_concurrency

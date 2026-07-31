@@ -1,8 +1,16 @@
 ---
-tid: t043
-slug: upcoming_reset_metric_watch
+tid: "t043"
+slug: "upcoming_reset_metric_watch"
+title: "即将重置监控改 metric 级显式开启"
+status: "done"
+branch: "t043_upcoming_reset_metric_watch"
+worktree: ""
+review_level: "full"
 diff_anchor: "fe967b82b35d5088d5e8b97ffea50accece5dcf0"
-branch: t043_upcoming_reset_metric_watch
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t043_upcoming_reset_metric_watch

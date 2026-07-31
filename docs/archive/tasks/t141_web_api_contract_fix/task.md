@@ -1,8 +1,16 @@
 ---
-tid: t141
-slug: web_api_contract_fix
-diff_anchor: "<SHA>"
+tid: "t141"
+slug: "web_api_contract_fix"
+title: "web UsageboardApi 契约补齐 + session stub 返回类型"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t141_web_api_contract_fix

@@ -1,8 +1,16 @@
 ---
-tid: t153
-slug: popup_config_save_loop
+tid: "t153"
+slug: "popup_config_save_loop"
+title: "修复用量面板配置保存回环导致闪烁"
+status: "done"
+branch: "t153_popup_config_save_loop"
+worktree: ""
+review_level: "full"
 diff_anchor: "5d2e3b971154325895deee9020097fd9cb453bb0"
-branch: t153_popup_config_save_loop
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t153_popup_config_save_loop

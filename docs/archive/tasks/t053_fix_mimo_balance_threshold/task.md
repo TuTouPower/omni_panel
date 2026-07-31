@@ -1,8 +1,16 @@
 ---
-tid: t053
-slug: fix_mimo_balance_threshold
+tid: "t053"
+slug: "fix_mimo_balance_threshold"
+title: "mimo 余额阈值方向修复 (review C2)"
+status: "done"
+branch: "t053_fix_mimo_balance_threshold"
+worktree: ""
+review_level: "full"
 diff_anchor: "b2969af6990a7e420423a77ec967d9497167d0fd"
-branch: t053_fix_mimo_balance_threshold
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t053_fix_mimo_balance_threshold

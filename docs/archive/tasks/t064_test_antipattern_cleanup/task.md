@@ -1,8 +1,16 @@
 ---
-tid: t064
-slug: test_antipattern_cleanup
+tid: "t064"
+slug: "test_antipattern_cleanup"
+title: "测试反模式整改 (I18-I23)"
+status: "done"
+branch: "t064_test_antipattern_cleanup"
+worktree: ""
+review_level: "full"
 diff_anchor: "8eaf189268a196a9c4678876668bfe9c955b2679"
-branch: t064_test_antipattern_cleanup
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t064_test_antipattern_cleanup

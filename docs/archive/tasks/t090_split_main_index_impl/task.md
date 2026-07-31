@@ -1,8 +1,16 @@
 ---
-tid: t090
-slug: split_main_index_impl
+tid: "t090"
+slug: "split_main_index_impl"
+title: "拆分 main index.ts 800行 多模块"
+status: "done"
+branch: "t090_split_main_index_impl"
+worktree: ""
+review_level: "full"
 diff_anchor: "278247c"
-branch: "spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t090_split_main_index_impl

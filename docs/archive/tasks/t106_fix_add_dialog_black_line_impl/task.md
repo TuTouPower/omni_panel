@@ -1,8 +1,16 @@
 ---
-tid: t106
-slug: fix_add_dialog_black_line_impl
-diff_anchor: "da200f5057bfa9e982280057cef3de4305ec004c"
+tid: "t106"
+slug: "fix_add_dialog_black_line_impl"
+title: "修复添加账号弹窗首帧黑色横线"
+status: "done"
 branch: "t106_fix_add_dialog_black_line_impl"
+worktree: ""
+review_level: "full"
+diff_anchor: "da200f5057bfa9e982280057cef3de4305ec004c"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t106_fix_add_dialog_black_line_impl

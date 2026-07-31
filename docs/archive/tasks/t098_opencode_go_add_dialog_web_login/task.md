@@ -1,8 +1,16 @@
 ---
-tid: t098
-slug: opencode_go_add_dialog_web_login
+tid: "t098"
+slug: "opencode_go_add_dialog_web_login"
+title: "OpenCode Go 添加账号弹窗内嵌网页登录"
+status: "done"
+branch: "t098_opencode_go_add_dialog_web_login"
+worktree: ""
+review_level: "full"
 diff_anchor: "14f4212b8c79ee2ab12602955662878a81bfd1c5"
-branch: t098_opencode_go_add_dialog_web_login
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t098_opencode_go_add_dialog_web_login

@@ -1,8 +1,16 @@
 ---
-tid: t063
-slug: task_py_atomic_write
+tid: "t063"
+slug: "task_py_atomic_write"
+title: "task.py 原子写与事务 (I16/I17)"
+status: "done"
+branch: "t063_task_py_atomic_write"
+worktree: ""
+review_level: "full"
 diff_anchor: "a69a12e32707bb51a9562ad7777adf27119170bb"
-branch: t063_task_py_atomic_write
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t063_task_py_atomic_write

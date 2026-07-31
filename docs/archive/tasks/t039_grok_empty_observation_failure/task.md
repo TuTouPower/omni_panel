@@ -1,8 +1,16 @@
 ---
-tid: t039
-slug: grok_empty_observation_failure
+tid: "t039"
+slug: "grok_empty_observation_failure"
+title: "Grok 零观测不得标记采集正常或覆盖历史数据"
+status: "done"
+branch: "t039_grok_empty_observation_failure"
+worktree: ""
+review_level: "full"
 diff_anchor: "ad3048a"
-branch: t039_grok_empty_observation_failure
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "根因已确认：HTTP 200 但 connector 返回空数组，refresh 写 ready+0 items"
 ---
 
 # Task t039_grok_empty_observation_failure

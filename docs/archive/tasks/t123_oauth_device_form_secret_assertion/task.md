@@ -1,8 +1,16 @@
 ---
-tid: t123
-slug: oauth_device_form_secret_assertion
+tid: "t123"
+slug: "oauth_device_form_secret_assertion"
+title: "OAuthDeviceForm 表单层 secret_name 断言"
+status: "done"
+branch: "t123_oauth_device_form_secret_assertion"
+worktree: ""
+review_level: "full"
 diff_anchor: "2de7718081fa02bfc1b4cf6544d7dde3e9f39e3e"
-branch: t123_oauth_device_form_secret_assertion
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t123_oauth_device_form_secret_assertion

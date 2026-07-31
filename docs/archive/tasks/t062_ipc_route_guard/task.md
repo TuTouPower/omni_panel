@@ -1,8 +1,16 @@
 ---
-tid: t062
-slug: ipc_route_guard
+tid: "t062"
+slug: "ipc_route_guard"
+title: "IPC 越权防御 (I14/I15)"
+status: "done"
+branch: "t062_ipc_route_guard"
+worktree: ""
+review_level: "full"
 diff_anchor: "428e5b46d2f98c7ce056b5741ca051a50d3be4c9"
-branch: t062_ipc_route_guard
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t062_ipc_route_guard

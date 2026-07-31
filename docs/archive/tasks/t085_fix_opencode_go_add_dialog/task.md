@@ -1,8 +1,16 @@
 ---
-tid: t085
-slug: fix_opencode_go_add_dialog
+tid: "t085"
+slug: "fix_opencode_go_add_dialog"
+title: "OpenCode Go 添加账号无弹窗（can_add 检查）"
+status: "done"
+branch: "t085_fix_opencode_go_add_dialog"
+worktree: ""
+review_level: "full"
 diff_anchor: "278247c"
-branch: t085_fix_opencode_go_add_dialog
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t085_fix_opencode_go_add_dialog

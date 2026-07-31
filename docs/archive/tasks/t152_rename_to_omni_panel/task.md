@@ -1,8 +1,16 @@
 ---
-tid: t152
-slug: rename_to_omni_panel
+tid: "t152"
+slug: "rename_to_omni_panel"
+title: "Rename project from omni_usage to omni_panel"
+status: "done"
+branch: "t152_rename_to_omni_panel"
+worktree: ""
+review_level: "full"
 diff_anchor: "5f62c5a73658f1cf5fbbd741aa615d21e15c8c06"
-branch: t152_rename_to_omni_panel
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t152_rename_to_omni_panel

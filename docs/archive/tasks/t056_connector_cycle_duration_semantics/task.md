@@ -1,8 +1,16 @@
 ---
-tid: t056
-slug: connector_cycle_duration_semantics
+tid: "t056"
+slug: "connector_cycle_duration_semantics"
+title: "cycleDurationMs 语义统一 (P3/I8/I9)"
+status: "done"
+branch: "t056_connector_cycle_duration_semantics"
+worktree: ""
+review_level: "full"
 diff_anchor: "090e8dd9560d466b95e9af1cd064c5670b325ea1"
-branch: t056_connector_cycle_duration_semantics
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t056_connector_cycle_duration_semantics

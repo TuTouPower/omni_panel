@@ -1,8 +1,16 @@
 ---
-tid: t070
-slug: e2e_assert_real_refresh
+tid: "t070"
+slug: "e2e_assert_real_refresh"
+title: "e2e 断言真实刷新行为非死等 (I21)"
+status: "done"
+branch: "t070_e2e_assert_real_refresh"
+worktree: ""
+review_level: "full"
 diff_anchor: "2a618ed"
-branch: "t069_t074_spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t070_e2e_assert_real_refresh

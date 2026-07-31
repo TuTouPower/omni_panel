@@ -1,8 +1,16 @@
 ---
-tid: t137
-slug: vault_bak_scrubber_rotation
-diff_anchor: "<SHA>"
+tid: "t137"
+slug: "vault_bak_scrubber_rotation"
+title: "vault .bak 权限收紧 + scrubber 轮换清退"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 用户取消：不纳入权限/脱敏类"
 ---
 
 # Task t137_vault_bak_scrubber_rotation

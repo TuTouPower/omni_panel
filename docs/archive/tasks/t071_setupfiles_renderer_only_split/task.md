@@ -1,8 +1,16 @@
 ---
-tid: t071
-slug: setupfiles_renderer_only_split
+tid: "t071"
+slug: "setupfiles_renderer_only_split"
+title: "setupFiles 拆 renderer-only (I22)"
+status: "done"
+branch: "t071_setupfiles_renderer_only_split"
+worktree: ""
+review_level: "full"
 diff_anchor: "2a618ed"
-branch: "t069_t074_spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t071_setupfiles_renderer_only_split

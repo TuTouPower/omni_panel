@@ -1,8 +1,16 @@
 ---
-tid: t097
-slug: display_ratio_without_limit
+tid: "t097"
+slug: "display_ratio_without_limit"
+title: "ratio 无 limit 时显示原始数值而非 0%"
+status: "done"
+branch: "t097_display_ratio_without_limit"
+worktree: ""
+review_level: "full"
 diff_anchor: "<SHA>"
-branch: t097_display_ratio_without_limit
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "getoneapi/tikhub/exa/codex 余额成本类指标无上限时误导性显示 0%；mimo/deepseek 删除 DEFAULT_LIMIT"
 ---
 
 # Task t097_display_ratio_without_limit
@@ -27,8 +35,8 @@ branch: t097_display_ratio_without_limit
 
 （有 finding 时用本表；每条 finding 一行。）
 
-| finding_id       | severity                 | status | rationale | fix_ref   |
-| ---------------- | ------------------------ | ------ | --------- | --------- |
+| finding_id     | severity                 | status | rationale | fix_ref   |
+| -------------- | ------------------------ | ------ | --------- | --------- |
 | t097_code_f001 | critical/important/minor | 已修   | {一句话}  | {文件:行} |
 
 ## 收尾报告

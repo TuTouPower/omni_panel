@@ -1,8 +1,16 @@
 ---
-tid: t073
-slug: eslint_recommended_enable
+tid: "t073"
+slug: "eslint_recommended_enable"
+title: "启用 7 eslint 插件 recommended 分批修 (I24 遗留)"
+status: "done"
+branch: "t073_eslint_recommended_enable"
+worktree: ""
+review_level: "full"
 diff_anchor: "2a618ed"
-branch: "t069_t074_spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t073_eslint_recommended_enable

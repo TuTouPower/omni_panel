@@ -1,8 +1,16 @@
 ---
-tid: t087
-slug: fix_add_dialog_black_line
+tid: "t087"
+slug: "fix_add_dialog_black_line"
+title: "添加账号弹窗前黑色横线闪现"
+status: "done"
+branch: "t087_fix_add_dialog_black_line"
+worktree: ""
+review_level: "full"
 diff_anchor: "278247c"
-branch: "spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t087_fix_add_dialog_black_line

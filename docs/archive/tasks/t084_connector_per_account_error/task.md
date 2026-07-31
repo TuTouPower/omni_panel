@@ -1,8 +1,16 @@
 ---
-tid: t084
-slug: connector_per_account_error
+tid: "t084"
+slug: "connector_per_account_error"
+title: "connector per-account error 迁移（throw - + continue）"
+status: "done"
+branch: "t084_connector_per_account_error"
+worktree: ""
+review_level: "full"
 diff_anchor: "278247c"
-branch: "t084_per_account_error"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t084_connector_per_account_error

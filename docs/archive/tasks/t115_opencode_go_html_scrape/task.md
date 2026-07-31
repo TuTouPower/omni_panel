@@ -1,9 +1,16 @@
 ---
-tid: t115
-slug: opencode_go_html_scrape
+tid: "t115"
+slug: "opencode_go_html_scrape"
+title: "OpenCode Go connector 简化：/go HTML 直解析 + vendor 健壮性改进"
+status: "done"
+branch: "t115_opencode_go_html_scrape"
+worktree: ""
+review_level: "full"
 diff_anchor: "4eb3e8cd3c76fc565043f5013d1237428f5f3678"
-branch: t115_opencode_go_html_scrape
-max_review_round: 5
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t115_opencode_go_html_scrape

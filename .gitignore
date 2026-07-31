@@ -56,7 +56,10 @@ typings/
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # 工具本地状态
-.claude/
+.claude/state/
+.claude/settings.local.json
+.claude/worktrees/
+.claude/projects/
 .scratch/
 .superpowers/
 .reasonix/

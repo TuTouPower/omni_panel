@@ -1,8 +1,16 @@
 ---
-tid: t038
-slug: persist_deleted_connector_tombstones
+tid: "t038"
+slug: "persist_deleted_connector_tombstones"
+title: "持久化内置账号删除状态，阻止重启后 auto-seed 复活"
+status: "done"
+branch: "t038_persist_deleted_connector_tombstones"
+worktree: ""
+review_level: "full"
 diff_anchor: "0dc2833"
-branch: t038_persist_deleted_connector_tombstones
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "根因已确认：删除仅移除 plugins，启动 auto-seed 无 tombstone 会重新创建"
 ---
 
 # Task t038_persist_deleted_connector_tombstones

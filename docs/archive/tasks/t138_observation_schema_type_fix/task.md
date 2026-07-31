@@ -1,8 +1,16 @@
 ---
-tid: t138
-slug: observation_schema_type_fix
-diff_anchor: "<SHA>"
+tid: "t138"
+slug: "observation_schema_type_fix"
+title: "observation mapping 返回类型 + cycleDurationMs 非负校验"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t138_observation_schema_type_fix

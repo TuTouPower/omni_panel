@@ -1,8 +1,16 @@
 ---
-tid: t104
-slug: cpa_account_reset_bell
+tid: "t104"
+slug: "cpa_account_reset_bell"
+title: "主面板 CPA 账号行补监控重置 bell"
+status: "done"
+branch: "t104_cpa_account_reset_bell"
+worktree: ""
+review_level: "full"
 diff_anchor: "d1b3925e8acb449e3c6d9206dc5249a77c5f9380"
-branch: t104_cpa_account_reset_bell
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t104_cpa_account_reset_bell

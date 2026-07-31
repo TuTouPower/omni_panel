@@ -1,8 +1,16 @@
 ---
-tid: t080
-slug: fix_exa_breakdown_aggregate
+tid: "t080"
+slug: "fix_exa_breakdown_aggregate"
+title: "修复 exa cost_breakdown 重名聚合（面板重名行乱显）"
+status: "done"
+branch: "t080_fix_exa_breakdown_aggregate"
+worktree: ""
+review_level: "full"
 diff_anchor: "<SHA>"
-branch: t080_fix_exa_breakdown_aggregate
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t080_fix_exa_breakdown_aggregate

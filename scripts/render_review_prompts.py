@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """render_review_prompts.py - 从 task.md front matter 渲染 code/test reviewer 完整 prompt。
 
-提示词正文存于 docs/templates/review/ 下三个 txt（code_prompt.txt / test_prompt.txt / share_prompt.txt）。
+提示词正文存于 docs/reviews/prompts/ 下三个 txt（code_prompt.txt / test_prompt.txt / share_prompt.txt）。
+
+reviewer 不再自行去读 spec：契约区与上下文区正文直接注入 prompt，消除信息不对称。
+契约区自 diff_anchor 后有变更时，prompt 末尾附「契约区 drift 警告」与 diff 供 reviewer 核对。
 
 用法：
   python3 scripts/render_review_prompts.py --task-dir docs/tasks/t001_my_slug
@@ -9,128 +12,294 @@
   python3 scripts/render_review_prompts.py --task-dir ... --out-dir .scratch/review_prompts
 
 必填 front matter：tid, slug, diff_anchor
-可选：spec_path（默认 <task_dir>/spec.md）
+可选：spec_path（默认 <task_dir>/spec.md）、review_level
 默认 stdout；--out-dir 时写入 code_review_prompt.md 与 test_review_prompt.md
 """
 
 import argparse
+import difflib
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-TEMPLATES_DIR = REPO_ROOT / "docs/templates/review"
-PLACEHOLDER_RE = re.compile(r"\{(tid|slug|spec_path|task_dir|diff_anchor)\}")
+TEMPLATES_DIR = REPO_ROOT / "docs/reviews/prompts"
+PLACEHOLDER_RE = re.compile(
+    r"\{(tid|slug|spec_path|task_dir|diff_anchor|review_level|contract_section|context_section)\}"
+)
+CONTRACT_HEADING = "## 契约区"
+CONTEXT_HEADING = "## 上下文区"
+VALID_REVIEW_LEVELS = {"full", "single"}
+H2_RE = re.compile(r"^##[ \t]+(.+?)[ \t]*$")
+FENCE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
 
 
 def parse_front_matter(task_path: Path) -> dict:
+    """简化版 front matter 解析（task.py / check_review_status.py 各有副本，改规则需三处同步）。"""
     text = task_path.read_text(encoding="utf-8")
     if not text.startswith("---"):
         sys.exit(f"{task_path}: must start with YAML front matter (---)")
     end = text.find("\n---", 3)
     if end == -1:
         sys.exit(f"{task_path}: front matter not terminated")
-    fm_text = text[3:end]
     fm = {}
-    for line in fm_text.splitlines():
+    for line in text[3:end].splitlines():
         line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if ":" not in line:
+        if not line or line.startswith("#") or ":" not in line:
             continue
         key, _, val = line.partition(":")
-        key = key.strip()
-        val = val.strip().strip('"').strip("'")
-        fm[key] = val
+        val = val.strip()
+        if val and val[0] not in ("\"", "'"):
+            val = val.split(" #", 1)[0].rstrip()
+        fm[key.strip()] = val.strip('"').strip("'")
     return fm
 
 
+def extract_section(spec_text: str, heading: str) -> str:
+    """抽取精确二级小节正文，忽略 fenced code 内的伪标题。"""
+    wanted = heading.removeprefix("## ").strip()
+    section = []
+    collecting = False
+    fence_marker = None
+
+    for line in spec_text.splitlines():
+        fence = FENCE_RE.match(line)
+        if fence:
+            marker = fence.group(1)[0]
+            width = len(fence.group(1))
+            if fence_marker is None:
+                fence_marker = (marker, width)
+            elif marker == fence_marker[0] and width >= fence_marker[1]:
+                fence_marker = None
+            if collecting:
+                section.append(line)
+            continue
+
+        if fence_marker is None:
+            match = H2_RE.fullmatch(line)
+            if match:
+                if collecting:
+                    break
+                collecting = match.group(1).strip() == wanted
+                continue
+
+        if collecting:
+            section.append(line)
+
+    return "\n".join(section).strip()
+
+
+def resolve_repo_path(path: Path, *, label: str, require_file: bool = False) -> tuple[Path, str]:
+    """解析仓库内路径，返回绝对路径与 POSIX 仓库相对路径。"""
+    root = REPO_ROOT.resolve()
+    candidate = path if path.is_absolute() else root / path
+    candidate = candidate.resolve()
+    try:
+        relative = candidate.relative_to(root)
+    except ValueError:
+        sys.exit(f"{label} must stay inside repository: {path}")
+    if require_file and not candidate.is_file():
+        sys.exit(f"missing {label}: {relative.as_posix()}")
+    return candidate, relative.as_posix()
+
+
+def validate_diff_anchor(diff_anchor: str) -> str:
+    """校验 revision 并返回完整 commit SHA。"""
+    try:
+        result = subprocess.run(
+            [
+                "git", "-C", str(REPO_ROOT), "rev-parse", "--verify",
+                "--end-of-options", f"{diff_anchor}^{{commit}}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        sys.exit(f"diff_anchor validation failed: {e}")
+    if result.returncode != 0:
+        detail = result.stderr.strip() or "unknown revision"
+        sys.exit(f"invalid diff_anchor {diff_anchor!r}: {detail}")
+    return result.stdout.strip()
+
+
 def apply_placeholders(template: str, values: dict) -> str:
-    def repl(m):
-        return values[m.group(1)]
-    return PLACEHOLDER_RE.sub(repl, template)
+    return PLACEHOLDER_RE.sub(lambda m: values[m.group(1)], template)
+
+
+def contract_drift_notice(spec_rel: str, diff_anchor: str, current_contract: str) -> str:
+    """契约区相对 diff_anchor 有变更时返回追加给 reviewer 的警告块。
+
+    无变更返回 ""。anchor 已由调用方校验；历史版本没有该 spec 或 git show
+    暂时失败时打 stderr 警告并返回 ""，不阻断渲染。
+    """
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "show", f"{diff_anchor}:{spec_rel}"],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"WARNING: 契约区 drift 检查跳过（{e}）", file=sys.stderr)
+        return ""
+    if r.returncode != 0:
+        print(
+            f"WARNING: 契约区 drift 检查跳过"
+            f"（git show {diff_anchor}:{spec_rel} 失败：{r.stderr.strip()}）",
+            file=sys.stderr,
+        )
+        return ""
+    anchored = extract_section(r.stdout, CONTRACT_HEADING)
+    if anchored == current_contract:
+        return ""
+    diff = "\n".join(
+        difflib.unified_diff(
+            anchored.splitlines(),
+            current_contract.splitlines(),
+            fromfile=f"{diff_anchor} 契约区",
+            tofile="当前契约区",
+            lineterm="",
+        )
+    )
+    return (
+        "## 契约区 drift 警告\n\n"
+        f"契约区自 diff_anchor（{diff_anchor}）以来有变更。"
+        "请核对是否为经用户确认的需求变更；未经确认的 AC 变更按 blocking finding 处理。\n\n"
+        f"```diff\n{diff}\n```"
+    )
+
+
+def render_review_prompts(
+    task_dir: Path,
+    task_path: Path | None = None,
+) -> dict[str, str]:
+    task_dir, rel_task_dir = resolve_repo_path(task_dir, label="task directory")
+    task_path = task_path or task_dir / "task.md"
+    task_path, _ = resolve_repo_path(task_path, label="task file", require_file=True)
+
+    template_paths = {
+        "code": TEMPLATES_DIR / "code_prompt.txt",
+        "test": TEMPLATES_DIR / "test_prompt.txt",
+        "general": TEMPLATES_DIR / "general_prompt.txt",
+        "share": TEMPLATES_DIR / "share_prompt.txt",
+    }
+    for path in template_paths.values():
+        if not path.is_file():
+            sys.exit(f"missing prompt template: {path}")
+
+    fm = parse_front_matter(task_path)
+    for key in ("tid", "slug", "diff_anchor"):
+        if not fm.get(key):
+            sys.exit(f"front matter requires tid, slug, diff_anchor (got {fm})")
+
+    if not re.match(r"^t[0-9]+$", fm["tid"]):
+        sys.exit(f"tid must be lowercase task id like t001 (got {fm['tid']!r})")
+
+    level = fm.get("review_level") or "full"
+    if level not in VALID_REVIEW_LEVELS:
+        sys.exit(
+            f"review_level must be one of {sorted(VALID_REVIEW_LEVELS)} "
+            f"(got {level!r})"
+        )
+    diff_anchor = validate_diff_anchor(fm["diff_anchor"])
+
+    spec_value = fm.get("spec_path") or f"{rel_task_dir}/spec.md"
+    if "\\" in spec_value:
+        sys.exit(f"spec_path must use POSIX separators: {spec_value!r}")
+    spec_input = Path(spec_value)
+    if spec_input.is_absolute():
+        sys.exit(f"spec_path must be repository-relative: {spec_value!r}")
+    spec_abs, spec_rel = resolve_repo_path(
+        spec_input, label="spec", require_file=True
+    )
+    spec_text = spec_abs.read_text(encoding="utf-8")
+
+    contract = extract_section(spec_text, CONTRACT_HEADING)
+    if not contract:
+        sys.exit(f"{spec_rel}: 缺「{CONTRACT_HEADING}」小节；reviewer 无 AC 锚点，拒绝渲染")
+    context = extract_section(spec_text, CONTEXT_HEADING) or "（spec 未填上下文区）"
+
+    values = {
+        "tid": fm["tid"],
+        "slug": fm["slug"],
+        "spec_path": spec_rel,
+        "task_dir": rel_task_dir,
+        "diff_anchor": diff_anchor,
+        "review_level": level,
+        "contract_section": contract,
+        "context_section": context,
+    }
+    shared = template_paths["share"].read_text(encoding="utf-8")
+
+    if level == "single":
+        prompts = {
+            "general_review_prompt.md": apply_placeholders(
+                template_paths["general"].read_text(encoding="utf-8") + "\n" + shared,
+                values,
+            ),
+        }
+    else:
+        prompts = {
+            "code_review_prompt.md": apply_placeholders(
+                template_paths["code"].read_text(encoding="utf-8") + "\n" + shared,
+                values,
+            ),
+            "test_review_prompt.md": apply_placeholders(
+                template_paths["test"].read_text(encoding="utf-8") + "\n" + shared,
+                values,
+            ),
+        }
+
+    drift = contract_drift_notice(spec_rel, diff_anchor, contract)
+    if drift:
+        prompts = {
+            name: f"{content.rstrip()}\n\n{drift}\n" for name, content in prompts.items()
+        }
+    return prompts
 
 
 def main():
-    p = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         description="渲染 code/test reviewer prompt（唯一入口）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    p.add_argument("--task", help="task.md 路径")
-    p.add_argument("--task-dir", help="task 目录（内含 task.md）")
-    p.add_argument("--out-dir", help="输出目录；不填则 stdout")
-    args = p.parse_args()
+    parser.add_argument("--task", help="task.md 路径")
+    parser.add_argument("--task-dir", help="task 目录（内含 task.md）")
+    parser.add_argument("--out-dir", help="输出目录；不填则 stdout")
+    args = parser.parse_args()
 
     if args.task and args.task_dir:
         sys.exit("use only one of --task or --task-dir")
     if not args.task and not args.task_dir:
-        p.print_help()
+        parser.print_help()
         sys.exit(1)
 
     if args.task_dir:
         task_dir = Path(args.task_dir)
-        if not task_dir.is_absolute():
-            task_dir = REPO_ROOT / task_dir
-        task_path = task_dir / "task.md"
+        task_path = None
     else:
         task_path = Path(args.task)
         if not task_path.is_absolute():
             task_path = REPO_ROOT / task_path
         task_dir = task_path.parent
 
-    if not task_path.is_file():
-        sys.exit(f"missing task file: {task_path}")
-
-    code_prompt = TEMPLATES_DIR / "code_prompt.txt"
-    test_prompt = TEMPLATES_DIR / "test_prompt.txt"
-    share_prompt = TEMPLATES_DIR / "share_prompt.txt"
-    for pth in (code_prompt, test_prompt, share_prompt):
-        if not pth.is_file():
-            sys.exit(f"missing prompt template: {pth}")
-
-    fm = parse_front_matter(task_path)
-    for k in ("tid", "slug", "diff_anchor"):
-        if not fm.get(k):
-            sys.exit(f"front matter requires tid, slug, diff_anchor (got {fm})")
-
-    if not re.match(r"^t[0-9]+$", fm["tid"]):
-        sys.exit(f"tid must be lowercase task id like t001 (got {fm['tid']!r})")
-
-    try:
-        rel_task_dir = str(task_dir.relative_to(REPO_ROOT))
-    except ValueError:
-        rel_task_dir = str(task_dir)
-
-    spec_path = fm.get("spec_path") or f"{rel_task_dir}/spec.md"
-
-    values = {
-        "tid": fm["tid"],
-        "slug": fm["slug"],
-        "spec_path": spec_path,
-        "task_dir": rel_task_dir,
-        "diff_anchor": fm["diff_anchor"],
-    }
-
-    def render(axis: str) -> str:
-        tmpl = code_prompt if axis == "code" else test_prompt
-        body = tmpl.read_text(encoding="utf-8") + "\n" + share_prompt.read_text(encoding="utf-8")
-        return apply_placeholders(body, values)
+    prompts = render_review_prompts(task_dir, task_path=task_path)
 
     if args.out_dir:
         out_dir = Path(args.out_dir)
         if not out_dir.is_absolute():
             out_dir = REPO_ROOT / out_dir
         out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "code_review_prompt.md").write_text(render("code"), encoding="utf-8")
-        (out_dir / "test_review_prompt.md").write_text(render("test"), encoding="utf-8")
-        print(f"wrote {out_dir}/code_review_prompt.md", file=sys.stderr)
-        print(f"wrote {out_dir}/test_review_prompt.md", file=sys.stderr)
+        for filename, prompt in prompts.items():
+            path = out_dir / filename
+            path.write_text(prompt, encoding="utf-8")
+            print(f"wrote {path}", file=sys.stderr)
     else:
-        print("===== code_review_prompt =====")
-        print(render("code"))
-        print("===== test_review_prompt =====")
-        print(render("test"))
+        for filename, prompt in prompts.items():
+            print(f"===== {filename.removesuffix('.md')} =====")
+            print(prompt)
 
 
 if __name__ == "__main__":

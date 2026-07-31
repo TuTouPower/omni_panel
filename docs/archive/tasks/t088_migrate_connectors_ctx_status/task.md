@@ -1,8 +1,16 @@
 ---
-tid: t088
-slug: migrate_connectors_ctx_status
+tid: "t088"
+slug: "migrate_connectors_ctx_status"
+title: "9 连接器迁移到 ctx.status（删内联 helper）"
+status: "done"
+branch: "t088_migrate_connectors_ctx_status"
+worktree: ""
+review_level: "full"
 diff_anchor: "278247c"
-branch: "spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t088_migrate_connectors_ctx_status

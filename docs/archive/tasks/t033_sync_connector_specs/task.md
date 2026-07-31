@@ -1,8 +1,16 @@
 ---
-tid: t033
-slug: sync_connector_specs
+tid: "t033"
+slug: "sync_connector_specs"
+title: "同步连接器类 spec 到当前代码真相"
+status: "done"
+branch: "t033_sync_connector_specs"
+worktree: ""
+review_level: "full"
 diff_anchor: "3cc19d6"
-branch: t033_sync_connector_specs
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t033_sync_connector_specs

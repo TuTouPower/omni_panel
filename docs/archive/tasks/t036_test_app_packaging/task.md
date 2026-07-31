@@ -1,8 +1,16 @@
 ---
-tid: t036
-slug: test_app_packaging
+tid: "t036"
+slug: "test_app_packaging"
+title: "测试应用打包配置两套独立"
+status: "done"
+branch: "t036_test_app_packaging"
+worktree: ""
+review_level: "full"
 diff_anchor: "22f3a69"
-branch: t036_test_app_packaging
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t036_test_app_packaging

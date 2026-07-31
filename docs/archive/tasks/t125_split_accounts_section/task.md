@@ -1,8 +1,16 @@
 ---
-tid: t125
-slug: split_accounts_section
-diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+tid: "t125"
+slug: "split_accounts_section"
+title: "拆分 accounts_section.tsx 抽 AccountsList"
+status: "done"
 branch: "t125_split_accounts_section"
+worktree: ""
+review_level: "full"
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t125_split_accounts_section

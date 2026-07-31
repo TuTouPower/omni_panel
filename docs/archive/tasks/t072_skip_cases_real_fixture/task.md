@@ -1,8 +1,16 @@
 ---
-tid: t072
-slug: skip_cases_real_fixture
+tid: "t072"
+slug: "skip_cases_real_fixture"
+title: "取消 skip 关键 case 补 real fixture (I23)"
+status: "done"
+branch: "t072_skip_cases_real_fixture"
+worktree: ""
+review_level: "full"
 diff_anchor: "2a618ed"
-branch: "t069_t074_spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t072_skip_cases_real_fixture

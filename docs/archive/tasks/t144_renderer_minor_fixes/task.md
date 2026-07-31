@@ -1,8 +1,16 @@
 ---
-tid: t144
-slug: renderer_minor_fixes
-diff_anchor: "<SHA>"
+tid: "t144"
+slug: "renderer_minor_fixes"
+title: "renderer 小修：noopener/托盘分隔符/JSON.stringify 比较/声明顺序"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t144_renderer_minor_fixes

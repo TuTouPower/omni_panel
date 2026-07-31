@@ -1,8 +1,16 @@
 ---
-tid: t067
-slug: ipc_renderer_path_whitelist
+tid: "t067"
+slug: "ipc_renderer_path_whitelist"
+title: "IPC file:// rendererIndexPath 完整白名单 (t062 遗留)"
+status: "done"
+branch: "t067_ipc_renderer_path_whitelist"
+worktree: ""
+review_level: "full"
 diff_anchor: "6f0801a46a4499d0321476155168e0049491034b"
-branch: t067_ipc_renderer_path_whitelist
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t067_ipc_renderer_path_whitelist

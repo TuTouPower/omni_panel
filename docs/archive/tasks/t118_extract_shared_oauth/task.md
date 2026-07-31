@@ -1,9 +1,16 @@
 ---
-tid: t118
-slug: extract_shared_oauth
+tid: "t118"
+slug: "extract_shared_oauth"
+title: "grok/kimi oauth 共享提取（hook + manager）"
+status: "done"
+branch: "t118_extract_shared_oauth"
+worktree: ""
+review_level: "full"
 diff_anchor: "897f96726b9445aab02515ac9446527911cdf70c"
-branch: t118_extract_shared_oauth
-max_review_round: 5
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task {tid}\_{slug}

@@ -1,8 +1,16 @@
 ---
-tid: t074
-slug: package_run_path_filter
+tid: "t074"
+slug: "package_run_path_filter"
+title: "package-and-run 按路径过滤非 image-name (I26 遗留)"
+status: "done"
+branch: "t074_package_run_path_filter"
+worktree: ""
+review_level: "full"
 diff_anchor: "2a618ed"
-branch: "t069_t074_spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t074_package_run_path_filter

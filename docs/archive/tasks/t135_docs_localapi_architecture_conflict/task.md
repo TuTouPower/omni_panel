@@ -1,8 +1,16 @@
 ---
-tid: t135
-slug: docs_localapi_architecture_conflict
-diff_anchor: "<SHA>"
+tid: "t135"
+slug: "docs_localapi_architecture_conflict"
+title: "LocalAPI 文档冲突修复：architecture 对齐 web-panel 决策"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重复项：已合并至 t130"
 ---
 
 # Task t135_docs_localapi_architecture_conflict

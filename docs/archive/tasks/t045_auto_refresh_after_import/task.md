@@ -1,8 +1,16 @@
 ---
-tid: t045
-slug: auto_refresh_after_import
+tid: "t045"
+slug: "auto_refresh_after_import"
+title: "导入配置后自动全局刷新"
+status: "done"
+branch: "t045_auto_refresh_after_import"
+worktree: ""
+review_level: "full"
 diff_anchor: "6cebf74abcd845574d3f4d0d5cbee23b80662416"
-branch: t045_auto_refresh_after_import
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t045_auto_refresh_after_import

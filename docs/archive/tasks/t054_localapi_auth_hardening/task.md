@@ -1,8 +1,16 @@
 ---
-tid: t054
-slug: localapi_auth_hardening
+tid: "t054"
+slug: "localapi_auth_hardening"
+title: "local-api 认证收紧评估 (review C1)"
+status: "done"
+branch: "t054_localapi_auth_hardening"
+worktree: ""
+review_level: "full"
 diff_anchor: "0fc956789083f06a4f1dd6af5ac936914150b6c9"
-branch: t054_localapi_auth_hardening
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t054_localapi_auth_hardening

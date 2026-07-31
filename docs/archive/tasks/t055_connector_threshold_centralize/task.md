@@ -1,8 +1,16 @@
 ---
-tid: t055
-slug: connector_threshold_centralize
+tid: "t055"
+slug: "connector_threshold_centralize"
+title: "连接器阈值集中化与 status 硬编码 (P5/I3/I4)"
+status: "done"
+branch: "t055_connector_threshold_centralize"
+worktree: ""
+review_level: "full"
 diff_anchor: "969afba3f7285832c7d7a6aa0dae49e2237382b9"
-branch: t055_connector_threshold_centralize
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t055_connector_threshold_centralize

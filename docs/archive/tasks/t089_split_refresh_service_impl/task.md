@@ -1,8 +1,16 @@
 ---
-tid: t089
-slug: split_refresh_service_impl
+tid: "t089"
+slug: "split_refresh_service_impl"
+title: "拆分 refresh-service.ts（450 行 - 行/模块）"
+status: "done"
+branch: "t089_split_refresh_service_impl"
+worktree: ""
+review_level: "full"
 diff_anchor: "278247c"
-branch: "spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t089_split_refresh_service_impl

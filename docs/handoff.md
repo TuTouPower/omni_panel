@@ -108,3 +108,17 @@
     - t121_test_f006：`OAuthDeviceForm` 表单层未断言 secret_name 绑定到内部 input；on_save secrets 断言已覆盖端到端 secret_name 流向，增益有限。
     - t122_code_f002：`AccountDialog`→`views/lib` 反向依赖由拆分暴露；待后续将 `session_meta` 迁至 `src/renderer/lib/`。
     - t122_code_f003：`accounts_section.tsx` 436 行略超 minor 阈值，未达 800 硬限；后续可拆 `AccountsList`。
+
+## 2026-07-31 对齐 repo_template（工作流迁移）
+
+- branch：`t169_align_scripts_layer`
+- head_commit：本分支 HEAD（本次迁移工作区 commit，`git log --grep "align repo_template"` 查）
+- 内容：本仓工作流对齐 `\wsl.localhost\Ubuntu-22.04\home\testuser\testuser_ubuntu\repo_template`。
+    - 脚本层：`scripts/task.py`（2216 行，front matter 状态权威 + worktree 链）+ `_id_scan.py`/`pending.py`/`findings.py`/`render_review_prompts.py`/`check_review_status.py` 全量移植；Windows 适配（git 子进程 UTF-8 encoding、worktree 路径 resolve 统一，见 `docs/findings.md` d001）。`tests/repo_template/` 197 用例 + `pnpm test` 1910 用例全过。
+    - 数据迁移：169 个 task 目录补 `task.md` front matter（12 字段 schema）；旧 `task_report.md`/`log.md` 保留；`docs/archive/tasks/_pre/` 历史快照移至 `docs/archive/_pre_tasks/`。
+    - 文档骨架：`docs/pending.md`（原 `bugs.md` 10 条全修复→`archive/bugs_2026_07.md`；`legacy_backlog.md` 9 条「暂不建」→ pending「不办」节 p001–p009）；`docs/findings.md`；模板迁到 `docs/tasks/task_template/`、`docs/spikes/report_template.md`、`docs/reviews/prompts/`；旧 `docs/templates/` 删除。
+    - AGENTS.md 重写为路由版（skill 路由 + 目录权责，本仓特有约束保留）。
+    - 9 个 skill 移植（`.agents/skills/` + `.claude/skills/` 软链）+ `merge_guard.py` PreToolUse hook（`.claude/settings.json`）。
+    - `docs/blueprint/testing.md` 建立（门禁类别清单：单测/typecheck/lint/build 全绿）。
+- 注意：`docs/bugs.md` 与 `docs/legacy_backlog.md` 已迁 `docs/archive/`（`bugs_2026_07.md` / `legacy_backlog_2026_07.md`），本文件历史节中的旧引用指向归档位置。
+- 后续：首个真实 worktree task 执行时实测 pnpm + node_modules + better-sqlite3 ABI 适配（见 `docs/blueprint/testing.md` worktree 节）。

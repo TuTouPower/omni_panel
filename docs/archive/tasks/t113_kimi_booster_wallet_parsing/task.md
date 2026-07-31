@@ -1,9 +1,16 @@
 ---
-tid: t113
-slug: kimi_booster_wallet_parsing
+tid: "t113"
+slug: "kimi_booster_wallet_parsing"
+title: "Kimi connector 解析 boosterWallet/totalQuota/membership"
+status: "done"
+branch: "t113_kimi_booster_wallet_parsing"
+worktree: ""
+review_level: "full"
 diff_anchor: "b9321581fa2bf6e13c994e28b898a5f5ae06f4a9"
-branch: t113_kimi_booster_wallet_parsing
-max_review_round: 5
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t113_kimi_booster_wallet_parsing

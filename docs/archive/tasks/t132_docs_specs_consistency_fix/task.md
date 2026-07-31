@@ -1,8 +1,16 @@
 ---
-tid: t132
-slug: docs_specs_consistency_fix
-diff_anchor: "<SHA>"
+tid: "t132"
+slug: "docs_specs_consistency_fix"
+title: "文档修正：specs slug/交叉引用/ADR 编号/续期/类型"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t132_docs_specs_consistency_fix

@@ -1,8 +1,16 @@
 ---
-tid: t105
-slug: upcoming_reset_unified_card
+tid: "t105"
+slug: "upcoming_reset_unified_card"
+title: "即将重置统一为可拖动卡片"
+status: "done"
+branch: "t105_upcoming_reset_unified_card"
+worktree: ""
+review_level: "full"
 diff_anchor: "2da273457b9ccea6c8a8690d8881b0da49a90366"
-branch: t105_upcoming_reset_unified_card
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t105_upcoming_reset_unified_card

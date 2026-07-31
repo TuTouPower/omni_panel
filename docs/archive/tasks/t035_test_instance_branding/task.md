@@ -1,8 +1,16 @@
 ---
-tid: t035
-slug: test_instance_branding
+tid: "t035"
+slug: "test_instance_branding"
+title: "测试实例品牌隔离黄图标与端口"
+status: "done"
+branch: "t035_test_instance_branding"
+worktree: ""
+review_level: "full"
 diff_anchor: "3118b44"
-branch: t035_test_instance_branding
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t035_test_instance_branding

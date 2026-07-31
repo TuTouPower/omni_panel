@@ -1,8 +1,16 @@
 ---
-tid: t086
-slug: fix_bell_visibility_layout
+tid: "t086"
+slug: "fix_bell_visibility_layout"
+title: "监控重置 bell 全厂商可见 + CSS 类修 + 同行布局"
+status: "done"
+branch: "t086_fix_bell_visibility_layout"
+worktree: ""
+review_level: "full"
 diff_anchor: "278247c"
-branch: "t086_bell_fix"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t086_fix_bell_visibility_layout

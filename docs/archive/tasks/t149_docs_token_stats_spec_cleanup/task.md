@@ -1,8 +1,16 @@
 ---
-tid: t149
-slug: docs_token_stats_spec_cleanup
-diff_anchor: "f8c7610cbefe1113f9a8b0bac1a8e4773de1299c"
+tid: "t149"
+slug: "docs_token_stats_spec_cleanup"
+title: "token-stats spec 清理 aggregator.ts 旧计划"
+status: "done"
 branch: "t149_docs_token_stats_spec_cleanup"
+worktree: ""
+review_level: "full"
+diff_anchor: "f8c7610cbefe1113f9a8b0bac1a8e4773de1299c"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t149_docs_token_stats_spec_cleanup

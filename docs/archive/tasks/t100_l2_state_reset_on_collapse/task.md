@@ -1,8 +1,16 @@
 ---
-tid: t100
-slug: l2_state_reset_on_collapse
+tid: "t100"
+slug: "l2_state_reset_on_collapse"
+title: "折叠重置 L2 子状态（l2open）"
+status: "done"
+branch: "t100_l2_state_reset_on_collapse"
+worktree: ""
+review_level: "full"
 diff_anchor: "b5d2c4766369e593a073184d381056fc687c4a73"
-branch: t100_l2_state_reset_on_collapse
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t100_l2_state_reset_on_collapse

@@ -1,8 +1,16 @@
 ---
-tid: t142
-slug: preload_popup_save_whitelist
-diff_anchor: "<SHA>"
+tid: "t142"
+slug: "preload_popup_save_whitelist"
+title: "preload popup config.save 字段白名单"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 用户取消：不纳入权限/脱敏类"
 ---
 
 # Task t142_preload_popup_save_whitelist

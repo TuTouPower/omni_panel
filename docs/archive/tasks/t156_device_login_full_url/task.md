@@ -1,8 +1,16 @@
 ---
-tid: t156
-slug: device_login_full_url
+tid: "t156"
+slug: "device_login_full_url"
+title: "Grok 设备码登录展示完整授权地址并默认浏览器打开"
+status: "done"
+branch: "t156_device_login_full_url"
+worktree: ""
+review_level: "full"
 diff_anchor: "6dd0c8a4427eb630bb6ed75e0ff3a7ba21a44e31"
-branch: t156_device_login_full_url
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t156_device_login_full_url

@@ -1,8 +1,16 @@
 ---
-tid: t146
-slug: docs_blueprint_sync
-diff_anchor: "f8c7610cbefe1113f9a8b0bac1a8e4773de1299c"
+tid: "t146"
+slug: "docs_blueprint_sync"
+title: "blueprint 文档同步：handoff/architecture/domain/specs 一致性"
+status: "done"
 branch: "t146_docs_blueprint_sync"
+worktree: ""
+review_level: "full"
+diff_anchor: "f8c7610cbefe1113f9a8b0bac1a8e4773de1299c"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t146_docs_blueprint_sync

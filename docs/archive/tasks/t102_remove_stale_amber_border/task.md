@@ -1,8 +1,16 @@
 ---
-tid: t102
-slug: remove_stale_amber_border
+tid: "t102"
+slug: "remove_stale_amber_border"
+title: "移除卡片 stale 黄色边框"
+status: "done"
+branch: "t102_remove_stale_amber_border"
+worktree: ""
+review_level: "full"
 diff_anchor: "53862bb9e5e8a3327dc649aaa4d745f27d33fd78"
-branch: t102_remove_stale_amber_border
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t102_remove_stale_amber_border

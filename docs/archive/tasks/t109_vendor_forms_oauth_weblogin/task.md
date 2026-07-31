@@ -1,8 +1,16 @@
 ---
-tid: t109
-slug: vendor_forms_oauth_weblogin
+tid: "t109"
+slug: "vendor_forms_oauth_weblogin"
+title: "OAuthDeviceForm + WebLoginForm 两个厂商子表单"
+status: "done"
+branch: "t109_vendor_forms_oauth_weblogin"
+worktree: ""
+review_level: "full"
 diff_anchor: "e55da266a006e3bb04f389148be7eb44ed509ebb"
-branch: t109_vendor_forms_oauth_weblogin
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "blocked: review"
 ---
 
 # Task t109_vendor_forms_oauth_weblogin

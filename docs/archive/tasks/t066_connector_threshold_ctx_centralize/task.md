@@ -1,8 +1,16 @@
 ---
-tid: t066
-slug: connector_threshold_ctx_centralize
+tid: "t066"
+slug: "connector_threshold_ctx_centralize"
+title: "连接器阈值 ctx 共享 helper 集中化 (P5 spike)"
+status: "done"
+branch: "t066_connector_threshold_ctx_centralize"
+worktree: ""
+review_level: "full"
 diff_anchor: "64a9ad17884e2080a92cd1aebee4cdf5f0283865"
-branch: t066_connector_threshold_ctx_centralize
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t066_connector_threshold_ctx_centralize

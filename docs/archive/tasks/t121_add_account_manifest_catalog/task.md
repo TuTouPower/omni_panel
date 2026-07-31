@@ -1,8 +1,16 @@
 ---
-tid: t121
-slug: add_account_manifest_catalog
+tid: "t121"
+slug: "add_account_manifest_catalog"
+title: "添加账号按 manifest catalog 解析 auth，绕过墓碑"
+status: "done"
+branch: "t121_add_account_manifest_catalog"
+worktree: ""
+review_level: "full"
 diff_anchor: "931bfa135fe683235745ee9070a1d1891995acce"
-branch: t121_add_account_manifest_catalog
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t121_add_account_manifest_catalog

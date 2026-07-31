@@ -1,9 +1,16 @@
 ---
-tid: t111
-slug: config_fallback_p0_protection
+tid: "t111"
+slug: "config_fallback_p0_protection"
+title: "config-store ENOENT/空文件 fallback 绕过 P0 保护"
+status: "done"
+branch: "t111_config_fallback_p0_protection"
+worktree: ""
+review_level: "full"
 diff_anchor: "a85a965e34fd05c772d16ffc2bcca2b546be854e"
-branch: t111_config_fallback_p0_protection
-max_review_round: 5
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t111_config_fallback_p0_protection
