@@ -1,8 +1,16 @@
 ---
-tid: t160
-slug: fix_grok_zero_percent_omission
+tid: "t160"
+slug: "fix_grok_zero_percent_omission"
+title: "修复 Grok 0% 周用量字段省略误判"
+status: "done"
+branch: "t160_fix_grok_zero_percent_omission"
+worktree: ""
+review_level: "full"
 diff_anchor: "d9cf0499d7600b814f44bbadda660494e16f4bb6"
-branch: t160_fix_grok_zero_percent_omission
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "blocked: review; blocked: review"
 ---
 
 # Task t160_fix_grok_zero_percent_omission

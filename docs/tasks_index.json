@@ -1,3 +1,12 @@
 {
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t169",
+            "title": "脚本层移植：task.py 全量替换 + 数据迁移 + pending/findings",
+            "slug": "align_scripts_layer",
+            "status": "active",
+            "branch": "t169_align_scripts_layer",
+            "note": "模板 task.py 2216 行替换本仓 282 行；165 归档目录补 task.md front matter；移植 pending/findings/render/check 脚本与 repo_template 测试"
+        }
+    ]
 }

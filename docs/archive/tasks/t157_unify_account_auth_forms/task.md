@@ -1,8 +1,16 @@
 ---
-tid: t157
-slug: unify_account_auth_forms
+tid: "t157"
+slug: "unify_account_auth_forms"
+title: "统一添加/编辑账号的认证表单"
+status: "done"
+branch: "t157_unify_account_auth_forms"
+worktree: ""
+review_level: "full"
 diff_anchor: "057fb4ffe08c3e6d4af94777787fb3dc4626a32a"
-branch: t157_unify_account_auth_forms
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t157_unify_account_auth_forms

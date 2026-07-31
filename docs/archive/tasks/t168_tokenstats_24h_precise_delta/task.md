@@ -1,8 +1,16 @@
 ---
-tid: t168
-slug: tokenstats_24h_precise_delta
+tid: "t168"
+slug: "tokenstats_24h_precise_delta"
+title: "代理面板 24h preset 精确 delta：hourly 聚合或 records 驱动 KPI"
+status: "done"
+branch: "t168_tokenstats_24h_precise_delta"
+worktree: ""
+review_level: "full"
 diff_anchor: "b47b837f0ec4aa186eaf1e3d4520de520fbf61a3"
-branch: t168_tokenstats_24h_precise_delta
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t168_tokenstats_24h_precise_delta

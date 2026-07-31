@@ -1,8 +1,16 @@
 ---
-tid: t050
-slug: getoneapi_connector
+tid: "t050"
+slug: "getoneapi_connector"
+title: "GetOneAPI 余额连接器"
+status: "done"
+branch: "t050_getoneapi_connector"
+worktree: ""
+review_level: "full"
 diff_anchor: "0b59436dff65242ad6d4772960e38c8470e4c24f"
-branch: t050_getoneapi_connector
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t050_getoneapi_connector

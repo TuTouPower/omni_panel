@@ -1,8 +1,16 @@
 ---
-tid: t127
-slug: extract_oauth_helpers
-diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+tid: "t127"
+slug: "extract_oauth_helpers"
+title: "提取 grok/kimi OAuth 共享 helper 模块"
+status: "done"
 branch: "t127_extract_oauth_helpers"
+worktree: ""
+review_level: "full"
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t127_extract_oauth_helpers

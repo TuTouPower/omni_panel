@@ -1,8 +1,16 @@
 ---
-tid: t069
-slug: test_migration_real_entry
+tid: "t069"
+slug: "test_migration_real_entry"
+title: "migration 测试改 import 生产迁移入口 (I19)"
+status: "done"
+branch: "t069_test_migration_real_entry"
+worktree: ""
+review_level: "full"
 diff_anchor: "2a618ed"
-branch: "t069_t074_spike_batch"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t069_test_migration_real_entry

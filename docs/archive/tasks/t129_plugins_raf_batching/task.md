@@ -1,8 +1,16 @@
 ---
-tid: t129
-slug: plugins_raf_batching
-diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+tid: "t129"
+slug: "plugins_raf_batching"
+title: "use-plugins rAF 合批减少 burst 渲染"
+status: "done"
 branch: "t129_plugins_raf_batching"
+worktree: ""
+review_level: "full"
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t129_plugins_raf_batching

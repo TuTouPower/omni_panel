@@ -1,8 +1,16 @@
 ---
-tid: t041
-slug: upcoming_reset_threshold
+tid: "t041"
+slug: "upcoming_reset_threshold"
+title: "即将重置可配置阈值与账号级开关"
+status: "done"
+branch: "t041_upcoming_reset_threshold"
+worktree: ""
+review_level: "full"
 diff_anchor: "d38f3fb"
-branch: t041_upcoming_reset_threshold
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t041_upcoming_reset_threshold

@@ -1,8 +1,16 @@
 ---
-tid: t052
-slug: usage_card_row_height_align
+tid: "t052"
+slug: "usage_card_row_height_align"
+title: "用量卡片同行高度按最多行对齐"
+status: "done"
+branch: "t052_usage_card_row_height_align"
+worktree: ""
+review_level: "full"
 diff_anchor: "0e56ace91f84afdee75c8962d41c60e6ef41f105"
-branch: t052_usage_card_row_height_align
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t052_usage_card_row_height_align

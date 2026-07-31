@@ -1,8 +1,16 @@
 ---
-tid: t040
-slug: show_failed_configured_accounts
+tid: "t040"
+slug: "show_failed_configured_accounts"
+title: "主面板展示首次采集失败的已配置账号"
+status: "done"
+branch: "t040_show_failed_configured_accounts"
+worktree: ""
+review_level: "full"
 diff_anchor: "21911b4"
-branch: t040_show_failed_configured_accounts
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "根因已确认：账号列表只从 MetricRecord 构建，零历史失败实例无账号行"
 ---
 
 # Task t040_show_failed_configured_accounts

@@ -1,9 +1,16 @@
 ---
-tid: t112
-slug: kimi_oauth_device_code
+tid: "t112"
+slug: "kimi_oauth_device_code"
+title: "Kimi device code OAuth 登录"
+status: "done"
+branch: "t112_kimi_oauth_device_code"
+worktree: ""
+review_level: "full"
 diff_anchor: "994139c7257b370cb6c0f0a7f91ab1012710586d"
-branch: t112_kimi_oauth_device_code
-max_review_round: 5
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t112_kimi_oauth_device_code

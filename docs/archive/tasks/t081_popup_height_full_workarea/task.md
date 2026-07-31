@@ -1,8 +1,16 @@
 ---
-tid: t081
-slug: popup_height_full_workarea
+tid: "t081"
+slug: "popup_height_full_workarea"
+title: "放宽 popup 高度上限 75% → 工作区全高（面板拉不到顶）"
+status: "done"
+branch: "t081_popup_height_full_workarea"
+worktree: ""
+review_level: "full"
 diff_anchor: "<SHA>"
-branch: t081_popup_height_full_workarea
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t081_popup_height_full_workarea

@@ -1,8 +1,16 @@
 ---
-tid: t124
-slug: move_session_meta_to_lib
-diff_anchor: "f8c7610cbefe1113f9a8b0bac1a8e4773de1299c"
+tid: "t124"
+slug: "move_session_meta_to_lib"
+title: "session_meta 迁至 renderer/lib 消除反向依赖"
+status: "done"
 branch: "t124_move_session_meta_to_lib"
+worktree: ""
+review_level: "full"
+diff_anchor: "f8c7610cbefe1113f9a8b0bac1a8e4773de1299c"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t124_move_session_meta_to_lib

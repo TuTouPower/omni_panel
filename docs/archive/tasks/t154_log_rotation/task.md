@@ -1,8 +1,16 @@
 ---
-tid: t154
-slug: log_rotation
+tid: "t154"
+slug: "log_rotation"
+title: "日志 50MB 上限改分段轮转，禁止静默停写"
+status: "done"
+branch: "t154_log_rotation"
+worktree: ""
+review_level: "full"
 diff_anchor: "74d5d5750dba874399b4923ed2b277208cccb550"
-branch: t154_log_rotation
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t154_log_rotation

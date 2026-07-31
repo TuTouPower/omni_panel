@@ -1,8 +1,16 @@
 ---
-tid: t075
-slug: web_panel_favicon
+tid: "t075"
+slug: "web_panel_favicon"
+title: "网页标签页 favicon logo"
+status: "done"
+branch: "t075_web_panel_favicon"
+worktree: ""
+review_level: "full"
 diff_anchor: "8cc282f"
-branch: t075_web_panel_favicon
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t075_web_panel_favicon

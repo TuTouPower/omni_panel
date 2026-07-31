@@ -1,8 +1,16 @@
 ---
-tid: t107
-slug: manifest_auth_descriptor
-diff_anchor: "89dec60eb78a2df0175a6df0b431e54f1d9f6f7a"
+tid: "t107"
+slug: "manifest_auth_descriptor"
+title: "manifest auth descriptor"
+status: "done"
 branch: "t107_manifest_auth_descriptor"
+worktree: ""
+review_level: "full"
+diff_anchor: "89dec60eb78a2df0175a6df0b431e54f1d9f6f7a"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t107_manifest_auth_descriptor

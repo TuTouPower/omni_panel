@@ -1,8 +1,16 @@
 ---
-tid: t136
-slug: docs_sandbox_trust_model
-diff_anchor: "<SHA>"
+tid: "t136"
+slug: "docs_sandbox_trust_model"
+title: "connector sandbox 信任模型文档化 + D8 失效引用修正"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t136_docs_sandbox_trust_model

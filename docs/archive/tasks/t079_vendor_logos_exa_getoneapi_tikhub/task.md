@@ -1,8 +1,16 @@
 ---
-tid: t079
-slug: vendor_logos_exa_getoneapi_tikhub
+tid: "t079"
+slug: "vendor_logos_exa_getoneapi_tikhub"
+title: "exa/getoneapi/tikhub 接入真实 logo 替换默认 fallback"
+status: "done"
+branch: "t079_vendor_logos_exa_getoneapi_tikhub"
+worktree: ""
+review_level: "full"
 diff_anchor: "<SHA>"
-branch: t079_vendor_logos_exa_getoneapi_tikhub
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t079_vendor_logos_exa_getoneapi_tikhub

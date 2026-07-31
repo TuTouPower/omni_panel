@@ -1,8 +1,16 @@
 ---
-tid: t078
-slug: split_popup_view_further
+tid: "t078"
+slug: "split_popup_view_further"
+title: "继续拆分 PopupView.tsx（仍超 400 行 minor 阈值，t043 遗留）"
+status: "done"
+branch: "t078_split_popup_view_further"
+worktree: ""
+review_level: "full"
 diff_anchor: "<SHA>"
-branch: t078_split_popup_view_further
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t078_split_popup_view_further

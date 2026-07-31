@@ -1,8 +1,16 @@
 ---
-tid: t058
-slug: fix_chart_tooltip_xss
+tid: "t058"
+slug: "fix_chart_tooltip_xss"
+title: "图表 tooltip XSS 转义 (I10/I11)"
+status: "done"
+branch: "t058_fix_chart_tooltip_xss"
+worktree: ""
+review_level: "full"
 diff_anchor: "67bdb00fc7c22f950947a1a57feba7ef4e68dbe2"
-branch: t058_fix_chart_tooltip_xss
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t058_fix_chart_tooltip_xss

@@ -1,8 +1,16 @@
 ---
-tid: t120
-slug: multi_account_overview_risk_color
-diff_anchor: "<SHA>"
+tid: "t120"
+slug: "multi_account_overview_risk_color"
+title: "多账号概览按最高风险账号着色"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 用户取消"
 ---
 
 # Task t120_multi_account_overview_risk_color

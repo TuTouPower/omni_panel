@@ -1,8 +1,16 @@
 ---
-tid: t161
-slug: overview_grid_keep_info
+tid: "t161"
+slug: "overview_grid_keep_info"
+title: "用量面板网格减列保信息：卡片最小宽度保证头部完整，禁止隐藏内容"
+status: "done"
+branch: "t161_overview_grid_keep_info"
+worktree: ""
+review_level: "full"
 diff_anchor: "37f2f89b67698be77662c3d076a9a031452c8e83"
-branch: t161_overview_grid_keep_info
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t161_overview_grid_keep_info

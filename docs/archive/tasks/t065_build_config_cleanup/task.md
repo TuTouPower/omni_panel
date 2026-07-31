@@ -1,8 +1,16 @@
 ---
-tid: t065
-slug: build_config_cleanup
+tid: "t065"
+slug: "build_config_cleanup"
+title: "构建配置与依赖清理 (I24-I28)"
+status: "done"
+branch: "t065_build_config_cleanup"
+worktree: ""
+review_level: "full"
 diff_anchor: "1d85c46dab2e6f9820717de6ce69dc4f359a2161"
-branch: t065_build_config_cleanup
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t065_build_config_cleanup

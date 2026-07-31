@@ -1,8 +1,16 @@
 ---
-tid: t162
-slug: records_query_limit_window
+tid: "t162"
+slug: "records_query_limit_window"
+title: "代理面板内存止血：query_records 加 LIMIT 与时间窗下推"
+status: "done"
+branch: "t162_records_query_limit_window"
+worktree: ""
+review_level: "full"
 diff_anchor: "43c6d1637387694101c1113bc138afa69d81df04"
-branch: t162_records_query_limit_window
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t162_records_query_limit_window

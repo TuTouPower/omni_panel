@@ -1,8 +1,16 @@
 ---
-tid: t119
-slug: kimi_high_usage_reset_alert
-diff_anchor: "<SHA>"
+tid: "t119"
+slug: "kimi_high_usage_reset_alert"
+title: "Kimi 高用量重置提醒语义与链路回归"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 用户取消"
 ---
 
 # Task t119_kimi_high_usage_reset_alert

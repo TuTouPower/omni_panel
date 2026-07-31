@@ -1,8 +1,16 @@
 ---
-tid: t134
-slug: kimi_oauth_concurrency_protection
-diff_anchor: "<SHA>"
+tid: "t134"
+slug: "kimi_oauth_concurrency_protection"
+title: "Kimi OAuth 并发保护：token 写入序列化 + refresh 去重"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t134_kimi_oauth_concurrency_protection

@@ -1,8 +1,16 @@
 ---
-tid: t155
-slug: auth_error_no_retry
+tid: "t155"
+slug: "auth_error_no_retry"
+title: "401/403 认证错误不重试，避免刷出服务端 IP 封禁"
+status: "done"
+branch: "t155_auth_error_no_retry"
+worktree: ""
+review_level: "full"
 diff_anchor: "73785a2838839268d8283e05ff56130ce825ba9d"
-branch: t155_auth_error_no_retry
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t155_auth_error_no_retry

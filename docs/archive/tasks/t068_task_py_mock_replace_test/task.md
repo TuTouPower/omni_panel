@@ -1,8 +1,16 @@
 ---
-tid: t068
-slug: task_py_mock_replace_test
+tid: "t068"
+slug: "task_py_mock_replace_test"
+title: "task.py mock os.replace 失败路径测试 (t063 遗留)"
+status: "done"
+branch: "t068_task_py_mock_replace_test"
+worktree: ""
+review_level: "full"
 diff_anchor: "f705f00"
-branch: "t068_spike"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t068_task_py_mock_replace_test

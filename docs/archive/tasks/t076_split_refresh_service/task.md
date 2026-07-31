@@ -1,8 +1,16 @@
 ---
-tid: t076
-slug: split_refresh_service
+tid: "t076"
+slug: "split_refresh_service"
+title: "拆分 refresh-service.ts（超 400 行 minor 阈值，t039 遗留）"
+status: "done"
+branch: "t076_split_refresh_service"
+worktree: ""
+review_level: "full"
 diff_anchor: "<SHA>"
-branch: t076_split_refresh_service
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t076_split_refresh_service

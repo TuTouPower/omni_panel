@@ -1,8 +1,16 @@
 ---
-tid: t158
-slug: fix_relogin_account_targeting
+tid: "t158"
+slug: "fix_relogin_account_targeting"
+title: "修复主面板 401 重新登录错位：provider 级改 account/instance 级"
+status: "done"
+branch: "t158_fix_relogin_account_targeting"
+worktree: ""
+review_level: "full"
 diff_anchor: "<pending>"
-branch: t158_fix_relogin_account_targeting
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t158_fix_relogin_account_targeting

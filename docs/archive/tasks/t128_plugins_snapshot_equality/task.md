@@ -1,8 +1,16 @@
 ---
-tid: t128
-slug: plugins_snapshot_equality
-diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+tid: "t128"
+slug: "plugins_snapshot_equality"
+title: "use-plugins 快照相等性检查消除 memo 失效"
+status: "done"
 branch: "t128_plugins_snapshot_equality"
+worktree: ""
+review_level: "full"
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t128_plugins_snapshot_equality

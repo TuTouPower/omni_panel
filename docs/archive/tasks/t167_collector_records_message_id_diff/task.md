@@ -1,8 +1,16 @@
 ---
-tid: t167
-slug: collector_records_message_id_diff
+tid: "t167"
+slug: "collector_records_message_id_diff"
+title: "collector records emit 增量化：per-session message_id diff 协议"
+status: "done"
+branch: "t167_collector_records_message_id_diff"
+worktree: ""
+review_level: "full"
 diff_anchor: "aca801d9da264cbc9d754aa0eb921b9c293b53e0"
-branch: t167_collector_records_message_id_diff
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t167_collector_records_message_id_diff

@@ -1,8 +1,16 @@
 ---
-tid: t145
-slug: docs_naming_migration_policy
-diff_anchor: "<SHA>"
+tid: "t145"
+slug: "docs_naming_migration_policy"
+title: "conventions 记录 renderer 命名迁移策略"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t145_docs_naming_migration_policy

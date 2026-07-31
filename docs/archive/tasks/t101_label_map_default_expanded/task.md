@@ -1,8 +1,16 @@
 ---
-tid: t101
-slug: label_map_default_expanded
+tid: "t101"
+slug: "label_map_default_expanded"
+title: "数据标签映射默认展开"
+status: "done"
+branch: "t101_label_map_default_expanded"
+worktree: ""
+review_level: "full"
 diff_anchor: "4a8be33d6c297452ad0f832ed2ce22837178284c"
-branch: t101_label_map_default_expanded
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t101_label_map_default_expanded

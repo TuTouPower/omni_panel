@@ -1,8 +1,16 @@
 ---
-tid: t059
-slug: connector_empty_response
+tid: "t059"
+slug: "connector_empty_response"
+title: "连接器空响应静默处置 (P1/I5)"
+status: "done"
+branch: "t059_connector_empty_response"
+worktree: ""
+review_level: "full"
 diff_anchor: "00e1f2167815e1e9b844bcf98582f34ba2715502"
-branch: t059_connector_empty_response
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t059_connector_empty_response

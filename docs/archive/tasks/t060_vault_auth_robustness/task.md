@@ -1,8 +1,16 @@
 ---
-tid: t060
-slug: vault_auth_robustness
+tid: "t060"
+slug: "vault_auth_robustness"
+title: "vault 主密钥与 auth 错误判定健壮性 (I1/I2)"
+status: "done"
+branch: "t060_vault_auth_robustness"
+worktree: ""
+review_level: "full"
 diff_anchor: "deedfbd2a60efb5c2f35e3c70aa4be6651525680"
-branch: t060_vault_auth_robustness
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t060_vault_auth_robustness

@@ -1,8 +1,16 @@
 ---
-tid: t094
-slug: add_dialog_open_script_dir
+tid: "t094"
+slug: "add_dialog_open_script_dir"
+title: "添加账号弹窗加打开脚本目录按钮"
+status: "done"
+branch: "t094_add_dialog_open_script_dir"
+worktree: ""
+review_level: "full"
 diff_anchor: "b4f7c9c3601fe4dde23750321873cac163cd6df0"
-branch: t094_add_dialog_open_script_dir
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t094_add_dialog_open_script_dir

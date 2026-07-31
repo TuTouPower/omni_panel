@@ -1,8 +1,16 @@
 ---
-tid: t092
-slug: cpa_merge_common_services
+tid: "t092"
+slug: "cpa_merge_common_services"
+title: "CPA 合入常用服务网格（不再单独高级方式）"
+status: "done"
+branch: "t092_cpa_merge_common_services"
+worktree: ""
+review_level: "full"
 diff_anchor: "<SHA>"
-branch: t092_cpa_merge_common_services
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t092_cpa_merge_common_services

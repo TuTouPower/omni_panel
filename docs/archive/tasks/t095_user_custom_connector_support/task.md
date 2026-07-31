@@ -1,8 +1,16 @@
 ---
-tid: t095
-slug: user_custom_connector_support
+tid: "t095"
+slug: "user_custom_connector_support"
+title: "用户自定义 connector 脚本支持（schema 扩展 + 文档）"
+status: "done"
+branch: "t095_user_custom_connector_support"
+worktree: ""
+review_level: "full"
 diff_anchor: "15a7e27b9e6c90701fbd5630a8739e7180819536"
-branch: t095_user_custom_connector_support
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t095_user_custom_connector_support

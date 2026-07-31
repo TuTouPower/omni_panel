@@ -1,8 +1,16 @@
 ---
-tid: t165
-slug: agent_window_singleton
+tid: "t165"
+slug: "agent_window_singleton"
+title: "agent 窗口单例化，避免多窗口叠加"
+status: "done"
+branch: "t165_agent_window_singleton"
+worktree: ""
+review_level: "full"
 diff_anchor: "587f4477bfb5e3d406285d018aeb9b899a19cfca"
-branch: t165_agent_window_singleton
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t165_agent_window_singleton

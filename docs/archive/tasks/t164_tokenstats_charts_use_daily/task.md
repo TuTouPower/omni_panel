@@ -1,8 +1,16 @@
 ---
-tid: t164
-slug: tokenstats_charts_use_daily
+tid: "t164"
+slug: "tokenstats_charts_use_daily"
+title: "TokenStats 图表改用 daily 聚合，records 仅服务 SessionTable 分页"
+status: "done"
+branch: "t164_tokenstats_charts_use_daily"
+worktree: ""
+review_level: "full"
 diff_anchor: "1ee36da3ab1b97a973f234cc7f0c79063372698b9"
-branch: t164_tokenstats_charts_use_daily
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t164_tokenstats_charts_use_daily

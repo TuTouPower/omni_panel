@@ -1,8 +1,16 @@
 ---
-tid: t103
-slug: token_stats_natural_bucket
+tid: "t103"
+slug: "token_stats_natural_bucket"
+title: "token-stats preset 按自然边界切片"
+status: "done"
+branch: "t103_token_stats_natural_bucket"
+worktree: ""
+review_level: "full"
 diff_anchor: "917567d3192d82b31c615718f42f5f59441cac5f"
-branch: t103_token_stats_natural_bucket
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t103_token_stats_natural_bucket

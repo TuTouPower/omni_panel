@@ -1,8 +1,16 @@
 ---
-tid: t077
-slug: split_main_index
+tid: "t077"
+slug: "split_main_index"
+title: "拆分 main 进程 index.ts（超 800 行 important 阈值，t045 遗留）"
+status: "done"
+branch: "t077_split_main_index"
+worktree: ""
+review_level: "full"
 diff_anchor: "<SHA>"
-branch: t077_split_main_index
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t077_split_main_index

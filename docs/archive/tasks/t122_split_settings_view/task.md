@@ -1,8 +1,16 @@
 ---
-tid: t122
-slug: split_settings_view
+tid: "t122"
+slug: "split_settings_view"
+title: "拆分 SettingsView：抽 AccountDialog + catalog hook + 工具函数"
+status: "done"
+branch: "t122_split_settings_view"
+worktree: ""
+review_level: "full"
 diff_anchor: "847e43beeb0ce3382923526c90cd3c1e7d809599"
-branch: t122_split_settings_view
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t122_split_settings_view

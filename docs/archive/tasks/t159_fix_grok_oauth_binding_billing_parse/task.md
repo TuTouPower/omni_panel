@@ -1,8 +1,16 @@
 ---
-tid: t159
-slug: fix_grok_oauth_binding_billing_parse
-diff_anchor: "89bc31f9350241ad48039678bec1477691fc97bf"
+tid: "t159"
+slug: "fix_grok_oauth_binding_billing_parse"
+title: "修复 Grok OAuth 实例绑定与 billing 响应解析"
+status: "done"
 branch: "t159_fix_grok_oauth_binding_billing_parse"
+worktree: ""
+review_level: "full"
+diff_anchor: "89bc31f9350241ad48039678bec1477691fc97bf"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "blocked: review"
 ---
 
 # Task t159_fix_grok_oauth_binding_billing_parse

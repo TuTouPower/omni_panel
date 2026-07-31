@@ -1,8 +1,16 @@
 ---
-tid: t061
-slug: renderer_small_fixes
+tid: "t061"
+slug: "renderer_small_fixes"
+title: "renderer 账号状态与保存错误小修 (I12/I13)"
+status: "done"
+branch: "t061_renderer_small_fixes"
+worktree: ""
+review_level: "full"
 diff_anchor: "cac13374793b0b2a3f0c5a5a7f69ac9e9fb7e4e3"
-branch: t061_renderer_small_fixes
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t061_renderer_small_fixes

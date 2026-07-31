@@ -1,8 +1,16 @@
 ---
-tid: t049
-slug: exa_connector
+tid: "t049"
+slug: "exa_connector"
+title: "Exa 用量连接器（成本型）"
+status: "done"
+branch: "t049_exa_connector"
+worktree: ""
+review_level: "full"
 diff_anchor: "08ebd8a931e25a72a0cc994806eda0186c8ba6c3"
-branch: t049_exa_connector
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t049_exa_connector

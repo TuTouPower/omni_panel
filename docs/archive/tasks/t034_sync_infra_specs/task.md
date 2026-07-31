@@ -1,8 +1,16 @@
 ---
-tid: t034
-slug: sync_infra_specs
+tid: "t034"
+slug: "sync_infra_specs"
+title: "同步基础设施类 spec 到当前代码真相"
+status: "done"
+branch: "t034_sync_infra_specs"
+worktree: ""
+review_level: "full"
 diff_anchor: "dd5eccc"
-branch: t034_sync_infra_specs
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t034_sync_infra_specs

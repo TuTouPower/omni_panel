@@ -1,9 +1,16 @@
 ---
-tid: t117
-slug: split_collector_serde
+tid: "t117"
+slug: "split_collector_serde"
+title: "token-stats collector serde 抽独立文件"
+status: "done"
+branch: "t117_split_collector_serde"
+worktree: ""
+review_level: "full"
 diff_anchor: "be9dbb3447dd211b95969533da1b0c645721c9e4"
-branch: t117_split_collector_serde
-max_review_round: 5
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task {tid}\_{slug}

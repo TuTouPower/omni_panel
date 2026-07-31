@@ -1,8 +1,16 @@
 ---
-tid: t093
-slug: cpa_logo_replace
+tid: "t093"
+slug: "cpa_logo_replace"
+title: "CPA logo 替换为 CLIProxyAPI 官方 logo"
+status: "done"
+branch: "t093_cpa_logo_replace"
+worktree: ""
+review_level: "full"
 diff_anchor: "<SHA>"
-branch: t093_cpa_logo_replace
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t093_cpa_logo_replace

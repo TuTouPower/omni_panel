@@ -1,8 +1,16 @@
 ---
-tid: t140
-slug: shared_secret_key_unify
-diff_anchor: "<SHA>"
+tid: "t140"
+slug: "shared_secret_key_unify"
+title: "密钥名识别规则统一为共享 secret_key 模块"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 用户取消：不纳入权限/脱敏类"
 ---
 
 # Task t140_shared_secret_key_unify

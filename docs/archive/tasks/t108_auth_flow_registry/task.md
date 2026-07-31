@@ -1,8 +1,16 @@
 ---
-tid: t108
-slug: auth_flow_registry
+tid: "t108"
+slug: "auth_flow_registry"
+title: "auth flow registry 替代 VENDOR_AUTH_MAP"
+status: "done"
+branch: "t108_auth_flow_registry"
+worktree: ""
+review_level: "full"
 diff_anchor: "593654c420c53787556bf88ab7ce9ef2c370ae5d"
-branch: t108_auth_flow_registry
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t108_auth_flow_registry

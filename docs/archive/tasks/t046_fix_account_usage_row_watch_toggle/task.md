@@ -1,8 +1,16 @@
 ---
-tid: t046
-slug: fix_account_usage_row_watch_toggle
+tid: "t046"
+slug: "fix_account_usage_row_watch_toggle"
+title: "修复主面板 account 数据标签行缺失监控 bell"
+status: "done"
+branch: "t046_fix_account_usage_row_watch_toggle"
+worktree: ""
+review_level: "full"
 diff_anchor: "be9f98d89d3949279b49bf8f8281a5f75890a143"
-branch: t046_fix_account_usage_row_watch_toggle
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t046_fix_account_usage_row_watch_toggle

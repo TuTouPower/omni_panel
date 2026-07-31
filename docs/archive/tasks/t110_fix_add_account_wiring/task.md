@@ -1,8 +1,16 @@
 ---
-tid: t110
-slug: fix_add_account_wiring
+tid: "t110"
+slug: "fix_add_account_wiring"
+title: "修复添加账号接线：精确匹配 source + displayName + exa/cpa 表单"
+status: "done"
+branch: "t110_fix_add_account_wiring"
+worktree: ""
+review_level: "full"
 diff_anchor: "12fea92b6624ecdc563580667609f77df9b8e239"
-branch: t110_fix_add_account_wiring
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "blocked: review"
 ---
 
 # Task t110_fix_add_account_wiring

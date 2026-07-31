@@ -1,8 +1,16 @@
 ---
-tid: t057
-slug: connector_stable_account_id
+tid: "t057"
+slug: "connector_stable_account_id"
+title: "连接器固定 account_id 多实例 collapse (P2/I6/I7)"
+status: "done"
+branch: "t057_connector_stable_account_id"
+worktree: ""
+review_level: "full"
 diff_anchor: "416e789d58daa11382f6a5e99a864fd38675baee"
-branch: t057_connector_stable_account_id
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t057_connector_stable_account_id

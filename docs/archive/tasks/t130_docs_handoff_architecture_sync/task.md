@@ -1,8 +1,16 @@
 ---
-tid: t130
-slug: docs_handoff_architecture_sync
-diff_anchor: "<SHA>"
+tid: "t130"
+slug: "docs_handoff_architecture_sync"
+title: "文档同步：handoff 汇总 + architecture 目录/LocalAPI 描述"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t130_docs_handoff_architecture_sync

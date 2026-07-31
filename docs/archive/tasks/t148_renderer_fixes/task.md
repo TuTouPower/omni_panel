@@ -1,8 +1,16 @@
 ---
-tid: t148
-slug: renderer_fixes
-diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+tid: "t148"
+slug: "renderer_fixes"
+title: "renderer 修复：占位按钮置灰 + 契约小修"
+status: "done"
 branch: "t148_renderer_fixes"
+worktree: ""
+review_level: "full"
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t148_renderer_fixes

@@ -1,8 +1,16 @@
 ---
-tid: t044
-slug: split_popup_view
+tid: "t044"
+slug: "split_popup_view"
+title: "拆分 PopupView 降低文件体量"
+status: "done"
+branch: "t044_split_popup_view"
+worktree: ""
+review_level: "full"
 diff_anchor: "6d4f7e0"
-branch: t044_split_popup_view
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t044_split_popup_view

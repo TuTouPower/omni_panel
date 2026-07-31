@@ -1,8 +1,16 @@
 ---
-tid: t139
-slug: token_reader_utils_extract
-diff_anchor: "<SHA>"
+tid: "t139"
+slug: "token_reader_utils_extract"
+title: "token reader 共用 helper 提取"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t139_token_reader_utils_extract

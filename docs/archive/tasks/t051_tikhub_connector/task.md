@@ -1,8 +1,16 @@
 ---
-tid: t051
-slug: tikhub_connector
+tid: "t051"
+slug: "tikhub_connector"
+title: "TikHub 余额连接器"
+status: "done"
+branch: "t051_tikhub_connector"
+worktree: ""
+review_level: "full"
 diff_anchor: "f307af7502aa8f32bd60509aad52d50df6e35797"
-branch: t051_tikhub_connector
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t051_tikhub_connector

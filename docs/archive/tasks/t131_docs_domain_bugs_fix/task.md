@@ -1,8 +1,16 @@
 ---
-tid: t131
-slug: docs_domain_bugs_fix
-diff_anchor: "<SHA>"
+tid: "t131"
+slug: "docs_domain_bugs_fix"
+title: "文档修正：domain provider 枚举 + bugs t111 修复行"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t131_docs_domain_bugs_fix

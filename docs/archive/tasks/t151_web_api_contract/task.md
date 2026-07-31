@@ -1,8 +1,16 @@
 ---
-tid: t151
-slug: web_api_contract
-diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+tid: "t151"
+slug: "web_api_contract"
+title: "web UsageboardApi 契约补齐 + session stub 返回类型"
+status: "done"
 branch: "t151_web_api_contract"
+worktree: ""
+review_level: "full"
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t151_web_api_contract

@@ -1,8 +1,16 @@
 ---
-tid: t042
-slug: web_usage_panel_sse_refresh
+tid: "t042"
+slug: "web_usage_panel_sse_refresh"
+title: "web 用量面板数据实时刷新（SSE 推送）"
+status: "done"
+branch: "t042_web_usage_panel_sse_refresh"
+worktree: ""
+review_level: "full"
 diff_anchor: "b7d438b7a37bfa44b3f1dc9c38c3ca87d13a3f70"
-branch: t042_web_usage_panel_sse_refresh
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t042_web_usage_panel_sse_refresh

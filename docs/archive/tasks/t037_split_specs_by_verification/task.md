@@ -1,8 +1,16 @@
 ---
-tid: t037
-slug: split_specs_by_verification
+tid: "t037"
+slug: "split_specs_by_verification"
+title: "按验证方式拆分 spec 并改造 specs_index"
+status: "done"
+branch: "t037_split_specs_by_verification"
+worktree: ""
+review_level: "full"
 diff_anchor: "8dfad6e"
-branch: t037_split_specs_by_verification
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t037_split_specs_by_verification

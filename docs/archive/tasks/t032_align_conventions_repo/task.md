@@ -1,8 +1,16 @@
 ---
-tid: t032
-slug: align_conventions_repo
+tid: "t032"
+slug: "align_conventions_repo"
+title: "conventions.md 对齐 repo_template 工作流字段段"
+status: "done"
+branch: "t032_align_conventions_repo"
+worktree: ""
+review_level: "full"
 diff_anchor: "9541c6e"
-branch: t032_align_conventions_repo
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t032_align_conventions_repo

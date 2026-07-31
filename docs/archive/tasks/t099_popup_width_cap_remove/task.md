@@ -1,8 +1,16 @@
 ---
-tid: t099
-slug: popup_width_cap_remove
+tid: "t099"
+slug: "popup_width_cap_remove"
+title: "解除用量面板宽度 780px 上限"
+status: "done"
+branch: "t099_popup_width_cap_remove"
+worktree: ""
+review_level: "full"
 diff_anchor: "3aabba4084c8d16d025a14b063b9979e0effe3b4"
-branch: t099_popup_width_cap_remove
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t099_popup_width_cap_remove

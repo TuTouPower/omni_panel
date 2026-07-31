@@ -1,8 +1,16 @@
 ---
-tid: t126
-slug: split_provider_card
-diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+tid: "t126"
+slug: "split_provider_card"
+title: "拆分 ProviderCard.tsx 与其测试文件"
+status: "done"
 branch: "t126_split_provider_card"
+worktree: ""
+review_level: "full"
+diff_anchor: "91992f535668d2544bb5db17242ef9a6bf7534c0"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t126_split_provider_card

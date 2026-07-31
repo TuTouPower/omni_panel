@@ -1,8 +1,16 @@
 ---
-tid: t166
-slug: collector_records_incremental
+tid: "t166"
+slug: "collector_records_incremental"
+title: "collector records emit 增量化与 config 保存去抖"
+status: "done"
+branch: "t166_collector_records_incremental"
+worktree: ""
+review_level: "full"
 diff_anchor: "d1ef4847473baf4c3019812281c69f639fbba4ab"
-branch: t166_collector_records_incremental
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t166_collector_records_incremental

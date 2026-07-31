@@ -1,8 +1,16 @@
 ---
-tid: t031
-slug: align_repo_template
+tid: "t031"
+slug: "align_repo_template"
+title: "对齐 repo_template 工作流(json+脚本+task.md+小写 tid)"
+status: "done"
+branch: "t031_align_repo_template"
+worktree: ""
+review_level: "full"
 diff_anchor: "ef11e27"
-branch: t031_align_repo_template
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "单 task 单 commit;归档目录仅改名 T→t;详见 plan"
 ---
 
 # Task t031_align_repo_template

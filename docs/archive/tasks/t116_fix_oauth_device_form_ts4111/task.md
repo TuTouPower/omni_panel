@@ -1,9 +1,16 @@
 ---
-tid: t116
-slug: fix_oauth_device_form_ts4111
+tid: "t116"
+slug: "fix_oauth_device_form_ts4111"
+title: "修复 oauth_device_form.test.tsx TS4111"
+status: "dropped"
+branch: ""
+worktree: ""
+review_level: "full"
 diff_anchor: "<SHA>"
-branch: t116_fix_oauth_device_form_ts4111
-max_review_round: 5
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: TS4111 已在 main hotfix (commit 3ac6e34) 修复，spec 范围已完成，无需重复实现"
 ---
 
 # Task {tid}\_{slug}

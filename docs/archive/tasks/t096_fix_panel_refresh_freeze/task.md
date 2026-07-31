@@ -1,8 +1,16 @@
 ---
-tid: t096
-slug: fix_panel_refresh_freeze
+tid: "t096"
+slug: "fix_panel_refresh_freeze"
+title: "修复 refreshAll 期间用量面板卡死（先实测归因再修）"
+status: "done"
+branch: "t096_fix_panel_refresh_freeze"
+worktree: ""
+review_level: "full"
 diff_anchor: "664a80cc4e622dc0dbe87d9a74e71ff7f04b20ff"
-branch: t096_fix_panel_refresh_freeze
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t096_fix_panel_refresh_freeze

@@ -1,8 +1,16 @@
 ---
-tid: t048
-slug: settings_label_map_watch_toggle
+tid: "t048"
+slug: "settings_label_map_watch_toggle"
+title: "监控即将重置入口移到设置页数据标签映射旁"
+status: "done"
+branch: "t048_settings_label_map_watch_toggle"
+worktree: ""
+review_level: "full"
 diff_anchor: "16ee8348343ab0bc78b9945cf89965679a5a416d"
-branch: t048_settings_label_map_watch_toggle
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: ""
 ---
 
 # Task t048_settings_label_map_watch_toggle

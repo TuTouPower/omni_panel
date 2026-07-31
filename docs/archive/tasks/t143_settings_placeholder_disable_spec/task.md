@@ -1,8 +1,16 @@
 ---
-tid: t143
-slug: settings_placeholder_disable_spec
-diff_anchor: "<SHA>"
+tid: "t143"
+slug: "settings_placeholder_disable_spec"
+title: "设置页占位按钮置灰 + TokenStats 持久化写入 spec"
+status: "dropped"
 branch: ""
+worktree: ""
+review_level: "full"
+diff_anchor: "<SHA>"
+depends_on: ""
+conflicts_with: ""
+schedule_status: ""
+note: "dropped: 重组：合并至新 task"
 ---
 
 # Task t143_settings_placeholder_disable_spec
