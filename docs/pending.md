@@ -16,6 +16,12 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
+### p012 config-store 并发保存测试疑似 flaky（2026-07-31）
+
+- 来源：t171 黑盒（顺手发现）
+- 内容：`tests/integration/config/config-store.test.ts > serializes concurrent saves so final state is consistent` 在 t171 worktree 首次 `pnpm test` 失败、单独重跑即过，疑似时序敏感 flaky。与本 task 改动无关（未碰 config-store）。需复查是否真 flaky 或存在并发断言过弱。
+- 处理：未开
+
 ### p013 门禁基线红：format:check archive 文档 + knip 未用文件（2026-07-31）
 
 - 来源：t172 顺手发现

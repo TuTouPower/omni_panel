@@ -242,13 +242,18 @@ function extract_user_text(message: unknown): string | null {
 }
 
 /**
- * 经 new-api 以 OpenAI 协议接入的模型。其响应里 input_tokens 含 cache_read
- * （OpenAI 的 prompt_tokens 含 cached_tokens），与 Anthropic 原生语义
- * （input_tokens 与 cache_read_input_tokens 互斥）不同，会让命中率公式
- * read/(input+read) 双重计数。采集时需对这些模型按条件做 input -= cache_read
- * 归一化。详见 docs/research/token-cache-openai-semantics.md
+ * 归一化候选模型（经 new-api 接入、input_tokens 可能含 cache_read 的模型）。
+ *
+ * 模型名只决定「是否纳入归一化候选」，不决定「是否执行减法」。真正执行由调用点
+ * 的数值守卫 `inp >= cache_read` 决定：
+ * - OpenAI 上游取数：`input_tokens` 来自 `prompt_tokens`，定义上含 `cached_tokens`，
+ *   恒有 `inp >= cache_read`，故必被减去（避免命中率公式 read/(input+read) 双重计数）。
+ * - Anthropic 上游取数：`input` 与 `cache_read` 互斥，`inp` 是纯非缓存输入可任意小；
+ *   当 `inp < cache_read` 时守卫拦下、保留原值不被误减。
+ * 即同一模型并存两种上游时按行自动分流。详见
+ * docs/research/token-cache-openai-semantics.md 与 spike s004。
  */
-function is_openai_semantic_model(model: string): boolean {
+function is_cache_normalization_candidate(model: string): boolean {
     const m = model.toLowerCase();
     return m.includes("deepseek") || m.includes("longcat");
 }
@@ -340,11 +345,13 @@ function parse_session_file(content: string, env: TokenStatsEnv): SessionFileFac
                 calls++;
                 const cache_read = num(usage["cache_read_input_tokens"]);
                 const cache_write = num(usage["cache_creation_input_tokens"]);
-                // OpenAI 协议接入的模型 input_tokens 含 cache_read，归一化为
-                // Anthropic 原生语义（input 不含 cache_read），避免命中率公式双重计数。
-                // 详见 docs/research/token-cache-openai-semantics.md
+                // 候选模型按行分流：OpenAI 上游 inp 含 cache_read（恒 inp>=cache_read）
+                // 减去；Anthropic 上游互斥（inp<cache_read 时）守卫拦下保留原值。
+                // 详见 is_cache_normalization_candidate 注释与 spike s004。
                 const normalized_inp =
-                    is_openai_semantic_model(rec_model) && cache_read > 0 && inp >= cache_read
+                    is_cache_normalization_candidate(rec_model) &&
+                    cache_read > 0 &&
+                    inp >= cache_read
                         ? inp - cache_read
                         : inp;
                 sums.input_tokens += normalized_inp;
