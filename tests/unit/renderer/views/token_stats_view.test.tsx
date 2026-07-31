@@ -4,8 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TokenStatsBucket, TokenStatsSession } from "../../../../src/shared/types/token-stats";
 import { TokenStatsView } from "../../../../src/renderer/views/TokenStatsView";
 
+const mocked_donuts = vi.hoisted(() => ({ centers: [] as string[] }));
+
 vi.mock("../../../../src/renderer/components/token-stats/MetricDonut", () => ({
-    MetricDonut: () => <div />,
+    MetricDonut: (props: { centerValue?: string }) => {
+        mocked_donuts.centers.push(props.centerValue ?? "");
+        return <div />;
+    },
 }));
 const mocked_bar_chart = vi.hoisted(() => ({
     props: null as {
@@ -98,6 +103,7 @@ describe("TokenStatsView", () => {
         get_buckets.mockReset();
         mocked_bar_chart.props = null;
         mocked_heatmap.props = null;
+        mocked_donuts.centers = [];
         get_records.mockResolvedValue([]);
         get_sessions.mockResolvedValue([]);
         get_buckets.mockResolvedValue([]);
@@ -221,7 +227,15 @@ describe("TokenStatsView", () => {
             bucket({ bucket_date: today_str, input_tokens: 100, output_tokens: 50 }),
             bucket({ bucket_date: prior_str, input_tokens: 40, output_tokens: 20 }),
         ]);
-        get_sessions.mockResolvedValue([session("current-session")]);
+        get_sessions.mockResolvedValue([
+            session("current-session"),
+            // A session in the prior 7d window so the session-count delta
+            // (sourced from the sessions table) also has a prior value.
+            session("prior-session", {
+                started_at: now - 9 * 86400000,
+                ended_at: now - 8 * 86400000,
+            }),
+        ]);
 
         render(<TokenStatsView />);
         const user = userEvent.setup();
@@ -385,6 +399,38 @@ describe("TokenStatsView", () => {
             const last_call = calls.at(-1)?.[0];
             expect(last_call?.limit).toBe(100000);
         });
+    });
+
+    it("counts distinct sessions for the session KPI on wide windows (not bucket sum)", async () => {
+        // Regression: buckets' `sessions` field is per-day-per-model distinct;
+        // summing it across days double-counts a multi-day session. The session
+        // KPI must count from the sessions table instead. Here 1 session spans
+        // 3 buckets (3 days) -> KPI must show 1, not 3.
+        const now = Date.now();
+        const ymd = (offset_days: number) => {
+            const d = new Date(now - offset_days * 86400000);
+            return `${String(d.getUTCFullYear())}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+        };
+        get_buckets.mockResolvedValue([
+            // 3 day-buckets, each reports 7 distinct sessions for that day
+            // (sum would be 21 — the bug). Only 1 real session spans them.
+            bucket({ bucket_date: ymd(0), sessions: 7, calls: 100 }),
+            bucket({ bucket_date: ymd(1), sessions: 7, calls: 100 }),
+            bucket({ bucket_date: ymd(2), sessions: 7, calls: 100 }),
+        ]);
+        // One session overlapping the 7d window.
+        get_sessions.mockResolvedValue([session("only-session")]);
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+
+        await waitFor(() => {
+            // centers includes the distinct session count "1".
+            expect(mocked_donuts.centers).toContain("1");
+        });
+        // The buggy bucket-summed session count (21) must not appear.
+        expect(mocked_donuts.centers).not.toContain("21");
     });
 
     it("renders nav buttons to usage panel and settings", async () => {

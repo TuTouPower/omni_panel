@@ -332,6 +332,16 @@ export function TokenStatsView() {
             ),
         [sessions, currentRange],
     );
+    // Prior-window sessions for the delta. buckets cannot give a distinct
+    // session count (their `sessions` field is per-day-per-model distinct,
+    // summing double-counts multi-day sessions), so count from the sessions
+    // table instead.
+    const prevSessionsList = useMemo(() => {
+        const width = currentRange.end - currentRange.start;
+        return sessions.filter(
+            (s) => s.started_at <= currentRange.start && s.ended_at >= currentRange.start - width,
+        );
+    }, [sessions, currentRange]);
 
     const isSessionMetric = metric === "sessions";
     const effectiveXaxis = isSessionMetric ? "time" : xaxis;
@@ -397,11 +407,15 @@ export function TokenStatsView() {
           })();
 
     const totalTokens = currentKpi.tokens;
-    const totalSessions = currentKpi.sessions;
+    // Session count is distinct across the window. buckets' `sessions` field is
+    // per-day-per-model distinct (summing double-counts), so for non-short
+    // windows count from the sessions table; short windows use records' distinct
+    // count (already correct in metricValue).
+    const totalSessions = is_short_window ? currentKpi.sessions : currentSessions.length;
     const totalCalls = currentKpi.calls;
 
     const prevTokens = prevKpi.tokens;
-    const prevSessions = prevKpi.sessions;
+    const prevSessions = is_short_window ? prevKpi.sessions : prevSessionsList.length;
     const prevCalls = prevKpi.calls;
 
     const agentSegmentsData = is_short_window
