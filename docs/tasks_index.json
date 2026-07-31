@@ -2,21 +2,5 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t170",
-            "slug": "fix_heatmap_weekday_gap",
-            "title": "热力图修复： 窗口走 buckets 避免 LIMIT 截断丢 weekday",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "p010",
-            "dir": "docs/tasks/t170_fix_heatmap_weekday_gap"
-        }
-    ]
+    "tasks": []
 }

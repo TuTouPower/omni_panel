@@ -2537,6 +2537,21 @@
             "schedule_status": "",
             "note": "模板 task.py 2216 行替换本仓 282 行；165 归档目录补 task.md front matter；移植 pending/findings/render/check 脚本与 repo_template 测试",
             "dir": "docs/archive/tasks/t169_align_scripts_layer"
+        },
+        {
+            "tid": "t170",
+            "slug": "fix_heatmap_weekday_gap",
+            "title": "热力图修复： 窗口走 buckets 避免 LIMIT 截断丢 weekday",
+            "status": "done",
+            "branch": "t170_fix_heatmap_weekday_gap",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "fe7313965db211188550164352711b4d662a81db",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "p010",
+            "dir": "docs/archive/tasks/t170_fix_heatmap_weekday_gap"
         }
     ]
 }
