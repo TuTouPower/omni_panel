@@ -511,7 +511,7 @@ describe("TokenStatsView", () => {
         expect(mocked_bar_chart.props?.hourBuckets?.length).toBeGreaterThan(0);
     });
 
-    it("skips the hour bucket fetch on short windows and day granularity (t173)", async () => {
+    it("skips the hour bucket fetch on day granularity (t173)", async () => {
         // Prior tests persist prefs (incl. gran=hour) to localStorage; clear so
         // this test starts from the default day granularity.
         localStorage.clear();
@@ -523,10 +523,93 @@ describe("TokenStatsView", () => {
         await screen.findByTestId("session-records");
         expect(get_hour_buckets).not.toHaveBeenCalled();
 
-        // 24h (short window) at hour granularity: still no hour fetch.
+        // 24h preset forces hour granularity; switch back to day — the hour
+        // aggregate is only fetched when the bar chart can consume it at hour
+        // granularity (t183 keeps the day-axis on day buckets).
         await user.click(screen.getByRole("button", { name: "24 小时" }));
         await waitFor(() => {
+            expect(get_hour_buckets).toHaveBeenCalled();
+        });
+        get_hour_buckets.mockClear();
+        await user.click(screen.getByRole("button", { name: "天" }));
+        await waitFor(() => {
             expect(get_hour_buckets).not.toHaveBeenCalled();
+        });
+    });
+
+    it("feeds BarChart full 24h hour buckets on the 24h preset (records truncated)", async () => {
+        // Regression (p020): the 24h time-axis bar used per-message records,
+        // which query_records' ORDER BY DESC LIMIT truncates — on high-density
+        // installs the earliest hours silently vanished. The 24h preset now
+        // routes the hour bar through the pre-aggregated getHourBuckets source
+        // (like t173 did for 7d/30d), so the whole window survives the records
+        // LIMIT.
+        const now = Date.now();
+        const hour = 3600000;
+        const day = 24 * hour;
+        // records truncated to the last 3 hours (high-density LIMIT cut).
+        get_records.mockImplementation((filters: { start?: number; end?: number }) => {
+            const start = filters.start ?? 0;
+            const end = filters.end ?? now;
+            const recs = [];
+            for (let i = 1; i <= 3; i++) {
+                const ts = now - i * hour;
+                if (ts >= start && ts <= end) {
+                    recs.push({ ...session(`rec-${String(i)}`), timestamp: ts });
+                }
+            }
+            return Promise.resolve(recs);
+        });
+        // hour aggregate covers the whole window (every 2h a bucket → 13 rows).
+        get_hour_buckets.mockResolvedValue(
+            Array.from({ length: 13 }, (_, i) => ({
+                hour_start: now - day + i * 2 * hour,
+                model: "model-1",
+                calls: 1,
+                sessions: 1,
+                tokens: 100,
+            })),
+        );
+        get_sessions.mockResolvedValue([session("s")]);
+        get_buckets.mockResolvedValue([bucket()]);
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await user.click(screen.getByRole("button", { name: "24 小时" }));
+
+        await waitFor(() => {
+            expect(get_hour_buckets).toHaveBeenCalled();
+        });
+        const last_call = get_hour_buckets.mock.calls.at(-1)?.[0] as {
+            start: number;
+            end: number;
+        };
+        // The full 24h window must be forwarded to the aggregate.
+        expect(last_call.end).toBeGreaterThan(now - 5000);
+        expect(last_call.end).toBeLessThanOrEqual(now + 5000);
+        expect(last_call.start).toBeLessThanOrEqual(last_call.end - day);
+        expect(last_call.start).toBeGreaterThan(last_call.end - day - 60000);
+        // The bar chart must receive the complete hour buckets, not the
+        // LIMIT-truncated records.
+        expect(mocked_bar_chart.props?.hourBuckets?.length).toBeGreaterThan(0);
+    });
+
+    it("passes agent and env filters to the hour bucket fetch on the 24h preset", async () => {
+        get_sessions.mockResolvedValue([session("s")]);
+        get_buckets.mockResolvedValue([bucket()]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+
+        await user.click(screen.getByRole("button", { name: "24 小时" }));
+        await user.click(screen.getByRole("button", { name: "OpenCode" }));
+        await user.click(screen.getByRole("button", { name: "WSL" }));
+
+        await waitFor(() => {
+            const calls = get_hour_buckets.mock.calls;
+            expect(calls.length).toBeGreaterThan(0);
+            const last_call = calls.at(-1)?.[0] as { agent?: string; env?: string } | undefined;
+            expect(last_call?.agent).toBe("opencode");
+            expect(last_call?.env).toBe("wsl");
         });
     });
 

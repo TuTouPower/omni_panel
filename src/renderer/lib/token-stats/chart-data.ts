@@ -387,9 +387,9 @@ export function prepareBarDataFromHourBuckets(
         const cell = cells[ci];
         if (!cell) continue;
         // sessions are per-hour-per-model distinct (same as the day-buckets
-        // path); summing across models mirrors that path. The 24h window still
-        // uses records, which dedupe sessions per project instead, so the two
-        // windows can differ when one session spans models in an hour.
+        // path); summing across models mirrors that path. Short-window hour
+        // bars that still use records dedupe sessions per project instead, so
+        // the two sources can differ when one session spans models in an hour.
         const v = metric === "tokens" ? b.tokens : metric === "calls" ? b.calls : b.sessions;
         cell[b.model] = (cell[b.model] ?? 0) + v;
     }

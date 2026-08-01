@@ -47,6 +47,13 @@
 - 根因：24h 被划为 short window，柱状图跳过已有 hour 聚合并拉取 current+previous 共 48 小时明细；records 查询按时间倒序限制 50,000 条，数据量超限时静默丢弃最早记录。分类：产品缺陷，伴随测试假绿。
 - 测试缺口：现有 renderer 测试明确断言 24h 不请求 hour 聚合，且 records mock 永不模拟倒序 LIMIT 截断；store 测试只验证 limit 下推，未覆盖高密度 24h 用户行为。补测应覆盖：24h 时间轴接入完整 hour 聚合；超过 50,000 条时 KPI/donut 与项目/会话轴仍覆盖完整窗口；断言最终用户可见统计，而非锁定旧数据源选择。
 - 线索：`.scratch/task_bug_24h_bar/repro.py`
+- 处理：时间轴小时柱已由 t183 修复（24h preset 改走 hour 聚合）；KPI/donut 与项目/会话轴仍走受限 records，由 t184 处理。
+
+### p023 自定义 ≤25h 范围的小时柱仍走 records，高密度时同源截断（2026-08-01）
+
+- 来源：t183 review 结论段提示（spec 明确保守保留，未随 t183 修复）
+- 内容：`TokenStatsView` 的 `hour_fetch` 条件为 `gran !== "hour" || !time_axis || (is_short_window && preset !== "24h")`——非 24h preset 的 ≤25h 自定义范围（custom range）时间轴小时柱仍走 records，高密度时受倒序 LIMIT 50000 截断，与 p020 同源。t183 只覆盖 24h preset；如需消除，让 ≤25h 自定义范围同样走 hour 聚合（hour 聚合支持任意窗口，无短窗口对称切分约束——那是 KPI/donut 的事）。
+- 处理：未开
 
 ### p021 e2e gen-synthetic 重生成会抹掉手工 synthetic fixture 条目（2026-08-01）
 

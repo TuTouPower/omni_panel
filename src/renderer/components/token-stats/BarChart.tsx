@@ -18,7 +18,8 @@ interface BarChartProps {
      * of records (>=7d windows where records exceed the fetch LIMIT). */
     buckets?: TokenStatsBucket[];
     /** Hour-aggregated buckets; when provided, the time-axis hour bar uses
-     * these instead of records (>=7d + hour granularity, t173). */
+     * these instead of records (hour granularity where records would exceed
+     * the fetch LIMIT: >=7d from t173, 24h preset from t183). */
     hourBuckets?: TokenStatsHourBucket[];
     metric: Metric;
     xaxis: XAxis;

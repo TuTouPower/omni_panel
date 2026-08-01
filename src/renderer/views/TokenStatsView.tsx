@@ -223,17 +223,21 @@ export function TokenStatsView() {
                 const records_fetch = is_short_window
                     ? { start: currentRange.start - width, end: currentRange.end, limit: 50000 }
                     : { start: currentRange.start, end: currentRange.end, limit: 100000 };
-                // Hour bar data for wide windows at hour granularity:
-                // pre-aggregated hour×model buckets instead of records (t173).
-                // query_records' ORDER BY DESC LIMIT truncates wide windows,
-                // dropping early hours. Only fetched when the bar chart can
-                // consume it (time x-axis + gran "hour"); other combos skip it
-                // so the default 30d/day view does not run a full-table
-                // aggregate. (effectiveXaxis forces "time" for the sessions
-                // metric regardless of the raw xaxis selector.)
                 const time_axis = metric === "sessions" || xaxis === "time";
+                // Hour bar data for time-axis bar charts at hour granularity:
+                // pre-aggregated hour×model buckets instead of records (t173).
+                // query_records' ORDER BY DESC LIMIT truncates high-density
+                // windows, dropping early hours. 24h is short enough that
+                // KPI/donut still read records, but its hour bar must NOT — the
+                // records LIMIT silently cuts the earliest hours on high-density
+                // installs (p020). So 24h preset joins 7d/30d on the hour
+                // aggregate; only non-24h short windows (custom ranges <=25h)
+                // keep the records source for the hour bar. Other combos skip
+                // the fetch so the default 30d/day view does not run a
+                // full-table aggregate. (effectiveXaxis forces "time" for the
+                // sessions metric regardless of the raw xaxis selector.)
                 const hour_fetch =
-                    is_short_window || gran !== "hour" || !time_axis
+                    gran !== "hour" || !time_axis || (is_short_window && preset !== "24h")
                         ? Promise.resolve([] as TokenStatsHourBucket[])
                         : window.usageboard.tokenStats.getHourBuckets({
                               ...env_filter,
@@ -295,7 +299,7 @@ export function TokenStatsView() {
                 }
             }
         },
-        [platform, agent, metric, xaxis, gran, currentRange, is_short_window],
+        [platform, agent, metric, xaxis, gran, currentRange, is_short_window, preset],
     );
 
     useEffect(() => {
