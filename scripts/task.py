@@ -383,8 +383,25 @@ def dump_front_matter(fm: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _atomic_write_text(path: Path, content: str) -> None:
+    """tmp 文件 + fsync + os.replace 原子写，防掉电/中断产生半写状态。"""
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    try:
+        with tmp_path.open("w", encoding="utf-8", newline="\n") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    except BaseException:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+        raise
+
+
 def write_front_matter(path: Path, fm: dict, body: str) -> None:
-    path.write_text(dump_front_matter(fm) + "\n" + body, encoding="utf-8", newline="\n")
+    _atomic_write_text(path, dump_front_matter(fm) + "\n" + body)
 
 
 def tid_sort_key(tid: str) -> int:
@@ -832,9 +849,9 @@ def rebuild_index(tasks: list[dict] | None = None) -> list[dict]:
             "workspace": _rel(REPO_ROOT) or str(REPO_ROOT),
             "tasks": rows,
         }
-        path.write_text(
+        _atomic_write_text(
+            path,
             json.dumps(payload, ensure_ascii=False, indent=4) + "\n",
-            encoding="utf-8", newline="\n",
         )
     return tasks
 

@@ -164,6 +164,11 @@ note: ""
 - 合并前跑 `pnpm check`（typecheck + lint + format:check + deadcode + arch）与 `pnpm test`。
 - 改代码后检查 `docs/` 与 `AGENTS.md`/`CLAUDE.md` 是否受影响，一并更新。
 
+### 原子写
+
+- 写权威/派生状态数据（`task.md` front matter、`docs/tasks_index.json` / `docs/archive/tasks_index.json` 等）必须走 tmp 文件 + fsync + `os.replace` 原子写（`scripts/task.py` 的 `_atomic_write_text`），防中断/掉电产生半写状态。t063 曾实现、t169 模板化重写后丢失、t179 恢复。
+- 仍直写 `write_text` 的同类位置见 `docs/pending.md` p018。
+
 ## 浏览器/网络 API 约定
 
 - **连接器出网走宿主 NetClient（undici）**，不在连接器/渲染层直接 `fetch`。代理、endpoint override、超时、SSRF 防护统一在此生效。

@@ -107,6 +107,34 @@ def test_write_uses_lf_newlines(tmp_path):
     assert b"\r\n" not in p.read_bytes()
 
 
+# --- 原子写：失败路径与中断恢复 ---
+
+def _raise_runtime_error(*_args, **_kwargs):
+    raise RuntimeError("injected failure")
+
+
+def test_atomic_write_replace_failure_keeps_target_and_cleans_tmp(tmp_path, monkeypatch):
+    """os.replace 失败：目标文件保持原样，tmp 文件被清理。"""
+    target = tmp_path / "task.md"
+    target.write_text("旧内容", encoding="utf-8")
+    monkeypatch.setattr("task.os.replace", _raise_runtime_error)
+    with pytest.raises(RuntimeError):
+        write_front_matter(target, {"tid": "t001"}, "body\n")
+    assert target.read_text(encoding="utf-8") == "旧内容"
+    assert not (tmp_path / "task.md.tmp").exists()
+
+
+def test_atomic_write_fsync_failure_keeps_target_and_cleans_tmp(tmp_path, monkeypatch):
+    """写盘阶段失败（fsync 抛错）：目标文件不产生半写状态，tmp 被清理。"""
+    target = tmp_path / "task.md"
+    target.write_text("旧内容", encoding="utf-8")
+    monkeypatch.setattr("task.os.fsync", _raise_runtime_error)
+    with pytest.raises(RuntimeError):
+        write_front_matter(target, {"tid": "t001"}, "body\n")
+    assert target.read_text(encoding="utf-8") == "旧内容"
+    assert not (tmp_path / "task.md.tmp").exists()
+
+
 def test_parse_strips_inline_comment_unquoted(tmp_path):
     """照搬文档示例（值尾部行内注释）不污染值；引号内的 # 保留。"""
     p = tmp_path / "task.md"
