@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import type { RuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
+import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
+
+// t178: 移除未初始化 fallback 后，测试须显式初始化 renderer index path（模拟生产接线）。
+set_renderer_index_path("D:/app/out/renderer/index.html");
 
 type Ipc_handler = (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 type Ipc_handle = (channel: string, listener: Ipc_handler) => void;
@@ -40,7 +44,9 @@ function bad_event(): Electron.IpcMainInvokeEvent {
 }
 
 function good_event(): Electron.IpcMainInvokeEvent {
-    return { senderFrame: { url: "file:///index.html" } } as unknown as Electron.IpcMainInvokeEvent;
+    return {
+        senderFrame: { url: "file:///D:/app/out/renderer/index.html" },
+    } as unknown as Electron.IpcMainInvokeEvent;
 }
 
 describe("event-ipc THEME_SET sender validation", () => {

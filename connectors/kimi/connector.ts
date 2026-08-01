@@ -48,14 +48,6 @@ function parse_reset_time(iso: string | undefined): number | null {
     return Number.isFinite(ts) ? ts : null;
 }
 
-function status_for_percent(used: number, limit: number): ScriptObservation["status"] {
-    if (limit <= 0) return "normal";
-    const pct = (used / limit) * 100;
-    if (pct >= 90) return "critical";
-    if (pct >= 75) return "warning";
-    return "normal";
-}
-
 // Booster wallet balance is denominated in 1e-8 yuan (KimiCodeBarQuotaService.swift).
 const BOOSTER_AMOUNT_DIVISOR = 100_000_000;
 const MONTH_CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -115,7 +107,7 @@ async function main(): Promise<ScriptObservation[]> {
             limit,
             display_style: "percent",
             reset_at,
-            status: status_for_percent(used, limit),
+            status: limit > 0 ? ctx.status.for_pct((used / limit) * 100) : "normal",
             observed_at: now,
             source: "poll",
             stale: false,
@@ -145,7 +137,7 @@ async function main(): Promise<ScriptObservation[]> {
             limit,
             display_style: "percent",
             reset_at,
-            status: status_for_percent(used, limit),
+            status: limit > 0 ? ctx.status.for_pct((used / limit) * 100) : "normal",
             observed_at: now,
             source: "poll",
             stale: false,
@@ -196,7 +188,7 @@ async function main(): Promise<ScriptObservation[]> {
             limit,
             display_style: "percent",
             reset_at: null,
-            status: status_for_percent(used, limit),
+            status: limit > 0 ? ctx.status.for_pct((used / limit) * 100) : "normal",
             observed_at: now,
             source: "poll",
             stale: false,

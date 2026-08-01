@@ -24,12 +24,12 @@
 
 填 `{test_cmd}` 时按本节逐类覆盖。运行时通过 ≠ 类型 / 构建正确，每类须有独立验证。本仓当前全部绿。
 
-| 类别                    | 命令             | 说明                                                                                                             |
-| ----------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 单元测试                | `pnpm test`      | vitest run；单元 + 集成。mock 不得掉被测逻辑、断言不得过弱（假绿）。                                             |
-| 生产 + 测试代码类型检查 | `pnpm typecheck` | `tsc --noEmit`；`tsconfig.json` 的 `include` 含 `src` 与 `tests`，生产与测试代码同一次检查覆盖。                 |
-| lint                    | `pnpm lint`      | `eslint src tests scripts connectors tests/fixtures *.ts *.mts --max-warnings=0`；零 warning 零 error。          |
-| 生产构建                | `pnpm build`     | `gen-build-info` + `electron-vite build` + `vite build`（web）；暴露 codegen、RSC 边界、server-only 导入等问题。 |
+| 类别                    | 命令             | 说明                                                                                                                                                                                                                                                                                                                                |
+| ----------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 单元测试                | `pnpm test`      | vitest run；单元 + 集成。mock 不得掉被测逻辑、断言不得过弱（假绿）。vitest.config.mts 用 projects 拆两项目（t177）：`renderer`（jsdom + `tests/smoke/setup.ts`，`tests/unit/renderer/**`、`tests/smoke/**`、`tests/unit/web/**`）+ `node`（node 环境无 setupFiles，其余全部）。新增测试目录须列入对应项目 include，否则被静默跳过。 |
+| 生产 + 测试代码类型检查 | `pnpm typecheck` | `tsc --noEmit`；`tsconfig.json` 的 `include` 含 `src` 与 `tests`，生产与测试代码同一次检查覆盖。                                                                                                                                                                                                                                    |
+| lint                    | `pnpm lint`      | `eslint src tests scripts connectors tests/fixtures *.ts *.mts --max-warnings=0`；零 warning 零 error。                                                                                                                                                                                                                             |
+| 生产构建                | `pnpm build`     | `gen-build-info` + `electron-vite build` + `vite build`（web）；暴露 codegen、RSC 边界、server-only 导入等问题。                                                                                                                                                                                                                    |
 
 综合门禁速查：`pnpm check`（typecheck + lint + format:check + deadcode + arch）。
 

@@ -78,19 +78,6 @@ function reset_at_from(limit: QuotaLimit): number | null {
     return null;
 }
 
-function status_for(used: number, limit: number, is_percent: boolean): ScriptObservation["status"] {
-    if (is_percent) {
-        if (used >= 90) return "critical";
-        if (used >= 75) return "warning";
-        return "normal";
-    }
-    if (limit <= 0) return "normal";
-    const ratio = used / limit;
-    if (ratio >= 0.9) return "critical";
-    if (ratio >= 0.75) return "warning";
-    return "normal";
-}
-
 async function main(): Promise<ScriptObservation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
     if (!api_key) return [];
@@ -140,7 +127,7 @@ async function main(): Promise<ScriptObservation[]> {
                 limit: total,
                 display_style: "ratio",
                 reset_at: reset_at_from(limit),
-                status: status_for(current, total, false),
+                status: ctx.status.for_ratio(current, total),
                 observed_at: now,
                 source: "poll",
                 stale: false,
@@ -168,7 +155,7 @@ async function main(): Promise<ScriptObservation[]> {
                 limit: 100,
                 display_style: "percent",
                 reset_at: reset_at_from(limit),
-                status: status_for(percentage, 100, true),
+                status: ctx.status.for_pct(percentage),
                 observed_at: now,
                 source: "poll",
                 stale: false,

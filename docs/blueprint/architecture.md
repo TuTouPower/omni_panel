@@ -61,7 +61,8 @@ src/
 │   ├── log-throttle.ts            # preload 侧 100条/秒日志限流
 │   └── route_api.ts               # route 能力查询辅助
 ├── renderer/                      # React：views/ components/ hooks/ lib/ styles/
-│   └── views/settings-view/       #   t122 拆分：sections/ + lib.ts
+│   ├── views/settings-view/       #   t122 拆分：sections/ + lib.ts
+│   └── views/popup-view/          #   t180 拆分：子组件（TitleBar/EmptyState/...）+ lib.ts
 └── shared/                        # 主/渲染共享：schemas/ types/ lib/ constants.ts
 connectors/                        # 16 个内置连接器（manifest.json + connector.ts）
 tests/                             # unit / integration / e2e(specs/packaged) / smoke

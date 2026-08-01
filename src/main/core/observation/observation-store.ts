@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import type { Observation } from "../../../shared/types/observation";
-import { createLogger } from "../../../shared/lib/logger";
+import { createLogger, type Logger } from "../../../shared/lib/logger";
 
 export interface ObservationStore {
     insert(obs: Observation): void;
@@ -66,6 +66,25 @@ CREATE INDEX IF NOT EXISTS idx_trend
 
 const LABEL_COLUMNS = ["raw_label", "normalized_label", "display_label"] as const;
 
+/** 迁移旧 schema：缺列则补（label 三列 + last_error）。幂等，逐列独立判断。 */
+export function migrate_observation_schema(db: Database.Database, log: Logger): void {
+    const columns = db.prepare("PRAGMA table_info(observations)").all() as { name: string }[];
+    const column_names = new Set(columns.map((c) => c.name));
+    const missing = LABEL_COLUMNS.filter((col) => !column_names.has(col));
+    if (missing.length > 0) {
+        for (const col of missing) {
+            db.exec(`ALTER TABLE observations ADD COLUMN ${col} TEXT;`);
+        }
+        log.info(`Observation store migrated: added columns ${missing.join(", ")}`);
+    }
+
+    // Migrate pre-T028 databases that predate the last_error column.
+    if (!column_names.has("last_error")) {
+        db.exec("ALTER TABLE observations ADD COLUMN last_error TEXT;");
+        log.info("Observation store migrated: added last_error column");
+    }
+}
+
 function row_to_observation(row: Record<string, unknown>): Observation {
     const normalized =
         (row["normalized_label"] as string | undefined) ??
@@ -110,27 +129,7 @@ export function create_observation_store(db_path: string): ObservationStore {
     db.exec(INIT_SQL);
     log.debug(`Observation store initialized: ${db_path}`);
 
-    // Migrate older databases that predate the raw/normalized/display label
-    // columns. The columns are added without NOT NULL constraints so existing
-    // rows survive; row_to_observation backfills missing values from `name`.
-    // Check each column independently (A9) — a partially-applied migration
-    // (raw_label added but normalized_label not) must still backfill the rest,
-    // otherwise inserts binding @normalized_label fail.
-    const columns = db.prepare("PRAGMA table_info(observations)").all() as { name: string }[];
-    const column_names = new Set(columns.map((c) => c.name));
-    const missing = LABEL_COLUMNS.filter((col) => !column_names.has(col));
-    if (missing.length > 0) {
-        for (const col of missing) {
-            db.exec(`ALTER TABLE observations ADD COLUMN ${col} TEXT;`);
-        }
-        log.info(`Observation store migrated: added columns ${missing.join(", ")}`);
-    }
-
-    // Migrate pre-T028 databases that predate the last_error column.
-    if (!column_names.has("last_error")) {
-        db.exec("ALTER TABLE observations ADD COLUMN last_error TEXT;");
-        log.info("Observation store migrated: added last_error column");
-    }
+    migrate_observation_schema(db, log);
 
     const insert_stmt = db.prepare(`
         INSERT INTO observations (

@@ -1,0 +1,84 @@
+import { Icon } from "../../components/Icon";
+import { is_web } from "../../lib/is-web";
+import logo from "../../assets/logo.svg";
+
+interface TitleBarProps {
+    footerTime: string | null;
+    refreshing: boolean;
+    is_live: boolean;
+    titlebar_class: string;
+    onRefreshAll: () => void;
+    onOpenSettings: () => void;
+    is_floating: boolean;
+    onHidePanel: () => void;
+}
+
+export function TitleBar(props: TitleBarProps) {
+    const {
+        footerTime,
+        refreshing,
+        is_live,
+        titlebar_class,
+        onRefreshAll,
+        onOpenSettings,
+        is_floating,
+        onHidePanel,
+    } = props;
+    return (
+        <div className={titlebar_class}>
+            <img
+                src={logo}
+                alt="OmniPanel"
+                className="app-logo"
+                width="30"
+                height="30"
+                style={{ borderRadius: 9 }}
+            />
+            <span className="app-title">OmniPanel</span>
+            <div className="tb-actions">
+                {footerTime && (
+                    <span className="tb-time" title="上次更新时间">
+                        {footerTime}
+                    </span>
+                )}
+                <button
+                    className={"icon-btn" + (refreshing ? " spinning" : "")}
+                    title="刷新全部"
+                    aria-label="刷新"
+                    onClick={is_live ? onRefreshAll : undefined}
+                >
+                    <Icon name="refresh" size={18} />
+                </button>
+                <button
+                    className="icon-btn"
+                    title="设置"
+                    onClick={is_live ? onOpenSettings : undefined}
+                >
+                    <Icon name="gear" size={18} />
+                </button>
+                {is_web() && (
+                    <button
+                        className="icon-btn"
+                        title="代理面板"
+                        onClick={() => {
+                            window.usageboard.tokenStats.open();
+                        }}
+                    >
+                        <Icon name="chart" size={18} />
+                    </button>
+                )}
+                {is_live && is_floating && (
+                    <button
+                        className="icon-btn floating-close-btn"
+                        title="隐藏到托盘"
+                        aria-label="隐藏用量面板"
+                        type="button"
+                        onClick={onHidePanel}
+                    >
+                        <Icon name="close" size={18} />
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}

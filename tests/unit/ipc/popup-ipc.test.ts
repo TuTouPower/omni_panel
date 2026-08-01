@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
 
 const ipc_main_mock = vi.hoisted(() => ({
     handle: vi.fn(),
@@ -9,13 +10,19 @@ vi.mock("electron", () => ({
     ipcMain: ipc_main_mock,
 }));
 
+// t178: 移除未初始化 fallback 后，测试须显式初始化 renderer index path（模拟生产接线）。
+set_renderer_index_path("D:/app/out/renderer/index.html");
+
 // A valid sender frame (packaged app file:// origin) so assert_valid_sender passes.
-const valid_sender = { senderFrame: { url: "file:///renderer/index.html" } };
+const valid_sender = { senderFrame: { url: "file:///D:/app/out/renderer/index.html" } };
 
 describe("popup-ipc", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
         vi.resetModules();
+        // resetModules 清空模块缓存后，重新初始化 renderer index path（模拟生产接线）。
+        const { set_renderer_index_path } = await import("../../../src/main/ipc/helpers");
+        set_renderer_index_path("D:/app/out/renderer/index.html");
     });
 
     it("registerPopupIpc registers handler for POPUP_REPORT_CONTENT_HEIGHT", async () => {

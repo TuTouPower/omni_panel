@@ -303,6 +303,31 @@ describe("kimi connector", () => {
         expect(total?.normalized_label).toBe("总配额");
     });
 
+    it("status stays normal when limit is 0 (guarded against division by zero)", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        // used>0、limit=0：无 guard 时 (10/0)*100 = Infinity -> for_pct = "critical"，
+        // guard 使其为 "normal"——测试具备判别力。
+        const ctx = create_ctx({
+            http: {
+                get_json: vi.fn().mockResolvedValue({
+                    usage: {
+                        limit: "0",
+                        used: "10",
+                        remaining: "0",
+                        resetTime: "2099-01-01T00:00:00Z",
+                    },
+                }),
+                post_json: vi.fn(),
+                get_raw: vi.fn(),
+            },
+        });
+        const result = await run_connector(raw, script, ctx);
+        for (const obs of result.observations) {
+            expect(obs.status).toBe("normal");
+        }
+    });
+
     it("carries user.membership.level into account_label", async () => {
         const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
         const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;

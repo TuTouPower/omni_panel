@@ -23,14 +23,6 @@ function to_number(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function status_for_usage(used: number, limit: number): ScriptObservation["status"] {
-    if (limit <= 0) return "normal";
-    const ratio = used / limit;
-    if (ratio >= 0.9) return "critical";
-    if (ratio >= 0.75) return "warning";
-    return "normal";
-}
-
 function next_month_start(): number {
     const now = new Date();
     const year = now.getUTCMonth() + 1 <= 11 ? now.getUTCFullYear() : now.getUTCFullYear() + 1;
@@ -89,7 +81,7 @@ async function main(): Promise<ScriptObservation[]> {
             normalized_label: "月用量",
             used: plan_usage,
             limit: plan_limit,
-            status: status_for_usage(plan_usage, plan_limit),
+            status: plan_limit > 0 ? ctx.status.for_ratio(plan_usage, plan_limit) : "normal",
         },
     ];
 
@@ -111,7 +103,7 @@ async function main(): Promise<ScriptObservation[]> {
             normalized_label,
             used,
             limit: plan_limit,
-            status: status_for_usage(used, plan_limit),
+            status: plan_limit > 0 ? ctx.status.for_ratio(used, plan_limit) : "normal",
         });
     }
 

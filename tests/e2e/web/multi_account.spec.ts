@@ -31,13 +31,12 @@ test.describe("multi-account display (web)", () => {
         const duplicates = names.filter((n, i) => names.indexOf(n) !== i);
         expect(duplicates).toEqual([]);
 
-        // 强校验合并语义：KIMI fixture 有 3 enabled connector，必须合并为恰好 1 张 Kimi card
-        // （仅断"无重复"无法捕获"未来误改每 connector 一张但名字各异"的退化）
-        // synthetic 无 KIMI connector -> skip（real fixture 锁定合并语义）
+        // 强校验合并语义：KIMI fixture 必须合并为恰好 1 张 Kimi card。
+        // synthetic.json 手工保证含 1 个 KIMI connector（1→1；gen_synthetic.mjs
+        // 不产生，重跑 e2e:gen-synthetic 会覆盖，见 docs/pending.md p021）；
+        // real fixture 3 个 KIMI enabled connector 合并 3→1，验证同语义
+        // （仅断"无重复"无法捕获"未来误改每 connector 一张但名字各异"的退化）。
         const kimi_cards = live.locator(".card .card-name", { hasText: "Kimi" });
-        if ((await kimi_cards.count()) === 0) {
-            test.skip(true, "fixture 无 KIMI connector，跳过 dedup 强校验");
-        }
         await expect(kimi_cards).toHaveCount(1);
     });
 

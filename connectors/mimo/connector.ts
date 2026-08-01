@@ -46,22 +46,6 @@ function to_number(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function status_for_usage(used: number, limit: number): ScriptObservation["status"] {
-    if (limit <= 0) return "normal";
-    const ratio = used / limit;
-    if (ratio >= 0.9) return "critical";
-    if (ratio >= 0.75) return "warning";
-    return "normal";
-}
-
-function status_for_balance(balance: number, limit: number): ScriptObservation["status"] {
-    if (limit <= 0) return "normal";
-    const ratio = balance / limit;
-    if (ratio <= 0.1) return "critical";
-    if (ratio <= 0.2) return "warning";
-    return "normal";
-}
-
 function to_reset_at(value: string | undefined): number | null {
     if (!value) return null;
     const ts = Date.parse(value);
@@ -139,16 +123,20 @@ async function main(): Promise<ScriptObservation[]> {
         last_error: null,
     };
 
-    const observations: ScriptObservation[] = usage_result.data.usage.items.map((item) => ({
-        ...base,
-        metric_id: `mimo:${item.name ?? "unknown"}`,
-        raw_label: item.name ?? "unknown",
-        normalized_label: label_for(item.name),
-        used: to_number(item.used),
-        limit: to_number(item.limit),
-        reset_at,
-        status: status_for_usage(to_number(item.used), to_number(item.limit)),
-    }));
+    const observations: ScriptObservation[] = usage_result.data.usage.items.map((item) => {
+        const used = to_number(item.used);
+        const limit = to_number(item.limit);
+        return {
+            ...base,
+            metric_id: `mimo:${item.name ?? "unknown"}`,
+            raw_label: item.name ?? "unknown",
+            normalized_label: label_for(item.name),
+            used,
+            limit,
+            reset_at,
+            status: limit > 0 ? ctx.status.for_ratio(used, limit) : "normal",
+        };
+    });
 
     if (balance_result?.code === 0 && balance_result.data) {
         const balance = to_number(balance_result.data.balance);
@@ -164,7 +152,7 @@ async function main(): Promise<ScriptObservation[]> {
                 cycleDurationMs: null,
                 display_style: "ratio",
                 reset_at: null,
-                status: balance_limit !== null ? status_for_balance(balance, limit) : "unknown",
+                status: balance_limit !== null ? ctx.status.for_balance(balance, limit) : "unknown",
             });
         }
     }

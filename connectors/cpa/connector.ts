@@ -52,12 +52,6 @@ function to_reset_at(value: unknown): number | null {
     return Number.isFinite(ts) ? ts : null;
 }
 
-function status_for_pct(pct: number): ScriptObservation["status"] {
-    if (pct >= 90) return "critical";
-    if (pct >= 75) return "warning";
-    return "normal";
-}
-
 function extract_email(name: string): string {
     const base = (name.split("/").pop() ?? name).replace(/\.json$/, "");
     const normalized = base.replace(/^auth-/, "").replace(/^[0-9a-f]{8,10}-/, "");
@@ -141,7 +135,7 @@ function parse_claude(
             limit: 100,
             display_style: "percent",
             reset_at,
-            status: status_for_pct(pct),
+            status: ctx.status.for_pct(pct),
             observed_at: now,
             source: "gateway",
             stale: false,
@@ -232,7 +226,7 @@ function parse_codex(
             limit: 100,
             display_style: "percent",
             reset_at,
-            status: status_for_pct(pct),
+            status: ctx.status.for_pct(pct),
             observed_at: now,
             source: "gateway",
             stale: false,
@@ -333,7 +327,7 @@ function parse_antigravity(
             limit: 100,
             display_style: "percent",
             reset_at,
-            status: status_for_pct(used),
+            status: ctx.status.for_pct(used),
             observed_at: now,
             source: "gateway",
             stale: false,
@@ -379,7 +373,7 @@ function parse_kimi(
             limit: 100,
             display_style: "percent",
             reset_at,
-            status: status_for_pct(pct),
+            status: ctx.status.for_pct(pct),
             observed_at: now,
             source: "gateway",
             stale: false,

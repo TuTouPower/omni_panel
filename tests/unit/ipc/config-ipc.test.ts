@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AppConfiguration, ConnectorConfiguration } from "../../../src/shared/types/config";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
+import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
+
+// t178: 移除未初始化 fallback 后，测试须显式初始化 renderer index path（模拟生产接线）。
+set_renderer_index_path("D:/app/out/renderer/index.html");
 
 type Mutable_plugins_config = Omit<AppConfiguration, "plugins"> & {
     plugins: ConnectorConfiguration[];
@@ -156,7 +160,7 @@ describe("config-ipc", () => {
             if (!handler) throw new Error("missing config:get handler");
 
             await handler({
-                senderFrame: { url: "file:///index.html#setting" },
+                senderFrame: { url: "file:///D:/app/out/renderer/index.html#setting" },
             } as Electron.IpcMainInvokeEvent);
 
             const joined = lines.join("\n");
@@ -457,7 +461,9 @@ describe("config-ipc", () => {
         if (!handler) throw new Error("missing config:duplicate handler");
 
         const result = await handler(
-            { senderFrame: { url: "file:///index.html#setting" } } as Electron.IpcMainInvokeEvent,
+            {
+                senderFrame: { url: "file:///D:/app/out/renderer/index.html#setting" },
+            } as Electron.IpcMainInvokeEvent,
             "claude",
         );
 
@@ -871,7 +877,7 @@ describe("config-ipc", () => {
         expect(() =>
             handler(
                 {
-                    senderFrame: { url: "file:///index.html#usage" },
+                    senderFrame: { url: "file:///D:/app/out/renderer/index.html#usage" },
                 } as Electron.IpcMainInvokeEvent,
                 "instance-1",
             ),
@@ -932,7 +938,7 @@ describe("config-ipc", () => {
 
             const result = await handler(
                 {
-                    senderFrame: { url: "file:///index.html#setting" },
+                    senderFrame: { url: "file:///D:/app/out/renderer/index.html#setting" },
                 } as Electron.IpcMainInvokeEvent,
                 "nonexistent-source",
             );
@@ -955,7 +961,7 @@ describe("config-ipc", () => {
 
             const result = await handler(
                 {
-                    senderFrame: { url: "file:///index.html#setting" },
+                    senderFrame: { url: "file:///D:/app/out/renderer/index.html#setting" },
                 } as Electron.IpcMainInvokeEvent,
                 "claude",
             );
