@@ -2,11 +2,11 @@
 tid: "t178"
 slug: "renderer_index_path_whitelist"
 title: "完整 rendererIndexPath 白名单"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t178_renderer_index_path_whitelist"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "60559e4e383f89cad4b60596ef6b86d84b912841"
 depends_on: ""
 conflicts_with: ""
 note: "p006"
@@ -22,7 +22,11 @@ note: "p006"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- doctor：无（testing.md 声明本仓无独立 doctor_cmd）。
+- SPIKE 实验（2026-08-01）：移除 helpers.ts:44 `endsWith("index.html")` fallback，未初始化时拒绝一切 file:// sender（生产 main/index.ts:126 启动即 set_renderer_index_path）。6 个 IPC 测试文件失败（event/connector-ipc-sender/token-stats/popup/config/grok_auth），valid sender 均为 `file:///index.html` 未初始化路径。
+- 修复：各测试显式 `set_renderer_index_path("D:/app/out/renderer/index.html")` + sender 改生产格式；popup-ipc/token-stats-ipc 因 `vi.resetModules()` 清模块缓存，beforeEach 动态 import helpers 后重新初始化。helpers.test.ts 新增「未初始化拒绝 file://」用例（红→绿）+ 旧「allows packaged pages」改「未初始化拒绝」。
+- 验证：全量 `pnpm test` 187 files / 1965 passed / 1 skipped；`tsc`、lint 通过。
+- 环境：worktree 需 `pnpm install` + `pnpm rebuild better-sqlite3` + `tsx scripts/gen-build-info.ts`（见 findings d006）。
 
 ## Review 处置
 
@@ -48,10 +52,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 有 finding 时用本表；每条 finding 一行。
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+### Round 1 (2026-08-01 12:20 UTC+8)
+
+| finding_id     | severity | status | rationale                                                                   | fix_ref                            |
+| -------------- | -------- | ------ | --------------------------------------------------------------------------- | ---------------------------------- |
+| t178_code_f001 | minor    | 已修   | 未初始化与 pathname 不匹配守卫合并为单一条件，消除重复错误串                | src/main/ipc/helpers.ts:39         |
+| t178_test_f001 | minor    | 已修   | I15 测试显式 set_renderer_index_path 后断言非 index.html 路径拒绝，恢复原意 | tests/unit/ipc/helpers.test.ts:200 |
 
 ## 收尾报告
 
@@ -60,8 +66,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+    - AC1：helpers.ts 移除未初始化 endsWith fallback，未初始化拒绝一切 file:// sender（新增 helpers.test.ts 用例红→绿；旧「allows packaged pages」改「未初始化拒绝」）。
+    - AC2：已初始化精确 pathname 比对不变（t067 用例保留）；7 个 IPC 测试文件显式 set_renderer_index_path + sender 改生产格式。
+    - AC3：全量 `pnpm test` 187 files / 1965 passed / 1 skipped；`tsc`、lint 通过。
 
 ### Reviewer verdict
 
@@ -69,15 +78,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（1 minor：f001 已修）
+- Round 1 test：PASS（1 minor：f001 已修）
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+未初始化 rendererIndexPath fallback 移除，file:// sender 一律严格校验；p006 闭环。

@@ -36,6 +36,16 @@ describe("assert_valid_sender rendererIndexPath whitelist (t067)", () => {
             assert_valid_sender(event);
         }).toThrow("Invalid file:// sender path");
     });
+
+    it("rejects file:// sender when renderer index path not initialized (no endsWith fallback)", () => {
+        set_renderer_index_path("");
+        const event = {
+            senderFrame: { url: "file:///index.html" },
+        } as unknown as Electron.IpcMainInvokeEvent;
+        expect(() => {
+            assert_valid_sender(event);
+        }).toThrow("Invalid file:// sender path");
+    });
 });
 
 describe("IPC helpers", () => {
@@ -146,14 +156,15 @@ describe("assert_valid_sender", () => {
         }).toThrow("IPC not allowed from unknown origin");
     });
 
-    it("allows file:// sender (packaged app pages)", () => {
+    it("rejects file:// sender when renderer index path not initialized (packaged pages must init path)", () => {
         delete process.env["ELECTRON_RENDERER_URL"];
+        set_renderer_index_path("");
         const event = {
             senderFrame: { url: "file:///index.html" },
         } as unknown as Electron.IpcMainInvokeEvent;
         expect(() => {
             assert_valid_sender(event);
-        }).not.toThrow();
+        }).toThrow("Invalid file:// sender path");
     });
 
     it("allows dev-server sender matching ELECTRON_RENDERER_URL", () => {
@@ -188,12 +199,15 @@ describe("assert_valid_sender", () => {
 
     it("rejects file:// sender whose path is not index.html (I15)", () => {
         delete process.env["ELECTRON_RENDERER_URL"];
+        // 已初始化下精确 pathname 比对：非 index.html 路径拒绝
+        set_renderer_index_path("D:\\app\\out\\renderer\\index.html");
         const event = {
             senderFrame: { url: "file:///evil/page.html" },
         } as unknown as Electron.IpcMainInvokeEvent;
         expect(() => {
             assert_valid_sender(event);
         }).toThrow("Invalid file:// sender path");
+        set_renderer_index_path("");
     });
 
     it("rejects dev-server sender with similar prefix (origin compare, I15)", () => {

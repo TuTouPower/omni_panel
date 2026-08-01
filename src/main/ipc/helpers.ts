@@ -36,13 +36,9 @@ export function assert_valid_sender(event: IpcMainInvokeEvent): void {
     if (url.startsWith("file://")) {
         try {
             const u = new URL(url);
-            if (renderer_index_pathname) {
-                // t067: 精确比对 rendererIndexPath pathname（非 endsWith index.html）。
-                if (u.pathname !== renderer_index_pathname) {
-                    throw new Error(`Invalid file:// sender path: ${u.pathname}`);
-                }
-            } else if (!u.pathname.endsWith("index.html")) {
-                // fallback（未初始化或测试环境）：endsWith 增量防御。
+            // 未初始化拒绝一切 file:// sender（生产 main/index.ts 启动即 set_renderer_index_path，
+            // 未初始化即配置错误或非预期 sender）；已初始化则精确比对 pathname（t067，非 endsWith）。
+            if (!renderer_index_pathname || u.pathname !== renderer_index_pathname) {
                 throw new Error(`Invalid file:// sender path: ${u.pathname}`);
             }
         } catch (err) {

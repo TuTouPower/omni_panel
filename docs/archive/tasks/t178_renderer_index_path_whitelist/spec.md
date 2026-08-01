@@ -60,7 +60,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 哪些既有测试依赖未初始化 fallback（测试环境专用路径）：UNVERIFIED-SPIKE，执行期移除 fallback 后跑测试核实失败清单。
+- 哪些既有测试依赖未初始化 fallback：**已核实（2026-08-01 实验）**——移除 fallback 后 6 个 IPC 测试文件失败（event-ipc/connector-ipc-sender/token-stats-ipc/popup-ipc/config-ipc/grok_auth_ipc），valid sender 均为 `file:///index.html` 类未初始化路径。修复：各测试显式 `set_renderer_index_path`（模拟生产接线）+ sender URL 改生产格式（`file:///D:/app/out/renderer/index.html`）；popup-ipc/token-stats-ipc 因 `vi.resetModules()` 清模块缓存，须在 beforeEach 动态 import helpers 后重新初始化。验证方式：移除 fallback 实跑测试核对失败清单。
 
 ### 风险与回退
 
