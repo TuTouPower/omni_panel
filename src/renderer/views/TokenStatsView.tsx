@@ -242,17 +242,14 @@ export function TokenStatsView() {
                 // Hour bar data for time-axis bar charts at hour granularity:
                 // pre-aggregated hour×model buckets instead of records (t173).
                 // query_records' ORDER BY DESC LIMIT truncates high-density
-                // windows, dropping early hours. 24h is short enough that
-                // KPI/donut still read records, but its hour bar must NOT — the
-                // records LIMIT silently cuts the earliest hours on high-density
-                // installs (p020). So 24h preset joins 7d/30d on the hour
-                // aggregate; only non-24h short windows (custom ranges <=25h)
-                // keep the records source for the hour bar. Other combos skip
-                // the fetch so the default 30d/day view does not run a
-                // full-table aggregate. (effectiveXaxis forces "time" for the
-                // sessions metric regardless of the raw xaxis selector.)
+                // windows, dropping early hours. The 24h preset (t183) and
+                // <=25h custom ranges (t187) join >=7d on this aggregate; only
+                // non-hour-granularity or non-time-axis combos skip the fetch so
+                // the default 30d/day view does not run a full-table aggregate.
+                // (effectiveXaxis forces "time" for the sessions metric
+                // regardless of the raw xaxis selector.)
                 const hour_fetch =
-                    gran !== "hour" || !time_axis || (is_short_window && preset !== "24h")
+                    gran !== "hour" || !time_axis
                         ? Promise.resolve([] as TokenStatsHourBucket[])
                         : window.usageboard.tokenStats.getHourBuckets({
                               ...env_filter,
@@ -349,17 +346,7 @@ export function TokenStatsView() {
                 }
             }
         },
-        [
-            platform,
-            agent,
-            metric,
-            xaxis,
-            gran,
-            currentRange,
-            is_short_window,
-            preset,
-            use_rollup_summary,
-        ],
+        [platform, agent, metric, xaxis, gran, currentRange, is_short_window, use_rollup_summary],
     );
 
     useEffect(() => {

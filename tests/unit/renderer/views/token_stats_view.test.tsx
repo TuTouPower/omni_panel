@@ -54,7 +54,15 @@ vi.mock("../../../../src/renderer/components/token-stats/SessionTable", () => ({
     ),
 }));
 vi.mock("../../../../src/renderer/components/token-stats/RangePicker", () => ({
-    RangePicker: () => <div />,
+    RangePicker: ({ onApply }: { onApply?: (range: { start: number; end: number }) => void }) => (
+        <button
+            type="button"
+            data-testid="apply-custom-range"
+            onClick={() => onApply?.({ start: Date.now() - 12 * 3600000, end: Date.now() })}
+        >
+            apply-custom
+        </button>
+    ),
 }));
 
 function session(id: string, overrides: Partial<TokenStatsSession> = {}): TokenStatsSession {
@@ -810,5 +818,64 @@ describe("TokenStatsView", () => {
         });
         // No rollup rows on 7d project axis (empty array) → records path used.
         expect(mocked_bar_chart.props?.rollup).toHaveLength(0);
+    });
+
+    it("feeds BarChart hour buckets on a <=25h custom range at hour granularity (t187)", async () => {
+        // Regression (p023): non-24h preset <=25h custom ranges used per-message
+        // records for the time-axis hour bar, which query_records' ORDER BY DESC
+        // LIMIT truncates on high-density windows. The custom range now routes
+        // the hour bar through getHourBuckets like the 24h preset / >=7d windows.
+        const now = Date.now();
+        const hour = 3600000;
+        // records truncated to the last 2 hours (LIMIT cut).
+        get_records.mockImplementation((filters: { start?: number; end?: number }) => {
+            const start = filters.start ?? 0;
+            const end = filters.end ?? now;
+            const recs = [];
+            for (let i = 1; i <= 2; i++) {
+                const ts = now - i * hour;
+                if (ts >= start && ts <= end) {
+                    recs.push({ ...session(`rec-${String(i)}`), timestamp: ts });
+                }
+            }
+            return Promise.resolve(recs);
+        });
+        // hour aggregate covers the whole 12h custom window (every 2h → 7 rows).
+        get_hour_buckets.mockResolvedValue(
+            Array.from({ length: 7 }, (_, i) => ({
+                hour_start: now - 12 * hour + i * 2 * hour,
+                model: "model-1",
+                calls: 1,
+                sessions: 1,
+                tokens: 100,
+            })),
+        );
+        get_sessions.mockResolvedValue([session("s")]);
+        get_buckets.mockResolvedValue([bucket()]);
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+        // Trigger a <=25h custom range via the mocked RangePicker's apply.
+        await user.click(screen.getByTestId("apply-custom-range"));
+        // Force hour granularity on the (time-axis) bar.
+        await user.click(screen.getByRole("button", { name: "小时" }));
+
+        await waitFor(() => {
+            expect(get_hour_buckets).toHaveBeenCalled();
+        });
+        const last_call = get_hour_buckets.mock.calls.at(-1)?.[0] as {
+            start: number;
+            end: number;
+        };
+        // The full custom window must be forwarded to the aggregate. The 60_000
+        // slack absorbs Date.now() drift between the test's `now` snapshot and
+        // the onApply call moment inside the component.
+        expect(last_call.end).toBeGreaterThan(last_call.start);
+        expect(last_call.end - last_call.start).toBeGreaterThanOrEqual(12 * hour - 60_000);
+        // BarChart receives the complete hour buckets, not the LIMIT-truncated
+        // records slice (records mock returns only 2).
+        expect(mocked_bar_chart.props?.hourBuckets?.length).toBe(7);
+        expect(mocked_bar_chart.props?.records?.length ?? 0).toBeLessThan(7);
     });
 });
