@@ -2732,6 +2732,36 @@
             "schedule_status": "",
             "note": "p004",
             "dir": "docs/archive/tasks/t182_e2e_real_refresh_assertion"
+        },
+        {
+            "tid": "t183",
+            "slug": "tokenstats_24h_hour_bar_aggregate",
+            "title": "代理面板 24h 时间柱改走 hour 聚合",
+            "status": "done",
+            "branch": "t183_tokenstats_24h_hour_bar_aggregate",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "3b5b9f6443ef80b0d08ae9a6ef54070c8958689f",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t183_tokenstats_24h_hour_bar_aggregate"
+        },
+        {
+            "tid": "t184",
+            "slug": "tokenstats_24h_summary_axes_aggregate",
+            "title": "代理面板 24h 汇总与非时间轴消除 records LIMIT 偏差",
+            "status": "done",
+            "branch": "t184_tokenstats_24h_summary_axes_aggregate",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "1e4ee9824ce843d5ca548f3bfae8fe8c0f5bce1f",
+            "depends_on": "t183",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t184_tokenstats_24h_summary_axes_aggregate"
         }
     ]
 }

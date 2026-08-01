@@ -2,36 +2,5 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t183",
-            "slug": "tokenstats_24h_hour_bar_aggregate",
-            "title": "代理面板 24h 时间柱改走 hour 聚合",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t183_tokenstats_24h_hour_bar_aggregate"
-        },
-        {
-            "tid": "t184",
-            "slug": "tokenstats_24h_summary_axes_aggregate",
-            "title": "代理面板 24h 汇总与非时间轴消除 records LIMIT 偏差",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "t183",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t184_tokenstats_24h_summary_axes_aggregate"
-        }
-    ]
+    "tasks": []
 }
