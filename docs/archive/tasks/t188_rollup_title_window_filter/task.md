@@ -2,11 +2,11 @@
 tid: "t188"
 slug: "rollup_title_window_filter"
 title: "query_range_rollup title 子查询补窗口过滤"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t188_rollup_title_window_filter"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "6d6345616bfc83d933a9f2b675aaac30d129fb98"
 depends_on: ""
 conflicts_with: ""
 note: "p024"
@@ -44,14 +44,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-02)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+| finding_id    | severity | status | rationale                              | fix_ref                                            |
+| ------------- | -------- | ------ | -------------------------------------- | -------------------------------------------------- |
+| t188_gen_f001 | minor    | 已修   | 注释元引用 `(p024)` 删除（元引用禁令） | src/main/core/token-stats/token-stats-store.ts:619 |
 
 ## 收尾报告
 
@@ -60,24 +57,22 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+    - AC1：`title subquery honors the window start` 构造 s1 窗口内 title=A2（T1）、窗口外 title=B（T2+10s），断言 `query_range_rollup({start, end})` 返回 A2。
+    - AC2：`title subquery without start picks full-table latest` 不带 start 返回 B（全表最新）。
+    - AC3：外层 WHERE 保证窗口内无记录的 session 不入结果（既有用例覆盖）。
+    - 黑盒：typecheck / lint 零警告；全量 vitest 1995 passed。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（1 finding：t188_gen_f001 minor，注释元引用）
+- Round 2 general：PASS（f001 已修确认，无新发现）
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+query_range_rollup 的 title 子查询补 `t2.timestamp >= @start AND t2.timestamp < @end` 窗口条件（start/end 始终绑定默认值使子查询无条件引用），返回窗口内最新 title 对齐 records rs[0] 语义；p024 闭环。
