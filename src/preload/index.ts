@@ -17,6 +17,7 @@ import type {
     TokenStatsHeatmapFilters,
     TokenStatsHourFilters,
     TokenStatsRecordFilters,
+    TokenStatsRollupFilters,
 } from "../shared/types/token-stats";
 import "./usageboard-api";
 
@@ -126,6 +127,11 @@ const token_stats_methods = {
     getHourBuckets: (filters?: TokenStatsHourFilters) =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getHourBuckets"]>>>(
             IPC_CHANNELS.TOKEN_STATS_HOUR_BUCKETS,
+            filters,
+        ),
+    getRangeRollup: (filters?: TokenStatsRollupFilters) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getRangeRollup"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_ROLLUP,
             filters,
         ),
     getStatus: () =>

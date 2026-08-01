@@ -141,20 +141,21 @@ Session 列表 `SessionTable` 虚拟滚动；长列表按可视高度分段渲�
 
 代理面板各可视化区域的数据源已分层（避免渲染端对数十万 records 做 reduce）：
 
-| 区域                                           | 数据源                            | 说明                                                                                        |
-| ---------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
-| KPI（总 Token / 会话 / 调用 / 缓存命中率）     | `token_stats_buckets`             | `kpiFromBuckets` / `compositionSegmentsFromBuckets`，按时间窗 2 倍宽切 current/prev         |
-| Donut（model / project / agent / composition） | `buckets` + `sessions`            | model/composition/agent 走 buckets；project（按 directory 分组 session 数）走 sessions      |
-| SessionTable                                   | `token_stats_sessions`            | `sessionRowsFromSessions` 派生行，前端分页                                                  |
-| BarChart（时间 / 项目 / 会话轴）               | `token_stats_records`（带 limit） | 小时级精度需 per-message；受 `DEFAULT_RECORDS_LIMIT` 保护                                   |
-| BarChart（时间轴 · 小时粒度，≥7d 窗口）        | `query_hour_buckets`（SQL 聚合）  | 宽窗口 hour×model 聚合（t173），避免 records LIMIT 截断早期小时；24h 短窗口仍走 records     |
-| Heatmap（7×24）                                | `query_heatmap`（SQL 聚合）       | 后端 `GROUP BY strftime('%w'/'%H', +8 hours)` 返回 ≤168 格，renderer 不再拉 records（t170） |
+| 区域                                             | 数据源                            | 说明                                                                                                                                            |
+| ------------------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| KPI（总 Token / 会话 / 调用 / 缓存命中率）       | `token_stats_buckets`             | `kpiFromBuckets` / `compositionSegmentsFromBuckets`，按时间窗 2 倍宽切 current/prev                                                             |
+| Donut（model / project / agent / composition）   | `buckets` + `sessions`            | model/composition/agent 走 buckets；project（按 directory 分组 session 数）走 sessions                                                          |
+| SessionTable                                     | `token_stats_sessions`            | `sessionRowsFromSessions` 派生行，前端分页                                                                                                      |
+| BarChart（时间 / 项目 / 会话轴）                 | `token_stats_records`（带 limit） | 小时级精度需 per-message；受 `DEFAULT_RECORDS_LIMIT` 保护                                                                                       |
+| BarChart（时间轴 · 小时粒度，≥7d 或 24h preset） | `query_hour_buckets`（SQL 聚合）  | 宽窗口 hour×model 聚合（t173）与 24h preset 时间轴小时柱（t183）共用，避免 records LIMIT 截断早期小时；非 24h 的 ≤25h 自定义范围仍走 records    |
+| 24h preset 的 KPI / donut / 项目 / 会话轴        | `query_range_rollup`（SQL 聚合）  | (source, model, directory, session_id) 分组，无 LIMIT；24h preset 的 KPI/donut delta 与项目/会话柱走 rollup 而非受 LIMIT 截断的 records（t184） |
+| Heatmap（7×24）                                  | `query_heatmap`（SQL 聚合）       | 后端 `GROUP BY strftime('%w'/'%H', +8 hours)` 返回 ≤168 格，renderer 不再拉 records（t170）                                                     |
 
-`TokenStatsView.loadData` 一次拉 buckets（env/source/date filter）+ sessions（env/source）+ records（env/agent/start/end/limit）+ heatmap（env/agent/start/end）+ hour buckets（env/agent/start/end，仅宽窗口 + 时间轴 + 小时粒度）。records 降为 Bar 专用辅助，不再作为 KPI/donut/SessionTable/Heatmap 的主数据源。
+`TokenStatsView.loadData` 一次拉 buckets（env/source/date filter）+ sessions（env/source）+ records（env/agent/start/end/limit）+ heatmap（env/agent/start/end）+ hour buckets（env/agent/start/end，时间轴 + 小时粒度时，7d/30d 与 24h preset）+ rollup（env/agent/start/end，仅 24h preset 的 current + previous 两窗口）。records 降为 Bar 项目/会话轴的 fallback 与自定义短窗口数据源，不再作为 KPI/donut/SessionTable/Heatmap 的主数据源。
 
-24h preset 例外（t168）：短窗口（≤25h）下 buckets 日级聚合无法对称切分 current/prev（48h vs 24h），KPI/donut delta 改用 records 驱动（精确 epoch 切分，prevRangeRecords 半开区间）。loadData 短窗口 records 拉 2 倍宽 + limit 50000 覆盖前段。≥7d preset 仍走 buckets（日级误差占比小）。
+24h preset 例外（t168/t184）：短窗口（≤25h）下 buckets 日级聚合无法对称切分 current/prev（48h vs 24h），KPI/donut delta 与项目/会话轴本需精确 epoch 切分。t168 先改用 records 驱动，但 records 倒序 LIMIT 在高密度下截断早期时段（p020）；t184 把 24h preset 的这些轴全部改走 `query_range_rollup` 有界 SQL 聚合（无 LIMIT），current/previous 各拉一次半开 `[start, end)` 窗口，边界记录不双计。≥7d preset 仍走 buckets（日级误差占比小）。24h preset 的**时间轴小时柱**不走 records（t183）；非 24h 的自定义 ≤25h 范围 KPI/donut/柱仍走受限 records（p023）。
 
-24h preset 下 buckets 按日聚合使 current(48h)/prev(24h) 窗口不对称，KPI delta 偏大——日级聚合固有取舍（`t164_code_f003`）；精确 24h delta 需 records 或 hourly 聚合，留后续。
+24h preset 下 buckets 按日聚合使 current(48h)/prev(24h) 窗口不对称，KPI delta 偏大——日级聚合固有取舍（`t164_code_f003`）；24h preset 现走 rollup 精确统计（t184），不再受该取舍影响。
 
 ## 12. 成功标准（Web 验证）
 

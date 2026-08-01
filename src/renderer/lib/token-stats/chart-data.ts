@@ -7,6 +7,7 @@ import type {
     TokenStatsBucket,
     TokenStatsHeatmapCell,
     TokenStatsHourBucket,
+    TokenStatsRollupRow,
     TokenStatsSession,
 } from "../../../shared/types/token-stats";
 
@@ -387,9 +388,9 @@ export function prepareBarDataFromHourBuckets(
         const cell = cells[ci];
         if (!cell) continue;
         // sessions are per-hour-per-model distinct (same as the day-buckets
-        // path); summing across models mirrors that path. The 24h window still
-        // uses records, which dedupe sessions per project instead, so the two
-        // windows can differ when one session spans models in an hour.
+        // path); summing across models mirrors that path. Short-window hour
+        // bars that still use records dedupe sessions per project instead, so
+        // the two sources can differ when one session spans models in an hour.
         const v = metric === "tokens" ? b.tokens : metric === "calls" ? b.calls : b.sessions;
         cell[b.model] = (cell[b.model] ?? 0) + v;
     }
@@ -782,4 +783,270 @@ export function projectSegmentsFromSessions(
         });
     }
     return segs;
+}
+
+// --- rollup-based aggregates (t184) ---
+//
+// These mirror the records-based segment/KPI/bar functions but consume the
+// bounded (source, model, directory, session_id) rows from query_range_rollup.
+// The 24h preset uses them so KPI/donut/project/session axes read the complete
+// window instead of per-message records, whose ORDER BY DESC LIMIT truncates
+// high-density windows (p020). Row count scales with distinct group combos,
+// not per-message volume (AC5).
+
+/** Sum the four token components on a single rollup row. */
+function rollup_tokens(r: TokenStatsRollupRow): number {
+    return r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
+}
+
+/** Token total value fn for rollup rows (mirrors sumTokensValue). */
+export const sumTokensRollup: (r: TokenStatsRollupRow) => number = (r) => rollup_tokens(r);
+
+/** Calls value fn: one rollup row aggregates calls across its messages. */
+export const rollupCallValue: (r: TokenStatsRollupRow) => number = (r) => r.calls;
+
+/** Aggregated metric total for a rollup group (distinct sessions dedupe). */
+function rollup_group_metric(rows: TokenStatsRollupRow[], metric: Metric): number {
+    if (metric === "tokens") {
+        return rows.reduce((s, r) => s + rollup_tokens(r), 0);
+    }
+    if (metric === "calls") {
+        return rows.reduce((s, r) => s + r.calls, 0);
+    }
+    return new Set(rows.map((r) => r.session_id)).size;
+}
+
+/** Fixed source → agent label/color mapping (mirrors BUCKET_AGENT_*). */
+const ROLLUP_AGENT_COLORS: Record<string, string> = {
+    claude_code: "#ffb78a",
+    opencode: "#8ad8ff",
+    kimi_code: "#7ee8b0",
+};
+const ROLLUP_AGENT_LABELS: Record<string, string> = {
+    claude_code: "Claude Code",
+    opencode: "OpenCode",
+    kimi_code: "Kimi Code",
+};
+
+/** Donut segments comparing token usage across agents (source → agent). */
+export function agentSegmentsFromRollup(rows: TokenStatsRollupRow[]): DonutSegment[] {
+    const totals: Record<string, number> = {
+        claude_code: 0,
+        opencode: 0,
+        kimi_code: 0,
+    };
+    for (const r of rows) {
+        totals[r.source] = (totals[r.source] ?? 0) + rollup_tokens(r);
+    }
+    return (["claude_code", "opencode", "kimi_code"] as const)
+        .filter((s) => (totals[s] ?? 0) > 0)
+        .map((s) => ({
+            name: ROLLUP_AGENT_LABELS[s] ?? s,
+            value: totals[s] ?? 0,
+            itemStyle: { color: ROLLUP_AGENT_COLORS[s] ?? "#6b7890" },
+        }));
+}
+
+/** Segments for the cache-hit-rate donut, summed across all rollup rows. */
+export function compositionSegmentsFromRollup(rows: TokenStatsRollupRow[]): DonutSegment[] {
+    const colors: Record<string, string> = {
+        cache_read: "#3ddc97",
+        input: "#4cc2ff",
+        cache_write: "#ffb454",
+        output: "#7c6cf6",
+    };
+    const totals = {
+        cache_read: rows.reduce((s, r) => s + r.cache_read_tokens, 0),
+        input: rows.reduce((s, r) => s + r.input_tokens, 0),
+        cache_write: rows.reduce((s, r) => s + r.cache_write_tokens, 0),
+        output: rows.reduce((s, r) => s + r.output_tokens, 0),
+    };
+    return (Object.keys(totals) as (keyof typeof totals)[])
+        .filter((k) => totals[k] > 0)
+        .map((k) => ({
+            name: k,
+            value: totals[k],
+            itemStyle: { color: colors[k] ?? "#6b7890" },
+        }));
+}
+
+/** Top5 + "其他" donut segments by model from rollup rows. `valFn` selects the
+ * per-row value to sum (default: token total). */
+export function modelSegmentsFromRollup(
+    rows: TokenStatsRollupRow[],
+    valFn: (r: TokenStatsRollupRow) => number,
+    theme: "dark" | "light",
+): DonutSegment[] {
+    const totals: Record<string, number> = {};
+    for (const r of rows) {
+        totals[r.model] = (totals[r.model] ?? 0) + valFn(r);
+    }
+    const { top, rest } = topGroups(totals, 5);
+    const palette = paletteFor(theme);
+    const segs: DonutSegment[] = top.map((m, i) => ({
+        name: m,
+        value: totals[m] ?? 0,
+        itemStyle: { color: colorForTopModel(m, i, theme) },
+    }));
+    if (rest.length) {
+        const restItems = rest
+            .map((m) => [m, totals[m] ?? 0] as const)
+            .filter(([, v]) => v > 0)
+            .sort((a, b) => b[1] - a[1]);
+        const restTotal = restItems.reduce((sum, [, v]) => sum + v, 0);
+        segs.push({
+            name: `其他（${String(rest.length)} 个模型）`,
+            value: restTotal,
+            itemStyle: { color: palette.other },
+            extra:
+                restItems
+                    .slice(0, 5)
+                    .map(
+                        ([k, v]) =>
+                            `<br/><span style="opacity:.75">· ${escapeHtml(k)}: ${escapeHtml(fmtTok(v))}</span>`,
+                    )
+                    .join("") +
+                (restItems.length > 5
+                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
+                    : ""),
+        });
+    }
+    return segs;
+}
+
+/** KPI totals (tokens / distinct sessions / calls) summed across rollup rows. */
+export function kpiFromRollup(rows: TokenStatsRollupRow[]): {
+    tokens: number;
+    sessions: number;
+    calls: number;
+} {
+    let tokens = 0;
+    let calls = 0;
+    for (const r of rows) {
+        tokens += rollup_tokens(r);
+        calls += r.calls;
+    }
+    return { tokens, sessions: new Set(rows.map((r) => r.session_id)).size, calls };
+}
+
+/** Cache hit rate: cache_read / (cache_read + input), summed across rows. */
+export function hitRateOfRollup(rows: TokenStatsRollupRow[]): number {
+    const cr = rows.reduce((sum, r) => sum + r.cache_read_tokens, 0);
+    const inp = rows.reduce((sum, r) => sum + r.input_tokens + r.cache_read_tokens, 0);
+    return inp ? cr / inp : 0;
+}
+
+/**
+ * Project/session-axis bar data from rollup rows (24h preset, t184). Mirrors
+ * prepareBarData's project/session branches but consumes the bounded SQL
+ * aggregate so high-density windows keep their complete top groups instead of
+ * the LIMIT-truncated records slice. Time axis is not supported here — the
+ * 24h time bar routes through hour buckets.
+ */
+export function prepareBarDataFromRollup(
+    rows: TokenStatsRollupRow[],
+    metric: Metric,
+    xaxis: XAxis,
+    theme: "dark" | "light",
+    dirAliases: readonly { alias: string; dirs: readonly string[] }[] = [],
+    modelAliases: readonly { alias: string; models: readonly string[] }[] = [],
+): BarData {
+    const colorDim: "model" | "project" = metric === "sessions" ? "project" : "model";
+    const dir_resolver = build_resolver(dirAliases.map((a) => ({ alias: a.alias, keys: a.dirs })));
+    const model_resolver = build_resolver(
+        modelAliases.map((a) => ({ alias: a.alias, keys: a.models })),
+    );
+    const dir_key = (r: TokenStatsRollupRow) => dir_resolver(r.directory ?? "(unknown)");
+    const keyOf = (r: TokenStatsRollupRow) =>
+        colorDim === "model" ? model_resolver(r.model) : dir_key(r);
+
+    let labels: string[] = [];
+    let idxOf: (r: TokenStatsRollupRow) => number;
+
+    if (xaxis === "project") {
+        const dirs = Object.entries(groupBy(rows, dir_key))
+            .map(([k, rs]) => [k, rollup_group_metric(rs, metric)] as const)
+            .sort((a, b) => b[1] - a[1])
+            .map(([k]) => k);
+        labels = dirs.map((d) => shortDir(d));
+        idxOf = (r) => dirs.indexOf(dir_key(r));
+    } else {
+        // Session axis: a session spans multiple rollup rows when it uses
+        // several models; merge per session_id, rank by token total, top 20.
+        const ranked = Object.entries(groupBy(rows, (r) => r.session_id))
+            .map(([session_id, rs]) => ({
+                session_id,
+                title: rs[0]?.title ?? "",
+                tokens: rs.reduce((sum, r) => sum + rollup_tokens(r), 0),
+            }))
+            .sort((a, b) => b.tokens - a.tokens)
+            .slice(0, 20);
+        labels = ranked.map((s) => {
+            const t = s.title;
+            return t.length > 7 ? `${t.slice(0, 7)}…` : t;
+        });
+        idxOf = (r) => ranked.findIndex((s) => s.session_id === r.session_id);
+    }
+
+    const n = labels.length;
+    const cells: Record<string, number>[] = Array.from({ length: n }, () => ({}));
+    const sessionSets: Record<string, Set<string>>[] = Array.from({ length: n }, () => ({}));
+
+    for (const r of rows) {
+        const ci = idxOf(r);
+        if (ci < 0 || ci >= n) continue;
+        const cell = cells[ci];
+        const sessionSet = sessionSets[ci];
+        if (!cell || !sessionSet) continue;
+        const k = keyOf(r);
+        if (metric === "sessions") {
+            (sessionSet[k] ??= new Set()).add(r.session_id);
+        } else {
+            cell[k] = (cell[k] ?? 0) + (metric === "tokens" ? rollup_tokens(r) : r.calls);
+        }
+    }
+    if (metric === "sessions") {
+        sessionSets.forEach((m, ci) => {
+            const cell = cells[ci];
+            if (!cell) return;
+            Object.entries(m).forEach(([k, set]) => {
+                cell[k] = set.size;
+            });
+        });
+    }
+
+    const totals: Record<string, number> = {};
+    cells.forEach((m) => {
+        Object.entries(m).forEach(([k, v]) => {
+            totals[k] = (totals[k] ?? 0) + v;
+        });
+    });
+    const { top, rest } = topGroups(totals, 5);
+    const restSet = new Set(rest);
+    const palette = paletteFor(theme);
+    const seriesNames = rest.length ? [...top, "其他"] : top;
+    const otherDetails: [string, number][][] = cells.map((m) =>
+        Object.entries(m)
+            .filter(([k]) => restSet.has(k))
+            .sort((a, b) => b[1] - a[1]),
+    );
+    const colorOf = (k: string, index: number) =>
+        k === "其他"
+            ? palette.other
+            : colorDim === "model"
+              ? colorForTopModel(k, index, theme)
+              : colorForTopProject(k, index, theme);
+
+    const series = seriesNames.map((nm, i) => ({
+        name: nm,
+        data: cells.map((m) =>
+            Object.entries(m).reduce(
+                (sum, [k, v]) => sum + (displayKey(k, restSet) === nm ? v : 0),
+                0,
+            ),
+        ),
+        itemStyle: { color: colorOf(nm, i) },
+    }));
+
+    return { labels, bucketStarts: [], seriesNames, series, otherDetails };
 }

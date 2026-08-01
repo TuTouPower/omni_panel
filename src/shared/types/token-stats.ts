@@ -207,3 +207,32 @@ export interface TokenStatsHourFilters {
     start?: number;
     end?: number;
 }
+
+/**
+ * One (source, model, directory, session_id) rollup row over a bounded window,
+ * aggregated in SQL so 24h KPI/donut/project/session axes never pull
+ * per-message records (whose ORDER BY DESC LIMIT truncates high-density
+ * windows, t184). No LIMIT — the row count scales with distinct group combos,
+ * not per-message volume. `title` is the session's latest title (for the
+ * session axis labels).
+ */
+export const tokenStatsRollupRowSchema = z.object({
+    source: tokenStatsSourceSchema,
+    model: z.string(),
+    directory: z.string().nullable(),
+    session_id: z.string(),
+    title: z.string().nullable(),
+    calls: z.number().int().nonnegative(),
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
+    cache_read_tokens: z.number().int().nonnegative(),
+    cache_write_tokens: z.number().int().nonnegative(),
+});
+export type TokenStatsRollupRow = z.infer<typeof tokenStatsRollupRowSchema>;
+
+export interface TokenStatsRollupFilters {
+    agent?: "claude-code" | "opencode" | "kimi-code";
+    env?: TokenStatsEnv;
+    start?: number;
+    end?: number;
+}

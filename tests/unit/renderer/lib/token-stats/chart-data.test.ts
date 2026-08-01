@@ -4,25 +4,34 @@ import type {
     TokenStatsBucket,
     TokenStatsHeatmapCell,
     TokenStatsHourBucket,
+    TokenStatsRollupRow,
     TokenStatsSession,
 } from "../../../../../src/shared/types/token-stats";
 import {
     agentSegments,
     agentSegmentsFromBuckets,
+    agentSegmentsFromRollup,
     compositionSegments,
     compositionSegmentsFromBuckets,
+    compositionSegmentsFromRollup,
     escapeHtml,
+    hitRateOfRollup,
     kpiFromBuckets,
+    kpiFromRollup,
     modelColorMap,
     modelSegments,
     modelSegmentsFromBuckets,
+    modelSegmentsFromRollup,
     prepareBarData,
     prepareBarDataFromBuckets,
     prepareBarDataFromHourBuckets,
+    prepareBarDataFromRollup,
     prepareHeatmapData,
     prepareHeatmapFromCells,
     projectSegments,
     projectSegmentsFromSessions,
+    rollupCallValue,
+    sumTokensRollup,
     sumTokensValue,
 } from "../../../../../src/renderer/lib/token-stats/chart-data";
 
@@ -713,6 +722,164 @@ describe("chart-data", () => {
             const sessions = [session_row({ id: "a", directory: null })];
             const segs = projectSegmentsFromSessions(sessions, "dark");
             expect(segs).toHaveLength(1);
+        });
+    });
+
+    describe("rollup aggregates (t184)", () => {
+        function rollup_row(overrides: Partial<TokenStatsRollupRow> = {}): TokenStatsRollupRow {
+            return {
+                source: "claude_code",
+                model: "claude-sonnet-4",
+                directory: "/proj",
+                session_id: "s1",
+                title: "T1",
+                calls: 1,
+                input_tokens: 10,
+                output_tokens: 5,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                ...overrides,
+            };
+        }
+
+        describe("kpiFromRollup", () => {
+            it("sums tokens/calls and counts distinct sessions across rows", () => {
+                // Same session across two models → 1 distinct session, both calls
+                // and token components summed.
+                const rows = [
+                    rollup_row({
+                        session_id: "s1",
+                        calls: 2,
+                        input_tokens: 100,
+                        output_tokens: 50,
+                    }),
+                    rollup_row({ session_id: "s1", calls: 3, input_tokens: 40, output_tokens: 20 }),
+                    rollup_row({ session_id: "s2", calls: 1, input_tokens: 10, output_tokens: 5 }),
+                ];
+                const kpi = kpiFromRollup(rows);
+                expect(kpi.tokens).toBe(225);
+                expect(kpi.sessions).toBe(2);
+                expect(kpi.calls).toBe(6);
+            });
+
+            it("is empty-safe", () => {
+                expect(kpiFromRollup([])).toEqual({ tokens: 0, sessions: 0, calls: 0 });
+            });
+        });
+
+        it("agentSegmentsFromRollup maps source to agent label and sums tokens", () => {
+            const rows = [
+                rollup_row({ source: "claude_code", input_tokens: 100 }),
+                rollup_row({ source: "opencode", input_tokens: 50 }),
+                rollup_row({ source: "claude_code", input_tokens: 25 }),
+            ];
+            const segs = agentSegmentsFromRollup(rows);
+            const claude = segs.find((s) => s.name === "Claude Code");
+            const open = segs.find((s) => s.name === "OpenCode");
+            // each row also carries the default output_tokens (5).
+            expect(claude?.value).toBe(135);
+            expect(open?.value).toBe(55);
+            expect(segs.some((s) => s.name === "Kimi Code")).toBe(false);
+        });
+
+        it("compositionSegmentsFromRollup sums each token component", () => {
+            const rows = [
+                rollup_row({ input_tokens: 10, cache_read_tokens: 30 }),
+                rollup_row({ output_tokens: 5, cache_write_tokens: 2 }),
+            ];
+            const segs = compositionSegmentsFromRollup(rows);
+            // row1 contributes default output 5; row2 contributes default input 10.
+            expect(segs.find((s) => s.name === "input")?.value).toBe(20);
+            expect(segs.find((s) => s.name === "cache_read")?.value).toBe(30);
+            expect(segs.find((s) => s.name === "output")?.value).toBe(10);
+            expect(segs.find((s) => s.name === "cache_write")?.value).toBe(2);
+        });
+
+        it("modelSegmentsFromRollup groups by model, valFn selects tokens or calls", () => {
+            const rows = [
+                rollup_row({ model: "m1", calls: 4, input_tokens: 100 }),
+                rollup_row({ model: "m1", calls: 2, input_tokens: 50 }),
+                rollup_row({ model: "m2", calls: 1, input_tokens: 10 }),
+            ];
+            const tokens = modelSegmentsFromRollup(rows, sumTokensRollup, "dark");
+            // token total includes the default output_tokens (5) per row.
+            expect(tokens.find((s) => s.name === "m1")?.value).toBe(160);
+            const calls = modelSegmentsFromRollup(rows, rollupCallValue, "dark");
+            expect(calls.find((s) => s.name === "m1")?.value).toBe(6);
+        });
+
+        it("hitRateOfRollup computes cache_read / (cache_read + input)", () => {
+            const rows = [
+                rollup_row({ input_tokens: 10, cache_read_tokens: 30 }),
+                rollup_row({ input_tokens: 20, cache_read_tokens: 10 }),
+            ];
+            expect(hitRateOfRollup(rows)).toBeCloseTo(40 / 70);
+            expect(hitRateOfRollup([])).toBe(0);
+        });
+
+        describe("prepareBarDataFromRollup", () => {
+            it("stacks the project axis by directory with alias grouping", () => {
+                // sessions metric → project colorDim → series keys are resolved
+                // directories, so the alias collapses both dirs into one column.
+                const rows = [
+                    rollup_row({ session_id: "a", directory: "/p1", input_tokens: 100 }),
+                    rollup_row({ session_id: "b", directory: "/p1", input_tokens: 60 }),
+                    rollup_row({ session_id: "c", directory: "/p2", input_tokens: 30 }),
+                ];
+                const data = prepareBarDataFromRollup(rows, "sessions", "project", "dark", [
+                    { alias: "P", dirs: ["/p1", "/p2"] },
+                ]);
+                // Both dirs collapse under the alias → single "P" bar.
+                expect(data.labels).toEqual(["P"]);
+                // 3 distinct sessions across the two collapsed dirs.
+                expect(data.series.find((s) => s.name === "P")?.data[0]).toBe(3);
+            });
+
+            it("keeps top 5 projects and merges the rest into 其他", () => {
+                // sessions metric → project colorDim → series keys are dirs.
+                const rows = Array.from({ length: 8 }, (_, i) =>
+                    rollup_row({
+                        session_id: `s${String(i)}`,
+                        directory: `/p${String(i)}`,
+                        input_tokens: 100 - i,
+                    }),
+                );
+                const data = prepareBarDataFromRollup(rows, "sessions", "project", "dark");
+                expect(data.seriesNames).toHaveLength(6);
+                expect(data.seriesNames[5]).toBe("其他");
+            });
+
+            it("session axis ranks sessions by tokens and merges multi-model rows", () => {
+                // One session uses two models → two rollup rows; must rank as one
+                // session by combined tokens.
+                const rows = [
+                    rollup_row({ session_id: "big", title: "BigSession", input_tokens: 100 }),
+                    rollup_row({
+                        session_id: "big",
+                        title: "BigSession",
+                        model: "claude-opus-4",
+                        input_tokens: 50,
+                    }),
+                    rollup_row({ session_id: "small", title: "Small", input_tokens: 10 }),
+                ];
+                const data = prepareBarDataFromRollup(rows, "tokens", "session", "dark");
+                expect(data.labels[0]).toBe("BigSess…");
+                expect(data.labels).toHaveLength(2);
+            });
+
+            it("calls metric counts aggregated calls per project", () => {
+                const rows = [
+                    rollup_row({ session_id: "a", directory: "/p1", calls: 5 }),
+                    rollup_row({ session_id: "b", directory: "/p1", calls: 3 }),
+                ];
+                const data = prepareBarDataFromRollup(rows, "calls", "project", "dark");
+                // shortDir("/p1") = "p1" labels the axis; the series stack sums
+                // the raw dir key's aggregated calls across rows.
+                const p1_idx = data.labels.indexOf("p1");
+                expect(p1_idx).toBeGreaterThanOrEqual(0);
+                const total = data.series.reduce((sum, s) => sum + (s.data[p1_idx] ?? 0), 0);
+                expect(total).toBe(8);
+            });
         });
     });
 });

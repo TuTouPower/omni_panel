@@ -7,6 +7,7 @@ import type {
     TokenStatsHeatmapFilters,
     TokenStatsHourFilters,
     TokenStatsRecordFilters,
+    TokenStatsRollupFilters,
     TokenStatsSession,
 } from "../../shared/types/token-stats";
 import { ok, assert_valid_sender, type IpcResult } from "./helpers";
@@ -80,6 +81,17 @@ export function registerTokenStatsIpc(
         ): IpcResult<ReturnType<TokenStatsStore["query_hour_buckets"]>> => {
             assert_valid_sender(event);
             return ok(deps.store.query_hour_buckets(filters ?? {}));
+        },
+    );
+
+    ipc.handle(
+        IPC_CHANNELS.TOKEN_STATS_ROLLUP,
+        (
+            event: IpcMainInvokeEvent,
+            filters?: TokenStatsRollupFilters,
+        ): IpcResult<ReturnType<TokenStatsStore["query_range_rollup"]>> => {
+            assert_valid_sender(event);
+            return ok(deps.store.query_range_rollup(filters ?? {}));
         },
     );
 

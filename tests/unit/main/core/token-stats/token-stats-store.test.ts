@@ -445,6 +445,170 @@ describe("token-stats-store", () => {
         });
     });
 
+    describe("query_range_rollup (24h summary, t184)", () => {
+        it("aggregates by (source, model, directory, session_id) without a LIMIT", () => {
+            // Two sessions × two models; multiple messages per group.
+            store.upsert_records([
+                record({ message_id: "a1", session_id: "s1", model: "sonnet-4", timestamp: T0 }),
+                record({ message_id: "a2", session_id: "s1", model: "sonnet-4", timestamp: T1 }),
+                record({ message_id: "a3", session_id: "s1", model: "opus", timestamp: T1 }),
+                record({ message_id: "b1", session_id: "s2", model: "sonnet-4", timestamp: T0 }),
+            ]);
+
+            const rows = store.query_range_rollup({ start: T0, end: T2 });
+            // Groups: (claude_code, sonnet-4, /home/user/proj, s1), (claude_code,
+            // opus, /home/user/proj, s1), (claude_code, sonnet-4, /home/user/proj, s2)
+            expect(rows).toHaveLength(3);
+            const s1_sonnet = rows.find((r) => r.session_id === "s1" && r.model === "sonnet-4")!;
+            expect(s1_sonnet.calls).toBe(2);
+            expect(s1_sonnet.input_tokens).toBe(200);
+            expect(s1_sonnet.title).toBe("hello");
+            expect(s1_sonnet.directory).toBe("/home/user/proj");
+        });
+
+        it("uses half-open [start, end) so boundary records fall in one window", () => {
+            store.upsert_records([
+                record({ message_id: "in-window", timestamp: T1 }),
+                record({ message_id: "on-end", timestamp: T2 }),
+            ]);
+
+            const rows = store.query_range_rollup({ start: T0, end: T2 });
+            // Half-open end (timestamp < @end): the T2 record is excluded from
+            // the current window. The caller fetches the previous window as
+            // [start - width, start), so a record at exactly `start` belongs to
+            // current (>= start) and a record at exactly `end` belongs to the
+            // next window — no record is double-counted across the two fetches.
+            expect(rows).toHaveLength(1);
+            expect(rows[0]!.session_id).toBe("s1");
+            expect(rows[0]!.calls).toBe(1);
+        });
+
+        it("picks the latest-timestamp title per session (matches records' rs[0])", () => {
+            // sessionRows reads ORDER BY timestamp DESC → rs[0].title is the
+            // latest; rollup must agree, not return the lexicographic MAX.
+            store.upsert_records([
+                record({ message_id: "old", session_id: "s1", title: "alpha", timestamp: T0 }),
+                record({ message_id: "new", session_id: "s1", title: "zzz-late", timestamp: T1 }),
+            ]);
+            const rows = store.query_range_rollup({});
+            expect(rows[0]!.title).toBe("zzz-late");
+        });
+
+        it("filters by agent and env", () => {
+            store.upsert_records([
+                record({
+                    message_id: "claude-win",
+                    agent: "claude-code",
+                    env: "win",
+                    timestamp: T0,
+                }),
+                record({
+                    message_id: "opencode-wsl",
+                    agent: "opencode",
+                    env: "wsl",
+                    timestamp: T0,
+                }),
+            ]);
+
+            expect(store.query_range_rollup({ agent: "claude-code" })).toHaveLength(1);
+            expect(store.query_range_rollup({ env: "wsl" })).toHaveLength(1);
+            expect(store.query_range_rollup({ agent: "claude-code", env: "win" })).toHaveLength(1);
+        });
+
+        it("sums token components and counts distinct sessions per group", () => {
+            store.upsert_records([
+                record({
+                    message_id: "m1",
+                    session_id: "s1",
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 10,
+                    cache_write_tokens: 5,
+                }),
+                record({
+                    message_id: "m2",
+                    session_id: "s1",
+                    input_tokens: 200,
+                    output_tokens: 20,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                }),
+                record({
+                    message_id: "m3",
+                    session_id: "s2",
+                    input_tokens: 7,
+                    output_tokens: 3,
+                    cache_read_tokens: 1,
+                    cache_write_tokens: 0,
+                }),
+            ]);
+
+            const rows = store.query_range_rollup({});
+            const s1 = rows.find((r) => r.session_id === "s1")!;
+            expect(s1.calls).toBe(2);
+            expect(s1.input_tokens).toBe(300);
+            expect(s1.output_tokens).toBe(70);
+            expect(s1.cache_read_tokens).toBe(10);
+            expect(s1.cache_write_tokens).toBe(5);
+        });
+
+        it("covers the full high-density window past the records LIMIT (AC1)", () => {
+            // AC1: records exceed the fetch LIMIT in the window yet the rollup
+            // total still matches the complete window. query_records' default
+            // LIMIT is DEFAULT_RECORDS_LIMIT (5000); insert 6000 current +
+            // 6000 previous messages so the records path would truncate but
+            // rollup (no LIMIT) returns the full window. All messages share one
+            // session/model so the rollup collapses to a single row whose
+            // `calls` must equal the full message count (no LIMIT truncation).
+            const cur_start = T0;
+            const cur_end = T1;
+            const width = cur_end - cur_start;
+            const records: AgentSessionUsageRecord[] = [];
+            for (let i = 0; i < 6_000; i++) {
+                records.push(
+                    record({
+                        message_id: `cur-${String(i)}`,
+                        timestamp: cur_start + i,
+                        input_tokens: 1,
+                        output_tokens: 0,
+                        cache_read_tokens: 0,
+                        cache_write_tokens: 0,
+                    }),
+                );
+            }
+            for (let i = 0; i < 6_000; i++) {
+                records.push(
+                    record({
+                        message_id: `prev-${String(i)}`,
+                        session_id: "s-prev",
+                        timestamp: cur_start - width + i,
+                        input_tokens: 1,
+                        output_tokens: 0,
+                        cache_read_tokens: 0,
+                        cache_write_tokens: 0,
+                    }),
+                );
+            }
+            store.upsert_records(records);
+
+            // current window: all 6000 messages collapse into one group
+            // (s1, sonnet-4, /home/user/proj) → one row, calls=6000. query_records
+            // would return only DEFAULT_RECORDS_LIMIT (5000); rollup has none.
+            const cur = store.query_range_rollup({ start: cur_start, end: cur_end });
+            expect(cur).toHaveLength(1);
+            expect(cur[0]!.calls).toBe(6_000);
+            expect(cur[0]!.input_tokens).toBe(6_000);
+
+            // Previous window (half-open [start - width, start)) is complete;
+            // its single group carries all 6000 previous messages. The cur-0
+            // record at timestamp = cur_start is excluded from prev by the
+            // half-open end (no double count).
+            const prev = store.query_range_rollup({ start: cur_start - width, end: cur_start });
+            expect(prev).toHaveLength(1);
+            expect(prev[0]!.calls).toBe(6_000);
+        }, 15_000);
+    });
+
     describe("migration v4 (records env+timestamp index)", () => {
         it("creates idx_records_env_ts and bumps user_version to 4 on legacy DB", () => {
             const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-store-mig4-"));

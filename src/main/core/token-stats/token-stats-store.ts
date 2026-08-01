@@ -9,6 +9,8 @@ import type {
     TokenStatsHourBucket,
     TokenStatsHourFilters,
     TokenStatsRecordFilters,
+    TokenStatsRollupFilters,
+    TokenStatsRollupRow,
     TokenStatsSession,
     TokenStatsSessionUpsert,
 } from "../../../shared/types/token-stats";
@@ -50,6 +52,16 @@ export interface TokenStatsStore {
      * truncate early hours the way query_records' ORDER BY DESC LIMIT does.
      */
     query_hour_buckets(filters: TokenStatsHourFilters): TokenStatsHourBucket[];
+    /**
+     * Window rollup over the records table (24h KPI/donut/project/session axes,
+     * t184). Groups by (source, model, directory, session_id) so the result
+     * scales with session/model counts, not per-message volume; no LIMIT, so
+     * high-density windows cannot truncate early data the way query_records'
+     * ORDER BY DESC LIMIT does. Uses half-open `[start, end)` so current and
+     * previous windows (the caller fetches `[start - width, start)`) never
+     * share a boundary record.
+     */
+    query_range_rollup(filters: TokenStatsRollupFilters): TokenStatsRollupRow[];
     /** Latest session upsert time (ms epoch), null when store is empty. */
     last_updated(): number | null;
     close(): void;
@@ -562,6 +574,60 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             FROM token_stats_records ${where}
             GROUP BY hour_start, model`;
             return db.prepare(sql).all(params) as TokenStatsHourBucket[];
+        },
+
+        query_range_rollup(filters) {
+            const conditions: string[] = [];
+            const params: Record<string, unknown> = {};
+
+            if (filters.agent) {
+                conditions.push("agent = @agent");
+                params["agent"] = filters.agent;
+            }
+            if (filters.env) {
+                conditions.push("env = @env");
+                params["env"] = filters.env;
+            }
+            if (filters.start !== undefined) {
+                conditions.push("timestamp >= @start");
+                params["start"] = filters.start;
+            }
+            if (filters.end !== undefined) {
+                conditions.push("timestamp < @end");
+                params["end"] = filters.end;
+            }
+
+            const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+            // Half-open `[start, end)` so the current and previous windows share
+            // their boundary record with neither side — matching the renderer's
+            // prevRangeRecords half-open `[start - width, start)` split (a
+            // record at exactly `start` belongs to current, never to previous).
+            // This diverges from query_records' closed `<= @end`, but the rollup
+            // drives the 24h KPI/donut axes whose current window end is
+            // `Date.now()` (ms-precision now); a record timestamp exactly equal
+            // to that value is not observable, so the divergence has no visible
+            // effect while keeping the current/previous boundary unambiguous.
+            // title picks the latest-timestamp row per group (records'
+            // sessionRows reads ORDER BY timestamp DESC, so rs[0].title is the
+            // latest); MAX(title) would drift on rename.
+            const sql = `SELECT
+                source,
+                model,
+                directory,
+                session_id,
+                (SELECT title FROM token_stats_records t2
+                    WHERE t2.session_id = token_stats_records.session_id
+                      AND t2.source = token_stats_records.source
+                      AND t2.env = token_stats_records.env
+                    ORDER BY t2.timestamp DESC LIMIT 1) AS title,
+                COUNT(*) AS calls,
+                SUM(input_tokens) AS input_tokens,
+                SUM(output_tokens) AS output_tokens,
+                SUM(cache_read_tokens) AS cache_read_tokens,
+                SUM(cache_write_tokens) AS cache_write_tokens
+            FROM token_stats_records ${where}
+            GROUP BY source, model, directory, session_id`;
+            return db.prepare(sql).all(params) as TokenStatsRollupRow[];
         },
 
         last_updated() {

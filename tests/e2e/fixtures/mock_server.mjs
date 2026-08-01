@@ -50,7 +50,7 @@ export function create_mock_handler(responses) {
         }
         if (
             req.method === "GET" &&
-            ["/v1/records", "/v1/sessions", "/v1/buckets", "/v1/status"].includes(path)
+            ["/v1/records", "/v1/sessions", "/v1/buckets", "/v1/status", "/v1/rollup"].includes(path)
         ) {
             return json(res, responses[`${req.method} ${path}`] ?? []);
         }
