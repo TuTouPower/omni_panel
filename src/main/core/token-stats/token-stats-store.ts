@@ -588,13 +588,18 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
                 conditions.push("env = @env");
                 params["env"] = filters.env;
             }
+            // start/end are always bound (defaults: 0 / far-future) so the
+            // title subquery below can reference @start/@end unconditionally:
+            // window-local latest when the caller passes them, full-table
+            // latest otherwise. The subquery mirrors the outer half-open
+            // [start, end) window so rs[0].title-equivalent stays inside it.
+            params["start"] = filters.start ?? 0;
+            params["end"] = filters.end ?? Number.MAX_SAFE_INTEGER;
             if (filters.start !== undefined) {
                 conditions.push("timestamp >= @start");
-                params["start"] = filters.start;
             }
             if (filters.end !== undefined) {
                 conditions.push("timestamp < @end");
-                params["end"] = filters.end;
             }
 
             const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -607,9 +612,11 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             // `Date.now()` (ms-precision now); a record timestamp exactly equal
             // to that value is not observable, so the divergence has no visible
             // effect while keeping the current/previous boundary unambiguous.
-            // title picks the latest-timestamp row per group (records'
-            // sessionRows reads ORDER BY timestamp DESC, so rs[0].title is the
-            // latest); MAX(title) would drift on rename.
+            // title picks the window-local latest-timestamp row per group
+            // (records' sessionRows reads ORDER BY timestamp DESC over
+            // window-filtered rows, so rs[0].title is the window-local latest);
+            // MAX(title) would drift on rename, and an unscoped subquery would
+            // pick a title from outside the window.
             const sql = `SELECT
                 source,
                 model,
@@ -619,6 +626,8 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
                     WHERE t2.session_id = token_stats_records.session_id
                       AND t2.source = token_stats_records.source
                       AND t2.env = token_stats_records.env
+                      AND t2.timestamp >= @start
+                      AND t2.timestamp < @end
                     ORDER BY t2.timestamp DESC LIMIT 1) AS title,
                 COUNT(*) AS calls,
                 SUM(input_tokens) AS input_tokens,

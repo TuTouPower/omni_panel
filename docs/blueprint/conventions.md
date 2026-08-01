@@ -166,8 +166,7 @@ note: ""
 
 ### 原子写
 
-- 写权威/派生状态数据（`task.md` front matter、`docs/tasks_index.json` / `docs/archive/tasks_index.json` 等）必须走 tmp 文件 + fsync + `os.replace` 原子写（`scripts/task.py` 的 `_atomic_write_text`），防中断/掉电产生半写状态。t063 曾实现、t169 模板化重写后丢失、t179 恢复。
-- 仍直写 `write_text` 的同类位置见 `docs/pending.md` p018。
+- 写权威/派生状态数据（`task.md` front matter、`docs/tasks_index.json` / `docs/archive/tasks_index.json`、`docs/pending.md` / `docs/archive/pending.md`、review prompt 文件等）必须走 tmp 文件 + fsync + `os.replace` 原子写（`scripts/task.py` 的 `_atomic_write_text`），防中断/掉电产生半写状态。t063 曾实现、t169 模板化重写后丢失、t179 恢复（task.py）、t185 扩展到 `pending.py` 与 `render_review_prompts.py`。脚本层跨模块复用时 `from task import _atomic_write_text`（task.py 有 `__main__` guard，import 安全）。
 
 ## 浏览器/网络 API 约定
 

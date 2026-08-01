@@ -100,6 +100,33 @@ describe("observation-store", () => {
         expect(lis[0]?.stale).toBe(true);
     });
 
+    it("same-key same-ts rows do not accumulate across failure cycles (t186)", () => {
+        // AC3：连续失败-恢复循环后，同键同 ts 的行不无限累积（insert 前
+        // delete_stale_dup 清旧副本）。删除该清理逻辑后此用例应变红。
+        store.insert(make_observation({ observed_at: 5000, stale: false }));
+        store.insert(make_observation({ observed_at: 5000, stale: true }));
+        store.insert(make_observation({ observed_at: 5000, stale: true }));
+        store.insert(make_observation({ observed_at: 5000, stale: true }));
+        // 原观测(1) + 最新副本(1) = 2 行；旧副本被 insert 前 delete_stale_dup 清掉。
+        expect(store.count_observations()).toBe(2);
+    });
+
+    it("prune keeps the stale copy when original and copy share observed_at (t186)", () => {
+        // AC1：prune 的保留行选择须与 latest 查询一致——同 ts 下 stale=1 优先。
+        // 插入旧 observed_at 的原观测 + 同 ts stale 副本，prune 时该键应只保留
+        // stale 副本（1 行），删冗余原观测。当前 prune 的 MAX 保护让两者都命中，
+        // 该键行不收敛。
+        const old_ts = 1000;
+        store.insert(make_observation({ observed_at: old_ts, stale: false }));
+        store.insert(make_observation({ observed_at: old_ts, stale: true, last_error: "boom" }));
+        store.prune(Date.now());
+        expect(store.count_observations()).toBe(1);
+        const latest = store.get_latest("tavily", "default", "tavily:monthly_usage", "tavily-1");
+        assertNonNull(latest, "latest should survive prune");
+        expect(latest.stale).toBe(true);
+        expect(latest.last_error).toBe("boom");
+    });
+
     it("prefers the stale copy when original and copy share observed_at (t174)", () => {
         store.insert(make_observation({ observed_at: 5000, stale: false }));
         store.insert(make_observation({ observed_at: 5000, stale: true, last_error: "boom" }));

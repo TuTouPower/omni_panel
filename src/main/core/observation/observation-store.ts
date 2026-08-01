@@ -28,6 +28,8 @@ export interface ObservationStore {
         days: number,
     ): (Observation | null)[];
     prune(older_than_ms: number): number;
+    /** Total observation rows (test helper for asserting dedupe/prune row counts). */
+    count_observations(): number;
     close(): void;
 }
 
@@ -192,13 +194,19 @@ export function create_observation_store(db_path: string): ObservationStore {
         WHERE rn = 1
     `);
 
+    // t186: prune 保留每键最新一行（observed_at DESC, stale DESC），与 latest
+    // 查询的 tie-breaker 一致。旧版用 MAX(o2.observed_at) 子查询，同 ts 下原观测
+    // 与 stale 副本都命中「最新」保护，该键行不收敛（p016）。改 ROW_NUMBER 选每键
+    // 唯一保留行后，删 observed_at < older_than 的其余行（含同 ts 冗余原观测）。
     const prune_stmt = db.prepare(
         "DELETE FROM observations WHERE observed_at < ? AND id NOT IN (" +
-            "SELECT id FROM observations o1 WHERE o1.observed_at = (" +
-            "SELECT MAX(o2.observed_at) FROM observations o2 " +
-            "WHERE o2.provider = o1.provider AND o2.account_id = o1.account_id " +
-            "AND o2.metric_id = o1.metric_id AND o2.source_instance_id = o1.source_instance_id" +
-            "))",
+            "SELECT id FROM (" +
+            "SELECT id, ROW_NUMBER() OVER (" +
+            "PARTITION BY provider, account_id, metric_id, source_instance_id " +
+            "ORDER BY observed_at DESC, stale DESC" +
+            ") AS rn FROM observations" +
+            ") WHERE rn = 1" +
+            ")",
     );
 
     // Sparkline: per-day latest observation within (now-days, now].
@@ -305,6 +313,13 @@ export function create_observation_store(db_path: string): ObservationStore {
                 );
             }
             return result.changes;
+        },
+
+        count_observations() {
+            const row = db.prepare("SELECT COUNT(*) AS n FROM observations").get() as {
+                n: number;
+            };
+            return row.n;
         },
 
         close() {

@@ -494,6 +494,42 @@ describe("token-stats-store", () => {
             expect(rows[0]!.title).toBe("zzz-late");
         });
 
+        it("title subquery honors the window start (window-local latest, t188)", () => {
+            // AC1: query_range_rollup({start, end}) returns the window-local
+            // latest title. s1 has title=A inside the window and title=B
+            // outside (newer timestamp). With start, the subquery must pick A
+            // (window-local), not B (full-table latest) — matching records'
+            // rs[0].title semantics (records are window-filtered first).
+            store.upsert_records([
+                record({ message_id: "in1", session_id: "s1", title: "A", timestamp: T0 }),
+                record({ message_id: "in2", session_id: "s1", title: "A2", timestamp: T1 }),
+                record({
+                    message_id: "out_newer",
+                    session_id: "s1",
+                    title: "B",
+                    timestamp: T2 + 10_000,
+                }),
+            ]);
+            const rows = store.query_range_rollup({ start: T0, end: T2 });
+            expect(rows).toHaveLength(1);
+            expect(rows[0]!.title).toBe("A2");
+        });
+
+        it("title subquery without start picks full-table latest (t188)", () => {
+            // AC2: no start → full-table latest title (window filter absent).
+            store.upsert_records([
+                record({ message_id: "in", session_id: "s1", title: "A", timestamp: T0 }),
+                record({
+                    message_id: "out_newer",
+                    session_id: "s1",
+                    title: "B",
+                    timestamp: T2 + 10_000,
+                }),
+            ]);
+            const rows = store.query_range_rollup({});
+            expect(rows[0]!.title).toBe("B");
+        });
+
         it("filters by agent and env", () => {
             store.upsert_records([
                 record({

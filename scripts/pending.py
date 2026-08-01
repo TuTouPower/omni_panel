@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _id_scan import IdScanError, scan_max_id
+from task import _atomic_write_text
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ENTRY_RE = re.compile(r"^ {0,3}###[ \t]+p([0-9]{3,})(?=[ \t]|$)")
@@ -325,8 +326,8 @@ def cmd_archive(args: argparse.Namespace) -> None:
     if not new_archive_text.endswith("\n"):
         new_archive_text += "\n"
 
-    PENDING_PATH.write_text(new_pending, encoding="utf-8")
-    ARCHIVE_PATH.write_text(new_archive_text, encoding="utf-8")
+    _atomic_write_text(PENDING_PATH, new_pending)
+    _atomic_write_text(ARCHIVE_PATH, new_archive_text)
     sys.stderr.write(
         f"已迁移 {len(ids)} 条到 docs/archive/pending.md："
         + ", ".join(f"p{n:03d}" for n in ids)

@@ -1,15 +1,15 @@
 ---
-tid: "t188"
-slug: "rollup_title_window_filter"
-title: "query_range_rollup title 子查询补窗口过滤"
-status: "backlog"
-branch: ""
+tid: "t186"
+slug: "obs_store_prune_tiebreaker_account_row_test"
+title: "observation-store prune tie-breaker 对齐 + AccountUsageRow observedAt 测试"
+status: "done"
+branch: "t186_obs_store_prune_tiebreaker_account_row_test"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "0801ff59ee86cda719899c60d60c01605c9ae70f"
 depends_on: ""
 conflicts_with: ""
-note: "p024"
+note: "p016+p017"
 ---
 
 # Task 过程总账
@@ -44,14 +44,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-02)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+Round 1 零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -60,24 +55,21 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+    - AC1：`prune keeps the stale copy when original and copy share observed_at` 断言同 ts 下 prune 后 count=1 且保留 stale 副本（最新 timestamp 的 title/last_error）。
+    - AC2：`AccountUsageRow observedAt relative-time path` 三分支（observedAt 非空取它、updatedAt 回退、两者皆空显示空），fake timers 锁定「30 分钟前」。
+    - AC3：`same-key same-ts rows do not accumulate` 断言 count_observations()===2；实施时临时注释 delete_stale_dup 调用确认变红（4 行）后恢复。
+    - 黑盒：typecheck / lint 零警告；全量 vitest 1992 passed。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（零 finding）
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+observation-store prune_stmt 改 ROW_NUMBER 选每键最新行（observed_at DESC, stale DESC），与 latest 查询 tie-breaker 一致，消除同 ts 行不收敛；补 AccountUsageRow observedAt 测试 + count_observations 行数断言；p016/p017 闭环。
