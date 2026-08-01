@@ -2,11 +2,11 @@
 tid: "t182"
 slug: "e2e_real_refresh_assertion"
 title: "e2e 断言真实刷新替换死等"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t182_e2e_real_refresh_assertion"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "cc59e34d5090098e063217ac07e8b9a0f8d31569"
 depends_on: ""
 conflicts_with: ""
 note: "p004"
@@ -22,7 +22,9 @@ note: "p004"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- SPIKE：MutationObserver probe 实测 `refreshAll` 在 mock local-api 下即时完成，`.spinning` 在点击后不可稳定观测（React 批量更新合并 setRefreshing(true/false)），故「等 .spinning 出现再消失」会 flaky。
+- 实现：scheduler.spec.ts:43 的 `waitForTimeout(1000)` 替换为 `await expect(refresh_btn).not.toHaveClass(/spinning/, { timeout: 15_000 })`——spinner 在转时真实等待到消失，mock 即时刷新立即通过（无固定时长），保留 `.scroll` 可见断言。
+- 验证：scheduler + popup_refresh_state_reset 7 用例绿；synthetic 全量 web e2e 48 passed；typecheck/lint 绿。
 
 ## Review 处置
 
@@ -44,14 +46,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-01 16:40 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+Round 1 code 与 test 均零 finding（clean review），未进处置表。
 
 ## 收尾报告
 
@@ -60,24 +57,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC1——scheduler.spec.ts 无 `waitForTimeout` 残留；AC2——`expect(refresh_btn).not.toHaveClass(/spinning/, { timeout: 15_000 })` 耦合 refreshing state 信号链（TitleBar.tsx:45 + refreshAll().finally()），慢刷新真实等待消失、mock 即时通过，非固定时长（SPIKE 实测 mock 下 .spinning 窗口 < 帧，等出现会 flaky）；AC3——scheduler + popup_refresh_state_reset 7 用例绿，synthetic 全量 web e2e 48 passed，typecheck/lint 绿。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
-`single`：
-
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 code：PASS
+- Round 1 test：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- scheduler.spec.ts manual refresh 用例的 `waitForTimeout(1000)` 死等替换为「等刷新按钮 .spinning class 消失」，真实等待刷新完成信号；synthetic 全量 web e2e 48 passed 无回归。

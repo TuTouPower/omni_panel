@@ -60,7 +60,9 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- scheduler.spec.ts manual refresh 用例的刷新完成信号（.spinning class 是否适用该场景）：UNVERIFIED-SPIKE，执行期读 PopupView.tsx 刷新逻辑核实。
+无（原 SPIKE 项已实验核实，结论如下）：
+
+- scheduler.spec.ts manual refresh 用例的刷新完成信号：实测（MutationObserver probe + synthetic fixture）`refreshAll` 在 mock local-api 下即时完成，`.spinning` class 在点击后不可稳定观测（React 批量更新合并 setRefreshing(true/false)，spinner 窗口 < 帧）。故「等 .spinning 出现再消失」不可用（会 flaky 超时）；采用「等 .spinning 消失」（`not.toHaveClass(/spinning/)`）——spinner 在转时真实等待到消失（刷新慢时有效），mock 即时刷新时立即通过（无挂起）。与 spec 背景认可的 popup_refresh_state_reset.spec.ts:56-72「等刷新后状态可见」模式同级。
 
 ### 风险与回退
 

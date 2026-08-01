@@ -40,7 +40,11 @@ test.describe("scheduler (web)", () => {
 
         await popup.clickRefresh();
 
-        await webPage.waitForTimeout(1000);
+        // 等刷新完成：刷新按钮的 .spinning class 由 refreshing state 驱动，
+        // 复位于 refreshAll().finally()；刷新挂起时它真实等待到消失，
+        // mock 即时刷新下立即通过（无固定时长死等）。
+        const refresh_btn = popup.refresh_all_button();
+        await expect(refresh_btn).not.toHaveClass(/spinning/, { timeout: 15_000 });
 
         // 刷新后页面仍可用
         await expect(popup.root().locator(".scroll")).toBeVisible();
