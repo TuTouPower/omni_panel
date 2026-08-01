@@ -52,6 +52,31 @@ describe("ProviderAccountRow", () => {
         expect(container.querySelector(".rel-time")?.textContent).not.toBe("");
     });
 
+    it("shows the data time (observedAt), not connector-level updatedAt, for stale accounts (t174)", () => {
+        // t174: stale 副本保留原数据时间后，账号行相对时间必须取自 per-账号
+        // observedAt（原数据时间）而非 connector 级 updatedAt（本次尝试时间，
+        // 部分失败下会被成功账号拉高）。
+        const old_epoch = Date.now() - 3 * 86400000;
+        const recent_iso = new Date().toISOString();
+        const { container } = render(
+            <ProviderAccountRow
+                account={make_account({
+                    stale: true,
+                    observedAt: old_epoch,
+                    updatedAt: recent_iso,
+                })}
+            />,
+        );
+        const rel_time = container.querySelector(".rel-time")?.textContent ?? "";
+        // 基于 observedAt：约 3 天前
+        expect(rel_time).toContain("天前");
+        // 不得基于 updatedAt（刚刚）显示
+        expect(rel_time).not.toContain("刚刚");
+        expect(rel_time).not.toContain("分钟前");
+        // stale 徽标仍在
+        expect(rel_time).toContain("已过期");
+    });
+
     it("does not show account menu (edit removed from main panel)", () => {
         render(<ProviderAccountRow account={make_account()} />);
 

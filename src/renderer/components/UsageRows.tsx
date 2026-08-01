@@ -176,7 +176,12 @@ export function AccountUsageRow({
                 <span className="ai-dot" />
                 {display_label ? <span className="ai-name">{display_label}</span> : null}
                 <span className="ai-time">
-                    {account.updatedAt ? relative_time(account.updatedAt) : ""}
+                    {/* t174: 同 ProviderAccountRow——相对时间取 per-账号 observedAt */}
+                    {account.observedAt
+                        ? relative_time(account.observedAt)
+                        : account.updatedAt
+                          ? relative_time(account.updatedAt)
+                          : ""}
                 </span>
                 {afterHeader}
             </div>

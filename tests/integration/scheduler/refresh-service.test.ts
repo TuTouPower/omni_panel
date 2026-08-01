@@ -1115,7 +1115,8 @@ return [{
                 stale: true,
             });
             expect(stale_obs.last_error).toBe("boom");
-            expect(stale_obs.observed_at).toBeGreaterThan(prior_observation.observed_at);
+            // t174: 副本保留原观测时间，不递增为尝试时间
+            expect(stale_obs.observed_at).toBe(prior_observation.observed_at);
         } finally {
             await rm(tempDir, { recursive: true, force: true });
         }
@@ -1295,7 +1296,8 @@ return [{
                 limit: 100,
                 last_error: "HTTP 500",
             });
-            expect(stale_obs.observed_at).toBeGreaterThan(prior_failed_obs.observed_at);
+            // t174: 副本保留原观测时间，不递增为尝试时间
+            expect(stale_obs.observed_at).toBe(prior_failed_obs.observed_at);
 
             // 脚本整体成功，state 应为 ready
             const state = runtimeStore.getSnapshot("deepseek-1");
