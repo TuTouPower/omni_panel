@@ -2,11 +2,11 @@
 tid: "t177"
 slug: "setupfiles_split_renderer"
 title: "setupFiles 拆 renderer-only"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t177_setupfiles_split_renderer"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "d1bd8940ff6b05e1985e470c3b58396b234a2b4a"
 depends_on: ""
 conflicts_with: ""
 note: "p005"
@@ -22,7 +22,11 @@ note: "p005"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- doctor：无（testing.md 声明本仓无独立 doctor_cmd）。
+- SPIKE 实验（2026-08-01）：临时 node 配置实跑全部 108 个非 renderer 测试文件（1185 tests）全绿——无测试隐式依赖 jsdom 或 setup.ts mock；grep 确认非 renderer 无 window/document/react。决定：vitest.config.mts 用 `projects` 拆两个项目——renderer（jsdom + setup.ts，含 tests/unit/renderer/**, tests/smoke/**, tests/unit/web/\*\*）与 node（node 环境无 setupFiles，含其余全部）；`globals: true` 须每项目单独声明（root 不继承）。SPIKE 改写为结论，preflight --require-verified PASS。
+- 拆分后全量 `pnpm test` 186 files / 1963 passed / 1 skipped（较拆分前 185 files 增 1 个 AC1 回归测试）。
+- 补 `tests/unit/main/node_env_isolation.test.ts`：断言 node 项目 `typeof window === "undefined"`，锁定 AC1（拆分回退为全局 jsdom 时该测试失败）。
+- 环境：worktree 需 `pnpm install` + `pnpm rebuild better-sqlite3` + `tsx scripts/gen-build-info.ts`（见 findings d006）。
 
 ## Review 处置
 
@@ -48,10 +52,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 有 finding 时用本表；每条 finding 一行。
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+### Round 1 (2026-08-01 11:35 UTC+8)
+
+| finding_id     | severity | status | rationale                                                                | fix_ref                                         |
+| -------------- | -------- | ------ | ------------------------------------------------------------------------ | ----------------------------------------------- |
+| t177_code_f001 | minor    | 已修   | 删 root 死 include（被两项目 include 覆盖，新目录会被静默跳过）          | vitest.config.mts:13                            |
+| t177_test_f001 | minor    | 已修   | 补 renderer 项目对称 guard（断言 usageboard/#root 注入），与 node 侧对称 | tests/unit/renderer/setup_env_isolation.test.ts |
 
 ## 收尾报告
 
@@ -60,8 +66,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+    - AC1：node 项目 `environment: "node"` 无 setupFiles；`tests/unit/main/node_env_isolation.test.ts` 断言 `typeof window === "undefined"`（旧全局 jsdom 配置下该测试失败）。
+    - AC2：renderer 项目 jsdom + setup.ts；`tests/unit/renderer/setup_env_isolation.test.ts` 断言 usageboard/#root 注入；75 个渲染侧文件经 setup.ts 运行。
+    - AC3：`pnpm test` 187 files / 1964 passed / 1 skipped（较拆分前 185 files 增 2 个 guard）；全部 187 文件恰好命中一项目 include 无重复/遗漏；`pnpm test:coverage` exit 0。
 
 ### Reviewer verdict
 
@@ -69,15 +78,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（1 minor：f001 已修）
+- Round 1 test：PASS（1 minor：f001 已修）
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+vitest.config.mts 拆 renderer/jsdom + node 双项目，node 测试不再被注入 renderer-only setupFiles；p005 闭环。

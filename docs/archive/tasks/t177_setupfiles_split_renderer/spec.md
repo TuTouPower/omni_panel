@@ -60,7 +60,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- node 类测试是否隐式依赖 jsdom 环境或 setup.ts 注入的 mock（如某 main 测试意外用到 window）：UNVERIFIED-SPIKE，执行期跑 node 环境核实失败清单。
+- node 类测试是否隐式依赖 jsdom 环境或 setup.ts 注入的 mock：**已核实（2026-08-01 实验）**——全部 108 个非 renderer 测试文件（tests/unit/{main,ipc,shared,scheduler,connector,auth,config,core,network,preload,session,schemas,e2e,local-api} + tests/integration/**）在 `environment: "node"` 无 setup.ts 下全部通过（1185 tests）；grep 亦确认非 renderer 测试无 window/document/react 依赖。渲染侧 75 文件（tests/unit/renderer/**, tests/smoke/**, tests/unit/web/**）需 jsdom + setup.ts。验证方式：临时 node 环境配置实跑 + grep 扫描。
 
 ### 风险与回退
 
