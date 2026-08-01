@@ -1,15 +1,15 @@
 ---
-tid: t000
-slug: example_slug
-title: "示例 task 标题"
-status: backlog
+tid: "t181"
+slug: "e2e_remove_conditional_skip"
+title: "取消 e2e 条件 skip（I23）"
+status: "backlog"
 branch: ""
 worktree: ""
-review_level: full
+review_level: "full"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: ""
+note: "p002"
 ---
 
 # Task 过程总账

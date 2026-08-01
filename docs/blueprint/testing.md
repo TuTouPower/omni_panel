@@ -2,7 +2,7 @@
 
 `{doctor_cmd}` / `{test_cmd}` / `{blackbox_verify}` 必须在本文件给出说明。
 
-- `{doctor_cmd}`：环境前置检查——本仓无独立 doctor 命令；`tasks-run` Step 1 写「无」，靠 `{test_cmd}` 各命令自身的失败信号判定环境。
+- `{doctor_cmd}`：环境前置检查——本仓无独立 doctor 命令；`task-run` Step 1 写「无」，靠 `{test_cmd}` 各命令自身的失败信号判定环境。
 - `{test_cmd}`：日常测试（红/绿），见下方「门禁类别清单」。
 - `{blackbox_verify}`：黑盒验证——是一套方法论，不是单个命令。agent 按本文件描述自行决定如何执行。
 
@@ -51,4 +51,4 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 - 涉及 web SPA：`pnpm test:e2e:web`（Playwright chromium，mock local-api）。
 - 涉及测试实例隔离验证：`pnpm start:test`（黄图标、沙盒数据、17864 端口），见 `docs/guides/testing.md`「测试实例」。
 
-黑盒失败处置见 `tasks-run` skill：`< max_verify_round` 回 Step 3 修复；`≥ max_verify_round`（默认 5）`block --reason blackbox`。
+黑盒失败处置见 `task-run` skill：`< max_verify_round` 回 Step 3 修复；`≥ max_verify_round`（默认 5）`block --reason blackbox`。

@@ -1,15 +1,15 @@
 ---
-tid: t000
-slug: example_slug
-title: "示例 task 标题"
-status: backlog
+tid: "t180"
+slug: "split_popup_view_and_test"
+title: "拆 PopupView.tsx 与 popup_view.test.tsx 及 settings_view.test.tsx"
+status: "backlog"
 branch: ""
 worktree: ""
-review_level: full
+review_level: "full"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: ""
+note: "p009"
 ---
 
 # Task 过程总账

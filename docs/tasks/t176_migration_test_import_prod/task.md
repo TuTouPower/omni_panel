@@ -1,15 +1,15 @@
 ---
-tid: t000
-slug: example_slug
-title: "示例 task 标题"
-status: backlog
+tid: "t176"
+slug: "migration_test_import_prod"
+title: "migration 测试改 import 生产迁移入口"
+status: "backlog"
 branch: ""
 worktree: ""
-review_level: full
+review_level: "full"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: ""
+note: "p003"
 ---
 
 # Task 过程总账

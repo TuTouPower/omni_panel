@@ -1,15 +1,15 @@
 ---
-tid: t000
-slug: example_slug
-title: "示例 task 标题"
-status: backlog
+tid: "t175"
+slug: "connector_ctx_status_migrate"
+title: "16 个 connector 删内联 helper 改 ctx.status"
+status: "backlog"
 branch: ""
 worktree: ""
-review_level: full
+review_level: "full"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: ""
+note: "p001"
 ---
 
 # Task 过程总账

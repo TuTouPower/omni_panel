@@ -1,15 +1,15 @@
 ---
-tid: t000
-slug: example_slug
-title: "示例 task 标题"
-status: backlog
+tid: "t179"
+slug: "task_py_atomic_write_restore"
+title: "write_front_matter/rebuild_indexes 原子写恢复"
+status: "backlog"
 branch: ""
 worktree: ""
-review_level: full
+review_level: "full"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: ""
+note: "p007"
 ---
 
 # Task 过程总账

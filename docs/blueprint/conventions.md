@@ -82,7 +82,7 @@ note: ""
 
 ## review 报告字段
 
-`review_code.md` / `review_test.md`（`full`）或 `review_general.md`（`single`）以 `scripts/render_review_prompts.py` 渲染产物为准；流程见 `tasks-run` skill Step 5。
+`review_code.md` / `review_test.md`（`full`）或 `review_general.md`（`single`）以 `scripts/render_review_prompts.py` 渲染产物为准；流程见 `task-run` skill Step 5。
 
 - 提示词正文存于 `docs/reviews/prompts/`（`code_prompt.txt` / `test_prompt.txt` / `general_prompt.txt` / `share_prompt.txt`），由 `render_review_prompts.py` 读 front matter 填占位符。
 - 用法：`scripts/render_review_prompts.py --task-dir docs/tasks/{tid}_{slug} --out-dir .scratch/review_prompts`
@@ -93,7 +93,7 @@ note: ""
 
 ## Review 处置（task.md 内）
 
-处置表唯一落点为 `task.md` 的 `## Review 处置` 小节；流程见 `tasks-run` skill Step 6。`status` 仅三值：`已修` / `遗留`（须登记 `docs/pending.md`）/ `撤回`。
+处置表唯一落点为 `task.md` 的 `## Review 处置` 小节；流程见 `task-run` skill Step 6。`status` 仅三值：`已修` / `遗留`（须登记 `docs/pending.md`）/ `撤回`。
 
 | finding_id       | severity                 | status             | rationale | fix_ref   |
 | ---------------- | ------------------------ | ------------------ | --------- | --------- |
@@ -103,7 +103,7 @@ note: ""
 
 ## specs_index 字段
 
-`docs/specs_index.md` 是当前生效 spec 清单；每个 task 收尾（`tasks-run` Step 7）累积更新。
+`docs/specs_index.md` 是当前生效 spec 清单；每个 task 收尾（`task-run` Step 7）累积更新。
 
 | slug     | task 清单  | 最后固化时间 |
 | -------- | ---------- | ------------ |
