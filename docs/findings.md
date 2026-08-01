@@ -53,3 +53,11 @@
 - 证据：s005 探针对真实 DB：7d 聚合 428 行/141 小时；首个小时 7/24 14:00Z（最早日期不丢）；内部小时全在 bucketize 桶起点集合。
 - 影响：7d/30d + 小时粒度柱状图可走该聚合，替代 `query_records` 10 万级明细进渲染层；与 day buckets / heatmap 聚合并列。
 - 现状：有效
+
+## d006 worktree better-sqlite3 ABI 切换：Electron→node 用 pnpm rebuild（2026-08-01）
+
+- 来源：t174
+- 结论：task worktree `pnpm install --frozen-lockfile` 后 better-sqlite3 可能编译为 Electron ABI（NODE_MODULE_VERSION 146，node 需 127），tsx/vitest 加载原生模块抛 ABI mismatch；`pnpm rebuild better-sqlite3` 切回 node ABI 后 vitest 主 config 与黑盒均正常，无副作用。
+- 证据：t174 worktree 实测——install 后 vitest 报 NODE_MODULE_VERSION 不匹配，rebuild 后 185 files / 1960 passed。
+- 影响：后续 worktree 同类问题直接用 rebuild 解决，不需重装或手动编译。
+- 现状：有效

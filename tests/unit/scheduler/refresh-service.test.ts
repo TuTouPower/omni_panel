@@ -293,7 +293,10 @@ describe("refresh-service oauth immediate refresh (t172)", () => {
         expect(state.status).toBe("failed");
     });
 
-    it("marks prior observations stale when refresh fails and history exists (AC3)", async () => {
+    it("marks prior observations stale preserving the original data time (t174)", async () => {
+        // t174: 旧语义（stale 副本 observed_at 打尝试时间）会让卡片相对时间
+        // 每轮失败刷新成"几分钟前"。新语义：副本保留原观测 observed_at，
+        // UI 相对时间反映数据真实年龄。旧断言整体删除并改写为正确语义。
         const execute_connector = vi.fn().mockResolvedValue(auth_failed_result);
         const oauth_refresh = vi.fn().mockResolvedValue({ success: false, error: "invalid_grant" });
         const prior_obs: Observation = {
@@ -327,7 +330,50 @@ describe("refresh-service oauth immediate refresh (t172)", () => {
             used: 42,
             last_error: "HTTP 401: request failed (37 bytes)",
         });
-        expect(stale[0]?.observed_at).toBeGreaterThan(prior_obs.observed_at);
+        // stale 副本保留原数据时间，不再覆盖为尝试时间
+        expect(stale[0]?.observed_at).toBe(prior_obs.observed_at);
+    });
+
+    it("marks per-account failures stale preserving data time on mixed results (t174)", async () => {
+        // 脚本成功返回但单账号失败：failed_accounts 分支复制的 stale 副本
+        // 同样保留原观测时间（部分失败下 connector 级 updatedAt 会被成功
+        // 账号拉高，账号行必须回退到 per-账号 observedAt）。
+        const execute_connector = vi.fn().mockResolvedValue({
+            observations: [{ ...success_observation, observed_at: 1780000000000 }],
+            failed_accounts: [
+                {
+                    provider: "grok",
+                    account_id: "grok",
+                    account_label: "Grok",
+                    error: "HTTP 500",
+                },
+            ],
+        });
+        const prior_obs: Observation = {
+            ...success_observation,
+            observed_at: 1770000000000,
+            stale: false,
+            last_error: null,
+        };
+        const observationStore = create_observation_store();
+        observationStore.list_by_source_instance_id = vi.fn(() => [prior_obs]);
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [oauth_definition()],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([oauth_config()]),
+            vault: create_vault(),
+            execute_connector,
+            oauth_refresh: vi.fn(),
+        });
+
+        await service.refresh("grok-1", { force: true });
+
+        const stale = observationStore.inserted.filter((o) => o.stale);
+        expect(stale).toHaveLength(1);
+        expect(stale[0]?.account_id).toBe("grok");
+        expect(stale[0]?.observed_at).toBe(prior_obs.observed_at);
     });
 
     it("attempts immediate refresh at most once per refresh cycle (AC3)", async () => {

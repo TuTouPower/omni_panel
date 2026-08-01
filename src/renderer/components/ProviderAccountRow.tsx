@@ -130,7 +130,15 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
             <div>
                 {display_label ? <div className="card-name">{display_label}</div> : null}
                 <div className="rel-time">
-                    {account.updatedAt ? relative_time(account.updatedAt) : ""}
+                    {/* t174: stale 副本保留原数据时间后，相对时间取 per-账号
+                        observedAt（数据真实年龄）而非 connector 级 updatedAt
+                        （部分失败下会被成功账号拉高）；placeholder 无
+                        observedAt 时回退 updatedAt。 */}
+                    {account.observedAt
+                        ? relative_time(account.observedAt)
+                        : account.updatedAt
+                          ? relative_time(account.updatedAt)
+                          : ""}
                     {account.stale && <span className="stale-badge">已过期</span>}
                     {_error && (
                         <span className="error-badge" title={_error}>

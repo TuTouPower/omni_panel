@@ -72,9 +72,9 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- observation-store「按指标取最新观测」与趋势/图表查询对 stale 副本 `observed_at` 递增的依赖（同时间戳下去重是否确定）：UNVERIFIED-SPIKE，执行期读码 + 单测实验核实。
-- 副本保留原时间后，`observations_to_ready_state` / runtime store 的 `updatedAt` 消费方（托盘、web 视图、快照缓存）是否出现新旧混排：UNVERIFIED-SPIKE，执行期读码核实各消费方取数字段。
-- 若选择「副本保留尝试时间、UI 改取原数据时间」的替代实现，需确认观测模型是否需新增字段及迁移成本：UNVERIFIED-SPIKE，执行期评估两条路径后择一。
+- observation-store「按指标取最新观测」与趋势/图表查询对 stale 副本 `observed_at` 递增的依赖：已核实（`.scratch/t174/spike.ts` 实验）。同 `observed_at` 多行时：`query_trend_series` 按 UTC 天去重保留每天最新（无重复点）；`get_latest`/`list_by_instance` 用 `ORDER BY observed_at DESC` 无 tie-breaker，同 ts 取到哪行不确定（实验取到 stale 副本，依赖插入顺序）；`list_latest_by_provider` 用 `WHERE observed_at = MAX`，同 ts **全部命中**（实验 4 行全返回）。需实现：insert stale 副本前清同 (provider,account,metric,instance,ts) 旧副本防累积；latest 类查询加 `stale DESC` tie-breaker 使同 ts 优先取 stale 副本，保证最新观测选择唯一确定。
+- 副本保留原时间后 `observations_to_ready_state` / runtime store 的 `updatedAt` 消费方是否新旧混排：已核实。`observations_to_ready_state` 的 `updatedAt = max(observed_at)`，`observation_to_metric_record` 把 `observedAt` 传给 renderer；`to_period` 里 `period.updatedAt = snapshot.updatedAt`（connector 级）、`period.observedAt = item.observedAt`（per-观测数据时间）。全失败时副本保留原 ts → snapshot.updatedAt = 原数据时间，账号行相对时间正确；部分失败时 snapshot.updatedAt 被成功账号拉高，**失败账号需用 `period.observedAt` 而非 connector 级 updatedAt** 展示时间。
+- 实现路径择一：已定——**stale 副本保留原 `observed_at`**（不新增字段、无迁移），配合 (a) insert 前清理同键旧 stale 副本、(b) latest 查询 `stale DESC` tie-breaker、(c) 账号行相对时间改取 per-账号 `observedAt`（placeholder 无 observedAt 时回退 updatedAt）。不选「副本保留尝试时间 + 加字段」路径，因需观测模型新增字段与迁移，成本更高。
 
 ### 风险与回退
 

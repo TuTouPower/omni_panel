@@ -331,9 +331,10 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     // 复制失败账号的上次成功观测为 stale 副本插入。成功账号的
                     // 观测已正常插入，不受影响。失败账号无上次观测时跳过
                     // （UI 显示"无数据"而非"stale"）。
+                    // t174: 副本保留原观测的 observed_at——采集失败时卡片
+                    // 相对时间反映数据真实年龄，不再每轮失败刷新成"几分钟前"。
                     const stale_observations: Observation[] = [];
                     if (failed_accounts.length > 0) {
-                        const stale_observed_at = Date.now();
                         const prior = deps.observationStore.list_by_source_instance_id(instanceId);
                         for (const failed of failed_accounts) {
                             for (const obs of prior) {
@@ -342,7 +343,6 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                     ...obs,
                                     stale: true,
                                     last_error: failed.error,
-                                    observed_at: stale_observed_at,
                                 };
                                 deps.observationStore.insert(stale_obs);
                                 stale_observations.push(stale_obs);
@@ -481,14 +481,13 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
             // invariant 2: 采集失败保留上次成功观测，挂 stale:true + lastError。
             // 为该 instance 下的每条最新观测插入一份 stale 副本，UI 据此显示"数据过期"。
             // 首次即失败（无上次观测）时跳过——UI 应显示"无数据"而非"stale"。
+            // t174: 副本保留原观测的 observed_at，卡片相对时间反映数据真实年龄。
             const prior_observations = deps.observationStore.list_by_source_instance_id(instanceId);
-            const stale_observed_at = Date.now();
             for (const obs of prior_observations) {
                 deps.observationStore.insert({
                     ...obs,
                     stale: true,
                     last_error: last_error,
-                    observed_at: stale_observed_at,
                 });
             }
             trace_log.info(

@@ -146,22 +146,35 @@ export function create_observation_store(db_path: string): ObservationStore {
         )
     `);
 
+    // t174: stale 副本保留原观测的 observed_at。多次失败会对同一键插入
+    // 同时间戳的副本，累积成行 + 让 latest 查询同 ts 多义。insert 前清掉
+    // 同 (provider, account, metric, instance, observed_at) 的旧 stale 副本，
+    // 使同键同 ts 至多一条副本（原观测保留）。
+    const delete_stale_dup_stmt = db.prepare(`
+        DELETE FROM observations
+        WHERE provider = @provider AND source_instance_id = @source_instance_id
+          AND account_id = @account_id AND metric_id = @metric_id
+          AND observed_at = @observed_at AND stale = 1
+    `);
+
+    // t174: stale 副本与原观测同 observed_at 时，stale DESC 让副本（stale=1）
+    // 优先，latest 选择唯一确定（"已过期"标记优先于原始数据行）。
     const get_latest_stmt = db.prepare(`
         SELECT * FROM observations
         WHERE provider = ? AND account_id = ? AND metric_id = ? AND source_instance_id = ?
-        ORDER BY observed_at DESC LIMIT 1
+        ORDER BY observed_at DESC, stale DESC LIMIT 1
     `);
 
     const list_latest_by_provider_stmt = db.prepare(`
-        SELECT * FROM observations o1
-        WHERE o1.provider = ?
-        AND o1.observed_at = (
-            SELECT MAX(o2.observed_at) FROM observations o2
-            WHERE o2.provider = o1.provider
-            AND o2.account_id = o1.account_id
-            AND o2.metric_id = o1.metric_id
-            AND o2.source_instance_id = o1.source_instance_id
+        SELECT * FROM (
+            SELECT *, ROW_NUMBER() OVER (
+                PARTITION BY provider, account_id, metric_id, source_instance_id
+                ORDER BY observed_at DESC, stale DESC
+            ) AS rn
+            FROM observations
+            WHERE provider = ?
         )
+        WHERE rn = 1
     `);
 
     const list_providers_stmt = db.prepare("SELECT DISTINCT provider FROM observations");
@@ -172,7 +185,7 @@ export function create_observation_store(db_path: string): ObservationStore {
         SELECT * FROM (
             SELECT *, ROW_NUMBER() OVER (
                 PARTITION BY account_id, metric_id
-                ORDER BY observed_at DESC
+                ORDER BY observed_at DESC, stale DESC
             ) AS rn
             FROM observations
             WHERE source_instance_id = ?
@@ -199,6 +212,16 @@ export function create_observation_store(db_path: string): ObservationStore {
 
     return {
         insert(obs: Observation): void {
+            // t174: 同键同 ts 的旧 stale 副本先清（见 delete_stale_dup_stmt）。
+            if (obs.stale) {
+                delete_stale_dup_stmt.run({
+                    provider: obs.provider,
+                    source_instance_id: obs.source_instance_id,
+                    account_id: obs.account_id,
+                    metric_id: obs.metric_id,
+                    observed_at: obs.observed_at,
+                });
+            }
             insert_stmt.run({
                 provider: obs.provider,
                 source_instance_id: obs.source_instance_id,

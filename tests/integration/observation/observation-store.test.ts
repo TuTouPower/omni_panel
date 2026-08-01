@@ -83,6 +83,32 @@ describe("observation-store", () => {
         expect(all[0].observed_at).toBe(3000);
     });
 
+    it("dedupes stale copies sharing the same observed_at (t174)", () => {
+        // t174：stale 副本保留原观测时间后，多次失败会插入同 ts 副本。
+        // 同键同 ts 只保留最新一条 stale 副本，避免行累积与最新观测多义。
+        store.insert(make_observation({ observed_at: 5000, stale: false })); // 原观测
+        store.insert(make_observation({ observed_at: 5000, stale: true })); // 副本 1
+        store.insert(make_observation({ observed_at: 5000, stale: true })); // 副本 2
+        const all = store.list_latest_by_provider("tavily");
+        // 每 (account, metric) 一条：同 ts 下 stale 副本优先，原观测被唯一确定排除
+        expect(all).toHaveLength(1);
+        assertNonNull(all[0], "should have one element");
+        expect(all[0].observed_at).toBe(5000);
+        expect(all[0].stale).toBe(true);
+        const lis = store.list_by_source_instance_id("tavily-1");
+        expect(lis).toHaveLength(1);
+        expect(lis[0]?.stale).toBe(true);
+    });
+
+    it("prefers the stale copy when original and copy share observed_at (t174)", () => {
+        store.insert(make_observation({ observed_at: 5000, stale: false }));
+        store.insert(make_observation({ observed_at: 5000, stale: true, last_error: "boom" }));
+        const result = store.get_latest("tavily", "default", "tavily:monthly_usage", "tavily-1");
+        assertNonNull(result, "get_latest should return a result");
+        expect(result.stale).toBe(true);
+        expect(result.last_error).toBe("boom");
+    });
+
     it("list_by_source_instance_id returns latest per (account, metric) across many groups (t096 perf regression)", () => {
         // 两组 (account, metric)，各多条历史；只返回每组最新（含 stale 行混入）。
         store.insert(make_observation({ account_id: "a1", metric_id: "m1", observed_at: 1000 }));
