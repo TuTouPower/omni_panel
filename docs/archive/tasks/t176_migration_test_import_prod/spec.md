@@ -12,12 +12,13 @@ reviewer 判 AC 时只看本区。
 
 ### 范围
 
-- 从 create_observation_store 抽取迁移逻辑为独立导出函数；observation_store_migration.test.ts 改为 import 生产迁移入口，删除手写 NEW_COLUMN_SQL/PRAGMA。
+- 从 create_observation_store 抽取迁移逻辑为独立导出函数；observation_store_migration.test.ts 改为 import 生产迁移入口，删除手写 NEW_COLUMN_SQL。
 
 ### 非范围
 
 - 不改迁移逻辑本身（ALTER TABLE 语句与执行顺序不变）。
 - 不改其他测试。
+- 测试内 has_column 断言辅助（PRAGMA 读列存在性）保留，仅作迁移前后断言，不再承担迁移决策。
 
 ### 验收标准
 
@@ -26,7 +27,7 @@ reviewer 判 AC 时只看本区。
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
 - [ ] AC1：生产迁移逻辑抽取为独立导出函数（如 migrate_observation_schema），create_observation_store 调用该函数。
-- [ ] AC2：observation_store_migration.test.ts 删除手写 NEW_COLUMN_SQL 与 PRAGMA table_info，改为 import 并调用生产迁移函数。
+- [ ] AC2：observation_store_migration.test.ts 删除手写 NEW_COLUMN_SQL，改为 import 并调用生产迁移函数（has_column PRAGMA 仅作断言辅助）。
 - [ ] AC3：迁移测试通过；迁移后 schema 与迁移前一致。
 
 ### 可测试性声明
