@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { relative_time } from "../../../../src/renderer/lib/utils";
 
 import {
     UsageBarRow,
@@ -234,5 +235,58 @@ describe("AccountUsageRow upcoming-reset watch toggle (t046)", () => {
             await user.click(second);
         }
         expect(on_toggle_watched).toHaveBeenCalledWith("glm-4-air");
+    });
+});
+
+describe("AccountUsageRow observedAt relative-time path (t186)", () => {
+    function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUsageAccount {
+        return {
+            id: "glm-main",
+            sourceInstanceId: "cpa-main",
+            accountId: "glm-main",
+            accountLabel: "GLM Account",
+            status: "normal",
+            updatedAt: "2026-05-18T12:00:00Z",
+            observedAt: 1747567200000,
+            stale: false,
+            periods: [make_period({ id: "p1", raw_label: "glm-4-plus" })],
+            ...overrides,
+        };
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-05-18T12:30:00Z"));
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it("uses observedAt for the relative time when present (t174 path)", () => {
+        // observedAt = 12:00:00, now = 12:30:00 → 30 分钟前
+        const account = make_account({ observedAt: new Date("2026-05-18T12:00:00Z").getTime() });
+        const { container } = render(<AccountUsageRow account={account} />);
+        const time_el = container.querySelector(".ai-time");
+        expect(time_el?.textContent).toBe(relative_time(account.observedAt));
+        expect(time_el?.textContent).toBe("30 分钟前");
+    });
+
+    it("falls back to updatedAt when observedAt is missing", () => {
+        const account = make_account({ observedAt: null as unknown as number });
+        const { container } = render(<AccountUsageRow account={account} />);
+        const time_el = container.querySelector(".ai-time");
+        expect(time_el?.textContent).toBe(relative_time(account.updatedAt));
+        expect(time_el?.textContent).not.toBe("");
+    });
+
+    it("renders empty time when both observedAt and updatedAt are missing", () => {
+        const account = make_account({
+            observedAt: null as unknown as number,
+            updatedAt: null as unknown as string,
+        });
+        const { container } = render(<AccountUsageRow account={account} />);
+        const time_el = container.querySelector(".ai-time");
+        expect(time_el?.textContent).toBe("");
     });
 });
