@@ -12,13 +12,16 @@ reviewer 判 AC 时只看本区。
 
 ### 范围
 
-- 15 个含内联 helper 的 connector（claude/codex/cpa/deepseek/exa/firecrawl/getoneapi/glm/grok/kimi/mimo/minimax/opencode*go/tavily/tikhub）删除 is_record/to_number/parse_limit/status_for*\*/classify_status 内联 helper，status 计算统一改调 ctx.status（for_pct/for_ratio/for_balance）。
+- 15 个含内联 helper 的 connector（claude/codex/cpa/deepseek/exa/firecrawl/getoneapi/glm/grok/kimi/mimo/minimax/opencode*go/tavily/tikhub）删除 status*for**/classify_status 内联阈值 helper，status 计算统一改调 ctx.status（for_pct/for_ratio/for_balance）。
+- kimi/mimo/tavily 的 `limit<=0→normal` 内联语义经调用侧 guard 保留：`limit > 0 ? ctx.status.for_*(...) : "normal"`。
+- 非 status utility helper（is_record/to_number/parse_limit）保留各 connector 本地最小副本（沙箱禁止 import，ctx 未暴露等价物）。
 
 ### 非范围
 
-- 不改 ctx.status 机制本身（host-io.ts）。
+- 不改 ctx.status 机制本身（host-io.ts / connector-thresholds.ts）。
 - 不改 antigravity（无 helper）。
 - 不改各 connector 的 fetch/解析逻辑，只替换 status 计算方式。
+- 不删除 is_record/to_number/parse_limit 本地 utility 副本（沙箱 import 约束下无法共享化）。
 
 ### 验收标准
 
@@ -26,8 +29,8 @@ reviewer 判 AC 时只看本区。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] AC1：15 个目标 connector 的 connector.ts 中不再定义 is*record/to_number/parse_limit/status_for*\*/classify_status 内联函数，status 计算改经 ctx.status。
-- [ ] AC2：迁移后各 connector 对相同输入的 status 判定结果与迁移前一致（阈值语义不漂移）。
+- [ ] AC1：15 个目标 connector 的 connector.ts 中不再定义 status*for*\*/classify_status 内联阈值函数，status 计算改经 ctx.status（kimi/mimo/tavily 经调用侧 guard 保留 limit<=0→normal 语义）。
+- [ ] AC2：迁移后各 connector 对相同输入的 status 判定结果与迁移前一致（阈值语义不漂移，含 limit<=0 分支）。
 - [ ] AC3：全部 connector 既有测试通过；无因迁移引入的新失败。
 
 ### 可测试性声明
@@ -62,7 +65,11 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- vm 沙箱脚本内联阈值与宿主 ctx.status 阈值的取值一致性（for_pct/for_ratio/for_balance 的具体阈值）：UNVERIFIED-SPIKE，执行期逐 connector 对照核实。
+- vm 沙箱脚本内联阈值与宿主 ctx.status 阈值的取值一致性：**已核实（2026-08-01 逐 connector 对照）**。
+    - 阈值函数体：`claude`/`cpa` status_for_pct、`deepseek` status_for_balance、`firecrawl` status_for_ratio、`exa` status_for_cost、`grok` classify_status 与宿主 `src/shared/lib/connector-thresholds.ts` 完全一致（percent 90/75、ratio 0.9/0.75、余额反向 0.1/0.2）。
+    - `limit<=0` 语义差异：宿主三函数统一返回 `unknown`；kimi/mimo/tavily 内联返回 `normal`（深层 API limit 可能缺失），exa/deepseek/getoneapi/mimo-balance 调用侧已 guard 后传 `unknown`，firecrawl 内联返回 `unknown`。迁移方案：kimi/mimo/tavily 调用侧改 `limit > 0 ? ctx.status.for_*(...) : "normal"` 保留内联语义；已 guard 的 connector 直接换 `ctx.status.for_*`。
+    - 非 status helper：is*record/to_number/parse_limit 为纯 utility 函数。ctx 未暴露等价物；沙箱脚本禁止 import/export（`runtime.ts:71` 拒绝），无法 import 共享模块。迁移方案：这些 utility helper 保留各 connector 本地最小副本（非阈值语义，不构成统一性风险）；仅 status 阈值 helper（status_for*_/classify*status）删除内联、改调 `ctx.status.for*_`。
+    - 验证方式：读 `src/shared/lib/connector-thresholds.ts` + 15 个 connector 内联 helper 逐行对照 + `runtime.ts` 沙箱 import 约束。
 
 ### 风险与回退
 

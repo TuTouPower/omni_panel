@@ -307,12 +307,6 @@ function to_number(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function status_for_usage(used: number): ScriptObservation["status"] {
-    if (used >= 90) return "critical";
-    if (used >= 75) return "warning";
-    return "normal";
-}
-
 function observation(
     workspace_id: string,
     account_label: string,
@@ -342,7 +336,7 @@ function observation(
         limit: 100,
         display_style: "percent",
         reset_at: now + reset_in_sec * 1000,
-        status: status_for_usage(used),
+        status: ctx.status.for_pct(used),
         observed_at: now,
         source: "session",
         stale: false,

@@ -23,13 +23,6 @@ function parse_limit(raw: string | undefined): number {
     return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
-function status_for_balance(balance: number, limit: number): ScriptObservation["status"] {
-    const ratio = balance / limit;
-    if (ratio <= 0.1) return "critical";
-    if (ratio <= 0.2) return "warning";
-    return "normal";
-}
-
 async function main(): Promise<ScriptObservation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
     if (!api_key) return [];
@@ -85,7 +78,7 @@ async function main(): Promise<ScriptObservation[]> {
             limit,
             display_style: "ratio",
             reset_at: null,
-            status: limit_num > 0 ? status_for_balance(balance, limit_num) : "unknown",
+            status: limit_num > 0 ? ctx.status.for_balance(balance, limit_num) : "unknown",
             observed_at: now,
             source: "poll",
             stale: false,

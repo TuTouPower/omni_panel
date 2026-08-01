@@ -23,13 +23,6 @@ function parse_limit(raw: string | undefined): number {
     return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
-function status_for_cost(used: number, limit: number): ScriptObservation["status"] {
-    const ratio = used / limit;
-    if (ratio >= 0.9) return "critical";
-    if (ratio >= 0.75) return "warning";
-    return "normal";
-}
-
 function to_ms(value: unknown): number | null {
     if (typeof value !== "string") return null;
     const ts = Date.parse(value);
@@ -87,7 +80,7 @@ async function main(): Promise<ScriptObservation[]> {
             normalized_label: "总成本 (USD)",
             used: round3(total),
             limit,
-            status: limit_num > 0 ? status_for_cost(total, limit_num) : "unknown",
+            status: limit_num > 0 ? ctx.status.for_ratio(total, limit_num) : "unknown",
         },
     ];
 

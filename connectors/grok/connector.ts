@@ -1,9 +1,5 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
-import type {
-    ObservationStatus,
-    ObservationWindow,
-    ScriptObservation,
-} from "../../src/shared/types/observation";
+import type { ObservationWindow, ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
@@ -35,12 +31,6 @@ const ACCOUNT_ID = "grok";
 const ACCOUNT_LABEL = "Grok";
 const ENDPOINT_KEY = "grok_billing";
 const BILLING_PATH = "/v1/billing?format=credits";
-
-function classify_status(percent: number): ObservationStatus {
-    if (percent >= 90) return "critical";
-    if (percent >= 75) return "warning";
-    return "normal";
-}
 
 function to_snake_case(name: string): string {
     return name.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
@@ -198,7 +188,7 @@ async function main(): Promise<ScriptObservation[]> {
             limit: 100,
             display_style: "percent",
             reset_at: total_usage.period.reset_at,
-            status: classify_status(total_usage.percent),
+            status: ctx.status.for_pct(total_usage.percent),
             observed_at: now,
             source: "poll",
             stale: false,
@@ -229,7 +219,7 @@ async function main(): Promise<ScriptObservation[]> {
                 limit: 100,
                 display_style: "percent",
                 reset_at: legacy_reset_at,
-                status: classify_status(product.usagePercent),
+                status: ctx.status.for_pct(product.usagePercent),
                 observed_at: now,
                 source: "poll",
                 stale: false,

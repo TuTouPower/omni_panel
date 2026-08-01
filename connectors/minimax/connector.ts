@@ -90,14 +90,6 @@ function period_label(key: string): string {
     return "周期";
 }
 
-function status_for(used: number, limit: number): ScriptObservation["status"] {
-    if (limit <= 0) return "normal";
-    const ratio = used / limit;
-    if (ratio >= 0.9) return "critical";
-    if (ratio >= 0.75) return "warning";
-    return "normal";
-}
-
 // Assumes `remains_time` is remaining milliseconds until reset.
 // If the API actually returns seconds or another unit, reset_at will be wildly wrong.
 // Sanity check: if reset_at would be more than 1 year in the future, treat it as
@@ -198,7 +190,7 @@ async function main(): Promise<ScriptObservation[]> {
                     0,
                     to_number(model.end_time) - to_number(model.start_time),
                 ),
-                status: status_for(interval_used, interval_total),
+                status: ctx.status.for_ratio(interval_used, interval_total),
                 _model_sort: key ? (MODEL_SORT[key] ?? 99) : 99,
                 _period_sort: PERIOD_SORT[pk] ?? 99,
             });
@@ -214,7 +206,7 @@ async function main(): Promise<ScriptObservation[]> {
                 limit: Math.max(weekly_total, 0),
                 reset_at: reset_from_ms(model.weekly_remains_time),
                 cycleDurationMs: 7 * 24 * 3_600_000,
-                status: status_for(weekly_used, weekly_total),
+                status: ctx.status.for_ratio(weekly_used, weekly_total),
                 _model_sort: key ? (MODEL_SORT[key] ?? 99) : 99,
                 _period_sort: PERIOD_SORT["period_week"] ?? 99,
             });

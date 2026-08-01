@@ -185,7 +185,7 @@ note: ""
 5. 新 provider 需同步：`usageProviderSchema` 枚举、`src/renderer/lib/provider-usage.ts` 的 `PROVIDER_ORDER` + `PROVIDER_LABELS`、logo 资源。
 6. 补测试（见 `docs/guides/testing.md`）。
 
-> 阈值约定：percent 型（used 是百分比）用 90 critical / 75 warning；ratio 型（used/limit）用 0.9 / 0.75；余额型（越低越危险，如 DeepSeek）反向。
+> 阈值约定：percent 型（used 是百分比）用 90 critical / 75 warning；ratio 型（used/limit）用 0.9 / 0.75；余额型（越低越危险，如 DeepSeek）反向。连接器脚本统一经 `ctx.status.for_pct / for_ratio / for_balance` 调用宿主实现（`src/shared/lib/connector-thresholds.ts`，t066/t175），不再内联阈值函数；沙箱禁 import，utility（is_record/to_number/parse_limit）保留本地副本。
 
 ### Grok 连接器：OAuth device-code 授权
 
