@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect, useMemo, useCallback, type CSSProperties } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { use_plugins } from "../hooks/use-plugins";
-import { is_web } from "../lib/is-web";
 import { use_popup_height_report } from "../hooks/use-popup-height-report";
 import { useNowTick } from "../hooks/use-now-tick";
 import { usePopupUiConfig } from "../hooks/use-popup-ui-config";
@@ -9,62 +8,36 @@ import { use_dnd_handlers } from "../hooks/use_dnd_handlers";
 import { use_watched_metric_toggler } from "../hooks/use_watched_metric_toggler";
 import { use_tab_navigation } from "../hooks/use_tab_navigation";
 import { useTheme } from "../lib/theme";
-import { Icon } from "../components/Icon";
 import { ProviderAccountList } from "../components/ProviderAccountList";
 import { ProviderNav } from "../components/ProviderNav";
 import { ProviderOverview } from "../components/ProviderOverview";
 import { TokenPanel } from "../components/TokenPanel";
 import { CollapsibleCard } from "../components/CollapsibleCard";
-import { UpcomingResetCard, UPCOMING_RESET_CARD_ID } from "../components/UpcomingResetCard";
-import { type ProviderUsageGroup } from "../lib/provider-usage";
+import { UPCOMING_RESET_CARD_ID } from "../components/UpcomingResetCard";
 import { build_reorder_base } from "../lib/drag-reorder";
 import { plugins_structure_signature } from "../lib/config-sync";
 import type { AppConfiguration } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
-import logo from "../assets/logo.svg";
-import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
+import { TitleBar } from "./popup-view/TitleBar";
+import { EmptyState } from "./popup-view/EmptyState";
+import { UpcomingResetCardSlot } from "./popup-view/UpcomingResetCardSlot";
+import { NetBanner } from "./popup-view/NetBanner";
+import { SkeletonCard } from "./popup-view/SkeletonCard";
+import {
+    MODULE,
+    log,
+    should_log_raw,
+    token_panel_enabled,
+    popup_mirror_style,
+    errorMessage,
+    structural_signature,
+    arrays_equal,
+    account_orders_equal,
+    record_bool_equal,
+} from "./popup-view/lib";
 
-const MODULE = "PopupView";
-const log = createLogger("renderer:popup-view");
-const should_log_raw = import.meta.env.DEV;
-const token_panel_enabled = import.meta.env["VITE_ENABLE_TOKEN_PANEL"] === "1";
-
-function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-}
-
-function structural_signature(groups: readonly ProviderUsageGroup[]): string {
-    return groups.map((g) => g.provider + ":" + g.accounts.map((a) => a.id).join(",")).join("|");
-}
-
-function arrays_equal<T>(left: readonly T[] | undefined, right: readonly T[]): boolean {
-    return left?.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function account_orders_equal(
-    left: Readonly<Record<string, readonly string[]>>,
-    right: Readonly<Record<string, readonly string[]>>,
-): boolean {
-    const left_keys = Object.keys(left);
-    const right_keys = Object.keys(right);
-    if (left_keys.length !== right_keys.length) return false;
-    return left_keys.every((key) => {
-        const right_order = right[key];
-        return right_order !== undefined && arrays_equal(left[key], right_order);
-    });
-}
-
-/** Shallow equality for boolean dictionaries (collapsed/expanded state). */
-export function record_bool_equal(
-    left: Readonly<Record<string, boolean>>,
-    right: Readonly<Record<string, boolean>>,
-): boolean {
-    const left_keys = Object.keys(left);
-    const right_keys = Object.keys(right);
-    if (left_keys.length !== right_keys.length) return false;
-    return left_keys.every((key) => right[key] === left[key]);
-}
+export { record_bool_equal } from "./popup-view/lib";
 
 export function PopupView() {
     useTheme();
@@ -517,63 +490,18 @@ export function PopupView() {
         return (
             <>
                 {/* title bar */}
-                <div className={titlebar_class}>
-                    <img
-                        src={logo}
-                        alt="OmniPanel"
-                        className="app-logo"
-                        width="30"
-                        height="30"
-                        style={{ borderRadius: 9 }}
-                    />
-                    <span className="app-title">OmniPanel</span>
-                    <div className="tb-actions">
-                        {footerTime && (
-                            <span className="tb-time" title="上次更新时间">
-                                {footerTime}
-                            </span>
-                        )}
-                        <button
-                            className={"icon-btn" + (refreshing ? " spinning" : "")}
-                            title="刷新全部"
-                            aria-label="刷新"
-                            onClick={is_live ? handleRefreshAll : undefined}
-                        >
-                            <Icon name="refresh" size={18} />
-                        </button>
-                        <button
-                            className="icon-btn"
-                            title="设置"
-                            onClick={is_live ? goToSettings : undefined}
-                        >
-                            <Icon name="gear" size={18} />
-                        </button>
-                        {is_web() && (
-                            <button
-                                className="icon-btn"
-                                title="代理面板"
-                                onClick={() => {
-                                    window.usageboard.tokenStats.open();
-                                }}
-                            >
-                                <Icon name="chart" size={18} />
-                            </button>
-                        )}
-                        {is_live && main_panel_mode === "floating" && (
-                            <button
-                                className="icon-btn floating-close-btn"
-                                title="隐藏到托盘"
-                                aria-label="隐藏用量面板"
-                                type="button"
-                                onClick={() => {
-                                    window.usageboard.main_panel.hide();
-                                }}
-                            >
-                                <Icon name="close" size={18} />
-                            </button>
-                        )}
-                    </div>
-                </div>
+                <TitleBar
+                    footerTime={footerTime}
+                    refreshing={refreshing}
+                    is_live={is_live}
+                    titlebar_class={titlebar_class}
+                    onRefreshAll={handleRefreshAll}
+                    onOpenSettings={goToSettings}
+                    is_floating={main_panel_mode === "floating"}
+                    onHidePanel={() => {
+                        window.usageboard.main_panel.hide();
+                    }}
+                />
 
                 {/* tab strip */}
                 <div
@@ -591,55 +519,12 @@ export function PopupView() {
                 {/* scroll body */}
                 <div className="scroll" ref={scroll_ref}>
                     <div className="scroll-inner">
-                        {error && (
-                            <div className="net-banner">
-                                <Icon name="cloud_off" size={18} />
-                                <span>网络连接异常，部分数据可能不是最新</span>
-                                <span
-                                    className="nb-action"
-                                    onClick={is_live ? handleRefreshAll : undefined}
-                                >
-                                    重新连接
-                                </span>
-                            </div>
-                        )}
+                        {error && <NetBanner is_live={is_live} onRefreshAll={handleRefreshAll} />}
 
-                        {loading && plugins.length === 0 && (
-                            <div className="card">
-                                <div className="card-head">
-                                    <div className="skel lbl" />
-                                </div>
-                                <div className="skeleton-bars">
-                                    <div className="skel-row">
-                                        <div className="skel lbl" />
-                                        <div className="skel" />
-                                    </div>
-                                    <div className="skel-row">
-                                        <div className="skel lbl" />
-                                        <div className="skel" />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        {loading && plugins.length === 0 && <SkeletonCard />}
 
                         {!loading && plugins.length === 0 && !error && (
-                            <div className="empty">
-                                <div className="empty-ic">
-                                    <Icon name="inbox" size={30} strokeWidth={1.6} />
-                                </div>
-                                <div className="empty-title">还没有添加任何服务</div>
-                                <div className="empty-sub">
-                                    添加你的第一个 AI 服务账号，即可在这里实时查看用量限制与 Token
-                                    趋势。
-                                </div>
-                                <button
-                                    className="btn-primary"
-                                    onClick={is_live ? goToSettings : undefined}
-                                >
-                                    <Icon name="plus" size={15} color="#fff" />
-                                    添加服务
-                                </button>
-                            </div>
+                            <EmptyState is_live={is_live} onAddService={goToSettings} />
                         )}
 
                         {!loading && plugins.length > 0 && activeTab === "overview" && (
@@ -652,67 +537,36 @@ export function PopupView() {
                                         return null;
                                     }
                                     return (
-                                        <UpcomingResetCard
+                                        <UpcomingResetCardSlot
                                             key={UPCOMING_RESET_CARD_ID}
-                                            items={upcomingItems}
-                                            onSelectProvider={
-                                                is_live
-                                                    ? select_provider_from_upcoming
-                                                    : () => undefined
-                                            }
+                                            is_live={is_live}
+                                            force_collapse={force_collapse}
+                                            upcomingItems={upcomingItems}
                                             desensitizeRemarks={ui_desensitize_remarks}
                                             expanded={
-                                                is_live && !force_collapse
-                                                    ? (expanded_providers[UPCOMING_RESET_CARD_ID] ??
-                                                      false)
-                                                    : false
+                                                expanded_providers[UPCOMING_RESET_CARD_ID] ?? false
                                             }
-                                            onToggleExpand={
-                                                is_live
-                                                    ? () => {
-                                                          toggle_expand_provider(
-                                                              UPCOMING_RESET_CARD_ID,
-                                                          );
-                                                      }
-                                                    : undefined
-                                            }
-                                            dragging={is_live && drag_id === UPCOMING_RESET_CARD_ID}
-                                            dragOver={
-                                                is_live &&
-                                                drag_id !== null &&
-                                                drag_id !== UPCOMING_RESET_CARD_ID &&
-                                                over_id === UPCOMING_RESET_CARD_ID
-                                            }
-                                            onDragStart={
-                                                is_live
-                                                    ? (rect) => {
-                                                          handle_drag_start(
-                                                              UPCOMING_RESET_CARD_ID,
-                                                              rect,
-                                                          );
-                                                      }
-                                                    : undefined
-                                            }
-                                            onDragEnter={
-                                                is_live
-                                                    ? () => {
-                                                          handle_drag_enter(UPCOMING_RESET_CARD_ID);
-                                                      }
-                                                    : undefined
-                                            }
-                                            onDragOver={
-                                                is_live
-                                                    ? (client_x, client_y, rect) => {
-                                                          handle_drag_over(
-                                                              UPCOMING_RESET_CARD_ID,
-                                                              client_x,
-                                                              client_y,
-                                                              rect,
-                                                          );
-                                                      }
-                                                    : undefined
-                                            }
-                                            onDragEnd={is_live ? handle_drag_end : undefined}
+                                            drag_id={drag_id}
+                                            over_id={over_id}
+                                            onSelectProvider={select_provider_from_upcoming}
+                                            onToggleExpand={() => {
+                                                toggle_expand_provider(UPCOMING_RESET_CARD_ID);
+                                            }}
+                                            onDragStart={(rect) => {
+                                                handle_drag_start(UPCOMING_RESET_CARD_ID, rect);
+                                            }}
+                                            onDragEnter={() => {
+                                                handle_drag_enter(UPCOMING_RESET_CARD_ID);
+                                            }}
+                                            onDragOver={(clientX, clientY, rect) => {
+                                                handle_drag_over(
+                                                    UPCOMING_RESET_CARD_ID,
+                                                    clientX,
+                                                    clientY,
+                                                    rect,
+                                                );
+                                            }}
+                                            onDragEnd={handle_drag_end}
                                         />
                                     );
                                 }}
@@ -863,14 +717,3 @@ export function PopupView() {
         </>
     );
 }
-
-const popup_mirror_style: CSSProperties = {
-    position: "fixed",
-    top: 0,
-    left: -99999,
-    width: "100%",
-    height: "auto",
-    maxHeight: "none",
-    pointerEvents: "none",
-    visibility: "hidden",
-};
