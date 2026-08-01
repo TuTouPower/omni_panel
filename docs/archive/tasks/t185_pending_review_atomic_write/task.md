@@ -2,11 +2,11 @@
 tid: "t185"
 slug: "pending_review_atomic_write"
 title: "pending.py / render_review_prompts.py 原子写"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t185_pending_review_atomic_write"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "211dcb9dad9f49a14e65a4fa716bc0af687df282"
 depends_on: ""
 conflicts_with: ""
 note: "p018"
@@ -44,14 +44,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-02 23:50 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+| finding_id    | severity | status | rationale                                                   | fix_ref                                             |
+| ------------- | -------- | ------ | ----------------------------------------------------------- | --------------------------------------------------- |
+| t185_gen_f001 | minor    | 已修   | 测试 docstring 元引用 `(t185, p018)` 改为描述性文字，去编号 | tests/repo_template/test_pending_render_atomic.py:1 |
 
 ## 收尾报告
 
@@ -60,24 +57,21 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+    - AC1/AC2：`tests/repo_template/test_pending_render_atomic.py` 用 monkeypatch 在 `task.os.replace` 注入异常，断言 pending/archive 与 prompt 目标文件保持原内容 + 无 tmp 残留。
+    - AC3：两脚本 `from task import _atomic_write_text` 复用同一实现，未重复 tmp+fsync+replace 逻辑；monkeypatch `task.os.replace` 覆盖两脚本调用路径证明共享。
+    - 黑盒：typecheck / lint 零警告；repo_template pytest 201 全过。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（1 finding：t185_gen_f001 minor，测试 docstring 元引用）
+- Round 2 general：PASS（f001 已修确认，无新发现）
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+pending.py / render_review_prompts.py 写权威/派生文件改用 task.py 的 `_atomic_write_text`，消除半写风险；p018 闭环。

@@ -23,6 +23,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from task import _atomic_write_text
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = REPO_ROOT / "docs/reviews/prompts"
 PLACEHOLDER_RE = re.compile(
@@ -259,6 +261,14 @@ def render_review_prompts(
     return prompts
 
 
+def _write_prompts(out_dir: Path, prompts: dict[str, str]) -> None:
+    """原子写 prompt 文件（tmp + fsync + os.replace，复用 task._atomic_write_text）。"""
+    for filename, prompt in prompts.items():
+        path = out_dir / filename
+        _atomic_write_text(path, prompt)
+        print(f"wrote {path}", file=sys.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="渲染 code/test reviewer prompt（唯一入口）",
@@ -292,10 +302,7 @@ def main():
         if not out_dir.is_absolute():
             out_dir = REPO_ROOT / out_dir
         out_dir.mkdir(parents=True, exist_ok=True)
-        for filename, prompt in prompts.items():
-            path = out_dir / filename
-            path.write_text(prompt, encoding="utf-8")
-            print(f"wrote {path}", file=sys.stderr)
+        _write_prompts(out_dir, prompts)
     else:
         for filename, prompt in prompts.items():
             print(f"===== {filename.removesuffix('.md')} =====")
