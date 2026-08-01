@@ -2597,6 +2597,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t173_tokenstats_hour_aggregate"
+        },
+        {
+            "tid": "t174",
+            "slug": "stale_copy_keep_data_time",
+            "title": "stale 副本保留原数据时间，卡片相对时间不再误导为新采集",
+            "status": "done",
+            "branch": "t174_stale_copy_keep_data_time",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "5c48c6c6858d1eb82d25b649da91c0dd5d03e497",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t174_stale_copy_keep_data_time"
         }
     ]
 }

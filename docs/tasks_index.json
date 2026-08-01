@@ -4,21 +4,6 @@
     "workspace": ".",
     "tasks": [
         {
-            "tid": "t174",
-            "slug": "stale_copy_keep_data_time",
-            "title": "stale 副本保留原数据时间，卡片相对时间不再误导为新采集",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t174_stale_copy_keep_data_time"
-        },
-        {
             "tid": "t175",
             "slug": "connector_ctx_status_migrate",
             "title": "16 个 connector 删内联 helper 改 ctx.status",
