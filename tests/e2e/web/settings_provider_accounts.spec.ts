@@ -28,15 +28,11 @@ test.describe("settings provider accounts (web)", () => {
         const settings = await SettingsPage.open_via_hash(webPage);
         await settings.page.getByTestId("settings-plugin-nav-accounts").click();
 
-        // web fixture（real/synthetic）connector name 不定，泛化 .accent-row 存在
-        const rows = settings.page.locator(".accent-row");
-        const has_rows = await rows
-            .first()
-            .isVisible({ timeout: 5_000 })
-            .catch(() => false);
-        if (!has_rows) {
-            test.skip(true, "web SPA accounts 页无 .accent-row（DOM 结构差异），留 electron 覆盖");
-        }
-        await expect(rows.first()).toBeVisible();
+        // 已添加连接列表（VendorCard 行），synthetic/real 均含 connector。
+        // 注意：.accent-row 是外观页强调色 swatch，不属于 accounts 页；accounts
+        // 页行结构为 .acct-list > .acc-card。
+        const rows = settings.page.locator(".acct-list .acc-card");
+        await expect(rows.first()).toBeVisible({ timeout: 10_000 });
+        expect(await rows.count()).toBeGreaterThanOrEqual(1);
     });
 });

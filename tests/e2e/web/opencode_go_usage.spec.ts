@@ -6,8 +6,9 @@ import { PopupPage } from "../pages/popup_page";
  * mock local-api 回放真实快照（real 含 opencode_go 8 workspace × rolling/weekly/monthly）。
  * 断言泛化：三窗口翻译文案可见；多账号 card 数 > 1（不锁具体 workspace 名）。
  *
- * synthetic fixture 不含 opencode_go connector，CI 跑 synthetic 时该 case 跳过；
- * 本地 real fixture 跑覆盖。
+ * synthetic.json 手工补充 opencode_go connector（2 workspace × rolling/weekly/monthly，
+ * 窗口文案 滚动/一周/一月；gen_synthetic.mjs 不产生，重跑 e2e:gen-synthetic 会覆盖，
+ * 见 docs/pending.md p021），CI synthetic 也覆盖。
  */
 test.describe("opencode go usage (web)", () => {
     test("renders rolling weekly monthly usage for multiple opencode go accounts", async ({
@@ -18,9 +19,7 @@ test.describe("opencode go usage (web)", () => {
 
         const live = popup.root();
         const tab = live.getByRole("button", { name: "OpenCode Go", exact: true });
-        if (!(await tab.isVisible().catch(() => false))) {
-            test.skip(true, "synthetic fixture 不含 opencode_go provider，跳过");
-        }
+        await expect(tab).toBeVisible({ timeout: 15_000 });
         await tab.click({ timeout: 15_000 });
 
         // 进入 tab 后应有多个账号 card（real fixture 8 workspace）

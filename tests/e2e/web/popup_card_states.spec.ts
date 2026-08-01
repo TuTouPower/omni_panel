@@ -10,9 +10,10 @@ import { PopupPage } from "../pages/popup_page";
  * 可触发 .card-state.auth（is_auth_error 文本匹配），留 electron 不迁。
  *
  * 保留 case：
- *  - 错误态 retry：real fixture KIMI 有 1 个 enabled connector snapshot.status=failed
- *    且含 stale items -> overview 渲染 .card-state.err + 重试 action。
- *    synthetic 无此 connector -> case 用 test.skip 当无错误 connector 时跳过。
+ *  - 错误态 retry：synthetic.json 手工保证含 1 个 enabled connector
+ *    snapshot.status=failed 且含 stale items（当前为 KIMI 401；gen_synthetic.mjs
+ *    不产生，重跑 e2e:gen-synthetic 会覆盖，见 docs/pending.md p021）
+ *    -> overview 渲染 .card-state.err + 重试 action（错误 banner 分支）。
  *  - critical 用量条：Codex tab 内含 critical item（pct>=95 -> var(--risk-red) fill）。
  */
 test.describe("popup card states (web)", () => {
@@ -22,14 +23,7 @@ test.describe("popup card states (web)", () => {
 
         const live = popup.root();
         const err_banner = live.locator(".card-state.err").filter({ hasText: "重试" });
-        // 短 timeout 探测渲染（.card-state.err 由 connector 数据后渲染，与 app-title 不同拍）
-        const has_err = await err_banner
-            .first()
-            .isVisible({ timeout: 3_000 })
-            .catch(() => false);
-        if (!has_err) {
-            test.skip(true, "mock fixture 无 enabled+failed connector（synthetic 无），跳过");
-        }
+        // .card-state.err 由 connector 数据后渲染，与 app-title 不同拍
         await expect(err_banner.first()).toBeVisible({ timeout: 15_000 });
         await expect(err_banner.first().getByText("重试")).toBeVisible();
     });

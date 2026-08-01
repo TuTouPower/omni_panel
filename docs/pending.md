@@ -34,6 +34,22 @@
 - 内容：`docs/archive/tasks/t175_connector_ctx_status_migrate/spec.md` 存在 prettier 格式问题（`pnpm check` 的 `format:check` 全仓检查报警），t180 拆分执行时首次暴露。归档文件由 `finish` 移动，格式问题随 t175 归档带入。需 prettier --write 后单独 commit（属维护，不混入 task 执行 commit）。
 - 处理：未开
 
+### p021 e2e gen-synthetic 重生成会抹掉手工 synthetic fixture 条目（2026-08-01）
+
+- 来源：t181 review f001 / test_f001
+- 内容：t181 为让 6 处条件 skip 用例在 synthetic 下可跑，手工给 `synthetic.json` 注入 KIMI items `error`（HTTP 401）并补 opencode_go connector（2 workspace）。`gen_synthetic.mjs`（`e2e:gen-synthetic`）不产生这两类条目，重跑生成会静默覆盖，导致 account_error_badge / opencode_go_usage 在 CI 变红。需把「KIMI failed connector 注入 item.error + 补 opencode_go connector」固化进 gen_synthetic.mjs（或加持久化合并逻辑）。
+- 处理：未开
+
+### p022 synthetic fixture trend key 用短 metricId，renderer 按完整 period.id 拉取导致 sparkline 恒空（2026-08-01）
+
+- 来源：t181 review 未进表提示（pre-existing 系统性 fixture 不一致）
+- 现象：synthetic.json 的 trend key 为 `GET /v1/trend?provider=X&accountId=Y&metricId=<短末段>`（gen_synthetic 取 `it.id.split(":").slice(-1)[0]`）；renderer 的 `trend_api.get(provider, accountId, period.id)`（ProviderAccountRow.tsx:98）传完整 `period.id`（形如 `srcInstanceId:provider:accountId:metricId`），mock_server 按完整 query 精确匹配，key 不命中 → 返回 `[]`，synthetic 下 sparkline 恒空。
+- 影响：synthetic e2e 的 sparkline 相关断言退化（空序列）；real fixture 同机制疑受 metric_id 匹配影响（待 task-bug 复现确认）。
+- 根因：待确认（mock_server query 精确匹配 vs renderer 传完整 id；real server query_trend_series 的 metric_id 匹配口径）。
+- 测试缺口：无 synthetic 断言 sparkline 非空。
+- 线索：`mock_server.mjs:49`、`ProviderAccountRow.tsx:98`、`gen_synthetic.mjs` trend 拷贝段。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

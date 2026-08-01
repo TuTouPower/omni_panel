@@ -62,7 +62,13 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 各 skip 用例所需 real fixture 的具体内容（KIMI connector、opencode_go provider、enabled+failed connector、.accent-row DOM 结构）：UNVERIFIED-SPIKE，执行期逐条读 fixture 生成代码核实可补性。
+无（原 SPIKE 项已实验核实，结论如下）：
+
+- 各 skip 用例所需 fixture 内容，经 synthetic fixture 实测逐条核实：
+    - KIMI enabled+failed connector 已在 synthetic（gen_synthetic 加 failed-real），但其卡概览默认展开、overview 卡行不渲染 `.error-badge`（该 badge 在 provider tab 的 ProviderAccountRow 层）；`last_error→error` 由 `observation_to_metric_record`（observation-mapping.ts:42）映射，需 fixture items 携带 error 才能显示。实测：注入 error 后 Kimi tab 账号行显示 `.error-badge` 通过。
+    - opencode_go connector 原 synthetic 缺失（仅 trend 数据残留），补 synthetic connector（2 workspace × rolling/weekly/monthly）后 tab 渲染、三窗口文案可见，实测通过。
+    - accounts 页 `.accent-row` 实为外观页强调色 swatch，accounts 页行结构是 `.acct-list > .acc-card`；选择器修正后实测通过。
+    - enabled+failed connector 由 gen_synthetic 保证存在（popup_card_states / plugin_failure_modes 依赖），实测通过。
 
 ### 风险与回退
 
