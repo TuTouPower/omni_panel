@@ -16,58 +16,21 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
-### p016 t174 minor 遗留：prune 同 ts 保护过宽 + AccountUsageRow observedAt 路径无测试（2026-08-01）
-
-- 来源：t174_code_f001 / t174_test_f001
-- 内容：t174_code_f001——`observation-store.ts` 的 `prune_stmt`（:193-200）MAX 保护子查询未同步 `stale DESC` tie-breaker；stale 副本保留原 `observed_at` 后原观测与副本同时间戳，同 ts 下全部命中「保留每键最新行」保护，prune 对该键失效，同 ts 行随失败-恢复循环累积（数据不丢，latest 查询仍唯一）。t174_test_f001——`UsageRows.tsx` 的 `AccountUsageRow` 做了对称的 observedAt 优先取数改动，但 `usage_rows.test.tsx` 无用例断言该路径。
-- 处理：未开
-
-### p017 store dedupe 用例未锁行累积防护，删 `delete_stale_dup` 后测试仍绿（2026-08-01）
-
-- 来源：t174_test_f002（review_test.md Round 2，未进处置表）
-- 内容：`observation-store.test.ts` 新增用例「dedupes stale copies sharing the same observed_at」只断言查询层去重（`stale DESC` tie-breaker + ROW_NUMBER 独立保证返回 1 行），未直连断言 `delete_stale_dup_stmt` 的行数防护。推演验证：删除该删除逻辑后用例仍全绿，但连续失败会对同键同 ts 无限累积 stale 行（insert 前清理失效）。数据不丢、latest 仍唯一，属防护性覆盖缺口，非行为错误。
-- 处理：未开（随 p016 一并修——同属 t174 后续行累积防护，补 `SELECT COUNT(*)` 行数断言 + prune tie-breaker 对齐）
-
-### p018 pending.py / render_review_prompts.py 直写权威/派生文件未原子化（2026-08-01）
-
-- 来源：t179 spec 非范围（t169 模板化重写后原子性丢失的同一根因，t179 只覆盖 task.py）
-- 内容：`scripts/pending.py:328-329` 与 `scripts/render_review_prompts.py:297` 仍直接 `write_text` 写 `docs/pending.md` / `docs/archive/pending.md` / review prompt 文件，无 tmp+fsync+os.replace 原子写，中断会产生半写状态。`scripts/task.py` 的 `_atomic_write_text` 可复用。
-- 处理：未开
-
-### p019 t175 归档 spec.md 未过 prettier，pnpm check format:check 红（2026-08-01）
-
-- 来源：t180 顺手发现（commit 242343ad 引入）
-- 内容：`docs/archive/tasks/t175_connector_ctx_status_migrate/spec.md` 存在 prettier 格式问题（`pnpm check` 的 `format:check` 全仓检查报警），t180 拆分执行时首次暴露。归档文件由 `finish` 移动，格式问题随 t175 归档带入。需 prettier --write 后单独 commit（属维护，不混入 task 执行 commit）。
-- 处理：未开
-
-### p023 自定义 ≤25h 范围的小时柱仍走 records，高密度时同源截断（2026-08-01）
-
-- 来源：t183 review 结论段提示（spec 明确保守保留，未随 t183 修复）
-- 内容：`TokenStatsView` 的 `hour_fetch` 条件为 `gran !== "hour" || !time_axis || (is_short_window && preset !== "24h")`——非 24h preset 的 ≤25h 自定义范围（custom range）时间轴小时柱仍走 records，高密度时受倒序 LIMIT 50000 截断，与 p020 同源。t183 只覆盖 24h preset；如需消除，让 ≤25h 自定义范围同样走 hour 聚合（hour 聚合支持任意窗口，无短窗口对称切分约束——那是 KPI/donut 的事）。
-- 处理：未开
-
-### p024 query_range_rollup 的 title 子查询选全表最新而非窗口内最新（2026-08-01）
-
-- 来源：t184 review Round 2 f003 复核提示（non-blocking）
-- 内容：`token-stats-store.ts` 的 `query_range_rollup` 用相关子查询选每组最新 timestamp 的 title 对齐 records `rs[0].title`，但子查询 `WHERE t2.session_id=... AND source=... AND env=...` 未带窗口 `timestamp` 过滤，选的是该 session 全表最新标题。records 版 `query_records` 先按窗口过滤再 `ORDER BY timestamp DESC`，`rs[0].title` 是窗口内最新。差异：session 在窗口外被改名时，rollup 返回窗口外的新名，session 轴 label 前 7 字符可能漂移；token 统计不受影响。如需严格对齐，给子查询加 `timestamp >= @start`（与外层窗口一致）条件。
-- 处理：未开
-
 ### p021 e2e gen-synthetic 重生成会抹掉手工 synthetic fixture 条目（2026-08-01）
 
 - 来源：t181 review f001 / test_f001
 - 内容：t181 为让 6 处条件 skip 用例在 synthetic 下可跑，手工给 `synthetic.json` 注入 KIMI items `error`（HTTP 401）并补 opencode_go connector（2 workspace）。`gen_synthetic.mjs`（`e2e:gen-synthetic`）不产生这两类条目，重跑生成会静默覆盖，导致 account_error_badge / opencode_go_usage 在 CI 变红。需把「KIMI failed connector 注入 item.error + 补 opencode_go connector」固化进 gen_synthetic.mjs（或加持久化合并逻辑）。
 - 处理：未开
 
-### p022 synthetic fixture trend key 用短 metricId，renderer 按完整 period.id 拉取导致 sparkline 恒空（2026-08-01）
+### p022 synthetic fixture trend key 与 renderer period.id 不一致致 sparkline 恒空（2026-08-01）
 
 - 来源：t181 review 未进表提示（pre-existing 系统性 fixture 不一致）
-- 现象：synthetic.json 的 trend key 为 `GET /v1/trend?provider=X&accountId=Y&metricId=<短末段>`（gen_synthetic 取 `it.id.split(":").slice(-1)[0]`）；renderer 的 `trend_api.get(provider, accountId, period.id)`（ProviderAccountRow.tsx:98）传完整 `period.id`（形如 `srcInstanceId:provider:accountId:metricId`），mock_server 按完整 query 精确匹配，key 不命中 → 返回 `[]`，synthetic 下 sparkline 恒空。
-- 影响：synthetic e2e 的 sparkline 相关断言退化（空序列）；real fixture 同机制疑受 metric_id 匹配影响（待 task-bug 复现确认）。
-- 根因：待确认（mock_server query 精确匹配 vs renderer 传完整 id；real server query_trend_series 的 metric_id 匹配口径）。
+- 现象：synthetic e2e 下 sparkline 恒空。原描述称 gen_synthetic 取 `it.id.split(":").slice(-1)[0]` 截短 metricId 做 trend key，但 2026-08-02 复核 `scripts/e2e/gen_synthetic.mjs` trend 拷贝段（:60-64）实际直接拷贝 real key 仅 redact email，未截短 metricId——描述与现状不符，根因待重新复现。
+- 影响：synthetic e2e 的 sparkline 相关断言退化（空序列）；real fixture 同机制疑受 metric_id 匹配影响。
+- 根因：待确认（mock_server query 精确匹配 vs renderer 传完整 period.id；real server query_trend_series 的 metric_id 匹配口径；或 real responses 本身缺 trend 条目）。
 - 测试缺口：无 synthetic 断言 sparkline 非空。
-- 线索：`mock_server.mjs:49`、`ProviderAccountRow.tsx:98`、`gen_synthetic.mjs` trend 拷贝段。
-- 处理：未开
-- 处理：未开
+- 线索：`mock_server.mjs:49`、`ProviderAccountRow.tsx:88-98`、`gen_synthetic.mjs:60-64` trend 拷贝段。
+- 处理：未开（描述已过时，需 task-bug 重新复现根因后立项）
 
 ## 不办
 
