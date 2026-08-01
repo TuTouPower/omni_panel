@@ -22,6 +22,7 @@ const mocked_bar_chart = vi.hoisted(() => ({
         records?: unknown[];
         buckets?: { bucket_date: string }[];
         hourBuckets?: { hour_start: number }[];
+        rollup?: unknown[];
     } | null,
 }));
 
@@ -31,6 +32,7 @@ vi.mock("../../../../src/renderer/components/token-stats/BarChart", () => ({
         records?: unknown[];
         buckets?: { bucket_date: string }[];
         hourBuckets?: { hour_start: number }[];
+        rollup?: unknown[];
     }) => {
         mocked_bar_chart.props = props;
         return <div />;
@@ -104,13 +106,16 @@ describe("TokenStatsView", () => {
     const get_buckets = vi.fn();
     const get_heatmap = vi.fn();
     const get_hour_buckets = vi.fn();
+    const get_rollup = vi.fn();
 
     beforeEach(() => {
+        localStorage.clear();
         get_records.mockReset();
         get_sessions.mockReset();
         get_buckets.mockReset();
         get_heatmap.mockReset();
         get_hour_buckets.mockReset();
+        get_rollup.mockReset();
         mocked_bar_chart.props = null;
         mocked_heatmap.props = null;
         mocked_donuts.centers = [];
@@ -119,6 +124,7 @@ describe("TokenStatsView", () => {
         get_buckets.mockResolvedValue([]);
         get_heatmap.mockResolvedValue([]);
         get_hour_buckets.mockResolvedValue([]);
+        get_rollup.mockResolvedValue([]);
         window.usageboard = {
             tokenStats: {
                 open: vi.fn(),
@@ -127,6 +133,7 @@ describe("TokenStatsView", () => {
                 getRecords: get_records,
                 getHeatmap: get_heatmap,
                 getHourBuckets: get_hour_buckets,
+                getRangeRollup: get_rollup,
                 getStatus: vi.fn().mockResolvedValue({ running: true, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
             },
@@ -266,49 +273,50 @@ describe("TokenStatsView", () => {
         expect(screen.getAllByText(/▲|▼/).length).toBeGreaterThan(0);
     });
 
-    it("derives 24h delta from records (not day-bucketed) so windows are symmetric", async () => {
+    it("derives 24h delta from the bounded rollup aggregate (complete window)", async () => {
+        // Regression (p020): the 24h KPI delta used per-message records, whose
+        // ORDER BY DESC LIMIT truncates high-density windows — the prior 24h
+        // window silently vanished. The 24h preset now reads the previous
+        // window from the bounded rollup aggregate (t184); records are
+        // irrelevant to the delta here.
         const now = Date.now();
         const hour = 3600000;
-        // current window: 1 record ~1h ago; prior window: 1 record ~25h ago.
-        // Return both across the 2x-wide records fetch ([now-48h, now]).
-        get_records.mockImplementation((filters: { start?: number; end?: number }) => {
-            const start = filters.start ?? 0;
+        get_records.mockResolvedValue([]);
+        get_rollup.mockImplementation((filters: { start?: number; end?: number }) => {
             const end = filters.end ?? now;
-            const recs: {
-                session_id: string;
-                timestamp: number;
-                input_tokens: number;
-                output_tokens: number;
-            }[] = [];
-            const cur = now - 1 * hour;
-            const prev = now - 25 * hour;
-            if (cur >= start && cur <= end) {
-                recs.push({
-                    session_id: "cur",
-                    timestamp: cur,
-                    input_tokens: 100,
-                    output_tokens: 50,
-                });
+            // Current window fetch ends ~now; previous window fetch ends ~24h ago.
+            if (end > now - 12 * hour) {
+                return Promise.resolve([
+                    {
+                        source: "claude_code",
+                        model: "model-1",
+                        directory: "D:\\proj",
+                        session_id: "cur",
+                        title: "Cur",
+                        calls: 1,
+                        input_tokens: 100,
+                        output_tokens: 50,
+                        cache_read_tokens: 30,
+                        cache_write_tokens: 0,
+                    },
+                ]);
             }
-            if (prev >= start && prev <= end) {
-                recs.push({
+            return Promise.resolve([
+                {
+                    source: "claude_code",
+                    model: "model-1",
+                    directory: "D:\\proj",
                     session_id: "prev",
-                    timestamp: prev,
+                    title: "Prev",
+                    calls: 1,
                     input_tokens: 40,
                     output_tokens: 20,
-                });
-            }
-            return Promise.resolve(
-                recs.map((r) => ({
-                    ...session(r.session_id),
-                    timestamp: r.timestamp,
-                    input_tokens: r.input_tokens,
-                    output_tokens: r.output_tokens,
-                })),
-            );
+                    cache_read_tokens: 30,
+                    cache_write_tokens: 0,
+                },
+            ]);
         });
-        // A bucket for today keeps the panel non-empty (render gate) while KPI
-        // delta itself comes from records in the 24h branch.
+        // A bucket for today keeps the panel non-empty (render gate).
         const today_str = `${String(new Date(now).getUTCFullYear())}-${String(
             new Date(now).getUTCMonth() + 1,
         ).padStart(2, "0")}-${String(new Date(now).getUTCDate()).padStart(2, "0")}`;
@@ -317,13 +325,28 @@ describe("TokenStatsView", () => {
 
         render(<TokenStatsView />);
         const user = userEvent.setup();
+        // Drop the initial 30d render's donut centers so only the 24h render
+        // is captured.
+        await screen.findByTestId("session-records");
+        mocked_donuts.centers = [];
         await user.click(screen.getByRole("button", { name: "24 小时" }));
 
-        // current-window record must be reflected; delta must show an arrow
-        // (not "前段无数据"), proving the prior 24h window has data via records.
+        // Both windows are fetched: current [start, end] and previous
+        // [start - 24h, start).
+        await waitFor(() => {
+            expect(get_rollup).toHaveBeenCalledTimes(2);
+        });
+        // current-window token total must be reflected (180 = 100+50+30) and
+        // the delta must show an arrow (not "前段无数据"), proving the prior 24h
+        // window has data via the rollup aggregate.
         await waitFor(() => {
             expect(screen.queryAllByText("前段无数据")).toHaveLength(0);
         });
+        // The last 5 donut centers are the most recent render's KPI cards
+        // (总Token, 会话数, 调用次数, 工具占比, 缓存命中率). Earlier renders
+        // captured the pre-rollup intermediate state.
+        const last_batch = mocked_donuts.centers.slice(-5);
+        expect(last_batch[0]).toBe("180");
         expect(screen.getAllByText(/▲|▼/).length).toBeGreaterThan(0);
     });
 
@@ -633,5 +656,159 @@ describe("TokenStatsView", () => {
         await waitFor(() => {
             expect(get_hour_buckets).not.toHaveBeenCalled();
         });
+    });
+
+    it("feeds 24h KPI/donut/project/session axes from the bounded rollup (records truncated)", async () => {
+        // Regression (p020): the 24h KPI/donut/project/session axes read
+        // per-message records, which query_records' ORDER BY DESC LIMIT
+        // truncates on high-density windows — early hours silently vanished.
+        // The 24h preset now reads them from the bounded rollup aggregate
+        // (t184) so the complete window survives the records LIMIT.
+        const now = Date.now();
+        const hour = 3600000;
+        // records deliberately truncated to the last 3 hours (LIMIT cut).
+        get_records.mockImplementation((filters: { start?: number; end?: number }) => {
+            const start = filters.start ?? 0;
+            const end = filters.end ?? now;
+            const recs = [];
+            for (let i = 1; i <= 3; i++) {
+                const ts = now - i * hour;
+                if (ts >= start && ts <= end) {
+                    recs.push({
+                        ...session(`rec-${String(i)}`),
+                        timestamp: ts,
+                        input_tokens: 10,
+                        output_tokens: 0,
+                    });
+                }
+            }
+            return Promise.resolve(recs);
+        });
+        // rollup covers the complete window: 2 current sessions + 1 previous.
+        get_rollup.mockImplementation((filters: { start?: number; end?: number }) => {
+            const end = filters.end ?? now;
+            if (end > now - 12 * hour) {
+                return Promise.resolve([
+                    {
+                        source: "claude_code",
+                        model: "model-1",
+                        directory: "D:\\p1",
+                        session_id: "cur-a",
+                        title: "CurA",
+                        calls: 2,
+                        input_tokens: 100,
+                        output_tokens: 50,
+                        cache_read_tokens: 30,
+                        cache_write_tokens: 0,
+                    },
+                    {
+                        source: "claude_code",
+                        model: "model-2",
+                        directory: "D:\\p2",
+                        session_id: "cur-b",
+                        title: "CurB",
+                        calls: 1,
+                        input_tokens: 40,
+                        output_tokens: 20,
+                        cache_read_tokens: 30,
+                        cache_write_tokens: 0,
+                    },
+                ]);
+            }
+            return Promise.resolve([
+                {
+                    source: "claude_code",
+                    model: "model-1",
+                    directory: "D:\\p1",
+                    session_id: "prev-a",
+                    title: "PrevA",
+                    calls: 1,
+                    input_tokens: 60,
+                    output_tokens: 20,
+                    cache_read_tokens: 30,
+                    cache_write_tokens: 0,
+                },
+            ]);
+        });
+        get_sessions.mockResolvedValue([session("s")]);
+        get_buckets.mockResolvedValue([bucket()]);
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+        mocked_donuts.centers = [];
+        await user.click(screen.getByRole("button", { name: "24 小时" }));
+
+        // KPI donut centers reflect the complete-window rollup (270 tokens, 2
+        // distinct sessions, 3 calls), not the LIMIT-truncated records
+        // (~45 tokens from the last 3 hours).
+        await waitFor(() => {
+            expect(screen.queryAllByText("前段无数据")).toHaveLength(0);
+        });
+        // The last 5 donut centers are the most recent render's KPI cards.
+        // Earlier renders captured the pre-rollup intermediate state.
+        const last_batch = mocked_donuts.centers.slice(-5);
+        // KPI donut centers reflect the complete-window rollup (270 tokens, 2
+        // distinct sessions, 3 calls), not the LIMIT-truncated records.
+        expect(last_batch[0]).toBe("270");
+        expect(last_batch[1]).toBe("2");
+        expect(last_batch[2]).toBe("3");
+        // Delta vs the complete prior window (110 tokens) shows an arrow, not
+        // "前段无数据".
+        expect(screen.queryAllByText("前段无数据")).toHaveLength(0);
+        // The project/session bar receives the complete current-window rollup
+        // rows (2 sessions), not the 3 truncated record messages.
+        expect(mocked_bar_chart.props?.rollup?.length).toBe(2);
+    });
+
+    it("passes agent and env filters to the rollup fetch on the 24h preset", async () => {
+        get_sessions.mockResolvedValue([session("s")]);
+        get_buckets.mockResolvedValue([bucket()]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+
+        await user.click(screen.getByRole("button", { name: "24 小时" }));
+        await user.click(screen.getByRole("button", { name: "OpenCode" }));
+        await user.click(screen.getByRole("button", { name: "WSL" }));
+
+        await waitFor(() => {
+            const calls = get_rollup.mock.calls;
+            expect(calls.length).toBeGreaterThan(0);
+            const last_call = calls.at(-1)?.[0] as { agent?: string; env?: string } | undefined;
+            expect(last_call?.agent).toBe("opencode");
+            expect(last_call?.env).toBe("wsl");
+        });
+    });
+
+    it("skips the rollup fetch outside the 24h preset (t184)", async () => {
+        get_sessions.mockResolvedValue([session("s")]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+
+        // Default mount is 30d; switch to 7d — neither may trigger the rollup.
+        await screen.findByTestId("session-records");
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await waitFor(() => {
+            expect(get_records).toHaveBeenCalled();
+        });
+        // The rollup aggregate is exclusive to the 24h preset; on 7d/30d the
+        // KPI/donut/project/session axes read day buckets + sessions table.
+        expect(get_rollup).not.toHaveBeenCalled();
+    });
+
+    it("does not feed BarChart rollup rows outside the 24h preset", async () => {
+        get_sessions.mockResolvedValue([session("s")]);
+        get_buckets.mockResolvedValue([bucket()]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+
+        await screen.findByTestId("session-records");
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await user.click(screen.getByRole("button", { name: "项目" }));
+        await waitFor(() => {
+            expect(mocked_bar_chart.props).not.toBeNull();
+        });
+        // No rollup rows on 7d project axis (empty array) → records path used.
+        expect(mocked_bar_chart.props?.rollup).toHaveLength(0);
     });
 });

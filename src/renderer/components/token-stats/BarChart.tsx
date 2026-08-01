@@ -7,10 +7,15 @@ import {
     prepareBarData,
     prepareBarDataFromBuckets,
     prepareBarDataFromHourBuckets,
+    prepareBarDataFromRollup,
     escapeHtml,
 } from "../../lib/token-stats/chart-data";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "../../lib/token-stats/types";
-import type { TokenStatsBucket, TokenStatsHourBucket } from "../../../shared/types/token-stats";
+import type {
+    TokenStatsBucket,
+    TokenStatsHourBucket,
+    TokenStatsRollupRow,
+} from "../../../shared/types/token-stats";
 
 interface BarChartProps {
     records: AgentSessionUsage[];
@@ -21,6 +26,11 @@ interface BarChartProps {
      * these instead of records (hour granularity where records would exceed
      * the fetch LIMIT: >=7d from t173, 24h preset from t183). */
     hourBuckets?: TokenStatsHourBucket[];
+    /** Bounded (source, model, directory, session_id) rollup rows; when
+     * provided, the project/session axes use these instead of records (24h
+     * preset, t184 — records would be LIMIT-truncated on high-density
+     * windows). */
+    rollup?: TokenStatsRollupRow[];
     metric: Metric;
     xaxis: XAxis;
     gran: Granularity;
@@ -82,6 +92,7 @@ export function BarChart({
     records,
     buckets,
     hourBuckets,
+    rollup,
     metric,
     xaxis,
     gran,
@@ -97,13 +108,17 @@ export function BarChart({
         // Time axis can use pre-aggregated data for wide windows (>=7d) where
         // per-message records exceed the fetch LIMIT: hour buckets at hour
         // granularity (t173), day buckets at day granularity. Hourly records
-        // are only used for short windows; project / session axes still need
-        // records.
+        // are only used for short windows. The project / session axes on the
+        // 24h preset use the bounded rollup rows (t184) so high-density windows
+        // keep their complete top groups.
         if (xaxis === "time" && gran === "hour" && hourBuckets && hourBuckets.length > 0) {
             return prepareBarDataFromHourBuckets(hourBuckets, metric, start, end, theme);
         }
         if (xaxis === "time" && gran === "day" && buckets) {
             return prepareBarDataFromBuckets(buckets, metric, start, end, theme);
+        }
+        if (xaxis !== "time" && rollup && rollup.length > 0) {
+            return prepareBarDataFromRollup(rollup, metric, xaxis, theme, dirAliases, modelAliases);
         }
         return prepareBarData(
             records,
@@ -120,6 +135,7 @@ export function BarChart({
         records,
         buckets,
         hourBuckets,
+        rollup,
         metric,
         xaxis,
         gran,

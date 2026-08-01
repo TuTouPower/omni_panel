@@ -5,6 +5,7 @@ import type {
     TokenStatsEnv,
     TokenStatsHeatmapCell,
     TokenStatsHourBucket,
+    TokenStatsRollupRow,
     TokenStatsSession,
 } from "../../shared/types/token-stats";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
@@ -25,14 +26,21 @@ import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import {
     agentSegments,
     agentSegmentsFromBuckets,
+    agentSegmentsFromRollup,
     compositionSegments,
     compositionSegmentsFromBuckets,
+    compositionSegmentsFromRollup,
+    hitRateOfRollup,
     kpiFromBuckets,
+    kpiFromRollup,
     modelColorMapFromBuckets,
     modelSegments,
     modelSegmentsFromBuckets,
+    modelSegmentsFromRollup,
     oneValue,
     projectSegmentsFromSessions,
+    rollupCallValue,
+    sumTokensRollup,
     sumTokensValue,
 } from "../lib/token-stats/chart-data";
 import type { AgentFilter, Granularity, Metric, XAxis } from "../lib/token-stats/types";
@@ -163,6 +171,8 @@ export function TokenStatsView() {
     const [hourBuckets, setHourBuckets] = useState<TokenStatsHourBucket[]>([]);
     const [buckets, setBuckets] = useState<TokenStatsBucket[]>([]);
     const [sessions, setSessions] = useState<TokenStatsSession[]>([]);
+    const [rollup, setRollup] = useState<TokenStatsRollupRow[]>([]);
+    const [prevRollup, setPrevRollup] = useState<TokenStatsRollupRow[]>([]);
     const [status, setStatus] = useState<TokenStatsStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [agent, setAgent] = useState<AgentFilter>(saved.agent ?? "all");
@@ -185,6 +195,11 @@ export function TokenStatsView() {
     // Short windows (<=25h) cannot be split symmetrically on day-granular
     // buckets, so KPI/donut deltas fall back to per-message records there.
     const is_short_window = currentRange.end - currentRange.start <= 25 * 3600000;
+    // The 24h preset reads KPI/donut/project/session axes from the bounded
+    // rollup aggregate (t184) so high-density windows keep their complete
+    // window instead of LIMIT-truncated per-message records (p020). Custom
+    // short windows stay on the records path.
+    const use_rollup_summary = preset === "24h";
 
     const updatedAgo = useMemo(() => {
         if (!status?.last_updated) return null;
@@ -245,7 +260,39 @@ export function TokenStatsView() {
                               start: currentRange.start,
                               end: currentRange.end,
                           });
-                const [recs, cells, hour_bkts, bkts, sess, st, cfg] = await Promise.all([
+                // 24h KPI/donut/project/session axes consume the bounded rollup
+                // aggregate (t184) instead of per-message records, which
+                // query_records' ORDER BY DESC LIMIT truncates on high-density
+                // windows (p020). Fetch the current window and the equal-width
+                // previous window separately; prev keeps the half-open
+                // [start - width, start) split so the boundary record is not
+                // double-counted.
+                const rollup_fetch = use_rollup_summary
+                    ? Promise.all([
+                          window.usageboard.tokenStats.getRangeRollup({
+                              ...env_filter,
+                              ...agent_filter,
+                              start: currentRange.start,
+                              end: currentRange.end,
+                          }),
+                          window.usageboard.tokenStats.getRangeRollup({
+                              ...env_filter,
+                              ...agent_filter,
+                              start: currentRange.start - width,
+                              end: currentRange.start,
+                          }),
+                      ])
+                    : Promise.resolve([[], []] as [TokenStatsRollupRow[], TokenStatsRollupRow[]]);
+                const [
+                    recs,
+                    cells,
+                    hour_bkts,
+                    bkts,
+                    sess,
+                    st,
+                    cfg,
+                    [rollup_rows, prev_rollup_rows],
+                ] = await Promise.all([
                     window.usageboard.tokenStats.getRecords({
                         ...env_filter,
                         ...agent_filter,
@@ -266,6 +313,7 @@ export function TokenStatsView() {
                     }),
                     window.usageboard.tokenStats.getStatus(),
                     window.usageboard.config.get(),
+                    rollup_fetch,
                 ]);
                 if (request_id !== load_request_id.current) return;
                 setRecords(recs);
@@ -273,6 +321,8 @@ export function TokenStatsView() {
                 setHourBuckets(hour_bkts);
                 setBuckets(bkts);
                 setSessions(sess);
+                setRollup(rollup_rows);
+                setPrevRollup(prev_rollup_rows);
                 setStatus(st);
                 setDirAliases(
                     (cfg.config.dirAliases ?? []).map((a) => ({
@@ -299,7 +349,17 @@ export function TokenStatsView() {
                 }
             }
         },
-        [platform, agent, metric, xaxis, gran, currentRange, is_short_window, preset],
+        [
+            platform,
+            agent,
+            metric,
+            xaxis,
+            gran,
+            currentRange,
+            is_short_window,
+            preset,
+            use_rollup_summary,
+        ],
     );
 
     useEffect(() => {
@@ -408,39 +468,53 @@ export function TokenStatsView() {
         );
     }, []);
 
-    const currentKpi = is_short_window
-        ? {
-              tokens: metricValue(currentRecords, "tokens"),
-              sessions: metricValue(currentRecords, "sessions"),
-              calls: metricValue(currentRecords, "calls"),
-          }
-        : kpiFromBuckets(currentBuckets);
-    const currentComp = is_short_window
-        ? compositionSegments(currentRecords)
-        : compositionSegmentsFromBuckets(currentBuckets);
+    const currentKpi = use_rollup_summary
+        ? kpiFromRollup(rollup)
+        : is_short_window
+          ? {
+                tokens: metricValue(currentRecords, "tokens"),
+                sessions: metricValue(currentRecords, "sessions"),
+                calls: metricValue(currentRecords, "calls"),
+            }
+          : kpiFromBuckets(currentBuckets);
+    const currentComp = use_rollup_summary
+        ? compositionSegmentsFromRollup(rollup)
+        : is_short_window
+          ? compositionSegments(currentRecords)
+          : compositionSegmentsFromBuckets(currentBuckets);
     const compInput = currentComp.find((c) => c.name === "input")?.value ?? 0;
     const compCacheRead = currentComp.find((c) => c.name === "cache_read")?.value ?? 0;
-    const hitRate = is_short_window
-        ? hitRateOf(currentRecords)
-        : compCacheRead + compInput > 0
-          ? compCacheRead / (compCacheRead + compInput)
-          : 0;
+    const hitRate = use_rollup_summary
+        ? hitRateOfRollup(rollup)
+        : is_short_window
+          ? hitRateOf(currentRecords)
+          : compCacheRead + compInput > 0
+            ? compCacheRead / (compCacheRead + compInput)
+            : 0;
 
-    const prevKpi = is_short_window
-        ? {
-              tokens: metricValue(prevRecords, "tokens"),
-              sessions: metricValue(prevRecords, "sessions"),
-              calls: metricValue(prevRecords, "calls"),
-          }
-        : kpiFromBuckets(prevBuckets);
-    const prevComp = is_short_window ? [] : compositionSegmentsFromBuckets(prevBuckets);
-    const prevHitRate = is_short_window
-        ? hitRateOf(prevRecords)
-        : (() => {
-              const pi = prevComp.find((c) => c.name === "input")?.value ?? 0;
-              const pc = prevComp.find((c) => c.name === "cache_read")?.value ?? 0;
-              return pc + pi > 0 ? pc / (pc + pi) : 0;
-          })();
+    const prevKpi = use_rollup_summary
+        ? kpiFromRollup(prevRollup)
+        : is_short_window
+          ? {
+                tokens: metricValue(prevRecords, "tokens"),
+                sessions: metricValue(prevRecords, "sessions"),
+                calls: metricValue(prevRecords, "calls"),
+            }
+          : kpiFromBuckets(prevBuckets);
+    const prevComp = use_rollup_summary
+        ? []
+        : is_short_window
+          ? []
+          : compositionSegmentsFromBuckets(prevBuckets);
+    const prevHitRate = use_rollup_summary
+        ? hitRateOfRollup(prevRollup)
+        : is_short_window
+          ? hitRateOf(prevRecords)
+          : (() => {
+                const pi = prevComp.find((c) => c.name === "input")?.value ?? 0;
+                const pc = prevComp.find((c) => c.name === "cache_read")?.value ?? 0;
+                return pc + pi > 0 ? pc / (pc + pi) : 0;
+            })();
 
     const totalTokens = currentKpi.tokens;
     // Session count is distinct across the window. buckets' `sessions` field is
@@ -454,17 +528,24 @@ export function TokenStatsView() {
     const prevSessions = is_short_window ? prevKpi.sessions : prevSessionsList.length;
     const prevCalls = prevKpi.calls;
 
-    const agentSegmentsData = is_short_window
-        ? agentSegments(currentRecords)
-        : agentSegmentsFromBuckets(currentBuckets);
-    // Donut segments: short windows derive from records (precise epoch window),
-    // longer windows from buckets (day-granular, fine for >=7d).
-    const modelTokenSegs = is_short_window
-        ? modelSegments(currentRecords, sumTokensValue, theme)
-        : modelSegmentsFromBuckets(currentBuckets, theme);
-    const modelCallSegs = is_short_window
-        ? modelSegments(currentRecords, oneValue, theme)
-        : modelSegmentsFromBuckets(currentBuckets, theme, (b) => b.calls);
+    const agentSegmentsData = use_rollup_summary
+        ? agentSegmentsFromRollup(rollup)
+        : is_short_window
+          ? agentSegments(currentRecords)
+          : agentSegmentsFromBuckets(currentBuckets);
+    // Donut segments: 24h reads the complete-window rollup, short windows
+    // derive from records (precise epoch window), longer windows from buckets
+    // (day-granular, fine for >=7d).
+    const modelTokenSegs = use_rollup_summary
+        ? modelSegmentsFromRollup(rollup, sumTokensRollup, theme)
+        : is_short_window
+          ? modelSegments(currentRecords, sumTokensValue, theme)
+          : modelSegmentsFromBuckets(currentBuckets, theme);
+    const modelCallSegs = use_rollup_summary
+        ? modelSegmentsFromRollup(rollup, rollupCallValue, theme)
+        : is_short_window
+          ? modelSegments(currentRecords, oneValue, theme)
+          : modelSegmentsFromBuckets(currentBuckets, theme, (b) => b.calls);
     const topAgentSeg = agentSegmentsData.reduce<{ name: string; value: number } | null>(
         (acc, b) => (!acc || b.value > acc.value ? b : acc),
         null,
@@ -663,6 +744,7 @@ export function TokenStatsView() {
                                     records={currentRecords}
                                     buckets={currentBuckets}
                                     hourBuckets={hourBuckets}
+                                    rollup={rollup}
                                     metric={metric}
                                     xaxis={effectiveXaxis}
                                     gran={gran}

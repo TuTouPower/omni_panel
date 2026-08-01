@@ -41,7 +41,7 @@ src/
 │   │   │   ├── endpoint-resolver.ts       # 子进程 env 路径解析
 │   │   │   └── types.ts                   # 调度器内部类型定义
 │   │   ├── observation/observation-store.ts  # SQLite（见 specs/observation-store.md）
-│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明
+│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明；store 暴露有界 SQL 聚合（hour buckets / heatmap / window rollup），24h preset 的 KPI/donut/项目/会话轴走 rollup 而非受 LIMIT 截断的 records
 │   │   ├── config/                # config-store / secrets-store / auto-seed / types
 │   │   ├── storage/               # write-json（原子写 JSON）
 │   │   ├── vault/                 # file-vault-backend + VaultBackend 接口
