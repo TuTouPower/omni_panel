@@ -54,10 +54,10 @@
 - 影响：7d/30d + 小时粒度柱状图可走该聚合，替代 `query_records` 10 万级明细进渲染层；与 day buckets / heatmap 聚合并列。
 - 现状：有效
 
-## d006 worktree better-sqlite3 ABI 切换：Electron→node 用 pnpm rebuild（2026-08-01）
+## d007 代理面板基线的 payload 规模可用离线 JSON 字节数稳定代理（2026-08-02）
 
-- 来源：t174
-- 结论：task worktree `pnpm install --frozen-lockfile` 后 better-sqlite3 可能编译为 Electron ABI（NODE_MODULE_VERSION 146，node 需 127），tsx/vitest 加载原生模块抛 ABI mismatch；`pnpm rebuild better-sqlite3` 切回 node ABI 后 vitest 主 config 与黑盒均正常，无副作用。
-- 证据：t174 worktree 实测——install 后 vitest 报 NODE_MODULE_VERSION 不匹配，rebuild 后 185 files / 1960 passed。
-- 影响：后续 worktree 同类问题直接用 rebuild 解决，不需重装或手动编译。
+- 来源：s006、t189
+- 结论：跨进程 payload 的报告可在不启动 Electron 的前提下，对每个 token-stats 查询结果和 renderer 产出执行 UTF-8 JSON 字节计数；该指标适合 CI 中比较结果规模变化，不代表 structured clone 或 IPC 往返固有延迟。
+- 证据：固定 seed 临时 SQLite 生成 600,000 条脱敏 records，36 个 24h/7d/30d × agent/platform 场景全部完成；报告仅包含筛选、行数、计时和字节数。
+- 影响：后续缓存、dashboard 聚合和查询隔离 task 可复用同一报告 schema 做相对对比；绝对毫秒值不作为门禁。
 - 现状：有效

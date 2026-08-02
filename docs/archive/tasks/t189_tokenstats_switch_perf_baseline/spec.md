@@ -69,7 +69,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 可稳定覆盖跨进程序列化阶段的最小基线边界：UNVERIFIED-SPIKE，执行期比较 Electron IPC 测试夹具与离线序列化估算，选择能在 CI 稳定复现且不改变产品行为的方案。
+- 可稳定覆盖跨进程序列化阶段的最小基线边界：已验证；基线工具对每个查询结果执行 UTF-8 JSON 字节计数，并对 renderer 产出执行同样计数。该离线估算不修改 Electron IPC 行为，作为跨进程 payload 的稳定代理指标；真实 IPC 往返延迟留给 packaged smoke 观察。
 
 ### 风险与回退
 

@@ -20,6 +20,7 @@
 | ai-cli-token-stats-api               | API           | 拆自 ai-cli-token-stats（t037），t114，t162，t163                   | 2026-07-30   |
 | ai-cli-token-stats-desktop           | Desktop       | 拆自 ai-cli-token-stats（t037），t114，t165，t166，t167             | 2026-07-31   |
 | ai-cli-token-stats-ui                | Web           | 拆自 ai-cli-token-stats（t037），t103，t164，t168，t170             | 2026-07-31   |
+| tokenstats-performance-baseline      | API           | t189                                                                | 2026-08-02   |
 | config-store                         | API           | 迁移自 omni_powers，t038/t041/t105/t111                             | 2026-07-25   |
 | config_fallback_p0_protection        | API           | t111                                                                | 2026-07-25   |
 | connector-auth                       | API           | t107, t112, t159                                                    | 2026-07-28   |

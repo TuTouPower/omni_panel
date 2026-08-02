@@ -50,5 +50,6 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 - 涉及连接器 live 契约：`pnpm test:contract:live`（打真实上游，需凭据）。
 - 涉及 web SPA：`pnpm test:e2e:web`（Playwright chromium，mock local-api）。
 - 涉及测试实例隔离验证：`pnpm start:test`（黄图标、沙盒数据、17864 端口），见 `docs/guides/testing.md`「测试实例」。
+- 代理面板性能基线：`pnpm exec tsx scripts/token-stats-baseline.ts --records 600000 --output .scratch/t189/baseline.json`；固定 seed 生成脱敏临时 SQLite，覆盖 24h/7d/30d 与 agent/platform 组合，比较查询、payload 和 renderer 转换阶段。报告只作相对基线，不把绝对耗时设为 CI 门禁。
 
 黑盒失败处置见 `task-run` skill：`< max_verify_round` 回 Step 3 修复；`≥ max_verify_round`（默认 5）`block --reason blackbox`。
