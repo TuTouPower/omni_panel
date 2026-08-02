@@ -77,6 +77,51 @@
             "schedule_status": "",
             "note": "P4",
             "dir": "docs/tasks/t193_tokenstats_query_process_isolation"
+        },
+        {
+            "tid": "t194",
+            "slug": "popup_hide_not_destroy",
+            "title": "popup 冷启动消除：关闭改隐藏不销毁窗口",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "P0",
+            "dir": "docs/tasks/t194_popup_hide_not_destroy"
+        },
+        {
+            "tid": "t195",
+            "slug": "config_save_cache_debounce",
+            "title": "config/vault/connector 缓存层与持久化防抖",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "P1+P2",
+            "dir": "docs/tasks/t195_config_save_cache_debounce"
+        },
+        {
+            "tid": "t196",
+            "slug": "refresh_semantics_popup_render_trim",
+            "title": "手动刷新语义与 popup 渲染瘦身",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "P3+P4+P5",
+            "dir": "docs/tasks/t196_refresh_semantics_popup_render_trim"
         }
     ]
 }
