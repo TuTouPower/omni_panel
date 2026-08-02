@@ -2,5 +2,81 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t189",
+            "slug": "tokenstats_switch_perf_baseline",
+            "title": "P0 代理面板切换性能基线与查询诊断",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "P0",
+            "dir": "docs/tasks/t189_tokenstats_switch_perf_baseline"
+        },
+        {
+            "tid": "t190",
+            "slug": "tokenstats_query_swr_cache",
+            "title": "P1 代理面板查询缓存与切换静默刷新",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "t189",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "P1",
+            "dir": "docs/tasks/t190_tokenstats_query_swr_cache"
+        },
+        {
+            "tid": "t191",
+            "slug": "tokenstats_dashboard_query_api",
+            "title": "P2 代理面板统一聚合查询契约",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "t190",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "P2",
+            "dir": "docs/tasks/t191_tokenstats_dashboard_query_api"
+        },
+        {
+            "tid": "t192",
+            "slug": "tokenstats_incremental_rollup_version",
+            "title": "P3 token-stats 增量聚合与数据版本",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "t191",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "P3",
+            "dir": "docs/tasks/t192_tokenstats_incremental_rollup_version"
+        },
+        {
+            "tid": "t193",
+            "slug": "tokenstats_query_process_isolation",
+            "title": "P4 代理面板统计查询进程隔离",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "t192",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "P4",
+            "dir": "docs/tasks/t193_tokenstats_query_process_isolation"
+        }
+    ]
 }
