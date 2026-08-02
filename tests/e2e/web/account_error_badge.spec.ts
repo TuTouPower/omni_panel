@@ -4,9 +4,8 @@ import { PopupPage } from "../pages/popup_page";
 /**
  * Web e2e：per-account error badge（T027 UI + T028 data）。
  * T028 observation_to_metric_record 映射 last_error → MetricRecord.error。
- * synthetic.json 手工补充：KIMI enabled+failed connector 的 items 注入
- * error = "HTTP 401..."（对应 T028 last_error 语义；gen_synthetic.mjs
- * 不产生该注入，重跑 e2e:gen-synthetic 会覆盖，见 docs/pending.md p021）。
+ * gen_synthetic.mjs 固化注入 KIMI failed connector 的 items 带 error
+ * （HTTP 401，对应 T028 last_error 语义）。
  * 切到 Kimi provider tab 后账号行显示 .error-badge（采集失败，title 含 error message）。
  */
 test.describe("account error badge (web)", () => {

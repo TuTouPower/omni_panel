@@ -16,22 +16,6 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
-### p021 e2e gen-synthetic 重生成会抹掉手工 synthetic fixture 条目（2026-08-01）
-
-- 来源：t181 review f001 / test_f001
-- 内容：t181 为让 6 处条件 skip 用例在 synthetic 下可跑，手工给 `synthetic.json` 注入 KIMI items `error`（HTTP 401）并补 opencode_go connector（2 workspace）。`gen_synthetic.mjs`（`e2e:gen-synthetic`）不产生这两类条目，重跑生成会静默覆盖，导致 account_error_badge / opencode_go_usage 在 CI 变红。需把「KIMI failed connector 注入 item.error + 补 opencode_go connector」固化进 gen_synthetic.mjs（或加持久化合并逻辑）。
-- 处理：未开
-
-### p022 synthetic fixture trend key 与 renderer period.id 不一致致 sparkline 恒空（2026-08-01）
-
-- 来源：t181 review 未进表提示（pre-existing 系统性 fixture 不一致）
-- 现象：synthetic e2e 下 sparkline 恒空。原描述称 gen_synthetic 取 `it.id.split(":").slice(-1)[0]` 截短 metricId 做 trend key，但 2026-08-02 复核 `scripts/e2e/gen_synthetic.mjs` trend 拷贝段（:60-64）实际直接拷贝 real key 仅 redact email，未截短 metricId——描述与现状不符，根因待重新复现。
-- 影响：synthetic e2e 的 sparkline 相关断言退化（空序列）；real fixture 同机制疑受 metric_id 匹配影响。
-- 根因：待确认（mock_server query 精确匹配 vs renderer 传完整 period.id；real server query_trend_series 的 metric_id 匹配口径；或 real responses 本身缺 trend 条目）。
-- 测试缺口：无 synthetic 断言 sparkline 非空。
-- 线索：`mock_server.mjs:49`、`ProviderAccountRow.tsx:88-98`、`gen_synthetic.mjs:60-64` trend 拷贝段。
-- 处理：未开（描述已过时，需 task-bug 重新复现根因后立项）
-
 ### p025 reviewer prompt 模板要求 `overall:` 但 check_review_status.py 认 `verdict:`（2026-08-02）
 
 - 来源：t187 收尾自查（task-run Step 7）

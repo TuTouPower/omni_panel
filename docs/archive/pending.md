@@ -146,3 +146,16 @@
 - 来源：t184 review Round 2 f003 复核提示（non-blocking）
 - 内容：`token-stats-store.ts` 的 `query_range_rollup` 用相关子查询选每组最新 timestamp 的 title 对齐 records `rs[0].title`，但子查询 `WHERE t2.session_id=... AND source=... AND env=...` 未带窗口 `timestamp` 过滤，选的是该 session 全表最新标题。records 版 `query_records` 先按窗口过滤再 `ORDER BY timestamp DESC`，`rs[0].title` 是窗口内最新。差异：session 在窗口外被改名时，rollup 返回窗口外的新名，session 轴 label 前 7 字符可能漂移；token 统计不受影响。如需严格对齐，给子查询加 `timestamp >= @start`（与外层窗口一致）条件。
 - 处理：t188
+
+### p021 e2e gen-synthetic 重生成会抹掉手工 synthetic fixture 条目（2026-08-01）
+
+- 来源：t181 review f001 / test_f001
+- 内容：t181 为让 6 处条件 skip 用例在 synthetic 下可跑，手工给 `synthetic.json` 注入 KIMI items `error`（HTTP 401）并补 opencode_go connector（2 workspace）。`gen_synthetic.mjs`（`e2e:gen-synthetic`）不产生这两类条目，重跑生成会静默覆盖，导致 account_error_badge / opencode_go_usage 在 CI 变红。
+- 处理：已修（2026-08-02 手动修复，直接在 main）——gen_synthetic.mjs 固化注入 KIMI failed connector（items 带 error HTTP 401）+ opencode_go connector（2 workspace × rolling/weekly/monthly，窗口文案 滚动/一周/一月），重跑 e2e:gen-synthetic 不再覆盖。
+
+### p022 sparkline 恒空：renderer trend 传 period.id（长）与 trend key metricId（raw_label 短）不匹配（2026-08-01）
+
+- 来源：t181 review 未进表提示（pre-existing 系统性 fixture 不一致）
+- 现象：synthetic e2e 下 sparkline 恒空。renderer `trend_api.get(provider, accountId, period.id)` 传完整 period.id（长，如 `srcInstanceId:...:metricId`），但 trend 数据 key（real responses / mock_server）的 metricId 是 raw_label（短，如 `gemini-models`）→ 不命中 → 空。
+- 根因：renderer 传 period.id，trend 索引按 raw_label。real/real-server 同机制（query_trend_series 按 metric_id 精确匹配）。
+- 处理：已修（2026-08-02 手动修复，直接在 main）——ProviderAccountRow.tsx trend 调用改传 `period.raw_label`（与 trend key metricId 一致），对齐 real 录制行为。

@@ -95,7 +95,14 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 return;
             }
             try {
-                const result = await trend_api.get(period.provider, period.accountId, period.id);
+                // trend is keyed by the connector's raw_label (the stable short
+                // metric id the observation store indexes), not the composite
+                // period.id — passing period.id never matches the trend series.
+                const result = await trend_api.get(
+                    period.provider,
+                    period.accountId,
+                    period.raw_label,
+                );
                 if (cancelled) return;
                 trend_cache_ref.current.set(cache_key, result);
                 set_trend_data_by_metric((prev) => ({ ...prev, [cache_key]: result }));

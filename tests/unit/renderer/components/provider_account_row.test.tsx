@@ -189,7 +189,7 @@ describe("ProviderAccountRow", () => {
                 expect(container.querySelector(".trend-svg")).toBeInTheDocument();
             });
             expect(trend_get).toHaveBeenCalledTimes(1);
-            expect(trend_get).toHaveBeenCalledWith("claude", "auth-a", "claude-a-5h");
+            expect(trend_get).toHaveBeenCalledWith("claude", "auth-a", "5h");
             expect(container.querySelector(".trend-sparkline-empty")).not.toBeInTheDocument();
         });
 

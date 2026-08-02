@@ -387,8 +387,7 @@
                         "resetAt": 1784846768511,
                         "status": "warning",
                         "observedAt": 1784527772522,
-                        "stale": false,
-                        "error": "HTTP 401: request failed (236 bytes)"
+                        "stale": false
                     },
                     {
                         "id": "ca494b59-4983-4057-bcb6-63c4acfb7194:kimi:kimi:five_hour",
@@ -406,7 +405,40 @@
                         "resetAt": 1784529968511,
                         "status": "normal",
                         "observedAt": 1784527772522,
-                        "stale": false,
+                        "stale": false
+                    }
+                ]
+            }
+        },
+        {
+            "instanceId": "synthetic-kimi-failed",
+            "sourceInstanceId": "synthetic-kimi-failed",
+            "stateId": "synthetic-kimi-failed",
+            "name": "KIMI",
+            "displayName": "KIMI (failed)",
+            "enabled": true,
+            "source": "poll",
+            "supportedProviders": ["kimi"],
+            "activeProviders": ["kimi"],
+            "metadata": null,
+            "snapshot": {
+                "status": "failed",
+                "error": "HTTP 401: request failed (236 bytes)",
+                "updatedAt": "2026-08-01T00:00:00Z",
+                "items": [
+                    {
+                        "id": "synthetic-kimi-failed:kimi:default:kimi:monthly",
+                        "provider": "kimi",
+                        "source": "poll",
+                        "sourceInstanceId": "synthetic-kimi-failed",
+                        "accountId": "default",
+                        "accountLabel": "KIMI",
+                        "raw_label": "monthly_usage",
+                        "normalized_label": "月度用量",
+                        "used": null,
+                        "limit": null,
+                        "window": "month",
+                        "unit": "tokens",
                         "error": "HTTP 401: request failed (236 bytes)"
                     }
                 ]
@@ -425,7 +457,7 @@
             "metadata": null,
             "snapshot": {
                 "status": "ready",
-                "updatedAt": "2026-07-20T06:09:32.522Z",
+                "updatedAt": "2026-08-01T00:00:00Z",
                 "items": [
                     {
                         "id": "synthetic-opencode-go:opencode_go:wrk_01KXAKZRAR2TP12WEP2GD6D0JB:rolling",
@@ -436,14 +468,10 @@
                         "accountLabel": "wrk_01KXAKZRAR2TP12WEP2GD6D0JB",
                         "raw_label": "rolling",
                         "normalized_label": "滚动",
-                        "used": 62,
+                        "used": 40,
                         "limit": 100,
-                        "cycleDurationMs": null,
-                        "displayStyle": "percent",
-                        "resetAt": 1784786972522,
-                        "status": "normal",
-                        "observedAt": 1784527772522,
-                        "stale": false
+                        "window": "rolling",
+                        "unit": "percent"
                     },
                     {
                         "id": "synthetic-opencode-go:opencode_go:wrk_01KXAKZRAR2TP12WEP2GD6D0JB:weekly",
@@ -454,14 +482,10 @@
                         "accountLabel": "wrk_01KXAKZRAR2TP12WEP2GD6D0JB",
                         "raw_label": "weekly",
                         "normalized_label": "一周",
-                        "used": 41,
+                        "used": 40,
                         "limit": 100,
-                        "cycleDurationMs": 604800000,
-                        "displayStyle": "percent",
-                        "resetAt": 1784786972522,
-                        "status": "normal",
-                        "observedAt": 1784527772522,
-                        "stale": false
+                        "window": "week",
+                        "unit": "percent"
                     },
                     {
                         "id": "synthetic-opencode-go:opencode_go:wrk_01KXAKZRAR2TP12WEP2GD6D0JB:monthly",
@@ -472,14 +496,10 @@
                         "accountLabel": "wrk_01KXAKZRAR2TP12WEP2GD6D0JB",
                         "raw_label": "monthly",
                         "normalized_label": "一月",
-                        "used": 88,
+                        "used": 40,
                         "limit": 100,
-                        "cycleDurationMs": 2592000000,
-                        "displayStyle": "percent",
-                        "resetAt": 1784786972522,
-                        "status": "warning",
-                        "observedAt": 1784527772522,
-                        "stale": false
+                        "window": "month",
+                        "unit": "percent"
                     },
                     {
                         "id": "synthetic-opencode-go:opencode_go:wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2:rolling",
@@ -490,14 +510,10 @@
                         "accountLabel": "wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2",
                         "raw_label": "rolling",
                         "normalized_label": "滚动",
-                        "used": 30,
+                        "used": 40,
                         "limit": 100,
-                        "cycleDurationMs": null,
-                        "displayStyle": "percent",
-                        "resetAt": 1784786972522,
-                        "status": "normal",
-                        "observedAt": 1784527772522,
-                        "stale": false
+                        "window": "rolling",
+                        "unit": "percent"
                     },
                     {
                         "id": "synthetic-opencode-go:opencode_go:wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2:weekly",
@@ -508,14 +524,10 @@
                         "accountLabel": "wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2",
                         "raw_label": "weekly",
                         "normalized_label": "一周",
-                        "used": 55,
+                        "used": 40,
                         "limit": 100,
-                        "cycleDurationMs": 604800000,
-                        "displayStyle": "percent",
-                        "resetAt": 1784786972522,
-                        "status": "normal",
-                        "observedAt": 1784527772522,
-                        "stale": false
+                        "window": "week",
+                        "unit": "percent"
                     },
                     {
                         "id": "synthetic-opencode-go:opencode_go:wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2:monthly",
@@ -526,14 +538,10 @@
                         "accountLabel": "wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2",
                         "raw_label": "monthly",
                         "normalized_label": "一月",
-                        "used": 12,
+                        "used": 40,
                         "limit": 100,
-                        "cycleDurationMs": 2592000000,
-                        "displayStyle": "percent",
-                        "resetAt": 1784786972522,
-                        "status": "normal",
-                        "observedAt": 1784527772522,
-                        "stale": false
+                        "window": "month",
+                        "unit": "percent"
                     }
                 ]
             }
@@ -912,7 +920,7 @@
                     "instanceId": "d04f60da-8d38-4a55-bd3c-75b2e05fbe7a",
                     "stateId": "be182ddb-9162-456f-9ec8-c5c6de20276d",
                     "name": "GROK",
-                    "displayName": "Grok",
+                    "displayName": "SuperGrok",
                     "enabled": true,
                     "executablePath": "D:\\Dev\\Code\\omni_panel\\artifacts\\win-unpacked\\resources\\connectors\\grok",
                     "refreshIntervalSeconds": 0,
@@ -1665,8 +1673,7 @@
                 "resetAt": 1784846768511,
                 "status": "warning",
                 "observedAt": 1784527772522,
-                "stale": false,
-                "error": "HTTP 401: request failed (236 bytes)"
+                "stale": false
             },
             {
                 "id": "ca494b59-4983-4057-bcb6-63c4acfb7194:kimi:kimi:five_hour",
@@ -1684,17 +1691,19 @@
                 "resetAt": 1784529968511,
                 "status": "normal",
                 "observedAt": 1784527772522,
-                "stale": false,
-                "error": "HTTP 401: request failed (236 bytes)"
+                "stale": false
             }
         ]
     },
     "GET /v1/secrets?instanceId=ca494b59-4983-4057-bcb6-63c4acfb7194": {
         "API_KEY": "***"
     },
+    "GET /v1/connectors/synthetic-kimi-failed/state": {
+        "status": "failed",
+        "error": "HTTP 401"
+    },
     "GET /v1/connectors/synthetic-opencode-go/state": {
         "status": "ready",
-        "updatedAt": "2026-07-20T06:09:32.522Z",
         "items": [
             {
                 "id": "synthetic-opencode-go:opencode_go:wrk_01KXAKZRAR2TP12WEP2GD6D0JB:rolling",
@@ -1705,14 +1714,10 @@
                 "accountLabel": "wrk_01KXAKZRAR2TP12WEP2GD6D0JB",
                 "raw_label": "rolling",
                 "normalized_label": "滚动",
-                "used": 62,
+                "used": 40,
                 "limit": 100,
-                "cycleDurationMs": null,
-                "displayStyle": "percent",
-                "resetAt": 1784786972522,
-                "status": "normal",
-                "observedAt": 1784527772522,
-                "stale": false
+                "window": "rolling",
+                "unit": "percent"
             },
             {
                 "id": "synthetic-opencode-go:opencode_go:wrk_01KXAKZRAR2TP12WEP2GD6D0JB:weekly",
@@ -1723,14 +1728,10 @@
                 "accountLabel": "wrk_01KXAKZRAR2TP12WEP2GD6D0JB",
                 "raw_label": "weekly",
                 "normalized_label": "一周",
-                "used": 41,
+                "used": 40,
                 "limit": 100,
-                "cycleDurationMs": 604800000,
-                "displayStyle": "percent",
-                "resetAt": 1784786972522,
-                "status": "normal",
-                "observedAt": 1784527772522,
-                "stale": false
+                "window": "week",
+                "unit": "percent"
             },
             {
                 "id": "synthetic-opencode-go:opencode_go:wrk_01KXAKZRAR2TP12WEP2GD6D0JB:monthly",
@@ -1741,14 +1742,10 @@
                 "accountLabel": "wrk_01KXAKZRAR2TP12WEP2GD6D0JB",
                 "raw_label": "monthly",
                 "normalized_label": "一月",
-                "used": 88,
+                "used": 40,
                 "limit": 100,
-                "cycleDurationMs": 2592000000,
-                "displayStyle": "percent",
-                "resetAt": 1784786972522,
-                "status": "warning",
-                "observedAt": 1784527772522,
-                "stale": false
+                "window": "month",
+                "unit": "percent"
             },
             {
                 "id": "synthetic-opencode-go:opencode_go:wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2:rolling",
@@ -1759,14 +1756,10 @@
                 "accountLabel": "wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2",
                 "raw_label": "rolling",
                 "normalized_label": "滚动",
-                "used": 30,
+                "used": 40,
                 "limit": 100,
-                "cycleDurationMs": null,
-                "displayStyle": "percent",
-                "resetAt": 1784786972522,
-                "status": "normal",
-                "observedAt": 1784527772522,
-                "stale": false
+                "window": "rolling",
+                "unit": "percent"
             },
             {
                 "id": "synthetic-opencode-go:opencode_go:wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2:weekly",
@@ -1777,14 +1770,10 @@
                 "accountLabel": "wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2",
                 "raw_label": "weekly",
                 "normalized_label": "一周",
-                "used": 55,
+                "used": 40,
                 "limit": 100,
-                "cycleDurationMs": 604800000,
-                "displayStyle": "percent",
-                "resetAt": 1784786972522,
-                "status": "normal",
-                "observedAt": 1784527772522,
-                "stale": false
+                "window": "week",
+                "unit": "percent"
             },
             {
                 "id": "synthetic-opencode-go:opencode_go:wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2:monthly",
@@ -1795,14 +1784,10 @@
                 "accountLabel": "wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2",
                 "raw_label": "monthly",
                 "normalized_label": "一月",
-                "used": 12,
+                "used": 40,
                 "limit": 100,
-                "cycleDurationMs": 2592000000,
-                "displayStyle": "percent",
-                "resetAt": 1784786972522,
-                "status": "normal",
-                "observedAt": 1784527772522,
-                "stale": false
+                "window": "month",
+                "unit": "percent"
             }
         ]
     }

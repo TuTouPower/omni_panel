@@ -81,6 +81,87 @@ if (failed_real) {
     if (resp[fsecKey] !== undefined) out[fsecKey] = redact(resp[fsecKey], fp, 3);
 }
 
+// 固化注入：KIMI failed connector（account_error_badge e2e 需要 items 带 error；
+// gen_synthetic 不从 real 产生，必须固化以防 e2e:gen-synthetic 重跑覆盖）。
+// 真实失败连接器的 last_error 经 observation_to_metric_record 映射成 item.error。
+out["GET /v1/connectors"].push({
+    instanceId: "synthetic-kimi-failed",
+    sourceInstanceId: "synthetic-kimi-failed",
+    stateId: "synthetic-kimi-failed",
+    name: "KIMI",
+    displayName: "KIMI (failed)",
+    enabled: true,
+    source: "poll",
+    supportedProviders: ["kimi"],
+    activeProviders: ["kimi"],
+    metadata: null,
+    snapshot: {
+        status: "failed",
+        error: "HTTP 401: request failed (236 bytes)",
+        updatedAt: "2026-08-01T00:00:00Z",
+        items: [
+            {
+                id: "synthetic-kimi-failed:kimi:default:kimi:monthly",
+                provider: "kimi",
+                source: "poll",
+                sourceInstanceId: "synthetic-kimi-failed",
+                accountId: "default",
+                accountLabel: "KIMI",
+                raw_label: "monthly_usage",
+                normalized_label: "月度用量",
+                used: null,
+                limit: null,
+                window: "month",
+                unit: "tokens",
+                error: "HTTP 401: request failed (236 bytes)",
+            },
+        ],
+    },
+});
+out["GET /v1/connectors/synthetic-kimi-failed/state"] = { status: "failed", error: "HTTP 401" };
+
+// 固化注入：opencode_go connector（opencode_go_usage e2e 需要多 workspace ×
+// rolling/weekly/monthly 窗口翻译文案 滚动/一周/一月；gen_synthetic 不从 real 产生）。
+const opencode_windows = [
+    { raw: "rolling", label: "滚动" },
+    { raw: "weekly", label: "一周" },
+    { raw: "monthly", label: "一月" },
+];
+const opencode_workspaces = ["wrk_01KXAKZRAR2TP12WEP2GD6D0JB", "wrk_01KXGR0D3TVM4MH2Z3DTWSJWA2"];
+const opencode_items = [];
+for (const ws of opencode_workspaces) {
+    for (const w of opencode_windows) {
+        opencode_items.push({
+            id: `synthetic-opencode-go:opencode_go:${ws}:${w.raw}`,
+            provider: "opencode_go",
+            source: "session",
+            sourceInstanceId: "synthetic-opencode-go",
+            accountId: ws,
+            accountLabel: ws,
+            raw_label: w.raw,
+            normalized_label: w.label,
+            used: 40,
+            limit: 100,
+            window: w.raw === "rolling" ? "rolling" : w.raw === "weekly" ? "week" : "month",
+            unit: "percent",
+        });
+    }
+}
+out["GET /v1/connectors"].push({
+    instanceId: "synthetic-opencode-go",
+    sourceInstanceId: "synthetic-opencode-go",
+    stateId: "synthetic-opencode-go",
+    name: "opencode_go",
+    displayName: "opencode_go",
+    enabled: true,
+    source: "session",
+    supportedProviders: ["opencode_go"],
+    activeProviders: ["opencode_go"],
+    metadata: null,
+    snapshot: { status: "ready", updatedAt: "2026-08-01T00:00:00Z", items: opencode_items },
+});
+out["GET /v1/connectors/synthetic-opencode-go/state"] = { status: "ready", items: opencode_items };
+
 writeFileSync(OUT, JSON.stringify(out, null, 2));
 console.log(`[gen_synthetic] wrote ${OUT} (${String(Object.keys(out).length)} responses)`);
 
