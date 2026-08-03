@@ -73,8 +73,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 立即 ack 与现有 refresh-spinner spec 的对齐：UNVERIFIED-SPIKE，执行期核实「2026-06-15-refresh-spinner」约定 spinner 绑定真实 pending 的具体语义，确认立即 ack 后由推送驱动是否破坏该约定，必要时调整 spec。
-- 测高单镜像方案对 floating 动态高度的覆盖：UNVERIFIED-SPIKE，执行期比对单镜像与双镜像在多种卡片数、折叠态下的报高一致性。
+- 立即 ack 与现有 refresh-spinner spec 的对齐：已验证。`2026-06-15-refresh-spinner` spec 不存在（finalization 标注「若存在」），无契约需调整；loading 由 refresh-service 入口同步置 runtime-store loading + EVENT_STATE_CHANGE 推送驱动，spinner 绑定真实 pending。
+- 测高单镜像方案对 floating 动态高度的覆盖：已验证。单镜像复用 `render_body(false, true)` 强制折叠渲染路径（与旧 collapsed 镜像同源），collapsed 报高逐像素一致；content 报高仍取自同一镜像元素。
 
 ### 风险与回退
 

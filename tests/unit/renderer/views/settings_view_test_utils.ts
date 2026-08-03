@@ -251,7 +251,10 @@ export function install_settings_usageboard(get_config: () => AppConfiguration):
             getStatus: vi.fn().mockResolvedValue({ running: false, last_updated: null }),
             onUpdated: vi.fn(() => vi.fn()),
         },
-        trend: { get: vi.fn().mockResolvedValue([]) },
+        trend: {
+            get: vi.fn().mockResolvedValue([]),
+            getBulk: vi.fn().mockResolvedValue({ series: [] }),
+        },
         logs: { export: vi.fn() },
         log: vi.fn(),
         buildInfo: {

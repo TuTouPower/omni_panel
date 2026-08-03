@@ -483,3 +483,59 @@ describe("refresh-service oauth immediate refresh (t172)", () => {
         expect(execute_connector).toHaveBeenCalledTimes(1);
     });
 });
+
+describe("refresh-service per-instance lock short-circuit (t196 AC2)", () => {
+    it("does not run a second collection while the first is still in flight", async () => {
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        const execute_connector = vi.fn().mockImplementation(async () => {
+            await gate; // hold the first collection in flight
+            return { observations: [], failed_accounts: [] };
+        });
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition()],
+            observationStore: create_observation_store(),
+            runtimeStore,
+            configStore: create_config_store([plugin_config("deepseek-1")]),
+            vault: create_vault(),
+            execute_connector,
+        });
+
+        const first = service.refresh("deepseek-1", { force: true });
+        await vi.waitFor(() => {
+            expect(execute_connector).toHaveBeenCalledTimes(1);
+        });
+
+        // 第二轮（手动 + 定时并发场景）在锁内被短路，不进入采集。
+        await service.refresh("deepseek-1", { force: true });
+        release();
+        await first;
+
+        expect(execute_connector).toHaveBeenCalledTimes(1);
+    });
+
+    it("releases the lock after a refresh completes so a later refresh runs", async () => {
+        const execute_connector = vi
+            .fn()
+            .mockResolvedValue({ observations: [], failed_accounts: [] });
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition()],
+            observationStore: create_observation_store(),
+            runtimeStore,
+            configStore: create_config_store([plugin_config("deepseek-1")]),
+            vault: create_vault(),
+            execute_connector,
+        });
+
+        await service.refresh("deepseek-1", { force: true });
+        expect(execute_connector).toHaveBeenCalledTimes(1);
+
+        // 锁已释放：第二次刷新再次执行采集。
+        await service.refresh("deepseek-1", { force: true });
+        expect(execute_connector).toHaveBeenCalledTimes(2);
+    });
+});

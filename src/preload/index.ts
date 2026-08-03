@@ -11,6 +11,8 @@ import type {
     SessionLoginRequest,
     SessionLoginResult,
     TrendPoint,
+    TrendBulkRequest,
+    TrendBulkResponse,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
 import type {
@@ -165,10 +167,14 @@ const trend_full_methods = {
         days?: number,
     ): Promise<(TrendPoint | null)[]> =>
         invoke<(TrendPoint | null)[]>(IPC_CHANNELS.TREND_GET, provider, accountId, metricId, days),
+    // t196 AC5: 单 IPC 取回多周期 trend 序列。
+    getBulk: (payload: TrendBulkRequest): Promise<TrendBulkResponse> =>
+        invoke<TrendBulkResponse>(IPC_CHANNELS.TREND_GET_BULK, payload),
 };
 
 const trend_disabled_methods = {
     get: (): Promise<(TrendPoint | null)[]> => Promise.resolve([]),
+    getBulk: (): Promise<TrendBulkResponse> => Promise.resolve({ series: [] }),
 };
 
 // Read-only config (popup, tray)

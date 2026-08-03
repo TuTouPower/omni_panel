@@ -279,6 +279,28 @@ export function create_web_usageboard(): UsageboardApi {
                     `/v1/trend?${params.toString()}`,
                 );
             },
+            // t196 AC5: web 后端走 LocalAPI /v1/trend 单周期等价；bulk 按各周期
+            // 依次取（web 面不常用，保持契约兼容）。
+            getBulk: async (payload: {
+                provider: string;
+                account_id: string;
+                periods: { metric_id: string; days?: number }[];
+            }) => {
+                const series = await Promise.all(
+                    payload.periods.map(async (period) => ({
+                        metric_id: period.metric_id,
+                        series: await get_json<({ date: string; percent: number } | null)[]>(
+                            `/v1/trend?${new URLSearchParams({
+                                provider: payload.provider,
+                                accountId: payload.account_id,
+                                metricId: period.metric_id,
+                                ...(period.days !== undefined ? { days: String(period.days) } : {}),
+                            }).toString()}`,
+                        ),
+                    })),
+                );
+                return { series };
+            },
         },
         buildInfo: {
             get: () =>

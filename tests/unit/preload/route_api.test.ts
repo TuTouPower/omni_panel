@@ -57,9 +57,11 @@ describe("select_trend_api", () => {
     } {
         const full_api: TrendApi = {
             get: vi.fn().mockResolvedValue([]),
+            getBulk: vi.fn().mockResolvedValue({ series: [] }),
         };
         const disabled_api: TrendApi = {
             get: vi.fn().mockResolvedValue([]),
+            getBulk: vi.fn().mockResolvedValue({ series: [] }),
         };
         return { full_api, disabled_api };
     }
