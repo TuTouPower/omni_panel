@@ -12,6 +12,8 @@ import type { SessionScanState } from "./claude-reader";
 import { read_opencode_sessions } from "./opencode-reader";
 import { scan_kimi_wire_jsonls, create_kimi_scan_state } from "./kimi-reader";
 import type { KimiScanState } from "./kimi-reader";
+import { scan_grok_updates, create_grok_scan_state } from "./grok-reader";
+import type { GrokScanState } from "./grok-reader";
 import {
     serialize_state as scan_serialize,
     save_state as scan_save,
@@ -33,7 +35,7 @@ interface CostsState {
 interface SourceDef {
     key: string;
     source: TokenStatsSource;
-    kind: "costs" | "session_jsonl" | "opencode_db" | "kimi_jsonl";
+    kind: "costs" | "session_jsonl" | "opencode_db" | "kimi_jsonl" | "grok_jsonl";
     env: TokenStatsEnv;
     wsl: boolean;
 }
@@ -92,6 +94,10 @@ const costs_state = new Map<string, CostsState>();
 const opencode_max_updated = new Map<string, number>();
 const jsonl_states = new Map<string, SessionScanState>();
 const kimi_states = new Map<string, KimiScanState>();
+const grok_states = new Map<string, GrokScanState>();
+// Warn once per source when its sessions dir is missing (t197 AC5); without
+// this the collector would log every poll for users who never install grok.
+const grok_missing_warned = new Set<string>();
 
 // Records the collector has already emitted (by PK source|env|message_id).
 // A dirty session re-merge re-derives the session's full record set; without
@@ -117,12 +123,13 @@ export function serialize_state(): SerializedScanState {
         opencode_max_updated,
         jsonl_states,
         kimi_states,
+        grok_states,
     });
 }
 
 export async function save_state(state_path: string): Promise<void> {
     await scan_save(
-        { costs_state, opencode_max_updated, jsonl_states, kimi_states },
+        { costs_state, opencode_max_updated, jsonl_states, kimi_states, grok_states },
         state_path,
         (msg) => {
             forward_log("warn", "collector", msg);
@@ -132,7 +139,7 @@ export async function save_state(state_path: string): Promise<void> {
 
 export async function load_state(state_path: string): Promise<void> {
     await scan_load(
-        { costs_state, opencode_max_updated, jsonl_states, kimi_states },
+        { costs_state, opencode_max_updated, jsonl_states, kimi_states, grok_states },
         state_path,
         (msg) => {
             forward_log("warn", "collector", msg);
@@ -161,6 +168,8 @@ const sources: SourceDef[] = [
     },
     { key: "opencode_wsl", source: "opencode", kind: "opencode_db", env: "wsl", wsl: true },
     { key: "kimi_wsl", source: "kimi_code", kind: "kimi_jsonl", env: "wsl", wsl: true },
+    // Grok CLI data exists only under WSL (~/.grok/sessions).
+    { key: "grok_wsl", source: "grok", kind: "grok_jsonl", env: "wsl", wsl: true },
 ];
 
 // --- Path builders ---
@@ -238,6 +247,14 @@ function kimi_index_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
     return `${kimi_base(cfg, env)}\\session_index.jsonl`;
 }
 
+function grok_base(cfg: TokenStatsConfig): string {
+    return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.grok`;
+}
+
+function grok_sessions_path(cfg: TokenStatsConfig): string {
+    return `${grok_base(cfg)}\\sessions`;
+}
+
 // --- Source readers ---
 
 interface SourceReadResult {
@@ -274,6 +291,20 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceReadResult {
                 state,
             );
             kimi_states.set(src.key, result.new_state);
+            return { sessions: result.sessions, daily: result.daily, records: result.records };
+        }
+        if (src.kind === "grok_jsonl") {
+            const state = grok_states.get(src.key) ?? create_grok_scan_state();
+            const result = scan_grok_updates(grok_sessions_path(cfg), src.env, state);
+            grok_states.set(src.key, result.new_state);
+            if (result.missing && !grok_missing_warned.has(src.key)) {
+                grok_missing_warned.add(src.key);
+                forward_log(
+                    "warn",
+                    "collector",
+                    `${src.key} sessions dir missing: ${grok_sessions_path(cfg)}`,
+                );
+            }
             return { sessions: result.sessions, daily: result.daily, records: result.records };
         }
         const max_updated = opencode_max_updated.get(src.key) ?? 0;
@@ -367,6 +398,8 @@ function reset_config(): void {
     opencode_max_updated.clear();
     jsonl_states.clear();
     kimi_states.clear();
+    grok_states.clear();
+    grok_missing_warned.clear();
     emitted_record_keys.clear();
     wsl_user_cache = null;
     wsl_user_cache_distro = null;
@@ -410,10 +443,12 @@ export {
     opencode_max_updated,
     jsonl_states,
     kimi_states,
+    grok_states,
     claude_costs_path,
     claude_projects_path,
     opencode_path,
     kimi_sessions_path,
     kimi_index_path,
+    grok_sessions_path,
     effective_wsl_user,
 };

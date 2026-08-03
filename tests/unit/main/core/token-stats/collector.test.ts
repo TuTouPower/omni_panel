@@ -7,6 +7,7 @@ const mock_read_costs = vi.fn();
 const mock_scan_jsonls = vi.fn();
 const mock_read_opencode_sessions = vi.fn();
 const mock_scan_kimi = vi.fn();
+const mock_scan_grok = vi.fn();
 
 vi.mock("../../../../../src/main/core/token-stats/claude-reader", () => ({
     read_costs_jsonl: (...args: unknown[]) => mock_read_costs(...args),
@@ -19,6 +20,10 @@ vi.mock("../../../../../src/main/core/token-stats/opencode-reader", () => ({
 vi.mock("../../../../../src/main/core/token-stats/kimi-reader", () => ({
     scan_kimi_wire_jsonls: (...args: unknown[]) => mock_scan_kimi(...args),
     create_kimi_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
+}));
+vi.mock("../../../../../src/main/core/token-stats/grok-reader", () => ({
+    scan_grok_updates: (...args: unknown[]) => mock_scan_grok(...args),
+    create_grok_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
 }));
 
 // Mock Electron's utilityProcess parentPort (must exist before collector import)
@@ -41,6 +46,7 @@ import {
     opencode_path,
     kimi_sessions_path,
     kimi_index_path,
+    grok_sessions_path,
     effective_wsl_user,
 } from "../../../../../src/main/core/token-stats/collector";
 import type {
@@ -87,10 +93,13 @@ function upsert(overrides: Partial<TokenStatsSessionUpsert> = {}): TokenStatsSes
 
 function record(
     overrides: Partial<AgentSessionUsage> & {
-        source?: "claude_code" | "opencode" | "kimi_code";
+        source?: "claude_code" | "opencode" | "kimi_code" | "grok";
         env?: "win" | "wsl";
     } = {},
-): AgentSessionUsage & { source: "claude_code" | "opencode" | "kimi_code"; env: "win" | "wsl" } {
+): AgentSessionUsage & {
+    source: "claude_code" | "opencode" | "kimi_code" | "grok";
+    env: "win" | "wsl";
+} {
     return {
         session_id: "s1",
         title: null,
@@ -132,6 +141,12 @@ describe("collector", () => {
         });
         mock_read_opencode_sessions.mockReturnValue({ sessions: [], daily: [], records: [] });
         mock_scan_kimi.mockReturnValue({
+            sessions: [],
+            daily: [],
+            records: [],
+            new_state: { mtimes: new Map(), files: new Map() },
+        });
+        mock_scan_grok.mockReturnValue({
             sessions: [],
             daily: [],
             records: [],
@@ -194,6 +209,12 @@ describe("collector", () => {
             );
             expect(kimi_index_path(wsl_config, "wsl")).toBe(
                 "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.kimi-code\\session_index.jsonl",
+            );
+        });
+
+        it("builds WSL grok sessions path (t197)", () => {
+            expect(grok_sessions_path(wsl_config)).toBe(
+                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.grok\\sessions",
             );
         });
     });
@@ -477,6 +498,8 @@ describe("collector", () => {
             expect(mock_scan_jsonls).toHaveBeenCalledTimes(1);
             expect(mock_read_opencode_sessions).toHaveBeenCalledTimes(1);
             expect(mock_scan_kimi).toHaveBeenCalledTimes(1);
+            // grok is WSL-only: never read when wsl_enabled=false (t197)
+            expect(mock_scan_grok).not.toHaveBeenCalled();
             expect(mock_read_costs).toHaveBeenCalledWith(
                 expect.stringContaining("Users"),
                 "win",
@@ -501,6 +524,111 @@ describe("collector", () => {
                 expect(wsl_call).toBeDefined();
                 expect(wsl_call![1]).toBe("wsl");
             }
+        });
+
+        it("reads the grok source only under WSL and posts its rows (t197)", () => {
+            mock_scan_grok.mockReturnValue({
+                sessions: [
+                    {
+                        id: "grok-s1",
+                        source: "grok",
+                        env: "wsl",
+                        model: "grok-4.5-build",
+                        title: "github_repo",
+                        directory: "/home/testuser/github_repo",
+                        input_tokens: 100,
+                        output_tokens: 52,
+                        cache_read_tokens: 20,
+                        cache_write_tokens: 0,
+                        calls: 1,
+                        started_at: 1,
+                        ended_at: 2,
+                    },
+                ],
+                daily: [
+                    {
+                        id: "grok-s1",
+                        source: "grok",
+                        env: "wsl",
+                        model: "grok-4.5-build",
+                        date: "2026-07-27",
+                        input_tokens: 100,
+                        output_tokens: 52,
+                        cache_read_tokens: 20,
+                        cache_write_tokens: 0,
+                        calls: 1,
+                    },
+                ],
+                records: [
+                    record({
+                        message_id: "grok-r1",
+                        source: "grok",
+                        env: "wsl",
+                        agent: "grok",
+                    }),
+                ],
+                new_state: { mtimes: new Map([["g", 1]]), files: new Map() },
+            });
+
+            configure(wsl_config);
+
+            expect(mock_scan_grok).toHaveBeenCalledTimes(1);
+            const call = mock_scan_grok.mock.calls[0]!;
+            expect(String(call[0])).toContain("wsl.localhost");
+            expect(String(call[0])).toContain(".grok\\sessions");
+            expect(call[1]).toBe("wsl");
+
+            const update = mock_post_message.mock.calls[0]![0] as {
+                sessions: unknown[];
+                daily: unknown[];
+                records: AgentSessionUsage[];
+            };
+            const grok_sessions = update.sessions.filter(
+                (s) => (s as { source: string }).source === "grok",
+            );
+            expect(grok_sessions).toHaveLength(1);
+            expect(update.daily).toHaveLength(1);
+            expect(update.records[0]).toMatchObject({ source: "grok", agent: "grok" });
+        });
+
+        it("warns once when the grok sessions dir is missing and still collects others (t197 AC5)", () => {
+            mock_scan_grok.mockReturnValue({
+                sessions: [],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+                missing: true,
+            });
+            mock_scan_kimi.mockReturnValue({
+                sessions: [upsert({ id: "k1", source: "kimi_code" })],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+
+            configure(wsl_config);
+
+            // token_stats_update + one collector_log warn (grok missing).
+            expect(mock_post_message).toHaveBeenCalledTimes(2);
+            const log_msg = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "collector_log",
+            )?.[0] as { type: string; level: string; module: string; message: string } | undefined;
+            expect(log_msg?.level).toBe("warn");
+            expect(log_msg?.message).toContain("grok_wsl sessions dir missing");
+            // Other sources still collected.
+            const update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(
+                update.sessions.some((s) => (s as { source: string }).source === "kimi_code"),
+            ).toBe(true);
+
+            // Second collect: warn fires only once.
+            mock_post_message.mockClear();
+            collect();
+            expect(mock_post_message).toHaveBeenCalledTimes(1);
+            const second = mock_post_message.mock.calls[0]![0] as { type?: string };
+            expect(second.type).toBe("token_stats_update");
         });
 
         it("one source failure doesn't prevent other sources from being collected", () => {

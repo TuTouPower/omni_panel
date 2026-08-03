@@ -353,6 +353,92 @@ describe("token-stats-store", () => {
             );
         });
 
+        it("stores and queries source=grok rows across all three tables (t197 AC1)", () => {
+            store.upsert_sessions(
+                [
+                    {
+                        id: "grok-s1",
+                        source: "grok",
+                        env: "wsl",
+                        model: "grok-4.5-build",
+                        title: "github_repo",
+                        directory: "/home/testuser/github_repo",
+                        input_tokens: 100,
+                        output_tokens: 52,
+                        cache_read_tokens: 20,
+                        cache_write_tokens: 0,
+                        calls: 1,
+                        started_at: T0,
+                        ended_at: T1,
+                    },
+                ],
+                [
+                    {
+                        id: "grok-s1",
+                        source: "grok",
+                        env: "wsl",
+                        model: "grok-4.5-build",
+                        date: "2026-07-10",
+                        input_tokens: 100,
+                        output_tokens: 52,
+                        cache_read_tokens: 20,
+                        cache_write_tokens: 0,
+                        calls: 1,
+                    },
+                ],
+            );
+            store.upsert_records([
+                {
+                    session_id: "grok-s1",
+                    title: "github_repo",
+                    directory: "/home/testuser/github_repo",
+                    slug: null,
+                    version: null,
+                    parent_session_id: null,
+                    message_id: "019f9fe0-cae5-7d31-bf17-d3292a086bcc",
+                    role: "assistant",
+                    timestamp: T0,
+                    model: "grok-4.5-build",
+                    input_tokens: 100,
+                    output_tokens: 52,
+                    cache_read_tokens: 20,
+                    cache_write_tokens: 0,
+                    agent: "grok",
+                    source: "grok",
+                    env: "wsl",
+                },
+            ]);
+
+            const grok_sessions = store.query_sessions({}).filter((s) => s.source === "grok");
+            expect(grok_sessions).toHaveLength(1);
+            expect(grok_sessions[0]).toMatchObject({
+                id: "grok-s1",
+                source: "grok",
+                env: "wsl",
+                model: "grok-4.5-build",
+                input_tokens: 100,
+                calls: 1,
+            });
+
+            const grok_records = store.query_records({ agent: "grok" });
+            expect(grok_records).toHaveLength(1);
+            // The public AgentSessionUsage contract deliberately drops source/env.
+            expect(grok_records[0]).toMatchObject({
+                agent: "grok",
+                model: "grok-4.5-build",
+                message_id: "019f9fe0-cae5-7d31-bf17-d3292a086bcc",
+            });
+
+            const grok_buckets = store.query_buckets({ source: "grok" });
+            expect(grok_buckets).toHaveLength(1);
+            expect(grok_buckets[0]).toMatchObject({
+                source: "grok",
+                input_tokens: 100,
+                sessions: 1,
+                calls: 1,
+            });
+        });
+
         it("filters records by platform and combines with other filters", () => {
             store.upsert_records([
                 record({ message_id: "win-claude", env: "win", timestamp: T0 }),

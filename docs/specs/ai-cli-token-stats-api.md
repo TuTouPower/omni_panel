@@ -20,7 +20,7 @@
 
 ## 2. 数据源（只读约束）
 
-**核心约束**：所有源数据文件只读访问。子进程绝不修改 Claude Code / OpenCode / Kimi Code 的任何文件（JSONL、SQLite、WAL、SHM）。读取 SQLite 时使用 `mode: readonly` 打开。
+**核心约束**：所有源数据文件只读访问。子进程绝不修改 Claude Code / OpenCode / Kimi Code / Grok 的任何文件（JSONL、SQLite、WAL、SHM）。读取 SQLite 时使用 `mode: readonly` 打开。
 
 ### 2.1 Claude Code
 
@@ -66,9 +66,15 @@
 
 **Win/WSL 差异**：两份独立目录，分别读取。
 
-### 2.4 Grok Build（本版不做）
+### 2.4 Grok Build
 
-本地 token 用量文件待确认（`signals.json` 实测不存在）。留后续扩展入口。
+仅 WSL 采集（Windows 无 grok CLI 数据）。数据位于 `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`，`{enc_cwd}` 为 URL-encoded cwd，每个会话一个文件。
+
+| 数据              | 格式   | WSL 路径                                                                             |
+| ----------------- | ------ | ------------------------------------------------------------------------------------ |
+| 每轮 token 用量   | JSONL  | `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（UNC：`\\wsl.localhost\...`） |
+
+**事件口径**（t197，参考 cc-switch `session_usage_grokbuild.rs` 注释 + 实测确证）：`turn_completed` 事件（`params.update.sessionUpdate === "turn_completed"`）的 `usage` 是【该 user prompt 一轮的独立总量】，轮内跨 inference loop 累加（`modelCalls`/`numTurns` = 本轮 loop 数），下一轮从零起算。**不是进程或会话累计，勿用相邻事件差分**。字段映射：`inputTokens`→input、`outputTokens`→output、`cachedReadTokens`→cache_read、`reasoningTokens` ⊂ `outputTokens` 不计费（output 直接映射，reasoning 不单独记账）、`costUsdTicks` 不入账。`message_id` 用 `prompt_id`（实测每事件必有、稳定）；`timestamp` 为秒，×1000 换算。model 取 `usage.modelUsage` 键（单 key 直接用，多 key 排序 join `+`），token 分量用顶层 usage。`directory`/`title` 从 `{enc_cwd}` 解码派生（title=解码后 basename）。
 
 ## 3. 架构：为什么不用连接器
 
@@ -88,6 +94,7 @@ src/main/core/token-stats/
 ├── claude-reader.ts       # costs.jsonl + session JSONL 读取
 ├── opencode-reader.ts     # opencode.db 只读查询
 ├── kimi-reader.ts         # Kimi Code wire.jsonl + session_index 读取
+├── grok-reader.ts         # Grok updates.jsonl 读取（仅 WSL）
 ├── token-stats-store.ts   # token_stats_* 表建表 + 读写（复用 usage.db）
 └── manager.ts             # 主进程侧：fork / 生命周期 / IPC 接收（见 -desktop）
 ```
@@ -136,7 +143,7 @@ interface TokenStatsConfig {
 -- 按天按模型的 token 聚合（趋势图数据源；由 daily 表派生重建）
 CREATE TABLE IF NOT EXISTS token_stats_buckets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code'
+    source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code' | 'grok'
     env TEXT NOT NULL,              -- 'win' | 'wsl'
     bucket_date TEXT NOT NULL,      -- '2026-07-17'（按天，UTC）
     model TEXT NOT NULL,
@@ -153,7 +160,7 @@ CREATE TABLE IF NOT EXISTS token_stats_buckets (
 -- session 列表
 CREATE TABLE IF NOT EXISTS token_stats_sessions (
     id TEXT NOT NULL,               -- session_id
-    source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code'
+    source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code' | 'grok'
     env TEXT NOT NULL,              -- 'win' | 'wsl'
     model TEXT NOT NULL,
     title TEXT,

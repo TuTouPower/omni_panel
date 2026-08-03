@@ -295,7 +295,7 @@ function row_to_record(row: Record<string, unknown>): AgentSessionUsage {
         output_tokens: row["output_tokens"] as number,
         cache_read_tokens: row["cache_read_tokens"] as number,
         cache_write_tokens: row["cache_write_tokens"] as number,
-        agent: row["agent"] as "claude-code" | "opencode" | "kimi-code",
+        agent: row["agent"] as "claude-code" | "opencode" | "kimi-code" | "grok",
     };
 }
 

@@ -2,7 +2,7 @@ import { z } from "zod/v3";
 
 // --- Enums ---
 
-export const tokenStatsSourceSchema = z.enum(["claude_code", "opencode", "kimi_code"]);
+export const tokenStatsSourceSchema = z.enum(["claude_code", "opencode", "kimi_code", "grok"]);
 export const tokenStatsEnvSchema = z.enum(["win", "wsl"]);
 
 // --- Stored row schemas (query results) ---
@@ -82,7 +82,7 @@ export const agentSessionUsageSchema = z.object({
     output_tokens: z.number().int().nonnegative().default(0),
     cache_read_tokens: z.number().int().nonnegative().default(0),
     cache_write_tokens: z.number().int().nonnegative().default(0),
-    agent: z.enum(["claude-code", "opencode", "kimi-code"]),
+    agent: z.enum(["claude-code", "opencode", "kimi-code", "grok"]),
 });
 
 export type AgentSessionUsage = z.infer<typeof agentSessionUsageSchema>;
@@ -157,7 +157,7 @@ export type TokenStatsUpdate = z.infer<typeof tokenStatsUpdateSchema>;
 export type TokenStatsConfig = z.infer<typeof tokenStatsConfigSchema>;
 
 export interface TokenStatsRecordFilters {
-    agent?: "claude-code" | "opencode" | "kimi-code";
+    agent?: "claude-code" | "opencode" | "kimi-code" | "grok";
     env?: TokenStatsEnv;
     start?: number;
     end?: number;
@@ -180,7 +180,7 @@ export const tokenStatsHeatmapCellSchema = z.object({
 export type TokenStatsHeatmapCell = z.infer<typeof tokenStatsHeatmapCellSchema>;
 
 export interface TokenStatsHeatmapFilters {
-    agent?: "claude-code" | "opencode" | "kimi-code";
+    agent?: "claude-code" | "opencode" | "kimi-code" | "grok";
     env?: TokenStatsEnv;
     start?: number;
     end?: number;
@@ -202,7 +202,7 @@ export const tokenStatsHourBucketSchema = z.object({
 export type TokenStatsHourBucket = z.infer<typeof tokenStatsHourBucketSchema>;
 
 export interface TokenStatsHourFilters {
-    agent?: "claude-code" | "opencode" | "kimi-code";
+    agent?: "claude-code" | "opencode" | "kimi-code" | "grok";
     env?: TokenStatsEnv;
     start?: number;
     end?: number;
@@ -231,7 +231,7 @@ export const tokenStatsRollupRowSchema = z.object({
 export type TokenStatsRollupRow = z.infer<typeof tokenStatsRollupRowSchema>;
 
 export interface TokenStatsRollupFilters {
-    agent?: "claude-code" | "opencode" | "kimi-code";
+    agent?: "claude-code" | "opencode" | "kimi-code" | "grok";
     env?: TokenStatsEnv;
     start?: number;
     end?: number;
@@ -244,6 +244,7 @@ export const tokenStatsDashboardAgentSchema = z.enum([
     "claude-code",
     "opencode",
     "kimi-code",
+    "grok",
 ]);
 export const tokenStatsDashboardPlatformSchema = z.enum(["all", "win", "wsl"]);
 export const tokenStatsDashboardMetricSchema = z.enum(["tokens", "sessions", "calls"]);

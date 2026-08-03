@@ -358,7 +358,7 @@ export function create_local_api_server(
                     200,
                     store.query_records({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" }
+                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
                         ...(start ? { start: Number(start) } : {}),
@@ -372,7 +372,7 @@ export function create_local_api_server(
                     200,
                     store.query_heatmap({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" }
+                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
                         ...(start ? { start: Number(start) } : {}),
@@ -386,7 +386,7 @@ export function create_local_api_server(
                     200,
                     store.query_hour_buckets({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" }
+                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
                         ...(start ? { start: Number(start) } : {}),
@@ -400,7 +400,7 @@ export function create_local_api_server(
                     200,
                     store.query_range_rollup({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" }
+                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
                         ...(start ? { start: Number(start) } : {}),
@@ -511,7 +511,9 @@ export function create_local_api_server(
                 return true;
             }
             if (req.method === "POST") {
-                send_result(res, await handleConnectorRefreshAll(deps));
+                // handleConnectorRefreshAll is synchronous (t196 fire-and-forget
+                // ack); no await needed.
+                send_result(res, handleConnectorRefreshAll(deps));
                 return true;
             }
             return false;
