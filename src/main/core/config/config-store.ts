@@ -72,6 +72,13 @@ export interface AppConfigStore {
     scheduleSave(config: AppConfiguration | (() => AppConfiguration), delayMs?: number): void;
     flushPendingSave(): Promise<void>;
     hasPendingSave(): boolean;
+    /**
+     * One-shot health pass (t195): drop plugins whose connector manifest is
+     * missing or whose provider is outside the whitelist, persist the cleaned
+     * config and return it. Called at startup and after structural changes
+     * (import), NOT on every load — load() is a memory-cache hit.
+     */
+    prune_unhealthy_plugins(): Promise<AppConfiguration>;
 }
 
 const log = createLogger("config-store");
@@ -99,13 +106,14 @@ function stripRemovedConfigFields(config: Record<string, unknown>): Record<strin
 }
 
 /**
- * Parse, migrate and prune a config JSON string. Returns `null` for empty or
- * schema-invalid input so callers can decide whether to try backups.
+ * Parse, migrate and normalize a config JSON string. Returns `null` for empty
+ * or schema-invalid input so callers can decide whether to try backups.
  *
- * When `configPath` is provided and pruning occurs, the cleaned config is
- * persisted so the prune is durable (matches original load() behavior).
+ * Does NOT prune plugins whose connector manifest is unhealthy — that check is
+ * a one-shot startup/structural-change pass via `prune_unhealthy_plugins`
+ * (t195), so hot-path loads skip per-plugin manifest stat.
  */
-async function parse_config(raw: string, configPath?: string): Promise<AppConfiguration | null> {
+function parse_config(raw: string): AppConfiguration | null {
     const parsed = raw.trim().length === 0 ? null : (JSON.parse(raw) as unknown);
     const normalized =
         parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
@@ -115,48 +123,23 @@ async function parse_config(raw: string, configPath?: string): Promise<AppConfig
     if (!result.success) {
         return null;
     }
-    let migrated = {
+    return {
         ...result.data,
         plugins: result.data.plugins.map((p) => ({
             ...p,
             instanceId: p.instanceId ?? p.stateId,
         })),
     } as AppConfiguration;
-
-    const keep_indices = await prune_invalid_plugins(migrated.plugins);
-    if (keep_indices.length !== migrated.plugins.length) {
-        const dropped = migrated.plugins.length - keep_indices.length;
-        log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath ?? "config"}`);
-        const pruned_plugins = keep_indices
-            .map((i) => migrated.plugins[i])
-            .filter((p): p is NonNullable<typeof p> => p !== undefined);
-        migrated = {
-            ...migrated,
-            plugins: pruned_plugins,
-        };
-        if (configPath) {
-            try {
-                await writeJsonAtomic(configPath, sortKeys(migrated));
-            } catch (err) {
-                log.warn(`Failed to persist pruned config at ${configPath}`, err);
-            }
-        }
-    }
-    return migrated;
 }
 
 /**
  * Try to load a valid config from a backup file. Returns null if unavailable or
- * invalid. If `configPath` is provided, a recovered config is persisted back to
- * the main file so the next start does not re-hit the missing-file path.
+ * invalid.
  */
-async function try_load_backup(
-    backupPath: string,
-    configPath?: string,
-): Promise<AppConfiguration | null> {
+async function try_load_backup(backupPath: string): Promise<AppConfiguration | null> {
     try {
         const raw = await readFile(backupPath, "utf8");
-        const parsed = await parse_config(raw, configPath);
+        const parsed = parse_config(raw);
         if (parsed) {
             log.warn(`Recovered config from backup ${backupPath}`);
         }
@@ -202,6 +185,11 @@ async function prune_invalid_plugins(
 export function createConfigStore(configPath: string): AppConfigStore {
     let pendingTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingConfig: AppConfiguration | (() => AppConfiguration) | null = null;
+    // t195: in-memory cache. load() hits it instead of re-reading + re-parsing
+    // the file + per-plugin manifest health checks. save() is the single write
+    // entry and refreshes the cache with the persisted value, so readers always
+    // observe the latest saved config.
+    let cached_config: AppConfiguration | null = null;
     // Serializes saves so concurrent save() calls cannot interleave reads/writes
     // or lose the final state to a torn write. Modeled on vault-backend's lock:
     // each save awaits the prior tail, and a rejection on one save MUST NOT poison
@@ -222,6 +210,7 @@ export function createConfigStore(configPath: string): AppConfigStore {
             });
         }
         await writeJsonAtomic(configPath, sorted);
+        cached_config = config;
         if (shouldLogRawStorage()) {
             log.debug("config save complete raw", { filePath: configPath });
         }
@@ -247,126 +236,147 @@ export function createConfigStore(configPath: string): AppConfigStore {
         return run;
     }
 
-    return {
-        async load(): Promise<AppConfiguration> {
-            try {
-                const raw = await readFile(configPath, "utf8");
+    async function load_uncached(): Promise<AppConfiguration> {
+        try {
+            const raw = await readFile(configPath, "utf8");
+            if (shouldLogRawStorage()) {
+                log.debug("config load raw", {
+                    filePath: configPath,
+                    raw: redact_config_json(raw),
+                });
+            }
+            const parsed = parse_config(raw);
+            if (parsed) {
                 if (shouldLogRawStorage()) {
-                    log.debug("config load raw", {
+                    log.debug("config parsed raw", {
                         filePath: configPath,
-                        raw: redact_config_json(raw),
+                        config: redact_config_raw(parsed),
                     });
                 }
-                const parsed = await parse_config(raw, configPath);
-                if (parsed) {
-                    if (shouldLogRawStorage()) {
-                        log.debug("config parsed raw", {
-                            filePath: configPath,
-                            config: redact_config_raw(parsed),
-                        });
-                    }
-                    return parsed;
+                return parsed;
+            }
+            // Main config is empty/corrupt: try backups before backing up the bad file.
+            const recovered =
+                (await try_load_backup(`${configPath}.bak`)) ??
+                (await try_load_backup(`${configPath}.before_restore`));
+            if (recovered) {
+                log.warn(`Config schema mismatch at ${configPath}, recovered from backup`);
+                return recovered;
+            }
+            // Main is corrupt AND no valid .bak to recover - back up the
+            // corrupted main content before throwing, so there's still
+            // something to inspect later. Do NOT fallback to defaults:
+            // returning DEFAULT_CONFIGURATION triggers auto_seed in
+            // index.ts which overwrites config.json with new instanceIds,
+            // orphaning all observation-store data (P0 data loss).
+            try {
+                // 空/仅空白的主文件不备份，避免覆盖可能仍然有效的 .bak。
+                if (raw.trim().length > 0) {
+                    await writeBakAtomic(`${configPath}.bak`, raw);
                 }
-                // Main config is empty/corrupt: try backups before backing up the bad file.
-                const recovered =
-                    (await try_load_backup(`${configPath}.bak`, configPath)) ??
-                    (await try_load_backup(`${configPath}.before_restore`, configPath));
-                if (recovered) {
-                    log.warn(`Config schema mismatch at ${configPath}, recovered from backup`);
-                    return recovered;
-                }
-                // Main is corrupt AND no valid .bak to recover - back up the
-                // corrupted main content before throwing, so there's still
-                // something to inspect later. Do NOT fallback to defaults:
-                // returning DEFAULT_CONFIGURATION triggers auto_seed in
-                // index.ts which overwrites config.json with new instanceIds,
-                // orphaning all observation-store data (P0 data loss).
+            } catch {
+                // non-critical
+            }
+            log.error(
+                `Config schema mismatch at ${configPath}, backup also invalid. ` +
+                    `NOT falling back to defaults to prevent auto_seed overwrite. ` +
+                    `Manual recovery required (restore config.json from backup or reconfigure).`,
+            );
+            throw new Error(
+                `Config corrupt at ${configPath} and no valid .bak. ` +
+                    `Refusing to start with defaults to prevent data loss. ` +
+                    `Restore config.json manually or remove it to reset.`,
+            );
+        } catch (err: unknown) {
+            // load() 本身抛错（非 ENOENT）：config 文件存在但 readFile/parse 异常。
+            // 同样不 fallback defaults（防 auto_seed 覆盖），而是抛错停止启动。
+            if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+                // 区分「首次启动」与「config.json 被误删/移动」。Electron 会在 app 代码运行前
+                // 创建 userData 目录，因此不能仅靠「目录是否存在」判断；改检查是否留有成功
+                // 初始化后才会产生的用户数据文件。后者不能返回 defaults，否则会触发 auto_seed
+                // 覆盖用户数据（P0）。
+                const configDir = dirname(configPath);
                 try {
-                    // 空/仅空白的主文件不备份，避免覆盖可能仍然有效的 .bak。
-                    if (raw.trim().length > 0) {
-                        await writeBakAtomic(`${configPath}.bak`, raw);
-                    }
-                } catch {
-                    // non-critical
-                }
-                log.error(
-                    `Config schema mismatch at ${configPath}, backup also invalid. ` +
-                        `NOT falling back to defaults to prevent auto_seed overwrite. ` +
-                        `Manual recovery required (restore config.json from backup or reconfigure).`,
-                );
-                throw new Error(
-                    `Config corrupt at ${configPath} and no valid .bak. ` +
-                        `Refusing to start with defaults to prevent data loss. ` +
-                        `Restore config.json manually or remove it to reset.`,
-                );
-            } catch (err: unknown) {
-                // load() 本身抛错（非 ENOENT）：config 文件存在但 readFile/parse 异常。
-                // 同样不 fallback defaults（防 auto_seed 覆盖），而是抛错停止启动。
-                if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-                    // 区分「首次启动」与「config.json 被误删/移动」。Electron 会在 app 代码运行前
-                    // 创建 userData 目录，因此不能仅靠「目录是否存在」判断；改检查是否留有成功
-                    // 初始化后才会产生的用户数据文件。后者不能返回 defaults，否则会触发 auto_seed
-                    // 覆盖用户数据（P0）。
-                    const configDir = dirname(configPath);
-                    try {
-                        await stat(configDir);
-                    } catch (dirErr: unknown) {
-                        if ((dirErr as NodeJS.ErrnoException).code === "ENOENT") {
-                            // 首次启动：目录不存在，返回 defaults，由 auto_seed 填充内置 connector。
-                            return { ...DEFAULT_CONFIGURATION };
-                        }
-                        // 目录 stat 出现其它错误，直接抛出原错误。
-                        throw err;
-                    }
-                    const hasUserData = await has_previous_user_data(configDir, configPath);
-                    if (!hasUserData) {
-                        // 目录存在但里面只有 Electron 自动文件或空的初始化产物，视为首次启动。
+                    await stat(configDir);
+                } catch (dirErr: unknown) {
+                    if ((dirErr as NodeJS.ErrnoException).code === "ENOENT") {
+                        // 首次启动：目录不存在，返回 defaults，由 auto_seed 填充内置 connector。
                         return { ...DEFAULT_CONFIGURATION };
                     }
-                    // 目录存在且有此前成功运行留下的用户数据文件，但 config.json 缺失：
-                    // 先尝试从备份恢复，避免一次误删/写坏就拒绝启动。
-                    const recovered =
-                        (await try_load_backup(`${configPath}.bak`, configPath)) ??
-                        (await try_load_backup(`${configPath}.before_restore`, configPath));
-                    if (recovered) {
-                        log.warn(
-                            `Config file missing at ${configPath} but directory exists. ` +
-                                `Recovered from backup; a manual check is still recommended.`,
-                        );
-                        return recovered;
-                    }
-                    // 无可用备份时才拒绝启动，防止 auto_seed 覆盖已有数据。
-                    log.error(
-                        `Config file missing at ${configPath} but directory exists. ` +
-                            `NOT falling back to defaults to prevent auto_seed overwrite. ` +
-                            `Restore config.json manually or remove the directory to reset.`,
-                    );
-                    throw new Error(
-                        `Config file missing at ${configPath} but directory exists. ` +
-                            `Refusing to start with defaults to prevent data loss. ` +
-                            `Restore config.json manually or remove the directory to reset.`,
-                    );
+                    // 目录 stat 出现其它错误，直接抛出原错误。
+                    throw err;
                 }
-                // 已有 config 但读取失败（IO 错误等）→ 备份损坏文件后抛错
-                try {
-                    const raw = await readFile(configPath, "utf8").catch(() => null);
-                    // 空/仅空白的主文件不备份，避免覆盖可能仍然有效的 .bak。
-                    if (raw && raw.trim().length > 0) {
-                        await writeBakAtomic(`${configPath}.bak`, raw);
-                    }
-                } catch {
-                    // non-critical
+                const hasUserData = await has_previous_user_data(configDir, configPath);
+                if (!hasUserData) {
+                    // 目录存在但里面只有 Electron 自动文件或空的初始化产物，视为首次启动。
+                    return { ...DEFAULT_CONFIGURATION };
                 }
+                // 目录存在且有此前成功运行留下的用户数据文件，但 config.json 缺失：
+                // 先尝试从备份恢复，避免一次误删/写坏就拒绝启动。
+                const recovered =
+                    (await try_load_backup(`${configPath}.bak`)) ??
+                    (await try_load_backup(`${configPath}.before_restore`));
+                if (recovered) {
+                    log.warn(
+                        `Config file missing at ${configPath} but directory exists. ` +
+                            `Recovered from backup; a manual check is still recommended.`,
+                    );
+                    return recovered;
+                }
+                // 无可用备份时才拒绝启动，防止 auto_seed 覆盖已有数据。
                 log.error(
-                    `Config load failed (${configPath}). ` +
-                        `NOT falling back to defaults to prevent auto_seed overwrite.`,
-                    err,
+                    `Config file missing at ${configPath} but directory exists. ` +
+                        `NOT falling back to defaults to prevent auto_seed overwrite. ` +
+                        `Restore config.json manually or remove the directory to reset.`,
                 );
                 throw new Error(
-                    `Config load failed at ${configPath}: ${String(err)}. ` +
-                        `Refusing to start with defaults. Manual recovery required.`,
+                    `Config file missing at ${configPath} but directory exists. ` +
+                        `Refusing to start with defaults to prevent data loss. ` +
+                        `Restore config.json manually or remove the directory to reset.`,
                 );
             }
+            // 已有 config 但读取失败（IO 错误等）→ 备份损坏文件后抛错
+            try {
+                const raw = await readFile(configPath, "utf8").catch(() => null);
+                // 空/仅空白的主文件不备份，避免覆盖可能仍然有效的 .bak。
+                if (raw && raw.trim().length > 0) {
+                    await writeBakAtomic(`${configPath}.bak`, raw);
+                }
+            } catch {
+                // non-critical
+            }
+            log.error(
+                `Config load failed (${configPath}). ` +
+                    `NOT falling back to defaults to prevent auto_seed overwrite.`,
+                err,
+            );
+            throw new Error(
+                `Config load failed at ${configPath}: ${String(err)}. ` +
+                    `Refusing to start with defaults. Manual recovery required.`,
+            );
+        }
+    }
+
+    async function prune_unhealthy_plugins(): Promise<AppConfiguration> {
+        const config = cached_config ?? (await load_uncached());
+        const keep_indices = await prune_invalid_plugins(config.plugins);
+        if (keep_indices.length === config.plugins.length) return config;
+        const dropped = config.plugins.length - keep_indices.length;
+        log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath}`);
+        const pruned_plugins = keep_indices
+            .map((i) => config.plugins[i])
+            .filter((p): p is NonNullable<typeof p> => p !== undefined);
+        const pruned: AppConfiguration = { ...config, plugins: pruned_plugins };
+        await enqueueSave(pruned);
+        return pruned;
+    }
+
+    return {
+        async load(): Promise<AppConfiguration> {
+            if (cached_config) return cached_config;
+            const config = await load_uncached();
+            cached_config = config;
+            return config;
         },
 
         async save(config: AppConfiguration): Promise<void> {
@@ -409,6 +419,10 @@ export function createConfigStore(configPath: string): AppConfigStore {
 
         hasPendingSave(): boolean {
             return pendingTimer !== null || inflightSaves > 0;
+        },
+
+        async prune_unhealthy_plugins(): Promise<AppConfiguration> {
+            return prune_unhealthy_plugins();
         },
     };
 }

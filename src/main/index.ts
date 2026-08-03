@@ -71,7 +71,7 @@ import type { TokenStatsConfig } from "../shared/types/token-stats";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
 import { create_kimi_oauth_manager } from "./core/auth/kimi_oauth_manager";
-import { resolve_effective_proxy_url } from "./core/network/effective_proxy";
+import { resolve_effective_proxy_url, proxy_config_changed } from "./core/network/effective_proxy";
 import { close_all_proxy_agents } from "./core/network/proxy-pool";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerBuildInfoIpc } from "./ipc/build-info-ipc";
@@ -146,6 +146,9 @@ void app.whenReady().then(async () => {
         const allDefinitions = await discover_connector_definitions(bundledDir, userDir);
 
         let currentConfig = await configStore.load();
+        // t195: manifest 健康检查从 load 抽出，启动期一次性执行（孤儿/非法
+        // provider 插件清理并持久化）；运行期 load 走内存缓存。
+        currentConfig = await configStore.prune_unhealthy_plugins();
         const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
             currentConfig.plugins,
             allDefinitions,
@@ -375,11 +378,13 @@ void app.whenReady().then(async () => {
             kimiOAuthManager.reconcile_auto_refresh(active_kimi_instance_ids);
             // Update token stats config if changed
             tokenStatsManager.update_config(build_token_stats_config(updatedConfig));
-            // Re-detect system proxy (D12): a config save is a reasonable hook for
-            // "the user may have just toggled their system proxy".
-            void detect_system_proxy().then((proxy) => {
-                detected_system_proxy = proxy;
-            });
+            // t195 AC5: 代理探测只在代理相关字段变化时触发，纯 UI 偏好保存
+            // 不再触发 resolveProxy 网络调用。
+            if (proxy_config_changed(previousConfig.proxy, updatedConfig.proxy)) {
+                void detect_system_proxy().then((proxy) => {
+                    detected_system_proxy = proxy;
+                });
+            }
             for (const win of BrowserWindow.getAllWindows()) {
                 if (!win.isDestroyed()) {
                     win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);

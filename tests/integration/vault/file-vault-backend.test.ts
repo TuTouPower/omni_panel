@@ -208,4 +208,80 @@ describe("file-vault-backend", () => {
             "Invalid vault key length",
         );
     });
+
+    describe("in-memory mirror (t195)", () => {
+        it("serves reads from the mirror without re-reading the file after first read", async () => {
+            await vault.set("mirror-1", "value-1");
+            expect(await vault.get("mirror-1")).toBe("value-1");
+            // 篡改盘上文件（删除该 entry）：镜像已缓存，get 不重读，仍返回旧值。
+            const { readFile, writeFile } = await import("node:fs/promises");
+            const vault_path = join(temp_dir, "secrets.vault");
+            const on_disk = JSON.parse(await readFile(vault_path, "utf8")) as Record<
+                string,
+                unknown
+            >;
+            delete on_disk["mirror-1"];
+            await writeFile(vault_path, JSON.stringify(on_disk), "utf8");
+            expect(await vault.get("mirror-1")).toBe("value-1");
+            expect(await vault.has("mirror-1")).toBe(true);
+        });
+
+        it("set writes through to disk so a new backend instance can read the value", async () => {
+            await vault.set("writethrough-1", "value-2");
+            const fresh = await create_file_vault_backend(temp_dir);
+            expect(await fresh.get("writethrough-1")).toBe("value-2");
+        });
+
+        it("a new backend instance starts with a cold mirror that reads disk", async () => {
+            await vault.set("cold-1", "value-3");
+            // 直接篡改盘上文件（绕过镜像）新增一个合法密文 entry：热镜像已缓存
+            // 读不到，冷镜像重读盘能读到（review f001 修正——旧版未真正写盘）。
+            const { readFile, writeFile } = await import("node:fs/promises");
+            const vault_path = join(temp_dir, "secrets.vault");
+            const on_disk = JSON.parse(await readFile(vault_path, "utf8")) as Record<
+                string,
+                unknown
+            >;
+            on_disk["cold-2"] = on_disk["cold-1"];
+            await writeFile(vault_path, JSON.stringify(on_disk), "utf8");
+            // 热镜像：不重读盘，读不到盘上新加的 cold-2。
+            expect(await vault.get("cold-2")).toBeNull();
+            // 冷镜像：从盘读，能读到 cold-2（复用 cold-1 密文，解密同值）。
+            const fresh = await create_file_vault_backend(temp_dir);
+            expect(await fresh.get("cold-2")).toBe("value-3");
+        });
+
+        it("delete updates the mirror so later reads agree with the disk state", async () => {
+            await vault.set("del-1", "value-4");
+            await vault.delete("del-1");
+            expect(await vault.get("del-1")).toBeNull();
+            expect(await vault.has("del-1")).toBe(false);
+            const fresh = await create_file_vault_backend(temp_dir);
+            expect(await fresh.get("del-1")).toBeNull();
+        });
+
+        it("set does not commit the mirror when the write fails (f002)", async () => {
+            const { mkdir } = await import("node:fs/promises");
+            await vault.set("persist-1", "value-p");
+            // 把 tmp 路径占为目录 → writeFileAtomic 写 tmp 失败（EISDIR），
+            // 后续 write_vault 抛错。
+            await mkdir(join(temp_dir, "secrets.vault.tmp"));
+            await expect(vault.set("persist-2", "value-q")).rejects.toThrow();
+            // 镜像未提交：get 读不到失败写入的新 key。
+            expect(await vault.get("persist-2")).toBeNull();
+            // 磁盘旧值不受影响，重启（冷镜像）后仍只有 persist-1。
+            const fresh = await create_file_vault_backend(temp_dir);
+            expect(await fresh.get("persist-1")).toBe("value-p");
+            expect(await fresh.get("persist-2")).toBeNull();
+        });
+
+        it("delete does not commit the mirror when the write fails (f002)", async () => {
+            const { mkdir } = await import("node:fs/promises");
+            await vault.set("keep-1", "value-k");
+            await mkdir(join(temp_dir, "secrets.vault.tmp"));
+            await expect(vault.delete("keep-1")).rejects.toThrow();
+            // 镜像未提交：delete 失败后 key 仍可读。
+            expect(await vault.get("keep-1")).toBe("value-k");
+        });
+    });
 });

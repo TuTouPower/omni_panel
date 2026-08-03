@@ -73,6 +73,7 @@ function create_config_store(plugins: AppConfiguration["plugins"]) {
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn().mockResolvedValue(undefined),
         hasPendingSave: vi.fn().mockReturnValue(false),
+        prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
     };
 }
 
@@ -565,6 +566,7 @@ describe("connector-ipc", () => {
                 scheduleSave: vi.fn(),
                 flushPendingSave: vi.fn().mockResolvedValue(undefined),
                 hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
             };
             const deps = {
                 configStore,
@@ -642,6 +644,7 @@ describe("connector-ipc", () => {
                 scheduleSave: vi.fn(),
                 flushPendingSave: vi.fn().mockResolvedValue(undefined),
                 hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
             };
             const deps = {
                 configStore,

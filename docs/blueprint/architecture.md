@@ -35,16 +35,17 @@ src/
 │   │   ├── scheduler/             # 调度（见 specs/scheduler.md）
 │   │   │   ├── connector-scheduler.ts     # per-instance setTimeout 引擎
 │   │   │   ├── scheduler-orchestrator.ts  # startAll/rebuild/suspend/resume/shutdown
-│   │   │   ├── refresh-service.ts         # 单次刷新：锁/并发/执行/写库/映射
+│   │   │   ├── refresh-service.ts         # 单次刷新：锁/并发/执行/写库/映射；脚本读取走 script-cache（mtime 缓存 readFile+transpile，t195）
 │   │   │   ├── runtime-store.ts / snapshot-cache.ts / hydrate-runtime-store.ts
 │   │   │   ├── observation-mapping.ts     # Observation → MetricRecord
 │   │   │   ├── endpoint-resolver.ts       # 子进程 env 路径解析
 │   │   │   └── types.ts                   # 调度器内部类型定义
 │   │   ├── observation/observation-store.ts  # SQLite（见 specs/observation-store.md）
 │   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明；store 暴露有界 SQL 聚合（hour buckets / heatmap / window rollup），24h preset 的 KPI/donut/项目/会话轴走 rollup 而非受 LIMIT 截断的 records
-│   │   ├── config/                # config-store / secrets-store / auto-seed / types
+│   │   ├── config/                # config-store（内存缓存 + save 唯一写入口，t195）/ secrets-store / auto-seed / types
 │   │   ├── storage/               # write-json（原子写 JSON）
-│   │   ├── vault/                 # file-vault-backend + VaultBackend 接口
+│   │   ├── vault/                 # file-vault-backend（内存镜像，t195）+ VaultBackend 接口
+│   │   ├── connector/             # script-cache（脚本 mtime 缓存，t195）+ runtime/net-client/manifest-loader
 │   │   ├── session/session-manager.ts        # 登录窗 + cookie 捕获
 │   │   ├── local-api/server.ts    # 0.0.0.0 local-api，仅 /v1/ingest 需 Bearer，其余 web 路由在可信 LAN 下免认证
 │   │   ├── main-panel/            # 托盘弹出/悬浮窗控制 + floating-bounds

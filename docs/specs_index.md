@@ -21,7 +21,7 @@
 | ai-cli-token-stats-desktop           | Desktop       | 拆自 ai-cli-token-stats（t037），t114，t165，t166，t167             | 2026-07-31   |
 | ai-cli-token-stats-ui                | Web           | 拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190       | 2026-08-02   |
 | tokenstats-performance-baseline      | API           | t189                                                                | 2026-08-02   |
-| config-store                         | API           | 迁移自 omni_powers，t038/t041/t105/t111                             | 2026-07-25   |
+| config-store                         | API           | 迁移自 omni_powers，t038/t041/t105/t111，t195                       | 2026-08-03   |
 | config_fallback_p0_protection        | API           | t111                                                                | 2026-07-25   |
 | connector-auth                       | API           | t107, t112, t159                                                    | 2026-07-28   |
 | connector-cpa-runtime                | API           | 拆自 connector-cpa（t037）                                          | 2026-07-21   |
@@ -39,7 +39,7 @@
 | platform-services-api                | API           | 拆自 platform-services（t037）                                      | 2026-07-21   |
 | platform-services-electron           | Desktop       | 拆自 platform-services（t037）                                      | 2026-07-21   |
 | scheduler                            | API           | 迁移自 omni_powers，t039，t155                                      | 2026-07-27   |
-| secret-vault                         | API           | 迁移自 omni_powers，t045                                            | 2026-07-22   |
+| secret-vault                         | API           | 迁移自 omni_powers，t045，t195                                      | 2026-08-03   |
 | ui-views-web                         | Web           | 拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106 | 2026-07-25   |
 | ui-views-desktop                     | Desktop       | 拆自 ui-views（t037），t153                                         | 2026-07-27   |
 | vendor-forms-oauth-weblogin          | Web           | t109                                                                | 2026-07-25   |

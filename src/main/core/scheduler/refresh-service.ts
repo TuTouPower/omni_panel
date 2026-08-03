@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import type { ConnectorConfiguration, AppConfiguration } from "../config/types";
 import type { AppConfigStore } from "../config/config-store";
@@ -21,6 +20,7 @@ import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";
 import { execute_probe } from "../connector/probe-executor";
 import { run_connector } from "../connector/runtime";
+import { create_script_cache } from "../connector/script-cache";
 import type { ObservationStore } from "../observation/observation-store";
 import type { ConnectorSnapshotState, SnapshotSuccess } from "./types";
 
@@ -100,6 +100,9 @@ function resolve_script_path(definition: ConnectorDefinition): string {
     return script_path;
 }
 
+// t195: 连接器脚本 transpile 结果缓存（按 mtime 失效），模块级单例跨刷新共享。
+const script_cache = create_script_cache();
+
 const build_params_log = createLogger("refresh-service");
 
 async function build_params(
@@ -174,8 +177,9 @@ async function execute_connector(
     let raw_observations: ScriptObservation[];
     let failed_accounts: FailedAccount[] = [];
     if (definition.manifest.script) {
-        const script_code = await readFile(resolve_script_path(definition), "utf8");
-        const result = await run_connector(definition.manifest, script_code, ctx);
+        // t195: 脚本 transpile 结果按 mtime 缓存，文本未变不重读盘、不重编译。
+        const { code, compiled } = await script_cache.get_script(resolve_script_path(definition));
+        const result = await run_connector(definition.manifest, code, ctx, undefined, compiled);
         if (result.error) throw new Error(result.error);
         raw_observations = result.observations;
         failed_accounts = result.failed_accounts;

@@ -90,6 +90,12 @@ function create_config_store(plugins: ConnectorConfiguration[]) {
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
         hasPendingSave: vi.fn<() => boolean>().mockReturnValue(false),
+        prune_unhealthy_plugins: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            plugins,
+            launchAtLogin: false,
+        }),
     };
 }
 

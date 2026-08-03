@@ -70,6 +70,13 @@ beforeEach(async () => {
             scheduleSave: () => undefined,
             flushPendingSave: () => Promise.resolve(),
             hasPendingSave: () => false,
+            prune_unhealthy_plugins: () =>
+                Promise.resolve({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [{ instanceId: "inst-1" }] as never[],
+                    launchAtLogin: false,
+                }),
         },
         secretsStore: {
             get: () => Promise.resolve("sk-plain"),

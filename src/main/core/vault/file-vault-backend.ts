@@ -105,6 +105,14 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
     const master_key = await ensure_master_key(key_path);
 
     let mutex: Promise<void> = Promise.resolve();
+    // t195: 内存镜像。首次读取整份文件后缓存在内存，get/has/list_keys 不再
+    // 每次重读；set/delete 更新镜像并写盘（唯一写入口）。
+    let mirror: Record<string, VaultEntry> | null = null;
+
+    async function ensure_mirror(): Promise<Record<string, VaultEntry>> {
+        mirror ??= await read_vault();
+        return mirror;
+    }
 
     async function with_lock<T>(fn: () => Promise<T>): Promise<T> {
         const prev = mutex;
@@ -159,7 +167,7 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
     return {
         async get(key: string): Promise<string | null> {
             return with_lock(async () => {
-                const data = await read_vault();
+                const data = await ensure_mirror();
                 const entry = data[key];
                 if (!entry) return null;
                 try {
@@ -175,33 +183,37 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
 
         async set(key: string, value: string): Promise<void> {
             await with_lock(async () => {
-                const data = await read_vault();
-                data[key] = encrypt_value(master_key, value);
-                await write_vault(data);
+                const data = await ensure_mirror();
+                // f002: 先构造 next 再写盘，写成功后才提交镜像——写失败时镜像
+                // 仍是磁盘一致状态，调用方不会读到「未持久化」的新值。
+                const next = { ...data, [key]: encrypt_value(master_key, value) };
+                await write_vault(next);
+                mirror = next;
             });
         },
 
         async delete(key: string): Promise<void> {
             await with_lock(async () => {
-                const data = await read_vault();
+                const data = await ensure_mirror();
                 if (!(key in data)) return;
                 const next_data = Object.fromEntries(
                     Object.entries(data).filter(([entry_key]) => entry_key !== key),
                 );
                 await write_vault(next_data);
+                mirror = next_data;
             });
         },
 
         async has(key: string): Promise<boolean> {
             return with_lock(async () => {
-                const data = await read_vault();
+                const data = await ensure_mirror();
                 return key in data;
             });
         },
 
         async list_keys(prefix?: string): Promise<string[]> {
             return with_lock(async () => {
-                const data = await read_vault();
+                const data = await ensure_mirror();
                 const keys = Object.keys(data);
                 if (!prefix) return keys;
                 return keys.filter((key) => key.startsWith(prefix));

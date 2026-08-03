@@ -7,6 +7,7 @@ import { use_popup_derived } from "../hooks/use_popup_derived";
 import { use_dnd_handlers } from "../hooks/use_dnd_handlers";
 import { use_watched_metric_toggler } from "../hooks/use_watched_metric_toggler";
 import { use_tab_navigation } from "../hooks/use_tab_navigation";
+import { create_debounced_config_patcher } from "../lib/config-debounce";
 import { useTheme } from "../lib/theme";
 import { ProviderAccountList } from "../components/ProviderAccountList";
 import { ProviderNav } from "../components/ProviderNav";
@@ -49,7 +50,6 @@ export function PopupView() {
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
     const [provider_order, set_provider_order] = useState<string[]>([]);
-    const save_queue_ref = useRef(Promise.resolve());
     const synced_order_ref = useRef<string[]>([]);
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const synced_account_orders_ref = useRef<Record<string, string[]>>({});
@@ -164,21 +164,28 @@ export function PopupView() {
         ],
     );
 
-    // Single read-modify-write queue for persistence. Three effects below used
-    // to each inline this exact block; a bug in one would silently desync.
-    const patchConfig = useCallback((patch: Partial<AppConfiguration>) => {
-        save_queue_ref.current = save_queue_ref.current
-            .then(async () => {
-                const result = await window.usageboard.config.get();
-                await window.usageboard.config.save({ ...result.config, ...patch });
-            })
-            .catch((err: unknown) => {
-                window.usageboard.log({
-                    level: "error",
-                    module: "PopupView",
-                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
-                });
+    // t195 AC4: UI 偏好切换本地已乐观生效（setter 立即更新 state），此处只负责
+    // 持久化——防抖合并多次 patch 成一次 config.save，不等响应更新界面。
+    const config_patcher_ref = useRef<ReturnType<typeof create_debounced_config_patcher> | null>(
+        null,
+    );
+    config_patcher_ref.current ??= create_debounced_config_patcher({
+        get: () => window.usageboard.config.get(),
+        save: (config) => window.usageboard.config.save(config),
+        on_error: (err) => {
+            window.usageboard.log({
+                level: "error",
+                module: "PopupView",
+                message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
             });
+        },
+    });
+    useEffect(() => {
+        return () => config_patcher_ref.current?.dispose();
+    }, []);
+
+    const patchConfig = useCallback((patch: Partial<AppConfiguration>) => {
+        config_patcher_ref.current?.patch(patch);
     }, []);
 
     // Load persisted provider order from config

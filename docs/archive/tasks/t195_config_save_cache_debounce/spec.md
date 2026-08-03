@@ -75,8 +75,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 缓存失效的单一写入口边界：UNVERIFIED-SPIKE，执行期核实 config-store/vault 是否存在唯一写路径；多写点需逐个挂失效或改单写入口。
-- manifest 健康检查移到启动时的扫描覆盖：UNVERIFIED-SPIKE，执行期核实哪些路径依赖即时 manifest stat，确认启动期 + 结构变更触发能覆盖。
+- 缓存失效的单一写入口边界：已核实。config-store 唯一写入口为 `save`/`scheduleSave`/`flushPendingSave`（均经 `enqueueSave → doSave`，`doSave` 写盘后刷新内存缓存）；vault 唯一写入口为 `set`/`delete`（写盘后镜像同步）。无外部直写。
+- manifest 健康检查移到启动时的扫描覆盖：已核实。`prune_invalid_plugins` 从 load/parse 抽出，新增 `configStore.prune_unhealthy_plugins()` 在启动期（auto_seed 前）调用一次，config 导入（结构变更）后补一次；运行期 load 走内存缓存不再做 manifest stat。
 
 ### 风险与回退
 

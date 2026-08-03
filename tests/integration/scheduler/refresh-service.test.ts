@@ -155,6 +155,7 @@ function create_config_store(plugins: ConnectorConfiguration[]) {
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
         hasPendingSave: vi.fn<() => boolean>().mockReturnValue(false),
+        prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
     };
 }
 
@@ -607,6 +608,7 @@ return [{
             scheduleSave: vi.fn(),
             flushPendingSave: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
             hasPendingSave: vi.fn<() => boolean>().mockReturnValue(false),
+            prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
         };
         const service = createRefreshService({
             definitions: [definition(tempDir)],

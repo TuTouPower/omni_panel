@@ -19,8 +19,13 @@
 
 ## 接口
 
-- `load()` / `scheduleSave(config | () => config, delayMs=500)` / `flushPendingSave` / `hasPendingSave`。
+- `load()` / `scheduleSave(config | () => config, delayMs=500)` / `flushPendingSave` / `hasPendingSave` / `prune_unhealthy_plugins()`（t195）。
 - `refreshIntervalSecondsSchema`：`0` = 跟随全局哨兵；非零 clamp `[60, 172800]`。
+
+## 内存缓存与健康检查抽离（t195）
+
+- **内存缓存**：`load()` 首次读盘 + zod parse 后缓存，后续命中缓存不重读磁盘。`save` / `scheduleSave` / `flushPendingSave` 是唯一写入口，均经 `enqueueSave → doSave`，写盘成功后刷新缓存——读到的始终是最新已保存配置（AC1/AC2）。
+- **健康检查抽离**：`prune_invalid_plugins`（孤儿插件、非法 provider 清理并持久化）从 load 抽出为 `prune_unhealthy_plugins()`，启动期（auto_seed 前）与 config 导入后各执行一次；运行期 load 不再做逐插件 manifest stat（AC1）。
 
 ## 行为（现在是什么）
 
@@ -28,7 +33,7 @@
 - **保存**：`scheduleSave` 防抖 500ms；所有写经串行 `saveTail` promise 链（并发写不交错，失败不毒化链）；`writeJsonAtomic` + `sortKeys` 稳定 diff。
 - **防抖 payload 用 thunk（t105）**：`scheduleSave` 接受 `AppConfiguration` 或返回它的 thunk，thunk 在防抖触发（及 `flushPendingSave`）时才求值。只改单个字段的调用方（`src/main/index.ts` 的 `save_settings_bounds`、main-panel `save_config` 窗口 bounds）必须传 thunk：窗口 resize/move 在事件发生时抓 `currentConfigSnapshot`，500ms 后落盘会把这期间 renderer 已保存的 `providerOrder` / `expandedProviders` 回滚（既有数据丢失 bug，t105 修）。
 - **载入加固（t111）**：schema 不匹配、空文件/仅空白字符、IO 错误等非 ENOENT 情况均不返回 `DEFAULT_CONFIGURATION`（防止 auto_seed 覆盖用户数据）；schema 不匹配时先试 `.bak` 恢复，否则把损坏文件备份为 `.bak` 并抛错。ENOENT 时仅当配置目录不存在才返回 defaults 并允许 auto_seed；目录存在但 `config.json` 缺失视为异常抛错。
-- **零散迁移（非版本引擎）**：`instanceId ?? stateId` 回填；`stripRemovedConfigFields` 删已移除的 `overviewDisplayMode`；`prune_invalid_plugins` 删 manifest 缺失或 provider 不在白名单的插件并回写。
+- **零散迁移（非版本引擎）**：`instanceId ?? stateId` 回填；`stripRemovedConfigFields` 删已移除的 `overviewDisplayMode`；`prune_invalid_plugins` 删 manifest 缺失或 provider 不在白名单的插件并回写（t195 起仅在启动/导入时经 `prune_unhealthy_plugins()` 执行，load 不再触发）。
 - **auto-seed（`auto_seed_connectors`）**：把发现的连接器定义并入 config。新连接器 `randomUUID` 的 instanceId/stateId、`name = manifest.id.toUpperCase()`、`enabled:true`、`refreshIntervalSeconds:0`（跟随全局）、`manualRefreshOnly` 若 `manifest.manualDefault`、种非 secret 参数默认、`endpointOverrides:{}`。已存在项按 id 匹配，仅更新 executablePath。**tombstone（t038）**：第 3 参 `removed_ids: ReadonlySet<string>`（来自 `config.removedConnectorIds`），manifest id 命中则跳过 seed，删除的内置连接器重启不复活。
 - **`removedConnectorIds`（t038）**：`AppConfiguration` 可选字段，manifest id 数组。删除/移除连接器时（SettingsView `with_removed_connector`）把 manifest id（`info.metadata.name`）去重写入。旧 config 无此字段 = 空集合，向后兼容。
 - **`upcomingResetThresholdPercent`（t041）**：`AppConfiguration` 可选字段，`number | null`（zod `int().min(0).max(100).nullable().optional()`）。剩余时间占周期百分比 ≤ 此值时账号进「即将重置」面板；null/undefined = 不展示面板。设置页常规段阈值 input 控制（留空存 null）。

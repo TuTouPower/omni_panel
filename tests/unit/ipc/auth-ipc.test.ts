@@ -114,6 +114,7 @@ describe("handleCookieLogin", () => {
                 scheduleSave: vi.fn(),
                 flushPendingSave: vi.fn(),
                 hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
             },
             secretsStore: {
                 set: vi.fn((_key: string, value: string) => {
@@ -385,6 +386,7 @@ describe("trySilentCookieRefresh", () => {
                 scheduleSave: vi.fn(),
                 flushPendingSave: vi.fn(),
                 hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
             },
             secretsStore: {
                 set: vi.fn((_key: string, value: string) => {
@@ -447,6 +449,7 @@ describe("trySilentCookieRefresh", () => {
                 scheduleSave: vi.fn(),
                 flushPendingSave: vi.fn(),
                 hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
             },
             secretsStore: {
                 set: vi.fn(),
