@@ -17,7 +17,7 @@
 | slug                                 | 验证方式      | task 清单                                                           | 最后固化时间 |
 | ------------------------------------ | ------------- | ------------------------------------------------------------------- | ------------ |
 | add-account-catalog                  | API           | t121                                                                | 2026-07-26   |
-| ai-cli-token-stats-api               | API           | 拆自 ai-cli-token-stats（t037），t114，t162，t163，t192             | 2026-08-03   |
+| ai-cli-token-stats-api               | API           | 拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193       | 2026-08-03   |
 | ai-cli-token-stats-desktop           | Desktop       | 拆自 ai-cli-token-stats（t037），t114，t165，t166，t167             | 2026-07-31   |
 | ai-cli-token-stats-ui                | Web           | 拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190       | 2026-08-02   |
 | tokenstats-performance-baseline      | API           | t189                                                                | 2026-08-02   |

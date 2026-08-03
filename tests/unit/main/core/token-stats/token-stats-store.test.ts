@@ -1083,6 +1083,71 @@ describe("token-stats-store", () => {
         });
     });
 
+    describe("read-only store (t193 query worker)", () => {
+        it("reads committed dashboard data through the same contract as the writable store", () => {
+            with_temp_store((db_path) => {
+                const writable = create_token_stats_store(db_path);
+                writable.upsert_records([record({ message_id: "m1", timestamp: T0 })]);
+                writable.backfill_hour_rollup();
+                const dto_writable = writable.query_dashboard(
+                    {
+                        agent: "all",
+                        platform: "all",
+                        start: T0,
+                        end: T0 + 3600000,
+                        metric: "tokens",
+                        xaxis: "time",
+                        gran: "hour",
+                    },
+                    { running: false, last_updated: null },
+                );
+                writable.close();
+
+                const readonly_store = create_token_stats_store(db_path, { readonly: true });
+                expect(readonly_store.is_hour_rollup_ready()).toBe(true);
+                expect(readonly_store.get_data_version()).toBe(1);
+                const dto_readonly = readonly_store.query_dashboard(
+                    {
+                        agent: "all",
+                        platform: "all",
+                        start: T0,
+                        end: T0 + 3600000,
+                        metric: "tokens",
+                        xaxis: "time",
+                        gran: "hour",
+                    },
+                    { running: false, last_updated: null },
+                );
+                expect(dto_readonly.current).toEqual(dto_writable.current);
+                expect(dto_readonly.previous).toEqual(dto_writable.previous);
+                expect(dto_readonly.chart).toEqual(dto_writable.chart);
+                expect(dto_readonly.heatmap).toEqual(dto_writable.heatmap);
+                expect(dto_readonly.sessions).toEqual(dto_writable.sessions);
+                readonly_store.close();
+            });
+        });
+
+        it("rejects writes (AC7): upsert_records / backfill throw on a read-only store", () => {
+            with_temp_store((db_path) => {
+                const writable = create_token_stats_store(db_path);
+                writable.upsert_records([record({ message_id: "m1" })]);
+                writable.close();
+
+                const readonly_store = create_token_stats_store(db_path, { readonly: true });
+                expect(() => {
+                    readonly_store.upsert_records([record({ message_id: "mX" })]);
+                }).toThrow(/read-only/i);
+                expect(() => {
+                    readonly_store.upsert_sessions([], []);
+                }).toThrow(/read-only/i);
+                expect(() => {
+                    readonly_store.backfill_hour_rollup();
+                }).toThrow(/read-only/i);
+                readonly_store.close();
+            });
+        });
+    });
+
     describe("migration v6 (t192 hour rollup + data version)", () => {
         it("creates t192 tables on a pre-v6 DB and stays unready", () => {
             with_temp_store((db_path) => {

@@ -8,6 +8,7 @@ import type { Observation } from "../../../shared/types/observation";
 import type { ObservationStore } from "../observation/observation-store";
 import { build_trend_series, type TrendPoint } from "../../../shared/lib/trend";
 import type { TokenStatsStore } from "../token-stats/token-stats-store";
+import type { TokenStatsQueryDispatcher } from "../token-stats/query-dispatcher";
 import {
     tokenStatsDashboardDtoSchema,
     tokenStatsDashboardQuerySchema,
@@ -179,6 +180,10 @@ export function create_local_api_server(
         port?: number;
         token_stats_store?: TokenStatsStore;
         token_stats_running?: () => boolean;
+        /** t193: optional isolated dashboard query dispatcher; when present the
+         *  web dashboard endpoint reads through the worker instead of the main
+         *  process store (keeps the sync store path as a fallback). */
+        token_stats_query_dispatcher?: TokenStatsQueryDispatcher;
         config_deps?: ConfigIpcDeps;
         connector_deps?: ConnectorIpcDeps;
         web_root?: string;
@@ -187,6 +192,7 @@ export function create_local_api_server(
     const token = generate_token();
     const token_stats_store = options?.token_stats_store;
     const token_stats_running = options?.token_stats_running ?? (() => true);
+    const token_stats_query_dispatcher = options?.token_stats_query_dispatcher;
     const config_deps = options?.config_deps;
     const connector_deps = options?.connector_deps;
     const web_root = options?.web_root;
@@ -243,7 +249,11 @@ export function create_local_api_server(
 
             // Web read endpoints serve the panel UI without auth (intranet use
             // per project decision). ingest stays token-gated below.
-            if (is_get && token_stats_store && handle_web_read(url, res, token_stats_store)) {
+            if (
+                is_get &&
+                token_stats_store &&
+                (await handle_web_read(url, res, token_stats_store))
+            ) {
                 return;
             }
             if (is_get && handle_web_trend(url, res, observation_store)) {
@@ -278,7 +288,11 @@ export function create_local_api_server(
         });
     }
 
-    function handle_web_read(url: URL, res: ServerResponse, store: TokenStatsStore): boolean {
+    async function handle_web_read(
+        url: URL,
+        res: ServerResponse,
+        store: TokenStatsStore,
+    ): Promise<boolean> {
         const params = url.searchParams;
         const env = params.get("env");
         const agent = params.get("agent");
@@ -320,10 +334,13 @@ export function create_local_api_server(
                 }
                 const query = parsed_query.data;
                 try {
-                    const dto = store.query_dashboard(query, {
+                    const status = {
                         running: token_stats_running(),
                         last_updated: store.last_updated(),
-                    });
+                    };
+                    const dto = token_stats_query_dispatcher
+                        ? await token_stats_query_dispatcher.request_dashboard(query, status)
+                        : store.query_dashboard(query, status);
                     const parsed_dto = tokenStatsDashboardDtoSchema.safeParse(dto);
                     if (!parsed_dto.success) {
                         json_response(res, 500, { error: "Invalid dashboard response" });

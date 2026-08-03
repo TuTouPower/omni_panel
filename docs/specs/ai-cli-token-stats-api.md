@@ -311,6 +311,14 @@ interface TokenStatsUpdate {
 
 主进程收到后按 §6.1 分层策略写入 `token_stats_*` 表（sessions upsert + daily replace + buckets 重建 + records replace）。
 
+### 6.5.1 dashboard 查询隔离：utilityProcess query worker（t193）
+
+`TOKEN_STATS_DASHBOARD`（与 `/v1/dashboard`）的聚合读取运行在独立 **utilityProcess** query worker 内，不占主进程事件循环：
+
+- **执行端**：`query-worker.js`（electron-vite 多入口，asarUnpack 后 `resolve_worker_path` 从 `app.asar.unpacked` 定位）。打开 `{ readonly: true }` 的 WAL 连接读已提交数据，写事务进行中读快照不阻塞；聚合表损坏时由 manager 后台回填恢复，worker 只读不受影响。
+- **调度**：`query-dispatcher` 持单 worker；并发上限 1 active + 1 queued（超上限的旧请求以受控 superseded 错误拒绝），单请求 10s 超时，崩溃后 `restart_delay` 受控重启（间隙内新请求即时 spawn 且 restart timer 不再双 fork），`stop()` 先发 `close` 释放只读连接再 `kill`。
+- **契约不变**：错误映射、data version 与隔离前一致（见 §7）；worker 只接收 `db_path` + 已校验 query + status 快照，不获得 vault/connector secret 或任意文件访问（AC7）。
+
 ### 6.6 AgentSessionUsage 类型
 
 `src/shared/types/token-stats.ts` 定义共享类型 + Zod schema，包括：

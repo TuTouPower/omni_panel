@@ -118,3 +118,17 @@
 - 替代：无
 - 落地：t192（migration v6 + `token_stats_hour_rollup` + `query_dashboard` 窗口拆分读取）。
 - 遗留：`query_dashboard` 聚合/records 双轨重复（p031）；AC2 多 session 未受影响行、AC3 失败回滚、AC4 竞态、AC5 查询计划、AC1 重启就绪等子句级补测（p032-p037）。
+
+## 012 TokenStats dashboard 查询隔离到 utilityProcess query worker（2026-08-03）
+
+- 背景：t192 把 dashboard 读取切到聚合层，但 `query_dashboard` 仍是主进程内 better-sqlite3 同步聚合，窗口大时 IPC/本地请求排队（t189 基线）。要把重读迁出主进程事件循环，须选隔离执行端并确认只读并发语义。
+- 选项：执行端 A) worker_threads；B) utilityProcess。只读访问形态 a) 复用主进程 store（同连接）；b) worker 独立 readonly 连接。
+- 结论：执行端选 B，只读选 b。worker_threads 同进程线程，native 崩溃带崩整个 Electron，不满足「执行端异常退出不崩主进程」；utilityProcess 独立 OS 进程、异常退出不影响主进程且支持受控重启，打包路径有 collector 先例（manager.ts `resolve_collector_path` 处理 asar unpacked）。只读选 b 的 WAL 并发语义由 s009 实测背书：readonly 连接读已提交数据、写提交后新只读连接立即可见、写事务未提交时读旧快照不阻塞、close/reopen 无锁残留、`readonly:true` 拒绝写入。
+- 关键子决策：
+    - **并发上限 1 active + 1 queued**：超出即 superseded 受控拒绝，快速连续切换不无限排队；单请求 10s 超时。
+    - **崩溃受控重启**：exit 后 restart_delay 重启；间隙内新请求即时 spawn，restart timer 以 `!child` 判空不双 fork（t193 code f001 修复）。
+    - **优雅关闭**：`stop()` 先 `postMessage({type:"close"})` 让 worker 释放只读连接再 `kill()`。
+    - **权限边界**：worker 只接收 `db_path` + 已校验 query + status 快照，不获得 vault/connector secret 或任意文件访问（AC7）。
+- 替代：worker_threads（否决理由见上）；readonly 复用主进程连接（同进程，失去隔离意义）。
+- 落地：t193（query-worker.js + query-dispatcher + store readonly 支持 + IPC/local-api 路由 + packaged smoke AC6）。
+- 遗留：无。

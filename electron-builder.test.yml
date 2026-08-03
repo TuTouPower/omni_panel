@@ -5,6 +5,12 @@ directories:
 files:
     - out/**
     - package.json
+    # better-sqlite3's runtime JS deps ('bindings', 'file-uri-to-path') are
+    # dropped from the dependency collection under the pnpm hoisted layout;
+    # include them explicitly so utilityProcess children (query worker /
+    # collector) can load the native addon from app.asar.unpacked.
+    - node_modules/bindings/**
+    - node_modules/file-uri-to-path/**
 extraResources:
     - from: connectors
       to: connectors
@@ -20,7 +26,13 @@ extraResources:
 asar: true
 asarUnpack:
     - out/main/collector.js
+    - out/main/query-worker.js
     - out/main/chunks/**
+    # better-sqlite3 lives unpacked (native addon); its runtime JS deps
+    # 'bindings' + 'file-uri-to-path' must sit beside it, or utilityProcess
+    # children (query worker / collector) fail require() when opening the store.
+    - node_modules/bindings/**
+    - node_modules/file-uri-to-path/**
 electronFuses:
     enableEmbeddedAsarIntegrityValidation: true
     onlyLoadAppFromAsar: true

@@ -565,19 +565,29 @@ function dashboard_chart_from_rollup(
     return dashboard_chart_from_cells(labels, [], cells);
 }
 
-export function create_token_stats_store(db_path: string): TokenStatsStore {
+export function create_token_stats_store(
+    db_path: string,
+    options: { readonly?: boolean } = {},
+): TokenStatsStore {
     const log = createLogger("token-stats-store");
-    const db = new Database(db_path);
-    db.pragma("journal_mode = WAL");
-    db.pragma("wal_autocheckpoint = 1000");
+    const readonly = options.readonly === true;
+    // Read-only connections back the isolated dashboard query worker (t193):
+    // same read paths (including the t192 hour-rollup window read) against a
+    // WAL database the main process writes concurrently. Schema/DDL and
+    // migrations are skipped — the writable main-process store owns them.
+    const db = readonly ? new Database(db_path, { readonly: true }) : new Database(db_path);
     db.pragma("busy_timeout = 5000");
-    db.exec(INIT_SQL);
+    if (!readonly) {
+        db.pragma("journal_mode = WAL");
+        db.pragma("wal_autocheckpoint = 1000");
+        db.exec(INIT_SQL);
+    }
     // Migration v2: (1) daily `date` switched from collector-local to UTC
     // bucketing — local-dated rows would linger next to UTC rows and
     // double-count; (2) sessions of deleted transcript files were kept
     // forever, inflating per-window session counts. Both are derived data:
     // wipe once, the collector's full rescan on startup repopulates them.
-    if ((db.pragma("user_version", { simple: true }) as number) < 2) {
+    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 2) {
         db.exec(
             "DELETE FROM token_stats_daily; DELETE FROM token_stats_buckets; DELETE FROM token_stats_sessions;",
         );
@@ -585,7 +595,7 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
     }
     // Migration v3: add per-message records table. Records are fully
     // re-emitted by the collector on each rescan, so wipe legacy rows once.
-    if ((db.pragma("user_version", { simple: true }) as number) < 3) {
+    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 3) {
         db.exec("DELETE FROM token_stats_records;");
         db.pragma("user_version = 3");
     }
@@ -593,7 +603,7 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
     // range + ORDER BY timestamp DESC uses an index seek instead of a full
     // scan. CREATE INDEX IF NOT EXISTS is idempotent; INIT_SQL already creates
     // it on fresh DBs, this branch backfills existing installs.
-    if ((db.pragma("user_version", { simple: true }) as number) < 4) {
+    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 4) {
         db.exec(
             "CREATE INDEX IF NOT EXISTS idx_records_env_ts ON token_stats_records(env, timestamp DESC);",
         );
@@ -601,7 +611,7 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
     }
     // Migration v5: add timestamp and session lookup indexes used by the
     // bounded dashboard aggregate queries on existing databases.
-    if ((db.pragma("user_version", { simple: true }) as number) < 5) {
+    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 5) {
         db.exec(
             "CREATE INDEX IF NOT EXISTS idx_records_ts ON token_stats_records(timestamp);" +
                 "CREATE INDEX IF NOT EXISTS idx_records_session_ts ON token_stats_records(source, env, session_id, timestamp DESC);",
@@ -613,11 +623,15 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
     // DBs). The rollup stays empty and unready here; the store backfills it
     // asynchronously after open, and dashboard reads fall back to records
     // until `hour_rollup_ready` flips.
-    if ((db.pragma("user_version", { simple: true }) as number) < 6) {
+    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 6) {
         db.exec(ROLLUP_INIT_SQL);
         db.pragma("user_version = 6");
     }
-    log.debug(`Token stats store initialized: ${db_path}`);
+    if (readonly) {
+        log.debug(`Token stats read-only store initialized: ${db_path}`);
+    } else {
+        log.debug(`Token stats store initialized: ${db_path}`);
+    }
 
     // Merge semantics per field:
     // - token totals / calls: cumulative snapshots — take the new value when
@@ -752,6 +766,9 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
 
     return {
         upsert_sessions(deltas: TokenStatsSessionUpsert[], daily: TokenStatsDailyUpsert[]): void {
+            if (readonly) {
+                throw new Error("Token stats store is read-only");
+            }
             if (deltas.length === 0 && daily.length === 0) {
                 return;
             }
@@ -804,6 +821,9 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
         },
 
         upsert_records(records: AgentSessionUsageRecord[]): void {
+            if (readonly) {
+                throw new Error("Token stats store is read-only");
+            }
             if (records.length === 0) {
                 return;
             }
@@ -834,7 +854,7 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
                         agent: r.agent,
                         updated_at: now,
                     });
-                    touched.set(`${r.source} ${r.env} ${r.session_id}`, {
+                    touched.set(`${r.source}\u0000${r.env}\u0000${r.session_id}`, {
                         source: r.source,
                         env: r.env,
                         session_id: r.session_id,
@@ -1433,6 +1453,9 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
         },
 
         backfill_hour_rollup(): void {
+            if (readonly) {
+                throw new Error("Token stats store is read-only");
+            }
             const now = Date.now();
             const tx = db.transaction(() => {
                 delete_hour_rollup_all_stmt.run();

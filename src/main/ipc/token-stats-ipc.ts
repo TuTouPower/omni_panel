@@ -18,10 +18,15 @@ import {
 import { ok, fail, assert_valid_sender, type IpcResult } from "./helpers";
 import type { TokenStatsStore } from "../core/token-stats/token-stats-store";
 import type { TokenStatsManager } from "../core/token-stats/manager";
+import type { TokenStatsQueryDispatcher } from "../core/token-stats/query-dispatcher";
 
 export function registerTokenStatsIpc(
     ipc: IpcMain,
-    deps: { store: TokenStatsStore; manager: TokenStatsManager },
+    deps: {
+        store: TokenStatsStore;
+        manager: TokenStatsManager;
+        dispatcher: TokenStatsQueryDispatcher;
+    },
 ): void {
     ipc.handle(
         IPC_CHANNELS.TOKEN_STATS_BUCKETS,
@@ -102,18 +107,23 @@ export function registerTokenStatsIpc(
 
     ipc.handle(
         IPC_CHANNELS.TOKEN_STATS_DASHBOARD,
-        (event: IpcMainInvokeEvent, raw_query: unknown): IpcResult<TokenStatsDashboardDto> => {
+        async (
+            event: IpcMainInvokeEvent,
+            raw_query: unknown,
+        ): Promise<IpcResult<TokenStatsDashboardDto>> => {
             assert_valid_sender(event);
             const parsed_query = tokenStatsDashboardQuerySchema.safeParse(raw_query);
             if (!parsed_query.success) {
                 return fail("INVALID_ARGUMENT", "Invalid token stats dashboard query");
             }
             try {
+                // The query runs in the isolated read-only worker (t193) so
+                // heavy aggregate reads never block the main process.
                 const status = {
                     running: deps.manager.is_running(),
                     last_updated: deps.store.last_updated(),
                 };
-                const dto = deps.store.query_dashboard(parsed_query.data, status);
+                const dto = await deps.dispatcher.request_dashboard(parsed_query.data, status);
                 const parsed_dto = tokenStatsDashboardDtoSchema.safeParse(dto);
                 if (!parsed_dto.success) {
                     return fail("INVALID_RESPONSE", "Invalid token stats dashboard response");

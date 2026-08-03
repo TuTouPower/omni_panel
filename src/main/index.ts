@@ -62,6 +62,7 @@ import { registerTokenStatsIpc } from "./ipc/token-stats-ipc";
 import { registerTrendIpc } from "./ipc/trend-ipc";
 import { create_token_stats_store } from "./core/token-stats/token-stats-store";
 import { create_token_stats_manager } from "./core/token-stats/manager";
+import { create_token_stats_query_dispatcher } from "./core/token-stats/query-dispatcher";
 import { create_local_api_server } from "./core/local-api/server";
 import type { LocalAPIServer } from "./core/local-api/server";
 import type { AppConfiguration } from "../shared/types/config";
@@ -295,8 +296,12 @@ void app.whenReady().then(async () => {
         let main_panel_controller: MainPanelController | null = null;
         let tray_ref: Tray | null = null;
 
-        // Token stats: store + manager (subprocess-based collection)
+        // Token stats: store + manager (subprocess-based collection) + isolated
+        // read-only dashboard query worker (t193).
         const tokenStatsStore = create_token_stats_store(get_token_stats_db_path());
+        const tokenStatsQueryDispatcher = create_token_stats_query_dispatcher({
+            db_path: get_token_stats_db_path(),
+        });
         const tokenStatsManager = create_token_stats_manager({
             store: tokenStatsStore,
             on_update: () => {
@@ -328,7 +333,11 @@ void app.whenReady().then(async () => {
             refreshService,
             definitions: allDefinitions,
         });
-        registerTokenStatsIpc(ipcMain, { store: tokenStatsStore, manager: tokenStatsManager });
+        registerTokenStatsIpc(ipcMain, {
+            store: tokenStatsStore,
+            manager: tokenStatsManager,
+            dispatcher: tokenStatsQueryDispatcher,
+        });
         registerTrendIpc(ipcMain, { store: observationStore });
         const onConfigSaved = (updatedConfig: AppConfiguration): void => {
             const previousConfig = currentConfigSnapshot;
@@ -396,6 +405,7 @@ void app.whenReady().then(async () => {
         const local_api: LocalAPIServer = create_local_api_server(observationStore, {
             token_stats_store: tokenStatsStore,
             token_stats_running: () => tokenStatsManager.is_running(),
+            token_stats_query_dispatcher: tokenStatsQueryDispatcher,
             config_deps: { configStore, secretsStore, secretParamKeys, onConfigSaved },
             connector_deps: {
                 configStore,
@@ -809,10 +819,6 @@ void app.whenReady().then(async () => {
                 hideTrayMenu();
                 createOrFocusSettings();
             });
-            ipcMain.handle(IPC_CHANNELS.TOKEN_STATS_OPEN, () => {
-                hideTrayMenu();
-                agent_window_controller.open_or_focus();
-            });
             ipcMain.handle(IPC_CHANNELS.TRAY_OPEN_WEB, () => {
                 void shell.openExternal(`http://localhost:${String(local_api.get_port())}/`);
             });
@@ -921,10 +927,19 @@ void app.whenReady().then(async () => {
             });
         } // end of E2E !== "1" tray block
 
+        // Agent (token-stats) panel open is a window-level capability, not a
+        // tray one. Registered outside the E2E-skipped tray block so the panel
+        // stays reachable in test builds (E2E=1) too; the tray menu hides via
+        // its own blur handler when a menu click leads here.
+        ipcMain.handle(IPC_CHANNELS.TOKEN_STATS_OPEN, () => {
+            agent_window_controller.open_or_focus();
+        });
+
         app.on("before-quit", () => {
             log.info("Application shutting down");
             quitting = true;
             void local_api.stop();
+            tokenStatsQueryDispatcher.stop();
             if (trayMenuWin && !trayMenuWin.isDestroyed()) {
                 trayMenuWin.destroy();
                 trayMenuWin = null;

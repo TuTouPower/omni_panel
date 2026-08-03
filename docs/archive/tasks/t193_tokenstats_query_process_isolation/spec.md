@@ -31,13 +31,13 @@ reviewer 判 AC 时只看本区。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] AC1：dashboard 查询执行期间，主进程仍能及时处理窗口、托盘和轻量 IPC；注入慢查询不会让这些事件等待查询完成。
-- [ ] AC2：正常查询结果、错误结果和 data version 与隔离前一致，renderer 与 preload 契约无需感知查询运行位置。
-- [ ] AC3：查询超时、执行端异常退出或返回过期响应时，调用方收到受控错误或最新有效结果，应用主进程不崩溃且不会提交错误选项的数据。
-- [ ] AC4：并发查询有明确上限；快速连续切换不会无限排队，最新可见查询具有确定的取消或优先处理语义。
-- [ ] AC5：应用退出时查询执行端和 SQLite 连接被关闭；重新启动或执行端受控恢复后可继续查询，无数据库锁残留。
-- [ ] AC6：打包应用可启动代理面板、切换常用选项并完成 dashboard 查询，better-sqlite3 ABI 与资源路径正确。
-- [ ] AC7：查询执行端只能读取统计数据库和必要的非敏感请求参数，不获得 vault、connector secret 或任意文件访问能力。
+- [x] AC1：dashboard 查询执行期间，主进程仍能及时处理窗口、托盘和轻量 IPC；注入慢查询不会让这些事件等待查询完成。
+- [x] AC2：正常查询结果、错误结果和 data version 与隔离前一致，renderer 与 preload 契约无需感知查询运行位置。
+- [x] AC3：查询超时、执行端异常退出或返回过期响应时，调用方收到受控错误或最新有效结果，应用主进程不崩溃且不会提交错误选项的数据。
+- [x] AC4：并发查询有明确上限；快速连续切换不会无限排队，最新可见查询具有确定的取消或优先处理语义。
+- [x] AC5：应用退出时查询执行端和 SQLite 连接被关闭；重新启动或执行端受控恢复后可继续查询，无数据库锁残留。
+- [x] AC6：打包应用可启动代理面板、切换常用选项并完成 dashboard 查询，better-sqlite3 ABI 与资源路径正确。
+- [x] AC7：查询执行端只能读取统计数据库和必要的非敏感请求参数，不获得 vault、connector secret 或任意文件访问能力。
 
 ### 可测试性声明
 
@@ -74,8 +74,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 独立执行上下文方案与打包兼容性：UNVERIFIED-SPIKE，执行期比较 Electron utilityProcess 与 worker_threads 对 better-sqlite3 ABI、资源打包、崩溃恢复和权限边界的支持，选取更小且可验证的方案。
-- WAL 只读连接在 Windows/macOS/Linux 的一致行为：UNVERIFIED-SPIKE，执行期用临时数据库验证写入并发、关闭和锁释放；平台差异通过 CI 与 packaged smoke 覆盖。
+- 独立执行上下文方案与打包兼容性：已验证（s009）。utilityProcess vs worker_threads 对比：worker_threads 同进程线程，native 崩溃带崩整个 Electron，不满足 AC3 崩溃隔离；utilityProcess 独立 OS 进程、异常退出不影响主进程且支持受控重启，打包路径有 collector 先例（manager.ts `resolve_collector_path` 处理 asar unpacked）。采纳 utilityProcess；better-sqlite3 在 utilityProcess（Electron 运行时）加载 electron ABI 产物，与主进程 store 一致。
+- WAL 只读连接在 Windows/macOS/Linux 的一致行为：已验证（s009）。真实 WAL 库实测：只读连接读已提交数据、写提交后新只读连接可见、写事务未提交时读旧快照不阻塞、关闭后立即重开无锁残留、`readonly: true` 连接拒绝写入。SQLite WAL 多读一写语义平台无关；平台差异由 CI 与 packaged smoke 覆盖。
 
 ### 风险与回退
 

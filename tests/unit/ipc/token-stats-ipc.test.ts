@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
 import type { TokenStatsManager } from "../../../src/main/core/token-stats/manager";
+import type { TokenStatsQueryDispatcher } from "../../../src/main/core/token-stats/query-dispatcher";
 import type { TokenStatsDashboardDto } from "../../../src/shared/types/token-stats";
 import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
 
@@ -32,7 +33,12 @@ function createMockDeps() {
     const manager = {
         is_running: vi.fn().mockReturnValue(false),
     } as unknown as TokenStatsManager;
-    return { store, manager };
+    const dispatcher = {
+        request_dashboard: vi.fn(),
+        is_running: vi.fn().mockReturnValue(false),
+        stop: vi.fn(),
+    } as unknown as TokenStatsQueryDispatcher;
+    return { store, manager, dispatcher };
 }
 
 function bad_event(): Electron.IpcMainInvokeEvent {
@@ -111,16 +117,16 @@ describe("token-stats-ipc sender validation", () => {
     it("TOKEN_STATS_DASHBOARD rejects unknown sender", async () => {
         const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
         registerTokenStatsIpc((await import("electron")).ipcMain, createMockDeps());
-        expect(() => pick_handler("tokenStats:dashboard")(bad_event(), {})).toThrow(
+        await expect(pick_handler("tokenStats:dashboard")(bad_event(), {})).rejects.toThrow(
             "IPC not allowed from unknown origin",
         );
     });
 
-    it("TOKEN_STATS_DASHBOARD rejects an invalid query before touching the store", async () => {
+    it("TOKEN_STATS_DASHBOARD rejects an invalid query before touching the dispatcher", async () => {
         const deps = createMockDeps();
         const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
         registerTokenStatsIpc((await import("electron")).ipcMain, deps);
-        const result = pick_handler("tokenStats:dashboard")(good_event(), {
+        const result = await pick_handler("tokenStats:dashboard")(good_event(), {
             agent: "invalid",
         });
         expect(result).toEqual({
@@ -128,10 +134,10 @@ describe("token-stats-ipc sender validation", () => {
             error: { code: "INVALID_ARGUMENT", message: "Invalid token stats dashboard query" },
         });
         // eslint-disable-next-line @typescript-eslint/unbound-method
-        expect(deps.store.query_dashboard).not.toHaveBeenCalled();
+        expect(deps.dispatcher.request_dashboard).not.toHaveBeenCalled();
     });
 
-    it("TOKEN_STATS_DASHBOARD delegates a valid query with runtime-validated status", async () => {
+    it("TOKEN_STATS_DASHBOARD delegates a valid query to the isolated dispatcher", async () => {
         const deps = createMockDeps();
         const dashboard: TokenStatsDashboardDto = {
             query: {
@@ -177,7 +183,7 @@ describe("token-stats-ipc sender validation", () => {
             data_version: 0,
         };
         // eslint-disable-next-line @typescript-eslint/unbound-method
-        vi.mocked(deps.store.query_dashboard).mockReturnValue(dashboard);
+        vi.mocked(deps.dispatcher.request_dashboard).mockResolvedValue(dashboard);
         // eslint-disable-next-line @typescript-eslint/unbound-method
         vi.mocked(deps.store.last_updated).mockReturnValue(42);
         // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -194,24 +200,22 @@ describe("token-stats-ipc sender validation", () => {
             xaxis: "time",
             gran: "hour",
         };
-        const result = pick_handler("tokenStats:dashboard")(good_event(), request);
+        const result = await pick_handler("tokenStats:dashboard")(good_event(), request);
         // eslint-disable-next-line @typescript-eslint/unbound-method
-        expect(vi.mocked(deps.store.query_dashboard)).toHaveBeenCalledWith(request, {
+        expect(vi.mocked(deps.dispatcher.request_dashboard)).toHaveBeenCalledWith(request, {
             running: true,
             last_updated: 42,
         });
         expect(result).toEqual({ ok: true, data: dashboard });
     });
 
-    it("TOKEN_STATS_DASHBOARD returns QUERY_FAILED when the store throws", async () => {
+    it("TOKEN_STATS_DASHBOARD returns QUERY_FAILED when the dispatcher rejects", async () => {
         const deps = createMockDeps();
         const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
         registerTokenStatsIpc((await import("electron")).ipcMain, deps);
         // eslint-disable-next-line @typescript-eslint/unbound-method
-        vi.mocked(deps.store.query_dashboard).mockImplementation(() => {
-            throw new Error("boom");
-        });
-        const result = pick_handler("tokenStats:dashboard")(good_event(), {
+        vi.mocked(deps.dispatcher.request_dashboard).mockRejectedValue(new Error("boom"));
+        const result = await pick_handler("tokenStats:dashboard")(good_event(), {
             agent: "all",
             platform: "all",
             start: 1,
@@ -232,7 +236,7 @@ describe("token-stats-ipc sender validation", () => {
         registerTokenStatsIpc((await import("electron")).ipcMain, deps);
         // Missing required summary fields and a bounded chart contract violation.
         // eslint-disable-next-line @typescript-eslint/unbound-method
-        vi.mocked(deps.store.query_dashboard).mockReturnValue({
+        vi.mocked(deps.dispatcher.request_dashboard).mockResolvedValue({
             query: {
                 agent: "all",
                 platform: "all",
@@ -250,7 +254,7 @@ describe("token-stats-ipc sender validation", () => {
             status: { running: false, last_updated: null },
             freshness: { queried_at: 3, stale: false },
         } as unknown as TokenStatsDashboardDto);
-        const result = pick_handler("tokenStats:dashboard")(good_event(), {
+        const result = await pick_handler("tokenStats:dashboard")(good_event(), {
             agent: "all",
             platform: "all",
             start: 1,
@@ -263,6 +267,83 @@ describe("token-stats-ipc sender validation", () => {
             ok: false,
             error: { code: "INVALID_RESPONSE", message: "Invalid token stats dashboard response" },
         });
+    });
+
+    it("AC1: a pending dashboard query does not block the lightweight status IPC", async () => {
+        const deps = createMockDeps();
+        // Dashboard query hangs indefinitely (never resolves) — the slow-query
+        // stand-in. The status handler must still answer immediately.
+        let release!: (dto: TokenStatsDashboardDto) => void;
+        const pending = new Promise<TokenStatsDashboardDto>((resolve) => {
+            release = resolve;
+        });
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        vi.mocked(deps.dispatcher.request_dashboard).mockReturnValue(pending);
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        const dashboard_promise = pick_handler("tokenStats:dashboard")(good_event(), {
+            agent: "all",
+            platform: "all",
+            start: 1,
+            end: 2,
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+        });
+        // The dashboard query is in flight; a status request resolves without
+        // waiting for it.
+        const status_result = pick_handler("tokenStats:status")(good_event());
+        expect(status_result).toEqual({
+            ok: true,
+            data: { running: false, last_updated: null },
+        });
+
+        const complete_dto: TokenStatsDashboardDto = {
+            query: {
+                agent: "all",
+                platform: "all",
+                start: 1,
+                end: 2,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            current: {
+                tokens: 0,
+                sessions: 0,
+                calls: 0,
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent_totals: [],
+                model_token_totals: [],
+                model_call_totals: [],
+                project_session_totals: [],
+            },
+            previous: {
+                tokens: 0,
+                sessions: 0,
+                calls: 0,
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent_totals: [],
+                model_token_totals: [],
+                model_call_totals: [],
+                project_session_totals: [],
+            },
+            chart: { labels: [], bucket_starts: [], series: [], other_details: [] },
+            heatmap: [],
+            sessions: { items: [], total: 0, has_more: false },
+            status: { running: false, last_updated: null },
+            freshness: { queried_at: 3, stale: false },
+            data_version: 0,
+        };
+        release(complete_dto);
+        await expect(dashboard_promise).resolves.toEqual({ ok: true, data: complete_dto });
     });
 
     it("TOKEN_STATS_BUCKETS allows valid sender", async () => {
