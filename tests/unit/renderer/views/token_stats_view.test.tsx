@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -23,6 +23,8 @@ const mocked_bar_chart = vi.hoisted(() => ({
         buckets?: { bucket_date: string }[];
         hourBuckets?: { hour_start: number }[];
         rollup?: unknown[];
+        dirAliases?: { alias: string; dirs: string[] }[];
+        modelAliases?: { alias: string; models: string[] }[];
     } | null,
 }));
 
@@ -33,6 +35,8 @@ vi.mock("../../../../src/renderer/components/token-stats/BarChart", () => ({
         buckets?: { bucket_date: string }[];
         hourBuckets?: { hour_start: number }[];
         rollup?: unknown[];
+        dirAliases?: { alias: string; dirs: string[] }[];
+        modelAliases?: { alias: string; models: string[] }[];
     }) => {
         mocked_bar_chart.props = props;
         return <div />;
@@ -115,6 +119,14 @@ describe("TokenStatsView", () => {
     const get_heatmap = vi.fn();
     const get_hour_buckets = vi.fn();
     const get_rollup = vi.fn();
+    const get_config = vi.fn();
+    let updated_listener: (() => void) | null = null;
+    let config_listener:
+        | ((config: {
+              dirAliases?: readonly { alias: string; dirs: readonly string[] }[];
+              modelAliases?: readonly { alias: string; models: readonly string[] }[];
+          }) => void)
+        | null = null;
 
     beforeEach(() => {
         localStorage.clear();
@@ -124,6 +136,9 @@ describe("TokenStatsView", () => {
         get_heatmap.mockReset();
         get_hour_buckets.mockReset();
         get_rollup.mockReset();
+        get_config.mockReset();
+        updated_listener = null;
+        config_listener = null;
         mocked_bar_chart.props = null;
         mocked_heatmap.props = null;
         mocked_donuts.centers = [];
@@ -133,6 +148,10 @@ describe("TokenStatsView", () => {
         get_heatmap.mockResolvedValue([]);
         get_hour_buckets.mockResolvedValue([]);
         get_rollup.mockResolvedValue([]);
+        get_config.mockResolvedValue({
+            config: { dirAliases: [], modelAliases: [] },
+            hasSecrets: {},
+        });
         window.usageboard = {
             tokenStats: {
                 open: vi.fn(),
@@ -143,59 +162,321 @@ describe("TokenStatsView", () => {
                 getHourBuckets: get_hour_buckets,
                 getRangeRollup: get_rollup,
                 getStatus: vi.fn().mockResolvedValue({ running: true, last_updated: null }),
-                onUpdated: vi.fn(() => vi.fn()),
+                onUpdated: vi.fn((callback: () => void) => {
+                    updated_listener = callback;
+                    return vi.fn();
+                }),
             },
             config: {
-                get: vi.fn().mockResolvedValue({
-                    config: { dirAliases: [], modelAliases: [] },
-                    hasSecrets: {},
+                get: get_config,
+            },
+            event: {
+                onConfigChange: vi.fn((callback: typeof config_listener) => {
+                    config_listener = callback;
+                    return vi.fn();
                 }),
             },
             log: vi.fn(),
         } as unknown as typeof window.usageboard;
     });
 
-    it("loads all platforms by default and switches between Win, WSL, and all", async () => {
-        get_sessions
-            .mockResolvedValueOnce([session("all-session")])
-            .mockResolvedValueOnce([session("win-session")])
-            .mockResolvedValueOnce([])
-            .mockResolvedValueOnce([session("all-again")]);
+    it("does not read configuration again when statistical options change", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await waitFor(() => {
+            expect(get_records).toHaveBeenCalledTimes(1);
+        });
+        const config_get_calls = () => get_config.mock.calls.length;
+        expect(config_get_calls()).toBe(1);
+
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await waitFor(() => {
+            expect(get_records).toHaveBeenCalledTimes(2);
+        });
+        expect(config_get_calls()).toBe(1);
+    });
+
+    it("applies aliases received through configuration change events", async () => {
+        get_sessions.mockResolvedValue([session("s")]);
+        render(<TokenStatsView />);
+        await waitFor(() => {
+            expect(get_records).toHaveBeenCalledTimes(1);
+        });
+        expect(config_listener).not.toBeNull();
+
+        act(() => {
+            if (config_listener) {
+                config_listener({
+                    dirAliases: [{ alias: "workspace", dirs: ["D:\\project"] }],
+                    modelAliases: [{ alias: "fast", models: ["model-1"] }],
+                });
+            }
+        });
+        await waitFor(() => {
+            expect(mocked_bar_chart.props?.dirAliases).toEqual([
+                { alias: "workspace", dirs: ["D:\\project"] },
+            ]);
+            expect(mocked_bar_chart.props?.modelAliases).toEqual([
+                { alias: "fast", models: ["model-1"] },
+            ]);
+        });
+    });
+
+    it("applies aliases from the initial configuration read", async () => {
+        get_sessions.mockResolvedValue([session("s")]);
+        get_config.mockResolvedValue({
+            config: {
+                dirAliases: [{ alias: "workspace", dirs: ["D:\\project"] }],
+                modelAliases: [{ alias: "fast", models: ["model-1"] }],
+            },
+            hasSecrets: {},
+        });
+
+        render(<TokenStatsView />);
+        await waitFor(() => {
+            expect(mocked_bar_chart.props?.dirAliases).toEqual([
+                { alias: "workspace", dirs: ["D:\\project"] },
+            ]);
+            expect(mocked_bar_chart.props?.modelAliases).toEqual([
+                { alias: "fast", models: ["model-1"] },
+            ]);
+        });
+    });
+
+    it("keeps the previous panel visible during an uncached query", async () => {
+        get_sessions.mockResolvedValueOnce([session("before-switch")]);
+        const pending = deferred<TokenStatsSession[]>();
+        get_sessions.mockImplementationOnce(() => pending.promise);
 
         render(<TokenStatsView />);
         const user = userEvent.setup();
-
-        await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(1, expect.objectContaining({}));
-        });
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("all-session");
-
-        // Kimi Code option is present in the agent filter.
-        expect(screen.getByRole("button", { name: "Kimi Code" })).toBeInTheDocument();
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("before-switch");
 
         await user.click(screen.getByRole("button", { name: "Win" }));
         await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(2, expect.objectContaining({ env: "win" }));
+            expect(get_sessions).toHaveBeenCalledTimes(2);
         });
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("win-session");
+        expect(screen.getByTestId("session-records")).toHaveTextContent("before-switch");
+        expect(screen.queryByText("加载中...")).toBeNull();
+        expect(screen.getByTestId("token-stats-refreshing")).toHaveTextContent("刷新中...");
 
-        await user.click(screen.getByRole("button", { name: "WSL" }));
+        pending.resolve([session("after-switch")]);
         await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(3, expect.objectContaining({ env: "wsl" }));
+            expect(screen.getByTestId("session-records")).toHaveTextContent("after-switch");
         });
-        expect(await screen.findByText("该筛选条件下暂无记录")).toBeInTheDocument();
-
-        await user.click(screen.getByRole("button", { name: "全平台" }));
-        await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(4, expect.objectContaining({}));
-            expect(get_records).toHaveBeenNthCalledWith(
-                4,
-                expect.not.objectContaining({ env: "wsl" }),
-            );
-        });
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("all-again");
     });
 
+    it("does not leave the panel loading when a collector refresh supersedes initial loading", async () => {
+        const initial = deferred<TokenStatsSession[]>();
+        get_sessions.mockReturnValueOnce(initial.promise).mockResolvedValue([session("updated")]);
+
+        render(<TokenStatsView />);
+        await waitFor(() => {
+            expect(updated_listener).not.toBeNull();
+        });
+
+        act(() => {
+            updated_listener?.();
+        });
+        await waitFor(() => {
+            expect(get_sessions).toHaveBeenCalledTimes(2);
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("updated");
+            expect(screen.queryByText("加载中...")).toBeNull();
+        });
+        initial.resolve([session("stale-initial")]);
+    });
+
+    it("reuses a preset query window when returning to the preset", async () => {
+        get_sessions.mockResolvedValue([session("preset")]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await waitFor(() => {
+            expect(get_records).toHaveBeenCalledTimes(1);
+        });
+
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await waitFor(() => {
+            expect(get_records).toHaveBeenCalledTimes(2);
+        });
+
+        await user.click(screen.getByRole("button", { name: "1 月" }));
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("preset");
+        });
+        expect(get_records).toHaveBeenCalledTimes(2);
+    });
+
+    it("refreshes an expired preset window when returning to it", async () => {
+        get_sessions.mockResolvedValue([session("preset")]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await waitFor(() => {
+            expect(get_records).toHaveBeenCalledTimes(1);
+        });
+
+        const now = Date.now();
+        const now_spy = vi.spyOn(Date, "now").mockReturnValue(now + 6 * 60 * 1000);
+        try {
+            await user.click(screen.getByRole("button", { name: "7 天" }));
+            await waitFor(() => {
+                expect(get_records).toHaveBeenCalledTimes(2);
+            });
+
+            await user.click(screen.getByRole("button", { name: "1 月" }));
+            await waitFor(() => {
+                expect(get_records).toHaveBeenCalledTimes(3);
+            });
+        } finally {
+            now_spy.mockRestore();
+        }
+    });
+
+    it("does not let an older config read overwrite a newer config event", async () => {
+        const initial = deferred<{
+            config: {
+                dirAliases: { alias: string; dirs: string[] }[];
+                modelAliases: { alias: string; models: string[] }[];
+            };
+            hasSecrets: Record<string, Record<string, boolean>>;
+        }>();
+        get_config.mockReturnValue(initial.promise);
+        get_sessions.mockResolvedValue([session("s")]);
+
+        render(<TokenStatsView />);
+        await waitFor(() => {
+            expect(config_listener).not.toBeNull();
+        });
+        act(() => {
+            config_listener?.({
+                dirAliases: [{ alias: "new", dirs: ["D:\\project"] }],
+                modelAliases: [{ alias: "new", models: ["model-1"] }],
+            });
+        });
+        initial.resolve({
+            config: {
+                dirAliases: [{ alias: "old", dirs: ["D:\\project"] }],
+                modelAliases: [{ alias: "old", models: ["model-1"] }],
+            },
+            hasSecrets: {},
+        });
+
+        await waitFor(() => {
+            expect(mocked_bar_chart.props?.dirAliases).toEqual([
+                { alias: "new", dirs: ["D:\\project"] },
+            ]);
+            expect(mocked_bar_chart.props?.modelAliases).toEqual([
+                { alias: "new", models: ["model-1"] },
+            ]);
+        });
+    });
+    it("keeps cached data visible while refreshing after collector update", async () => {
+        get_sessions
+            .mockResolvedValueOnce([session("before-update")])
+            .mockResolvedValueOnce([session("after-update")]);
+        render(<TokenStatsView />);
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("before-update");
+        expect(updated_listener).not.toBeNull();
+
+        act(() => {
+            updated_listener?.();
+        });
+        expect(screen.getByTestId("session-records")).toHaveTextContent("before-update");
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("after-update");
+        });
+        expect(get_sessions).toHaveBeenCalledTimes(2);
+    });
+
+    it("refreshes a cached non-current query when revisiting it after collector update", async () => {
+        get_sessions
+            .mockResolvedValueOnce([session("before-month")])
+            .mockResolvedValueOnce([session("before-week")])
+            .mockResolvedValueOnce([session("after-week")])
+            .mockResolvedValueOnce([session("after-month")]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("before-month");
+
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("before-week");
+        });
+
+        act(() => {
+            updated_listener?.();
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("after-week");
+        });
+
+        await user.click(screen.getByRole("button", { name: "1 月" }));
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("after-month");
+        });
+        expect(get_sessions).toHaveBeenCalledTimes(4);
+    });
+
+    it("refreshes an expired preset window when changing filters", async () => {
+        get_sessions
+            .mockResolvedValueOnce([session("before-filter-change")])
+            .mockResolvedValueOnce([session("after-filter-change")]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        expect(await screen.findByTestId("session-records")).toHaveTextContent(
+            "before-filter-change",
+        );
+
+        const initial_end = (get_records.mock.calls[0]?.[0] as { end?: number }).end;
+        const now_spy = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 6 * 60 * 1000);
+        try {
+            await user.click(screen.getByRole("button", { name: "Win" }));
+            await waitFor(() => {
+                expect(screen.getByTestId("session-records")).toHaveTextContent(
+                    "after-filter-change",
+                );
+            });
+        } finally {
+            now_spy.mockRestore();
+        }
+
+        const refreshed_end = (get_records.mock.calls[1]?.[0] as { end?: number }).end;
+        expect(initial_end).toBeDefined();
+        expect(refreshed_end).toBeGreaterThan(initial_end ?? 0);
+    });
+
+    it("evicts the oldest renderer query after eight cached combinations", async () => {
+        get_sessions.mockResolvedValue([session("cached")]);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await waitFor(() => {
+            expect(get_records).toHaveBeenCalledTimes(1);
+        });
+
+        const load_missing = async (name: string, call_count: number) => {
+            await user.click(screen.getByRole("button", { name }));
+            await waitFor(() => {
+                expect(get_records).toHaveBeenCalledTimes(call_count);
+            });
+        };
+
+        await load_missing("Claude Code", 2);
+        await load_missing("OpenCode", 3);
+        await load_missing("Kimi Code", 4);
+        await load_missing("Win", 5);
+        await load_missing("WSL", 6);
+        await load_missing("Claude Code", 7);
+        await load_missing("OpenCode", 8);
+        await load_missing("Win", 9);
+
+        // The Kimi+Win combination is still within the eight-entry cache.
+        await user.click(screen.getByRole("button", { name: "Kimi Code" }));
+        expect(get_records).toHaveBeenCalledTimes(9);
+
+        await load_missing("全部工具", 10);
+        await load_missing("全平台", 11);
+    });
     it("passes the current time window (start/end) to getRecords", async () => {
         const now = Date.now();
         const day = 86400000;
@@ -877,5 +1158,25 @@ describe("TokenStatsView", () => {
         // records slice (records mock returns only 2).
         expect(mocked_bar_chart.props?.hourBuckets?.length).toBe(7);
         expect(mocked_bar_chart.props?.records?.length ?? 0).toBeLessThan(7);
+    });
+
+    it("shows cached data immediately without full-screen loading", async () => {
+        get_sessions
+            .mockResolvedValueOnce([session("all-session")])
+            .mockResolvedValueOnce([session("win-session")]);
+
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("all-session");
+
+        await user.click(screen.getByRole("button", { name: "Win" }));
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("win-session");
+        });
+
+        await user.click(screen.getByRole("button", { name: "全平台" }));
+        expect(screen.getByTestId("session-records")).toHaveTextContent("all-session");
+        expect(screen.queryByText("加载中...")).toBeNull();
+        expect(get_records).toHaveBeenCalledTimes(2);
     });
 });

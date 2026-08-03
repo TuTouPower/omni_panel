@@ -96,6 +96,17 @@ runtime-store（内存 ConnectorSnapshotState: idle/loading/ready/failed）
 renderer：build_provider_usage_groups 按 provider 聚合、accountId 缝合 → UI
 ```
 
+### 4.1 TokenStats 查询协调
+
+TokenStatsView 在 renderer 内维护查询协调器，不改变现有 token-stats IPC 返回结构。所有影响统计结果的筛选与图表选项组成稳定 query key；查询结果在 renderer 内按 query key 缓存，缓存只保存已转换为面板状态的数据，不写入磁盘。
+
+- fresh 缓存命中时直接应用旧结果，不清空当前图表，不进入全屏加载状态。
+- 同一 query key 的在途请求共享同一个 Promise，避免重复触发 SQLite/IPC 查询。
+- query key 切换使用 request id 控制可见性，过期请求只能完成自身等待方，不能覆盖最新选项结果。
+- collector 广播更新时递增缓存 generation 并把已有条目标记 stale；当前查询保留旧结果，随后静默 revalidate。generation 之前完成的请求不重新写入 fresh 缓存。
+- 缓存采用有界 LRU；淘汰只影响复用，不影响统计正确性，缺失条目重新走现有查询路径。
+- 配置别名是独立状态流：首次打开读取一次，`CONFIG_CHANGED` 广播只更新别名 state，不因统计选项切换重复读取配置。
+
 外部 producer 可 `POST /v1/ingest`（Bearer）直接写观测，`source` 按 producer 标记。
 web 浏览器经 LocalAPI `GET /v1/events`（SSE）订阅 runtimeStore 状态变更，与桌面端 IPC `EVENT_STATE_CHANGE` 同源；`usageboard-web` 转给 `use_plugins`，用量面板实时刷新。
 

@@ -153,6 +153,10 @@ Session 列表 `SessionTable` 虚拟滚动；长列表按可视高度分段渲�
 
 `TokenStatsView.loadData` 一次拉 buckets（env/source/date filter）+ sessions（env/source）+ records（env/agent/start/end/limit）+ heatmap（env/agent/start/end）+ hour buckets（env/agent/start/end，时间轴 + 小时粒度时，7d/30d 与 24h preset）+ rollup（env/agent/start/end，仅 24h preset 的 current + previous 两窗口）。records 降为 Bar 项目/会话轴的 fallback 与自定义短窗口数据源，不再作为 KPI/donut/SessionTable/Heatmap 的主数据源。
 
+查询协调由 renderer 负责：筛选、时间范围、指标、图表轴和粒度组成稳定 query key，已完成查询结果按 key 保存在有界内存 LRU 中。切换到 fresh 缓存时先复用已转换结果，不清空图表或显示全屏加载；缓存缺失时保留当前内容并以非阻塞状态加载。相同 key 的并发加载共享一套底层查询，快速连续切换只允许最新 request id 提交可见结果。
+
+collector 更新会使已有条目标记 stale，当前可见结果继续展示并静默 revalidate；更新前完成的请求不会重新写入 fresh 缓存，重新访问 stale 条目会重新查询。缓存不持久化，超过上限淘汰后按现有 IPC 查询路径恢复。配置别名独立于统计查询初始化读取，并在 `CONFIG_CHANGED` 广播时同步，不因统计选项切换重复调用配置读取。
+
 24h preset 例外（t168/t184）：短窗口（≤25h）下 buckets 日级聚合无法对称切分 current/prev（48h vs 24h），KPI/donut delta 与项目/会话轴本需精确 epoch 切分。t168 先改用 records 驱动，但 records 倒序 LIMIT 在高密度下截断早期时段（p020）；t184 把 24h preset 的这些轴全部改走 `query_range_rollup` 有界 SQL 聚合（无 LIMIT），current/previous 各拉一次半开 `[start, end)` 窗口，边界记录不双计。≥7d preset 仍走 buckets（日级误差占比小）。24h preset 的**时间轴小时柱**不走 records（t183）；非 24h 的自定义 ≤25h 范围 KPI/donut/柱仍走受限 records（p023）。
 
 24h preset 下 buckets 按日聚合使 current(48h)/prev(24h) 窗口不对称，KPI delta 偏大——日级聚合固有取舍（`t164_code_f003`）；24h preset 现走 rollup 精确统计（t184），不再受该取舍影响。

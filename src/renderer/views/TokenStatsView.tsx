@@ -44,6 +44,10 @@ import {
     sumTokensValue,
 } from "../lib/token-stats/chart-data";
 import type { AgentFilter, Granularity, Metric, XAxis } from "../lib/token-stats/types";
+import {
+    create_token_stats_query_cache,
+    type TokenStatsQueryKey,
+} from "../lib/token-stats/query-cache";
 import "../styles/token-stats.css";
 
 const MODULE = "TokenStatsView";
@@ -146,6 +150,19 @@ interface TokenStatsPrefs {
     gran: Granularity;
 }
 
+interface TokenStatsQueryData {
+    records: AgentSessionUsage[];
+    heat_cells: TokenStatsHeatmapCell[];
+    hour_buckets: TokenStatsHourBucket[];
+    buckets: TokenStatsBucket[];
+    sessions: TokenStatsSession[];
+    rollup: TokenStatsRollupRow[];
+    prev_rollup: TokenStatsRollupRow[];
+}
+
+const TOKEN_STATS_CACHE_MAX_ENTRIES = 8;
+const PRESET_RANGE_CACHE_TTL_MS = 5 * 60 * 1000;
+
 const PREFS_KEY = "token-stats-prefs";
 
 function load_prefs(): Partial<TokenStatsPrefs> {
@@ -175,6 +192,7 @@ export function TokenStatsView() {
     const [prevRollup, setPrevRollup] = useState<TokenStatsRollupRow[]>([]);
     const [status, setStatus] = useState<TokenStatsStatus | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [agent, setAgent] = useState<AgentFilter>(saved.agent ?? "all");
     const [platform, setPlatform] = useState<PlatformFilter>(saved.platform ?? "all");
     const [preset, setPreset] = useState<RangePreset | null>(saved.preset ?? "30d");
@@ -185,13 +203,54 @@ export function TokenStatsView() {
     const [theme, setTheme] = useState<Theme>(readSavedTheme());
     const [dirAliases, setDirAliases] = useState<{ alias: string; dirs: string[] }[]>([]);
     const [modelAliases, setModelAliases] = useState<{ alias: string; models: string[] }[]>([]);
-    const load_request_id = useRef(0);
-
-    const currentRange = useMemo(
+    const query_cache = useMemo(
         () =>
-            custom ? { ...custom } : preset ? presetRange(preset) : { start: 0, end: Date.now() },
-        [custom, preset],
+            create_token_stats_query_cache<TokenStatsQueryData>({
+                max_entries: TOKEN_STATS_CACHE_MAX_ENTRIES,
+            }),
+        [],
     );
+    const load_request_id = useRef(0);
+    const has_loaded_data = useRef(false);
+    const status_inflight = useRef<Promise<TokenStatsStatus> | null>(null);
+    const preset_ranges = useRef<
+        Partial<Record<RangePreset, { start: number; end: number; captured_at: number }>>
+    >({});
+    const [preset_range_revision, set_preset_range_revision] = useState(0);
+    const range_refresh_key = `${agent}|${platform}|${metric}|${xaxis}|${gran}`;
+
+    const load_status = useCallback((): Promise<TokenStatsStatus> => {
+        const current = status_inflight.current;
+        if (current) return current;
+
+        const promise = window.usageboard.tokenStats.getStatus();
+        status_inflight.current = promise;
+        void promise.then(
+            () => {
+                if (status_inflight.current === promise) status_inflight.current = null;
+            },
+            () => {
+                if (status_inflight.current === promise) status_inflight.current = null;
+            },
+        );
+        return promise;
+    }, []);
+
+    const currentRange = useMemo(() => {
+        void preset_range_revision;
+        void range_refresh_key;
+        if (custom) return { ...custom };
+        if (preset) {
+            const cached = preset_ranges.current[preset];
+            if (cached && Date.now() - cached.captured_at < PRESET_RANGE_CACHE_TTL_MS) {
+                return { start: cached.start, end: cached.end };
+            }
+            const range = presetRange(preset);
+            preset_ranges.current[preset] = { ...range, captured_at: range.end };
+            return range;
+        }
+        return { start: 0, end: Date.now() };
+    }, [custom, preset, preset_range_revision, range_refresh_key]);
     // Short windows (<=25h) cannot be split symmetrically on day-granular
     // buckets, so KPI/donut deltas fall back to per-message records there.
     const is_short_window = currentRange.end - currentRange.start <= 25 * 3600000;
@@ -206,132 +265,166 @@ export function TokenStatsView() {
         return fmtRelativeTime(Date.now() - status.last_updated);
     }, [status?.last_updated]);
 
+    const apply_query_data = useCallback((data: TokenStatsQueryData): void => {
+        has_loaded_data.current = true;
+        setRecords(data.records);
+        setHeatCells(data.heat_cells);
+        setHourBuckets(data.hour_buckets);
+        setBuckets(data.buckets);
+        setSessions(data.sessions);
+        setRollup(data.rollup);
+        setPrevRollup(data.prev_rollup);
+    }, []);
+
+    const apply_config_aliases = useCallback(
+        (config: {
+            readonly dirAliases?: readonly {
+                readonly alias: string;
+                readonly dirs: readonly string[];
+            }[];
+            readonly modelAliases?: readonly {
+                readonly alias: string;
+                readonly models: readonly string[];
+            }[];
+        }): void => {
+            setDirAliases(
+                (config.dirAliases ?? []).map((a) => ({ alias: a.alias, dirs: [...a.dirs] })),
+            );
+            setModelAliases(
+                (config.modelAliases ?? []).map((a) => ({ alias: a.alias, models: [...a.models] })),
+            );
+        },
+        [],
+    );
+
     const loadData = useCallback(
         async (silent = false) => {
             const request_id = ++load_request_id.current;
-            // Silent refresh (collector auto-update) keeps the previous data on
-            // screen instead of flashing "加载中"; only user-driven reloads show
-            // the loading state.
-            if (!silent) setLoading(true);
+            const env_filter = platform === "all" ? {} : { env: platform };
+            // buckets/sessions filters accept `source` (snake); records filter
+            // accepts `agent` (kebab). Map the agent selector to both.
+            const source_filter = agent === "all" ? {} : { source: AGENT_TO_SOURCE[agent] };
+            const agent_filter = agent === "all" ? {} : { agent };
+            // Pull buckets across [start - width, end] so the renderer can
+            // derive both the current window and the equal-width prior
+            // window (for delta arrows) by splitting on bucket_date.
+            const width = Math.max(0, currentRange.end - currentRange.start);
+            const bucket_filter = {
+                ...env_filter,
+                ...source_filter,
+                from_date: utc_date(currentRange.start - width),
+                to_date: utc_date(currentRange.end),
+            };
+            const records_fetch = is_short_window
+                ? { start: currentRange.start - width, end: currentRange.end, limit: 50000 }
+                : { start: currentRange.start, end: currentRange.end, limit: 100000 };
+            const time_axis = metric === "sessions" || xaxis === "time";
+            const query_mode = [
+                use_rollup_summary ? "rollup" : "records",
+                time_axis && gran === "hour" ? "hour" : "no-hour",
+            ].join(":");
+            const query_key: TokenStatsQueryKey = {
+                agent,
+                platform,
+                range_start: currentRange.start,
+                range_end: currentRange.end,
+                metric,
+                xaxis,
+                gran,
+                query_mode,
+            };
+            const cached = query_cache.peek(query_key);
+            if (cached) {
+                apply_query_data(cached.data);
+                setLoading(false);
+                setRefreshing(cached.stale);
+            } else {
+                if (!silent && !has_loaded_data.current) {
+                    setLoading(true);
+                }
+                setRefreshing(has_loaded_data.current);
+            }
+
             try {
-                const env_filter = platform === "all" ? {} : { env: platform };
-                // buckets/sessions filters accept `source` (snake); records filter
-                // accepts `agent` (kebab). Map the agent selector to both.
-                const source_filter = agent === "all" ? {} : { source: AGENT_TO_SOURCE[agent] };
-                const agent_filter = agent === "all" ? {} : { agent };
-                // Pull buckets across [start - width, end] so the renderer can
-                // derive both the current window and the equal-width prior
-                // window (for delta arrows) by splitting on bucket_date.
-                const width = Math.max(0, currentRange.end - currentRange.start);
-                const bucket_filter = {
-                    ...env_filter,
-                    ...source_filter,
-                    from_date: utc_date(currentRange.start - width),
-                    to_date: utc_date(currentRange.end),
-                };
-                // records feed the Bar project/session axes and short-window
-                // KPI/donut. Day-axis Bar uses buckets (see BarChart). The
-                // Heatmap (hourly weekday×hour) is fed by the dedicated
-                // getHeatmap aggregate instead — ORDER BY DESC LIMIT on records
-                // truncates wide windows (7d ~ 137k rows), dropping early-week
-                // weekdays entirely (t170).
-                const records_fetch = is_short_window
-                    ? { start: currentRange.start - width, end: currentRange.end, limit: 50000 }
-                    : { start: currentRange.start, end: currentRange.end, limit: 100000 };
-                const time_axis = metric === "sessions" || xaxis === "time";
-                // Hour bar data for time-axis bar charts at hour granularity:
-                // pre-aggregated hour×model buckets instead of records (t173).
-                // query_records' ORDER BY DESC LIMIT truncates high-density
-                // windows, dropping early hours. The 24h preset (t183) and
-                // <=25h custom ranges (t187) join >=7d on this aggregate; only
-                // non-hour-granularity or non-time-axis combos skip the fetch so
-                // the default 30d/day view does not run a full-table aggregate.
-                // (effectiveXaxis forces "time" for the sessions metric
-                // regardless of the raw xaxis selector.)
-                const hour_fetch =
-                    gran !== "hour" || !time_axis
-                        ? Promise.resolve([] as TokenStatsHourBucket[])
-                        : window.usageboard.tokenStats.getHourBuckets({
-                              ...env_filter,
-                              ...agent_filter,
-                              start: currentRange.start,
-                              end: currentRange.end,
-                          });
-                // 24h KPI/donut/project/session axes consume the bounded rollup
-                // aggregate (t184) instead of per-message records, which
-                // query_records' ORDER BY DESC LIMIT truncates on high-density
-                // windows (p020). Fetch the current window and the equal-width
-                // previous window separately; prev keeps the half-open
-                // [start - width, start) split so the boundary record is not
-                // double-counted.
-                const rollup_fetch = use_rollup_summary
-                    ? Promise.all([
-                          window.usageboard.tokenStats.getRangeRollup({
-                              ...env_filter,
-                              ...agent_filter,
-                              start: currentRange.start,
-                              end: currentRange.end,
-                          }),
-                          window.usageboard.tokenStats.getRangeRollup({
-                              ...env_filter,
-                              ...agent_filter,
-                              start: currentRange.start - width,
-                              end: currentRange.start,
-                          }),
-                      ])
-                    : Promise.resolve([[], []] as [TokenStatsRollupRow[], TokenStatsRollupRow[]]);
-                const [
-                    recs,
-                    cells,
-                    hour_bkts,
-                    bkts,
-                    sess,
-                    st,
-                    cfg,
-                    [rollup_rows, prev_rollup_rows],
-                ] = await Promise.all([
-                    window.usageboard.tokenStats.getRecords({
-                        ...env_filter,
-                        ...agent_filter,
-                        ...records_fetch,
-                    }),
-                    window.usageboard.tokenStats.getHeatmap({
-                        ...env_filter,
-                        ...agent_filter,
-                        start: currentRange.start,
-                        end: currentRange.end,
-                    }),
-                    hour_fetch,
-                    window.usageboard.tokenStats.getBuckets(bucket_filter),
-                    window.usageboard.tokenStats.getSessions({
-                        ...env_filter,
-                        ...source_filter,
-                        limit: 500,
-                    }),
-                    window.usageboard.tokenStats.getStatus(),
-                    window.usageboard.config.get(),
-                    rollup_fetch,
-                ]);
+                const result = await query_cache.load(query_key, async () => {
+                    const hour_fetch =
+                        gran !== "hour" || !time_axis
+                            ? Promise.resolve([] as TokenStatsHourBucket[])
+                            : window.usageboard.tokenStats.getHourBuckets({
+                                  ...env_filter,
+                                  ...agent_filter,
+                                  start: currentRange.start,
+                                  end: currentRange.end,
+                              });
+                    // 24h KPI/donut/project/session axes consume the bounded rollup
+                    // aggregate (t184) instead of per-message records.
+                    const rollup_fetch = use_rollup_summary
+                        ? Promise.all([
+                              window.usageboard.tokenStats.getRangeRollup({
+                                  ...env_filter,
+                                  ...agent_filter,
+                                  start: currentRange.start,
+                                  end: currentRange.end,
+                              }),
+                              window.usageboard.tokenStats.getRangeRollup({
+                                  ...env_filter,
+                                  ...agent_filter,
+                                  start: currentRange.start - width,
+                                  end: currentRange.start,
+                              }),
+                          ])
+                        : Promise.resolve([[], []] as [
+                              TokenStatsRollupRow[],
+                              TokenStatsRollupRow[],
+                          ]);
+                    const [recs, cells, hour_bkts, bkts, sess, [rollup_rows, prev_rollup_rows]] =
+                        await Promise.all([
+                            window.usageboard.tokenStats.getRecords({
+                                ...env_filter,
+                                ...agent_filter,
+                                ...records_fetch,
+                            }),
+                            window.usageboard.tokenStats.getHeatmap({
+                                ...env_filter,
+                                ...agent_filter,
+                                start: currentRange.start,
+                                end: currentRange.end,
+                            }),
+                            hour_fetch,
+                            window.usageboard.tokenStats.getBuckets(bucket_filter),
+                            window.usageboard.tokenStats.getSessions({
+                                ...env_filter,
+                                ...source_filter,
+                                limit: 500,
+                            }),
+                            rollup_fetch,
+                        ]);
+                    return {
+                        records: recs,
+                        heat_cells: cells,
+                        hour_buckets: hour_bkts,
+                        buckets: bkts,
+                        sessions: sess,
+                        rollup: rollup_rows,
+                        prev_rollup: prev_rollup_rows,
+                    };
+                });
                 if (request_id !== load_request_id.current) return;
-                setRecords(recs);
-                setHeatCells(cells);
-                setHourBuckets(hour_bkts);
-                setBuckets(bkts);
-                setSessions(sess);
-                setRollup(rollup_rows);
-                setPrevRollup(prev_rollup_rows);
-                setStatus(st);
-                setDirAliases(
-                    (cfg.config.dirAliases ?? []).map((a) => ({
-                        alias: a.alias,
-                        dirs: [...a.dirs],
-                    })),
-                );
-                setModelAliases(
-                    (cfg.config.modelAliases ?? []).map((a) => ({
-                        alias: a.alias,
-                        models: [...a.models],
-                    })),
+                if (!cached || cached.stale) {
+                    apply_query_data(result.data);
+                }
+                void load_status().then(
+                    (latest_status) => {
+                        if (request_id === load_request_id.current) setStatus(latest_status);
+                    },
+                    (err: unknown) => {
+                        if (request_id !== load_request_id.current) return;
+                        window.usageboard.log({
+                            level: "error",
+                            module: MODULE,
+                            message: `Failed to load token stats status: ${err instanceof Error ? err.message : String(err)}`,
+                        });
+                    },
                 );
             } catch (err: unknown) {
                 if (request_id !== load_request_id.current) return;
@@ -341,12 +434,25 @@ export function TokenStatsView() {
                     message: `Failed to load token stats: ${err instanceof Error ? err.message : String(err)}`,
                 });
             } finally {
-                if (!silent && request_id === load_request_id.current) {
+                if (request_id === load_request_id.current) {
                     setLoading(false);
+                    setRefreshing(false);
                 }
             }
         },
-        [platform, agent, metric, xaxis, gran, currentRange, is_short_window, use_rollup_summary],
+        [
+            agent,
+            apply_query_data,
+            currentRange,
+            gran,
+            is_short_window,
+            load_status,
+            metric,
+            platform,
+            query_cache,
+            use_rollup_summary,
+            xaxis,
+        ],
     );
 
     useEffect(() => {
@@ -354,10 +460,42 @@ export function TokenStatsView() {
     }, [loadData]);
 
     useEffect(() => {
-        return window.usageboard.tokenStats.onUpdated(() => {
-            void loadData(true);
+        let active = true;
+        let config_event_version = 0;
+        const unsubscribe = window.usageboard.event.onConfigChange?.((config) => {
+            config_event_version += 1;
+            apply_config_aliases(config);
         });
-    }, [loadData]);
+        void window.usageboard.config
+            .get()
+            .then(({ config }) => {
+                if (active && config_event_version === 0) apply_config_aliases(config);
+            })
+            .catch((err: unknown) => {
+                window.usageboard.log({
+                    level: "error",
+                    module: MODULE,
+                    message: `Failed to load token stats aliases: ${err instanceof Error ? err.message : String(err)}`,
+                });
+            });
+        return () => {
+            active = false;
+            unsubscribe?.();
+        };
+    }, [apply_config_aliases]);
+
+    useEffect(() => {
+        return window.usageboard.tokenStats.onUpdated(() => {
+            query_cache.mark_stale();
+            if (preset) {
+                const range = presetRange(preset);
+                preset_ranges.current[preset] = { ...range, captured_at: range.end };
+                set_preset_range_revision((revision) => revision + 1);
+            } else {
+                void loadData(true);
+            }
+        });
+    }, [loadData, preset, query_cache]);
 
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", theme);
@@ -563,6 +701,11 @@ export function TokenStatsView() {
                         <span className="dot" />
                         代理面板
                         {updatedAgo && <span className="update-ago">{updatedAgo}</span>}
+                        {refreshing && (
+                            <span className="update-ago" data-testid="token-stats-refreshing">
+                                刷新中...
+                            </span>
+                        )}
                     </h1>
                 </div>
                 <div className="controls">
