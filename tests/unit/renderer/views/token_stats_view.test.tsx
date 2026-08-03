@@ -235,6 +235,40 @@ describe("TokenStatsView dashboard query", () => {
         expect(get_heatmap).not.toHaveBeenCalled();
     });
 
+    it("AC1+AC2: offers a Grok agent filter and sends agent=grok to the dashboard", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        // Filter control exposes a Grok entry (t198 AC1).
+        expect(screen.getByRole("button", { name: "Grok" })).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+
+        const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
+        expect(request.agent).toBe("grok");
+    });
+
+    it("AC4: renders without error after selecting grok when no grok data exists", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+
+        // Fixture dashboard carries only claude_code data; selecting grok yields
+        // an empty grok view that must not crash or leave a loading spinner.
+        expect(get_dashboard.mock.calls[1]?.[0]).toMatchObject({ agent: "grok" });
+        expect(screen.getByTestId("session-records")).toBeInTheDocument();
+        expect(screen.queryByText("加载中...")).toBeNull();
+    });
+
     it("keeps the previous DTO visible during a dashboard refresh", async () => {
         const pending = deferred<TokenStatsDashboardDto>();
         get_dashboard

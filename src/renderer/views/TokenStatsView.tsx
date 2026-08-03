@@ -31,6 +31,7 @@ const AGENT_OPTIONS: { value: AgentFilter; label: string }[] = [
     { value: "claude-code", label: "Claude Code" },
     { value: "opencode", label: "OpenCode" },
     { value: "kimi-code", label: "Kimi Code" },
+    { value: "grok", label: "Grok" },
 ];
 
 const PLATFORM_OPTIONS: { value: PlatformFilter; label: string }[] = [

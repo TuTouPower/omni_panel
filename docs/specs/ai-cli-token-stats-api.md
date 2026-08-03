@@ -70,9 +70,9 @@
 
 仅 WSL 采集（Windows 无 grok CLI 数据）。数据位于 `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`，`{enc_cwd}` 为 URL-encoded cwd，每个会话一个文件。
 
-| 数据              | 格式   | WSL 路径                                                                             |
-| ----------------- | ------ | ------------------------------------------------------------------------------------ |
-| 每轮 token 用量   | JSONL  | `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（UNC：`\\wsl.localhost\...`） |
+| 数据            | 格式  | WSL 路径                                                                              |
+| --------------- | ----- | ------------------------------------------------------------------------------------- |
+| 每轮 token 用量 | JSONL | `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（UNC：`\\wsl.localhost\...`） |
 
 **事件口径**（t197，参考 cc-switch `session_usage_grokbuild.rs` 注释 + 实测确证）：`turn_completed` 事件（`params.update.sessionUpdate === "turn_completed"`）的 `usage` 是【该 user prompt 一轮的独立总量】，轮内跨 inference loop 累加（`modelCalls`/`numTurns` = 本轮 loop 数），下一轮从零起算。**不是进程或会话累计，勿用相邻事件差分**。字段映射：`inputTokens`→input、`outputTokens`→output、`cachedReadTokens`→cache_read、`reasoningTokens` ⊂ `outputTokens` 不计费（output 直接映射，reasoning 不单独记账）、`costUsdTicks` 不入账。`message_id` 用 `prompt_id`（实测每事件必有、稳定）；`timestamp` 为秒，×1000 换算。model 取 `usage.modelUsage` 键（单 key 直接用，多 key 排序 join `+`），token 分量用顶层 usage。`directory`/`title` 从 `{enc_cwd}` 解码派生（title=解码后 basename）。
 

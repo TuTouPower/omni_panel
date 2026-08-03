@@ -22,13 +22,14 @@ function row(overrides: Partial<SessionRow>): SessionRow {
 }
 
 describe("SessionTable agent chip", () => {
-    it("labels claude-code / opencode / kimi-code rows with the right tool name", () => {
+    it("labels claude-code / opencode / kimi-code / grok rows with the right tool name", () => {
         render(
             <SessionTable
                 rows={[
                     row({ session_id: "s1", agent: "claude-code" }),
                     row({ session_id: "s2", agent: "opencode" }),
                     row({ session_id: "s3", agent: "kimi-code" }),
+                    row({ session_id: "s4", agent: "grok" }),
                 ]}
                 theme="dark"
                 modelColors={new Map([["m", "#fff"]])}
@@ -38,5 +39,6 @@ describe("SessionTable agent chip", () => {
         expect(screen.getByText("Claude Code")).toBeInTheDocument();
         expect(screen.getByText("OpenCode")).toBeInTheDocument();
         expect(screen.getByText("Kimi Code")).toBeInTheDocument();
+        expect(screen.getByText("Grok")).toBeInTheDocument();
     });
 });

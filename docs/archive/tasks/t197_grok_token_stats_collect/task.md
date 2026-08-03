@@ -75,11 +75,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### Round 3 (2026-08-04 03:40 UTC+8)
 
-| finding_id     | severity | status | rationale                                                  | fix_ref             |
-| -------------- | -------- | ------ | ---------------------------------------------------------- | ------------------- |
-| t197_code_f001 | minor    | 已修   | missing 判定扩展 + file_unreadable 触发 warn-once          | grok-reader.ts:387-412 |
-| t197_test_f001 | important| 已修   | 文件级不可读分支补测 + mtime 时机修复防永久跳过            | grok-reader.ts:427-477, grok-reader.test.ts:362-403 |
-| t197_test_f002 | minor    | 已修   | grok_sessions_path 精确断言                                | collector.test.ts:215-219 |
+| finding_id     | severity  | status | rationale                                         | fix_ref                                             |
+| -------------- | --------- | ------ | ------------------------------------------------- | --------------------------------------------------- |
+| t197_code_f001 | minor     | 已修   | missing 判定扩展 + file_unreadable 触发 warn-once | grok-reader.ts:387-412                              |
+| t197_test_f001 | important | 已修   | 文件级不可读分支补测 + mtime 时机修复防永久跳过   | grok-reader.ts:427-477, grok-reader.test.ts:362-403 |
+| t197_test_f002 | minor     | 已修   | grok_sessions_path 精确断言                       | collector.test.ts:215-219                           |
 
 ## 收尾报告
 
@@ -90,12 +90,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - spec：[`spec.md`](spec.md)
 - 结果：全部满足
 - 证据：
-  - AC1：`token-stats-store.test.ts`「stores and queries source=grok rows across all three tables」写读 grok 行，三表查询通过，无约束/类型错误。
-  - AC2：`grok-reader.test.ts` fixture 断言 input/output/cache_read 正确映射、reasoning 计入 output 不单记；黑盒真实 WSL 数据 255 sessions/259 daily/1032 records 入库路径验证。
-  - AC3：reader mtime 增量 + store `INSERT OR REPLACE` 幂等；`grok-reader.test.ts`「skips unchanged files via mtime and re-merges on change」覆盖。
-  - AC4：`collector-state.test.ts`「restored grok state is passed to the grok reader on next collect」+ save/load round-trip 含 float mtime。
-  - AC5：`grok-reader.test.ts` missing/ENOTDIR/文件级不可读+重试三用例；`collector.test.ts`「warns once when grok dir missing」验证 warn-once 且不阻断其它 source。
-  - AC6：records `agent="grok"` 断言（reader + collector + store 三处）。
+    - AC1：`token-stats-store.test.ts`「stores and queries source=grok rows across all three tables」写读 grok 行，三表查询通过，无约束/类型错误。
+    - AC2：`grok-reader.test.ts` fixture 断言 input/output/cache_read 正确映射、reasoning 计入 output 不单记；黑盒真实 WSL 数据 255 sessions/259 daily/1032 records 入库路径验证。
+    - AC3：reader mtime 增量 + store `INSERT OR REPLACE` 幂等；`grok-reader.test.ts`「skips unchanged files via mtime and re-merges on change」覆盖。
+    - AC4：`collector-state.test.ts`「restored grok state is passed to the grok reader on next collect」+ save/load round-trip 含 float mtime。
+    - AC5：`grok-reader.test.ts` missing/ENOTDIR/文件级不可读+重试三用例；`collector.test.ts`「warns once when grok dir missing」验证 warn-once 且不阻断其它 source。
+    - AC6：records `agent="grok"` 断言（reader + collector + store 三处）。
 
 ### Reviewer verdict
 

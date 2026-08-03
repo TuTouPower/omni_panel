@@ -191,14 +191,18 @@ export function SessionTable({
                                                     ? "cc"
                                                     : r.agent === "kimi-code"
                                                       ? "kc"
-                                                      : "oc"
+                                                      : r.agent === "grok"
+                                                        ? "gk"
+                                                        : "oc"
                                             }`}
                                         >
                                             {r.agent === "claude-code"
                                                 ? "Claude Code"
                                                 : r.agent === "kimi-code"
                                                   ? "Kimi Code"
-                                                  : "OpenCode"}
+                                                  : r.agent === "grok"
+                                                    ? "Grok"
+                                                    : "OpenCode"}
                                         </span>
                                     </td>
                                     <td className="t-dim t-mono">{r.directory}</td>
