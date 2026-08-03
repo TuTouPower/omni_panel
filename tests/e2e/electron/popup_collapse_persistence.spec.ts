@@ -1,10 +1,22 @@
 import { join } from "node:path";
+import { writeFileSync } from "node:fs";
 import { createTestWithSetup } from "../fixtures/test_with_setup";
 import { seed_fake_plugin } from "../fixtures/seeded_plugin";
 import { PopupPage } from "../pages/popup_page";
 
 const { test, expect } = createTestWithSetup({
     setupPlugins: (userDataDir: string) => {
+        // 只 seed connector 不写 config.json 会让 config-store 视为「已有用户数据
+        // 但 config 缺失」而拒绝启动（P0 数据保护）；必须同时写最小 config.json。
+        writeFileSync(
+            join(userDataDir, "config.json"),
+            JSON.stringify({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [],
+            }),
+        );
         seed_fake_plugin(join(userDataDir, "plugins"), {
             name: "persist-collapse-plugin",
             displayName: "PersistCollapse",

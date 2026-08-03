@@ -21,6 +21,7 @@ URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在�
 - `floating` — 常驻浮窗。
 - `system` — schema 已收纳（`types.ts` `mainPanelModeSchema` = `z.enum(["system","popup","floating"])`），但语义未落地。
 - `main_panel:get_mode()` 返回当前模式；`mainPanel:hide` 隐藏。
+- 关闭语义（t194）：popup 与 floating 模式关闭均改为 hide 而非 close——保留渲染进程与已加载数据，下次打开直接 show 消除冷启动；popup 重开重新锚定托盘下方。模式切换（popup↔floating）与退出流程仍走 close 重建。渲染层 `visibilitychange` 降级：隐藏期间前台计时器暂停，回可见立即刷新。
 - 宽度策略：`usage` 仅限制 `minWidth=472`，不设固定 `maxWidth`。floating 保存与恢复宽度以所在 display 的 `workArea.width` 为上限；popup 可由用户拉宽。
 
 > 已知分裂：schema 放行三值（含 `system`），但 preload `main_panel.get_mode()` 类型签名仍声明 `Promise<"popup" | "floating">`（`src/preload/index.ts`）。消费者按二值处理，`system` 值经 IPC 回流时类型层面不被承认。

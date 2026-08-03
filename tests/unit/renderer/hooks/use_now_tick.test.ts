@@ -40,4 +40,63 @@ describe("useNowTick", () => {
         expect(clearIntervalSpy).toHaveBeenCalled();
         clearIntervalSpy.mockRestore();
     });
+
+    describe("visibility degradation (t194 AC3)", () => {
+        const set_visibility = (state: "visible" | "hidden") => {
+            Object.defineProperty(document, "visibilityState", {
+                value: state,
+                configurable: true,
+            });
+        };
+        afterEach(() => {
+            delete (document as unknown as { visibilityState?: string }).visibilityState;
+        });
+
+        it("does not advance while the document is hidden", () => {
+            const start = new Date("2026-01-01T12:00:00Z");
+            vi.setSystemTime(start);
+            set_visibility("hidden");
+            const { result } = renderHook(() => useNowTick());
+            const initial = result.current;
+
+            act(() => {
+                vi.advanceTimersByTime(60_000);
+                vi.setSystemTime(new Date("2026-01-01T12:01:00Z"));
+            });
+
+            expect(result.current).toBe(initial);
+        });
+
+        it("refreshes immediately when the document becomes visible again", () => {
+            const start = new Date("2026-01-01T12:00:00Z");
+            vi.setSystemTime(start);
+            set_visibility("hidden");
+            const { result } = renderHook(() => useNowTick());
+            const initial = result.current;
+
+            act(() => {
+                vi.setSystemTime(new Date("2026-01-01T12:00:05Z"));
+                set_visibility("visible");
+                document.dispatchEvent(new Event("visibilitychange"));
+            });
+
+            expect(result.current).toBeGreaterThan(initial);
+        });
+
+        it("stops advancing when a visible document hides (production path)", () => {
+            const start = new Date("2026-01-01T12:00:00Z");
+            vi.setSystemTime(start);
+            const { result } = renderHook(() => useNowTick());
+            const initial = result.current;
+
+            act(() => {
+                set_visibility("hidden");
+                document.dispatchEvent(new Event("visibilitychange"));
+                vi.advanceTimersByTime(60_000);
+                vi.setSystemTime(new Date("2026-01-01T12:01:00Z"));
+            });
+
+            expect(result.current).toBe(initial);
+        });
+    });
 });

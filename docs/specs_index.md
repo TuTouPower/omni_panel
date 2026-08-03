@@ -45,7 +45,7 @@
 | vendor-forms-oauth-weblogin          | Web           | t109                                                                | 2026-07-25   |
 | fix_add_account_wiring               | Desktop       | t110                                                                | 2026-07-25   |
 | web-panel                            | Web           | 迁移自 omni_powers，无                                              | 2026-07-05   |
-| window-management                    | Desktop       | 迁移自 omni_powers，t099                                            | 2026-07-24   |
+| window-management                    | Desktop       | 迁移自 omni_powers，t099，t194                                      | 2026-08-03   |
 | device_login_full_url                | Desktop       | t156                                                                | 2026-07-27   |
 | move_session_meta_to_lib             | Web           | t124                                                                | 2026-07-26   |
 | extract_oauth_helpers                | API           | t127                                                                | 2026-07-26   |

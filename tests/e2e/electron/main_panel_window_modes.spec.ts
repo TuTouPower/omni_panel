@@ -22,8 +22,9 @@ async function popupWindowState(
     app: ElectronApplication,
 ): Promise<{ exists: boolean; visible: boolean }> {
     return await app.evaluate(({ BrowserWindow }) => {
+        // 主面板窗口 URL 路由是 #usage（tray=#tray、settings=#setting）。
         const win = BrowserWindow.getAllWindows().find((target) =>
-            target.webContents.getURL().includes("#popup"),
+            target.webContents.getURL().includes("#usage"),
         );
         return { exists: win !== undefined, visible: win?.isVisible() ?? false };
     });

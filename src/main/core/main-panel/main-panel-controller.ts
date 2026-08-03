@@ -176,32 +176,34 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         return create_panel_window(current_mode());
     }
 
+    function show_panel(target: WindowLike): void {
+        // t194 f001: popup 隐藏后重开要重新锚定到托盘（与 t194 前 close→重建每次
+        // 重锚一致），否则托盘移动/显示器拓扑变化后旧 bounds 会偏。floating 保持
+        // 用户拖放位置。create_panel_window 已定位，重复调用幂等。
+        if (mode === "popup") {
+            position_popup(target);
+        }
+        target.show();
+        target.focus();
+    }
+
     return {
         open_or_toggle() {
             const target = ensure_window();
-            if (mode === "floating" && target.isVisible()) {
+            // t194: popup 与 floating 关闭/切换都改为隐藏——保留渲染进程与已加载
+            // 数据，下次打开直接 show，消除冷启动重建。模式切换/退出仍走 close（AC4）。
+            if (target.isVisible()) {
                 target.hide();
                 return;
             }
-            if (mode === "popup" && target.isVisible()) {
-                target.close();
-                return;
-            }
-            target.show();
-            target.focus();
+            show_panel(target);
         },
         open_or_focus() {
-            const target = ensure_window();
-            target.show();
-            target.focus();
+            show_panel(ensure_window());
         },
         hide() {
             if (!win || win.isDestroyed()) return;
-            if (mode === "floating") {
-                win.hide();
-            } else {
-                win.close();
-            }
+            win.hide();
         },
         close_for_mode_switch() {
             if (win && !win.isDestroyed()) win.close();

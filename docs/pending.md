@@ -94,6 +94,12 @@
 - 内容：幂等测试只覆盖同进程两次 backfill；ready 标志跨 reopen 持久化、重启后 ready=1 时增量续写与 oracle 一致无用例。建议补「backfill 置 ready → close → reopen → 断言 ready 仍 true、再增量 upsert 后 read_rollup == oracle_rollup」。
 - 处理：未开
 
+### p038 electron e2e 一批账号/表单用例在 t193 基线上已失败（2026-08-03）
+
+- 来源：t194 黑盒（全量 electron e2e）对比确认
+- 内容：`auto_seed`（existing config not overwritten）、`plugin_config`×3、`secrets_persistence`×3、`settings_view`×2、`popup_window_constraints`（collapsing all cards 底部留白）、`tray_menu_actions`（quit 菜单标签）共 11 个用例在 t193 HEAD（bb31938d）同样失败（stash t194 改动后逐组复跑确认一致），非 t194 引入。共性是 settings 账号/表单渲染与 connector 加载路径，疑为 t189-t193 范围内回归或本机环境（connector 发现/auto-seed）差异。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

@@ -128,6 +128,21 @@ collector utilityProcess（逐批 token_stats_update）
 - **回填**：manager.start 后 `setImmediate` 后台全量回填并置 `hour_rollup_ready`；就绪前 dashboard 走 records 路径，就绪后切聚合路径（窗口拆「完整小时段聚合表 + 边界部分小时 records」UNION ALL，外层精确重组）。中断可重跑，幂等收敛。
 - **data version**：单行单调计数，仅 records 批次事务内推进；dashboard DTO 与更新事件携带同一版本，renderer 据此判断缓存过期，不依赖本地时钟。
 
+### 4.3 用量面板窗口生命周期（t194）
+
+popup 与 floating 模式关闭都改为隐藏（hide）而非销毁（close），消除每次重开重建渲染进程的冷启动：
+
+```
+open_or_toggle / hide → win.hide()         （保留渲染进程与已加载数据）
+open_or_focus（重开）   → show_panel()
+                          ├─ popup：position_popup() 重新锚定托盘后 show/focus
+                          └─ floating：保留用户拖放位置，直接 show/focus
+模式切换 / 退出流程     → close()            （AC4：仍按关闭重建语义）
+```
+
+- **降级与恢复**：renderer `useNowTick` 监听 `document.visibilityState`，隐藏期间前台计时器暂停推进，`visibilitychange` 回可见时立即刷新；不破坏后台仍需的订阅。隐藏窗口占用的渲染进程保留（Windows 实测 work set 内存保留、无 CPU 增量，见 s010）。
+- **边界**：`apply_config_change` 模式切换仍 `close_for_mode_switch` → 重建；配置变更、电源恢复、托盘打开等既有路径行为不变。
+
 ## 5. 跨模块契约
 
 - **观测契约**：脚本产出 `script_observation_schema`（snake_case，无 `source_instance_id`）；宿主 extend 出 `observation_schema`。字段语义见 `specs/observation-store.md`。
