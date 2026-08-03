@@ -59,6 +59,7 @@ export default defineConfig(
             "scripts/render_icon.mjs",
             "scripts/render-test-icons.mjs",
             "scripts/start-test.mjs",
+            "docs/spikes/",
         ],
     },
 );

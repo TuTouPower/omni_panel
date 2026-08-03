@@ -110,6 +110,24 @@ TokenStatsView 在 renderer 内维护查询协调器，不改变现有 token-sta
 外部 producer 可 `POST /v1/ingest`（Bearer）直接写观测，`source` 按 producer 标记。
 web 浏览器经 LocalAPI `GET /v1/events`（SSE）订阅 runtimeStore 状态变更，与桌面端 IPC `EVENT_STATE_CHANGE` 同源；`usageboard-web` 转给 `use_plugins`，用量面板实时刷新。
 
+### 4.2 TokenStats 聚合层与数据版本（t192）
+
+dashboard 查询工作量与 per-message records 总量解耦的持久化聚合层：
+
+```
+collector utilityProcess（逐批 token_stats_update）
+  └─ manager on_update
+       ├─ store.upsert_records(records)  事务内：records REPLACE + 被触碰 session 的
+       │                                 hour_rollup 会话级重建 + data_version +1
+       └─ IPC TOKEN_STATS_UPDATED(data_version)
+             └─ renderer：data_version ≤ 已见版本 → 复用缓存；更新 → mark_stale + revalidate
+```
+
+- **真相源**：`token_stats_records`（per-message 事实表，不删除不压缩）。
+- **派生层**：`token_stats_hour_rollup`（per source/env/session_id/本地整点小时/model/directory/agent 聚合）。会话级增量：upsert 批次内对每个被触碰 session DELETE + 从 records 全量重建；`directory` 可空（NULL 唯一键在 SQLite 互异，行级 UPSERT 会叠重复行，故不用）。
+- **回填**：manager.start 后 `setImmediate` 后台全量回填并置 `hour_rollup_ready`；就绪前 dashboard 走 records 路径，就绪后切聚合路径（窗口拆「完整小时段聚合表 + 边界部分小时 records」UNION ALL，外层精确重组）。中断可重跑，幂等收敛。
+- **data version**：单行单调计数，仅 records 批次事务内推进；dashboard DTO 与更新事件携带同一版本，renderer 据此判断缓存过期，不依赖本地时钟。
+
 ## 5. 跨模块契约
 
 - **观测契约**：脚本产出 `script_observation_schema`（snake_case，无 `source_instance_id`）；宿主 extend 出 `observation_schema`。字段语义见 `specs/observation-store.md`。

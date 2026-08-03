@@ -144,9 +144,9 @@ const token_stats_methods = {
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getStatus"]>>>(
             IPC_CHANNELS.TOKEN_STATS_STATUS,
         ),
-    onUpdated: (callback: () => void) => {
-        const listener = () => {
-            callback();
+    onUpdated: (callback: (dataVersion: number) => void) => {
+        const listener = (_event: unknown, dataVersion: unknown) => {
+            callback(typeof dataVersion === "number" ? dataVersion : 0);
         };
         ipcRenderer.on(IPC_CHANNELS.TOKEN_STATS_UPDATED, listener);
         return () => {

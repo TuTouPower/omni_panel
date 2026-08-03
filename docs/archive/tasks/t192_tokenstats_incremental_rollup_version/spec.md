@@ -73,8 +73,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 满足 dashboard 全部维度的最小持久聚合粒度：UNVERIFIED-SPIKE，执行期用 P0 基线与 P2 查询计划比较复用现有 day/session 表、补 hour 聚合、补 per-session-hour 聚合三种方案，选择能保持现有统计语义的最小方案。
-- 历史回填期间的可用性策略：UNVERIFIED-SPIKE，执行期验证启动阻塞、后台回填加旧路径 fallback 两种方案的主进程卡顿和一致性，选择可自动回退的方案。
+- 满足 dashboard 全部维度的最小持久聚合粒度：已验证（s008）。以 200 session × 5 model × 3 directory × 24h 合成数据对比 A 复用 day/session 表、B hour 聚合（不含 session）、C per-session-hour 聚合三方案；A 缺 hour 粒度（heatmap/hour 轴不可重建），B 缺 session 维度致 sessions 计数跨小时重复（误计 800/1000），C 全区域与 records oracle 一致且行数随 session×hour×model 组合而非 per-message 数增长（message 密度 100 倍下行数不变）。采纳 C：新增 per (source, env, session_id, hour_start, model, directory) 聚合表。
+- 历史回填期间的可用性策略：已验证（s008）。同步全量回填会阻塞启动；采纳后台回填 + 旧路径 fallback：启动后异步回填聚合表，完成前 dashboard 走现有 records 查询路径（t191），完成后切换聚合读取。records 保留为真相源，中断可重试、可重建。
 
 ### 风险与回退
 

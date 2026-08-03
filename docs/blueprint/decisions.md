@@ -105,3 +105,16 @@
 - 结论：选 B。`.overview-grid` 改为 `repeat(auto-fill, minmax(420px, 1fr))`，删除 `@container (min-width: 1024px)` 与 `@container (max-width: 1023px) and (min-width: 640px)` 断点及 640–1023 强制两列；删除 `.rel-time { display: none }` 隐藏规则。`420px` 覆盖最宽头部形态（长名称 + l2seg + rel-time + tools）+ padding；更极端情况由 `.card-name` 省略号兜底。
 - 替代：002（仍保留容器查询机制本身，但断点数值与断点数量被本条取代；003 的 maxWidth=1400 不变）。
 - 落地：t161。
+
+## 011 TokenStats dashboard 聚合层：session-hour 粒度 + 会话级重建 + 后台回填（2026-08-03）
+
+- 背景：t192 之前 dashboard query 的 hour/heatmap/范围 rollup 每次切换都全表扫描 `token_stats_records`，历史数据增长后查询时聚合成本持续上升（t190 已把结果跨进程传输消除，读取规模未解耦）。需建立可由原始数据重建的增量聚合层与 data version。
+- 选项：聚合粒度 A) 复用 day/session 表；B) hour 聚合（不含 session）；C) per-session-hour 聚合。回填策略 a) 启动同步全量；b) 后台回填 + 旧路径 fallback。
+- 结论：粒度选 C（per source/env/session_id/本地整点小时/model/directory/agent）——唯一能精确重建 dashboard 全维度（含 distinct session 计数、hour 粒度、project 维度）的最小粒度；A 缺 hour 粒度、B 缺 session 维度致 sessions 计数跨小时重复。s008 实测：C 行数随 session×hour×model 组合增长，message 密度扩大 100 倍行数不变。回填选 b：同步全量阻塞启动；后台回填 + records fallback 保证回填完成前 dashboard 可用，中断可重跑幂等收敛。
+- 关键子决策：
+    - **会话级重建而非行级 UPSERT**：`directory` 可空，SQLite 视 NULL 唯一键互异，行级 ON CONFLICT 永不命中会叠重复行；upsert 批次对每个被触碰 session DELETE + 从 records 全量重建。
+    - **records 为真相源**：聚合表可随时 DELETE + 重建，不回滚用户原始记录；聚合损坏/版本不兼容时重跑 backfill 恢复。
+    - **data version 只随 records 批次推进**：records 是 dashboard 数据源，sessions/daily 不推进；空批次不推进；失败事务回滚不推进。版本不依赖 renderer 本地时间。
+- 替代：无
+- 落地：t192（migration v6 + `token_stats_hour_rollup` + `query_dashboard` 窗口拆分读取）。
+- 遗留：`query_dashboard` 聚合/records 双轨重复（p031）；AC2 多 session 未受影响行、AC3 失败回滚、AC4 竞态、AC5 查询计划、AC1 重启就绪等子句级补测（p032-p037）。

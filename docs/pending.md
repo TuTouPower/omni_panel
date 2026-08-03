@@ -52,6 +52,48 @@
 - 内容：`query_dashboard` 返回 `freshness: { queried_at, stale: false }` 硬编码，不反映真实数据新鲜度；renderer 当前未消费 stale
 - 处理：未开
 
+### p031 query_dashboard records 与聚合路径双轨重复（2026-08-03）
+
+- 来源：t192_code_f002（t192 Round 1，minor）
+- 内容：`query_dashboard` 四段查询区域（read_rollup、time bucket、session 列表、heatmap）各维护 records 与 rollup 两份实现，语义等价但写法不同（`SUM(calls)` vs `COUNT(*)`、rollup 路径 GROUP BY 含 agent、started_at/ended_at 由子查询提供）。当前经 oracle 测试逐区相等无分叉，但长期修复遗漏源：任一区域修正须同步两份；read_rollup 聚合路径 GROUP BY 多含 `agent` 列，若未来 session 跨多 agent 则两路径产出不同行数。
+- 处理：未开
+
+### p032 AC2「未受影响聚合保持不变」无多 session 增量直测（2026-08-03）
+
+- 来源：t192_test_f001（t192 Round 1，minor）
+- 内容：增量测试全部单 session，dashboard fallback 对比在 upsert 后立即 backfill 掩盖增量期状态；若 `delete_hour_rollup_session_stmt` 丢失 session_id 谓词导致清空其它 session 行，现有测试仍绿。建议补「两 session 入库 → 增量 upsert 仅触碰其一 → 不 backfill 直接 read_rollup == oracle_rollup」。
+- 处理：未开
+
+### p033 AC3 失败/回滚批次不推进版本无测试（2026-08-03）
+
+- 来源：t192_test_f002（t192 Round 1，minor）
+- 内容：版本递增与 records 写入、rollup 重建同处一事务，抛错理应整体回滚，但无失败注入用例（仅空批次不推进）。建议构造类型非法 record 断言抛错后 `get_data_version()` 与 `query_records` 行数均不变。
+- 处理：未开
+
+### p034 AC4 竞态子句（更新事件 vs 进行中查询）无专门测试（2026-08-03）
+
+- 来源：t192_test_f003（t192 Round 1，minor）
+- 内容：事件触发 `loadData` 后旧查询晚到被 request_id guard 丢弃的竞态只在 filter 变更路径验证，未在事件触发路径验证。建议补「查询 in-flight 时触发更新版本事件 → 旧响应晚到不覆盖新数据」。
+- 处理：未开
+
+### p035 AC3「更新事件报告同一已提交版本」的 main→preload 转发粘合层无测试（2026-08-03）
+
+- 来源：t192_test_f004（t192 Round 1，minor）
+- 内容：主进程 on_update 发送 `get_data_version()`、preload onUpdated 解析 number，但版本在 main→preload 转发中丢失/错位无用例捕获。建议在 ipc/preload 层补 onUpdated 事件版本转发用例。
+- 处理：未开
+
+### p036 AC5 读取规模无直接测量，聚合路径误读全量 records 也能 PASS（2026-08-03）
+
+- 来源：t192_test_f005（t192 Round 1，minor）
+- 内容：AC5 用例断言 DTO 形状与 rollup 行数平坦，但若 `window_union` 因 bug 改为整窗读 records，输出仍一致照常 PASS。窗口恰为整点时可加 `EXPLAIN QUERY PLAN` 断言命中 `token_stats_hour_rollup` 且不 SCAN `token_stats_records`。
+- 处理：未开
+
+### p037 AC1 重启场景（ready=1 持久化 + 重启后续写）无专门测试（2026-08-03）
+
+- 来源：t192_test_f006（t192 Round 1，minor）
+- 内容：幂等测试只覆盖同进程两次 backfill；ready 标志跨 reopen 持久化、重启后 ready=1 时增量续写与 oracle 一致无用例。建议补「backfill 置 ready → close → reopen → 断言 ready 仍 true、再增量 upsert 后 read_rollup == oracle_rollup」。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

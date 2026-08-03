@@ -56,9 +56,12 @@ const noop_promise_device_start = (): Promise<{
     });
 
 export function create_web_usageboard(): UsageboardApi {
-    const token_stats_callbacks = new Set<() => void>();
+    const token_stats_callbacks = new Set<(dataVersion: number) => void>();
     setInterval(() => {
-        for (const cb of token_stats_callbacks) cb();
+        // Web build has no push channel for committed data versions; polled
+        // dashboards carry their own data_version, so events pass 0 (no-op
+        // for version-based staleness, still triggers a refresh request).
+        for (const cb of token_stats_callbacks) cb(0);
     }, POLL_MS);
 
     // SSE push channel — mirrors the desktop IPC EVENT_STATE_CHANGE broadcast.
@@ -257,7 +260,7 @@ export function create_web_usageboard(): UsageboardApi {
                 return get_json(`/v1/dashboard?${params.toString()}`);
             },
             getStatus: () => get_json("/v1/status"),
-            onUpdated: (cb: () => void) => {
+            onUpdated: (cb: (dataVersion: number) => void) => {
                 token_stats_callbacks.add(cb);
                 return () => {
                     token_stats_callbacks.delete(cb);

@@ -458,7 +458,9 @@ export interface UsageboardApi {
         getRangeRollup(filters?: TokenStatsRollupFilters): Promise<TokenStatsRollupRow[]>;
         getDashboard(query: TokenStatsDashboardQuery): Promise<TokenStatsDashboardDto>;
         getStatus(): Promise<TokenStatsStatus>;
-        onUpdated(callback: () => void): () => void;
+        /** Fires on each committed token-stats batch; carries the monotonic data
+         *  version so renderer caches can drop stale payloads (t192). */
+        onUpdated(callback: (dataVersion: number) => void): () => void;
     };
     trend: TrendApi;
     buildInfo: {

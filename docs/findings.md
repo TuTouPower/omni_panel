@@ -63,3 +63,19 @@
 - 证据：逐一映射 `MetricDonut`、`BarChart`、`Heatmap`、`SessionTable`、`RangePicker` 输入；`prepareBarDataFromBuckets`、`prepareBarDataFromHourBuckets`、`prepareBarDataFromRollup`、`prepareHeatmapFromCells` 和 `sessionRowsFromSessions` 均只消费聚合字段。当前会话表路径的 slug/version/sub 已固定为空或 false，不构成主 DTO 必需字段。
 - 影响：dashboard IPC 可统一返回 summary、chart、heatmap、session summary、status、freshness；旧 token-stats 查询入口保留兼容，正常代理面板路径可停止调用 records 和独立 status 查询。
 - 现状：有效
+
+## d009 窗口「完整小时段 + 边界段」UNION 精确重组；SQLite NULL 唯一键互异（2026-08-03）
+
+- 来源：t192
+- 结论：任意 `[start, end)` 窗口与整点小时聚合表的对齐拆分：`full_start = ceil_hour(start)`、`full_end = floor_hour(end)`；当 `full_start < full_end` 时窗口拆为 `[start, full_start) ∪ [full_start, full_end) ∪ [full_end, end)`，聚合表覆盖中段、records 覆盖两个不足整点的边界带，UNION ALL 后外层 `SUM(calls)`/`SUM(tokens)` 精确重组、`COUNT(DISTINCT session)` 跨两部分去重。**当无完整小时（`full_start > full_end`）时，原边界公式 `[start, full_start) ∪ [full_end, end)` 会溢出窗口**（例 `[07:35,08:00) ∪ [07:00,07:55) = [07:00,08:00)`），必须整窗回落 records。
+- 证据：t192 dashboard aggregate read path 用例覆盖跨小时/跨天、不足一小时窗口、agent/platform 过滤、三 metric、xaxis time/project/session、别名、分页，聚合路径与 records 路径逐区 `toEqual`。
+- 影响：凡「预聚合小时表 + 任意窗口查询」场景可复用该拆分；不足一小时窗口的边界带公式溢出是通用陷阱。
+- 现状：有效
+
+## d010 SQLite 唯一键含 NULL 时 ON CONFLICT UPSERT 永不命中（2026-08-03）
+
+- 来源：t192
+- 结论：SQLite 把 NULL 唯一键值视为互异，`INSERT ... ON CONFLICT(...) DO UPDATE` 对含 NULL 的键永不触发 conflict，会叠出重复行。含可空列的分组聚合表不能用行级 UPSERT，须按稳定标识（如 session）DELETE + 全量重建，或用 `GROUP BY` 归一 NULL 后再写。
+- 证据：t192 `token_stats_hour_rollup.directory` 可空；s008 对比与 t192 实现采用会话级重建（DELETE + records 重算）后与 records oracle 逐行一致；对比观察：同组多条 records 若走行级 upsert 会因 directory NULL 叠加重复聚合行。
+- 影响：派生聚合表、唯一索引设计须先确认无 NULL 参与键；可空维度入 PK 时考虑非空哨兵值（如 `'(unknown)'`）或会话级重建。
+- 现状：有效

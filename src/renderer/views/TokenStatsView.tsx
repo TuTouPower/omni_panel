@@ -236,6 +236,10 @@ export function TokenStatsView() {
     );
     const load_request_id = useRef(0);
     const has_loaded_data = useRef(false);
+    // Monotonic data version of the latest committed batch the renderer has
+    // seen (from dashboard.data_version). Events with a version ≤ this carry no
+    // new data, so cached payloads stay valid (t192 AC4).
+    const last_data_version = useRef(0);
     const preset_ranges = useRef<
         Partial<Record<RangePreset, { start: number; end: number; captured_at: number }>>
     >({});
@@ -272,6 +276,7 @@ export function TokenStatsView() {
         setError(null);
         setDashboard(data.dashboard);
         setStatus(data.dashboard.status);
+        last_data_version.current = data.dashboard.data_version;
     }, []);
 
     const apply_config_aliases = useCallback(
@@ -419,7 +424,14 @@ export function TokenStatsView() {
     }, [apply_config_aliases]);
 
     useEffect(() => {
-        return window.usageboard.tokenStats.onUpdated(() => {
+        return window.usageboard.tokenStats.onUpdated((dataVersion) => {
+            // Skip revalidating cached payloads when the event carries no newer
+            // committed data (t192 AC4): a version equal to the last seen one
+            // means the cache is already current. Version 0 is the web build
+            // (no push channel) — treat as new so polled refreshes keep firing.
+            if (dataVersion > 0 && dataVersion <= last_data_version.current) {
+                return;
+            }
             query_cache.mark_stale();
             if (preset) {
                 const range = presetRange(preset);

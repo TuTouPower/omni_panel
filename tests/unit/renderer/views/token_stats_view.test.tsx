@@ -140,6 +140,7 @@ function dashboard(
         },
         status: { running: true, last_updated: null, ...overrides.status },
         freshness: { queried_at: 2_000, stale: false },
+        data_version: 0,
     };
 }
 
@@ -160,7 +161,7 @@ describe("TokenStatsView dashboard query", () => {
     const get_hour_buckets = vi.fn();
     const get_rollup = vi.fn();
     const get_config = vi.fn();
-    let updated_listener: (() => void) | null = null;
+    let updated_listener: ((dataVersion: number) => void) | null = null;
 
     beforeEach(() => {
         localStorage.clear();
@@ -192,7 +193,7 @@ describe("TokenStatsView dashboard query", () => {
                 getHourBuckets: get_hour_buckets,
                 getRangeRollup: get_rollup,
                 getStatus: vi.fn(),
-                onUpdated: vi.fn((callback: () => void) => {
+                onUpdated: vi.fn((callback: (dataVersion: number) => void) => {
                     updated_listener = callback;
                     return vi.fn();
                 }),
@@ -265,12 +266,44 @@ describe("TokenStatsView dashboard query", () => {
         expect(await screen.findByTestId("session-records")).toHaveTextContent("before");
 
         act(() => {
-            updated_listener?.();
+            updated_listener?.(0);
         });
         await waitFor(() => {
             expect(screen.getByTestId("session-records")).toHaveTextContent("after");
         });
         expect(get_dashboard).toHaveBeenCalledTimes(2);
+    });
+
+    it("AC4: reuses the cached dashboard when an update event reports the same data version", async () => {
+        const fresh = dashboard("v5");
+        fresh.data_version = 5;
+        get_dashboard.mockResolvedValue(fresh);
+        render(<TokenStatsView />);
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("v5");
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
+
+        // Same version → cache already current, no revalidation request.
+        act(() => {
+            updated_listener?.(5);
+        });
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
+    });
+
+    it("AC4: revalidates when an update event reports a newer data version", async () => {
+        const fresh = dashboard("v5");
+        fresh.data_version = 5;
+        get_dashboard.mockResolvedValue(fresh);
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
+
+        act(() => {
+            updated_listener?.(6);
+        });
+        await waitFor(() => {
+            expect(get_dashboard.mock.calls.length).toBeGreaterThan(1);
+        });
     });
 
     it("reuses a cached dashboard when returning to the same filter combination", async () => {

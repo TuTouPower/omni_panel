@@ -174,6 +174,7 @@ describe("token-stats-ipc sender validation", () => {
             sessions: { items: [], total: 0, has_more: false },
             status: { running: false, last_updated: null },
             freshness: { queried_at: 3, stale: false },
+            data_version: 0,
         };
         // eslint-disable-next-line @typescript-eslint/unbound-method
         vi.mocked(deps.store.query_dashboard).mockReturnValue(dashboard);

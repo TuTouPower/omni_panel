@@ -10,6 +10,7 @@ import { DEFAULT_RECORDS_LIMIT } from "../../../../../src/main/core/token-stats/
 import type {
     AgentSessionUsageRecord,
     TokenStatsDailyUpsert,
+    TokenStatsDashboardQuery,
     TokenStatsSessionUpsert,
 } from "../../../../../src/shared/types/token-stats";
 
@@ -73,6 +74,39 @@ function record(overrides: Partial<AgentSessionUsageRecord> = {}): AgentSessionU
         env: "win",
         ...overrides,
     };
+}
+
+/**
+ * Run a t192 store scenario against a temp-file DB (the hour rollup is only
+ * observable via a second connection, so :memory: won't do). Windows releases
+ * WAL handles asynchronously; a short retry on teardown avoids EBUSY masking
+ * the real assertion signal.
+ */
+function with_temp_store(fn: (db_path: string) => void): void {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-store-t192-"));
+    try {
+        fn(path.join(dir, "obs.sqlite"));
+    } finally {
+        let last_err: Error | undefined;
+        for (let i = 0; i < 20; i++) {
+            try {
+                fs.rmSync(dir, { recursive: true, force: true });
+                last_err = undefined;
+                break;
+            } catch (err) {
+                last_err = err as Error;
+                if (i < 19) {
+                    const until = Date.now() + 100;
+                    while (Date.now() < until) {
+                        /* spin */
+                    }
+                }
+            }
+        }
+        if (last_err) {
+            console.warn(`[token-stats-store] temp cleanup retry exhausted: ${last_err.message}`);
+        }
+    }
 }
 
 describe("token-stats-store", () => {
@@ -663,7 +697,9 @@ describe("token-stats-store", () => {
 
                 const check = new Database(db_path);
                 check.pragma("wal_checkpoint(TRUNCATE)");
-                expect(check.pragma("user_version", { simple: true })).toBe(5);
+                // Latest migration is v6 (t192 rollup/version tables) since this
+                // test was written; "bumps through latest" semantics unchanged.
+                expect(check.pragma("user_version", { simple: true })).toBe(6);
                 const idx = check
                     .prepare(
                         "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_records_env_ts'",
@@ -780,8 +816,8 @@ describe("token-stats-store", () => {
 
                 const check = new Database(db_path);
                 check.pragma("wal_checkpoint(TRUNCATE)");
-                // Pre-migration DB reopened → all migrations run to latest (v5).
-                expect(check.pragma("user_version", { simple: true })).toBe(5);
+                // Pre-migration DB reopened → all migrations run to latest (v6).
+                expect(check.pragma("user_version", { simple: true })).toBe(6);
                 for (const table of [
                     "token_stats_daily",
                     "token_stats_buckets",
@@ -1044,6 +1080,591 @@ describe("token-stats-store", () => {
             const rows = store.query_hour_buckets({});
             if (!rows[0]) throw new Error("expected a row");
             expect(rows[0].hour_start).toBe(bj("2026-07-24 23:00:00"));
+        });
+    });
+
+    describe("migration v6 (t192 hour rollup + data version)", () => {
+        it("creates t192 tables on a pre-v6 DB and stays unready", () => {
+            with_temp_store((db_path) => {
+                const legacy = create_token_stats_store(db_path);
+                legacy.upsert_records([record({ message_id: "m1" })]);
+                legacy.close();
+                // Strip the t192 tables + downgrade to simulate a real v5 DB.
+                const raw = new Database(db_path);
+                raw.exec(
+                    "DROP TABLE token_stats_hour_rollup;" +
+                        "DROP TABLE token_stats_data_version;" +
+                        "DROP TABLE token_stats_meta;",
+                );
+                raw.pragma("user_version = 5");
+                raw.close();
+
+                const migrated = create_token_stats_store(db_path);
+                expect(migrated.is_hour_rollup_ready()).toBe(false);
+                expect(migrated.get_data_version()).toBe(0);
+                migrated.close();
+
+                const check = new Database(db_path);
+                check.pragma("wal_checkpoint(TRUNCATE)");
+                expect(check.pragma("user_version", { simple: true })).toBe(6);
+                const rollup_rows = check
+                    .prepare("SELECT COUNT(*) AS c FROM token_stats_hour_rollup")
+                    .get() as { c: number };
+                expect(rollup_rows.c).toBe(0);
+                check.close();
+            });
+        });
+    });
+
+    describe("hour rollup incremental aggregation + data version (t192)", () => {
+        const hs = (ts: number): number => ts - ((ts + 28800000) % 3600000);
+        const read_rollup = (db_path: string): Record<string, unknown>[] => {
+            const raw = new Database(db_path, { readonly: true });
+            try {
+                return raw
+                    .prepare(
+                        "SELECT source, env, session_id, hour_start, model, directory, agent, calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens FROM token_stats_hour_rollup ORDER BY source, env, session_id, hour_start, model",
+                    )
+                    .all() as Record<string, unknown>[];
+            } finally {
+                raw.close();
+            }
+        };
+
+        it("builds a per-session/hour/model/directory rollup on upsert and advances data version once", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                expect(store.get_data_version()).toBe(0);
+                expect(store.is_hour_rollup_ready()).toBe(false);
+                store.upsert_records([
+                    record({
+                        message_id: "m1",
+                        timestamp: T0,
+                        input_tokens: 100,
+                        output_tokens: 50,
+                    }),
+                    record({ message_id: "m2", timestamp: T0 + 60000, input_tokens: 10 }),
+                    record({ message_id: "m3", timestamp: T2, input_tokens: 5 }),
+                ]);
+                expect(store.get_data_version()).toBe(1);
+
+                const rows = read_rollup(db_path);
+                expect(rows).toHaveLength(2);
+                expect(rows[0]).toMatchObject({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "s1",
+                    hour_start: hs(T0),
+                    model: "sonnet-4",
+                    directory: "/home/user/proj",
+                    agent: "claude-code",
+                    calls: 2,
+                    input_tokens: 110,
+                    output_tokens: 100,
+                });
+                expect(rows[1]).toMatchObject({
+                    hour_start: hs(T2),
+                    calls: 1,
+                    input_tokens: 5,
+                });
+
+                // Empty batch is not a committed data change → version untouched.
+                store.upsert_records([]);
+                expect(store.get_data_version()).toBe(1);
+                store.close();
+            });
+        });
+
+        it("replaces a session's rollup on recount without double counting", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([
+                    record({ message_id: "m1", input_tokens: 100 }),
+                    record({ message_id: "m2", input_tokens: 50 }),
+                ]);
+                // Recount replaces m2 (REPLACE by PK), same session/hour/model.
+                store.upsert_records([record({ message_id: "m2", input_tokens: 999 })]);
+                expect(store.get_data_version()).toBe(2);
+
+                const rows = read_rollup(db_path);
+                expect(rows).toHaveLength(1);
+                expect(rows[0]).toMatchObject({ calls: 2, input_tokens: 1099 });
+                store.close();
+            });
+        });
+
+        it("splits a session into separate groups when directory changes", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([
+                    record({ message_id: "m1", directory: "/proj/a" }),
+                    record({ message_id: "m2", directory: "/proj/b" }),
+                ]);
+                expect(read_rollup(db_path)).toHaveLength(2);
+                store.close();
+            });
+        });
+
+        it("keeps null directory as a single group (matches records GROUP BY)", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([
+                    record({ message_id: "m1", directory: null }),
+                    record({ message_id: "m2", directory: null }),
+                ]);
+                const rows = read_rollup(db_path);
+                expect(rows).toHaveLength(1);
+                expect(rows[0]).toMatchObject({ directory: null, calls: 2 });
+                store.close();
+            });
+        });
+    });
+
+    describe("backfill hour rollup (t192)", () => {
+        const read_rollup = (db_path: string): Record<string, unknown>[] => {
+            const raw = new Database(db_path, { readonly: true });
+            try {
+                return raw
+                    .prepare(
+                        "SELECT source, env, session_id, hour_start, model, directory, agent, calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens FROM token_stats_hour_rollup ORDER BY source, env, session_id, hour_start, model",
+                    )
+                    .all() as Record<string, unknown>[];
+            } finally {
+                raw.close();
+            }
+        };
+        const oracle_rollup = (db_path: string): Record<string, unknown>[] => {
+            const raw = new Database(db_path, { readonly: true });
+            try {
+                return raw
+                    .prepare(
+                        "SELECT source, env, session_id, (timestamp - ((timestamp + 28800000) % 3600000)) AS hour_start, model, directory, agent, COUNT(*) AS calls, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens, SUM(cache_read_tokens) AS cache_read_tokens, SUM(cache_write_tokens) AS cache_write_tokens FROM token_stats_records GROUP BY source, env, session_id, hour_start, model, directory, agent ORDER BY source, env, session_id, hour_start, model",
+                    )
+                    .all() as Record<string, unknown>[];
+            } finally {
+                raw.close();
+            }
+        };
+
+        it("rebuilds the full rollup, marks ready, and is idempotent", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([
+                    record({ message_id: "m1", timestamp: T0, input_tokens: 100 }),
+                    record({ message_id: "m2", timestamp: T0 + 3600000, input_tokens: 7 }),
+                    record({
+                        message_id: "m3",
+                        timestamp: T2,
+                        input_tokens: 5,
+                        directory: "/proj/b",
+                    }),
+                ]);
+                expect(store.is_hour_rollup_ready()).toBe(false);
+
+                store.backfill_hour_rollup();
+                expect(store.is_hour_rollup_ready()).toBe(true);
+
+                expect(read_rollup(db_path)).toEqual(oracle_rollup(db_path));
+
+                const count = read_rollup(db_path).length;
+                store.backfill_hour_rollup();
+                expect(read_rollup(db_path)).toHaveLength(count);
+                expect(store.is_hour_rollup_ready()).toBe(true);
+                store.close();
+            });
+        });
+
+        it("keeps rollup consistent with records after backfill + incremental upsert", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([record({ message_id: "m1", input_tokens: 100 })]);
+                store.backfill_hour_rollup();
+                store.upsert_records([record({ message_id: "m2", input_tokens: 7 })]);
+                expect(read_rollup(db_path)).toEqual(oracle_rollup(db_path));
+                store.close();
+            });
+        });
+
+        it("rebuilds from records after aggregate corruption with identical output (AC6)", () => {
+            const t = (iso: string): number => Date.parse(`${iso}Z`);
+            const status = { running: false, last_updated: null };
+            const query: TokenStatsDashboardQuery = {
+                agent: "all",
+                platform: "all",
+                start: t("2026-07-10T08:00:00"),
+                end: t("2026-07-11T08:00:00"),
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            };
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([
+                    record({
+                        message_id: "m1",
+                        timestamp: t("2026-07-10T08:30:00"),
+                        input_tokens: 100,
+                    }),
+                    record({
+                        message_id: "m2",
+                        timestamp: t("2026-07-10T09:15:00"),
+                        input_tokens: 7,
+                    }),
+                    record({
+                        message_id: "m3",
+                        timestamp: t("2026-07-11T00:30:00"),
+                        input_tokens: 5,
+                        directory: "/proj/b",
+                    }),
+                ]);
+                store.backfill_hour_rollup();
+                const before = store.query_dashboard(query, status);
+
+                // Corrupt the aggregate table out-of-band.
+                const raw = new Database(db_path);
+                raw.exec("UPDATE token_stats_hour_rollup SET input_tokens = 999999;");
+                raw.close();
+
+                store.backfill_hour_rollup();
+                const after = store.query_dashboard(query, status);
+                expect(after.current).toEqual(before.current);
+                expect(after.previous).toEqual(before.previous);
+                expect(after.chart).toEqual(before.chart);
+                expect(after.heatmap).toEqual(before.heatmap);
+                expect(after.sessions).toEqual(before.sessions);
+                store.close();
+            });
+        });
+    });
+
+    describe("rollup read scale vs per-message density (t192 AC5)", () => {
+        const t = (iso: string): number => Date.parse(`${iso}Z`);
+        const read_rollup_count = (db_path: string): number => {
+            const raw = new Database(db_path, { readonly: true });
+            try {
+                return (
+                    raw.prepare("SELECT COUNT(*) AS c FROM token_stats_hour_rollup").get() as {
+                        c: number;
+                    }
+                ).c;
+            } finally {
+                raw.close();
+            }
+        };
+        // 6 distinct (session, model, hour, directory) groups; density varies.
+        const groups: [string, string, string, string][] = [
+            ["s1", "sonnet", "/a", "2026-07-10T08:00:00"],
+            ["s1", "opus", "/a", "2026-07-10T09:00:00"],
+            ["s2", "sonnet", "/b", "2026-07-10T08:00:00"],
+            ["s2", "kimi", "/b", "2026-07-10T10:00:00"],
+            ["s3", "sonnet", "/c", "2026-07-10T08:00:00"],
+            ["s3", "opus", "/c", "2026-07-10T09:00:00"],
+        ];
+        const low = groups.flatMap(([session_id, model, directory, iso], i) => [
+            record({
+                message_id: `low-${String(i)}-0`,
+                session_id,
+                model,
+                directory,
+                timestamp: t(iso),
+            }),
+        ]);
+        const high = groups.flatMap(([session_id, model, directory, iso], i) =>
+            Array.from({ length: 100 }, (_, j) =>
+                record({
+                    message_id: `high-${String(i)}-${String(j)}`,
+                    session_id,
+                    model,
+                    directory,
+                    timestamp: t(iso) + j * 1000,
+                    input_tokens: j + 1,
+                }),
+            ),
+        );
+
+        it("keeps rollup rows and dashboard size flat as message density grows 100x", () => {
+            const run = (recs: AgentSessionUsageRecord[]): number[] => {
+                let chart_buckets = 0;
+                let session_total = 0;
+                with_temp_store((db_path) => {
+                    const store = create_token_stats_store(db_path);
+                    store.upsert_records(recs);
+                    store.backfill_hour_rollup();
+                    const rollup_rows = read_rollup_count(db_path);
+                    const query: TokenStatsDashboardQuery = {
+                        agent: "all",
+                        platform: "all",
+                        start: t("2026-07-10T08:00:00"),
+                        end: t("2026-07-10T11:00:00"),
+                        metric: "tokens",
+                        xaxis: "time",
+                        gran: "hour",
+                    };
+                    const dto = store.query_dashboard(query, {
+                        running: false,
+                        last_updated: null,
+                    });
+                    chart_buckets = dto.chart.bucket_starts.length;
+                    session_total = dto.sessions.total;
+                    expect(rollup_rows).toBe(groups.length);
+                    store.close();
+                });
+                return [chart_buckets, session_total];
+            };
+            const low_shape = run(low);
+            const high_shape = run(high);
+            expect(high_shape).toEqual(low_shape);
+            // Sanity: the high-density fixture really has 100x the messages.
+            expect(high.length).toBe(low.length * 100);
+        });
+    });
+
+    describe("dashboard aggregate read path (t192)", () => {
+        const t = (iso: string): number => Date.parse(`${iso}Z`);
+        const S = t("2026-07-10T07:30:00");
+        const E = t("2026-07-11T12:15:00");
+        const status = { running: false, last_updated: null };
+        const recs: AgentSessionUsageRecord[] = [
+            // 边界首小时（07:30–08:00 部分，本地 15:30–16:00）
+            record({
+                message_id: "a1",
+                session_id: "s1",
+                timestamp: t("2026-07-10T07:45:00"),
+                model: "sonnet-4",
+                directory: "/proj/a",
+                input_tokens: 10,
+            }),
+            record({
+                message_id: "a2",
+                session_id: "s1",
+                timestamp: t("2026-07-10T07:50:00"),
+                model: "sonnet-4",
+                directory: "/proj/a",
+                input_tokens: 20,
+            }),
+            // 完整小时 08:00（本地 16:00）
+            record({
+                message_id: "a3",
+                session_id: "s1",
+                timestamp: t("2026-07-10T08:30:00"),
+                model: "sonnet-4",
+                directory: "/proj/a",
+                input_tokens: 30,
+            }),
+            // 完整小时 09:00（本地 17:00）
+            record({
+                message_id: "b1",
+                session_id: "s2",
+                timestamp: t("2026-07-10T09:15:00"),
+                model: "opencode-latest",
+                directory: "/proj/b",
+                input_tokens: 40,
+                source: "opencode",
+                env: "wsl",
+                agent: "opencode",
+            }),
+            record({
+                message_id: "c1",
+                session_id: "s3",
+                timestamp: t("2026-07-10T09:40:00"),
+                model: "kimi-max",
+                directory: "/proj/c",
+                input_tokens: 50,
+                source: "kimi_code",
+                env: "win",
+                agent: "kimi-code",
+            }),
+            // 当天尾（本地 23:59）
+            record({
+                message_id: "d1",
+                session_id: "s4",
+                timestamp: t("2026-07-10T15:59:00"),
+                model: "sonnet-4",
+                directory: "/proj/a",
+                input_tokens: 60,
+                env: "wsl",
+            }),
+            // 次日 08:00（本地 08:00）
+            record({
+                message_id: "a4",
+                session_id: "s1",
+                timestamp: t("2026-07-11T00:30:00"),
+                model: "sonnet-4",
+                directory: "/proj/a",
+                input_tokens: 70,
+            }),
+            // 次日完整小时 12:00（本地 20:00）
+            record({
+                message_id: "b2",
+                session_id: "s2",
+                timestamp: t("2026-07-11T12:00:00"),
+                model: "opencode-latest",
+                directory: "/proj/b",
+                input_tokens: 80,
+                source: "opencode",
+                env: "wsl",
+                agent: "opencode",
+            }),
+            // 边界尾小时（12:00–12:15 部分，本地 20:00–20:15）
+            record({
+                message_id: "c2",
+                session_id: "s3",
+                timestamp: t("2026-07-11T12:10:00"),
+                model: "kimi-max",
+                directory: "/proj/c",
+                input_tokens: 90,
+                source: "kimi_code",
+                env: "win",
+                agent: "kimi-code",
+            }),
+            // previous 窗口 [S-width, S) 内一条，使 previous summary 非空
+            record({
+                message_id: "p1",
+                session_id: "s1",
+                timestamp: t("2026-07-09T08:00:00"),
+                model: "sonnet-4",
+                directory: "/proj/a",
+                input_tokens: 5,
+            }),
+        ];
+        const queries: TokenStatsDashboardQuery[] = [
+            {
+                agent: "all",
+                platform: "all",
+                start: S,
+                end: E,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            {
+                agent: "all",
+                platform: "all",
+                start: S,
+                end: E,
+                metric: "calls",
+                xaxis: "time",
+                gran: "day",
+            },
+            {
+                agent: "all",
+                platform: "all",
+                start: S,
+                end: E,
+                metric: "sessions",
+                xaxis: "time",
+                gran: "hour",
+            },
+            {
+                agent: "all",
+                platform: "all",
+                start: S,
+                end: E,
+                metric: "tokens",
+                xaxis: "project",
+                gran: "day",
+            },
+            {
+                agent: "all",
+                platform: "all",
+                start: S,
+                end: E,
+                metric: "tokens",
+                xaxis: "session",
+                gran: "hour",
+                session_offset: 1,
+                session_limit: 2,
+            },
+            {
+                agent: "all",
+                platform: "all",
+                start: S,
+                end: E,
+                metric: "tokens",
+                xaxis: "project",
+                gran: "day",
+                dir_aliases: [{ alias: "team-a", keys: ["/proj/a"] }],
+            },
+            {
+                agent: "claude-code",
+                platform: "all",
+                start: S,
+                end: E,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            {
+                agent: "all",
+                platform: "win",
+                start: S,
+                end: E,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            {
+                agent: "opencode",
+                platform: "wsl",
+                start: S,
+                end: E,
+                metric: "calls",
+                xaxis: "project",
+                gran: "day",
+            },
+            // 无完整小时的窗口（<1h，全走 records 边界段）
+            {
+                agent: "all",
+                platform: "all",
+                start: t("2026-07-10T07:35:00"),
+                end: t("2026-07-10T07:55:00"),
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+        ];
+
+        for (const q of queries) {
+            it(`matches the records fallback after backfill for ${JSON.stringify(q)}`, () => {
+                with_temp_store((db_path) => {
+                    const store = create_token_stats_store(db_path);
+                    store.upsert_records(recs);
+                    const before = store.query_dashboard(q, status);
+                    store.backfill_hour_rollup();
+                    expect(store.is_hour_rollup_ready()).toBe(true);
+                    const after = store.query_dashboard(q, status);
+                    expect(after.current).toEqual(before.current);
+                    expect(after.previous).toEqual(before.previous);
+                    expect(after.chart).toEqual(before.chart);
+                    expect(after.heatmap).toEqual(before.heatmap);
+                    expect(after.sessions).toEqual(before.sessions);
+                    store.close();
+                });
+            });
+        }
+
+        it("reports the committed data version in the DTO and bumps it once per batch (AC3)", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: S,
+                    end: E,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                };
+                expect(store.query_dashboard(query, status).data_version).toBe(0);
+                store.upsert_records([record({ message_id: "a1", timestamp: S })]);
+                expect(store.query_dashboard(query, status).data_version).toBe(1);
+                expect(store.query_dashboard(query, status).data_version).toBe(
+                    store.get_data_version(),
+                );
+                store.upsert_records([record({ message_id: "a2", timestamp: S + 1000 })]);
+                expect(store.query_dashboard(query, status).data_version).toBe(2);
+                store.close();
+            });
         });
     });
 });

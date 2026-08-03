@@ -300,10 +300,12 @@ void app.whenReady().then(async () => {
         const tokenStatsManager = create_token_stats_manager({
             store: tokenStatsStore,
             on_update: () => {
-                // Broadcast to all windows that token stats were updated
+                // Broadcast to all windows that token stats were updated,
+                // carrying the committed data version (t192).
+                const data_version = tokenStatsStore.get_data_version();
                 BrowserWindow.getAllWindows().forEach((win) => {
                     if (!win.isDestroyed()) {
-                        win.webContents.send(IPC_CHANNELS.TOKEN_STATS_UPDATED);
+                        win.webContents.send(IPC_CHANNELS.TOKEN_STATS_UPDATED, data_version);
                     }
                 });
             },

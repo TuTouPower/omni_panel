@@ -144,6 +144,7 @@ describe("token stats dashboard DTO schema", () => {
             },
             status: { running: true, last_updated: 1_500 },
             freshness: { queried_at: 1_600, stale: false },
+            data_version: 0,
         });
         expect(result.success).toBe(true);
     });
@@ -200,6 +201,7 @@ describe("token stats dashboard DTO schema", () => {
             sessions: { items: [session_item], total: 1, has_more: false },
             status: { running: true, last_updated: 1_500 },
             freshness: { queried_at: 1_600, stale: false },
+            data_version: 3,
         };
         expect(tokenStatsDashboardDtoSchema.safeParse(base).success).toBe(true);
         expect(

@@ -358,6 +358,9 @@ export const tokenStatsDashboardDtoSchema = z.object({
         queried_at: z.number().nonnegative(),
         stale: z.boolean(),
     }),
+    /** Monotonic committed-data version (t192); renderer compares against its
+     *  cached payload to decide staleness without trusting local clocks. */
+    data_version: z.number().int().nonnegative(),
 });
 
 export type TokenStatsDashboardAgent = z.infer<typeof tokenStatsDashboardAgentSchema>;
