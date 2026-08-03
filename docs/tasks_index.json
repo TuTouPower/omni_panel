@@ -122,6 +122,36 @@
             "schedule_status": "",
             "note": "P3+P4+P5",
             "dir": "docs/tasks/t196_refresh_semantics_popup_render_trim"
+        },
+        {
+            "tid": "t197",
+            "slug": "grok_token_stats_collect",
+            "title": "grok token-stats 数据采集（updates.jsonl 增量扫描入库）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "参考 cc-switch session_usage_grokbuild.rs；读 WSL grok updates.jsonl turn_completed 事件入 token-stats",
+            "dir": "docs/tasks/t197_grok_token_stats_collect"
+        },
+        {
+            "tid": "t198",
+            "slug": "grok_token_stats_display",
+            "title": "grok token-stats 面板展示（source/agent 筛选与图表）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "t197",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "前端 source/agent filter + label/color 扩展；依赖 t197 数据层",
+            "dir": "docs/tasks/t198_grok_token_stats_display"
         }
     ]
 }
