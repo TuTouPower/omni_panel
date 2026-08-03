@@ -1,0 +1,423 @@
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+    create_token_stats_store,
+    type TokenStatsStore,
+} from "../../../../../src/main/core/token-stats/token-stats-store";
+import type { AgentSessionUsageRecord } from "../../../../../src/shared/types/token-stats";
+
+const START = new Date("2026-07-10T08:00:00Z").getTime();
+const END = START + 60 * 60 * 1000;
+
+function record(overrides: Partial<AgentSessionUsageRecord> = {}): AgentSessionUsageRecord {
+    return {
+        session_id: "s1",
+        title: "title",
+        directory: "/project",
+        slug: null,
+        version: null,
+        parent_session_id: null,
+        message_id: "m1",
+        role: "assistant",
+        timestamp: START + 1_000,
+        model: "sonnet",
+        input_tokens: 10,
+        output_tokens: 5,
+        cache_read_tokens: 2,
+        cache_write_tokens: 1,
+        agent: "claude-code",
+        source: "claude_code",
+        env: "win",
+        ...overrides,
+    };
+}
+
+describe("token stats dashboard query", () => {
+    let store: TokenStatsStore;
+
+    beforeEach(() => {
+        store = create_token_stats_store(":memory:");
+    });
+
+    afterEach(() => {
+        store.close();
+    });
+
+    it("returns one bounded DTO with complete current and previous aggregates", () => {
+        store.upsert_records([
+            record({ message_id: "cur-1" }),
+            record({
+                message_id: "cur-2",
+                timestamp: START + 2_000,
+                model: "opus",
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            }),
+            record({
+                message_id: "prev-1",
+                timestamp: START - 1_000,
+                input_tokens: 3,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            }),
+        ]);
+
+        const dashboard = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+
+        expect(dashboard.current).toMatchObject({ tokens: 18, sessions: 1, calls: 2 });
+        expect(dashboard.previous).toMatchObject({ tokens: 3, sessions: 1, calls: 1 });
+        expect(dashboard.chart.series.flatMap((s) => s.data).reduce((a, b) => a + b, 0)).toBe(18);
+        expect(dashboard.sessions.items).toHaveLength(1);
+        expect(dashboard.status.running).toBe(true);
+        expect(dashboard.freshness.stale).toBe(false);
+    });
+
+    it("uses half-open current and previous windows at exact boundaries", () => {
+        const start = 1_000;
+        const end = 2_000;
+        store.upsert_records([
+            record({ message_id: "current-start", timestamp: start }),
+            record({ message_id: "current-end-minus-one", timestamp: end - 1 }),
+            record({ message_id: "excluded-end", timestamp: end }),
+            record({ message_id: "previous-start", timestamp: start - (end - start) }),
+        ]);
+
+        const result = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start,
+                end,
+                metric: "calls",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: false, last_updated: null },
+        );
+
+        expect(result.current.calls).toBe(2);
+        expect(result.previous.calls).toBe(1);
+    });
+
+    it("keeps high-density DTO dimensions bounded by aggregate groups", () => {
+        store.upsert_records(
+            Array.from({ length: 2_000 }, (_, index) =>
+                record({
+                    message_id: `dense-${String(index)}`,
+                    timestamp: START + (index % 1000),
+                }),
+            ),
+        );
+
+        const result = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "session",
+                gran: "day",
+            },
+            { running: true, last_updated: null },
+        );
+
+        expect(result.current.calls).toBe(2_000);
+        expect(result.current.sessions).toBe(1);
+        expect(result.sessions.items).toHaveLength(1);
+        expect(result.sessions.total).toBe(1);
+        expect(result.chart.labels).toHaveLength(1);
+        expect(result.current.model_token_totals).toHaveLength(1);
+        expect(JSON.stringify(result).length).toBeLessThan(10_000);
+    });
+
+    it("keeps summary totals complete when model cardinality exceeds the visible top five", () => {
+        store.upsert_records(
+            Array.from({ length: 21 }, (_, index) =>
+                record({
+                    message_id: `model-${String(index)}`,
+                    model: `model-${String(index)}`,
+                    input_tokens: index + 1,
+                    output_tokens: 0,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                }),
+            ),
+        );
+
+        const result = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+
+        expect(result.current.model_token_totals).toHaveLength(6);
+        expect(result.current.model_token_totals.at(-1)).toEqual({ key: "其他", value: 136 });
+        expect(result.current.model_token_totals.reduce((sum, item) => sum + item.value, 0)).toBe(
+            result.current.tokens,
+        );
+    });
+
+    it("applies model aliases before top-five aggregation", () => {
+        store.upsert_records(
+            Array.from({ length: 6 }, (_, index) =>
+                record({
+                    message_id: `alias-${String(index)}`,
+                    model: `m${String(index + 1)}`,
+                    input_tokens: [100, 90, 80, 70, 60, 1][index] ?? 0,
+                    output_tokens: 0,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                }),
+            ),
+        );
+
+        const result = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+                model_aliases: [{ alias: "X", keys: ["m1", "m6"] }],
+            },
+            { running: true, last_updated: null },
+        );
+
+        expect(result.current.model_token_totals).toContainEqual({ key: "X", value: 101 });
+        const alias_series = result.chart.series.find((series) => series.name === "X");
+        expect(alias_series?.data.reduce((sum, value) => sum + value, 0)).toBe(101);
+    });
+    it("pages session summaries without expanding the dashboard payload", () => {
+        store.upsert_records(
+            Array.from({ length: 101 }, (_, index) =>
+                record({
+                    session_id: `page-${String(index)}`,
+                    message_id: `page-message-${String(index)}`,
+                    timestamp: START + index,
+                }),
+            ),
+        );
+
+        const result = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+                session_offset: 100,
+                session_limit: 1,
+            },
+            { running: true, last_updated: null },
+        );
+
+        expect(result.sessions.items).toHaveLength(1);
+        expect(result.sessions.total).toBe(101);
+        // offset 100 is the last row: nothing remains beyond the returned page.
+        expect(result.sessions.has_more).toBe(false);
+        expect(result.query.session_offset).toBe(100);
+    });
+    it("reports has_more when a bounded page does not reach the tail", () => {
+        store.upsert_records(
+            Array.from({ length: 101 }, (_, index) =>
+                record({
+                    session_id: `mid-${String(index)}`,
+                    message_id: `mid-message-${String(index)}`,
+                    timestamp: START + index,
+                }),
+            ),
+        );
+
+        const result = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+                session_offset: 0,
+                session_limit: 100,
+            },
+            { running: true, last_updated: null },
+        );
+
+        expect(result.sessions.items).toHaveLength(100);
+        expect(result.sessions.total).toBe(101);
+        expect(result.sessions.has_more).toBe(true);
+    });
+    it("matches an independent raw-record oracle for current and previous windows", () => {
+        const width = END - START;
+        const records = [
+            record({ message_id: "cur-1", timestamp: START }),
+            record({
+                message_id: "cur-2",
+                timestamp: START + width - 1,
+                model: "opus",
+                input_tokens: 20,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            }),
+            record({ message_id: "prev-1", timestamp: START - 1, input_tokens: 7 }),
+            record({ message_id: "prev-2", timestamp: START - width, input_tokens: 3 }),
+            record({ message_id: "excluded-end", timestamp: END }),
+            record({ message_id: "excluded-prev", timestamp: START - width - 1 }),
+        ];
+        store.upsert_records(records);
+
+        const result = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+
+        const tokens_of = (rows: typeof records) =>
+            rows.reduce(
+                (sum, row) =>
+                    sum +
+                    row.input_tokens +
+                    row.output_tokens +
+                    row.cache_read_tokens +
+                    row.cache_write_tokens,
+                0,
+            );
+        const sessions_of = (rows: typeof records) =>
+            new Set(rows.map((row) => `${row.source}|${row.env}|${row.session_id}`)).size;
+        const in_window = (rows: typeof records, start: number, end: number) =>
+            rows.filter((row) => row.timestamp >= start && row.timestamp < end);
+
+        const current_rows = in_window(records, START, END);
+        const previous_rows = in_window(records, START - width, START);
+        expect(result.current.tokens).toBe(tokens_of(current_rows));
+        expect(result.current.sessions).toBe(sessions_of(current_rows));
+        expect(result.current.calls).toBe(current_rows.length);
+        expect(result.previous.tokens).toBe(tokens_of(previous_rows));
+        expect(result.previous.sessions).toBe(sessions_of(previous_rows));
+        expect(result.previous.calls).toBe(previous_rows.length);
+    });
+    it("keeps the DTO flat as message count grows under a fixed grouping", () => {
+        const query = {
+            agent: "all",
+            platform: "all",
+            start: START,
+            end: END,
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+        } as const;
+        store.upsert_records(
+            Array.from({ length: 500 }, (_, index) =>
+                record({
+                    message_id: `grow-500-${String(index)}`,
+                    timestamp: START + (index % 50),
+                }),
+            ),
+        );
+        const size_500 = JSON.stringify(
+            store.query_dashboard(query, { running: true, last_updated: null }),
+        ).length;
+        store.upsert_records(
+            Array.from({ length: 1500 }, (_, index) =>
+                record({
+                    message_id: `grow-2000-${String(index)}`,
+                    timestamp: START + (index % 50),
+                }),
+            ),
+        );
+        const size_2000 = JSON.stringify(
+            store.query_dashboard(query, { running: true, last_updated: null }),
+        ).length;
+        // 4x more messages, same 1 bucket / 1 session / 1 model grouping: the DTO
+        // only grows by the few digits in the numeric counters, never linearly.
+        expect(size_2000).toBeLessThanOrEqual(size_500 + 500);
+    });
+    it("counts sessions by source and platform identity in time chart and heatmap", () => {
+        store.upsert_records([
+            record({ message_id: "same-win", source: "claude_code", env: "win" }),
+            record({ message_id: "same-wsl", source: "opencode", env: "wsl", agent: "opencode" }),
+        ]);
+
+        const result = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "sessions",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+
+        expect(result.current.sessions).toBe(2);
+        expect(
+            result.chart.series.flatMap((series) => series.data).reduce((a, b) => a + b, 0),
+        ).toBe(2);
+        expect(result.heatmap.reduce((sum, cell) => sum + cell.sessions, 0)).toBe(2);
+    });
+
+    it("uses one range and filter semantic across platform and agent", () => {
+        store.upsert_records([
+            record({ message_id: "win", agent: "claude-code", source: "claude_code", env: "win" }),
+            record({
+                message_id: "wsl",
+                agent: "opencode",
+                source: "opencode",
+                env: "wsl",
+            }),
+        ]);
+
+        const dashboard = store.query_dashboard(
+            {
+                agent: "opencode",
+                platform: "wsl",
+                start: START,
+                end: END,
+                metric: "calls",
+                xaxis: "project",
+                gran: "day",
+            },
+            { running: false, last_updated: 42 },
+        );
+
+        expect(dashboard.current.calls).toBe(1);
+        expect(dashboard.current.agent_totals).toEqual([{ key: "opencode", value: 18 }]);
+        expect(dashboard.sessions.items[0]?.env).toBe("wsl");
+        expect(dashboard.status).toEqual({ running: false, last_updated: 42 });
+    });
+});

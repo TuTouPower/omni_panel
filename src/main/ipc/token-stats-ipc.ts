@@ -9,8 +9,13 @@ import type {
     TokenStatsRecordFilters,
     TokenStatsRollupFilters,
     TokenStatsSession,
+    TokenStatsDashboardDto,
 } from "../../shared/types/token-stats";
-import { ok, assert_valid_sender, type IpcResult } from "./helpers";
+import {
+    tokenStatsDashboardDtoSchema,
+    tokenStatsDashboardQuerySchema,
+} from "../../shared/types/token-stats";
+import { ok, fail, assert_valid_sender, type IpcResult } from "./helpers";
 import type { TokenStatsStore } from "../core/token-stats/token-stats-store";
 import type { TokenStatsManager } from "../core/token-stats/manager";
 
@@ -92,6 +97,31 @@ export function registerTokenStatsIpc(
         ): IpcResult<ReturnType<TokenStatsStore["query_range_rollup"]>> => {
             assert_valid_sender(event);
             return ok(deps.store.query_range_rollup(filters ?? {}));
+        },
+    );
+
+    ipc.handle(
+        IPC_CHANNELS.TOKEN_STATS_DASHBOARD,
+        (event: IpcMainInvokeEvent, raw_query: unknown): IpcResult<TokenStatsDashboardDto> => {
+            assert_valid_sender(event);
+            const parsed_query = tokenStatsDashboardQuerySchema.safeParse(raw_query);
+            if (!parsed_query.success) {
+                return fail("INVALID_ARGUMENT", "Invalid token stats dashboard query");
+            }
+            try {
+                const status = {
+                    running: deps.manager.is_running(),
+                    last_updated: deps.store.last_updated(),
+                };
+                const dto = deps.store.query_dashboard(parsed_query.data, status);
+                const parsed_dto = tokenStatsDashboardDtoSchema.safeParse(dto);
+                if (!parsed_dto.success) {
+                    return fail("INVALID_RESPONSE", "Invalid token stats dashboard response");
+                }
+                return ok(parsed_dto.data);
+            } catch {
+                return fail("QUERY_FAILED", "Token stats dashboard query failed");
+            }
         },
     );
 

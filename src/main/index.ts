@@ -393,6 +393,7 @@ void app.whenReady().then(async () => {
             : join(app.getAppPath(), "out", "web");
         const local_api: LocalAPIServer = create_local_api_server(observationStore, {
             token_stats_store: tokenStatsStore,
+            token_stats_running: () => tokenStatsManager.is_running(),
             config_deps: { configStore, secretsStore, secretParamKeys, onConfigSaved },
             connector_deps: {
                 configStore,

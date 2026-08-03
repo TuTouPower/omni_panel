@@ -646,7 +646,7 @@ describe("token-stats-store", () => {
     });
 
     describe("migration v4 (records env+timestamp index)", () => {
-        it("creates idx_records_env_ts and bumps user_version to 4 on legacy DB", () => {
+        it("creates idx_records_env_ts and bumps user_version through latest migration on legacy DB", () => {
             const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-store-mig4-"));
             try {
                 const db_path = path.join(dir, "obs.sqlite");
@@ -663,7 +663,7 @@ describe("token-stats-store", () => {
 
                 const check = new Database(db_path);
                 check.pragma("wal_checkpoint(TRUNCATE)");
-                expect(check.pragma("user_version", { simple: true })).toBe(4);
+                expect(check.pragma("user_version", { simple: true })).toBe(5);
                 const idx = check
                     .prepare(
                         "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_records_env_ts'",
@@ -780,8 +780,8 @@ describe("token-stats-store", () => {
 
                 const check = new Database(db_path);
                 check.pragma("wal_checkpoint(TRUNCATE)");
-                // Pre-migration DB reopened → all migrations run to latest (v4).
-                expect(check.pragma("user_version", { simple: true })).toBe(4);
+                // Pre-migration DB reopened → all migrations run to latest (v5).
+                expect(check.pragma("user_version", { simple: true })).toBe(5);
                 for (const table of [
                     "token_stats_daily",
                     "token_stats_buckets",

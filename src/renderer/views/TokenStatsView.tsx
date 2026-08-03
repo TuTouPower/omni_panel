@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
-    AgentSessionUsage,
-    TokenStatsBucket,
+    TokenStatsDashboardDto,
+    TokenStatsDashboardSessionSummary,
     TokenStatsEnv,
-    TokenStatsHeatmapCell,
-    TokenStatsHourBucket,
-    TokenStatsRollupRow,
-    TokenStatsSession,
 } from "../../shared/types/token-stats";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
 import { MetricDonut } from "../components/token-stats/MetricDonut";
@@ -15,35 +11,8 @@ import { Heatmap } from "../components/token-stats/Heatmap";
 import { SessionTable } from "../components/token-stats/SessionTable";
 import { Segmented } from "../components/token-stats/Segmented";
 import { RangePicker } from "../components/token-stats/RangePicker";
-import { filtered } from "../lib/token-stats/filter";
-import {
-    metricValue,
-    hitRateOf,
-    prevRangeRecords,
-    sessionRowsFromSessions,
-} from "../lib/token-stats/aggregate";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
-import {
-    agentSegments,
-    agentSegmentsFromBuckets,
-    agentSegmentsFromRollup,
-    compositionSegments,
-    compositionSegmentsFromBuckets,
-    compositionSegmentsFromRollup,
-    hitRateOfRollup,
-    kpiFromBuckets,
-    kpiFromRollup,
-    modelColorMapFromBuckets,
-    modelSegments,
-    modelSegmentsFromBuckets,
-    modelSegmentsFromRollup,
-    oneValue,
-    projectSegmentsFromSessions,
-    rollupCallValue,
-    sumTokensRollup,
-    sumTokensValue,
-} from "../lib/token-stats/chart-data";
-import type { AgentFilter, Granularity, Metric, XAxis } from "../lib/token-stats/types";
+import type { AgentFilter, Granularity, Metric, SessionRow, XAxis } from "../lib/token-stats/types";
 import {
     create_token_stats_query_cache,
     type TokenStatsQueryKey,
@@ -52,25 +21,10 @@ import "../styles/token-stats.css";
 
 const MODULE = "TokenStatsView";
 
-/** Map agent filter (kebab) to token_stats source (snake). */
-const AGENT_TO_SOURCE: Record<Exclude<AgentFilter, "all">, string> = {
-    "claude-code": "claude_code",
-    opencode: "opencode",
-    "kimi-code": "kimi_code",
-};
-
-/** epoch ms -> YYYY-MM-DD (UTC) to match bucket_date (daily table is UTC-dated). */
-function utc_date(ms: number): string {
-    const d = new Date(ms);
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(d.getUTCDate()).padStart(2, "0");
-    return `${String(y)}-${m}-${day}`;
-}
-
 type Theme = "dark" | "light";
 type RangePreset = "24h" | "7d" | "30d";
 type PlatformFilter = "all" | TokenStatsEnv;
+const SESSION_QUERY_LIMIT = 100;
 
 const AGENT_OPTIONS: { value: AgentFilter; label: string }[] = [
     { value: "all", label: "全部工具" },
@@ -151,13 +105,78 @@ interface TokenStatsPrefs {
 }
 
 interface TokenStatsQueryData {
-    records: AgentSessionUsage[];
-    heat_cells: TokenStatsHeatmapCell[];
-    hour_buckets: TokenStatsHourBucket[];
-    buckets: TokenStatsBucket[];
-    sessions: TokenStatsSession[];
-    rollup: TokenStatsRollupRow[];
-    prev_rollup: TokenStatsRollupRow[];
+    dashboard: TokenStatsDashboardDto;
+}
+
+function dashboard_segments(
+    values: readonly { key: string; value: number }[],
+    theme: Theme,
+): { name: string; value: number; itemStyle: { color: string } }[] {
+    const colors = ["#7c6cf6", "#4cc2ff", "#3ddc97", "#ffb454", "#f56cc6"];
+    const top = values.slice(0, 5).map((item, index) => ({
+        name: item.key,
+        value: item.value,
+        itemStyle: { color: colors[index] ?? (theme === "dark" ? "#46506a" : "#98a0b4") },
+    }));
+    const other_value = values.slice(5).reduce((sum, item) => sum + item.value, 0);
+    if (other_value > 0) {
+        top.push({
+            name: "其他",
+            value: other_value,
+            itemStyle: { color: theme === "dark" ? "#46506a" : "#98a0b4" },
+        });
+    }
+    return top;
+}
+
+function effective_granularity(
+    preset: RangePreset | null,
+    custom: { start: number; end: number } | null,
+    gran: Granularity,
+): Granularity {
+    if (custom) return gran;
+    return preset === "24h" ? "hour" : "day";
+}
+
+function dashboard_session_rows(items: readonly TokenStatsDashboardSessionSummary[]): SessionRow[] {
+    return items.map((item) => {
+        const tokens =
+            item.input_tokens +
+            item.output_tokens +
+            item.cache_read_tokens +
+            item.cache_write_tokens;
+        const input_with_cache = item.input_tokens + item.cache_read_tokens;
+        return {
+            session_id: item.session_id,
+            identity_key: `${item.source}|${item.env}|${item.session_id}`,
+            title: item.title ?? "(无标题)",
+            slug: null,
+            directory: item.directory ?? "—",
+            agent: item.source.replace(/_/g, "-"),
+            version: null,
+            sub: false,
+            models: [...item.models],
+            calls: item.calls,
+            tokens,
+            cacheRate: input_with_cache ? item.cache_read_tokens / input_with_cache : 0,
+            lastTs: item.ended_at,
+        };
+    });
+}
+
+function dashboard_model_colors(
+    values: readonly { key: string; value: number }[],
+    theme: Theme,
+): Map<string, string> {
+    const colors = ["#7c6cf6", "#4cc2ff", "#3ddc97", "#ffb454", "#f56cc6"];
+    return new Map(
+        values
+            .slice(0, 5)
+            .map((item, index) => [
+                item.key,
+                colors[index] ?? (theme === "dark" ? "#46506a" : "#98a0b4"),
+            ]),
+    );
 }
 
 const TOKEN_STATS_CACHE_MAX_ENTRIES = 8;
@@ -183,16 +202,11 @@ function save_prefs(p: TokenStatsPrefs): void {
 
 export function TokenStatsView() {
     const saved = useMemo(() => load_prefs(), []);
-    const [records, setRecords] = useState<AgentSessionUsage[]>([]);
-    const [heatCells, setHeatCells] = useState<TokenStatsHeatmapCell[]>([]);
-    const [hourBuckets, setHourBuckets] = useState<TokenStatsHourBucket[]>([]);
-    const [buckets, setBuckets] = useState<TokenStatsBucket[]>([]);
-    const [sessions, setSessions] = useState<TokenStatsSession[]>([]);
-    const [rollup, setRollup] = useState<TokenStatsRollupRow[]>([]);
-    const [prevRollup, setPrevRollup] = useState<TokenStatsRollupRow[]>([]);
+    const [dashboard, setDashboard] = useState<TokenStatsDashboardDto | null>(null);
     const [status, setStatus] = useState<TokenStatsStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [agent, setAgent] = useState<AgentFilter>(saved.agent ?? "all");
     const [platform, setPlatform] = useState<PlatformFilter>(saved.platform ?? "all");
     const [preset, setPreset] = useState<RangePreset | null>(saved.preset ?? "30d");
@@ -203,6 +217,16 @@ export function TokenStatsView() {
     const [theme, setTheme] = useState<Theme>(readSavedTheme());
     const [dirAliases, setDirAliases] = useState<{ alias: string; dirs: string[] }[]>([]);
     const [modelAliases, setModelAliases] = useState<{ alias: string; models: string[] }[]>([]);
+    const effective_xaxis = metric === "sessions" ? "time" : xaxis;
+    const effective_gran = effective_granularity(preset, custom, gran);
+    const alias_fingerprint = useMemo(
+        () =>
+            JSON.stringify({
+                dir: dirAliases.map(({ alias, dirs }) => ({ alias, keys: dirs })),
+                model: modelAliases.map(({ alias, models }) => ({ alias, keys: models })),
+            }),
+        [dirAliases, modelAliases],
+    );
     const query_cache = useMemo(
         () =>
             create_token_stats_query_cache<TokenStatsQueryData>({
@@ -212,29 +236,12 @@ export function TokenStatsView() {
     );
     const load_request_id = useRef(0);
     const has_loaded_data = useRef(false);
-    const status_inflight = useRef<Promise<TokenStatsStatus> | null>(null);
     const preset_ranges = useRef<
         Partial<Record<RangePreset, { start: number; end: number; captured_at: number }>>
     >({});
     const [preset_range_revision, set_preset_range_revision] = useState(0);
-    const range_refresh_key = `${agent}|${platform}|${metric}|${xaxis}|${gran}`;
-
-    const load_status = useCallback((): Promise<TokenStatsStatus> => {
-        const current = status_inflight.current;
-        if (current) return current;
-
-        const promise = window.usageboard.tokenStats.getStatus();
-        status_inflight.current = promise;
-        void promise.then(
-            () => {
-                if (status_inflight.current === promise) status_inflight.current = null;
-            },
-            () => {
-                if (status_inflight.current === promise) status_inflight.current = null;
-            },
-        );
-        return promise;
-    }, []);
+    const [session_offset, set_session_offset] = useState(0);
+    const range_refresh_key = `${agent}|${platform}|${metric}|${effective_xaxis}|${effective_gran}`;
 
     const currentRange = useMemo(() => {
         void preset_range_revision;
@@ -251,14 +258,9 @@ export function TokenStatsView() {
         }
         return { start: 0, end: Date.now() };
     }, [custom, preset, preset_range_revision, range_refresh_key]);
-    // Short windows (<=25h) cannot be split symmetrically on day-granular
-    // buckets, so KPI/donut deltas fall back to per-message records there.
-    const is_short_window = currentRange.end - currentRange.start <= 25 * 3600000;
-    // The 24h preset reads KPI/donut/project/session axes from the bounded
-    // rollup aggregate (t184) so high-density windows keep their complete
-    // window instead of LIMIT-truncated per-message records (p020). Custom
-    // short windows stay on the records path.
-    const use_rollup_summary = preset === "24h";
+
+    const session_query_identity = `${agent}|${platform}|${String(currentRange.start)}|${String(currentRange.end)}|${metric}|${effective_xaxis}|${effective_gran}|${alias_fingerprint}`;
+    const last_session_query_identity = useRef<string | null>(null);
 
     const updatedAgo = useMemo(() => {
         if (!status?.last_updated) return null;
@@ -267,13 +269,9 @@ export function TokenStatsView() {
 
     const apply_query_data = useCallback((data: TokenStatsQueryData): void => {
         has_loaded_data.current = true;
-        setRecords(data.records);
-        setHeatCells(data.heat_cells);
-        setHourBuckets(data.hour_buckets);
-        setBuckets(data.buckets);
-        setSessions(data.sessions);
-        setRollup(data.rollup);
-        setPrevRollup(data.prev_rollup);
+        setError(null);
+        setDashboard(data.dashboard);
+        setStatus(data.dashboard.status);
     }, []);
 
     const apply_config_aliases = useCallback(
@@ -300,38 +298,21 @@ export function TokenStatsView() {
     const loadData = useCallback(
         async (silent = false) => {
             const request_id = ++load_request_id.current;
-            const env_filter = platform === "all" ? {} : { env: platform };
-            // buckets/sessions filters accept `source` (snake); records filter
-            // accepts `agent` (kebab). Map the agent selector to both.
-            const source_filter = agent === "all" ? {} : { source: AGENT_TO_SOURCE[agent] };
-            const agent_filter = agent === "all" ? {} : { agent };
-            // Pull buckets across [start - width, end] so the renderer can
-            // derive both the current window and the equal-width prior
-            // window (for delta arrows) by splitting on bucket_date.
-            const width = Math.max(0, currentRange.end - currentRange.start);
-            const bucket_filter = {
-                ...env_filter,
-                ...source_filter,
-                from_date: utc_date(currentRange.start - width),
-                to_date: utc_date(currentRange.end),
-            };
-            const records_fetch = is_short_window
-                ? { start: currentRange.start - width, end: currentRange.end, limit: 50000 }
-                : { start: currentRange.start, end: currentRange.end, limit: 100000 };
-            const time_axis = metric === "sessions" || xaxis === "time";
-            const query_mode = [
-                use_rollup_summary ? "rollup" : "records",
-                time_axis && gran === "hour" ? "hour" : "no-hour",
-            ].join(":");
+            const query_session_offset =
+                last_session_query_identity.current === session_query_identity ? session_offset : 0;
+            last_session_query_identity.current = session_query_identity;
+            if (query_session_offset !== session_offset) set_session_offset(0);
             const query_key: TokenStatsQueryKey = {
                 agent,
                 platform,
                 range_start: currentRange.start,
                 range_end: currentRange.end,
                 metric,
-                xaxis,
-                gran,
-                query_mode,
+                xaxis: effective_xaxis,
+                gran: effective_gran,
+                query_mode: "dashboard",
+                alias_fingerprint,
+                session_offset: query_session_offset,
             };
             const cached = query_cache.peek(query_key);
             if (cached) {
@@ -339,95 +320,46 @@ export function TokenStatsView() {
                 setLoading(false);
                 setRefreshing(cached.stale);
             } else {
-                if (!silent && !has_loaded_data.current) {
-                    setLoading(true);
-                }
+                if (!silent && !has_loaded_data.current) setLoading(true);
                 setRefreshing(has_loaded_data.current);
             }
 
             try {
-                const result = await query_cache.load(query_key, async () => {
-                    const hour_fetch =
-                        gran !== "hour" || !time_axis
-                            ? Promise.resolve([] as TokenStatsHourBucket[])
-                            : window.usageboard.tokenStats.getHourBuckets({
-                                  ...env_filter,
-                                  ...agent_filter,
-                                  start: currentRange.start,
-                                  end: currentRange.end,
-                              });
-                    // 24h KPI/donut/project/session axes consume the bounded rollup
-                    // aggregate (t184) instead of per-message records.
-                    const rollup_fetch = use_rollup_summary
-                        ? Promise.all([
-                              window.usageboard.tokenStats.getRangeRollup({
-                                  ...env_filter,
-                                  ...agent_filter,
-                                  start: currentRange.start,
-                                  end: currentRange.end,
-                              }),
-                              window.usageboard.tokenStats.getRangeRollup({
-                                  ...env_filter,
-                                  ...agent_filter,
-                                  start: currentRange.start - width,
-                                  end: currentRange.start,
-                              }),
-                          ])
-                        : Promise.resolve([[], []] as [
-                              TokenStatsRollupRow[],
-                              TokenStatsRollupRow[],
-                          ]);
-                    const [recs, cells, hour_bkts, bkts, sess, [rollup_rows, prev_rollup_rows]] =
-                        await Promise.all([
-                            window.usageboard.tokenStats.getRecords({
-                                ...env_filter,
-                                ...agent_filter,
-                                ...records_fetch,
-                            }),
-                            window.usageboard.tokenStats.getHeatmap({
-                                ...env_filter,
-                                ...agent_filter,
-                                start: currentRange.start,
-                                end: currentRange.end,
-                            }),
-                            hour_fetch,
-                            window.usageboard.tokenStats.getBuckets(bucket_filter),
-                            window.usageboard.tokenStats.getSessions({
-                                ...env_filter,
-                                ...source_filter,
-                                limit: 500,
-                            }),
-                            rollup_fetch,
-                        ]);
-                    return {
-                        records: recs,
-                        heat_cells: cells,
-                        hour_buckets: hour_bkts,
-                        buckets: bkts,
-                        sessions: sess,
-                        rollup: rollup_rows,
-                        prev_rollup: prev_rollup_rows,
-                    };
-                });
+                const result = await query_cache.load(query_key, async () => ({
+                    dashboard: await window.usageboard.tokenStats.getDashboard({
+                        agent,
+                        platform,
+                        start: currentRange.start,
+                        end: currentRange.end,
+                        metric,
+                        xaxis: effective_xaxis,
+                        gran: effective_gran,
+                        session_offset: query_session_offset,
+                        session_limit: SESSION_QUERY_LIMIT,
+                        ...(dirAliases.length
+                            ? {
+                                  dir_aliases: dirAliases.map(({ alias, dirs }) => ({
+                                      alias,
+                                      keys: dirs,
+                                  })),
+                              }
+                            : {}),
+                        ...(modelAliases.length
+                            ? {
+                                  model_aliases: modelAliases.map(({ alias, models }) => ({
+                                      alias,
+                                      keys: models,
+                                  })),
+                              }
+                            : {}),
+                    }),
+                }));
                 if (request_id !== load_request_id.current) return;
-                if (!cached || cached.stale) {
-                    apply_query_data(result.data);
-                }
-                void load_status().then(
-                    (latest_status) => {
-                        if (request_id === load_request_id.current) setStatus(latest_status);
-                    },
-                    (err: unknown) => {
-                        if (request_id !== load_request_id.current) return;
-                        window.usageboard.log({
-                            level: "error",
-                            module: MODULE,
-                            message: `Failed to load token stats status: ${err instanceof Error ? err.message : String(err)}`,
-                        });
-                    },
-                );
+                if (!cached || cached.stale) apply_query_data(result.data);
             } catch (err: unknown) {
                 if (request_id !== load_request_id.current) return;
+                const message = err instanceof Error ? err.message : String(err);
+                setError(message);
                 window.usageboard.log({
                     level: "error",
                     module: MODULE,
@@ -442,16 +374,18 @@ export function TokenStatsView() {
         },
         [
             agent,
+            alias_fingerprint,
             apply_query_data,
             currentRange,
-            gran,
-            is_short_window,
-            load_status,
+            dirAliases,
+            effective_gran,
+            effective_xaxis,
             metric,
+            modelAliases,
             platform,
             query_cache,
-            use_rollup_summary,
-            xaxis,
+            session_offset,
+            session_query_identity,
         ],
     );
 
@@ -506,73 +440,64 @@ export function TokenStatsView() {
         save_prefs({ agent, platform, preset, metric, xaxis, gran });
     }, [agent, platform, preset, metric, xaxis, gran]);
 
-    const agentFiltered = useMemo(
-        () => records.filter((r) => agent === "all" || r.agent === agent),
-        [records, agent],
+    const currentSessionRows = useMemo(
+        () => dashboard_session_rows(dashboard?.sessions.items ?? []),
+        [dashboard],
     );
-
-    const currentRecords = useMemo(
-        () => filtered(agentFiltered, { agent: "all", ...currentRange }),
-        [agentFiltered, currentRange],
+    const currentKpi = dashboard?.current ?? { tokens: 0, sessions: 0, calls: 0 };
+    const prevKpi = dashboard?.previous ?? { tokens: 0, sessions: 0, calls: 0 };
+    const currentSummary = dashboard?.current;
+    const previousSummary = dashboard?.previous;
+    const currentComp = currentSummary
+        ? [
+              {
+                  name: "cache_read",
+                  value: currentSummary.cache_read_tokens,
+                  itemStyle: { color: "#3ddc97" },
+              },
+              {
+                  name: "input",
+                  value: currentSummary.input_tokens,
+                  itemStyle: { color: "#4cc2ff" },
+              },
+              {
+                  name: "cache_write",
+                  value: currentSummary.cache_write_tokens,
+                  itemStyle: { color: "#ffb454" },
+              },
+              {
+                  name: "output",
+                  value: currentSummary.output_tokens,
+                  itemStyle: { color: "#7c6cf6" },
+              },
+          ].filter((item) => item.value > 0)
+        : [];
+    const compInput = currentSummary?.input_tokens ?? 0;
+    const compCacheRead = currentSummary?.cache_read_tokens ?? 0;
+    const hitRate = compCacheRead + compInput > 0 ? compCacheRead / (compCacheRead + compInput) : 0;
+    const prevInput = previousSummary?.input_tokens ?? 0;
+    const prevCacheRead = previousSummary?.cache_read_tokens ?? 0;
+    const prevHitRate =
+        prevCacheRead + prevInput > 0 ? prevCacheRead / (prevCacheRead + prevInput) : 0;
+    const totalTokens = currentKpi.tokens;
+    const totalSessions = currentKpi.sessions;
+    const totalCalls = currentKpi.calls;
+    const prevTokens = prevKpi.tokens;
+    const prevSessions = prevKpi.sessions;
+    const prevCalls = prevKpi.calls;
+    const agentSegmentsData = dashboard_segments(currentSummary?.agent_totals ?? [], theme);
+    const modelTokenSegs = dashboard_segments(currentSummary?.model_token_totals ?? [], theme);
+    const modelCallSegs = dashboard_segments(currentSummary?.model_call_totals ?? [], theme);
+    const modelColors = dashboard_model_colors(currentSummary?.model_token_totals ?? [], theme);
+    const currentRecords: never[] = [];
+    const currentBuckets: never[] = [];
+    const hourBuckets: never[] = [];
+    const rollup: never[] = [];
+    const topAgentSeg = agentSegmentsData.reduce<{ name: string; value: number } | null>(
+        (acc, b) => (!acc || b.value > acc.value ? b : acc),
+        null,
     );
-
-    // Prior-window records for short-window (24h) delta — per-message epoch
-    // split avoids the day-bucket asymmetry that inflates 24h deltas. Reuse
-    // prevRangeRecords (half-open [start-width, start)) so the boundary record
-    // is not double-counted in both current and prior windows.
-    const prevRecords = useMemo(
-        () => prevRangeRecords(agentFiltered, currentRange),
-        [agentFiltered, currentRange],
-    );
-
-    // Split the 2x-wide buckets into current and equal-width prior windows by
-    // bucket_date (UTC YYYY-MM-DD). Day-level granularity means the boundary
-    // aligns to the date containing currentRange.start, not the exact epoch -
-    // acceptable for KPI/donut deltas which are day-granular anyway.
-    const currentBuckets = useMemo(() => {
-        const start_date = utc_date(currentRange.start);
-        const end_date = utc_date(currentRange.end);
-        return buckets.filter((b) => b.bucket_date >= start_date && b.bucket_date <= end_date);
-    }, [buckets, currentRange]);
-
-    const prevBuckets = useMemo(() => {
-        const start_date = utc_date(currentRange.start);
-        const width = Math.max(0, currentRange.end - currentRange.start);
-        const prev_start_date = utc_date(currentRange.start - width);
-        return buckets.filter(
-            (b) => b.bucket_date >= prev_start_date && b.bucket_date < start_date,
-        );
-    }, [buckets, currentRange]);
-
-    // Sessions overlapping the current window (started before end, ended after
-    // start). getSessions has no date filter, so filter client-side.
-    const currentSessions = useMemo(
-        () =>
-            sessions.filter(
-                (s) => s.started_at <= currentRange.end && s.ended_at >= currentRange.start,
-            ),
-        [sessions, currentRange],
-    );
-    // Prior-window sessions for the delta. buckets cannot give a distinct
-    // session count (their `sessions` field is per-day-per-model distinct,
-    // summing double-counts multi-day sessions), so count from the sessions
-    // table instead.
-    const prevSessionsList = useMemo(() => {
-        const width = currentRange.end - currentRange.start;
-        return sessions.filter(
-            (s) => s.started_at <= currentRange.start && s.ended_at >= currentRange.start - width,
-        );
-    }, [sessions, currentRange]);
-
-    const isSessionMetric = metric === "sessions";
-    const effectiveXaxis = isSessionMetric ? "time" : xaxis;
-
-    useEffect(() => {
-        if (effectiveXaxis !== "time") return;
-        if (preset === "24h") setGran("hour");
-        else setGran("day");
-    }, [preset, effectiveXaxis]);
-
+    const topAgentLabel = topAgentSeg ? topAgentSeg.name.replace(/ /g, "\\n") : "—";
     const deltaHtml = useCallback((current: number, previous: number, pp = false) => {
         if (previous <= 0 && !(pp && previous !== 0)) {
             return <b style={{ color: "var(--ts-text-3)" }}>前段无数据</b>;
@@ -592,90 +517,6 @@ export function TokenStatsView() {
             <b className="down">▼ {Math.abs(d * 100).toFixed(1)}%</b>
         );
     }, []);
-
-    const currentKpi = use_rollup_summary
-        ? kpiFromRollup(rollup)
-        : is_short_window
-          ? {
-                tokens: metricValue(currentRecords, "tokens"),
-                sessions: metricValue(currentRecords, "sessions"),
-                calls: metricValue(currentRecords, "calls"),
-            }
-          : kpiFromBuckets(currentBuckets);
-    const currentComp = use_rollup_summary
-        ? compositionSegmentsFromRollup(rollup)
-        : is_short_window
-          ? compositionSegments(currentRecords)
-          : compositionSegmentsFromBuckets(currentBuckets);
-    const compInput = currentComp.find((c) => c.name === "input")?.value ?? 0;
-    const compCacheRead = currentComp.find((c) => c.name === "cache_read")?.value ?? 0;
-    const hitRate = use_rollup_summary
-        ? hitRateOfRollup(rollup)
-        : is_short_window
-          ? hitRateOf(currentRecords)
-          : compCacheRead + compInput > 0
-            ? compCacheRead / (compCacheRead + compInput)
-            : 0;
-
-    const prevKpi = use_rollup_summary
-        ? kpiFromRollup(prevRollup)
-        : is_short_window
-          ? {
-                tokens: metricValue(prevRecords, "tokens"),
-                sessions: metricValue(prevRecords, "sessions"),
-                calls: metricValue(prevRecords, "calls"),
-            }
-          : kpiFromBuckets(prevBuckets);
-    const prevComp = use_rollup_summary
-        ? []
-        : is_short_window
-          ? []
-          : compositionSegmentsFromBuckets(prevBuckets);
-    const prevHitRate = use_rollup_summary
-        ? hitRateOfRollup(prevRollup)
-        : is_short_window
-          ? hitRateOf(prevRecords)
-          : (() => {
-                const pi = prevComp.find((c) => c.name === "input")?.value ?? 0;
-                const pc = prevComp.find((c) => c.name === "cache_read")?.value ?? 0;
-                return pc + pi > 0 ? pc / (pc + pi) : 0;
-            })();
-
-    const totalTokens = currentKpi.tokens;
-    // Session count is distinct across the window. buckets' `sessions` field is
-    // per-day-per-model distinct (summing double-counts), so for non-short
-    // windows count from the sessions table; short windows use records' distinct
-    // count (already correct in metricValue).
-    const totalSessions = is_short_window ? currentKpi.sessions : currentSessions.length;
-    const totalCalls = currentKpi.calls;
-
-    const prevTokens = prevKpi.tokens;
-    const prevSessions = is_short_window ? prevKpi.sessions : prevSessionsList.length;
-    const prevCalls = prevKpi.calls;
-
-    const agentSegmentsData = use_rollup_summary
-        ? agentSegmentsFromRollup(rollup)
-        : is_short_window
-          ? agentSegments(currentRecords)
-          : agentSegmentsFromBuckets(currentBuckets);
-    // Donut segments: 24h reads the complete-window rollup, short windows
-    // derive from records (precise epoch window), longer windows from buckets
-    // (day-granular, fine for >=7d).
-    const modelTokenSegs = use_rollup_summary
-        ? modelSegmentsFromRollup(rollup, sumTokensRollup, theme)
-        : is_short_window
-          ? modelSegments(currentRecords, sumTokensValue, theme)
-          : modelSegmentsFromBuckets(currentBuckets, theme);
-    const modelCallSegs = use_rollup_summary
-        ? modelSegmentsFromRollup(rollup, rollupCallValue, theme)
-        : is_short_window
-          ? modelSegments(currentRecords, oneValue, theme)
-          : modelSegmentsFromBuckets(currentBuckets, theme, (b) => b.calls);
-    const topAgentSeg = agentSegmentsData.reduce<{ name: string; value: number } | null>(
-        (acc, b) => (!acc || b.value > acc.value ? b : acc),
-        null,
-    );
-    const topAgentLabel = topAgentSeg ? topAgentSeg.name.replace(/ /g, "\n") : "—";
 
     const handlePresetChange = (p: RangePreset) => {
         setPreset(p);
@@ -704,6 +545,11 @@ export function TokenStatsView() {
                         {refreshing && (
                             <span className="update-ago" data-testid="token-stats-refreshing">
                                 刷新中...
+                            </span>
+                        )}
+                        {error && dashboard && (
+                            <span className="update-ago" role="status">
+                                刷新失败
                             </span>
                         )}
                     </h1>
@@ -766,7 +612,19 @@ export function TokenStatsView() {
 
             {loading ? (
                 <div className="empty">加载中...</div>
-            ) : currentBuckets.length === 0 && currentSessions.length === 0 ? (
+            ) : error && !dashboard ? (
+                <div className="empty" role="alert">
+                    查询失败：{error}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            void loadData();
+                        }}
+                    >
+                        重试
+                    </button>
+                </div>
+            ) : !dashboard || dashboard.current.calls === 0 ? (
                 <div className="empty">该筛选条件下暂无记录</div>
             ) : (
                 <>
@@ -792,7 +650,10 @@ export function TokenStatsView() {
                             </h3>
                             <MetricDonut
                                 centerValue={fmtInt(totalSessions)}
-                                segments={projectSegmentsFromSessions(currentSessions, theme)}
+                                segments={dashboard_segments(
+                                    currentSummary?.project_session_totals ?? [],
+                                    theme,
+                                )}
                                 format={fmtInt}
                                 theme={theme}
                             />
@@ -846,10 +707,10 @@ export function TokenStatsView() {
                                     size="sm"
                                 />
                                 <span className="h3ctrl">
-                                    {effectiveXaxis === "time" && (
+                                    {effective_xaxis === "time" && (
                                         <Segmented
                                             options={GRAN_OPTIONS}
-                                            value={gran}
+                                            value={effective_gran}
                                             onChange={(v) => {
                                                 setGran(v);
                                             }}
@@ -859,9 +720,9 @@ export function TokenStatsView() {
                                     <Segmented
                                         options={XAXIS_OPTIONS.map((o) => ({
                                             ...o,
-                                            disabled: isSessionMetric && o.value !== "time",
+                                            disabled: metric === "sessions" && o.value !== "time",
                                         }))}
-                                        value={effectiveXaxis}
+                                        value={effective_xaxis}
                                         onChange={(v) => {
                                             setXaxis(v);
                                         }}
@@ -876,36 +737,32 @@ export function TokenStatsView() {
                                     hourBuckets={hourBuckets}
                                     rollup={rollup}
                                     metric={metric}
-                                    xaxis={effectiveXaxis}
-                                    gran={gran}
+                                    xaxis={effective_xaxis}
+                                    gran={effective_gran}
                                     start={currentRange.start}
                                     end={currentRange.end}
                                     theme={theme}
                                     dirAliases={dirAliases}
                                     modelAliases={modelAliases}
+                                    dashboardChart={dashboard.chart}
                                 />
                             </div>
                         </div>
                         <div className="card span-4">
                             <h3>时段热力</h3>
-                            <Heatmap cells={heatCells} metric={metric} theme={theme} />
+                            <Heatmap cells={dashboard.heatmap} metric={metric} theme={theme} />
                         </div>
                     </div>
 
                     <div className="grid">
                         <SessionTable
-                            rows={sessionRowsFromSessions(currentSessions)}
+                            rows={currentSessionRows}
                             theme={theme}
-                            modelColors={modelColorMapFromBuckets(
-                                currentBuckets,
-                                theme,
-                                metric === "calls"
-                                    ? (b) => b.calls
-                                    : metric === "sessions"
-                                      ? (b) => b.sessions
-                                      : undefined,
-                            )}
+                            modelColors={modelColors}
                             modelAliases={modelAliases}
+                            totalRows={dashboard.sessions.total}
+                            loadedOffset={dashboard.query.session_offset ?? 0}
+                            onPageChange={set_session_offset}
                         />
                     </div>
                 </>

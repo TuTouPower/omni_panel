@@ -4,6 +4,13 @@ import type {
     AgentSessionUsageRecord,
     TokenStatsBucket,
     TokenStatsDailyUpsert,
+    TokenStatsDashboardChart,
+    TokenStatsDashboardDto,
+    TokenStatsDashboardQuery,
+    TokenStatsDashboardSummary,
+    TokenStatsDashboardNamedValue,
+    TokenStatsEnv,
+    TokenStatsSource,
     TokenStatsHeatmapCell,
     TokenStatsHeatmapFilters,
     TokenStatsHourBucket,
@@ -62,7 +69,11 @@ export interface TokenStatsStore {
      * share a boundary record.
      */
     query_range_rollup(filters: TokenStatsRollupFilters): TokenStatsRollupRow[];
-    /** Latest session upsert time (ms epoch), null when store is empty. */
+    /** Unified bounded dashboard aggregate; never returns per-message records. */
+    query_dashboard(
+        query: TokenStatsDashboardQuery,
+        status: { running: boolean; last_updated: number | null },
+    ): TokenStatsDashboardDto;
     last_updated(): number | null;
     close(): void;
 }
@@ -144,6 +155,9 @@ CREATE TABLE IF NOT EXISTS token_stats_records (
 -- hundreds of thousands of rows. Composite (env, timestamp DESC) serves both the
 -- range predicate and the ordering direction.
 CREATE INDEX IF NOT EXISTS idx_records_env_ts ON token_stats_records(env, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_records_ts ON token_stats_records(timestamp);
+CREATE INDEX IF NOT EXISTS idx_records_session_ts
+    ON token_stats_records(source, env, session_id, timestamp DESC);
 `;
 
 // Buckets are fully derived from the daily usage table: rebuilt on every
@@ -228,6 +242,268 @@ function safe_int(v: unknown): number {
     return typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
 }
 
+type DashboardRollupRow = TokenStatsRollupRow & { env: TokenStatsEnv };
+interface DashboardAlias {
+    alias: string;
+    keys: readonly string[];
+}
+
+function dashboard_alias_resolver(
+    aliases: readonly DashboardAlias[] | undefined,
+): (key: string) => string {
+    const lookup = new Map<string, string>();
+    for (const item of aliases ?? []) {
+        for (const key of item.keys) lookup.set(key, item.alias);
+    }
+    return (key) => lookup.get(key) ?? key;
+}
+
+function dashboard_named_values(totals: Map<string, number>): TokenStatsDashboardNamedValue[] {
+    const ranked = [...totals.entries()]
+        .filter(([, value]) => value > 0)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    const values = ranked.slice(0, 5).map(([key, value]) => ({ key, value }));
+    const other_value = ranked.slice(5).reduce((sum, [, value]) => sum + value, 0);
+    if (other_value > 0) values.push({ key: "其他", value: other_value });
+    return values;
+}
+
+function dashboard_summary_from_rollup(
+    rows: DashboardRollupRow[],
+    query: TokenStatsDashboardQuery,
+): TokenStatsDashboardSummary {
+    const directory_resolver = dashboard_alias_resolver(query.dir_aliases);
+    const model_resolver = dashboard_alias_resolver(query.model_aliases);
+    const agent_totals = new Map<string, number>();
+    const model_token_totals = new Map<string, number>();
+    const model_call_totals = new Map<string, number>();
+    const project_sessions = new Map<string, Set<string>>();
+    let input_tokens = 0;
+    let output_tokens = 0;
+    let cache_read_tokens = 0;
+    let cache_write_tokens = 0;
+    const session_keys = new Set<string>();
+    for (const row of rows) {
+        const tokens =
+            row.input_tokens + row.output_tokens + row.cache_read_tokens + row.cache_write_tokens;
+        const agent = row.source.replace(/_/g, "-");
+        agent_totals.set(agent, (agent_totals.get(agent) ?? 0) + tokens);
+        const model = model_resolver(row.model);
+        model_token_totals.set(model, (model_token_totals.get(model) ?? 0) + tokens);
+        model_call_totals.set(model, (model_call_totals.get(model) ?? 0) + row.calls);
+        input_tokens += row.input_tokens;
+        output_tokens += row.output_tokens;
+        cache_read_tokens += row.cache_read_tokens;
+        cache_write_tokens += row.cache_write_tokens;
+        const session = `${row.source}|${row.env}|${row.session_id}`;
+        session_keys.add(session);
+        const project = directory_resolver(row.directory ?? "(unknown)");
+        const sessions = project_sessions.get(project) ?? new Set<string>();
+        sessions.add(session);
+        project_sessions.set(project, sessions);
+    }
+    const project_session_totals = new Map<string, number>();
+    for (const [project, sessions] of project_sessions) {
+        project_session_totals.set(project, sessions.size);
+    }
+    return {
+        tokens: input_tokens + output_tokens + cache_read_tokens + cache_write_tokens,
+        sessions: session_keys.size,
+        calls: rows.reduce((sum, row) => sum + row.calls, 0),
+        input_tokens,
+        output_tokens,
+        cache_read_tokens,
+        cache_write_tokens,
+        agent_totals: dashboard_named_values(agent_totals),
+        model_token_totals: dashboard_named_values(model_token_totals),
+        model_call_totals: dashboard_named_values(model_call_totals),
+        project_session_totals: dashboard_named_values(project_session_totals),
+    };
+}
+function dashboard_local_boundary(
+    timestamp: number,
+    gran: TokenStatsDashboardQuery["gran"],
+): number {
+    const local = new Date(timestamp + 8 * 3600000);
+    if (gran === "hour") {
+        local.setUTCMinutes(0, 0, 0);
+        local.setUTCHours(local.getUTCHours() + 1);
+    } else {
+        local.setUTCHours(0, 0, 0, 0);
+        local.setUTCDate(local.getUTCDate() + 1);
+    }
+    return local.getTime() - 8 * 3600000;
+}
+
+function dashboard_label(timestamp: number, gran: TokenStatsDashboardQuery["gran"]): string {
+    const local = new Date(timestamp + 8 * 3600000);
+    const month = String(local.getUTCMonth() + 1);
+    const day = String(local.getUTCDate());
+    if (gran === "hour") {
+        return `${month}/${day} ${String(local.getUTCHours()).padStart(2, "0")}:00`;
+    }
+    return `${month}/${day}`;
+}
+
+function dashboard_chart_from_cells(
+    labels: string[],
+    bucket_starts: number[],
+    cells: Map<string, number>[],
+): TokenStatsDashboardChart {
+    const totals = new Map<string, number>();
+    for (const cell of cells) {
+        for (const [key, value] of cell) totals.set(key, (totals.get(key) ?? 0) + value);
+    }
+    const top_keys = dashboard_named_values(totals)
+        .slice(0, 5)
+        .map(({ key }) => key);
+    const top_set = new Set(top_keys);
+    const series_names = totals.size > top_keys.length ? [...top_keys, "其他"] : top_keys;
+    const other_details = cells.map((cell) =>
+        [...cell.entries()]
+            .filter(([key]) => !top_set.has(key))
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, 20),
+    );
+    const series = series_names.map((name) => ({
+        name,
+        data: cells.map((cell) =>
+            [...cell.entries()].reduce(
+                (sum, [key, value]) =>
+                    sum + ((name === "其他" ? !top_set.has(key) : key === name) ? value : 0),
+                0,
+            ),
+        ),
+    }));
+    return { labels, bucket_starts, series, other_details };
+}
+
+function dashboard_chart_from_hour_buckets(
+    buckets: TokenStatsHourBucket[],
+    query: TokenStatsDashboardQuery,
+): TokenStatsDashboardChart {
+    const bucket_starts: number[] = [query.start];
+    let boundary = dashboard_local_boundary(query.start, query.gran);
+    while (boundary < query.end) {
+        bucket_starts.push(boundary);
+        boundary = dashboard_local_boundary(boundary, query.gran);
+    }
+    const labels = bucket_starts.map((start) => dashboard_label(start, query.gran));
+    const cells = bucket_starts.map(() => new Map<string, number>());
+    const index_of = (timestamp: number): number => {
+        let low = 0;
+        let high = bucket_starts.length;
+        while (low < high) {
+            const mid = Math.floor((low + high) / 2);
+            if ((bucket_starts[mid] ?? query.start) <= timestamp) low = mid + 1;
+            else high = mid;
+        }
+        return Math.max(0, low - 1);
+    };
+    const dir_resolver = dashboard_alias_resolver(query.dir_aliases);
+    const model_resolver = dashboard_alias_resolver(query.model_aliases);
+    for (const bucket of buckets) {
+        const index = index_of(bucket.hour_start);
+        const cell = cells[index];
+        if (!cell) continue;
+        const value =
+            query.metric === "tokens"
+                ? bucket.tokens
+                : query.metric === "calls"
+                  ? bucket.calls
+                  : bucket.sessions;
+        const key =
+            query.metric === "sessions" ? dir_resolver(bucket.model) : model_resolver(bucket.model);
+        cell.set(key, (cell.get(key) ?? 0) + value);
+    }
+    return dashboard_chart_from_cells(labels, bucket_starts, cells);
+}
+
+function dashboard_chart_from_rollup(
+    rows: DashboardRollupRow[],
+    query: TokenStatsDashboardQuery,
+): TokenStatsDashboardChart {
+    const value_of = (row: DashboardRollupRow): number =>
+        query.metric === "tokens"
+            ? row.input_tokens + row.output_tokens + row.cache_read_tokens + row.cache_write_tokens
+            : query.metric === "calls"
+              ? row.calls
+              : 1;
+    const directory_resolver = dashboard_alias_resolver(query.dir_aliases);
+    const model_resolver = dashboard_alias_resolver(query.model_aliases);
+    const session_key = (row: DashboardRollupRow): string =>
+        `${row.source}|${row.env}|${row.session_id}`;
+    const category_of = (row: DashboardRollupRow): string =>
+        query.xaxis === "project"
+            ? directory_resolver(row.directory ?? "(unknown)")
+            : session_key(row);
+    const category_totals = new Map<string, number>();
+    const category_sessions = new Map<string, Set<string>>();
+    for (const row of rows) {
+        const category = category_of(row);
+        if (query.metric === "sessions") {
+            const sessions = category_sessions.get(category) ?? new Set<string>();
+            sessions.add(session_key(row));
+            category_sessions.set(category, sessions);
+        } else {
+            category_totals.set(category, (category_totals.get(category) ?? 0) + value_of(row));
+        }
+    }
+    if (query.metric === "sessions") {
+        for (const [category, sessions] of category_sessions) {
+            category_totals.set(category, sessions.size);
+        }
+    }
+    const ranked_categories = [...category_totals.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 20)
+        .map(([category]) => category);
+    const category_set = new Set(ranked_categories);
+    const labels = ranked_categories.map((category) =>
+        query.xaxis === "session"
+            ? (rows.find((row) => category_of(row) === category)?.title ?? "")
+            : category,
+    );
+    const cells = ranked_categories.map(() => new Map<string, number>());
+    const session_cells = ranked_categories.map(() => new Map<string, Set<string>>());
+    const other_index = ranked_categories.length < category_totals.size ? cells.length : -1;
+    if (other_index >= 0) {
+        labels.push("其他");
+        cells.push(new Map());
+        session_cells.push(new Map());
+    }
+    for (const row of rows) {
+        const raw_category = category_of(row);
+        const index = category_set.has(raw_category)
+            ? ranked_categories.indexOf(raw_category)
+            : other_index;
+        if (index < 0) continue;
+        const cell = cells[index];
+        if (!cell) continue;
+        const key =
+            query.metric === "sessions"
+                ? directory_resolver(row.directory ?? "(unknown)")
+                : model_resolver(row.model);
+        if (query.metric === "sessions") {
+            const session_cell = session_cells[index];
+            if (!session_cell) continue;
+            const sessions = session_cell.get(key) ?? new Set<string>();
+            sessions.add(session_key(row));
+            session_cell.set(key, sessions);
+        } else {
+            cell.set(key, (cell.get(key) ?? 0) + value_of(row));
+        }
+    }
+    if (query.metric === "sessions") {
+        session_cells.forEach((session_cell, index) => {
+            const cell = cells[index];
+            if (!cell) return;
+            for (const [key, sessions] of session_cell) cell.set(key, sessions.size);
+        });
+    }
+    return dashboard_chart_from_cells(labels, [], cells);
+}
+
 export function create_token_stats_store(db_path: string): TokenStatsStore {
     const log = createLogger("token-stats-store");
     const db = new Database(db_path);
@@ -261,6 +537,15 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             "CREATE INDEX IF NOT EXISTS idx_records_env_ts ON token_stats_records(env, timestamp DESC);",
         );
         db.pragma("user_version = 4");
+    }
+    // Migration v5: add timestamp and session lookup indexes used by the
+    // bounded dashboard aggregate queries on existing databases.
+    if ((db.pragma("user_version", { simple: true }) as number) < 5) {
+        db.exec(
+            "CREATE INDEX IF NOT EXISTS idx_records_ts ON token_stats_records(timestamp);" +
+                "CREATE INDEX IF NOT EXISTS idx_records_session_ts ON token_stats_records(source, env, session_id, timestamp DESC);",
+        );
+        db.pragma("user_version = 5");
     }
     log.debug(`Token stats store initialized: ${db_path}`);
 
@@ -500,7 +785,7 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
             const limit = filters.limit ?? DEFAULT_RECORDS_LIMIT;
             params["limit"] = limit;
-            const sql = `SELECT session_id, title, directory, slug, version, parent_session_id, message_id, role, timestamp, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, agent FROM token_stats_records ${where} ORDER BY timestamp DESC LIMIT @limit`;
+            const sql = `SELECT session_id, title, directory, slug, version, parent_session_id, message_id, role, timestamp, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, agent FROM token_stats_records ${where} ORDER BY timestamp DESC, message_id ASC LIMIT @limit`;
             const rows = db.prepare(sql).all(params) as Record<string, unknown>[];
             return rows.map(row_to_record);
         },
@@ -637,6 +922,186 @@ export function create_token_stats_store(db_path: string): TokenStatsStore {
             FROM token_stats_records ${where}
             GROUP BY source, model, directory, session_id`;
             return db.prepare(sql).all(params) as TokenStatsRollupRow[];
+        },
+
+        query_dashboard(query, status): TokenStatsDashboardDto {
+            const build_conditions = (start: number, end: number) => {
+                const conditions = ["timestamp >= @start", "timestamp < @end"];
+                const params: Record<string, unknown> = { start, end };
+                if (query.agent !== "all") {
+                    conditions.push("agent = @agent");
+                    params["agent"] = query.agent;
+                }
+                if (query.platform !== "all") {
+                    conditions.push("env = @env");
+                    params["env"] = query.platform;
+                }
+                return { conditions, params };
+            };
+            const width = query.end - query.start;
+            const read_rollup = (start: number, end: number): DashboardRollupRow[] => {
+                const rollup_conditions = ["timestamp >= @start", "timestamp < @end"];
+                const rollup_params: Record<string, unknown> = { start, end };
+                if (query.agent !== "all") {
+                    rollup_conditions.push("agent = @agent");
+                    rollup_params["agent"] = query.agent;
+                }
+                if (query.platform !== "all") {
+                    rollup_conditions.push("env = @env");
+                    rollup_params["env"] = query.platform;
+                }
+                const rows = db
+                    .prepare(
+                        `SELECT source, env, model, directory, session_id,
+                            (SELECT title FROM token_stats_records t2
+                                WHERE t2.session_id = token_stats_records.session_id
+                                  AND t2.source = token_stats_records.source
+                                  AND t2.env = token_stats_records.env
+                                  AND t2.timestamp >= @start AND t2.timestamp < @end
+                                ORDER BY t2.timestamp DESC LIMIT 1) AS title,
+                            COUNT(*) AS calls,
+                            SUM(input_tokens) AS input_tokens,
+                            SUM(output_tokens) AS output_tokens,
+                            SUM(cache_read_tokens) AS cache_read_tokens,
+                            SUM(cache_write_tokens) AS cache_write_tokens
+                         FROM token_stats_records
+                         WHERE ${rollup_conditions.join(" AND ")}
+                         GROUP BY source, env, model, directory, session_id`,
+                    )
+                    .all(rollup_params) as Record<string, unknown>[];
+                return rows.map((row) => ({
+                    source: row["source"] as TokenStatsSource,
+                    env: row["env"] as TokenStatsEnv,
+                    model: row["model"] as string,
+                    directory: row["directory"] as string | null,
+                    session_id: row["session_id"] as string,
+                    title: row["title"] as string | null,
+                    calls: row["calls"] as number,
+                    input_tokens: row["input_tokens"] as number,
+                    output_tokens: row["output_tokens"] as number,
+                    cache_read_tokens: row["cache_read_tokens"] as number,
+                    cache_write_tokens: row["cache_write_tokens"] as number,
+                }));
+            };
+            const current_rollup = read_rollup(query.start, query.end);
+            const previous_rollup = read_rollup(query.start - width, query.start);
+            const { conditions, params } = build_conditions(query.start, query.end);
+            const chart_dimension =
+                query.metric === "sessions" ? "COALESCE(directory, '(unknown)')" : "model";
+            const bucket_expression =
+                query.gran === "hour"
+                    ? "timestamp - ((timestamp + 28800000) % 3600000)"
+                    : "timestamp - ((timestamp + 28800000) % 86400000)";
+            const bucket_rows =
+                query.xaxis === "time"
+                    ? (db
+                          .prepare(
+                              `SELECT
+                                  ${bucket_expression} AS hour_start,
+                                  ${chart_dimension} AS model,
+                                  COUNT(*) AS calls,
+                                  COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions,
+                                  SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
+                               FROM token_stats_records
+                               WHERE ${conditions.join(" AND ")}
+                               GROUP BY hour_start, model`,
+                          )
+                          .all(params) as TokenStatsHourBucket[])
+                    : [];
+            const chart =
+                query.xaxis === "time"
+                    ? dashboard_chart_from_hour_buckets(bucket_rows, query)
+                    : dashboard_chart_from_rollup(current_rollup, query);
+            const session_count = db
+                .prepare(
+                    `SELECT COUNT(*) AS total FROM (
+                        SELECT source, env, session_id FROM token_stats_records
+                        WHERE ${conditions.join(" AND ")}
+                        GROUP BY source, env, session_id
+                    )`,
+                )
+                .get(params) as { total: number };
+            const session_offset = query.session_offset ?? 0;
+            const session_limit = query.session_limit ?? 100;
+            const session_rows = db
+                .prepare(
+                    `SELECT source, env, session_id,
+                        (SELECT title FROM token_stats_records t2
+                            WHERE t2.source = token_stats_records.source
+                              AND t2.env = token_stats_records.env
+                              AND t2.session_id = token_stats_records.session_id
+                              AND t2.timestamp >= @start AND t2.timestamp < @end
+                            ORDER BY t2.timestamp DESC LIMIT 1) AS title,
+                        (SELECT directory FROM token_stats_records t2
+                            WHERE t2.source = token_stats_records.source
+                              AND t2.env = token_stats_records.env
+                              AND t2.session_id = token_stats_records.session_id
+                              AND t2.timestamp >= @start AND t2.timestamp < @end
+                            ORDER BY t2.timestamp DESC LIMIT 1) AS directory,
+                        SUM(input_tokens) AS input_tokens,
+                        SUM(output_tokens) AS output_tokens,
+                        SUM(cache_read_tokens) AS cache_read_tokens,
+                        SUM(cache_write_tokens) AS cache_write_tokens,
+                        COUNT(*) AS calls, MIN(timestamp) AS started_at, MAX(timestamp) AS ended_at
+                     FROM token_stats_records
+                     WHERE ${conditions.join(" AND ")}
+                     GROUP BY source, env, session_id
+                     ORDER BY ended_at DESC, session_id ASC LIMIT @session_limit OFFSET @session_offset`,
+                )
+                .all({ ...params, session_limit, session_offset }) as Record<string, unknown>[];
+            const model_map = new Map<string, Set<string>>();
+            for (const row of current_rollup) {
+                const key = `${row.source}|${row.env}|${row.session_id}`;
+                const models = model_map.get(key) ?? new Set<string>();
+                models.add(row.model);
+                model_map.set(key, models);
+            }
+            const session_items = session_rows.map((row) => {
+                const key = `${String(row["source"])}|${String(row["env"])}|${String(row["session_id"])}`;
+                return {
+                    session_id: row["session_id"] as string,
+                    source: row["source"] as TokenStatsSource,
+                    env: row["env"] as TokenStatsEnv,
+                    title: row["title"] as string | null,
+                    directory: row["directory"] as string | null,
+                    models: [...(model_map.get(key) ?? new Set<string>())].slice(0, 50),
+                    input_tokens: row["input_tokens"] as number,
+                    output_tokens: row["output_tokens"] as number,
+                    cache_read_tokens: row["cache_read_tokens"] as number,
+                    cache_write_tokens: row["cache_write_tokens"] as number,
+                    calls: row["calls"] as number,
+                    started_at: row["started_at"] as number,
+                    ended_at: row["ended_at"] as number,
+                };
+            });
+            const heatmap = db
+                .prepare(
+                    `SELECT
+                        CAST(strftime('%w', timestamp/1000, 'unixepoch', '+8 hours') AS INTEGER) AS weekday,
+                        CAST(strftime('%H', timestamp/1000, 'unixepoch', '+8 hours') AS INTEGER) AS hour,
+                        COUNT(*) AS calls,
+                        COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions,
+                        SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
+                     FROM token_stats_records
+                     WHERE ${conditions.join(" AND ")}
+                     GROUP BY weekday, hour`,
+                )
+                .all(params) as TokenStatsHeatmapCell[];
+            const queried_at = Date.now();
+            return {
+                query,
+                current: dashboard_summary_from_rollup(current_rollup, query),
+                previous: dashboard_summary_from_rollup(previous_rollup, query),
+                chart,
+                heatmap,
+                sessions: {
+                    items: session_items,
+                    total: session_count.total,
+                    has_more: session_count.total > session_offset + session_items.length,
+                },
+                status,
+                freshness: { queried_at, stale: false },
+            };
         },
 
         last_updated() {

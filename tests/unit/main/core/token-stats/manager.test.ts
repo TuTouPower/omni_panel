@@ -49,6 +49,7 @@ function create_mock_store() {
         query_heatmap: vi.fn(() => []),
         query_hour_buckets: vi.fn(() => []),
         query_range_rollup: vi.fn(() => []),
+        query_dashboard: vi.fn(),
         last_updated: vi.fn(() => null),
         close: vi.fn(),
     } satisfies TokenStatsStore;

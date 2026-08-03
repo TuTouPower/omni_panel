@@ -236,3 +236,140 @@ export interface TokenStatsRollupFilters {
     start?: number;
     end?: number;
 }
+
+// --- Unified dashboard query DTO (t191) ---
+
+export const tokenStatsDashboardAgentSchema = z.enum([
+    "all",
+    "claude-code",
+    "opencode",
+    "kimi-code",
+]);
+export const tokenStatsDashboardPlatformSchema = z.enum(["all", "win", "wsl"]);
+export const tokenStatsDashboardMetricSchema = z.enum(["tokens", "sessions", "calls"]);
+export const tokenStatsDashboardXAxisSchema = z.enum(["time", "project", "session"]);
+export const tokenStatsDashboardGranularitySchema = z.enum(["hour", "day"]);
+
+const tokenStatsDashboardAliasSchema = z.object({
+    alias: z.string().min(1),
+    keys: z.array(z.string()).max(100),
+});
+
+const TOKEN_STATS_DASHBOARD_MAX_BUCKETS = 400;
+const TOKEN_STATS_DASHBOARD_HOUR_MS = 60 * 60 * 1000;
+const TOKEN_STATS_DASHBOARD_DAY_MS = 24 * TOKEN_STATS_DASHBOARD_HOUR_MS;
+
+export const tokenStatsDashboardQuerySchema = z
+    .object({
+        agent: tokenStatsDashboardAgentSchema,
+        platform: tokenStatsDashboardPlatformSchema,
+        start: z.number().int().nonnegative().safe(),
+        end: z.number().int().nonnegative().safe(),
+        metric: tokenStatsDashboardMetricSchema,
+        xaxis: tokenStatsDashboardXAxisSchema,
+        gran: tokenStatsDashboardGranularitySchema,
+        dir_aliases: z.array(tokenStatsDashboardAliasSchema).max(20).optional(),
+        model_aliases: z.array(tokenStatsDashboardAliasSchema).max(20).optional(),
+        session_offset: z.number().int().nonnegative().max(100_000).safe().optional(),
+        session_limit: z.number().int().min(1).max(100).optional(),
+    })
+    .refine((query) => query.end > query.start, {
+        message: "end must be greater than start",
+        path: ["end"],
+    })
+    .refine(
+        (query) =>
+            query.end - query.start <=
+            TOKEN_STATS_DASHBOARD_MAX_BUCKETS *
+                (query.gran === "hour"
+                    ? TOKEN_STATS_DASHBOARD_HOUR_MS
+                    : TOKEN_STATS_DASHBOARD_DAY_MS),
+        {
+            message: "dashboard range produces too many buckets",
+            path: ["end"],
+        },
+    );
+
+export const tokenStatsDashboardNamedValueSchema = z.object({
+    key: z.string(),
+    value: z.number().nonnegative(),
+});
+
+export const tokenStatsDashboardSummarySchema = z.object({
+    tokens: z.number().nonnegative(),
+    sessions: z.number().int().nonnegative(),
+    calls: z.number().int().nonnegative(),
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
+    cache_read_tokens: z.number().int().nonnegative(),
+    cache_write_tokens: z.number().int().nonnegative(),
+    agent_totals: z.array(tokenStatsDashboardNamedValueSchema).max(20),
+    model_token_totals: z.array(tokenStatsDashboardNamedValueSchema).max(20),
+    model_call_totals: z.array(tokenStatsDashboardNamedValueSchema).max(20),
+    project_session_totals: z.array(tokenStatsDashboardNamedValueSchema).max(20),
+});
+
+export const tokenStatsDashboardChartSeriesSchema = z.object({
+    name: z.string(),
+    data: z.array(z.number().nonnegative()).max(TOKEN_STATS_DASHBOARD_MAX_BUCKETS + 1),
+});
+
+export const tokenStatsDashboardChartSchema = z.object({
+    labels: z.array(z.string()).max(TOKEN_STATS_DASHBOARD_MAX_BUCKETS + 1),
+    bucket_starts: z.array(z.number().safe()).max(TOKEN_STATS_DASHBOARD_MAX_BUCKETS + 1),
+    series: z.array(tokenStatsDashboardChartSeriesSchema).max(21),
+    other_details: z
+        .array(z.array(z.tuple([z.string(), z.number().nonnegative()])).max(20))
+        .max(TOKEN_STATS_DASHBOARD_MAX_BUCKETS + 1),
+});
+
+export const tokenStatsDashboardSessionSummarySchema = z.object({
+    session_id: z.string(),
+    source: tokenStatsSourceSchema,
+    env: tokenStatsEnvSchema,
+    title: z.string().nullable(),
+    directory: z.string().nullable(),
+    models: z.array(z.string()).max(50),
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
+    cache_read_tokens: z.number().int().nonnegative(),
+    cache_write_tokens: z.number().int().nonnegative(),
+    calls: z.number().int().nonnegative(),
+    started_at: z.number(),
+    ended_at: z.number(),
+});
+
+export const tokenStatsDashboardDtoSchema = z.object({
+    query: tokenStatsDashboardQuerySchema,
+    current: tokenStatsDashboardSummarySchema,
+    previous: tokenStatsDashboardSummarySchema,
+    chart: tokenStatsDashboardChartSchema,
+    heatmap: z.array(tokenStatsHeatmapCellSchema),
+    sessions: z.object({
+        items: z.array(tokenStatsDashboardSessionSummarySchema).max(100),
+        total: z.number().int().nonnegative(),
+        has_more: z.boolean(),
+    }),
+    status: z.object({
+        running: z.boolean(),
+        last_updated: z.number().nullable(),
+    }),
+    freshness: z.object({
+        queried_at: z.number().nonnegative(),
+        stale: z.boolean(),
+    }),
+});
+
+export type TokenStatsDashboardAgent = z.infer<typeof tokenStatsDashboardAgentSchema>;
+export type TokenStatsDashboardPlatform = z.infer<typeof tokenStatsDashboardPlatformSchema>;
+export type TokenStatsDashboardMetric = z.infer<typeof tokenStatsDashboardMetricSchema>;
+export type TokenStatsDashboardXAxis = z.infer<typeof tokenStatsDashboardXAxisSchema>;
+export type TokenStatsDashboardGranularity = z.infer<typeof tokenStatsDashboardGranularitySchema>;
+export type TokenStatsDashboardQuery = z.infer<typeof tokenStatsDashboardQuerySchema>;
+export type TokenStatsDashboardNamedValue = z.infer<typeof tokenStatsDashboardNamedValueSchema>;
+export type TokenStatsDashboardSummary = z.infer<typeof tokenStatsDashboardSummarySchema>;
+export type TokenStatsDashboardChart = z.infer<typeof tokenStatsDashboardChartSchema>;
+export type TokenStatsDashboardSessionSummary = z.infer<
+    typeof tokenStatsDashboardSessionSummarySchema
+>;
+export type TokenStatsDashboardDto = z.infer<typeof tokenStatsDashboardDtoSchema>;

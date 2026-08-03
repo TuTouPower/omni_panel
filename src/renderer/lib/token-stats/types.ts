@@ -18,6 +18,7 @@ export interface FilterOpts {
 
 export interface SessionRow {
     session_id: string;
+    identity_key?: string;
     title: string;
     slug: string | null;
     directory: string;

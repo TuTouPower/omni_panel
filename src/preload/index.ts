@@ -18,6 +18,7 @@ import type {
     TokenStatsHourFilters,
     TokenStatsRecordFilters,
     TokenStatsRollupFilters,
+    TokenStatsDashboardQuery,
 } from "../shared/types/token-stats";
 import "./usageboard-api";
 
@@ -133,6 +134,11 @@ const token_stats_methods = {
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getRangeRollup"]>>>(
             IPC_CHANNELS.TOKEN_STATS_ROLLUP,
             filters,
+        ),
+    getDashboard: (query: TokenStatsDashboardQuery) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getDashboard"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_DASHBOARD,
+            query,
         ),
     getStatus: () =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getStatus"]>>>(

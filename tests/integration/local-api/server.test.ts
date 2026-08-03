@@ -217,6 +217,125 @@ describe("local-api", () => {
 });
 
 describe("local-api web read endpoints", () => {
+    it("GET /v1/dashboard returns one bounded DTO without auth", async () => {
+        const start = Date.now() - 3600000;
+        const end = Date.now() + 1000;
+        token_stats_store.upsert_records([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "dashboard-session",
+                title: "Dashboard",
+                directory: "/project",
+                slug: null,
+                version: null,
+                parent_session_id: null,
+                message_id: "dashboard-message",
+                role: "assistant",
+                timestamp: start + 1000,
+                model: "sonnet",
+                input_tokens: 10,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent: "claude-code",
+            },
+        ]);
+
+        await api.start();
+        const params = new URLSearchParams({
+            agent: "all",
+            platform: "all",
+            start: String(start),
+            end: String(end),
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+        });
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/dashboard?${params.toString()}`,
+        );
+        expect(res.status).toBe(200);
+        await expect(res.json()).resolves.toMatchObject({
+            current: { tokens: 11, sessions: 1, calls: 1 },
+            sessions: { total: 1, has_more: false },
+            freshness: { stale: false },
+        });
+    });
+
+    it("GET /v1/dashboard rejects an invalid query", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/dashboard`);
+        expect(res.status).toBe(400);
+    });
+
+    it("GET /v1/dashboard applies alias and session pagination query params", async () => {
+        const start = Date.now() - 3600000;
+        const end = Date.now() + 1000;
+        token_stats_store.upsert_records([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "alias-session",
+                title: "Dashboard",
+                directory: "/project",
+                slug: null,
+                version: null,
+                parent_session_id: null,
+                message_id: "alias-message",
+                role: "assistant",
+                timestamp: start + 1000,
+                model: "sonnet",
+                input_tokens: 10,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent: "claude-code",
+            },
+        ]);
+
+        await api.start();
+        const params = new URLSearchParams({
+            agent: "all",
+            platform: "all",
+            start: String(start),
+            end: String(end),
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+            session_offset: "100",
+        });
+        params.set("model_aliases", JSON.stringify([{ alias: "X", keys: ["sonnet"] }]));
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/dashboard?${params.toString()}`,
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as {
+            current: { model_token_totals: { key: string; value: number }[] };
+            query: { session_offset: number };
+        };
+        expect(data.current.model_token_totals).toContainEqual({ key: "X", value: 11 });
+        expect(data.query.session_offset).toBe(100);
+    });
+
+    it("GET /v1/dashboard rejects malformed alias JSON", async () => {
+        await api.start();
+        const params = new URLSearchParams({
+            agent: "all",
+            platform: "all",
+            start: "1",
+            end: "2",
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+        });
+        params.set("model_aliases", "{bad");
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/dashboard?${params.toString()}`,
+        );
+        expect(res.status).toBe(400);
+    });
+
     it("GET /v1/records returns records without auth", async () => {
         token_stats_store.upsert_records([
             {

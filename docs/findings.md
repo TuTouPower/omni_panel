@@ -54,10 +54,12 @@
 - 影响：7d/30d + 小时粒度柱状图可走该聚合，替代 `query_records` 10 万级明细进渲染层；与 day buckets / heatmap 聚合并列。
 - 现状：有效
 
-## d007 代理面板基线的 payload 规模可用离线 JSON 字节数稳定代理（2026-08-02）
+- 现状：有效
 
-- 来源：s006、t189
-- 结论：跨进程 payload 的报告可在不启动 Electron 的前提下，对每个 token-stats 查询结果和 renderer 产出执行 UTF-8 JSON 字节计数；该指标适合 CI 中比较结果规模变化，不代表 structured clone 或 IPC 往返固有延迟。
-- 证据：固定 seed 临时 SQLite 生成 600,000 条脱敏 records，36 个 24h/7d/30d × agent/platform 场景全部完成；报告仅包含筛选、行数、计时和字节数。
-- 影响：后续缓存、dashboard 聚合和查询隔离 task 可复用同一报告 schema 做相对对比；绝对毫秒值不作为门禁。
+## d008 代理面板主请求可用有界 dashboard DTO 重建首屏（2026-08-03）
+
+- 来源：s007、t191
+- 结论：`TokenStatsView` 首屏只需要 KPI/delta、donut、时间/项目/会话轴、7×24 热力图、会话摘要、status 和 freshness；这些区域可由有界聚合序列重建，不需要把 per-message records 或完整会话详情放入主 DTO。
+- 证据：逐一映射 `MetricDonut`、`BarChart`、`Heatmap`、`SessionTable`、`RangePicker` 输入；`prepareBarDataFromBuckets`、`prepareBarDataFromHourBuckets`、`prepareBarDataFromRollup`、`prepareHeatmapFromCells` 和 `sessionRowsFromSessions` 均只消费聚合字段。当前会话表路径的 slug/version/sub 已固定为空或 false，不构成主 DTO 必需字段。
+- 影响：dashboard IPC 可统一返回 summary、chart、heatmap、session summary、status、freshness；旧 token-stats 查询入口保留兼容，正常代理面板路径可停止调用 records 和独立 status 查询。
 - 现状：有效

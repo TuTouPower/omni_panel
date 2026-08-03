@@ -13,6 +13,8 @@ import type {
     TokenStatsRollupFilters,
     TokenStatsRollupRow,
     TokenStatsSession,
+    TokenStatsDashboardDto,
+    TokenStatsDashboardQuery,
 } from "./token-stats";
 
 export interface TokenStatsStatus {
@@ -113,6 +115,7 @@ export const IPC_CHANNELS = {
     TOKEN_STATS_HEATMAP: "tokenStats:heatmap",
     TOKEN_STATS_HOUR_BUCKETS: "tokenStats:hourBuckets",
     TOKEN_STATS_ROLLUP: "tokenStats:rollup",
+    TOKEN_STATS_DASHBOARD: "tokenStats:dashboard",
     TOKEN_STATS_STATUS: "tokenStats:status",
     TOKEN_STATS_UPDATED: "tokenStats:updated",
     TOKEN_STATS_OPEN: "tokenStats:open",
@@ -453,6 +456,7 @@ export interface UsageboardApi {
         getHeatmap(filters?: TokenStatsHeatmapFilters): Promise<TokenStatsHeatmapCell[]>;
         getHourBuckets(filters?: TokenStatsHourFilters): Promise<TokenStatsHourBucket[]>;
         getRangeRollup(filters?: TokenStatsRollupFilters): Promise<TokenStatsRollupRow[]>;
+        getDashboard(query: TokenStatsDashboardQuery): Promise<TokenStatsDashboardDto>;
         getStatus(): Promise<TokenStatsStatus>;
         onUpdated(callback: () => void): () => void;
     };

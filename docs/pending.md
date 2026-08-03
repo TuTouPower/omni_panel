@@ -28,6 +28,30 @@
 - 内容：`metric`、`xaxis`、部分 `gran` 只影响 renderer 派生展示，却进入底层查询缓存 key，导致相同数据依赖重复 IPC 查询并占用 LRU 条目
 - 处理：未开
 
+### p027 t191 dashboard 单请求对同一窗口重复执行多次聚合
+
+- 来源：t191_code_f004
+- 内容：`query_dashboard` 对同一 `[start,end)` 窗口串行执行 current/previous rollup、time chart、session count、session page、heatmap 共 5–6 次全窗口聚合；better-sqlite3 同步执行期间 IPC/local API 请求排队
+- 处理：未开
+
+### p028 t191 dashboard rollup/session 相关子查询按分组重复 lookup
+
+- 来源：t191_code_f005
+- 内容：rollup 每个 `(source,env,model,directory,session_id)` 分组执行一次窗口内最新 title 子查询；session page 又对每个 session 各执行 title、directory 两个子查询。N 个 session 接近 2N+ 次索引 seek
+- 处理：未开
+
+### p029 t191 会话翻页重算整个 dashboard
+
+- 来源：t191_code_f006
+- 内容：renderer query key 含 `session_offset`，翻页 cache miss 后重新请求完整 dashboard（summary/chart/heatmap 一并重算），连续翻页将同窗口全量聚合重复执行
+- 处理：未开
+
+### p030 t191 `freshness.stale` 恒为 false
+
+- 来源：t191_code_f007
+- 内容：`query_dashboard` 返回 `freshness: { queried_at, stale: false }` 硬编码，不反映真实数据新鲜度；renderer 当前未消费 stale
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

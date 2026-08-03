@@ -31,12 +31,12 @@ reviewer 判 AC 时只看本区。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] AC1：任一代理面板选项组合通过一个主数据请求获得当前可见的完整面板数据，不再由 renderer 拼接多套独立统计查询。
-- [ ] AC2：24h、7d、30d 与自定义范围的 KPI、delta、donut、时间/项目/会话轴和热力图结果与完整 raw records 基准计算一致。
-- [ ] AC3：全部工具/单 agent 与全平台/Win/WSL 筛选对所有面板区域使用同一范围和过滤语义。
-- [ ] AC4：正常打开、切换选项和 collector 静默刷新时，代理面板不调用 records 查询；传入 renderer 的数据量随桶和聚合分组数增长，不随 per-message records 数线性增长。
-- [ ] AC5：不属于当前可见区域的会话明细或详情不阻塞主图展示，并可在用户展开或翻页时按需取得。
-- [ ] AC6：旧 token-stats IPC 调用方保持兼容，新增跨进程 DTO 经过运行时校验，非法范围或枚举输入返回受控错误。
+- [x] AC1：任一代理面板选项组合通过一个主数据请求获得当前可见的完整面板数据，不再由 renderer 拼接多套独立统计查询。
+- [x] AC2：24h、7d、30d 与自定义范围的 KPI、delta、donut、时间/项目/会话轴和热力图结果与完整 raw records 基准计算一致。
+- [x] AC3：全部工具/单 agent 与全平台/Win/WSL 筛选对所有面板区域使用同一范围和过滤语义。
+- [x] AC4：正常打开、切换选项和 collector 静默刷新时，代理面板不调用 records 查询；传入 renderer 的数据量随桶和聚合分组数增长，不随 per-message records 数线性增长。
+- [x] AC5：不属于当前可见区域的会话明细或详情不阻塞主图展示，并可在用户展开或翻页时按需取得。
+- [x] AC6：旧 token-stats IPC 调用方保持兼容，新增跨进程 DTO 经过运行时校验，非法范围或枚举输入返回受控错误。
 
 ### 可测试性声明
 
@@ -73,7 +73,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- dashboard DTO 的最小字段集合与可见区域边界：UNVERIFIED-SPIKE，执行期逐一映射当前组件输入，确认哪些会话数据可延迟加载，避免复制现有全部中间结构。
+- dashboard DTO 的最小字段集合与可见区域边界已验证：通过 `s007_tokenstats_dashboard_dto_boundary` 逐一映射 `TokenStatsView`、`MetricDonut`、`BarChart`、`Heatmap`、`SessionTable`、`RangePicker` 输入，并用现有纯聚合函数确认首屏只需 summary、chart、heatmap、session summary、status、freshness；per-message records 和会话详情移出主请求。
 
 ### 风险与回退
 
