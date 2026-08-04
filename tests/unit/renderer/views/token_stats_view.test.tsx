@@ -583,6 +583,33 @@ describe("TokenStatsView dashboard query", () => {
         });
     });
 
+    it("AC3 (p034): an older in-flight response from before the update event never lands after the revalidation", async () => {
+        // The update event must arrive while a query is already in-flight; the
+        // guard drops its late response so the view never regresses to it.
+        const first_pending = deferred<TokenStatsDashboardDto>();
+        get_dashboard
+            .mockReturnValueOnce(first_pending.promise)
+            .mockResolvedValueOnce(dashboard("fresh"));
+        render(<TokenStatsView />);
+
+        // Event-triggered revalidation and the late stale response both settle
+        // state updates; keep them inside act so no update escapes the wrapper.
+        act(() => {
+            updated_listener?.(1);
+        });
+        // The event-triggered revalidation resolves first; the stale in-flight
+        // response from before the event must not overwrite it.
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+        await act(async () => {
+            first_pending.resolve(dashboard("stale"));
+            await Promise.resolve();
+        });
+        expect(screen.getByTestId("session-records")).toHaveTextContent("fresh");
+        expect(screen.getByTestId("session-records")).not.toHaveTextContent("stale");
+    });
+
     it("sends the resolved aliases with the dashboard query", async () => {
         get_config.mockResolvedValue({
             config: {

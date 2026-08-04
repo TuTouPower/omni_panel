@@ -3,6 +3,7 @@ import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_grok_oauth_apis, create_kimi_oauth_apis } from "./oauth_api";
 import { create_renderer_log_throttle } from "./log-throttle";
 import { select_grok_api, select_kimi_api, select_trend_api } from "./route_api";
+import { create_on_updated_subscriber } from "./token-stats-events";
 import type {
     UsageboardApi,
     ConnectorSnapshotDTO,
@@ -152,15 +153,7 @@ const token_stats_methods = {
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getStatus"]>>>(
             IPC_CHANNELS.TOKEN_STATS_STATUS,
         ),
-    onUpdated: (callback: (dataVersion: number) => void) => {
-        const listener = (_event: unknown, dataVersion: unknown) => {
-            callback(typeof dataVersion === "number" ? dataVersion : 0);
-        };
-        ipcRenderer.on(IPC_CHANNELS.TOKEN_STATS_UPDATED, listener);
-        return () => {
-            ipcRenderer.removeListener(IPC_CHANNELS.TOKEN_STATS_UPDATED, listener);
-        };
-    },
+    onUpdated: create_on_updated_subscriber(ipcRenderer),
 };
 
 // Sparkline trend: account expand 区域的近 7 天走势。usage/agent 消费;
