@@ -2,5 +2,81 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t199",
+            "slug": "prettier_baseline_fix",
+            "title": "prettier 基线漂移修复",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t199_prettier_baseline_fix"
+        },
+        {
+            "tid": "t200",
+            "slug": "tokenstats_query_key_trim",
+            "title": "TokenStats 查询缓存 key 精简（展示维度与翻页）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t200_tokenstats_query_key_trim"
+        },
+        {
+            "tid": "t201",
+            "slug": "tokenstats_dashboard_perf",
+            "title": "dashboard 查询性能与 records/rollup 双轨统一",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t201_tokenstats_dashboard_perf"
+        },
+        {
+            "tid": "t202",
+            "slug": "tokenstats_incremental_test_gaps",
+            "title": "t192 增量聚合测试缺口补强",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t202_tokenstats_incremental_test_gaps"
+        },
+        {
+            "tid": "t203",
+            "slug": "e2e_account_form_baseline",
+            "title": "electron e2e 账号/表单用例基线失败调查",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t203_e2e_account_form_baseline"
+        }
+    ]
 }
