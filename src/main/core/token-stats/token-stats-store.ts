@@ -515,6 +515,123 @@ function dashboard_window_union_builder(
     };
 }
 
+/**
+ * Full-window records source used when the hour rollup is not ready: the
+ * whole `[start, end)` window reads raw records only (no rollup middle band).
+ * Keeps the same column shape as the rollup-ready union so every dashboard
+ * region shares one materialized window regardless of readiness (p031: single
+ * implementation, no records/rollup dual track).
+ */
+function dashboard_records_source(
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
+    start: number,
+    end: number,
+): { sql: string; params: Record<string, unknown> } {
+    const { conditions, params } = build_dashboard_conditions(query, start, end);
+    const sql = `SELECT source, env, session_id, model, directory, agent,
+            (timestamp - ((timestamp + 28800000) % 3600000)) AS hour_start,
+            1 AS calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+        FROM token_stats_records
+        WHERE ${conditions.join(" AND ")}`;
+    return { sql, params };
+}
+
+/**
+ * Materialize one window into a TEMP TABLE once; every dashboard region then
+ * derives from it (AC1, p027). The source is either the rollup+records union
+ * (rollup ready) or the full-window records fallback (p031 single track).
+ */
+function materialize_window_rows(
+    prepare: (sql: string) => Database.Statement,
+    source: { sql: string; params: Record<string, unknown> },
+): void {
+    prepare("DROP TABLE IF EXISTS window_rows").run();
+    prepare(
+        `CREATE TEMP TABLE window_rows AS
+            SELECT source, env, session_id, model, directory, agent, hour_start,
+                   calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+            FROM (${source.sql})`,
+    ).run(source.params);
+}
+
+/**
+ * Materialize one window-level latest-per-session pass (p028): title/directory
+ * from the newest record, started_at/ended_at as the window min/max, and the
+ * aggregated per-session calls/tokens — all in a single windowed query instead
+ * of N correlated subqueries. Every session-table read derives from this.
+ */
+function materialize_session_meta(
+    prepare: (sql: string) => Database.Statement,
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
+    start: number,
+    end: number,
+): void {
+    const { conditions, params } = build_dashboard_conditions(query, start, end);
+    prepare("DROP TABLE IF EXISTS session_meta").run();
+    prepare(
+        `CREATE TEMP TABLE session_meta AS
+            SELECT source, env, session_id, title, directory, started_at, ended_at,
+                   calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+            FROM (
+                SELECT source, env, session_id, title, directory, timestamp,
+                       MIN(timestamp) OVER (PARTITION BY source, env, session_id) AS started_at,
+                       MAX(timestamp) OVER (PARTITION BY source, env, session_id) AS ended_at,
+                       ROW_NUMBER() OVER (PARTITION BY source, env, session_id ORDER BY timestamp DESC) AS rn,
+                       COUNT(*) OVER (PARTITION BY source, env, session_id) AS calls,
+                       SUM(input_tokens) OVER (PARTITION BY source, env, session_id) AS input_tokens,
+                       SUM(output_tokens) OVER (PARTITION BY source, env, session_id) AS output_tokens,
+                       SUM(cache_read_tokens) OVER (PARTITION BY source, env, session_id) AS cache_read_tokens,
+                       SUM(cache_write_tokens) OVER (PARTITION BY source, env, session_id) AS cache_write_tokens
+                FROM token_stats_records
+                WHERE ${conditions.join(" AND ")}
+            ) WHERE rn = 1`,
+    ).run(params);
+}
+
+/**
+ * Read one rollup region from the materialized window. `join_title` attaches
+ * the window-level latest title (session axis labels); the previous window's
+ * rollup only feeds the summary, which ignores title, so it can skip the join.
+ */
+function read_rollup_from_window_rows(
+    prepare: (sql: string) => Database.Statement,
+    join_title: boolean,
+): DashboardRollupRow[] {
+    const title_select = join_title ? "m.title AS title" : "NULL AS title";
+    const join_clause = join_title
+        ? "LEFT JOIN session_meta m ON m.source = w.source AND m.env = w.env AND m.session_id = w.session_id"
+        : "";
+    const rows = prepare(
+        `SELECT w.source, w.env, w.model, w.directory, w.session_id,
+            ${title_select},
+            SUM(w.calls) AS calls,
+            SUM(w.input_tokens) AS input_tokens,
+            SUM(w.output_tokens) AS output_tokens,
+            SUM(w.cache_read_tokens) AS cache_read_tokens,
+            SUM(w.cache_write_tokens) AS cache_write_tokens
+         FROM window_rows w
+         ${join_clause}
+         GROUP BY w.source, w.env, w.session_id, w.model, w.directory, w.agent`,
+    ).all() as Record<string, unknown>[];
+    return rows.map(rollup_row_from);
+}
+
+function dashboard_session_page_from_meta(
+    prepare: (sql: string) => Database.Statement,
+    offset: number,
+    limit: number,
+): { total: number; rows: Record<string, unknown>[] } {
+    const total = (prepare("SELECT COUNT(*) AS total FROM session_meta").get() as { total: number })
+        .total;
+    const rows = prepare(
+        `SELECT source, env, session_id, title, directory, started_at, ended_at,
+            calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+         FROM session_meta
+         ORDER BY ended_at DESC, session_id ASC LIMIT @limit OFFSET @offset`,
+    ).all({ limit, offset }) as Record<string, unknown>[];
+    return { total, rows };
+}
+
 function rollup_row_from(row: Record<string, unknown>): DashboardRollupRow {
     return {
         source: row["source"] as TokenStatsSource,
@@ -529,155 +646,6 @@ function rollup_row_from(row: Record<string, unknown>): DashboardRollupRow {
         cache_read_tokens: row["cache_read_tokens"] as number,
         cache_write_tokens: row["cache_write_tokens"] as number,
     };
-}
-
-function read_dashboard_rollup(
-    db: Database.Database,
-    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
-    start: number,
-    end: number,
-    rollup_ready: boolean,
-    window_union: (s: number, e: number) => { sql: string; params: Record<string, unknown> },
-): DashboardRollupRow[] {
-    if (rollup_ready) {
-        const u = window_union(start, end);
-        const rows = db
-            .prepare(
-                `SELECT source, env, model, directory, session_id,
-                    (SELECT title FROM token_stats_records t2
-                        WHERE t2.session_id = w.session_id
-                          AND t2.source = w.source
-                          AND t2.env = w.env
-                          AND t2.timestamp >= @start AND t2.timestamp < @end
-                        ORDER BY t2.timestamp DESC LIMIT 1) AS title,
-                    SUM(calls) AS calls,
-                    SUM(input_tokens) AS input_tokens,
-                    SUM(output_tokens) AS output_tokens,
-                    SUM(cache_read_tokens) AS cache_read_tokens,
-                    SUM(cache_write_tokens) AS cache_write_tokens
-                 FROM ${u.sql} AS w
-                 GROUP BY source, env, session_id, model, directory, agent`,
-            )
-            .all(u.params) as Record<string, unknown>[];
-        return rows.map(rollup_row_from);
-    }
-    const { conditions, params } = build_dashboard_conditions(query, start, end);
-    const rows = db
-        .prepare(
-            `SELECT source, env, model, directory, session_id,
-                (SELECT title FROM token_stats_records t2
-                    WHERE t2.session_id = token_stats_records.session_id
-                      AND t2.source = token_stats_records.source
-                      AND t2.env = token_stats_records.env
-                      AND t2.timestamp >= @start AND t2.timestamp < @end
-                    ORDER BY t2.timestamp DESC LIMIT 1) AS title,
-                COUNT(*) AS calls,
-                SUM(input_tokens) AS input_tokens,
-                SUM(output_tokens) AS output_tokens,
-                SUM(cache_read_tokens) AS cache_read_tokens,
-                SUM(cache_write_tokens) AS cache_write_tokens
-             FROM token_stats_records
-             WHERE ${conditions.join(" AND ")}
-             GROUP BY source, env, model, directory, session_id`,
-        )
-        .all(params) as Record<string, unknown>[];
-    return rows.map(rollup_row_from);
-}
-
-function read_dashboard_session_page(
-    db: Database.Database,
-    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
-    start: number,
-    end: number,
-    offset: number,
-    limit: number,
-    rollup_ready: boolean,
-    window_union: (s: number, e: number) => { sql: string; params: Record<string, unknown> },
-): { total: number; rows: Record<string, unknown>[] } {
-    if (rollup_ready) {
-        const u = window_union(start, end);
-        const total = (
-            db
-                .prepare(
-                    `SELECT COUNT(*) AS total FROM (
-                        SELECT source, env, session_id FROM ${u.sql} AS w
-                        GROUP BY source, env, session_id
-                    )`,
-                )
-                .get(u.params) as { total: number }
-        ).total;
-        const rows = db
-            .prepare(
-                `SELECT source, env, session_id,
-                    (SELECT title FROM token_stats_records t2
-                        WHERE t2.source = w.source AND t2.env = w.env
-                          AND t2.session_id = w.session_id
-                          AND t2.timestamp >= @start AND t2.timestamp < @end
-                        ORDER BY t2.timestamp DESC LIMIT 1) AS title,
-                    (SELECT directory FROM token_stats_records t2
-                        WHERE t2.source = w.source AND t2.env = w.env
-                          AND t2.session_id = w.session_id
-                          AND t2.timestamp >= @start AND t2.timestamp < @end
-                        ORDER BY t2.timestamp DESC LIMIT 1) AS directory,
-                    SUM(input_tokens) AS input_tokens,
-                    SUM(output_tokens) AS output_tokens,
-                    SUM(cache_read_tokens) AS cache_read_tokens,
-                    SUM(cache_write_tokens) AS cache_write_tokens,
-                    SUM(calls) AS calls,
-                    (SELECT MIN(timestamp) FROM token_stats_records t2
-                        WHERE t2.source = w.source AND t2.env = w.env
-                          AND t2.session_id = w.session_id
-                          AND t2.timestamp >= @start AND t2.timestamp < @end) AS started_at,
-                    (SELECT MAX(timestamp) FROM token_stats_records t2
-                        WHERE t2.source = w.source AND t2.env = w.env
-                          AND t2.session_id = w.session_id
-                          AND t2.timestamp >= @start AND t2.timestamp < @end) AS ended_at
-                 FROM ${u.sql} AS w
-                 GROUP BY source, env, session_id
-                 ORDER BY ended_at DESC, session_id ASC LIMIT @limit OFFSET @offset`,
-            )
-            .all({ ...u.params, limit, offset }) as Record<string, unknown>[];
-        return { total, rows };
-    }
-    const { conditions, params } = build_dashboard_conditions(query, start, end);
-    const total = (
-        db
-            .prepare(
-                `SELECT COUNT(*) AS total FROM (
-                    SELECT source, env, session_id FROM token_stats_records
-                    WHERE ${conditions.join(" AND ")}
-                    GROUP BY source, env, session_id
-                )`,
-            )
-            .get(params) as { total: number }
-    ).total;
-    const rows = db
-        .prepare(
-            `SELECT source, env, session_id,
-                (SELECT title FROM token_stats_records t2
-                    WHERE t2.source = token_stats_records.source
-                      AND t2.env = token_stats_records.env
-                      AND t2.session_id = token_stats_records.session_id
-                      AND t2.timestamp >= @start AND t2.timestamp < @end
-                    ORDER BY t2.timestamp DESC LIMIT 1) AS title,
-                (SELECT directory FROM token_stats_records t2
-                    WHERE t2.source = token_stats_records.source
-                      AND t2.env = token_stats_records.env
-                      AND t2.session_id = token_stats_records.session_id
-                      AND t2.timestamp >= @start AND t2.timestamp < @end
-                    ORDER BY t2.timestamp DESC LIMIT 1) AS directory,
-                SUM(input_tokens) AS input_tokens,
-                SUM(output_tokens) AS output_tokens,
-                SUM(cache_read_tokens) AS cache_read_tokens,
-                SUM(cache_write_tokens) AS cache_write_tokens,
-                COUNT(*) AS calls, MIN(timestamp) AS started_at, MAX(timestamp) AS ended_at
-             FROM token_stats_records
-             WHERE ${conditions.join(" AND ")}
-             GROUP BY source, env, session_id
-             ORDER BY ended_at DESC, session_id ASC LIMIT @limit OFFSET @offset`,
-        )
-        .all({ ...params, limit, offset }) as Record<string, unknown>[];
-    return { total, rows };
 }
 
 function dashboard_session_items(
@@ -713,7 +681,7 @@ function dashboard_session_items(
 
 export function create_token_stats_store(
     db_path: string,
-    options: { readonly?: boolean } = {},
+    options: { readonly?: boolean; on_sql?: (sql: string) => void } = {},
 ): TokenStatsStore {
     const log = createLogger("token-stats-store");
     const readonly = options.readonly === true;
@@ -1237,36 +1205,29 @@ export function create_token_stats_store(
         },
 
         query_dashboard(query, status): TokenStatsDashboardDto {
-            const window_union = dashboard_window_union_builder(query);
+            const on_sql = options.on_sql;
+            const prepare = on_sql
+                ? (sql: string) => {
+                      on_sql(sql);
+                      return db.prepare(sql);
+                  }
+                : (sql: string) => db.prepare(sql);
             const rollup_ready =
                 (get_rollup_ready_stmt.get() as { hour_rollup_ready: number } | undefined)
                     ?.hour_rollup_ready === 1;
             const width = query.end - query.start;
-            const current_rollup = read_dashboard_rollup(
-                db,
-                query,
-                query.start,
-                query.end,
-                rollup_ready,
-                window_union,
-            );
-            const previous_rollup = read_dashboard_rollup(
-                db,
-                query,
-                query.start - width,
-                query.start,
-                rollup_ready,
-                window_union,
-            );
-            const { conditions, params } = build_dashboard_conditions(
-                query,
-                query.start,
-                query.end,
-            );
-            const bucket_expression =
-                query.gran === "hour"
-                    ? "timestamp - ((timestamp + 28800000) % 3600000)"
-                    : "timestamp - ((timestamp + 28800000) % 86400000)";
+            const start_version = (get_data_version_stmt.get() as { version: number }).version;
+
+            // Materialize the current window once; every region derives from
+            // the temp table (AC1). Records/rollup dual track collapses to a
+            // single window source (p031).
+            const current_source = rollup_ready
+                ? dashboard_window_union_builder(query)(query.start, query.end)
+                : dashboard_records_source(query, query.start, query.end);
+            materialize_window_rows(prepare, current_source);
+            materialize_session_meta(prepare, query, query.start, query.end);
+            const current_rollup = read_rollup_from_window_rows(prepare, true);
+
             // Metric-agnostic chart source (t200): the renderer derives the
             // chart for any metric/xaxis from these bounded rows, so switching
             // display dims reuses the cached dashboard instead of refetching.
@@ -1274,102 +1235,52 @@ export function create_token_stats_store(
             // sessions time chart needs per (bucket, directory) DISTINCT
             // session counts, which cannot be summed from per-model rows (a
             // session spanning models within a bucket would double count).
-            const metric_buckets = rollup_ready
-                ? (() => {
-                      const u = window_union(query.start, query.end);
-                      const rollup_bucket_expression =
-                          query.gran === "hour"
-                              ? "hour_start"
-                              : "hour_start - ((hour_start + 28800000) % 86400000)";
-                      return db
-                          .prepare(
-                              `SELECT ${rollup_bucket_expression} AS hour_start, model,
-                                  SUM(calls) AS calls,
-                                  SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
-                               FROM ${u.sql} AS w
-                               GROUP BY ${rollup_bucket_expression}, model`,
-                          )
-                          .all(u.params) as TokenStatsDashboardMetricBucket[];
-                  })()
-                : (db
-                      .prepare(
-                          `SELECT ${bucket_expression} AS hour_start, model,
-                              COUNT(*) AS calls,
-                              SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
-                           FROM token_stats_records
-                           WHERE ${conditions.join(" AND ")}
-                           GROUP BY hour_start, model`,
-                      )
-                      .all(params) as TokenStatsDashboardMetricBucket[]);
-            const session_buckets = rollup_ready
-                ? (() => {
-                      const u = window_union(query.start, query.end);
-                      const rollup_bucket_expression =
-                          query.gran === "hour"
-                              ? "hour_start"
-                              : "hour_start - ((hour_start + 28800000) % 86400000)";
-                      return db
-                          .prepare(
-                              `SELECT ${rollup_bucket_expression} AS hour_start,
-                                  COALESCE(directory, '(unknown)') AS directory,
-                                  COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions
-                               FROM ${u.sql} AS w
-                               GROUP BY ${rollup_bucket_expression}, COALESCE(directory, '(unknown)')`,
-                          )
-                          .all(u.params) as TokenStatsDashboardSessionBucket[];
-                  })()
-                : (db
-                      .prepare(
-                          `SELECT ${bucket_expression} AS hour_start,
-                              COALESCE(directory, '(unknown)') AS directory,
-                              COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions
-                           FROM token_stats_records
-                           WHERE ${conditions.join(" AND ")}
-                           GROUP BY hour_start, COALESCE(directory, '(unknown)')`,
-                      )
-                      .all(params) as TokenStatsDashboardSessionBucket[]);
+            const bucket_expression =
+                query.gran === "hour"
+                    ? "hour_start"
+                    : "hour_start - ((hour_start + 28800000) % 86400000)";
+            const metric_buckets = prepare(
+                `SELECT ${bucket_expression} AS hour_start, model,
+                    SUM(calls) AS calls,
+                    SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
+                 FROM window_rows
+                 GROUP BY ${bucket_expression}, model`,
+            ).all() as TokenStatsDashboardMetricBucket[];
+            const session_buckets = prepare(
+                `SELECT ${bucket_expression} AS hour_start,
+                    COALESCE(directory, '(unknown)') AS directory,
+                    COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions
+                 FROM window_rows
+                 GROUP BY ${bucket_expression}, COALESCE(directory, '(unknown)')`,
+            ).all() as TokenStatsDashboardSessionBucket[];
             const session_offset = query.session_offset ?? 0;
             const session_limit = query.session_limit ?? 100;
-            const session_page = read_dashboard_session_page(
-                db,
-                query,
-                query.start,
-                query.end,
+            const session_page = dashboard_session_page_from_meta(
+                prepare,
                 session_offset,
                 session_limit,
-                rollup_ready,
-                window_union,
             );
             const session_items = dashboard_session_items(session_page.rows, current_rollup);
-            const heatmap = rollup_ready
-                ? (() => {
-                      const u = window_union(query.start, query.end);
-                      return db
-                          .prepare(
-                              `SELECT
-                                  CAST(strftime('%w', hour_start/1000, 'unixepoch', '+8 hours') AS INTEGER) AS weekday,
-                                  CAST(strftime('%H', hour_start/1000, 'unixepoch', '+8 hours') AS INTEGER) AS hour,
-                                  SUM(calls) AS calls,
-                                  COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions,
-                                  SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
-                               FROM ${u.sql} AS w
-                               GROUP BY weekday, hour`,
-                          )
-                          .all(u.params) as TokenStatsHeatmapCell[];
-                  })()
-                : (db
-                      .prepare(
-                          `SELECT
-                              CAST(strftime('%w', timestamp/1000, 'unixepoch', '+8 hours') AS INTEGER) AS weekday,
-                              CAST(strftime('%H', timestamp/1000, 'unixepoch', '+8 hours') AS INTEGER) AS hour,
-                              COUNT(*) AS calls,
-                              COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions,
-                              SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
-                           FROM token_stats_records
-                           WHERE ${conditions.join(" AND ")}
-                           GROUP BY weekday, hour`,
-                      )
-                      .all(params) as TokenStatsHeatmapCell[]);
+            const heatmap = prepare(
+                `SELECT
+                    CAST(strftime('%w', hour_start/1000, 'unixepoch', '+8 hours') AS INTEGER) AS weekday,
+                    CAST(strftime('%H', hour_start/1000, 'unixepoch', '+8 hours') AS INTEGER) AS hour,
+                    SUM(calls) AS calls,
+                    COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions,
+                    SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
+                 FROM window_rows
+                 GROUP BY weekday, hour`,
+            ).all() as TokenStatsHeatmapCell[];
+
+            // Previous window only feeds the summary delta (no session-axis
+            // titles, no chart regions) — a second single materialization.
+            const previous_source = rollup_ready
+                ? dashboard_window_union_builder(query)(query.start - width, query.start)
+                : dashboard_records_source(query, query.start - width, query.start);
+            materialize_window_rows(prepare, previous_source);
+            const previous_rollup = read_rollup_from_window_rows(prepare, false);
+
+            const end_version = (get_data_version_stmt.get() as { version: number }).version;
             const queried_at = Date.now();
             return {
                 query,
@@ -1388,38 +1299,35 @@ export function create_token_stats_store(
                     has_more: session_page.total > session_offset + session_items.length,
                 },
                 status,
-                freshness: { queried_at, stale: false },
-                data_version: (get_data_version_stmt.get() as { version: number }).version,
+                // A committed data-version advance while this request was
+                // aggregating means the response is already stale (AC3).
+                freshness: { queried_at, stale: end_version > start_version },
+                data_version: end_version,
             };
         },
 
         query_dashboard_sessions(
             query: TokenStatsDashboardSessionsQuery,
         ): TokenStatsDashboardSessionsDto {
-            const window_union = dashboard_window_union_builder(query);
+            const on_sql = options.on_sql;
+            const prepare = on_sql
+                ? (sql: string) => {
+                      on_sql(sql);
+                      return db.prepare(sql);
+                  }
+                : (sql: string) => db.prepare(sql);
             const rollup_ready =
                 (get_rollup_ready_stmt.get() as { hour_rollup_ready: number } | undefined)
                     ?.hour_rollup_ready === 1;
             const offset = query.session_offset ?? 0;
             const limit = query.session_limit ?? 100;
-            const page = read_dashboard_session_page(
-                db,
-                query,
-                query.start,
-                query.end,
-                offset,
-                limit,
-                rollup_ready,
-                window_union,
-            );
-            const current_rollup = read_dashboard_rollup(
-                db,
-                query,
-                query.start,
-                query.end,
-                rollup_ready,
-                window_union,
-            );
+            const source = rollup_ready
+                ? dashboard_window_union_builder(query)(query.start, query.end)
+                : dashboard_records_source(query, query.start, query.end);
+            materialize_window_rows(prepare, source);
+            materialize_session_meta(prepare, query, query.start, query.end);
+            const current_rollup = read_rollup_from_window_rows(prepare, true);
+            const page = dashboard_session_page_from_meta(prepare, offset, limit);
             const items = dashboard_session_items(page.rows, current_rollup);
             return {
                 items,

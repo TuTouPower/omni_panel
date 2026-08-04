@@ -70,8 +70,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 单次窗口读取派生全部区域的可行 SQL 形态（CTE vs 临时表 vs 单条大查询）：`UNVERIFIED-SPIKE`，执行期用实际 schema 与 `EXPLAIN QUERY PLAN` 实验选定，结论写入上下文区。
-- 真实 stale 判定的数据来源（`data_version` 与 freshness 语义，参考 t192 AC3/AC4）：`UNVERIFIED-SPIKE`，执行期核对 store 与 renderer 现有版本字段消费后落地。
+- 单次窗口读取派生全部区域的可行 SQL 形态：已验证（s012）——TEMP TABLE 方案：`CREATE TEMP TABLE window_rows AS SELECT ... FROM (rollup UNION ALL records)` 一次物化（EXPLAIN 单次 SCAN hour_rollup + 两次 records 索引 seek），各展示区域 `SELECT FROM window_rows`（仅 SCAN 临时表，无 base 重复）。CTE（含 MATERIALIZED）在 better-sqlite3 单语句 prepare 下每条区域语句各自物化，无法跨语句共享，不采用。per-session 元数据（title/directory/started_at/ended_at）用一条 `ROW_NUMBER() OVER (PARTITION BY source, env, session_id ORDER BY timestamp DESC)` latest-per-group 查询替代 N 个相关子查询。
+- 真实 stale 判定的数据来源：已验证（s012）——`query_dashboard` 在 utilityProcess readonly worker（`query-worker.ts`）执行，main 写 WAL 并发提交；store 已有单行单调 `token_stats_data_version`。查询开始/结束各读一次版本，`stale = version_b > version_a`（聚合期间有新提交）；返回 `data_version` 用 version_b，renderer 按既有 t192 AC4 语义消费。
 
 ### 风险与回退
 

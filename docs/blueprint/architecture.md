@@ -139,6 +139,15 @@ collector utilityProcess（逐批 token_stats_update）
 - **回填**：manager.start 后 `setImmediate` 后台全量回填并置 `hour_rollup_ready`；就绪前 dashboard 走 records 路径，就绪后切聚合路径（窗口拆「完整小时段聚合表 + 边界部分小时 records」UNION ALL，外层精确重组）。中断可重跑，幂等收敛。
 - **data version**：单行单调计数，仅 records 批次事务内推进；dashboard DTO 与更新事件携带同一版本，renderer 据此判断缓存过期，不依赖本地时钟。
 
+#### 4.2.1 dashboard 单次窗口读取与 freshness（t201）
+
+dashboard 查询在 worker/主进程只读连接内把窗口物化一次，各展示区域从临时表派生（p027/p028/p031）：
+
+- `CREATE TEMP TABLE window_rows` 一次物化当前窗口（rollup 就绪 = hour_rollup 中段 UNION ALL records 边界带；未就绪 = 整窗 records），metric_buckets / session_buckets / heatmap / rollup 区域均 `SELECT FROM window_rows`。previous 窗口独立二次物化（只喂 summary delta）。
+- per-session 元数据（title/directory/started_at/ended_at + 聚合 calls/tokens）用单一 `session_meta` 窗口级 latest-per-group 查询取齐，替代改前每 session N 个相关子查询。
+- records/rollup 双轨统一为单一 window source，两就绪态共享同一区域派生代码，修一处不两处。
+- **freshness.stale**：查询开始/结束各读一次 `data_version`，`stale = end_version > start_version`（聚合期间有已提交新批次）；返回 `data_version` 用结束版本，renderer 按既有 AC4 语义 mark_stale + revalidate。
+
 ### 4.3 用量面板窗口生命周期（t194）
 
 popup 与 floating 模式关闭都改为隐藏（hide）而非销毁（close），消除每次重开重建渲染进程的冷启动：

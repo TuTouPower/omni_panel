@@ -540,4 +540,133 @@ describe("token stats dashboard query", () => {
         expect(tail.items).toHaveLength(10);
         expect(tail.has_more).toBe(true);
     });
+
+    it("AC1: materializes the current and previous windows once and derives every region from temp tables", () => {
+        const sqls: string[] = [];
+        const traced = create_token_stats_store(":memory:", { on_sql: (s) => sqls.push(s) });
+        traced.upsert_records([record({ message_id: "a" }), record({ message_id: "b" })]);
+        traced.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+
+        // One window materialization for current and one for previous — no
+        // per-region re-scans of the base tables (p027).
+        const window_creates = sqls.filter((s) => s.includes("CREATE TEMP TABLE window_rows"));
+        expect(window_creates).toHaveLength(2);
+
+        // Fallback store (rollup not ready): the ONLY statements that touch the
+        // base table are the two window materializations plus the one session
+        // meta materialization. A region silently regressing to read
+        // token_stats_records directly would push this count up and fail here.
+        const records_refs = sqls.filter((s) => s.includes("token_stats_records"));
+        expect(records_refs).toHaveLength(3);
+        for (const s of records_refs) {
+            expect(s.startsWith("CREATE TEMP TABLE")).toBe(true);
+        }
+        expect(sqls.some((s) => s.includes("token_stats_hour_rollup"))).toBe(false);
+
+        // Every region reads from the materialized temp tables; none re-touch
+        // token_stats_hour_rollup / token_stats_records directly.
+        const region_sqls = sqls.filter(
+            (s) => s.includes(" FROM window_rows") || s.includes(" FROM session_meta"),
+        );
+        expect(region_sqls.length).toBeGreaterThan(1);
+        for (const s of region_sqls) {
+            expect(s).not.toMatch(/token_stats_hour_rollup|token_stats_records/);
+        }
+        traced.close();
+    });
+
+    it("AC2: session metadata comes from one window-level query, not per-session correlated subqueries", () => {
+        const sqls: string[] = [];
+        const traced = create_token_stats_store(":memory:", { on_sql: (s) => sqls.push(s) });
+        traced.upsert_records([record({ message_id: "a" }), record({ message_id: "b" })]);
+        traced.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+        traced.query_dashboard_sessions({
+            agent: "all",
+            platform: "all",
+            start: START,
+            end: END,
+            session_offset: 0,
+            session_limit: 10,
+        });
+
+        const session_meta = sqls.find((s) => s.includes("CREATE TEMP TABLE session_meta"));
+        expect(session_meta).toBeTruthy();
+        // A single window-level latest-per-session pass — no `WHERE t2.`
+        // correlated subquery per session (p028).
+        expect(session_meta).toContain("ROW_NUMBER() OVER");
+        expect(session_meta).not.toMatch(/WHERE t2\./);
+        traced.close();
+    });
+
+    it("AC3: freshness.stale is false when the committed data version is unchanged", () => {
+        store.upsert_records([record({ message_id: "a" }), record({ message_id: "b" })]);
+        const dto = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+        expect(dto.freshness.stale).toBe(false);
+        expect(dto.data_version).toBe(1);
+    });
+
+    it("AC3: a committed data-version advance mid-query makes the response stale", () => {
+        let injected = false;
+        const traced = create_token_stats_store(":memory:", {
+            on_sql: (s) => {
+                // The first materialize statement runs after the start-version
+                // read and before the end-version read; committing a batch here
+                // advances data_version, so the response must report stale.
+                if (!injected && s.startsWith("DROP TABLE IF EXISTS window_rows")) {
+                    injected = true;
+                    traced.upsert_records([record({ message_id: "mid-query" })]);
+                }
+            },
+        });
+        traced.upsert_records([record({ message_id: "a" }), record({ message_id: "b" })]);
+        const dto = traced.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+        expect(injected).toBe(true);
+        expect(dto.freshness.stale).toBe(true);
+        expect(dto.data_version).toBe(2);
+        traced.close();
+    });
 });

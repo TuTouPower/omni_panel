@@ -58,9 +58,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### Round 2 (2026-08-04 12:00 UTC+8)
 
-| finding_id     | severity  | status | rationale                                                                                                                                                              | fix_ref                                                   |
-| -------------- | --------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| t200_code_f005 | minor     | 已修   | `topGroups` 排序补名称 tie-break（`b[1]-a[1] \|\| a[0].localeCompare(b[0])`），与改前服务器 dashboard_named_values 一致；10 处调用获得确定性名称序                         | src/renderer/lib/token-stats/aggregate.ts:40              |
+| finding_id     | severity  | status | rationale                                                                                                                                                                            | fix_ref                                                   |
+| -------------- | --------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| t200_code_f005 | minor     | 已修   | `topGroups` 排序补名称 tie-break（`b[1]-a[1] \|\| a[0].localeCompare(b[0])`），与改前服务器 dashboard_named_values 一致；10 处调用获得确定性名称序                                   | src/renderer/lib/token-stats/aggregate.ts:40              |
 | t200_test_f004 | important | 已修   | 补 topGroups 并列值单测（z 插入在前与 a 并列 → top=["x","a"]）；oracle 用例重写为 6 分组 5/6 边界（目录名令 m6 cell 排前）+ 顺序敏感断言 + m5 进系列 m6 归「其他」；变异实测确认钉住 | tests/unit/renderer/lib/token-stats/aggregate.test.ts:105 |
 
 ### Round 3 (2026-08-04 13:00 UTC+8)
@@ -76,10 +76,10 @@ Round 3 code 与 test 均 PASS，零新 finding；上一轮 f002/f005 修复验�
 - spec：[`spec.md`](spec.md)
 - 结果：全部满足
 - 证据：
-  - AC1：`token_stats_view.test.tsx`——切换 metric / xaxis 不新增 dashboard IPC 调用（缓存命中，`get_dashboard` 调用次数不变），展示由 renderer 派生（BarChart 收到 `chartData`，chart-data oracle 测试锚定等价）。
-  - AC2：`token_stats_view.test.tsx` 翻页测试——`getDashboardSessions` 通道单次请求、`session_offset=100`，dashboard 不重拉（`get_dashboard` 次数不变）。
-  - AC3：preset 与 custom-range 两条路径的 committed-bump 测试——stale 翻页页不落地；数据版本相同复用缓存、更新触发刷新（既有 AC4 测试覆盖）。
-  - AC4：chart-data.test.ts oracle——diff_anchor 服务器 chart 构建器转写为参考实现，6 个 metric×xaxis 组合（含别名）+ Top5 并列 tie-break 下 labels/series/otherDetails 与 renderer 派生全等价。
+    - AC1：`token_stats_view.test.tsx`——切换 metric / xaxis 不新增 dashboard IPC 调用（缓存命中，`get_dashboard` 调用次数不变），展示由 renderer 派生（BarChart 收到 `chartData`，chart-data oracle 测试锚定等价）。
+    - AC2：`token_stats_view.test.tsx` 翻页测试——`getDashboardSessions` 通道单次请求、`session_offset=100`，dashboard 不重拉（`get_dashboard` 次数不变）。
+    - AC3：preset 与 custom-range 两条路径的 committed-bump 测试——stale 翻页页不落地；数据版本相同复用缓存、更新触发刷新（既有 AC4 测试覆盖）。
+    - AC4：chart-data.test.ts oracle——diff_anchor 服务器 chart 构建器转写为参考实现，6 个 metric×xaxis 组合（含别名）+ Top5 并列 tie-break 下 labels/series/otherDetails 与 renderer 派生全等价。
 - 黑盒：`pnpm test` 205 文件 2139 passed / 1 skipped；`pnpm typecheck` / `pnpm lint` / `pnpm format:check` / `pnpm build` 全绿。
 
 ### Reviewer verdict
