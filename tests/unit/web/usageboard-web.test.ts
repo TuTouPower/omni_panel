@@ -68,6 +68,57 @@ describe("web usageboard bridge", () => {
         expect(url).toContain("end=200");
     });
 
+    it("tokenStats.getDashboard forwards the model filter to /v1/dashboard (t204)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response({ ok: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.tokenStats.getDashboard({
+            agent: "all",
+            platform: "all",
+            start: 100,
+            end: 200,
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+            model: "sonnet",
+        });
+        const url = fetch_mock.mock.calls[0]?.[0] as string;
+        expect(url).toContain("/v1/dashboard");
+        expect(url).toContain("model=sonnet");
+    });
+
+    it("tokenStats.getDashboardSessions forwards the model filter to /v1/dashboard/sessions (t204)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response({ ok: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.tokenStats.getDashboardSessions({
+            agent: "all",
+            platform: "all",
+            start: 100,
+            end: 200,
+            model: "sonnet",
+        });
+        const url = fetch_mock.mock.calls[0]?.[0] as string;
+        expect(url).toContain("/v1/dashboard/sessions");
+        expect(url).toContain("model=sonnet");
+    });
+
+    it("tokenStats.getHeatmap/getHourBuckets/getRangeRollup forward a model filter (t204)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.tokenStats.getHeatmap({ start: 100, end: 200, model: "opus" });
+        await api.tokenStats.getHourBuckets({ start: 100, end: 200, model: "opus" });
+        await api.tokenStats.getRangeRollup({ start: 100, end: 200, model: "opus" });
+        const urls = fetch_mock.mock.calls.map((call) => call[0] as string);
+        expect(urls[0]).toContain("/v1/heatmap?model=opus");
+        expect(urls[1]).toContain("/v1/hourBuckets?model=opus");
+        expect(urls[2]).toContain("/v1/rollup?model=opus");
+    });
+
     it("config.get fetches /v1/config", async () => {
         const fetch_mock = vi
             .fn<typeof fetch>()

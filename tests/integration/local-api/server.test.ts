@@ -339,6 +339,7 @@ describe("local-api web read endpoints", () => {
                 rollup: [],
             },
             heatmap: [],
+            models: [],
             sessions: { items: [], total: 0, has_more: false },
             status: { running: false, last_updated: null },
             freshness: { queried_at: 3, stale: false },
@@ -354,6 +355,83 @@ describe("local-api web read endpoints", () => {
         expect(dispatcher.request_dashboard).toHaveBeenCalledWith(
             expect.objectContaining({ agent: "all", xaxis: "time" }),
             expect.objectContaining({ running: false }),
+        );
+    });
+
+    it("GET /v1/dashboard forwards an optional model filter (t204)", async () => {
+        const dispatcher = {
+            request_dashboard: vi.fn(),
+            is_running: vi.fn(() => false),
+            stop: vi.fn(),
+        };
+        api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            token_stats_running: () => false,
+            token_stats_query_dispatcher: dispatcher,
+            config_deps,
+            connector_deps,
+            web_root,
+        });
+        const expected_dto = {
+            query: {
+                agent: "all",
+                platform: "all",
+                start: 1,
+                end: 2,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+                model: "sonnet",
+            },
+            current: {
+                tokens: 0,
+                sessions: 0,
+                calls: 0,
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent_totals: [],
+                model_token_totals: [],
+                model_call_totals: [],
+                project_session_totals: [],
+            },
+            previous: {
+                tokens: 0,
+                sessions: 0,
+                calls: 0,
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent_totals: [],
+                model_token_totals: [],
+                model_call_totals: [],
+                project_session_totals: [],
+            },
+            chart_data: {
+                axis: { labels: [], bucket_starts: [] },
+                metric_buckets: [],
+                session_buckets: [],
+                rollup: [],
+            },
+            heatmap: [],
+            models: ["sonnet"],
+            sessions: { items: [], total: 0, has_more: false },
+            status: { running: false, last_updated: null },
+            freshness: { queried_at: 3, stale: false },
+            data_version: 0,
+        };
+        dispatcher.request_dashboard.mockResolvedValue(expected_dto);
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/dashboard?agent=all&platform=all&start=1&end=2&metric=tokens&xaxis=time&gran=hour&model=sonnet`,
+        );
+        expect(res.status).toBe(200);
+        expect(dispatcher.request_dashboard).toHaveBeenCalledWith(
+            expect.objectContaining({ model: "sonnet" }),
+            expect.anything(),
         );
     });
 

@@ -31,6 +31,15 @@ describe("token stats dashboard query schema", () => {
         );
     });
 
+    it("accepts an optional model filter and rejects oversized model names", () => {
+        expect(
+            tokenStatsDashboardQuerySchema.safeParse({ ...query, model: "sonnet" }).success,
+        ).toBe(true);
+        expect(
+            tokenStatsDashboardQuerySchema.safeParse({ ...query, model: "x".repeat(201) }).success,
+        ).toBe(false);
+    });
+
     it("rejects alias and pagination bounds", () => {
         const aliases = (count: number) =>
             Array.from({ length: count }, (_, index) => ({
@@ -121,6 +130,7 @@ describe("token stats dashboard DTO schema", () => {
                 rollup: [],
             },
             heatmap: [{ weekday: 1, hour: 2, calls: 2, sessions: 1, tokens: 10 }],
+            models: ["sonnet"],
             sessions: {
                 items: [
                     {
@@ -198,6 +208,7 @@ describe("token stats dashboard DTO schema", () => {
                 rollup: [],
             },
             heatmap: [{ weekday: 1, hour: 2, calls: 2, sessions: 1, tokens: 10 }],
+            models: ["sonnet"],
             sessions: { items: [session_item], total: 1, has_more: false },
             status: { running: true, last_updated: 1_500 },
             freshness: { queried_at: 1_600, stale: false },
@@ -220,6 +231,12 @@ describe("token stats dashboard DTO schema", () => {
             tokenStatsDashboardDtoSchema.safeParse({
                 ...base,
                 current: { ...base.current, model_token_totals: [{ key: "sonnet", value: -1 }] },
+            }).success,
+        ).toBe(false);
+        expect(
+            tokenStatsDashboardDtoSchema.safeParse({
+                ...base,
+                models: Array.from({ length: 501 }, (_, i) => `m${String(i)}`),
             }).success,
         ).toBe(false);
         expect(

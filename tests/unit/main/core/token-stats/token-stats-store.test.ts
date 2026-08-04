@@ -1773,6 +1773,19 @@ describe("token-stats-store", () => {
                 xaxis: "time",
                 gran: "hour",
             },
+            // t204: model 过滤须在 union 双源（rollup 整小时段 + records 边
+            // 缘段）两侧一致——backfill 后走 rollup-ready 路径，断言与
+            // records fallback 逐区域相等，覆盖 AC2 生产路径。
+            {
+                agent: "all",
+                platform: "all",
+                start: S,
+                end: E,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+                model: "sonnet-4",
+            },
         ];
 
         for (const q of queries) {
@@ -1793,6 +1806,36 @@ describe("token-stats-store", () => {
                 });
             });
         }
+
+        it("union dual-source path filters every region by model after backfill (t204)", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records(recs);
+                store.backfill_hour_rollup();
+                expect(store.is_hour_rollup_ready()).toBe(true);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: S,
+                    end: E,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                    model: "sonnet-4",
+                };
+                const result = store.query_dashboard(query, status);
+                // KPI only counts sonnet-4 records (a1/a2/a3/d1/a4 = 5 calls).
+                expect(result.current.calls).toBe(5);
+                // Filtered sessions are exactly the sonnet-4 sessions (s1, s4).
+                expect(result.sessions.items.map((s) => s.session_id).sort()).toEqual(["s1", "s4"]);
+                // Chart/heatmap regions never carry other models.
+                expect(result.chart_data.metric_buckets.every((b) => b.model === "sonnet-4")).toBe(
+                    true,
+                );
+                expect(result.chart_data.rollup.every((r) => r.model === "sonnet-4")).toBe(true);
+                store.close();
+            });
+        });
 
         it("reports the committed data version in the DTO and bumps it once per batch (AC3)", () => {
             with_temp_store((db_path) => {

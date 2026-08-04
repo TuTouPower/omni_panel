@@ -70,8 +70,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- distinct model 列表的准确来源（records 全窗口 distinct vs 物化窗口 distinct）：`UNVERIFIED-SPIKE`，执行期用本机真实 token-stats 库核对窗口内模型全集与两种取法的差异，选与面板窗口语义一致者。
-- model 过滤对 hour_rollup 联合窗口 SQL 的影响（rollup 侧 / records 侧 where 均须加 model 条件）：`UNVERIFIED-SPIKE`，执行期以真实数据验证 UNION 两侧过滤后合计与 records 全窗口一致。
+- distinct model 列表的准确来源（records 全窗口 distinct vs 物化窗口 distinct）：已核实（s013）——两种取法数量一致（真实库 7d 窗口均 19），实现从 records 按 agent/platform/range（不含 model）查 `SELECT DISTINCT model ORDER BY model`，保证选中模型后下拉仍保持全窗口模型列表。
+- model 过滤对 hour_rollup 联合窗口 SQL 的影响（rollup 侧 / records 侧 where 均须加 model 条件）：已核实（s013）——union 两侧加 `AND model=@model` 后 calls（SUM）/sessions（COUNT DISTINCT）/tokens（四分量求和）与 records 全窗口过滤逐项相等；rollup 未就绪路径与 build_dashboard_conditions 同样加条件。
 
 ### 风险与回退
 

@@ -437,7 +437,7 @@ function dashboard_chart_axis(
 }
 
 function build_dashboard_conditions(
-    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model">,
     start: number,
     end: number,
 ): { conditions: string[]; params: Record<string, unknown> } {
@@ -450,6 +450,10 @@ function build_dashboard_conditions(
     if (query.platform !== "all") {
         conditions.push("env = @env");
         params["env"] = query.platform;
+    }
+    if (query.model) {
+        conditions.push("model = @model");
+        params["model"] = query.model;
     }
     return { conditions, params };
 }
@@ -465,13 +469,15 @@ function build_dashboard_conditions(
  * hour×group count instead of per-message rows.
  */
 function dashboard_window_union_builder(
-    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model">,
 ): (start: number, end: number) => { sql: string; params: Record<string, unknown> } {
     const agent_where = query.agent !== "all" ? " AND agent = @agent" : "";
     const env_where = query.platform !== "all" ? " AND env = @env" : "";
+    const model_where = query.model ? " AND model = @model" : "";
     const filter_params: Record<string, unknown> = {};
     if (query.agent !== "all") filter_params["agent"] = query.agent;
     if (query.platform !== "all") filter_params["env"] = query.platform;
+    if (query.model) filter_params["model"] = query.model;
     return (start, end) => {
         const hs = start - ((start + 28800000) % 3600000);
         const full_start = hs === start ? hs : hs + 3600000;
@@ -488,7 +494,7 @@ function dashboard_window_union_builder(
             ? `SELECT source, env, session_id, model, directory, agent, hour_start,
                     calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
                    FROM token_stats_hour_rollup
-                   WHERE hour_start >= @full_start AND hour_start < @full_end${agent_where}${env_where}`
+                   WHERE hour_start >= @full_start AND hour_start < @full_end${agent_where}${env_where}${model_where}`
             : `SELECT source, env, session_id, model, directory, agent, 0 AS hour_start,
                     0 AS calls, 0 AS input_tokens, 0 AS output_tokens, 0 AS cache_read_tokens,
                     0 AS cache_write_tokens
@@ -505,12 +511,12 @@ function dashboard_window_union_builder(
                     1 AS calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
                 FROM token_stats_records
                 WHERE ((timestamp >= @start AND timestamp < @full_start)
-                       OR (timestamp >= @full_end AND timestamp < @end))${agent_where}${env_where}`
+                       OR (timestamp >= @full_end AND timestamp < @end))${agent_where}${env_where}${model_where}`
             : `SELECT source, env, session_id, model, directory, agent,
                     (timestamp - ((timestamp + 28800000) % 3600000)) AS hour_start,
                     1 AS calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
                 FROM token_stats_records
-                WHERE (timestamp >= @start AND timestamp < @end)${agent_where}${env_where}`;
+                WHERE (timestamp >= @start AND timestamp < @end)${agent_where}${env_where}${model_where}`;
         return { sql: `(${rollup_part} UNION ALL ${records_part})`, params };
     };
 }
@@ -523,7 +529,7 @@ function dashboard_window_union_builder(
  * implementation, no records/rollup dual track).
  */
 function dashboard_records_source(
-    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model">,
     start: number,
     end: number,
 ): { sql: string; params: Record<string, unknown> } {
@@ -562,7 +568,7 @@ function materialize_window_rows(
  */
 function materialize_session_meta(
     prepare: (sql: string) => Database.Statement,
-    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model">,
     start: number,
     end: number,
 ): void {
@@ -1082,6 +1088,10 @@ export function create_token_stats_store(
                 conditions.push("env = @env");
                 params["env"] = filters.env;
             }
+            if (filters.model) {
+                conditions.push("model = @model");
+                params["model"] = filters.model;
+            }
             if (filters.start !== undefined) {
                 conditions.push("timestamp >= @start");
                 params["start"] = filters.start;
@@ -1116,6 +1126,10 @@ export function create_token_stats_store(
             if (filters.env) {
                 conditions.push("env = @env");
                 params["env"] = filters.env;
+            }
+            if (filters.model) {
+                conditions.push("model = @model");
+                params["model"] = filters.model;
             }
             if (filters.start !== undefined) {
                 conditions.push("timestamp >= @start");
@@ -1152,6 +1166,10 @@ export function create_token_stats_store(
             if (filters.env) {
                 conditions.push("env = @env");
                 params["env"] = filters.env;
+            }
+            if (filters.model) {
+                conditions.push("model = @model");
+                params["model"] = filters.model;
             }
             // start/end are always bound (defaults: 0 / far-future) so the
             // title subquery below can reference @start/@end unconditionally:
@@ -1261,6 +1279,26 @@ export function create_token_stats_store(
                 session_limit,
             );
             const session_items = dashboard_session_items(session_page.rows, current_rollup);
+            // Model options reflect the whole agent/platform/range window, not
+            // the selected model — otherwise the dropdown collapses to one
+            // option and the user cannot switch models directly (AC1). Kept as
+            // a temp table so no region re-scans the base table (p027).
+            const model_list = build_dashboard_conditions(
+                { ...query, model: undefined },
+                query.start,
+                query.end,
+            );
+            prepare("DROP TABLE IF EXISTS window_models").run();
+            prepare(
+                `CREATE TEMP TABLE window_models AS
+                    SELECT DISTINCT model FROM token_stats_records
+                    WHERE ${model_list.conditions.join(" AND ")}`,
+            ).run(model_list.params);
+            const models = (
+                prepare("SELECT model FROM window_models ORDER BY model").all() as {
+                    model: string;
+                }[]
+            ).map((row) => row.model);
             const heatmap = prepare(
                 `SELECT
                     CAST(strftime('%w', hour_start/1000, 'unixepoch', '+8 hours') AS INTEGER) AS weekday,
@@ -1293,6 +1331,7 @@ export function create_token_stats_store(
                     rollup: current_rollup,
                 },
                 heatmap,
+                models,
                 sessions: {
                     items: session_items,
                     total: session_page.total,

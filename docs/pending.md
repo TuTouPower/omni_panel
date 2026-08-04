@@ -34,6 +34,12 @@
 - 内容：`auto_seed.spec.ts` 的 `BUNDLED_PLUGIN_NAMES` 仍是 7 条历史插件名，与 `connectors/` 下实际 16 个连接器脱节。断言用 `>=` 故仍通过，语义只剩「种子未清空既有配置」，靠 `.acc-row` "My Claude" 可见性断言兜底。属测试维护债，可考虑改为与 `discover_connector_definitions` 结果对齐或删去常量。
 - 处理：未开
 
+### p043 t204 model 筛选测试覆盖补强（AC3/AC4/端点透传）
+
+- 来源：t204_test review Round 1 f002/f003/f004
+- 内容：t204 model 筛选遗留三条测试覆盖缺口：(1) AC4「重开面板保持」只断言 localStorage 未做 remount 恢复路径覆盖；(2) AC3 model+agent/platform AND 组合、窗口切换后模型列表刷新无显式用例；(3) local-api /v1/dashboard/sessions、/v1/heatmap、/v1/hourBuckets、/v1/rollup 四端点与 IPC 通道的 model 透传、`query_range_rollup` 过滤无显式断言。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

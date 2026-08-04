@@ -552,6 +552,16 @@
     transition: all 0.15s;
 }
 
+.token-stats .ts-model-select {
+    font: 500 12px var(--ts-sans);
+    max-width: 220px;
+}
+
+.token-stats .ts-model-select:hover {
+    color: var(--ts-text);
+    border-color: var(--ts-accent);
+}
+
 .token-stats .pgselect {
     padding: 6px 10px;
 }

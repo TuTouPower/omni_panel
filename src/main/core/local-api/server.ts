@@ -298,6 +298,7 @@ export function create_local_api_server(
         const params = url.searchParams;
         const env = params.get("env");
         const agent = params.get("agent");
+        const model = params.get("model");
         const start = params.get("start");
         const end = params.get("end");
         switch (url.pathname) {
@@ -321,6 +322,7 @@ export function create_local_api_server(
                     metric: params.get("metric"),
                     xaxis: params.get("xaxis"),
                     gran: params.get("gran"),
+                    ...(model ? { model } : {}),
                     ...(params.has("session_offset")
                         ? { session_offset: Number(params.get("session_offset")) }
                         : {}),
@@ -360,6 +362,7 @@ export function create_local_api_server(
                     platform: params.get("platform"),
                     start: Number(params.get("start")),
                     end: Number(params.get("end")),
+                    ...(model ? { model } : {}),
                     ...(params.has("session_offset")
                         ? { session_offset: Number(params.get("session_offset")) }
                         : {}),
@@ -407,6 +410,7 @@ export function create_local_api_server(
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
+                        ...(model ? { model } : {}),
                         ...(start ? { start: Number(start) } : {}),
                         ...(end ? { end: Number(end) } : {}),
                     }),
@@ -421,6 +425,7 @@ export function create_local_api_server(
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
+                        ...(model ? { model } : {}),
                         ...(start ? { start: Number(start) } : {}),
                         ...(end ? { end: Number(end) } : {}),
                     }),
@@ -435,6 +440,7 @@ export function create_local_api_server(
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
+                        ...(model ? { model } : {}),
                         ...(start ? { start: Number(start) } : {}),
                         ...(end ? { end: Number(end) } : {}),
                     }),

@@ -565,10 +565,11 @@ describe("token stats dashboard query", () => {
 
         // Fallback store (rollup not ready): the ONLY statements that touch the
         // base table are the two window materializations plus the one session
-        // meta materialization. A region silently regressing to read
-        // token_stats_records directly would push this count up and fail here.
+        // meta materialization plus the window_models materialization (t204). A
+        // region silently regressing to read token_stats_records directly
+        // would push this count up and fail here.
         const records_refs = sqls.filter((s) => s.includes("token_stats_records"));
-        expect(records_refs).toHaveLength(3);
+        expect(records_refs).toHaveLength(4);
         for (const s of records_refs) {
             expect(s.startsWith("CREATE TEMP TABLE")).toBe(true);
         }
@@ -668,5 +669,128 @@ describe("token stats dashboard query", () => {
         expect(dto.freshness.stale).toBe(true);
         expect(dto.data_version).toBe(2);
         traced.close();
+    });
+
+    it("returns window distinct models and filters every dashboard region by model (t204)", () => {
+        store.upsert_records([
+            record({
+                session_id: "s-sonnet-a",
+                message_id: "a1",
+                model: "sonnet",
+                input_tokens: 10,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            }),
+            record({
+                session_id: "s-sonnet-b",
+                message_id: "a2",
+                model: "sonnet",
+                input_tokens: 5,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            }),
+            record({
+                session_id: "s-opus",
+                message_id: "b1",
+                model: "opus",
+                input_tokens: 7,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            }),
+            // Outside the window — must not appear in models or be filtered in.
+            record({
+                session_id: "s-outside",
+                message_id: "x1",
+                model: "gemini",
+                timestamp: END + 60_000,
+                input_tokens: 99,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            }),
+        ]);
+        const base = {
+            agent: "all" as const,
+            platform: "all" as const,
+            start: START,
+            end: END,
+            metric: "tokens" as const,
+            xaxis: "time" as const,
+            gran: "hour" as const,
+        };
+        const all = store.query_dashboard(base, { running: true, last_updated: null });
+        expect(all.models).toEqual(["opus", "sonnet"]);
+        expect(all.current.tokens).toBe(22);
+        expect(all.current.sessions).toBe(3);
+        expect(all.current.calls).toBe(3);
+
+        const sonnet = store.query_dashboard(
+            { ...base, model: "sonnet" },
+            { running: true, last_updated: null },
+        );
+        expect(sonnet.current.tokens).toBe(15);
+        expect(sonnet.current.sessions).toBe(2);
+        expect(sonnet.current.calls).toBe(2);
+        // Model options keep the whole window's model list even under a
+        // filter, so the dropdown stays switchable (AC1).
+        expect(sonnet.models).toEqual(["opus", "sonnet"]);
+        // model_token_totals only contains the filtered model.
+        expect(sonnet.current.model_token_totals).toEqual([{ key: "sonnet", value: 15 }]);
+        // Heatmap / chart regions derive from the filtered window too.
+        expect(sonnet.heatmap.reduce((sum, c) => sum + c.tokens, 0)).toBe(15);
+        expect(sonnet.chart_data.metric_buckets.reduce((sum, b) => sum + b.tokens, 0)).toBe(15);
+        expect(sonnet.sessions.items).toHaveLength(2);
+    });
+
+    it("query_dashboard_sessions filters sessions by model (t204)", () => {
+        store.upsert_records([
+            record({
+                session_id: "s-sonnet",
+                message_id: "a1",
+                model: "sonnet",
+                title: "Sonnet session",
+            }),
+            record({
+                session_id: "s-opus",
+                message_id: "b1",
+                model: "opus",
+                title: "Opus session",
+            }),
+        ]);
+
+        const sonnet = store.query_dashboard_sessions({
+            agent: "all",
+            platform: "all",
+            start: START,
+            end: END,
+            model: "sonnet",
+        });
+        expect(sonnet.total).toBe(1);
+        expect(sonnet.items).toHaveLength(1);
+        expect(sonnet.items[0]?.session_id).toBe("s-sonnet");
+    });
+
+    it("heatmap and hour buckets filters accept a model (t204)", () => {
+        store.upsert_records([
+            record({
+                session_id: "s1",
+                message_id: "a1",
+                model: "sonnet",
+                timestamp: START + 3_600_000,
+            }),
+            record({
+                session_id: "s2",
+                message_id: "b1",
+                model: "opus",
+                timestamp: START + 3_600_000,
+            }),
+        ]);
+        const heat = store.query_heatmap({ start: START, end: END, model: "sonnet" });
+        expect(heat.reduce((sum, c) => sum + c.tokens, 0)).toBe(18);
+        const hours = store.query_hour_buckets({ start: START, end: END, model: "sonnet" });
+        expect(hours.reduce((sum, h) => sum + h.tokens, 0)).toBe(18);
     });
 });
