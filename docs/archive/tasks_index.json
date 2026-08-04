@@ -3047,6 +3047,36 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t203_e2e_account_form_baseline"
+        },
+        {
+            "tid": "t204",
+            "slug": "tokenstats_model_filter",
+            "title": "代理面板顶部加模型筛选",
+            "status": "done",
+            "branch": "t204_tokenstats_model_filter",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "571768ca14548038e8e294dc010318ab8a61d799",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t204_tokenstats_model_filter"
+        },
+        {
+            "tid": "t205",
+            "slug": "heatmap_8_bands",
+            "title": "热力图改八档并取消 0 值最低档",
+            "status": "done",
+            "branch": "t205_heatmap_8_bands",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "9202d820c701421c6a7e8dd58667d28a93187b54",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t205_heatmap_8_bands"
         }
     ]
 }
