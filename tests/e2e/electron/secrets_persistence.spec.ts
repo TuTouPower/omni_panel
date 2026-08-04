@@ -37,6 +37,7 @@ const { test, expect } = createTestWithSetup({
                     instanceId: INSTANCE_ID,
                     stateId: STATE_ID,
                     name: "SecretTest",
+                    displayName: "SecretTest",
                     enabled: true,
                     executablePath: pluginPath,
                     refreshIntervalSeconds: 300,
@@ -76,7 +77,7 @@ async function openSettings(app: ElectronApplication, page: Page): Promise<Page>
 
 async function openSecretForm(sPage: Page) {
     await sPage.locator('[data-testid="settings-plugin-nav-accounts"]').click();
-    const group = sPage.locator(".acct-group").filter({ hasText: "SecretTest" }).first();
+    const group = sPage.locator(".acc-card").filter({ hasText: "SecretTest" }).first();
     await expect(group).toBeVisible();
     await group.locator('button[title="编辑"]').first().click();
     const form = sPage.locator(`[data-testid="settings-form-${INSTANCE_ID}"]`);

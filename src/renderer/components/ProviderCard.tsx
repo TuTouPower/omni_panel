@@ -313,6 +313,7 @@ export const ProviderCard = memo(function ProviderCard({
             header={header}
             tools={tools}
             collapsed={can_collapse ? !expanded : false}
+            collapsible={can_collapse}
             onToggle={
                 can_collapse
                     ? () => {

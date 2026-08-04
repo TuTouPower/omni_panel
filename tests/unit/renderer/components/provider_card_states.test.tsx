@@ -134,6 +134,32 @@ describe("ProviderCard - states", () => {
         expect(toggle).toBeInTheDocument();
     });
 
+    it("non-collapsible card renders no collapse chevron", () => {
+        // No onToggleExpand → can_collapse false → no dead toggle button.
+        render(
+            <ProviderCard provider="deepseek" group={makeGroup()} connectorError={{ displayName: "DeepSeek", error: "网络超时", instanceIds: [] }} />,
+        );
+        expect(screen.queryByLabelText("折叠")).not.toBeInTheDocument();
+        expect(screen.queryByLabelText("展开")).not.toBeInTheDocument();
+    });
+
+    it("has no collapse chevron when a toggle handler exists but the card has no accounts or failure (popup live branch)", () => {
+        // The popup always passes onToggleExpand (PopupView live tree); the dead
+        // chevron came from hasAccounts/isFailed being false while children still
+        // rendered. This pins the real regression branch from popup_window_constraints.
+        const onToggleExpand = vi.fn();
+        render(
+            <ProviderCard
+                provider="deepseek"
+                group={makeGroup({ accounts: [], accountCount: 0, periods: [] })}
+                onToggleExpand={onToggleExpand}
+                expanded={false}
+            />,
+        );
+        expect(screen.queryByLabelText("折叠")).not.toBeInTheDocument();
+        expect(screen.queryByLabelText("展开")).not.toBeInTheDocument();
+    });
+
     it("shows the error banner alongside cached usage when a connector failed but has data (has_stale_error)", () => {
         render(
             <ProviderCard

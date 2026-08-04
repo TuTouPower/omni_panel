@@ -66,8 +66,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 11 个用例的失败根因（代码回归 vs 环境差异）：`UNVERIFIED-SPIKE`，执行期运行 e2e 复现并定位。
-- 本机 connector 发现 / auto-seed 行为是否与测试期望一致：`UNVERIFIED-SPIKE`，执行期核对启动条件与 fixture。
+- 11 个用例的失败根因（代码回归 vs 环境差异）：已核实——全部为测试选择器/fixture 与渲染层漂移，非 t189-t193 回归、非本机环境差异（详见 task.md 实施笔记，e2e 复现 + DOM dump 实证）。
+- 本机 connector 发现 / auto-seed 行为是否与测试期望一致：已核实——auto-seed 正常，`auto_seed`「existing config」失败源于 fixture executablePath 指向已删除路径 + 缺 instanceId/displayName，插件被健康检查 prune。
 
 ### 风险与回退
 
