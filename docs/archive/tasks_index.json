@@ -3077,6 +3077,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t205_heatmap_8_bands"
+        },
+        {
+            "tid": "t206",
+            "slug": "t204_model_filter_test_coverage",
+            "title": "t204 model 筛选测试覆盖补强",
+            "status": "done",
+            "branch": "t206_t204_model_filter_test_coverage",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "9d7b3c6cc9d1839e54e28eed136249694f881748",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t206_t204_model_filter_test_coverage"
         }
     ]
 }
