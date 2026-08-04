@@ -1206,7 +1206,7 @@ describe("token-stats-store", () => {
                 );
                 expect(dto_readonly.current).toEqual(dto_writable.current);
                 expect(dto_readonly.previous).toEqual(dto_writable.previous);
-                expect(dto_readonly.chart).toEqual(dto_writable.chart);
+                expect(dto_readonly.chart_data).toEqual(dto_writable.chart_data);
                 expect(dto_readonly.heatmap).toEqual(dto_writable.heatmap);
                 expect(dto_readonly.sessions).toEqual(dto_writable.sessions);
                 readonly_store.close();
@@ -1480,7 +1480,7 @@ describe("token-stats-store", () => {
                 const after = store.query_dashboard(query, status);
                 expect(after.current).toEqual(before.current);
                 expect(after.previous).toEqual(before.previous);
-                expect(after.chart).toEqual(before.chart);
+                expect(after.chart_data).toEqual(before.chart_data);
                 expect(after.heatmap).toEqual(before.heatmap);
                 expect(after.sessions).toEqual(before.sessions);
                 store.close();
@@ -1555,7 +1555,7 @@ describe("token-stats-store", () => {
                         running: false,
                         last_updated: null,
                     });
-                    chart_buckets = dto.chart.bucket_starts.length;
+                    chart_buckets = dto.chart_data.axis.bucket_starts.length;
                     session_total = dto.sessions.total;
                     expect(rollup_rows).toBe(groups.length);
                     store.close();
@@ -1786,7 +1786,7 @@ describe("token-stats-store", () => {
                     const after = store.query_dashboard(q, status);
                     expect(after.current).toEqual(before.current);
                     expect(after.previous).toEqual(before.previous);
-                    expect(after.chart).toEqual(before.chart);
+                    expect(after.chart_data).toEqual(before.chart_data);
                     expect(after.heatmap).toEqual(before.heatmap);
                     expect(after.sessions).toEqual(before.sessions);
                     store.close();
@@ -1815,6 +1815,155 @@ describe("token-stats-store", () => {
                 store.upsert_records([record({ message_id: "a2", timestamp: S + 1000 })]);
                 expect(store.query_dashboard(query, status).data_version).toBe(2);
                 store.close();
+            });
+        });
+    });
+
+    describe("incremental test gaps (t202)", () => {
+        const read_rollup = (db_path: string): Record<string, unknown>[] => {
+            const raw = new Database(db_path, { readonly: true });
+            try {
+                return raw
+                    .prepare(
+                        "SELECT source, env, session_id, hour_start, model, directory, agent, calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens FROM token_stats_hour_rollup ORDER BY source, env, session_id, hour_start, model",
+                    )
+                    .all() as Record<string, unknown>[];
+            } finally {
+                raw.close();
+            }
+        };
+        const oracle_rollup = (db_path: string): Record<string, unknown>[] => {
+            const raw = new Database(db_path, { readonly: true });
+            try {
+                return raw
+                    .prepare(
+                        "SELECT source, env, session_id, (timestamp - ((timestamp + 28800000) % 3600000)) AS hour_start, model, directory, agent, COUNT(*) AS calls, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens, SUM(cache_read_tokens) AS cache_read_tokens, SUM(cache_write_tokens) AS cache_write_tokens FROM token_stats_records GROUP BY source, env, session_id, hour_start, model, directory, agent ORDER BY source, env, session_id, hour_start, model",
+                    )
+                    .all() as Record<string, unknown>[];
+            } finally {
+                raw.close();
+            }
+        };
+
+        it("AC1 (p032): an incremental upsert of one session leaves the untouched session's rollup intact", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([
+                    record({
+                        message_id: "a1",
+                        session_id: "s1",
+                        timestamp: T0,
+                        input_tokens: 100,
+                    }),
+                    record({ message_id: "b1", session_id: "s2", timestamp: T0, input_tokens: 50 }),
+                ]);
+                // Two sessions → two rollup rows on the incremental path (no
+                // backfill yet).
+                expect(read_rollup(db_path)).toHaveLength(2);
+
+                // Touch only s1; s2's row must be preserved — a missing
+                // session_id predicate on the incremental delete would clear it.
+                store.upsert_records([
+                    record({
+                        message_id: "a2",
+                        session_id: "s1",
+                        timestamp: T0 + 60000,
+                        input_tokens: 7,
+                    }),
+                ]);
+                expect(read_rollup(db_path)).toEqual(oracle_rollup(db_path));
+                store.close();
+            });
+        });
+
+        it("AC2 (p033): a failing batch rolls back without advancing the version or the records", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([record({ message_id: "a1" })]);
+                expect(store.get_data_version()).toBe(1);
+                expect(store.query_records({ env: "win" })).toHaveLength(1);
+
+                // A NOT NULL violation (message_id is NOT NULL) mid-transaction
+                // must roll the whole batch back: version and records stay at
+                // their pre-batch values.
+                expect(() => {
+                    store.upsert_records([
+                        record({ message_id: "ok-1" }),
+                        {
+                            ...record({ message_id: "bad-1" }),
+                            message_id: undefined as unknown as string,
+                        },
+                    ]);
+                }).toThrow();
+                expect(store.get_data_version()).toBe(1);
+                expect(store.query_records({ env: "win" })).toHaveLength(1);
+                store.close();
+            });
+        });
+
+        it("AC5 (p036): a rollup-ready dashboard read scans the hour rollup, never the full records table", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([record({ message_id: "a1", timestamp: T0 })]);
+                store.backfill_hour_rollup();
+                expect(store.is_hour_rollup_ready()).toBe(true);
+
+                const sqls: string[] = [];
+                const traced = create_token_stats_store(db_path, { on_sql: (s) => sqls.push(s) });
+                traced.query_dashboard(
+                    {
+                        agent: "all",
+                        platform: "all",
+                        start: T0,
+                        end: T0 + 3 * 3600000,
+                        metric: "tokens",
+                        xaxis: "time",
+                        gran: "hour",
+                    },
+                    { running: false, last_updated: null },
+                );
+
+                const materialize = sqls.find((s) => s.includes("CREATE TEMP TABLE window_rows"));
+                expect(materialize).toBeTruthy();
+                if (!materialize) throw new Error("expected materialize SQL");
+                // The rollup-ready source reads the middle band from the hour
+                // rollup and bounds the edge bands by @full_start/@full_end.
+                expect(materialize).toContain("token_stats_hour_rollup");
+                expect(materialize).toContain("timestamp >= @start AND timestamp < @full_start");
+                // Structural EXPLAIN (values irrelevant, plan is shape-only): the
+                // window must resolve through the hour rollup and never SCAN the
+                // full records table (a SCAN would couple read scale to
+                // per-message volume). Robust to the rollup side being either a
+                // SCAN (no index) or a SEARCH (PK index) per planner choice.
+                const plan = new Database(db_path, { readonly: true })
+                    .prepare(`EXPLAIN QUERY PLAN ${materialize}`)
+                    .all({
+                        start: T0,
+                        end: T0 + 3 * 3600000,
+                        full_start: T0,
+                        full_end: T0 + 3 * 3600000,
+                    })
+                    .map((r) => (r as { detail: string }).detail);
+                expect(plan.some((d) => d.includes("token_stats_hour_rollup"))).toBe(true);
+                expect(plan.some((d) => d.includes("SCAN token_stats_records"))).toBe(false);
+                traced.close();
+                store.close();
+            });
+        });
+
+        it("AC6 (p037): the ready flag persists across reopen and incremental upserts stay consistent", () => {
+            with_temp_store((db_path) => {
+                const store1 = create_token_stats_store(db_path);
+                store1.upsert_records([record({ message_id: "a1", timestamp: T0 })]);
+                store1.backfill_hour_rollup();
+                expect(store1.is_hour_rollup_ready()).toBe(true);
+                store1.close();
+
+                const store2 = create_token_stats_store(db_path);
+                expect(store2.is_hour_rollup_ready()).toBe(true);
+                store2.upsert_records([record({ message_id: "b1", timestamp: T0 + 60000 })]);
+                expect(read_rollup(db_path)).toEqual(oracle_rollup(db_path));
+                store2.close();
             });
         });
     });

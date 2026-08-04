@@ -4,11 +4,15 @@ import type {
     AgentSessionUsageRecord,
     TokenStatsBucket,
     TokenStatsDailyUpsert,
-    TokenStatsDashboardChart,
     TokenStatsDashboardDto,
     TokenStatsDashboardQuery,
     TokenStatsDashboardSummary,
     TokenStatsDashboardNamedValue,
+    TokenStatsDashboardMetricBucket,
+    TokenStatsDashboardSessionBucket,
+    TokenStatsDashboardSessionSummary,
+    TokenStatsDashboardSessionsDto,
+    TokenStatsDashboardSessionsQuery,
     TokenStatsEnv,
     TokenStatsSource,
     TokenStatsHeatmapCell,
@@ -74,6 +78,11 @@ export interface TokenStatsStore {
         query: TokenStatsDashboardQuery,
         status: { running: boolean; last_updated: number | null },
     ): TokenStatsDashboardDto;
+    /** Bounded session page for dashboard pagination (t200); never recomputes
+     *  the summary/chart/heatmap regions. */
+    query_dashboard_sessions(
+        query: TokenStatsDashboardSessionsQuery,
+    ): TokenStatsDashboardSessionsDto;
     /** Monotonic data version; bumps once per committed records batch (t192). */
     get_data_version(): number;
     /** True once the hour rollup has been fully backfilled from records (t192). */
@@ -381,6 +390,7 @@ function dashboard_summary_from_rollup(
         project_session_totals: dashboard_named_values(project_session_totals),
     };
 }
+
 function dashboard_local_boundary(
     timestamp: number,
     gran: TokenStatsDashboardQuery["gran"],
@@ -406,168 +416,272 @@ function dashboard_label(timestamp: number, gran: TokenStatsDashboardQuery["gran
     return `${month}/${day}`;
 }
 
-function dashboard_chart_from_cells(
-    labels: string[],
-    bucket_starts: number[],
-    cells: Map<string, number>[],
-): TokenStatsDashboardChart {
-    const totals = new Map<string, number>();
-    for (const cell of cells) {
-        for (const [key, value] of cell) totals.set(key, (totals.get(key) ?? 0) + value);
-    }
-    const top_keys = dashboard_named_values(totals)
-        .slice(0, 5)
-        .map(({ key }) => key);
-    const top_set = new Set(top_keys);
-    const series_names = totals.size > top_keys.length ? [...top_keys, "其他"] : top_keys;
-    const other_details = cells.map((cell) =>
-        [...cell.entries()]
-            .filter(([key]) => !top_set.has(key))
-            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-            .slice(0, 20),
-    );
-    const series = series_names.map((name) => ({
-        name,
-        data: cells.map((cell) =>
-            [...cell.entries()].reduce(
-                (sum, [key, value]) =>
-                    sum + ((name === "其他" ? !top_set.has(key) : key === name) ? value : 0),
-                0,
-            ),
-        ),
-    }));
-    return { labels, bucket_starts, series, other_details };
-}
-
-function dashboard_chart_from_hour_buckets(
-    buckets: TokenStatsHourBucket[],
-    query: TokenStatsDashboardQuery,
-): TokenStatsDashboardChart {
-    const bucket_starts: number[] = [query.start];
-    let boundary = dashboard_local_boundary(query.start, query.gran);
-    while (boundary < query.end) {
+/** Builds the dashboard time-axis labels + bucket boundaries for a window at a
+ *  gran. Shared with the renderer through chart_data.axis so the renderer maps
+ *  metric/session buckets onto the exact same axis the server used (t200). */
+function dashboard_chart_axis(
+    start: number,
+    end: number,
+    gran: TokenStatsDashboardQuery["gran"],
+): { labels: string[]; bucket_starts: number[] } {
+    const bucket_starts: number[] = [start];
+    let boundary = dashboard_local_boundary(start, gran);
+    while (boundary < end) {
         bucket_starts.push(boundary);
-        boundary = dashboard_local_boundary(boundary, query.gran);
+        boundary = dashboard_local_boundary(boundary, gran);
     }
-    const labels = bucket_starts.map((start) => dashboard_label(start, query.gran));
-    const cells = bucket_starts.map(() => new Map<string, number>());
-    const index_of = (timestamp: number): number => {
-        let low = 0;
-        let high = bucket_starts.length;
-        while (low < high) {
-            const mid = Math.floor((low + high) / 2);
-            if ((bucket_starts[mid] ?? query.start) <= timestamp) low = mid + 1;
-            else high = mid;
-        }
-        return Math.max(0, low - 1);
+    return {
+        labels: bucket_starts.map((timestamp) => dashboard_label(timestamp, gran)),
+        bucket_starts,
     };
-    const dir_resolver = dashboard_alias_resolver(query.dir_aliases);
-    const model_resolver = dashboard_alias_resolver(query.model_aliases);
-    for (const bucket of buckets) {
-        const index = index_of(bucket.hour_start);
-        const cell = cells[index];
-        if (!cell) continue;
-        const value =
-            query.metric === "tokens"
-                ? bucket.tokens
-                : query.metric === "calls"
-                  ? bucket.calls
-                  : bucket.sessions;
-        const key =
-            query.metric === "sessions" ? dir_resolver(bucket.model) : model_resolver(bucket.model);
-        cell.set(key, (cell.get(key) ?? 0) + value);
-    }
-    return dashboard_chart_from_cells(labels, bucket_starts, cells);
 }
 
-function dashboard_chart_from_rollup(
-    rows: DashboardRollupRow[],
-    query: TokenStatsDashboardQuery,
-): TokenStatsDashboardChart {
-    const value_of = (row: DashboardRollupRow): number =>
-        query.metric === "tokens"
-            ? row.input_tokens + row.output_tokens + row.cache_read_tokens + row.cache_write_tokens
-            : query.metric === "calls"
-              ? row.calls
-              : 1;
-    const directory_resolver = dashboard_alias_resolver(query.dir_aliases);
-    const model_resolver = dashboard_alias_resolver(query.model_aliases);
-    const session_key = (row: DashboardRollupRow): string =>
-        `${row.source}|${row.env}|${row.session_id}`;
-    const category_of = (row: DashboardRollupRow): string =>
-        query.xaxis === "project"
-            ? directory_resolver(row.directory ?? "(unknown)")
-            : session_key(row);
-    const category_totals = new Map<string, number>();
-    const category_sessions = new Map<string, Set<string>>();
-    for (const row of rows) {
-        const category = category_of(row);
-        if (query.metric === "sessions") {
-            const sessions = category_sessions.get(category) ?? new Set<string>();
-            sessions.add(session_key(row));
-            category_sessions.set(category, sessions);
-        } else {
-            category_totals.set(category, (category_totals.get(category) ?? 0) + value_of(row));
-        }
+function build_dashboard_conditions(
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
+    start: number,
+    end: number,
+): { conditions: string[]; params: Record<string, unknown> } {
+    const conditions = ["timestamp >= @start", "timestamp < @end"];
+    const params: Record<string, unknown> = { start, end };
+    if (query.agent !== "all") {
+        conditions.push("agent = @agent");
+        params["agent"] = query.agent;
     }
-    if (query.metric === "sessions") {
-        for (const [category, sessions] of category_sessions) {
-            category_totals.set(category, sessions.size);
-        }
+    if (query.platform !== "all") {
+        conditions.push("env = @env");
+        params["env"] = query.platform;
     }
-    const ranked_categories = [...category_totals.entries()]
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .slice(0, 20)
-        .map(([category]) => category);
-    const category_set = new Set(ranked_categories);
-    const labels = ranked_categories.map((category) =>
-        query.xaxis === "session"
-            ? (rows.find((row) => category_of(row) === category)?.title ?? "")
-            : category,
-    );
-    const cells = ranked_categories.map(() => new Map<string, number>());
-    const session_cells = ranked_categories.map(() => new Map<string, Set<string>>());
-    const other_index = ranked_categories.length < category_totals.size ? cells.length : -1;
-    if (other_index >= 0) {
-        labels.push("其他");
-        cells.push(new Map());
-        session_cells.push(new Map());
+    return { conditions, params };
+}
+
+/**
+ * Unified window expansion shared by every dashboard region when the hour
+ * rollup is ready. The window `[start, end)` splits into whole local hours
+ * (token_stats_hour_rollup, one pre-aggregated cell per session/hour/model/
+ * directory/agent group) plus the window's partial edge hours
+ * (token_stats_records, raw rows). UNION ALL keeps the outer aggregate exact:
+ * SUM(calls)/SUM(tokens) recompose correctly and COUNT(DISTINCT session)
+ * de-duplicates across the two parts, while the rollup side scales with
+ * hour×group count instead of per-message rows.
+ */
+function dashboard_window_union_builder(
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
+): (start: number, end: number) => { sql: string; params: Record<string, unknown> } {
+    const agent_where = query.agent !== "all" ? " AND agent = @agent" : "";
+    const env_where = query.platform !== "all" ? " AND env = @env" : "";
+    const filter_params: Record<string, unknown> = {};
+    if (query.agent !== "all") filter_params["agent"] = query.agent;
+    if (query.platform !== "all") filter_params["env"] = query.platform;
+    return (start, end) => {
+        const hs = start - ((start + 28800000) % 3600000);
+        const full_start = hs === start ? hs : hs + 3600000;
+        const full_end = end - ((end + 28800000) % 3600000);
+        const params: Record<string, unknown> = {
+            ...filter_params,
+            start,
+            end,
+            full_start,
+            full_end,
+        };
+        const has_full_hours = full_start < full_end;
+        const rollup_part = has_full_hours
+            ? `SELECT source, env, session_id, model, directory, agent, hour_start,
+                    calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+                   FROM token_stats_hour_rollup
+                   WHERE hour_start >= @full_start AND hour_start < @full_end${agent_where}${env_where}`
+            : `SELECT source, env, session_id, model, directory, agent, 0 AS hour_start,
+                    0 AS calls, 0 AS input_tokens, 0 AS output_tokens, 0 AS cache_read_tokens,
+                    0 AS cache_write_tokens
+                   FROM token_stats_records WHERE 0`;
+        // When there are whole hours the window splits into [start,
+        // full_start) ∪ [full_start, full_end) ∪ [full_end, end) and the
+        // rollup covers the middle. When there are none (full_start >
+        // full_end) the two edge bands would overlap past the window —
+        // e.g. [07:35, 08:00) ∪ [07:00, 07:55) covers [07:00, 08:00) —
+        // so fall back to reading the whole window from records.
+        const records_part = has_full_hours
+            ? `SELECT source, env, session_id, model, directory, agent,
+                    (timestamp - ((timestamp + 28800000) % 3600000)) AS hour_start,
+                    1 AS calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+                FROM token_stats_records
+                WHERE ((timestamp >= @start AND timestamp < @full_start)
+                       OR (timestamp >= @full_end AND timestamp < @end))${agent_where}${env_where}`
+            : `SELECT source, env, session_id, model, directory, agent,
+                    (timestamp - ((timestamp + 28800000) % 3600000)) AS hour_start,
+                    1 AS calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+                FROM token_stats_records
+                WHERE (timestamp >= @start AND timestamp < @end)${agent_where}${env_where}`;
+        return { sql: `(${rollup_part} UNION ALL ${records_part})`, params };
+    };
+}
+
+/**
+ * Full-window records source used when the hour rollup is not ready: the
+ * whole `[start, end)` window reads raw records only (no rollup middle band).
+ * Keeps the same column shape as the rollup-ready union so every dashboard
+ * region shares one materialized window regardless of readiness (p031: single
+ * implementation, no records/rollup dual track).
+ */
+function dashboard_records_source(
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
+    start: number,
+    end: number,
+): { sql: string; params: Record<string, unknown> } {
+    const { conditions, params } = build_dashboard_conditions(query, start, end);
+    const sql = `SELECT source, env, session_id, model, directory, agent,
+            (timestamp - ((timestamp + 28800000) % 3600000)) AS hour_start,
+            1 AS calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+        FROM token_stats_records
+        WHERE ${conditions.join(" AND ")}`;
+    return { sql, params };
+}
+
+/**
+ * Materialize one window into a TEMP TABLE once; every dashboard region then
+ * derives from it (AC1, p027). The source is either the rollup+records union
+ * (rollup ready) or the full-window records fallback (p031 single track).
+ */
+function materialize_window_rows(
+    prepare: (sql: string) => Database.Statement,
+    source: { sql: string; params: Record<string, unknown> },
+): void {
+    prepare("DROP TABLE IF EXISTS window_rows").run();
+    prepare(
+        `CREATE TEMP TABLE window_rows AS
+            SELECT source, env, session_id, model, directory, agent, hour_start,
+                   calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+            FROM (${source.sql})`,
+    ).run(source.params);
+}
+
+/**
+ * Materialize one window-level latest-per-session pass (p028): title/directory
+ * from the newest record, started_at/ended_at as the window min/max, and the
+ * aggregated per-session calls/tokens — all in a single windowed query instead
+ * of N correlated subqueries. Every session-table read derives from this.
+ */
+function materialize_session_meta(
+    prepare: (sql: string) => Database.Statement,
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform">,
+    start: number,
+    end: number,
+): void {
+    const { conditions, params } = build_dashboard_conditions(query, start, end);
+    prepare("DROP TABLE IF EXISTS session_meta").run();
+    prepare(
+        `CREATE TEMP TABLE session_meta AS
+            SELECT source, env, session_id, title, directory, started_at, ended_at,
+                   calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+            FROM (
+                SELECT source, env, session_id, title, directory, timestamp,
+                       MIN(timestamp) OVER (PARTITION BY source, env, session_id) AS started_at,
+                       MAX(timestamp) OVER (PARTITION BY source, env, session_id) AS ended_at,
+                       ROW_NUMBER() OVER (PARTITION BY source, env, session_id ORDER BY timestamp DESC) AS rn,
+                       COUNT(*) OVER (PARTITION BY source, env, session_id) AS calls,
+                       SUM(input_tokens) OVER (PARTITION BY source, env, session_id) AS input_tokens,
+                       SUM(output_tokens) OVER (PARTITION BY source, env, session_id) AS output_tokens,
+                       SUM(cache_read_tokens) OVER (PARTITION BY source, env, session_id) AS cache_read_tokens,
+                       SUM(cache_write_tokens) OVER (PARTITION BY source, env, session_id) AS cache_write_tokens
+                FROM token_stats_records
+                WHERE ${conditions.join(" AND ")}
+            ) WHERE rn = 1`,
+    ).run(params);
+}
+
+/**
+ * Read one rollup region from the materialized window. `join_title` attaches
+ * the window-level latest title (session axis labels); the previous window's
+ * rollup only feeds the summary, which ignores title, so it can skip the join.
+ */
+function read_rollup_from_window_rows(
+    prepare: (sql: string) => Database.Statement,
+    join_title: boolean,
+): DashboardRollupRow[] {
+    const title_select = join_title ? "m.title AS title" : "NULL AS title";
+    const join_clause = join_title
+        ? "LEFT JOIN session_meta m ON m.source = w.source AND m.env = w.env AND m.session_id = w.session_id"
+        : "";
+    const rows = prepare(
+        `SELECT w.source, w.env, w.model, w.directory, w.session_id,
+            ${title_select},
+            SUM(w.calls) AS calls,
+            SUM(w.input_tokens) AS input_tokens,
+            SUM(w.output_tokens) AS output_tokens,
+            SUM(w.cache_read_tokens) AS cache_read_tokens,
+            SUM(w.cache_write_tokens) AS cache_write_tokens
+         FROM window_rows w
+         ${join_clause}
+         GROUP BY w.source, w.env, w.session_id, w.model, w.directory, w.agent`,
+    ).all() as Record<string, unknown>[];
+    return rows.map(rollup_row_from);
+}
+
+function dashboard_session_page_from_meta(
+    prepare: (sql: string) => Database.Statement,
+    offset: number,
+    limit: number,
+): { total: number; rows: Record<string, unknown>[] } {
+    const total = (prepare("SELECT COUNT(*) AS total FROM session_meta").get() as { total: number })
+        .total;
+    const rows = prepare(
+        `SELECT source, env, session_id, title, directory, started_at, ended_at,
+            calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+         FROM session_meta
+         ORDER BY ended_at DESC, session_id ASC LIMIT @limit OFFSET @offset`,
+    ).all({ limit, offset }) as Record<string, unknown>[];
+    return { total, rows };
+}
+
+function rollup_row_from(row: Record<string, unknown>): DashboardRollupRow {
+    return {
+        source: row["source"] as TokenStatsSource,
+        env: row["env"] as TokenStatsEnv,
+        model: row["model"] as string,
+        directory: row["directory"] as string | null,
+        session_id: row["session_id"] as string,
+        title: row["title"] as string | null,
+        calls: row["calls"] as number,
+        input_tokens: row["input_tokens"] as number,
+        output_tokens: row["output_tokens"] as number,
+        cache_read_tokens: row["cache_read_tokens"] as number,
+        cache_write_tokens: row["cache_write_tokens"] as number,
+    };
+}
+
+function dashboard_session_items(
+    rows: Record<string, unknown>[],
+    current_rollup: DashboardRollupRow[],
+): TokenStatsDashboardSessionSummary[] {
+    const model_map = new Map<string, Set<string>>();
+    for (const row of current_rollup) {
+        const key = `${row.source}|${row.env}|${row.session_id}`;
+        const models = model_map.get(key) ?? new Set<string>();
+        models.add(row.model);
+        model_map.set(key, models);
     }
-    for (const row of rows) {
-        const raw_category = category_of(row);
-        const index = category_set.has(raw_category)
-            ? ranked_categories.indexOf(raw_category)
-            : other_index;
-        if (index < 0) continue;
-        const cell = cells[index];
-        if (!cell) continue;
-        const key =
-            query.metric === "sessions"
-                ? directory_resolver(row.directory ?? "(unknown)")
-                : model_resolver(row.model);
-        if (query.metric === "sessions") {
-            const session_cell = session_cells[index];
-            if (!session_cell) continue;
-            const sessions = session_cell.get(key) ?? new Set<string>();
-            sessions.add(session_key(row));
-            session_cell.set(key, sessions);
-        } else {
-            cell.set(key, (cell.get(key) ?? 0) + value_of(row));
-        }
-    }
-    if (query.metric === "sessions") {
-        session_cells.forEach((session_cell, index) => {
-            const cell = cells[index];
-            if (!cell) return;
-            for (const [key, sessions] of session_cell) cell.set(key, sessions.size);
-        });
-    }
-    return dashboard_chart_from_cells(labels, [], cells);
+    return rows.map((row) => {
+        const key = `${String(row["source"])}|${String(row["env"])}|${String(row["session_id"])}`;
+        return {
+            session_id: row["session_id"] as string,
+            source: row["source"] as TokenStatsSource,
+            env: row["env"] as TokenStatsEnv,
+            title: row["title"] as string | null,
+            directory: row["directory"] as string | null,
+            models: [...(model_map.get(key) ?? new Set<string>())].slice(0, 50),
+            input_tokens: row["input_tokens"] as number,
+            output_tokens: row["output_tokens"] as number,
+            cache_read_tokens: row["cache_read_tokens"] as number,
+            cache_write_tokens: row["cache_write_tokens"] as number,
+            calls: row["calls"] as number,
+            started_at: row["started_at"] as number,
+            ended_at: row["ended_at"] as number,
+        };
+    });
 }
 
 export function create_token_stats_store(
     db_path: string,
-    options: { readonly?: boolean } = {},
+    options: { readonly?: boolean; on_sql?: (sql: string) => void } = {},
 ): TokenStatsStore {
     const log = createLogger("token-stats-store");
     const readonly = options.readonly === true;
@@ -1091,354 +1205,134 @@ export function create_token_stats_store(
         },
 
         query_dashboard(query, status): TokenStatsDashboardDto {
-            const build_conditions = (start: number, end: number) => {
-                const conditions = ["timestamp >= @start", "timestamp < @end"];
-                const params: Record<string, unknown> = { start, end };
-                if (query.agent !== "all") {
-                    conditions.push("agent = @agent");
-                    params["agent"] = query.agent;
-                }
-                if (query.platform !== "all") {
-                    conditions.push("env = @env");
-                    params["env"] = query.platform;
-                }
-                return { conditions, params };
-            };
-            const width = query.end - query.start;
+            const on_sql = options.on_sql;
+            const prepare = on_sql
+                ? (sql: string) => {
+                      on_sql(sql);
+                      return db.prepare(sql);
+                  }
+                : (sql: string) => db.prepare(sql);
             const rollup_ready =
                 (get_rollup_ready_stmt.get() as { hour_rollup_ready: number } | undefined)
                     ?.hour_rollup_ready === 1;
-            const agent_where = query.agent !== "all" ? " AND agent = @agent" : "";
-            const env_where = query.platform !== "all" ? " AND env = @env" : "";
-            const filter_params: Record<string, unknown> = {};
-            if (query.agent !== "all") filter_params["agent"] = query.agent;
-            if (query.platform !== "all") filter_params["env"] = query.platform;
-            /**
-             * Unified window expansion shared by every dashboard region when the
-             * hour rollup is ready. The window `[start, end)` splits into whole
-             * local hours (token_stats_hour_rollup, one pre-aggregated cell per
-             * session/hour/model/directory/agent group) plus the window's partial
-             * edge hours (token_stats_records, raw rows). UNION ALL keeps the
-             * outer aggregate exact: SUM(calls)/SUM(tokens) recompose correctly
-             * and COUNT(DISTINCT session) de-duplicates across the two parts,
-             * while the rollup side scales with hour×group count instead of
-             * per-message rows.
-             */
-            const window_union = (
-                start: number,
-                end: number,
-            ): { sql: string; params: Record<string, unknown> } => {
-                const hs = start - ((start + 28800000) % 3600000);
-                const full_start = hs === start ? hs : hs + 3600000;
-                const full_end = end - ((end + 28800000) % 3600000);
-                const params: Record<string, unknown> = {
-                    ...filter_params,
-                    start,
-                    end,
-                    full_start,
-                    full_end,
-                };
-                const has_full_hours = full_start < full_end;
-                const rollup_part = has_full_hours
-                    ? `SELECT source, env, session_id, model, directory, agent, hour_start,
-                            calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
-                           FROM token_stats_hour_rollup
-                           WHERE hour_start >= @full_start AND hour_start < @full_end${agent_where}${env_where}`
-                    : `SELECT source, env, session_id, model, directory, agent, 0 AS hour_start,
-                            0 AS calls, 0 AS input_tokens, 0 AS output_tokens, 0 AS cache_read_tokens,
-                            0 AS cache_write_tokens
-                           FROM token_stats_records WHERE 0`;
-                // When there are whole hours the window splits into [start,
-                // full_start) ∪ [full_start, full_end) ∪ [full_end, end) and the
-                // rollup covers the middle. When there are none (full_start >
-                // full_end) the two edge bands would overlap past the window —
-                // e.g. [07:35, 08:00) ∪ [07:00, 07:55) covers [07:00, 08:00) —
-                // so fall back to reading the whole window from records.
-                const records_part = has_full_hours
-                    ? `SELECT source, env, session_id, model, directory, agent,
-                            (timestamp - ((timestamp + 28800000) % 3600000)) AS hour_start,
-                            1 AS calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
-                        FROM token_stats_records
-                        WHERE ((timestamp >= @start AND timestamp < @full_start)
-                               OR (timestamp >= @full_end AND timestamp < @end))${agent_where}${env_where}`
-                    : `SELECT source, env, session_id, model, directory, agent,
-                            (timestamp - ((timestamp + 28800000) % 3600000)) AS hour_start,
-                            1 AS calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
-                        FROM token_stats_records
-                        WHERE (timestamp >= @start AND timestamp < @end)${agent_where}${env_where}`;
-                return { sql: `(${rollup_part} UNION ALL ${records_part})`, params };
-            };
-            const read_rollup = (start: number, end: number): DashboardRollupRow[] => {
-                const rows = rollup_ready
-                    ? (() => {
-                          const u = window_union(start, end);
-                          return db
-                              .prepare(
-                                  `SELECT source, env, model, directory, session_id,
-                                      (SELECT title FROM token_stats_records t2
-                                          WHERE t2.session_id = w.session_id
-                                            AND t2.source = w.source
-                                            AND t2.env = w.env
-                                            AND t2.timestamp >= @start AND t2.timestamp < @end
-                                          ORDER BY t2.timestamp DESC LIMIT 1) AS title,
-                                      SUM(calls) AS calls,
-                                      SUM(input_tokens) AS input_tokens,
-                                      SUM(output_tokens) AS output_tokens,
-                                      SUM(cache_read_tokens) AS cache_read_tokens,
-                                      SUM(cache_write_tokens) AS cache_write_tokens
-                                   FROM ${u.sql} AS w
-                                   GROUP BY source, env, session_id, model, directory, agent`,
-                              )
-                              .all(u.params) as Record<string, unknown>[];
-                      })()
-                    : (() => {
-                          const rollup_conditions = ["timestamp >= @start", "timestamp < @end"];
-                          const rollup_params: Record<string, unknown> = { start, end };
-                          if (query.agent !== "all") {
-                              rollup_conditions.push("agent = @agent");
-                              rollup_params["agent"] = query.agent;
-                          }
-                          if (query.platform !== "all") {
-                              rollup_conditions.push("env = @env");
-                              rollup_params["env"] = query.platform;
-                          }
-                          return db
-                              .prepare(
-                                  `SELECT source, env, model, directory, session_id,
-                                      (SELECT title FROM token_stats_records t2
-                                          WHERE t2.session_id = token_stats_records.session_id
-                                            AND t2.source = token_stats_records.source
-                                            AND t2.env = token_stats_records.env
-                                            AND t2.timestamp >= @start AND t2.timestamp < @end
-                                          ORDER BY t2.timestamp DESC LIMIT 1) AS title,
-                                      COUNT(*) AS calls,
-                                      SUM(input_tokens) AS input_tokens,
-                                      SUM(output_tokens) AS output_tokens,
-                                      SUM(cache_read_tokens) AS cache_read_tokens,
-                                      SUM(cache_write_tokens) AS cache_write_tokens
-                                   FROM token_stats_records
-                                   WHERE ${rollup_conditions.join(" AND ")}
-                                   GROUP BY source, env, model, directory, session_id`,
-                              )
-                              .all(rollup_params) as Record<string, unknown>[];
-                      })();
-                return rows.map((row) => ({
-                    source: row["source"] as TokenStatsSource,
-                    env: row["env"] as TokenStatsEnv,
-                    model: row["model"] as string,
-                    directory: row["directory"] as string | null,
-                    session_id: row["session_id"] as string,
-                    title: row["title"] as string | null,
-                    calls: row["calls"] as number,
-                    input_tokens: row["input_tokens"] as number,
-                    output_tokens: row["output_tokens"] as number,
-                    cache_read_tokens: row["cache_read_tokens"] as number,
-                    cache_write_tokens: row["cache_write_tokens"] as number,
-                }));
-            };
-            const current_rollup = read_rollup(query.start, query.end);
-            const previous_rollup = read_rollup(query.start - width, query.start);
-            const { conditions, params } = build_conditions(query.start, query.end);
-            const chart_dimension =
-                query.metric === "sessions" ? "COALESCE(directory, '(unknown)')" : "model";
+            const width = query.end - query.start;
+            const start_version = (get_data_version_stmt.get() as { version: number }).version;
+
+            // Materialize the current window once; every region derives from
+            // the temp table (AC1). Records/rollup dual track collapses to a
+            // single window source (p031).
+            const current_source = rollup_ready
+                ? dashboard_window_union_builder(query)(query.start, query.end)
+                : dashboard_records_source(query, query.start, query.end);
+            materialize_window_rows(prepare, current_source);
+            materialize_session_meta(prepare, query, query.start, query.end);
+            const current_rollup = read_rollup_from_window_rows(prepare, true);
+
+            // Metric-agnostic chart source (t200): the renderer derives the
+            // chart for any metric/xaxis from these bounded rows, so switching
+            // display dims reuses the cached dashboard instead of refetching.
+            // metric_buckets carry calls+tokens per (bucket, model); the
+            // sessions time chart needs per (bucket, directory) DISTINCT
+            // session counts, which cannot be summed from per-model rows (a
+            // session spanning models within a bucket would double count).
             const bucket_expression =
                 query.gran === "hour"
-                    ? "timestamp - ((timestamp + 28800000) % 3600000)"
-                    : "timestamp - ((timestamp + 28800000) % 86400000)";
-            const bucket_rows =
-                query.xaxis === "time"
-                    ? rollup_ready
-                        ? (() => {
-                              const u = window_union(query.start, query.end);
-                              const rollup_bucket_expression =
-                                  query.gran === "hour"
-                                      ? "hour_start"
-                                      : "hour_start - ((hour_start + 28800000) % 86400000)";
-                              return db
-                                  .prepare(
-                                      `SELECT
-                                            ${rollup_bucket_expression} AS hour_start,
-                                            ${chart_dimension} AS model,
-                                            SUM(calls) AS calls,
-                                            COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions,
-                                            SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
-                                         FROM ${u.sql} AS w
-                                         GROUP BY ${rollup_bucket_expression}, ${chart_dimension}`,
-                                  )
-                                  .all(u.params) as TokenStatsHourBucket[];
-                          })()
-                        : (db
-                              .prepare(
-                                  `SELECT
-                                        ${bucket_expression} AS hour_start,
-                                        ${chart_dimension} AS model,
-                                        COUNT(*) AS calls,
-                                        COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions,
-                                        SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
-                                     FROM token_stats_records
-                                     WHERE ${conditions.join(" AND ")}
-                                     GROUP BY hour_start, model`,
-                              )
-                              .all(params) as TokenStatsHourBucket[])
-                    : [];
-            const chart =
-                query.xaxis === "time"
-                    ? dashboard_chart_from_hour_buckets(bucket_rows, query)
-                    : dashboard_chart_from_rollup(current_rollup, query);
+                    ? "hour_start"
+                    : "hour_start - ((hour_start + 28800000) % 86400000)";
+            const metric_buckets = prepare(
+                `SELECT ${bucket_expression} AS hour_start, model,
+                    SUM(calls) AS calls,
+                    SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
+                 FROM window_rows
+                 GROUP BY ${bucket_expression}, model`,
+            ).all() as TokenStatsDashboardMetricBucket[];
+            const session_buckets = prepare(
+                `SELECT ${bucket_expression} AS hour_start,
+                    COALESCE(directory, '(unknown)') AS directory,
+                    COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions
+                 FROM window_rows
+                 GROUP BY ${bucket_expression}, COALESCE(directory, '(unknown)')`,
+            ).all() as TokenStatsDashboardSessionBucket[];
             const session_offset = query.session_offset ?? 0;
             const session_limit = query.session_limit ?? 100;
-            let session_count: { total: number };
-            let session_rows: Record<string, unknown>[];
-            if (rollup_ready) {
-                const u = window_union(query.start, query.end);
-                session_count = db
-                    .prepare(
-                        `SELECT COUNT(*) AS total FROM (
-                            SELECT source, env, session_id FROM ${u.sql} AS w
-                            GROUP BY source, env, session_id
-                        )`,
-                    )
-                    .get(u.params) as { total: number };
-                session_rows = db
-                    .prepare(
-                        `SELECT source, env, session_id,
-                            (SELECT title FROM token_stats_records t2
-                                WHERE t2.source = w.source AND t2.env = w.env
-                                  AND t2.session_id = w.session_id
-                                  AND t2.timestamp >= @start AND t2.timestamp < @end
-                                ORDER BY t2.timestamp DESC LIMIT 1) AS title,
-                            (SELECT directory FROM token_stats_records t2
-                                WHERE t2.source = w.source AND t2.env = w.env
-                                  AND t2.session_id = w.session_id
-                                  AND t2.timestamp >= @start AND t2.timestamp < @end
-                                ORDER BY t2.timestamp DESC LIMIT 1) AS directory,
-                            SUM(input_tokens) AS input_tokens,
-                            SUM(output_tokens) AS output_tokens,
-                            SUM(cache_read_tokens) AS cache_read_tokens,
-                            SUM(cache_write_tokens) AS cache_write_tokens,
-                            SUM(calls) AS calls,
-                            (SELECT MIN(timestamp) FROM token_stats_records t2
-                                WHERE t2.source = w.source AND t2.env = w.env
-                                  AND t2.session_id = w.session_id
-                                  AND t2.timestamp >= @start AND t2.timestamp < @end) AS started_at,
-                            (SELECT MAX(timestamp) FROM token_stats_records t2
-                                WHERE t2.source = w.source AND t2.env = w.env
-                                  AND t2.session_id = w.session_id
-                                  AND t2.timestamp >= @start AND t2.timestamp < @end) AS ended_at
-                         FROM ${u.sql} AS w
-                         GROUP BY source, env, session_id
-                         ORDER BY ended_at DESC, session_id ASC LIMIT @session_limit OFFSET @session_offset`,
-                    )
-                    .all({ ...u.params, session_limit, session_offset }) as Record<
-                    string,
-                    unknown
-                >[];
-            } else {
-                session_count = db
-                    .prepare(
-                        `SELECT COUNT(*) AS total FROM (
-                            SELECT source, env, session_id FROM token_stats_records
-                            WHERE ${conditions.join(" AND ")}
-                            GROUP BY source, env, session_id
-                        )`,
-                    )
-                    .get(params) as { total: number };
-                session_rows = db
-                    .prepare(
-                        `SELECT source, env, session_id,
-                            (SELECT title FROM token_stats_records t2
-                                WHERE t2.source = token_stats_records.source
-                                  AND t2.env = token_stats_records.env
-                                  AND t2.session_id = token_stats_records.session_id
-                                  AND t2.timestamp >= @start AND t2.timestamp < @end
-                                ORDER BY t2.timestamp DESC LIMIT 1) AS title,
-                            (SELECT directory FROM token_stats_records t2
-                                WHERE t2.source = token_stats_records.source
-                                  AND t2.env = token_stats_records.env
-                                  AND t2.session_id = token_stats_records.session_id
-                                  AND t2.timestamp >= @start AND t2.timestamp < @end
-                                ORDER BY t2.timestamp DESC LIMIT 1) AS directory,
-                            SUM(input_tokens) AS input_tokens,
-                            SUM(output_tokens) AS output_tokens,
-                            SUM(cache_read_tokens) AS cache_read_tokens,
-                            SUM(cache_write_tokens) AS cache_write_tokens,
-                            COUNT(*) AS calls, MIN(timestamp) AS started_at, MAX(timestamp) AS ended_at
-                         FROM token_stats_records
-                         WHERE ${conditions.join(" AND ")}
-                         GROUP BY source, env, session_id
-                         ORDER BY ended_at DESC, session_id ASC LIMIT @session_limit OFFSET @session_offset`,
-                    )
-                    .all({ ...params, session_limit, session_offset }) as Record<string, unknown>[];
-            }
-            const model_map = new Map<string, Set<string>>();
-            for (const row of current_rollup) {
-                const key = `${row.source}|${row.env}|${row.session_id}`;
-                const models = model_map.get(key) ?? new Set<string>();
-                models.add(row.model);
-                model_map.set(key, models);
-            }
-            const session_items = session_rows.map((row) => {
-                const key = `${String(row["source"])}|${String(row["env"])}|${String(row["session_id"])}`;
-                return {
-                    session_id: row["session_id"] as string,
-                    source: row["source"] as TokenStatsSource,
-                    env: row["env"] as TokenStatsEnv,
-                    title: row["title"] as string | null,
-                    directory: row["directory"] as string | null,
-                    models: [...(model_map.get(key) ?? new Set<string>())].slice(0, 50),
-                    input_tokens: row["input_tokens"] as number,
-                    output_tokens: row["output_tokens"] as number,
-                    cache_read_tokens: row["cache_read_tokens"] as number,
-                    cache_write_tokens: row["cache_write_tokens"] as number,
-                    calls: row["calls"] as number,
-                    started_at: row["started_at"] as number,
-                    ended_at: row["ended_at"] as number,
-                };
-            });
-            const heatmap = rollup_ready
-                ? (() => {
-                      const u = window_union(query.start, query.end);
-                      return db
-                          .prepare(
-                              `SELECT
-                                  CAST(strftime('%w', hour_start/1000, 'unixepoch', '+8 hours') AS INTEGER) AS weekday,
-                                  CAST(strftime('%H', hour_start/1000, 'unixepoch', '+8 hours') AS INTEGER) AS hour,
-                                  SUM(calls) AS calls,
-                                  COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions,
-                                  SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
-                               FROM ${u.sql} AS w
-                               GROUP BY weekday, hour`,
-                          )
-                          .all(u.params) as TokenStatsHeatmapCell[];
-                  })()
-                : (db
-                      .prepare(
-                          `SELECT
-                              CAST(strftime('%w', timestamp/1000, 'unixepoch', '+8 hours') AS INTEGER) AS weekday,
-                              CAST(strftime('%H', timestamp/1000, 'unixepoch', '+8 hours') AS INTEGER) AS hour,
-                              COUNT(*) AS calls,
-                              COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions,
-                              SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
-                           FROM token_stats_records
-                           WHERE ${conditions.join(" AND ")}
-                           GROUP BY weekday, hour`,
-                      )
-                      .all(params) as TokenStatsHeatmapCell[]);
+            const session_page = dashboard_session_page_from_meta(
+                prepare,
+                session_offset,
+                session_limit,
+            );
+            const session_items = dashboard_session_items(session_page.rows, current_rollup);
+            const heatmap = prepare(
+                `SELECT
+                    CAST(strftime('%w', hour_start/1000, 'unixepoch', '+8 hours') AS INTEGER) AS weekday,
+                    CAST(strftime('%H', hour_start/1000, 'unixepoch', '+8 hours') AS INTEGER) AS hour,
+                    SUM(calls) AS calls,
+                    COUNT(DISTINCT source || '|' || env || '|' || session_id) AS sessions,
+                    SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) AS tokens
+                 FROM window_rows
+                 GROUP BY weekday, hour`,
+            ).all() as TokenStatsHeatmapCell[];
+
+            // Previous window only feeds the summary delta (no session-axis
+            // titles, no chart regions) — a second single materialization.
+            const previous_source = rollup_ready
+                ? dashboard_window_union_builder(query)(query.start - width, query.start)
+                : dashboard_records_source(query, query.start - width, query.start);
+            materialize_window_rows(prepare, previous_source);
+            const previous_rollup = read_rollup_from_window_rows(prepare, false);
+
+            const end_version = (get_data_version_stmt.get() as { version: number }).version;
             const queried_at = Date.now();
             return {
                 query,
                 current: dashboard_summary_from_rollup(current_rollup, query),
                 previous: dashboard_summary_from_rollup(previous_rollup, query),
-                chart,
+                chart_data: {
+                    axis: dashboard_chart_axis(query.start, query.end, query.gran),
+                    metric_buckets,
+                    session_buckets,
+                    rollup: current_rollup,
+                },
                 heatmap,
                 sessions: {
                     items: session_items,
-                    total: session_count.total,
-                    has_more: session_count.total > session_offset + session_items.length,
+                    total: session_page.total,
+                    has_more: session_page.total > session_offset + session_items.length,
                 },
                 status,
-                freshness: { queried_at, stale: false },
-                data_version: (get_data_version_stmt.get() as { version: number }).version,
+                // A committed data-version advance while this request was
+                // aggregating means the response is already stale (AC3).
+                freshness: { queried_at, stale: end_version > start_version },
+                data_version: end_version,
+            };
+        },
+
+        query_dashboard_sessions(
+            query: TokenStatsDashboardSessionsQuery,
+        ): TokenStatsDashboardSessionsDto {
+            const on_sql = options.on_sql;
+            const prepare = on_sql
+                ? (sql: string) => {
+                      on_sql(sql);
+                      return db.prepare(sql);
+                  }
+                : (sql: string) => db.prepare(sql);
+            const rollup_ready =
+                (get_rollup_ready_stmt.get() as { hour_rollup_ready: number } | undefined)
+                    ?.hour_rollup_ready === 1;
+            const offset = query.session_offset ?? 0;
+            const limit = query.session_limit ?? 100;
+            const source = rollup_ready
+                ? dashboard_window_union_builder(query)(query.start, query.end)
+                : dashboard_records_source(query, query.start, query.end);
+            materialize_window_rows(prepare, source);
+            materialize_session_meta(prepare, query, query.start, query.end);
+            const current_rollup = read_rollup_from_window_rows(prepare, true);
+            const page = dashboard_session_page_from_meta(prepare, offset, limit);
+            const items = dashboard_session_items(page.rows, current_rollup);
+            return {
+                items,
+                total: page.total,
+                has_more: page.total > offset + items.length,
             };
         },
 

@@ -9,6 +9,8 @@ interface CollapsibleCardProps {
     onToggle: () => void;
     className?: string | undefined;
     toggleLabel?: string | undefined;
+    /** When false, the card cannot collapse — no toggle chevron is rendered. */
+    collapsible?: boolean | undefined;
     dataStatus?: string | undefined;
     /** Extra props forwarded to the root .card div (e.g. draggable, onDragStart). */
     rootProps?: React.HTMLAttributes<HTMLDivElement> | undefined;
@@ -22,6 +24,7 @@ export function CollapsibleCard({
     onToggle,
     className,
     toggleLabel,
+    collapsible = true,
     dataStatus,
     rootProps,
 }: CollapsibleCardProps) {
@@ -42,7 +45,7 @@ export function CollapsibleCard({
                 {(tools !== undefined || has_details) && (
                     <div className="card-tools">
                         {tools}
-                        {has_details && (
+                        {has_details && collapsible && (
                             <button
                                 type="button"
                                 className="icon-btn"

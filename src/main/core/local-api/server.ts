@@ -12,6 +12,8 @@ import type { TokenStatsQueryDispatcher } from "../token-stats/query-dispatcher"
 import {
     tokenStatsDashboardDtoSchema,
     tokenStatsDashboardQuerySchema,
+    tokenStatsDashboardSessionsDtoSchema,
+    tokenStatsDashboardSessionsQuerySchema,
 } from "../../../shared/types/token-stats";
 import { is_test_build } from "../paths";
 import {
@@ -349,6 +351,36 @@ export function create_local_api_server(
                     json_response(res, 200, parsed_dto.data);
                 } catch {
                     json_response(res, 500, { error: "Dashboard query failed" });
+                }
+                return true;
+            }
+            case "/v1/dashboard/sessions": {
+                const parsed_query = tokenStatsDashboardSessionsQuerySchema.safeParse({
+                    agent: params.get("agent"),
+                    platform: params.get("platform"),
+                    start: Number(params.get("start")),
+                    end: Number(params.get("end")),
+                    ...(params.has("session_offset")
+                        ? { session_offset: Number(params.get("session_offset")) }
+                        : {}),
+                    ...(params.has("session_limit")
+                        ? { session_limit: Number(params.get("session_limit")) }
+                        : {}),
+                });
+                if (!parsed_query.success) {
+                    json_response(res, 400, { error: "Invalid dashboard sessions query" });
+                    return true;
+                }
+                try {
+                    const dto = store.query_dashboard_sessions(parsed_query.data);
+                    const parsed_dto = tokenStatsDashboardSessionsDtoSchema.safeParse(dto);
+                    if (!parsed_dto.success) {
+                        json_response(res, 500, { error: "Invalid dashboard sessions response" });
+                        return true;
+                    }
+                    json_response(res, 200, parsed_dto.data);
+                } catch {
+                    json_response(res, 500, { error: "Dashboard sessions query failed" });
                 }
                 return true;
             }

@@ -4,11 +4,11 @@ import { useECharts } from "../../hooks/use-echarts";
 import { fmtInt, fmtTok } from "../../lib/token-stats/format";
 import { paletteFor } from "../../lib/token-stats/palette";
 import {
-    build_resolver,
     prepareBarData,
     prepareBarDataFromBuckets,
     prepareBarDataFromHourBuckets,
     prepareBarDataFromRollup,
+    prepareBarDataFromDashboardChartData,
     escapeHtml,
 } from "../../lib/token-stats/chart-data";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "../../lib/token-stats/types";
@@ -16,7 +16,7 @@ import type {
     TokenStatsBucket,
     TokenStatsHourBucket,
     TokenStatsRollupRow,
-    TokenStatsDashboardChart,
+    TokenStatsDashboardChartData,
 } from "../../../shared/types/token-stats";
 
 interface BarChartProps {
@@ -42,7 +42,9 @@ interface BarChartProps {
     topOffset?: number;
     dirAliases?: { alias: string; dirs: string[] }[];
     modelAliases?: { alias: string; models: string[] }[];
-    dashboardChart?: TokenStatsDashboardChart;
+    /** Metric/xaxis-agnostic dashboard chart source (t200); when present the
+     *  chart is derived locally so switching display dims never refetches. */
+    chartData?: TokenStatsDashboardChartData;
 }
 
 const METRIC_LABEL: Record<Metric, string> = {
@@ -91,72 +93,6 @@ export function build_bar_tooltip_html(
     return html;
 }
 
-function apply_dashboard_aliases(
-    chart: TokenStatsDashboardChart,
-    metric: Metric,
-    xaxis: XAxis,
-    dir_aliases: readonly { alias: string; dirs: readonly string[] }[],
-    model_aliases: readonly { alias: string; models: readonly string[] }[],
-): TokenStatsDashboardChart {
-    const dir_resolver = build_resolver(dir_aliases.map((a) => ({ alias: a.alias, keys: a.dirs })));
-    const model_resolver = build_resolver(
-        model_aliases.map((a) => ({ alias: a.alias, keys: a.models })),
-    );
-    let labels = [...chart.labels];
-    let other_details = chart.other_details.map((details) => [...details]);
-    let series = chart.series.map((item) => ({ name: item.name, data: [...item.data] }));
-    if (xaxis === "project") {
-        const label_index = new Map<string, number>();
-        const source_to_target: number[] = [];
-        for (const label of labels) {
-            const resolved = dir_resolver(label);
-            let index = label_index.get(resolved);
-            if (index === undefined) {
-                index = label_index.size;
-                label_index.set(resolved, index);
-            }
-            source_to_target.push(index);
-        }
-        labels = [...label_index.keys()];
-        series = series.map((item) => ({
-            name: item.name,
-            data: labels.map((_, target) =>
-                source_to_target.reduce(
-                    (sum, source) =>
-                        sum + (source_to_target[source] === target ? (item.data[source] ?? 0) : 0),
-                    0,
-                ),
-            ),
-        }));
-        const merged_details: [string, number][][] = labels.map(() => []);
-        other_details.forEach((details, source) => {
-            const target = source_to_target[source];
-            if (target === undefined) return;
-            const destination = merged_details[target];
-            if (!destination) return;
-            destination.push(...details);
-        });
-        other_details = merged_details.map((details) =>
-            details.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 20),
-        );
-    }
-    const series_resolver = metric === "sessions" ? dir_resolver : model_resolver;
-    const merged_series = new Map<string, number[]>();
-    for (const item of series) {
-        const name = item.name === "其他" ? item.name : series_resolver(item.name);
-        const values = merged_series.get(name) ?? labels.map(() => 0);
-        item.data.forEach((value, index) => {
-            values[index] = (values[index] ?? 0) + value;
-        });
-        merged_series.set(name, values);
-    }
-    return {
-        labels,
-        bucket_starts: labels.length === chart.bucket_starts.length ? chart.bucket_starts : [],
-        series: [...merged_series.entries()].map(([name, data]) => ({ name, data })),
-        other_details,
-    };
-}
 export function BarChart({
     records,
     buckets,
@@ -171,23 +107,24 @@ export function BarChart({
     topOffset = 20,
     dirAliases,
     modelAliases,
-    dashboardChart,
+    chartData,
 }: BarChartProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const { labels, bucketStarts, series, otherDetails } = useMemo(() => {
-        if (dashboardChart) {
-            const aliased = apply_dashboard_aliases(
-                dashboardChart,
+        if (chartData) {
+            const derived = prepareBarDataFromDashboardChartData(
+                chartData,
                 metric,
                 xaxis,
+                theme,
                 dirAliases ?? [],
                 modelAliases ?? [],
             );
             return {
-                labels: aliased.labels,
-                bucketStarts: aliased.bucket_starts,
-                series: aliased.series,
-                otherDetails: aliased.other_details,
+                labels: derived.labels,
+                bucketStarts: derived.bucketStarts,
+                series: derived.series,
+                otherDetails: derived.otherDetails,
             };
         }
         // Time axis can use pre-aggregated data for wide windows (>=7d) where
@@ -229,7 +166,7 @@ export function BarChart({
         theme,
         dirAliases,
         modelAliases,
-        dashboardChart,
+        chartData,
     ]);
     const fmtV = metric === "tokens" ? fmtTok : fmtInt;
     const pal = paletteFor(theme);

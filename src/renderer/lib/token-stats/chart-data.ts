@@ -5,6 +5,7 @@ import { TOP5_COLORS, colorForTopModel, colorForTopProject, paletteFor } from ".
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "./types";
 import type {
     TokenStatsBucket,
+    TokenStatsDashboardChartData,
     TokenStatsHeatmapCell,
     TokenStatsHourBucket,
     TokenStatsRollupRow,
@@ -281,7 +282,8 @@ export function prepareBarData(
     const otherDetails: [string, number][][] = cells.map((m) =>
         Object.entries(m)
             .filter(([k]) => restSet.has(k))
-            .sort((a, b) => b[1] - a[1]),
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, 20),
     );
 
     const colorOf = (k: string, index: number) =>
@@ -423,7 +425,8 @@ function cells_to_bar_data(
     const otherDetails: [string, number][][] = cells.map((c) =>
         Object.entries(c)
             .filter(([k]) => restSet.has(k))
-            .sort((a, b) => b[1] - a[1]),
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, 20),
     );
     const colorOf = (k: string, index: number) =>
         k === "其他" ? palette.other : colorForTopModel(k, index, theme);
@@ -1037,7 +1040,8 @@ export function prepareBarDataFromRollup(
     const otherDetails: [string, number][][] = cells.map((m) =>
         Object.entries(m)
             .filter(([k]) => restSet.has(k))
-            .sort((a, b) => b[1] - a[1]),
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, 20),
     );
     const colorOf = (k: string, index: number) =>
         k === "其他"
@@ -1058,4 +1062,159 @@ export function prepareBarDataFromRollup(
     }));
 
     return { labels, bucketStarts: [], seriesNames, series, otherDetails };
+}
+
+/**
+ * Derive the project/session axis bar from the bounded rollup rows (t200),
+ * mirroring the server's dashboard_chart_from_rollup exactly so the renderer
+ * output equals the pre-t200 server chart. Session-axis labels use the raw
+ * title (not truncated); series keys are alias-resolved; top 20 + "其他".
+ */
+export function prepareBarDataFromDashboardRollup(
+    rows: TokenStatsRollupRow[],
+    metric: Metric,
+    xaxis: XAxis,
+    theme: "dark" | "light",
+    dirAliases: readonly { alias: string; dirs: readonly string[] }[] = [],
+    modelAliases: readonly { alias: string; models: readonly string[] }[] = [],
+): BarData {
+    const value_of = (row: TokenStatsRollupRow): number =>
+        metric === "tokens"
+            ? row.input_tokens + row.output_tokens + row.cache_read_tokens + row.cache_write_tokens
+            : metric === "calls"
+              ? row.calls
+              : 1;
+    const directory_resolver = build_resolver(
+        dirAliases.map((a) => ({ alias: a.alias, keys: a.dirs })),
+    );
+    const model_resolver = build_resolver(
+        modelAliases.map((a) => ({ alias: a.alias, keys: a.models })),
+    );
+    const session_key = (row: TokenStatsRollupRow): string => `${row.source}|${row.session_id}`;
+    const category_of = (row: TokenStatsRollupRow): string =>
+        xaxis === "project" ? directory_resolver(row.directory ?? "(unknown)") : session_key(row);
+    const category_totals = new Map<string, number>();
+    const category_sessions = new Map<string, Set<string>>();
+    for (const row of rows) {
+        const category = category_of(row);
+        if (metric === "sessions") {
+            const sessions = category_sessions.get(category) ?? new Set<string>();
+            sessions.add(session_key(row));
+            category_sessions.set(category, sessions);
+        } else {
+            category_totals.set(category, (category_totals.get(category) ?? 0) + value_of(row));
+        }
+    }
+    if (metric === "sessions") {
+        for (const [category, sessions] of category_sessions) {
+            category_totals.set(category, sessions.size);
+        }
+    }
+    const ranked_categories = [...category_totals.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 20)
+        .map(([category]) => category);
+    const category_set = new Set(ranked_categories);
+    const labels = ranked_categories.map((category) =>
+        xaxis === "session"
+            ? (rows.find((row) => category_of(row) === category)?.title ?? "")
+            : category,
+    );
+    const cells: Record<string, number>[] = ranked_categories.map(() => ({}));
+    const session_cells: Record<string, Set<string>>[] = ranked_categories.map(() => ({}));
+    const other_index = ranked_categories.length < category_totals.size ? cells.length : -1;
+    if (other_index >= 0) {
+        labels.push("其他");
+        cells.push({});
+        session_cells.push({});
+    }
+    for (const row of rows) {
+        const raw_category = category_of(row);
+        const index = category_set.has(raw_category)
+            ? ranked_categories.indexOf(raw_category)
+            : other_index;
+        if (index < 0) continue;
+        const cell = cells[index];
+        if (!cell) continue;
+        const key =
+            metric === "sessions"
+                ? directory_resolver(row.directory ?? "(unknown)")
+                : model_resolver(row.model);
+        if (metric === "sessions") {
+            const session_cell = session_cells[index];
+            if (!session_cell) continue;
+            const sessions = session_cell[key] ?? new Set<string>();
+            sessions.add(session_key(row));
+            session_cell[key] = sessions;
+        } else {
+            cell[key] = (cell[key] ?? 0) + value_of(row);
+        }
+    }
+    if (metric === "sessions") {
+        session_cells.forEach((session_cell, index) => {
+            const cell = cells[index];
+            if (!cell) return;
+            for (const [key, sessions] of Object.entries(session_cell)) cell[key] = sessions.size;
+        });
+    }
+    return { labels, bucketStarts: [], ...cells_to_bar_data(cells, theme) };
+}
+
+/**
+ * Derive the bar chart from the metric/xaxis-agnostic dashboard chart source
+ * (t200). For the time axis the server-built `axis` maps metric/session buckets
+ * onto the exact buckets the server used; for the project/session axes the
+ * bounded rollup rows are derived via prepareBarDataFromDashboardRollup. The
+ * result equals the pre-t200 server chart for every metric/xaxis/gran combo.
+ */
+export function prepareBarDataFromDashboardChartData(
+    chart_data: TokenStatsDashboardChartData,
+    metric: Metric,
+    xaxis: XAxis,
+    theme: "dark" | "light",
+    dirAliases: readonly { alias: string; dirs: readonly string[] }[] = [],
+    modelAliases: readonly { alias: string; models: readonly string[] }[] = [],
+): BarData {
+    if (xaxis !== "time") {
+        return prepareBarDataFromDashboardRollup(
+            chart_data.rollup,
+            metric,
+            xaxis,
+            theme,
+            dirAliases,
+            modelAliases,
+        );
+    }
+    const { labels, bucket_starts } = chart_data.axis;
+    const dir_resolver = build_resolver(dirAliases.map((a) => ({ alias: a.alias, keys: a.dirs })));
+    const model_resolver = build_resolver(
+        modelAliases.map((a) => ({ alias: a.alias, keys: a.models })),
+    );
+    const index_of = (timestamp: number): number => {
+        let low = 0;
+        let high = bucket_starts.length;
+        while (low < high) {
+            const mid = Math.floor((low + high) / 2);
+            if ((bucket_starts[mid] ?? 0) <= timestamp) low = mid + 1;
+            else high = mid;
+        }
+        return Math.max(0, low - 1);
+    };
+    const cells: Record<string, number>[] = bucket_starts.map(() => ({}));
+    if (metric === "sessions") {
+        for (const bucket of chart_data.session_buckets) {
+            const cell = cells[index_of(bucket.hour_start)];
+            if (!cell) continue;
+            const key = dir_resolver(bucket.directory);
+            cell[key] = (cell[key] ?? 0) + bucket.sessions;
+        }
+    } else {
+        for (const bucket of chart_data.metric_buckets) {
+            const cell = cells[index_of(bucket.hour_start)];
+            if (!cell) continue;
+            const key = model_resolver(bucket.model);
+            cell[key] = (cell[key] ?? 0) + (metric === "tokens" ? bucket.tokens : bucket.calls);
+        }
+    }
+    return { labels, bucketStarts: bucket_starts, ...cells_to_bar_data(cells, theme) };
 }

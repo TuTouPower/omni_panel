@@ -1,6 +1,14 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "../fixtures/test";
+import { createTestWithSetup } from "../fixtures/test_with_setup";
 import { PopupPage } from "../pages/popup_page";
 import { SettingsPage } from "../pages/settings_page";
+
+// The tray menu window only exists when E2E_WITH_TRAY=1 (main/index.ts gating),
+// and its presence makes firstWindow() ambiguous (the tray window may open first).
+// So only the quit-menu test runs with the tray enabled; the other tests assert
+// popup IPC behavior and should use the default tray-less fixture.
+const { test: trayTest, expect: trayExpect } = createTestWithSetup({ enableTray: true });
 
 /**
  * Phase 21 E2E: tray right-click menu actions verification.
@@ -47,21 +55,36 @@ test.describe("tray menu actions", () => {
         await expect(refresh_btn).toBeVisible();
     });
 
-    test("quit command is available in menu labels", async ({ omni }) => {
-        // The tray menu is rendered as a React component in a separate window.
-        // Verify the quit menu item text exists in the rendered tray menu.
-        const windows = omni.app.windows();
-        const tray_page =
-            windows.find((w) => w.url().includes("tray")) ?? (await omni.app.firstWindow());
+    trayTest("quit command is available in menu labels", async ({ omni }) => {
+        // The tray menu is rendered as a React component in a separate window,
+        // created hidden at startup. Poll until the rendered tray menu body
+        // appears (the window may not be loaded yet when the test starts).
+        let tray_page: Page | null = null;
+        for (let i = 0; i < 20 && !tray_page; i++) {
+            for (const win of omni.app.windows()) {
+                if (win.isClosed()) continue;
+                const has_body = await win
+                    .locator(".tray-menu-body")
+                    .count()
+                    .catch(() => 0);
+                if (has_body > 0) {
+                    tray_page = win;
+                    break;
+                }
+            }
+            if (!tray_page) {
+                await new Promise((resolve) => setTimeout(resolve, 300));
+            }
+        }
+        if (!tray_page) tray_page = await omni.app.firstWindow();
 
-        // Wait for the tray menu body to render
         await tray_page.waitForSelector(".tray-menu-body", { timeout: 10_000 });
 
         // The quit item contains "退出" (zh) or "Quit" (en)
         const quit_item = tray_page
             .locator(".ctx-item.danger, .ctx-item:has-text('退出'), .ctx-item:has-text('Quit')")
             .last();
-        await expect(quit_item).toBeVisible();
+        await trayExpect(quit_item).toBeVisible();
         const text = await quit_item.textContent();
         expect(text).toMatch(/退出|Quit/);
     });

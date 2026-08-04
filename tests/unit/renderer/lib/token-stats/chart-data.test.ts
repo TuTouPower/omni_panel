@@ -2,11 +2,13 @@ import { describe, it, expect } from "vitest";
 import type {
     AgentSessionUsage,
     TokenStatsBucket,
+    TokenStatsDashboardChartData,
     TokenStatsHeatmapCell,
     TokenStatsHourBucket,
     TokenStatsRollupRow,
     TokenStatsSession,
 } from "../../../../../src/shared/types/token-stats";
+import type { Metric } from "../../../../../src/renderer/lib/token-stats/types";
 import {
     agentSegments,
     agentSegmentsFromBuckets,
@@ -26,6 +28,8 @@ import {
     prepareBarDataFromBuckets,
     prepareBarDataFromHourBuckets,
     prepareBarDataFromRollup,
+    prepareBarDataFromDashboardChartData,
+    prepareBarDataFromDashboardRollup,
     prepareHeatmapData,
     prepareHeatmapFromCells,
     projectSegments,
@@ -887,6 +891,487 @@ describe("chart-data", () => {
                 const total = data.series.reduce((sum, s) => sum + (s.data[p1_idx] ?? 0), 0);
                 expect(total).toBe(8);
             });
+        });
+    });
+
+    describe("prepareBarDataFromDashboardChartData", () => {
+        const start = new Date("2026-07-10T00:00:00").getTime();
+        const chart_data: TokenStatsDashboardChartData = {
+            axis: { labels: ["7/10", "7/11"], bucket_starts: [start, start + 24 * 3600000] },
+            metric_buckets: [
+                { hour_start: start, model: "sonnet", calls: 3, tokens: 30 },
+                { hour_start: start, model: "opus", calls: 1, tokens: 10 },
+                { hour_start: start + 24 * 3600000, model: "sonnet", calls: 2, tokens: 20 },
+            ],
+            session_buckets: [
+                { hour_start: start, directory: "/alpha", sessions: 2 },
+                { hour_start: start + 24 * 3600000, directory: "/beta", sessions: 1 },
+            ],
+            rollup: [
+                {
+                    source: "claude_code",
+                    model: "sonnet",
+                    directory: "/alpha",
+                    session_id: "s1",
+                    title: "Session one",
+                    calls: 3,
+                    input_tokens: 30,
+                    output_tokens: 0,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                },
+                {
+                    source: "claude_code",
+                    model: "opus",
+                    directory: "/beta",
+                    session_id: "s2",
+                    title: "Session two",
+                    calls: 1,
+                    input_tokens: 10,
+                    output_tokens: 0,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                },
+            ],
+        };
+
+        it("derives the tokens time chart from metric buckets on the server axis", () => {
+            const data = prepareBarDataFromDashboardChartData(chart_data, "tokens", "time", "dark");
+            expect(data.labels).toEqual(["7/10", "7/11"]);
+            expect(data.bucketStarts).toEqual([start, start + 24 * 3600000]);
+            const sonnet = data.series.find((s) => s.name === "sonnet");
+            expect(sonnet?.data).toEqual([30, 20]);
+            const opus = data.series.find((s) => s.name === "opus");
+            expect(opus?.data).toEqual([10, 0]);
+        });
+
+        it("derives the calls time chart from the same metric buckets", () => {
+            const data = prepareBarDataFromDashboardChartData(chart_data, "calls", "time", "dark");
+            const sonnet = data.series.find((s) => s.name === "sonnet");
+            expect(sonnet?.data).toEqual([3, 2]);
+        });
+
+        it("derives the sessions time chart from per-directory distinct buckets", () => {
+            const data = prepareBarDataFromDashboardChartData(
+                chart_data,
+                "sessions",
+                "time",
+                "dark",
+            );
+            const alpha = data.series.find((s) => s.name === "/alpha");
+            expect(alpha?.data).toEqual([2, 0]);
+            const beta = data.series.find((s) => s.name === "/beta");
+            expect(beta?.data).toEqual([0, 1]);
+        });
+
+        it("derives the project axis from the bounded rollup rows", () => {
+            const data = prepareBarDataFromDashboardChartData(
+                chart_data,
+                "tokens",
+                "project",
+                "dark",
+            );
+            const alpha_idx = data.labels.indexOf("/alpha");
+            expect(alpha_idx).toBeGreaterThanOrEqual(0);
+            const total = data.series.reduce((sum, s) => sum + (s.data[alpha_idx] ?? 0), 0);
+            expect(total).toBe(30);
+        });
+
+        it("derives the session axis with raw titles", () => {
+            const data = prepareBarDataFromDashboardChartData(
+                chart_data,
+                "tokens",
+                "session",
+                "dark",
+            );
+            expect(data.labels).toContain("Session one");
+        });
+
+        it("resolves dir aliases on the project axis", () => {
+            const data = prepareBarDataFromDashboardChartData(
+                chart_data,
+                "tokens",
+                "project",
+                "dark",
+                [{ alias: "P", dirs: ["/alpha", "/beta"] }],
+            );
+            expect(data.labels).toEqual(["P"]);
+            const total = data.series.reduce((sum, s) => sum + (s.data[0] ?? 0), 0);
+            expect(total).toBe(40);
+        });
+
+        it("resolves model aliases on the time axis", () => {
+            const data = prepareBarDataFromDashboardChartData(
+                chart_data,
+                "tokens",
+                "time",
+                "dark",
+                [],
+                [{ alias: "S", models: ["sonnet", "opus"] }],
+            );
+            expect(data.series).toHaveLength(1);
+            expect(data.series[0]?.name).toBe("S");
+            expect(data.series[0]?.data).toEqual([40, 20]);
+        });
+    });
+
+    describe("renderer 派生与改前服务器 chart 等价（oracle，t200 AC4）", () => {
+        // 参考实现：diff_anchor 7303c4 的 token-stats-store.ts 的
+        // dashboard_named_values / dashboard_chart_from_cells /
+        // dashboard_chart_from_rollup 原样转写（只读基线，不随实现演进）。
+        // oracle 与 renderer prepareBarDataFromDashboardRollup 在同一行集上
+        // 比对，验证 AC4「展示结果与改前等价」。全部行 env 相同（f003 的 env
+        // 差异由 p040 单独跟踪，不在本 oracle 暴露）。
+        type OracleRow = TokenStatsRollupRow & { env: string };
+        const oracle_alias_resolver = (
+            aliases: { alias: string; keys: string[] }[] | undefined,
+        ): ((key: string) => string) => {
+            const lookup = new Map<string, string>();
+            for (const item of aliases ?? []) {
+                for (const key of item.keys) lookup.set(key, item.alias);
+            }
+            return (key) => lookup.get(key) ?? key;
+        };
+        const oracle_named_values = (totals: Map<string, number>) => {
+            const ranked = [...totals.entries()]
+                .filter(([, value]) => value > 0)
+                .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+            const values = ranked.slice(0, 5).map(([key, value]) => ({ key, value }));
+            const other_value = ranked.slice(5).reduce((sum, [, value]) => sum + value, 0);
+            if (other_value > 0) values.push({ key: "其他", value: other_value });
+            return values;
+        };
+        const oracle_chart_from_cells = (
+            labels: string[],
+            cells: Map<string, number>[],
+        ): {
+            labels: string[];
+            series: { name: string; data: number[] }[];
+            other_details: [string, number][][];
+        } => {
+            const totals = new Map<string, number>();
+            for (const cell of cells) {
+                for (const [key, value] of cell) totals.set(key, (totals.get(key) ?? 0) + value);
+            }
+            const top_keys = oracle_named_values(totals)
+                .slice(0, 5)
+                .map(({ key }) => key);
+            const top_set = new Set(top_keys);
+            const series_names = totals.size > top_keys.length ? [...top_keys, "其他"] : top_keys;
+            const other_details = cells.map((cell) =>
+                [...cell.entries()]
+                    .filter(([key]) => !top_set.has(key))
+                    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+                    .slice(0, 20),
+            );
+            const series = series_names.map((name) => ({
+                name,
+                data: cells.map((cell) =>
+                    [...cell.entries()].reduce(
+                        (sum, [key, value]) =>
+                            sum +
+                            ((name === "其他" ? !top_set.has(key) : key === name) ? value : 0),
+                        0,
+                    ),
+                ),
+            }));
+            return { labels, series, other_details };
+        };
+        const oracle_chart_from_rollup = (
+            rows: OracleRow[],
+            query: {
+                metric: Metric;
+                xaxis: "project" | "session";
+                dir_aliases?: { alias: string; keys: string[] }[];
+                model_aliases?: { alias: string; keys: string[] }[];
+            },
+        ) => {
+            const value_of = (row: OracleRow): number =>
+                query.metric === "tokens"
+                    ? row.input_tokens +
+                      row.output_tokens +
+                      row.cache_read_tokens +
+                      row.cache_write_tokens
+                    : query.metric === "calls"
+                      ? row.calls
+                      : 1;
+            const directory_resolver = oracle_alias_resolver(query.dir_aliases);
+            const model_resolver = oracle_alias_resolver(query.model_aliases);
+            const session_key = (row: OracleRow): string =>
+                `${row.source}|${row.env}|${row.session_id}`;
+            const category_of = (row: OracleRow): string =>
+                query.xaxis === "project"
+                    ? directory_resolver(row.directory ?? "(unknown)")
+                    : session_key(row);
+            const category_totals = new Map<string, number>();
+            const category_sessions = new Map<string, Set<string>>();
+            for (const row of rows) {
+                const category = category_of(row);
+                if (query.metric === "sessions") {
+                    const sessions = category_sessions.get(category) ?? new Set<string>();
+                    sessions.add(session_key(row));
+                    category_sessions.set(category, sessions);
+                } else {
+                    category_totals.set(
+                        category,
+                        (category_totals.get(category) ?? 0) + value_of(row),
+                    );
+                }
+            }
+            if (query.metric === "sessions") {
+                for (const [category, sessions] of category_sessions) {
+                    category_totals.set(category, sessions.size);
+                }
+            }
+            const ranked_categories = [...category_totals.entries()]
+                .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+                .slice(0, 20)
+                .map(([category]) => category);
+            const category_set = new Set(ranked_categories);
+            const labels = ranked_categories.map((category) =>
+                query.xaxis === "session"
+                    ? (rows.find((row) => category_of(row) === category)?.title ?? "")
+                    : category,
+            );
+            const cells = ranked_categories.map(() => new Map<string, number>());
+            const session_cells = ranked_categories.map(() => new Map<string, Set<string>>());
+            const other_index = ranked_categories.length < category_totals.size ? cells.length : -1;
+            if (other_index >= 0) {
+                labels.push("其他");
+                cells.push(new Map());
+                session_cells.push(new Map());
+            }
+            for (const row of rows) {
+                const raw_category = category_of(row);
+                const index = category_set.has(raw_category)
+                    ? ranked_categories.indexOf(raw_category)
+                    : other_index;
+                if (index < 0) continue;
+                const cell = cells[index];
+                if (!cell) continue;
+                const key =
+                    query.metric === "sessions"
+                        ? directory_resolver(row.directory ?? "(unknown)")
+                        : model_resolver(row.model);
+                if (query.metric === "sessions") {
+                    const session_cell = session_cells[index];
+                    if (!session_cell) continue;
+                    const sessions = session_cell.get(key) ?? new Set<string>();
+                    sessions.add(session_key(row));
+                    session_cell.set(key, sessions);
+                } else {
+                    cell.set(key, (cell.get(key) ?? 0) + value_of(row));
+                }
+            }
+            if (query.metric === "sessions") {
+                session_cells.forEach((session_cell, index) => {
+                    const cell = cells[index];
+                    if (!cell) return;
+                    for (const [key, sessions] of session_cell) cell.set(key, sessions.size);
+                });
+            }
+            return oracle_chart_from_cells(labels, cells);
+        };
+
+        const oracle_rows: OracleRow[] = [
+            {
+                source: "claude_code",
+                env: "win",
+                model: "m1",
+                directory: "/alpha",
+                session_id: "s1",
+                title: "One",
+                calls: 4,
+                input_tokens: 100,
+                output_tokens: 50,
+                cache_read_tokens: 10,
+                cache_write_tokens: 5,
+            },
+            {
+                source: "claude_code",
+                env: "win",
+                model: "m2",
+                directory: "/alpha",
+                session_id: "s1",
+                title: "One",
+                calls: 2,
+                input_tokens: 40,
+                output_tokens: 20,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            },
+            {
+                source: "claude_code",
+                env: "win",
+                model: "m1",
+                directory: "/beta",
+                session_id: "s2",
+                title: "Two",
+                calls: 1,
+                input_tokens: 10,
+                output_tokens: 5,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            },
+            {
+                source: "claude_code",
+                env: "win",
+                model: "m3",
+                directory: "/gamma",
+                session_id: "s3",
+                title: "Three",
+                calls: 3,
+                input_tokens: 60,
+                output_tokens: 30,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            },
+            {
+                source: "claude_code",
+                env: "win",
+                model: "m4",
+                directory: "/delta",
+                session_id: "s4",
+                title: "Four",
+                calls: 1,
+                input_tokens: 20,
+                output_tokens: 10,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            },
+            {
+                source: "claude_code",
+                env: "win",
+                model: "m5",
+                directory: "/epsilon",
+                session_id: "s5",
+                title: "Five",
+                calls: 1,
+                input_tokens: 5,
+                output_tokens: 2,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            },
+            {
+                source: "claude_code",
+                env: "win",
+                model: "m6",
+                directory: "/zeta",
+                session_id: "s6",
+                title: "Six",
+                calls: 1,
+                input_tokens: 3,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            },
+        ];
+        const dir_alias_renderer = [{ alias: "A", dirs: ["/alpha", "/beta"] }];
+        const dir_alias_oracle = [{ alias: "A", keys: ["/alpha", "/beta"] }];
+        const model_alias_renderer = [{ alias: "X", models: ["m1", "m3"] }];
+        const model_alias_oracle = [{ alias: "X", keys: ["m1", "m3"] }];
+
+        const expect_oracle_equivalence = (metric: Metric, xaxis: "project" | "session"): void => {
+            const renderer = prepareBarDataFromDashboardRollup(
+                oracle_rows,
+                metric,
+                xaxis,
+                "dark",
+                dir_alias_renderer,
+                model_alias_renderer,
+            );
+            const oracle = oracle_chart_from_rollup(oracle_rows, {
+                metric,
+                xaxis,
+                dir_aliases: dir_alias_oracle,
+                model_aliases: model_alias_oracle,
+            });
+            expect(renderer.labels).toEqual(oracle.labels);
+            expect(renderer.series.map((s) => s.name).sort()).toEqual(
+                oracle.series.map((s) => s.name).sort(),
+            );
+            for (const s of renderer.series) {
+                const o = oracle.series.find((entry) => entry.name === s.name);
+                expect(o).toBeTruthy();
+                expect(s.data).toEqual(o?.data);
+            }
+            expect(renderer.otherDetails).toEqual(oracle.other_details);
+        };
+
+        it("tokens × project 与改前等价", () => {
+            expect_oracle_equivalence("tokens", "project");
+        });
+        it("calls × project 与改前等价", () => {
+            expect_oracle_equivalence("calls", "project");
+        });
+        it("sessions × project 与改前等价", () => {
+            expect_oracle_equivalence("sessions", "project");
+        });
+        it("tokens × session 与改前等价", () => {
+            expect_oracle_equivalence("tokens", "session");
+        });
+        it("calls × session 与改前等价", () => {
+            expect_oracle_equivalence("calls", "session");
+        });
+        it("sessions × session 与改前等价", () => {
+            expect_oracle_equivalence("sessions", "session");
+        });
+
+        it("Top5 边界并列值按名称 tie-break 与改前等价（f005）", () => {
+            // 6 个 model：m1..m4 合计 100/80/60/40，m5 与 m6 并列 30——
+            // 第 5/6 名恰落在 Top5 边界，topGroups 的 tie-break 决定谁进
+            // 命名系列、谁归「其他」。目录名让 m6 的 cell 排在 m5 之前
+            // （/a6 名称序先于 /z5），故无名称 tie-break 时稳定排序会按
+            // cell 插入序把 m6 选进 Top5——与改前服务器 name 序相悖，
+            // 此用例钉住 aggregate.ts 的 tie-break。
+            const tie_row = (
+                model: string,
+                directory: string,
+                session_id: string,
+                input_tokens: number,
+            ): OracleRow => ({
+                source: "claude_code",
+                env: "win",
+                model,
+                directory,
+                session_id,
+                title: directory,
+                calls: 1,
+                input_tokens,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+            });
+            const tie_rows: OracleRow[] = [
+                tie_row("m1", "/p1", "s1", 100),
+                tie_row("m2", "/p2", "s2", 80),
+                tie_row("m3", "/p3", "s3", 60),
+                tie_row("m4", "/p4", "s4", 40),
+                tie_row("m6", "/a6", "s6", 30),
+                tie_row("m5", "/z5", "s5", 30),
+            ];
+            const renderer = prepareBarDataFromDashboardRollup(
+                tie_rows,
+                "tokens",
+                "project",
+                "dark",
+            );
+            const oracle = oracle_chart_from_rollup(tie_rows, {
+                metric: "tokens",
+                xaxis: "project",
+            });
+            expect(renderer.labels).toEqual(oracle.labels);
+            // 顺序敏感：不 sort，直接比对系列名序——tie-break 只影响序与
+            // 5/6 入选，sort 会掩蔽差异（f005）。
+            expect(renderer.series.map((s) => s.name)).toEqual(oracle.series.map((s) => s.name));
+            // 并列的 m5/m6 中，名称靠前的 m5 进命名系列、m6 归「其他」。
+            expect(renderer.series.some((s) => s.name === "m5")).toBe(true);
+            expect(renderer.series.some((s) => s.name === "m6")).toBe(false);
+            for (const s of renderer.series) {
+                const o = oracle.series.find((entry) => entry.name === s.name);
+                expect(o).toBeTruthy();
+                expect(s.data).toEqual(o?.data);
+            }
         });
     });
 });

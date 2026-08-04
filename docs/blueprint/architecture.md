@@ -108,6 +108,15 @@ TokenStatsView 在 renderer 内维护查询协调器，不改变现有 token-sta
 - 缓存采用有界 LRU；淘汰只影响复用，不影响统计正确性，缺失条目重新走现有查询路径。
 - 配置别名是独立状态流：首次打开读取一次，`CONFIG_CHANGED` 广播只更新别名 state，不因统计选项切换重复读取配置。
 
+#### 4.1.1 查询缓存 key 边界与展示派生（t200）
+
+dashboard query key 只编码「数据」身份，展示维度属 renderer 本地状态：
+
+- **key 含**：agent / platform / range_start / range_end / query_mode / `gran` / alias_fingerprint。`gran` 决定返回桶粒度（s011：day 级 sessions distinct 无法由 hour 桶正确求和），保留在 key 中；gran 切换重新请求。
+- **key 不含**：`metric` / `xaxis`（同一范围 + 筛选 + gran 下切换复用同一缓存，renderer 本地派生）；`session_offset`（会话翻页走独立 `get_dashboard_sessions` 通道，不重算 summary/chart/heatmap，也不重拉 dashboard）。
+- **展示派生数据流**：dashboard DTO 的 `chart_data = { axis, metric_buckets, session_buckets, rollup }` 是 metric/xaxis 无关的聚合源；renderer 经 `prepareBarDataFromDashboardChartData`（time 轴用 metric/session buckets + server axis，project/session 轴用 bounded rollup）本地派生 Bar 数据，与改前服务器预派生等价（oracle 测试锚定）。别名解析在派生层完成（dir/model resolver），chart_data 保留 raw key。
+- **数据版本失效**：collector 更新（data_version 前进）→ `mark_stale` + 重置会话翻页到首页（含 custom-range 路径）→ revalidate；陈旧翻页会话页不落地。
+
 外部 producer 可 `POST /v1/ingest`（Bearer）直接写观测，`source` 按 producer 标记。
 web 浏览器经 LocalAPI `GET /v1/events`（SSE）订阅 runtimeStore 状态变更，与桌面端 IPC `EVENT_STATE_CHANGE` 同源；`usageboard-web` 转给 `use_plugins`，用量面板实时刷新。
 
@@ -129,6 +138,15 @@ collector utilityProcess（逐批 token_stats_update）
 - **派生层**：`token_stats_hour_rollup`（per source/env/session_id/本地整点小时/model/directory/agent 聚合）。会话级增量：upsert 批次内对每个被触碰 session DELETE + 从 records 全量重建；`directory` 可空（NULL 唯一键在 SQLite 互异，行级 UPSERT 会叠重复行，故不用）。
 - **回填**：manager.start 后 `setImmediate` 后台全量回填并置 `hour_rollup_ready`；就绪前 dashboard 走 records 路径，就绪后切聚合路径（窗口拆「完整小时段聚合表 + 边界部分小时 records」UNION ALL，外层精确重组）。中断可重跑，幂等收敛。
 - **data version**：单行单调计数，仅 records 批次事务内推进；dashboard DTO 与更新事件携带同一版本，renderer 据此判断缓存过期，不依赖本地时钟。
+
+#### 4.2.1 dashboard 单次窗口读取与 freshness（t201）
+
+dashboard 查询在 worker/主进程只读连接内把窗口物化一次，各展示区域从临时表派生（p027/p028/p031）：
+
+- `CREATE TEMP TABLE window_rows` 一次物化当前窗口（rollup 就绪 = hour_rollup 中段 UNION ALL records 边界带；未就绪 = 整窗 records），metric_buckets / session_buckets / heatmap / rollup 区域均 `SELECT FROM window_rows`。previous 窗口独立二次物化（只喂 summary delta）。
+- per-session 元数据（title/directory/started_at/ended_at + 聚合 calls/tokens）用单一 `session_meta` 窗口级 latest-per-group 查询取齐，替代改前每 session N 个相关子查询。
+- records/rollup 双轨统一为单一 window source，两就绪态共享同一区域派生代码，修一处不两处。
+- **freshness.stale**：查询开始/结束各读一次 `data_version`，`stale = end_version > start_version`（聚合期间有已提交新批次）；返回 `data_version` 用结束版本，renderer 按既有 AC4 语义 mark_stale + revalidate。
 
 ### 4.3 用量面板窗口生命周期（t194）
 

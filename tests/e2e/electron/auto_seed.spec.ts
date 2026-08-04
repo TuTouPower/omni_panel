@@ -48,16 +48,17 @@ const { test: testWithConfig, expect: expectWithConfig } = createTestWithSetup({
         // Write a config.json with one existing plugin.
         // This simulates a user who already configured "My Claude".
         const configPath = join(userDataDir, "config.json");
-        const bundledDir = join(process.cwd(), "resources", "plugins");
-        const claudePath = join(bundledDir, "claude-usage-plugin.ts");
+        const claudePath = join(process.cwd(), "connectors", "claude");
 
         const config = {
             schemaVersion: 1,
             language: "zh-Hans",
             plugins: [
                 {
+                    instanceId: "test-instance-id",
                     stateId: "test-state-id",
                     name: "My Claude",
+                    displayName: "My Claude",
                     enabled: true,
                     executablePath: claudePath,
                     refreshIntervalSeconds: 300,
@@ -91,18 +92,15 @@ testWithConfig.describe("auto-seed with existing config", () => {
         await sPage.waitForTimeout(500);
 
         // "My Claude" must still exist (not replaced by "Claude" or "Claude 2")
-        // Single-account providers render as .acct-row without .acct-group wrapper
+        // Account rows render as .acc-row inside per-provider .acc-card groups
         await expectWithConfig(
-            sPage.locator(".acct-row, .acct-group").filter({ hasText: "My Claude" }).first(),
+            sPage.locator(".acc-row").filter({ hasText: "My Claude" }).first(),
         ).toBeVisible();
 
-        // Total plugin count should be >= 7 (1 existing + 6 auto-seeded)
-        // Count both grouped and standalone account rows (.ao-item for single, .acct-row for grouped)
-        const acctRows = sPage.locator(".acct-row");
-        const acctGroups = sPage.locator(".acct-group");
-        const aoItems = sPage.locator(".ao-item");
-        const count =
-            (await acctRows.count()) + (await acctGroups.count()) + (await aoItems.count());
+        // Each configured plugin renders at least one .acc-row; the pre-seeded
+        // "My Claude" plus all auto-seeded connectors must all be present.
+        const accRows = sPage.locator(".acc-row");
+        const count = await accRows.count();
         expectWithConfig(count).toBeGreaterThanOrEqual(BUNDLED_PLUGIN_NAMES.length);
     });
 });

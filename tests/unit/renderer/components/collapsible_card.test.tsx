@@ -103,4 +103,30 @@ describe("CollapsibleCard", () => {
         const btn = screen.getByLabelText("展开");
         expect(btn).toHaveAttribute("aria-expanded", "false");
     });
+
+    it("renders no toggle button when collapsible is false but still shows children", () => {
+        render(
+            <CollapsibleCard
+                header={<span>Card</span>}
+                collapsed={false}
+                collapsible={false}
+                onToggle={vi.fn()}
+            >
+                <div>Content</div>
+            </CollapsibleCard>,
+        );
+        expect(screen.getByText("Card")).toBeInTheDocument();
+        expect(screen.getByText("Content")).toBeInTheDocument();
+        expect(screen.queryByLabelText("折叠")).not.toBeInTheDocument();
+        expect(screen.queryByLabelText("展开")).not.toBeInTheDocument();
+    });
+
+    it("renders the toggle button when collapsible is true (default)", () => {
+        render(
+            <CollapsibleCard header={<span>Card</span>} collapsed={false} onToggle={vi.fn()}>
+                <div>Content</div>
+            </CollapsibleCard>,
+        );
+        expect(screen.getByLabelText("折叠")).toBeInTheDocument();
+    });
 });

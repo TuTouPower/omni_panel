@@ -10,10 +10,13 @@ import type {
     TokenStatsRollupFilters,
     TokenStatsSession,
     TokenStatsDashboardDto,
+    TokenStatsDashboardSessionsDto,
 } from "../../shared/types/token-stats";
 import {
     tokenStatsDashboardDtoSchema,
     tokenStatsDashboardQuerySchema,
+    tokenStatsDashboardSessionsDtoSchema,
+    tokenStatsDashboardSessionsQuerySchema,
 } from "../../shared/types/token-stats";
 import { ok, fail, assert_valid_sender, type IpcResult } from "./helpers";
 import type { TokenStatsStore } from "../core/token-stats/token-stats-store";
@@ -143,6 +146,30 @@ export function registerTokenStatsIpc(
                 running: deps.manager.is_running(),
                 last_updated: deps.store.last_updated(),
             });
+        },
+    );
+
+    ipc.handle(
+        IPC_CHANNELS.TOKEN_STATS_DASHBOARD_SESSIONS,
+        (
+            event: IpcMainInvokeEvent,
+            raw_query: unknown,
+        ): IpcResult<TokenStatsDashboardSessionsDto> => {
+            assert_valid_sender(event);
+            const parsed_query = tokenStatsDashboardSessionsQuerySchema.safeParse(raw_query);
+            if (!parsed_query.success) {
+                return fail("INVALID_ARGUMENT", "Invalid token stats sessions query");
+            }
+            try {
+                const dto = deps.store.query_dashboard_sessions(parsed_query.data);
+                const parsed_dto = tokenStatsDashboardSessionsDtoSchema.safeParse(dto);
+                if (!parsed_dto.success) {
+                    return fail("INVALID_RESPONSE", "Invalid token stats sessions response");
+                }
+                return ok(parsed_dto.data);
+            } catch {
+                return fail("QUERY_FAILED", "Token stats sessions query failed");
+            }
         },
     );
 }

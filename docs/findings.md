@@ -87,3 +87,11 @@
 - 证据：s009 `code/wal_readonly_concurrency.ts` 真实 WAL 临时库五条断言全部通过；t193 query worker 打包内（asarUnpack + electron ABI better-sqlite3）打开 readonly 连接完成 dashboard 查询（packaged smoke AC6）。
 - 影响：重读类子任务（dashboard 聚合、报表导出）可迁入 utilityProcess readonly worker，主进程事件循环不被同步聚合阻塞；跨进程只读方案无需额外锁协调。utilityProcess 子进程比 worker_threads 多一层进程开销，适合低频重读、不适合高频小任务。
 - 现状：有效
+
+## d012 TokenStats 展示维度可经 dashboard chart_data 本地派生（2026-08-04）
+
+- 来源：s011、t200
+- 结论：dashboard 查询缓存 key 中可剔除展示派生维度 `metric`/`xaxis`，条件是 DTO 携带 metric/xaxis 无关的聚合源 `chart_data = { axis, metric_buckets, session_buckets, rollup }`：tokens/calls 时间轴用 per (hour, model) 的 calls/tokens；sessions 时间轴用 per (hour, directory) 的 distinct sessions（不可跨 model 求和）；project/session 轴复用 bounded rollup。renderer 本地派生（`prepareBarDataFromDashboardChartData` / `prepareBarDataFromDashboardRollup`）与改前服务器预派生等价，由 diff_anchor 转写的 oracle 测试锚定（6 个 metric×xaxis 组合含别名 + Top5 并列 tie-break）。
+- 证据：t200 oracle 测试（chart-data.test.ts）labels/series/otherDetails 逐项 `toEqual`；query cache key 精简后 AC1 测试断言 metric/xaxis 切换不新增 dashboard IPC。
+- 影响：展示维度切换不再重复查询；`gran` 决定桶粒度须保留在 key（day 级 sessions distinct 无法由 hour 桶正确求和）；会话翻页走独立 `get_dashboard_sessions` 通道，`session_offset` 不进 dashboard key。
+- 现状：有效

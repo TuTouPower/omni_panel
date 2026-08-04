@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
     TokenStatsDashboardDto,
+    TokenStatsDashboardSessionsDto,
     TokenStatsDashboardSessionSummary,
     TokenStatsEnv,
 } from "../../shared/types/token-stats";
@@ -246,7 +247,15 @@ export function TokenStatsView() {
     >({});
     const [preset_range_revision, set_preset_range_revision] = useState(0);
     const [session_offset, set_session_offset] = useState(0);
-    const range_refresh_key = `${agent}|${platform}|${metric}|${effective_xaxis}|${effective_gran}`;
+    const [session_page, set_session_page] = useState<TokenStatsDashboardSessionsDto | null>(null);
+    // Display dimensions (metric/xaxis) must not invalidate the dashboard query
+    // cache (p026/t200): the response is metric/xaxis-agnostic (chart_data), so
+    // switching them re-derives locally. The fetch reads them through a ref so
+    // metric/xaxis switches never re-create loadData (gran stays in the key —
+    // it shapes the returned bucket granularity).
+    const display_ref = useRef({ metric, xaxis: effective_xaxis, gran: effective_gran });
+    display_ref.current = { metric, xaxis: effective_xaxis, gran: effective_gran };
+    const range_refresh_key = `${agent}|${platform}`;
 
     const currentRange = useMemo(() => {
         void preset_range_revision;
@@ -264,8 +273,11 @@ export function TokenStatsView() {
         return { start: 0, end: Date.now() };
     }, [custom, preset, preset_range_revision, range_refresh_key]);
 
-    const session_query_identity = `${agent}|${platform}|${String(currentRange.start)}|${String(currentRange.end)}|${metric}|${effective_xaxis}|${effective_gran}|${alias_fingerprint}`;
-    const last_session_query_identity = useRef<string | null>(null);
+    // Sessions reset with the dashboard data identity (agent/platform/range/
+    // gran/aliases), not display dims — paging within one window survives
+    // metric/xaxis switches (p029/t200).
+    const session_data_identity = `${agent}|${platform}|${String(currentRange.start)}|${String(currentRange.end)}|${effective_gran}|${alias_fingerprint}`;
+    const last_session_data_identity = useRef<string | null>(null);
 
     const updatedAgo = useMemo(() => {
         if (!status?.last_updated) return null;
@@ -304,21 +316,24 @@ export function TokenStatsView() {
     const loadData = useCallback(
         async (silent = false) => {
             const request_id = ++load_request_id.current;
-            const query_session_offset =
-                last_session_query_identity.current === session_query_identity ? session_offset : 0;
-            last_session_query_identity.current = session_query_identity;
-            if (query_session_offset !== session_offset) set_session_offset(0);
+            const {
+                metric: fetch_metric,
+                xaxis: fetch_xaxis,
+                gran: fetch_gran,
+            } = display_ref.current;
+            if (last_session_data_identity.current !== session_data_identity) {
+                last_session_data_identity.current = session_data_identity;
+                set_session_offset(0);
+                set_session_page(null);
+            }
             const query_key: TokenStatsQueryKey = {
                 agent,
                 platform,
                 range_start: currentRange.start,
                 range_end: currentRange.end,
-                metric,
-                xaxis: effective_xaxis,
-                gran: effective_gran,
                 query_mode: "dashboard",
+                gran: effective_gran,
                 alias_fingerprint,
-                session_offset: query_session_offset,
             };
             const cached = query_cache.peek(query_key);
             if (cached) {
@@ -337,10 +352,10 @@ export function TokenStatsView() {
                         platform,
                         start: currentRange.start,
                         end: currentRange.end,
-                        metric,
-                        xaxis: effective_xaxis,
-                        gran: effective_gran,
-                        session_offset: query_session_offset,
+                        metric: fetch_metric,
+                        xaxis: fetch_xaxis,
+                        gran: fetch_gran,
+                        session_offset: 0,
                         session_limit: SESSION_QUERY_LIMIT,
                         ...(dirAliases.length
                             ? {
@@ -385,19 +400,60 @@ export function TokenStatsView() {
             currentRange,
             dirAliases,
             effective_gran,
-            effective_xaxis,
-            metric,
             modelAliases,
             platform,
             query_cache,
-            session_offset,
-            session_query_identity,
+            session_data_identity,
         ],
     );
 
     useEffect(() => {
         void loadData();
     }, [loadData]);
+
+    // Session pagination (p029/t200): page changes fetch only the session page
+    // through a dedicated channel; the dashboard cache (summary/chart/heatmap)
+    // is never re-requested on pagination.
+    useEffect(() => {
+        if (session_offset === 0) return;
+        let active = true;
+        window.usageboard.tokenStats
+            .getDashboardSessions({
+                agent,
+                platform,
+                start: currentRange.start,
+                end: currentRange.end,
+                session_offset,
+                session_limit: SESSION_QUERY_LIMIT,
+                ...(dirAliases.length
+                    ? {
+                          dir_aliases: dirAliases.map(({ alias, dirs }) => ({
+                              alias,
+                              keys: dirs,
+                          })),
+                      }
+                    : {}),
+                ...(modelAliases.length
+                    ? {
+                          model_aliases: modelAliases.map(({ alias, models }) => ({
+                              alias,
+                              keys: models,
+                          })),
+                      }
+                    : {}),
+            })
+            .then((page) => {
+                if (active) set_session_page(page);
+            })
+            .catch((err: unknown) => {
+                if (active) {
+                    setError(err instanceof Error ? err.message : String(err));
+                }
+            });
+        return () => {
+            active = false;
+        };
+    }, [session_offset, agent, platform, currentRange, dirAliases, modelAliases]);
 
     useEffect(() => {
         let active = true;
@@ -434,6 +490,13 @@ export function TokenStatsView() {
                 return;
             }
             query_cache.mark_stale();
+            // A committed data-version bump invalidates the cached session page
+            // too: fall back to the refreshed dashboard's first page so the
+            // paged list never shows stale rows (t200 AC3). The preset branch
+            // also shifts currentRange (loadData re-resets via the identity
+            // check); the custom-range branch relies on this reset alone.
+            set_session_offset(0);
+            set_session_page(null);
             if (preset) {
                 const range = presetRange(preset);
                 preset_ranges.current[preset] = { ...range, captured_at: range.end };
@@ -453,9 +516,14 @@ export function TokenStatsView() {
         save_prefs({ agent, platform, preset, metric, xaxis, gran });
     }, [agent, platform, preset, metric, xaxis, gran]);
 
+    const currentSessionItems = useMemo(
+        () => session_page?.items ?? dashboard?.sessions.items ?? [],
+        [session_page, dashboard],
+    );
+    const sessions_total = session_page?.total ?? dashboard?.sessions.total ?? 0;
     const currentSessionRows = useMemo(
-        () => dashboard_session_rows(dashboard?.sessions.items ?? []),
-        [dashboard],
+        () => dashboard_session_rows(currentSessionItems),
+        [currentSessionItems],
     );
     const currentKpi = dashboard?.current ?? { tokens: 0, sessions: 0, calls: 0 };
     const prevKpi = dashboard?.previous ?? { tokens: 0, sessions: 0, calls: 0 };
@@ -757,7 +825,7 @@ export function TokenStatsView() {
                                     theme={theme}
                                     dirAliases={dirAliases}
                                     modelAliases={modelAliases}
-                                    dashboardChart={dashboard.chart}
+                                    chartData={dashboard.chart_data}
                                 />
                             </div>
                         </div>
@@ -773,8 +841,8 @@ export function TokenStatsView() {
                             theme={theme}
                             modelColors={modelColors}
                             modelAliases={modelAliases}
-                            totalRows={dashboard.sessions.total}
-                            loadedOffset={dashboard.query.session_offset ?? 0}
+                            totalRows={sessions_total}
+                            loadedOffset={session_offset}
                             onPageChange={set_session_offset}
                         />
                     </div>

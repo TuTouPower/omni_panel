@@ -11,6 +11,7 @@ import type {
     TokenStatsHourFilters,
     TokenStatsRollupFilters,
     TokenStatsDashboardQuery,
+    TokenStatsDashboardSessionsQuery,
 } from "../shared/types/token-stats";
 
 const POLL_MS = 10_000;
@@ -258,6 +259,27 @@ export function create_web_usageboard(): UsageboardApi {
                     params.set("model_aliases", JSON.stringify(query.model_aliases));
                 }
                 return get_json(`/v1/dashboard?${params.toString()}`);
+            },
+            getDashboardSessions: (query: TokenStatsDashboardSessionsQuery) => {
+                const params = new URLSearchParams({
+                    agent: query.agent,
+                    platform: query.platform,
+                    start: String(query.start),
+                    end: String(query.end),
+                });
+                if (query.session_offset !== undefined) {
+                    params.set("session_offset", String(query.session_offset));
+                }
+                if (query.session_limit !== undefined) {
+                    params.set("session_limit", String(query.session_limit));
+                }
+                if (query.dir_aliases?.length) {
+                    params.set("dir_aliases", JSON.stringify(query.dir_aliases));
+                }
+                if (query.model_aliases?.length) {
+                    params.set("model_aliases", JSON.stringify(query.model_aliases));
+                }
+                return get_json(`/v1/dashboard/sessions?${params.toString()}`);
             },
             getStatus: () => get_json("/v1/status"),
             onUpdated: (cb: (dataVersion: number) => void) => {

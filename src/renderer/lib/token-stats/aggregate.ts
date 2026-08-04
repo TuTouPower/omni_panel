@@ -37,7 +37,7 @@ export function topGroups(
 ): { top: string[]; rest: string[] } {
     const sorted = Object.entries(totals)
         .filter(([, v]) => v > 0)
-        .sort((a, b) => b[1] - a[1]);
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return {
         top: sorted.slice(0, n).map(([k]) => k),
         rest: sorted.slice(n).map(([k]) => k),

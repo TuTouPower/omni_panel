@@ -15,6 +15,8 @@ import type {
     TokenStatsSession,
     TokenStatsDashboardDto,
     TokenStatsDashboardQuery,
+    TokenStatsDashboardSessionsDto,
+    TokenStatsDashboardSessionsQuery,
 } from "./token-stats";
 
 export interface TokenStatsStatus {
@@ -116,6 +118,7 @@ export const IPC_CHANNELS = {
     TOKEN_STATS_HOUR_BUCKETS: "tokenStats:hourBuckets",
     TOKEN_STATS_ROLLUP: "tokenStats:rollup",
     TOKEN_STATS_DASHBOARD: "tokenStats:dashboard",
+    TOKEN_STATS_DASHBOARD_SESSIONS: "tokenStats:dashboardSessions",
     TOKEN_STATS_STATUS: "tokenStats:status",
     TOKEN_STATS_UPDATED: "tokenStats:updated",
     TOKEN_STATS_OPEN: "tokenStats:open",
@@ -486,6 +489,11 @@ export interface UsageboardApi {
         getHourBuckets(filters?: TokenStatsHourFilters): Promise<TokenStatsHourBucket[]>;
         getRangeRollup(filters?: TokenStatsRollupFilters): Promise<TokenStatsRollupRow[]>;
         getDashboard(query: TokenStatsDashboardQuery): Promise<TokenStatsDashboardDto>;
+        /** Bounded session page for dashboard pagination (t200); never recomputes
+         *  the summary/chart/heatmap regions. */
+        getDashboardSessions(
+            query: TokenStatsDashboardSessionsQuery,
+        ): Promise<TokenStatsDashboardSessionsDto>;
         getStatus(): Promise<TokenStatsStatus>;
         /** Fires on each committed token-stats batch; carries the monotonic data
          *  version so renderer caches can drop stale payloads (t192). */

@@ -12,13 +12,14 @@ reviewer 判 AC 时只看本区。
 
 ### 范围
 
-- 消除 query cache key 中的展示派生维度（`metric` / `xaxis` / `gran`），使同一范围 + 筛选 + 数据版本下切换展示方式复用缓存。
-- 消除 query cache key 中的 `session_offset`，使会话翻页独立按需加载，不再重算 summary / chart / heatmap。
+- 消除 query cache key 中的展示派生维度 `metric` 与 `xaxis`，使同一范围 + 筛选 + 数据版本下切换 metric / xaxis 复用缓存（`gran` 决定返回桶粒度，属数据形状，保留在 key 中——s011 结论）。
+- 消除 query cache key 中的 `session_offset`，会话翻页改走独立 `get_dashboard_sessions` 查询，不再重算 summary / chart / heatmap。
 - 保持 dashboard 展示正确性与现有筛选 / 别名行为不变。
 
 ### 非范围
 
-- 不改变后端聚合口径、DTO 契约或 IPC 通道。
+- 不改变用户可见统计口径或展示语义；聚合口径不变。
+- 不把 `gran` 移出缓存 key（桶粒度是数据形状，s011 结论；day 粒度无法由 hour 桶正确求和——sessions distinct 跨桶不可加）。
 - 不实施查询进程隔离、不做视觉设计改动。
 - 不把 renderer 查询结果持久化到磁盘。
 
@@ -28,10 +29,10 @@ reviewer 判 AC 时只看本区。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] AC1：同一时间范围 + agent/platform 筛选下，切换 `metric` / `xaxis` / `gran` 不触发新的 dashboard IPC 查询（命中缓存），展示内容正确派生。
+- [ ] AC1：同一时间范围 + agent/platform 筛选 + 同一 gran 下，切换 `metric`（tokens/calls/sessions）与 `xaxis`（time/project/session）不触发新的 dashboard IPC 查询（命中缓存），展示内容正确派生。
 - [ ] AC2：会话翻页只请求会话页数据，summary / chart / heatmap 不因翻页重新请求或重算。
 - [ ] AC3：跨筛选/范围/数据版本变化的缓存失效语义保持正确（陈旧数据不展示，新版本触发刷新）。
-- [ ] AC4：dashboard 展示结果与改前在全部选项组合下等价（以 oracle 或既有测试基线核对）。
+- [ ] AC4：dashboard 展示结果与改前在全部选项组合下等价（以 oracle 或既有测试基线核对；gran 切换重新请求但结果等价）。
 
 ### 可测试性声明
 
@@ -66,8 +67,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 展示维度（`metric` / `xaxis` / `gran`）从 dashboard 查询参数剥离后，renderer 能否用已返回聚合数据完整派生所有展示（含 sessions metric 的 directory 维度、hour/day 桶、time/rollup 两种 x 轴）：`UNVERIFIED-SPIKE`，执行期用现有 DTO 字段实验验证派生完备性后落地。
-- 会话分页独立加载的最小契约：`UNVERIFIED-SPIKE`，执行期确认是否新增 IPC 通道或复用现有 dashboard 会话字段。
+- 展示维度（`metric` / `xaxis` / `gran`）从 dashboard 查询参数剥离后，renderer 能否用已返回聚合数据完整派生所有展示：已验证（s011）——summary/heatmap/sessions 三区域本就 metric 无关；唯一 metric 相关区域 `chart` 改为 DTO 携带聚合源数据 `chart_data = { metric_buckets, session_buckets, rollup }`（tokens/calls 时间轴用 per (hour, model) 的 calls/tokens；sessions 时间轴用 per (hour, directory) 的 distinct sessions——不可跨 model 求和；project/session 轴复用 current_rollup）。renderer 本地派生与服务器预派生等价性由 oracle 测试保证。
+- 会话分页独立加载的最小契约：已验证（s011）——新增 `get_dashboard_sessions` IPC（入参 session_offset/limit，返回 { items, total, has_more }）；主 dashboard 查询只回首页，renderer 翻页只发该通道，缓存 key 不含 session_offset。
 
 ### 风险与回退
 

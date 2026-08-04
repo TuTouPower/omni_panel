@@ -1,12 +1,12 @@
 ---
-tid: "t203"
-slug: "e2e_account_form_baseline"
-title: "electron e2e 账号/表单用例基线失败调查"
-status: "backlog"
-branch: ""
+tid: "t199"
+slug: "prettier_baseline_fix"
+title: "prettier 基线漂移修复"
+status: "done"
+branch: "t199_prettier_baseline_fix"
 worktree: ""
-review_level: "full"
-diff_anchor: ""
+review_level: "single"
+diff_anchor: "d330f4141a3c828c48ebb0f4ed349636584643f8"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,7 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 2026-08-04：创建期无步骤。执行期：preflight PASS（worktree 首次，无 UNVERIFIED）。prettier --write 两文件（`docs/spikes/s010_popup_hide_resource/code/hide_show_spike.js`、`tests/e2e/fixtures/mock_server.mjs`），diff 仅格式（缩进/换行/尾逗号），无逻辑改动。`pnpm format:check` 全绿（AC1）。黑盒 `pnpm test`：首次因 worktree 缺 `src/generated/build-info.ts`（.gitignore 文件需生成）失败 1 套件，`node --import tsx scripts/gen-build-info.ts` 后 205 套件 2118 passed 全绿。
 
 ## Review 处置
 
@@ -60,24 +60,19 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC1 `pnpm format:check` 全绿（`All matched files use Prettier code style!`）；AC2 `git diff -w` 确认 2 文件仅格式差异（hide_show_spike.js 链式调用换行重排 + 缩进、mock_server.mjs 折行加尾逗号），无语义变化；全量 `pnpm test` 205 套件 2118 passed。
 
 ### Reviewer verdict
 
 取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
 
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- prettier 基线漂移 2 文件格式化，p039 闭环。

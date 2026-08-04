@@ -16,6 +16,24 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
+### p040 session 轴会话 key 不含 env（t200 遗留）
+
+- 来源：t200_code_f003
+- 内容：rollup DTO 行（`tokenStatsRollupRowSchema`）不含 `env`，renderer `prepareBarDataFromDashboardRollup` 的 session_key 缩为 `${source}|${session_id}`；改前服务器含 env（`${source}|${env}|${session_id}`）。跨平台同 session_id 的会话在 session 轴会合并为一个 category。session_id 为 UUID 碰撞概率极低。补 env 会改变 `query_range_rollup` 的分组/校验语义，改动面广，暂缓。
+- 处理：未开
+
+### p041 不可折叠卡片死折叠箭头扩散到其余组件（t203 审阅建议）
+
+- 来源：t203_code review 未进表提示 1
+- 内容：t203 为 ProviderCard 引入 `collapsible={can_collapse}` 消除不可折叠卡片的死折叠箭头（no-op + aria-expanded=true）。同款模式仍存在于 `UpcomingResetCard`（onToggleExpand 未定义时渲染 no-op 箭头）、`ProviderAccountRow`（can_collapse=false 仍出箭头）、PopupView token 面板（非 live 时 onToggle no-op）。live 弹窗中这些组件恒有回调故不造成用户可见问题，但镜像树（aria-hidden）仍渲染死按钮，属 a11y/整洁度技术债。
+- 处理：未开
+
+### p042 auto_seed BUNDLED_PLUGIN_NAMES 与 connectors/ 实际连接器脱节（t203 审阅提示）
+
+- 来源：t203_code review 未进表提示 3
+- 内容：`auto_seed.spec.ts` 的 `BUNDLED_PLUGIN_NAMES` 仍是 7 条历史插件名，与 `connectors/` 下实际 16 个连接器脱节。断言用 `>=` 故仍通过，语义只剩「种子未清空既有配置」，靠 `.acc-row` "My Claude" 可见性断言兜底。属测试维护债，可考虑改为与 `discover_connector_definitions` 结果对齐或删去常量。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

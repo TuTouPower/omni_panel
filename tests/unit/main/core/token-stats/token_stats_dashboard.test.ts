@@ -79,7 +79,9 @@ describe("token stats dashboard query", () => {
 
         expect(dashboard.current).toMatchObject({ tokens: 18, sessions: 1, calls: 2 });
         expect(dashboard.previous).toMatchObject({ tokens: 3, sessions: 1, calls: 1 });
-        expect(dashboard.chart.series.flatMap((s) => s.data).reduce((a, b) => a + b, 0)).toBe(18);
+        expect(
+            dashboard.chart_data.metric_buckets.reduce((sum, bucket) => sum + bucket.tokens, 0),
+        ).toBe(18);
         expect(dashboard.sessions.items).toHaveLength(1);
         expect(dashboard.status.running).toBe(true);
         expect(dashboard.freshness.stale).toBe(false);
@@ -139,7 +141,7 @@ describe("token stats dashboard query", () => {
         expect(result.current.sessions).toBe(1);
         expect(result.sessions.items).toHaveLength(1);
         expect(result.sessions.total).toBe(1);
-        expect(result.chart.labels).toHaveLength(1);
+        expect(result.chart_data.axis.labels).toHaveLength(1);
         expect(result.current.model_token_totals).toHaveLength(1);
         expect(JSON.stringify(result).length).toBeLessThan(10_000);
     });
@@ -207,8 +209,13 @@ describe("token stats dashboard query", () => {
         );
 
         expect(result.current.model_token_totals).toContainEqual({ key: "X", value: 101 });
-        const alias_series = result.chart.series.find((series) => series.name === "X");
-        expect(alias_series?.data.reduce((sum, value) => sum + value, 0)).toBe(101);
+        // chart_data carries raw model buckets; alias resolution happens in the
+        // renderer derivation (t200).
+        expect(
+            result.chart_data.metric_buckets
+                .filter((bucket) => bucket.model === "m1" || bucket.model === "m6")
+                .reduce((sum, bucket) => sum + bucket.tokens, 0),
+        ).toBe(101);
     });
     it("pages session summaries without expanding the dashboard payload", () => {
         store.upsert_records(
@@ -386,7 +393,7 @@ describe("token stats dashboard query", () => {
 
         expect(result.current.sessions).toBe(2);
         expect(
-            result.chart.series.flatMap((series) => series.data).reduce((a, b) => a + b, 0),
+            result.chart_data.session_buckets.reduce((sum, bucket) => sum + bucket.sessions, 0),
         ).toBe(2);
         expect(result.heatmap.reduce((sum, cell) => sum + cell.sessions, 0)).toBe(2);
     });
@@ -419,5 +426,247 @@ describe("token stats dashboard query", () => {
         expect(dashboard.current.agent_totals).toEqual([{ key: "opencode", value: 18 }]);
         expect(dashboard.sessions.items[0]?.env).toBe("wsl");
         expect(dashboard.status).toEqual({ running: false, last_updated: 42 });
+    });
+
+    it("exposes metric-agnostic chart_data with all metrics per bucket (t200)", () => {
+        store.upsert_records([
+            record({ message_id: "a", model: "sonnet", input_tokens: 10, output_tokens: 5 }),
+            record({
+                message_id: "b",
+                model: "opus",
+                input_tokens: 3,
+                output_tokens: 0,
+                cache_read_tokens: 1,
+                cache_write_tokens: 0,
+            }),
+        ]);
+
+        const tokens = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+        const calls = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "calls",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+
+        // Same data identity → identical chart_data regardless of metric.
+        expect(calls.chart_data.metric_buckets).toEqual(tokens.chart_data.metric_buckets);
+        expect(tokens.chart_data.metric_buckets).toHaveLength(2);
+        expect(tokens.chart_data.metric_buckets.reduce((sum, b) => sum + b.tokens, 0)).toBe(22);
+        expect(tokens.chart_data.metric_buckets.reduce((sum, b) => sum + b.calls, 0)).toBe(2);
+        expect(tokens.chart_data.session_buckets.reduce((sum, b) => sum + b.sessions, 0)).toBe(1);
+        expect(tokens.chart_data.rollup).toHaveLength(2);
+        expect(tokens.chart_data.axis.labels.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("sessions metric chart_data buckets are per-directory distinct (t200)", () => {
+        store.upsert_records([
+            record({ message_id: "s1-a", session_id: "s1", directory: "/a", model: "sonnet" }),
+            record({ message_id: "s1-b", session_id: "s1", directory: "/a", model: "opus" }),
+            record({ message_id: "s2-a", session_id: "s2", directory: "/b", model: "sonnet" }),
+        ]);
+
+        const result = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "sessions",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+
+        // s1 spans two models in the same hour → still counted once per directory.
+        const by_dir = new Map<string, number>();
+        for (const bucket of result.chart_data.session_buckets) {
+            by_dir.set(bucket.directory, (by_dir.get(bucket.directory) ?? 0) + bucket.sessions);
+        }
+        expect(by_dir.get("/a")).toBe(1);
+        expect(by_dir.get("/b")).toBe(1);
+    });
+
+    it("query_dashboard_sessions returns a bounded session page (t200)", () => {
+        store.upsert_records(
+            Array.from({ length: 15 }, (_, index) =>
+                record({
+                    session_id: `page-${String(index)}`,
+                    message_id: `page-message-${String(index)}`,
+                    timestamp: START + index,
+                }),
+            ),
+        );
+
+        const page = store.query_dashboard_sessions({
+            agent: "all",
+            platform: "all",
+            start: START,
+            end: END,
+            session_offset: 10,
+            session_limit: 5,
+        });
+
+        expect(page.items).toHaveLength(5);
+        expect(page.total).toBe(15);
+        expect(page.has_more).toBe(false);
+
+        const tail = store.query_dashboard_sessions({
+            agent: "all",
+            platform: "all",
+            start: START,
+            end: END,
+            session_offset: 0,
+            session_limit: 10,
+        });
+        expect(tail.items).toHaveLength(10);
+        expect(tail.has_more).toBe(true);
+    });
+
+    it("AC1: materializes the current and previous windows once and derives every region from temp tables", () => {
+        const sqls: string[] = [];
+        const traced = create_token_stats_store(":memory:", { on_sql: (s) => sqls.push(s) });
+        traced.upsert_records([record({ message_id: "a" }), record({ message_id: "b" })]);
+        traced.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+
+        // One window materialization for current and one for previous — no
+        // per-region re-scans of the base tables (p027).
+        const window_creates = sqls.filter((s) => s.includes("CREATE TEMP TABLE window_rows"));
+        expect(window_creates).toHaveLength(2);
+
+        // Fallback store (rollup not ready): the ONLY statements that touch the
+        // base table are the two window materializations plus the one session
+        // meta materialization. A region silently regressing to read
+        // token_stats_records directly would push this count up and fail here.
+        const records_refs = sqls.filter((s) => s.includes("token_stats_records"));
+        expect(records_refs).toHaveLength(3);
+        for (const s of records_refs) {
+            expect(s.startsWith("CREATE TEMP TABLE")).toBe(true);
+        }
+        expect(sqls.some((s) => s.includes("token_stats_hour_rollup"))).toBe(false);
+
+        // Every region reads from the materialized temp tables; none re-touch
+        // token_stats_hour_rollup / token_stats_records directly.
+        const region_sqls = sqls.filter(
+            (s) => s.includes(" FROM window_rows") || s.includes(" FROM session_meta"),
+        );
+        expect(region_sqls.length).toBeGreaterThan(1);
+        for (const s of region_sqls) {
+            expect(s).not.toMatch(/token_stats_hour_rollup|token_stats_records/);
+        }
+        traced.close();
+    });
+
+    it("AC2: session metadata comes from one window-level query, not per-session correlated subqueries", () => {
+        const sqls: string[] = [];
+        const traced = create_token_stats_store(":memory:", { on_sql: (s) => sqls.push(s) });
+        traced.upsert_records([record({ message_id: "a" }), record({ message_id: "b" })]);
+        traced.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+        traced.query_dashboard_sessions({
+            agent: "all",
+            platform: "all",
+            start: START,
+            end: END,
+            session_offset: 0,
+            session_limit: 10,
+        });
+
+        const session_meta = sqls.find((s) => s.includes("CREATE TEMP TABLE session_meta"));
+        expect(session_meta).toBeTruthy();
+        // A single window-level latest-per-session pass — no `WHERE t2.`
+        // correlated subquery per session (p028).
+        expect(session_meta).toContain("ROW_NUMBER() OVER");
+        expect(session_meta).not.toMatch(/WHERE t2\./);
+        traced.close();
+    });
+
+    it("AC3: freshness.stale is false when the committed data version is unchanged", () => {
+        store.upsert_records([record({ message_id: "a" }), record({ message_id: "b" })]);
+        const dto = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+        expect(dto.freshness.stale).toBe(false);
+        expect(dto.data_version).toBe(1);
+    });
+
+    it("AC3: a committed data-version advance mid-query makes the response stale", () => {
+        let injected = false;
+        const traced = create_token_stats_store(":memory:", {
+            on_sql: (s) => {
+                // The first materialize statement runs after the start-version
+                // read and before the end-version read; committing a batch here
+                // advances data_version, so the response must report stale.
+                if (!injected && s.startsWith("DROP TABLE IF EXISTS window_rows")) {
+                    injected = true;
+                    traced.upsert_records([record({ message_id: "mid-query" })]);
+                }
+            },
+        });
+        traced.upsert_records([record({ message_id: "a" }), record({ message_id: "b" })]);
+        const dto = traced.query_dashboard(
+            {
+                agent: "all",
+                platform: "all",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+        expect(injected).toBe(true);
+        expect(dto.freshness.stale).toBe(true);
+        expect(dto.data_version).toBe(2);
+        traced.close();
     });
 });

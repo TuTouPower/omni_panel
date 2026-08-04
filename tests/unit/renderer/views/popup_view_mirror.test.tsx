@@ -148,6 +148,7 @@ describe("PopupView mirror isolation", () => {
                 getHourBuckets: vi.fn().mockResolvedValue([]),
                 getRangeRollup: vi.fn().mockResolvedValue([]),
                 getDashboard: vi.fn(),
+                getDashboardSessions: vi.fn(),
                 getStatus: vi.fn().mockResolvedValue({ running: false, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
             },

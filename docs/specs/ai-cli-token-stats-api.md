@@ -285,7 +285,9 @@ collector 启动时会做 full rescan，wipe 后自然重建。
 `token_stats_records` 是 dashboard 数据的**真相源**，`token_stats_hour_rollup` 是可重建派生层。`query_dashboard` 在 `hour_rollup_ready` 时优先读聚合层：
 
 - **窗口拆分**：任意 `[start, end)` 拆为「完整本地小时段（UTC+8 整点，读聚合表）+ 窗口两个边界不足整点的部分小时（读 records）」UNION ALL，外层再聚合。`SUM(calls)`/`SUM(tokens)` 重组精确，`COUNT(DISTINCT session)` 跨两部分去重。窗口不足一个完整小时时整个窗口直接读 records（边界带公式会溢出窗口）。
+- **单次窗口读取（t201）**：dashboard 把当前窗口物化一次为 `TEMP TABLE window_rows`（rollup 就绪 = 中段聚合表 UNION ALL 边界 records；未就绪 = 整窗 records），metric_buckets / session_buckets / heatmap / rollup 各展示区域从该临时表派生，previous 窗口独立二次物化（只喂 summary delta）；per-session 元数据用单一窗口级 latest-per-group `session_meta` 查询取齐，替代每 session 相关子查询。records/rollup 双轨统一为单一 window source。
 - **data version**：`upsert_records` 事务内对每成功提交批次 `version + 1`（sessions/daily 不推进——records 是 dashboard 数据源）。失败/回滚整批回退不推进；空批次不推进。dashboard DTO 的 `data_version` 字段与 `TOKEN_STATS_UPDATED` 更新事件携带同一已提交版本。
+- **freshness.stale（t201）**：查询开始/结束各读一次 `data_version`，`stale = end_version > start_version`（聚合期间有已提交新批次）；返回 `data_version` 用结束版本，renderer 按下述 AC4 语义 mark_stale + revalidate。
 - **renderer 缓存失效**：TokenStatsView 记录最近一次已见版本（`last_data_version`），事件版本 ≤ 该值时缓存仍有效直接复用；更新版本触发 `mark_stale` + 静默 revalidate。查询竞态沿用 request_id guard，旧响应不覆盖新数据。web 构建无推送通道，事件版本传 0（视为新数据，轮询刷新照常）。
 - **回填与重建**：manager.start 后 `setImmediate` 后台全量回填，完成前置 `hour_rollup_ready`；回填前 dashboard 走 records 路径。`backfill_hour_rollup` 幂等（DELETE 全表 + 重建），中断重跑收敛同表；聚合损坏/版本不兼容时重跑即可恢复，records 不受影响。
 

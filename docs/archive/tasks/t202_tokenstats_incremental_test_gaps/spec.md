@@ -70,7 +70,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- ipc/preload 层现有 onUpdated 事件通道的确切形态与版本字段载荷：`UNVERIFIED-SPIKE`，执行期读 preload 与 ipc 注册代码确认后写测试。
+- ipc/preload 层现有 onUpdated 事件通道的确切形态与版本字段载荷：已验证（读代码）——main 进程 `BrowserWindow.getAllWindows().forEach(win.webContents.send(IPC_CHANNELS.TOKEN_STATS_UPDATED, data_version))`（`src/main/index.ts:316`），preload `create_on_updated_subscriber`（`src/preload/token-stats-events.ts`）注册 `ipcRenderer.on(TOKEN_STATS_UPDATED, listener)` 解析 number 载荷回调、非 number 归 0。t202 抽出该函数供 ipc/preload 层测试。
 
 ### 风险与回退
 
