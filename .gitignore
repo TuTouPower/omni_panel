@@ -65,6 +65,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .reasonix/
 .playwright-mcp/
 
+# review 会话过程文件（报告入库，_meta 不入库）
+docs/reviews/review_*/_meta/
+
 # 垃圾/临时文件
 report
 PixPin_*.png
