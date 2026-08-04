@@ -137,7 +137,11 @@ describe("ProviderCard - states", () => {
     it("non-collapsible card renders no collapse chevron", () => {
         // No onToggleExpand → can_collapse false → no dead toggle button.
         render(
-            <ProviderCard provider="deepseek" group={makeGroup()} connectorError={{ displayName: "DeepSeek", error: "网络超时", instanceIds: [] }} />,
+            <ProviderCard
+                provider="deepseek"
+                group={makeGroup()}
+                connectorError={{ displayName: "DeepSeek", error: "网络超时", instanceIds: [] }}
+            />,
         );
         expect(screen.queryByLabelText("折叠")).not.toBeInTheDocument();
         expect(screen.queryByLabelText("展开")).not.toBeInTheDocument();

@@ -31,12 +31,12 @@ diff_anchor b1b89b96 全量 electron e2e 复现：**11 failed / 24 passed / 4 sk
 spec 假设「t189-t193 范围内回归或本机 connector 发现 / auto-seed 差异」**被实证否定**。11 个失败分三类，全部是测试选择器 / fixture 与渲染层长期漂移的产物，CI nightly 同样会红：
 
 1. **过期账号 DOM 选择器（8 个）**：2026-06-14 渲染层重构（b8abaaea）把 settings 账号列表从扁平 `.acct-row`/`.acct-group`/`.ao-item` 改为按服务商分组的 VendorCard/CpaCard + `.acc-row`。历史测试从未同步（同期只有 a85a965e 更新了 add_account.spec.ts）。
-   - `plugin_config`×3、`secrets_persistence`×3、`settings_view`×1、`auto_seed`×1 都落在 `.acct-row`/`.acct-group`/`.ao-item` 上。
-   - 修复：选择器统一改为 `.acc-row`（CPA 源行是 `.acc-row.ds-row`，编辑按钮标题是「编辑（连接设置）」而非「编辑」）。
+    - `plugin_config`×3、`secrets_persistence`×3、`settings_view`×1、`auto_seed`×1 都落在 `.acct-row`/`.acct-group`/`.ao-item` 上。
+    - 修复：选择器统一改为 `.acc-row`（CPA 源行是 `.acc-row.ds-row`，编辑按钮标题是「编辑（连接设置）」而非「编辑」）。
 2. **测试 fixture 与删除功能（3 个）**：
-   - `auto_seed`「existing config」：fixture 的 executablePath 指向已删除的 `resources/plugins/claude-usage-plugin.ts`（插件已迁 `connectors/`，且 executablePath 应指向含 manifest.json 的目录），且条目缺 `instanceId`、缺 `displayName` → `is_plugin_healthy` 判定不健康被 prune。
-   - `settings_view`「用量标签映射」：全局外观字段 2026-06-12（24ae7d78）已删，标签映射改为按服务商在连接设置内编辑。重写为打开 CPA 连接设置 → 编辑数据标签映射 → LabelMapDialog。
-   - `tray_menu_actions` quit：默认 fixture 不开 tray（E2E_WITH_TRAY 门控），托盘窗口从未创建。改用 `createTestWithSetup({ enableTray: true })`，并轮询 `.tray-menu-body` 出现（窗口隐藏创建、URL 异步加载）。
+    - `auto_seed`「existing config」：fixture 的 executablePath 指向已删除的 `resources/plugins/claude-usage-plugin.ts`（插件已迁 `connectors/`，且 executablePath 应指向含 manifest.json 的目录），且条目缺 `instanceId`、缺 `displayName` → `is_plugin_healthy` 判定不健康被 prune。
+    - `settings_view`「用量标签映射」：全局外观字段 2026-06-12（24ae7d78）已删，标签映射改为按服务商在连接设置内编辑。重写为打开 CPA 连接设置 → 编辑数据标签映射 → LabelMapDialog。
+    - `tray_menu_actions` quit：默认 fixture 不开 tray（E2E_WITH_TRAY 门控），托盘窗口从未创建。改用 `createTestWithSetup({ enableTray: true })`，并轮询 `.tray-menu-body` 出现（窗口隐藏创建、URL 异步加载）。
 3. **生产代码缺陷（1 个）**：`popup_window_constraints` collapsing 用例。ProviderCard 对不可折叠卡片（无账号 / 采集失败 / 未挂 onToggleExpand）也渲染折叠箭头（CollapsibleCard 只要 children 非空就出按钮），箭头 `aria-label="折叠"`、onToggle 空操作、`aria-expanded="true"` 误导。测试的「循环点击到无剩余」永不终止（死按钮残留 ~16 个）→ 30s 超时。非回归（f7230fb9，2026-06-07 引入，已存在 2 个月）。用户确认**修生产代码**：CollapsibleCard 增加 `collapsible` prop（默认 true），ProviderCard 传 `collapsible={can_collapse}`，不可折叠卡片不再渲染箭头。
 
 ### 修复与验证
@@ -69,13 +69,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 code PASS + test PASS，5 条 finding 全 minor，逐条已修。
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t203_code_f001 | minor                    | 已修   | settings_view 测试名去掉「saves」，改「renders empty label-map dialog」 | settings_view.spec.ts:37 |
-| t203_code_f002 | minor                    | 已修   | 过时注释同步（settings_view 头部 .acct-row/appearance、auto_seed 计数） | settings_view.spec.ts:6, auto_seed.spec.ts:98 |
-| t203_test_f001 | minor                    | 已修   | plugin_config「filled and saved」改等 cpa-connector-settings 隐藏（真保存可观测） | plugin_config.spec.ts:64 |
-| t203_test_f002 | minor                    | 已修   | 同 code_f001，测试名已改 | settings_view.spec.ts:37 |
-| t203_test_f003 | minor                    | 已修   | 补 popup live 分支单测（onToggleExpand + 空账号组），stash 验证先行失败 | provider_card_states.test.tsx:141 |
+| finding_id     | severity | status | rationale                                                                         | fix_ref                                       |
+| -------------- | -------- | ------ | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| t203_code_f001 | minor    | 已修   | settings_view 测试名去掉「saves」，改「renders empty label-map dialog」           | settings_view.spec.ts:37                      |
+| t203_code_f002 | minor    | 已修   | 过时注释同步（settings_view 头部 .acct-row/appearance、auto_seed 计数）           | settings_view.spec.ts:6, auto_seed.spec.ts:98 |
+| t203_test_f001 | minor    | 已修   | plugin_config「filled and saved」改等 cpa-connector-settings 隐藏（真保存可观测） | plugin_config.spec.ts:64                      |
+| t203_test_f002 | minor    | 已修   | 同 code_f001，测试名已改                                                          | settings_view.spec.ts:37                      |
+| t203_test_f003 | minor    | 已修   | 补 popup live 分支单测（onToggleExpand + 空账号组），stash 验证先行失败           | provider_card_states.test.tsx:141             |
 
 ## 收尾报告
 
@@ -86,10 +86,10 @@ code PASS + test PASS，5 条 finding 全 minor，逐条已修。
 - spec：[`spec.md`](spec.md)
 - 结果：全部满足
 - 证据：
-  - AC1（复现 + 区分回归与环境）：diff_anchor b1b89b96 全量 e2e 复现 11 failed / 24 passed / 4 skipped；根因实证为 8 个过期选择器 + 3 个 fixture/删除功能 + 1 个生产缺陷，非 t189-t193 回归、非本机环境差异（详见实施笔记）。
-  - AC2（代码回归修复）：CollapsibleCard `collapsible` prop 生产修复，popup_window_constraints 恢复通过；TDD 单测 3 条 stash 验证先行失败、修复后通过。
-  - AC3（环境/fixture 修复）：auto_seed fixture 路径/instanceId/displayName、tray enableTray、settings_view 用例重写，相关用例恢复通过。
-  - AC4（无新增失败）：全量 electron e2e **35 passed / 4 skipped / 0 failed**（4 skipped 为既有 pre-existing skip）。
+    - AC1（复现 + 区分回归与环境）：diff_anchor b1b89b96 全量 e2e 复现 11 failed / 24 passed / 4 skipped；根因实证为 8 个过期选择器 + 3 个 fixture/删除功能 + 1 个生产缺陷，非 t189-t193 回归、非本机环境差异（详见实施笔记）。
+    - AC2（代码回归修复）：CollapsibleCard `collapsible` prop 生产修复，popup_window_constraints 恢复通过；TDD 单测 3 条 stash 验证先行失败、修复后通过。
+    - AC3（环境/fixture 修复）：auto_seed fixture 路径/instanceId/displayName、tray enableTray、settings_view 用例重写，相关用例恢复通过。
+    - AC4（无新增失败）：全量 electron e2e **35 passed / 4 skipped / 0 failed**（4 skipped 为既有 pre-existing skip）。
 
 ### Reviewer verdict
 

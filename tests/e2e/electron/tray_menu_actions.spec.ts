@@ -76,7 +76,7 @@ test.describe("tray menu actions", () => {
                 await new Promise((resolve) => setTimeout(resolve, 300));
             }
         }
-        if (!tray_page) tray_page = await omni.app.firstWindow();
+        tray_page ??= await omni.app.firstWindow();
 
         await tray_page.waitForSelector(".tray-menu-body", { timeout: 10_000 });
 
