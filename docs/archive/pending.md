@@ -249,3 +249,9 @@
 - 来源：t194 黑盒（全量 electron e2e）对比确认
 - 内容：`auto_seed`（existing config not overwritten）、`plugin_config`×3、`secrets_persistence`×3、`settings_view`×2、`popup_window_constraints`（collapsing all cards 底部留白）、`tray_menu_actions`（quit 菜单标签）共 11 个用例在 t193 HEAD（bb31938d）同样失败（stash t194 改动后逐组复跑确认一致），非 t194 引入。共性是 settings 账号/表单渲染与 connector 加载路径，疑为 t189-t193 范围内回归或本机环境（connector 发现/auto-seed）差异。
 - 处理：t203
+
+### p043 t204 model 筛选测试覆盖补强（AC3/AC4/端点透传）
+
+- 来源：t204_test review Round 1 f002/f003/f004
+- 内容：t204 model 筛选遗留三条测试覆盖缺口：(1) AC4「重开面板保持」只断言 localStorage 未做 remount 恢复路径覆盖；(2) AC3 model+agent/platform AND 组合、窗口切换后模型列表刷新无显式用例；(3) local-api /v1/dashboard/sessions、/v1/heatmap、/v1/hourBuckets、/v1/rollup 四端点与 IPC 通道的 model 透传、`query_range_rollup` 过滤无显式断言。
+- 处理：t206
