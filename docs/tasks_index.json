@@ -2,5 +2,36 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t204",
+            "slug": "tokenstats_model_filter",
+            "title": "代理面板顶部加模型筛选",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t204_tokenstats_model_filter"
+        },
+        {
+            "tid": "t205",
+            "slug": "heatmap_8_bands",
+            "title": "热力图改八档并取消 0 值最低档",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t205_heatmap_8_bands"
+        }
+    ]
 }
