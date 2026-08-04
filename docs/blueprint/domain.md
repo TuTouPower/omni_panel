@@ -53,6 +53,15 @@
 - **总配额 `kimi:total_quota`**：顶层 `totalQuota`，无 `used` 字段，`used = max(0, limit - remaining)`，display_style `percent`。
 - **会员等级**：顶层 `user.membership.level` 装饰到 `account_label`（`Kimi（${level}）`），无 level 时回退 `Kimi`；不新增 metric。
 
+## 3.2 TokenStats 数据源 grok（t197）
+
+token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` / `opencode` / `kimi_code` / `grok`），仅 WSL（Windows 无 grok CLI 数据），与连接器 `connectors/grok`（billing 百分比）互不相干。
+
+- **数据位置**：`~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（`{enc_cwd}` 为 URL-encoded cwd；每个会话一个文件）。Windows 侧经 `\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.grok\sessions\...` 读取。
+- **事件口径**：`turn_completed` 事件的 `usage` 是【该 user prompt 一轮的独立总量】，跨 inference loop 累加、下一轮从零起算，**勿用相邻事件差分**（会把每轮总量误当累计快照造成巨量漏记）。`reasoningTokens ⊂ outputTokens` 不计费，output 直接映射、reasoning 不单独记账。`costUsdTicks` 不入账。
+- **records agent 值约定**：kebab-case，`agent="grok"`，与 `source="grok"` 一致。
+- **展示层映射**（t198）：label `"Grok"`、color `#b687f0`（紫），records 侧 `AGENT_*` 与 buckets/rollup 侧 `BUCKET_AGENT_*`/`ROLLUP_AGENT_*` 三组映射同构扩展；`AgentFilter` 含 `"grok"`；SessionTable chip class `gk`。展示层权威映射在 `src/renderer/lib/token-stats/chart-data.ts` 与 `src/renderer/views/TokenStatsView.tsx` 的 `AGENT_OPTIONS`。
+
 ## 4. 跨功能业务不变量
 
 1. **最新观测即真值**：同一 `(provider, accountId, metricId, sourceInstanceId)` 允许多来源多观测，`observedAt` 最新者胜出。去重、"实时上报"与"兜底探测"在数据层自然融合。

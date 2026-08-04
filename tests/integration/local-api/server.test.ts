@@ -70,6 +70,13 @@ beforeEach(async () => {
             scheduleSave: () => undefined,
             flushPendingSave: () => Promise.resolve(),
             hasPendingSave: () => false,
+            prune_unhealthy_plugins: () =>
+                Promise.resolve({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [{ instanceId: "inst-1" }] as never[],
+                    launchAtLogin: false,
+                }),
         },
         secretsStore: {
             get: () => Promise.resolve("sk-plain"),
@@ -217,6 +224,207 @@ describe("local-api", () => {
 });
 
 describe("local-api web read endpoints", () => {
+    it("GET /v1/dashboard returns one bounded DTO without auth", async () => {
+        const start = Date.now() - 3600000;
+        const end = Date.now() + 1000;
+        token_stats_store.upsert_records([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "dashboard-session",
+                title: "Dashboard",
+                directory: "/project",
+                slug: null,
+                version: null,
+                parent_session_id: null,
+                message_id: "dashboard-message",
+                role: "assistant",
+                timestamp: start + 1000,
+                model: "sonnet",
+                input_tokens: 10,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent: "claude-code",
+            },
+        ]);
+
+        await api.start();
+        const params = new URLSearchParams({
+            agent: "all",
+            platform: "all",
+            start: String(start),
+            end: String(end),
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+        });
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/dashboard?${params.toString()}`,
+        );
+        expect(res.status).toBe(200);
+        await expect(res.json()).resolves.toMatchObject({
+            current: { tokens: 11, sessions: 1, calls: 1 },
+            sessions: { total: 1, has_more: false },
+            freshness: { stale: false },
+        });
+    });
+
+    it("GET /v1/dashboard routes through the isolated dispatcher when provided (AC2)", async () => {
+        const dispatcher = {
+            request_dashboard: vi.fn(),
+            is_running: vi.fn(() => false),
+            stop: vi.fn(),
+        };
+        api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            token_stats_running: () => false,
+            token_stats_query_dispatcher: dispatcher,
+            config_deps,
+            connector_deps,
+            web_root,
+        });
+        const start = Date.now() - 3600000;
+        const end = Date.now() + 1000;
+        const params = new URLSearchParams({
+            agent: "all",
+            platform: "all",
+            start: String(start),
+            end: String(end),
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+        });
+        const expected_dto = {
+            query: {
+                agent: "all",
+                platform: "all",
+                start,
+                end,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            current: {
+                tokens: 0,
+                sessions: 0,
+                calls: 0,
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent_totals: [],
+                model_token_totals: [],
+                model_call_totals: [],
+                project_session_totals: [],
+            },
+            previous: {
+                tokens: 0,
+                sessions: 0,
+                calls: 0,
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent_totals: [],
+                model_token_totals: [],
+                model_call_totals: [],
+                project_session_totals: [],
+            },
+            chart: { labels: [], bucket_starts: [], series: [], other_details: [] },
+            heatmap: [],
+            sessions: { items: [], total: 0, has_more: false },
+            status: { running: false, last_updated: null },
+            freshness: { queried_at: 3, stale: false },
+            data_version: 0,
+        };
+        dispatcher.request_dashboard.mockResolvedValue(expected_dto);
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/dashboard?${params.toString()}`,
+        );
+        expect(res.status).toBe(200);
+        await expect(res.json()).resolves.toEqual(expected_dto);
+        expect(dispatcher.request_dashboard).toHaveBeenCalledWith(
+            expect.objectContaining({ agent: "all", xaxis: "time" }),
+            expect.objectContaining({ running: false }),
+        );
+    });
+
+    it("GET /v1/dashboard rejects an invalid query", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/dashboard`);
+        expect(res.status).toBe(400);
+    });
+
+    it("GET /v1/dashboard applies alias and session pagination query params", async () => {
+        const start = Date.now() - 3600000;
+        const end = Date.now() + 1000;
+        token_stats_store.upsert_records([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "alias-session",
+                title: "Dashboard",
+                directory: "/project",
+                slug: null,
+                version: null,
+                parent_session_id: null,
+                message_id: "alias-message",
+                role: "assistant",
+                timestamp: start + 1000,
+                model: "sonnet",
+                input_tokens: 10,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent: "claude-code",
+            },
+        ]);
+
+        await api.start();
+        const params = new URLSearchParams({
+            agent: "all",
+            platform: "all",
+            start: String(start),
+            end: String(end),
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+            session_offset: "100",
+        });
+        params.set("model_aliases", JSON.stringify([{ alias: "X", keys: ["sonnet"] }]));
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/dashboard?${params.toString()}`,
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as {
+            current: { model_token_totals: { key: string; value: number }[] };
+            query: { session_offset: number };
+        };
+        expect(data.current.model_token_totals).toContainEqual({ key: "X", value: 11 });
+        expect(data.query.session_offset).toBe(100);
+    });
+
+    it("GET /v1/dashboard rejects malformed alias JSON", async () => {
+        await api.start();
+        const params = new URLSearchParams({
+            agent: "all",
+            platform: "all",
+            start: "1",
+            end: "2",
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+        });
+        params.set("model_aliases", "{bad");
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/dashboard?${params.toString()}`,
+        );
+        expect(res.status).toBe(400);
+    });
+
     it("GET /v1/records returns records without auth", async () => {
         token_stats_store.upsert_records([
             {

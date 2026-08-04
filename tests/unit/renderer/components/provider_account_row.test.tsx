@@ -170,13 +170,23 @@ describe("ProviderAccountRow", () => {
     });
 
     describe("trend sparkline integration", () => {
-        it("fetches trend data on expand and renders sparkline", async () => {
-            const trend_get = vi.fn().mockResolvedValue([
-                { date: "2026-07-14", percent: 10 },
-                { date: "2026-07-15", percent: 20 },
-                { date: "2026-07-16", percent: 30 },
-            ]);
-            window.usageboard.trend = { get: trend_get };
+        it("fetches trend data on expand via getBulk and renders sparkline (t196 AC5)", async () => {
+            const trend_bulk = vi.fn().mockResolvedValue({
+                series: [
+                    {
+                        metric_id: "5h",
+                        series: [
+                            { date: "2026-07-14", percent: 10 },
+                            { date: "2026-07-15", percent: 20 },
+                            { date: "2026-07-16", percent: 30 },
+                        ],
+                    },
+                ],
+            });
+            window.usageboard.trend = {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: trend_bulk,
+            };
             const account = make_account();
             const { container } = render(
                 <ProviderAccountRow
@@ -188,17 +198,100 @@ describe("ProviderAccountRow", () => {
             await waitFor(() => {
                 expect(container.querySelector(".trend-svg")).toBeInTheDocument();
             });
-            expect(trend_get).toHaveBeenCalledTimes(1);
-            expect(trend_get).toHaveBeenCalledWith("claude", "auth-a", "5h");
+            expect(trend_bulk).toHaveBeenCalledTimes(1);
+            expect(trend_bulk).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    provider: "claude",
+                    account_id: "auth-a",
+                    periods: [expect.objectContaining({ metric_id: "5h" })],
+                }),
+            );
+            expect(container.querySelector(".trend-sparkline-empty")).not.toBeInTheDocument();
+        });
+
+        it("fetches all metric periods in a single getBulk call (t196 AC5 N>1)", async () => {
+            // t196 AC5: N 个指标周期只发一次 bulk invoke，payload 含全部 raw_label，
+            // 响应按 metric_id 映射回各自缓存与 sparkline。
+            const trend_bulk = vi.fn().mockResolvedValue({
+                series: [
+                    {
+                        metric_id: "5h",
+                        series: [
+                            { date: "2026-07-14", percent: 10 },
+                            { date: "2026-07-15", percent: 20 },
+                        ],
+                    },
+                    {
+                        metric_id: "5d",
+                        series: [
+                            { date: "2026-07-14", percent: 30 },
+                            { date: "2026-07-15", percent: 40 },
+                        ],
+                    },
+                ],
+            });
+            window.usageboard.trend = {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: trend_bulk,
+            };
+            const first_period = make_account().periods[0];
+            if (!first_period) throw new Error("expected at least one period");
+            const period_5h = first_period;
+            const account = make_account({
+                periods: [
+                    period_5h,
+                    {
+                        ...period_5h,
+                        id: "claude-a-5d",
+                        raw_label: "5d",
+                        name: "Claude Pro · 5天",
+                    },
+                ],
+            });
+            const { container } = render(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={false}
+                    onToggleCollapsed={() => undefined}
+                />,
+            );
+            await waitFor(() => {
+                expect(trend_bulk).toHaveBeenCalledTimes(1);
+            });
+            // 单次 invoke 携带全部周期；不因 N 周期发 N 次。
+            expect(trend_bulk).toHaveBeenCalledTimes(1);
+            expect(trend_bulk).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    provider: "claude",
+                    account_id: "auth-a",
+                    periods: [
+                        expect.objectContaining({ metric_id: "5h" }),
+                        expect.objectContaining({ metric_id: "5d" }),
+                    ],
+                }),
+            );
+            await waitFor(() => {
+                expect(container.querySelectorAll(".trend-svg").length).toBe(2);
+            });
             expect(container.querySelector(".trend-sparkline-empty")).not.toBeInTheDocument();
         });
 
         it("does not re-fetch on collapse/re-expand (cache hit)", async () => {
-            const trend_get = vi.fn().mockResolvedValue([
-                { date: "2026-07-14", percent: 10 },
-                { date: "2026-07-15", percent: 20 },
-            ]);
-            window.usageboard.trend = { get: trend_get };
+            const trend_bulk = vi.fn().mockResolvedValue({
+                series: [
+                    {
+                        metric_id: "5h",
+                        series: [
+                            { date: "2026-07-14", percent: 10 },
+                            { date: "2026-07-15", percent: 20 },
+                        ],
+                    },
+                ],
+            });
+            window.usageboard.trend = {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: trend_bulk,
+            };
             const account = make_account();
             const { container, rerender } = render(
                 <ProviderAccountRow
@@ -208,7 +301,7 @@ describe("ProviderAccountRow", () => {
                 />,
             );
             await waitFor(() => {
-                expect(trend_get).toHaveBeenCalledTimes(1);
+                expect(trend_bulk).toHaveBeenCalledTimes(1);
             });
             // Collapse.
             rerender(
@@ -229,12 +322,15 @@ describe("ProviderAccountRow", () => {
             await waitFor(() => {
                 expect(container.querySelector(".trend-svg")).toBeInTheDocument();
             });
-            expect(trend_get).toHaveBeenCalledTimes(1);
+            expect(trend_bulk).toHaveBeenCalledTimes(1);
         });
 
-        it("shows placeholder and does not cache when trend.get rejects", async () => {
-            const trend_get = vi.fn().mockRejectedValue(new Error("IPC failed"));
-            window.usageboard.trend = { get: trend_get };
+        it("shows placeholder and does not cache when trend.getBulk rejects", async () => {
+            const trend_bulk = vi.fn().mockRejectedValue(new Error("IPC failed"));
+            window.usageboard.trend = {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: trend_bulk,
+            };
             const account = make_account();
             const { container, rerender } = render(
                 <ProviderAccountRow
@@ -244,11 +340,11 @@ describe("ProviderAccountRow", () => {
                 />,
             );
             await waitFor(() => {
-                expect(trend_get).toHaveBeenCalledTimes(1);
+                expect(trend_bulk).toHaveBeenCalledTimes(1);
             });
             // Failure branch: placeholder shown, not cached.
             expect(container.querySelector(".trend-sparkline-empty")).toBeInTheDocument();
-            // Collapse and re-expand - without cache, trend.get is called again.
+            // Collapse and re-expand - without cache, getBulk is called again.
             rerender(
                 <ProviderAccountRow
                     account={account}
@@ -264,7 +360,7 @@ describe("ProviderAccountRow", () => {
                 />,
             );
             await waitFor(() => {
-                expect(trend_get).toHaveBeenCalledTimes(2);
+                expect(trend_bulk).toHaveBeenCalledTimes(2);
             });
         });
     });

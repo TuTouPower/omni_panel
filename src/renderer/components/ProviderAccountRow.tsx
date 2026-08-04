@@ -77,47 +77,65 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
         Record<string, (TrendPoint | null)[]>
     >({});
 
-    // 懒查:展开时触发。缓存命中不发 IPC,未命中调 trend:get 写回;失败不写缓存。
+    // 懒查:展开时触发。缓存命中不发 IPC,未命中调 trend 取回写回;失败不写缓存。
+    // t196 AC5: 一次 getBulk 取回该账号全部指标周期，替代 N 个并行 trend:get。
     useEffect(() => {
         if (collapsed) return;
         if (account.periods.length === 0) return;
         const trend_api = window.usageboard.trend;
 
         let cancelled = false;
-        const fetch_one = async (period: (typeof account.periods)[number]) => {
-            const cache_key = `${period.provider}||${period.accountId}||${period.id}`;
-            const cached = trend_cache_ref.current.get(cache_key);
-            if (cached) {
-                if (cancelled) return;
-                set_trend_data_by_metric((prev) =>
-                    prev[cache_key] === cached ? prev : { ...prev, [cache_key]: cached },
-                );
-                return;
+        const fetch_bulk = async () => {
+            const missing: { cache_key: string; period: (typeof account.periods)[number] }[] = [];
+            for (const period of account.periods) {
+                const cache_key = `${period.provider}||${period.accountId}||${period.id}`;
+                const cached = trend_cache_ref.current.get(cache_key);
+                if (cached) {
+                    set_trend_data_by_metric((prev) =>
+                        prev[cache_key] === cached ? prev : { ...prev, [cache_key]: cached },
+                    );
+                } else {
+                    missing.push({ cache_key, period });
+                }
             }
+            if (missing.length === 0) return;
             try {
-                // trend is keyed by the connector's raw_label (the stable short
-                // metric id the observation store indexes), not the composite
-                // period.id — passing period.id never matches the trend series.
-                const result = await trend_api.get(
-                    period.provider,
-                    period.accountId,
-                    period.raw_label,
+                // trend 查询键是 raw_label（observation store 索引的稳定短 metric id），
+                // 不是复合 period.id；bulk 请求按 raw_label 查询，响应按 metric_id 映射回 cache_key。
+                const raw_label_to_cache_key = new Map(
+                    missing.map((m) => [m.period.raw_label, m.cache_key] as const),
                 );
+                const bulk = await trend_api.getBulk({
+                    provider: account.periods[0]?.provider ?? "",
+                    account_id: account.periods[0]?.accountId ?? "",
+                    periods: missing.map(({ period }) => ({
+                        metric_id: period.raw_label,
+                    })),
+                });
                 if (cancelled) return;
-                trend_cache_ref.current.set(cache_key, result);
-                set_trend_data_by_metric((prev) => ({ ...prev, [cache_key]: result }));
+                const entries: [string, (TrendPoint | null)[]][] = [];
+                for (const item of bulk.series) {
+                    const cache_key = raw_label_to_cache_key.get(item.metric_id);
+                    if (!cache_key) continue;
+                    trend_cache_ref.current.set(cache_key, item.series);
+                    entries.push([cache_key, item.series]);
+                }
+                if (entries.length > 0) {
+                    set_trend_data_by_metric((prev) => {
+                        const next = { ...prev };
+                        for (const [key, series] of entries) next[key] = series;
+                        return next;
+                    });
+                }
             } catch (err) {
                 if (cancelled) return;
-                log.warn("trend:get failed", {
-                    key: cache_key,
+                log.warn("trend:getBulk failed", {
+                    key: missing.map((m) => m.cache_key).join(","),
                     err: err instanceof Error ? err.message : String(err),
                 });
             }
         };
-
-        for (const period of account.periods) {
-            void fetch_one(period);
-        }
+        void fetch_bulk();
         return () => {
             cancelled = true;
         };

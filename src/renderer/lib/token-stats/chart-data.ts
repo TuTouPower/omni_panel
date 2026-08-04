@@ -36,29 +36,32 @@ export function build_resolver(
     return (key) => map[key] ?? key;
 }
 
-/** Fixed display colors/labels for the three agents (matches SessionTable chips). */
+/** Fixed display colors/labels for the four agents (matches SessionTable chips). */
 const AGENT_COLORS: Record<string, string> = {
     "claude-code": "#ffb78a",
     "kimi-code": "#7ee8b0",
     opencode: "#8ad8ff",
+    grok: "#b687f0",
 };
 const AGENT_LABELS: Record<string, string> = {
     "claude-code": "Claude Code",
     "kimi-code": "Kimi Code",
     opencode: "OpenCode",
+    grok: "Grok",
 };
 
-/** Donut segments comparing token usage across the three agents. */
+/** Donut segments comparing token usage across the four agents. */
 export function agentSegments(records: AgentSessionUsage[]): DonutSegment[] {
     const totals: Record<string, number> = {
         "claude-code": 0,
         "kimi-code": 0,
         opencode: 0,
+        grok: 0,
     };
     for (const r of records) {
         totals[r.agent] = (totals[r.agent] ?? 0) + sumTokens(r);
     }
-    return (["claude-code", "kimi-code", "opencode"] as const)
+    return (["claude-code", "kimi-code", "opencode", "grok"] as const)
         .filter((a) => (totals[a] ?? 0) > 0)
         .map((a) => ({
             name: AGENT_LABELS[a] ?? a,
@@ -595,11 +598,13 @@ const BUCKET_AGENT_COLORS: Record<string, string> = {
     claude_code: "#ffb78a",
     opencode: "#8ad8ff",
     kimi_code: "#7ee8b0",
+    grok: "#b687f0",
 };
 const BUCKET_AGENT_LABELS: Record<string, string> = {
     claude_code: "Claude Code",
     opencode: "OpenCode",
     kimi_code: "Kimi Code",
+    grok: "Grok",
 };
 
 /** Donut segments comparing token usage across agents (source → agent). */
@@ -608,11 +613,12 @@ export function agentSegmentsFromBuckets(buckets: TokenStatsBucket[]): DonutSegm
         claude_code: 0,
         opencode: 0,
         kimi_code: 0,
+        grok: 0,
     };
     for (const b of buckets) {
         totals[b.source] = (totals[b.source] ?? 0) + bucket_tokens(b);
     }
-    return (["claude_code", "opencode", "kimi_code"] as const)
+    return (["claude_code", "opencode", "kimi_code", "grok"] as const)
         .filter((s) => (totals[s] ?? 0) > 0)
         .map((s) => ({
             name: BUCKET_AGENT_LABELS[s] ?? s,
@@ -821,11 +827,13 @@ const ROLLUP_AGENT_COLORS: Record<string, string> = {
     claude_code: "#ffb78a",
     opencode: "#8ad8ff",
     kimi_code: "#7ee8b0",
+    grok: "#b687f0",
 };
 const ROLLUP_AGENT_LABELS: Record<string, string> = {
     claude_code: "Claude Code",
     opencode: "OpenCode",
     kimi_code: "Kimi Code",
+    grok: "Grok",
 };
 
 /** Donut segments comparing token usage across agents (source → agent). */
@@ -834,11 +842,12 @@ export function agentSegmentsFromRollup(rows: TokenStatsRollupRow[]): DonutSegme
         claude_code: 0,
         opencode: 0,
         kimi_code: 0,
+        grok: 0,
     };
     for (const r of rows) {
         totals[r.source] = (totals[r.source] ?? 0) + rollup_tokens(r);
     }
-    return (["claude_code", "opencode", "kimi_code"] as const)
+    return (["claude_code", "opencode", "kimi_code", "grok"] as const)
         .filter((s) => (totals[s] ?? 0) > 0)
         .map((s) => ({
             name: ROLLUP_AGENT_LABELS[s] ?? s,

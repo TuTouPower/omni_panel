@@ -74,6 +74,7 @@ function createMockDeps() {
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn().mockResolvedValue(undefined),
         hasPendingSave: vi.fn().mockReturnValue(false),
+        prune_unhealthy_plugins: vi.fn().mockResolvedValue(structuredClone(config)),
     };
 
     const secretsStore = {
@@ -1158,6 +1159,7 @@ describe("config-ipc", () => {
                 scheduleSave: vi.fn(),
                 flushPendingSave: vi.fn().mockResolvedValue(undefined),
                 hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
             };
             const onConfigSaved = vi.fn();
             const deps = {
@@ -1211,6 +1213,7 @@ describe("config-ipc", () => {
                 scheduleSave: vi.fn(),
                 flushPendingSave: vi.fn().mockResolvedValue(undefined),
                 hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
             };
             const deps = {
                 configStore,
@@ -1241,6 +1244,7 @@ describe("config-ipc", () => {
                 scheduleSave: vi.fn(),
                 flushPendingSave: vi.fn().mockResolvedValue(undefined),
                 hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
             };
             const deps = {
                 configStore,

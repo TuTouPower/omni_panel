@@ -188,7 +188,7 @@ describe("use_plugins", () => {
         expect(result.current.plugins[0]?.snapshot.status).toBe("ready");
     });
 
-    it("keeps reference when items array is equal by value but different reference", async () => {
+    it("updates plugins when items reference differs (t196 AC4 shallow compare)", async () => {
         const item = make_item();
         connector_list.mockResolvedValue([
             make_connector({
@@ -220,6 +220,7 @@ describe("use_plugins", () => {
         const prev_plugins = result.current.plugins;
 
         act(() => {
+            // t196 AC4: items 按浅引用比较，新数组引用不同 → 视为变化、更新。
             captured_callback?.("ds-1", {
                 status: "ready",
                 items: [make_item()],
@@ -227,7 +228,15 @@ describe("use_plugins", () => {
             });
         });
 
-        expect(result.current.plugins).toBe(prev_plugins);
+        expect(result.current.plugins).not.toBe(prev_plugins);
+        expect(
+            (
+                result.current.plugins[0]?.snapshot as Extract<
+                    ConnectorSnapshotDTO,
+                    { status: "ready" }
+                >
+            ).items,
+        ).toHaveLength(1);
     });
 
     it("updates when items content changes", async () => {
@@ -356,7 +365,7 @@ describe("use_plugins", () => {
         expect(result.current.plugins[0]?.snapshot).toBe(prev_snapshot);
     });
 
-    it("keeps reference when chart value is unchanged but reference differs", async () => {
+    it("updates plugins when chart reference differs (t196 AC4 shallow compare)", async () => {
         const chart = make_chart();
         connector_list.mockResolvedValue([
             make_connector({
@@ -389,6 +398,8 @@ describe("use_plugins", () => {
         const prev_plugins = result.current.plugins;
 
         act(() => {
+            // t196 AC4: chart 按引用比较；make_chart() 每次新建引用 → 视为变化、
+            // 更新（不再做整份 JSON.stringify 深比较）。
             captured_callback?.("ds-1", {
                 status: "ready",
                 items: [],
@@ -397,7 +408,8 @@ describe("use_plugins", () => {
             });
         });
 
-        expect(result.current.plugins).toBe(prev_plugins);
+        expect(result.current.plugins).not.toBe(prev_plugins);
+        expect(result.current.plugins[0]?.snapshot.status).toBe("ready");
     });
 
     it("updates when badge appears", async () => {

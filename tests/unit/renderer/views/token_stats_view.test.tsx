@@ -1,47 +1,38 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
-    TokenStatsBucket,
+    TokenStatsDashboardDto,
+    TokenStatsDashboardQuery,
     TokenStatsHeatmapCell,
-    TokenStatsSession,
 } from "../../../../src/shared/types/token-stats";
 import { TokenStatsView } from "../../../../src/renderer/views/TokenStatsView";
 
-const mocked_donuts = vi.hoisted(() => ({ centers: [] as string[] }));
-
-vi.mock("../../../../src/renderer/components/token-stats/MetricDonut", () => ({
-    MetricDonut: (props: { centerValue?: string }) => {
-        mocked_donuts.centers.push(props.centerValue ?? "");
-        return <div />;
-    },
-}));
 const mocked_bar_chart = vi.hoisted(() => ({
-    props: null as {
-        gran: string;
-        records?: unknown[];
-        buckets?: { bucket_date: string }[];
-        hourBuckets?: { hour_start: number }[];
-        rollup?: unknown[];
-    } | null,
-}));
-
-vi.mock("../../../../src/renderer/components/token-stats/BarChart", () => ({
-    BarChart: (props: {
-        gran: string;
-        records?: unknown[];
-        buckets?: { bucket_date: string }[];
-        hourBuckets?: { hour_start: number }[];
-        rollup?: unknown[];
-    }) => {
-        mocked_bar_chart.props = props;
-        return <div />;
-    },
+    props: null as { dashboardChart?: TokenStatsDashboardDto["chart"] } | null,
 }));
 const mocked_heatmap = vi.hoisted(() => ({
     props: null as { cells?: TokenStatsHeatmapCell[] } | null,
 }));
+const mocked_metric_donut = vi.hoisted(() => ({
+    props: [] as { centerValue?: string; segments?: { name: string; value: number }[] }[],
+}));
 
+vi.mock("../../../../src/renderer/components/token-stats/MetricDonut", () => ({
+    MetricDonut: (props: {
+        centerValue?: string;
+        segments?: { name: string; value: number }[];
+    }) => {
+        mocked_metric_donut.props.push(props);
+        return <div />;
+    },
+}));
+vi.mock("../../../../src/renderer/components/token-stats/BarChart", () => ({
+    BarChart: (props: { dashboardChart?: TokenStatsDashboardDto["chart"] }) => {
+        mocked_bar_chart.props = props;
+        return <div />;
+    },
+}));
 vi.mock("../../../../src/renderer/components/token-stats/Heatmap", () => ({
     Heatmap: (props: { cells?: TokenStatsHeatmapCell[] }) => {
         mocked_heatmap.props = props;
@@ -49,8 +40,31 @@ vi.mock("../../../../src/renderer/components/token-stats/Heatmap", () => ({
     },
 }));
 vi.mock("../../../../src/renderer/components/token-stats/SessionTable", () => ({
-    SessionTable: ({ rows }: { rows: { session_id: string }[] }) => (
-        <div data-testid="session-records">{rows.map((r) => r.session_id).join(",")}</div>
+    SessionTable: ({
+        rows,
+        totalRows,
+        loadedOffset,
+        onPageChange,
+    }: {
+        rows: { session_id: string }[];
+        totalRows?: number;
+        loadedOffset?: number;
+        onPageChange?: (offset: number) => void;
+    }) => (
+        <div data-testid="session-records">
+            {rows.map((row) => row.session_id).join(",")}
+            <button
+                type="button"
+                data-testid="next-session-page"
+                onClick={() => {
+                    if (totalRows !== undefined && (loadedOffset ?? 0) === 0) {
+                        onPageChange?.(100);
+                    }
+                }}
+            >
+                next-page
+            </button>
+        </div>
     ),
 }));
 vi.mock("../../../../src/renderer/components/token-stats/RangePicker", () => ({
@@ -58,45 +72,75 @@ vi.mock("../../../../src/renderer/components/token-stats/RangePicker", () => ({
         <button
             type="button"
             data-testid="apply-custom-range"
-            onClick={() => onApply?.({ start: Date.now() - 12 * 3600000, end: Date.now() })}
+            onClick={() => onApply?.({ start: Date.now() - 3600000, end: Date.now() })}
         >
             apply-custom
         </button>
     ),
 }));
 
-function session(id: string, overrides: Partial<TokenStatsSession> = {}): TokenStatsSession {
-    return {
-        id,
-        source: "claude_code",
-        env: "win",
-        model: "model-1",
-        title: "Session",
-        directory: "D:\\project",
-        input_tokens: 100,
-        output_tokens: 10,
-        cache_read_tokens: 5,
-        cache_write_tokens: 0,
-        calls: 1,
-        started_at: Date.now() - 1000,
-        ended_at: Date.now(),
-        ...overrides,
-    };
-}
+const query: TokenStatsDashboardQuery = {
+    agent: "all",
+    platform: "all",
+    start: 1_000,
+    end: 2_000,
+    metric: "tokens",
+    xaxis: "time",
+    gran: "day",
+};
 
-function bucket(overrides: Partial<TokenStatsBucket> = {}): TokenStatsBucket {
-    return {
-        source: "claude_code",
-        env: "win",
-        bucket_date: "2026-07-29",
-        model: "model-1",
-        input_tokens: 100,
-        output_tokens: 10,
-        cache_read_tokens: 5,
-        cache_write_tokens: 0,
+function dashboard(
+    session_id: string,
+    overrides: Partial<Pick<TokenStatsDashboardDto, "status">> = {},
+): TokenStatsDashboardDto {
+    const summary = {
+        tokens: 180,
         sessions: 1,
-        calls: 1,
-        ...overrides,
+        calls: 2,
+        input_tokens: 100,
+        output_tokens: 50,
+        cache_read_tokens: 30,
+        cache_write_tokens: 0,
+        agent_totals: [{ key: "claude-code", value: 180 }],
+        model_token_totals: [{ key: "sonnet", value: 180 }],
+        model_call_totals: [{ key: "sonnet", value: 2 }],
+        project_session_totals: [{ key: "/project", value: 1 }],
+    };
+    return {
+        query,
+        current: summary,
+        previous: { ...summary, tokens: 90, calls: 1 },
+        chart: {
+            labels: [session_id],
+            bucket_starts: [1_000],
+            series: [{ name: "sonnet", data: [180] }],
+            other_details: [[]],
+        },
+        heatmap: [{ weekday: 1, hour: 9, calls: 2, sessions: 1, tokens: 180 }],
+        sessions: {
+            items: [
+                {
+                    session_id,
+                    source: "claude_code",
+                    env: "win",
+                    title: "Session",
+                    directory: "/project",
+                    models: ["sonnet"],
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 30,
+                    cache_write_tokens: 0,
+                    calls: 2,
+                    started_at: 1_000,
+                    ended_at: 1_500,
+                },
+            ],
+            total: 1,
+            has_more: false,
+        },
+        status: { running: true, last_updated: null, ...overrides.status },
+        freshness: { queried_at: 2_000, stale: false },
+        data_version: 0,
     };
 }
 
@@ -108,774 +152,311 @@ function deferred<T>() {
     return { promise, resolve };
 }
 
-describe("TokenStatsView", () => {
+describe("TokenStatsView dashboard query", () => {
+    const get_dashboard = vi.fn();
     const get_records = vi.fn();
     const get_sessions = vi.fn();
     const get_buckets = vi.fn();
     const get_heatmap = vi.fn();
     const get_hour_buckets = vi.fn();
     const get_rollup = vi.fn();
+    const get_config = vi.fn();
+    let updated_listener: ((dataVersion: number) => void) | null = null;
 
     beforeEach(() => {
         localStorage.clear();
+        get_dashboard.mockReset();
         get_records.mockReset();
         get_sessions.mockReset();
         get_buckets.mockReset();
         get_heatmap.mockReset();
         get_hour_buckets.mockReset();
         get_rollup.mockReset();
+        get_config.mockReset();
+        updated_listener = null;
         mocked_bar_chart.props = null;
         mocked_heatmap.props = null;
-        mocked_donuts.centers = [];
-        get_records.mockResolvedValue([]);
-        get_sessions.mockResolvedValue([]);
-        get_buckets.mockResolvedValue([]);
-        get_heatmap.mockResolvedValue([]);
-        get_hour_buckets.mockResolvedValue([]);
-        get_rollup.mockResolvedValue([]);
+        mocked_metric_donut.props = [];
+        get_dashboard.mockResolvedValue(dashboard("initial"));
+        get_config.mockResolvedValue({
+            config: { dirAliases: [], modelAliases: [] },
+            hasSecrets: {},
+        });
         window.usageboard = {
             tokenStats: {
                 open: vi.fn(),
+                getDashboard: get_dashboard,
                 getBuckets: get_buckets,
                 getSessions: get_sessions,
                 getRecords: get_records,
                 getHeatmap: get_heatmap,
                 getHourBuckets: get_hour_buckets,
                 getRangeRollup: get_rollup,
-                getStatus: vi.fn().mockResolvedValue({ running: true, last_updated: null }),
-                onUpdated: vi.fn(() => vi.fn()),
-            },
-            config: {
-                get: vi.fn().mockResolvedValue({
-                    config: { dirAliases: [], modelAliases: [] },
-                    hasSecrets: {},
+                getStatus: vi.fn(),
+                onUpdated: vi.fn((callback: (dataVersion: number) => void) => {
+                    updated_listener = callback;
+                    return vi.fn();
                 }),
             },
+            config: { get: get_config },
+            event: { onConfigChange: vi.fn(() => vi.fn()) },
             log: vi.fn(),
         } as unknown as typeof window.usageboard;
     });
 
-    it("loads all platforms by default and switches between Win, WSL, and all", async () => {
-        get_sessions
-            .mockResolvedValueOnce([session("all-session")])
-            .mockResolvedValueOnce([session("win-session")])
-            .mockResolvedValueOnce([])
-            .mockResolvedValueOnce([session("all-again")]);
+    it("uses one bounded dashboard request and renders all dashboard sections", async () => {
+        render(<TokenStatsView />);
 
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("initial");
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
+        expect(get_records).not.toHaveBeenCalled();
+        expect(get_sessions).not.toHaveBeenCalled();
+        expect(get_buckets).not.toHaveBeenCalled();
+        expect(mocked_bar_chart.props?.dashboardChart?.labels).toEqual(["initial"]);
+        expect(mocked_heatmap.props?.cells).toEqual([
+            { weekday: 1, hour: 9, calls: 2, sessions: 1, tokens: 180 },
+        ]);
+    });
+
+    it("sends one dashboard request when filters change without reading records", async () => {
         render(<TokenStatsView />);
         const user = userEvent.setup();
-
-        await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(1, expect.objectContaining({}));
-        });
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("all-session");
-
-        // Kimi Code option is present in the agent filter.
-        expect(screen.getByRole("button", { name: "Kimi Code" })).toBeInTheDocument();
+        await screen.findByTestId("session-records");
 
         await user.click(screen.getByRole("button", { name: "Win" }));
         await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(2, expect.objectContaining({ env: "win" }));
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("win-session");
+
+        const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
+        expect(request.platform).toBe("win");
+        expect(get_records).not.toHaveBeenCalled();
+        expect(get_sessions).not.toHaveBeenCalled();
+        expect(get_heatmap).not.toHaveBeenCalled();
+    });
+
+    it("AC1+AC2: offers a Grok agent filter and sends agent=grok to the dashboard", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        // Filter control exposes a Grok entry (t198 AC1).
+        expect(screen.getByRole("button", { name: "Grok" })).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+
+        const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
+        expect(request.agent).toBe("grok");
+    });
+
+    it("AC4: renders without error after selecting grok when no grok data exists", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+
+        // Fixture dashboard carries only claude_code data; selecting grok yields
+        // an empty grok view that must not crash or leave a loading spinner.
+        expect(get_dashboard.mock.calls[1]?.[0]).toMatchObject({ agent: "grok" });
+        expect(screen.getByTestId("session-records")).toBeInTheDocument();
+        expect(screen.queryByText("加载中...")).toBeNull();
+    });
+
+    it("keeps the previous DTO visible during a dashboard refresh", async () => {
+        const pending = deferred<TokenStatsDashboardDto>();
+        get_dashboard
+            .mockResolvedValueOnce(dashboard("before"))
+            .mockReturnValueOnce(pending.promise);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("before");
 
         await user.click(screen.getByRole("button", { name: "WSL" }));
         await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(3, expect.objectContaining({ env: "wsl" }));
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
-        expect(await screen.findByText("该筛选条件下暂无记录")).toBeInTheDocument();
+        expect(screen.getByTestId("session-records")).toHaveTextContent("before");
+        expect(screen.queryByText("加载中...")).toBeNull();
+        expect(screen.getByTestId("token-stats-refreshing")).toHaveTextContent("刷新中...");
 
+        pending.resolve(dashboard("after"));
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("after");
+        });
+    });
+
+    it("refreshes the active dashboard query after collector update", async () => {
+        get_dashboard
+            .mockResolvedValueOnce(dashboard("before"))
+            .mockResolvedValueOnce(dashboard("after"));
+        render(<TokenStatsView />);
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("before");
+
+        act(() => {
+            updated_listener?.(0);
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("after");
+        });
+        expect(get_dashboard).toHaveBeenCalledTimes(2);
+    });
+
+    it("AC4: reuses the cached dashboard when an update event reports the same data version", async () => {
+        const fresh = dashboard("v5");
+        fresh.data_version = 5;
+        get_dashboard.mockResolvedValue(fresh);
+        render(<TokenStatsView />);
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("v5");
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
+
+        // Same version → cache already current, no revalidation request.
+        act(() => {
+            updated_listener?.(5);
+        });
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
+    });
+
+    it("AC4: revalidates when an update event reports a newer data version", async () => {
+        const fresh = dashboard("v5");
+        fresh.data_version = 5;
+        get_dashboard.mockResolvedValue(fresh);
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
+
+        act(() => {
+            updated_listener?.(6);
+        });
+        await waitFor(() => {
+            expect(get_dashboard.mock.calls.length).toBeGreaterThan(1);
+        });
+    });
+
+    it("reuses a cached dashboard when returning to the same filter combination", async () => {
+        get_dashboard
+            .mockResolvedValueOnce(dashboard("all"))
+            .mockResolvedValueOnce(dashboard("win"));
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        await user.click(screen.getByRole("button", { name: "Win" }));
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("win");
+        });
         await user.click(screen.getByRole("button", { name: "全平台" }));
-        await waitFor(() => {
-            expect(get_records).toHaveBeenNthCalledWith(4, expect.objectContaining({}));
-            expect(get_records).toHaveBeenNthCalledWith(
-                4,
-                expect.not.objectContaining({ env: "wsl" }),
-            );
-        });
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("all-again");
+        await waitFor(() => expect(screen.getByTestId("session-records")).toHaveTextContent("all"));
+        expect(get_dashboard).toHaveBeenCalledTimes(2);
     });
 
-    it("passes the current time window (start/end) to getRecords", async () => {
-        const now = Date.now();
-        const day = 86400000;
-        get_records.mockResolvedValue([]);
-
+    it("loads aliases once and does not reread config when filters change", async () => {
         render(<TokenStatsView />);
-        const user = userEvent.setup();
-        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await screen.findByTestId("session-records");
+        expect(get_config).toHaveBeenCalledTimes(1);
 
+        await userEvent.setup().click(screen.getByRole("button", { name: "7 天" }));
         await waitFor(() => {
-            const last_call = get_records.mock.calls.at(-1)?.[0] as {
-                start?: number;
-                end?: number;
-            };
-            expect(last_call).toBeDefined();
-            const { start, end } = last_call;
-            expect(typeof start).toBe("number");
-            expect(typeof end).toBe("number");
-            // 7d window: end ≈ now, start ≈ now - 7d
-            expect(end).toBeGreaterThan(now - 5000);
-            expect(start).toBeGreaterThan(now - 7 * day - 5000);
-            expect(start).toBeLessThan(now - 7 * day + 5000);
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
+        expect(get_config).toHaveBeenCalledTimes(1);
     });
 
-    it("ignores an older platform response after a faster switch", async () => {
-        const all_request = deferred<TokenStatsSession[]>();
-        get_sessions.mockImplementation((filters: { env?: "win" | "wsl" }) => {
-            if (filters.env === "wsl") {
-                return Promise.resolve([session("wsl-session")]);
-            }
-            return all_request.promise;
-        });
-
+    it("renders KPI and deltas from the current and previous summaries", async () => {
         render(<TokenStatsView />);
-        const user = userEvent.setup();
-        await user.click(screen.getByRole("button", { name: "WSL" }));
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("initial");
 
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("wsl-session");
-        all_request.resolve([session("stale-all-session")]);
-
-        await waitFor(() => {
-            expect(screen.getByTestId("session-records")).toHaveTextContent("wsl-session");
-        });
-        expect(screen.getByTestId("session-records")).not.toHaveTextContent("stale-all-session");
+        // current.tokens=180 vs previous.tokens=90 → +100%; calls 2 vs 1 → +100%.
+        expect(screen.getAllByText("▲ 100.0%").length).toBeGreaterThan(0);
+        // The model donut receives the resolved current model totals.
+        const token_segment = mocked_metric_donut.props.find((props) =>
+            props.segments?.some((segment) => segment.name === "sonnet" && segment.value === 180),
+        );
+        expect(token_segment).toBeTruthy();
     });
 
-    it("shows period-over-period delta when the prior window has buckets", async () => {
-        const now = Date.now();
-        const today = new Date(now);
-        const ymd = (d: Date) =>
-            `${String(d.getUTCFullYear())}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-        const today_str = ymd(today);
-        // prior bucket ~8 days ago
-        const prior_date = new Date(now - 8 * 86400000);
-        const prior_str = ymd(prior_date);
-        get_buckets.mockResolvedValue([
-            bucket({ bucket_date: today_str, input_tokens: 100, output_tokens: 50 }),
-            bucket({ bucket_date: prior_str, input_tokens: 40, output_tokens: 20 }),
-        ]);
-        get_sessions.mockResolvedValue([
-            session("current-session"),
-            // A session in the prior 7d window so the session-count delta
-            // (sourced from the sessions table) also has a prior value.
-            session("prior-session", {
-                started_at: now - 9 * 86400000,
-                ended_at: now - 8 * 86400000,
-            }),
-        ]);
-
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-
-        await user.click(screen.getByRole("button", { name: "7 天" }));
-
-        // current-window session reaches the table
-        expect(await screen.findByTestId("session-records")).toHaveTextContent("current-session");
-
-        // KPI deltas must show a percentage arrow, not "前段无数据"
-        await waitFor(() => {
-            expect(screen.queryAllByText("前段无数据")).toHaveLength(0);
-        });
-        expect(screen.getAllByText(/▲|▼/).length).toBeGreaterThan(0);
-    });
-
-    it("derives 24h delta from the bounded rollup aggregate (complete window)", async () => {
-        // Regression (p020): the 24h KPI delta used per-message records, whose
-        // ORDER BY DESC LIMIT truncates high-density windows — the prior 24h
-        // window silently vanished. The 24h preset now reads the previous
-        // window from the bounded rollup aggregate (t184); records are
-        // irrelevant to the delta here.
-        const now = Date.now();
-        const hour = 3600000;
-        get_records.mockResolvedValue([]);
-        get_rollup.mockImplementation((filters: { start?: number; end?: number }) => {
-            const end = filters.end ?? now;
-            // Current window fetch ends ~now; previous window fetch ends ~24h ago.
-            if (end > now - 12 * hour) {
-                return Promise.resolve([
+    it("fetches the next session page through onPageChange", async () => {
+        const page_2 = dashboard("page-2");
+        get_dashboard.mockResolvedValueOnce(dashboard("page-1")).mockResolvedValueOnce({
+            ...page_2,
+            sessions: {
+                items: [
                     {
-                        source: "claude_code",
-                        model: "model-1",
-                        directory: "D:\\proj",
-                        session_id: "cur",
-                        title: "Cur",
-                        calls: 1,
+                        session_id: "page-2",
+                        source: "claude_code" as const,
+                        env: "win" as const,
+                        title: "Session",
+                        directory: "/project",
+                        models: ["sonnet"],
                         input_tokens: 100,
                         output_tokens: 50,
                         cache_read_tokens: 30,
                         cache_write_tokens: 0,
-                    },
-                ]);
-            }
-            return Promise.resolve([
-                {
-                    source: "claude_code",
-                    model: "model-1",
-                    directory: "D:\\proj",
-                    session_id: "prev",
-                    title: "Prev",
-                    calls: 1,
-                    input_tokens: 40,
-                    output_tokens: 20,
-                    cache_read_tokens: 30,
-                    cache_write_tokens: 0,
-                },
-            ]);
-        });
-        // A bucket for today keeps the panel non-empty (render gate).
-        const today_str = `${String(new Date(now).getUTCFullYear())}-${String(
-            new Date(now).getUTCMonth() + 1,
-        ).padStart(2, "0")}-${String(new Date(now).getUTCDate()).padStart(2, "0")}`;
-        get_buckets.mockResolvedValue([bucket({ bucket_date: today_str, sessions: 1 })]);
-        get_sessions.mockResolvedValue([session("cur")]);
-
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-        // Drop the initial 30d render's donut centers so only the 24h render
-        // is captured.
-        await screen.findByTestId("session-records");
-        mocked_donuts.centers = [];
-        await user.click(screen.getByRole("button", { name: "24 小时" }));
-
-        // Both windows are fetched: current [start, end] and previous
-        // [start - 24h, start).
-        await waitFor(() => {
-            expect(get_rollup).toHaveBeenCalledTimes(2);
-        });
-        // current-window token total must be reflected (180 = 100+50+30) and
-        // the delta must show an arrow (not "前段无数据"), proving the prior 24h
-        // window has data via the rollup aggregate.
-        await waitFor(() => {
-            expect(screen.queryAllByText("前段无数据")).toHaveLength(0);
-        });
-        // The last 5 donut centers are the most recent render's KPI cards
-        // (总Token, 会话数, 调用次数, 工具占比, 缓存命中率). Earlier renders
-        // captured the pre-rollup intermediate state.
-        const last_batch = mocked_donuts.centers.slice(-5);
-        expect(last_batch[0]).toBe("180");
-        expect(screen.getAllByText(/▲|▼/).length).toBeGreaterThan(0);
-    });
-
-    it("persists agent and preset selection across remount", async () => {
-        get_sessions.mockResolvedValue([session("s")]);
-        const user = userEvent.setup();
-
-        const { unmount } = render(<TokenStatsView />);
-        await user.click(screen.getByRole("button", { name: "7 天" }));
-        unmount();
-
-        const prefs = JSON.parse(localStorage.getItem("token-stats-prefs") ?? "{}") as {
-            preset?: string;
-        };
-        expect(prefs.preset).toBe("7d");
-    });
-
-    it("passes the selected preset granularity to the bar chart", async () => {
-        get_sessions.mockResolvedValue([session("s")]);
-        get_buckets.mockResolvedValue([bucket()]);
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-
-        await screen.findByTestId("session-records");
-        expect(mocked_bar_chart.props?.gran).toBe("day");
-
-        await user.click(screen.getByRole("button", { name: "24 小时" }));
-        await waitFor(() => {
-            expect(mocked_bar_chart.props?.gran).toBe("hour");
-        });
-
-        await user.click(screen.getByRole("button", { name: "1 月" }));
-        await waitFor(() => {
-            expect(mocked_bar_chart.props?.gran).toBe("day");
-        });
-    });
-
-    it("feeds BarChart full multi-day buckets (not truncated records) on 7d window", async () => {
-        // Regression (t164): 7d records (~137k rows on real installs) get
-        // truncated by the fetch LIMIT, so the bar chart only showed the last
-        // day or two. The fix routes the day-axis through buckets, which are
-        // pre-aggregated and never truncated. This test mocks a wide buckets
-        // set spanning the window and asserts BarChart receives it intact.
-        const now = Date.now();
-        const ymd = (offset_days: number) => {
-            const d = new Date(now - offset_days * 86400000);
-            return `${String(d.getUTCFullYear())}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-        };
-        const wide_buckets = [0, 1, 2, 3, 4, 5, 6].map((i) =>
-            bucket({ bucket_date: ymd(i), input_tokens: 100 * (i + 1) }),
-        );
-        // records deliberately empty (simulating full truncation) - BarChart
-        // must still render via buckets.
-        get_records.mockResolvedValue([]);
-        get_buckets.mockResolvedValue(wide_buckets);
-        get_sessions.mockResolvedValue([session("s")]);
-
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-        await user.click(screen.getByRole("button", { name: "7 天" }));
-
-        await waitFor(() => {
-            const bar_buckets = mocked_bar_chart.props?.buckets;
-            expect(bar_buckets).toBeDefined();
-            expect(bar_buckets?.length).toBe(7);
-        });
-        // All 7 distinct days present (not collapsed to 1-2).
-        const dates = new Set(mocked_bar_chart.props?.buckets?.map((b) => b.bucket_date));
-        expect(dates.size).toBe(7);
-    });
-
-    it("feeds the Heatmap from the getHeatmap aggregate scoped to the window (not truncated records)", async () => {
-        // Regression (t170/p010): the 7d Heatmap dropped early-week weekdays
-        // because records were fetched ORDER BY DESC LIMIT 100000, cutting rows
-        // before ~6h of recent activity. The Heatmap now consumes the SQL
-        // weekday×hour aggregate directly, so the window's whole week is present
-        // regardless of the records LIMIT.
-        get_buckets.mockResolvedValue([bucket()]);
-        get_sessions.mockResolvedValue([session("s")]);
-        get_heatmap.mockResolvedValue([
-            { weekday: 1, hour: 9, calls: 1, sessions: 1, tokens: 100 },
-        ]);
-
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-        await user.click(screen.getByRole("button", { name: "7 天" }));
-
-        await waitFor(() => {
-            expect(get_heatmap).toHaveBeenCalled();
-            const last_call = get_heatmap.mock.calls.at(-1)?.[0] as
-                | { start?: number; end?: number }
-                | undefined;
-            if (!last_call) throw new Error("expected getHeatmap to be called");
-            const { start, end } = last_call;
-            if (start === undefined || end === undefined) {
-                throw new Error("expected getHeatmap window start/end");
-            }
-            const now = Date.now();
-            const day = 86400000;
-            // 7d window forwarded to the aggregate: end ≈ now, start ≈ now - 7d.
-            expect(end).toBeGreaterThan(now - 5000);
-            expect(end).toBeLessThanOrEqual(now);
-            expect(start).toBeLessThanOrEqual(end - 7 * day);
-            expect(start).toBeGreaterThan(end - 7 * day - 60000);
-        });
-        expect(mocked_heatmap.props?.cells).toEqual([
-            { weekday: 1, hour: 9, calls: 1, sessions: 1, tokens: 100 },
-        ]);
-    });
-
-    it("counts distinct sessions for the session KPI on wide windows (not bucket sum)", async () => {
-        // Regression: buckets' `sessions` field is per-day-per-model distinct;
-        // summing it across days double-counts a multi-day session. The session
-        // KPI must count from the sessions table instead. Here 1 session spans
-        // 3 buckets (3 days) -> KPI must show 1, not 3.
-        const now = Date.now();
-        const ymd = (offset_days: number) => {
-            const d = new Date(now - offset_days * 86400000);
-            return `${String(d.getUTCFullYear())}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-        };
-        get_buckets.mockResolvedValue([
-            // 3 day-buckets, each reports 7 distinct sessions for that day
-            // (sum would be 21 — the bug). Only 1 real session spans them.
-            bucket({ bucket_date: ymd(0), sessions: 7, calls: 100 }),
-            bucket({ bucket_date: ymd(1), sessions: 7, calls: 100 }),
-            bucket({ bucket_date: ymd(2), sessions: 7, calls: 100 }),
-        ]);
-        // One session overlapping the 7d window.
-        get_sessions.mockResolvedValue([session("only-session")]);
-
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-        await user.click(screen.getByRole("button", { name: "7 天" }));
-
-        await waitFor(() => {
-            // centers includes the distinct session count "1".
-            expect(mocked_donuts.centers).toContain("1");
-        });
-        // The buggy bucket-summed session count (21) must not appear.
-        expect(mocked_donuts.centers).not.toContain("21");
-    });
-
-    it("renders nav buttons to usage panel and settings", async () => {
-        get_sessions.mockResolvedValue([session("s")]);
-        render(<TokenStatsView />);
-        await waitFor(() => expect(screen.getByText("代理面板")).toBeInTheDocument());
-        expect(screen.getByRole("button", { name: "用量面板" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "设置" })).toBeInTheDocument();
-    });
-
-    it("feeds BarChart hour buckets on wide windows at hour granularity (t173)", async () => {
-        // Regression: the hour bar must switch to the pre-aggregated
-        // getHourBuckets source on >=7d windows; if the wiring regresses the
-        // chart silently falls back to LIMIT-truncated records and drops early
-        // hours again (parallel to the t164 day-buckets wiring test).
-        const now = Date.now();
-        const hour = 3600000;
-        get_sessions.mockResolvedValue([session("s")]);
-        get_hour_buckets.mockResolvedValue([
-            { hour_start: now - hour, model: "model-1", calls: 2, sessions: 1, tokens: 100 },
-        ]);
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-
-        await user.click(screen.getByRole("button", { name: "7 天" }));
-        await user.click(screen.getByRole("button", { name: "小时" }));
-
-        await waitFor(() => {
-            expect(get_hour_buckets).toHaveBeenCalled();
-            const last_call = get_hour_buckets.mock.calls.at(-1)?.[0] as
-                | { start?: number; end?: number }
-                | undefined;
-            expect(last_call?.start).toBeDefined();
-            expect(last_call?.end).toBeDefined();
-        });
-        // The window must be forwarded to the aggregate (7d: end ≈ now, start ≈ now - 7d).
-        const last_call = get_hour_buckets.mock.calls.at(-1)?.[0] as {
-            start: number;
-            end: number;
-        };
-        const day = 86400000;
-        expect(last_call.end).toBeGreaterThan(now - 5000);
-        expect(last_call.start).toBeLessThanOrEqual(last_call.end - 7 * day);
-        expect(mocked_bar_chart.props?.hourBuckets).toBeDefined();
-        expect(mocked_bar_chart.props?.hourBuckets?.length).toBeGreaterThan(0);
-    });
-
-    it("skips the hour bucket fetch on day granularity (t173)", async () => {
-        // Prior tests persist prefs (incl. gran=hour) to localStorage; clear so
-        // this test starts from the default day granularity.
-        localStorage.clear();
-        get_sessions.mockResolvedValue([session("s")]);
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-
-        // Default 30d window at day granularity: no hour fetch.
-        await screen.findByTestId("session-records");
-        expect(get_hour_buckets).not.toHaveBeenCalled();
-
-        // 24h preset forces hour granularity; switch back to day — the hour
-        // aggregate is only fetched when the bar chart can consume it at hour
-        // granularity (t183 keeps the day-axis on day buckets).
-        await user.click(screen.getByRole("button", { name: "24 小时" }));
-        await waitFor(() => {
-            expect(get_hour_buckets).toHaveBeenCalled();
-        });
-        get_hour_buckets.mockClear();
-        await user.click(screen.getByRole("button", { name: "天" }));
-        await waitFor(() => {
-            expect(get_hour_buckets).not.toHaveBeenCalled();
-        });
-    });
-
-    it("feeds BarChart full 24h hour buckets on the 24h preset (records truncated)", async () => {
-        // Regression (p020): the 24h time-axis bar used per-message records,
-        // which query_records' ORDER BY DESC LIMIT truncates — on high-density
-        // installs the earliest hours silently vanished. The 24h preset now
-        // routes the hour bar through the pre-aggregated getHourBuckets source
-        // (like t173 did for 7d/30d), so the whole window survives the records
-        // LIMIT.
-        const now = Date.now();
-        const hour = 3600000;
-        const day = 24 * hour;
-        // records truncated to the last 3 hours (high-density LIMIT cut).
-        get_records.mockImplementation((filters: { start?: number; end?: number }) => {
-            const start = filters.start ?? 0;
-            const end = filters.end ?? now;
-            const recs = [];
-            for (let i = 1; i <= 3; i++) {
-                const ts = now - i * hour;
-                if (ts >= start && ts <= end) {
-                    recs.push({ ...session(`rec-${String(i)}`), timestamp: ts });
-                }
-            }
-            return Promise.resolve(recs);
-        });
-        // hour aggregate covers the whole window (every 2h a bucket → 13 rows).
-        get_hour_buckets.mockResolvedValue(
-            Array.from({ length: 13 }, (_, i) => ({
-                hour_start: now - day + i * 2 * hour,
-                model: "model-1",
-                calls: 1,
-                sessions: 1,
-                tokens: 100,
-            })),
-        );
-        get_sessions.mockResolvedValue([session("s")]);
-        get_buckets.mockResolvedValue([bucket()]);
-
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-        await user.click(screen.getByRole("button", { name: "24 小时" }));
-
-        await waitFor(() => {
-            expect(get_hour_buckets).toHaveBeenCalled();
-        });
-        const last_call = get_hour_buckets.mock.calls.at(-1)?.[0] as {
-            start: number;
-            end: number;
-        };
-        // The full 24h window must be forwarded to the aggregate.
-        expect(last_call.end).toBeGreaterThan(now - 5000);
-        expect(last_call.end).toBeLessThanOrEqual(now + 5000);
-        expect(last_call.start).toBeLessThanOrEqual(last_call.end - day);
-        expect(last_call.start).toBeGreaterThan(last_call.end - day - 60000);
-        // The bar chart must receive the complete hour buckets, not the
-        // LIMIT-truncated records.
-        expect(mocked_bar_chart.props?.hourBuckets?.length).toBeGreaterThan(0);
-    });
-
-    it("passes agent and env filters to the hour bucket fetch on the 24h preset", async () => {
-        get_sessions.mockResolvedValue([session("s")]);
-        get_buckets.mockResolvedValue([bucket()]);
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-
-        await user.click(screen.getByRole("button", { name: "24 小时" }));
-        await user.click(screen.getByRole("button", { name: "OpenCode" }));
-        await user.click(screen.getByRole("button", { name: "WSL" }));
-
-        await waitFor(() => {
-            const calls = get_hour_buckets.mock.calls;
-            expect(calls.length).toBeGreaterThan(0);
-            const last_call = calls.at(-1)?.[0] as { agent?: string; env?: string } | undefined;
-            expect(last_call?.agent).toBe("opencode");
-            expect(last_call?.env).toBe("wsl");
-        });
-    });
-
-    it("skips the hour bucket fetch when the bar axis is not time (t173)", async () => {
-        // gran=hour retained while a project/session x-axis is active; the
-        // hour aggregate would be fetched but never consumed by the chart.
-        get_sessions.mockResolvedValue([session("s")]);
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-
-        await user.click(screen.getByRole("button", { name: "7 天" }));
-        await user.click(screen.getByRole("button", { name: "小时" }));
-        // The hour branch is exercised once while the time axis is active.
-        await waitFor(() => {
-            expect(get_hour_buckets).toHaveBeenCalled();
-        });
-        get_hour_buckets.mockClear();
-
-        // Switching to a project axis must not issue the (unconsumed) fetch.
-        await user.click(screen.getByRole("button", { name: "项目" }));
-        await waitFor(() => {
-            expect(get_hour_buckets).not.toHaveBeenCalled();
-        });
-    });
-
-    it("feeds 24h KPI/donut/project/session axes from the bounded rollup (records truncated)", async () => {
-        // Regression (p020): the 24h KPI/donut/project/session axes read
-        // per-message records, which query_records' ORDER BY DESC LIMIT
-        // truncates on high-density windows — early hours silently vanished.
-        // The 24h preset now reads them from the bounded rollup aggregate
-        // (t184) so the complete window survives the records LIMIT.
-        const now = Date.now();
-        const hour = 3600000;
-        // records deliberately truncated to the last 3 hours (LIMIT cut).
-        get_records.mockImplementation((filters: { start?: number; end?: number }) => {
-            const start = filters.start ?? 0;
-            const end = filters.end ?? now;
-            const recs = [];
-            for (let i = 1; i <= 3; i++) {
-                const ts = now - i * hour;
-                if (ts >= start && ts <= end) {
-                    recs.push({
-                        ...session(`rec-${String(i)}`),
-                        timestamp: ts,
-                        input_tokens: 10,
-                        output_tokens: 0,
-                    });
-                }
-            }
-            return Promise.resolve(recs);
-        });
-        // rollup covers the complete window: 2 current sessions + 1 previous.
-        get_rollup.mockImplementation((filters: { start?: number; end?: number }) => {
-            const end = filters.end ?? now;
-            if (end > now - 12 * hour) {
-                return Promise.resolve([
-                    {
-                        source: "claude_code",
-                        model: "model-1",
-                        directory: "D:\\p1",
-                        session_id: "cur-a",
-                        title: "CurA",
                         calls: 2,
-                        input_tokens: 100,
-                        output_tokens: 50,
-                        cache_read_tokens: 30,
-                        cache_write_tokens: 0,
+                        started_at: 1_000,
+                        ended_at: 1_500,
                     },
-                    {
-                        source: "claude_code",
-                        model: "model-2",
-                        directory: "D:\\p2",
-                        session_id: "cur-b",
-                        title: "CurB",
-                        calls: 1,
-                        input_tokens: 40,
-                        output_tokens: 20,
-                        cache_read_tokens: 30,
-                        cache_write_tokens: 0,
-                    },
-                ]);
-            }
-            return Promise.resolve([
-                {
-                    source: "claude_code",
-                    model: "model-1",
-                    directory: "D:\\p1",
-                    session_id: "prev-a",
-                    title: "PrevA",
-                    calls: 1,
-                    input_tokens: 60,
-                    output_tokens: 20,
-                    cache_read_tokens: 30,
-                    cache_write_tokens: 0,
-                },
-            ]);
+                ],
+                total: 101,
+                has_more: false,
+            },
         });
-        get_sessions.mockResolvedValue([session("s")]);
-        get_buckets.mockResolvedValue([bucket()]);
-
         render(<TokenStatsView />);
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
-        mocked_donuts.centers = [];
-        await user.click(screen.getByRole("button", { name: "24 小时" }));
 
-        // KPI donut centers reflect the complete-window rollup (270 tokens, 2
-        // distinct sessions, 3 calls), not the LIMIT-truncated records
-        // (~45 tokens from the last 3 hours).
+        await user.click(screen.getByTestId("next-session-page"));
         await waitFor(() => {
-            expect(screen.queryAllByText("前段无数据")).toHaveLength(0);
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
-        // The last 5 donut centers are the most recent render's KPI cards.
-        // Earlier renders captured the pre-rollup intermediate state.
-        const last_batch = mocked_donuts.centers.slice(-5);
-        // KPI donut centers reflect the complete-window rollup (270 tokens, 2
-        // distinct sessions, 3 calls), not the LIMIT-truncated records.
-        expect(last_batch[0]).toBe("270");
-        expect(last_batch[1]).toBe("2");
-        expect(last_batch[2]).toBe("3");
-        // Delta vs the complete prior window (110 tokens) shows an arrow, not
-        // "前段无数据".
-        expect(screen.queryAllByText("前段无数据")).toHaveLength(0);
-        // The project/session bar receives the complete current-window rollup
-        // rows (2 sessions), not the 3 truncated record messages.
-        expect(mocked_bar_chart.props?.rollup?.length).toBe(2);
+        const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
+        expect(request.session_offset).toBe(100);
+        expect(await screen.findByTestId("session-records")).toHaveTextContent("page-2");
     });
 
-    it("passes agent and env filters to the rollup fetch on the 24h preset", async () => {
-        get_sessions.mockResolvedValue([session("s")]);
-        get_buckets.mockResolvedValue([bucket()]);
+    it("keeps the newest filter when an older response resolves later", async () => {
+        const all_pending = deferred<TokenStatsDashboardDto>();
+        const wsl_pending = deferred<TokenStatsDashboardDto>();
+        get_dashboard
+            .mockReturnValueOnce(all_pending.promise)
+            .mockReturnValueOnce(wsl_pending.promise);
         render(<TokenStatsView />);
         const user = userEvent.setup();
 
-        await user.click(screen.getByRole("button", { name: "24 小时" }));
-        await user.click(screen.getByRole("button", { name: "OpenCode" }));
         await user.click(screen.getByRole("button", { name: "WSL" }));
-
+        wsl_pending.resolve(dashboard("wsl"));
         await waitFor(() => {
-            const calls = get_rollup.mock.calls;
-            expect(calls.length).toBeGreaterThan(0);
-            const last_call = calls.at(-1)?.[0] as { agent?: string; env?: string } | undefined;
-            expect(last_call?.agent).toBe("opencode");
-            expect(last_call?.env).toBe("wsl");
+            expect(screen.getByTestId("session-records")).toHaveTextContent("wsl");
+        });
+        all_pending.resolve(dashboard("all"));
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("wsl");
         });
     });
 
-    it("skips the rollup fetch outside the 24h preset (t184)", async () => {
-        get_sessions.mockResolvedValue([session("s")]);
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-
-        // Default mount is 30d; switch to 7d — neither may trigger the rollup.
-        await screen.findByTestId("session-records");
-        await user.click(screen.getByRole("button", { name: "7 天" }));
-        await waitFor(() => {
-            expect(get_records).toHaveBeenCalled();
+    it("sends the resolved aliases with the dashboard query", async () => {
+        get_config.mockResolvedValue({
+            config: {
+                dirAliases: [{ alias: "A", dirs: ["/p"] }],
+                modelAliases: [{ alias: "M", models: ["sonnet"] }],
+            },
+            hasSecrets: {},
         });
-        // The rollup aggregate is exclusive to the 24h preset; on 7d/30d the
-        // KPI/donut/project/session axes read day buckets + sessions table.
-        expect(get_rollup).not.toHaveBeenCalled();
-    });
-
-    it("does not feed BarChart rollup rows outside the 24h preset", async () => {
-        get_sessions.mockResolvedValue([session("s")]);
-        get_buckets.mockResolvedValue([bucket()]);
         render(<TokenStatsView />);
-        const user = userEvent.setup();
-
         await screen.findByTestId("session-records");
-        await user.click(screen.getByRole("button", { name: "7 天" }));
-        await user.click(screen.getByRole("button", { name: "项目" }));
-        await waitFor(() => {
-            expect(mocked_bar_chart.props).not.toBeNull();
-        });
-        // No rollup rows on 7d project axis (empty array) → records path used.
-        expect(mocked_bar_chart.props?.rollup).toHaveLength(0);
-    });
-
-    it("feeds BarChart hour buckets on a <=25h custom range at hour granularity (t187)", async () => {
-        // Regression (p023): non-24h preset <=25h custom ranges used per-message
-        // records for the time-axis hour bar, which query_records' ORDER BY DESC
-        // LIMIT truncates on high-density windows. The custom range now routes
-        // the hour bar through getHourBuckets like the 24h preset / >=7d windows.
-        const now = Date.now();
-        const hour = 3600000;
-        // records truncated to the last 2 hours (LIMIT cut).
-        get_records.mockImplementation((filters: { start?: number; end?: number }) => {
-            const start = filters.start ?? 0;
-            const end = filters.end ?? now;
-            const recs = [];
-            for (let i = 1; i <= 2; i++) {
-                const ts = now - i * hour;
-                if (ts >= start && ts <= end) {
-                    recs.push({ ...session(`rec-${String(i)}`), timestamp: ts });
-                }
-            }
-            return Promise.resolve(recs);
-        });
-        // hour aggregate covers the whole 12h custom window (every 2h → 7 rows).
-        get_hour_buckets.mockResolvedValue(
-            Array.from({ length: 7 }, (_, i) => ({
-                hour_start: now - 12 * hour + i * 2 * hour,
-                model: "model-1",
-                calls: 1,
-                sessions: 1,
-                tokens: 100,
-            })),
-        );
-        get_sessions.mockResolvedValue([session("s")]);
-        get_buckets.mockResolvedValue([bucket()]);
-
-        render(<TokenStatsView />);
-        const user = userEvent.setup();
-        await screen.findByTestId("session-records");
-        // Trigger a <=25h custom range via the mocked RangePicker's apply.
-        await user.click(screen.getByTestId("apply-custom-range"));
-        // Force hour granularity on the (time-axis) bar.
-        await user.click(screen.getByRole("button", { name: "小时" }));
 
         await waitFor(() => {
-            expect(get_hour_buckets).toHaveBeenCalled();
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
-        const last_call = get_hour_buckets.mock.calls.at(-1)?.[0] as {
-            start: number;
-            end: number;
-        };
-        // The full custom window must be forwarded to the aggregate. The 60_000
-        // slack absorbs Date.now() drift between the test's `now` snapshot and
-        // the onApply call moment inside the component.
-        expect(last_call.end).toBeGreaterThan(last_call.start);
-        expect(last_call.end - last_call.start).toBeGreaterThanOrEqual(12 * hour - 60_000);
-        // BarChart receives the complete hour buckets, not the LIMIT-truncated
-        // records slice (records mock returns only 2).
-        expect(mocked_bar_chart.props?.hourBuckets?.length).toBe(7);
-        expect(mocked_bar_chart.props?.records?.length ?? 0).toBeLessThan(7);
+        const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
+        expect(request.dir_aliases).toEqual([{ alias: "A", keys: ["/p"] }]);
+        expect(request.model_aliases).toEqual([{ alias: "M", keys: ["sonnet"] }]);
     });
 });

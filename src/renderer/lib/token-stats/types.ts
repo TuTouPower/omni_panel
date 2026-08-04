@@ -3,7 +3,7 @@ import type { AgentSessionUsage } from "../../../shared/types/token-stats";
 export type Metric = "tokens" | "sessions" | "calls";
 export type XAxis = "time" | "project" | "session";
 export type Granularity = "hour" | "day";
-export type AgentFilter = "all" | "claude-code" | "opencode" | "kimi-code";
+export type AgentFilter = "all" | "claude-code" | "opencode" | "kimi-code" | "grok";
 
 export interface TimeRangeState {
     preset: "24h" | "7d" | "30d" | null;
@@ -18,6 +18,7 @@ export interface FilterOpts {
 
 export interface SessionRow {
     session_id: string;
+    identity_key?: string;
     title: string;
     slug: string | null;
     directory: string;

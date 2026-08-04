@@ -147,10 +147,14 @@ describe("PopupView mirror isolation", () => {
                 getHeatmap: vi.fn().mockResolvedValue([]),
                 getHourBuckets: vi.fn().mockResolvedValue([]),
                 getRangeRollup: vi.fn().mockResolvedValue([]),
+                getDashboard: vi.fn(),
                 getStatus: vi.fn().mockResolvedValue({ running: false, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
             },
-            trend: { get: vi.fn().mockResolvedValue([]) },
+            trend: {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: vi.fn().mockResolvedValue({ series: [] }),
+            },
             logs: { export: vi.fn() },
             log: vi.fn(),
             buildInfo: {
@@ -171,8 +175,9 @@ describe("PopupView mirror isolation", () => {
 
         // Exactly one live tabs-wrap (the one tabsRef binds to).
         expect(live_tabs.length).toBe(1);
-        // Two mirrors: content + collapsed.
-        expect(mirror_tabs.length).toBe(2);
+        // t196 AC3: single mirror (content state); the all-collapsed minimum is
+        // measured transiently from the same tree, not a second mirror.
+        expect(mirror_tabs.length).toBe(1);
 
         // The live tabs-wrap lives outside any aria-hidden mirror tree.
         const live = live_tabs[0] as HTMLElement;
@@ -197,13 +202,13 @@ describe("PopupView mirror isolation", () => {
         expect(a11y_overview.length).toBe(1);
         expect(a11y_overview[0]?.closest('[aria-hidden="true"]')).toBeNull();
 
-        // The DOM still contains mirror copies (used for height measurement),
-        // but they live inside aria-hidden subtrees.
+        // The DOM still contains one mirror copy (used for height measurement),
+        // but it lives inside an aria-hidden subtree.
         const all_overview = document.querySelectorAll('[data-tab="overview"]');
-        expect(all_overview.length).toBe(3); // 1 live + 2 mirrors
+        expect(all_overview.length).toBe(2); // 1 live + 1 mirror
         const hidden = Array.from(all_overview).filter((el) =>
             (el as HTMLElement).closest('[aria-hidden="true"]'),
         );
-        expect(hidden.length).toBe(2);
+        expect(hidden.length).toBe(1);
     });
 });

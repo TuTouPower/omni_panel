@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import type { SessionScanState } from "./claude-reader";
 import type { KimiScanState } from "./kimi-reader";
+import type { GrokScanState } from "./grok-reader";
 import { writeJsonAtomic } from "../storage/write-json";
 
 /**
@@ -15,6 +16,7 @@ export interface SerializedScanState {
     opencode_max_updated?: Record<string, number>;
     jsonl_states?: Record<string, SerializedScanBucket>;
     kimi_states?: Record<string, SerializedScanBucket>;
+    grok_states?: Record<string, SerializedScanBucket>;
 }
 
 export interface SerializedScanBucket {
@@ -33,11 +35,14 @@ export interface ScanStateMaps {
     readonly opencode_max_updated: Map<string, number>;
     readonly jsonl_states: Map<string, SessionScanState>;
     readonly kimi_states: Map<string, KimiScanState>;
+    readonly grok_states: Map<string, GrokScanState>;
 }
 
 export type ScanStateWarn = (message: string) => void;
 
-function serialize_bucket(state: SessionScanState | KimiScanState): SerializedScanBucket {
+function serialize_bucket(
+    state: SessionScanState | KimiScanState | GrokScanState,
+): SerializedScanBucket {
     const mtimes: Record<string, number> = {};
     // mtimeMs preserved as float so reader's strict === comparison still
     // matches after a round-trip (rounding would mark every file dirty).
@@ -93,6 +98,8 @@ export function serialize_state(maps: ScanStateMaps): SerializedScanState {
     for (const [key, state] of maps.jsonl_states) jsonl[key] = serialize_bucket(state);
     const kimi: Record<string, SerializedScanBucket> = {};
     for (const [key, state] of maps.kimi_states) kimi[key] = serialize_bucket(state);
+    const grok: Record<string, SerializedScanBucket> = {};
+    for (const [key, state] of maps.grok_states) grok[key] = serialize_bucket(state);
     const costs: Record<string, { offset: number; size: number }> = {};
     for (const [key, c] of maps.costs_state) costs[key] = c;
     const opencode: Record<string, number> = {};
@@ -102,6 +109,7 @@ export function serialize_state(maps: ScanStateMaps): SerializedScanState {
         opencode_max_updated: opencode,
         jsonl_states: jsonl,
         kimi_states: kimi,
+        grok_states: grok,
     };
 }
 
@@ -138,6 +146,7 @@ export async function load_state(
     maps.opencode_max_updated.clear();
     maps.jsonl_states.clear();
     maps.kimi_states.clear();
+    maps.grok_states.clear();
     let parsed: unknown;
     try {
         parsed = JSON.parse(text) as unknown;
@@ -170,6 +179,11 @@ export async function load_state(
                 maps.kimi_states.set(k, deserialize_bucket(bucket) as unknown as KimiScanState);
             }
         }
+        if (s.grok_states) {
+            for (const [k, bucket] of Object.entries(s.grok_states)) {
+                maps.grok_states.set(k, deserialize_bucket(bucket) as unknown as GrokScanState);
+            }
+        }
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         on_warn(`load_state: failed to restore, ignoring: ${msg}`);
@@ -177,5 +191,6 @@ export async function load_state(
         maps.opencode_max_updated.clear();
         maps.jsonl_states.clear();
         maps.kimi_states.clear();
+        maps.grok_states.clear();
     }
 }

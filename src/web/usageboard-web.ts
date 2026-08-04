@@ -10,6 +10,7 @@ import type {
     TokenStatsHeatmapFilters,
     TokenStatsHourFilters,
     TokenStatsRollupFilters,
+    TokenStatsDashboardQuery,
 } from "../shared/types/token-stats";
 
 const POLL_MS = 10_000;
@@ -55,9 +56,12 @@ const noop_promise_device_start = (): Promise<{
     });
 
 export function create_web_usageboard(): UsageboardApi {
-    const token_stats_callbacks = new Set<() => void>();
+    const token_stats_callbacks = new Set<(dataVersion: number) => void>();
     setInterval(() => {
-        for (const cb of token_stats_callbacks) cb();
+        // Web build has no push channel for committed data versions; polled
+        // dashboards carry their own data_version, so events pass 0 (no-op
+        // for version-based staleness, still triggers a refresh request).
+        for (const cb of token_stats_callbacks) cb(0);
     }, POLL_MS);
 
     // SSE push channel — mirrors the desktop IPC EVENT_STATE_CHANGE broadcast.
@@ -231,8 +235,32 @@ export function create_web_usageboard(): UsageboardApi {
                 const qs = params.toString();
                 return get_json(`/v1/rollup${qs ? `?${qs}` : ""}`);
             },
+            getDashboard: (query: TokenStatsDashboardQuery) => {
+                const params = new URLSearchParams({
+                    agent: query.agent,
+                    platform: query.platform,
+                    start: String(query.start),
+                    end: String(query.end),
+                    metric: query.metric,
+                    xaxis: query.xaxis,
+                    gran: query.gran,
+                });
+                if (query.session_offset !== undefined) {
+                    params.set("session_offset", String(query.session_offset));
+                }
+                if (query.session_limit !== undefined) {
+                    params.set("session_limit", String(query.session_limit));
+                }
+                if (query.dir_aliases?.length) {
+                    params.set("dir_aliases", JSON.stringify(query.dir_aliases));
+                }
+                if (query.model_aliases?.length) {
+                    params.set("model_aliases", JSON.stringify(query.model_aliases));
+                }
+                return get_json(`/v1/dashboard?${params.toString()}`);
+            },
             getStatus: () => get_json("/v1/status"),
-            onUpdated: (cb: () => void) => {
+            onUpdated: (cb: (dataVersion: number) => void) => {
                 token_stats_callbacks.add(cb);
                 return () => {
                     token_stats_callbacks.delete(cb);
@@ -250,6 +278,28 @@ export function create_web_usageboard(): UsageboardApi {
                 return get_json<({ date: string; percent: number } | null)[]>(
                     `/v1/trend?${params.toString()}`,
                 );
+            },
+            // t196 AC5: web 后端走 LocalAPI /v1/trend 单周期等价；bulk 按各周期
+            // 依次取（web 面不常用，保持契约兼容）。
+            getBulk: async (payload: {
+                provider: string;
+                account_id: string;
+                periods: { metric_id: string; days?: number }[];
+            }) => {
+                const series = await Promise.all(
+                    payload.periods.map(async (period) => ({
+                        metric_id: period.metric_id,
+                        series: await get_json<({ date: string; percent: number } | null)[]>(
+                            `/v1/trend?${new URLSearchParams({
+                                provider: payload.provider,
+                                accountId: payload.account_id,
+                                metricId: period.metric_id,
+                                ...(period.days !== undefined ? { days: String(period.days) } : {}),
+                            }).toString()}`,
+                        ),
+                    })),
+                );
+                return { series };
             },
         },
         buildInfo: {

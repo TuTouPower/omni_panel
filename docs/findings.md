@@ -54,10 +54,36 @@
 - 影响：7d/30d + 小时粒度柱状图可走该聚合，替代 `query_records` 10 万级明细进渲染层；与 day buckets / heatmap 聚合并列。
 - 现状：有效
 
-## d006 worktree better-sqlite3 ABI 切换：Electron→node 用 pnpm rebuild（2026-08-01）
+- 现状：有效
 
-- 来源：t174
-- 结论：task worktree `pnpm install --frozen-lockfile` 后 better-sqlite3 可能编译为 Electron ABI（NODE_MODULE_VERSION 146，node 需 127），tsx/vitest 加载原生模块抛 ABI mismatch；`pnpm rebuild better-sqlite3` 切回 node ABI 后 vitest 主 config 与黑盒均正常，无副作用。
-- 证据：t174 worktree 实测——install 后 vitest 报 NODE_MODULE_VERSION 不匹配，rebuild 后 185 files / 1960 passed。
-- 影响：后续 worktree 同类问题直接用 rebuild 解决，不需重装或手动编译。
+## d008 代理面板主请求可用有界 dashboard DTO 重建首屏（2026-08-03）
+
+- 来源：s007、t191
+- 结论：`TokenStatsView` 首屏只需要 KPI/delta、donut、时间/项目/会话轴、7×24 热力图、会话摘要、status 和 freshness；这些区域可由有界聚合序列重建，不需要把 per-message records 或完整会话详情放入主 DTO。
+- 证据：逐一映射 `MetricDonut`、`BarChart`、`Heatmap`、`SessionTable`、`RangePicker` 输入；`prepareBarDataFromBuckets`、`prepareBarDataFromHourBuckets`、`prepareBarDataFromRollup`、`prepareHeatmapFromCells` 和 `sessionRowsFromSessions` 均只消费聚合字段。当前会话表路径的 slug/version/sub 已固定为空或 false，不构成主 DTO 必需字段。
+- 影响：dashboard IPC 可统一返回 summary、chart、heatmap、session summary、status、freshness；旧 token-stats 查询入口保留兼容，正常代理面板路径可停止调用 records 和独立 status 查询。
+- 现状：有效
+
+## d009 窗口「完整小时段 + 边界段」UNION 精确重组；SQLite NULL 唯一键互异（2026-08-03）
+
+- 来源：t192
+- 结论：任意 `[start, end)` 窗口与整点小时聚合表的对齐拆分：`full_start = ceil_hour(start)`、`full_end = floor_hour(end)`；当 `full_start < full_end` 时窗口拆为 `[start, full_start) ∪ [full_start, full_end) ∪ [full_end, end)`，聚合表覆盖中段、records 覆盖两个不足整点的边界带，UNION ALL 后外层 `SUM(calls)`/`SUM(tokens)` 精确重组、`COUNT(DISTINCT session)` 跨两部分去重。**当无完整小时（`full_start > full_end`）时，原边界公式 `[start, full_start) ∪ [full_end, end)` 会溢出窗口**（例 `[07:35,08:00) ∪ [07:00,07:55) = [07:00,08:00)`），必须整窗回落 records。
+- 证据：t192 dashboard aggregate read path 用例覆盖跨小时/跨天、不足一小时窗口、agent/platform 过滤、三 metric、xaxis time/project/session、别名、分页，聚合路径与 records 路径逐区 `toEqual`。
+- 影响：凡「预聚合小时表 + 任意窗口查询」场景可复用该拆分；不足一小时窗口的边界带公式溢出是通用陷阱。
+- 现状：有效
+
+## d010 SQLite 唯一键含 NULL 时 ON CONFLICT UPSERT 永不命中（2026-08-03）
+
+- 来源：t192
+- 结论：SQLite 把 NULL 唯一键值视为互异，`INSERT ... ON CONFLICT(...) DO UPDATE` 对含 NULL 的键永不触发 conflict，会叠出重复行。含可空列的分组聚合表不能用行级 UPSERT，须按稳定标识（如 session）DELETE + 全量重建，或用 `GROUP BY` 归一 NULL 后再写。
+- 证据：t192 `token_stats_hour_rollup.directory` 可空；s008 对比与 t192 实现采用会话级重建（DELETE + records 重算）后与 records oracle 逐行一致；对比观察：同组多条 records 若走行级 upsert 会因 directory NULL 叠加重复聚合行。
+- 影响：派生聚合表、唯一索引设计须先确认无 NULL 参与键；可空维度入 PK 时考虑非空哨兵值（如 `'(unknown)'`）或会话级重建。
+- 现状：有效
+
+## d011 只读 SQLite 连接可并发读 WAL 库；utilityProcess 提供查询执行端崩溃隔离（2026-08-03）
+
+- 来源：s009、t193
+- 结论：better-sqlite3 `{ readonly: true }` 连接可打开写并发中的 WAL 库：读已提交数据、写提交后新只读连接立即可见、写事务未提交时读旧快照不阻塞、close/reopen 无锁残留、`readonly:true` 拒绝写入。Electron utilityProcess 是独立 OS 进程，native 崩溃/异常退出不影响主进程，且 `parentPort`/`postMessage` 打包路径有 collector 先例；worker_threads 同进程线程 native 崩溃会带崩整个 Electron。
+- 证据：s009 `code/wal_readonly_concurrency.ts` 真实 WAL 临时库五条断言全部通过；t193 query worker 打包内（asarUnpack + electron ABI better-sqlite3）打开 readonly 连接完成 dashboard 查询（packaged smoke AC6）。
+- 影响：重读类子任务（dashboard 聚合、报表导出）可迁入 utilityProcess readonly worker，主进程事件循环不被同步聚合阻塞；跨进程只读方案无需额外锁协调。utilityProcess 子进程比 worker_threads 多一层进程开销，适合低频重读、不适合高频小任务。
 - 现状：有效

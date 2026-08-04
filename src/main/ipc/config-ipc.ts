@@ -490,7 +490,17 @@ export async function handleConfigImport(
             }
             throw import_err;
         }
-        deps.onConfigSaved?.(parsed.data as AppConfiguration);
+        // t195: 结构变更（导入）后一次性健康检查，清理孤儿/非法 provider 插件。
+        // 先 prune 再触发 onConfigSaved/onConfigImported，二者都用清理后的
+        // 配置（scheduler rebuild 与 refreshAll 都不会碰孤儿插件）。失败不阻断
+        // import——配置与密钥已持久化，prune 只是启动期语义的补一次。
+        let saved_config = parsed.data as AppConfiguration;
+        try {
+            saved_config = await deps.configStore.prune_unhealthy_plugins();
+        } catch (err) {
+            log.warn(`Post-import health prune failed`, err);
+        }
+        deps.onConfigSaved?.(saved_config);
         deps.onConfigImported?.(parsed.data as AppConfiguration);
         return ok({ imported: true });
     } catch (err: unknown) {

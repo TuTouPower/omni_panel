@@ -77,6 +77,7 @@ describe("agentSegments", () => {
             record({ agent: "claude-code", input_tokens: 10 }),
             record({ agent: "opencode", input_tokens: 30, output_tokens: 10 }),
             record({ agent: "kimi-code", input_tokens: 5 }),
+            record({ agent: "grok", input_tokens: 70, output_tokens: 20 }),
         ];
         const segs = agentSegments(records);
         const byName = new Map(segs.map((s) => [s.name, s.value]));
@@ -84,7 +85,8 @@ describe("agentSegments", () => {
         expect(byName.get("Claude Code")).toBe(165);
         expect(byName.get("OpenCode")).toBe(40);
         expect(byName.get("Kimi Code")).toBe(10);
-        expect(segs).toHaveLength(3);
+        expect(byName.get("Grok")).toBe(90);
+        expect(segs).toHaveLength(4);
     });
 });
 
@@ -581,6 +583,7 @@ describe("chart-data", () => {
                 bucket({ source: "claude_code", input_tokens: 10 }),
                 bucket({ source: "opencode", input_tokens: 30, output_tokens: 10 }),
                 bucket({ source: "kimi_code", input_tokens: 5 }),
+                bucket({ source: "grok", input_tokens: 70, output_tokens: 20 }),
             ];
             const segs = agentSegmentsFromBuckets(buckets);
             const byName = new Map(segs.map((s) => [s.name, s.value]));
@@ -588,7 +591,8 @@ describe("chart-data", () => {
             expect(byName.get("Claude Code")).toBe(160); // (100+50) + 10
             expect(byName.get("OpenCode")).toBe(40);
             expect(byName.get("Kimi Code")).toBe(5);
-            expect(segs).toHaveLength(3);
+            expect(byName.get("Grok")).toBe(90);
+            expect(segs).toHaveLength(4);
         });
     });
 
@@ -772,13 +776,16 @@ describe("chart-data", () => {
                 rollup_row({ source: "claude_code", input_tokens: 100 }),
                 rollup_row({ source: "opencode", input_tokens: 50 }),
                 rollup_row({ source: "claude_code", input_tokens: 25 }),
+                rollup_row({ source: "grok", input_tokens: 40, output_tokens: 20 }),
             ];
             const segs = agentSegmentsFromRollup(rows);
             const claude = segs.find((s) => s.name === "Claude Code");
             const open = segs.find((s) => s.name === "OpenCode");
+            const grok = segs.find((s) => s.name === "Grok");
             // each row also carries the default output_tokens (5).
             expect(claude?.value).toBe(135);
             expect(open?.value).toBe(55);
+            expect(grok?.value).toBe(60);
             expect(segs.some((s) => s.name === "Kimi Code")).toBe(false);
         });
 

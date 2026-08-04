@@ -159,6 +159,22 @@ export function create_token_stats_manager(deps: {
 
         // Send initial config
         child.postMessage({ type: "config", config });
+        // t192: backfill the hour rollup once, off the start path. The rebuild
+        // is a synchronous SQL transaction, so defer it to the next tick;
+        // until `hour_rollup_ready` flips, dashboard reads keep using the
+        // records path, then switch to the aggregate. Databases that already
+        // have a ready rollup skip this (incremental upserts keep it current).
+        if (!deps.store.is_hour_rollup_ready()) {
+            setImmediate(() => {
+                try {
+                    deps.store.backfill_hour_rollup();
+                    log.info("Hour rollup backfilled; dashboard reads switched to aggregate path");
+                } catch (err: unknown) {
+                    const msg_str = err instanceof Error ? err.message : String(err);
+                    log.error(`Hour rollup backfill failed: ${msg_str}`);
+                }
+            });
+        }
         log.info("Collector subprocess started");
     }
 

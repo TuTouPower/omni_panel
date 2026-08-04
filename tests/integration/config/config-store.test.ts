@@ -348,7 +348,10 @@ describe("config-store", () => {
                     }),
                     "utf8",
                 );
-                await store.load();
+                // t195: load 命中内存缓存，不重读磁盘。用新实例模拟重启重读，
+                // 验证读盘路径的日志。
+                const fresh_store = createConfigStore(configPath);
+                await fresh_store.load();
 
                 let joined = lines.join("\n");
                 expect(joined).toContain("config save payload raw");
@@ -496,9 +499,13 @@ describe("config-store", () => {
             const store = createConfigStore(config_path);
             const loaded = await store.load();
 
-            // test-observe pruned; claude retained.
-            expect(loaded.plugins).toHaveLength(1);
-            expect(loaded.plugins[0]?.instanceId).toBe("claude-1");
+            // t195: load 不做健康检查（缓存语义），非法 provider 插件先保留。
+            expect(loaded.plugins).toHaveLength(2);
+
+            // 启动/结构变更时的一次性健康检查清理非法 provider 插件。
+            const pruned = await store.prune_unhealthy_plugins();
+            expect(pruned.plugins).toHaveLength(1);
+            expect(pruned.plugins[0]?.instanceId).toBe("claude-1");
 
             // Persistence: reloading from disk shows the pruned state.
             const raw_after = JSON.parse(await readFile(config_path, "utf8")) as {
@@ -557,8 +564,12 @@ describe("config-store", () => {
             const store = createConfigStore(config_path);
             const loaded = await store.load();
 
-            expect(loaded.plugins).toHaveLength(1);
-            expect(loaded.plugins[0]?.instanceId).toBe("claude-1");
+            // t195: load 不做健康检查，孤儿插件先保留。
+            expect(loaded.plugins).toHaveLength(2);
+
+            const pruned = await store.prune_unhealthy_plugins();
+            expect(pruned.plugins).toHaveLength(1);
+            expect(pruned.plugins[0]?.instanceId).toBe("claude-1");
 
             const raw_after = JSON.parse(await readFile(config_path, "utf8")) as {
                 plugins: { instanceId: string }[];
@@ -630,5 +641,158 @@ describe("config-store", () => {
         } finally {
             await rm(connector_root, { recursive: true, force: true });
         }
+    });
+
+    describe("memory cache (t195)", () => {
+        it("returns cached config without re-reading the file after first load", async () => {
+            const configPath = join(tempDir, "config.json");
+            await writeFile(
+                configPath,
+                JSON.stringify({
+                    schemaVersion: 1,
+                    language: "en",
+                    plugins: [],
+                    launchAtLogin: false,
+                }),
+                "utf8",
+            );
+            const store = createConfigStore(configPath);
+            expect((await store.load()).language).toBe("en");
+            // 直接改盘上文件：load 命中缓存，不重读磁盘。
+            await writeFile(
+                configPath,
+                JSON.stringify({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [],
+                    launchAtLogin: false,
+                }),
+                "utf8",
+            );
+            expect((await store.load()).language).toBe("en");
+        });
+
+        it("save invalidates cache so load returns the latest saved config", async () => {
+            const store = createConfigStore(join(tempDir, "config.json"));
+            await store.save({
+                schemaVersion: 1,
+                language: "en",
+                plugins: [],
+                launchAtLogin: false,
+            });
+            expect((await store.load()).language).toBe("en");
+            await store.save({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+            });
+            expect((await store.load()).language).toBe("zh-Hans");
+        });
+
+        it("save persists to disk (single write entry) and updates the cache", async () => {
+            const configPath = join(tempDir, "config.json");
+            const store = createConfigStore(configPath);
+            await store.save({
+                schemaVersion: 1,
+                language: "en",
+                plugins: [],
+                launchAtLogin: false,
+            });
+            const raw = JSON.parse(await readFile(configPath, "utf8")) as { language: string };
+            expect(raw.language).toBe("en");
+            expect((await store.load()).language).toBe("en");
+        });
+
+        it("new store instance re-reads disk (cold cache)", async () => {
+            const configPath = join(tempDir, "config.json");
+            const store = createConfigStore(configPath);
+            await store.save({
+                schemaVersion: 1,
+                language: "en",
+                plugins: [],
+                launchAtLogin: false,
+            });
+            await writeFile(
+                configPath,
+                JSON.stringify({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [],
+                    launchAtLogin: false,
+                }),
+                "utf8",
+            );
+            const fresh = createConfigStore(configPath);
+            expect((await fresh.load()).language).toBe("zh-Hans");
+        });
+
+        it("handles concurrent read-modify-write without dirty reads or lost writes (AC2)", async () => {
+            const configPath = join(tempDir, "config.json");
+            const store = createConfigStore(configPath);
+            await store.save({
+                schemaVersion: 1,
+                language: "en",
+                plugins: [],
+                launchAtLogin: false,
+            });
+            const reads: Promise<string>[] = [];
+            const saves: Promise<void>[] = [];
+            for (let i = 0; i < 20; i++) {
+                saves.push(
+                    store.save({
+                        schemaVersion: 1,
+                        language: i % 2 === 0 ? "zh-Hans" : "en",
+                        plugins: [],
+                        launchAtLogin: false,
+                    }),
+                );
+                reads.push(store.load().then((c) => c.language));
+            }
+            await Promise.all([...saves, ...reads]);
+            const final = await store.load();
+            // 最后一次提交的 save（i=19 奇数 → "en"）胜出，不丢失。
+            expect(final.language).toBe("en");
+            // 并发 load 任一次读到的都是完整已保存配置，无 torn 状态。
+            for (const lang of await Promise.all(reads)) {
+                expect(["en", "zh-Hans"]).toContain(lang);
+            }
+        });
+
+        it("prune_unhealthy_plugins keeps all plugins when healthy and updates cache", async () => {
+            const connector_root = await mkdtemp(join(tmpdir(), "cfg-prune-healthy-"));
+            try {
+                const claude_dir = await write_connector_dir(connector_root, "claude", "claude");
+                const config_path = join(tempDir, "config.json");
+                await writeFile(
+                    config_path,
+                    JSON.stringify({
+                        schemaVersion: 1,
+                        language: "zh-Hans",
+                        plugins: [
+                            {
+                                instanceId: "claude-1",
+                                stateId: "claude-1",
+                                name: "Claude",
+                                enabled: true,
+                                executablePath: claude_dir,
+                                refreshIntervalSeconds: 300,
+                                parameterValues: {},
+                                endpointOverrides: {},
+                            },
+                        ],
+                        launchAtLogin: false,
+                    }),
+                    "utf8",
+                );
+                const store = createConfigStore(config_path);
+                const pruned = await store.prune_unhealthy_plugins();
+                expect(pruned.plugins).toHaveLength(1);
+                expect(pruned.plugins[0]?.instanceId).toBe("claude-1");
+                expect((await store.load()).plugins).toHaveLength(1);
+            } finally {
+                await rm(connector_root, { recursive: true, force: true });
+            }
+        });
     });
 });

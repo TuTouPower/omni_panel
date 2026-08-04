@@ -12,8 +12,10 @@ interface SessionTableProps {
     modelColors: Map<string, string>;
     /** Models grouped under one label; tags display the alias and merge. */
     modelAliases?: readonly { alias: string; models: readonly string[] }[] | undefined;
+    totalRows?: number;
+    loadedOffset?: number;
+    onPageChange?: ((offset: number) => void) | undefined;
 }
-
 const PAGE_SIZES = [10, 20, 50] as const;
 type PageSize = (typeof PAGE_SIZES)[number];
 
@@ -33,6 +35,9 @@ export function SessionTable({
     theme,
     modelColors,
     modelAliases,
+    totalRows = input_rows.length,
+    loadedOffset = 0,
+    onPageChange,
 }: SessionTableProps) {
     const [sortKey, setSortKey] = useState<SortKey>("tokens");
     const [sortDir, setSortDir] = useState<SortDir>(-1);
@@ -64,9 +69,14 @@ export function SessionTable({
         return out;
     };
 
-    const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+    const pages = Math.max(1, Math.ceil(totalRows / pageSize));
     const safePage = Math.min(page, pages);
-    const slice = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
+    const requestedStart = (safePage - 1) * pageSize;
+    const loadedEnd = loadedOffset + rows.length;
+    const slice =
+        requestedStart >= loadedOffset && requestedStart < loadedEnd
+            ? rows.slice(requestedStart - loadedOffset, requestedStart - loadedOffset + pageSize)
+            : [];
     const maxTokens = Math.max(...rows.map((r) => r.tokens), 1);
 
     const handleSort = (key: SortKey) => {
@@ -77,6 +87,14 @@ export function SessionTable({
             setSortDir(-1);
         }
         setPage(1);
+    };
+
+    const go_to_page = (next_page: number): void => {
+        const start = (next_page - 1) * pageSize;
+        setPage(next_page);
+        if (onPageChange && (start < loadedOffset || start >= loadedEnd)) {
+            onPageChange(Math.floor(start / 100) * 100);
+        }
     };
 
     return (
@@ -155,7 +173,7 @@ export function SessionTable({
                             </tr>
                         ) : (
                             slice.map((r) => (
-                                <tr key={r.session_id}>
+                                <tr key={r.identity_key ?? r.session_id}>
                                     <td className="t-title" title={r.title}>
                                         {r.title}
                                         <div
@@ -173,14 +191,18 @@ export function SessionTable({
                                                     ? "cc"
                                                     : r.agent === "kimi-code"
                                                       ? "kc"
-                                                      : "oc"
+                                                      : r.agent === "grok"
+                                                        ? "gk"
+                                                        : "oc"
                                             }`}
                                         >
                                             {r.agent === "claude-code"
                                                 ? "Claude Code"
                                                 : r.agent === "kimi-code"
                                                   ? "Kimi Code"
-                                                  : "OpenCode"}
+                                                  : r.agent === "grok"
+                                                    ? "Grok"
+                                                    : "OpenCode"}
                                         </span>
                                     </td>
                                     <td className="t-dim t-mono">{r.directory}</td>
@@ -252,7 +274,7 @@ export function SessionTable({
                         type="button"
                         disabled={safePage <= 1}
                         onClick={() => {
-                            setPage((p) => p - 1);
+                            go_to_page(safePage - 1);
                         }}
                     >
                         ‹ 上一页
@@ -264,7 +286,7 @@ export function SessionTable({
                         type="button"
                         disabled={safePage >= pages}
                         onClick={() => {
-                            setPage((p) => p + 1);
+                            go_to_page(safePage + 1);
                         }}
                     >
                         下一页 ›

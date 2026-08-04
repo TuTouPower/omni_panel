@@ -8,6 +8,11 @@ import type { Observation } from "../../../shared/types/observation";
 import type { ObservationStore } from "../observation/observation-store";
 import { build_trend_series, type TrendPoint } from "../../../shared/lib/trend";
 import type { TokenStatsStore } from "../token-stats/token-stats-store";
+import type { TokenStatsQueryDispatcher } from "../token-stats/query-dispatcher";
+import {
+    tokenStatsDashboardDtoSchema,
+    tokenStatsDashboardQuerySchema,
+} from "../../../shared/types/token-stats";
 import { is_test_build } from "../paths";
 import {
     handleConfigGet,
@@ -174,6 +179,11 @@ export function create_local_api_server(
     options?: {
         port?: number;
         token_stats_store?: TokenStatsStore;
+        token_stats_running?: () => boolean;
+        /** t193: optional isolated dashboard query dispatcher; when present the
+         *  web dashboard endpoint reads through the worker instead of the main
+         *  process store (keeps the sync store path as a fallback). */
+        token_stats_query_dispatcher?: TokenStatsQueryDispatcher;
         config_deps?: ConfigIpcDeps;
         connector_deps?: ConnectorIpcDeps;
         web_root?: string;
@@ -181,6 +191,8 @@ export function create_local_api_server(
 ): LocalAPIServer {
     const token = generate_token();
     const token_stats_store = options?.token_stats_store;
+    const token_stats_running = options?.token_stats_running ?? (() => true);
+    const token_stats_query_dispatcher = options?.token_stats_query_dispatcher;
     const config_deps = options?.config_deps;
     const connector_deps = options?.connector_deps;
     const web_root = options?.web_root;
@@ -237,7 +249,11 @@ export function create_local_api_server(
 
             // Web read endpoints serve the panel UI without auth (intranet use
             // per project decision). ingest stays token-gated below.
-            if (is_get && token_stats_store && handle_web_read(url, res, token_stats_store)) {
+            if (
+                is_get &&
+                token_stats_store &&
+                (await handle_web_read(url, res, token_stats_store))
+            ) {
                 return;
             }
             if (is_get && handle_web_trend(url, res, observation_store)) {
@@ -272,20 +288,77 @@ export function create_local_api_server(
         });
     }
 
-    function handle_web_read(url: URL, res: ServerResponse, store: TokenStatsStore): boolean {
+    async function handle_web_read(
+        url: URL,
+        res: ServerResponse,
+        store: TokenStatsStore,
+    ): Promise<boolean> {
         const params = url.searchParams;
         const env = params.get("env");
         const agent = params.get("agent");
         const start = params.get("start");
         const end = params.get("end");
         switch (url.pathname) {
+            case "/v1/dashboard": {
+                let dir_aliases: unknown;
+                let model_aliases: unknown;
+                const dir_aliases_raw = params.get("dir_aliases");
+                const model_aliases_raw = params.get("model_aliases");
+                try {
+                    dir_aliases = dir_aliases_raw ? JSON.parse(dir_aliases_raw) : undefined;
+                    model_aliases = model_aliases_raw ? JSON.parse(model_aliases_raw) : undefined;
+                } catch {
+                    json_response(res, 400, { error: "Invalid dashboard query" });
+                    return true;
+                }
+                const parsed_query = tokenStatsDashboardQuerySchema.safeParse({
+                    agent: params.get("agent"),
+                    platform: params.get("platform"),
+                    start: Number(params.get("start")),
+                    end: Number(params.get("end")),
+                    metric: params.get("metric"),
+                    xaxis: params.get("xaxis"),
+                    gran: params.get("gran"),
+                    ...(params.has("session_offset")
+                        ? { session_offset: Number(params.get("session_offset")) }
+                        : {}),
+                    ...(params.has("session_limit")
+                        ? { session_limit: Number(params.get("session_limit")) }
+                        : {}),
+                    ...(dir_aliases !== undefined ? { dir_aliases } : {}),
+                    ...(model_aliases !== undefined ? { model_aliases } : {}),
+                });
+                if (!parsed_query.success) {
+                    json_response(res, 400, { error: "Invalid dashboard query" });
+                    return true;
+                }
+                const query = parsed_query.data;
+                try {
+                    const status = {
+                        running: token_stats_running(),
+                        last_updated: store.last_updated(),
+                    };
+                    const dto = token_stats_query_dispatcher
+                        ? await token_stats_query_dispatcher.request_dashboard(query, status)
+                        : store.query_dashboard(query, status);
+                    const parsed_dto = tokenStatsDashboardDtoSchema.safeParse(dto);
+                    if (!parsed_dto.success) {
+                        json_response(res, 500, { error: "Invalid dashboard response" });
+                        return true;
+                    }
+                    json_response(res, 200, parsed_dto.data);
+                } catch {
+                    json_response(res, 500, { error: "Dashboard query failed" });
+                }
+                return true;
+            }
             case "/v1/records":
                 json_response(
                     res,
                     200,
                     store.query_records({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" }
+                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
                         ...(start ? { start: Number(start) } : {}),
@@ -299,7 +372,7 @@ export function create_local_api_server(
                     200,
                     store.query_heatmap({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" }
+                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
                         ...(start ? { start: Number(start) } : {}),
@@ -313,7 +386,7 @@ export function create_local_api_server(
                     200,
                     store.query_hour_buckets({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" }
+                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
                         ...(start ? { start: Number(start) } : {}),
@@ -327,7 +400,7 @@ export function create_local_api_server(
                     200,
                     store.query_range_rollup({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" }
+                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "win" | "wsl" } : {}),
                         ...(start ? { start: Number(start) } : {}),
@@ -355,7 +428,7 @@ export function create_local_api_server(
                 return true;
             case "/v1/status":
                 json_response(res, 200, {
-                    running: true,
+                    running: token_stats_running(),
                     last_updated: store.last_updated(),
                 });
                 return true;
@@ -438,7 +511,9 @@ export function create_local_api_server(
                 return true;
             }
             if (req.method === "POST") {
-                send_result(res, await handleConnectorRefreshAll(deps));
+                // handleConnectorRefreshAll is synchronous (t196 fire-and-forget
+                // ack); no await needed.
+                send_result(res, handleConnectorRefreshAll(deps));
                 return true;
             }
             return false;

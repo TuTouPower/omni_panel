@@ -35,16 +35,17 @@ src/
 │   │   ├── scheduler/             # 调度（见 specs/scheduler.md）
 │   │   │   ├── connector-scheduler.ts     # per-instance setTimeout 引擎
 │   │   │   ├── scheduler-orchestrator.ts  # startAll/rebuild/suspend/resume/shutdown
-│   │   │   ├── refresh-service.ts         # 单次刷新：锁/并发/执行/写库/映射
+│   │   │   ├── refresh-service.ts         # 单次刷新：锁/并发/执行/写库/映射；脚本读取走 script-cache（mtime 缓存 readFile+transpile，t195）
 │   │   │   ├── runtime-store.ts / snapshot-cache.ts / hydrate-runtime-store.ts
 │   │   │   ├── observation-mapping.ts     # Observation → MetricRecord
 │   │   │   ├── endpoint-resolver.ts       # 子进程 env 路径解析
 │   │   │   └── types.ts                   # 调度器内部类型定义
 │   │   ├── observation/observation-store.ts  # SQLite（见 specs/observation-store.md）
-│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明；store 暴露有界 SQL 聚合（hour buckets / heatmap / window rollup），24h preset 的 KPI/donut/项目/会话轴走 rollup 而非受 LIMIT 截断的 records
-│   │   ├── config/                # config-store / secrets-store / auto-seed / types
+│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md；reader 含 claude/opencode/kimi/grok，grok 仅 WSL t197）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明；store 暴露有界 SQL 聚合（hour buckets / heatmap / window rollup），24h preset 的 KPI/donut/项目/会话轴走 rollup 而非受 LIMIT 截断的 records
+│   │   ├── config/                # config-store（内存缓存 + save 唯一写入口，t195）/ secrets-store / auto-seed / types
 │   │   ├── storage/               # write-json（原子写 JSON）
-│   │   ├── vault/                 # file-vault-backend + VaultBackend 接口
+│   │   ├── vault/                 # file-vault-backend（内存镜像，t195）+ VaultBackend 接口
+│   │   ├── connector/             # script-cache（脚本 mtime 缓存，t195）+ runtime/net-client/manifest-loader
 │   │   ├── session/session-manager.ts        # 登录窗 + cookie 捕获
 │   │   ├── local-api/server.ts    # 0.0.0.0 local-api，仅 /v1/ingest 需 Bearer，其余 web 路由在可信 LAN 下免认证
 │   │   ├── main-panel/            # 托盘弹出/悬浮窗控制 + floating-bounds
@@ -96,8 +97,53 @@ runtime-store（内存 ConnectorSnapshotState: idle/loading/ready/failed）
 renderer：build_provider_usage_groups 按 provider 聚合、accountId 缝合 → UI
 ```
 
+### 4.1 TokenStats 查询协调
+
+TokenStatsView 在 renderer 内维护查询协调器，不改变现有 token-stats IPC 返回结构。所有影响统计结果的筛选与图表选项组成稳定 query key；查询结果在 renderer 内按 query key 缓存，缓存只保存已转换为面板状态的数据，不写入磁盘。
+
+- fresh 缓存命中时直接应用旧结果，不清空当前图表，不进入全屏加载状态。
+- 同一 query key 的在途请求共享同一个 Promise，避免重复触发 SQLite/IPC 查询。
+- query key 切换使用 request id 控制可见性，过期请求只能完成自身等待方，不能覆盖最新选项结果。
+- collector 广播更新时递增缓存 generation 并把已有条目标记 stale；当前查询保留旧结果，随后静默 revalidate。generation 之前完成的请求不重新写入 fresh 缓存。
+- 缓存采用有界 LRU；淘汰只影响复用，不影响统计正确性，缺失条目重新走现有查询路径。
+- 配置别名是独立状态流：首次打开读取一次，`CONFIG_CHANGED` 广播只更新别名 state，不因统计选项切换重复读取配置。
+
 外部 producer 可 `POST /v1/ingest`（Bearer）直接写观测，`source` 按 producer 标记。
 web 浏览器经 LocalAPI `GET /v1/events`（SSE）订阅 runtimeStore 状态变更，与桌面端 IPC `EVENT_STATE_CHANGE` 同源；`usageboard-web` 转给 `use_plugins`，用量面板实时刷新。
+
+### 4.2 TokenStats 聚合层与数据版本（t192）
+
+dashboard 查询工作量与 per-message records 总量解耦的持久化聚合层：
+
+```
+collector utilityProcess（逐批 token_stats_update）
+  └─ manager on_update
+       ├─ store.upsert_records(records)  事务内：records REPLACE + 被触碰 session 的
+       │                                 hour_rollup 会话级重建 + data_version +1
+       └─ IPC TOKEN_STATS_UPDATED(data_version)
+             └─ renderer：data_version ≤ 已见版本 → 复用缓存；更新 → mark_stale + revalidate
+```
+
+- **真相源**：`token_stats_records`（per-message 事实表，不删除不压缩）。
+- **source 枚举**：`claude_code` / `opencode` / `kimi_code` / `grok`（权威定义在 `src/shared/types/token-stats.ts`）；`grok` 仅 WSL 采集（t197，数据位置与事件口径见 `domain.md` §3.2）。
+- **派生层**：`token_stats_hour_rollup`（per source/env/session_id/本地整点小时/model/directory/agent 聚合）。会话级增量：upsert 批次内对每个被触碰 session DELETE + 从 records 全量重建；`directory` 可空（NULL 唯一键在 SQLite 互异，行级 UPSERT 会叠重复行，故不用）。
+- **回填**：manager.start 后 `setImmediate` 后台全量回填并置 `hour_rollup_ready`；就绪前 dashboard 走 records 路径，就绪后切聚合路径（窗口拆「完整小时段聚合表 + 边界部分小时 records」UNION ALL，外层精确重组）。中断可重跑，幂等收敛。
+- **data version**：单行单调计数，仅 records 批次事务内推进；dashboard DTO 与更新事件携带同一版本，renderer 据此判断缓存过期，不依赖本地时钟。
+
+### 4.3 用量面板窗口生命周期（t194）
+
+popup 与 floating 模式关闭都改为隐藏（hide）而非销毁（close），消除每次重开重建渲染进程的冷启动：
+
+```
+open_or_toggle / hide → win.hide()         （保留渲染进程与已加载数据）
+open_or_focus（重开）   → show_panel()
+                          ├─ popup：position_popup() 重新锚定托盘后 show/focus
+                          └─ floating：保留用户拖放位置，直接 show/focus
+模式切换 / 退出流程     → close()            （AC4：仍按关闭重建语义）
+```
+
+- **降级与恢复**：renderer `useNowTick` 监听 `document.visibilityState`，隐藏期间前台计时器暂停推进，`visibilitychange` 回可见时立即刷新；不破坏后台仍需的订阅。隐藏窗口占用的渲染进程保留（Windows 实测 work set 内存保留、无 CPU 增量，见 s010）。
+- **边界**：`apply_config_change` 模式切换仍 `close_for_mode_switch` → 重建；配置变更、电源恢复、托盘打开等既有路径行为不变。
 
 ## 5. 跨模块契约
 

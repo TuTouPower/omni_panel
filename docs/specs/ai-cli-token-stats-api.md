@@ -20,7 +20,7 @@
 
 ## 2. 数据源（只读约束）
 
-**核心约束**：所有源数据文件只读访问。子进程绝不修改 Claude Code / OpenCode / Kimi Code 的任何文件（JSONL、SQLite、WAL、SHM）。读取 SQLite 时使用 `mode: readonly` 打开。
+**核心约束**：所有源数据文件只读访问。子进程绝不修改 Claude Code / OpenCode / Kimi Code / Grok 的任何文件（JSONL、SQLite、WAL、SHM）。读取 SQLite 时使用 `mode: readonly` 打开。
 
 ### 2.1 Claude Code
 
@@ -66,9 +66,15 @@
 
 **Win/WSL 差异**：两份独立目录，分别读取。
 
-### 2.4 Grok Build（本版不做）
+### 2.4 Grok Build
 
-本地 token 用量文件待确认（`signals.json` 实测不存在）。留后续扩展入口。
+仅 WSL 采集（Windows 无 grok CLI 数据）。数据位于 `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`，`{enc_cwd}` 为 URL-encoded cwd，每个会话一个文件。
+
+| 数据            | 格式  | WSL 路径                                                                              |
+| --------------- | ----- | ------------------------------------------------------------------------------------- |
+| 每轮 token 用量 | JSONL | `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（UNC：`\\wsl.localhost\...`） |
+
+**事件口径**（t197，参考 cc-switch `session_usage_grokbuild.rs` 注释 + 实测确证）：`turn_completed` 事件（`params.update.sessionUpdate === "turn_completed"`）的 `usage` 是【该 user prompt 一轮的独立总量】，轮内跨 inference loop 累加（`modelCalls`/`numTurns` = 本轮 loop 数），下一轮从零起算。**不是进程或会话累计，勿用相邻事件差分**。字段映射：`inputTokens`→input、`outputTokens`→output、`cachedReadTokens`→cache_read、`reasoningTokens` ⊂ `outputTokens` 不计费（output 直接映射，reasoning 不单独记账）、`costUsdTicks` 不入账。`message_id` 用 `prompt_id`（实测每事件必有、稳定）；`timestamp` 为秒，×1000 换算。model 取 `usage.modelUsage` 键（单 key 直接用，多 key 排序 join `+`），token 分量用顶层 usage。`directory`/`title` 从 `{enc_cwd}` 解码派生（title=解码后 basename）。
 
 ## 3. 架构：为什么不用连接器
 
@@ -88,6 +94,7 @@ src/main/core/token-stats/
 ├── claude-reader.ts       # costs.jsonl + session JSONL 读取
 ├── opencode-reader.ts     # opencode.db 只读查询
 ├── kimi-reader.ts         # Kimi Code wire.jsonl + session_index 读取
+├── grok-reader.ts         # Grok updates.jsonl 读取（仅 WSL）
 ├── token-stats-store.ts   # token_stats_* 表建表 + 读写（复用 usage.db）
 └── manager.ts             # 主进程侧：fork / 生命周期 / IPC 接收（见 -desktop）
 ```
@@ -136,7 +143,7 @@ interface TokenStatsConfig {
 -- 按天按模型的 token 聚合（趋势图数据源；由 daily 表派生重建）
 CREATE TABLE IF NOT EXISTS token_stats_buckets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code'
+    source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code' | 'grok'
     env TEXT NOT NULL,              -- 'win' | 'wsl'
     bucket_date TEXT NOT NULL,      -- '2026-07-17'（按天，UTC）
     model TEXT NOT NULL,
@@ -153,7 +160,7 @@ CREATE TABLE IF NOT EXISTS token_stats_buckets (
 -- session 列表
 CREATE TABLE IF NOT EXISTS token_stats_sessions (
     id TEXT NOT NULL,               -- session_id
-    source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code'
+    source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code' | 'grok'
     env TEXT NOT NULL,              -- 'win' | 'wsl'
     model TEXT NOT NULL,
     title TEXT,
@@ -209,6 +216,44 @@ CREATE TABLE IF NOT EXISTS token_stats_records (
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (message_id, source, env)
 );
+
+-- t192 派生聚合：per (session, 本地整点小时, model, directory, agent) 增量聚合。
+-- dashboard 任意窗口拆「完整小时段（本表）+ 窗口边界部分小时（records）」，
+-- 读取规模随 小时×分组 数增长，与 per-message records 总量解耦。
+CREATE TABLE IF NOT EXISTS token_stats_hour_rollup (
+    source TEXT NOT NULL,
+    env TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    hour_start INTEGER NOT NULL,    -- UTC+8 整点小时起点（epoch ms）
+    model TEXT NOT NULL,
+    directory TEXT,                 -- 可空；GROUP BY 视 NULL 归一组（与 records oracle 一致）
+    agent TEXT NOT NULL,            -- 'claude-code' | 'opencode' | 'kimi-code'
+    calls INTEGER NOT NULL DEFAULT 0,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (source, env, session_id, hour_start, model, directory, agent)
+);
+
+-- t192 data version：每成功提交的 records 批次单调 +1，经 dashboard 响应与
+-- 更新事件传递，供 renderer 精确判断缓存是否过期（不依赖本地时钟）。
+CREATE TABLE IF NOT EXISTS token_stats_data_version (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    version INTEGER NOT NULL DEFAULT 0
+);
+INSERT INTO token_stats_data_version (id, version) VALUES (1, 0)
+    ON CONFLICT(id) DO NOTHING;
+
+-- t192 聚合就绪标志：hour_rollup_ready=1 仅在全量回填完成后置位；之前
+-- dashboard 走 records 路径，避免部分填充的聚合表服务不完整数据。
+CREATE TABLE IF NOT EXISTS token_stats_meta (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    hour_rollup_ready INTEGER NOT NULL DEFAULT 0
+);
+INSERT INTO token_stats_meta (id, hour_rollup_ready) VALUES (1, 0)
+    ON CONFLICT(id) DO NOTHING;
 ```
 
 **写入策略**（分层，见 `src/main/core/token-stats/token-stats-store.ts`）：
@@ -216,6 +261,7 @@ CREATE TABLE IF NOT EXISTS token_stats_records (
 - `token_stats_sessions`：`UPDATE ... COALESCE(@field, field)` 已存在行（null 字段保留旧值；`started_at` 取 MIN、`ended_at` 取 MAX）；未命中再 `INSERT`。
 - `token_stats_daily`：reader 每次扫描某 session 时全量重算当日数据，`INSERT OR REPLACE` by PK。每次 upsert 批处理后 `DELETE FROM token_stats_buckets` + `INSERT ... SELECT ... FROM token_stats_daily GROUP BY source, env, date, model` 重建 buckets。
 - `token_stats_records`：reader 全量重发变更 session 的 message 记录，`INSERT OR REPLACE` by `(message_id, source, env)`。查询走 env+timestamp 窗口（`query_records`），故额外维护 `idx_records_env_ts (env, timestamp DESC)` 复合索引（migration v4）；主键 `(message_id, source, env)` 仅服务于写入去重，不支撑查询过滤。
+- `token_stats_hour_rollup`：`upsert_records` 事务内，对每个被触碰 session `DELETE` 该 session 全部聚合行后从 records 全量重建（会话级重建）。不做行级 UPSERT——`directory` 可空，SQLite 视 NULL 唯一键互异，行级 ON CONFLICT 永不命中会叠重复行。`backfill_hour_rollup` 全表 `DELETE` 后从 records 重建并置 `hour_rollup_ready`。
 
 ### 6.2 source 枚举与 agent 字段
 
@@ -229,8 +275,19 @@ wipe-rebuild 驱动（派生表都是从采集数据重建）：
 - v2：把 daily `date` 从 collector 本地时区改为 UTC bucketing；同时清理已删除 transcript 残留的 session 行。`DELETE FROM token_stats_daily; DELETE FROM token_stats_buckets; DELETE FROM token_stats_sessions;`，`PRAGMA user_version = 2`。
 - v3：引入 `token_stats_records` 表时，`DELETE FROM token_stats_records;`，`PRAGMA user_version = 3`。
 - v4：为 `token_stats_records` 补 `idx_records_env_ts (env, timestamp DESC)` 复合索引，消除 `query_records` 的 env+timestamp 窗口查询全表扫描。`CREATE INDEX IF NOT EXISTS`，`PRAGMA user_version = 4`。fresh DB 由 INIT_SQL 直接建索引，此迁移仅 backfill 已存在库。
+- v5：补 `idx_records_ts (timestamp)` 与 `idx_records_session_ts (source, env, session_id, timestamp DESC)`，支撑 dashboard 窗口聚合与窗口内最新 title/directory 子查询。
+- v6：建 t192 三张表（`token_stats_hour_rollup` / `token_stats_data_version` / `token_stats_meta`），DDL 与 INIT_SQL 共用同一 `ROLLUP_INIT_SQL` 常量防漂移。聚合表保持空 + 未就绪；store 打开后由 manager 后台回填，回填前 dashboard 走 records 路径。
 
 collector 启动时会做 full rescan，wipe 后自然重建。
+
+### 6.3.1 派生聚合读取、数据版本与重建（t192）
+
+`token_stats_records` 是 dashboard 数据的**真相源**，`token_stats_hour_rollup` 是可重建派生层。`query_dashboard` 在 `hour_rollup_ready` 时优先读聚合层：
+
+- **窗口拆分**：任意 `[start, end)` 拆为「完整本地小时段（UTC+8 整点，读聚合表）+ 窗口两个边界不足整点的部分小时（读 records）」UNION ALL，外层再聚合。`SUM(calls)`/`SUM(tokens)` 重组精确，`COUNT(DISTINCT session)` 跨两部分去重。窗口不足一个完整小时时整个窗口直接读 records（边界带公式会溢出窗口）。
+- **data version**：`upsert_records` 事务内对每成功提交批次 `version + 1`（sessions/daily 不推进——records 是 dashboard 数据源）。失败/回滚整批回退不推进；空批次不推进。dashboard DTO 的 `data_version` 字段与 `TOKEN_STATS_UPDATED` 更新事件携带同一已提交版本。
+- **renderer 缓存失效**：TokenStatsView 记录最近一次已见版本（`last_data_version`），事件版本 ≤ 该值时缓存仍有效直接复用；更新版本触发 `mark_stale` + 静默 revalidate。查询竞态沿用 request_id guard，旧响应不覆盖新数据。web 构建无推送通道，事件版本传 0（视为新数据，轮询刷新照常）。
+- **回填与重建**：manager.start 后 `setImmediate` 后台全量回填，完成前置 `hour_rollup_ready`；回填前 dashboard 走 records 路径。`backfill_hour_rollup` 幂等（DELETE 全表 + 重建），中断重跑收敛同表；聚合损坏/版本不兼容时重跑即可恢复，records 不受影响。
 
 ### 6.4 增量状态
 
@@ -260,6 +317,14 @@ interface TokenStatsUpdate {
 ```
 
 主进程收到后按 §6.1 分层策略写入 `token_stats_*` 表（sessions upsert + daily replace + buckets 重建 + records replace）。
+
+### 6.5.1 dashboard 查询隔离：utilityProcess query worker（t193）
+
+`TOKEN_STATS_DASHBOARD`（与 `/v1/dashboard`）的聚合读取运行在独立 **utilityProcess** query worker 内，不占主进程事件循环：
+
+- **执行端**：`query-worker.js`（electron-vite 多入口，asarUnpack 后 `resolve_worker_path` 从 `app.asar.unpacked` 定位）。打开 `{ readonly: true }` 的 WAL 连接读已提交数据，写事务进行中读快照不阻塞；聚合表损坏时由 manager 后台回填恢复，worker 只读不受影响。
+- **调度**：`query-dispatcher` 持单 worker；并发上限 1 active + 1 queued（超上限的旧请求以受控 superseded 错误拒绝），单请求 10s 超时，崩溃后 `restart_delay` 受控重启（间隙内新请求即时 spawn 且 restart timer 不再双 fork），`stop()` 先发 `close` 释放只读连接再 `kill`。
+- **契约不变**：错误映射、data version 与隔离前一致（见 §7）；worker 只接收 `db_path` + 已校验 query + status 快照，不获得 vault/connector secret 或任意文件访问（AC7）。
 
 ### 6.6 AgentSessionUsage 类型
 

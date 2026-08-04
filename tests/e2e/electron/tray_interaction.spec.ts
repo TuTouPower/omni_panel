@@ -31,9 +31,21 @@ async function popupWindowCount(app: ElectronApplication): Promise<number> {
     return await app.evaluate(
         ({ BrowserWindow }) =>
             BrowserWindow.getAllWindows().filter((win) =>
-                win.webContents.getURL().includes("#popup"),
+                win.webContents.getURL().includes("#usage"),
             ).length,
     );
+}
+
+async function popupWindowState(
+    app: ElectronApplication,
+): Promise<{ exists: boolean; visible: boolean }> {
+    return await app.evaluate(({ BrowserWindow }) => {
+        // 主面板窗口 URL 路由是 #usage（tray=#tray、settings=#setting）。
+        const win = BrowserWindow.getAllWindows().find((target) =>
+            target.webContents.getURL().includes("#usage"),
+        );
+        return { exists: win !== undefined, visible: win?.isVisible() ?? false };
+    });
 }
 
 async function findPopupPage(app: ElectronApplication): Promise<Page> {
@@ -63,7 +75,9 @@ test.describe("tray interaction", () => {
         });
     });
 
-    test("tray click closes open popup when main panel mode is popup", async ({ omni }) => {
+    test("tray click hides open popup instead of destroying the window (t194 AC1)", async ({
+        omni,
+    }) => {
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
         await expect(page.locator('[data-popup="live"]').getByText("OmniPanel")).toBeVisible({
@@ -71,6 +85,33 @@ test.describe("tray interaction", () => {
         });
 
         await triggerTrayClick(page);
-        await expect.poll(() => popupWindowCount(omni.app)).toBe(0);
+        await expect
+            .poll(() => popupWindowState(omni.app))
+            .toEqual({ exists: true, visible: false });
+        expect(page.isClosed()).toBe(false);
+    });
+
+    test("reopening a hidden popup reuses the same window (t194 AC1/AC2)", async ({ omni }) => {
+        const page = await findPopupPage(omni.app);
+        await page.waitForLoadState("domcontentloaded");
+        await expect(page.locator('[data-popup="live"]').getByText("OmniPanel")).toBeVisible({
+            timeout: 10_000,
+        });
+
+        await triggerTrayClick(page);
+        await expect
+            .poll(() => popupWindowState(omni.app))
+            .toEqual({ exists: true, visible: false });
+
+        await triggerTrayClick(page);
+        await expect
+            .poll(() => popupWindowState(omni.app))
+            .toEqual({ exists: true, visible: true });
+        // 同一窗口复用：全程只有一个 popup BrowserWindow，且隐藏前的已渲染内容
+        // 在重开后仍可见（AC2 数据保留的用户可观察证据）。
+        expect(await popupWindowCount(omni.app)).toBe(1);
+        await expect(page.locator('[data-popup="live"]').getByText("OmniPanel")).toBeVisible({
+            timeout: 10_000,
+        });
     });
 });

@@ -18,6 +18,8 @@ import { usageProviderSchema } from "../../shared/schemas/plugin-output";
 import { createLogger } from "../../shared/lib/logger";
 import { createLoggedIpcHandler } from "./logged";
 
+const log = createLogger("ipc:connector");
+
 const instanceIdSchema = z.string().min(1);
 
 // CPA 网关连接器走单独的 provider/source 分发逻辑（monitor_* 参数、gateway source）。
@@ -192,7 +194,15 @@ export async function handleConnectorRefresh(
         const plugin = config.plugins.find((p) => p.instanceId === parsed.data);
         if (!plugin) return fail("VALIDATION_ERROR", "连接器不存在");
         if (!plugin.enabled) return fail("VALIDATION_ERROR", "连接器未启用");
-        await deps.refreshService.refresh(parsed.data, { force: true });
+        // t196 AC1: 手动刷新立即 ack，采集结果经 EVENT_STATE_CHANGE 推送渐进填充；
+        // UI loading 由 runtime-store 状态推送驱动，不再等完整采集 resolve。
+        void deps.refreshService.refresh(parsed.data, { force: true }).catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            log.error(`Refresh failed for ${parsed.data}: ${msg}`);
+            // t196 f004: 采集前失败（如 config 读取）不会自行置 failed，主动推送
+            // failed 快照，renderer 有可见反馈而非静默。
+            deps.runtimeStore.updateState(parsed.data, { status: "failed", error: msg });
+        });
         return ok(undefined);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -200,9 +210,13 @@ export async function handleConnectorRefresh(
     }
 }
 
-export async function handleConnectorRefreshAll(deps: ConnectorIpcDeps): Promise<IpcResult<void>> {
+export function handleConnectorRefreshAll(deps: ConnectorIpcDeps): IpcResult<void> {
     try {
-        await deps.refreshService.refreshAll();
+        // t196 AC1: refreshAll 同样立即 ack，结果经推送驱动。
+        void deps.refreshService.refreshAll().catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            log.error(`Refresh all failed: ${msg}`);
+        });
         return ok(undefined);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -227,7 +241,6 @@ export function handleConnectorSnapshot(
 
 export async function registerConnectorIpc(deps: ConnectorIpcDeps): Promise<void> {
     const { ipcMain } = await import("electron");
-    const log = createLogger("ipc:connector");
 
     const logged = createLoggedIpcHandler(log);
 
@@ -260,7 +273,7 @@ export async function registerConnectorIpc(deps: ConnectorIpcDeps): Promise<void
         logged(IPC_CHANNELS.CONNECTOR_REFRESH_ALL, [], () => {
             assert_valid_sender(e);
             log.info("User requested refresh all connectors");
-            return handleConnectorRefreshAll(deps);
+            return Promise.resolve(handleConnectorRefreshAll(deps));
         }),
     );
     ipcMain.handle(IPC_CHANNELS.CONNECTOR_SNAPSHOT, (e) =>

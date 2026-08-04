@@ -13,6 +13,8 @@ import type {
     TokenStatsRollupFilters,
     TokenStatsRollupRow,
     TokenStatsSession,
+    TokenStatsDashboardDto,
+    TokenStatsDashboardQuery,
 } from "./token-stats";
 
 export interface TokenStatsStatus {
@@ -113,6 +115,7 @@ export const IPC_CHANNELS = {
     TOKEN_STATS_HEATMAP: "tokenStats:heatmap",
     TOKEN_STATS_HOUR_BUCKETS: "tokenStats:hourBuckets",
     TOKEN_STATS_ROLLUP: "tokenStats:rollup",
+    TOKEN_STATS_DASHBOARD: "tokenStats:dashboard",
     TOKEN_STATS_STATUS: "tokenStats:status",
     TOKEN_STATS_UPDATED: "tokenStats:updated",
     TOKEN_STATS_OPEN: "tokenStats:open",
@@ -122,6 +125,12 @@ export const IPC_CHANNELS = {
 
     /** Sparkline trend:近 N 天某 metric 的走势(默认 7 天)。 */
     TREND_GET: "trend:get",
+    /**
+     * t196 AC5: 一次取回某账号全部指标周期的 trend 序列。
+     * 载荷 `{ provider, account_id, periods: Array<{ metric_id, raw_label, days? }> }`，
+     * 返回 `Array<{ metric_id, series }>`；替代 N 个并行 TREND_GET invoke。
+     */
+    TREND_GET_BULK: "trend:getBulk",
 
     /** Build info:打包来源 branch + commit SHA，供设置页关于段显示。 */
     APP_BUILD_INFO: "app:buildInfo",
@@ -278,6 +287,29 @@ export interface TrendApi {
         metricId: string,
         days?: number,
     ): Promise<(TrendPoint | null)[]>;
+    /** t196 AC5: 单 IPC 取回多周期 trend 序列。 */
+    getBulk(payload: TrendBulkRequest): Promise<TrendBulkResponse>;
+}
+
+export interface TrendPeriodRequest {
+    /** SQL 查询键 = observation store 索引的 metric（即 raw_label）。 */
+    readonly metric_id: string;
+    readonly days?: number;
+}
+
+export interface TrendBulkRequest {
+    readonly provider: string;
+    readonly account_id: string;
+    readonly periods: readonly TrendPeriodRequest[];
+}
+
+export interface TrendBulkSeries {
+    readonly metric_id: string;
+    readonly series: (TrendPoint | null)[];
+}
+
+export interface TrendBulkResponse {
+    readonly series: readonly TrendBulkSeries[];
 }
 
 export type RendererLogLevel = "debug" | "info" | "warn" | "error";
@@ -453,8 +485,11 @@ export interface UsageboardApi {
         getHeatmap(filters?: TokenStatsHeatmapFilters): Promise<TokenStatsHeatmapCell[]>;
         getHourBuckets(filters?: TokenStatsHourFilters): Promise<TokenStatsHourBucket[]>;
         getRangeRollup(filters?: TokenStatsRollupFilters): Promise<TokenStatsRollupRow[]>;
+        getDashboard(query: TokenStatsDashboardQuery): Promise<TokenStatsDashboardDto>;
         getStatus(): Promise<TokenStatsStatus>;
-        onUpdated(callback: () => void): () => void;
+        /** Fires on each committed token-stats batch; carries the monotonic data
+         *  version so renderer caches can drop stale payloads (t192). */
+        onUpdated(callback: (dataVersion: number) => void): () => void;
     };
     trend: TrendApi;
     buildInfo: {

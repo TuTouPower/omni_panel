@@ -11,6 +11,8 @@ import type {
     SessionLoginRequest,
     SessionLoginResult,
     TrendPoint,
+    TrendBulkRequest,
+    TrendBulkResponse,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
 import type {
@@ -18,6 +20,7 @@ import type {
     TokenStatsHourFilters,
     TokenStatsRecordFilters,
     TokenStatsRollupFilters,
+    TokenStatsDashboardQuery,
 } from "../shared/types/token-stats";
 import "./usageboard-api";
 
@@ -134,13 +137,18 @@ const token_stats_methods = {
             IPC_CHANNELS.TOKEN_STATS_ROLLUP,
             filters,
         ),
+    getDashboard: (query: TokenStatsDashboardQuery) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getDashboard"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_DASHBOARD,
+            query,
+        ),
     getStatus: () =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getStatus"]>>>(
             IPC_CHANNELS.TOKEN_STATS_STATUS,
         ),
-    onUpdated: (callback: () => void) => {
-        const listener = () => {
-            callback();
+    onUpdated: (callback: (dataVersion: number) => void) => {
+        const listener = (_event: unknown, dataVersion: unknown) => {
+            callback(typeof dataVersion === "number" ? dataVersion : 0);
         };
         ipcRenderer.on(IPC_CHANNELS.TOKEN_STATS_UPDATED, listener);
         return () => {
@@ -159,10 +167,14 @@ const trend_full_methods = {
         days?: number,
     ): Promise<(TrendPoint | null)[]> =>
         invoke<(TrendPoint | null)[]>(IPC_CHANNELS.TREND_GET, provider, accountId, metricId, days),
+    // t196 AC5: 单 IPC 取回多周期 trend 序列。
+    getBulk: (payload: TrendBulkRequest): Promise<TrendBulkResponse> =>
+        invoke<TrendBulkResponse>(IPC_CHANNELS.TREND_GET_BULK, payload),
 };
 
 const trend_disabled_methods = {
     get: (): Promise<(TrendPoint | null)[]> => Promise.resolve([]),
+    getBulk: (): Promise<TrendBulkResponse> => Promise.resolve({ series: [] }),
 };
 
 // Read-only config (popup, tray)

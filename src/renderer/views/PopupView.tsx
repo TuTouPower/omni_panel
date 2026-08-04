@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from "react";
 import { use_plugins } from "../hooks/use-plugins";
 import { use_popup_height_report } from "../hooks/use-popup-height-report";
 import { useNowTick } from "../hooks/use-now-tick";
@@ -7,6 +7,7 @@ import { use_popup_derived } from "../hooks/use_popup_derived";
 import { use_dnd_handlers } from "../hooks/use_dnd_handlers";
 import { use_watched_metric_toggler } from "../hooks/use_watched_metric_toggler";
 import { use_tab_navigation } from "../hooks/use_tab_navigation";
+import { create_debounced_config_patcher } from "../lib/config-debounce";
 import { useTheme } from "../lib/theme";
 import { ProviderAccountList } from "../components/ProviderAccountList";
 import { ProviderNav } from "../components/ProviderNav";
@@ -39,6 +40,10 @@ import {
 
 export { record_bool_equal } from "./popup-view/lib";
 
+// t196 f003: refresh-all spinner 动作的伪 provider 键（与 provider 刷新共用
+// refresh_actions_ref / refresh_fired_at_ref 两表）。
+const ALL_REFRESH_KEY = "__refresh_all__";
+
 export function PopupView() {
     useTheme();
     useNowTick();
@@ -49,7 +54,6 @@ export function PopupView() {
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
     const [provider_order, set_provider_order] = useState<string[]>([]);
-    const save_queue_ref = useRef(Promise.resolve());
     const synced_order_ref = useRef<string[]>([]);
     const [account_orders, set_account_orders] = useState<Record<string, string[]>>({});
     const synced_account_orders_ref = useRef<Record<string, string[]>>({});
@@ -61,13 +65,6 @@ export function PopupView() {
     // Structural signature of config.plugins from the last applied config;
     // reload() only runs when it changes (t153).
     const last_plugins_sig_ref = useRef<string | null>(null);
-    const mounted_ref = useRef(true);
-    useEffect(() => {
-        mounted_ref.current = true;
-        return () => {
-            mounted_ref.current = false;
-        };
-    }, []);
     const [upcoming_reset_threshold_percent, set_upcoming_reset_threshold_percent] = useState<
         number | null | undefined
     >(undefined);
@@ -164,21 +161,28 @@ export function PopupView() {
         ],
     );
 
-    // Single read-modify-write queue for persistence. Three effects below used
-    // to each inline this exact block; a bug in one would silently desync.
-    const patchConfig = useCallback((patch: Partial<AppConfiguration>) => {
-        save_queue_ref.current = save_queue_ref.current
-            .then(async () => {
-                const result = await window.usageboard.config.get();
-                await window.usageboard.config.save({ ...result.config, ...patch });
-            })
-            .catch((err: unknown) => {
-                window.usageboard.log({
-                    level: "error",
-                    module: "PopupView",
-                    message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
-                });
+    // t195 AC4: UI 偏好切换本地已乐观生效（setter 立即更新 state），此处只负责
+    // 持久化——防抖合并多次 patch 成一次 config.save，不等响应更新界面。
+    const config_patcher_ref = useRef<ReturnType<typeof create_debounced_config_patcher> | null>(
+        null,
+    );
+    config_patcher_ref.current ??= create_debounced_config_patcher({
+        get: () => window.usageboard.config.get(),
+        save: (config) => window.usageboard.config.save(config),
+        on_error: (err) => {
+            window.usageboard.log({
+                level: "error",
+                module: "PopupView",
+                message: `config persistence failed: ${err instanceof Error ? err.message : String(err)}`,
             });
+        },
+    });
+    useEffect(() => {
+        return () => config_patcher_ref.current?.dispose();
+    }, []);
+
+    const patchConfig = useCallback((patch: Partial<AppConfiguration>) => {
+        config_patcher_ref.current?.patch(patch);
     }, []);
 
     // Load persisted provider order from config
@@ -250,7 +254,9 @@ export function PopupView() {
 
     const tabsRef = useRef<HTMLDivElement>(null);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
-    const collapsed_mirror_ref = useRef<HTMLDivElement | null>(null);
+    // t196 AC3: cached all-collapsed minimum height, re-measured on structural
+    // change by briefly forcing the single mirror into the collapsed state.
+    const collapsed_min_ref = useRef(0);
     const scroll_ref = useRef<HTMLDivElement>(null);
 
     const {
@@ -338,26 +344,64 @@ export function PopupView() {
         });
     }, [signature, providerGroups]);
 
-    use_popup_height_report(content_mirror_ref, collapsed_mirror_ref);
+    // t196 AC3: single mirror only. `collapsed_min_height` (the height with
+    // every collapsible card collapsed) is cached and re-measured only when
+    // the structure or active tab changes — the two things that alter it.
+    // Re-measuring briefly forces the mirror into the all-collapsed state and
+    // reads its height before restoring, so the browser never paints it.
+    const [mirror_collapse_all, set_mirror_collapse_all] = useState(false);
+    const measured_key_ref = useRef<string | null>(null);
+
+    const measure_key = signature + "|" + activeTab;
+    useLayoutEffect(() => {
+        if (measured_key_ref.current === measure_key) return;
+        measured_key_ref.current = measure_key;
+        set_mirror_collapse_all(true);
+    }, [measure_key]);
+
+    useLayoutEffect(() => {
+        if (!mirror_collapse_all) return;
+        const el = content_mirror_ref.current;
+        if (el) collapsed_min_ref.current = el.offsetHeight;
+        set_mirror_collapse_all(false);
+    }, [mirror_collapse_all, content_mirror_ref]);
+
+    use_popup_height_report(content_mirror_ref, collapsed_min_ref, mirror_collapse_all);
 
     const goToSettings = () => {
         window.usageboard.settings.open();
     };
 
+    const MIN_SPINNER_MS = 500;
+    const SPINNER_SAFETY_MS = 60_000;
+    // t196 f003: spinner 绑定刷新后新出现的 loading（排除点击前已 loading 的实例，
+    // 如定时采集占位，避免永久 loading 钉死全局 spinner），慢采集期间保持进行中指示。
+    // 500ms 下限防闪烁，超时安全兜底防卡死。
+    const refresh_actions_ref = useRef<
+        Map<string, { instances: Set<string>; pre_loading: Set<string> }>
+    >(new Map());
+    const refresh_fired_at_ref = useRef<Map<string, number>>(new Map());
+    const plugins_ref = useRef(plugins);
+    plugins_ref.current = plugins;
+
     const handleRefreshAll = () => {
         if (refreshing) return;
+        const targets = plugins.filter((c) => c.enabled);
+        refresh_actions_ref.current.set(ALL_REFRESH_KEY, {
+            instances: new Set(targets.map((c) => c.instanceId)),
+            pre_loading: new Set(
+                targets.filter((c) => c.snapshot.status === "loading").map((c) => c.instanceId),
+            ),
+        });
+        refresh_fired_at_ref.current.set(ALL_REFRESH_KEY, Date.now());
         setRefreshing(true);
-        void refreshAll()
-            .catch((err: unknown) => {
-                window.usageboard.log({
-                    level: "error",
-                    module: MODULE,
-                    message: `刷新全部失败: ${errorMessage(err)}`,
-                });
-            })
-            .finally(() => {
-                setRefreshing(false);
+        void refreshAll().catch((err: unknown) => {
+            window.usageboard.log({
+                level: "error",
+                module: MODULE,
+                message: `刷新全部失败: ${errorMessage(err)}`,
             });
+        });
     };
 
     const refreshProvider = (provider: string) => {
@@ -367,36 +411,99 @@ export function PopupView() {
             (connector) => connector.enabled && connector.activeProviders.includes(provider),
         );
 
-        const started_at = Date.now();
-        const MIN_SPINNER_MS = 500;
-
+        refresh_actions_ref.current.set(provider, {
+            instances: new Set(connectors.map((c) => c.instanceId)),
+            pre_loading: new Set(
+                connectors.filter((c) => c.snapshot.status === "loading").map((c) => c.instanceId),
+            ),
+        });
+        refresh_fired_at_ref.current.set(provider, Date.now());
         set_refreshing_providers((prev) => new Set(prev).add(provider));
 
         void Promise.all(
             connectors.map((connector) =>
                 window.usageboard.connector.refresh(connector.sourceInstanceId),
             ),
-        )
-            .catch((err: unknown) => {
-                window.usageboard.log({
-                    level: "error",
-                    module: MODULE,
-                    message: `刷新 ${provider} 失败: ${errorMessage(err)}`,
-                });
-            })
-            .finally(() => {
-                const elapsed = Date.now() - started_at;
-                const remaining = Math.max(0, MIN_SPINNER_MS - elapsed);
-                setTimeout(() => {
-                    if (!mounted_ref.current) return;
-                    set_refreshing_providers((prev) => {
-                        const next = new Set(prev);
-                        next.delete(provider);
-                        return next;
-                    });
-                }, remaining);
+        ).catch((err: unknown) => {
+            window.usageboard.log({
+                level: "error",
+                module: MODULE,
+                message: `刷新 ${provider} 失败: ${errorMessage(err)}`,
             });
+        });
     };
+
+    // t196 f003: spinner 绑定真实 pending——按快照 loading 状态清除（而非固定 500ms
+    // 后结束），慢采集期间保持进行中指示；保留 500ms 下限防闪烁，超时安全兜底防卡死。
+    useEffect(() => {
+        const action_done = (action_id: string): boolean => {
+            const action = refresh_actions_ref.current.get(action_id);
+            if (action === undefined) return true;
+            const fired_at = refresh_fired_at_ref.current.get(action_id) ?? 0;
+            const elapsed = Date.now() - fired_at;
+            if (elapsed > SPINNER_SAFETY_MS) return true;
+            const snapshots = new Map(plugins_ref.current.map((c) => [c.instanceId, c.snapshot]));
+            const any_new_loading = [...action.instances].some(
+                (id) => snapshots.get(id)?.status === "loading" && !action.pre_loading.has(id),
+            );
+            return !any_new_loading && elapsed >= MIN_SPINNER_MS;
+        };
+        const clear_action = (action_id: string): void => {
+            refresh_fired_at_ref.current.delete(action_id);
+            refresh_actions_ref.current.delete(action_id);
+        };
+
+        let changed = false;
+        const next_providers = new Set(refreshing_providers);
+        for (const provider of refreshing_providers) {
+            if (action_done(provider)) {
+                clear_action(provider);
+                next_providers.delete(provider);
+                changed = true;
+            }
+        }
+        if (changed) set_refreshing_providers(next_providers);
+
+        if (refreshing && action_done(ALL_REFRESH_KEY)) {
+            clear_action(ALL_REFRESH_KEY);
+            setRefreshing(false);
+        }
+
+        // 500ms 下限兜底：快速完成且无后续状态变化时清除残留 spinner。
+        // 自排程周期求值：loading 挂起（无后续状态推送）时也会周期性重判，
+        // 使 SPINNER_SAFETY_MS 兜底真正按时间驱动（f005）。
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const check = (): void => {
+            set_refreshing_providers((prev) => {
+                let c = false;
+                const next = new Set(prev);
+                for (const provider of prev) {
+                    if (action_done(provider)) {
+                        clear_action(provider);
+                        next.delete(provider);
+                        c = true;
+                    }
+                }
+                return c ? next : prev;
+            });
+            setRefreshing((prev) => {
+                if (!prev) return prev;
+                if (action_done(ALL_REFRESH_KEY)) {
+                    clear_action(ALL_REFRESH_KEY);
+                    return false;
+                }
+                return prev;
+            });
+            if (refreshing_providers.size > 0 || refreshing) {
+                timer = setTimeout(check, MIN_SPINNER_MS);
+            }
+        };
+        timer = setTimeout(check, MIN_SPINNER_MS);
+
+        return () => {
+            if (timer !== undefined) clearTimeout(timer);
+        };
+    }, [refreshing, refreshing_providers, plugins]);
 
     const toggle_account = (id: string) => {
         set_collapsed_accounts((prev) => ({ ...prev, [id]: !(prev[id] ?? false) }));
@@ -687,30 +794,22 @@ export function PopupView() {
             </div>
             {should_render_mirrors && (
                 <>
-                    {/* Offscreen mirrors used to measure popup heights for the
-                        main process. Two trees: one with the user's current
-                        collapse state (for `content_height`), one with every
-                        collapsible card forced collapsed (for
-                        `collapsed_min_height`). Both use `height: auto` so they
-                        report the desired height, not the clamped viewport.
+                    {/* t196 AC3: single offscreen mirror used to measure the
+                        popup height for the main process. It mirrors the live
+                        tree with the user's current collapse state and uses
+                        `height: auto` so it reports the desired height, not the
+                        clamped viewport. `data-measuring` marks the transient
+                        all-collapsed pass that caches `collapsed_min_height`.
                         Mirrors must not bind live refs or interactive handlers. */}
                     <div
                         ref={content_mirror_ref}
                         className="window popup-mirror"
                         aria-hidden="true"
                         inert
+                        data-measuring={mirror_collapse_all ? "true" : "false"}
                         style={popup_mirror_style}
                     >
-                        {render_body(false, false)}
-                    </div>
-                    <div
-                        ref={collapsed_mirror_ref}
-                        className="window popup-mirror"
-                        aria-hidden="true"
-                        inert
-                        style={popup_mirror_style}
-                    >
-                        {render_body(false, true)}
+                        {render_body(false, mirror_collapse_all)}
                     </div>
                 </>
             )}

@@ -10,6 +10,7 @@ const mock_scan_jsonls = vi.fn();
 const mock_scan_kimi = vi.fn();
 const mock_read_costs = vi.fn();
 const mock_read_opencode = vi.fn();
+const mock_scan_grok = vi.fn();
 
 vi.mock("../../../../../src/main/core/token-stats/claude-reader", () => ({
     read_costs_jsonl: (...args: unknown[]) => mock_read_costs(...args),
@@ -22,6 +23,10 @@ vi.mock("../../../../../src/main/core/token-stats/opencode-reader", () => ({
 vi.mock("../../../../../src/main/core/token-stats/kimi-reader", () => ({
     scan_kimi_wire_jsonls: (...args: unknown[]) => mock_scan_kimi(...args),
     create_kimi_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
+}));
+vi.mock("../../../../../src/main/core/token-stats/grok-reader", () => ({
+    scan_grok_updates: (...args: unknown[]) => mock_scan_grok(...args),
+    create_grok_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
 }));
 
 const mock_post_message = vi.fn();
@@ -39,6 +44,7 @@ import {
     serialize_state,
     jsonl_states,
     kimi_states,
+    grok_states,
     costs_state,
     opencode_max_updated,
 } from "../../../../../src/main/core/token-stats/collector";
@@ -101,6 +107,12 @@ describe("collector scan-state persistence", () => {
             new_state: { mtimes: new Map(), files: new Map() },
         });
         mock_read_opencode.mockReturnValue({ sessions: [], daily: [], records: [] });
+        mock_scan_grok.mockReturnValue({
+            sessions: [],
+            daily: [],
+            records: [],
+            new_state: { mtimes: new Map(), files: new Map() },
+        });
     });
 
     afterEach(() => {
@@ -151,6 +163,12 @@ describe("collector scan-state persistence", () => {
             mtimes: new Map([["k.jsonl", 1700000000000]]),
             files: new Map([["k.jsonl", { session_id: "ks1", facts: make_facts([]) }]]),
         } as any);
+        grok_states.set("grok_wsl", {
+            mtimes: new Map([["enc/sid/updates.jsonl", 1785000286795.25]]),
+            files: new Map([
+                ["enc/sid/updates.jsonl", { session_id: "sid", facts: make_facts([]) }],
+            ]),
+        } as any);
         costs_state.set("claude_costs_win", { offset: 42, size: 100 });
         opencode_max_updated.set("opencode_win", 1700000000000);
 
@@ -160,6 +178,7 @@ describe("collector scan-state persistence", () => {
         reset_config();
         expect(jsonl_states.size).toBe(0);
         expect(kimi_states.size).toBe(0);
+        expect(grok_states.size).toBe(0);
         expect(costs_state.size).toBe(0);
         expect(opencode_max_updated.size).toBe(0);
 
@@ -178,6 +197,10 @@ describe("collector scan-state persistence", () => {
         });
 
         expect(kimi_states.get("kimi_win")?.files.get("k.jsonl")?.session_id).toBe("ks1");
+        // grok scan state round-trips with its float mtime intact (t197 AC4)
+        const grok_state = grok_states.get("grok_wsl");
+        expect(grok_state?.mtimes.get("enc/sid/updates.jsonl")).toBe(1785000286795.25);
+        expect(grok_state?.files.get("enc/sid/updates.jsonl")?.session_id).toBe("sid");
         expect(costs_state.get("claude_costs_win")).toEqual({ offset: 42, size: 100 });
         expect(opencode_max_updated.get("opencode_win")).toBe(1700000000000);
     });
@@ -186,10 +209,12 @@ describe("collector scan-state persistence", () => {
         // Pre-populate to prove load_state clears on corrupt input.
         costs_state.set("claude_costs_win", { offset: 1, size: 1 });
         jsonl_states.set("claude_jsonl_win", { mtimes: new Map(), files: new Map() } as any);
+        grok_states.set("grok_wsl", { mtimes: new Map(), files: new Map() } as any);
         fs.writeFileSync(tmp_file, "{ this is not valid json");
         await load_state(tmp_file);
         expect(jsonl_states.size).toBe(0);
         expect(kimi_states.size).toBe(0);
+        expect(grok_states.size).toBe(0);
         expect(costs_state.size).toBe(0);
         expect(opencode_max_updated.size).toBe(0);
     });
@@ -199,6 +224,7 @@ describe("collector scan-state persistence", () => {
         await expect(load_state(missing)).resolves.toBeUndefined();
         expect(jsonl_states.size).toBe(0);
         expect(kimi_states.size).toBe(0);
+        expect(grok_states.size).toBe(0);
         expect(costs_state.size).toBe(0);
         expect(opencode_max_updated.size).toBe(0);
     });
@@ -246,5 +272,36 @@ describe("collector scan-state persistence", () => {
         collect();
         // If the assertion inside the mock fired, the test would have failed.
         expect(mock_scan_jsonls).toHaveBeenCalled();
+    });
+
+    it("restored grok state is passed to the grok reader on next collect (t197 AC4)", async () => {
+        // Need wsl_enabled so the grok source runs.
+        const wsl_cfg = { ...make_config(""), wsl_enabled: true, wsl_user: "testuser" };
+        const float_mtime = 1785093854257.125;
+
+        mock_scan_grok.mockReturnValue({
+            sessions: [],
+            daily: [],
+            records: [],
+            new_state: {
+                mtimes: new Map([["enc/sid/updates.jsonl", float_mtime]]),
+                files: new Map([
+                    ["enc/sid/updates.jsonl", { session_id: "sid", facts: make_facts([]) }],
+                ]),
+            },
+        });
+        configure(wsl_cfg);
+        expect(grok_states.get("grok_wsl")?.mtimes.get("enc/sid/updates.jsonl")).toBe(float_mtime);
+
+        await save_state(tmp_file);
+        reset_config();
+        await load_state(tmp_file);
+
+        mock_scan_grok.mockImplementation((_path: unknown, _env: unknown, state: any) => {
+            expect(state.mtimes.get("enc/sid/updates.jsonl")).toBe(float_mtime);
+            return { sessions: [], daily: [], records: [], new_state: state };
+        });
+        configure(wsl_cfg);
+        expect(mock_scan_grok).toHaveBeenCalled();
     });
 });

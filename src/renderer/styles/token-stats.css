@@ -476,6 +476,12 @@
     background: rgba(126, 232, 176, 0.07);
 }
 
+.token-stats .chip.gk {
+    color: #b687f0;
+    border-color: rgba(182, 135, 240, 0.25);
+    background: rgba(182, 135, 240, 0.07);
+}
+
 .token-stats .chip.sub {
     color: var(--ts-pink);
     border-color: rgba(245, 108, 198, 0.25);

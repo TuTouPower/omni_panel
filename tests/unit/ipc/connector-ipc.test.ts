@@ -52,7 +52,7 @@ function create_runtime_store(snapshot: ConnectorSnapshotDTO["status"] = "ready"
                   }
                 : { status: snapshot },
         ),
-        updateState: vi.fn(),
+        updateState: vi.fn(() => undefined),
         getAll: vi.fn().mockReturnValue(new Map()),
         subscribe: vi.fn().mockReturnValue(() => undefined),
         removeInstance: vi.fn(),
@@ -73,6 +73,7 @@ function create_config_store(plugins: AppConfiguration["plugins"]) {
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn().mockResolvedValue(undefined),
         hasPendingSave: vi.fn().mockReturnValue(false),
+        prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
     };
 }
 
@@ -141,22 +142,62 @@ describe("connector-ipc", () => {
         }
     });
 
-    it("handleConnectorRefresh calls refreshService.refresh with force", async () => {
+    it("handleConnectorRefresh acks immediately without awaiting the refresh (t196 AC1)", async () => {
         const deps = createMockDeps();
+        let release: (() => void) | undefined;
+        deps.refreshService.refresh = vi.fn<() => Promise<void>>().mockImplementation(
+            () =>
+                new Promise<void>((resolve) => {
+                    release = resolve;
+                }),
+        );
         const { handleConnectorRefresh } = await import("../../../src/main/ipc/connector-ipc");
         const result = await handleConnectorRefresh(deps, "claude");
 
+        // 采集仍在进行（promise 未 resolve），IPC 已返回 ok（立即 ack）。
         expect(result.ok).toBe(true);
         expect(deps.refreshService.refresh).toHaveBeenCalledWith("claude", { force: true });
+        expect(release).toBeDefined();
+        release?.();
     });
 
-    it("handleConnectorRefreshAll calls refreshService.refreshAll", async () => {
+    it("handleConnectorRefresh acks immediately and pushes failed state on pre-collection error (t196 f004)", async () => {
         const deps = createMockDeps();
+        deps.refreshService.refresh = vi
+            .fn<() => Promise<void>>()
+            .mockRejectedValue(new Error("config load failed"));
+        const update_state = vi.fn(() => undefined);
+        deps.runtimeStore.updateState = update_state;
+        const { handleConnectorRefresh } = await import("../../../src/main/ipc/connector-ipc");
+        const result = await handleConnectorRefresh(deps, "claude");
+
+        // 立即 ack 不受采集前失败影响；失败主动推送 failed 快照，renderer 可见。
+        expect(result.ok).toBe(true);
+        expect(deps.refreshService.refresh).toHaveBeenCalledWith("claude", { force: true });
+        await vi.waitFor(() => {
+            expect(update_state).toHaveBeenCalledWith("claude", {
+                status: "failed",
+                error: "config load failed",
+            });
+        });
+    });
+
+    it("handleConnectorRefreshAll acks immediately without awaiting refreshAll (t196 AC1)", async () => {
+        const deps = createMockDeps();
+        let release: (() => void) | undefined;
+        deps.refreshService.refreshAll = vi.fn<() => Promise<void>>().mockImplementation(
+            () =>
+                new Promise<void>((resolve) => {
+                    release = resolve;
+                }),
+        );
         const { handleConnectorRefreshAll } = await import("../../../src/main/ipc/connector-ipc");
-        const result = await handleConnectorRefreshAll(deps);
+        const result = handleConnectorRefreshAll(deps);
 
         expect(result.ok).toBe(true);
         expect(deps.refreshService.refreshAll).toHaveBeenCalled();
+        expect(release).toBeDefined();
+        release?.();
     });
 
     it("handleConnectorSnapshot returns all runtime snapshots", async () => {
@@ -565,6 +606,7 @@ describe("connector-ipc", () => {
                 scheduleSave: vi.fn(),
                 flushPendingSave: vi.fn().mockResolvedValue(undefined),
                 hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
             };
             const deps = {
                 configStore,
@@ -642,6 +684,7 @@ describe("connector-ipc", () => {
                 scheduleSave: vi.fn(),
                 flushPendingSave: vi.fn().mockResolvedValue(undefined),
                 hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
             };
             const deps = {
                 configStore,

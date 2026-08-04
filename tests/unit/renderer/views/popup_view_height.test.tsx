@@ -1,8 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PopupView } from "../../../../src/renderer/views/PopupView";
-import type { ConnectorInfo, PopupContentHeightReport } from "../../../../src/shared/types/ipc";
+import type {
+    ConnectorInfo,
+    ConnectorSnapshotDTO,
+    PopupContentHeightReport,
+} from "../../../../src/shared/types/ipc";
 
 vi.mock("../../../../src/renderer/lib/theme", () => ({
     useTheme: () => undefined,
@@ -122,10 +126,28 @@ const plugin_refresh_all = vi.fn().mockResolvedValue(undefined);
 const report_height = vi.fn<(payload: PopupContentHeightReport) => void>();
 
 describe("PopupView collapse + height report", () => {
+    afterEach(() => {
+        // Restore the rAF stub so it doesn't leak into sibling test files
+        // sharing the same worker (use_plugins relies on a sync stub).
+        vi.unstubAllGlobals();
+    });
+
     beforeEach(() => {
         vi.clearAllMocks();
         FakeResizeObserver.reset();
         (globalThis as Record<string, unknown>)["ResizeObserver"] = FakeResizeObserver;
+        // use-plugins batches state-change updates via requestAnimationFrame.
+        // Stub it to fire on a macrotask so the flush lands deterministically
+        // after the act() that pushed the state (a synchronous stub returns a
+        // non-undefined id that sticks in `raf_handle`, silently dropping later
+        // pushes — see use_plugins' schedule dedup).
+        vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+            setTimeout(() => {
+                cb(performance.now());
+            }, 0);
+            return 1;
+        });
+        vi.stubGlobal("cancelAnimationFrame", () => undefined);
         plugin_list.mockResolvedValue([claude_with_accounts]);
         window.usageboard = {
             platform: "win32",
@@ -220,10 +242,14 @@ describe("PopupView collapse + height report", () => {
                 getHeatmap: vi.fn().mockResolvedValue([]),
                 getHourBuckets: vi.fn().mockResolvedValue([]),
                 getRangeRollup: vi.fn().mockResolvedValue([]),
+                getDashboard: vi.fn(),
                 getStatus: vi.fn().mockResolvedValue({ running: false, last_updated: null }),
                 onUpdated: vi.fn(() => vi.fn()),
             },
-            trend: { get: vi.fn().mockResolvedValue([]) },
+            trend: {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: vi.fn().mockResolvedValue({ series: [] }),
+            },
             logs: { export: vi.fn() },
             log: vi.fn(),
             buildInfo: {
@@ -318,31 +344,48 @@ describe("PopupView collapse + height report", () => {
 
     it("reports content_height and collapsed_min_height to the main process", async () => {
         render(<PopupView />);
-        await waitFor(() => {
-            expect(report_height).toHaveBeenCalled();
+        const mirror_el = document.querySelector(".popup-mirror");
+        if (!(mirror_el instanceof HTMLElement)) throw new Error("popup mirror not rendered");
+        const mirror = mirror_el;
+        // t196 AC3: single mirror. offsetHeight is content height in the normal
+        // state and the all-collapsed height during the transient measure pass.
+        Object.defineProperty(mirror, "offsetHeight", {
+            configurable: true,
+            get() {
+                return mirror.getAttribute("data-measuring") === "true" ? 120 : 500;
+            },
         });
-        const call = report_height.mock.calls[0]?.[0];
-        expect(call).toBeDefined();
-        expect(typeof call?.content_height).toBe("number");
-        expect(typeof call?.collapsed_min_height).toBe("number");
+        await waitFor(() => {
+            const call = report_height.mock.calls.at(-1)?.[0];
+            expect(call?.content_height).toBe(500);
+            expect(call?.collapsed_min_height).toBe(120);
+        });
     });
 
     it("re-reports on ResizeObserver fire", async () => {
         render(<PopupView />);
+        const mirror_el = document.querySelector(".popup-mirror");
+        if (!(mirror_el instanceof HTMLElement)) throw new Error("popup mirror not rendered");
+        const mirror = mirror_el;
+        Object.defineProperty(mirror, "offsetHeight", {
+            configurable: true,
+            get() {
+                return mirror.getAttribute("data-measuring") === "true" ? 120 : 500;
+            },
+        });
         await waitFor(() => {
-            expect(report_height).toHaveBeenCalled();
+            const last = report_height.mock.calls.at(-1)?.[0];
+            expect(last?.content_height).toBe(500);
+            expect(last?.collapsed_min_height).toBe(120);
         });
         const initial_count = report_height.mock.calls.length;
 
-        const mirrors = document.querySelectorAll(".popup-mirror");
-        expect(mirrors.length).toBe(2);
-        Object.defineProperty(mirrors[0], "offsetHeight", {
+        // Grow content height, fire RO → re-report with the new height.
+        Object.defineProperty(mirror, "offsetHeight", {
             configurable: true,
-            value: 500,
-        });
-        Object.defineProperty(mirrors[1], "offsetHeight", {
-            configurable: true,
-            value: 120,
+            get() {
+                return mirror.getAttribute("data-measuring") === "true" ? 120 : 700;
+            },
         });
         FakeResizeObserver.fire_all();
 
@@ -350,7 +393,7 @@ describe("PopupView collapse + height report", () => {
             expect(report_height.mock.calls.length).toBeGreaterThan(initial_count);
         });
         const latest = report_height.mock.calls.at(-1)?.[0];
-        expect(latest?.content_height).toBe(500);
+        expect(latest?.content_height).toBe(700);
         expect(latest?.collapsed_min_height).toBe(120);
     });
 
@@ -397,5 +440,94 @@ describe("PopupView collapse + height report", () => {
         await waitFor(() => {
             expect(find_live_button(/折叠/)).toBeInTheDocument();
         });
+    });
+
+    it("keeps the refresh-all spinner while a connector snapshot is loading (t196 f003)", async () => {
+        let push: ((instanceId: string, state: ConnectorSnapshotDTO) => void) | undefined;
+        (window.usageboard.event as { onStateChange: unknown }).onStateChange = vi.fn(
+            (cb: (instanceId: string, state: ConnectorSnapshotDTO) => void) => {
+                push = cb;
+                return vi.fn();
+            },
+        ) as never;
+
+        render(<PopupView />);
+        await waitFor(() => {
+            expect(document.querySelector(".app-title")).not.toBeNull();
+        });
+
+        // 立即 ack 的 refresh-all；spinner 出现。
+        const live_refresh_all = screen
+            .getAllByTitle("刷新全部")
+            .find((b) => !b.closest('[aria-hidden="true"]'));
+        if (!live_refresh_all) throw new Error("live refresh-all button not found");
+        fireEvent.click(live_refresh_all);
+        await waitFor(() => {
+            expect(document.querySelector('.icon-btn[title="刷新全部"].spinning')).not.toBeNull();
+        });
+
+        // 采集进行中（loading 推送）→ spinner 保持，不因立即 ack 提前结束。
+        // instanceId 必须匹配 fixture 的 gateway-connector，push 才会被 use_plugins 采纳。
+        await act(async () => {
+            push?.("gateway-connector", { status: "loading" });
+            await new Promise((resolve) => setTimeout(resolve, 0)); // flush rAF → snapshot loading
+        });
+        // 超过 500ms 下限后仍 spinning（真实 pending 驱动，非固定时长）。
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        expect(document.querySelector('.icon-btn[title="刷新全部"].spinning')).not.toBeNull();
+
+        // 采集完成（ready 推送）→ spinner 在 500ms 下限后清除。
+        await act(async () => {
+            push?.("gateway-connector", {
+                status: "ready",
+                items: [],
+                updatedAt: "2026-01-01T00:00:05Z",
+            });
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+        await waitFor(
+            () => {
+                expect(document.querySelector('.icon-btn[title="刷新全部"].spinning')).toBeNull();
+            },
+            { timeout: 3_000 },
+        );
+    });
+
+    it("does not pin the refresh-all spinner on pre-existing loading (t196 f003)", async () => {
+        let push: ((instanceId: string, state: ConnectorSnapshotDTO) => void) | undefined;
+        (window.usageboard.event as { onStateChange: unknown }).onStateChange = vi.fn(
+            (cb: (instanceId: string, state: ConnectorSnapshotDTO) => void) => {
+                push = cb;
+                return vi.fn();
+            },
+        ) as never;
+
+        render(<PopupView />);
+        await waitFor(() => {
+            expect(document.querySelector(".app-title")).not.toBeNull();
+        });
+
+        // 点击前该 connector 已处于 loading（如定时采集占位）；先让快照 flush。
+        await act(async () => {
+            push?.("gateway-connector", { status: "loading" });
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+
+        const live_refresh_all = screen
+            .getAllByTitle("刷新全部")
+            .find((b) => !b.closest('[aria-hidden="true"]'));
+        if (!live_refresh_all) throw new Error("live refresh-all button not found");
+        fireEvent.click(live_refresh_all);
+        await waitFor(() => {
+            expect(document.querySelector('.icon-btn[title="刷新全部"].spinning')).not.toBeNull();
+        });
+
+        // pre-existing loading 被排除：500ms 下限后 spinner 清除，不钉死。
+        await waitFor(
+            () => {
+                expect(document.querySelector('.icon-btn[title="刷新全部"].spinning')).toBeNull();
+            },
+            { timeout: 3_000 },
+        );
     });
 });

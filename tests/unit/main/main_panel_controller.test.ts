@@ -209,12 +209,55 @@ describe("main panel controller", () => {
         expect(win?.close).not.toHaveBeenCalled();
     });
 
-    it("closes popup shell on hide", () => {
+    // t194: popup 关闭改隐藏不销毁窗口（AC1）。旧行为「popup hide 走 close()」被
+    // spec 变更取代，原「closes popup shell on hide」测试整体删除。
+    it("hides popup shell instead of destroying it (AC1)", () => {
         const { controller, windows } = build({ ...base_config, mainPanelMode: "popup" });
         controller.open_or_focus();
         const win = windows[0];
         controller.hide();
-        expect(win?.close).toHaveBeenCalledTimes(1);
+        expect(win?.hide).toHaveBeenCalledTimes(1);
+        expect(win?.close).not.toHaveBeenCalled();
+        expect(win?.destroy).not.toHaveBeenCalled();
+        expect(win?.isDestroyed()).toBe(false);
+    });
+
+    it("hides a visible popup on toggle instead of closing it (AC1)", () => {
+        const { controller, windows } = build({ ...base_config, mainPanelMode: "popup" });
+        controller.open_or_focus();
+        const win = windows[0];
+        controller.open_or_toggle();
+        expect(win?.hide).toHaveBeenCalled();
+        expect(win?.close).not.toHaveBeenCalled();
+        expect(win?.isDestroyed()).toBe(false);
+    });
+
+    it("reopens a hidden popup by showing the same window without recreating it (AC1/AC2)", () => {
+        const { controller, create_window, windows } = build({
+            ...base_config,
+            mainPanelMode: "popup",
+        });
+        controller.open_or_focus();
+        const win = windows[0];
+        controller.hide();
+        expect(win?.isVisible()).toBe(false);
+
+        controller.open_or_focus();
+        expect(create_window).toHaveBeenCalledTimes(1);
+        expect(windows[0]?.show).toHaveBeenCalledTimes(2);
+        expect(windows[0]?.close).not.toHaveBeenCalled();
+    });
+
+    it("re-anchors a reopened popup to the tray (t194 code f001)", () => {
+        const { controller, windows } = build({ ...base_config, mainPanelMode: "popup" });
+        controller.open_or_focus();
+        const win = windows[0];
+        win?.setBounds.mockClear();
+        controller.hide();
+
+        controller.open_or_focus();
+        // popup 重开重新定位到托盘下方，而非沿用隐藏时的旧 bounds。
+        expect(win?.setBounds).toHaveBeenCalledWith(expect.objectContaining({ x: 782, y: 240 }));
     });
 
     it("ignores content height reports for fixed floating mode", () => {

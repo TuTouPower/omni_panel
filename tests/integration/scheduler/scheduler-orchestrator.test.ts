@@ -60,6 +60,7 @@ function createMockConfigStore(config: AppConfiguration): AppConfigStore & { cal
             return Promise.resolve();
         },
         hasPendingSave: () => false,
+        prune_unhealthy_plugins: () => Promise.resolve({} as AppConfiguration),
     };
 }
 

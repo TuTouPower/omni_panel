@@ -59,8 +59,10 @@ describe("secrets-store", () => {
         const store = await create_store();
         await store.set("api_key", "sk-123");
         await writeFile(join(tempDir, "secrets.vault"), JSON.stringify({ api_key: "broken" }));
-
-        expect(await store.get("api_key")).toBeNull();
+        // t195: 同实例走内存镜像不重读盘；新实例冷镜像从盘读损坏 ciphertext，
+        // 解密失败返回 null（不抛错）。
+        const fresh_store = await create_store();
+        expect(await fresh_store.get("api_key")).toBeNull();
     });
 
     it("exportAll returns all secrets decrypted", async () => {

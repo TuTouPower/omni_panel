@@ -9,6 +9,21 @@ import { scrubber } from "../../../src/shared/lib/logger";
 
 const ROOT = process.cwd();
 
+// CDP targets loopback only; the test host's global HTTP proxy would hijack
+// connectOverCDP's /json/version probe and answer 400. Clear proxy env vars
+// for this test process (the packaged app still uses its own proxy detection).
+for (const key of [
+    "HTTP_PROXY",
+    "http_proxy",
+    "HTTPS_PROXY",
+    "https_proxy",
+    "ALL_PROXY",
+    "all_proxy",
+]) {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete process.env[key];
+}
+
 const EXE_BY_PLATFORM: Record<string, string> = {
     win32: resolve(ROOT, "artifacts/win-unpacked/OmniPanel.exe"),
     darwin: resolve(ROOT, "artifacts/mac/OmniPanel.app/Contents/MacOS/OmniPanel"),
@@ -149,6 +164,79 @@ test.describe("packaged binary smoke", () => {
             await expect(providerNav.getByRole("button", { name: /^Claude$/ })).toBeVisible();
             await expect(providerNav.getByRole("button", { name: /^DeepSeek$/ })).toBeVisible();
             await expect(providerNav.getByRole("button", { name: /^CPA$/ })).toHaveCount(0);
+        } finally {
+            await closePackagedApp(app);
+        }
+    });
+
+    test("agent (token-stats) panel opens and the dashboard query runs in the packaged app (t193 AC6)", async () => {
+        test.skip(skipIfNoExe.skip, skipIfNoExe.reason);
+
+        const app = await launchPackagedApp();
+        try {
+            const pageErrors: Error[] = [];
+            app.page.on("pageerror", (err) => pageErrors.push(err));
+
+            // Open the singleton agent window through the same preload entry the
+            // panel uses; this forks the isolated query-worker utilityProcess
+            // inside the packaged app (asarUnpack + electron-Abi sqlite).
+            await app.page.evaluate(() => {
+                window.usageboard.tokenStats.open();
+            });
+
+            const context = app.browser.contexts()[0];
+            if (!context) throw new Error("Packaged app did not expose a browser context");
+            const agent_page =
+                context.pages().find((p) => p.url().includes("#agent")) ??
+                (await Promise.race([
+                    context.waitForEvent("page", { timeout: 20_000 }),
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => {
+                            reject(new Error("agent window did not open"));
+                        }, 20_000),
+                    ),
+                ]));
+            await agent_page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
+
+            // The dashboard aggregate renders (KPI cards + session table) once
+            // the isolated worker answers; no white screen, no page errors.
+            await expect(agent_page.locator(".token-stats").first()).toBeVisible({
+                timeout: 20_000,
+            });
+            await expect(agent_page.locator(".token-stats")).not.toBeEmpty();
+
+            // Prove the dashboard query itself ran through the isolated query
+            // worker (asarUnpack entry + electron-Abi sqlite). preload unwraps
+            // IpcResult, so getDashboard resolves with the DTO directly and
+            // rejects with [QUERY_FAILED] if the worker failed to answer.
+            const dashboard_result = await agent_page.evaluate(async () => {
+                const end = Date.now();
+                const dto = await (
+                    window as unknown as {
+                        usageboard: {
+                            tokenStats: {
+                                getDashboard: (q: unknown) => Promise<{
+                                    data_version: number;
+                                    sessions: { total: number };
+                                }>;
+                            };
+                        };
+                    }
+                ).usageboard.tokenStats.getDashboard({
+                    agent: "all",
+                    platform: "all",
+                    start: end - 7 * 24 * 3600_000,
+                    end,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "day",
+                });
+                return dto;
+            });
+            expect(dashboard_result.data_version).toEqual(expect.any(Number));
+            expect(typeof dashboard_result.sessions.total).toBe("number");
+
+            expect(pageErrors).toEqual([]);
         } finally {
             await closePackagedApp(app);
         }

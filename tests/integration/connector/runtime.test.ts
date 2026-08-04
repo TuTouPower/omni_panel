@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ctx_status } from "../../integration/connector/_ctx_status";
-import { run_connector } from "../../../src/main/core/connector/runtime";
+import { run_connector, compile_script } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
@@ -233,5 +233,13 @@ describe("connector-runtime", () => {
         const result = await run_connector(poll_manifest, script, stub_ctx);
         expect(result.error).toBeNull();
         expect(result.failed_accounts).toEqual([]);
+    });
+
+    it("runs with precompiled code (t195)", async () => {
+        const script = `function main(){return [];}`;
+        const compiled = compile_script(script);
+        const result = await run_connector(poll_manifest, script, stub_ctx, undefined, compiled);
+        expect(result.error).toBeNull();
+        expect(result.observations).toEqual([]);
     });
 });

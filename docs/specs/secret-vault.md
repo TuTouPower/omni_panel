@@ -28,6 +28,10 @@ listKeys(prefix?): Promise<string[]>
 
 文件后端是首个实现；日后切 safeStorage / 系统钥匙串，换实现不动调用方。
 
+## 内存镜像（t195）
+
+`file-vault-backend` 维护整份 vault 的内存镜像：首次 `get`/`has`/`list_keys` 读盘一次后缓存，后续读取不再重读整份文件（AC3）。`set`/`delete` 构造新镜像并**写盘成功后才提交**——写失败（磁盘满/权限/IO）时镜像仍是磁盘一致状态，调用方不会读到未持久化的值（AC2 一致性语义）。
+
 ## 最小暴露规则
 
 - `config.get` 仍只返回 `hasSecrets: Record<instanceId, Record<param, boolean>>`（布尔），配置本体脱敏。

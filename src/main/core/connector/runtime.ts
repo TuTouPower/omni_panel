@@ -63,7 +63,7 @@ function detect_sandbox_escape(code: string): string | null {
     return null;
 }
 
-function compile_script(script_code: string): string {
+export function compile_script(script_code: string): string {
     const stripped_code = script_code
         .replace(/^import\s+type\s+[^;]+;\s*$/gm, "")
         .replace(/^declare\s+const\s+[^;]+;\s*$/gm, "");
@@ -134,6 +134,7 @@ export async function run_connector(
     script_code: string,
     ctx: ConnectorContext,
     timeout_ms: number = DEFAULT_TIMEOUT_MS,
+    compiled_code?: string,
 ): Promise<ConnectorRunResult> {
     if (!manifest.script) {
         return { observations: [], failed_accounts: [], error: "No script defined in manifest" };
@@ -159,7 +160,8 @@ export async function run_connector(
 
     try {
         const context = create_sandbox_context(ctx_with_collector);
-        const compiled = compile_script(script_code);
+        // t195: 传入 compiled_code 时跳过 transpile（script-cache 已按 mtime 缓存）。
+        const compiled = compiled_code ?? compile_script(script_code);
         runtime_log.debug(
             `Connector ${manifest.id}: compiled, running in VM (timeout=${String(timeout_ms)}ms)`,
         );
