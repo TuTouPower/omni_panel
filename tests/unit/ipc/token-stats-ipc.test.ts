@@ -28,6 +28,11 @@ function createMockDeps() {
         query_hour_buckets: vi.fn().mockReturnValue([]),
         query_range_rollup: vi.fn().mockReturnValue([]),
         query_dashboard: vi.fn(),
+        query_dashboard_sessions: vi.fn().mockReturnValue({
+            items: [],
+            total: 0,
+            has_more: false,
+        }),
         last_updated: vi.fn().mockReturnValue(null),
     } as unknown as TokenStatsStore;
     const manager = {
@@ -395,5 +400,47 @@ describe("token-stats-ipc sender validation", () => {
         // eslint-disable-next-line @typescript-eslint/unbound-method
         expect(vi.mocked(deps.store).query_hour_buckets).toHaveBeenCalledWith({ start: 1, end: 2 });
         expect(result).toEqual({ ok: true, data: [] });
+    });
+
+    it("heatmap/hourBuckets/rollup IPC handlers forward model to the store (t206 AC4)", async () => {
+        const deps = createMockDeps();
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+        const filters = { start: 1, end: 2, model: "sonnet" };
+
+        pick_handler("tokenStats:heatmap")(good_event(), filters);
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        expect(vi.mocked(deps.store).query_heatmap).toHaveBeenCalledWith(filters);
+
+        pick_handler("tokenStats:hourBuckets")(good_event(), filters);
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        expect(vi.mocked(deps.store).query_hour_buckets).toHaveBeenCalledWith(filters);
+
+        pick_handler("tokenStats:rollup")(good_event(), filters);
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        expect(vi.mocked(deps.store).query_range_rollup).toHaveBeenCalledWith(filters);
+    });
+
+    it("dashboardSessions IPC handler forwards model to query_dashboard_sessions (t206 AC4)", async () => {
+        const deps = createMockDeps();
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        vi.mocked(deps.store.query_dashboard_sessions).mockReturnValue({
+            items: [],
+            total: 0,
+            has_more: false,
+        });
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+        const request = {
+            agent: "all",
+            platform: "all",
+            start: 1,
+            end: 2,
+            model: "sonnet",
+        };
+        const result = pick_handler("tokenStats:dashboardSessions")(good_event(), request);
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        expect(vi.mocked(deps.store).query_dashboard_sessions).toHaveBeenCalledWith(request);
+        expect(result).toEqual({ ok: true, data: { items: [], total: 0, has_more: false } });
     });
 });

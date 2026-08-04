@@ -671,6 +671,26 @@ describe("token-stats-store", () => {
             expect(store.query_range_rollup({ agent: "claude-code", env: "win" })).toHaveLength(1);
         });
 
+        it("filters rollup rows by model (t206 AC5)", () => {
+            store.upsert_records([
+                record({
+                    message_id: "a-sonnet",
+                    session_id: "s1",
+                    model: "sonnet",
+                    timestamp: T0,
+                }),
+                record({ message_id: "b-opus", session_id: "s2", model: "opus", timestamp: T0 }),
+            ]);
+            const sonnet = store.query_range_rollup({ model: "sonnet" });
+            expect(sonnet).toHaveLength(1);
+            expect(sonnet[0]?.model).toBe("sonnet");
+            const opus = store.query_range_rollup({ model: "opus" });
+            expect(opus).toHaveLength(1);
+            expect(opus[0]?.model).toBe("opus");
+            // No filter → both models present.
+            expect(store.query_range_rollup({})).toHaveLength(2);
+        });
+
         it("sums token components and counts distinct sessions per group", () => {
             store.upsert_records([
                 record({
