@@ -466,6 +466,62 @@ describe("TokenStatsView dashboard query", () => {
         });
     });
 
+    it("restores the model selection from prefs on remount and refetches with it (t206 AC1)", async () => {
+        const multi = dashboard("multi");
+        multi.models = ["opus", "sonnet"];
+        get_dashboard.mockResolvedValue(multi);
+        const { unmount } = render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+        await user.selectOptions(screen.getByLabelText("模型筛选"), "sonnet");
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenLastCalledWith(
+                expect.objectContaining({ model: "sonnet" }),
+            );
+        });
+        // Remount: the fresh instance reads prefs and emits the model on its
+        // first dashboard call (not the default "all").
+        get_dashboard.mockClear();
+        unmount();
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+        expect(get_dashboard).toHaveBeenCalledWith(expect.objectContaining({ model: "sonnet" }));
+    });
+
+    it("sends model and agent together (AND) and refreshes models on range change (t206 AC2)", async () => {
+        const multi = dashboard("multi");
+        multi.models = ["opus", "sonnet"];
+        get_dashboard.mockResolvedValue(multi);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        // Select model first, then agent — the resulting query carries both.
+        await user.selectOptions(screen.getByLabelText("模型筛选"), "sonnet");
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenLastCalledWith(
+                expect.objectContaining({ model: "sonnet" }),
+            );
+        });
+        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenLastCalledWith(
+                expect.objectContaining({ agent: "grok", model: "sonnet" }),
+            );
+        });
+
+        // Switching the time range refetches; the returned models list drives
+        // the dropdown (here still [opus, sonnet] from the mock).
+        get_dashboard.mockClear();
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalled();
+        });
+        const options = screen.getAllByRole("option").map((option) => option.textContent);
+        expect(options).toContain("sonnet");
+        expect(options).toContain("opus");
+    });
+
     it("loads aliases once and does not reread config when filters change", async () => {
         render(<TokenStatsView />);
         await screen.findByTestId("session-records");

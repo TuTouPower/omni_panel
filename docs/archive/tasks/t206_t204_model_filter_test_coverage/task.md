@@ -2,11 +2,11 @@
 tid: "t206"
 slug: "t204_model_filter_test_coverage"
 title: "t204 model 筛选测试覆盖补强"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t206_t204_model_filter_test_coverage"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "9d7b3c6cc9d1839e54e28eed136249694f881748"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,14 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+### Step 2/3 红绿
+
+- AC1（remount）：token_stats_view.test.tsx，render 选 sonnet → unmount → 二次 render，断言首次 getDashboard 含 `model:"sonnet"`（来自 prefs）。
+- AC2（组合 + 刷新）：同文件，选 sonnet 再选 Grok，断言 query 同时含 agent+model；mockClear 后切「7 天」，断言重新拉取且下拉含 sonnet/opus。
+- AC3（local-api 四端点）：server.test.ts，vi.spyOn 真实 store 的 query_dashboard_sessions/query_heatmap/query_hour_buckets/query_range_rollup，fetch 带 `model=sonnet`，断言被调用时收到 model。sessions 端点需 agent+platform（schema 必填）。
+- AC4（IPC 透传）：token-stats-ipc.test.ts，heatmap/hourBuckets/rollup/dashboardSessions 四 handler 传 `{model:"sonnet"}`，断言 store 对应方法收到；createMockDeps 补 `query_dashboard_sessions` mock（合法 sessions DTO）。
+- AC5（rollup 过滤）：token-stats-store.test.ts，种子 sonnet+opus 两 record，断言 `query_range_rollup({model})` 各返回 1 行且 model 正确，无过滤返回 2 行。
+- 全量单测 2181 passed / 1 skipped；typecheck、lint 干净。src/ 零改动（纯测试增量）。
 
 ## Review 处置
 
@@ -40,18 +47,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### Round 1 场景说明
 
-- **无 finding**：写「Round 1 零 finding，未进处置表。」
-- **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
-- **有 critical / important**：建表，逐条填 status（不得留空）。
+- **无 finding**：Round 1 零 finding，未进处置表。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-04 22:00 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+零 finding（general PASS）。
 
 ## 收尾报告
 
@@ -60,24 +60,21 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+
+### 验收
+
+- spec：[`spec.md`](spec.md)
+- 结果：全部满足
+- 证据：AC1 remount 恢复、AC2 agent+model AND 与窗口刷新、AC3 四端点 spy 透传、AC4 四 IPC handler 透传、AC5 query_range_rollup 过滤，均单测覆盖。全量 2181 passed / 1 skipped，typecheck/lint 干净，src/ 零改动。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 补齐 t204 model 筛选五条测试覆盖缺口（remount、组合与窗口刷新、四端点透传、IPC 透传、rollup 过滤），闭环 p043。

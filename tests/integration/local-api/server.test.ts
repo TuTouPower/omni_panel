@@ -627,6 +627,33 @@ describe("local-api web read endpoints", () => {
         });
     });
 
+    it("GET /v1/{dashboard/sessions,heatmap,hourBuckets,rollup} forward model to the store (t206 AC3)", async () => {
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+        // sessions requires agent+platform; the other three accept them too.
+        const win = `agent=all&platform=all&start=1&end=2&model=sonnet`;
+
+        const sessions_spy = vi.spyOn(token_stats_store, "query_dashboard_sessions");
+        const res_sess = await fetch(`${base}/v1/dashboard/sessions?${win}`);
+        expect(res_sess.status).toBe(200);
+        expect(sessions_spy).toHaveBeenCalledWith(expect.objectContaining({ model: "sonnet" }));
+
+        const heat_spy = vi.spyOn(token_stats_store, "query_heatmap");
+        const res_heat = await fetch(`${base}/v1/heatmap?${win}`);
+        expect(res_heat.status).toBe(200);
+        expect(heat_spy).toHaveBeenCalledWith(expect.objectContaining({ model: "sonnet" }));
+
+        const hour_spy = vi.spyOn(token_stats_store, "query_hour_buckets");
+        const res_hour = await fetch(`${base}/v1/hourBuckets?${win}`);
+        expect(res_hour.status).toBe(200);
+        expect(hour_spy).toHaveBeenCalledWith(expect.objectContaining({ model: "sonnet" }));
+
+        const rollup_spy = vi.spyOn(token_stats_store, "query_range_rollup");
+        const res_roll = await fetch(`${base}/v1/rollup?${win}`);
+        expect(res_roll.status).toBe(200);
+        expect(rollup_spy).toHaveBeenCalledWith(expect.objectContaining({ model: "sonnet" }));
+    });
+
     it("web read endpoints do not require bearer auth", async () => {
         await api.start();
         for (const path of [
