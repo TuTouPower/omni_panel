@@ -259,6 +259,7 @@ const tokenStatsDashboardAliasSchema = z.object({
 const TOKEN_STATS_DASHBOARD_MAX_BUCKETS = 400;
 const TOKEN_STATS_DASHBOARD_HOUR_MS = 60 * 60 * 1000;
 const TOKEN_STATS_DASHBOARD_DAY_MS = 24 * TOKEN_STATS_DASHBOARD_HOUR_MS;
+const TOKEN_STATS_DASHBOARD_MAX_GROUPS = TOKEN_STATS_DASHBOARD_MAX_BUCKETS * 100;
 
 export const tokenStatsDashboardQuerySchema = z
     .object({
@@ -324,6 +325,64 @@ export const tokenStatsDashboardChartSchema = z.object({
         .max(TOKEN_STATS_DASHBOARD_MAX_BUCKETS + 1),
 });
 
+/** Per (bucket, model) aggregated rows for the tokens/calls time chart (t200).
+ *  Metric-agnostic: both metrics are present per cell so the renderer can pick
+ *  tokens or calls without a refetch. `hour_start` is the local bucket boundary
+ *  (hour or day depending on the requested gran). */
+export const tokenStatsDashboardMetricBucketSchema = z.object({
+    hour_start: z.number(),
+    model: z.string(),
+    calls: z.number().int().nonnegative(),
+    tokens: z.number().int().nonnegative(),
+});
+
+/** Per (bucket, directory) distinct-session rows for the sessions time chart
+ *  (t200). Cannot be derived from the metric buckets by summing across models
+ *  (a session spanning models within a bucket would double count), so the
+ *  distinct count is computed at this granularity in SQL. */
+export const tokenStatsDashboardSessionBucketSchema = z.object({
+    hour_start: z.number(),
+    directory: z.string(),
+    sessions: z.number().int().nonnegative(),
+});
+
+/** Metric-agnostic dashboard chart source data (t200). The renderer derives
+ *  the chart for the current metric/xaxis locally from these bounded rows, so
+ *  switching display dimensions never refetches the dashboard. `axis` is the
+ *  server-built time-axis (labels + bucket boundaries at the requested gran)
+ *  so the renderer maps buckets onto the exact axis the server used. */
+export const tokenStatsDashboardChartAxisSchema = z.object({
+    labels: z.array(z.string()).max(TOKEN_STATS_DASHBOARD_MAX_BUCKETS + 1),
+    bucket_starts: z.array(z.number().safe()).max(TOKEN_STATS_DASHBOARD_MAX_BUCKETS + 1),
+});
+
+export const tokenStatsDashboardChartDataSchema = z.object({
+    axis: tokenStatsDashboardChartAxisSchema,
+    metric_buckets: z
+        .array(tokenStatsDashboardMetricBucketSchema)
+        .max(TOKEN_STATS_DASHBOARD_MAX_GROUPS),
+    session_buckets: z
+        .array(tokenStatsDashboardSessionBucketSchema)
+        .max(TOKEN_STATS_DASHBOARD_MAX_GROUPS),
+    rollup: z.array(tokenStatsRollupRowSchema),
+});
+
+export const tokenStatsDashboardSessionsQuerySchema = z
+    .object({
+        agent: tokenStatsDashboardAgentSchema,
+        platform: tokenStatsDashboardPlatformSchema,
+        start: z.number().int().nonnegative().safe(),
+        end: z.number().int().nonnegative().safe(),
+        dir_aliases: z.array(tokenStatsDashboardAliasSchema).max(20).optional(),
+        model_aliases: z.array(tokenStatsDashboardAliasSchema).max(20).optional(),
+        session_offset: z.number().int().nonnegative().max(100_000).safe().optional(),
+        session_limit: z.number().int().min(1).max(100).optional(),
+    })
+    .refine((query) => query.end > query.start, {
+        message: "end must be greater than start",
+        path: ["end"],
+    });
+
 export const tokenStatsDashboardSessionSummarySchema = z.object({
     session_id: z.string(),
     source: tokenStatsSourceSchema,
@@ -340,11 +399,17 @@ export const tokenStatsDashboardSessionSummarySchema = z.object({
     ended_at: z.number(),
 });
 
+export const tokenStatsDashboardSessionsDtoSchema = z.object({
+    items: z.array(tokenStatsDashboardSessionSummarySchema).max(100),
+    total: z.number().int().nonnegative(),
+    has_more: z.boolean(),
+});
+
 export const tokenStatsDashboardDtoSchema = z.object({
     query: tokenStatsDashboardQuerySchema,
     current: tokenStatsDashboardSummarySchema,
     previous: tokenStatsDashboardSummarySchema,
-    chart: tokenStatsDashboardChartSchema,
+    chart_data: tokenStatsDashboardChartDataSchema,
     heatmap: z.array(tokenStatsHeatmapCellSchema),
     sessions: z.object({
         items: z.array(tokenStatsDashboardSessionSummarySchema).max(100),
@@ -373,6 +438,15 @@ export type TokenStatsDashboardQuery = z.infer<typeof tokenStatsDashboardQuerySc
 export type TokenStatsDashboardNamedValue = z.infer<typeof tokenStatsDashboardNamedValueSchema>;
 export type TokenStatsDashboardSummary = z.infer<typeof tokenStatsDashboardSummarySchema>;
 export type TokenStatsDashboardChart = z.infer<typeof tokenStatsDashboardChartSchema>;
+export type TokenStatsDashboardMetricBucket = z.infer<typeof tokenStatsDashboardMetricBucketSchema>;
+export type TokenStatsDashboardSessionBucket = z.infer<
+    typeof tokenStatsDashboardSessionBucketSchema
+>;
+export type TokenStatsDashboardChartData = z.infer<typeof tokenStatsDashboardChartDataSchema>;
+export type TokenStatsDashboardSessionsQuery = z.infer<
+    typeof tokenStatsDashboardSessionsQuerySchema
+>;
+export type TokenStatsDashboardSessionsDto = z.infer<typeof tokenStatsDashboardSessionsDtoSchema>;
 export type TokenStatsDashboardSessionSummary = z.infer<
     typeof tokenStatsDashboardSessionSummarySchema
 >;

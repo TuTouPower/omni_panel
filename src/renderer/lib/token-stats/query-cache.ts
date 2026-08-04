@@ -3,12 +3,9 @@ export interface TokenStatsQueryKey {
     platform: string;
     range_start: number;
     range_end: number;
-    metric: string;
-    xaxis: string;
-    gran: string;
     query_mode: string;
+    gran: string;
     alias_fingerprint?: string;
-    session_offset?: number;
 }
 
 export interface TokenStatsCacheEntry<T> {
@@ -57,12 +54,9 @@ export function create_token_stats_query_cache<T>(options: {
             query_key.platform,
             query_key.range_start,
             query_key.range_end,
-            query_key.metric,
-            query_key.xaxis,
-            query_key.gran,
             query_key.query_mode,
+            query_key.gran,
             query_key.alias_fingerprint ?? "",
-            query_key.session_offset ?? 0,
         ]);
     const touch = (entry: CacheEntry<T>): void => {
         entries.delete(entry.key);

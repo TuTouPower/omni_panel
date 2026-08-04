@@ -332,7 +332,12 @@ describe("local-api web read endpoints", () => {
                 model_call_totals: [],
                 project_session_totals: [],
             },
-            chart: { labels: [], bucket_starts: [], series: [], other_details: [] },
+            chart_data: {
+                axis: { labels: [], bucket_starts: [] },
+                metric_buckets: [],
+                session_buckets: [],
+                rollup: [],
+            },
             heatmap: [],
             sessions: { items: [], total: 0, has_more: false },
             status: { running: false, last_updated: null },

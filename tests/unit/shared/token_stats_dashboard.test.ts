@@ -114,11 +114,11 @@ describe("token stats dashboard DTO schema", () => {
                 model_call_totals: [],
                 project_session_totals: [],
             },
-            chart: {
-                labels: ["00:00"],
-                bucket_starts: [1_000],
-                series: [{ name: "sonnet", data: [10] }],
-                other_details: [[]],
+            chart_data: {
+                axis: { labels: ["00:00"], bucket_starts: [1_000] },
+                metric_buckets: [{ hour_start: 1_000, model: "sonnet", calls: 2, tokens: 10 }],
+                session_buckets: [{ hour_start: 1_000, directory: "/p", sessions: 1 }],
+                rollup: [],
             },
             heatmap: [{ weekday: 1, hour: 2, calls: 2, sessions: 1, tokens: 10 }],
             sessions: {
@@ -191,11 +191,11 @@ describe("token stats dashboard DTO schema", () => {
                 model_call_totals: [],
                 project_session_totals: [],
             },
-            chart: {
-                labels: ["00:00"],
-                bucket_starts: [1_000],
-                series: [{ name: "sonnet", data: [10] }],
-                other_details: [[]],
+            chart_data: {
+                axis: { labels: ["00:00"], bucket_starts: [1_000] },
+                metric_buckets: [{ hour_start: 1_000, model: "sonnet", calls: 2, tokens: 10 }],
+                session_buckets: [{ hour_start: 1_000, directory: "/p", sessions: 1 }],
+                rollup: [],
             },
             heatmap: [{ weekday: 1, hour: 2, calls: 2, sessions: 1, tokens: 10 }],
             sessions: { items: [session_item], total: 1, has_more: false },
@@ -234,11 +234,13 @@ describe("token stats dashboard DTO schema", () => {
         expect(
             tokenStatsDashboardDtoSchema.safeParse({
                 ...base,
-                chart: {
-                    ...base.chart,
-                    series: Array.from({ length: 22 }, (_, i) => ({
-                        name: `s${String(i)}`,
-                        data: [1],
+                chart_data: {
+                    ...base.chart_data,
+                    metric_buckets: Array.from({ length: 40_001 }, (_, i) => ({
+                        hour_start: i,
+                        model: "sonnet",
+                        calls: 1,
+                        tokens: 1,
                     })),
                 },
             }).success,

@@ -1206,7 +1206,7 @@ describe("token-stats-store", () => {
                 );
                 expect(dto_readonly.current).toEqual(dto_writable.current);
                 expect(dto_readonly.previous).toEqual(dto_writable.previous);
-                expect(dto_readonly.chart).toEqual(dto_writable.chart);
+                expect(dto_readonly.chart_data).toEqual(dto_writable.chart_data);
                 expect(dto_readonly.heatmap).toEqual(dto_writable.heatmap);
                 expect(dto_readonly.sessions).toEqual(dto_writable.sessions);
                 readonly_store.close();
@@ -1480,7 +1480,7 @@ describe("token-stats-store", () => {
                 const after = store.query_dashboard(query, status);
                 expect(after.current).toEqual(before.current);
                 expect(after.previous).toEqual(before.previous);
-                expect(after.chart).toEqual(before.chart);
+                expect(after.chart_data).toEqual(before.chart_data);
                 expect(after.heatmap).toEqual(before.heatmap);
                 expect(after.sessions).toEqual(before.sessions);
                 store.close();
@@ -1555,7 +1555,7 @@ describe("token-stats-store", () => {
                         running: false,
                         last_updated: null,
                     });
-                    chart_buckets = dto.chart.bucket_starts.length;
+                    chart_buckets = dto.chart_data.axis.bucket_starts.length;
                     session_total = dto.sessions.total;
                     expect(rollup_rows).toBe(groups.length);
                     store.close();
@@ -1786,7 +1786,7 @@ describe("token-stats-store", () => {
                     const after = store.query_dashboard(q, status);
                     expect(after.current).toEqual(before.current);
                     expect(after.previous).toEqual(before.previous);
-                    expect(after.chart).toEqual(before.chart);
+                    expect(after.chart_data).toEqual(before.chart_data);
                     expect(after.heatmap).toEqual(before.heatmap);
                     expect(after.sessions).toEqual(before.sessions);
                     store.close();

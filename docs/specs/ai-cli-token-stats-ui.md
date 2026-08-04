@@ -151,9 +151,9 @@ Session 列表 `SessionTable` 虚拟滚动；长列表按可视高度分段渲�
 | 24h preset 的 KPI / donut / 项目 / 会话轴                         | `query_range_rollup`（SQL 聚合）  | (source, model, directory, session_id) 分组，无 LIMIT；24h preset 的 KPI/donut delta 与项目/会话柱走 rollup 而非受 LIMIT 截断的 records（t184） |
 | Heatmap（7×24）                                                   | `query_heatmap`（SQL 聚合）       | 后端 `GROUP BY strftime('%w'/'%H', +8 hours)` 返回 ≤168 格，renderer 不再拉 records（t170）                                                     |
 
-`TokenStatsView.loadData` 一次拉 buckets（env/source/date filter）+ sessions（env/source）+ records（env/agent/start/end/limit）+ heatmap（env/agent/start/end）+ hour buckets（env/agent/start/end，时间轴 + 小时粒度时，7d/30d 与 24h preset）+ rollup（env/agent/start/end，仅 24h preset 的 current + previous 两窗口）。records 降为 Bar 项目/会话轴的 fallback 与自定义短窗口数据源，不再作为 KPI/donut/SessionTable/Heatmap 的主数据源。
+`TokenStatsView.loadData` 一次拉 dashboard bounded DTO（t200）：`getDashboard` 返回 `{ summary, chart_data, heatmap, sessions 首页, status, freshness, data_version }`；`chart_data` 携带 metric/xaxis 无关的聚合源（`axis + metric_buckets + session_buckets + rollup`），renderer 按当前 metric/xaxis 本地派生图表。会话翻页走独立 `get_dashboard_sessions`（返回 `{ items, total, has_more }`），翻页不重算 summary/chart/heatmap，也不重拉 dashboard。t200 前 BarChart 曾按区域分别拉 records/hour_buckets/rollup（见下段遗留说明），t200 后统一由 dashboard `chart_data` 派生。
 
-查询协调由 renderer 负责：筛选、时间范围、指标、图表轴和粒度组成稳定 query key，已完成查询结果按 key 保存在有界内存 LRU 中。切换到 fresh 缓存时先复用已转换结果，不清空图表或显示全屏加载；缓存缺失时保留当前内容并以非阻塞状态加载。相同 key 的并发加载共享一套底层查询，快速连续切换只允许最新 request id 提交可见结果。
+查询协调由 renderer 负责：筛选、时间范围与粒度 `gran` 组成稳定 query key，已完成查询结果按 key 保存在有界内存 LRU 中。`metric` / `xaxis` 是展示派生维度，不进入 query key——同一范围 + 筛选 + gran 下切换 metric/xaxis 命中同一缓存，由 renderer 本地派生展示（s011 验证）；`gran` 决定返回桶粒度（day 级 sessions distinct 无法由 hour 桶正确求和），保留在 key 中。`session_offset` 不进入 dashboard 缓存 key（翻页走独立通道）。切换到 fresh 缓存时先复用已转换结果，不清空图表或显示全屏加载；缓存缺失时保留当前内容并以非阻塞状态加载。相同 key 的并发加载共享一套底层查询，快速连续切换只允许最新 request id 提交可见结果。
 
 collector 更新会使已有条目标记 stale，当前可见结果继续展示并静默 revalidate；更新前完成的请求不会重新写入 fresh 缓存，重新访问 stale 条目会重新查询。缓存不持久化，超过上限淘汰后按现有 IPC 查询路径恢复。配置别名独立于统计查询初始化读取，并在 `CONFIG_CHANGED` 广播时同步，不因统计选项切换重复调用配置读取。
 

@@ -102,6 +102,15 @@ describe("aggregate", () => {
             expect(top).toEqual(["a", "c"]);
             expect(rest).toEqual([]);
         });
+
+        it("breaks value ties by name order, not insertion order (t200 f005)", () => {
+            // z 插入在前、值与 a 并列；tie-break 必须按名称升序选出 a，
+            // 否则 Object.entries 插入序会让 z 顶掉 a 进 top。
+            const totals = { x: 100, z: 50, a: 50 };
+            const { top, rest } = topGroups(totals, 2);
+            expect(top).toEqual(["x", "a"]);
+            expect(rest).toEqual(["z"]);
+        });
     });
 
     describe("hitRateOf", () => {

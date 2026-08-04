@@ -9,10 +9,8 @@ const key = (value: string, overrides: Partial<TokenStatsQueryKey> = {}): TokenS
     platform: "all",
     range_start: 1,
     range_end: 2,
-    metric: value,
-    xaxis: "time",
-    gran: "day",
-    query_mode: "records",
+    query_mode: value,
+    gran: "hour",
     ...overrides,
 });
 
@@ -67,17 +65,16 @@ describe("token stats query cache", () => {
             { platform: "win" },
             { range_start: 3 },
             { range_end: 4 },
-            { metric: "sessions" },
-            { xaxis: "project" },
-            { gran: "hour" },
-            { query_mode: "rollup:hour" },
+            { query_mode: "dashboard" },
+            { gran: "day" },
+            { alias_fingerprint: "a1" },
         ];
         const cache = create_token_stats_query_cache<string>({ max_entries: 16 });
         const fetcher = vi.fn().mockResolvedValue("value");
 
-        await cache.load(key("tokens"), fetcher);
+        await cache.load(key("records"), fetcher);
         for (const overrides of dimensions) {
-            await cache.load(key("tokens", overrides), fetcher);
+            await cache.load(key("records", overrides), fetcher);
         }
 
         expect(fetcher).toHaveBeenCalledTimes(dimensions.length + 1);

@@ -21,6 +21,7 @@ import type {
     TokenStatsRecordFilters,
     TokenStatsRollupFilters,
     TokenStatsDashboardQuery,
+    TokenStatsDashboardSessionsQuery,
 } from "../shared/types/token-stats";
 import "./usageboard-api";
 
@@ -140,6 +141,11 @@ const token_stats_methods = {
     getDashboard: (query: TokenStatsDashboardQuery) =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getDashboard"]>>>(
             IPC_CHANNELS.TOKEN_STATS_DASHBOARD,
+            query,
+        ),
+    getDashboardSessions: (query: TokenStatsDashboardSessionsQuery) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getDashboardSessions"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_DASHBOARD_SESSIONS,
             query,
         ),
     getStatus: () =>

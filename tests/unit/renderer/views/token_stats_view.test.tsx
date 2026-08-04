@@ -9,7 +9,7 @@ import type {
 import { TokenStatsView } from "../../../../src/renderer/views/TokenStatsView";
 
 const mocked_bar_chart = vi.hoisted(() => ({
-    props: null as { dashboardChart?: TokenStatsDashboardDto["chart"] } | null,
+    props: null as { chartData?: TokenStatsDashboardDto["chart_data"] } | null,
 }));
 const mocked_heatmap = vi.hoisted(() => ({
     props: null as { cells?: TokenStatsHeatmapCell[] } | null,
@@ -28,7 +28,7 @@ vi.mock("../../../../src/renderer/components/token-stats/MetricDonut", () => ({
     },
 }));
 vi.mock("../../../../src/renderer/components/token-stats/BarChart", () => ({
-    BarChart: (props: { dashboardChart?: TokenStatsDashboardDto["chart"] }) => {
+    BarChart: (props: { chartData?: TokenStatsDashboardDto["chart_data"] }) => {
         mocked_bar_chart.props = props;
         return <div />;
     },
@@ -110,11 +110,24 @@ function dashboard(
         query,
         current: summary,
         previous: { ...summary, tokens: 90, calls: 1 },
-        chart: {
-            labels: [session_id],
-            bucket_starts: [1_000],
-            series: [{ name: "sonnet", data: [180] }],
-            other_details: [[]],
+        chart_data: {
+            axis: { labels: [session_id], bucket_starts: [1_000] },
+            metric_buckets: [{ hour_start: 1_000, model: "sonnet", calls: 2, tokens: 180 }],
+            session_buckets: [{ hour_start: 1_000, directory: "/project", sessions: 1 }],
+            rollup: [
+                {
+                    source: "claude_code",
+                    model: "sonnet",
+                    directory: "/project",
+                    session_id,
+                    title: "Session",
+                    calls: 2,
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 30,
+                    cache_write_tokens: 0,
+                },
+            ],
         },
         heatmap: [{ weekday: 1, hour: 9, calls: 2, sessions: 1, tokens: 180 }],
         sessions: {
@@ -160,6 +173,7 @@ describe("TokenStatsView dashboard query", () => {
     const get_heatmap = vi.fn();
     const get_hour_buckets = vi.fn();
     const get_rollup = vi.fn();
+    const get_dashboard_sessions = vi.fn();
     const get_config = vi.fn();
     let updated_listener: ((dataVersion: number) => void) | null = null;
 
@@ -172,6 +186,7 @@ describe("TokenStatsView dashboard query", () => {
         get_heatmap.mockReset();
         get_hour_buckets.mockReset();
         get_rollup.mockReset();
+        get_dashboard_sessions.mockReset();
         get_config.mockReset();
         updated_listener = null;
         mocked_bar_chart.props = null;
@@ -192,6 +207,7 @@ describe("TokenStatsView dashboard query", () => {
                 getHeatmap: get_heatmap,
                 getHourBuckets: get_hour_buckets,
                 getRangeRollup: get_rollup,
+                getDashboardSessions: get_dashboard_sessions,
                 getStatus: vi.fn(),
                 onUpdated: vi.fn((callback: (dataVersion: number) => void) => {
                     updated_listener = callback;
@@ -212,7 +228,7 @@ describe("TokenStatsView dashboard query", () => {
         expect(get_records).not.toHaveBeenCalled();
         expect(get_sessions).not.toHaveBeenCalled();
         expect(get_buckets).not.toHaveBeenCalled();
-        expect(mocked_bar_chart.props?.dashboardChart?.labels).toEqual(["initial"]);
+        expect(mocked_bar_chart.props?.chartData?.axis.labels).toEqual(["initial"]);
         expect(mocked_heatmap.props?.cells).toEqual([
             { weekday: 1, hour: 9, calls: 2, sessions: 1, tokens: 180 },
         ]);
@@ -233,6 +249,31 @@ describe("TokenStatsView dashboard query", () => {
         expect(get_records).not.toHaveBeenCalled();
         expect(get_sessions).not.toHaveBeenCalled();
         expect(get_heatmap).not.toHaveBeenCalled();
+    });
+
+    it("t200 AC1: switching metric does not refetch the dashboard (display dims are renderer-derived)", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
+
+        await user.click(screen.getByRole("button", { name: "Session" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(1);
+        });
+        expect(mocked_bar_chart.props?.chartData).toBeTruthy();
+    });
+
+    it("t200 AC1: switching xaxis does not refetch the dashboard", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
+
+        await user.click(screen.getByRole("button", { name: "项目" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(1);
+        });
     });
 
     it("AC1+AC2: offers a Grok agent filter and sends agent=grok to the dashboard", async () => {
@@ -382,31 +423,28 @@ describe("TokenStatsView dashboard query", () => {
         expect(token_segment).toBeTruthy();
     });
 
-    it("fetches the next session page through onPageChange", async () => {
-        const page_2 = dashboard("page-2");
-        get_dashboard.mockResolvedValueOnce(dashboard("page-1")).mockResolvedValueOnce({
-            ...page_2,
-            sessions: {
-                items: [
-                    {
-                        session_id: "page-2",
-                        source: "claude_code" as const,
-                        env: "win" as const,
-                        title: "Session",
-                        directory: "/project",
-                        models: ["sonnet"],
-                        input_tokens: 100,
-                        output_tokens: 50,
-                        cache_read_tokens: 30,
-                        cache_write_tokens: 0,
-                        calls: 2,
-                        started_at: 1_000,
-                        ended_at: 1_500,
-                    },
-                ],
-                total: 101,
-                has_more: false,
-            },
+    it("fetches the next session page through the sessions channel without refetching the dashboard (t200)", async () => {
+        get_dashboard.mockResolvedValue(dashboard("page-1"));
+        get_dashboard_sessions.mockResolvedValue({
+            items: [
+                {
+                    session_id: "page-2",
+                    source: "claude_code" as const,
+                    env: "win" as const,
+                    title: "Session",
+                    directory: "/project",
+                    models: ["sonnet"],
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 30,
+                    cache_write_tokens: 0,
+                    calls: 2,
+                    started_at: 1_000,
+                    ended_at: 1_500,
+                },
+            ],
+            total: 101,
+            has_more: false,
         });
         render(<TokenStatsView />);
         const user = userEvent.setup();
@@ -414,11 +452,115 @@ describe("TokenStatsView dashboard query", () => {
 
         await user.click(screen.getByTestId("next-session-page"));
         await waitFor(() => {
-            expect(get_dashboard).toHaveBeenCalledTimes(2);
+            expect(get_dashboard_sessions).toHaveBeenCalledTimes(1);
         });
-        const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
+        const request = get_dashboard_sessions.mock.calls[0]?.[0] as TokenStatsDashboardQuery;
         expect(request.session_offset).toBe(100);
+        // Pagination never re-requests the full dashboard.
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
         expect(await screen.findByTestId("session-records")).toHaveTextContent("page-2");
+    });
+
+    it("AC3: a committed data-version bump drops the stale paged session page", async () => {
+        const v5 = dashboard("v5");
+        v5.data_version = 5;
+        const v6 = dashboard("v6");
+        v6.data_version = 6;
+        get_dashboard.mockResolvedValueOnce(v5).mockResolvedValueOnce(v6);
+        get_dashboard_sessions.mockResolvedValue({
+            items: [
+                {
+                    session_id: "page-2",
+                    source: "claude_code" as const,
+                    env: "win" as const,
+                    title: "Session",
+                    directory: "/project",
+                    models: ["sonnet"],
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 30,
+                    cache_write_tokens: 0,
+                    calls: 2,
+                    started_at: 1_000,
+                    ended_at: 1_500,
+                },
+            ],
+            total: 101,
+            has_more: false,
+        });
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        await user.click(screen.getByTestId("next-session-page"));
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("page-2");
+        });
+
+        act(() => {
+            updated_listener?.(6);
+        });
+        // The committed bump revalidates the dashboard; the paged list falls
+        // back to the fresh dashboard's first page instead of the stale rows
+        // (t200 AC3). A raced re-pull may fire once more, but never lands.
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("v6");
+        });
+        expect(screen.getByTestId("session-records")).not.toHaveTextContent("page-2");
+        expect(get_dashboard_sessions.mock.calls.length).toBeLessThanOrEqual(2);
+    });
+
+    it("AC3: custom range + committed bump drops the stale paged session page", async () => {
+        const v5 = dashboard("v5");
+        v5.data_version = 5;
+        const v6 = dashboard("v6");
+        v6.data_version = 6;
+        get_dashboard.mockResolvedValueOnce(v5).mockResolvedValue(v6);
+        get_dashboard_sessions.mockResolvedValue({
+            items: [
+                {
+                    session_id: "page-2",
+                    source: "claude_code" as const,
+                    env: "win" as const,
+                    title: "Session",
+                    directory: "/project",
+                    models: ["sonnet"],
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 30,
+                    cache_write_tokens: 0,
+                    calls: 2,
+                    started_at: 1_000,
+                    ended_at: 1_500,
+                },
+            ],
+            total: 101,
+            has_more: false,
+        });
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        // Switch to a custom range: preset=null, the range is pinned (no
+        // preset shift on updates), so only the onUpdated reset can drop the
+        // stale page.
+        await user.click(screen.getByTestId("apply-custom-range"));
+        await waitFor(() => {
+            expect(get_dashboard.mock.calls.length).toBeGreaterThanOrEqual(2);
+        });
+        await user.click(screen.getByTestId("next-session-page"));
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("page-2");
+        });
+
+        act(() => {
+            updated_listener?.(7);
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId("session-records")).toHaveTextContent("v6");
+        });
+        expect(screen.getByTestId("session-records")).not.toHaveTextContent("page-2");
+        expect(get_dashboard_sessions.mock.calls.length).toBeLessThanOrEqual(2);
     });
 
     it("keeps the newest filter when an older response resolves later", async () => {
