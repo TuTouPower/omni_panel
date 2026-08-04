@@ -2,5 +2,21 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t206",
+            "slug": "t204_model_filter_test_coverage",
+            "title": "t204 model 筛选测试覆盖补强",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t206_t204_model_filter_test_coverage"
+        }
+    ]
 }
