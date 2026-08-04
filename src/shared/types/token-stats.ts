@@ -182,6 +182,7 @@ export type TokenStatsHeatmapCell = z.infer<typeof tokenStatsHeatmapCellSchema>;
 export interface TokenStatsHeatmapFilters {
     agent?: "claude-code" | "opencode" | "kimi-code" | "grok";
     env?: TokenStatsEnv;
+    model?: string;
     start?: number;
     end?: number;
 }
@@ -204,6 +205,7 @@ export type TokenStatsHourBucket = z.infer<typeof tokenStatsHourBucketSchema>;
 export interface TokenStatsHourFilters {
     agent?: "claude-code" | "opencode" | "kimi-code" | "grok";
     env?: TokenStatsEnv;
+    model?: string;
     start?: number;
     end?: number;
 }
@@ -233,6 +235,7 @@ export type TokenStatsRollupRow = z.infer<typeof tokenStatsRollupRowSchema>;
 export interface TokenStatsRollupFilters {
     agent?: "claude-code" | "opencode" | "kimi-code" | "grok";
     env?: TokenStatsEnv;
+    model?: string;
     start?: number;
     end?: number;
 }
@@ -270,6 +273,7 @@ export const tokenStatsDashboardQuerySchema = z
         metric: tokenStatsDashboardMetricSchema,
         xaxis: tokenStatsDashboardXAxisSchema,
         gran: tokenStatsDashboardGranularitySchema,
+        model: z.string().max(200).optional(),
         dir_aliases: z.array(tokenStatsDashboardAliasSchema).max(20).optional(),
         model_aliases: z.array(tokenStatsDashboardAliasSchema).max(20).optional(),
         session_offset: z.number().int().nonnegative().max(100_000).safe().optional(),
@@ -367,12 +371,16 @@ export const tokenStatsDashboardChartDataSchema = z.object({
     rollup: z.array(tokenStatsRollupRowSchema),
 });
 
+/** Distinct model names present in the queried window (t204 model filter). */
+export const tokenStatsDashboardModelSchema = z.string().max(200);
+
 export const tokenStatsDashboardSessionsQuerySchema = z
     .object({
         agent: tokenStatsDashboardAgentSchema,
         platform: tokenStatsDashboardPlatformSchema,
         start: z.number().int().nonnegative().safe(),
         end: z.number().int().nonnegative().safe(),
+        model: z.string().max(200).optional(),
         dir_aliases: z.array(tokenStatsDashboardAliasSchema).max(20).optional(),
         model_aliases: z.array(tokenStatsDashboardAliasSchema).max(20).optional(),
         session_offset: z.number().int().nonnegative().max(100_000).safe().optional(),
@@ -411,6 +419,8 @@ export const tokenStatsDashboardDtoSchema = z.object({
     previous: tokenStatsDashboardSummarySchema,
     chart_data: tokenStatsDashboardChartDataSchema,
     heatmap: z.array(tokenStatsHeatmapCellSchema),
+    /** Distinct model names present in the queried window (t204). */
+    models: z.array(tokenStatsDashboardModelSchema).max(500),
     sessions: z.object({
         items: z.array(tokenStatsDashboardSessionSummarySchema).max(100),
         total: z.number().int().nonnegative(),

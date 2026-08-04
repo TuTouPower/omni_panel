@@ -213,6 +213,7 @@ export function create_web_usageboard(): UsageboardApi {
                 const params = new URLSearchParams();
                 if (filters?.agent) params.set("agent", filters.agent);
                 if (filters?.env) params.set("env", filters.env);
+                if (filters?.model) params.set("model", filters.model);
                 if (filters?.start !== undefined) params.set("start", String(filters.start));
                 if (filters?.end !== undefined) params.set("end", String(filters.end));
                 const qs = params.toString();
@@ -222,6 +223,7 @@ export function create_web_usageboard(): UsageboardApi {
                 const params = new URLSearchParams();
                 if (filters?.agent) params.set("agent", filters.agent);
                 if (filters?.env) params.set("env", filters.env);
+                if (filters?.model) params.set("model", filters.model);
                 if (filters?.start !== undefined) params.set("start", String(filters.start));
                 if (filters?.end !== undefined) params.set("end", String(filters.end));
                 const qs = params.toString();
@@ -231,6 +233,7 @@ export function create_web_usageboard(): UsageboardApi {
                 const params = new URLSearchParams();
                 if (filters?.agent) params.set("agent", filters.agent);
                 if (filters?.env) params.set("env", filters.env);
+                if (filters?.model) params.set("model", filters.model);
                 if (filters?.start !== undefined) params.set("start", String(filters.start));
                 if (filters?.end !== undefined) params.set("end", String(filters.end));
                 const qs = params.toString();
@@ -246,6 +249,9 @@ export function create_web_usageboard(): UsageboardApi {
                     xaxis: query.xaxis,
                     gran: query.gran,
                 });
+                if (query.model !== undefined) {
+                    params.set("model", query.model);
+                }
                 if (query.session_offset !== undefined) {
                     params.set("session_offset", String(query.session_offset));
                 }
@@ -267,6 +273,9 @@ export function create_web_usageboard(): UsageboardApi {
                     start: String(query.start),
                     end: String(query.end),
                 });
+                if (query.model !== undefined) {
+                    params.set("model", query.model);
+                }
                 if (query.session_offset !== undefined) {
                     params.set("session_offset", String(query.session_offset));
                 }

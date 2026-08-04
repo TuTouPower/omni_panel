@@ -104,6 +104,7 @@ interface TokenStatsPrefs {
     metric: Metric;
     xaxis: XAxis;
     gran: Granularity;
+    model: string;
 }
 
 interface TokenStatsQueryData {
@@ -216,6 +217,7 @@ export function TokenStatsView() {
     const [metric, setMetric] = useState<Metric>(saved.metric ?? "tokens");
     const [xaxis, setXaxis] = useState<XAxis>(saved.xaxis ?? "time");
     const [gran, setGran] = useState<Granularity>(saved.gran ?? "day");
+    const [model, setModel] = useState<string>(saved.model ?? "all");
     const [theme, setTheme] = useState<Theme>(readSavedTheme());
     const [dirAliases, setDirAliases] = useState<{ alias: string; dirs: string[] }[]>([]);
     const [modelAliases, setModelAliases] = useState<{ alias: string; models: string[] }[]>([]);
@@ -255,7 +257,7 @@ export function TokenStatsView() {
     // it shapes the returned bucket granularity).
     const display_ref = useRef({ metric, xaxis: effective_xaxis, gran: effective_gran });
     display_ref.current = { metric, xaxis: effective_xaxis, gran: effective_gran };
-    const range_refresh_key = `${agent}|${platform}`;
+    const range_refresh_key = `${agent}|${platform}|${model}`;
 
     const currentRange = useMemo(() => {
         void preset_range_revision;
@@ -273,10 +275,10 @@ export function TokenStatsView() {
         return { start: 0, end: Date.now() };
     }, [custom, preset, preset_range_revision, range_refresh_key]);
 
-    // Sessions reset with the dashboard data identity (agent/platform/range/
-    // gran/aliases), not display dims — paging within one window survives
+    // Sessions reset with the dashboard data identity (agent/platform/model/
+    // range/gran/aliases), not display dims — paging within one window survives
     // metric/xaxis switches (p029/t200).
-    const session_data_identity = `${agent}|${platform}|${String(currentRange.start)}|${String(currentRange.end)}|${effective_gran}|${alias_fingerprint}`;
+    const session_data_identity = `${agent}|${platform}|${model}|${String(currentRange.start)}|${String(currentRange.end)}|${effective_gran}|${alias_fingerprint}`;
     const last_session_data_identity = useRef<string | null>(null);
 
     const updatedAgo = useMemo(() => {
@@ -329,6 +331,7 @@ export function TokenStatsView() {
             const query_key: TokenStatsQueryKey = {
                 agent,
                 platform,
+                model,
                 range_start: currentRange.start,
                 range_end: currentRange.end,
                 query_mode: "dashboard",
@@ -355,6 +358,7 @@ export function TokenStatsView() {
                         metric: fetch_metric,
                         xaxis: fetch_xaxis,
                         gran: fetch_gran,
+                        ...(model !== "all" ? { model } : {}),
                         session_offset: 0,
                         session_limit: SESSION_QUERY_LIMIT,
                         ...(dirAliases.length
@@ -398,6 +402,7 @@ export function TokenStatsView() {
             alias_fingerprint,
             apply_query_data,
             currentRange,
+            model,
             dirAliases,
             effective_gran,
             modelAliases,
@@ -423,6 +428,7 @@ export function TokenStatsView() {
                 platform,
                 start: currentRange.start,
                 end: currentRange.end,
+                ...(model !== "all" ? { model } : {}),
                 session_offset,
                 session_limit: SESSION_QUERY_LIMIT,
                 ...(dirAliases.length
@@ -453,7 +459,7 @@ export function TokenStatsView() {
         return () => {
             active = false;
         };
-    }, [session_offset, agent, platform, currentRange, dirAliases, modelAliases]);
+    }, [session_offset, agent, platform, model, currentRange, dirAliases, modelAliases]);
 
     useEffect(() => {
         let active = true;
@@ -513,8 +519,8 @@ export function TokenStatsView() {
     }, [theme]);
 
     useEffect(() => {
-        save_prefs({ agent, platform, preset, metric, xaxis, gran });
-    }, [agent, platform, preset, metric, xaxis, gran]);
+        save_prefs({ agent, platform, preset, metric, xaxis, gran, model });
+    }, [agent, platform, preset, metric, xaxis, gran, model]);
 
     const currentSessionItems = useMemo(
         () => session_page?.items ?? dashboard?.sessions.items ?? [],
@@ -529,6 +535,15 @@ export function TokenStatsView() {
     const prevKpi = dashboard?.previous ?? { tokens: 0, sessions: 0, calls: 0 };
     const currentSummary = dashboard?.current;
     const previousSummary = dashboard?.previous;
+    // Model filter options: the window's distinct models plus the currently
+    // selected value (kept when the window no longer contains it).
+    const modelOptions = useMemo(() => {
+        const list: string[] = model === "all" ? [] : [model];
+        for (const m of dashboard?.models ?? []) {
+            if (!list.includes(m)) list.push(m);
+        }
+        return list;
+    }, [model, dashboard?.models]);
     const currentComp = currentSummary
         ? [
               {
@@ -650,6 +665,21 @@ export function TokenStatsView() {
                             setPlatform(v);
                         }}
                     />
+                    <select
+                        className="pgselect ts-model-select"
+                        aria-label="模型筛选"
+                        value={model}
+                        onChange={(e) => {
+                            setModel(e.target.value);
+                        }}
+                    >
+                        <option value="all">全部模型</option>
+                        {modelOptions.map((m) => (
+                            <option key={m} value={m}>
+                                {m}
+                            </option>
+                        ))}
+                    </select>
                     <Segmented
                         options={RANGE_OPTIONS}
                         value={preset}

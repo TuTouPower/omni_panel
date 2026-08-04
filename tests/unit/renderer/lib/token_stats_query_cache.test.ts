@@ -7,6 +7,7 @@ import {
 const key = (value: string, overrides: Partial<TokenStatsQueryKey> = {}): TokenStatsQueryKey => ({
     agent: "all",
     platform: "all",
+    model: "all",
     range_start: 1,
     range_end: 2,
     query_mode: value,
@@ -63,6 +64,7 @@ describe("token stats query cache", () => {
         const dimensions: Partial<TokenStatsQueryKey>[] = [
             { agent: "claude-code" },
             { platform: "win" },
+            { model: "sonnet" },
             { range_start: 3 },
             { range_end: 4 },
             { query_mode: "dashboard" },

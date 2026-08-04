@@ -130,6 +130,7 @@ function dashboard(
             ],
         },
         heatmap: [{ weekday: 1, hour: 9, calls: 2, sessions: 1, tokens: 180 }],
+        models: ["sonnet"],
         sessions: {
             items: [
                 {
@@ -396,6 +397,73 @@ describe("TokenStatsView dashboard query", () => {
         await user.click(screen.getByRole("button", { name: "全平台" }));
         await waitFor(() => expect(screen.getByTestId("session-records")).toHaveTextContent("all"));
         expect(get_dashboard).toHaveBeenCalledTimes(2);
+    });
+
+    it("lists window models in the filter dropdown and defaults to all (t204)", async () => {
+        const multi = dashboard("multi");
+        multi.models = ["opus", "sonnet"];
+        get_dashboard.mockResolvedValue(multi);
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        const select = screen.getByLabelText("模型筛选");
+        expect(select).toHaveValue("all");
+        const options = screen.getAllByRole("option").map((option) => option.textContent);
+        expect(options).toContain("全部模型");
+        expect(options).toContain("sonnet");
+        expect(options).toContain("opus");
+    });
+
+    it("selecting a model refetches the dashboard with the model and persists it (t204)", async () => {
+        const multi = dashboard("multi");
+        multi.models = ["opus", "sonnet"];
+        get_dashboard.mockResolvedValue(multi);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+        expect(get_dashboard).toHaveBeenCalledTimes(1);
+
+        await user.selectOptions(screen.getByLabelText("模型筛选"), "sonnet");
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+        const last_query = get_dashboard.mock.calls.at(-1)?.[0] as unknown as {
+            model?: string;
+        };
+        expect(last_query.model).toBe("sonnet");
+        // Prefs persisted: remounting keeps the model selection.
+        const prefs = JSON.parse(localStorage.getItem("token-stats-prefs") ?? "{}") as {
+            model?: string;
+        };
+        expect(prefs.model).toBe("sonnet");
+    });
+
+    it("model filter is part of the dashboard query cache key (t204)", async () => {
+        const multi = dashboard("multi");
+        multi.models = ["opus", "sonnet"];
+        get_dashboard.mockResolvedValue(multi);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        await user.selectOptions(screen.getByLabelText("模型筛选"), "sonnet");
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+        await user.selectOptions(screen.getByLabelText("模型筛选"), "opus");
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(3);
+        });
+        // Returning to sonnet hits the same cache entry (no refetch).
+        await user.selectOptions(screen.getByLabelText("模型筛选"), "sonnet");
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(3);
+        });
+        // Back to all — the initial all-model entry is cached, no refetch either.
+        await user.selectOptions(screen.getByLabelText("模型筛选"), "all");
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(3);
+        });
     });
 
     it("loads aliases once and does not reread config when filters change", async () => {

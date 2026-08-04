@@ -1,6 +1,7 @@
 export interface TokenStatsQueryKey {
     agent: string;
     platform: string;
+    model: string;
     range_start: number;
     range_end: number;
     query_mode: string;
@@ -52,6 +53,7 @@ export function create_token_stats_query_cache<T>(options: {
         JSON.stringify([
             query_key.agent,
             query_key.platform,
+            query_key.model,
             query_key.range_start,
             query_key.range_end,
             query_key.query_mode,

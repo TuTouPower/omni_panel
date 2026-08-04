@@ -557,6 +557,40 @@ describe("chart-data", () => {
             if (!point) throw new Error("expected point");
             expect(point[2]).toBe(4);
         });
+
+        it("splits positive values into 8 octile bands and excludes zeros (t205)", () => {
+            // 8 distinct positive values across 8 cells; quantiles must yield
+            // 7 octile boundaries strictly inside the positive range.
+            const cells: TokenStatsHeatmapCell[] = [];
+            for (let i = 0; i < 8; i++) {
+                cells.push(cell({ weekday: (i % 7) + 1, hour: i, tokens: (i + 1) * 10 }));
+            }
+            const { quantiles } = prepareHeatmapFromCells(cells, "tokens");
+            expect(quantiles).toHaveLength(7);
+            // Boundaries are ascending and within (min, max) of positives.
+            for (let i = 1; i < quantiles.length; i++) {
+                const prev = quantiles[i - 1];
+                const curr = quantiles[i];
+                if (prev === undefined || curr === undefined) throw new Error("missing boundary");
+                expect(curr).toBeGreaterThan(prev);
+            }
+            expect(Math.min(...quantiles)).toBeGreaterThanOrEqual(10);
+            expect(Math.max(...quantiles)).toBeLessThanOrEqual(80);
+        });
+
+        it("keeps cell values unchanged — banding does not alter data (t205 AC5)", () => {
+            const cells = [
+                cell({ weekday: 1, hour: 9, tokens: 100 }),
+                cell({ weekday: 2, hour: 10, tokens: 0 }),
+                cell({ weekday: 3, hour: 11, tokens: 50 }),
+            ];
+            const { data } = prepareHeatmapFromCells(cells, "tokens");
+            const vals = data
+                .filter(([, , v]) => v !== 0)
+                .map(([, , v]) => v)
+                .sort((a, b) => a - b);
+            expect(vals).toEqual([50, 100]);
+        });
     });
 
     // --- buckets/sessions-based aggregates (t164) ---

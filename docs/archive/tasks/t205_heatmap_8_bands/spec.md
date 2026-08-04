@@ -72,7 +72,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- ECharts piecewise 对不落在任何 piece 的值（0 值）的默认渲染色：`UNVERIFIED-SPIKE`，执行期渲染截图核实，未达预期时显式兜底。
+- ECharts piecewise 对不落在任何 piece 的值（0 值）的默认渲染色：已核实（s014）——ECharts 6.1.0 SVG renderer 下 0 值（无匹配 piece）默认 `fill="none"`（透明，透出网格背景 rect），`series.itemStyle.color` 与 `visualMap.outOfRange.color` 均不覆盖。去掉 0 值 piece 后 0 值格自动显示背景色，满足 AC1，无需显式兜底。
 
 ### 风险与回退
 

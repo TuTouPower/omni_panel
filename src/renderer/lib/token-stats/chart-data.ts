@@ -491,7 +491,8 @@ export function escapeHtml(text: string): string {
 export interface HeatData {
     data: [number, number, number][];
     max: number;
-    quantiles: { q1: number; q2: number; q3: number };
+    /** 7 octile boundaries (p12.5..p87.5) splitting positive values into 8 bands. */
+    quantiles: number[];
 }
 
 export function prepareHeatmapData(records: AgentSessionUsage[], metric: Metric): HeatData {
@@ -526,7 +527,7 @@ export function prepareHeatmapData(records: AgentSessionUsage[], metric: Metric)
     return build_heat_data(grid);
 }
 
-/** Turn a filled 7x24 grid into ECharts heatmap data + quantile bands. */
+/** Turn a filled 7x24 grid into ECharts heatmap data + octile bands. */
 function build_heat_data(grid: number[][]): HeatData {
     const data: [number, number, number][] = [];
     let max = 1;
@@ -536,8 +537,10 @@ function build_heat_data(grid: number[][]): HeatData {
             if (v > max) max = v;
         });
     });
-    // 5 bands: zero is its own band, non-zero values are split into 4 equal-count
-    // bands by quartile so each band carries roughly the same number of cells.
+    // 8 bands: zero renders as background (no piece covers it, see s014);
+    // positive values split into 8 equal-count bands by octile, so each band
+    // carries roughly the same number of cells and boundaries track the
+    // window's distribution rather than fixed thresholds (t205 AC3).
     const nonzero = data
         .map((d) => d[2])
         .filter((v) => v > 0)
@@ -552,15 +555,9 @@ function build_heat_data(grid: number[][]): HeatData {
         if (lo === hi) return vlo;
         return Math.floor(vlo + (vhi - vlo) * (idx - lo));
     };
-    return {
-        data,
-        max,
-        quantiles: {
-            q1: quantile(nonzero, 25),
-            q2: quantile(nonzero, 50),
-            q3: quantile(nonzero, 75),
-        },
-    };
+    // 7 interior octile boundaries: p12.5, p25, ..., p87.5.
+    const quantiles = Array.from({ length: 7 }, (_, i) => quantile(nonzero, 12.5 + i * 12.5));
+    return { data, max, quantiles };
 }
 
 /**

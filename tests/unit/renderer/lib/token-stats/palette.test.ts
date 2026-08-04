@@ -52,6 +52,16 @@ describe("palette", () => {
             expect(paletteFor("light")).toBe(PALETTES.light);
             expect(paletteFor("dark").other).not.toBe(paletteFor("light").other);
         });
+
+        it("exposes 8 ascending positive heat colors with no adjacent dupes (t205)", () => {
+            for (const theme of ["dark", "light"] as const) {
+                const heat = PALETTES[theme].heat;
+                expect(heat).toHaveLength(8);
+                for (let i = 1; i < heat.length; i++) {
+                    expect(heat[i]).not.toBe(heat[i - 1]);
+                }
+            }
+        });
     });
 
     describe("colorForTopModel", () => {
