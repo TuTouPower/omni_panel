@@ -441,10 +441,6 @@ export const tokenStatsDashboardDtoSchema = z.object({
 });
 
 export type TokenStatsDashboardAgent = z.infer<typeof tokenStatsDashboardAgentSchema>;
-export type TokenStatsDashboardPlatform = z.infer<typeof tokenStatsDashboardPlatformSchema>;
-export type TokenStatsDashboardMetric = z.infer<typeof tokenStatsDashboardMetricSchema>;
-export type TokenStatsDashboardXAxis = z.infer<typeof tokenStatsDashboardXAxisSchema>;
-export type TokenStatsDashboardGranularity = z.infer<typeof tokenStatsDashboardGranularitySchema>;
 export type TokenStatsDashboardQuery = z.infer<typeof tokenStatsDashboardQuerySchema>;
 export type TokenStatsDashboardNamedValue = z.infer<typeof tokenStatsDashboardNamedValueSchema>;
 export type TokenStatsDashboardSummary = z.infer<typeof tokenStatsDashboardSummarySchema>;

@@ -926,6 +926,42 @@ describe("chart-data", () => {
                 const total = data.series.reduce((sum, s) => sum + (s.data[p1_idx] ?? 0), 0);
                 expect(total).toBe(8);
             });
+
+            it("session 轴跨 env 同 session_id 不合并（p052）", () => {
+                // rollup_session_key 含 env：跨 env 同 session_id 是两个独立 category，
+                // 不再按裸 session_id 合并（t217 dashboard 已修，此处补 legacy 路径）。
+                const rows = [
+                    rollup_row({
+                        env: "win",
+                        session_id: "s1",
+                        title: "win-s",
+                        input_tokens: 10,
+                    }),
+                    rollup_row({
+                        env: "wsl",
+                        session_id: "s1",
+                        title: "wsl-s",
+                        input_tokens: 20,
+                    }),
+                ];
+                const data = prepareBarDataFromRollup(rows, "tokens", "session", "dark");
+                expect(data.labels).toHaveLength(2);
+                expect(data.labels).toContain("win-s");
+                expect(data.labels).toContain("wsl-s");
+            });
+
+            it("sessions metric 按含 env 的 session key 去重：跨 env 同 session_id 各计 1（p052）", () => {
+                const rows = [
+                    rollup_row({ env: "win", session_id: "s1", directory: "/p1" }),
+                    rollup_row({ env: "wsl", session_id: "s1", directory: "/p1" }),
+                ];
+                const data = prepareBarDataFromRollup(rows, "sessions", "project", "dark");
+                // 同 dir 下跨 env 的两个 session_key 各计 1 → 该 dir 列值 2。
+                const p1_idx = data.labels.indexOf("p1");
+                expect(p1_idx).toBeGreaterThanOrEqual(0);
+                const total = data.series.reduce((sum, s) => sum + (s.data[p1_idx] ?? 0), 0);
+                expect(total).toBe(2);
+            });
         });
     });
 

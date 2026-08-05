@@ -81,14 +81,12 @@ export function install_history_usageboard(get_config?: () => AppConfiguration) 
             onFocus: vi.fn(() => () => undefined),
         },
         buildInfo: {
-            get: vi
-                .fn()
-                .mockResolvedValue({
-                    version: "1.1.0",
-                    branch: "t211",
-                    commit: "abc",
-                    subject: "x",
-                }),
+            get: vi.fn().mockResolvedValue({
+                version: "1.1.0",
+                branch: "t211",
+                commit: "abc",
+                subject: "x",
+            }),
         },
     };
     (globalThis as unknown as { usageboard: unknown }).usageboard = usageboard;

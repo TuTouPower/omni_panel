@@ -805,6 +805,11 @@ function rollup_tokens(r: TokenStatsRollupRow): number {
     return r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
 }
 
+/** Session identity key for rollup rows（p052/t217：跨 env 同 session_id 不合并）。 */
+function rollup_session_key(r: TokenStatsRollupRow): string {
+    return `${r.source}|${r.env}|${r.session_id}`;
+}
+
 /** Token total value fn for rollup rows (mirrors sumTokensValue). */
 export const sumTokensRollup: (r: TokenStatsRollupRow) => number = (r) => rollup_tokens(r);
 
@@ -819,7 +824,7 @@ function rollup_group_metric(rows: TokenStatsRollupRow[], metric: Metric): numbe
     if (metric === "calls") {
         return rows.reduce((s, r) => s + r.calls, 0);
     }
-    return new Set(rows.map((r) => r.session_id)).size;
+    return new Set(rows.map((r) => rollup_session_key(r))).size;
 }
 
 /** Fixed source → agent label/color mapping (mirrors BUCKET_AGENT_*). */
@@ -981,10 +986,11 @@ export function prepareBarDataFromRollup(
         idxOf = (r) => dirs.indexOf(dir_key(r));
     } else {
         // Session axis: a session spans multiple rollup rows when it uses
-        // several models; merge per session_id, rank by token total, top 20.
-        const ranked = Object.entries(groupBy(rows, (r) => r.session_id))
-            .map(([session_id, rs]) => ({
-                session_id,
+        // several models; merge per rollup_session_key（p052：跨 env 同
+        // session_id 不合并），rank by token total, top 20.
+        const ranked = Object.entries(groupBy(rows, rollup_session_key))
+            .map(([key, rs]) => ({
+                key,
                 title: rs[0]?.title ?? "",
                 tokens: rs.reduce((sum, r) => sum + rollup_tokens(r), 0),
             }))
@@ -994,7 +1000,7 @@ export function prepareBarDataFromRollup(
             const t = s.title;
             return t.length > 7 ? `${t.slice(0, 7)}…` : t;
         });
-        idxOf = (r) => ranked.findIndex((s) => s.session_id === r.session_id);
+        idxOf = (r) => ranked.findIndex((s) => s.key === rollup_session_key(r));
     }
 
     const n = labels.length;
@@ -1009,7 +1015,7 @@ export function prepareBarDataFromRollup(
         if (!cell || !sessionSet) continue;
         const k = keyOf(r);
         if (metric === "sessions") {
-            (sessionSet[k] ??= new Set()).add(r.session_id);
+            (sessionSet[k] ??= new Set()).add(rollup_session_key(r));
         } else {
             cell[k] = (cell[k] ?? 0) + (metric === "tokens" ? rollup_tokens(r) : r.calls);
         }
@@ -1087,17 +1093,17 @@ export function prepareBarDataFromDashboardRollup(
     const model_resolver = build_resolver(
         modelAliases.map((a) => ({ alias: a.alias, keys: a.models })),
     );
-    const session_key = (row: TokenStatsRollupRow): string =>
-        `${row.source}|${row.env}|${row.session_id}`;
     const category_of = (row: TokenStatsRollupRow): string =>
-        xaxis === "project" ? directory_resolver(row.directory ?? "(unknown)") : session_key(row);
+        xaxis === "project"
+            ? directory_resolver(row.directory ?? "(unknown)")
+            : rollup_session_key(row);
     const category_totals = new Map<string, number>();
     const category_sessions = new Map<string, Set<string>>();
     for (const row of rows) {
         const category = category_of(row);
         if (metric === "sessions") {
             const sessions = category_sessions.get(category) ?? new Set<string>();
-            sessions.add(session_key(row));
+            sessions.add(rollup_session_key(row));
             category_sessions.set(category, sessions);
         } else {
             category_totals.set(category, (category_totals.get(category) ?? 0) + value_of(row));
@@ -1142,7 +1148,7 @@ export function prepareBarDataFromDashboardRollup(
             const session_cell = session_cells[index];
             if (!session_cell) continue;
             const sessions = session_cell[key] ?? new Set<string>();
-            sessions.add(session_key(row));
+            sessions.add(rollup_session_key(row));
             session_cell[key] = sessions;
         } else {
             cell[key] = (cell[key] ?? 0) + value_of(row);
