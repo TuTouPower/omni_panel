@@ -253,6 +253,15 @@ describe("PopupView collapse + height report", () => {
                 get: vi.fn().mockResolvedValue([]),
                 getBulk: vi.fn().mockResolvedValue({ series: [] }),
             },
+            sessionHistory: {
+                open: vi.fn().mockResolvedValue(undefined),
+                subscribe: vi.fn().mockResolvedValue({ subscribed: false }),
+                unsubscribe: vi.fn().mockResolvedValue({ unsubscribed: false }),
+                query: vi.fn().mockResolvedValue({ messages: [], next_cursor: null }),
+                recent: vi.fn().mockResolvedValue([]),
+                onMessagesUpdated: vi.fn(() => () => undefined),
+                onFocus: vi.fn(() => () => undefined),
+            },
             logs: { export: vi.fn() },
             log: vi.fn(),
             buildInfo: {

@@ -1,0 +1,3 @@
+这不是JSON行
+{"type":"user","uuid":"ok","message":{"role":"user","content":"合法行"},"timestamp":"2026-08-05T10:00:00.000Z"}
+{"type":"assistant","uuid":"trunc","message":{"role":"ass

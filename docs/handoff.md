@@ -1,12 +1,24 @@
 # handoff
 
-- 最后更新：2026-07-25
-- branch：`t111_config_fallback_p0_protection`
-- head_commit：`994139c7257b370cb6c0f0a7f91ab1012710586d`
-- 当前状态：t001-t111 全部 done（t047 dropped）；t112-t114 仍为 backlog，t112 已按用户要求暂停、未开始实现。
+- 最后更新：2026-08-05
+- branch：`t213_session_history_e2e`
+- head_commit：本分支 HEAD（`git log --grep "t213"` 查）
+- 当前状态：会话历史窗口功能链（t209 提取器 / t210 订阅服务 / t211 窗口 / t212 入口 / t213 收口）交付完成，链尾 `t213_session_history_e2e` 待整批合并 main。
 - 已知 bug：见 `docs/bugs.md`，所有条目均已记录「修复：」行——T029 per-account error（t084 spike close 评估完结，commit `311ee3d`）、OpenCode Go 添加账号无弹窗（t098，commit `3aabba4`）、监控重置 bell 仅 Tavily（t086，commit `cf8a55d`）、添加账号弹窗黑色横线（t087 评估 + t106 实施，commit `89dec60`）、task 索引序列化 CRLF/2 空格（`scripts/task.py`，commit `5484704`）、t099 宽度上限、t100 L2 折叠重置。
 - 大重构：t076 refresh-service / t077 main index / t078 PopupView 三轮拆分均 done（t089/t090/t091 后续拆分完成）。
 - 连接器迁移 ctx.status（原 t066 遗留）：t088 已完成（9 连接器删内联 helper）。
+
+## 2026-08-05 t209-t213 会话历史窗口功能链完成
+
+- branch：`t213_session_history_e2e`
+- head_commit：本分支 HEAD（`git log --grep "t213"` 查）
+- 内容：会话历史窗口功能链 t209→t213 全部交付。
+    - t209：四端会话历史消息提取器（claude_code JSONL / opencode SQLite / kimi wire.jsonl / grok chat_history.jsonl），正文提取 + 增量游标，全程只读。
+    - t210：主进程订阅/watcher 服务 + `SESSION_HISTORY_*` IPC 通道组 + 分页查询 + 会话定位器（WSL 自动探测）。
+    - t211：route `history` 分栏平铺窗口（最多 6 栏、超 6 模态、跨栏选择、Markdown 复制、分页、实时刷新、空态）。
+    - t212：会话历史打开入口与面板间导航（明细表 checkbox 批量 / 单击行、popup TitleBar、代理面板 header、窗口内返回跳转）；批量冷启动补发。
+    - t213：端到端验收 + 文档收口（architecture/domain/specs_index/handoff）。
+- 验证：各 task `pnpm test` 全量绿（存量 flaky p049/p051 隔离全绿）、typecheck/lint/build 通过；真实窗口人工验收项 [deploy] 留用户打包后实测（分栏/复制/超 6/空态/跨窗口聚焦/WSL 路径、四端真实会话、源文件只读）。
 
 ## 2026-07-24 t099 交接
 

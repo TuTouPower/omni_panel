@@ -52,6 +52,30 @@
 - 内容：(1) `TrendApi.get` 注释「返回长度=days、缺失日期填 null」已过时（t208 改 ≤max_points 桶、不填充）；(2) `observation-store.ts` 接口前置 docstring 与 t208 补充段表述矛盾；(3) `provider_account_row.test.tsx` 窗口选择器「切回缓存」断言用 `setTimeout(50)` 负向等待，CI flaky 风险，宜改用 `waitFor` 配合「调用次数未变」或伪时钟。
 - 处理：未开
 
+### p048 会话历史增量推送固定发往历史窗口（t210 遗留）
+
+- 来源：t210_code_f004
+- 内容：`session-history-ipc.ts` SUBSCRIBE 的 `on_update` 把增量消息发往 `history_window_controller.get_window()`（唯一历史窗口），未按「订阅方窗口」路由。当前架构下订阅只由历史窗口（t211）发起，agent route 明细表入口（t212）走 `SESSION_HISTORY_OPEN` 打开窗口而非内联订阅，故无实际推错场景。若未来某窗口在自身内嵌订阅（如明细表内联会话视图），需把订阅事件与发起窗口绑定后路由推送。
+- 处理：未开
+
+### p049 refresh-service 集成测试在整批并行下偶发超时（疑似 flaky）
+
+- 来源：t210 黑盒顺手发现
+- 内容：`tests/integration/scheduler/refresh-service.test.ts` 在整批 `pnpm test` 高并行负载下偶发失败，单文件隔离跑稳定 30/30 通过。失败形态：`preserves lastSuccess across consecutive failures` / `inserts stale observations` / `passes config.proxy.url` 5s 超时、`retries failing non-session connector 3 times` 得 4 次尝试。这些用例走真实 2s 重试定时器，负载高时循环跑不进 5s 窗口或额外触发一次。与 t210 无关（t210 未触 refresh-service）。处置方向：给这些用例提 timeout、改用伪时钟或缩小重试间隔，消除并行时序敏感。
+- 处理：未开
+
+### p050 grok 增量消息 id 从 0 重计与全量 id 冲突（t210 审阅发现，t209 域）
+
+- 来源：t210 code review 结论提示（t209 根因，建议 follow-up）
+- 内容：grok 提取器的增量 id 从 0 重计，与全量提取的 id（按行号全局计）冲突：订阅建立时全量提取得 id 如 `grok-0..N`，追加后增量第一条 id 又从 `grok-0` 起。HistoryMessage.id 用于窗口渲染 key 与分页，重复 id 会导致 React key 冲突 / 订阅去重异常。另 byte_offset 增量遇写入半行时游标越过该记录，该记录在增量通道丢失（renderer 5s 兜底可恢复）。修法：增量 id 改成全局行号（offset 对应的行索引），且半行容错（读到非法 JSON 行时回退一个行边界重读）。
+- 处理：未开
+
+### p051 整批并行下真实定时器集成测试偶发 5s 超时（系统性 flaky）
+
+- 来源：t211 黑盒顺手发现（p049 同类的更广表现）
+- 内容：`pnpm test` 高并行负载下，多个走真实定时器的集成/单测间歇 5s 超时或断言窗口被挤爆：refresh-service（重试循环、proxy resolver）、grok-oauth（5000ms）、secrets-store / file-vault（20 并发写 2s 窗口）、subscription-service（30ms 轮询 + 2s wait_for）。单文件隔离跑全部稳定通过，证明是负载敏感而非逻辑错误。分布每次不同、与改动文件无关。处置方向：给这些用例统一提 timeout / 改用伪时钟 / 缩小真实定时器间隔 / 限制 vitest 并行 worker 数。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

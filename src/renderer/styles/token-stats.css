@@ -273,6 +273,33 @@
     flex-wrap: wrap;
 }
 
+.token-stats .card h3 .table-actions {
+    margin-left: auto;
+}
+
+.token-stats .open-history-btn {
+    background: var(--ts-card);
+    border: 1px solid var(--ts-line);
+    color: var(--ts-text-2);
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.token-stats .open-history-btn:hover:not(:disabled) {
+    color: var(--ts-text);
+    border-color: var(--ts-accent, #7c6cf6);
+}
+
+.token-stats .open-history-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .token-stats .card h3.bar-chart-header {
     justify-content: flex-start;
     flex-wrap: nowrap;
@@ -418,6 +445,18 @@
 .token-stats thead th .arr {
     opacity: 0.5;
     font-family: var(--ts-mono);
+}
+
+.token-stats thead th.t-check,
+.token-stats tbody td.t-check {
+    width: 32px;
+    padding: 10px 6px 10px 10px;
+    text-align: center;
+    cursor: default;
+}
+
+.token-stats tbody tr {
+    cursor: pointer;
 }
 
 .token-stats tbody td {

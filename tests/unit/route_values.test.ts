@@ -36,16 +36,17 @@ describe("route values unified usage/setting/tray/agent", () => {
         expect(src).toContain('route: "agent"');
     });
 
-    it("renderer use-route VALID_ROUTES is a closed set over the four routes", () => {
+    it("renderer use-route VALID_ROUTES is a closed set over the five routes", () => {
         const src = read_source("src/renderer/hooks/use-route.ts");
-        expect(src).toContain('new Set(["usage", "setting", "agent", "tray"])');
+        expect(src).toContain('new Set(["usage", "setting", "agent", "tray", "history"])');
     });
 
-    it("App.tsx route->view switch consumes the four routes", () => {
+    it("App.tsx route->view switch consumes the five routes", () => {
         const src = read_source("src/renderer/App.tsx");
         expect(src).toContain('case "setting":');
         expect(src).toContain('case "tray":');
         expect(src).toContain('case "agent":');
+        expect(src).toContain('case "history":');
         expect(src).toContain("default:");
         expect(src).not.toContain('case "settings":');
         expect(src).not.toContain('case "popup":');

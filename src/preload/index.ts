@@ -2,13 +2,22 @@ import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_grok_oauth_apis, create_kimi_oauth_apis } from "./oauth_api";
 import { create_renderer_log_throttle } from "./log-throttle";
-import { select_grok_api, select_kimi_api, select_trend_api } from "./route_api";
+import {
+    select_grok_api,
+    select_kimi_api,
+    select_session_history_api,
+    select_trend_api,
+} from "./route_api";
 import { create_on_updated_subscriber } from "./token-stats-events";
 import type {
     UsageboardApi,
     ConnectorSnapshotDTO,
+    HistoryMessageLike,
     RendererLogPayload,
     RendererPlatform,
+    SessionHistoryLoc,
+    SessionHistoryMessagesUpdatedPayload,
+    SessionHistoryRecentItem,
     SessionLoginRequest,
     SessionLoginResult,
     TrendPoint,
@@ -182,6 +191,86 @@ const trend_full_methods = {
 const trend_disabled_methods = {
     get: (): Promise<(TrendPoint | null)[]> => Promise.resolve([]),
     getBulk: (): Promise<TrendBulkResponse> => Promise.resolve({ series: [] }),
+};
+
+// 会话历史（t210）：history/agent route 暴露真实 IPC，其余 route 用 disabled 栈。
+const session_history_full_methods = {
+    open: (source: string, env: string, session_id: string) =>
+        invoke<undefined>(IPC_CHANNELS.SESSION_HISTORY_OPEN, source, env, session_id),
+    subscribe: (source: string, env: string, session_id: string) =>
+        invoke<{ subscribed: boolean }>(
+            IPC_CHANNELS.SESSION_HISTORY_SUBSCRIBE,
+            source,
+            env,
+            session_id,
+        ),
+    unsubscribe: (source: string, env: string, session_id: string) =>
+        invoke<{ unsubscribed: boolean }>(
+            IPC_CHANNELS.SESSION_HISTORY_UNSUBSCRIBE,
+            source,
+            env,
+            session_id,
+        ),
+    query: (
+        source: string,
+        env: string,
+        session_id: string,
+        options?: { limit?: number; before_cursor?: unknown } | null,
+    ) =>
+        invoke<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }>(
+            IPC_CHANNELS.SESSION_HISTORY_QUERY,
+            source,
+            env,
+            session_id,
+            options ?? null,
+        ),
+    recent: (source: string, env: string, limit: number) =>
+        invoke<readonly SessionHistoryRecentItem[]>(
+            IPC_CHANNELS.SESSION_HISTORY_RECENT,
+            source,
+            env,
+            limit,
+        ),
+    onMessagesUpdated: (callback: (payload: SessionHistoryMessagesUpdatedPayload) => void) =>
+        subscribe<[SessionHistoryMessagesUpdatedPayload]>(
+            IPC_CHANNELS.SESSION_HISTORY_MESSAGES_UPDATED,
+            callback,
+        ),
+    onFocus: (callback: (loc: SessionHistoryLoc) => void) =>
+        subscribe<[SessionHistoryLoc]>(IPC_CHANNELS.SESSION_HISTORY_FOCUS, callback),
+};
+
+const session_history_disabled_methods = {
+    open: (): Promise<undefined> => Promise.resolve(undefined),
+    subscribe: (): Promise<{ subscribed: boolean }> => Promise.resolve({ subscribed: false }),
+    unsubscribe: (): Promise<{ unsubscribed: boolean }> => Promise.resolve({ unsubscribed: false }),
+    query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
+        Promise.resolve({ messages: [], next_cursor: null }),
+    recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
+    onMessagesUpdated: () => () => {
+        /* noop */
+    },
+    onFocus: () => () => {
+        /* noop */
+    },
+};
+
+// 会话历史（t212）：usage route（托盘 popup / 用量面板）仅暴露 open（打开/聚焦历史窗口），
+// 订阅与查询等数据通道保持 disabled，避免 popup 意外获得历史数据能力。
+const session_history_open_only_methods = {
+    open: (source: string, env: string, session_id: string) =>
+        invoke<undefined>(IPC_CHANNELS.SESSION_HISTORY_OPEN, source, env, session_id),
+    subscribe: (): Promise<{ subscribed: boolean }> => Promise.resolve({ subscribed: false }),
+    unsubscribe: (): Promise<{ unsubscribed: boolean }> => Promise.resolve({ unsubscribed: false }),
+    query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
+        Promise.resolve({ messages: [], next_cursor: null }),
+    recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
+    onMessagesUpdated: () => () => {
+        /* noop */
+    },
+    onFocus: () => () => {
+        /* noop */
+    },
 };
 
 // Read-only config (popup, tray)
@@ -392,6 +481,12 @@ const current_route = window.location.hash.slice(1) || "usage";
 const route_grok_api = select_grok_api(current_route, grok_readonly_methods, grok_methods);
 const route_kimi_api = select_kimi_api(current_route, kimi_readonly_methods, kimi_methods);
 const route_trend_api = select_trend_api(current_route, trend_full_methods, trend_disabled_methods);
+const route_session_history_api = select_session_history_api(
+    current_route,
+    session_history_full_methods,
+    session_history_open_only_methods,
+    session_history_disabled_methods,
+);
 
 // Build route-specific API: each window only gets capabilities it needs
 const api: UsageboardApi = (() => {
@@ -416,6 +511,7 @@ const api: UsageboardApi = (() => {
                 log: log_method,
                 tokenStats: token_stats_methods,
                 trend: route_trend_api,
+                sessionHistory: route_session_history_api,
                 buildInfo: build_info_methods,
             };
         case "tray":
@@ -453,6 +549,44 @@ const api: UsageboardApi = (() => {
                 log: log_method,
                 tokenStats: token_stats_methods,
                 trend: route_trend_api,
+                sessionHistory: route_session_history_api,
+                buildInfo: build_info_methods,
+            };
+        case "history":
+            // 会话历史窗口：只读 config；tokenStats（标题解析 / 最近 6 条）+ sessionHistory 真实 IPC。
+            return {
+                platform: renderer_platform,
+                connector: connector_methods,
+                plugin: connector_methods,
+                config: {
+                    ...config_readonly,
+                    save: async () => {
+                        /* no-op: history 只读 */
+                    },
+                    saveSecrets: async () => {
+                        /* no-op: history 只读 */
+                    },
+                    getSecrets: () => Promise.resolve({}),
+                    duplicate: () => Promise.resolve({ instanceId: "" }),
+                    createInstance: () => Promise.resolve({ instanceId: "" }),
+                    export: () => Promise.resolve({ saved: false }),
+                    import: () => Promise.resolve({ imported: false }),
+                },
+                event: event_methods,
+                popup: popup_methods,
+                main_panel: main_panel_methods,
+                theme: theme_methods,
+                settings: settings_methods,
+                tray: tray_methods,
+                auth: auth_methods,
+                session: session_disabled_methods,
+                grok: route_grok_api,
+                kimi: route_kimi_api,
+                logs: logs_methods,
+                log: log_method,
+                tokenStats: token_stats_methods,
+                trend: route_trend_api,
+                sessionHistory: route_session_history_api,
                 buildInfo: build_info_methods,
             };
         default: // popup
@@ -486,6 +620,7 @@ const api: UsageboardApi = (() => {
                 log: log_method,
                 tokenStats: token_stats_methods,
                 trend: route_trend_api,
+                sessionHistory: route_session_history_api,
                 buildInfo: build_info_methods,
             };
     }

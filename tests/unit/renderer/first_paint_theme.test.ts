@@ -13,7 +13,10 @@ describe("first-paint theme background", () => {
         expect(source).toContain(
             'const theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";',
         );
-        expect(source).toContain("?ou_theme=${theme}#${route}");
+        // URL 构造改为 query 数组拼接（支持 route_query 附加参数），
+        // 契约仍是：ou_theme 主题参数 + #route 路由 hash 出现在渲染 URL。
+        expect(source).toContain("ou_theme=${theme}");
+        expect(source).toContain("#${route}");
     });
 
     it("keeps settings hidden until the renderer has a first frame", () => {

@@ -73,9 +73,9 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- opencode `part` / `message` 表 `data` JSON 内 user/assistant 文本的确切字段路径：`UNVERIFIED-SPIKE`，执行期用真实 db 采样 dump 确认。
-- grok `updates.jsonl` 中用户输入与 assistant 输出的事件类型名与字段：`UNVERIFIED-SPIKE`，执行期采样确认。
-- kimi_code `wire.jsonl` 中 assistant 文本的事件形态（usage.record 之外的行型）：`UNVERIFIED-SPIKE`，执行期采样确认。
+- opencode `part`/`message` 表 `data` JSON 字段路径：已核实（s015）。`message.data.role`（user/assistant）+ `part.data{type:"text",text}`（过滤 tool/reasoning/step-\*/patch/compaction）；时间 `part.time_created`。
+- grok `updates.jsonl` 事件类型：已核实（s015）。**正文不在 updates.jsonl**（那只有 turn_completed usage），正文在 `chat_history.jsonl`，每行 `{type:"user|assistant|system|reasoning|tool_result", content}`（字符串或 `[{type:"text",text}]`）。**无顶层 timestamp**（按行序）。提取器读 chat_history.jsonl，非 updates.jsonl。
+- kimi_code `wire.jsonl` assistant 文本事件形态：已核实（s015）。`context.append_message.message.{role,content[type=text].text}` + 顶层 `time`；`turn.prompt` 重复 user 输入，取 append_message 去重。
 
 ### 风险与回退
 

@@ -15,6 +15,10 @@ interface SessionTableProps {
     totalRows?: number;
     loadedOffset?: number;
     onPageChange?: ((offset: number) => void) | undefined;
+    /** 单击行打开会话历史：传行 identity_key（source|env|session_id）。 */
+    onOpenSession?: ((identity_key: string) => void) | undefined;
+    /** 批量打开勾选会话：传勾选行的 identity_key 列表。 */
+    onOpenSelected?: ((identity_keys: readonly string[]) => void) | undefined;
 }
 const PAGE_SIZES = [10, 20, 50] as const;
 type PageSize = (typeof PAGE_SIZES)[number];
@@ -38,11 +42,15 @@ export function SessionTable({
     totalRows = input_rows.length,
     loadedOffset = 0,
     onPageChange,
+    onOpenSession,
+    onOpenSelected,
 }: SessionTableProps) {
     const [sortKey, setSortKey] = useState<SortKey>("tokens");
     const [sortDir, setSortDir] = useState<SortDir>(-1);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState<PageSize>(10);
+    // checkbox 选中态仅当前页有效，翻页清空（AC）。
+    const [checked, set_checked] = useState<ReadonlySet<string>>(() => new Set());
 
     const rows = useMemo(
         () => sortSessionRows(input_rows, sortKey, sortDir),
@@ -87,11 +95,15 @@ export function SessionTable({
             setSortDir(-1);
         }
         setPage(1);
+        // checkbox 选中态仅当前页有效，排序重置页后清空。
+        set_checked(new Set());
     };
 
     const go_to_page = (next_page: number): void => {
         const start = (next_page - 1) * pageSize;
         setPage(next_page);
+        // checkbox 选中态仅当前页有效。
+        set_checked(new Set());
         if (onPageChange && (start < loadedOffset || start >= loadedEnd)) {
             onPageChange(Math.floor(start / 100) * 100);
         }
@@ -101,11 +113,24 @@ export function SessionTable({
         <div className="card span-12">
             <h3>
                 会话明细 <span className="hint">点击表头排序</span>
+                <span className="table-actions">
+                    <button
+                        type="button"
+                        className="open-history-btn"
+                        disabled={checked.size === 0}
+                        onClick={() => {
+                            onOpenSelected?.([...checked]);
+                        }}
+                    >
+                        打开历史{checked.size > 0 ? ` (${String(checked.size)})` : ""}
+                    </button>
+                </span>
             </h3>
             <div className="tablewrap">
                 <table>
                     <thead>
                         <tr>
+                            <th className="t-check" aria-hidden="true" />
                             <SortHeader
                                 label="会话"
                                 k="title"
@@ -167,13 +192,42 @@ export function SessionTable({
                     <tbody>
                         {slice.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="empty">
+                                <td colSpan={9} className="empty">
                                     该筛选条件下暂无记录
                                 </td>
                             </tr>
                         ) : (
                             slice.map((r) => (
-                                <tr key={r.identity_key ?? r.session_id}>
+                                <tr
+                                    key={r.identity_key ?? r.session_id}
+                                    onClick={() => {
+                                        if (r.identity_key) onOpenSession?.(r.identity_key);
+                                    }}
+                                >
+                                    <td
+                                        className="t-check"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={checked.has(r.identity_key ?? r.session_id)}
+                                            onChange={() => {
+                                                const key = r.identity_key ?? r.session_id;
+                                                set_checked((prev) => {
+                                                    const next = new Set(prev);
+                                                    if (next.has(key)) {
+                                                        next.delete(key);
+                                                    } else {
+                                                        next.add(key);
+                                                    }
+                                                    return next;
+                                                });
+                                            }}
+                                            aria-label={`选择 ${r.title}`}
+                                        />
+                                    </td>
                                     <td className="t-title" title={r.title}>
                                         {r.title}
                                         <div
@@ -262,6 +316,8 @@ export function SessionTable({
                         onChange={(e) => {
                             setPageSize(Number(e.target.value) as PageSize);
                             setPage(1);
+                            // checkbox 选中态仅当前页有效。
+                            set_checked(new Set());
                         }}
                     >
                         {PAGE_SIZES.map((s) => (

@@ -18,6 +18,7 @@ import {
     create_token_stats_query_cache,
     type TokenStatsQueryKey,
 } from "../lib/token-stats/query-cache";
+import { is_web } from "../lib/is-web";
 import "../styles/token-stats.css";
 
 const MODULE = "TokenStatsView";
@@ -718,6 +719,18 @@ export function TokenStatsView() {
                     >
                         设置
                     </button>
+                    {!is_web() && (
+                        <button
+                            className="ts-nav-btn"
+                            type="button"
+                            onClick={() => {
+                                // 纯跳转入口：无具体会话，开/聚焦空窗。
+                                void window.usageboard.sessionHistory.open("", "", "");
+                            }}
+                        >
+                            到会话历史
+                        </button>
+                    )}
                 </div>
             </header>
 
@@ -874,6 +887,28 @@ export function TokenStatsView() {
                             totalRows={sessions_total}
                             loadedOffset={session_offset}
                             onPageChange={set_session_offset}
+                            onOpenSession={(identity_key) => {
+                                // identity_key = source|env|session_id；无管道分隔（session_id
+                                // 兜底）时丢弃，避免拆出非法 source 打开错误会话。
+                                const parts = identity_key.split("|");
+                                if (parts.length !== 3) return;
+                                void window.usageboard.sessionHistory.open(
+                                    parts[0] ?? "",
+                                    parts[1] ?? "",
+                                    parts[2] ?? "",
+                                );
+                            }}
+                            onOpenSelected={(keys) => {
+                                for (const key of keys) {
+                                    const parts = key.split("|");
+                                    if (parts.length !== 3) continue;
+                                    void window.usageboard.sessionHistory.open(
+                                        parts[0] ?? "",
+                                        parts[1] ?? "",
+                                        parts[2] ?? "",
+                                    );
+                                }
+                            }}
                         />
                     </div>
                 </>

@@ -64,11 +64,23 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         showWhenReady: true,
         roundedCorners: true,
     },
+    history: {
+        route: "history",
+        width: 1000,
+        height: 720,
+        frame: true,
+        show: false,
+        showWhenReady: true,
+        roundedCorners: true,
+    },
 };
 
 export interface WindowManager {
-    createWindowFor(key: string, options?: { load?: boolean }): BrowserWindow;
-    getRendererUrl(route: string): string;
+    createWindowFor(
+        key: string,
+        options?: { load?: boolean; route_query?: Record<string, string> },
+    ): BrowserWindow;
+    getRendererUrl(route: string, route_query?: Record<string, string>): string;
 }
 
 /**
@@ -87,16 +99,26 @@ export function createWindowManager(opts: {
      * because its resolution depends on the app root, not window logic. */
     rendererIndexPath: string;
 }): WindowManager {
-    function getRendererUrl(route: string): string {
+    function getRendererUrl(route: string, route_query?: Record<string, string>): string {
         const theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
+        const query_parts: string[] = [`ou_theme=${theme}`];
+        if (route_query) {
+            for (const [k, v] of Object.entries(route_query)) {
+                query_parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+            }
+        }
+        const query = query_parts.join("&");
         const devServerUrl = process.env["ELECTRON_RENDERER_URL"];
         if (devServerUrl) {
-            return `${devServerUrl}?ou_theme=${theme}#${route}`;
+            return `${devServerUrl}?${query}#${route}`;
         }
-        return `file://${opts.rendererIndexPath}?ou_theme=${theme}#${route}`;
+        return `file://${opts.rendererIndexPath}?${query}#${route}`;
     }
 
-    function createWindowFor(key: string, options: { load?: boolean } = {}): BrowserWindow {
+    function createWindowFor(
+        key: string,
+        options: { load?: boolean; route_query?: Record<string, string> } = {},
+    ): BrowserWindow {
         const cfg = WINDOW_CONFIGS[key];
         if (!cfg) throw new Error(`Unknown window: ${key}`);
         log.info(`Creating window: ${key} (${String(cfg.width)}x${String(cfg.height)})`);
@@ -142,11 +164,13 @@ export function createWindowManager(opts: {
             win.setMenuBarVisibility(false);
         }
         if (options.load !== false) {
-            void win.loadURL(getRendererUrl(cfg.route)).catch((err: unknown) => {
-                log.error(
-                    `loadURL failed for ${key}: ${err instanceof Error ? err.message : String(err)}`,
-                );
-            });
+            void win
+                .loadURL(getRendererUrl(cfg.route, options.route_query))
+                .catch((err: unknown) => {
+                    log.error(
+                        `loadURL failed for ${key}: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                });
         }
         if (cfg.showWhenReady && options.load !== false) {
             win.once("ready-to-show", () => {

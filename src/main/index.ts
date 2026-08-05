@@ -60,6 +60,12 @@ import { registerGrokAuthIpc } from "./ipc/grok_auth_ipc";
 import { registerKimiAuthIpc } from "./ipc/kimi_auth_ipc";
 import { registerTokenStatsIpc } from "./ipc/token-stats-ipc";
 import { registerTrendIpc } from "./ipc/trend-ipc";
+import { registerSessionHistoryIpc } from "./ipc/session-history-ipc";
+import {
+    SessionHistorySubscriptionService,
+    type Env,
+} from "./core/session-history/subscription-service";
+import { create_history_window_controller } from "./core/main-panel/history-window-controller";
 import { create_token_stats_store } from "./core/token-stats/token-stats-store";
 import { create_token_stats_manager } from "./core/token-stats/manager";
 import { create_token_stats_query_dispatcher } from "./core/token-stats/query-dispatcher";
@@ -341,6 +347,55 @@ void app.whenReady().then(async () => {
             manager: tokenStatsManager,
             dispatcher: tokenStatsQueryDispatcher,
         });
+        // t210: 会话历史订阅服务 + 历史窗口 singleton controller。
+        // watcher 触发时通过 SESSION_HISTORY_MESSAGES_UPDATED 把增量推到历史窗口；
+        // 历史窗口关闭时 unsubscribe_all 释放全部 watcher 句柄（AC5）。
+        const session_history_service = new SessionHistorySubscriptionService();
+        const history_window_controller = create_history_window_controller({
+            create_window: (loc) => {
+                // 首次创建时经 URL query 传初始定位参数，renderer 启动同步读（见
+                // spec 上下文区已核实契约；window 已存在时走 send_focus，不重复传）。
+                const win = windowManager.createWindowFor(
+                    "history",
+                    loc ? { route_query: { loc: JSON.stringify(loc) } } : {},
+                );
+                win.on("closed", () => {
+                    session_history_service.unsubscribe_all();
+                });
+                return win;
+            },
+        });
+        // 会话历史 IPC 通道组。sessions_provider 把 token-stats store 的
+        // query_sessions 结果映射为 SessionRow（服务层不依赖 store 类型）。
+        registerSessionHistoryIpc(ipcMain, {
+            service: session_history_service,
+            history_window_controller,
+            // WSL 配置与 token-stats collector 同源：显式值优先，空串由 locator 自动探测。
+            locator_paths: {
+                win_home: homedir(),
+                wsl_distro: currentConfigSnapshot.tokenStats?.wslDistro ?? "Ubuntu-22.04",
+                wsl_user: currentConfigSnapshot.tokenStats?.wslUser ?? "",
+            },
+            sessions_provider: (source, env) =>
+                tokenStatsStore.query_sessions({ source, env }).map((s) => ({
+                    id: s.id,
+                    source: s.source,
+                    env: s.env,
+                    title: s.title,
+                    model: s.model,
+                    started_at: s.started_at,
+                    ended_at: s.ended_at,
+                })),
+        });
+        ipcMain.handle(
+            IPC_CHANNELS.SESSION_HISTORY_OPEN,
+            (_event, source: string, env: string, session_id: string) => {
+                // 幂等（AC）：已开则聚焦并定位，未开则创建并带初始定位参数。
+                // t212：纯跳转入口（无具体会话）传空 source，只开/聚焦空窗。
+                const loc = source ? { source, env: env as Env, session_id } : undefined;
+                history_window_controller.open_or_focus(loc);
+            },
+        );
         registerTrendIpc(ipcMain, { store: observationStore });
         const onConfigSaved = (updatedConfig: AppConfiguration): void => {
             const previousConfig = currentConfigSnapshot;
@@ -954,6 +1009,8 @@ void app.whenReady().then(async () => {
                 settingsWin = null;
             }
             agent_window_controller.shutdown();
+            history_window_controller.shutdown();
+            session_history_service.unsubscribe_all();
             main_panel_controller?.close_for_mode_switch();
             main_panel_controller = null;
             orchestrator.shutdown();

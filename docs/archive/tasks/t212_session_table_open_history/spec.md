@@ -73,7 +73,9 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 托盘 popup 的 `TitleBar` 在不同模式（popup / floating / web）下「会话历史」按钮的展示约束（现有代理面板按钮仅 `is_web()` 渲染）：`UNVERIFIED-SPIKE`，执行期参照 `TitleBar` 现有条件渲染逻辑确认展示时机。
+- 托盘 popup 的 `TitleBar` 在不同模式（popup / floating / web）下「会话历史」按钮的展示约束：已核实，结论如下。验证方式：读 `src/web/usageboard-web.ts` 与 `src/preload/index.ts` 的 API 分权实现。
+    - `src/web/usageboard-web.ts` 的 `sessionHistory.open` 是 no-op stub（`() => Promise.resolve()`），web 版无真实 IPC 通道；`src/preload/index.ts` 的 `session_history_disabled_methods.open` 同样 no-op，`select_session_history_api` 仅在 history / agent route 返回 full 方法（history route 注释确认会话历史窗口是真实 IPC）。
+    - 结论：桌面模式（popup / floating）`sessionHistory.open` 是真实 IPC，按钮显示；web 模式是死按钮，按钮隐藏。守卫用 `!is_web()`，与现有「代理面板」按钮（`is_web()`，web 下经 tokenStats.open 进代理面板）相反。历史窗口打开为只读，不依赖 `is_live`。
 
 ### 风险与回退
 

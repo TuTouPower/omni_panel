@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -45,11 +45,13 @@ vi.mock("../../../../src/renderer/components/token-stats/SessionTable", () => ({
         totalRows,
         loadedOffset,
         onPageChange,
+        onOpenSession,
     }: {
         rows: { session_id: string }[];
         totalRows?: number;
         loadedOffset?: number;
         onPageChange?: (offset: number) => void;
+        onOpenSession?: (identity_key: string) => void;
     }) => (
         <div data-testid="session-records">
             {rows.map((row) => row.session_id).join(",")}
@@ -63,6 +65,15 @@ vi.mock("../../../../src/renderer/components/token-stats/SessionTable", () => ({
                 }}
             >
                 next-page
+            </button>
+            <button
+                type="button"
+                data-testid="open-session-row"
+                onClick={() => {
+                    onOpenSession?.("claude_code|win|initial");
+                }}
+            >
+                open-session
             </button>
         </div>
     ),
@@ -176,6 +187,7 @@ describe("TokenStatsView dashboard query", () => {
     const get_rollup = vi.fn();
     const get_dashboard_sessions = vi.fn();
     const get_config = vi.fn();
+    const open_history = vi.fn();
     let updated_listener: ((dataVersion: number) => void) | null = null;
 
     beforeEach(() => {
@@ -189,6 +201,8 @@ describe("TokenStatsView dashboard query", () => {
         get_rollup.mockReset();
         get_dashboard_sessions.mockReset();
         get_config.mockReset();
+        open_history.mockReset();
+        open_history.mockResolvedValue(undefined);
         updated_listener = null;
         mocked_bar_chart.props = null;
         mocked_heatmap.props = null;
@@ -218,6 +232,7 @@ describe("TokenStatsView dashboard query", () => {
             config: { get: get_config },
             event: { onConfigChange: vi.fn(() => vi.fn()) },
             log: vi.fn(),
+            sessionHistory: { open: open_history },
         } as unknown as typeof window.usageboard;
     });
 
@@ -751,5 +766,34 @@ describe("TokenStatsView dashboard query", () => {
         const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
         expect(request.dir_aliases).toEqual([{ alias: "A", keys: ["/p"] }]);
         expect(request.model_aliases).toEqual([{ alias: "M", keys: ["sonnet"] }]);
+    });
+
+    it("opens the session history window from the header nav button", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        fireEvent.click(screen.getByRole("button", { name: /到会话历史/ }));
+
+        expect(open_history).toHaveBeenCalledWith("", "", "");
+    });
+
+    it("hides the session-history nav button in web mode (dead-button convention)", async () => {
+        document.documentElement.dataset["web"] = "1";
+        try {
+            render(<TokenStatsView />);
+            await screen.findByTestId("session-records");
+            expect(screen.queryByRole("button", { name: /到会话历史/ })).toBeNull();
+        } finally {
+            delete document.documentElement.dataset["web"];
+        }
+    });
+
+    it("opens the session history window from a session row click", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        fireEvent.click(screen.getByTestId("open-session-row"));
+
+        expect(open_history).toHaveBeenCalledWith("claude_code", "win", "initial");
     });
 });

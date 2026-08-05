@@ -93,3 +93,14 @@ token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` /
 - 不做系统钥匙串/safeStorage（自管 Vault，见 `specs/secret-vault.md` 威胁模型）。
 - 用户自定义连接器在 `node:vm` 沙箱执行（t095 开放 `userData/connectors` 自定义脚本），`node:vm` 非真隔离，见 `architecture.md` §6 已知限制；用户自负脚本风险，文档 `guides/custom-connector.md` 标注约束。
 - 界面语言切换、检查更新、问卷、赞助入口当前为占位，未落地实现。
+
+## 会话历史消息提取（t209）
+
+四端（claude_code/opencode/kimi_code/grok）会话历史窗口的消息正文提取，来源与裁剪规则（需求决策 2/13，spike s015、finding d017）：
+
+- claude_code：`~/.claude/projects/<proj>/<sess>.jsonl`，每行 `{type:"user|assistant|...",message:{content},uuid,timestamp}`；只取 user/assistant 的 content 中 `type==="text"` 段，剔 thinking/tool_use/tool_result/system/summary。决策 13：只读主 transcript，不读 agent-\*.jsonl。
+- opencode：`~/.local/share/opencode/opencode.db` SQLite，`message.data.role` 关联 `part.data{type:"text",text}`，过滤 tool/reasoning/step-\*/patch/compaction；时间 `part.time_created`。
+- kimi_code：`~/.kimi-code/.../wire.jsonl` 的 `context.append_message.message.{role,content[type=text]}` + 顶层 `time`；`turn.prompt` 与 append_message 重复 user 输入，取 append_message 去重。
+- grok：**正文在 `chat_history.jsonl`（WSL `~/.grok/sessions/<enc_cwd>/<sess>/`），非 `updates.jsonl`**（后者只 turn_completed usage 元数据）。每行 `{type:"user|assistant|system|reasoning|tool_result",content}`，**无顶层 timestamp**（按行序）。
+
+统一模型 `HistoryMessage{id,role,text,timestamp|null}`；增量游标 byte_offset（JSONL 端）或 sqlite_rowid（opencode）。硬约束：对会话源文件全程只读；提取器对新行型一律跳过（宁可漏不可错），窗口层空态兜底。

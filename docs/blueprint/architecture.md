@@ -160,6 +160,31 @@ open_or_focus（重开）   → show_panel()
 模式切换 / 退出流程     → close()            （AC4：仍按关闭重建语义）
 ```
 
+### 4.4 会话历史订阅 / watcher 服务（t210）
+
+会话历史窗口（t211）只对**被打开的会话**高频刷新，其余维持 token-stats 10 分钟轮询。主进程 `SessionHistorySubscriptionService` 维护订阅表 `(source, env, session_id)` → 单个源文件监听器：
+
+- 监听策略（决策 5）：win 本地 claude_code JSONL 用 `fs.watch`；WSL 9P 路径（claude_code/kimi/grok）与 opencode SQLite db 退化为 2s mtime 轮询。`fs.watch` 不可用（文件未出现等）自动退化轮询。
+- 订阅即做一次全量提取建立增量游标；watcher 触发 → t209 增量提取 → `SESSION_HISTORY_MESSAGES_UPDATED` 推送增量（只含新增）。
+- 主动查询 `SESSION_HISTORY_QUERY` 全量提取 + 内存切片分页（决策 17 后端部分）：分页游标编码「已返回页最早消息在追加型数组中的绝对下标」（append-only 前缀跨追加稳定，空/重复消息 id 不跳段）。
+- 全程只读（硬约束）：服务层与提取器不开写句柄；注销 / 窗口关闭 `unsubscribe_all` 释放全部 watcher / 轮询句柄。
+- 历史窗口 singleton `HistoryWindowController`（对齐 `create_agent_window_controller`）：`SESSION_HISTORY_OPEN` 幂等——已开则 show+focus+定位，未开则创建并经 URL `route_query` 携带初始定位参数（renderer 启动读），`did-finish-load` 补发兜底创建窗口期丢失的定位。
+- 会话源文件定位 `session-locator`：`(source, env, session_id)` → 源文件 / db 路径；WSL 用户名优先取 `tokenStats.wslUser` 显式配置，空串自动探测 `\\wsl.localhost\<distro>\home` 第一目录（对齐 collector）。
+
+### 4.5 会话历史窗口（t211）
+
+route `history` 单窗口分栏平铺（决策 3）：最多 6 栏，1~2 会话单列整行、3~6 两列网格，栏内容区独立滚动；栏头 = agent + 标题 + 关闭 ×，顶部工具栏 = 清空全部 + 全局复制（含总选中数）+ N/6 + 最近 6 条。
+
+- **打开与定位**：明细表（t212）/ onFocus 事件经 `SESSION_HISTORY_OPEN` 打开窗口；renderer 读 URL `loc` query 或收 `SESSION_HISTORY_FOCUS` 定位。最近 6 条复用 `tokenStats.getSessions({ limit: 6 })`。
+- **打开入口与面板间导航（t212）**：会话历史窗口可从明细表单击行 / 勾选批量「打开历史」、popup TitleBar「会话历史」、代理面板 header「到会话历史」打开；窗口内「用量面板」/「代理面板」返回跳转。纯跳转入口（无具体会话）调 `sessionHistory.open("", "", "")`，主进程 `open_or_focus(undefined)` 只开/聚焦空窗；明细表批量打开传 `identity_key`（`source|env|session_id`）。**批量冷启动补发**：创建窗口期连续 OPEN 的定位由 controller 的 `pending_locs` 缓冲（`webContents.send` 在 loadURL 途中被丢弃），`did-finish-load` 后按序统一补发并按 key 去重。
+- **超 6 处理（决策 4）**：打开第 7 个弹模态框列出现有 6 个会话（agent + 标题 + 打开时间），用户至少关 1 个才入栏，可取消。容量检查用同步 `opened_count_ref`（React 19 批处理下 render-fresh ref 在批量 open 循环内会 stale，超 6 直接挂载）。
+- **消息选择（决策 8）**：hover checkbox 跨栏选择，选中集按 `loc_key|message_id` 存 renderer、跨刷新保留；栏头「已选 N 条 / 全选本栏 / 清除本栏」。
+- **复制（决策 9/10）**：顶部一次复制所有栏选中，`build_copy_markdown` 从原始消息生成（按栏打开顺序分节、`## 会话：标题（agent · 日期）` + `---` 隔离、角色 `**用户**` / `**Agent 名**`、节内时间升序），按钮变「已复制 ✓」1.5s。
+- **消息渲染（决策 11）**：纯文本 + `<pre>` 保留换行缩进，零新依赖；时间戳显示到分钟、悬停完整时间。
+- **空态（决策 12）**：源文件缺失栏显示「该会话的原始记录文件不存在或已删除」，不阻断其他栏。
+- **分页（决策 17）**：初始最近 200 条，向上滚动加载更早（游标分页 + 并发锁 + 前置 scrollTop 锚定），新增消息追加尾部不打断滚动位置。
+- **实时刷新（决策 5/6）**：栏打开 subscribe、栏关/清空/窗口卸载 unsubscribe；`SESSION_HISTORY_MESSAGES_UPDATED` 推送按 loc 合并去重追加；5s 兜底 interval 对 ready 栏 query 尾部合并（函数式 setState，避免与推送交错竞态）。
+
 - **降级与恢复**：renderer `useNowTick` 监听 `document.visibilityState`，隐藏期间前台计时器暂停推进，`visibilitychange` 回可见时立即刷新；不破坏后台仍需的订阅。隐藏窗口占用的渲染进程保留（Windows 实测 work set 内存保留、无 CPU 增量，见 s010）。
 - **边界**：`apply_config_change` 模式切换仍 `close_for_mode_switch` → 重建；配置变更、电源恢复、托盘打开等既有路径行为不变。
 
@@ -177,6 +202,7 @@ open_or_focus（重开）   → show_panel()
 - **厂商子表单实现**：grok 与 kimi 的添加账号表单由 `OAuthDeviceForm` 实现 device-code 登录流程，表单按 `vendor` prop（"grok" | "kimi"）选用对应 `useGrokDeviceLogin` / `useKimiDeviceLogin` hook；opencode_go 的添加账号表单由 `WebLoginForm` 实现网页登录流程（t109/t112）。device-code 登录在 temp instance id 下完成；real instance 的 OAuth 三键持久化成功后才清理 temp namespace，清理异常必须传回调用方而不能标记添加成功。完整密钥白名单与流程见 `specs/connector-auth.md`（t159）。
 - **config-store 损坏处理（t111）**：主文件 schema 失败、空文件/仅空白字符、IO 错误等非 ENOENT 情况均不 fallback 到 `DEFAULT_CONFIGURATION`；ENOENT 时仅当配置目录不存在才返回 defaults 并允许 auto_seed，目录存在但 `config.json` 缺失视为异常抛错。`writeFileAtomic` 采用 tmp → `fsync` → `close` → `rename` 顺序，避免进程强杀后产生 null padding。
 - **IPC 边界**：renderer 只能调 `window.usageboard.*` 白名单，按 route（usage/setting/tray/agent）分权。
+- **会话历史 IPC 通道组（t210，决策 15）**：`SESSION_HISTORY_OPEN`（打开/聚焦历史窗口 + 定位）、`SUBSCRIBE`/`UNSUBSCRIBE`（watcher 生命周期）、`QUERY`（全量/分页）、`RECENT`（最近会话，按 ended_at 降序）、推送 `MESSAGES_UPDATED` / `FOCUS`。preload 按 route 分权（t212 三档）：`history` / `agent` 暴露全量真实 IPC；`usage`（托盘 popup / 用量面板）仅暴露 `open`（打开/聚焦窗口，订阅查询保持 noop）；其余 route 用 noop 栈。OPEN handler 在 `main/index.ts` 单点注册（fire-and-forget，无 IpcResult 包装）。
 - **用量窗口宽度**：usage 窗口仅有 472px 最小宽度；floating 持久化宽度最多为所在 display 的 `workArea.width`，popup 不设固定最大宽度。
 
 ## 6. 与旧 SPEC 的关键差异 & 已知限制

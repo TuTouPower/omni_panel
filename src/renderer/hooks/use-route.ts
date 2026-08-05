@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 
 const MODULE = "use-route";
 
-const VALID_ROUTES = new Set(["usage", "setting", "agent", "tray"]);
+const VALID_ROUTES = new Set(["usage", "setting", "agent", "tray", "history"]);
 
 function normalize_hash(raw: string): string {
     return VALID_ROUTES.has(raw) ? raw : "usage";

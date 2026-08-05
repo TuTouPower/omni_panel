@@ -123,6 +123,17 @@ export const IPC_CHANNELS = {
     TOKEN_STATS_UPDATED: "tokenStats:updated",
     TOKEN_STATS_OPEN: "tokenStats:open",
 
+    /** t210: 会话历史 IPC 通道组（决策 15）。 */
+    SESSION_HISTORY_OPEN: "sessionHistory:open",
+    SESSION_HISTORY_SUBSCRIBE: "sessionHistory:subscribe",
+    SESSION_HISTORY_UNSUBSCRIBE: "sessionHistory:unsubscribe",
+    SESSION_HISTORY_QUERY: "sessionHistory:query",
+    SESSION_HISTORY_RECENT: "sessionHistory:recent",
+    /** 推送事件：watcher 检测到变化 → renderer。 */
+    SESSION_HISTORY_MESSAGES_UPDATED: "sessionHistory:messagesUpdated",
+    /** OPEN 聚焦已开窗口时，把目标会话定位发到 renderer。 */
+    SESSION_HISTORY_FOCUS: "sessionHistory:focus",
+
     /** E2E only — triggers the system tray click handler programmatically. */
     TEST_TRAY_CLICK: "test:tray-click",
 
@@ -328,6 +339,63 @@ export interface RendererLogPayload {
     meta?: unknown;
 }
 
+/** 会话历史定位三元组（与 SessionLoc 一致，IPC 边界使用宽松 string 形态）。 */
+export interface SessionHistoryLoc {
+    readonly source: string;
+    readonly env: string;
+    readonly session_id: string;
+}
+
+/** 推到 renderer 的增量消息事件载荷。 */
+export interface SessionHistoryMessagesUpdatedPayload extends SessionHistoryLoc {
+    readonly messages: readonly HistoryMessageLike[];
+}
+
+/** preload→main 的 sessionHistory API 面（route 受限）。 */
+export interface SessionHistoryApi {
+    open(source: string, env: string, session_id: string): Promise<void>;
+    subscribe(source: string, env: string, session_id: string): Promise<{ subscribed: boolean }>;
+    unsubscribe(
+        source: string,
+        env: string,
+        session_id: string,
+    ): Promise<{ unsubscribed: boolean }>;
+    query(
+        source: string,
+        env: string,
+        session_id: string,
+        options?: { limit?: number; before_cursor?: unknown } | null,
+    ): Promise<{
+        messages: readonly HistoryMessageLike[];
+        next_cursor: unknown;
+    }>;
+    recent(
+        source: string,
+        env: string,
+        limit: number,
+    ): Promise<readonly SessionHistoryRecentItem[]>;
+    onMessagesUpdated(
+        callback: (payload: SessionHistoryMessagesUpdatedPayload) => void,
+    ): () => void;
+    onFocus(callback: (loc: SessionHistoryLoc) => void): () => void;
+}
+
+/** 历史消息的最小形态（renderer 端类型，避免直接 import main 的 HistoryMessage）。 */
+export interface HistoryMessageLike {
+    readonly id: string;
+    readonly role: "user" | "assistant";
+    readonly text: string;
+    readonly timestamp: number | null;
+}
+
+export interface SessionHistoryRecentItem {
+    readonly source: string;
+    readonly env: string;
+    readonly session_id: string;
+    readonly title: string | null;
+    readonly agent: string;
+}
+
 export type IpcResult<T> =
     | { readonly ok: true; readonly data: T }
     | { readonly ok: false; readonly error: IpcError };
@@ -504,6 +572,7 @@ export interface UsageboardApi {
         onUpdated(callback: (dataVersion: number) => void): () => void;
     };
     trend: TrendApi;
+    sessionHistory: SessionHistoryApi;
     buildInfo: {
         get(): Promise<{ version: string; branch: string; commit: string; subject: string }>;
     };

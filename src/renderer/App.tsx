@@ -1,5 +1,6 @@
 import { use_route } from "./hooks/use-route";
 import { PopupView } from "./views/PopupView";
+import { SessionHistoryView } from "./views/SessionHistoryView";
 import { SettingsView } from "./views/SettingsView";
 import { TrayMenu } from "./views/TrayMenu";
 import { TokenStatsView } from "./views/TokenStatsView";
@@ -13,6 +14,8 @@ export function App() {
             return <TrayMenu />;
         case "agent":
             return <TokenStatsView />;
+        case "history":
+            return <SessionHistoryView />;
         default:
             return <PopupView />;
     }
