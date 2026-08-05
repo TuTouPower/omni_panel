@@ -2,11 +2,11 @@
 tid: "t213"
 slug: "session_history_e2e"
 title: "会话历史端到端验收与文档收口"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t213_session_history_e2e"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "c414a45dc4b18cc18cc923c6ba6b1590e47e6b66"
 depends_on: "t209,t210,t211,t212"
 conflicts_with: ""
 note: ""
@@ -22,7 +22,14 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 文档收口核对（spec Finalization blueprint）：
+    - `docs/blueprint/architecture.md`：§4.4 订阅/watcher（t210）、§4.5 窗口（t211）+ 打开入口与面板间导航（t212）、§5 IPC 通道组三档分权（t212）均已落齐，无缺口。
+    - `docs/blueprint/domain.md`：§会话历史消息提取（t209）已落齐。
+    - `docs/specs/session-history-window.md`：t211 建、t212 累积入口；本 task 无新需求正文。
+    - `docs/specs_index.md`：`session-history-window` 行补 `t212，t213`。
+    - `docs/handoff.md`：顶部总览更新为 t209-t213 本批，状态指向链尾 `t213_session_history_e2e`。
+    - 需求定稿 `requirements.md` 已随 t211 finish 归档至 `docs/archive/tasks/t211_session_history_window/requirements.md`（归档处置完成）。
+- 验收执行：`pnpm test` 全量 2337 通过、`pnpm build` 通过。真实窗口全链路（分栏/复制/超6/空态/跨窗口聚焦/WSL 路径）与四端真实会话属 [deploy] 人工验收，需打包版本用户环境实测，agent 无法自证。
 
 ## Review 处置
 
@@ -53,6 +60,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 | t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
 | t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
 
+### Round 1 (2026-08-05 20:05 UTC+8)
+
+| finding_id    | severity | status | rationale                                                                                | fix_ref         |
+| ------------- | -------- | ------ | ---------------------------------------------------------------------------------------- | --------------- |
+| t213_gen_f001 | minor    | 已修   | handoff 顶部「当前状态」改为功能交付描述 + 链尾待合并，不写死 tasks_index 状态字段       | docs/handoff.md |
+| t213_gen_f002 | minor    | 已修   | handoff 追加「## 2026-08-05 t209-t213 会话历史窗口功能链完成」日期节，按既有批次惯例交接 | docs/handoff.md |
+
 ## 收尾报告
 
 本 task 的 commit 用 `git log --grep <tid>` 查，不在此逐条记 SHA。
@@ -60,24 +74,22 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：满足
+- 证据：
+    - AC-8（唯一非 deploy）：blueprint（architecture §4.4/4.5/§5、domain §消息提取）、specs_index 累积与 t209-t213 实际交付交叉核对一致；handoff 本批交接已追加；t211 requirements.md 归档完成（已随 t211 归档）。
+    - AC-1..7 均 [deploy] 真实窗口人工验收（分栏/复制/超 6/空态/跨窗口聚焦/WSL 路径、四端真实会话、源文件只读），agent 无法自证，留用户打包后实测。
+    - `pnpm test` 全量 2337 通过、`pnpm build` 通过（across 各 task 均已黑盒验证）。
 
 ### Reviewer verdict
 
 取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
 
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（2 条 minor 已修，无 blocker）
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+t213 完成会话历史功能链收口：全量回归绿、构建绿，blueprint/specs_index/handoff 文档累积与 t211 requirements 归档核对落齐；[deploy] 人工验收项如实标注留用户打包后实测。整批 t209-t213 链尾 `t213_session_history_e2e` 待合并 main。
