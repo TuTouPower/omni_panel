@@ -333,3 +333,17 @@
 - 来源：t211 黑盒顺手发现（p049 同类的更广表现）
 - 内容：`pnpm test` 高并行负载下，多个走真实定时器的集成/单测间歇 5s 超时或断言窗口被挤爆：refresh-service（重试循环、proxy resolver）、grok-oauth（5000ms）、secrets-store / file-vault（20 并发写 2s 窗口）、subscription-service（30ms 轮询 + 2s wait_for）。单文件隔离跑全部稳定通过，证明是负载敏感而非逻辑错误。分布每次不同、与改动文件无关。处置方向：给这些用例统一提 timeout / 改用伪时钟 / 缩小真实定时器间隔 / 限制 vitest 并行 worker 数。
 - 处理：t218
+
+### p052 legacy rollup 路径 session 分组仍按裸 session_id（t217 审阅 minor）
+
+- 来源：t217_code_f001
+- 内容：legacy `prepareBarDataFromRollup`（chart-data.ts:822）/ `rollup_group_metric`（:985,1012）的 session 轴与去重 key 仍为 `${source}|${session_id}` 不含 env，跨 env 同 session_id 在此两处仍合并。当前 `rollup` prop 恒为 `never[]`（TokenStatsView.tsx:592）不可达，属 p040 复发陷阱。若未来恢复该 fallback 路径须一并补 env。
+- 处理：fe80caa2
+
+### p053 合并后 pnpm check 存量失败：format:check 与 knip 死类型（批次前遗留）
+
+- 来源：t216-t222 合并后验证
+- 内容：合并后 `pnpm check` 两处失败，均为批次前存量、本批次 7 个 task 未触碰：
+    1. `tests/unit/renderer/views/session_history_test_utils.ts`（t210 遗留）prettier format 不通过——`npx prettier --write` 即可修。
+    2. knip 报 `src/shared/types/token-stats.ts:444-451` `TokenStatsDashboardPlatform/Metric/XAxis/Granularity` 4 个未使用导出（t189 时代 dashboard 类型，非本批次新增）。
+- 处理：fe80caa2

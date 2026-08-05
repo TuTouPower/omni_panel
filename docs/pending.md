@@ -16,20 +16,10 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
-<!-- 待办节空置：p040-p051 已全部转 t216-t222，条目迁 docs/archive/pending.md「已处理待办」节（2026-08-05）。 -->
+### p054 本地默认 `pnpm test:e2e:web` 必挂 account_error_badge（需 MOCK_FIXTURE=synthetic）
 
-### p052 legacy rollup 路径 session 分组仍按裸 session_id（t217 审阅 minor）
-
-- 来源：t217_code_f001
-- 内容：legacy `prepareBarDataFromRollup`（chart-data.ts:822）/ `rollup_group_metric`（:985,1012）的 session 轴与去重 key 仍为 `${source}|${session_id}` 不含 env，跨 env 同 session_id 在此两处仍合并。当前 `rollup` prop 恒为 `never[]`（TokenStatsView.tsx:592）不可达，属 p040 复发陷阱。若未来恢复该 fallback 路径须一并补 env。
-- 处理：未开
-
-### p053 合并后 pnpm check 存量失败：format:check 与 knip 死类型（批次前遗留）
-
-- 来源：t216-t222 合并后验证
-- 内容：合并后 `pnpm check` 两处失败，均为批次前存量、本批次 7 个 task 未触碰：
-    1. `tests/unit/renderer/views/session_history_test_utils.ts`（t210 遗留）prettier format 不通过——`npx prettier --write` 即可修。
-    2. knip 报 `src/shared/types/token-stats.ts:444-451` `TokenStatsDashboardPlatform/Metric/XAxis/Granularity` 4 个未使用导出（t189 时代 dashboard 类型，非本批次新增）。
+- 来源：2026-08-05 /goal 全量 e2e 验证
+- 内容：`pnpm test:e2e:web` 默认走 real fixture（responses.json），KIMI 三实例 state 无 item 级 error，`account_error_badge.spec.ts` 断言 `.error-badge` 必失败；`MOCK_FIXTURE=synthetic pnpm test:e2e:web`（CI smoke，docs/guides/testing.md:80 文档化）48 全绿。测试本身非回归（fe80caa2 未触该路径），属本地默认 fixture 与 synthetic-only 测试的配置分叉：daily 命令默认跑 real 却含 synthetic-only 用例。候选修法：该 spec 在非 synthetic fixture 下条件 skip，或 webServer 恒设 MOCK_FIXTURE=synthetic。
 - 处理：未开
 
 ## 不办
