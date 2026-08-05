@@ -41,6 +41,11 @@ export interface SubscribeParams extends SessionLoc {
     /** 源文件 / db 路径（claude_code/kimi/grok 是 JSONL 文件，opencode 是 .db 文件）。 */
     readonly file_path: string;
     readonly extractor_kind: ExtractorKind;
+    /**
+     * 订阅方身份（不透明字符串）。同一 loc 下每个订阅方独立收推送（t219 多窗口路由）；
+     * 缺省为 legacy 单订阅，路由由调用方 on_update 决定（未绑定窗口的 fallback）。
+     */
+    readonly subscriber_id?: string;
     /** 检测到变化时调，推送增量消息（仅含新增，不含已推送过的）。 */
     readonly on_update: (messages: readonly HistoryMessage[]) => void;
 }
@@ -91,16 +96,24 @@ interface Watcher {
     readonly stop: () => void;
 }
 
+interface SubscriberEntry {
+    on_update: (messages: readonly HistoryMessage[]) => void;
+}
+
 interface Subscription {
     readonly loc: SessionLoc;
     readonly file_path: string;
     readonly extractor_kind: ExtractorKind;
-    on_update: (messages: readonly HistoryMessage[]) => void;
+    /** 订阅方列表：subscriber_id → 回调。同 loc 多订阅方各自收推送（t219）。 */
+    subscribers: Map<string, SubscriberEntry>;
     cursor: ExtractCursor | null;
     /** true 表示已收到过至少一次全量提取结果。 */
     initialized: boolean;
     watcher: Watcher | null;
 }
+
+/** 未指定 subscriber_id 的订阅统一使用此 id（legacy 单订阅，路由由调用方决定）。 */
+const LEGACY_SUBSCRIBER_ID = "__legacy__";
 
 function loc_key(loc: SessionLoc): string {
     return `${loc.source}|${loc.env}|${loc.session_id}`;
@@ -230,15 +243,17 @@ export class SessionHistorySubscriptionService {
     }
 
     /**
-     * 注册订阅。幂等：同 (source,env,session_id) 重复 subscribe 不重启 watcher，
-     * 只更新 on_update；如 watcher 已死则重建。
+     * 注册订阅。幂等：同 (source,env,session_id,subscriber_id) 重复 subscribe 不重启
+     * watcher，只更新 on_update；如 watcher 已死则重建。同 loc 不同 subscriber_id 并存，
+     * 各自收推送（t219 多窗口路由）。
      * 文件不存在不立即报错（轮询策略会在文件出现后开始触发）。
      */
     subscribe(params: SubscribeParams): string {
         const key = loc_key(params);
+        const subscriber_id = params.subscriber_id ?? LEGACY_SUBSCRIBER_ID;
         const existing = this.subscriptions.get(key);
         if (existing) {
-            existing.on_update = params.on_update;
+            existing.subscribers.set(subscriber_id, { on_update: params.on_update });
             existing.watcher ??= this.start_watcher(existing);
             return key;
         }
@@ -254,7 +269,7 @@ export class SessionHistorySubscriptionService {
             },
             file_path: params.file_path,
             extractor_kind: params.extractor_kind,
-            on_update: params.on_update,
+            subscribers: new Map([[subscriber_id, { on_update: params.on_update }]]),
             cursor: initial.cursor,
             initialized: true,
             watcher: null,
@@ -280,6 +295,7 @@ export class SessionHistorySubscriptionService {
 
     /** watcher 触发：增量提取并推新增。失败不向外抛，记日志。 */
     private handle_change(sub: Subscription): void {
+        let messages: readonly HistoryMessage[] = [];
         try {
             const result = extract_incremental(
                 sub.extractor_kind,
@@ -288,19 +304,36 @@ export class SessionHistorySubscriptionService {
                 sub.cursor,
             );
             sub.cursor = result.cursor;
-            if (result.messages.length > 0) {
-                sub.on_update(result.messages);
-            }
+            messages = result.messages;
         } catch (err) {
             log.warn(`extract failed for ${sub.file_path} (${sub.extractor_kind}): ${String(err)}`);
+            return;
+        }
+        if (messages.length === 0) return;
+        // t219 多订阅方：逐订阅方隔离，单个 on_update 抛错不剥夺其余订阅方推送。
+        for (const entry of sub.subscribers.values()) {
+            try {
+                entry.on_update(messages);
+            } catch (err) {
+                log.warn(
+                    `subscriber on_update failed for ${sub.file_path} (${sub.extractor_kind}): ${String(err)}`,
+                );
+            }
         }
     }
 
-    /** 注销订阅，停止 watcher。 */
-    unsubscribe(source: string, env: Env, session_id: string): void {
+    /**
+     * 注销订阅。带 subscriber_id 只移除该订阅方（map 空则停 watcher 删 key）；
+     * 缺省移除该 loc 全部订阅（legacy 语义）。
+     */
+    unsubscribe(source: string, env: Env, session_id: string, subscriber_id?: string): void {
         const key = loc_key({ source, env, session_id });
         const sub = this.subscriptions.get(key);
         if (!sub) return;
+        if (subscriber_id !== undefined) {
+            sub.subscribers.delete(subscriber_id);
+            if (sub.subscribers.size > 0) return;
+        }
         sub.watcher?.stop();
         sub.watcher = null;
         this.subscriptions.delete(key);

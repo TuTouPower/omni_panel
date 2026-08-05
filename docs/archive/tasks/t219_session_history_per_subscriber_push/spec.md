@@ -53,8 +53,9 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
-- mock 边界：SUBSCRIBE 事件带 `event.sender` 窗口身份；controller 用 mock `get_window`。
-- 断言目标：推送目标窗口 id 与订阅方一致；窗口关闭后推送 no-op。
+- mock 边界：SUBSCRIBE 事件带 `event.sender` 窗口身份（mock `{ id, isDestroyed, send, once }`）；IPC 层不再依赖 controller。
+- 断言目标：推送目标窗口与订阅方一致（`event.sender`）；两个窗口同会话各收各的（AC-1）；窗口销毁挂的 `destroyed` 监听注销该订阅（AC-3）；UNSUBSCRIBE 只注销调用方窗口。
+- 服务层：`Subscription.subscribers` 为 `Map<subscriber_id, on_update>`；缺省 id `__legacy__` 为未绑定窗口订阅（AC-4 fallback，路由由调用方 on_update 决定）。
 
 ### 未知契约清单
 

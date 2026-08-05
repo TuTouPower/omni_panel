@@ -1,11 +1,12 @@
 /**
- * 会话历史 IPC 注册（t210 对接层）。
+ * 会话历史 IPC 注册（t210 对接层；t219 推送按订阅方窗口路由）。
  *
  * 通道组（决策 15）：
  * - SESSION_HISTORY_OPEN: 打开/聚焦历史窗口并发 SESSION_HISTORY_FOCUS 定位。
  * - SESSION_HISTORY_SUBSCRIBE: resolve_session_file 后注册订阅，watcher 触发时
- *   通过 SESSION_HISTORY_MESSAGES_UPDATED 把增量推到历史窗口。
- * - SESSION_HISTORY_UNSUBSCRIBE: 注销订阅。
+ *   通过 SESSION_HISTORY_MESSAGES_UPDATED 把增量推到发起订阅的窗口（t219，
+ *   以 event.sender 为订阅方身份，多窗口互不串扰）。
+ * - SESSION_HISTORY_UNSUBSCRIBE: 注销调用方窗口的订阅。
  * - SESSION_HISTORY_QUERY: 全量/分页拉取（5s 兜底由 renderer 调用）。
  * - SESSION_HISTORY_RECENT: 最近会话列表（按 ended_at 降序，limit 截断）。
  *
@@ -28,12 +29,10 @@ import type {
     SessionLoc,
     SessionsProvider,
 } from "../core/session-history/subscription-service";
-import type { HistoryWindowController } from "../core/main-panel/history-window-controller";
 import type { HistoryMessage } from "../core/session-history/types";
 
 export interface SessionHistoryIpcDeps {
     readonly service: SessionHistorySubscriptionService;
-    readonly history_window_controller: HistoryWindowController;
     /** 由 main 从 token-stats store 取 sessions 后映射注入。 */
     readonly sessions_provider: SessionsProvider;
     /** 显式 WSL 配置（wslDistro/wslUser）覆盖默认自动探测；缺省用 DEFAULT_LOCATOR_PATHS。 */
@@ -63,14 +62,17 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                 return fail("SESSION_NOT_FOUND", "session file not found");
             }
             const loc = loc_of(source, env, session_id);
+            // t219：以 event.sender（发起订阅的窗口 webContents）为订阅方身份。
+            // 同一会话被多个窗口订阅时各自独立收推送；订阅方窗口销毁即注销该订阅（无泄漏）。
+            const subscriber_id = String(event.sender.id);
             deps.service.subscribe({
                 ...loc,
                 file_path: resolved.file_path,
                 extractor_kind: resolved.extractor_kind,
+                subscriber_id,
                 on_update: (messages: readonly HistoryMessage[]) => {
-                    const win = deps.history_window_controller.get_window();
-                    if (win && !win.isDestroyed()) {
-                        win.webContents.send(IPC_CHANNELS.SESSION_HISTORY_MESSAGES_UPDATED, {
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send(IPC_CHANNELS.SESSION_HISTORY_MESSAGES_UPDATED, {
                             source: loc.source,
                             env: loc.env,
                             session_id: loc.session_id,
@@ -78,6 +80,9 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                         });
                     }
                 },
+            });
+            event.sender.once("destroyed", () => {
+                deps.service.unsubscribe(source, env as Env, session_id, subscriber_id);
             });
             return ok({ subscribed: true });
         },
@@ -87,7 +92,8 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
         IPC_CHANNELS.SESSION_HISTORY_UNSUBSCRIBE,
         (event: IpcMainInvokeEvent, source: string, env: string, session_id: string): AnyResult => {
             assert_valid_sender(event);
-            deps.service.unsubscribe(source, env as Env, session_id);
+            // 只注销调用方窗口的订阅，不误伤同会话其他订阅方。
+            deps.service.unsubscribe(source, env as Env, session_id, String(event.sender.id));
             return ok({ unsubscribed: true });
         },
     );
