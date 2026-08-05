@@ -2,11 +2,11 @@
 tid: "t215"
 slug: "account_list_grid_layout"
 title: "单厂商账号列表改多列卡片网格布局"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t215_account_list_grid_layout"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "56337d30408c9362b70f6cc152ba1867c446e5ae"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,10 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 改动：`.provider-account-list` flex column → grid（repeat(auto-fill,minmax(420px,1fr)) + align-items:stretch + gap 12px），与 `.overview-grid` 一致。
+- spacing 测试 8px→12px：规则随 grid 对齐 overview 体系改，非迁就。
+- jsdom 无 CSS 引擎，grid 布局由 globals.css 声明 + [deploy] 视觉验证；结构测试断言每账号一 card、容器 class。
+- build-info.ts 是 generated（gitignore），worktree 手生成。
 
 ## Review 处置
 
@@ -44,14 +47,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-05 12:37 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+零 finding（general PASS），未进处置表。
 
 ## 收尾报告
 
@@ -60,8 +58,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：provider_account_list 结构测试（3 账号 → 3 card 直接子节点）、spacing 测试 12px gap、`.overview-grid` 未被误改。`pnpm test` 211 文件 2195 passed，typecheck/lint 绿。多列折行/窄窗降级由 CSS 声明 + [deploy] 视觉验证兜底（jsdom 无 CSS 引擎）。
 
 ### Reviewer verdict
 
@@ -69,15 +67,14 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 见上

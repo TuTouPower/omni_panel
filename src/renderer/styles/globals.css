@@ -439,9 +439,11 @@ html[data-window="tray"] #root {
     padding: 8px 4px 4px;
 }
 .provider-account-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    /* t215: 单厂商账号列表与总览一致，多列卡片网格，窗宽不足自动降单列。 */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 12px;
+    align-items: stretch;
 }
 
 /* ── usage card ── */
