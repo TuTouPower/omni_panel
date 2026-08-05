@@ -36,6 +36,10 @@ interface ProviderAccountListProps {
     on_toggle_watched?:
         | ((target: { provider: string; accountKey: string; raw_label: string }) => void)
         | undefined;
+    /** t222: sparkline 窗口偏好（1/7/30 天，全局共享）；缺省 7 天。 */
+    sparklineWindowDays?: number | undefined;
+    /** t222: 变更 sparkline 窗口时写回 config。 */
+    onSparklineWindowChange?: ((days: number) => void) | undefined;
 }
 
 export function ProviderAccountList({
@@ -58,6 +62,8 @@ export function ProviderAccountList({
     accountErrors,
     watchedMetrics,
     on_toggle_watched,
+    sparklineWindowDays,
+    onSparklineWindowChange,
 }: ProviderAccountListProps) {
     const per_provider_map = providerLabelMaps?.[group.provider] ?? {};
     const handleRowReLogin = _onReLogin
@@ -109,6 +115,8 @@ export function ProviderAccountList({
                             onReLogin={handleRowReLogin}
                             watched_labels={watched_set}
                             on_toggle_watched={toggle_for_account}
+                            sparklineWindowDays={sparklineWindowDays}
+                            onSparklineWindowChange={onSparklineWindowChange}
                         />
                     );
                 }
@@ -148,6 +156,8 @@ export function ProviderAccountList({
                         onReLogin={handleRowReLogin}
                         watched_labels={watched_set}
                         on_toggle_watched={toggle_for_account}
+                        sparklineWindowDays={sparklineWindowDays}
+                        onSparklineWindowChange={onSparklineWindowChange}
                     />
                 );
             })}

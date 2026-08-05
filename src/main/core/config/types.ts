@@ -112,6 +112,7 @@ export const appConfigurationSchema = z.object({
         .default([]),
     removedConnectorIds: z.array(z.string()).optional(),
     upcomingResetThresholdPercent: z.number().int().min(0).max(100).nullable().optional(),
+    sparklineWindowDays: z.number().int().min(1).max(365).optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {

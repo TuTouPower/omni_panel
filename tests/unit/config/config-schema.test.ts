@@ -123,4 +123,36 @@ describe("appConfigurationSchema", () => {
         expect(parsed.accountOverrides).not.toHaveProperty("upcomingResetOff");
         expect(parsed.accountOverrides?.upcomingResetWatched).toBeUndefined();
     });
+
+    it("t222: accepts sparklineWindowDays", () => {
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            sparklineWindowDays: 30,
+        });
+        expect(parsed.sparklineWindowDays).toBe(30);
+    });
+
+    it("t222: rejects sparklineWindowDays outside [1,365]", () => {
+        expect(() =>
+            appConfigurationSchema.parse({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [],
+                sparklineWindowDays: 0,
+            }),
+        ).toThrow();
+        expect(() =>
+            appConfigurationSchema.parse({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [],
+                sparklineWindowDays: 500,
+            }),
+        ).toThrow();
+    });
 });

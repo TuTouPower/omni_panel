@@ -439,5 +439,83 @@ describe("ProviderAccountRow", () => {
                 { timeout: 300 },
             );
         });
+
+        it("窗口偏好从 config 读初始值、变更写回（t222）", async () => {
+            const trend_bulk = vi.fn().mockResolvedValue({
+                series: [
+                    {
+                        metric_id: "claude:auth-a:5h",
+                        series: [
+                            { date: "2026-07-14", percent: 10 },
+                            { date: "2026-07-15", percent: 20 },
+                        ],
+                    },
+                ],
+            });
+            window.usageboard.trend = {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: trend_bulk,
+            };
+            const account = make_account();
+            const on_change = vi.fn();
+            const { container } = render(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={false}
+                    onToggleCollapsed={() => undefined}
+                    sparklineWindowDays={1}
+                    onSparklineWindowChange={on_change}
+                />,
+            );
+            // 初始偏好 1 天 → 初次取数 days=1；1 天按钮激活。
+            await waitFor(() => {
+                expect(trend_bulk).toHaveBeenCalledTimes(1);
+            });
+            expect(trend_bulk).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    periods: [expect.objectContaining({ days: 1 })],
+                }),
+            );
+            const buttons = container.querySelectorAll(".trend-window-btn");
+            const one_day_btn = Array.from(buttons).find((b) => b.textContent === "1天");
+            expect(one_day_btn?.getAttribute("aria-pressed")).toBe("true");
+
+            // 切到 30 天：本地生效 + 通知写回 config。
+            const thirty_day_btn = Array.from(buttons).find((b) => b.textContent === "30天");
+            expect(thirty_day_btn).toBeDefined();
+            if (!thirty_day_btn) throw new Error("no 30d btn");
+            fireEvent.click(thirty_day_btn);
+            await waitFor(() => {
+                expect(trend_bulk).toHaveBeenCalledTimes(2);
+            });
+            expect(trend_bulk).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    periods: [expect.objectContaining({ days: 30 })],
+                }),
+            );
+            expect(on_change).toHaveBeenCalledWith(30);
+        });
+
+        it("未设置偏好时默认 7 天（t222）", async () => {
+            const trend_bulk = vi.fn().mockResolvedValue({ series: [] });
+            window.usageboard.trend = {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: trend_bulk,
+            };
+            const { container } = render(
+                <ProviderAccountRow account={make_account()} collapsed={false} />,
+            );
+            await waitFor(() => {
+                expect(trend_bulk).toHaveBeenCalledTimes(1);
+            });
+            expect(trend_bulk).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    periods: [expect.objectContaining({ days: 7 })],
+                }),
+            );
+            const buttons = container.querySelectorAll(".trend-window-btn");
+            const seven_day_btn = Array.from(buttons).find((b) => b.textContent === "7天");
+            expect(seven_day_btn?.getAttribute("aria-pressed")).toBe("true");
+        });
     });
 });

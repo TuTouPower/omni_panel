@@ -45,6 +45,10 @@ interface ProviderAccountRowProps {
     watched_labels?: ReadonlySet<string> | undefined;
     /** t043: 切换某个 raw_label 的即将重置监控。 */
     on_toggle_watched?: ((raw_label: string) => void) | undefined;
+    /** t222: sparkline 窗口偏好（全局共享）；缺省 7 天。 */
+    sparklineWindowDays?: number | undefined;
+    /** t222: 变更 sparkline 窗口时写回 config。 */
+    onSparklineWindowChange?: ((days: number) => void) | undefined;
 }
 
 export const ProviderAccountRow = memo(function ProviderAccountRow({
@@ -66,6 +70,8 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
     onReLogin: _onReLogin,
     watched_labels,
     on_toggle_watched,
+    sparklineWindowDays = 7,
+    onSparklineWindowChange,
 }: ProviderAccountRowProps) {
     const display_label = desensitizeRemarks ? "" : account.accountLabel;
 
@@ -77,8 +83,14 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
     const [trend_data_by_metric, set_trend_data_by_metric] = useState<
         Record<string, (TrendPoint | null)[]>
     >({});
-    // t208: sparkline 窗口选择（1/7/30 天），session 内状态，不持久化。
-    const [trend_days, set_trend_days] = useState(7);
+    // t208: sparkline 窗口选择（1/7/30 天）。
+    // t222: 初始值从 config 读（sparklineWindowDays，全局共享），变更写回 config。
+    const [trend_days, set_trend_days] = useState(sparklineWindowDays);
+
+    const handle_window_change = (days: number) => {
+        set_trend_days(days);
+        onSparklineWindowChange?.(days);
+    };
 
     // 懒查:展开时触发。缓存命中不发 IPC,未命中调 trend 取回写回;失败不写缓存。
     // t196 AC5: 一次 getBulk 取回该账号全部指标周期，替代 N 个并行 trend:get。
@@ -238,7 +250,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                             className={"trend-window-btn" + (trend_days === d ? " active" : "")}
                             aria-pressed={trend_days === d}
                             onClick={() => {
-                                set_trend_days(d);
+                                handle_window_change(d);
                             }}
                         >
                             {d === 1 ? "1天" : d === 7 ? "7天" : "30天"}
