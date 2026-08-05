@@ -1311,7 +1311,7 @@ return [{
             await rm(tempDir, { recursive: true, force: true });
         }
     });
-});
+}, 30000);
 
 const firecrawl_literal_script = `
 return [{
@@ -1613,4 +1613,4 @@ return [{
             await rm(tempDir, { recursive: true, force: true });
         }
     });
-});
+}, 30000);

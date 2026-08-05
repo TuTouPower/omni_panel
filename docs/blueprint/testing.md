@@ -40,6 +40,7 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 - `pnpm install --prefer-offline`：pnpm store 全局共享，较快；推荐。
 - 或软链主仓 `node_modules`（快但需注意 better-sqlite3 原生 ABI）。
 - better-sqlite3 ABI 由 `scripts/ensure_sqlite_abi.mjs` 在 worktree 内按 Electron/Node 运行时切换；`pnpm test` 前置 `node scripts/ensure_sqlite_abi.mjs node`。
+- `src/generated/`（gitignore）需在 worktree 内先 `npx tsx scripts/gen-build-info.ts` 生成，否则 `build-info-ipc` 相关测试整批必挂（t218 实测）。
 
 ## 黑盒验证（{blackbox_verify}）
 

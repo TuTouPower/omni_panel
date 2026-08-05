@@ -154,6 +154,7 @@ note: ""
 - 命名 `snake_case`，E2E spec 以 `.spec.ts` 结尾；修 bug 时在对应测试层补回归用例，文件名带任务 ID（如 `tests/unit/parser/t042_empty_token.test.ts`）。
 - **少 mock，多真实**：外部服务用本地可控桩；本地能力（连接器发现、TS 编译、配置读写、SQLite、cookie 捕获）真实测。
 - **断言期望行为**：测试断言“应该怎样”，不锁死历史错误行为。
+- **真实定时器用例优先伪时钟或显式 timeout**（p049/p051 系统性 flaky）：被测逻辑用 `setTimeout` 的用例优先 `vi.useFakeTimers()`；伪时钟不可行（真实子进程/真实 sqlite/负向等待）时保留真实定时器并给明确 timeout（`describe`/`it(name, fn, timeout)`），断言窗口按脚本超时内放宽；固定时长负向等待须在测试策略说明理由。阈值/超时增大掩盖问题属危险模式（review important）。
 - 覆盖率阈值（基线 2026-05-30，阈值 = 基线 − 5%）：Statements 15% / Branches 25% / Functions 25% / Lines 15%。
 - 涉及打包/渲染：修复报告必须含自动化结果 + 打包真实启动验证结果；没有真实 smoke 只能写“自动化路径通过，packaged 行为未验证”，不能写“已修复”。
 

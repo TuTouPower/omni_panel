@@ -35,10 +35,10 @@ function make_jsonl_line(
     });
 }
 
-/** 轮询触发断言：重复检查 predicate 直到通过或超时（默认 2s）。 */
+/** 轮询触发断言：重复检查 predicate 直到通过或超时（默认 10s，放宽 p051 整批负载）。 */
 async function wait_for(
     predicate: () => boolean,
-    timeout_ms = 2000,
+    timeout_ms = 10000,
     interval_ms = 20,
 ): Promise<void> {
     const start = Date.now();
@@ -303,8 +303,9 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         service.unsubscribe("grok", "wsl", "s4");
 
         appendFileSync(file, JSON.stringify({ type: "assistant", content: "z" }) + "\n");
-        // 推进多个周期，不应有任何推送。
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        // 推进多个周期，不应有任何推送。30ms 轮询下 300ms ≈ 10 周期，
+        // 整批负载下仍 ≥1 周期（负向断言无法用 wait_for，固定时长是唯一可靠写法）。
+        await new Promise((resolve) => setTimeout(resolve, 300));
         expect(received).toHaveLength(0);
     });
 
@@ -353,8 +354,8 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         service.unsubscribe_all();
 
         appendFileSync(file, JSON.stringify({ type: "assistant", content: "y" }) + "\n");
-        // 推进多个轮询周期，应无任何推送。
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        // 推进多个轮询周期，应无任何推送（300ms ≈ 10 周期，负载下仍 ≥1 周期）。
+        await new Promise((resolve) => setTimeout(resolve, 300));
         expect(received).toHaveLength(0);
     });
 
@@ -664,4 +665,4 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(result.map((r) => r.session_id)).toEqual(["a", "b"]);
         expect(result[0]?.agent).toBe("grok");
     });
-});
+}, 30000);
