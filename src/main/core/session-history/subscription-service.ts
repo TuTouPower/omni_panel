@@ -1,0 +1,390 @@
+/**
+ * 会话历史订阅 / watcher 服务纯逻辑层（t210）。
+ *
+ * 职责：
+ * - 维护订阅表 (source, env, session_id) → 单个订阅，每订阅一个源文件监听器。
+ * - 监听策略（决策 5）：
+ *   - win + claude_code（本地 JSONL）→ fs.watch；
+ *   - opencode（SQLite）+ kimi/grok（WSL 9P）→ 2s mtime 轮询。
+ * - 变化时调对应 t209 提取器做增量提取，推 messages 给订阅方 on_update。
+ * - query：全量提取 + 内存切片分页（决策 17 后端部分）。
+ * - recent_sessions：经注入的 sessions_provider 回调取数，按 ended_at 降序、limit 截断，
+ *   映射为统一会话定位，agent 由 source 派生（与 token-stats dashboard 一致）。
+ *
+ * 全程只读：服务层不开写句柄，提取器已保证 readonly 打开源文件 / db。
+ * 容错：watcher 抛错或文件被删时不向外抛，记日志，停止该订阅 watcher。
+ */
+import { statSync, watch, type FSWatcher } from "node:fs";
+import { extract_claude_code, extract_claude_code_incremental } from "./claude-code-extractor";
+import { extract_grok, extract_grok_incremental } from "./grok-extractor";
+import { extract_kimi_code, extract_kimi_code_incremental } from "./kimi-extractor";
+import { extract_opencode, extract_opencode_incremental } from "./opencode-extractor";
+import type { ExtractCursor, ExtractResult, HistoryMessage } from "./types";
+import { createLogger } from "../../../shared/lib/logger";
+
+const log = createLogger("session-history-subscription");
+
+/** 端类型，与 t209 四端提取器一一对应。 */
+export type ExtractorKind = "claude_code" | "opencode" | "kimi" | "grok";
+
+/** 运行环境，对齐 token-stats 的 TokenStatsEnv。 */
+export type Env = "win" | "wsl";
+
+/** 订阅键组成部分：source 与 extractor_kind 同形，但保留独立字段以便后续多实例分离。 */
+export interface SessionLoc {
+    readonly source: string;
+    readonly env: Env;
+    readonly session_id: string;
+}
+
+export interface SubscribeParams extends SessionLoc {
+    /** 源文件 / db 路径（claude_code/kimi/grok 是 JSONL 文件，opencode 是 .db 文件）。 */
+    readonly file_path: string;
+    readonly extractor_kind: ExtractorKind;
+    /** 检测到变化时调，推送增量消息（仅含新增，不含已推送过的）。 */
+    readonly on_update: (messages: readonly HistoryMessage[]) => void;
+}
+
+export interface QueryOptions {
+    /** 限制返回最近 N 条；缺省全量。 */
+    readonly limit?: number;
+    /** 向前分页游标（取此游标之前的消息）。null 表示从最新开始。 */
+    readonly before_cursor?: ExtractCursor | null;
+}
+
+export interface QueryResult {
+    readonly messages: readonly HistoryMessage[];
+    /** 下次向前分页用游标；null 表示已到顶无更多。 */
+    readonly next_cursor: ExtractCursor | null;
+}
+
+/**
+ * 由 IPC 层注入的会话查询回调。返回值由 IPC 层从 token-stats store 取后映射。
+ * 服务层不直接依赖 token-stats store。
+ */
+export type SessionsProvider = (source: string, env: Env) => readonly SessionRow[];
+
+/** sessions_provider 返回的单行；服务层只关心定位所需字段。 */
+export interface SessionRow {
+    readonly id: string;
+    readonly source: string;
+    readonly env: Env;
+    readonly title: string | null;
+    /** token-stats 多模型会话聚合的主模型名（用于取 agent 显示）。 */
+    readonly model: string | null;
+    readonly started_at: number;
+    readonly ended_at: number;
+}
+
+/** 最近会话查询返回项。 */
+export interface RecentSession {
+    readonly source: string;
+    readonly env: Env;
+    readonly session_id: string;
+    readonly title: string | null;
+    /** 由 source 派生（source.replace(/_/g, "-")），与 dashboard agent 一致。 */
+    readonly agent: string;
+}
+
+interface Watcher {
+    /** 释放底层句柄（fs.watch close 或 clearInterval）。幂等。 */
+    readonly stop: () => void;
+}
+
+interface Subscription {
+    readonly loc: SessionLoc;
+    readonly file_path: string;
+    readonly extractor_kind: ExtractorKind;
+    on_update: (messages: readonly HistoryMessage[]) => void;
+    cursor: ExtractCursor | null;
+    /** true 表示已收到过至少一次全量提取结果。 */
+    initialized: boolean;
+    watcher: Watcher | null;
+}
+
+function loc_key(loc: SessionLoc): string {
+    return `${loc.source}|${loc.env}|${loc.session_id}`;
+}
+
+/**
+ * 选择监听策略。决策 5：
+ * - win + claude_code → fs.watch；
+ * - 其余（wsl 任意 / opencode sqlite / kimi / grok 9P）→ 2s 轮询 mtime。
+ */
+export function pick_strategy(env: Env, extractor_kind: ExtractorKind): "watch" | "poll" {
+    if (env === "win" && extractor_kind === "claude_code") return "watch";
+    return "poll";
+}
+
+export function create_watcher(
+    file_path: string,
+    strategy: "watch" | "poll",
+    on_change: () => void,
+    poll_interval_ms = 2000,
+): Watcher {
+    if (strategy === "watch") {
+        let watcher: FSWatcher | null = null;
+        try {
+            watcher = watch(file_path, (event) => {
+                if (event === "change") on_change();
+            });
+            watcher.on("error", (err) => {
+                log.warn(`fs.watch error on ${file_path}: ${String(err)}`);
+            });
+        } catch (err) {
+            // 文件尚不存在等情况：退化为轮询，保证文件出现后能感知。
+            log.warn(`fs.watch unavailable for ${file_path}, falling back to poll: ${String(err)}`);
+            return create_watcher(file_path, "poll", on_change);
+        }
+        return {
+            stop: () => {
+                try {
+                    watcher?.close();
+                } catch {
+                    // ignore
+                }
+                watcher = null;
+            },
+        };
+    }
+
+    // 2s mtime 轮询
+    let last_mtime: number | null = null;
+    try {
+        last_mtime = statSync(file_path).mtimeMs;
+    } catch {
+        last_mtime = null;
+    }
+    const timer = setInterval(() => {
+        let cur: number | null;
+        try {
+            cur = statSync(file_path).mtimeMs;
+        } catch {
+            cur = null;
+        }
+        if (cur !== last_mtime) {
+            last_mtime = cur;
+            if (cur !== null) on_change();
+        }
+    }, poll_interval_ms);
+    return {
+        stop: () => {
+            clearInterval(timer);
+        },
+    };
+}
+
+/** 调对应提取器做全量提取。 */
+function extract_full(
+    extractor_kind: ExtractorKind,
+    file_path: string,
+    session_id: string,
+): ExtractResult {
+    switch (extractor_kind) {
+        case "claude_code":
+            return extract_claude_code(file_path);
+        case "opencode":
+            return extract_opencode(file_path, session_id);
+        case "kimi":
+            return extract_kimi_code(file_path);
+        case "grok":
+            return extract_grok(file_path);
+    }
+}
+
+/** 调对应提取器做增量提取。 */
+function extract_incremental(
+    extractor_kind: ExtractorKind,
+    file_path: string,
+    session_id: string,
+    cursor: ExtractCursor | null,
+): ExtractResult {
+    switch (extractor_kind) {
+        case "claude_code":
+            // claude_code 增量签名要求 cursor 非空；cursor 为 null 时退全量。
+            return cursor
+                ? extract_claude_code_incremental(file_path, cursor)
+                : extract_claude_code(file_path);
+        case "opencode":
+            return extract_opencode_incremental(file_path, session_id, cursor);
+        case "kimi":
+            return cursor
+                ? extract_kimi_code_incremental(file_path, cursor)
+                : extract_kimi_code(file_path);
+        case "grok":
+            return cursor ? extract_grok_incremental(file_path, cursor) : extract_grok(file_path);
+    }
+}
+
+/**
+ * 会话历史订阅服务。无外部依赖（除 fs + 提取器 + logger），可在主进程或测试中实例化。
+ *
+ * 不持有 Electron IPC / BrowserWindow 引用，IPC 注册由调用方完成。
+ */
+export class SessionHistorySubscriptionService {
+    private readonly subscriptions = new Map<string, Subscription>();
+    private readonly poll_interval_ms: number;
+
+    constructor(options: { poll_interval_ms?: number } = {}) {
+        this.poll_interval_ms = options.poll_interval_ms ?? 2000;
+    }
+
+    /**
+     * 注册订阅。幂等：同 (source,env,session_id) 重复 subscribe 不重启 watcher，
+     * 只更新 on_update；如 watcher 已死则重建。
+     * 文件不存在不立即报错（轮询策略会在文件出现后开始触发）。
+     */
+    subscribe(params: SubscribeParams): string {
+        const key = loc_key(params);
+        const existing = this.subscriptions.get(key);
+        if (existing) {
+            existing.on_update = params.on_update;
+            existing.watcher ??= this.start_watcher(existing);
+            return key;
+        }
+
+        // 订阅时立即做一次全量提取建立 cursor，但不向 on_update 推送——
+        // 首次拉取由调用方走 query 通道；watcher 只在订阅之后的追加发生时推增量。
+        const initial = extract_full(params.extractor_kind, params.file_path, params.session_id);
+        const sub: Subscription = {
+            loc: {
+                source: params.source,
+                env: params.env,
+                session_id: params.session_id,
+            },
+            file_path: params.file_path,
+            extractor_kind: params.extractor_kind,
+            on_update: params.on_update,
+            cursor: initial.cursor,
+            initialized: true,
+            watcher: null,
+        };
+        this.subscriptions.set(key, sub);
+        sub.watcher = this.start_watcher(sub);
+        return key;
+    }
+
+    /** 启动 watcher 并绑定变化回调。返回 watcher 实例。 */
+    private start_watcher(sub: Subscription): Watcher {
+        const strategy = pick_strategy(sub.loc.env, sub.extractor_kind);
+        const watcher = create_watcher(
+            sub.file_path,
+            strategy,
+            () => {
+                this.handle_change(sub);
+            },
+            this.poll_interval_ms,
+        );
+        return watcher;
+    }
+
+    /** watcher 触发：增量提取并推新增。失败不向外抛，记日志。 */
+    private handle_change(sub: Subscription): void {
+        try {
+            const result = extract_incremental(
+                sub.extractor_kind,
+                sub.file_path,
+                sub.loc.session_id,
+                sub.cursor,
+            );
+            sub.cursor = result.cursor;
+            if (result.messages.length > 0) {
+                sub.on_update(result.messages);
+            }
+        } catch (err) {
+            log.warn(`extract failed for ${sub.file_path} (${sub.extractor_kind}): ${String(err)}`);
+        }
+    }
+
+    /** 注销订阅，停止 watcher。 */
+    unsubscribe(source: string, env: Env, session_id: string): void {
+        const key = loc_key({ source, env, session_id });
+        const sub = this.subscriptions.get(key);
+        if (!sub) return;
+        sub.watcher?.stop();
+        sub.watcher = null;
+        this.subscriptions.delete(key);
+    }
+
+    /** 注销全部订阅，释放所有 watcher 句柄（窗口关闭时调）。 */
+    unsubscribe_all(): void {
+        for (const sub of this.subscriptions.values()) {
+            sub.watcher?.stop();
+            sub.watcher = null;
+        }
+        this.subscriptions.clear();
+    }
+
+    /**
+     * 主动查询：全量提取 + 内存切片分页。
+     * - limit 缺省：返回全量。
+     * - before_cursor 缺省/null：返回最近 limit 条（取全量末尾）。
+     * - before_cursor 提供（pagination 形态）：取游标绝对下标之前的 limit 条。
+     *
+     * 由于提取器是追加型，追加只发生在末尾，前缀下标跨追加稳定：游标编码
+     * 「已返回页最早消息在全量数组中的绝对下标」而非累计计数或消息 id，
+     * 活跃会话翻页时新追加消息不会挤入更早页（无重复无遗漏），空/重复 id 不跳段。
+     */
+    query(
+        params: {
+            readonly source: string;
+            readonly env: Env;
+            readonly session_id: string;
+            readonly file_path: string;
+            readonly extractor_kind: ExtractorKind;
+        },
+        options?: QueryOptions,
+    ): QueryResult {
+        const full = extract_full(params.extractor_kind, params.file_path, params.session_id);
+        const all = full.messages;
+        const limit = options?.limit;
+
+        if (limit === undefined) {
+            return { messages: all, next_cursor: null };
+        }
+
+        let end = all.length;
+        const cursor = options?.before_cursor;
+        if (cursor?.kind === "pagination") {
+            // 追加型：前缀下标稳定，直接以绝对下标定位；钳制到当前长度防御。
+            end = Math.min(cursor.end_index, all.length);
+            if (end < 0) {
+                return { messages: [], next_cursor: null };
+            }
+        }
+        const start = Math.max(0, end - limit);
+        const slice = all.slice(start, end);
+
+        if (start <= 0) {
+            return { messages: slice, next_cursor: null };
+        }
+        const next_cursor: ExtractCursor = {
+            kind: "pagination",
+            end_index: start,
+        };
+        return { messages: slice, next_cursor };
+    }
+
+    /**
+     * 最近会话查询。由 IPC 层注入 sessions_provider（封装 token-stats store 查询），
+     * 服务层不直接依赖 store。返回按 ended_at 降序、limit 截断的会话定位。
+     */
+    recent_sessions(
+        source: string,
+        env: Env,
+        limit: number,
+        sessions_provider: SessionsProvider,
+    ): RecentSession[] {
+        const rows = sessions_provider(source, env);
+        // provider 已按 ended_at DESC 返回（token-stats store 默认），保险起见再排一次。
+        const sorted = [...rows].sort((a, b) => b.ended_at - a.ended_at);
+        const sliced = sorted.slice(0, limit);
+        return sliced.map((row) => ({
+            source: row.source,
+            env: row.env,
+            session_id: row.id,
+            title: row.title,
+            agent: row.source.replace(/_/g, "-"),
+        }));
+    }
+}

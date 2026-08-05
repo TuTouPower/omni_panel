@@ -65,4 +65,22 @@ describe("createWindowManager", () => {
         expect(openExternal).not.toHaveBeenCalled();
         expect(result).toEqual({ action: "deny" });
     });
+
+    it("getRendererUrl 附带 route_query 参数并 URL 编码（t210 OPEN 初始定位）", async () => {
+        const manager = await load_manager();
+        const loc = JSON.stringify({
+            source: "claude_code",
+            env: "win",
+            session_id: "s1 x&y",
+        });
+
+        const url = manager.getRendererUrl("history", { loc });
+
+        // 主题参数 + 路由 hash + 编码后的 loc query 一并出现。
+        expect(url).toContain("ou_theme=light");
+        expect(url).toContain("#history");
+        expect(url).toContain(`loc=${encodeURIComponent(loc)}`);
+        // 原样 JSON 不得直接泄漏进 URL（含空格/& 等需编码）。
+        expect(url).not.toContain(`loc=${loc}`);
+    });
 });

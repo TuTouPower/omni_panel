@@ -1,0 +1,274 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
+
+const ipc_main_mock = vi.hoisted(() => ({
+    handle: vi.fn(),
+    removeHandler: vi.fn(),
+}));
+
+vi.mock("electron", () => ({
+    ipcMain: ipc_main_mock,
+}));
+
+// locator mock：默认返回 null，每个测试可改返回值
+const locator_mock = vi.hoisted(() => ({
+    resolve_session_file: vi.fn().mockReturnValue(null),
+}));
+
+vi.mock("../../../src/main/core/session-history/session-locator", () => ({
+    resolve_session_file: locator_mock.resolve_session_file,
+}));
+
+set_renderer_index_path("D:/app/out/renderer/index.html");
+
+const valid_sender = { senderFrame: { url: "file:///D:/app/out/renderer/index.html" } };
+
+interface MockWindow {
+    isDestroyed: () => boolean;
+    webContents: { send: (channel: string, payload: unknown) => void };
+}
+
+interface MockService {
+    subscribe: ReturnType<typeof vi.fn>;
+    unsubscribe: ReturnType<typeof vi.fn>;
+    query: ReturnType<typeof vi.fn>;
+    recent_sessions: ReturnType<typeof vi.fn>;
+}
+
+interface MockController {
+    open_or_focus: ReturnType<typeof vi.fn>;
+    get_window: ReturnType<typeof vi.fn>;
+    send_focus: ReturnType<typeof vi.fn>;
+}
+
+describe("session-history-ipc (t210)", () => {
+    let service: MockService;
+    let controller: MockController;
+
+    beforeEach(async () => {
+        vi.clearAllMocks();
+        vi.resetModules();
+        const { set_renderer_index_path } = await import("../../../src/main/ipc/helpers");
+        set_renderer_index_path("D:/app/out/renderer/index.html");
+
+        locator_mock.resolve_session_file.mockReturnValue(null);
+
+        service = {
+            subscribe: vi.fn().mockReturnValue("claude_code|win|s1"),
+            unsubscribe: vi.fn(),
+            query: vi.fn().mockReturnValue({ messages: [], next_cursor: null }),
+            recent_sessions: vi.fn().mockReturnValue([
+                {
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "s1",
+                    title: "hello",
+                    agent: "claude-code",
+                },
+            ]),
+        };
+        controller = {
+            open_or_focus: vi.fn(),
+            get_window: vi.fn().mockReturnValue(null),
+            send_focus: vi.fn(),
+        };
+    });
+
+    async function register(): Promise<void> {
+        const { registerSessionHistoryIpc } =
+            await import("../../../src/main/ipc/session-history-ipc");
+        const sessions_provider = vi.fn().mockReturnValue([]);
+        registerSessionHistoryIpc(ipc_main_mock as never, {
+            service: service as never,
+            history_window_controller: controller as never,
+            sessions_provider,
+        });
+    }
+
+    async function register_with_paths(paths: {
+        win_home: string;
+        wsl_distro: string;
+        wsl_user: string;
+    }): Promise<void> {
+        const { registerSessionHistoryIpc } =
+            await import("../../../src/main/ipc/session-history-ipc");
+        const sessions_provider = vi.fn().mockReturnValue([]);
+        registerSessionHistoryIpc(ipc_main_mock as never, {
+            service: service as never,
+            history_window_controller: controller as never,
+            sessions_provider,
+            locator_paths: paths,
+        });
+    }
+
+    function get_handler(channel: string): (...args: unknown[]) => unknown {
+        const call = ipc_main_mock.handle.mock.calls.find((c: unknown[]) => c[0] === channel);
+        if (!call) throw new Error(`handler not registered: ${channel}`);
+        return call[1] as (...args: unknown[]) => unknown;
+    }
+
+    it("注册 SUBSCRIBE/UNSUBSCRIBE/QUERY/RECENT 通道", async () => {
+        await register();
+
+        const channels = ipc_main_mock.handle.mock.calls.map((c: unknown[]) => c[0]);
+        expect(channels).toContain("sessionHistory:subscribe");
+        expect(channels).toContain("sessionHistory:unsubscribe");
+        expect(channels).toContain("sessionHistory:query");
+        expect(channels).toContain("sessionHistory:recent");
+        // SESSION_HISTORY_OPEN 不在本模块注册（由 main/index.ts 单点注册）
+        expect(channels).not.toContain("sessionHistory:open");
+    });
+
+    it("SUBSCRIBE resolve 成功时调 service.subscribe 并返回 ok", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:subscribe");
+        const result = handler(valid_sender, "claude_code", "win", "s1") as {
+            ok: boolean;
+            data: { subscribed: boolean };
+        };
+
+        expect(result.ok).toBe(true);
+        expect(result.data.subscribed).toBe(true);
+        expect(service.subscribe).toHaveBeenCalledTimes(1);
+        const params = service.subscribe.mock.calls[0]?.[0] as {
+            file_path: string;
+            extractor_kind: string;
+            on_update: (m: unknown[]) => void;
+        };
+        expect(params.file_path).toBe("/x/sess.jsonl");
+        expect(params.extractor_kind).toBe("claude_code");
+        expect(typeof params.on_update).toBe("function");
+    });
+
+    it("SUBSCRIBE resolve 失败时返回 fail SESSION_NOT_FOUND", async () => {
+        locator_mock.resolve_session_file.mockReturnValue(null);
+        await register();
+
+        const handler = get_handler("sessionHistory:subscribe");
+        const result = handler(valid_sender, "claude_code", "win", "missing") as {
+            ok: boolean;
+            error: { code: string; message: string };
+        };
+
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe("SESSION_NOT_FOUND");
+        expect(service.subscribe).not.toHaveBeenCalled();
+    });
+
+    it("SUBSCRIBE 把 deps.locator_paths（wsl 配置）传给 resolve_session_file", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        const paths = { win_home: "C:/users/u", wsl_distro: "Ubuntu-22.04", wsl_user: "testuser" };
+        await register_with_paths(paths);
+
+        const handler = get_handler("sessionHistory:subscribe");
+        handler(valid_sender, "claude_code", "wsl", "s1");
+
+        expect(locator_mock.resolve_session_file).toHaveBeenCalledWith(
+            "claude_code",
+            "wsl",
+            "s1",
+            paths,
+        );
+    });
+
+    it("SUBSCRIBE on_update 回调把增量推到历史窗口", async () => {
+        const win: MockWindow = {
+            isDestroyed: () => false,
+            webContents: { send: vi.fn() },
+        };
+        controller.get_window.mockReturnValue(win);
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:subscribe");
+        handler(valid_sender, "claude_code", "win", "s1");
+
+        const params = service.subscribe.mock.calls[0]?.[0] as {
+            on_update: (m: unknown[]) => void;
+        };
+        const messages = [{ id: "1", role: "user", text: "hi", timestamp: null }];
+        params.on_update(messages);
+
+        expect(win.webContents.send).toHaveBeenCalledWith("sessionHistory:messagesUpdated", {
+            source: "claude_code",
+            env: "win",
+            session_id: "s1",
+            messages,
+        });
+    });
+
+    it("UNSUBSCRIBE 调 service.unsubscribe", async () => {
+        await register();
+
+        const handler = get_handler("sessionHistory:unsubscribe");
+        const result = handler(valid_sender, "claude_code", "win", "s1") as {
+            ok: boolean;
+            data: { unsubscribed: boolean };
+        };
+
+        expect(result.ok).toBe(true);
+        expect(service.unsubscribe).toHaveBeenCalledWith("claude_code", "win", "s1");
+    });
+
+    it("QUERY resolve 成功时调 service.query 并返回 ok", async () => {
+        service.query.mockReturnValue({
+            messages: [{ id: "1", role: "user", text: "hi", timestamp: null }],
+            next_cursor: null,
+        });
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:query");
+        const result = handler(valid_sender, "claude_code", "win", "s1", { limit: 10 }) as {
+            ok: boolean;
+            data: { messages: unknown[]; next_cursor: unknown };
+        };
+
+        expect(result.ok).toBe(true);
+        expect(result.data.messages).toHaveLength(1);
+        expect(service.query).toHaveBeenCalledTimes(1);
+    });
+
+    it("QUERY resolve 失败返回 fail", async () => {
+        locator_mock.resolve_session_file.mockReturnValue(null);
+        await register();
+
+        const handler = get_handler("sessionHistory:query");
+        const result = handler(valid_sender, "claude_code", "win", "missing") as {
+            ok: boolean;
+            error: { code: string };
+        };
+
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe("SESSION_NOT_FOUND");
+    });
+
+    it("RECENT 调 service.recent_sessions 并返回 ok", async () => {
+        locator_mock.resolve_session_file.mockReturnValue(null);
+        await register();
+
+        const handler = get_handler("sessionHistory:recent");
+        const result = handler(valid_sender, "claude_code", "win", 6) as {
+            ok: boolean;
+            data: unknown[];
+        };
+
+        expect(result.ok).toBe(true);
+        expect(result.data).toHaveLength(1);
+        expect(service.recent_sessions).toHaveBeenCalledTimes(1);
+    });
+});

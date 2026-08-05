@@ -342,6 +342,19 @@ export function create_web_usageboard(): UsageboardApi {
                 return { series };
             },
         },
+        sessionHistory: {
+            open: () => Promise.resolve(),
+            subscribe: () => Promise.resolve({ subscribed: false }),
+            unsubscribe: () => Promise.resolve({ unsubscribed: false }),
+            query: () => Promise.resolve({ messages: [], next_cursor: null }),
+            recent: () => Promise.resolve([]),
+            onMessagesUpdated: () => () => {
+                /* web 端不暴露会话历史 */
+            },
+            onFocus: () => () => {
+                /* web 端不暴露会话历史 */
+            },
+        },
         buildInfo: {
             get: () =>
                 Promise.resolve({

@@ -23,10 +23,14 @@ export interface HistoryMessage {
 /**
  * 增量提取游标。JSONL 端用字节 offset，opencode 用 max(rowid)。
  * 全量提取后返回游标，下次增量从游标续读。
+ * `pagination` 形态仅供 t210 查询分页：编码「已返回页最早消息在全量数组中的
+ * 绝对下标」。提取器追加型（新消息只出现在末尾），旧下标跨追加稳定；用下标
+ * 而非 message id 定位，避免空/重复 id 时 findIndex 跳到错误位置（t210_code_f005）。
  */
 export type ExtractCursor =
     | { readonly kind: "byte_offset"; readonly file: string; readonly offset: number }
-    | { readonly kind: "sqlite_rowid"; readonly max_rowid: number };
+    | { readonly kind: "sqlite_rowid"; readonly max_rowid: number }
+    | { readonly kind: "pagination"; readonly end_index: number };
 
 export interface ExtractResult {
     readonly messages: readonly HistoryMessage[];

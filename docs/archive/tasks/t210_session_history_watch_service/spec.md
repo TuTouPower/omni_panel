@@ -50,6 +50,7 @@ reviewer 判 AC 时只看本区。
 
 - AC「watcher / 轮询触发推送」「注销释放句柄」：主进程集成测试，临时目录模拟 transcript 追加。
 - AC「窗口关闭注销全部订阅」「OPEN singleton」：需真实窗口环境，[deploy] 由 t213 手动验收，本 task 以服务层单测覆盖订阅表逻辑。
+- AC「WSL 路径 resolve 与 wsl_user 自动探测」：UNC 路径无法在测试环境创建，自动探测生产可用性由 t213 真实 WSL 验收；本 task 覆盖显式配置分支与探测失败优雅返回 null。
 
 ## 上下文区
 
@@ -79,7 +80,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- `SESSION_HISTORY_OPEN` 从明细表（agent route）触发时的跨 route 聚焦参数形态：`UNVERIFIED-SPIKE`，执行期参照现有 `TOKEN_STATS_OPEN` 调用链确认。
+- `SESSION_HISTORY_OPEN` 跨 route 聚焦参数形态：已核实。参照 `TOKEN_STATS_OPEN`（`agent_window_controller.open_or_focus()` 无参 + handler 在 main/index.ts:939）。SESSION_HISTORY_OPEN handler 接 `(source, env, session_id)` → `history_window_controller.open_or_focus()` → 若窗口已存在，`win.webContents.send(SESSION_HISTORY_FOCUS, {source,env,session_id})` 让 renderer 定位到目标会话；首次创建则 renderer 启动时读初始定位参数。
 
 ### 风险与回退
 
