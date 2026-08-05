@@ -187,6 +187,7 @@ describe("refresh-service", () => {
         const runtimeStore = createRuntimeStore();
         const history_item = {
             id: "deepseek-1:deepseek-1:deepseek:usage",
+            metric_id: "deepseek:deepseek-1:usage",
             provider: "deepseek" as const,
             source: "wrapper" as const,
             sourceInstanceId: "deepseek-1",
@@ -776,6 +777,7 @@ return [{
         const items = [
             {
                 id: "mimo:mimo:mimo:usage",
+                metric_id: "mimo:mimo-1:usage",
                 provider: "mimo" as const,
                 source: "session" as const,
                 sourceInstanceId: "mimo-1",
@@ -1556,6 +1558,7 @@ return [{
             items: [
                 {
                     id: "mimo:mimo:mimo:usage",
+                    metric_id: "mimo:mimo-1:usage",
                     provider: "mimo" as const,
                     source: "session" as const,
                     sourceInstanceId: "mimo-1",

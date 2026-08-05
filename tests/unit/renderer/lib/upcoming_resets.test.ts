@@ -24,6 +24,7 @@ function period(
 ) {
     return {
         id: "p1",
+        metric_id: "claude:acct1:5小时",
         provider: overrides.provider ?? "claude",
         source: "poll" as const,
         sourceInstanceId: "si1",

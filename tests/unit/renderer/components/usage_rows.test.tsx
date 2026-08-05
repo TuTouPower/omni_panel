@@ -16,6 +16,7 @@ import type {
 function make_period(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsagePeriod {
     return {
         id: "period-1",
+        metric_id: "glm:glm-main:glm-4-plus",
         provider: "glm",
         source: "gateway",
         sourceInstanceId: "cpa-main",

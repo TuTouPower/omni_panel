@@ -78,6 +78,7 @@ describe("LabelMapDialog", () => {
         return [
             {
                 id: "item-1",
+                metric_id: "claude:acc-1:five_hour",
                 provider: "claude",
                 source: "gateway",
                 sourceInstanceId: "cpa-1",
@@ -96,6 +97,7 @@ describe("LabelMapDialog", () => {
             },
             {
                 id: "item-2",
+                metric_id: "claude:acc-1:seven_day",
                 provider: "claude",
                 source: "gateway",
                 sourceInstanceId: "cpa-1",
@@ -195,6 +197,7 @@ describe("LabelMapDialog", () => {
                 ...sample_items(),
                 {
                     id: "item-3",
+                    metric_id: "codex:acc-2:primary_window",
                     provider: "codex",
                     source: "gateway",
                     sourceInstanceId: "cpa-1",
@@ -234,6 +237,7 @@ describe("LabelMapDialog", () => {
             mock_ready_state([
                 {
                     id: "codex-a-5h",
+                    metric_id: "codex:acc-a:primary_window",
                     provider: "codex",
                     source: "gateway",
                     sourceInstanceId: "cpa-1",
@@ -252,6 +256,7 @@ describe("LabelMapDialog", () => {
                 },
                 {
                     id: "codex-b-5h",
+                    metric_id: "codex:acc-b:primary_window",
                     provider: "codex",
                     source: "gateway",
                     sourceInstanceId: "cpa-1",
@@ -270,6 +275,7 @@ describe("LabelMapDialog", () => {
                 },
                 {
                     id: "codex-b-week",
+                    metric_id: "codex:acc-b:secondary_window",
                     provider: "codex",
                     source: "gateway",
                     sourceInstanceId: "cpa-1",

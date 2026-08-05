@@ -84,6 +84,7 @@ const claude_with_accounts = connector({
         items: [
             {
                 id: "claude-pro-a",
+                metric_id: "claude:acc-a:window-a",
                 provider: "claude",
                 source: "gateway",
                 sourceInstanceId: "cpa-main",
@@ -101,6 +102,7 @@ const claude_with_accounts = connector({
             },
             {
                 id: "claude-pro-b",
+                metric_id: "claude:acc-b:window-b",
                 provider: "claude",
                 source: "gateway",
                 sourceInstanceId: "cpa-main",

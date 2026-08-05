@@ -81,6 +81,7 @@ describe("IPC helpers", () => {
                 items: [
                     {
                         id: "item-1",
+                        metric_id: "claude:acct-1:five_hour",
                         provider: "claude",
                         source: "gateway",
                         sourceInstanceId: "cpa-1",

@@ -100,22 +100,23 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
             }
             if (missing.length === 0) return;
             try {
-                // trend 查询键是 raw_label（observation store 索引的稳定短 metric id），
-                // 不是复合 period.id；bulk 请求按 raw_label 查询，响应按 metric_id 映射回 cache_key。
-                const raw_label_to_cache_key = new Map(
-                    missing.map((m) => [m.period.raw_label, m.cache_key] as const),
+                // trend 查询键是 observation 的 metric_id（connector 构造的完整键，如
+                // `claude:acc-1:five_hour`），不是 raw_label（短标签）也不是复合 period.id。
+                // bulk 请求按 metric_id 查询，响应按 metric_id 映射回 cache_key。
+                const metric_id_to_cache_key = new Map(
+                    missing.map((m) => [m.period.metric_id, m.cache_key] as const),
                 );
                 const bulk = await trend_api.getBulk({
                     provider: account.periods[0]?.provider ?? "",
                     account_id: account.periods[0]?.accountId ?? "",
                     periods: missing.map(({ period }) => ({
-                        metric_id: period.raw_label,
+                        metric_id: period.metric_id,
                     })),
                 });
                 if (cancelled) return;
                 const entries: [string, (TrendPoint | null)[]][] = [];
                 for (const item of bulk.series) {
-                    const cache_key = raw_label_to_cache_key.get(item.metric_id);
+                    const cache_key = metric_id_to_cache_key.get(item.metric_id);
                     if (!cache_key) continue;
                     trend_cache_ref.current.set(cache_key, item.series);
                     entries.push([cache_key, item.series]);

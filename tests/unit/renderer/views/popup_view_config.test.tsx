@@ -274,6 +274,7 @@ describe("PopupView", () => {
                     items: [
                         {
                             id: "acc-a",
+                            metric_id: "claude:auth-a:5h",
                             provider: "claude",
                             source: "gateway",
                             sourceInstanceId: "cpa-main",
@@ -291,6 +292,7 @@ describe("PopupView", () => {
                         },
                         {
                             id: "acc-b",
+                            metric_id: "claude:auth-b:5h",
                             provider: "claude",
                             source: "gateway",
                             sourceInstanceId: "cpa-main",
@@ -345,6 +347,7 @@ describe("PopupView", () => {
                 items: [
                     {
                         id: "acc-a",
+                        metric_id: "claude:auth-a:5h",
                         provider: "claude",
                         source: "gateway",
                         sourceInstanceId: "cpa-main",
@@ -382,6 +385,7 @@ describe("PopupView", () => {
                     items: [
                         {
                             id: "acc-a",
+                            metric_id: "claude:auth-a:5h",
                             provider: "claude",
                             source: "gateway",
                             sourceInstanceId: "cpa-main",
@@ -399,6 +403,7 @@ describe("PopupView", () => {
                         },
                         {
                             id: "acc-b",
+                            metric_id: "claude:auth-b:5h",
                             provider: "claude",
                             source: "gateway",
                             sourceInstanceId: "cpa-main",
@@ -456,6 +461,7 @@ describe("PopupView", () => {
                     items: [
                         {
                             id: "acc-a",
+                            metric_id: "claude:auth-a:5h",
                             provider: "claude",
                             source: "gateway",
                             sourceInstanceId: "cpa-main",
@@ -473,6 +479,7 @@ describe("PopupView", () => {
                         },
                         {
                             id: "acc-b",
+                            metric_id: "claude:auth-b:5h",
                             provider: "claude",
                             source: "gateway",
                             sourceInstanceId: "cpa-main",

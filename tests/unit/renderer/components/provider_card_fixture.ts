@@ -24,6 +24,7 @@ export function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): Provider
         periods: [
             {
                 id: "w1",
+                metric_id: "deepseek:acc1:tokens",
                 provider: "deepseek",
                 source: "poll",
                 sourceInstanceId: "ds-1",
@@ -56,6 +57,7 @@ export function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): Provider
                 periods: [
                     {
                         id: "w1",
+                        metric_id: "deepseek:acc1:tokens",
                         provider: "deepseek",
                         source: "poll",
                         sourceInstanceId: "ds-1",
@@ -84,6 +86,7 @@ export function makeGroup(overrides: Partial<ProviderUsageGroup> = {}): Provider
 export function makePeriod(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsagePeriod {
     return {
         id: "w-overview",
+        metric_id: "deepseek:acc-overview:tokens",
         provider: "deepseek",
         source: "poll",
         sourceInstanceId: "ds-overview",

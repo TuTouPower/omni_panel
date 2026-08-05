@@ -8,6 +8,7 @@ const connector_list = vi.fn();
 function make_item(overrides: Partial<MetricRecord> = {}): MetricRecord {
     return {
         id: "i1",
+        metric_id: "deepseek:acc1:tokens",
         provider: "deepseek",
         source: "poll",
         sourceInstanceId: "ds-1",

@@ -23,6 +23,7 @@ export interface ReadyState {
 export function observation_to_metric_record(obs: Observation): MetricRecord {
     return {
         id: `${obs.source_instance_id}:${obs.account_id}:${obs.metric_id}`,
+        metric_id: obs.metric_id,
         provider: obs.provider,
         source: obs.source,
         sourceInstanceId: obs.source_instance_id,

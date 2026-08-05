@@ -22,6 +22,7 @@ function make_group(overrides?: {
         periods: [
             {
                 id: "p1",
+                metric_id: "claude:acc1:daily",
                 provider: "claude",
                 source: "local",
                 sourceInstanceId: "inst1",
@@ -43,6 +44,7 @@ function make_group(overrides?: {
             },
             {
                 id: "p2",
+                metric_id: "claude:acc2:hourly",
                 provider: "claude",
                 source: "local",
                 sourceInstanceId: "inst1",
@@ -76,6 +78,7 @@ function make_group(overrides?: {
                 periods: [
                     {
                         id: "p1",
+                        metric_id: "claude:acc1:daily",
                         provider: "claude",
                         source: "local",
                         sourceInstanceId: "inst1",
@@ -109,6 +112,7 @@ function make_group(overrides?: {
                 periods: [
                     {
                         id: "p2",
+                        metric_id: "claude:acc2:hourly",
                         provider: "claude",
                         source: "local",
                         sourceInstanceId: "inst1",
@@ -180,6 +184,7 @@ describe("buildAccountErrors", () => {
         // account with 2 periods: first ok (no error), second error → extracts second's error
         const ok_period: ProviderUsagePeriod = {
             id: "p1ok",
+            metric_id: "claude:acc1:daily",
             provider: "claude",
             source: "local",
             sourceInstanceId: "inst1",
@@ -242,6 +247,7 @@ describe("buildAccountErrors", () => {
         });
         const ds_period: ProviderUsagePeriod = {
             id: "p3",
+            metric_id: "deepseek:acc3:daily",
             provider: "deepseek",
             source: "local",
             sourceInstanceId: "inst2",

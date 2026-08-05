@@ -177,6 +177,7 @@ describe("PopupView", () => {
                     items: [
                         {
                             id: "grok-ok",
+                            metric_id: "grok:grok-new:monthly",
                             provider: "grok",
                             source: "local",
                             sourceInstanceId: "grok-ts-new",
