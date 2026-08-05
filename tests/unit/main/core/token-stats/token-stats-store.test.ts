@@ -566,7 +566,7 @@ describe("token-stats-store", () => {
     });
 
     describe("query_range_rollup (24h summary, t184)", () => {
-        it("aggregates by (source, model, directory, session_id) without a LIMIT", () => {
+        it("aggregates by (source, env, model, directory, session_id) without a LIMIT", () => {
             // Two sessions × two models; multiple messages per group.
             store.upsert_records([
                 record({ message_id: "a1", session_id: "s1", model: "sonnet-4", timestamp: T0 }),
@@ -576,14 +576,28 @@ describe("token-stats-store", () => {
             ]);
 
             const rows = store.query_range_rollup({ start: T0, end: T2 });
-            // Groups: (claude_code, sonnet-4, /home/user/proj, s1), (claude_code,
-            // opus, /home/user/proj, s1), (claude_code, sonnet-4, /home/user/proj, s2)
+            // Groups: (claude_code, win, sonnet-4, /home/user/proj, s1),
+            // (claude_code, win, opus, /home/user/proj, s1),
+            // (claude_code, win, sonnet-4, /home/user/proj, s2)
             expect(rows).toHaveLength(3);
             const s1_sonnet = rows.find((r) => r.session_id === "s1" && r.model === "sonnet-4")!;
             expect(s1_sonnet.calls).toBe(2);
             expect(s1_sonnet.input_tokens).toBe(200);
             expect(s1_sonnet.title).toBe("hello");
             expect(s1_sonnet.directory).toBe("/home/user/proj");
+        });
+
+        it("同 session_id 跨 env 不合并：rollup 行含 env 区分 win/wsl", () => {
+            store.upsert_records([
+                record({ message_id: "w1", session_id: "s1", env: "win", timestamp: T0 }),
+                record({ message_id: "w2", session_id: "s1", env: "wsl", timestamp: T1 }),
+            ]);
+
+            const rows = store.query_range_rollup({ start: T0, end: T2 });
+            // GROUP BY 含 env：同 session_id 不同 env 拆成两行，且每行含 env 字段
+            expect(rows).toHaveLength(2);
+            const envs = rows.map((r) => r.env).sort();
+            expect(envs).toEqual(["win", "wsl"]);
         });
 
         it("uses half-open [start, end) so boundary records fall in one window", () => {

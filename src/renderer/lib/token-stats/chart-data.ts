@@ -1087,7 +1087,8 @@ export function prepareBarDataFromDashboardRollup(
     const model_resolver = build_resolver(
         modelAliases.map((a) => ({ alias: a.alias, keys: a.models })),
     );
-    const session_key = (row: TokenStatsRollupRow): string => `${row.source}|${row.session_id}`;
+    const session_key = (row: TokenStatsRollupRow): string =>
+        `${row.source}|${row.env}|${row.session_id}`;
     const category_of = (row: TokenStatsRollupRow): string =>
         xaxis === "project" ? directory_resolver(row.directory ?? "(unknown)") : session_key(row);
     const category_totals = new Map<string, number>();

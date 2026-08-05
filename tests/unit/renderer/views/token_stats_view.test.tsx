@@ -128,6 +128,7 @@ function dashboard(
             rollup: [
                 {
                     source: "claude_code",
+                    env: "win",
                     model: "sonnet",
                     directory: "/project",
                     session_id,
