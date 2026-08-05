@@ -212,6 +212,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
         <CollapsibleCard
             header={header}
             collapsed={can_collapse ? collapsed : false}
+            collapsible={can_collapse}
             onToggle={can_collapse ? onToggleCollapsed : () => undefined}
             toggleLabel={
                 collapsed ? `展开 ${display_label || "账号"}` : `折叠 ${display_label || "账号"}`

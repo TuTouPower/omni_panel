@@ -72,7 +72,8 @@ export function UpcomingResetCard({
     return (
         <CollapsibleCard
             header={header}
-            collapsed={!expanded}
+            collapsed={onToggleExpand !== undefined ? !expanded : false}
+            collapsible={onToggleExpand !== undefined}
             onToggle={onToggleExpand ?? (() => undefined)}
             toggleLabel={expanded ? "折叠即将重置" : "展开即将重置"}
             className={card_class}

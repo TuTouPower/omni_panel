@@ -768,7 +768,8 @@ export function PopupView() {
                         {token_panel_enabled && !loading && plugins.length > 0 && (
                             <CollapsibleCard
                                 header={<span className="card-name">Total Tokens</span>}
-                                collapsed={token_panel_collapsed}
+                                collapsed={is_live ? token_panel_collapsed : false}
+                                collapsible={is_live}
                                 onToggle={
                                     is_live
                                         ? () => {
