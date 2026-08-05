@@ -21,9 +21,9 @@ export interface ObservationStore {
      * `source_instance_id` 隔离：同一 (provider, account_id, metric_id) 下
      * 不同实例的观测各自分桶（t214——多账号 provider account_id 塌成同一值，
      * 真实身份压在 source_instance_id，旧版合并致 sparkline 串接）。
-     * 索引：加 source_instance_id 后，planner 选 idx_lookup(provider, account_id,
-     * metric_id, source_instance_id, observed_at)——全覆盖 WHERE 等值列 + observed_at
-     * 范围，无需 filter；idx_trend 对本查询已冗余但保留（删属 schema 变更）。
+     * 索引：planner 选 idx_lookup(provider, account_id, metric_id,
+     * source_instance_id, observed_at)——全覆盖 WHERE 等值列 + observed_at 范围，
+     * 无需 filter（t221 删除冗余 idx_trend，旧库残留无害、不迁移 DROP）。
      */
     query_trend_series(
         provider: string,
@@ -65,12 +65,6 @@ CREATE TABLE IF NOT EXISTS observations (
 
 CREATE INDEX IF NOT EXISTS idx_lookup
     ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
-
--- Sparkline 趋势查询（t214 起 WHERE 含 source_instance_id）：planner 选 idx_lookup
--- （provider, account_id, metric_id, source_instance_id, observed_at）全覆盖。idx_trend
--- 保留供不含 source_instance_id 的等价查询路径；对当前 trend 查询 idx_lookup 已更优。
-CREATE INDEX IF NOT EXISTS idx_trend
-    ON observations(provider, account_id, metric_id, observed_at);
 `;
 
 const LABEL_COLUMNS = ["raw_label", "normalized_label", "display_label"] as const;

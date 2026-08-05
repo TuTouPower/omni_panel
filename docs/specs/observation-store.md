@@ -35,13 +35,13 @@
 - `list_latest_by_provider(provider): Observation[]`
 - `list_all_providers(): string[]`（`SELECT DISTINCT provider`，UI 服务商切换用）
 - `list_by_source_instance_id(id): Observation[]`
-- `query_trend_series(provider, account_id, metric_id, source_instance_id, days, max_points?): Observation[]`（sparkline 用：t208 取点策略——原始点数 ≤max_points（默认 120）时每点独立（不聚合、保留采集粒度），超过则按 max_points 桶均分 `[now-days, now]` 窗口、每桶取 `observed_at` 最大；升序返回，不 null 填充。旧「按 UTC 天分桶、长度=days、缺日填 null」语义已废弃）。t214 起 `source_instance_id` 隔离——同 provider/account_id/metric_id 下不同实例各自分桶，不再合并；多账号 provider（account_id 塌成同一值）靠此维度区分。planner 走 idx_lookup 全覆盖，idx_trend 对本查询冗余但保留。注：t057「source_instance_id 区分足够」只对 insert/get_latest/list_latest 成立，对 query_trend_series 不成立
+- `query_trend_series(provider, account_id, metric_id, source_instance_id, days, max_points?): Observation[]`（sparkline 用：t208 取点策略——原始点数 ≤max_points（默认 120）时每点独立（不聚合、保留采集粒度），超过则按 max_points 桶均分 `[now-days, now]` 窗口、每桶取 `observed_at` 最大；升序返回，不 null 填充。旧「按 UTC 天分桶、长度=days、缺日填 null」语义已废弃）。t214 起 `source_instance_id` 隔离——同 provider/account_id/metric_id 下不同实例各自分桶，不再合并；多账号 provider（account_id 塌成同一值）靠此维度区分。planner 走 idx_lookup 全覆盖（t221 删除冗余 idx_trend，旧库残留不迁移 DROP、保留无害）。注：t057「source_instance_id 区分足够」只对 insert/get_latest/list_latest 成立，对 query_trend_series 不成立
 - `prune(older_than_ms): number`
 - `close(): void`
 
 ## 行为（现在是什么）
 
-- **SQLite 单表 `observations`（追加，保留历史）**：字段对齐上表（**例外**：`cycleDurationMs` 仅存在于 zod 层，SQLite 表**无此列**，不持久化——用量条颜色计算只走内存 ready state）；PRAGMA `journal_mode=WAL`、`wal_autocheckpoint=1000`、`busy_timeout=5000`；索引 `idx_lookup(provider, account_id, metric_id, source_instance_id, observed_at)` 与 `idx_trend(provider, account_id, metric_id, observed_at)`（后者服务于 sparkline 范围扫描，因 `idx_lookup` 在 `metric_id` 后还挂 `source_instance_id`，无法覆盖只按 provider/account_id/metric_id 过滤的范围查询）。
+- **SQLite 单表 `observations`（追加，保留历史）**：字段对齐上表（**例外**：`cycleDurationMs` 仅存在于 zod 层，SQLite 表**无此列**，不持久化——用量条颜色计算只走内存 ready state）；PRAGMA `journal_mode=WAL`、`wal_autocheckpoint=1000`、`busy_timeout=5000`；索引 `idx_lookup(provider, account_id, metric_id, source_instance_id, observed_at)`（t221 起删除冗余 `idx_trend`——trend 查询 WHERE 恒含 source_instance_id，idx_lookup 全覆盖；旧库残留 idx_trend 不迁移 DROP、保留无害）。
 - **当前值 = observedAt 最新胜出**（不变量 1）：`get_latest` 用 `ORDER BY observed_at DESC LIMIT 1`；`list_latest_*` 取每键最新行——`list_by_source_instance_id` 用 `ROW_NUMBER() OVER (PARTITION BY account_id, metric_id ORDER BY observed_at DESC)` window function（t096：旧相关子查询 `observed_at = MAX(...)` 在 64k 行下 53s，改 window 走 idx_lookup 覆盖索引降至 39ms；tied observed_at 时旧返回所有并列行、新每分区 1 行，ms 精度 + 网络间隔下 tie 不发生）。t174 起同 ts 下 latest 查询加 `stale DESC` tie-breaker（stale 副本优先），insert 前清同键旧 stale 副本防累积。
 - **历史保留**：每次 insert 是新行（无 upsert）。`prune` 删 `observed_at < cutoff` 的行，但**每键最新行永不删**（当前值不丢）。当前无调用方定期调 prune。
 - **stale**：insert 写 `stale` 为 0/1；采集失败不覆盖 latest，靠 `stale:true`+`lastError` 标记。t174 起 stale 副本保留原观测 `observed_at`（数据真实年龄），不再打成尝试时间。
