@@ -59,17 +59,16 @@ export function TitleBar(props: TitleBarProps) {
                 >
                     <Icon name="gear" size={18} />
                 </button>
-                {is_web() && (
-                    <button
-                        className="icon-btn"
-                        title="代理面板"
-                        onClick={() => {
-                            window.usageboard.tokenStats.open();
-                        }}
-                    >
-                        <Icon name="chart" size={18} />
-                    </button>
-                )}
+                <button
+                    className="icon-btn"
+                    title="代理面板"
+                    aria-label="代理面板"
+                    onClick={() => {
+                        window.usageboard.tokenStats.open();
+                    }}
+                >
+                    <Icon name="chart" size={18} />
+                </button>
                 {!is_web() && (
                     <button
                         className="icon-btn"

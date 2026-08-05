@@ -17,6 +17,7 @@ import {
     plugin_refresh,
     plugin_refresh_all,
     session_history_open,
+    token_stats_open,
     usage_log,
 } from "./popup_view_test_utils";
 
@@ -345,6 +346,17 @@ describe("PopupView", () => {
         const btn = screen.getByRole("button", { name: "会话历史" });
         fireEvent.click(btn);
         expect(session_history_open).toHaveBeenCalledWith("", "", "");
+    });
+
+    it("opens the proxy panel window from the title bar button", async () => {
+        token_stats_open.mockClear();
+        render(<PopupView />);
+        await waitFor(() => {
+            expect(document.querySelector(".tb-time")).not.toBeNull();
+        });
+        const btn = screen.getByRole("button", { name: "代理面板" });
+        fireEvent.click(btn);
+        expect(token_stats_open).toHaveBeenCalled();
     });
 
     it("hides the session history button in web mode", async () => {

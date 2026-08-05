@@ -64,6 +64,7 @@ export const on_config_change = vi.fn((callback: (config: AppConfiguration) => v
     return vi.fn();
 });
 export const session_history_open = vi.fn<() => Promise<undefined>>().mockResolvedValue(undefined);
+export const token_stats_open = vi.fn<() => void>();
 
 export function install_popup_usageboard() {
     vi.clearAllMocks();
@@ -220,7 +221,7 @@ export function install_popup_usageboard() {
             refresh: vi.fn(),
         },
         tokenStats: {
-            open: vi.fn(),
+            open: token_stats_open,
             getBuckets: vi.fn().mockResolvedValue([]),
             getSessions: vi.fn().mockResolvedValue([]),
             getRecords: vi.fn().mockResolvedValue([]),
