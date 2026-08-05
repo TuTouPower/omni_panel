@@ -3092,6 +3092,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t206_t204_model_filter_test_coverage"
+        },
+        {
+            "tid": "t207",
+            "slug": "fix_trend_metric_id_mismatch",
+            "title": "修复 trend 查询键与 observation metric_id 不一致致 sparkline 恒空",
+            "status": "done",
+            "branch": "t207_fix_trend_metric_id_mismatch",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "c31389e9a1ff25e5280ebdf90d49ccc341196352",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t207_fix_trend_metric_id_mismatch"
         }
     ]
 }

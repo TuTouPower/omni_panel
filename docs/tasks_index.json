@@ -2,21 +2,5 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t207",
-            "slug": "fix_trend_metric_id_mismatch",
-            "title": "修复 trend 查询键与 observation metric_id 不一致致 sparkline 恒空",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t207_fix_trend_metric_id_mismatch"
-        }
-    ]
+    "tasks": []
 }
