@@ -4,7 +4,7 @@
 
 ## 背景
 
-需求定稿 `docs/session_history_window_questions.md`（决策 18）。前四个 task（t209~t212）分别交付提取器、后端服务、窗口 UI、明细表入口。本 task 做端到端收口：真实环境验收整条链路，并完成 blueprint 文档与 specs 累积。
+需求定稿 `docs/tasks/t211_session_history_window/requirements.md`（决策 18）。前四个 task（t209~t212）分别交付提取器、后端服务、窗口 UI、明细表入口。本 task 做端到端收口：真实环境验收整条链路，并完成 blueprint 文档与 specs 累积。
 
 ## 契约区
 

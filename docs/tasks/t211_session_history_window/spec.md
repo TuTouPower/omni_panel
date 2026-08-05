@@ -4,7 +4,7 @@
 
 ## 背景
 
-需求定稿 `docs/session_history_window_questions.md`（决策 3、4、8、9、10、11、12、14、17）。会话历史窗口是本需求的主 UI：单窗口分栏平铺，最多 6 栏，实时刷新，消息可单选 / 多选 / 跨栏复制。本 task 实现 renderer 窗口全部交互。
+需求定稿 `docs/tasks/t211_session_history_window/requirements.md`（决策 3、4、8、9、10、11、12、14、17）。会话历史窗口是本需求的主 UI：单窗口分栏平铺，最多 6 栏，实时刷新，消息可单选 / 多选 / 跨栏复制。本 task 实现 renderer 窗口全部交互。
 
 ## 契约区
 

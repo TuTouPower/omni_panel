@@ -4,7 +4,7 @@
 
 ## 背景
 
-需求定稿 `docs/session_history_window_questions.md`（决策 5、6、15）。会话历史窗口要求只有被打开的会话才高频刷新，其余维持原 10 分钟轮询。本 task 在主进程建订阅 / watcher 服务与 `SESSION_HISTORY_*` IPC 通道组，为窗口（t211）与明细表入口（t212）提供后端。
+需求定稿 `docs/tasks/t211_session_history_window/requirements.md`（决策 5、6、15）。会话历史窗口要求只有被打开的会话才高频刷新，其余维持原 10 分钟轮询。本 task 在主进程建订阅 / watcher 服务与 `SESSION_HISTORY_*` IPC 通道组，为窗口（t211）与明细表入口（t212）提供后端。
 
 ## 契约区
 

@@ -4,7 +4,7 @@
 
 ## 背景
 
-需求定稿 `docs/session_history_window_questions.md`（决策 1、2、13）。现有四端 token-stats reader 只提取 token 计数与首条用户文本（作标题），消息正文解析后丢弃。会话历史窗口需要正文，数据来源定为按需读原始 transcript 文件，因此需先有四端「消息内容提取器」纯函数层。
+需求定稿 `docs/tasks/t211_session_history_window/requirements.md`（决策 1、2、13）。现有四端 token-stats reader 只提取 token 计数与首条用户文本（作标题），消息正文解析后丢弃。会话历史窗口需要正文，数据来源定为按需读原始 transcript 文件，因此需先有四端「消息内容提取器」纯函数层。
 
 ## 契约区
 
