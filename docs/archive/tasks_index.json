@@ -3107,6 +3107,51 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t207_fix_trend_metric_id_mismatch"
+        },
+        {
+            "tid": "t208",
+            "slug": "sparkline_granularity_window",
+            "title": "sparkline 改按采集粒度取点并加 1天/7天/30天 窗口选择",
+            "status": "done",
+            "branch": "t208_sparkline_granularity_window",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "f91a7603684a4c1a66340231e92ca8e3f9cccd76",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t208_sparkline_granularity_window"
+        },
+        {
+            "tid": "t214",
+            "slug": "sparkline_instance_dimension",
+            "title": "修复 sparkline 查询缺 source_instance_id 维度致多账号串接",
+            "status": "done",
+            "branch": "t214_sparkline_instance_dimension",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "0ddc79d808f4f89548387cd62e9dc6164416a479",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t214_sparkline_instance_dimension"
+        },
+        {
+            "tid": "t215",
+            "slug": "account_list_grid_layout",
+            "title": "单厂商账号列表改多列卡片网格布局",
+            "status": "done",
+            "branch": "t215_account_list_grid_layout",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "56337d30408c9362b70f6cc152ba1867c446e5ae",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t215_account_list_grid_layout"
         }
     ]
 }

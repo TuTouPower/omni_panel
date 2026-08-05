@@ -4,21 +4,6 @@
     "workspace": ".",
     "tasks": [
         {
-            "tid": "t208",
-            "slug": "sparkline_granularity_window",
-            "title": "sparkline 改按采集粒度取点并加 1天/7天/30天 窗口选择",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t208_sparkline_granularity_window"
-        },
-        {
             "tid": "t209",
             "slug": "session_history_extractors",
             "title": "会话历史四端消息内容提取器",
@@ -92,36 +77,6 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t213_session_history_e2e"
-        },
-        {
-            "tid": "t214",
-            "slug": "sparkline_instance_dimension",
-            "title": "修复 sparkline 查询缺 source_instance_id 维度致多账号串接",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t214_sparkline_instance_dimension"
-        },
-        {
-            "tid": "t215",
-            "slug": "account_list_grid_layout",
-            "title": "单厂商账号列表改多列卡片网格布局",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t215_account_list_grid_layout"
         }
     ]
 }
