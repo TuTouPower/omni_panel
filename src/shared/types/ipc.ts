@@ -130,8 +130,9 @@ export const IPC_CHANNELS = {
     TREND_GET: "trend:get",
     /**
      * t196 AC5: 一次取回某账号全部指标周期的 trend 序列。
-     * 载荷 `{ provider, account_id, periods: Array<{ metric_id, raw_label, days? }> }`，
+     * 载荷 `{ provider, account_id, source_instance_id, periods: Array<{ metric_id, days? }> }`，
      * 返回 `Array<{ metric_id, series }>`；替代 N 个并行 TREND_GET invoke。
+     * t214: source_instance_id 隔离多账号（account_id 塌成同值时）。
      */
     TREND_GET_BULK: "trend:getBulk",
 
@@ -288,6 +289,7 @@ export interface TrendApi {
         provider: string,
         accountId: string,
         metricId: string,
+        sourceInstanceId: string,
         days?: number,
     ): Promise<(TrendPoint | null)[]>;
     /** t196 AC5: 单 IPC 取回多周期 trend 序列。 */
@@ -295,7 +297,7 @@ export interface TrendApi {
 }
 
 export interface TrendPeriodRequest {
-    /** SQL 查询键 = observation store 索引的 metric（即 raw_label）。 */
+    /** SQL 查询键 = observation 的 metric_id（connector 完整键，非 raw_label，t207/d014）。 */
     readonly metric_id: string;
     readonly days?: number;
 }
@@ -303,6 +305,8 @@ export interface TrendPeriodRequest {
 export interface TrendBulkRequest {
     readonly provider: string;
     readonly account_id: string;
+    /** t214: 多账号隔离维度（account_id 塌成同值时按实例区分）。 */
+    readonly source_instance_id: string;
     readonly periods: readonly TrendPeriodRequest[];
 }
 

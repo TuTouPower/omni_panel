@@ -200,11 +200,13 @@ describe("ProviderAccountRow", () => {
                 expect(container.querySelector(".trend-svg")).toBeInTheDocument();
             });
             expect(trend_bulk).toHaveBeenCalledTimes(1);
-            // bulk 查询键是 period.metric_id（observation 完整键），非 raw_label（p044）
+            // bulk 查询键是 period.metric_id（observation 完整键），非 raw_label（p044）；
+            // source_instance_id 隔离多账号（t214）
             expect(trend_bulk).toHaveBeenCalledWith(
                 expect.objectContaining({
                     provider: "claude",
                     account_id: "auth-a",
+                    source_instance_id: "cpa-main",
                     periods: [expect.objectContaining({ metric_id: "claude:auth-a:5h" })],
                 }),
             );
@@ -267,6 +269,7 @@ describe("ProviderAccountRow", () => {
                 expect.objectContaining({
                     provider: "claude",
                     account_id: "auth-a",
+                    source_instance_id: "cpa-main",
                     periods: [
                         expect.objectContaining({ metric_id: "claude:auth-a:5h" }),
                         expect.objectContaining({ metric_id: "claude:auth-a:5d" }),
@@ -365,6 +368,63 @@ describe("ProviderAccountRow", () => {
             await waitFor(() => {
                 expect(trend_bulk).toHaveBeenCalledTimes(2);
             });
+        });
+
+        it("窗口选择器切换 days 触发新取数，切回走缓存 (t208)", async () => {
+            const trend_bulk = vi.fn().mockResolvedValue({
+                series: [
+                    {
+                        metric_id: "claude:auth-a:5h",
+                        series: [
+                            { date: "2026-07-14", percent: 10 },
+                            { date: "2026-07-15", percent: 20 },
+                        ],
+                    },
+                ],
+            });
+            window.usageboard.trend = {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: trend_bulk,
+            };
+            const account = make_account();
+            const { container } = render(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={false}
+                    onToggleCollapsed={() => undefined}
+                />,
+            );
+            // 默认 7 天，初次取数
+            await waitFor(() => {
+                expect(trend_bulk).toHaveBeenCalledTimes(1);
+            });
+            expect(trend_bulk).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    periods: [expect.objectContaining({ metric_id: "claude:auth-a:5h", days: 7 })],
+                }),
+            );
+            // 切到 1 天
+            const buttons = container.querySelectorAll(".trend-window-btn");
+            const one_day_btn = Array.from(buttons).find((b) => b.textContent === "1天");
+            expect(one_day_btn).toBeDefined();
+            if (!one_day_btn) throw new Error("no 1d btn");
+            fireEvent.click(one_day_btn);
+            await waitFor(() => {
+                expect(trend_bulk).toHaveBeenCalledTimes(2);
+            });
+            expect(trend_bulk).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    periods: [expect.objectContaining({ days: 1 })],
+                }),
+            );
+            // 切回 7 天：缓存命中，不重发 IPC
+            const seven_day_btn = Array.from(buttons).find((b) => b.textContent === "7天");
+            expect(seven_day_btn).toBeDefined();
+            if (!seven_day_btn) throw new Error("no 7d btn");
+            fireEvent.click(seven_day_btn);
+            // 短暂等待确认无新调用
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            expect(trend_bulk).toHaveBeenCalledTimes(2);
         });
     });
 });

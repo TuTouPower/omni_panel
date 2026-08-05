@@ -82,6 +82,6 @@ describe("select_trend_api", () => {
         expect(api).toBe(disabled_api);
         // Lock the noop contract: disabled routes resolve to [] without throwing,
         // so setting/tray never see real trend data nor break on the IPC call.
-        await expect(api.get("any", "any", "any")).resolves.toEqual([]);
+        await expect(api.get("any", "any", "any", "any")).resolves.toEqual([]);
     });
 });

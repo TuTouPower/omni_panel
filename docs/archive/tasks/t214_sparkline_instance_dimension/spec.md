@@ -75,7 +75,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 单个 account card 下的 periods 是否恒属同一 source_instance（即 bulk 请求用顶层单一 source_instance_id 是否安全，还是需 per-period 传）：UNVERIFIED-SPIKE，执行期核实 account 聚合规则（build_account_key = sourceInstanceId|accountId，应恒单 instance，但需验），若否则改 per-period 传。
+- 单个 account card 下的 periods 恒属同一 source_instance：已核实 `provider-usage.ts:188 accountKey` = `sourceInstanceId|accountId`（gateway 源 = `sourceInstanceId|label|accountLabel`，仍含 sourceInstanceId），account.periods 按此 key 聚合（provider-usage.ts:276-284），故同 card 恒单 sourceInstanceId。bulk 请求用顶层单一 source_instance_id（取 `account.periods[0].sourceInstanceId`）安全，无需 per-period 传。
 
 ### 风险与回退
 

@@ -22,6 +22,7 @@ export function registerTrendIpc(ipc: IpcMain, deps: TrendIpcDeps): void {
             provider: string,
             accountId: string,
             metricId: string,
+            sourceInstanceId: string,
             days?: number,
         ): IpcResult<(TrendPoint | null)[]> => {
             assert_valid_sender(event);
@@ -32,6 +33,7 @@ export function registerTrendIpc(ipc: IpcMain, deps: TrendIpcDeps): void {
                 provider,
                 accountId,
                 metricId,
+                sourceInstanceId,
                 effective_days,
             );
             return ok(build_trend_series(records));
@@ -50,6 +52,7 @@ export function registerTrendIpc(ipc: IpcMain, deps: TrendIpcDeps): void {
                     payload.provider,
                     payload.account_id,
                     period.metric_id,
+                    payload.source_instance_id,
                     effective_days,
                 );
                 return {

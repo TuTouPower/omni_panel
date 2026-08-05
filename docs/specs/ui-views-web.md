@@ -13,8 +13,8 @@
 - `ProviderNav` — 顶部 provider 导航 tab（总览 + 各 provider）
 - `ProviderOverview` — 概览聚合卡片
 - `UpcomingResetCard` — 即将重置卡片（t105，取代 t005 的 `UpcomingResetBanner` / `UpcomingResetRail`）。与 provider 卡片同处 `.overview-grid`，复用 `CollapsibleCard` + `DragGrip` + `UpcomingResetRow`，可折叠可拖拽重排。保留键 `__upcoming_reset__`（`UPCOMING_RESET_CARD_ID`）同时承载 `providerOrder` 排序位与 `expandedProviders` 展开态，不新增 config 字段；`use_popup_derived` 派生 provider tab 时天然过滤该键，结构裁剪显式保留它。t041 起 threshold（`upcomingResetThresholdPercent`）为 null 时整体不渲染，非 null 时 `collect_upcoming_resets` 按剩余%（`(resetAt-now)/cycleDurationMs*100 ≤ threshold`）+ metric 级显式开启（`accountOverrides.upcomingResetWatched`，默认全关；period 仅当 (provider,accountKey,raw_label) 在 watched 集合才进面板）过滤；`collect_upcoming_resets` 生成的 `metricLabel` 取 `period.display_label ?? period.name`，优先展示用户数据标签映射后的显示名，无映射时回退原始 `raw_label`。用量面板 period 行 bell toggle 控监控开关（t043，取代 t041 account 级开关）；bell 透传经两条链：`ProviderAccountList → ProviderAccountRow → UsageBarList`（t043）与 `ProviderOverview → ProviderCard → AccountUsageRow`（t046 补齐）；设置页账号详情「数据标签映射」每行 bell（t048，per raw_label，多 accountKey 聚合 toggle）。两处入口 toggle 同一 watched 数据。
-- `ProviderAccountList` → `ProviderAccountRow` — 单 provider 账号列表 / 账号行
-- `TrendSparkline` — 账号展开时趋势迷你图（t006，懒加载 `trend:get`，缓存 key `${provider}||${accountId}||${metricId}`）
+- `ProviderAccountList` → `ProviderAccountRow` — 单 provider 账号列表 / 账号行；t215 起账号列表容器 `.provider-account-list` 改多列网格（`repeat(auto-fill,minmax(420px,1fr))` + `align-items:stretch`，与 `.overview-grid` 一致），同行等高、窗宽不足自动降单列
+- `TrendSparkline` — 账号展开时趋势迷你图（t006，懒加载 `trend:getBulk`）；查询键 `period.metric_id`（t207，observation 完整键非 raw_label）+ `source_instance_id`（t214，多账号隔离）；缓存 key `${provider}||${accountId}||${metricId}||${days}`；t208 起窗口选择器（1/7/30 天 session 内 state），取点固定 ≤120 桶均分窗口
 - `DragGrip` — 账号行拖拽手柄（仅提供 `onDragStart` 时渲染）
 - `TokenPanel` — 用量条展示
 - `CollapsibleCard` — 可折叠卡片

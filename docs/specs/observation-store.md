@@ -35,7 +35,7 @@
 - `list_latest_by_provider(provider): Observation[]`
 - `list_all_providers(): string[]`（`SELECT DISTINCT provider`，UI 服务商切换用）
 - `list_by_source_instance_id(id): Observation[]`
-- `query_trend_series(provider, account_id, metric_id, days): (Observation | null)[]`（sparkline 用：取最近 `days` 天，按 UTC 天分桶，每桶取 `observed_at` 最大一条；缺失日期填 `null`；升序返回，长度 = `days`。同一 provider/account_id/metric_id 下不同 source_instance_id 合并到同一日期桶）
+- `query_trend_series(provider, account_id, metric_id, source_instance_id, days, max_points?): Observation[]`（sparkline 用：t208 取点策略——原始点数 ≤max_points（默认 120）时每点独立（不聚合、保留采集粒度），超过则按 max_points 桶均分 `[now-days, now]` 窗口、每桶取 `observed_at` 最大；升序返回，不 null 填充。旧「按 UTC 天分桶、长度=days、缺日填 null」语义已废弃）。t214 起 `source_instance_id` 隔离——同 provider/account_id/metric_id 下不同实例各自分桶，不再合并；多账号 provider（account_id 塌成同一值）靠此维度区分。planner 走 idx_lookup 全覆盖，idx_trend 对本查询冗余但保留。注：t057「source_instance_id 区分足够」只对 insert/get_latest/list_latest 成立，对 query_trend_series 不成立
 - `prune(older_than_ms): number`
 - `close(): void`
 

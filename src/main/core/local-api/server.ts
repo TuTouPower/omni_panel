@@ -480,10 +480,11 @@ export function create_local_api_server(
         const provider = url.searchParams.get("provider");
         const accountId = url.searchParams.get("accountId");
         const metricId = url.searchParams.get("metricId");
+        const sourceInstanceId = url.searchParams.get("sourceInstanceId");
         const days_raw = url.searchParams.get("days");
-        if (!provider || !accountId || !metricId) {
+        if (!provider || !accountId || !metricId || !sourceInstanceId) {
             json_response(res, 400, {
-                error: "provider, accountId, metricId are required",
+                error: "provider, accountId, metricId, sourceInstanceId are required",
             });
             return true;
         }
@@ -491,7 +492,13 @@ export function create_local_api_server(
             days_raw !== null && Number.isFinite(Number(days_raw)) && Number(days_raw) > 0
                 ? Math.floor(Number(days_raw))
                 : 7;
-        const records = store.query_trend_series(provider, accountId, metricId, days);
+        const records = store.query_trend_series(
+            provider,
+            accountId,
+            metricId,
+            sourceInstanceId,
+            days,
+        );
         const series: (TrendPoint | null)[] = build_trend_series(records);
         json_response(res, 200, series);
         return true;

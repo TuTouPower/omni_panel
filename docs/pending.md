@@ -34,6 +34,24 @@
 - 内容：`auto_seed.spec.ts` 的 `BUNDLED_PLUGIN_NAMES` 仍是 7 条历史插件名，与 `connectors/` 下实际 16 个连接器脱节。断言用 `>=` 故仍通过，语义只剩「种子未清空既有配置」，靠 `.acc-row` "My Claude" 可见性断言兜底。属测试维护债，可考虑改为与 `discover_connector_definitions` 结果对齐或删去常量。
 - 处理：未开
 
+### p045 idx_trend 索引对 trend 查询冗余（t214 审阅建议）
+
+- 来源：t214_code review 未进表提示
+- 内容：t214 给 `query_trend_series` SQL 加 source_instance_id 后，SQLite planner 改用 idx_lookup（provider, account_id, metric_id, source_instance_id, observed_at）全覆盖，idx_trend（provider, account_id, metric_id, observed_at）对该查询不再被选用（见 d015）。idx_trend 保留无害但属冗余索引（占空间、增写入开销）。清理前须确认无其他查询路径依赖 idx_trend 的列序（如不含 source_instance_id 的等价范围查询）。
+- 处理：未开
+
+### p046 sparkline 窗口选择持久化（t208 范围外功能增强）
+
+- 来源：t208 SPIKE 结论
+- 内容：t208 sparkline 窗口选择器（1/7/30 天）仅 session 内 useState，重启回默认 7 天。config 层有 per-view 偏好字段（`collapsedAccounts` 等），可加字段持久化用户选择。属功能增强，非 bug。
+- 处理：未开
+
+### p047 trend 相关注释订正与窗口选择器测试 flaky（t208 审阅范围外）
+
+- 来源：t208 code/test review 未进表提示
+- 内容：(1) `TrendApi.get` 注释「返回长度=days、缺失日期填 null」已过时（t208 改 ≤max_points 桶、不填充）；(2) `observation-store.ts` 接口前置 docstring 与 t208 补充段表述矛盾；(3) `provider_account_row.test.tsx` 窗口选择器「切回缓存」断言用 `setTimeout(50)` 负向等待，CI flaky 风险，宜改用 `waitFor` 配合「调用次数未变」或伪时钟。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

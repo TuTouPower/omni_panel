@@ -227,4 +227,32 @@ describe("web usageboard bridge", () => {
         handler({ data: JSON.stringify({ instanceId: "inst-1", state: { status: "idle" } }) });
         expect(received).toEqual([["inst-1", { status: "idle" }]]);
     });
+
+    it("trend.get forwards sourceInstanceId as query param (t214)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.trend.get("claude", "acc-a", "claude:acc-a:5h", "inst-a", 7);
+        const url = fetch_mock.mock.calls[0]?.[0] as string;
+        expect(url).toContain("/v1/trend");
+        expect(url).toContain("sourceInstanceId=inst-a");
+        expect(url).toContain("days=7");
+    });
+
+    it("trend.getBulk forwards source_instance_id per-period (t214)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.trend.getBulk({
+            provider: "claude",
+            account_id: "acc-a",
+            source_instance_id: "inst-a",
+            periods: [{ metric_id: "claude:acc-a:5h" }],
+        });
+        const url = fetch_mock.mock.calls[0]?.[0] as string;
+        expect(url).toContain("/v1/trend");
+        expect(url).toContain("sourceInstanceId=inst-a");
+    });
 });

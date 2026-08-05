@@ -260,26 +260,9 @@ describe("observation-store", () => {
     });
 
     describe("query_trend_series", () => {
-        it("returns `days` points with null fill for missing days", () => {
-            const now = Date.now();
-            const day_ms = 24 * 60 * 60 * 1000;
-            store.insert(make_observation({ observed_at: now }));
-            store.insert(make_observation({ observed_at: now - 3 * day_ms }));
-            store.insert(make_observation({ observed_at: now - 6 * day_ms }));
-
-            const series = store.query_trend_series("tavily", "default", "tavily:monthly_usage", 7);
-            expect(series).toHaveLength(7);
-            // Buckets: [6 days ago, 5, 4, 3, 2, 1, today]. Only 0, 3, 6 have data.
-            expect(series[0]).not.toBeNull();
-            expect(series[1]).toBeNull();
-            expect(series[2]).toBeNull();
-            expect(series[3]).not.toBeNull();
-            expect(series[4]).toBeNull();
-            expect(series[5]).toBeNull();
-            expect(series[6]).not.toBeNull();
-        });
-
-        it("keeps the latest observation per day when multiple rows hit the same bucket", () => {
+        // t208: 旧「按天分桶、长度=days、缺日填 null」语义已废弃，改为固定 ≤120 桶
+        // 均分窗口、原始点数 ≤cap 时不聚合。新语义由 trend-granularity.test.ts 覆盖。
+        it("keeps the latest observation per bucket when multiple rows hit the same bucket", () => {
             const now = Date.now();
             const two_hours_ms = 2 * 60 * 60 * 1000;
             store.insert(
@@ -287,48 +270,58 @@ describe("observation-store", () => {
             );
             store.insert(make_observation({ observed_at: now, used: 500, limit: 1000 }));
 
-            const series = store.query_trend_series("tavily", "default", "tavily:monthly_usage", 7);
-            expect(series).toHaveLength(7);
-            const today = series[6];
-            expect(today).not.toBeNull();
-            expect(today?.used).toBe(500);
-            expect(today?.limit).toBe(1000);
+            const series = store.query_trend_series(
+                "tavily",
+                "default",
+                "tavily:monthly_usage",
+                "tavily-1",
+                7,
+            );
+            // 原始点数 2 ≤ 120，不聚合，返回两点；按 observed_at 升序，末点为最新。
+            expect(series).toHaveLength(2);
+            const last = series[1];
+            expect(last).not.toBeNull();
+            expect(last?.used).toBe(500);
+            expect(last?.limit).toBe(1000);
         });
 
-        it("returns all-null series for unknown key", () => {
-            const series = store.query_trend_series("nope", "nope", "nope", 7);
-            expect(series).toHaveLength(7);
-            for (const point of series) {
-                expect(point).toBeNull();
-            }
+        it("returns empty series for unknown key", () => {
+            const series = store.query_trend_series("nope", "nope", "nope", "nope", 7);
+            expect(series).toEqual([]);
         });
 
         it("returns [] when days<=0", () => {
             expect(
-                store.query_trend_series("tavily", "default", "tavily:monthly_usage", 0),
+                store.query_trend_series(
+                    "tavily",
+                    "default",
+                    "tavily:monthly_usage",
+                    "tavily-1",
+                    0,
+                ),
             ).toEqual([]);
         });
 
-        it("uses idx_trend index for the range scan", () => {
+        it("uses a covering index for the range scan, not a full table scan", () => {
             // Seed 1 observation so the planner has statistics — empty-table plans
             // can drift across SQLite versions or after ANALYZE.
             store.insert(make_observation({ observed_at: Date.now() }));
-            // EXPLAIN QUERY PLAN must reference idx_trend — otherwise the schema
-            // optimization regressed and the query goes through idx_lookup or a
-            // full table scan. Word boundary `\b` rejects future siblings like
-            // `idx_trend_v2`.
+            // t214: SQL 加 source_instance_id 后，planner 选 idx_lookup
+            // (provider, account_id, metric_id, source_instance_id, observed_at)——
+            // 它覆盖全部 WHERE 等值列 + observed_at 范围，比 idx_trend 更优（idx_trend
+            // 不含 source_instance_id）。核心约束：必须走索引、禁全表扫描。
             const check = new Database(join(temp_dir, "test.db"));
             try {
                 const plan = check
                     .prepare(
                         "EXPLAIN QUERY PLAN SELECT * FROM observations " +
-                            "WHERE provider = ? AND account_id = ? AND metric_id = ? AND observed_at >= ? " +
+                            "WHERE provider = ? AND account_id = ? AND metric_id = ? AND source_instance_id = ? AND observed_at >= ? " +
                             "ORDER BY observed_at ASC",
                     )
-                    .all("p", "a", "m", 0) as { detail: string }[];
+                    .all("p", "a", "m", "s", 0) as { detail: string }[];
                 const details = plan.map((row) => row.detail).join("\n");
-                expect(details).toMatch(/USING INDEX idx_trend\b/);
-                expect(details).not.toContain("idx_lookup");
+                expect(details).toMatch(/USING INDEX idx_(trend|lookup)\b/);
+                expect(details).not.toMatch(/SCAN observations/);
             } finally {
                 check.close();
             }
