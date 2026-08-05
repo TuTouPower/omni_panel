@@ -35,7 +35,7 @@
 - `list_latest_by_provider(provider): Observation[]`
 - `list_all_providers(): string[]`（`SELECT DISTINCT provider`，UI 服务商切换用）
 - `list_by_source_instance_id(id): Observation[]`
-- `query_trend_series(provider, account_id, metric_id, days): (Observation | null)[]`（sparkline 用：取最近 `days` 天，按 UTC 天分桶，每桶取 `observed_at` 最大一条；缺失日期填 `null`；升序返回，长度 = `days`。同一 provider/account_id/metric_id 下不同 source_instance_id 合并到同一日期桶）
+- `query_trend_series(provider, account_id, metric_id, source_instance_id, days): (Observation | null)[]`（sparkline 用：取最近 `days` 天，按 UTC 天分桶，每桶取 `observed_at` 最大一条；缺失日期填 `null`；升序返回，长度 = `days`。t214 起 `source_instance_id` 隔离——同 provider/account_id/metric_id 下不同实例各自分桶，不再合并；多账号 provider（account_id 塌成同一值）靠此维度区分。planner 走 idx_lookup 全覆盖，idx_trend 对本查询冗余但保留。注：t057「source_instance_id 区分足够」只对 insert/get_latest/list_latest 成立，对 query_trend_series 不成立）
 - `prune(older_than_ms): number`
 - `close(): void`
 

@@ -200,11 +200,13 @@ describe("ProviderAccountRow", () => {
                 expect(container.querySelector(".trend-svg")).toBeInTheDocument();
             });
             expect(trend_bulk).toHaveBeenCalledTimes(1);
-            // bulk 查询键是 period.metric_id（observation 完整键），非 raw_label（p044）
+            // bulk 查询键是 period.metric_id（observation 完整键），非 raw_label（p044）；
+            // source_instance_id 隔离多账号（t214）
             expect(trend_bulk).toHaveBeenCalledWith(
                 expect.objectContaining({
                     provider: "claude",
                     account_id: "auth-a",
+                    source_instance_id: "cpa-main",
                     periods: [expect.objectContaining({ metric_id: "claude:auth-a:5h" })],
                 }),
             );
@@ -267,6 +269,7 @@ describe("ProviderAccountRow", () => {
                 expect.objectContaining({
                     provider: "claude",
                     account_id: "auth-a",
+                    source_instance_id: "cpa-main",
                     periods: [
                         expect.objectContaining({ metric_id: "claude:auth-a:5h" }),
                         expect.objectContaining({ metric_id: "claude:auth-a:5d" }),

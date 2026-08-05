@@ -267,7 +267,13 @@ describe("observation-store", () => {
             store.insert(make_observation({ observed_at: now - 3 * day_ms }));
             store.insert(make_observation({ observed_at: now - 6 * day_ms }));
 
-            const series = store.query_trend_series("tavily", "default", "tavily:monthly_usage", 7);
+            const series = store.query_trend_series(
+                "tavily",
+                "default",
+                "tavily:monthly_usage",
+                "tavily-1",
+                7,
+            );
             expect(series).toHaveLength(7);
             // Buckets: [6 days ago, 5, 4, 3, 2, 1, today]. Only 0, 3, 6 have data.
             expect(series[0]).not.toBeNull();
@@ -287,7 +293,13 @@ describe("observation-store", () => {
             );
             store.insert(make_observation({ observed_at: now, used: 500, limit: 1000 }));
 
-            const series = store.query_trend_series("tavily", "default", "tavily:monthly_usage", 7);
+            const series = store.query_trend_series(
+                "tavily",
+                "default",
+                "tavily:monthly_usage",
+                "tavily-1",
+                7,
+            );
             expect(series).toHaveLength(7);
             const today = series[6];
             expect(today).not.toBeNull();
@@ -296,7 +308,7 @@ describe("observation-store", () => {
         });
 
         it("returns all-null series for unknown key", () => {
-            const series = store.query_trend_series("nope", "nope", "nope", 7);
+            const series = store.query_trend_series("nope", "nope", "nope", "nope", 7);
             expect(series).toHaveLength(7);
             for (const point of series) {
                 expect(point).toBeNull();
@@ -305,30 +317,36 @@ describe("observation-store", () => {
 
         it("returns [] when days<=0", () => {
             expect(
-                store.query_trend_series("tavily", "default", "tavily:monthly_usage", 0),
+                store.query_trend_series(
+                    "tavily",
+                    "default",
+                    "tavily:monthly_usage",
+                    "tavily-1",
+                    0,
+                ),
             ).toEqual([]);
         });
 
-        it("uses idx_trend index for the range scan", () => {
+        it("uses a covering index for the range scan, not a full table scan", () => {
             // Seed 1 observation so the planner has statistics — empty-table plans
             // can drift across SQLite versions or after ANALYZE.
             store.insert(make_observation({ observed_at: Date.now() }));
-            // EXPLAIN QUERY PLAN must reference idx_trend — otherwise the schema
-            // optimization regressed and the query goes through idx_lookup or a
-            // full table scan. Word boundary `\b` rejects future siblings like
-            // `idx_trend_v2`.
+            // t214: SQL 加 source_instance_id 后，planner 选 idx_lookup
+            // (provider, account_id, metric_id, source_instance_id, observed_at)——
+            // 它覆盖全部 WHERE 等值列 + observed_at 范围，比 idx_trend 更优（idx_trend
+            // 不含 source_instance_id）。核心约束：必须走索引、禁全表扫描。
             const check = new Database(join(temp_dir, "test.db"));
             try {
                 const plan = check
                     .prepare(
                         "EXPLAIN QUERY PLAN SELECT * FROM observations " +
-                            "WHERE provider = ? AND account_id = ? AND metric_id = ? AND observed_at >= ? " +
+                            "WHERE provider = ? AND account_id = ? AND metric_id = ? AND source_instance_id = ? AND observed_at >= ? " +
                             "ORDER BY observed_at ASC",
                     )
-                    .all("p", "a", "m", 0) as { detail: string }[];
+                    .all("p", "a", "m", "s", 0) as { detail: string }[];
                 const details = plan.map((row) => row.detail).join("\n");
-                expect(details).toMatch(/USING INDEX idx_trend\b/);
-                expect(details).not.toContain("idx_lookup");
+                expect(details).toMatch(/USING INDEX idx_(trend|lookup)\b/);
+                expect(details).not.toMatch(/SCAN observations/);
             } finally {
                 check.close();
             }

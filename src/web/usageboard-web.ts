@@ -299,11 +299,18 @@ export function create_web_usageboard(): UsageboardApi {
             },
         },
         trend: {
-            get: (provider: string, accountId: string, metricId: string, days?: number) => {
+            get: (
+                provider: string,
+                accountId: string,
+                metricId: string,
+                sourceInstanceId: string,
+                days?: number,
+            ) => {
                 const params = new URLSearchParams({
                     provider,
                     accountId,
                     metricId,
+                    sourceInstanceId,
                 });
                 if (days !== undefined) params.set("days", String(days));
                 return get_json<({ date: string; percent: number } | null)[]>(
@@ -315,6 +322,7 @@ export function create_web_usageboard(): UsageboardApi {
             getBulk: async (payload: {
                 provider: string;
                 account_id: string;
+                source_instance_id: string;
                 periods: { metric_id: string; days?: number }[];
             }) => {
                 const series = await Promise.all(
@@ -325,6 +333,7 @@ export function create_web_usageboard(): UsageboardApi {
                                 provider: payload.provider,
                                 accountId: payload.account_id,
                                 metricId: period.metric_id,
+                                sourceInstanceId: payload.source_instance_id,
                                 ...(period.days !== undefined ? { days: String(period.days) } : {}),
                             }).toString()}`,
                         ),

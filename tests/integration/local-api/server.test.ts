@@ -701,6 +701,68 @@ describe("local-api web read endpoints", () => {
         const data = (await res.json()) as unknown[];
         expect(Array.isArray(data)).toBe(true);
     });
+
+    it("GET /v1/trend requires sourceInstanceId (t214)", async () => {
+        await api.start();
+        const url = `http://127.0.0.1:${String(api.get_port())}/v1/trend?provider=tavily&accountId=tavily&metricId=tavily:total-month`;
+        const res = await fetch(url);
+        expect(res.status).toBe(400);
+    });
+
+    it("GET /v1/trend filters by source_instance_id (t214 multi-account isolation)", async () => {
+        // 同 (provider, account_id, metric_id) 双实例，web 端点按实例过滤
+        const now = Date.now();
+        const base = {
+            provider: "tavily",
+            account_id: "tavily",
+            metric_id: "tavily:total-month",
+            raw_label: "total-month",
+            normalized_label: "月用量",
+            account_label: "Tavily",
+            window: "month" as const,
+            cycleDurationMs: 30 * 24 * 3_600_000,
+            display_style: "ratio" as const,
+            reset_at: null,
+            status: "normal" as const,
+            source: "poll" as const,
+            stale: false,
+            last_error: null,
+        };
+        store.insert({
+            ...base,
+            source_instance_id: "inst-a",
+            used: 100,
+            limit: 1000,
+            observed_at: now,
+        });
+        store.insert({
+            ...base,
+            source_instance_id: "inst-b",
+            used: 500,
+            limit: 1000,
+            observed_at: now,
+        });
+
+        await api.start();
+        const base_url = `http://127.0.0.1:${String(api.get_port())}/v1/trend`;
+        const res_a = await fetch(
+            `${base_url}?provider=tavily&accountId=tavily&metricId=tavily:total-month&sourceInstanceId=inst-a`,
+        );
+        expect(res_a.status).toBe(200);
+        const series_a = (await res_a.json()) as ({ percent: number } | null)[];
+        const points_a = series_a.filter((p) => p !== null);
+        expect(points_a.length).toBe(1);
+        // inst-a: used 100/1000 = 10%
+        expect(points_a[0]?.percent).toBe(10);
+
+        const res_b = await fetch(
+            `${base_url}?provider=tavily&accountId=tavily&metricId=tavily:total-month&sourceInstanceId=inst-b`,
+        );
+        const series_b = (await res_b.json()) as ({ percent: number } | null)[];
+        const points_b = series_b.filter((p) => p !== null);
+        // inst-b: used 500/1000 = 50%，不串 inst-a 的 10%
+        expect(points_b[0]?.percent).toBe(50);
+    });
 });
 
 describe("local-api SSE events", () => {

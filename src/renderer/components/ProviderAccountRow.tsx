@@ -109,6 +109,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 const bulk = await trend_api.getBulk({
                     provider: account.periods[0]?.provider ?? "",
                     account_id: account.periods[0]?.accountId ?? "",
+                    source_instance_id: account.periods[0]?.sourceInstanceId ?? "",
                     periods: missing.map(({ period }) => ({
                         metric_id: period.metric_id,
                     })),

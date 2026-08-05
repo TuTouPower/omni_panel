@@ -63,7 +63,13 @@ describe("trend query key parity (p044)", () => {
         if (rec.metric_id === undefined) throw new Error("metric_id missing");
         const query_metric_id = rec.metric_id;
 
-        const series = store.query_trend_series(rec.provider, rec.accountId, query_metric_id, 7);
+        const series = store.query_trend_series(
+            rec.provider,
+            rec.accountId,
+            query_metric_id,
+            rec.sourceInstanceId,
+            7,
+        );
         expect(series).toHaveLength(7);
         const non_null = series.filter((p) => p !== null);
         expect(non_null.length).toBeGreaterThanOrEqual(2);
@@ -100,7 +106,13 @@ describe("trend query key parity (p044)", () => {
         if (rec.metric_id === undefined) throw new Error("metric_id missing");
         const query_metric_id = rec.metric_id;
 
-        const series = store.query_trend_series(rec.provider, rec.accountId, query_metric_id, 7);
+        const series = store.query_trend_series(
+            rec.provider,
+            rec.accountId,
+            query_metric_id,
+            rec.sourceInstanceId,
+            7,
+        );
         expect(series).toHaveLength(7);
         const non_null = series.filter((p) => p !== null);
         expect(non_null.length).toBeGreaterThanOrEqual(2);
@@ -131,7 +143,7 @@ describe("trend query key parity (p044)", () => {
         store.insert(obs);
 
         // 用 raw_label 查（旧错误行为）→ 必须查不到
-        const series = store.query_trend_series("claude", "acc-1", "five_hour", 7);
+        const series = store.query_trend_series("claude", "acc-1", "five_hour", "cpa-1", 7);
         expect(series.every((p) => p === null)).toBe(true);
     });
 });

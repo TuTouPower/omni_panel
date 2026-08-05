@@ -163,9 +163,17 @@ const trend_full_methods = {
         provider: string,
         accountId: string,
         metricId: string,
+        sourceInstanceId: string,
         days?: number,
     ): Promise<(TrendPoint | null)[]> =>
-        invoke<(TrendPoint | null)[]>(IPC_CHANNELS.TREND_GET, provider, accountId, metricId, days),
+        invoke<(TrendPoint | null)[]>(
+            IPC_CHANNELS.TREND_GET,
+            provider,
+            accountId,
+            metricId,
+            sourceInstanceId,
+            days,
+        ),
     // t196 AC5: 单 IPC 取回多周期 trend 序列。
     getBulk: (payload: TrendBulkRequest): Promise<TrendBulkResponse> =>
         invoke<TrendBulkResponse>(IPC_CHANNELS.TREND_GET_BULK, payload),

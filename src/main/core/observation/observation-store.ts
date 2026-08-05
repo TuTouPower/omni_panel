@@ -17,14 +17,18 @@ export interface ObservationStore {
      * 取最近 `days` 天内、按天分桶的最新一条观测,每天最多 1 条。
      * 返回长度 = `days`,从最早到最新升序;缺失日期填 null。
      *
-     * 使用 `idx_trend(provider, account_id, metric_id, observed_at)` 覆盖
-     * 范围扫描;同一 (provider, account_id, metric_id) 下不同 source_instance_id
-     * 的观测会合并到同一日期桶,取 observed_at 最大的一条。
+     * `source_instance_id` 隔离：同一 (provider, account_id, metric_id) 下
+     * 不同实例的观测各自分桶（t214——多账号 provider account_id 塌成同一值，
+     * 真实身份压在 source_instance_id，旧版合并致 sparkline 串接）。
+     * 索引：加 source_instance_id 后，planner 选 idx_lookup(provider, account_id,
+     * metric_id, source_instance_id, observed_at)——全覆盖 WHERE 等值列 + observed_at
+     * 范围，无需 filter；idx_trend 对本查询已冗余但保留（删属 schema 变更）。
      */
     query_trend_series(
         provider: string,
         account_id: string,
         metric_id: string,
+        source_instance_id: string,
         days: number,
     ): (Observation | null)[];
     prune(older_than_ms: number): number;
@@ -60,8 +64,9 @@ CREATE TABLE IF NOT EXISTS observations (
 CREATE INDEX IF NOT EXISTS idx_lookup
     ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
 
--- Sparkline 趋势查询:WHERE provider/account_id/metric_id + observed_at>=? 范围扫描。
--- idx_lookup 因 metric_id 后还挂 source_instance_id,在 observed_at 之前,无法覆盖此范围。
+-- Sparkline 趋势查询（t214 起 WHERE 含 source_instance_id）：planner 选 idx_lookup
+-- （provider, account_id, metric_id, source_instance_id, observed_at）全覆盖。idx_trend
+-- 保留供不含 source_instance_id 的等价查询路径；对当前 trend 查询 idx_lookup 已更优。
 CREATE INDEX IF NOT EXISTS idx_trend
     ON observations(provider, account_id, metric_id, observed_at);
 `;
@@ -210,10 +215,10 @@ export function create_observation_store(db_path: string): ObservationStore {
     );
 
     // Sparkline: per-day latest observation within (now-days, now].
-    // Group by UTC day (observed_at / 86400000), keep max observed_at per day.
+    // t214: 加 source_instance_id 过滤，隔离多账号 provider（account_id 塌成同一值时）。
     const query_trend_stmt = db.prepare(`
         SELECT * FROM observations
-        WHERE provider = ? AND account_id = ? AND metric_id = ? AND observed_at >= ?
+        WHERE provider = ? AND account_id = ? AND metric_id = ? AND source_instance_id = ? AND observed_at >= ?
         ORDER BY observed_at ASC
     `);
 
@@ -273,15 +278,18 @@ export function create_observation_store(db_path: string): ObservationStore {
             return rows.map(row_to_observation);
         },
 
-        query_trend_series(provider, account_id, metric_id, days) {
+        query_trend_series(provider, account_id, metric_id, source_instance_id, days) {
             if (days <= 0) return [];
             const now = Date.now();
             const day_ms = 24 * 60 * 60 * 1000;
             const start_ms = now - days * day_ms;
-            const rows = query_trend_stmt.all(provider, account_id, metric_id, start_ms) as Record<
-                string,
-                unknown
-            >[];
+            const rows = query_trend_stmt.all(
+                provider,
+                account_id,
+                metric_id,
+                source_instance_id,
+                start_ms,
+            ) as Record<string, unknown>[];
 
             // Bucket by UTC day, keep latest observed_at per day.
             // Map key: days-since-epoch (floor(observed_at / day_ms)).

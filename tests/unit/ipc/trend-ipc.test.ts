@@ -61,15 +61,16 @@ describe("trend-ipc", () => {
             provider: string,
             accountId: string,
             metricId: string,
+            sourceInstanceId: string,
             days?: number,
         ) => unknown;
 
-        const result = handler(valid_sender, "claude", "acc-a", "5h") as {
+        const result = handler(valid_sender, "claude", "acc-a", "5h", "inst-a") as {
             ok: true;
             data: unknown;
         };
         expect(result.ok).toBe(true);
-        expect(query_trend_series).toHaveBeenCalledWith("claude", "acc-a", "5h", 7);
+        expect(query_trend_series).toHaveBeenCalledWith("claude", "acc-a", "5h", "inst-a", 7);
         expect(result.data).toEqual([{ date: "2026-07-14", percent: 30 }]);
     });
 
@@ -80,10 +81,12 @@ describe("trend-ipc", () => {
                 provider: string,
                 account_id: string,
                 metric_id: string,
+                source_instance_id: string,
                 days: number,
             ): (TrendRecord | null)[] => {
                 void provider;
                 void account_id;
+                void source_instance_id;
                 void days;
                 if (metric_id === "5h") {
                     return [{ used: 10, limit: 100, observed_at: Date.UTC(2026, 6, 15, 8) }];
@@ -105,13 +108,21 @@ describe("trend-ipc", () => {
         const result = handler(valid_sender, {
             provider: "claude",
             account_id: "acc-a",
+            source_instance_id: "inst-a",
             periods: [{ metric_id: "5h" }, { metric_id: "5d", days: 14 }],
         }) as { ok: true; data: { series: unknown[] } };
 
         expect(result.ok).toBe(true);
         expect(query_trend_series).toHaveBeenCalledTimes(2);
-        expect(query_trend_series).toHaveBeenNthCalledWith(1, "claude", "acc-a", "5h", 7);
-        expect(query_trend_series).toHaveBeenNthCalledWith(2, "claude", "acc-a", "5d", 14);
+        expect(query_trend_series).toHaveBeenNthCalledWith(1, "claude", "acc-a", "5h", "inst-a", 7);
+        expect(query_trend_series).toHaveBeenNthCalledWith(
+            2,
+            "claude",
+            "acc-a",
+            "5d",
+            "inst-a",
+            14,
+        );
         expect(result.data.series).toEqual([
             { metric_id: "5h", series: [{ date: "2026-07-15", percent: 10 }] },
             { metric_id: "5d", series: [{ date: "2026-07-16", percent: 40 }] },
@@ -132,10 +143,11 @@ describe("trend-ipc", () => {
         handler(valid_sender, {
             provider: "claude",
             account_id: "acc-a",
+            source_instance_id: "inst-a",
             periods: [{ metric_id: "5h", days: 2.9 }, { metric_id: "5d" }],
         });
 
-        expect(query_trend_series).toHaveBeenNthCalledWith(1, "claude", "acc-a", "5h", 2);
-        expect(query_trend_series).toHaveBeenNthCalledWith(2, "claude", "acc-a", "5d", 7);
+        expect(query_trend_series).toHaveBeenNthCalledWith(1, "claude", "acc-a", "5h", "inst-a", 2);
+        expect(query_trend_series).toHaveBeenNthCalledWith(2, "claude", "acc-a", "5d", "inst-a", 7);
     });
 });
