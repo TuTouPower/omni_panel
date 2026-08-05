@@ -24,6 +24,14 @@
 - 内容：legacy `prepareBarDataFromRollup`（chart-data.ts:822）/ `rollup_group_metric`（:985,1012）的 session 轴与去重 key 仍为 `${source}|${session_id}` 不含 env，跨 env 同 session_id 在此两处仍合并。当前 `rollup` prop 恒为 `never[]`（TokenStatsView.tsx:592）不可达，属 p040 复发陷阱。若未来恢复该 fallback 路径须一并补 env。
 - 处理：未开
 
+### p053 合并后 pnpm check 存量失败：format:check 与 knip 死类型（批次前遗留）
+
+- 来源：t216-t222 合并后验证
+- 内容：合并后 `pnpm check` 两处失败，均为批次前存量、本批次 7 个 task 未触碰：
+    1. `tests/unit/renderer/views/session_history_test_utils.ts`（t210 遗留）prettier format 不通过——`npx prettier --write` 即可修。
+    2. knip 报 `src/shared/types/token-stats.ts:444-451` `TokenStatsDashboardPlatform/Metric/XAxis/Granularity` 4 个未使用导出（t189 时代 dashboard 类型，非本批次新增）。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。
