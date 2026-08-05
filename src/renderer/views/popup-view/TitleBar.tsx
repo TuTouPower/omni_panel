@@ -76,7 +76,7 @@ export function TitleBar(props: TitleBarProps) {
                         aria-label="会话历史"
                         onClick={is_live ? onOpenHistory : undefined}
                     >
-                        <Icon name="history" size={18} />
+                        <Icon name="chat_square" size={18} />
                     </button>
                 )}
                 {is_live && is_floating && (

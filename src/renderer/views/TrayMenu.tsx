@@ -71,6 +71,14 @@ export function TrayMenu() {
                 },
             },
             {
+                icon: "chat_square",
+                label_zh: "会话面板",
+                label_en: "Session Panel",
+                action: () => {
+                    void window.usageboard.sessionHistory.open("", "", "");
+                },
+            },
+            {
                 icon: "open",
                 label_zh: "网页访问",
                 label_en: "Web Panel",

@@ -1,8 +1,10 @@
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TrayMenu } from "../../../../src/renderer/views/TrayMenu";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
+
+const session_history_open = vi.fn().mockResolvedValue(undefined);
 
 const base_config: AppConfiguration = {
     schemaVersion: 1,
@@ -69,6 +71,9 @@ describe("TrayMenu", () => {
                 on_autostart_state: vi.fn(() => vi.fn()),
             },
             log: vi.fn(),
+            sessionHistory: {
+                open: session_history_open,
+            },
         } as unknown as typeof window.usageboard;
     });
 
@@ -78,5 +83,12 @@ describe("TrayMenu", () => {
         await waitFor(() => {
             expect(document.documentElement).toHaveAttribute("data-theme", "dark");
         });
+    });
+
+    it("opens the session panel from the 会话面板 item", async () => {
+        render(<TrayMenu />);
+        const item = await screen.findByText("会话面板");
+        fireEvent.click(item);
+        expect(session_history_open).toHaveBeenCalledWith("", "", "");
     });
 });

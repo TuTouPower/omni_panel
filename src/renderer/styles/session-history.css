@@ -26,6 +26,15 @@
     font-size: 13px;
 }
 
+/* 面板间跳转按钮（icon-only，hover 显示 title）。 */
+.history-tb-btn.history-nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    line-height: 0;
+}
+
 .history-tb-btn:disabled {
     opacity: 0.5;
     cursor: default;

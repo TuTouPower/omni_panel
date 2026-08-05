@@ -327,6 +327,15 @@
     cursor: pointer;
 }
 
+/* 面板间跳转按钮（icon-only，hover 显示 title）。 */
+.token-stats .ts-nav-btn.ts-nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    line-height: 0;
+}
+
 .token-stats .ts-nav-btn:hover {
     color: var(--ts-text);
     border-color: var(--ts-text-3);

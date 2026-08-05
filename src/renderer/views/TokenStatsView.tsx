@@ -12,6 +12,7 @@ import { Heatmap } from "../components/token-stats/Heatmap";
 import { SessionTable } from "../components/token-stats/SessionTable";
 import { Segmented } from "../components/token-stats/Segmented";
 import { RangePicker } from "../components/token-stats/RangePicker";
+import { Icon } from "../components/Icon";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import type { AgentFilter, Granularity, Metric, SessionRow, XAxis } from "../lib/token-stats/types";
 import {
@@ -702,13 +703,15 @@ export function TokenStatsView() {
                         onApply={handleCustomApply}
                     />
                     <button
-                        className="ts-nav-btn"
+                        className="ts-nav-btn ts-nav-icon"
                         type="button"
+                        title="用量面板"
+                        aria-label="用量面板"
                         onClick={() => {
                             window.usageboard.tray.open_panel();
                         }}
                     >
-                        用量面板
+                        <Icon name="clock_forward" size={16} />
                     </button>
                     <button
                         className="ts-nav-btn"
@@ -721,14 +724,16 @@ export function TokenStatsView() {
                     </button>
                     {!is_web() && (
                         <button
-                            className="ts-nav-btn"
+                            className="ts-nav-btn ts-nav-icon"
                             type="button"
+                            title="到会话历史"
+                            aria-label="到会话历史"
                             onClick={() => {
                                 // 纯跳转入口：无具体会话，开/聚焦空窗。
                                 void window.usageboard.sessionHistory.open("", "", "");
                             }}
                         >
-                            到会话历史
+                            <Icon name="chat_square" size={16} />
                         </button>
                     )}
                 </div>

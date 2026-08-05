@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HistoryMessageLike, SessionHistoryLoc } from "../../shared/types/ipc";
+import { Icon } from "../components/Icon";
 import { HistoryColumn, type HistoryColumnData } from "../components/session-history/HistoryColumn";
 import { HistoryOverflowModal } from "../components/session-history/HistoryOverflowModal";
 import { HISTORY_PAGE_SIZE, grid_class } from "../lib/session-history/layout";
@@ -396,21 +397,25 @@ export function SessionHistoryView() {
             <header className="history-toolbar">
                 <button
                     type="button"
-                    className="history-tb-btn"
+                    className="history-tb-btn history-nav-icon"
+                    title="用量面板"
+                    aria-label="用量面板"
                     onClick={() => {
                         window.usageboard.tray.open_panel();
                     }}
                 >
-                    用量面板
+                    <Icon name="clock_forward" size={15} />
                 </button>
                 <button
                     type="button"
-                    className="history-tb-btn"
+                    className="history-tb-btn history-nav-icon"
+                    title="代理面板"
+                    aria-label="代理面板"
                     onClick={() => {
                         window.usageboard.tokenStats.open();
                     }}
                 >
-                    代理面板
+                    <Icon name="chart" size={15} />
                 </button>
                 <button type="button" className="history-tb-btn" onClick={clear_all}>
                     清空全部

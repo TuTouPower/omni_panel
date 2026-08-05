@@ -146,25 +146,29 @@ describe("select_session_history_api", () => {
         expect(api).toBe(full_api);
     });
 
-    // t212: usage（托盘 popup / 用量面板）需打开历史窗口，暴露 open-only 档。
-    it.each(["usage"])("exposes open-only session-history API to %s route", async (route) => {
-        const { full_api, open_api, disabled_api, open_spy } = create_session_history_apis();
+    // t212: usage（托盘 popup / 用量面板）需打开历史窗口，暴露 open-only 档；
+    // t?：tray（托盘菜单）的会话面板入口同样只需 open。
+    it.each(["usage", "tray"])(
+        "exposes open-only session-history API to %s route",
+        async (route) => {
+            const { full_api, open_api, disabled_api, open_spy } = create_session_history_apis();
 
-        const api = select_session_history_api(route, full_api, open_api, disabled_api);
+            const api = select_session_history_api(route, full_api, open_api, disabled_api);
 
-        expect(api).toBe(open_api);
-        // open 触达真实 IPC 实现；其余方法保持 disabled 空形状。
-        await expect(api.open("c", "win", "s")).resolves.toBeUndefined();
-        expect(open_spy).toHaveBeenCalledWith("c", "win", "s");
-        await expect(api.subscribe("c", "win", "s")).resolves.toEqual({ subscribed: false });
-        await expect(api.query("c", "win", "s")).resolves.toEqual({
-            messages: [],
-            next_cursor: null,
-        });
-        await expect(api.recent("c", "win", 6)).resolves.toEqual([]);
-    });
+            expect(api).toBe(open_api);
+            // open 触达真实 IPC 实现；其余方法保持 disabled 空形状。
+            await expect(api.open("c", "win", "s")).resolves.toBeUndefined();
+            expect(open_spy).toHaveBeenCalledWith("c", "win", "s");
+            await expect(api.subscribe("c", "win", "s")).resolves.toEqual({ subscribed: false });
+            await expect(api.query("c", "win", "s")).resolves.toEqual({
+                messages: [],
+                next_cursor: null,
+            });
+            await expect(api.recent("c", "win", 6)).resolves.toEqual([]);
+        },
+    );
 
-    it.each(["setting", "tray", "unknown"])(
+    it.each(["setting", "unknown"])(
         "exposes disabled session-history API to %s route",
         async (route) => {
             const { full_api, open_api, disabled_api, open_spy } = create_session_history_apis();
