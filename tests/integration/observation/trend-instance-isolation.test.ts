@@ -75,8 +75,8 @@ describe("query_trend_series instance isolation (t214)", () => {
         );
 
         // 两实例都应有数据
-        const a_points = series_a.filter((p) => p !== null);
-        const b_points = series_b.filter((p) => p !== null);
+        const a_points = series_a;
+        const b_points = series_b;
         expect(a_points.length).toBe(1);
         expect(b_points.length).toBe(1);
         // 各自只含本实例的 used 值，不串
@@ -101,7 +101,7 @@ describe("query_trend_series instance isolation (t214)", () => {
             "inst-a",
             7,
         );
-        const a_points = series_a.filter((p) => p !== null);
+        const a_points = series_a;
         expect(a_points.length).toBe(2);
         // 不含 inst-b 的 999
         for (const p of a_points) {

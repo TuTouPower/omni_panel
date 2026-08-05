@@ -70,8 +70,9 @@ describe("trend query key parity (p044)", () => {
             rec.sourceInstanceId,
             7,
         );
-        expect(series).toHaveLength(7);
-        const non_null = series.filter((p) => p !== null);
+        // t208: 2 个原始点 ≤ 120，不聚合，返回 2 点（不再按天填充为 7）。
+        expect(series).toHaveLength(2);
+        const non_null = series;
         expect(non_null.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -113,8 +114,9 @@ describe("trend query key parity (p044)", () => {
             rec.sourceInstanceId,
             7,
         );
-        expect(series).toHaveLength(7);
-        const non_null = series.filter((p) => p !== null);
+        // t208: 2 个原始点 ≤ 120，不聚合，返回 2 点（不再按天填充为 7）。
+        expect(series).toHaveLength(2);
+        const non_null = series;
         expect(non_null.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -142,8 +144,8 @@ describe("trend query key parity (p044)", () => {
         };
         store.insert(obs);
 
-        // 用 raw_label 查（旧错误行为）→ 必须查不到
+        // 用 raw_label 查（旧错误行为）→ 必须查不到（空数组）
         const series = store.query_trend_series("claude", "acc-1", "five_hour", "cpa-1", 7);
-        expect(series.every((p) => p === null)).toBe(true);
+        expect(series).toHaveLength(0);
     });
 });

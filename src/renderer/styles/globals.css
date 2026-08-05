@@ -607,7 +607,26 @@ html[data-window="tray"] #root {
     gap: 9px;
 }
 
-/* Trend sparkline — 近 7 天走势(账号展开区) */
+/* Trend sparkline — 近 N 天走势(账号展开区)；窗口选择器（t208） */
+.trend-window-picker {
+    display: flex;
+    gap: 4px;
+    margin-top: 10px;
+}
+.trend-window-btn {
+    padding: 2px 8px;
+    font-size: 11px;
+    border: 0.5px solid var(--card-border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+}
+.trend-window-btn.active {
+    background: var(--blue);
+    color: var(--card-bg);
+    border-color: var(--blue);
+}
 .trend-sparkline {
     margin-top: 10px;
     width: 100%;

@@ -23,6 +23,11 @@ export interface ObservationStore {
      * 索引：加 source_instance_id 后，planner 选 idx_lookup(provider, account_id,
      * metric_id, source_instance_id, observed_at)——全覆盖 WHERE 等值列 + observed_at
      * 范围，无需 filter；idx_trend 对本查询已冗余但保留（删属 schema 变更）。
+     *
+     * t208: 取点策略改为固定桶数（`max_points`，默认 120）均分 `[now-days, now]`
+     * 窗口、每桶取 observed_at 最大一条；原始点数 ≤ max_points 时按实际点数（不
+     * 聚合、不强制 null 填充）。旧「按 UTC 天分桶、长度=days」语义废弃——折线反映
+     * 采集实际粒度而非一天一点。
      */
     query_trend_series(
         provider: string,
@@ -30,7 +35,8 @@ export interface ObservationStore {
         metric_id: string,
         source_instance_id: string,
         days: number,
-    ): (Observation | null)[];
+        max_points?: number,
+    ): Observation[];
     prune(older_than_ms: number): number;
     /** Total observation rows (test helper for asserting dedupe/prune row counts). */
     count_observations(): number;
@@ -278,8 +284,10 @@ export function create_observation_store(db_path: string): ObservationStore {
             return rows.map(row_to_observation);
         },
 
-        query_trend_series(provider, account_id, metric_id, source_instance_id, days) {
+        query_trend_series(provider, account_id, metric_id, source_instance_id, days, max_points) {
             if (days <= 0) return [];
+            const TREND_MAX_POINTS = 120;
+            const cap = max_points && max_points > 0 ? max_points : TREND_MAX_POINTS;
             const now = Date.now();
             const day_ms = 24 * 60 * 60 * 1000;
             const start_ms = now - days * day_ms;
@@ -291,24 +299,37 @@ export function create_observation_store(db_path: string): ObservationStore {
                 start_ms,
             ) as Record<string, unknown>[];
 
-            // Bucket by UTC day, keep latest observed_at per day.
-            // Map key: days-since-epoch (floor(observed_at / day_ms)).
-            const daily = new Map<number, Observation>();
-            for (const row of rows) {
-                const obs = row_to_observation(row);
-                const bucket = Math.floor(obs.observed_at / day_ms);
-                const prev = daily.get(bucket);
+            // t208: 取点策略。原始点数 ≤ cap 时每点独立（不聚合，保留采集粒度）；
+            // 超过 cap 时按 cap 桶均分窗口、每桶取 observed_at 最大一条。
+            const observations = rows.map(row_to_observation);
+            if (observations.length === 0) return [];
+            if (observations.length <= cap) {
+                // 按 observed_at 升序。SQL ORDER BY observed_at ASC 下同 ts 的行
+                // 顺序未定，后出现者覆盖（同 ts 保留最后一条）。
+                const by_ts = new Map<number, Observation>();
+                for (const obs of observations) {
+                    by_ts.set(obs.observed_at, obs);
+                }
+                return [...by_ts.values()].sort((a, b) => a.observed_at - b.observed_at);
+            }
+            const span = now - start_ms;
+            const bucket_width = span / cap;
+            const buckets = new Map<number, Observation>();
+            for (const obs of observations) {
+                const idx = Math.min(
+                    cap - 1,
+                    Math.floor((obs.observed_at - start_ms) / bucket_width),
+                );
+                const prev = buckets.get(idx);
                 if (!prev || obs.observed_at > prev.observed_at) {
-                    daily.set(bucket, obs);
+                    buckets.set(idx, obs);
                 }
             }
-
-            // Build series: days points ending at today's UTC bucket, ascending.
-            const today_bucket = Math.floor(now / day_ms);
-            const result: (Observation | null)[] = [];
-            for (let i = days - 1; i >= 0; i--) {
-                const bucket = today_bucket - i;
-                result.push(daily.get(bucket) ?? null);
+            // 升序返回（按 bucket index）。
+            const result: Observation[] = [];
+            for (let i = 0; i < cap; i++) {
+                const obs = buckets.get(i);
+                if (obs) result.push(obs);
             }
             return result;
         },

@@ -260,32 +260,9 @@ describe("observation-store", () => {
     });
 
     describe("query_trend_series", () => {
-        it("returns `days` points with null fill for missing days", () => {
-            const now = Date.now();
-            const day_ms = 24 * 60 * 60 * 1000;
-            store.insert(make_observation({ observed_at: now }));
-            store.insert(make_observation({ observed_at: now - 3 * day_ms }));
-            store.insert(make_observation({ observed_at: now - 6 * day_ms }));
-
-            const series = store.query_trend_series(
-                "tavily",
-                "default",
-                "tavily:monthly_usage",
-                "tavily-1",
-                7,
-            );
-            expect(series).toHaveLength(7);
-            // Buckets: [6 days ago, 5, 4, 3, 2, 1, today]. Only 0, 3, 6 have data.
-            expect(series[0]).not.toBeNull();
-            expect(series[1]).toBeNull();
-            expect(series[2]).toBeNull();
-            expect(series[3]).not.toBeNull();
-            expect(series[4]).toBeNull();
-            expect(series[5]).toBeNull();
-            expect(series[6]).not.toBeNull();
-        });
-
-        it("keeps the latest observation per day when multiple rows hit the same bucket", () => {
+        // t208: 旧「按天分桶、长度=days、缺日填 null」语义已废弃，改为固定 ≤120 桶
+        // 均分窗口、原始点数 ≤cap 时不聚合。新语义由 trend-granularity.test.ts 覆盖。
+        it("keeps the latest observation per bucket when multiple rows hit the same bucket", () => {
             const now = Date.now();
             const two_hours_ms = 2 * 60 * 60 * 1000;
             store.insert(
@@ -300,19 +277,17 @@ describe("observation-store", () => {
                 "tavily-1",
                 7,
             );
-            expect(series).toHaveLength(7);
-            const today = series[6];
-            expect(today).not.toBeNull();
-            expect(today?.used).toBe(500);
-            expect(today?.limit).toBe(1000);
+            // 原始点数 2 ≤ 120，不聚合，返回两点；按 observed_at 升序，末点为最新。
+            expect(series).toHaveLength(2);
+            const last = series[1];
+            expect(last).not.toBeNull();
+            expect(last?.used).toBe(500);
+            expect(last?.limit).toBe(1000);
         });
 
-        it("returns all-null series for unknown key", () => {
+        it("returns empty series for unknown key", () => {
             const series = store.query_trend_series("nope", "nope", "nope", "nope", 7);
-            expect(series).toHaveLength(7);
-            for (const point of series) {
-                expect(point).toBeNull();
-            }
+            expect(series).toEqual([]);
         });
 
         it("returns [] when days<=0", () => {

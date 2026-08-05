@@ -80,7 +80,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 窗口选项是否需持久化（用户选的窗口跨重启保留）：UNVERIFIED-SPIKE，执行期查 config 层是否有现成 per-view 偏好持久化机制，无则本 task 不持久化（默认 7 天），登记 pending。
+- 窗口选项持久化：已核实 config 有 per-view 偏好字段（`collapsedAccounts` 等，持久化于 config），技术上可加字段。本 task 决定不持久化（session 内 useState，重启回默认 7 天），避免扩 config schema；持久化作为后续增强登记 pending。
 
 ### 风险与回退
 
