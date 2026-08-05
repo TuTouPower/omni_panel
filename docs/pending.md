@@ -70,6 +70,12 @@
 - 内容：grok 提取器的增量 id 从 0 重计，与全量提取的 id（按行号全局计）冲突：订阅建立时全量提取得 id 如 `grok-0..N`，追加后增量第一条 id 又从 `grok-0` 起。HistoryMessage.id 用于窗口渲染 key 与分页，重复 id 会导致 React key 冲突 / 订阅去重异常。另 byte_offset 增量遇写入半行时游标越过该记录，该记录在增量通道丢失（renderer 5s 兜底可恢复）。修法：增量 id 改成全局行号（offset 对应的行索引），且半行容错（读到非法 JSON 行时回退一个行边界重读）。
 - 处理：未开
 
+### p051 整批并行下真实定时器集成测试偶发 5s 超时（系统性 flaky）
+
+- 来源：t211 黑盒顺手发现（p049 同类的更广表现）
+- 内容：`pnpm test` 高并行负载下，多个走真实定时器的集成/单测间歇 5s 超时或断言窗口被挤爆：refresh-service（重试循环、proxy resolver）、grok-oauth（5000ms）、secrets-store / file-vault（20 并发写 2s 窗口）、subscription-service（30ms 轮询 + 2s wait_for）。单文件隔离跑全部稳定通过，证明是负载敏感而非逻辑错误。分布每次不同、与改动文件无关。处置方向：给这些用例统一提 timeout / 改用伪时钟 / 缩小真实定时器间隔 / 限制 vitest 并行 worker 数。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

@@ -55,5 +55,6 @@
 | classify_collect_failure             | API           | t172                                                                                  | 2026-07-31   |
 | kimi_oauth_concurrency               | API           | t150                                                                                  | 2026-07-26   |
 | unify_account_auth_forms             | Web           | t157                                                                                  | 2026-07-27   |
+| session-history-window               | Desktop       | t211                                                                                  | 2026-08-05   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

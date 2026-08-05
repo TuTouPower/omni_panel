@@ -533,6 +533,43 @@ const api: UsageboardApi = (() => {
                 sessionHistory: route_session_history_api,
                 buildInfo: build_info_methods,
             };
+        case "history":
+            // 会话历史窗口：只读 config；tokenStats（标题解析 / 最近 6 条）+ sessionHistory 真实 IPC。
+            return {
+                platform: renderer_platform,
+                connector: connector_methods,
+                plugin: connector_methods,
+                config: {
+                    ...config_readonly,
+                    save: async () => {
+                        /* no-op: history 只读 */
+                    },
+                    saveSecrets: async () => {
+                        /* no-op: history 只读 */
+                    },
+                    getSecrets: () => Promise.resolve({}),
+                    duplicate: () => Promise.resolve({ instanceId: "" }),
+                    createInstance: () => Promise.resolve({ instanceId: "" }),
+                    export: () => Promise.resolve({ saved: false }),
+                    import: () => Promise.resolve({ imported: false }),
+                },
+                event: event_methods,
+                popup: popup_methods,
+                main_panel: main_panel_methods,
+                theme: theme_methods,
+                settings: settings_methods,
+                tray: tray_methods,
+                auth: auth_methods,
+                session: session_disabled_methods,
+                grok: route_grok_api,
+                kimi: route_kimi_api,
+                logs: logs_methods,
+                log: log_method,
+                tokenStats: token_stats_methods,
+                trend: route_trend_api,
+                sessionHistory: route_session_history_api,
+                buildInfo: build_info_methods,
+            };
         default: // popup
             return {
                 platform: renderer_platform,

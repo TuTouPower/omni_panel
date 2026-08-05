@@ -171,6 +171,19 @@ open_or_focus（重开）   → show_panel()
 - 历史窗口 singleton `HistoryWindowController`（对齐 `create_agent_window_controller`）：`SESSION_HISTORY_OPEN` 幂等——已开则 show+focus+定位，未开则创建并经 URL `route_query` 携带初始定位参数（renderer 启动读），`did-finish-load` 补发兜底创建窗口期丢失的定位。
 - 会话源文件定位 `session-locator`：`(source, env, session_id)` → 源文件 / db 路径；WSL 用户名优先取 `tokenStats.wslUser` 显式配置，空串自动探测 `\\wsl.localhost\<distro>\home` 第一目录（对齐 collector）。
 
+### 4.5 会话历史窗口（t211）
+
+route `history` 单窗口分栏平铺（决策 3）：最多 6 栏，1~2 会话单列整行、3~6 两列网格，栏内容区独立滚动；栏头 = agent + 标题 + 关闭 ×，顶部工具栏 = 清空全部 + 全局复制（含总选中数）+ N/6 + 最近 6 条。
+
+- **打开与定位**：明细表（t212）/ onFocus 事件经 `SESSION_HISTORY_OPEN` 打开窗口；renderer 读 URL `loc` query 或收 `SESSION_HISTORY_FOCUS` 定位。最近 6 条复用 `tokenStats.getSessions({ limit: 6 })`。
+- **超 6 处理（决策 4）**：打开第 7 个弹模态框列出现有 6 个会话（agent + 标题 + 打开时间），用户至少关 1 个才入栏，可取消。容量检查用同步 `opened_count_ref`（React 19 批处理下 render-fresh ref 在批量 open 循环内会 stale，超 6 直接挂载）。
+- **消息选择（决策 8）**：hover checkbox 跨栏选择，选中集按 `loc_key|message_id` 存 renderer、跨刷新保留；栏头「已选 N 条 / 全选本栏 / 清除本栏」。
+- **复制（决策 9/10）**：顶部一次复制所有栏选中，`build_copy_markdown` 从原始消息生成（按栏打开顺序分节、`## 会话：标题（agent · 日期）` + `---` 隔离、角色 `**用户**` / `**Agent 名**`、节内时间升序），按钮变「已复制 ✓」1.5s。
+- **消息渲染（决策 11）**：纯文本 + `<pre>` 保留换行缩进，零新依赖；时间戳显示到分钟、悬停完整时间。
+- **空态（决策 12）**：源文件缺失栏显示「该会话的原始记录文件不存在或已删除」，不阻断其他栏。
+- **分页（决策 17）**：初始最近 200 条，向上滚动加载更早（游标分页 + 并发锁 + 前置 scrollTop 锚定），新增消息追加尾部不打断滚动位置。
+- **实时刷新（决策 5/6）**：栏打开 subscribe、栏关/清空/窗口卸载 unsubscribe；`SESSION_HISTORY_MESSAGES_UPDATED` 推送按 loc 合并去重追加；5s 兜底 interval 对 ready 栏 query 尾部合并（函数式 setState，避免与推送交错竞态）。
+
 - **降级与恢复**：renderer `useNowTick` 监听 `document.visibilityState`，隐藏期间前台计时器暂停推进，`visibilitychange` 回可见时立即刷新；不破坏后台仍需的订阅。隐藏窗口占用的渲染进程保留（Windows 实测 work set 内存保留、无 CPU 增量，见 s010）。
 - **边界**：`apply_config_change` 模式切换仍 `close_for_mode_switch` → 重建；配置变更、电源恢复、托盘打开等既有路径行为不变。
 
