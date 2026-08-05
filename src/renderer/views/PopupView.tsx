@@ -608,6 +608,10 @@ export function PopupView() {
                     onHidePanel={() => {
                         window.usageboard.main_panel.hide();
                     }}
+                    onOpenHistory={() => {
+                        // 纯跳转入口：无具体会话，开/聚焦空窗。
+                        void window.usageboard.sessionHistory.open("", "", "");
+                    }}
                 />
 
                 {/* tab strip */}

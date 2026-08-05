@@ -16,6 +16,7 @@ import {
     plugin_list,
     plugin_refresh,
     plugin_refresh_all,
+    session_history_open,
     usage_log,
 } from "./popup_view_test_utils";
 
@@ -333,6 +334,30 @@ describe("PopupView", () => {
         });
         const add_btn = screen.getByText("添加服务");
         expect(add_btn).toBeInTheDocument();
+    });
+
+    it("opens the session history window from the title bar button", async () => {
+        session_history_open.mockClear();
+        render(<PopupView />);
+        await waitFor(() => {
+            expect(document.querySelector(".tb-time")).not.toBeNull();
+        });
+        const btn = screen.getByRole("button", { name: "会话历史" });
+        fireEvent.click(btn);
+        expect(session_history_open).toHaveBeenCalledWith("", "", "");
+    });
+
+    it("hides the session history button in web mode", async () => {
+        document.documentElement.dataset["web"] = "1";
+        try {
+            render(<PopupView />);
+            await waitFor(() => {
+                expect(document.querySelector(".tb-time")).not.toBeNull();
+            });
+            expect(screen.queryByRole("button", { name: "会话历史" })).toBeNull();
+        } finally {
+            delete document.documentElement.dataset["web"];
+        }
     });
 });
 

@@ -11,6 +11,8 @@
 ## 打开与定位
 
 - `SESSION_HISTORY_OPEN` 幂等：未开窗口创建并经 URL `loc` query 带初始定位，已开则 `SESSION_HISTORY_FOCUS` 定位。
+- **入口（t212）**：明细表单击行 / 勾选批量「打开历史」（传 `identity_key` = `source|env|session_id`）、popup TitleBar「会话历史」、代理面板 header「到会话历史」；纯跳转入口（无具体会话）调 `open("", "", "")` 只开/聚焦空窗。窗口内「用量面板」/「代理面板」返回跳转。
+- 批量打开冷启动：创建窗口期连续定位由主进程缓冲，`did-finish-load` 后按序补发（不丢会话）。
 - onFocus 事件打开会话栏；同一会话已开则滚动到该栏。
 - 最近 6 条：`tokenStats.getSessions({ limit: 6 })`（跨 source，按 ended_at 降序）在窗口内批量打开；空位不足走超 6 模态腾位。
 - 标题解析：open 后按 `getSessions({ source, env, search: session_id })` 精确 id 匹配取 title，失败回退 session_id。

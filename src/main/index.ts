@@ -391,11 +391,9 @@ void app.whenReady().then(async () => {
             IPC_CHANNELS.SESSION_HISTORY_OPEN,
             (_event, source: string, env: string, session_id: string) => {
                 // 幂等（AC）：已开则聚焦并定位，未开则创建并带初始定位参数。
-                history_window_controller.open_or_focus({
-                    source,
-                    env: env as Env,
-                    session_id,
-                });
+                // t212：纯跳转入口（无具体会话）传空 source，只开/聚焦空窗。
+                const loc = source ? { source, env: env as Env, session_id } : undefined;
+                history_window_controller.open_or_focus(loc);
             },
         );
         registerTrendIpc(ipcMain, { store: observationStore });

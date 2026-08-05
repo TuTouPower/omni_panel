@@ -255,6 +255,24 @@ const session_history_disabled_methods = {
     },
 };
 
+// 会话历史（t212）：usage route（托盘 popup / 用量面板）仅暴露 open（打开/聚焦历史窗口），
+// 订阅与查询等数据通道保持 disabled，避免 popup 意外获得历史数据能力。
+const session_history_open_only_methods = {
+    open: (source: string, env: string, session_id: string) =>
+        invoke<undefined>(IPC_CHANNELS.SESSION_HISTORY_OPEN, source, env, session_id),
+    subscribe: (): Promise<{ subscribed: boolean }> => Promise.resolve({ subscribed: false }),
+    unsubscribe: (): Promise<{ unsubscribed: boolean }> => Promise.resolve({ unsubscribed: false }),
+    query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
+        Promise.resolve({ messages: [], next_cursor: null }),
+    recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
+    onMessagesUpdated: () => () => {
+        /* noop */
+    },
+    onFocus: () => () => {
+        /* noop */
+    },
+};
+
 // Read-only config (popup, tray)
 const config_readonly = {
     get: () =>
@@ -466,6 +484,7 @@ const route_trend_api = select_trend_api(current_route, trend_full_methods, tren
 const route_session_history_api = select_session_history_api(
     current_route,
     session_history_full_methods,
+    session_history_open_only_methods,
     session_history_disabled_methods,
 );
 

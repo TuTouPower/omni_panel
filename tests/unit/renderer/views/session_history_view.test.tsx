@@ -579,4 +579,19 @@ describe("SessionHistoryView (t211)", () => {
         expect(document.querySelectorAll(".history-msg-text")).toHaveLength(2);
         expect(ub.sessionHistory.query.mock.calls.length).toBe(before);
     });
+
+    it("navigates back to the usage panel and token-stats panel", async () => {
+        render(<SessionHistoryView />);
+        await waitFor(() => screen.getByRole("button", { name: /最近 6 条/ }));
+        const nav = usageboard() as unknown as {
+            tray: { open_panel: MockFn };
+            tokenStats: { open: MockFn };
+        };
+
+        fireEvent.click(screen.getByRole("button", { name: /用量面板/ }));
+        expect(nav.tray.open_panel).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(screen.getByRole("button", { name: /代理面板/ }));
+        expect(nav.tokenStats.open).toHaveBeenCalledTimes(1);
+    });
 });

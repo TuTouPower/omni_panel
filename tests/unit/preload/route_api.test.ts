@@ -98,6 +98,7 @@ describe("select_trend_api", () => {
 describe("select_session_history_api", () => {
     function create_session_history_apis(): {
         readonly full_api: SessionHistoryApi;
+        readonly open_api: SessionHistoryApi;
         readonly disabled_api: SessionHistoryApi;
         readonly open_spy: ReturnType<typeof vi.fn>;
     } {
@@ -106,6 +107,17 @@ describe("select_session_history_api", () => {
             open: open_spy,
             subscribe: vi.fn().mockResolvedValue({ subscribed: true }),
             unsubscribe: vi.fn().mockResolvedValue({ unsubscribed: true }),
+            query: vi.fn().mockResolvedValue({ messages: [], next_cursor: null }),
+            recent: vi.fn().mockResolvedValue([]),
+            onMessagesUpdated: vi.fn(() => () => undefined),
+            onFocus: vi.fn(() => () => undefined),
+        };
+        // open_only 档（t212）：usage route 仅暴露 open（打开历史窗口），
+        // 其余方法保持 disabled 形状，避免 popup 窗口意外获得订阅/查询能力。
+        const open_api: SessionHistoryApi = {
+            open: open_spy,
+            subscribe: vi.fn().mockResolvedValue({ subscribed: false }),
+            unsubscribe: vi.fn().mockResolvedValue({ unsubscribed: false }),
             query: vi.fn().mockResolvedValue({ messages: [], next_cursor: null }),
             recent: vi.fn().mockResolvedValue([]),
             onMessagesUpdated: vi.fn(() => () => undefined),
@@ -122,24 +134,42 @@ describe("select_session_history_api", () => {
             onMessagesUpdated: vi.fn(() => () => undefined),
             onFocus: vi.fn(() => () => undefined),
         };
-        return { full_api, disabled_api, open_spy };
+        return { full_api, open_api, disabled_api, open_spy };
     }
 
     // AC9: 会话历史 API 仅对 history 与 agent route 暴露真实 IPC。
     it.each(["history", "agent"])("exposes full session-history API to %s route", (route) => {
-        const { full_api, disabled_api } = create_session_history_apis();
+        const { full_api, open_api, disabled_api } = create_session_history_apis();
 
-        const api = select_session_history_api(route, full_api, disabled_api);
+        const api = select_session_history_api(route, full_api, open_api, disabled_api);
 
         expect(api).toBe(full_api);
     });
 
-    it.each(["usage", "setting", "tray", "unknown"])(
+    // t212: usage（托盘 popup / 用量面板）需打开历史窗口，暴露 open-only 档。
+    it.each(["usage"])("exposes open-only session-history API to %s route", async (route) => {
+        const { full_api, open_api, disabled_api, open_spy } = create_session_history_apis();
+
+        const api = select_session_history_api(route, full_api, open_api, disabled_api);
+
+        expect(api).toBe(open_api);
+        // open 触达真实 IPC 实现；其余方法保持 disabled 空形状。
+        await expect(api.open("c", "win", "s")).resolves.toBeUndefined();
+        expect(open_spy).toHaveBeenCalledWith("c", "win", "s");
+        await expect(api.subscribe("c", "win", "s")).resolves.toEqual({ subscribed: false });
+        await expect(api.query("c", "win", "s")).resolves.toEqual({
+            messages: [],
+            next_cursor: null,
+        });
+        await expect(api.recent("c", "win", 6)).resolves.toEqual([]);
+    });
+
+    it.each(["setting", "tray", "unknown"])(
         "exposes disabled session-history API to %s route",
         async (route) => {
-            const { full_api, disabled_api, open_spy } = create_session_history_apis();
+            const { full_api, open_api, disabled_api, open_spy } = create_session_history_apis();
 
-            const api = select_session_history_api(route, full_api, disabled_api);
+            const api = select_session_history_api(route, full_api, open_api, disabled_api);
 
             expect(api).toBe(disabled_api);
             // Lock the noop contract: disabled routes resolve without touching the

@@ -144,6 +144,82 @@ describe("history-window-controller (t210)", () => {
         expect(send_spy).toHaveBeenCalledWith(IPC_CHANNELS.SESSION_HISTORY_FOCUS, TEST_LOC);
     });
 
+    it("批量打开：创建期连续 OPEN 全部缓冲，did-finish-load 统一补发（f002）", () => {
+        const w = make_window();
+        const send_spy = vi.fn();
+        w.webContents.send = send_spy as never;
+        const controller = create_history_window_controller({
+            create_window: () => w,
+        });
+
+        const loc_b: SessionLoc = { source: "opencode", env: "win", session_id: "s2" };
+        const loc_c: SessionLoc = { source: "kimi_code", env: "win", session_id: "s3" };
+        controller.open_or_focus(TEST_LOC);
+        // loadURL 途中（did-finish-load 未触发）继续 OPEN：不得丢弃，须缓冲。
+        controller.open_or_focus(loc_b);
+        controller.open_or_focus(loc_c);
+        expect(send_spy).not.toHaveBeenCalled();
+
+        const load_handler = (
+            w as unknown as {
+                _wc_handlers: Record<string, (() => void)[]>;
+            }
+        )._wc_handlers["did-finish-load"];
+        for (const cb of load_handler ?? []) {
+            cb();
+        }
+        expect(send_spy).toHaveBeenCalledTimes(3);
+        expect(send_spy).toHaveBeenNthCalledWith(1, IPC_CHANNELS.SESSION_HISTORY_FOCUS, TEST_LOC);
+        expect(send_spy).toHaveBeenNthCalledWith(2, IPC_CHANNELS.SESSION_HISTORY_FOCUS, loc_b);
+        expect(send_spy).toHaveBeenNthCalledWith(3, IPC_CHANNELS.SESSION_HISTORY_FOCUS, loc_c);
+    });
+
+    it("批量打开：缓冲去重，重复定位只补发一次", () => {
+        const w = make_window();
+        const send_spy = vi.fn();
+        w.webContents.send = send_spy as never;
+        const controller = create_history_window_controller({
+            create_window: () => w,
+        });
+
+        controller.open_or_focus(TEST_LOC);
+        controller.open_or_focus(TEST_LOC);
+        controller.open_or_focus(TEST_LOC);
+        expect(send_spy).not.toHaveBeenCalled();
+
+        const load_handler = (
+            w as unknown as {
+                _wc_handlers: Record<string, (() => void)[]>;
+            }
+        )._wc_handlers["did-finish-load"];
+        for (const cb of load_handler ?? []) {
+            cb();
+        }
+        expect(send_spy).toHaveBeenCalledTimes(1);
+    });
+
+    it("窗口加载完成后 send_focus 直接发出，不再缓冲", () => {
+        const w = make_window();
+        const send_spy = vi.fn();
+        w.webContents.send = send_spy as never;
+        const controller = create_history_window_controller({
+            create_window: () => w,
+        });
+
+        controller.open_or_focus();
+        const load_handler = (
+            w as unknown as {
+                _wc_handlers: Record<string, (() => void)[]>;
+            }
+        )._wc_handlers["did-finish-load"];
+        for (const cb of load_handler ?? []) {
+            cb();
+        }
+
+        controller.open_or_focus(TEST_LOC);
+        expect(send_spy).toHaveBeenCalledWith(IPC_CHANNELS.SESSION_HISTORY_FOCUS, TEST_LOC);
+    });
+
     it("open_or_focus(loc) 已开时发 SESSION_HISTORY_FOCUS 定位", () => {
         const send_spy = vi.fn();
         const controller = create_history_window_controller({
@@ -154,6 +230,13 @@ describe("history-window-controller (t210)", () => {
             },
         });
         controller.open_or_focus();
+        // 加载完成后（loading 清空）后续 open 直接补发。
+        const w = controller.get_window() as unknown as {
+            _wc_handlers: Record<string, (() => void)[]>;
+        };
+        for (const cb of w._wc_handlers["did-finish-load"] ?? []) {
+            cb();
+        }
 
         controller.open_or_focus(TEST_LOC);
 
@@ -183,6 +266,12 @@ describe("history-window-controller (t210)", () => {
             },
         });
         controller.open_or_focus();
+        const w = controller.get_window() as unknown as {
+            _wc_handlers: Record<string, (() => void)[]>;
+        };
+        for (const cb of w._wc_handlers["did-finish-load"] ?? []) {
+            cb();
+        }
 
         controller.send_focus({
             source: "claude_code",

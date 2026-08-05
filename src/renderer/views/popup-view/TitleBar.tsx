@@ -11,6 +11,8 @@ interface TitleBarProps {
     onOpenSettings: () => void;
     is_floating: boolean;
     onHidePanel: () => void;
+    /** 打开/聚焦会话历史窗口（t212；web 模式隐藏按钮）。 */
+    onOpenHistory?: () => void;
 }
 
 export function TitleBar(props: TitleBarProps) {
@@ -23,6 +25,7 @@ export function TitleBar(props: TitleBarProps) {
         onOpenSettings,
         is_floating,
         onHidePanel,
+        onOpenHistory,
     } = props;
     return (
         <div className={titlebar_class}>
@@ -65,6 +68,16 @@ export function TitleBar(props: TitleBarProps) {
                         }}
                     >
                         <Icon name="chart" size={18} />
+                    </button>
+                )}
+                {!is_web() && (
+                    <button
+                        className="icon-btn"
+                        title="会话历史"
+                        aria-label="会话历史"
+                        onClick={is_live ? onOpenHistory : undefined}
+                    >
+                        <Icon name="history" size={18} />
                     </button>
                 )}
                 {is_live && is_floating && (

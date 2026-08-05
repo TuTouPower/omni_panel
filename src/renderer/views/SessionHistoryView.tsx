@@ -394,6 +394,24 @@ export function SessionHistoryView() {
     return (
         <div className="session-history">
             <header className="history-toolbar">
+                <button
+                    type="button"
+                    className="history-tb-btn"
+                    onClick={() => {
+                        window.usageboard.tray.open_panel();
+                    }}
+                >
+                    用量面板
+                </button>
+                <button
+                    type="button"
+                    className="history-tb-btn"
+                    onClick={() => {
+                        window.usageboard.tokenStats.open();
+                    }}
+                >
+                    代理面板
+                </button>
                 <button type="button" className="history-tb-btn" onClick={clear_all}>
                     清空全部
                 </button>

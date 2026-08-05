@@ -63,6 +63,7 @@ export const on_config_change = vi.fn((callback: (config: AppConfiguration) => v
     void callback;
     return vi.fn();
 });
+export const session_history_open = vi.fn<() => Promise<undefined>>().mockResolvedValue(undefined);
 
 export function install_popup_usageboard() {
     vi.clearAllMocks();
@@ -236,7 +237,7 @@ export function install_popup_usageboard() {
             getBulk: vi.fn().mockResolvedValue({ series: [] }),
         },
         sessionHistory: {
-            open: vi.fn().mockResolvedValue(undefined),
+            open: session_history_open,
             subscribe: vi.fn().mockResolvedValue({ subscribed: false }),
             unsubscribe: vi.fn().mockResolvedValue({ unsubscribed: false }),
             query: vi.fn().mockResolvedValue({ messages: [], next_cursor: null }),

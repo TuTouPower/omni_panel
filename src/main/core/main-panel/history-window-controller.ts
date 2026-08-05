@@ -49,6 +49,10 @@ export function create_history_window_controller(
     deps: HistoryWindowControllerDeps,
 ): HistoryWindowController {
     let win: HistoryWindowLike | null = null;
+    // 创建期（loadURL 未完成）为 true：webContents.send 会被丢弃，需缓冲定位。
+    let loading = false;
+    // 创建期累积的定位：did-finish-load 后统一补发（f006 单条 + t212 批量）。
+    let pending_locs: SessionLoc[] = [];
 
     function open_or_focus(loc?: SessionLoc): HistoryWindowLike {
         if (win && !win.isDestroyed()) {
@@ -63,18 +67,25 @@ export function create_history_window_controller(
         target.on("closed", () => {
             if (win === target) {
                 win = null;
+                loading = false;
+                pending_locs = [];
                 log.debug("history window closed, reference released");
             }
         });
         // 创建窗口期（loadURL 未完成）连续 OPEN 的 send_focus 会被丢弃：
-        // 注册 did-finish-load 补发初始定位，保证渲染完成后仍定位到目标会话。
-        if (loc) {
-            target.webContents.once("did-finish-load", () => {
-                if (win === target && !target.isDestroyed()) {
-                    send_focus_loc(target, loc);
+        // 缓冲全部定位，did-finish-load 后统一补发，保证批量打开不丢会话。
+        loading = true;
+        pending_locs = loc ? [loc] : [];
+        target.webContents.once("did-finish-load", () => {
+            loading = false;
+            if (win === target && !target.isDestroyed()) {
+                const batch = pending_locs;
+                pending_locs = [];
+                for (const l of batch) {
+                    send_focus_loc(target, l);
                 }
-            });
-        }
+            }
+        });
         win = target;
         target.show();
         target.focus();
@@ -90,9 +101,19 @@ export function create_history_window_controller(
     }
 
     function send_focus(loc: SessionLoc): void {
-        if (win && !win.isDestroyed()) {
-            send_focus_loc(win, loc);
+        if (!win || win.isDestroyed()) return;
+        if (loading) {
+            // loadURL 途中 send 被丢弃：缓冲，did-finish-load 后补发。按 key 去重防累积。
+            const dup = pending_locs.some(
+                (l) =>
+                    l.source === loc.source && l.env === loc.env && l.session_id === loc.session_id,
+            );
+            if (!dup) {
+                pending_locs.push(loc);
+            }
+            return;
         }
+        send_focus_loc(win, loc);
     }
 
     function shutdown(): void {
