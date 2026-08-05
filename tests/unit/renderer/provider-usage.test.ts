@@ -47,6 +47,7 @@ describe("PROVIDER_LABELS", () => {
 function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
     return {
         id: "claude-window",
+        metric_id: "claude:account-1:claude-window",
         provider: "claude",
         source: "gateway",
         sourceInstanceId: "cpa-main",

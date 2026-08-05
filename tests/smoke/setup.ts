@@ -50,6 +50,7 @@ function createMockApi() {
                 items: [
                     {
                         id: "tokens",
+                        metric_id: "deepseek:deepseek:tokens",
                         provider: "deepseek" as const,
                         source: "poll" as const,
                         sourceInstanceId: "deepseek",

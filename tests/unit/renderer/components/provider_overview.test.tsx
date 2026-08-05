@@ -10,6 +10,7 @@ import type {
 function period(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsagePeriod {
     return {
         id: "opencode-rolling",
+        metric_id: "opencode_go:workspace-1:rolling",
         provider: "opencode_go",
         source: "session",
         sourceInstanceId: "workspace-1",

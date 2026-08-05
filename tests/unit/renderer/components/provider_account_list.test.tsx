@@ -7,6 +7,7 @@ import type { ProviderUsageGroup } from "../../../../src/renderer/lib/provider-u
 function make_group(): ProviderUsageGroup {
     const period = {
         id: "codex-a-5h",
+        metric_id: "codex:auth-a:5h",
         provider: "codex" as const,
         source: "gateway" as const,
         sourceInstanceId: "cpa-main",

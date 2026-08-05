@@ -10,6 +10,9 @@ function metric(
 ): MetricRecord {
     return {
         id: partial.id ?? `id-${partial.raw_label}`,
+        metric_id:
+            partial.metric_id ??
+            `${partial.provider ?? "claude"}:${partial.accountId ?? "acc-1"}:${partial.raw_label}`,
         provider: partial.provider ?? "claude",
         source: partial.source ?? "poll",
         sourceInstanceId: partial.sourceInstanceId ?? "inst-1",

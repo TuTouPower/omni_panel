@@ -17,6 +17,7 @@ function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUs
         periods: [
             {
                 id: "claude-a-5h",
+                metric_id: "claude:auth-a:5h",
                 provider: "claude",
                 source: "gateway",
                 sourceInstanceId: "cpa-main",
@@ -174,7 +175,7 @@ describe("ProviderAccountRow", () => {
             const trend_bulk = vi.fn().mockResolvedValue({
                 series: [
                     {
-                        metric_id: "5h",
+                        metric_id: "claude:auth-a:5h",
                         series: [
                             { date: "2026-07-14", percent: 10 },
                             { date: "2026-07-15", percent: 20 },
@@ -199,30 +200,31 @@ describe("ProviderAccountRow", () => {
                 expect(container.querySelector(".trend-svg")).toBeInTheDocument();
             });
             expect(trend_bulk).toHaveBeenCalledTimes(1);
+            // bulk 查询键是 period.metric_id（observation 完整键），非 raw_label（p044）
             expect(trend_bulk).toHaveBeenCalledWith(
                 expect.objectContaining({
                     provider: "claude",
                     account_id: "auth-a",
-                    periods: [expect.objectContaining({ metric_id: "5h" })],
+                    periods: [expect.objectContaining({ metric_id: "claude:auth-a:5h" })],
                 }),
             );
             expect(container.querySelector(".trend-sparkline-empty")).not.toBeInTheDocument();
         });
 
         it("fetches all metric periods in a single getBulk call (t196 AC5 N>1)", async () => {
-            // t196 AC5: N 个指标周期只发一次 bulk invoke，payload 含全部 raw_label，
+            // t196 AC5: N 个指标周期只发一次 bulk invoke，payload 含全部 metric_id，
             // 响应按 metric_id 映射回各自缓存与 sparkline。
             const trend_bulk = vi.fn().mockResolvedValue({
                 series: [
                     {
-                        metric_id: "5h",
+                        metric_id: "claude:auth-a:5h",
                         series: [
                             { date: "2026-07-14", percent: 10 },
                             { date: "2026-07-15", percent: 20 },
                         ],
                     },
                     {
-                        metric_id: "5d",
+                        metric_id: "claude:auth-a:5d",
                         series: [
                             { date: "2026-07-14", percent: 30 },
                             { date: "2026-07-15", percent: 40 },
@@ -243,6 +245,7 @@ describe("ProviderAccountRow", () => {
                     {
                         ...period_5h,
                         id: "claude-a-5d",
+                        metric_id: "claude:auth-a:5d",
                         raw_label: "5d",
                         name: "Claude Pro · 5天",
                     },
@@ -265,8 +268,8 @@ describe("ProviderAccountRow", () => {
                     provider: "claude",
                     account_id: "auth-a",
                     periods: [
-                        expect.objectContaining({ metric_id: "5h" }),
-                        expect.objectContaining({ metric_id: "5d" }),
+                        expect.objectContaining({ metric_id: "claude:auth-a:5h" }),
+                        expect.objectContaining({ metric_id: "claude:auth-a:5d" }),
                     ],
                 }),
             );
@@ -280,7 +283,7 @@ describe("ProviderAccountRow", () => {
             const trend_bulk = vi.fn().mockResolvedValue({
                 series: [
                     {
-                        metric_id: "5h",
+                        metric_id: "claude:auth-a:5h",
                         series: [
                             { date: "2026-07-14", percent: 10 },
                             { date: "2026-07-15", percent: 20 },

@@ -16,6 +16,7 @@ type SaveHandler = (
 function usageItem(overrides: Partial<MetricRecord> = {}): MetricRecord {
     return {
         id: "claude-main",
+        metric_id: "claude:claude-account:claude-quota",
         provider: "claude",
         source: "gateway",
         sourceInstanceId: "cpa-1",

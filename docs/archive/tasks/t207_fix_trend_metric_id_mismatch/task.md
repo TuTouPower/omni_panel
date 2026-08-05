@@ -2,11 +2,11 @@
 tid: "t207"
 slug: "fix_trend_metric_id_mismatch"
 title: "修复 trend 查询键与 observation metric_id 不一致致 sparkline 恒空"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t207_fix_trend_metric_id_mismatch"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "c31389e9a1ff25e5280ebdf90d49ccc341196352"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,10 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 设计决策：`usageItemSchema.metric_id` 设为可选（plugin 脚本直接输出不产此字段，schema 兼容该路径）；`ProviderUsagePeriod.metric_id` 必填（runtime ready-state 经 observation_to_metric_record 总是填充）；`to_period` 用 `item.metric_id ?? item.id` 兜底，注释说明 runtime 必填、兜底仅为类型安全。
+- 误写主仓：创建红测试时误写到主仓 `D:\Dev\Code\omni_usage\tests\`（应写 worktree），mv 到 worktree 并确认主仓干净。
+- worktree 缺 generated 产物 `src/generated/build-info.ts`（gitignore，基线预存），手生成后 typecheck 绿。
+- 派 subagent 批量补 fixture metric_id（schema 加字段连锁 ~20 文件）；自检发现 `provider_card_fixture.ts` 第 58 行字面量（accounts 数组内，缩进 20 空格）漏改，手补。
 
 ## Review 处置
 
@@ -44,7 +47,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-05 10:00 UTC+8)
+
+Round 1 零 finding（code PASS / test PASS），未进处置表。
 
 有 finding 时用本表；每条 finding 一行。
 
@@ -60,8 +65,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：`tests/integration/observation/trend-query-key.test.ts` 跨层验证 CPA Claude / opencode_go 两种 metric_id 形态查回非空（AC1/AC2/AC4）；前端 `provider_account_row.test.tsx` 断言 bulk payload 用 `period.metric_id`、响应非空时渲染 `.trend-svg`（AC1）；查询键由前端单点决定、后端 trend-ipc / server / web 透传一致（AC3）。`pnpm test` 208 文件 2184 passed，`pnpm typecheck` / `pnpm lint` 绿。
 
 ### Reviewer verdict
 
@@ -69,15 +74,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 见上

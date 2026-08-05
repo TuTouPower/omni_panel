@@ -12,6 +12,7 @@ describe("snapshot-cache serialization", () => {
             items: [
                 {
                     id: "acc:1",
+                    metric_id: "claude:acc-1:pro",
                     provider: "claude",
                     source: "gateway",
                     sourceInstanceId: "cpa-main",
@@ -82,6 +83,7 @@ describe("snapshot-cache serialization", () => {
                 items: [
                     {
                         id: "i",
+                        metric_id: "deepseek:a:r",
                         provider: "deepseek",
                         source: "poll",
                         sourceInstanceId: "s",

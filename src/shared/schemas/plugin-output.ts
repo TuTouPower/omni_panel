@@ -33,6 +33,13 @@ const finiteNumber = z.number().finite();
 
 const usageItemSchema = z.object({
     id: z.string(),
+    /**
+     * Observation 的 metric_id 列原值（connector/executor 构造的完整键，如
+     * `claude:acc-1:five_hour`、`opencode_go:monthly`）。runtime ready-state payload
+     * 经 observation_to_metric_record 填充；plugin 脚本直接输出不产此字段（可选）。
+     * trend 查询以此键匹配 observation-store，raw_label 仅作 label-map 键。
+     */
+    metric_id: z.string().optional(),
     provider: z.string().regex(/^[a-z][a-z0-9_]*$/),
     source: usageSourceSchema,
     sourceInstanceId: z.string(),

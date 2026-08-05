@@ -5,6 +5,11 @@ import type { ConnectorInfo } from "../../shared/types/ipc";
 
 export interface ProviderUsagePeriod {
     id: string;
+    /**
+     * Observation metric_id 列原值，trend 查询键。与 raw_label（label-map 键）区别见
+     * {@link MetricRecord.metric_id}。
+     */
+    metric_id: string;
     provider: string;
     source: UsageSource;
     sourceInstanceId: string;
@@ -132,6 +137,9 @@ function to_period(
 ): ProviderUsagePeriod {
     return {
         id: item.id,
+        // runtime ready-state 总由 observation_to_metric_record 填充 metric_id；
+        // schema 可选仅为兼容 plugin 脚本直接输出路径（该路径不经 to_period）。
+        metric_id: item.metric_id ?? item.id,
         provider: item.provider,
         source: item.source,
         sourceInstanceId: item.sourceInstanceId,

@@ -87,6 +87,7 @@ export function install_popup_usageboard() {
                 items: [
                     {
                         id: "claude-pro",
+                        metric_id: "claude:claude-account:claude-pro",
                         provider: "claude",
                         source: "gateway",
                         sourceInstanceId: "cpa-main",
@@ -118,6 +119,7 @@ export function install_popup_usageboard() {
                 items: [
                     {
                         id: "deepseek-window",
+                        metric_id: "deepseek:deepseek-account:deepseek-window",
                         provider: "deepseek",
                         source: "poll",
                         sourceInstanceId: "deepseek-key",

@@ -59,6 +59,7 @@ describe("PopupView", () => {
                     items: [
                         {
                             id: "claude-pro",
+                            metric_id: "claude:claude-account:claude-pro",
                             provider: "claude",
                             source: "gateway",
                             sourceInstanceId: "cpa-1",
