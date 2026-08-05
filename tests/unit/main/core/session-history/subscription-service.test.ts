@@ -35,10 +35,10 @@ function make_jsonl_line(
     });
 }
 
-/** 轮询触发断言：重复检查 predicate 直到通过或超时（默认 2s）。 */
+/** 轮询触发断言：重复检查 predicate 直到通过或超时（默认 10s，放宽 p051 整批负载）。 */
 async function wait_for(
     predicate: () => boolean,
-    timeout_ms = 2000,
+    timeout_ms = 10000,
     interval_ms = 20,
 ): Promise<void> {
     const start = Date.now();
@@ -175,6 +175,39 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(last?.[0]?.text).toBe("好的");
     });
 
+    it("grok 增量推送 id 延续全量命名空间，不与已推送 id 冲突（p050）", async () => {
+        const file = join(tmp_dir, "chat_history_id.jsonl");
+        writeFileSync(
+            file,
+            JSON.stringify({ type: "user", content: "m1" }) +
+                "\n" +
+                JSON.stringify({ type: "assistant", content: "m2" }) +
+                "\n",
+        );
+
+        const received_ids: string[][] = [];
+        service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "s1",
+            file_path: file,
+            extractor_kind: "grok",
+            on_update: (msgs) => {
+                received_ids.push(msgs.map((m) => m.id));
+            },
+        });
+        // settle 等首个轮询周期落盘（Windows mtime 量化：紧邻两次写 mtime 常相同，
+        // 不等待则追加后 cur !== last_mtime 永不触发，与既有轮询用例同法）。
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        expect(received_ids).toHaveLength(0);
+
+        appendFileSync(file, JSON.stringify({ type: "user", content: "m3" }) + "\n");
+        await wait_for(() => received_ids.length >= 1);
+
+        // 订阅建立时全量提取 id grok:0/grok:1；追加推送应为 grok:2，不得从 0 重计
+        expect(received_ids[0]).toEqual(["grok:2"]);
+    });
+
     it("轮询策略：kimi wire.jsonl 增量推送", async () => {
         const file = join(tmp_dir, "wire.jsonl");
         const line1 = JSON.stringify({
@@ -253,6 +286,148 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(call_count_b).toBeGreaterThanOrEqual(1);
     });
 
+    it("同 loc 多订阅方并存，各自收推送（t219）", async () => {
+        const file = join(tmp_dir, "chat_history_multi.jsonl");
+        writeFileSync(file, JSON.stringify({ type: "user", content: "x" }) + "\n");
+
+        const received_a: HistoryMessage[][] = [];
+        const received_b: HistoryMessage[][] = [];
+        const id_a = service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "multi",
+            file_path: file,
+            extractor_kind: "grok",
+            subscriber_id: "win-a",
+            on_update: (msgs) => received_a.push([...msgs]),
+        });
+        const id_b = service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "multi",
+            file_path: file,
+            extractor_kind: "grok",
+            subscriber_id: "win-b",
+            on_update: (msgs) => received_b.push([...msgs]),
+        });
+        // 同 loc 不同 subscriber_id：返回同 key，但两订阅方并存。
+        expect(id_a).toBe(id_b);
+
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        expect(received_a).toHaveLength(0);
+        expect(received_b).toHaveLength(0);
+
+        appendFileSync(file, JSON.stringify({ type: "assistant", content: "y" }) + "\n");
+        await wait_for(() => received_a.length >= 1 && received_b.length >= 1);
+
+        // 两订阅方各自收到同一增量（互不串扰）。
+        expect(received_a[0]).toEqual(received_b[0]);
+        expect(received_a[0]?.[0]?.text).toBe("y");
+    });
+
+    it("指定 subscriber_id 注销只移除该订阅方，同 loc 其他订阅方仍收推送（t219）", async () => {
+        const file = join(tmp_dir, "chat_history_unsub.jsonl");
+        writeFileSync(file, JSON.stringify({ type: "user", content: "x" }) + "\n");
+
+        const received_a: HistoryMessage[][] = [];
+        const received_b: HistoryMessage[][] = [];
+        service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "multi2",
+            file_path: file,
+            extractor_kind: "grok",
+            subscriber_id: "win-a",
+            on_update: (msgs) => received_a.push([...msgs]),
+        });
+        service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "multi2",
+            file_path: file,
+            extractor_kind: "grok",
+            subscriber_id: "win-b",
+            on_update: (msgs) => received_b.push([...msgs]),
+        });
+        await new Promise((resolve) => setTimeout(resolve, 80));
+
+        // 只注销 win-a；win-b 保留。
+        service.unsubscribe("grok", "wsl", "multi2", "win-a");
+
+        appendFileSync(file, JSON.stringify({ type: "assistant", content: "y" }) + "\n");
+        await wait_for(() => received_b.length >= 1);
+
+        // win-a 已注销不再推送（300ms ≈ 10 个 30ms 轮询周期）。
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(received_a).toHaveLength(0);
+        expect(received_b[0]?.[0]?.text).toBe("y");
+    });
+
+    it("最后一个订阅方注销：停 watcher、loc 移除、后续追加不再推送（t219 句柄释放）", async () => {
+        const file = join(tmp_dir, "chat_history_last_unsub.jsonl");
+        writeFileSync(file, JSON.stringify({ type: "user", content: "x" }) + "\n");
+
+        const received: HistoryMessage[][] = [];
+        service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "last",
+            file_path: file,
+            extractor_kind: "grok",
+            subscriber_id: "win-a",
+            on_update: (msgs) => received.push([...msgs]),
+        });
+        service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "last",
+            file_path: file,
+            extractor_kind: "grok",
+            subscriber_id: "win-b",
+            on_update: () => undefined,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 80));
+
+        // 先注销 win-a（非最后一位），再注销 win-b（最后一位）→ 触发 stop+delete 分支。
+        service.unsubscribe("grok", "wsl", "last", "win-a");
+        service.unsubscribe("grok", "wsl", "last", "win-b");
+
+        appendFileSync(file, JSON.stringify({ type: "assistant", content: "y" }) + "\n");
+        // 300ms ≈ 10 个 30ms 轮询周期：watcher 已停，无任何推送。
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(received).toHaveLength(0);
+    });
+
+    it("缺省 subscriber_id（legacy）与显式 subscriber_id 并存不互扰（t219）", async () => {
+        const file = join(tmp_dir, "chat_history_legacy.jsonl");
+        writeFileSync(file, JSON.stringify({ type: "user", content: "x" }) + "\n");
+
+        const received_legacy: HistoryMessage[][] = [];
+        const received_win: HistoryMessage[][] = [];
+        service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "s_legacy",
+            file_path: file,
+            extractor_kind: "grok",
+            on_update: (msgs) => received_legacy.push([...msgs]),
+        });
+        service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "s_legacy",
+            file_path: file,
+            extractor_kind: "grok",
+            subscriber_id: "win",
+            on_update: (msgs) => received_win.push([...msgs]),
+        });
+        await new Promise((resolve) => setTimeout(resolve, 80));
+
+        appendFileSync(file, JSON.stringify({ type: "assistant", content: "y" }) + "\n");
+        await wait_for(() => received_legacy.length >= 1 && received_win.length >= 1);
+        expect(received_legacy[0]).toEqual(received_win[0]);
+    });
+
     it("unsubscribe 后不再推送，句柄释放（clearInterval 不再触发）", async () => {
         const file = join(tmp_dir, "chat_history.jsonl");
         writeFileSync(file, JSON.stringify({ type: "user", content: "x" }) + "\n");
@@ -270,8 +445,9 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         service.unsubscribe("grok", "wsl", "s4");
 
         appendFileSync(file, JSON.stringify({ type: "assistant", content: "z" }) + "\n");
-        // 推进多个周期，不应有任何推送。
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        // 推进多个周期，不应有任何推送。30ms 轮询下 300ms ≈ 10 周期，
+        // 整批负载下仍 ≥1 周期（负向断言无法用 wait_for，固定时长是唯一可靠写法）。
+        await new Promise((resolve) => setTimeout(resolve, 300));
         expect(received).toHaveLength(0);
     });
 
@@ -320,8 +496,8 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         service.unsubscribe_all();
 
         appendFileSync(file, JSON.stringify({ type: "assistant", content: "y" }) + "\n");
-        // 推进多个轮询周期，应无任何推送。
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        // 推进多个轮询周期，应无任何推送（300ms ≈ 10 周期，负载下仍 ≥1 周期）。
+        await new Promise((resolve) => setTimeout(resolve, 300));
         expect(received).toHaveLength(0);
     });
 
@@ -631,4 +807,4 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(result.map((r) => r.session_id)).toEqual(["a", "b"]);
         expect(result[0]?.agent).toBe("grok");
     });
-});
+}, 30000);

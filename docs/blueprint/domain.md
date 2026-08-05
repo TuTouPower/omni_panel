@@ -101,6 +101,6 @@ token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` /
 - claude_code：`~/.claude/projects/<proj>/<sess>.jsonl`，每行 `{type:"user|assistant|...",message:{content},uuid,timestamp}`；只取 user/assistant 的 content 中 `type==="text"` 段，剔 thinking/tool_use/tool_result/system/summary。决策 13：只读主 transcript，不读 agent-\*.jsonl。
 - opencode：`~/.local/share/opencode/opencode.db` SQLite，`message.data.role` 关联 `part.data{type:"text",text}`，过滤 tool/reasoning/step-\*/patch/compaction；时间 `part.time_created`。
 - kimi_code：`~/.kimi-code/.../wire.jsonl` 的 `context.append_message.message.{role,content[type=text]}` + 顶层 `time`；`turn.prompt` 与 append_message 重复 user 输入，取 append_message 去重。
-- grok：**正文在 `chat_history.jsonl`（WSL `~/.grok/sessions/<enc_cwd>/<sess>/`），非 `updates.jsonl`**（后者只 turn_completed usage 元数据）。每行 `{type:"user|assistant|system|reasoning|tool_result",content}`，**无顶层 timestamp**（按行序）。
+- grok：**正文在 `chat_history.jsonl`（WSL `~/.grok/sessions/<enc_cwd>/<sess>/`），非 `updates.jsonl`**（后者只 turn_completed usage 元数据）。每行 `{type:"user|assistant|system|reasoning|tool_result",content}`，**无顶层 timestamp**（按行序）。增量 id 与全量共享全局序号命名空间（p050，避免历史窗口按 id 去重丢新消息）；增量游标落半行时回退行边界重读、未完成尾行驻留行首（不丢记录）。
 
 统一模型 `HistoryMessage{id,role,text,timestamp|null}`；增量游标 byte_offset（JSONL 端）或 sqlite_rowid（opencode）。硬约束：对会话源文件全程只读；提取器对新行型一律跳过（宁可漏不可错），窗口层空态兜底。

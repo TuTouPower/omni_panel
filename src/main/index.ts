@@ -348,28 +348,23 @@ void app.whenReady().then(async () => {
             dispatcher: tokenStatsQueryDispatcher,
         });
         // t210: 会话历史订阅服务 + 历史窗口 singleton controller。
-        // watcher 触发时通过 SESSION_HISTORY_MESSAGES_UPDATED 把增量推到历史窗口；
-        // 历史窗口关闭时 unsubscribe_all 释放全部 watcher 句柄（AC5）。
+        // watcher 触发时由 session-history-ipc 按订阅方窗口推送（t219）；
+        // 订阅方窗口关闭时经 SUBSCRIBE 挂的 destroyed 清理各自注销，不在此全局清空。
         const session_history_service = new SessionHistorySubscriptionService();
         const history_window_controller = create_history_window_controller({
             create_window: (loc) => {
                 // 首次创建时经 URL query 传初始定位参数，renderer 启动同步读（见
                 // spec 上下文区已核实契约；window 已存在时走 send_focus，不重复传）。
-                const win = windowManager.createWindowFor(
+                return windowManager.createWindowFor(
                     "history",
                     loc ? { route_query: { loc: JSON.stringify(loc) } } : {},
                 );
-                win.on("closed", () => {
-                    session_history_service.unsubscribe_all();
-                });
-                return win;
             },
         });
         // 会话历史 IPC 通道组。sessions_provider 把 token-stats store 的
         // query_sessions 结果映射为 SessionRow（服务层不依赖 store 类型）。
         registerSessionHistoryIpc(ipcMain, {
             service: session_history_service,
-            history_window_controller,
             // WSL 配置与 token-stats collector 同源：显式值优先，空串由 locator 自动探测。
             locator_paths: {
                 win_home: homedir(),

@@ -21,11 +21,27 @@ vi.mock("../../../src/main/core/session-history/session-locator", () => ({
 
 set_renderer_index_path("D:/app/out/renderer/index.html");
 
-const valid_sender = { senderFrame: { url: "file:///D:/app/out/renderer/index.html" } };
+const valid_sender = {
+    senderFrame: { url: "file:///D:/app/out/renderer/index.html" },
+    sender: {
+        id: 1,
+        isDestroyed: () => false,
+        send: vi.fn(),
+        once: vi.fn(),
+    },
+};
 
-interface MockWindow {
-    isDestroyed: () => boolean;
-    webContents: { send: (channel: string, payload: unknown) => void };
+/** 第二个窗口 sender（t219 多窗口路由）。 */
+function second_sender(): typeof valid_sender {
+    return {
+        senderFrame: { url: "file:///D:/app/out/renderer/index.html" },
+        sender: {
+            id: 2,
+            isDestroyed: () => false,
+            send: vi.fn(),
+            once: vi.fn(),
+        },
+    };
 }
 
 interface MockService {
@@ -35,15 +51,8 @@ interface MockService {
     recent_sessions: ReturnType<typeof vi.fn>;
 }
 
-interface MockController {
-    open_or_focus: ReturnType<typeof vi.fn>;
-    get_window: ReturnType<typeof vi.fn>;
-    send_focus: ReturnType<typeof vi.fn>;
-}
-
 describe("session-history-ipc (t210)", () => {
     let service: MockService;
-    let controller: MockController;
 
     beforeEach(async () => {
         vi.clearAllMocks();
@@ -67,11 +76,6 @@ describe("session-history-ipc (t210)", () => {
                 },
             ]),
         };
-        controller = {
-            open_or_focus: vi.fn(),
-            get_window: vi.fn().mockReturnValue(null),
-            send_focus: vi.fn(),
-        };
     });
 
     async function register(): Promise<void> {
@@ -80,7 +84,6 @@ describe("session-history-ipc (t210)", () => {
         const sessions_provider = vi.fn().mockReturnValue([]);
         registerSessionHistoryIpc(ipc_main_mock as never, {
             service: service as never,
-            history_window_controller: controller as never,
             sessions_provider,
         });
     }
@@ -95,7 +98,6 @@ describe("session-history-ipc (t210)", () => {
         const sessions_provider = vi.fn().mockReturnValue([]);
         registerSessionHistoryIpc(ipc_main_mock as never, {
             service: service as never,
-            history_window_controller: controller as never,
             sessions_provider,
             locator_paths: paths,
         });
@@ -138,10 +140,13 @@ describe("session-history-ipc (t210)", () => {
         const params = service.subscribe.mock.calls[0]?.[0] as {
             file_path: string;
             extractor_kind: string;
+            subscriber_id: string;
             on_update: (m: unknown[]) => void;
         };
         expect(params.file_path).toBe("/x/sess.jsonl");
         expect(params.extractor_kind).toBe("claude_code");
+        // t219：订阅携带发起窗口身份（event.sender.id）。
+        expect(params.subscriber_id).toBe("1");
         expect(typeof params.on_update).toBe("function");
     });
 
@@ -179,12 +184,7 @@ describe("session-history-ipc (t210)", () => {
         );
     });
 
-    it("SUBSCRIBE on_update 回调把增量推到历史窗口", async () => {
-        const win: MockWindow = {
-            isDestroyed: () => false,
-            webContents: { send: vi.fn() },
-        };
-        controller.get_window.mockReturnValue(win);
+    it("SUBSCRIBE on_update 回调把增量推到发起订阅的窗口（t219）", async () => {
         locator_mock.resolve_session_file.mockReturnValue({
             file_path: "/x/sess.jsonl",
             extractor_kind: "claude_code",
@@ -200,7 +200,8 @@ describe("session-history-ipc (t210)", () => {
         const messages = [{ id: "1", role: "user", text: "hi", timestamp: null }];
         params.on_update(messages);
 
-        expect(win.webContents.send).toHaveBeenCalledWith("sessionHistory:messagesUpdated", {
+        // 推送目标是订阅方窗口（event.sender），不再是历史窗口 singleton。
+        expect(valid_sender.sender.send).toHaveBeenCalledWith("sessionHistory:messagesUpdated", {
             source: "claude_code",
             env: "win",
             session_id: "s1",
@@ -208,7 +209,88 @@ describe("session-history-ipc (t210)", () => {
         });
     });
 
-    it("UNSUBSCRIBE 调 service.unsubscribe", async () => {
+    it("SUBSCRIBE on_update 遇已销毁的订阅方窗口不发送（t219 竞态守卫）", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:subscribe");
+        const destroyed_sender = {
+            senderFrame: { url: "file:///D:/app/out/renderer/index.html" },
+            sender: {
+                id: 3,
+                isDestroyed: () => true,
+                send: vi.fn(),
+                once: vi.fn(),
+            },
+        };
+        handler(destroyed_sender, "claude_code", "win", "s1");
+
+        const params = service.subscribe.mock.calls[0]?.[0] as {
+            on_update: (m: unknown[]) => void;
+        };
+        params.on_update([{ id: "1", role: "user", text: "hi", timestamp: null }]);
+
+        // 向已销毁 webContents send 会抛错；守卫应跳过发送。
+        expect(destroyed_sender.sender.send).not.toHaveBeenCalled();
+    });
+
+    it("两个窗口订阅同一会话，各窗口只收到自己订阅的推送（t219 AC-1）", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:subscribe");
+        const sender_b = second_sender();
+        handler(valid_sender, "claude_code", "win", "s1");
+        handler(sender_b, "claude_code", "win", "s1");
+
+        // 两个订阅各带各自窗口身份。
+        const params_a = service.subscribe.mock.calls[0]?.[0] as {
+            subscriber_id: string;
+            on_update: (m: unknown[]) => void;
+        };
+        const params_b = service.subscribe.mock.calls[1]?.[0] as {
+            subscriber_id: string;
+            on_update: (m: unknown[]) => void;
+        };
+        expect(params_a.subscriber_id).toBe("1");
+        expect(params_b.subscriber_id).toBe("2");
+
+        const messages = [{ id: "1", role: "user", text: "hi", timestamp: null }];
+
+        // 窗口 B 的订阅触发推送 → 只发给 B，不发给 A。
+        params_b.on_update(messages);
+        expect(sender_b.sender.send).toHaveBeenCalledTimes(1);
+        expect(valid_sender.sender.send).not.toHaveBeenCalled();
+
+        // 窗口 A 的订阅触发推送 → 只发给 A。
+        params_a.on_update(messages);
+        expect(valid_sender.sender.send).toHaveBeenCalledTimes(1);
+    });
+
+    it("订阅方窗口销毁时注销该订阅（t219 AC-3 无残留）", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:subscribe");
+        handler(valid_sender, "claude_code", "win", "s1");
+
+        // 挂 destroyed 监听：销毁时用订阅方 id 注销，不误伤同会话其他订阅方。
+        expect(valid_sender.sender.once).toHaveBeenCalledWith("destroyed", expect.any(Function));
+        const cleanup = valid_sender.sender.once.mock.calls[0]?.[1] as () => void;
+        cleanup();
+        expect(service.unsubscribe).toHaveBeenCalledWith("claude_code", "win", "s1", "1");
+    });
+
+    it("UNSUBSCRIBE 只注销调用方窗口的订阅（t219）", async () => {
         await register();
 
         const handler = get_handler("sessionHistory:unsubscribe");
@@ -218,7 +300,7 @@ describe("session-history-ipc (t210)", () => {
         };
 
         expect(result.ok).toBe(true);
-        expect(service.unsubscribe).toHaveBeenCalledWith("claude_code", "win", "s1");
+        expect(service.unsubscribe).toHaveBeenCalledWith("claude_code", "win", "s1", "1");
     });
 
     it("QUERY resolve 成功时调 service.query 并返回 ok", async () => {

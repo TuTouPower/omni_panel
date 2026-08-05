@@ -18,6 +18,12 @@
 
 <!-- 待办节空置：p040-p051 已全部转 t216-t222，条目迁 docs/archive/pending.md「已处理待办」节（2026-08-05）。 -->
 
+### p052 legacy rollup 路径 session 分组仍按裸 session_id（t217 审阅 minor）
+
+- 来源：t217_code_f001
+- 内容：legacy `prepareBarDataFromRollup`（chart-data.ts:822）/ `rollup_group_metric`（:985,1012）的 session 轴与去重 key 仍为 `${source}|${session_id}` 不含 env，跨 env 同 session_id 在此两处仍合并。当前 `rollup` prop 恒为 `never[]`（TokenStatsView.tsx:592）不可达，属 p040 复发陷阱。若未来恢复该 fallback 路径须一并补 env。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

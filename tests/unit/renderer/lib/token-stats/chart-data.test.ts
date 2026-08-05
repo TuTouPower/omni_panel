@@ -771,6 +771,7 @@ describe("chart-data", () => {
         function rollup_row(overrides: Partial<TokenStatsRollupRow> = {}): TokenStatsRollupRow {
             return {
                 source: "claude_code",
+                env: "win",
                 model: "claude-sonnet-4",
                 directory: "/proj",
                 session_id: "s1",
@@ -944,6 +945,7 @@ describe("chart-data", () => {
             rollup: [
                 {
                     source: "claude_code",
+                    env: "win",
                     model: "sonnet",
                     directory: "/alpha",
                     session_id: "s1",
@@ -956,6 +958,7 @@ describe("chart-data", () => {
                 },
                 {
                     source: "claude_code",
+                    env: "wsl",
                     model: "opus",
                     directory: "/beta",
                     session_id: "s2",
@@ -1019,6 +1022,97 @@ describe("chart-data", () => {
                 "dark",
             );
             expect(data.labels).toContain("Session one");
+        });
+
+        it("session 轴跨 env 同 session_id 不合并（p040）", () => {
+            const two_env: TokenStatsDashboardChartData = {
+                ...chart_data,
+                rollup: [
+                    {
+                        source: "claude_code",
+                        env: "win",
+                        model: "sonnet",
+                        directory: "/alpha",
+                        session_id: "s1",
+                        title: "win session",
+                        calls: 1,
+                        input_tokens: 10,
+                        output_tokens: 0,
+                        cache_read_tokens: 0,
+                        cache_write_tokens: 0,
+                    },
+                    {
+                        source: "claude_code",
+                        env: "wsl",
+                        model: "sonnet",
+                        directory: "/alpha",
+                        session_id: "s1",
+                        title: "wsl session",
+                        calls: 1,
+                        input_tokens: 20,
+                        output_tokens: 0,
+                        cache_read_tokens: 0,
+                        cache_write_tokens: 0,
+                    },
+                ],
+            };
+            const data = prepareBarDataFromDashboardChartData(two_env, "tokens", "session", "dark");
+            // session_key 含 env：同 session_id 不同 env 是两个独立 category
+            expect(data.labels).toHaveLength(2);
+            expect(data.labels).toContain("win session");
+            expect(data.labels).toContain("wsl session");
+        });
+
+        it("sessions metric 按含 env 的 session key 去重：跨 env 同 session_id 各计 1（p040）", () => {
+            const two_env: TokenStatsDashboardChartData = {
+                ...chart_data,
+                rollup: [
+                    {
+                        source: "claude_code",
+                        env: "win",
+                        model: "sonnet",
+                        directory: "/alpha",
+                        session_id: "s1",
+                        title: "win session",
+                        calls: 1,
+                        input_tokens: 10,
+                        output_tokens: 0,
+                        cache_read_tokens: 0,
+                        cache_write_tokens: 0,
+                    },
+                    {
+                        source: "claude_code",
+                        env: "wsl",
+                        model: "sonnet",
+                        directory: "/alpha",
+                        session_id: "s1",
+                        title: "wsl session",
+                        calls: 1,
+                        input_tokens: 20,
+                        output_tokens: 0,
+                        cache_read_tokens: 0,
+                        cache_write_tokens: 0,
+                    },
+                ],
+            };
+            const data = prepareBarDataFromDashboardChartData(
+                two_env,
+                "sessions",
+                "session",
+                "dark",
+            );
+            // category 含 env → 两个独立栏；sessions 计数按含 env 的 session key 去重，
+            // 每栏各 1（不因 session_id 相同被合并且不重复计入同 category）
+            expect(data.labels).toHaveLength(2);
+            const win_idx = data.labels.indexOf("win session");
+            const wsl_idx = data.labels.indexOf("wsl session");
+            expect(win_idx).toBeGreaterThanOrEqual(0);
+            expect(wsl_idx).toBeGreaterThanOrEqual(0);
+            const total = data.series.reduce(
+                (sum, s) => sum + (s.data[win_idx] ?? 0) + (s.data[wsl_idx] ?? 0),
+                0,
+            );
+            expect(total).toBe(2);
         });
 
         it("resolves dir aliases on the project axis", () => {

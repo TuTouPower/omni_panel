@@ -92,6 +92,8 @@ export interface AppConfiguration {
     };
     /** t041: 剩余时间占周期百分比 ≤ 此值时进「即将重置」面板；null/undefined 不展示面板。 */
     readonly upcomingResetThresholdPercent?: number | null;
+    /** t222: sparkline 窗口偏好（1/7/30 天，全局共享）。缺省 7 天。 */
+    readonly sparklineWindowDays?: number;
 }
 
 export interface ConnectorConfiguration {

@@ -72,6 +72,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 - 风险：`patchConfig` 链路在 PopupView 由 usePopupUiConfig 管理，ProviderAccountRow 是深子树，需要把 setter 从 usePopupUiConfig 传下来或经 context。
 - 回退：ProviderAccountRow 直接用 `usageboard.config.get/save` 自管（绕过 patchConfig），但需防广播回显循环（参照 t153 collapse 的 prev_ref 模式）。
+- 风险（执行期核实，t222_gen_f001/f003）：apply_config 读偏好须用函数式 setter 且依赖数组不含 state——否则窗口切换触发 config.get 回读旧值闪回并错误持久化（f001，已修）；schema 允许 1-365 任意整数而 UI 仅 1/7/30 三档，越档值（如 100）三按钮均无 active 态——接受现状，sparkline getBulk 用任意 days 仍正确工作，UI 显示边界情况不影响功能（f003，记录不修）。
 
 ### 依赖与约束
 

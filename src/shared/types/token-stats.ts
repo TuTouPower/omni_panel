@@ -220,6 +220,7 @@ export interface TokenStatsHourFilters {
  */
 export const tokenStatsRollupRowSchema = z.object({
     source: tokenStatsSourceSchema,
+    env: tokenStatsEnvSchema,
     model: z.string(),
     directory: z.string().nullable(),
     session_id: z.string(),

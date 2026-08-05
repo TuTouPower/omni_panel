@@ -56,6 +56,14 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 - 优先伪时钟：`vi.useFakeTimers()` + `advanceTimersByTime`，被测逻辑用 `setTimeout` 的用例全部时钟推进，避免真实墙钟。
 - 伪时钟不可行处（真实 better-sqlite3 并发写）：保留真实定时器但把断言窗口放宽到脚本超时内 + 明确 timeout（`it(name, fn, timeout)`）。
+- 本 task 实际处置（执行期补充）：
+    - refresh-service / grok-oauth：走真实 connector 子进程 + 真实 1s/2s 重试定时器。伪时钟与子进程 I/O 交错不可靠（子进程退出是真实事件，时钟推进无法加速其完成），故保留真实定时器，改用 describe 级 timeout（`describe(name, fn, 30000)`；grok-oauth 该 describe 仅单 `it`，实际落在 `it(name, fn, 30000)`，覆盖等价）应对重试用例的 2s×3 次等待 + 子进程启动开销，消除 5s 默认超时。
+    - file-vault 20 并发写：真实加密+原子文件写，计时断言用真实 `Date.now()`（伪时钟下 Date.now 不推进会假绿）。断言窗口 2s → 15s，`it` 加 30000 timeout。
+    - subscription-service：伪时钟可驱动 setInterval 轮询，但 Windows mtime 量化要求两次真实写之间有真实墙钟间隔（t216 已验证），且负向断言（unsubscribe 后无推送）无法用 wait_for。故保留真实定时器：`wait_for` 默认超时 2s → 10s，describe 级 timeout 30000。
+    - 固定时长等待残留分两类，均在测试策略说明理由：
+        - 两处负向等待（unsubscribe / unsubscribe_all 后 300ms 无推送断言）：负向断言没有 wait_for 对应物，固定时长覆盖 ≥1 个 30ms 轮询周期是唯一可靠写法；正确实现下永不假失败（仅真实 bug 时触发），150→300ms 为防御性增强。
+        - 五处 80ms 基线等待（行 164/201/231/414/443，订阅后「初始无变化不推送」断言）：用途是 Windows mtime 量化下建立初始 mtime 基线 + 确认无静默首推；等待期间文件无变化不会触发推送，无假失败路径，不属 p049/p051 flaky 范畴，未改时序。
+    - t220 负责 provider_account_row 的 `setTimeout(50)`（spec 非范围）。
 - 验证：整批 `pnpm test` 连跑 3 次全绿 + 隔离跑全绿。
 
 ### 未知契约清单

@@ -290,8 +290,9 @@ export interface TrendPoint {
 /**
  * 账号展开区 sparkline 查询接口。
  *
- * - `get(provider, accountId, metricId, days?)` 返回长度 = `days`(默认 7)
- *   的 `({date, percent} | null)[]` 数组;缺失日期填 null。
+ * - `get(provider, accountId, metricId, sourceInstanceId, days?)` 返回
+ *   `days`（默认 7）窗口内的 `({date, percent} | null)[]`，升序，长度
+ *   ≤ max_points（t208 固定桶数、不强制 null 填充；点数不足时按实际）。
  * - 每 metric 一条 sparkline,不跨 metric 合并。
  * - 走 IPC 白名单;renderer 不直连 SQLite。
  */

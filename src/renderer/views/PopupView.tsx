@@ -68,6 +68,10 @@ export function PopupView() {
     const [upcoming_reset_threshold_percent, set_upcoming_reset_threshold_percent] = useState<
         number | null | undefined
     >(undefined);
+    // t222: sparkline 窗口偏好（全局共享，1/7/30 天），从 config 读、变更写回。
+    const [sparkline_window_days, set_sparkline_window_days] = useState<number>(7);
+    // t222 f004：config 是否已含 sparklineWindowDays 字段（apply_config 读入时置位）。
+    const has_sparkline_pref_ref = useRef<boolean>(false);
     const {
         main_panel_mode,
         usage_bar_color_scheme,
@@ -122,6 +126,19 @@ export function PopupView() {
             set_account_overrides(config.accountOverrides);
             set_account_labels(config.accountLabels);
             set_upcoming_reset_threshold_percent(config.upcomingResetThresholdPercent ?? null);
+            // t222 f001：函数式 setter + 值相等保留 state，依赖数组不含 state。
+            // 否则窗口切换改 state → apply_config 重建 → mount effect 重跑 config.get()
+            // 回读旧值（防抖 patch 未入缓存）→ 闪回并错误持久化旧偏好。
+            set_sparkline_window_days((current) => {
+                if (
+                    typeof config.sparklineWindowDays === "number" &&
+                    config.sparklineWindowDays !== current
+                ) {
+                    has_sparkline_pref_ref.current = true;
+                    return config.sparklineWindowDays;
+                }
+                return current;
+            });
             if (config.accountOrders) {
                 const next_orders = Object.fromEntries(
                     Object.entries(config.accountOrders).map(([key, value]) => [key, [...value]]),
@@ -233,6 +250,15 @@ export function PopupView() {
         synced_account_orders_ref.current = account_orders;
         patchConfig({ accountOrders: account_orders });
     }, [account_orders, patchConfig]);
+
+    // t222: sparkline 窗口偏好变更写回 config（全局共享）。f004：config 未含该字段
+    // 时（apply_config 未读入）跳过，避免每启动 mount 无条件写默认值 7 的多余
+    // save/广播；用户切换后才写回（t153 防回显由 apply_config 值相等保留 state 保证）。
+    useEffect(() => {
+        if (has_sparkline_pref_ref.current) {
+            patchConfig({ sparklineWindowDays: sparkline_window_days });
+        }
+    }, [sparkline_window_days, patchConfig]);
 
     // Persist collapsed/expanded state to config
     useEffect(() => {
@@ -750,6 +776,10 @@ export function PopupView() {
                                     accountErrors={accountErrors}
                                     watchedMetrics={account_overrides?.upcomingResetWatched}
                                     on_toggle_watched={is_live ? handle_toggle_watched : undefined}
+                                    sparklineWindowDays={sparkline_window_days}
+                                    onSparklineWindowChange={
+                                        is_live ? set_sparkline_window_days : undefined
+                                    }
                                 />
                             )}
 
@@ -768,7 +798,8 @@ export function PopupView() {
                         {token_panel_enabled && !loading && plugins.length > 0 && (
                             <CollapsibleCard
                                 header={<span className="card-name">Total Tokens</span>}
-                                collapsed={token_panel_collapsed}
+                                collapsed={is_live ? token_panel_collapsed : false}
+                                collapsible={is_live}
                                 onToggle={
                                     is_live
                                         ? () => {

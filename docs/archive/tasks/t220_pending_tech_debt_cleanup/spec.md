@@ -59,9 +59,10 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
-- 组件测试：断言不可折叠卡片 `queryByRole("button")` 无 chevron / aria-expanded。
-- e2e：`pnpm test:e2e:electron` 或验证 auto_seed 断言逻辑单测化。
-- 负向等待：`waitFor` + 断言调用次数不变。
+- 组件测试：断言不可折叠卡片 `queryByLabelText` 无「展开/折叠」按钮（`CollapsibleCard` collapsible=false 不渲染 chevron，先例 `provider_card_states`）。
+- e2e：auto_seed 删过时常量，`bundled_plugin_count()` 运行时扫描 `connectors/*/manifest.json` 与 `discover_connector_definitions` 对齐；断言 `>=` 真实计数。
+- 负向等待：`provider_account_row` 「切回缓存」改 `waitFor` 配「调用次数不变」+ timeout 300。
+- PopupView token 面板：`VITE_ENABLE_TOKEN_PANEL` 默认关，unit 不渲染，collapsible={is_live} 改动与两组件同模式，不单测（低风险）。
 
 ### 未知契约清单
 
@@ -79,6 +80,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 - 风险：删死箭头后某些样式依赖箭头占位。
 - 回退：保留箭头容器但加 `aria-hidden` 或 pointer-events:none（仍算死按钮，优先删除）。
+- 风险（执行期核实，t220_gen_f002）：无回调卡片改 `collapsed=false` 内容常显后，PopupView 高度测量镜像（`is_live=false` 正常镜像）把 UpcomingResetCard / token 面板按展开态测量 → 开启 upcoming 阈值（默认关）且卡片默认折叠时窗口偏高留白。方向安全（按展开态测量是过供给，展开后不裁内容），`force_collapse` 瞬态最小高度测量不受影响；修正方案（镜像传 no-op onToggleExpand 保留折叠测量）会复现镜像树死按钮，与 p041 冲突，故记录不修。
 
 ### 依赖与约束
 

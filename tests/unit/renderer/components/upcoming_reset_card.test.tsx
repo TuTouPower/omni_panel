@@ -87,6 +87,17 @@ describe("UpcomingResetCard", () => {
         expect(screen.queryByRole("button", { name: /切换到/ })).not.toBeInTheDocument();
     });
 
+    it("renders no collapse chevron when no toggle handler is provided (p041)", () => {
+        // 无 onToggleExpand → collapsible=false → 无死箭头；内容常显。
+        render(<UpcomingResetCard items={[make_item()]} onSelectProvider={vi.fn()} />);
+
+        expect(screen.getByText("即将重置")).toBeInTheDocument();
+        expect(screen.queryByLabelText("展开即将重置")).not.toBeInTheDocument();
+        expect(screen.queryByLabelText("折叠即将重置")).not.toBeInTheDocument();
+        // 不可折叠卡片内容不被折叠隐藏。
+        expect(screen.getByText(make_item().accountLabel)).toBeInTheDocument();
+    });
+
     it("selects the row provider when expanded and exposes visible row content", async () => {
         const user = userEvent.setup();
         const on_select_provider = vi.fn();

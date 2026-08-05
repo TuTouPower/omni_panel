@@ -556,4 +556,47 @@ describe("PopupView", () => {
         const saved = (last_call[0] as Record<string, unknown>)["collapsedAccounts"];
         expect(saved).toEqual({ "cpa-main|label|Claude Account": true });
     });
+
+    it("restores sparklineWindowDays from config and persists changes (t222)", async () => {
+        // AC-1/AC-3 持久化往返：config 已含偏好 1 天 → 初始渲染 1 天激活；
+        // 切 30 天 → config.save 收到 sparklineWindowDays: 30。
+        const config_get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                sparklineWindowDays: 1,
+            },
+            hasSecrets: {},
+        });
+        window.usageboard.config.get = config_get;
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        // 账号展开后 sparkline 窗口选择器可见：初始偏好 1 天 → 1天按钮激活。
+        const one_day_btn = await screen.findByRole("button", { name: "1天" });
+        expect(one_day_btn.getAttribute("aria-pressed")).toBe("true");
+
+        // 切到 30 天 → 防抖后 config.save 收到 sparklineWindowDays: 30。
+        fireEvent.click(screen.getByRole("button", { name: "30天" }));
+        await waitFor(() => {
+            expect(config_save).toHaveBeenCalledWith(
+                expect.objectContaining({ sparklineWindowDays: 30 }),
+            );
+        });
+
+        // 切换窗口不得触发 config.get 回读闪回：30天按钮保持激活（f001 回归守卫）。
+        expect(screen.getByRole("button", { name: "30天" }).getAttribute("aria-pressed")).toBe(
+            "true",
+        );
+        expect(screen.getByRole("button", { name: "1天" }).getAttribute("aria-pressed")).toBe(
+            "false",
+        );
+    });
 });

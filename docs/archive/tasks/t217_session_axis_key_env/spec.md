@@ -12,16 +12,16 @@ reviewer 判 AC 时只看本区。
 
 ### 范围
 
-- `src/shared/types/token-stats.ts`：`tokenStatsRollupRowSchema` 加 `env` 字段（对齐 `tokenStatsEnvSchema`）。
-- `src/main/core/token-stats/token-stats-store.ts`：`query_range_rollup` 返回含 env 的行（SQL 已含 env 列，`rollup_row_from` 已取，仅类型收口）。
+- `src/shared/types/token-stats.ts`：`tokenStatsRollupRowSchema` 加 `env` 字段（对齐 `tokenStatsEnvSchema`），使 main 侧 DTO safeParse 不再剥离 env。
+- `src/main/core/token-stats/token-stats-store.ts`：`query_range_rollup` 返回含 env 的行——SELECT 补 env 列、`GROUP BY` 补 env（原 SQL 已含 env 列但 GROUP BY 未含，`rollup_row_from` 已取 env）。
 - `src/renderer/lib/token-stats/chart-data.ts`：session_key 与 sessions 去重 key 改为 `${source}|${env}|${session_id}`。
-- 相关单测：rollup schema 含 env；session 轴跨 env 同 session_id 不合并。
+- 相关单测：rollup schema 含 env；session 轴跨 env 同 session_id 不合并；sessions 计数按含 env key 去重。
 
 ### 非范围
 
 - 其他 xaxis（time/project）语义。
 - 历史明细表（SessionTable）session 行 key（identity_key 已含 env）。
-- 任何 SQL 分组/校验语义变更——本次只把已存在的 env 字段补进公开类型与 renderer key。
+- legacy `prepareBarDataFromRollup` / `rollup_group_metric`（BarChart.tsx:143 fallback，当前 `rollup` prop 恒为 `never[]` 不可达）的 session 分组语义——本 task 只改 dashboard 主路径 `prepareBarDataFromDashboardRollup`。
 
 ### 验收标准
 

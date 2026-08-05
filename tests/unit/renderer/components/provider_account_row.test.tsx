@@ -53,6 +53,14 @@ describe("ProviderAccountRow", () => {
         expect(container.querySelector(".rel-time")?.textContent).not.toBe("");
     });
 
+    it("renders no collapse chevron when no toggle handler is provided (p041)", () => {
+        // 无 onToggleCollapsed → collapsible=false → 无死箭头；账号内容常显。
+        render(<ProviderAccountRow account={make_account()} />);
+
+        expect(screen.queryByLabelText(/展开 Account A/)).not.toBeInTheDocument();
+        expect(screen.queryByLabelText(/折叠 Account A/)).not.toBeInTheDocument();
+    });
+
     it("shows the data time (observedAt), not connector-level updatedAt, for stale accounts (t174)", () => {
         // t174: stale 副本保留原数据时间后，账号行相对时间必须取自 per-账号
         // observedAt（原数据时间）而非 connector 级 updatedAt（本次尝试时间，
@@ -417,14 +425,97 @@ describe("ProviderAccountRow", () => {
                     periods: [expect.objectContaining({ days: 1 })],
                 }),
             );
-            // 切回 7 天：缓存命中，不重发 IPC
+            // 切回 7 天：缓存命中，不重发 IPC。负向断言用 waitFor 配「次数未变」：
+            // 缓存漏命中（重发）时 waitFor 会在 timeout 内因次数≠2 失败（立即红），
+            // 而非固定等 50ms 后只查一次（负载高时可能漏检）。
             const seven_day_btn = Array.from(buttons).find((b) => b.textContent === "7天");
             expect(seven_day_btn).toBeDefined();
             if (!seven_day_btn) throw new Error("no 7d btn");
             fireEvent.click(seven_day_btn);
-            // 短暂等待确认无新调用
-            await new Promise((resolve) => setTimeout(resolve, 50));
-            expect(trend_bulk).toHaveBeenCalledTimes(2);
+            await waitFor(
+                () => {
+                    expect(trend_bulk).toHaveBeenCalledTimes(2);
+                },
+                { timeout: 300 },
+            );
+        });
+
+        it("窗口偏好从 config 读初始值、变更写回（t222）", async () => {
+            const trend_bulk = vi.fn().mockResolvedValue({
+                series: [
+                    {
+                        metric_id: "claude:auth-a:5h",
+                        series: [
+                            { date: "2026-07-14", percent: 10 },
+                            { date: "2026-07-15", percent: 20 },
+                        ],
+                    },
+                ],
+            });
+            window.usageboard.trend = {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: trend_bulk,
+            };
+            const account = make_account();
+            const on_change = vi.fn();
+            const { container } = render(
+                <ProviderAccountRow
+                    account={account}
+                    collapsed={false}
+                    onToggleCollapsed={() => undefined}
+                    sparklineWindowDays={1}
+                    onSparklineWindowChange={on_change}
+                />,
+            );
+            // 初始偏好 1 天 → 初次取数 days=1；1 天按钮激活。
+            await waitFor(() => {
+                expect(trend_bulk).toHaveBeenCalledTimes(1);
+            });
+            expect(trend_bulk).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    periods: [expect.objectContaining({ days: 1 })],
+                }),
+            );
+            const buttons = container.querySelectorAll(".trend-window-btn");
+            const one_day_btn = Array.from(buttons).find((b) => b.textContent === "1天");
+            expect(one_day_btn?.getAttribute("aria-pressed")).toBe("true");
+
+            // 切到 30 天：本地生效 + 通知写回 config。
+            const thirty_day_btn = Array.from(buttons).find((b) => b.textContent === "30天");
+            expect(thirty_day_btn).toBeDefined();
+            if (!thirty_day_btn) throw new Error("no 30d btn");
+            fireEvent.click(thirty_day_btn);
+            await waitFor(() => {
+                expect(trend_bulk).toHaveBeenCalledTimes(2);
+            });
+            expect(trend_bulk).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    periods: [expect.objectContaining({ days: 30 })],
+                }),
+            );
+            expect(on_change).toHaveBeenCalledWith(30);
+        });
+
+        it("未设置偏好时默认 7 天（t222）", async () => {
+            const trend_bulk = vi.fn().mockResolvedValue({ series: [] });
+            window.usageboard.trend = {
+                get: vi.fn().mockResolvedValue([]),
+                getBulk: trend_bulk,
+            };
+            const { container } = render(
+                <ProviderAccountRow account={make_account()} collapsed={false} />,
+            );
+            await waitFor(() => {
+                expect(trend_bulk).toHaveBeenCalledTimes(1);
+            });
+            expect(trend_bulk).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    periods: [expect.objectContaining({ days: 7 })],
+                }),
+            );
+            const buttons = container.querySelectorAll(".trend-window-btn");
+            const seven_day_btn = Array.from(buttons).find((b) => b.textContent === "7天");
+            expect(seven_day_btn?.getAttribute("aria-pressed")).toBe("true");
         });
     });
 });

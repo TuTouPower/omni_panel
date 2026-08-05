@@ -65,7 +65,7 @@ export interface TokenStatsStore {
     query_hour_buckets(filters: TokenStatsHourFilters): TokenStatsHourBucket[];
     /**
      * Window rollup over the records table (24h KPI/donut/project/session axes,
-     * t184). Groups by (source, model, directory, session_id) so the result
+     * t184). Groups by (source, env, model, directory, session_id) so the result
      * scales with session/model counts, not per-message volume; no LIMIT, so
      * high-density windows cannot truncate early data the way query_records'
      * ORDER BY DESC LIMIT does. Uses half-open `[start, end)` so current and
@@ -1202,6 +1202,7 @@ export function create_token_stats_store(
             // pick a title from outside the window.
             const sql = `SELECT
                 source,
+                env,
                 model,
                 directory,
                 session_id,
@@ -1218,7 +1219,7 @@ export function create_token_stats_store(
                 SUM(cache_read_tokens) AS cache_read_tokens,
                 SUM(cache_write_tokens) AS cache_write_tokens
             FROM token_stats_records ${where}
-            GROUP BY source, model, directory, session_id`;
+            GROUP BY source, env, model, directory, session_id`;
             return db.prepare(sql).all(params) as TokenStatsRollupRow[];
         },
 

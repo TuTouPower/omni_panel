@@ -2,11 +2,11 @@
 tid: "t217"
 slug: "session_axis_key_env"
 title: "session 轴会话 key 补 env"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t217_session_axis_key_env"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "c41e15e008d74b052d6807ebe9b7a2cba70ebf2d"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -58,6 +58,21 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 | t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
 | t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
 
+### Round 1 (2026-08-05 21:58 UTC+8)
+
+| finding_id     | severity  | status | rationale                                                                                                                                          | fix_ref                                      |
+| -------------- | --------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| t217_code_f001 | minor     | 遗留   | legacy `prepareBarDataFromRollup`/`rollup_group_metric`（当前 rollup prop 恒 never[] 不可达）仍按裸 session_id——超本 task 范围，登记 p052 复发陷阱 | p052                                         |
+| t217_code_f002 | minor     | 已修   | spec 范围 item 2 改写为实际改动（SELECT 补 env、GROUP BY 补 env），非「仅类型收口」                                                                | docs/tasks/t217_session_axis_key_env/spec.md |
+| t217_test_f001 | important | 已修   | 新增「sessions metric 按含 env 的 session key 去重」用例：跨 env 同 session_id 各计 1、两个 category                                               | tests/.../chart-data.test.ts                 |
+| t217_test_f002 | minor     | 已修   | schema env 序列化断言由 store 跨 env 拆行用例覆盖（行含 env 字段）；保留既有 envs 断言                                                             | tests/.../token-stats-store.test.ts          |
+
+### Round 2 (2026-08-05 22:05 UTC+8)
+
+| finding_id     | severity | status | rationale                                                                                                                                                                                                   | fix_ref |
+| -------------- | -------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| t217_test_f002 | minor    | 遗留   | schema 序列化无独立 zod 测试：store 用例走 `as TokenStatsRollupRow[]` 强转不经 schema parse，schema 移除 env 时该用例仍绿——IPC 边界 safeParse 剥 env 的回归无拦截；维持 minor，登记 p052 一并留意（不阻断） | p052    |
+
 ## 收尾报告
 
 本 task 的 commit 用 `git log --grep <tid>` 查，不在此逐条记 SHA。
@@ -65,8 +80,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+    - AC1 rollup schema 含 env：`tokenStatsRollupRowSchema` 加 `env`（对齐 tokenStatsEnvSchema），main 侧 DTO safeParse 不再剥离 env；store 跨 env 拆行用例断言行含 env 字段。
+    - AC2 session 轴跨 env 同 session_id 独立 category：chart-data 用例（tokens 变体）断言两个 labels（win/wsl session）。
+    - AC3 sessions 计数按含 env key 去重：新增用例（metric="sessions"+xaxis="session"）跨 env 同 session_id 各计 1、total=2；旧 session_key 判红。
+    - AC4 time/project 轴不回归：chart-data 既有 time/project 用例全绿。
+    - `pnpm test` 全量 2344 通过、typecheck、lint 通过。
 
 ### Reviewer verdict
 
@@ -74,15 +94,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
-`single`：
-
-- Round 1 general：PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：FAIL（t217_test_f001 sessions 去重无测试，已修）
+- Round 2 test：PASS（f001 消除；f002 minor 遗留 p052，不阻断）
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+session 轴会话 key 补 env：schema + query_range_rollup（SELECT/GROUP BY 补 env）+ renderer session_key 三处收口，跨平台同 session_id 会话不再合并。2 轮 review 收尾 code PASS / test PASS，唯一遗留 minor（schema 序列化独立测试）登记 p052。

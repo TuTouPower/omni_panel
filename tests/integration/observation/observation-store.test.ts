@@ -259,6 +259,28 @@ describe("observation-store", () => {
         }
     });
 
+    it("new databases do not create the redundant idx_trend index (t221)", () => {
+        // t214 起 trend 查询 WHERE 含 source_instance_id，planner 走 idx_lookup 全覆盖；
+        // idx_trend(provider, account_id, metric_id, observed_at) 不再被选用，已从 INIT_SQL 移除。
+        const db_path = join(temp_dir, "no-trend-index.db");
+        const s = create_observation_store(db_path);
+        try {
+            const check = new Database(db_path);
+            try {
+                const indexes = check.prepare("PRAGMA index_list(observations)").all() as {
+                    name: string;
+                }[];
+                const names = indexes.map((idx) => idx.name);
+                expect(names).toContain("idx_lookup");
+                expect(names).not.toContain("idx_trend");
+            } finally {
+                check.close();
+            }
+        } finally {
+            s.close();
+        }
+    });
+
     describe("query_trend_series", () => {
         // t208: 旧「按天分桶、长度=days、缺日填 null」语义已废弃，改为固定 ≤120 桶
         // 均分窗口、原始点数 ≤cap 时不聚合。新语义由 trend-granularity.test.ts 覆盖。
@@ -306,10 +328,10 @@ describe("observation-store", () => {
             // Seed 1 observation so the planner has statistics — empty-table plans
             // can drift across SQLite versions or after ANALYZE.
             store.insert(make_observation({ observed_at: Date.now() }));
-            // t214: SQL 加 source_instance_id 后，planner 选 idx_lookup
+            // t214/t221: SQL 含 source_instance_id，planner 选 idx_lookup
             // (provider, account_id, metric_id, source_instance_id, observed_at)——
-            // 它覆盖全部 WHERE 等值列 + observed_at 范围，比 idx_trend 更优（idx_trend
-            // 不含 source_instance_id）。核心约束：必须走索引、禁全表扫描。
+            // 覆盖全部 WHERE 等值列 + observed_at 范围，无需 filter。idx_trend 已删
+            // （t221），故断言收窄为必须走 idx_lookup、禁全表扫描。
             const check = new Database(join(temp_dir, "test.db"));
             try {
                 const plan = check
@@ -320,7 +342,7 @@ describe("observation-store", () => {
                     )
                     .all("p", "a", "m", "s", 0) as { detail: string }[];
                 const details = plan.map((row) => row.detail).join("\n");
-                expect(details).toMatch(/USING INDEX idx_(trend|lookup)\b/);
+                expect(details).toMatch(/USING INDEX idx_lookup\b/);
                 expect(details).not.toMatch(/SCAN observations/);
             } finally {
                 check.close();

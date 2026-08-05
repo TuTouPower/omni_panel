@@ -1,19 +1,22 @@
-import { writeFileSync, mkdirSync } from "node:fs";
+import { readdirSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { ElectronApplication, Page } from "@playwright/test";
 import { expect, test } from "../fixtures/test";
 import { createTestWithSetup } from "../fixtures/test_with_setup";
 import { PopupPage } from "../pages/popup_page";
 
-const BUNDLED_PLUGIN_NAMES = [
-    "claude-usage-plugin",
-    "codex-usage-plugin",
-    "cpa-usage-plugin",
-    "deepseek-usage-plugin",
-    "glm-usage-plugin",
-    "minimax-usage-plugin",
-    "tavily-usage-plugin",
-];
+/**
+ * 运行时真实 bundled 连接器数，与 discover_connector_definitions 对齐（p042）。
+ * 此前 BUNDLED_PLUGIN_NAMES 是 7 条历史插件名，与 connectors/ 实际 16 个脱节，
+ * 断言靠 `>= 7` 宽松兜底——即使种子漏种大半也能过。
+ */
+function bundled_plugin_count(): number {
+    const connectors_dir = join(process.cwd(), "connectors");
+    return readdirSync(connectors_dir, { withFileTypes: true }).filter(
+        (entry) =>
+            entry.isDirectory() && existsSync(join(connectors_dir, entry.name, "manifest.json")),
+    ).length;
+}
 
 test.describe("auto-seed", () => {
     test("fresh config auto-seeds all bundled plugins", async ({ omni }) => {
@@ -27,8 +30,9 @@ test.describe("auto-seed", () => {
 
         const pluginCards = page.locator(".card");
         const count = await pluginCards.count();
-        // Should have at least as many cards as bundled plugins
-        expect(count).toBeGreaterThanOrEqual(BUNDLED_PLUGIN_NAMES.length);
+        // Auto-seed 种全部 bundled 连接器：卡片数 ≥ 真实 bundled 连接器数
+        // （另有 UpcomingResetCard 等非插件卡片，故用 ≥ 而非精确等）。
+        expect(count).toBeGreaterThanOrEqual(bundled_plugin_count());
     });
 });
 
@@ -101,6 +105,6 @@ testWithConfig.describe("auto-seed with existing config", () => {
         // "My Claude" plus all auto-seeded connectors must all be present.
         const accRows = sPage.locator(".acc-row");
         const count = await accRows.count();
-        expectWithConfig(count).toBeGreaterThanOrEqual(BUNDLED_PLUGIN_NAMES.length);
+        expectWithConfig(count).toBeGreaterThanOrEqual(bundled_plugin_count());
     });
 });
