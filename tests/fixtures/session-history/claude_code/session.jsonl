@@ -1,0 +1,6 @@
+{"type":"user","uuid":"u1","message":{"role":"user","content":[{"type":"text","text":"帮我看看这个文件"}]},"timestamp":"2026-08-05T10:00:00.000Z","sessionId":"s1","cwd":"/proj"}
+{"type":"assistant","uuid":"a1","message":{"role":"assistant","content":[{"type":"thinking","text":"应该用 Read"}]},"timestamp":"2026-08-05T10:00:01.000Z"}
+{"type":"assistant","uuid":"a2","message":{"role":"assistant","content":[{"type":"text","text":"好的，我来读取这个文件。"},{"type":"tool_use","id":"t1","name":"Read","input":{}}]},"timestamp":"2026-08-05T10:00:02.000Z"}
+{"type":"user","uuid":"u2","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"file contents here"}]},"timestamp":"2026-08-05T10:00:03.000Z"}
+{"type":"assistant","uuid":"a3","message":{"role":"assistant","content":[{"type":"text","text":"文件内容如上。"}]},"timestamp":"2026-08-05T10:00:04.000Z"}
+{"type":"summary","summary":"测试会话"}

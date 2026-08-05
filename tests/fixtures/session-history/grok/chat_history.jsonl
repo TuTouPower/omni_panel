@@ -1,0 +1,7 @@
+{"type":"system","content":"You are Grok."}
+{"type":"user","content":"hello grok"}
+{"type":"reasoning","content":"thinking about reply"}
+{"type":"assistant","content":[{"type":"text","text":"hi user"}]}
+{"type":"tool_result","content":"tool output here"}
+this is not valid json line
+{"type":"user","content":[{"type":"text","text":"first"},{"type":"text","text":"second"}]}
