@@ -175,6 +175,39 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(last?.[0]?.text).toBe("好的");
     });
 
+    it("grok 增量推送 id 延续全量命名空间，不与已推送 id 冲突（p050）", async () => {
+        const file = join(tmp_dir, "chat_history_id.jsonl");
+        writeFileSync(
+            file,
+            JSON.stringify({ type: "user", content: "m1" }) +
+                "\n" +
+                JSON.stringify({ type: "assistant", content: "m2" }) +
+                "\n",
+        );
+
+        const received_ids: string[][] = [];
+        service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "s1",
+            file_path: file,
+            extractor_kind: "grok",
+            on_update: (msgs) => {
+                received_ids.push(msgs.map((m) => m.id));
+            },
+        });
+        // settle 等首个轮询周期落盘（Windows mtime 量化：紧邻两次写 mtime 常相同，
+        // 不等待则追加后 cur !== last_mtime 永不触发，与既有轮询用例同法）。
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        expect(received_ids).toHaveLength(0);
+
+        appendFileSync(file, JSON.stringify({ type: "user", content: "m3" }) + "\n");
+        await wait_for(() => received_ids.length >= 1);
+
+        // 订阅建立时全量提取 id grok:0/grok:1；追加推送应为 grok:2，不得从 0 重计
+        expect(received_ids[0]).toEqual(["grok:2"]);
+    });
+
     it("轮询策略：kimi wire.jsonl 增量推送", async () => {
         const file = join(tmp_dir, "wire.jsonl");
         const line1 = JSON.stringify({

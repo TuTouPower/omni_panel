@@ -5,9 +5,13 @@
  * 裁剪规则（决策 2）：仅留 user/assistant 文本，剔 system/reasoning/tool_result。
  *
  * chat_history.jsonl 无顶层 timestamp（见 d017）：timestamp 一律 null。
- * 无稳定 id：用 `grok:${lineIndex}`（合法行的累计序号，0-based）。
+ * 无稳定 id：用 `grok:${lineIndex}`（合法 user/assistant 消息的全局累计序号，0-based）。
+ * 增量与全量共享同一 id 命名空间（p050）：增量消息 id = 游标前合法消息数 + 切片内序号，
+ * 保证与全量重提取的同一消息 id 一致，历史窗口按 id 去重不会丢新消息或重复显示。
  *
- * 增量：JSONL 按字节 offset（见 ExtractCursor.byte_offset）。
+ * 增量：JSONL 按字节 offset（见 ExtractCursor.byte_offset）。半行容错：游标可能落在
+ * 行中间（上次读取遇写入半行时停在行首），增量回退到最近行边界重读；文件尾部未完成
+ * 半行（无结尾换行）时游标停在该行行首，写入完成后下次读取不丢记录。
  */
 import { readFileSync, statSync } from "node:fs";
 import type { HistoryMessage, ExtractResult, ExtractCursor } from "./types";
@@ -45,6 +49,33 @@ function record_to_message(
 }
 
 /**
+ * 按行解析合法 user/assistant 消息。id 从 start_index 起全局累计（合法消息才 +1，
+ * 与全量提取的 id 命名空间一致）。返回消息与解析后的下一条序号。
+ */
+function parse_grok_lines(
+    lines: readonly string[],
+    start_index: number,
+): { messages: HistoryMessage[]; next_index: number } {
+    const messages: HistoryMessage[] = [];
+    let line_index = start_index;
+    for (const line of lines) {
+        if (line.trim() === "") continue;
+        let rec: Record<string, unknown>;
+        try {
+            rec = JSON.parse(line) as Record<string, unknown>;
+        } catch {
+            continue; // 非 JSON / 半行跳过
+        }
+        const msg = record_to_message(rec, line_index);
+        if (msg) {
+            messages.push(msg);
+            line_index += 1;
+        }
+    }
+    return { messages, next_index: line_index };
+}
+
+/**
  * 全量提取 file 的消息。空文件返回空。
  * 非法/截断行跳过，不抛。
  */
@@ -55,22 +86,7 @@ export function extract_grok(file: string): ExtractResult {
     } catch {
         return { messages: [], cursor: null };
     }
-    const messages: HistoryMessage[] = [];
-    let line_index = 0;
-    for (const line of content.split("\n")) {
-        if (line.trim() === "") continue;
-        let rec: Record<string, unknown>;
-        try {
-            rec = JSON.parse(line) as Record<string, unknown>;
-        } catch {
-            continue; // 非 JSON 行跳过
-        }
-        const msg = record_to_message(rec, line_index);
-        if (msg) {
-            messages.push(msg);
-            line_index += 1;
-        }
-    }
+    const { messages } = parse_grok_lines(content.split("\n"), 0);
     let offset = 0;
     try {
         offset = statSync(file).size;
@@ -82,42 +98,61 @@ export function extract_grok(file: string): ExtractResult {
 }
 
 /**
- * 增量提取：从 cursor.offset 续读追加部分。
- * 返回结果与全量重提取的尾部一致，不重发已提取消息。
+ * 增量提取：从 cursor.offset 续读追加部分，回退到行边界防半行丢记录。
+ * 返回结果与全量重提取的尾部一致（含 id），不重发已提取消息。
  */
 export function extract_grok_incremental(file: string, cursor: ExtractCursor): ExtractResult {
     if (cursor.kind !== "byte_offset" || cursor.file !== file) {
         return extract_grok(file);
     }
-    let content: string;
+    let buf: Buffer;
     try {
-        const buf = readFileSync(file);
-        content = buf.subarray(cursor.offset).toString("utf-8");
+        buf = readFileSync(file);
     } catch {
         return { messages: [], cursor };
     }
-    const messages: HistoryMessage[] = [];
-    // 增量切片内的合法行序从 0 起；id 与全量同名空间不冲突（游标保证不重发）。
-    let line_index = 0;
-    for (const line of content.split("\n")) {
-        if (line.trim() === "") continue;
-        let rec: Record<string, unknown>;
+    // 半行容错：cursor.offset 可能落在 JSON 行中间（上次读取停在行首防丢，或 EOF 落
+    // 在未完成半行上）。若游标前该行是完整 JSON（游标在行边界），从游标续读不重发；
+    // 若是不完整半行，回退到最近行边界（上一个 \n 之后）重读该完整行。
+    const nl_before = buf.subarray(0, cursor.offset).lastIndexOf(0x0a);
+    const line_start = nl_before + 1;
+    const partial = buf.subarray(line_start, cursor.offset).toString("utf-8").trim();
+    let parse_start = cursor.offset;
+    if (partial !== "") {
+        let complete = true;
         try {
-            rec = JSON.parse(line) as Record<string, unknown>;
+            JSON.parse(partial);
         } catch {
-            continue;
+            complete = false;
         }
-        const msg = record_to_message(rec, line_index);
-        if (msg) {
-            messages.push(msg);
-            line_index += 1;
+        if (!complete) {
+            parse_start = line_start;
         }
     }
-    let new_offset = cursor.offset;
-    try {
-        new_offset = statSync(file).size;
-    } catch {
-        // 保留旧 offset
+    // 全局消息计数：parse_start 之前合法消息数，使增量 id 延续全量 id 空间。
+    const head_text = buf.subarray(0, parse_start).toString("utf-8");
+    const { next_index } = parse_grok_lines(head_text.split("\n"), 0);
+    const tail_text = buf.subarray(parse_start).toString("utf-8");
+    const { messages } = parse_grok_lines(tail_text.split("\n"), next_index);
+    // 游标推进：文件尾部若为未完成半行（无结尾换行且 JSON 不完整），停在半行行首，
+    // 写入完成后下次读取从该行重读不丢记录；完整行（含完整 JSON 但无尾换行）则推进
+    // 到文件末尾，避免已完整行被重复重发。
+    const last_nl_global = buf.lastIndexOf(0x0a);
+    const tail_start = last_nl_global + 1;
+    let new_offset = buf.length;
+    if (tail_start < buf.length) {
+        const tail_line = buf.subarray(tail_start).toString("utf-8").trim();
+        if (tail_line !== "") {
+            let complete = true;
+            try {
+                JSON.parse(tail_line);
+            } catch {
+                complete = false;
+            }
+            if (!complete) {
+                new_offset = tail_start;
+            }
+        }
     }
     return {
         messages,

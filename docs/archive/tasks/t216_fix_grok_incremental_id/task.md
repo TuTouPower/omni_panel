@@ -2,11 +2,11 @@
 tid: "t216"
 slug: "fix_grok_incremental_id"
 title: "修复 grok 会话历史增量消息 id 冲突"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t216_fix_grok_incremental_id"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "a4d5c903f69f0022ecddd68a8d442bbe8020b91e"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -58,6 +58,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 | t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
 | t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
 
+### Round 1 (2026-08-05 21:20 UTC+8)
+
+| finding_id     | severity  | status | rationale                                                                                                                                                                                    | fix_ref                                                                                           |
+| -------------- | --------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| t216_code_f001 | minor     | 已修   | `extract_grok_incremental` 游标推进区分「完整无换行末行」与「未完成半行」：尾部行 JSON.parse 成功则推进到文件末尾不重发，失败才驻留行首；新增「完整末行无尾换行不重发 + 追加后 id 延续」用例 | src/main/core/session-history/grok-extractor.ts:126-146；tests/.../grok-extractor.test.ts:161-189 |
+| t216_test_f001 | important | 已修   | subscription-service p050 用例补 80ms settle 等待（Windows mtime 量化，紧邻两写 mtime 常同），与既有轮询用例同法；连跑 5 次全绿                                                              | tests/.../subscription-service.test.ts:199-202                                                    |
+
 ## 收尾报告
 
 本 task 的 commit 用 `git log --grep <tid>` 查，不在此逐条记 SHA。
@@ -65,8 +72,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+    - AC1 增量 id 与全量全局不冲突：`grok-extractor.test.ts`「增量 id 与全量 id 全局不冲突」（断言 before_ids 无交集 + 与全量重提取同 id）、「半行写入不丢记录」「完整末行无尾换行不重发」。
+    - AC2 半行容错：`parse_grok_lines` 复用 + 游标回退行边界 + 未完成尾行驻留行首；半行 fixture 用例增量取回补全记录。
+    - AC3 watcher 链路：`subscription-service.test.ts`「grok 增量推送 id 延续全量命名空间」断言推送 `["grok:2"]`（旧实现会得 `["grok:0"]` 判红），连跑 6 次稳定。
+    - AC4 全量 id 格式不变：既有 `grok:0..N` 断言保留。
+    - `pnpm test` 全量 2341 通过、typecheck、lint 通过。
 
 ### Reviewer verdict
 
@@ -74,14 +86,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
-`single`：
-
-- Round 1 general：PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：FAIL（t216_test_f001 轮询 flake，已修）
+- Round 2 test：PASS（f001 消除，零新 finding）
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+
+### 结果摘要
+
+修复 grok 增量 id 与全量冲突（共享全局序号命名空间）+ 半行/尾行游标容错（回退重读、未完成驻留行首），历史窗口 watcher 增量不再丢新消息。2 轮 review 收尾 code PASS / test PASS，无遗留。
 
 ### 结果摘要
 
