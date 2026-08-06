@@ -63,3 +63,9 @@
 - 预览抽屉：右侧滑出，徽标/标题/meta/文件路径/前 5 条消息（只读 Markdown），「单独打开」（装入工作台并切页签）「加入选择」；Esc 关闭；序号守卫防切卡串消息。
 - SelectionDock：底部 sticky，已选微缩槽位（可移除，按 (id,source,env) 主键）、n/8 计数、清空、「并排打开 (n)」→ `sessionHistory.open` 逐个打开 + 切工作台页签。
 - 数据源：`tokenStats.getSessions`（main 侧 `query_sessions` 扩展：`sources[]`/`start_at`/`end_at`/`order_by`/`direction`，order_by 白名单防 SQL 注入），分页循环拉全量。
+
+## 会话面板对齐收尾（t228）
+
+- web e2e 覆盖关键路径（`tests/e2e/web/session_panel.spec.ts`，fixture 来自 `scripts/e2e/session_fixture.mjs` 合成会话+消息，经 synthetic.json）：双页签切换状态保留、打开会话装入槽位与消息渲染、槽满 toast 拒绝、摘选三格式复制内容、会话库搜索/筛选/排序/预览/并排打开闭环。全量 `pnpm test:e2e:web`（MOCK_FIXTURE=synthetic）53 passed。
+- web 会话桥语义：web 版 `sessionHistory` 经 local-api mock 读消息（`/v1/sessionHistory?id=`，fixture 按 session_id 索引）；`sessionHistory.open` 直接分发给 `onFocus` 订阅者（对齐 Electron 主进程 open_or_focus 广播），使 web 下「打开会话」能装工作台槽位；`recent` 由 `/v1/sessions` 派生。
+- 旧实现残留确认：6 栏视图（`SessionHistoryView`）、栏满弹窗（`HistoryOverflowModal`）、旧单一 Markdown 复制（`build_copy_markdown`）均无源码残留（仅 docs/archive 注释保留记录）。

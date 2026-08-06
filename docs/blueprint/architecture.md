@@ -198,6 +198,7 @@ route `history` 渲染根组件为 `SessionShell`（单壳双页签，见 `specs
 - **主题独立**：`useSessionShellTheme` 与全局 `theme.ts` 解耦——session 窗口默认暗色、持久化 `localStorage omni_session_theme`、切换设 `html[data-theme]`，不写全局 `config.theme`；`useLayoutEffect` 同步应用避免 preload 首帧闪烁。
 - **会话库视图（t227）**：「会话库」页签由 `SessionLibrary`（`src/renderer/components/session-library/`）渲染：搜索（默认元信息 +「包含消息内容」开关并集正文搜索，序号守卫防迟到覆盖）、agent 多选、四排序、网格/列表、加载更多分页、预览抽屉（前 5 条）、SelectionDock 批量打开（复用摘选 store 与槽位模型）。筛选/排序为纯函数 `lib/session-library/filter.ts`；勾选身份用 `source|env|id` 主键；首条用户消息摘要与内容搜索经 `sessionHistory.query` 读源文件消息（只读）。
 - **会话库查询路径（t227）**：main 侧 `query_sessions` 扩展 `sources[]`（source IN）、`start_at`/`end_at`（活动时间交集 `ended_at>=start_at AND started_at<=end_at`）、`order_by`+`direction`（白名单固定 SQL 片段防注入）；renderer 会话库默认拉全量后前端过滤，扩展参数供后端能力对齐。
+- **会话面板 e2e 与 web 桥（t228）**：web e2e 覆盖会话面板关键路径（`tests/e2e/web/session_panel.spec.ts`），数据来自 `scripts/e2e/session_fixture.mjs` 合成会话+消息（经 `tests/e2e/fixtures/synthetic.json` 与 mock server `/v1/sessions`、`/v1/sessionHistory?id=`）。web 桥 `sessionHistory`（`src/web/usageboard-web.ts`）实桥：`query` 读 mock 消息、`open` 直接分发给 `onFocus` 订阅者（对齐 Electron open_or_focus 广播，使 web 下打开会话能装工作台槽位）、`recent` 由 `/v1/sessions` 派生。旧实现残留（6 栏视图 / 栏满弹窗 / 旧单一 Markdown 复制）已无源码。
 
 ## 5. 跨模块契约
 

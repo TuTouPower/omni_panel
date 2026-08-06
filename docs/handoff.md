@@ -1,12 +1,27 @@
 # handoff
 
-- 最后更新：2026-08-05
-- branch：`t213_session_history_e2e`
-- head_commit：本分支 HEAD（`git log --grep "t213"` 查）
-- 当前状态：会话历史窗口功能链（t209 提取器 / t210 订阅服务 / t211 窗口 / t212 入口 / t213 收口）交付完成，链尾 `t213_session_history_e2e` 待整批合并 main。
+- 最后更新：2026-08-06
+- branch：`t228_session_alignment_finalize`
+- head_commit：本分支 HEAD（`git log --grep "t228"` 查）
+- 当前状态：会话面板对齐批次（t223 外壳 / t224 槽位 / t225 面板 / t226 摘选 / t227 会话库 / t228 收尾）交付完成，链尾 `t228_session_alignment_finalize` 待整批合并 main。
 - 已知 bug：见 `docs/bugs.md`，所有条目均已记录「修复：」行——T029 per-account error（t084 spike close 评估完结，commit `311ee3d`）、OpenCode Go 添加账号无弹窗（t098，commit `3aabba4`）、监控重置 bell 仅 Tavily（t086，commit `cf8a55d`）、添加账号弹窗黑色横线（t087 评估 + t106 实施，commit `89dec60`）、task 索引序列化 CRLF/2 空格（`scripts/task.py`，commit `5484704`）、t099 宽度上限、t100 L2 折叠重置。
 - 大重构：t076 refresh-service / t077 main index / t078 PopupView 三轮拆分均 done（t089/t090/t091 后续拆分完成）。
 - 连接器迁移 ctx.status（原 t066 遗留）：t088 已完成（9 连接器删内联 helper）。
+
+## 2026-08-06 t223-t228 会话面板对齐批次完成
+
+- branch：`t228_session_alignment_finalize`
+- head_commit：本分支 HEAD（`git log --grep "t228"` 查）
+- 内容：会话面板对齐 demo 批次 t223→t228 串行交付。
+    - t223：会话窗口单壳双页签与 demo 设计系统基座。
+    - t224：工作台 8 槽位 rail 与布局切换（slot 纯函数 + WorkspaceView）。
+    - t225：工作台会话面板交互与 Markdown 渲染对齐（SessionPane / react-markdown）。
+    - t226：跨会话摘选与托盘复制系统（selection-store / copy-format 三格式）。
+    - t227：会话库视图（搜索/筛选/排序/预览/批量打开，main 侧 query_sessions 扩展）。
+    - t228：对齐收尾——web e2e 会话面板关键路径（`session_panel.spec.ts`，全量 53 passed）、旧实现残留清理确认、web 会话桥实桥、文档同步。
+- 验证：各 task `pnpm test` 全量绿（t228 2460 passed）、typecheck/lint/build 通过；t228 web e2e `MOCK_FIXTURE=synthetic` 全量 53 passed（CI smoke 同参）。
+- 遗留：p054（web e2e fixture 分叉）/ p055（WorkspaceView 拆分）/ p056（crypto 集成 flaky）/ p057（act 警告）/ p058（load_error 展示）/ p059（会话库拆分）见 `docs/pending.md`「待办」。
+- [deploy] 人工验收项（真实窗口黑盒：主题持久化/拖拽换位/滚动/快捷键/真实会话打开与实时更新）留用户打包后实测，清单见 t228 spec AC3。
 
 ## 2026-08-05 t209-t213 会话历史窗口功能链完成
 

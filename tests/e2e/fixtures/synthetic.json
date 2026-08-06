@@ -1790,5 +1790,301 @@
                 "unit": "percent"
             }
         ]
+    },
+    "GET /v1/sessions": [
+        {
+            "id": "s1",
+            "source": "claude_code",
+            "env": "win",
+            "model": "model",
+            "title": "登录页 bug 修复",
+            "directory": "/proj/auth",
+            "input_tokens": 1200,
+            "output_tokens": 800,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+            "calls": 12,
+            "started_at": 1783994400000,
+            "ended_at": 1784080799976
+        },
+        {
+            "id": "s2",
+            "source": "opencode",
+            "env": "win",
+            "model": "model",
+            "title": "单元测试重构",
+            "directory": "/proj/test",
+            "input_tokens": 800,
+            "output_tokens": 400,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+            "calls": 6,
+            "started_at": 1783994400000,
+            "ended_at": 1784080799970
+        },
+        {
+            "id": "s3",
+            "source": "grok",
+            "env": "win",
+            "model": "model",
+            "title": "API 网关调优",
+            "directory": "/proj/api",
+            "input_tokens": 800,
+            "output_tokens": 400,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+            "calls": 9,
+            "started_at": 1783994400000,
+            "ended_at": 1784080799960
+        },
+        {
+            "id": "s4",
+            "source": "claude_code",
+            "env": "win",
+            "model": "model",
+            "title": "会话导出功能",
+            "directory": "/proj/export",
+            "input_tokens": 800,
+            "output_tokens": 400,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+            "calls": 4,
+            "started_at": 1783994400000,
+            "ended_at": 1784080799950
+        },
+        {
+            "id": "s5",
+            "source": "kimi_code",
+            "env": "win",
+            "model": "model",
+            "title": "数据库索引优化",
+            "directory": "/proj/db",
+            "input_tokens": 800,
+            "output_tokens": 400,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+            "calls": 7,
+            "started_at": 1783994400000,
+            "ended_at": 1784080799940
+        },
+        {
+            "id": "s6",
+            "source": "opencode",
+            "env": "win",
+            "model": "model",
+            "title": "前端组件库",
+            "directory": "/proj/ui",
+            "input_tokens": 800,
+            "output_tokens": 400,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+            "calls": 5,
+            "started_at": 1783994400000,
+            "ended_at": 1784080799930
+        },
+        {
+            "id": "s7",
+            "source": "grok",
+            "env": "win",
+            "model": "model",
+            "title": "性能压测报告",
+            "directory": "/proj/bench",
+            "input_tokens": 800,
+            "output_tokens": 400,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+            "calls": 11,
+            "started_at": 1783994400000,
+            "ended_at": 1784080799920
+        },
+        {
+            "id": "s8",
+            "source": "claude_code",
+            "env": "win",
+            "model": "model",
+            "title": "CI 流水线",
+            "directory": "/proj/ci",
+            "input_tokens": 800,
+            "output_tokens": 400,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+            "calls": 3,
+            "started_at": 1783994400000,
+            "ended_at": 1784080799910
+        },
+        {
+            "id": "s9",
+            "source": "opencode",
+            "env": "win",
+            "model": "model",
+            "title": "部署发布",
+            "directory": "/proj/deploy",
+            "input_tokens": 800,
+            "output_tokens": 400,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+            "calls": 2,
+            "started_at": 1783994400000,
+            "ended_at": 1784080799900
+        }
+    ],
+    "GET /v1/sessionHistory?id=s1": {
+        "messages": [
+            {
+                "id": "s1-m1",
+                "role": "user",
+                "text": "修复登录页 404 问题",
+                "timestamp": 1784079600000
+            },
+            {
+                "id": "s1-m2",
+                "role": "assistant",
+                "text": "已定位 auth 中间件缺失，补充处理",
+                "timestamp": 1784079720000
+            },
+            {
+                "id": "s1-m3",
+                "role": "user",
+                "text": "补登录单元测试",
+                "timestamp": 1784080500000
+            }
+        ],
+        "next_cursor": null
+    },
+    "GET /v1/sessionHistory?id=s2": {
+        "messages": [
+            {
+                "id": "s2-m1",
+                "role": "user",
+                "text": "重构单元测试套件，统一断言",
+                "timestamp": 1784079000000
+            },
+            {
+                "id": "s2-m2",
+                "role": "assistant",
+                "text": "完成分层，断言收敛到 helper",
+                "timestamp": 1784079120000
+            }
+        ],
+        "next_cursor": null
+    },
+    "GET /v1/sessionHistory?id=s3": {
+        "messages": [
+            {
+                "id": "s3-m1",
+                "role": "user",
+                "text": "API 网关超时调优方案",
+                "timestamp": 1784078400000
+            },
+            {
+                "id": "s3-m2",
+                "role": "assistant",
+                "text": "增加熔断与超时策略",
+                "timestamp": 1784078520000
+            }
+        ],
+        "next_cursor": null
+    },
+    "GET /v1/sessionHistory?id=s4": {
+        "messages": [
+            {
+                "id": "s4-m1",
+                "role": "user",
+                "text": "实现会话导出功能",
+                "timestamp": 1784077800000
+            },
+            {
+                "id": "s4-m2",
+                "role": "assistant",
+                "text": "支持 Markdown 导出",
+                "timestamp": 1784077920000
+            }
+        ],
+        "next_cursor": null
+    },
+    "GET /v1/sessionHistory?id=s5": {
+        "messages": [
+            {
+                "id": "s5-m1",
+                "role": "user",
+                "text": "数据库索引优化分析",
+                "timestamp": 1784077200000
+            },
+            {
+                "id": "s5-m2",
+                "role": "assistant",
+                "text": "新增 idx_sessions 覆盖查询",
+                "timestamp": 1784077320000
+            }
+        ],
+        "next_cursor": null
+    },
+    "GET /v1/sessionHistory?id=s6": {
+        "messages": [
+            {
+                "id": "s6-m1",
+                "role": "user",
+                "text": "搭建前端组件库",
+                "timestamp": 1784076600000
+            },
+            {
+                "id": "s6-m2",
+                "role": "assistant",
+                "text": "发布到内部 registry",
+                "timestamp": 1784076720000
+            }
+        ],
+        "next_cursor": null
+    },
+    "GET /v1/sessionHistory?id=s7": {
+        "messages": [
+            {
+                "id": "s7-m1",
+                "role": "user",
+                "text": "性能压测结果分析",
+                "timestamp": 1784076000000
+            },
+            {
+                "id": "s7-m2",
+                "role": "assistant",
+                "text": "P99 从 800ms 降到 200ms",
+                "timestamp": 1784076120000
+            }
+        ],
+        "next_cursor": null
+    },
+    "GET /v1/sessionHistory?id=s8": {
+        "messages": [
+            {
+                "id": "s8-m1",
+                "role": "user",
+                "text": "配置 CI 流水线",
+                "timestamp": 1784075400000
+            },
+            {
+                "id": "s8-m2",
+                "role": "assistant",
+                "text": "集成 lint 与测试",
+                "timestamp": 1784075520000
+            }
+        ],
+        "next_cursor": null
+    },
+    "GET /v1/sessionHistory?id=s9": {
+        "messages": [
+            {
+                "id": "s9-m1",
+                "role": "user",
+                "text": "执行生产发布",
+                "timestamp": 1784074800000
+            },
+            {
+                "id": "s9-m2",
+                "role": "assistant",
+                "text": "发布成功，回滚预案就绪",
+                "timestamp": 1784074860000
+            }
+        ],
+        "next_cursor": null
     }
 }

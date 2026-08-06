@@ -5,13 +5,19 @@
  * bridge. Native-only surfaces (tray, window controls) are no-ops; the
  * renderer hides their buttons in web mode (see is_web flag).
  */
-import type { UsageboardApi, ConnectorSnapshotDTO, RendererLogPayload } from "../shared/types/ipc";
+import type {
+    UsageboardApi,
+    ConnectorSnapshotDTO,
+    HistoryMessageLike,
+    RendererLogPayload,
+} from "../shared/types/ipc";
 import type {
     TokenStatsHeatmapFilters,
     TokenStatsHourFilters,
     TokenStatsRollupFilters,
     TokenStatsDashboardQuery,
     TokenStatsDashboardSessionsQuery,
+    TokenStatsSession,
 } from "../shared/types/token-stats";
 
 const POLL_MS = 10_000;
@@ -58,6 +64,11 @@ const noop_promise_device_start = (): Promise<{
 
 export function create_web_usageboard(): UsageboardApi {
     const token_stats_callbacks = new Set<(dataVersion: number) => void>();
+    // t228: web 端无窗口广播，sessionHistory.open 直接分发给 onFocus 订阅者，
+    // 对齐 Electron 主进程 open_or_focus 的广播语义，让「打开会话」能装工作台槽位。
+    const session_focus_listeners = new Set<
+        (loc: { source: string; env: string; session_id: string }) => void
+    >();
     setInterval(() => {
         // Web build has no push channel for committed data versions; polled
         // dashboards carry their own data_version, so events pass 0 (no-op
@@ -343,16 +354,39 @@ export function create_web_usageboard(): UsageboardApi {
             },
         },
         sessionHistory: {
-            open: () => Promise.resolve(),
+            open: (source: string, env: string, session_id: string) => {
+                for (const fn of session_focus_listeners) {
+                    fn({ source, env, session_id });
+                }
+                return Promise.resolve();
+            },
             subscribe: () => Promise.resolve({ subscribed: false }),
             unsubscribe: () => Promise.resolve({ unsubscribed: false }),
-            query: () => Promise.resolve({ messages: [], next_cursor: null }),
-            recent: () => Promise.resolve([]),
-            onMessagesUpdated: () => () => {
-                /* web 端不暴露会话历史 */
+            // t228: web 端经 local-api mock 读会话消息（fixture 按 session_id 索引）。
+            query: async (_source: string, _env: string, session_id: string) =>
+                get_json<{ messages: HistoryMessageLike[]; next_cursor: string | null }>(
+                    `/v1/sessionHistory?id=${encodeURIComponent(session_id)}`,
+                ),
+            recent: async () => {
+                const sessions = await get_json<TokenStatsSession[]>("/v1/sessions");
+                return sessions.slice(0, 20).map((s) => ({
+                    source: s.source,
+                    env: s.env,
+                    session_id: s.id,
+                    title: s.title ?? null,
+                    agent: s.source.replace(/_/g, "-"),
+                }));
             },
-            onFocus: () => () => {
-                /* web 端不暴露会话历史 */
+            onMessagesUpdated: () => () => {
+                /* web 端不暴露会话历史实时推送 */
+            },
+            onFocus: (
+                fn: (loc: { source: string; env: string; session_id: string }) => void,
+            ): (() => void) => {
+                session_focus_listeners.add(fn);
+                return () => {
+                    session_focus_listeners.delete(fn);
+                };
             },
         },
         buildInfo: {
