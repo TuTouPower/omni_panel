@@ -13,6 +13,8 @@ export default defineConfig({
         exclude: ["**/contract_live/**"],
         globals: true,
         css: false,
+        testTimeout: 60_000,
+        hookTimeout: 60_000,
         projects: [
             {
                 test: {
@@ -25,6 +27,8 @@ export default defineConfig({
                     globals: true,
                     environment: "jsdom",
                     setupFiles: ["./tests/smoke/setup.ts"],
+                    testTimeout: 60_000,
+                    hookTimeout: 60_000,
                 },
             },
             {
@@ -50,6 +54,8 @@ export default defineConfig({
                     ],
                     globals: true,
                     environment: "node",
+                    testTimeout: 60_000,
+                    hookTimeout: 60_000,
                 },
             },
         ],

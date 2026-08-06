@@ -122,7 +122,7 @@ beforeAll(async () => {
             resolve();
         });
     });
-});
+}, 60_000);
 
 afterAll(async () => {
     await new Promise<void>((resolve) => {

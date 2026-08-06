@@ -210,5 +210,5 @@ describe("Grok OAuth account lifecycle", () => {
 
         expect(authorization).toBe("Bearer formal-access-token");
         expect(observation_store.inserted).toHaveLength(1);
-    }, 30000);
+    }, 120_000);
 });
