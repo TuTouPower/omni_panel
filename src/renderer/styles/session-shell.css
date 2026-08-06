@@ -334,3 +334,25 @@ html[data-theme="light"] .session-shell {
     background-color: var(--accent-lime-dim);
     color: var(--accent-lime);
 }
+
+/* t226 顶栏摘选计数徽标 */
+.shell-action {
+    position: relative;
+}
+
+.shell-selection-count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 99px;
+    background: var(--accent-lime);
+    color: var(--bg-canvas);
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

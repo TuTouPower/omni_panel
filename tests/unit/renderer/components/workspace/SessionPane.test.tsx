@@ -50,6 +50,7 @@ const PROPS = {
     is_selected: () => false,
     on_close: () => undefined,
     on_toggle: () => undefined,
+    on_hover: () => undefined,
     on_select_all: () => undefined,
     on_clear_select: () => undefined,
     on_load_older: () => undefined,

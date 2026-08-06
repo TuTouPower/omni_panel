@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { HistoryMessageLike, SessionHistoryLoc } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { HISTORY_PAGE_SIZE } from "../../lib/session-history/layout";
-import { build_copy_markdown, format_date } from "../../lib/session-history/markdown";
 import {
     clear_slots,
     effective_columns,
@@ -18,11 +17,14 @@ import {
     type SlotsState,
 } from "../../lib/workspace/slots";
 import type { PaneData } from "../../lib/workspace/pane";
+import { selection_store, type SelectedItem } from "../../lib/workspace/selection-store";
+import { format_entries } from "../../lib/workspace/copy-format";
 import { SessionRail } from "./SessionRail";
 import { WorkspaceToolbar } from "./WorkspaceToolbar";
 import { SessionPickerModal } from "./SessionPickerModal";
 import { RecentSessionsModal } from "./RecentSessionsModal";
 import { SessionPane, type PaneView } from "./SessionPane";
+import { SelectionTray } from "./SelectionTray";
 import "../../styles/workspace.css";
 
 type Loc = SessionHistoryLoc;
@@ -69,7 +71,6 @@ function initial_loc(): Loc | null {
 export function WorkspaceView() {
     const [slots_state, set_slots_state] = useState<SlotsState>(empty_slots);
     const [columns, set_columns] = useState<Record<string, PaneData>>({});
-    const [selected, set_selected] = useState<ReadonlySet<string>>(() => new Set());
     const [layout, set_layout] = useState<LayoutCount>(3);
     const [container_width, set_container_width] = useState(() => window.innerWidth);
     const [picker_target, set_picker_target] = useState<number | null>(null);
@@ -91,8 +92,8 @@ export function WorkspaceView() {
 
     const columns_ref = useRef(columns);
     columns_ref.current = columns;
-    const selected_ref = useRef(selected);
-    selected_ref.current = selected;
+    const anchors_ref = useRef<Record<string, string>>({});
+    const hovered_ref = useRef<{ loc: Loc; id: string } | null>(null);
     const loading_older_locks = useRef<Set<string>>(new Set());
     const toast_timer = useRef<number | null>(null);
     const container_ref = useRef<HTMLDivElement | null>(null);
@@ -316,13 +317,7 @@ export function WorkspaceView() {
             set_columns((prev) =>
                 Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)),
             );
-            set_selected((prev) => {
-                const next = new Set(prev);
-                for (const k of prev) {
-                    if (k.startsWith(`${key}|`)) next.delete(k);
-                }
-                return next;
-            });
+            selection_store.clear_session(slot.loc);
             // 聚焦/大纲槽位被关闭时清空索引，避免网格残留 focused 态（f002）。
             set_focused_index((prev) => (prev === index ? null : prev));
             set_outline_index((prev) => (prev === index ? null : prev));
@@ -348,74 +343,113 @@ export function WorkspaceView() {
         }
         apply_slots(clear_slots());
         set_columns({});
-        set_selected(new Set());
+        selection_store.clear_all();
         set_focused_index(null);
         set_outline_index(null);
     }, [apply_slots]);
 
-    const toggle_select = useCallback((loc: Loc, message_id: string): void => {
-        const key = selection_key(loc, message_id);
-        set_selected((prev) => {
-            const next = new Set(prev);
-            if (next.has(key)) {
-                next.delete(key);
-            } else {
-                next.add(key);
+    /** 构造 SelectedItem（含会话内角色序号与标题）。 */
+    const make_item = useCallback(
+        (loc: Loc, message: HistoryMessageLike, col: PaneData): SelectedItem => {
+            let role_count = 0;
+            for (const m of col.messages) {
+                if (m.id === message.id) break;
+                if (m.role === message.role) role_count += 1;
             }
-            return next;
-        });
-    }, []);
+            const slot = slots_ref.current[find_slot_by_loc(slots_ref.current, loc) ?? -1];
+            return {
+                key: selection_key(loc, message.id),
+                loc,
+                message,
+                role_index: role_count + 1,
+                session_title: slot?.title ?? col.title,
+            };
+        },
+        [],
+    );
 
-    const select_all_in_column = useCallback((loc: Loc): void => {
-        const col = columns_ref.current[loc_key(loc)];
-        if (!col) return;
-        set_selected((prev) => {
-            const next = new Set(prev);
-            for (const m of col.messages) next.add(selection_key(loc, m.id));
-            return next;
-        });
-    }, []);
+    const shift_select = useCallback(
+        (loc: Loc, message_id: string): void => {
+            const col = columns_ref.current[loc_key(loc)];
+            if (!col) return;
+            const anchor_id = anchors_ref.current[loc_key(loc)] ?? message_id;
+            const anchor_idx = col.messages.findIndex((m) => m.id === anchor_id);
+            const cur_idx = col.messages.findIndex((m) => m.id === message_id);
+            const lo = Math.min(anchor_idx, cur_idx);
+            const hi = Math.max(anchor_idx, cur_idx);
+            if (lo < 0 || hi < 0) return;
+            const range = col.messages.slice(lo, hi + 1).map((m) => make_item(loc, m, col));
+            selection_store.set_session(loc, range);
+        },
+        [make_item],
+    );
+
+    const toggle_select = useCallback(
+        (loc: Loc, message_id: string, shift: boolean): void => {
+            const col = columns_ref.current[loc_key(loc)];
+            if (!col) return;
+            const m = col.messages.find((x) => x.id === message_id);
+            if (!m) return;
+            if (shift) {
+                shift_select(loc, message_id);
+                return;
+            }
+            // 非 Shift 点选才更新锚点（Shift 连选须读旧锚点）。
+            anchors_ref.current[loc_key(loc)] = message_id;
+            selection_store.toggle(make_item(loc, m, col));
+        },
+        [make_item, shift_select],
+    );
+
+    const select_all_in_column = useCallback(
+        (loc: Loc): void => {
+            const col = columns_ref.current[loc_key(loc)];
+            if (!col) return;
+            selection_store.set_session(
+                loc,
+                col.messages.map((m) => make_item(loc, m, col)),
+            );
+        },
+        [make_item],
+    );
 
     const clear_selection_in_column = useCallback((loc: Loc): void => {
-        const key = loc_key(loc);
-        set_selected((prev) => {
-            const next = new Set(prev);
-            for (const k of prev) {
-                if (k.startsWith(`${key}|`)) next.delete(k);
-            }
-            return next;
-        });
+        selection_store.clear_session(loc);
     }, []);
 
-    const copy_selected = useCallback((): void => {
-        const sections: {
-            title: string;
-            source: string;
-            date: string;
-            messages: { role: "user" | "assistant"; text: string; timestamp: number | null }[];
-        }[] = [];
-        for (const slot of slots_ref.current) {
-            if (!slot) continue;
-            const col = columns_ref.current[loc_key(slot.loc)];
-            if (!col) continue;
-            const sel = col.messages.filter((m) =>
-                selected_ref.current.has(selection_key(col.loc, m.id)),
-            );
-            if (sel.length === 0) continue;
-            const first_ts = col.messages.find((m) => m.timestamp !== null)?.timestamp ?? null;
-            sections.push({
-                title: col.title,
-                source: col.loc.source,
-                date: format_date(first_ts ?? col.openedAt),
-                messages: sel.map((m) => ({ role: m.role, text: m.text, timestamp: m.timestamp })),
-            });
+    const is_selected = useCallback(
+        (loc: Loc, id: string): boolean => selection_store.has(loc, id),
+        [],
+    );
+    // 订阅 store：set_session 在 count 不变时替换会话成员（Shift 连选），面板勾选须
+    // 随成员变化重渲染（f001），不能只依赖 SessionShell 徽标 count。
+    useSyncExternalStore(selection_store.subscribe, () => selection_store.all());
+
+    // Space 选中/取消 hover 消息、Ctrl+Shift+C 复制托盘。
+    useEffect(() => {
+        function on_keydown(e: KeyboardEvent): void {
+            if (e.ctrlKey && e.shiftKey && e.key.toUpperCase() === "C") {
+                const text = format_entries(selection_store.all(), "markdown");
+                if (text) {
+                    void navigator.clipboard.writeText(text).catch(() => {
+                        // 忽略剪贴板拒绝。
+                    });
+                }
+                return;
+            }
+            if (e.code === "Space" && hovered_ref.current) {
+                e.preventDefault();
+                toggle_select(hovered_ref.current.loc, hovered_ref.current.id, false);
+            }
         }
-        if (sections.length === 0) return;
-        const md = build_copy_markdown(sections);
-        if (!md) return;
-        void navigator.clipboard.writeText(md).catch(() => {
-            // 失焦窗口剪贴板写可能被拒；不给反馈也不抛 unhandled。
-        });
+        window.addEventListener("keydown", on_keydown);
+        return () => {
+            window.removeEventListener("keydown", on_keydown);
+        };
+    }, [toggle_select]);
+
+    const set_hovered = useCallback((loc: Loc | null, id: string | null): void => {
+        hovered_ref.current = loc && id ? { loc, id } : null;
     }, []);
 
     // 订阅推送 + 5s 兜底 + 初始定位 + 容器宽度。
@@ -552,7 +586,6 @@ export function WorkspaceView() {
 
     const count = occupied_count(slots_state);
     const cols = Math.max(1, Math.min(effective_columns(layout, container_width), count));
-    const total_selected = selected.size;
 
     const open_picker = useCallback((index: number): void => {
         set_picker_target(index);
@@ -573,7 +606,7 @@ export function WorkspaceView() {
             }
             apply_slots(clear_slots());
             set_columns({});
-            set_selected(new Set());
+            selection_store.clear_all();
             set_focused_index(null);
             set_outline_index(null);
             for (const sess of sessions) {
@@ -592,7 +625,6 @@ export function WorkspaceView() {
             <WorkspaceToolbar
                 layout={layout}
                 count={count}
-                total_selected={total_selected}
                 view={view}
                 on_view_change={set_view}
                 on_layout_change={set_layout}
@@ -600,7 +632,6 @@ export function WorkspaceView() {
                     set_recent_open(true);
                 }}
                 on_clear={clear_all}
-                on_copy={copy_selected}
             />
             <div className="workspace-body">
                 <SessionRail
@@ -671,14 +702,15 @@ export function WorkspaceView() {
                                             focused={focused_index === index}
                                             outline_open={outline_index === index}
                                             view={view}
-                                            is_selected={(id) =>
-                                                selected.has(selection_key(slot.loc, id))
-                                            }
+                                            is_selected={(id) => is_selected(slot.loc, id)}
                                             on_close={() => {
                                                 close_slot(index);
                                             }}
-                                            on_toggle={(id) => {
-                                                toggle_select(slot.loc, id);
+                                            on_toggle={(id, shift) => {
+                                                toggle_select(slot.loc, id, shift);
+                                            }}
+                                            on_hover={(id) => {
+                                                set_hovered(slot.loc, id);
                                             }}
                                             on_select_all={() => {
                                                 select_all_in_column(slot.loc);
@@ -707,6 +739,7 @@ export function WorkspaceView() {
                     )}
                 </div>
             </div>
+            <SelectionTray />
             {picker_target !== null && (
                 <SessionPickerModal
                     target_index={picker_target}

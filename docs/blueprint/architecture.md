@@ -179,8 +179,7 @@ route `history` 单窗口。t224 把工作台改为 8 槽位模型（`WorkspaceV
 - **打开与定位**：明细表（t212）/ onFocus 事件经 `SESSION_HISTORY_OPEN` 打开窗口；renderer 读 URL `loc` query 或收 `SESSION_HISTORY_FOCUS` 定位。t224 起定位装入工作台槽位（`open_session`：已开聚焦、槽满 toast 拒绝）。
 - **打开入口与面板间导航（t212）**：会话历史窗口可从明细表单击行 / 勾选批量「打开历史」、popup TitleBar「会话历史」、代理面板 header「到会话历史」打开；窗口内「用量面板」/「代理面板」返回跳转。纯跳转入口（无具体会话）调 `sessionHistory.open("", "", "")`，主进程 `open_or_focus(undefined)` 只开/聚焦空窗；明细表批量打开传 `identity_key`（`source|env|session_id`）。**批量冷启动补发**：创建窗口期连续 OPEN 的定位由 controller 的 `pending_locs` 缓冲（`webContents.send` 在 loadURL 途中被丢弃），`did-finish-load` 后按序统一补发并按 key 去重。
 - **超 6 处理（决策 4）**：打开第 7 个弹模态框列出现有 6 个会话（agent + 标题 + 打开时间），用户至少关 1 个才入栏，可取消。容量检查用同步 `opened_count_ref`（React 19 批处理下 render-fresh ref 在批量 open 循环内会 stale，超 6 直接挂载）。
-- **消息选择（决策 8）**：hover checkbox 跨栏选择，选中集按 `loc_key|message_id` 存 renderer、跨刷新保留；栏头「已选 N 条 / 全选本栏 / 清除本栏」。
-- **复制（决策 9/10）**：顶部一次复制所有栏选中，`build_copy_markdown` 从原始消息生成（按栏打开顺序分节、`## 会话：标题（agent · 日期）` + `---` 隔离、角色 `**用户**` / `**Agent 名**`、节内时间升序），按钮变「已复制 ✓」1.5s。
+- **消息选择（决策 8，t226 起为摘选系统）**：选择 store 跨页签共享（`specs/workspace.md`「摘选系统」），Shift 连选/Space 选中 hover 消息、底部托盘三格式复制、顶栏计数徽标；旧 `build_copy_markdown` 单一 Markdown 复制已删。
 - **消息渲染（决策 11）**：纯文本 + `<pre>` 保留换行缩进，零新依赖；时间戳显示到分钟、悬停完整时间。
 - **空态（决策 12）**：源文件缺失栏显示「该会话的原始记录文件不存在或已删除」，不阻断其他栏。
 - **分页（决策 17）**：初始最近 200 条，向上滚动加载更早（游标分页 + 并发锁 + 前置 scrollTop 锚定），新增消息追加尾部不打断滚动位置。

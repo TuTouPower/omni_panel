@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import logo_svg from "../../assets/logo.svg";
 import { Icon } from "../Icon";
 import { useSessionShellTheme } from "../../lib/session-shell/theme";
 import { WorkspaceView } from "../workspace/WorkspaceView";
+import { selection_store } from "../../lib/workspace/selection-store";
 import "../../styles/session-shell.css";
 
 type ShellTab = "workspace" | "library";
@@ -12,6 +13,9 @@ type ShellTab = "workspace" | "library";
 export function SessionShell() {
     const [tab, set_tab] = useState<ShellTab>("workspace");
     const { theme, toggle_theme } = useSessionShellTheme();
+    const selected_count = useSyncExternalStore(selection_store.subscribe, () =>
+        selection_store.count(),
+    );
 
     return (
         <div className="session-shell">
@@ -66,6 +70,17 @@ export function SessionShell() {
                         }}
                     >
                         <Icon name="chart" size={15} />
+                    </button>
+                    <button
+                        type="button"
+                        className="shell-action"
+                        title="摘选托盘"
+                        aria-label="摘选托盘"
+                    >
+                        <Icon name="layers" size={15} />
+                        {selected_count > 0 && (
+                            <span className="shell-selection-count">{String(selected_count)}</span>
+                        )}
                     </button>
                     <button
                         type="button"

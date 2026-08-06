@@ -5,26 +5,22 @@ import type { PaneView } from "./SessionPane";
 interface WorkspaceToolbarProps {
     readonly layout: LayoutCount;
     readonly count: number;
-    readonly total_selected: number;
     readonly view: PaneView;
     readonly on_view_change: (view: PaneView) => void;
     readonly on_layout_change: (layout: LayoutCount) => void;
     readonly on_recent: () => void;
     readonly on_clear: () => void;
-    readonly on_copy: () => void;
 }
 
-/** t224 工作台工具条：最近会话 / 清空 / 居中布局切换器 / 视图下拉 / 复制 / 计数。 */
+/** t224 工作台工具条：最近会话 / 清空 / 视图下拉 / 居中布局切换器 / 计数。 */
 export function WorkspaceToolbar({
     layout,
     count,
-    total_selected,
     view,
     on_view_change,
     on_layout_change,
     on_recent,
     on_clear,
-    on_copy,
 }: WorkspaceToolbarProps) {
     const [view_open, set_view_open] = useState(false);
 
@@ -103,14 +99,6 @@ export function WorkspaceToolbar({
                 ))}
             </div>
             <div className="ws-toolbar-right">
-                <button
-                    type="button"
-                    className="ws-tb-btn ws-copy"
-                    disabled={total_selected === 0}
-                    onClick={on_copy}
-                >
-                    复制 {String(total_selected)} 条
-                </button>
                 <span className="ws-count">
                     {String(count)}/{String(8)}
                 </span>

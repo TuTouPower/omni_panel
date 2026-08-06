@@ -1,6 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceView } from "../../../../../src/renderer/components/workspace/WorkspaceView";
+import {
+    reset_selection_store,
+    selection_store,
+} from "../../../../../src/renderer/lib/workspace/selection-store";
 import { install_history_usageboard } from "../../views/session_history_test_utils";
 
 /**
@@ -79,6 +83,7 @@ function ts_sess(
 beforeEach(() => {
     localStorage.clear();
     window.history.replaceState({}, "", "/");
+    reset_selection_store();
     install_history_usageboard();
 });
 
@@ -205,7 +210,11 @@ describe("WorkspaceView (t224)", () => {
         });
         await waitFor(() => screen.getByText("你好"));
         fireEvent.click(screen.getByRole("button", { name: "全选可见" }));
-        fireEvent.click(screen.getByText(/复制 1 条/));
+        // 选中后托盘展开，点托盘「复制」写剪贴板（t226 取代旧工具栏复制）。
+        await waitFor(() => {
+            expect(document.querySelector(".selection-tray")?.className).toContain("expanded");
+        });
+        fireEvent.click(screen.getByRole("button", { name: "复制" }));
         await waitFor(() => {
             expect(write_spy).toHaveBeenCalled();
         });
@@ -222,7 +231,9 @@ describe("WorkspaceView (t224)", () => {
         await waitFor(() => {
             expect(screen.getByText("2/8")).toBeTruthy();
         });
-        fireEvent.click(screen.getByRole("button", { name: "清空" }));
+        const clear_btn0 = screen.getAllByRole("button", { name: "清空" })[0];
+        if (!clear_btn0) throw new Error("清空按钮缺失");
+        fireEvent.click(clear_btn0);
         await waitFor(() => {
             expect(screen.getByText("工作台为空")).toBeTruthy();
         });
@@ -458,11 +469,16 @@ describe("WorkspaceView (t224)", () => {
         if (!sa0 || !sa1) throw new Error("select-all buttons missing");
         fireEvent.click(sa0);
         fireEvent.click(sa1);
-        expect(screen.getByText("复制 2 条")).toBeTruthy();
+        // 两槽各全选 → 托盘 2 片段
+        await waitFor(() => {
+            expect(screen.getByText(/2 片段/)).toBeTruthy();
+        });
         const clear_buttons = screen.getAllByRole("button", { name: "清空选择" });
         if (!clear_buttons[0]) throw new Error("clear button missing");
         fireEvent.click(clear_buttons[0]);
-        expect(screen.getByText("复制 1 条")).toBeTruthy();
+        await waitFor(() => {
+            expect(screen.getByText(/1 片段/)).toBeTruthy();
+        });
     });
 
     it("rail 可折叠/展开", () => {
@@ -472,6 +488,140 @@ describe("WorkspaceView (t224)", () => {
         expect(document.querySelector(".session-rail")?.className).toContain("collapsed");
         fireEvent.click(screen.getByRole("button", { name: "展开槽位栏" }));
         expect(document.querySelector(".session-rail")?.className).not.toContain("collapsed");
+    });
+
+    it("Shift 连选：锚点到当前消息范围选中", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [
+                msg("m1", "user", "第一条", 100),
+                msg("m2", "assistant", "第二条", 200),
+                msg("m3", "user", "第三条", 300),
+            ],
+            next_cursor: null,
+        });
+        render(<WorkspaceView />);
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => screen.getByText("第一条"));
+        const boxes = screen.getAllByRole("checkbox");
+        expect(boxes.length).toBe(3);
+        const box0 = boxes[0];
+        const box2 = boxes[2];
+        if (!box0 || !box2) throw new Error("checkbox missing");
+        fireEvent.click(box0); // 锚点 m1
+        fireEvent.click(box2, { shiftKey: true }); // Shift → m1-m3 全选
+        await waitFor(() => {
+            expect(document.querySelector(".tray-count")?.textContent).toContain("3 片段");
+        });
+        // f001 回归：set_session 替换后（count 不变时）面板勾选态同步刷新。
+        // 锚点仍 m1，再 Shift 点 m2 → 范围收窄为 m1-m2，m3 被替换出。
+        const box1 = boxes[1];
+        if (!box1) throw new Error("checkbox missing");
+        fireEvent.click(box1, { shiftKey: true });
+        await waitFor(() => {
+            expect(document.querySelector(".tray-count")?.textContent).toContain("2 片段");
+        });
+        expect((screen.getAllByRole("checkbox")[2] as HTMLInputElement).checked).toBe(false);
+    });
+
+    it("f001 回归：count 不变的 set_session 成员替换触发面板勾选刷新", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [
+                msg("m1", "user", "第一条", 100),
+                msg("m2", "assistant", "第二条", 200),
+                msg("m3", "user", "第三条", 300),
+            ],
+            next_cursor: null,
+        });
+        render(<WorkspaceView />);
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => screen.getByText("第一条"));
+        // 点选 m1、m3（count=2），再 set_session 替换为 m1、m2（count 仍 2）——
+        // 若不订阅 store，面板 m3 勾选会残留。
+        const boxes = screen.getAllByRole("checkbox");
+        const b0 = boxes[0];
+        const b1 = boxes[1];
+        const b2 = boxes[2];
+        if (!b0 || !b1 || !b2) throw new Error("checkbox missing");
+        fireEvent.click(b0);
+        fireEvent.click(b2);
+        await waitFor(() => {
+            expect(document.querySelector(".tray-count")?.textContent).toContain("2 片段");
+        });
+        // 直接驱动 store 模拟 Shift 替换（count 不变：2 → 2）。
+        act(() => {
+            selection_store.set_session(
+                { source: "claude_code", env: "win", session_id: "sess_a" },
+                [
+                    {
+                        key: "claude_code|win|sess_a|m1",
+                        loc: { source: "claude_code", env: "win", session_id: "sess_a" },
+                        message: {
+                            id: "m1",
+                            role: "user" as const,
+                            text: "第一条",
+                            timestamp: 100,
+                        },
+                        role_index: 1,
+                        session_title: "会话",
+                    },
+                    {
+                        key: "claude_code|win|sess_a|m2",
+                        loc: { source: "claude_code", env: "win", session_id: "sess_a" },
+                        message: {
+                            id: "m2",
+                            role: "assistant" as const,
+                            text: "第二条",
+                            timestamp: 200,
+                        },
+                        role_index: 1,
+                        session_title: "会话",
+                    },
+                ],
+            );
+        });
+        await waitFor(() => {
+            const checks = screen.getAllByRole("checkbox");
+            const c0 = checks[0] as HTMLInputElement | undefined;
+            const c1 = checks[1] as HTMLInputElement | undefined;
+            const c2 = checks[2] as HTMLInputElement | undefined;
+            if (!c0 || !c1 || !c2) throw new Error("checkbox missing");
+            expect(c0.checked).toBe(true);
+            expect(c1.checked).toBe(true);
+            expect(c2.checked).toBe(false);
+        });
+    });
+
+    it("Space 选中/取消 hover 消息（快捷键）", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [msg("m1", "user", "你好", 100)],
+            next_cursor: null,
+        });
+        render(<WorkspaceView />);
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => screen.getAllByText("你好").length > 0);
+        const rows = screen.getAllByText("你好");
+        const first_row = rows[0];
+        if (!first_row) throw new Error("message text missing");
+        const row = first_row.closest(".pane-msg-row");
+        if (!row) throw new Error("message row missing");
+        fireEvent.mouseEnter(row);
+        fireEvent.keyDown(window, { code: "Space" });
+        await waitFor(() => {
+            expect(screen.getByText(/1 片段/)).toBeTruthy();
+        });
+        fireEvent.keyDown(window, { code: "Space" });
+        await waitFor(() => {
+            expect(screen.getByText("摘选托盘（空）")).toBeTruthy();
+        });
     });
 
     it("布局切换联动网格列数（--cols）", async () => {

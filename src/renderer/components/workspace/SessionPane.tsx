@@ -25,7 +25,8 @@ export interface SessionPaneProps {
     readonly view: PaneView;
     readonly is_selected: (messageId: string) => boolean;
     readonly on_close: () => void;
-    readonly on_toggle: (messageId: string) => void;
+    readonly on_toggle: (messageId: string, shift: boolean) => void;
+    readonly on_hover: (messageId: string | null) => void;
     readonly on_select_all: () => void;
     readonly on_clear_select: () => void;
     readonly on_load_older: () => void;
@@ -55,6 +56,7 @@ export function SessionPane({
     is_selected,
     on_close,
     on_toggle,
+    on_hover,
     on_select_all,
     on_clear_select,
     on_load_older,
@@ -231,6 +233,7 @@ export function SessionPane({
                                         show_time={view.show_time}
                                         compact={view.compact}
                                         on_toggle={on_toggle}
+                                        on_hover={on_hover}
                                     />
                                 </div>
                             );
@@ -291,19 +294,37 @@ interface PaneMessageRowProps {
     readonly selected: boolean;
     readonly show_time: boolean;
     readonly compact: boolean;
-    readonly on_toggle: (id: string) => void;
+    readonly on_toggle: (id: string, shift: boolean) => void;
+    readonly on_hover: (id: string | null) => void;
 }
 
-function PaneMessageRow({ message, selected, show_time, compact, on_toggle }: PaneMessageRowProps) {
+function PaneMessageRow({
+    message,
+    selected,
+    show_time,
+    compact,
+    on_toggle,
+    on_hover,
+}: PaneMessageRowProps) {
     return (
-        <div className={"pane-msg-row" + (compact ? " compact" : "")} data-message-id={message.id}>
+        <div
+            className={"pane-msg-row" + (selected ? " selected" : "") + (compact ? " compact" : "")}
+            data-message-id={message.id}
+            onMouseEnter={() => {
+                on_hover(message.id);
+            }}
+            onMouseLeave={() => {
+                on_hover(null);
+            }}
+        >
             <input
                 type="checkbox"
                 className="pane-msg-check"
                 aria-label={`选择消息 ${message.text.slice(0, 24) || "(空)"}`}
                 checked={selected}
-                onChange={() => {
-                    on_toggle(message.id);
+                readOnly
+                onClick={(e) => {
+                    on_toggle(message.id, e.shiftKey);
                 }}
             />
             <div className="pane-msg-body">

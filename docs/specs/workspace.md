@@ -31,6 +31,16 @@
 - 最近会话弹窗：按 `ended_at` 倒序多选，上限 8（顺序角标），快捷「最近 2/4/8」；确认后清空全部槽位（先退订旧槽位防 watcher 泄漏）并替换。数据为最近 100 条（`RECENT_LIMIT` pragmat 截断）。
 - rail 满槽时「添加会话」disabled；rail 可折叠/展开。
 
+## 摘选系统（SelectionTray，t226）
+
+- 选择状态存模块级单例 `selection-store.ts`（`会话 → 已选消息集合`），跨页签（工作台/会话库）共享；`toggle`/`set_session`（Shift 连选整体替换某会话）/`clear_session`/`clear_all`/`subscribe`。
+- 消息行左侧 hover 浮现 checkbox（readOnly+onClick 取 shiftKey）；Shift 连选按会话独立锚点（非 Shift 点选才更新锚点）；选中态有视觉标识。
+- 底部托盘：按会话分组 chip（agent 缩写 + 角色序号 + 摘要 + token 估算 + 单条移除）；空态收成 40px 细条、有内容 ≥160（`effective_height`）；拖上沿调高（clamp 40-320，`clamp_tray_height`）；右侧片段数 + total tokens、格式下拉（Markdown/纯文本/按会话分组）、复制/清空。
+- 复制格式 `copy-format.ts` `format_entries`：三格式均含角色/agent/会话标题/时间戳；取代旧 `build_copy_markdown`（已删）。
+- 顶栏摘选计数徽标（与托盘同源，`useSyncExternalStore` count）；pane「全选可见」= 本 pane 当前已加载全部消息、「清空选择」= 清本会话。
+- 快捷键：`Space` 选中/取消 hover 消息、`Ctrl+Shift+C` 复制托盘（markdown）。
+- 选择视图一致性：WorkspaceView 订阅 store（`useSyncExternalStore`），set_session 在 count 不变时替换成员也触发面板勾选刷新。
+
 ## 订阅生命周期
 
 - 槽位装入 = `subscribe` + 消息加载；槽位移除/清空全部/最近会话替换/窗口卸载 = `unsubscribe` 对应 loc。
