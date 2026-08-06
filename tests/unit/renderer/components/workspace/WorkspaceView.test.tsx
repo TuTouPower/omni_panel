@@ -101,8 +101,9 @@ describe("WorkspaceView (t224)", () => {
         await waitFor(() => {
             expect(screen.getAllByText("会话 sess_a").length).toBeGreaterThan(0);
         });
-        expect(screen.getByText(/3 轮/)).toBeTruthy();
-        expect(screen.getByText(/375 tokens/)).toBeTruthy();
+        const rail_sub = document.querySelector(".rail-sub");
+        expect(rail_sub?.textContent).toContain("3 轮");
+        expect(rail_sub?.textContent).toContain("375 tokens");
         expect(screen.getByText("1/8")).toBeTruthy();
     });
 
@@ -203,7 +204,7 @@ describe("WorkspaceView (t224)", () => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
         await waitFor(() => screen.getByText("你好"));
-        fireEvent.click(screen.getByRole("button", { name: "全选本栏" }));
+        fireEvent.click(screen.getByRole("button", { name: "全选可见" }));
         fireEvent.click(screen.getByText(/复制 1 条/));
         await waitFor(() => {
             expect(write_spy).toHaveBeenCalled();
@@ -337,8 +338,8 @@ describe("WorkspaceView (t224)", () => {
         expect(ub.sessionHistory.query).toHaveBeenCalledWith("claude_code", "win", "sess_a", {
             limit: 200,
         });
-        const msgs = document.querySelector(".history-msgs");
-        if (!(msgs instanceof HTMLElement)) throw new Error("history-msgs not found");
+        const msgs = document.querySelector(".pane-msgs");
+        if (!(msgs instanceof HTMLElement)) throw new Error("pane-msgs not found");
         fireEvent.scroll(msgs);
         await waitFor(() => {
             expect(ub.sessionHistory.query).toHaveBeenCalledWith("claude_code", "win", "sess_a", {
@@ -451,14 +452,14 @@ describe("WorkspaceView (t224)", () => {
         await waitFor(() => {
             expect(screen.getAllByText("你好").length).toBe(2);
         });
-        const select_all = screen.getAllByRole("button", { name: "全选本栏" });
+        const select_all = screen.getAllByRole("button", { name: "全选可见" });
         const sa0 = select_all[0];
         const sa1 = select_all[1];
         if (!sa0 || !sa1) throw new Error("select-all buttons missing");
         fireEvent.click(sa0);
         fireEvent.click(sa1);
         expect(screen.getByText("复制 2 条")).toBeTruthy();
-        const clear_buttons = screen.getAllByRole("button", { name: "清除本栏" });
+        const clear_buttons = screen.getAllByRole("button", { name: "清空选择" });
         if (!clear_buttons[0]) throw new Error("clear button missing");
         fireEvent.click(clear_buttons[0]);
         expect(screen.getByText("复制 1 条")).toBeTruthy();
@@ -487,5 +488,105 @@ describe("WorkspaceView (t224)", () => {
         expect(document.querySelector(".slot-grid")?.getAttribute("style")).toContain("--cols: 2");
         fireEvent.click(screen.getByRole("button", { name: "布局 8" }));
         expect(document.querySelector(".slot-grid")?.getAttribute("style")).toContain("--cols: 2");
+    });
+
+    it("聚焦：点聚焦按钮后网格聚焦该面板，再点退出", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        render(<WorkspaceView />);
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => screen.getByText("1/8"));
+        fireEvent.click(screen.getByRole("button", { name: "聚焦此面板" }));
+        expect(document.querySelector(".slot-grid")?.className).toContain("focused");
+        expect(document.querySelector('[data-focused="true"]')).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: "聚焦此面板" }));
+        expect(document.querySelector(".slot-grid")?.className).not.toContain("focused");
+    });
+
+    it("快捷键 1-8 聚焦对应槽位，[ ] 循环切换，Esc 退出聚焦", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        render(<WorkspaceView />);
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+            focus_cb()({ source: "opencode", env: "win", session_id: "sess_b" });
+        });
+        await waitFor(() => screen.getByText("2/8"));
+        fireEvent.keyDown(window, { key: "2" });
+        expect(document.querySelector(".slot-grid")?.className).toContain("focused");
+        const focused_slots = [...document.querySelectorAll('[data-focused="true"]')].map((el) =>
+            el.getAttribute("data-loc-key"),
+        );
+        expect(focused_slots).toEqual(["opencode|win|sess_b"]);
+
+        fireEvent.keyDown(window, { key: "[" });
+        const focused_a = [...document.querySelectorAll('[data-focused="true"]')].map((el) =>
+            el.getAttribute("data-loc-key"),
+        );
+        expect(focused_a).toEqual(["claude_code|win|sess_a"]);
+
+        fireEvent.keyDown(window, { key: "Escape" });
+        expect(document.querySelector(".slot-grid")?.className).not.toContain("focused");
+    });
+
+    it("快捷键 Esc 逐层退出：大纲 → 聚焦 → 普通态", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        render(<WorkspaceView />);
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => screen.getByText("1/8"));
+        // 聚焦 + 大纲同时开
+        fireEvent.click(screen.getByRole("button", { name: "聚焦此面板" }));
+        fireEvent.click(screen.getByRole("button", { name: "大纲" }));
+        expect(document.querySelector(".pane-outline")).toBeTruthy();
+        expect(document.querySelector(".slot-grid")?.className).toContain("focused");
+        // Esc 1：关大纲
+        fireEvent.keyDown(window, { key: "Escape" });
+        expect(document.querySelector(".pane-outline")).toBeNull();
+        expect(document.querySelector(".slot-grid")?.className).toContain("focused");
+        // Esc 2：退聚焦
+        fireEvent.keyDown(window, { key: "Escape" });
+        expect(document.querySelector(".slot-grid")?.className).not.toContain("focused");
+    });
+
+    it("关闭聚焦槽位后网格不残留聚焦态", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        render(<WorkspaceView />);
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => screen.getByText("1/8"));
+        fireEvent.click(screen.getByRole("button", { name: "聚焦此面板" }));
+        expect(document.querySelector(".slot-grid")?.className).toContain("focused");
+        fireEvent.click(screen.getByRole("button", { name: "关闭面板" }));
+        await waitFor(() => screen.getByText("工作台为空"));
+        // 网格已卸载（count=0），无 focused 残留类
+        expect(document.querySelector(".slot-grid")).toBeNull();
+    });
+
+    it("视图开关：显示时间戳/紧凑模式即时生效", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [{ id: "m1", role: "user", text: "你好", timestamp: 100 }],
+            next_cursor: null,
+        });
+        render(<WorkspaceView />);
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => screen.getByText("你好"));
+
+        fireEvent.click(screen.getByRole("button", { name: /视图/ }));
+        fireEvent.click(screen.getByLabelText("显示时间戳"));
+        expect(document.querySelector(".pane-msg-time")).toBeTruthy();
+        fireEvent.click(screen.getByLabelText("紧凑模式"));
+        expect(document.querySelector(".pane-msg-row")?.className).toContain("compact");
+        fireEvent.click(screen.getByLabelText("显示时间戳"));
+        expect(document.querySelector(".pane-msg-time")).toBeNull();
     });
 });

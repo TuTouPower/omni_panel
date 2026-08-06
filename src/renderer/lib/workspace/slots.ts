@@ -16,6 +16,8 @@ export interface SlotSession {
     readonly loc: SessionHistoryLoc;
     readonly title: string;
     readonly agent: string;
+    readonly model: string;
+    readonly cwd: string | null;
     readonly calls: number;
     readonly tokens: number;
     readonly opened_at: number;
@@ -100,6 +102,8 @@ export function session_meta(sess: TokenStatsSession, opened_at: number): SlotSe
         loc: { source: sess.source, env: sess.env, session_id: sess.id },
         title: sess.title ?? sess.id,
         agent: agent_friendly(sess.source),
+        model: sess.model,
+        cwd: sess.directory,
         calls: sess.calls,
         tokens:
             sess.input_tokens +

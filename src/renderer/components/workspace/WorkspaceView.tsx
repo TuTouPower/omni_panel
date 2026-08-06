@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HistoryMessageLike, SessionHistoryLoc } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
-import { HistoryColumn, type HistoryColumnData } from "../session-history/HistoryColumn";
 import { HISTORY_PAGE_SIZE } from "../../lib/session-history/layout";
 import { build_copy_markdown, format_date } from "../../lib/session-history/markdown";
 import {
@@ -18,11 +17,12 @@ import {
     type LayoutCount,
     type SlotsState,
 } from "../../lib/workspace/slots";
+import type { PaneData } from "../../lib/workspace/pane";
 import { SessionRail } from "./SessionRail";
 import { WorkspaceToolbar } from "./WorkspaceToolbar";
 import { SessionPickerModal } from "./SessionPickerModal";
 import { RecentSessionsModal } from "./RecentSessionsModal";
-import "../../styles/session-history.css";
+import { SessionPane, type PaneView } from "./SessionPane";
 import "../../styles/workspace.css";
 
 type Loc = SessionHistoryLoc;
@@ -68,7 +68,7 @@ function initial_loc(): Loc | null {
 
 export function WorkspaceView() {
     const [slots_state, set_slots_state] = useState<SlotsState>(empty_slots);
-    const [columns, set_columns] = useState<Record<string, HistoryColumnData>>({});
+    const [columns, set_columns] = useState<Record<string, PaneData>>({});
     const [selected, set_selected] = useState<ReadonlySet<string>>(() => new Set());
     const [layout, set_layout] = useState<LayoutCount>(3);
     const [container_width, set_container_width] = useState(() => window.innerWidth);
@@ -76,6 +76,9 @@ export function WorkspaceView() {
     const [recent_open, set_recent_open] = useState(false);
     const [rail_collapsed, set_rail_collapsed] = useState(false);
     const [toast, set_toast] = useState<string | null>(null);
+    const [focused_index, set_focused_index] = useState<number | null>(null);
+    const [outline_index, set_outline_index] = useState<number | null>(null);
+    const [view, set_view] = useState<PaneView>({ show_time: false, compact: false });
 
     // 槽位用「state + 同步 ref」双维护：open_session 等批量打开循环在 React 批处理
     // 下读 render-fresh ref 会 stale（t211 同款踩坑），此处所有槽位写操作先同步 ref
@@ -102,7 +105,7 @@ export function WorkspaceView() {
         }, 2500);
     }, []);
 
-    const update_column = useCallback((loc: Loc, patch: Partial<HistoryColumnData>): void => {
+    const update_column = useCallback((loc: Loc, patch: Partial<PaneData>): void => {
         const key = loc_key(loc);
         set_columns((prev) =>
             prev[key] === undefined ? prev : { ...prev, [key]: { ...prev[key], ...patch } },
@@ -146,8 +149,8 @@ export function WorkspaceView() {
         [update_column],
     );
 
-    /** 查询该会话完整元数据（标题/轮数/tokens）并更新槽位 meta。基于 ref 计算走
-     *  apply_slots，保持 ref 与 state 同步（不违反「先同步 ref」不变量，f003）。 */
+    /** 查询该会话完整元数据（标题/model/cwd/轮数/tokens）并更新槽位 meta。
+     *  基于 ref 计算走 apply_slots，保持 ref 与 state 同步（f003）。 */
     const refresh_slot_meta = useCallback(
         (loc: Loc): void => {
             void window.usageboard.tokenStats
@@ -162,6 +165,8 @@ export function WorkspaceView() {
                                 ? {
                                       ...slot,
                                       title: row.title ?? slot.title,
+                                      model: row.model || slot.model,
+                                      cwd: row.directory ?? slot.cwd,
                                       calls: row.calls,
                                       tokens:
                                           row.input_tokens +
@@ -185,7 +190,7 @@ export function WorkspaceView() {
         (loc: Loc): void => {
             const now = Date.now();
             const key = loc_key(loc);
-            const empty: HistoryColumnData = {
+            const empty: PaneData = {
                 loc,
                 title: loc.session_id,
                 openedAt: now,
@@ -235,7 +240,7 @@ export function WorkspaceView() {
     );
 
     const open_session = useCallback(
-        (loc: Loc): void => {
+        (loc: Loc, meta?: { model?: string; cwd?: string | null }): void => {
             const existing = find_slot_by_loc(slots_ref.current, loc);
             if (existing !== null) {
                 const el = document.querySelector<HTMLElement>(
@@ -251,9 +256,9 @@ export function WorkspaceView() {
                         id: loc.session_id,
                         source: loc.source as TokenStatsSession["source"],
                         env: loc.env as TokenStatsSession["env"],
-                        model: "",
+                        model: meta?.model ?? "",
                         title: null,
-                        directory: null,
+                        directory: meta?.cwd ?? null,
                         input_tokens: 0,
                         output_tokens: 0,
                         cache_read_tokens: 0,
@@ -318,6 +323,9 @@ export function WorkspaceView() {
                 }
                 return next;
             });
+            // 聚焦/大纲槽位被关闭时清空索引，避免网格残留 focused 态（f002）。
+            set_focused_index((prev) => (prev === index ? null : prev));
+            set_outline_index((prev) => (prev === index ? null : prev));
         },
         [apply_slots],
     );
@@ -341,6 +349,8 @@ export function WorkspaceView() {
         apply_slots(clear_slots());
         set_columns({});
         set_selected(new Set());
+        set_focused_index(null);
+        set_outline_index(null);
     }, [apply_slots]);
 
     const toggle_select = useCallback((loc: Loc, message_id: string): void => {
@@ -491,6 +501,55 @@ export function WorkspaceView() {
         };
     }, []);
 
+    // 快捷键：1-8 聚焦对应槽位、[ ] 循环切换聚焦、Esc 逐层退出（大纲 → 聚焦 → 普通）。
+    useEffect(() => {
+        function on_keydown(e: KeyboardEvent): void {
+            const target = e.target;
+            const in_editable =
+                target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                (target instanceof HTMLElement && target.isContentEditable);
+            if (in_editable) return;
+
+            const occupied = slots_ref.current
+                .map((s, i) => (s === null ? null : i))
+                .filter((i): i is number => i !== null);
+
+            if (e.key === "Escape") {
+                if (outline_index !== null) {
+                    set_outline_index(null);
+                } else if (focused_index !== null) {
+                    set_focused_index(null);
+                }
+                return;
+            }
+
+            if (/^[1-8]$/.test(e.key)) {
+                const idx = Number.parseInt(e.key, 10) - 1;
+                if (slots_ref.current[idx] !== null) set_focused_index(idx);
+                return;
+            }
+
+            if (e.key === "[" || e.key === "]") {
+                if (occupied.length === 0) return;
+                if (focused_index === null || !occupied.includes(focused_index)) {
+                    // 无聚焦或聚焦槽已空：首次进入循环聚焦第一个占用槽（f004）。
+                    set_focused_index(occupied[0] ?? null);
+                    return;
+                }
+                const pos = occupied.indexOf(focused_index);
+                const dir = e.key === "[" ? -1 : 1;
+                const next_pos = (pos + dir + occupied.length) % occupied.length;
+                const next = occupied[next_pos] ?? occupied[0] ?? null;
+                if (next !== null) set_focused_index(next);
+            }
+        }
+        window.addEventListener("keydown", on_keydown);
+        return () => {
+            window.removeEventListener("keydown", on_keydown);
+        };
+    }, [focused_index, outline_index]);
+
     const count = occupied_count(slots_state);
     const cols = Math.max(1, Math.min(effective_columns(layout, container_width), count));
     const total_selected = selected.size;
@@ -515,8 +574,14 @@ export function WorkspaceView() {
             apply_slots(clear_slots());
             set_columns({});
             set_selected(new Set());
+            set_focused_index(null);
+            set_outline_index(null);
             for (const sess of sessions) {
-                open_session({ source: sess.source, env: sess.env, session_id: sess.id });
+                // 直接带完整 model/cwd 建槽，避免 pane 头部缺这两项（f001）。
+                open_session(
+                    { source: sess.source, env: sess.env, session_id: sess.id },
+                    { model: sess.model, cwd: sess.directory },
+                );
             }
         },
         [apply_slots, open_session],
@@ -528,6 +593,8 @@ export function WorkspaceView() {
                 layout={layout}
                 count={count}
                 total_selected={total_selected}
+                view={view}
+                on_view_change={set_view}
                 on_layout_change={set_layout}
                 on_recent={() => {
                     set_recent_open(true);
@@ -576,7 +643,7 @@ export function WorkspaceView() {
                         </div>
                     ) : (
                         <div
-                            className="slot-grid"
+                            className={"slot-grid" + (focused_index !== null ? " focused" : "")}
                             style={{ "--cols": String(cols) } as React.CSSProperties}
                         >
                             {slots_state.map((slot, index) =>
@@ -585,8 +652,11 @@ export function WorkspaceView() {
                                         className="slot-pane"
                                         key={loc_key(slot.loc)}
                                         data-loc-key={loc_key(slot.loc)}
+                                        data-focused={focused_index === index}
                                     >
-                                        <HistoryColumn
+                                        <SessionPane
+                                            slot_index={index}
+                                            slot_meta={slot}
                                             column={
                                                 columns[loc_key(slot.loc)] ?? {
                                                     loc: slot.loc,
@@ -598,11 +668,9 @@ export function WorkspaceView() {
                                                     status: "loading",
                                                 }
                                             }
-                                            selected_count={
-                                                [...selected].filter((k) =>
-                                                    k.startsWith(`${loc_key(slot.loc)}|`),
-                                                ).length
-                                            }
+                                            focused={focused_index === index}
+                                            outline_open={outline_index === index}
+                                            view={view}
                                             is_selected={(id) =>
                                                 selected.has(selection_key(slot.loc, id))
                                             }
@@ -620,6 +688,16 @@ export function WorkspaceView() {
                                             }}
                                             on_load_older={() => {
                                                 load_older(slot.loc);
+                                            }}
+                                            on_focus={() => {
+                                                set_focused_index((prev) =>
+                                                    prev === index ? null : index,
+                                                );
+                                            }}
+                                            on_toggle_outline={() => {
+                                                set_outline_index((prev) =>
+                                                    prev === index ? null : index,
+                                                );
                                             }}
                                         />
                                     </div>

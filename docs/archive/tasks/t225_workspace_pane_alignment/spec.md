@@ -80,7 +80,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 项目是否已有 Markdown 渲染依赖（如 react-markdown 等价物）、新增依赖体积与许可：`UNVERIFIED-SPIKE`，执行期读 `package.json` 核实，新增依赖需报用户确认。
+- Markdown 渲染依赖核实（验证方式：执行期 Step 1 安装并查 package.json 版本/许可）：主仓原无任何 markdown 依赖；用户 2026-08-06 确认引入 **react-markdown@10.1.0 + remark-gfm@4.0.1**（demo 同款，均 MIT，node_modules 合计约 120KB）。react-markdown v10 默认不渲染原始 HTML（须显式 rehype-raw 才解析），满足「不把会话 HTML 当 HTML 执行」安全约束，**不安装 rehype-raw**。
 
 ### 风险与回退
 
