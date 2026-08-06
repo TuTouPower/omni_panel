@@ -13,8 +13,8 @@
             "review_level": "single",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t230",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t229_fix_gran_preset_switch"
         },
@@ -28,8 +28,8 @@
             "review_level": "full",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t229",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t230_fix_model_dropdown_alias"
         },
@@ -44,7 +44,7 @@
             "diff_anchor": "",
             "depends_on": "",
             "conflicts_with": "",
-            "schedule_status": "",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t231_fix_web_e2e_fixture_divergence"
         },
@@ -58,8 +58,8 @@
             "review_level": "single",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "t237",
-            "schedule_status": "pending_clarification",
+            "conflicts_with": "t233,t234,t235,t237,t239",
+            "schedule_status": "scheduled",
             "note": "merged from t241",
             "dir": "docs/tasks/t232_split_workspace_view_files"
         },
@@ -73,8 +73,8 @@
             "review_level": "single",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t232,t234,t237,t239",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t233_fix_sessionlib_act_warning"
         },
@@ -88,8 +88,8 @@
             "review_level": "single",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t232,t233,t237,t239",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t234_fix_session_library_load_error_empty"
         },
@@ -103,8 +103,8 @@
             "review_level": "full",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "pending_clarification",
+            "conflicts_with": "t232,t237",
+            "schedule_status": "scheduled",
             "note": "merged from t236",
             "dir": "docs/tasks/t235_session_history_query_cache"
         },
@@ -118,8 +118,8 @@
             "review_level": "full",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "t232,t239",
-            "schedule_status": "pending_clarification",
+            "conflicts_with": "t232,t233,t234,t235,t239",
+            "schedule_status": "scheduled",
             "note": "merged from t238",
             "dir": "docs/tasks/t237_session_row_card_memo"
         },
@@ -133,40 +133,10 @@
             "review_level": "full",
             "diff_anchor": "",
             "depends_on": "t235",
-            "conflicts_with": "t237",
-            "schedule_status": "pending_clarification",
+            "conflicts_with": "t232,t233,t234,t237",
+            "schedule_status": "scheduled",
             "note": "merged from t240",
             "dir": "docs/tasks/t239_library_content_search_batch"
-        },
-        {
-            "tid": "t240",
-            "slug": "session_summary_light_channel",
-            "title": "会话摘要轻量通道",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t240_session_summary_light_channel"
-        },
-        {
-            "tid": "t241",
-            "slug": "split_session_library_files",
-            "title": "拆分会话库超行数组件文件",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t241_split_session_library_files"
         }
     ]
 }

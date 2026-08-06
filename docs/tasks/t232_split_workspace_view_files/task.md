@@ -8,8 +8,8 @@ worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t237"
-schedule_status: "pending_clarification"
+conflicts_with: "t233,t234,t235,t237,t239"
+schedule_status: "scheduled"
 note: "merged from t241"
 ---
 
