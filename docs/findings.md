@@ -139,3 +139,44 @@
 - 证据：s015 真实数据采样脚本（`.scratch/`，gitignore），opencode part.type 分布、kimi wire.jsonl 事件类型、grok chat_history.jsonl 45 行 9 parse_error 边界。
 - 影响：t209 提取器按上述路径实现；grok 时间戳为 null（chat_history.jsonl 无时间字段），窗口按行序展示；grok 提取器须读 chat_history.jsonl 而非 updates.jsonl，与现有 token-stats reader（读 updates.jsonl）是两个独立文件。
 - 现状：有效
+
+## d018 会话窗口外壳状态保留机制与 demo 依赖对照（2026-08-06）
+
+- 来源：t223
+- 结论：
+    1. 页签常驻挂载 + CSS `display:none` 切换在 Chromium 中保留各页内部状态（含滚动位置）：Playwright 实测 `display:none` 后 scrollTop 保留（150→0→150），React 组件不卸载、订阅不注销，切回即原状态。比条件卸载/重建更省，且天然满足「切回不丢状态」。
+    2. 会话窗口主题独立于全局：默认暗色、`localStorage omni_session_theme` 持久化、切换设 `html[data-theme]`，不写全局 `config.theme`——避免与其它窗口全局主题互相覆盖。持久化主题须在 `useLayoutEffect` 同步应用，否则 preload 首帧（按系统 `ou_theme`）与持久化主题不一致时闪一帧。
+    3. frontend_demo（SessionGrid demo）依赖的 radix 组件族 / @dnd-kit / gsap / framer-motion / lenis / cmdk / react-markdown / next-themes 主仓均未安装；t223 外壳用现有 react 19 + tailwind v4 + lucide-react + 既有 theme 机制零新增依赖实现。后续 t224（槽位拖拽需 @dnd-kit）、t227（react-markdown 消息渲染）如需这些库须另行评估新增依赖体积/许可并报用户确认。
+- 证据：t223 `.scratch/t223/shell_blackbox.ts` 驱动打包 exe（CDP）验证页签切换/主题/跳转；code reviewer Playwright 实测 scrollTop 保留；主仓与 demo `package.json` 依赖逐项对照。
+- 影响：t224-t228 工作台/会话库/摘选任务可在现有依赖与外壳基础上推进；拖拽/命令面板/消息渲染库引入是独立决策点。
+- 现状：有效
+
+## d019 槽位模型 ref/state 双维护与订阅生命周期坑（2026-08-06）
+
+- 来源：t224
+- 结论：
+    1. React 19 批处理下，批量打开循环内读 render-fresh ref 会 stale（t211 超 6 模态同款坑）：`onFocus` 连续装入多个会话时，`slots_ref` 在同批内不刷新，重复打开/超位判定失真。解法是「state + 同步 ref」双维护——所有槽位写操作先 `ref.current = next` 再 `setState`，批内连续调用读到最新。任何绕过 ref 直写 state 的路径（如异步 meta 刷新）都会造成 ref/state 分叉，后续基于 ref 的操作把已刷新的 meta 回退。
+    2. 同一 loc 装入两个槽位是坏状态：columns 按 loc_key 键控（第二槽覆盖同一列数据），订阅以 webContents id 为 subscriber（同 loc 幂等共享 watcher），关闭任一槽 `unsubscribe(loc)` 整体移除订阅 + 删列 → 另一槽永久「加载中」。装入前必须 `find_slot_by_loc` 查重。
+    3. 最近会话「清空替换全部槽位」若不先逐个 unsubscribe，被替换会话的 watcher 继续存活到窗口销毁（反复替换累积）。替换前必须退订旧槽位。
+- 证据：t224 reviewer 基于 `session-history-ipc.ts:67`（subscriber 键控）与 `subscription-service.ts:241-243`（2s 轮询）分析；`WorkspaceView.tsx` 实现与测试。
+- 影响：槽位类 UI（工作台/后续会话库/摘选）沿用「ref 双维护 + loc 查重 + 替换前退订」三不变量；异步槽位 meta 刷新必须走 ref 同步路径。
+- 现状：有效
+
+## d020 react-markdown v10 默认丢弃原始 HTML（2026-08-06）
+
+- 来源：t225
+- 结论：react-markdown v10 默认**不渲染原始 HTML**——需显式配 rehype-raw 才把 HTML 当节点解析。会话内容不可信场景下，只装 react-markdown + remark-gfm（不装 rehype-raw、不 dangerouslySetInnerHTML）即满足「不把会话 HTML 当 HTML 执行」安全约束。测试侧 `img`/`script` 查询为 null 可真实拦截 rehype-raw 误配回归。
+- 证据：t225 MarkdownMessage.test.tsx HTML 安全用例（script 注入 + img onerror 均不执行，`document.querySelector("img"/"script")` 为 null）。
+- 影响：后续会话库/消息渲染沿用同一约束；新增 markdown 渲染库评估以「默认不解析 HTML」为安全前提。
+- 现状：有效
+
+## d021 会话库查询扩展与内容搜索并集（2026-08-06）
+
+- 来源：t227
+- 结论：
+    1. `tokenStatsStore.query_sessions` 扩展 sources[]/start_at/end_at/order_by/direction：时间范围用活动时间交集（`ended_at >= start_at AND started_at <= end_at`），order_by 白名单（ended_at/tokens 表达式/calls/started_at）+ direction 白名单（ASC/DESC）防 SQL 注入。
+    2. 「包含消息内容」搜索语义 = 元信息命中 ∪ 正文命中（并集）：纯正文命中会话须显示，不能只 filter 元信息结果。正文命中异步逐候选读消息，必须用序号守卫防旧查询迟到覆盖；命中结果须用响应式 state（ref + force_update 不会触发 useMemo 重算）。
+    3. 会话主键是 (id, source, env)：勾选/dock/列表 key 须含三者，只按 id 跨 source/env 会串选。
+- 证据：t227 query_sessions 扩展测试（多 source IN/时间交集/tokens/calls 排序）、SessionLibrary 内容搜索并集测试。
+- 影响：会话库/后续会话类 UI 沿用「时间交集 + 并集搜索 + 序号守卫 + 三元主键」四不变量；新增会话查询扩展走白名单排序防注入。
+- 现状：有效

@@ -2,6 +2,7 @@
 // 用法：先 pnpm e2e:gen-data 录真实响应，再 pnpm e2e:gen-synthetic 产 synthetic
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { build_session_responses } from "./session_fixture.mjs";
 
 const ROOT = process.cwd();
 const SRC = resolve(ROOT, "tests/e2e/fixtures/data/responses.json");
@@ -161,6 +162,9 @@ out["GET /v1/connectors"].push({
     snapshot: { status: "ready", updatedAt: "2026-08-01T00:00:00Z", items: opencode_items },
 });
 out["GET /v1/connectors/synthetic-opencode-go/state"] = { status: "ready", items: opencode_items };
+
+// t228：并入会话面板 web e2e 的合成会话与消息数据（独立于真实响应，保证可重建）。
+Object.assign(out, build_session_responses());
 
 writeFileSync(OUT, JSON.stringify(out, null, 2));
 console.log(`[gen_synthetic] wrote ${OUT} (${String(Object.keys(out).length)} responses)`);

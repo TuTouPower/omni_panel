@@ -49,8 +49,13 @@ export interface TokenStatsStore {
     }): TokenStatsBucket[];
     query_sessions(filters: {
         source?: string;
+        sources?: string[];
         env?: string;
         search?: string;
+        start_at?: number;
+        end_at?: number;
+        order_by?: "ended_at" | "tokens" | "calls" | "started_at";
+        direction?: "asc" | "desc";
         limit?: number;
         offset?: number;
     }): TokenStatsSession[];
@@ -1025,6 +1030,13 @@ export function create_token_stats_store(
                 conditions.push("source = @source");
                 params["source"] = filters.source;
             }
+            if (filters.sources && filters.sources.length > 0) {
+                const ph = filters.sources.map((_, i) => `@src${String(i)}`);
+                conditions.push(`source IN (${ph.join(", ")})`);
+                filters.sources.forEach((s, i) => {
+                    params[`src${String(i)}`] = s;
+                });
+            }
             if (filters.env) {
                 conditions.push("env = @env");
                 params["env"] = filters.env;
@@ -1035,11 +1047,29 @@ export function create_token_stats_store(
                 );
                 params["search"] = `%${filters.search}%`;
             }
+            if (filters.start_at !== undefined) {
+                // 活动时间交集：会话 [started_at, ended_at] 与 [start_at, end_at] 有重叠。
+                conditions.push("ended_at >= @start_at");
+                params["start_at"] = filters.start_at;
+            }
+            if (filters.end_at !== undefined) {
+                conditions.push("started_at <= @end_at");
+                params["end_at"] = filters.end_at;
+            }
 
             const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
             const limit = filters.limit ?? 100;
             const offset = filters.offset ?? 0;
-            const sql = `SELECT * FROM token_stats_sessions ${where} ORDER BY ended_at DESC LIMIT @limit OFFSET @offset`;
+            const order_expr =
+                filters.order_by === "tokens"
+                    ? "(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens)"
+                    : filters.order_by === "started_at"
+                      ? "started_at"
+                      : filters.order_by === "calls"
+                        ? "calls"
+                        : "ended_at";
+            const direction = filters.direction === "asc" ? "ASC" : "DESC";
+            const sql = `SELECT * FROM token_stats_sessions ${where} ORDER BY ${order_expr} ${direction}, ended_at DESC LIMIT @limit OFFSET @offset`;
             params["limit"] = limit;
             params["offset"] = offset;
 

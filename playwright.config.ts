@@ -16,7 +16,7 @@ const config: PlaywrightTestConfig = {
             name: "web",
             testDir: "./tests/e2e/web",
             use: {
-                baseURL: "http://localhost:5174",
+                baseURL: "http://127.0.0.1:5174",
             },
         },
         {
@@ -33,8 +33,8 @@ const config: PlaywrightTestConfig = {
     ],
     webServer: {
         command:
-            "pnpm build:web && vite preview --config vite.web.config.ts --port 5174 --strictPort",
-        url: "http://localhost:5174",
+            "pnpm build:web && pnpm exec vite preview --config vite.web.config.ts --port 5174 --strictPort --host 127.0.0.1",
+        url: "http://127.0.0.1:5174",
         reuseExistingServer: true,
         timeout: 120_000,
     },

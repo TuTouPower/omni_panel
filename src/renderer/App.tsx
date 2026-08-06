@@ -1,6 +1,6 @@
 import { use_route } from "./hooks/use-route";
+import { SessionShell } from "./components/session-shell/SessionShell";
 import { PopupView } from "./views/PopupView";
-import { SessionHistoryView } from "./views/SessionHistoryView";
 import { SettingsView } from "./views/SettingsView";
 import { TrayMenu } from "./views/TrayMenu";
 import { TokenStatsView } from "./views/TokenStatsView";
@@ -15,7 +15,7 @@ export function App() {
         case "agent":
             return <TokenStatsView />;
         case "history":
-            return <SessionHistoryView />;
+            return <SessionShell />;
         default:
             return <PopupView />;
     }
