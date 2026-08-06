@@ -60,6 +60,7 @@ export default defineConfig(
             "scripts/render-test-icons.mjs",
             "scripts/start-test.mjs",
             "docs/spikes/",
+            "public/",
         ],
     },
 );

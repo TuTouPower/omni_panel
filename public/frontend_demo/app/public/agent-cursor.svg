@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- mouse pointer arrow -->
+  <path d="M14 10 L14 42 L22.5 35 L27 46 L31.5 43.5 L27 33 L36 33 Z" stroke="#B18CFF" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- blinking text cursor I-beam -->
+  <path d="M44 18 L44 50" stroke="#B18CFF" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M40 18 L48 18" stroke="#B18CFF" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M40 50 L48 50" stroke="#B18CFF" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

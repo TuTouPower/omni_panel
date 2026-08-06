@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <title>SessionGrid · 会话矩阵</title>
+    <script>
+      // 主题初始化（避免 FOUC）：默认暗色，读取 localStorage 持久化值
+      (function () {
+        try {
+          var t = localStorage.getItem('sessiongrid-theme');
+          if (t === 'light') document.documentElement.classList.remove('dark');
+          else document.documentElement.classList.add('dark');
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

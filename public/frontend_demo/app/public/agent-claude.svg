@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- rounded square frame -->
+  <rect x="8" y="8" width="48" height="48" rx="12" stroke="#FF7A59" stroke-width="2.5"/>
+  <!-- speech bubble -->
+  <path d="M18 22 C18 19.5 19.8 18 22 18 L42 18 C44.2 18 46 19.5 46 22 L46 34 C46 36.5 44.2 38 42 38 L30 38 L23 45 L23 38 L22 38 C19.8 38 18 36.5 18 34 Z" stroke="#FF7A59" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- terminal prompt >_ -->
+  <path d="M25 25 L30 28.5 L25 32" stroke="#FF7A59" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M34 32.5 L41 32.5" stroke="#FF7A59" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

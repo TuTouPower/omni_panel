@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- hexagon -->
+  <path d="M32 8 L52.7 20 L52.7 44 L32 56 L11.3 44 L11.3 20 Z" stroke="#F5A524" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- open book -->
+  <path d="M32 24 C28.5 21 23.5 20.5 19 21.5 L19 41 C23.5 40 28.5 40.5 32 43.5 C35.5 40.5 40.5 40 45 41 L45 21.5 C40.5 20.5 35.5 21 32 24 Z" stroke="#F5A524" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M32 24 L32 43.5" stroke="#F5A524" stroke-width="2.5"/>
+  <!-- cursor vertical line -->
+  <path d="M38 28 L38 37" stroke="#F5A524" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

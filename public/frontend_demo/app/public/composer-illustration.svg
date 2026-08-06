@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200" fill="none">
+  <!-- six small paper strips with agent-color top bars, converging -->
+  <g transform="rotate(-24 96 96)">
+    <rect x="74" y="40" width="44" height="30" rx="5" stroke="#2C3746" stroke-width="2"/>
+    <path d="M78 40 L114 40" stroke="#FF7A59" stroke-width="4"/>
+  </g>
+  <g transform="rotate(-14 128 88)">
+    <rect x="112" y="34" width="44" height="30" rx="5" stroke="#2C3746" stroke-width="2"/>
+    <path d="M116 34 L152 34" stroke="#5B8CFF" stroke-width="4"/>
+  </g>
+  <g transform="rotate(-5 156 84)">
+    <rect x="150" y="30" width="44" height="30" rx="5" stroke="#2C3746" stroke-width="2"/>
+    <path d="M154 30 L190 30" stroke="#3ECF8E" stroke-width="4"/>
+  </g>
+  <g transform="rotate(5 190 84)">
+    <rect x="188" y="30" width="44" height="30" rx="5" stroke="#2C3746" stroke-width="2"/>
+    <path d="M192 30 L228 30" stroke="#F5A524" stroke-width="4"/>
+  </g>
+  <g transform="rotate(14 224 88)">
+    <rect x="226" y="34" width="44" height="30" rx="5" stroke="#2C3746" stroke-width="2"/>
+    <path d="M230 34 L266 34" stroke="#B18CFF" stroke-width="4"/>
+  </g>
+  <g transform="rotate(24 250 96)">
+    <rect x="258" y="40" width="44" height="30" rx="5" stroke="#2C3746" stroke-width="2"/>
+    <path d="M262 40 L298 40" stroke="#FF5C8A" stroke-width="4"/>
+  </g>
+  <!-- clipboard outline -->
+  <rect x="112" y="104" width="96" height="72" rx="10" stroke="#2C3746" stroke-width="2"/>
+  <rect x="140" y="96" width="40" height="14" rx="5" stroke="#2C3746" stroke-width="2"/>
+  <path d="M128 128 L192 128" stroke="#2C3746" stroke-width="2" stroke-linecap="round"/>
+  <path d="M128 144 L192 144" stroke="#2C3746" stroke-width="2" stroke-linecap="round"/>
+  <path d="M128 160 L168 160" stroke="#2C3746" stroke-width="2" stroke-linecap="round"/>
+  <!-- flow lines into clipboard -->
+  <path d="M140 78 L148 96" stroke="#2C3746" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 4"/>
+  <path d="M200 78 L192 96" stroke="#2C3746" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 4"/>
+</svg>

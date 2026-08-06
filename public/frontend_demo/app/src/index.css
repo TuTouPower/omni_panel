@@ -1,0 +1,248 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700;900&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ---- 浅色主题（默认）：低饱和暖中性色 ---- */
+  :root {
+    --bg-canvas-rgb: 246 244 241;
+    --bg-canvas: rgb(var(--bg-canvas-rgb));
+    --bg-panel-rgb: 255 255 255;
+    --bg-panel: rgb(var(--bg-panel-rgb));
+    --bg-raised-rgb: 240 237 232;
+    --bg-raised: rgb(var(--bg-raised-rgb));
+    --bg-inset-rgb: 244 242 239;
+    --bg-inset: rgb(var(--bg-inset-rgb));
+    --border-subtle-rgb: 226 221 214;
+    --border-subtle: rgb(var(--border-subtle-rgb));
+    --border-strong-rgb: 201 194 184;
+    --border-strong: rgb(var(--border-strong-rgb));
+    --text-primary-rgb: 32 36 44;
+    --text-primary: rgb(var(--text-primary-rgb));
+    --text-secondary-rgb: 91 100 114;
+    --text-secondary: rgb(var(--text-secondary-rgb));
+    --text-muted-rgb: 152 160 172;
+    --text-muted: rgb(var(--text-muted-rgb));
+    --accent-lime-rgb: 77 124 15;
+    --accent-lime: rgb(var(--accent-lime-rgb));
+    --danger-rgb: 220 51 85;
+    --danger: rgb(var(--danger-rgb));
+    --diff-add-rgb: 30 122 76;
+    --diff-add: rgb(var(--diff-add-rgb));
+    --diff-del-rgb: 201 58 63;
+    --diff-del: rgb(var(--diff-del-rgb));
+    --lime-dim-alpha: 0.10;
+    --accent-lime-dim: rgb(var(--accent-lime-rgb) / var(--lime-dim-alpha));
+    --agent-claude: #E85D3D;
+    --agent-grok: #3B6FE0;
+    --agent-opencode: #1F9D66;
+    --agent-codex: #C87F0A;
+    --agent-cursor: #8B5CF6;
+    --agent-aider: #E0447A;
+    --scrollbar-thumb: #C9C2B8;
+    --scrollbar-thumb-hover: #A89F92;
+    --grid-dot: #E2DDD6;
+
+    /* shadcn/ui variables (light) */
+    --background: 36 20% 95%;
+    --foreground: 222 16% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 16% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 16% 15%;
+    --primary: 83 78% 27%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 33 18% 94%;
+    --secondary-foreground: 222 16% 15%;
+    --muted: 33 18% 94%;
+    --muted-foreground: 216 11% 40%;
+    --accent: 33 18% 94%;
+    --accent-foreground: 222 16% 15%;
+    --destructive: 349 70% 53%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 33 17% 86%;
+    --input: 33 17% 86%;
+    --ring: 83 78% 27%;
+    --radius: 0.625rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 16% 15%;
+    --sidebar-primary: 83 78% 27%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 33 18% 94%;
+    --sidebar-accent-foreground: 222 16% 15%;
+    --sidebar-border: 33 17% 86%;
+    --sidebar-ring: 83 78% 27%;
+  }
+
+  /* ---- 深色主题：SessionGrid design tokens (design.md §2)，原值 ---- */
+  .dark {
+    --bg-canvas-rgb: 10 13 18;
+    --bg-canvas: rgb(var(--bg-canvas-rgb));
+    --bg-panel-rgb: 16 21 28;
+    --bg-panel: rgb(var(--bg-panel-rgb));
+    --bg-raised-rgb: 22 28 37;
+    --bg-raised: rgb(var(--bg-raised-rgb));
+    --bg-inset-rgb: 12 16 22;
+    --bg-inset: rgb(var(--bg-inset-rgb));
+    --border-subtle-rgb: 30 38 50;
+    --border-subtle: rgb(var(--border-subtle-rgb));
+    --border-strong-rgb: 44 55 70;
+    --border-strong: rgb(var(--border-strong-rgb));
+    --text-primary-rgb: 232 237 244;
+    --text-primary: rgb(var(--text-primary-rgb));
+    --text-secondary-rgb: 154 167 184;
+    --text-secondary: rgb(var(--text-secondary-rgb));
+    --text-muted-rgb: 91 107 126;
+    --text-muted: rgb(var(--text-muted-rgb));
+    --accent-lime-rgb: 198 246 61;
+    --accent-lime: rgb(var(--accent-lime-rgb));
+    --danger-rgb: 255 92 122;
+    --danger: rgb(var(--danger-rgb));
+    --diff-add-rgb: 46 166 107;
+    --diff-add: rgb(var(--diff-add-rgb));
+    --diff-del-rgb: 229 72 77;
+    --diff-del: rgb(var(--diff-del-rgb));
+    --lime-dim-alpha: 0.12;
+    --accent-lime-dim: rgb(var(--accent-lime-rgb) / var(--lime-dim-alpha));
+    --agent-claude: #FF7A59;
+    --agent-grok: #5B8CFF;
+    --agent-opencode: #3ECF8E;
+    --agent-codex: #F5A524;
+    --agent-cursor: #B18CFF;
+    --agent-aider: #FF5C8A;
+    --scrollbar-thumb: #2C3746;
+    --scrollbar-thumb-hover: #3D4B5E;
+    --grid-dot: #1E2632;
+
+    /* shadcn/ui variables mapped onto dark theme */
+    --background: 222 29% 5%;
+    --foreground: 214 33% 93%;
+    --card: 217 31% 9%;
+    --card-foreground: 214 33% 93%;
+    --popover: 220 21% 11%;
+    --popover-foreground: 214 33% 93%;
+    --primary: 75 91% 60%;
+    --primary-foreground: 222 29% 5%;
+    --secondary: 220 21% 11%;
+    --secondary-foreground: 214 33% 93%;
+    --muted: 220 21% 11%;
+    --muted-foreground: 215 15% 65%;
+    --accent: 220 21% 11%;
+    --accent-foreground: 214 33% 93%;
+    --destructive: 348 100% 68%;
+    --destructive-foreground: 214 33% 93%;
+    --border: 214 25% 16%;
+    --input: 214 25% 16%;
+    --ring: 75 91% 60%;
+    --sidebar-background: 217 31% 9%;
+    --sidebar-foreground: 214 33% 93%;
+    --sidebar-primary: 75 91% 60%;
+    --sidebar-primary-foreground: 222 29% 5%;
+    --sidebar-accent: 220 21% 11%;
+    --sidebar-accent-foreground: 214 33% 93%;
+    --sidebar-border: 214 25% 16%;
+    --sidebar-ring: 75 91% 60%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    background-color: var(--bg-canvas);
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-canvas text-text-primary font-sans antialiased;
+    font-size: 0.9375rem; /* Body 15px */
+    line-height: 1.7;
+    font-weight: 500;
+  }
+
+  /* Custom 6px scrollbars (design.md §7) */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  ::selection {
+    background-color: var(--accent-lime-dim);
+    color: var(--accent-lime);
+  }
+
+  code, pre, kbd, samp {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer utilities {
+  /* Typography utilities per design.md §3 */
+  .text-display {
+    font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+    font-size: clamp(2.75rem, 6vw, 4.75rem);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+  .text-h1 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+  .text-h2 {
+    font-size: 1.625rem;
+    font-weight: 700;
+  }
+  .text-h3 {
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+  .text-body {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.7;
+  }
+  .text-small {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .text-mono-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+  }
+  .text-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.65;
+  }
+  /* Dotted grid texture decoration */
+  .bg-grid-dots {
+    background-image: radial-gradient(circle, var(--grid-dot) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}

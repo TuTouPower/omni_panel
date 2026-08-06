@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- overlapping quotes -->
+  <path d="M20 20 C14 20 10 24 10 30 L10 38 L19 38 L19 30 L14.5 30 C14.5 26.5 16.5 25 20 24.5 Z" stroke="#FF5C8A" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M36 26 C30 26 26 30 26 36 L26 44 L35 44 L35 36 L30.5 36 C30.5 32.5 32.5 31 36 30.5 Z" stroke="#FF5C8A" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- small star -->
+  <path d="M48 12 L49.9 17.1 L55 19 L49.9 20.9 L48 26 L46.1 20.9 L41 19 L46.1 17.1 Z" stroke="#FF5C8A" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

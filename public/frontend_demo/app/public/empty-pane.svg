@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180" fill="none">
+  <!-- dashed rounded pane outline -->
+  <rect x="30" y="25" width="180" height="130" rx="12" stroke="#2C3746" stroke-width="2" stroke-dasharray="8 6"/>
+  <!-- centered plus -->
+  <path d="M120 74 L120 106" stroke="#C6F63D" stroke-width="3" stroke-linecap="round"/>
+  <path d="M104 90 L136 90" stroke="#C6F63D" stroke-width="3" stroke-linecap="round"/>
+  <!-- corner terminal decorations -->
+  <path d="M42 41 L48 46 L42 51" stroke="#2C3746" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M198 131 L204 131" stroke="#2C3746" stroke-width="2" stroke-linecap="round"/>
+  <path d="M198 41 L192 46 L198 51" stroke="#2C3746" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M42 131 L48 131" stroke="#2C3746" stroke-width="2" stroke-linecap="round"/>
+</svg>

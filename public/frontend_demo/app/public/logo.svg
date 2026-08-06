@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <!-- 3x2 grid of rounded squares, top-right filled lime, rest stroked -->
+  <rect x="30" y="8" width="10" height="10" rx="3" fill="#C6F63D"/>
+  <rect x="8" y="8" width="10" height="10" rx="3" stroke="#9AA7B8" stroke-width="2"/>
+  <rect x="19" y="8" width="10" height="10" rx="3" stroke="#9AA7B8" stroke-width="2"/>
+  <rect x="8" y="30" width="10" height="10" rx="3" stroke="#9AA7B8" stroke-width="2"/>
+  <rect x="19" y="30" width="10" height="10" rx="3" stroke="#9AA7B8" stroke-width="2"/>
+  <rect x="30" y="30" width="10" height="10" rx="3" stroke="#9AA7B8" stroke-width="2"/>
+</svg>
