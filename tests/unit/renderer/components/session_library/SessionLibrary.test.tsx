@@ -1,6 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SessionCard } from "../../../../../src/renderer/components/session-library/SessionCard";
 import { SessionLibrary } from "../../../../../src/renderer/components/session-library/SessionLibrary";
+import { key_of } from "../../../../../src/renderer/components/session-library/session-library-utils";
+import type { TokenStatsSession } from "../../../../../src/shared/types/token-stats";
 import { install_history_usageboard } from "../../views/session_history_test_utils";
 
 /**
@@ -17,6 +21,8 @@ interface MockBoard {
         unsubscribe: MockFn;
         query: MockFn;
         recent: MockFn;
+        searchContent: MockFn;
+        summaries: MockFn;
         onMessagesUpdated: MockFn;
         onFocus: MockFn;
     };
@@ -32,6 +38,16 @@ interface MockBoard {
 
 function usageboard(): MockBoard {
     return (globalThis as unknown as { usageboard: MockBoard }).usageboard;
+}
+
+async function renderLibrary(props: { on_switch_workspace?: () => void } = {}) {
+    const result = render(
+        <SessionLibrary on_switch_workspace={props.on_switch_workspace ?? (() => undefined)} />,
+    );
+    await act(async () => {
+        // 冲刷 getSessions/query resolve 等微任务，避免 act 警告。
+    });
+    return result;
 }
 
 const T0 = new Date("2026-07-10T08:00:00Z").getTime();
@@ -76,7 +92,7 @@ describe("SessionLibrary (t227)", () => {
     it("页头显示统计行：会话数/agent 数/总 tokens", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => {
             expect(screen.getByText(/3 个会话/)).toBeTruthy();
         });
@@ -87,7 +103,7 @@ describe("SessionLibrary (t227)", () => {
     it("搜索框默认只匹配元信息，卡片显示 agent 色条/徽标/标题/轮数/tokens/目录", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "proj/b" } });
         expect(screen.getByText("会话 b")).toBeTruthy();
@@ -106,19 +122,14 @@ describe("SessionLibrary (t227)", () => {
     it("卡片与行摘要取首条用户消息内容（f008）", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([sess("a", "claude_code")]);
-        ub.sessionHistory.query.mockResolvedValue({
-            messages: [
-                msg("m1", "assistant", "不应显示的回复", 1),
-                msg("m2", "user", "真正要显示的用户消息", 2),
-            ],
-            next_cursor: null,
+        ub.sessionHistory.summaries.mockResolvedValue({
+            "claude_code|win|a": "真正要显示的用户消息",
         });
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         await waitFor(() => {
             const card_summary = document.querySelector(".lib-card-summary")?.textContent;
             expect(card_summary).toContain("真正要显示的用户消息");
-            expect(card_summary).not.toContain("不应显示的回复");
         });
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
@@ -130,7 +141,7 @@ describe("SessionLibrary (t227)", () => {
     it("agent 芯片多选过滤 + 排序 + 视图切换", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         fireEvent.click(screen.getByRole("button", { name: /^Claude/ }));
         expect(screen.getByText("会话 a")).toBeTruthy();
@@ -165,7 +176,7 @@ describe("SessionLibrary (t227)", () => {
             ended_at: start_day + day,
         });
         ub.tokenStats.getSessions.mockResolvedValue([older, newer]);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 new"));
         fireEvent.change(screen.getByLabelText("起始日期"), { target: { value: "2026-07-10" } });
         expect(screen.queryByText("会话 old")).toBeNull();
@@ -185,7 +196,7 @@ describe("SessionLibrary (t227)", () => {
             ended_at: start_day + day,
         });
         ub.tokenStats.getSessions.mockResolvedValue([older, newer]);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 new"));
         fireEvent.change(screen.getByLabelText("结束日期"), { target: { value: "2026-07-09" } });
         expect(screen.getByText("会话 old")).toBeTruthy();
@@ -196,7 +207,7 @@ describe("SessionLibrary (t227)", () => {
         const ub = usageboard();
         const many = Array.from({ length: 9 }, (_, i) => sess(`s${String(i)}`, "claude_code"));
         ub.tokenStats.getSessions.mockResolvedValue(many);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 s0"));
         const cards = screen.getAllByRole("button", { name: /会话 s\d/ });
         for (const c of cards) fireEvent.click(c);
@@ -217,7 +228,7 @@ describe("SessionLibrary (t227)", () => {
             ],
             next_cursor: null,
         });
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         const preview_btns = screen.getAllByRole("button", { name: "预览" });
         const preview_btn = preview_btns[0];
@@ -236,7 +247,7 @@ describe("SessionLibrary (t227)", () => {
         const ub = usageboard();
         const switch_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        render(<SessionLibrary on_switch_workspace={switch_fn} />);
+        await renderLibrary({ on_switch_workspace: switch_fn });
         await waitFor(() => screen.getByText("会话 a"));
         const cards = screen.getAllByRole("button", { name: /会话 [abc]/ });
         const card0 = cards[0];
@@ -253,26 +264,50 @@ describe("SessionLibrary (t227)", () => {
     it("无匹配结果显示清除筛选空态", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "不存在" } });
+        expect(screen.getByText("没有匹配的会话")).toBeTruthy();
         expect(screen.getByText(/清除筛选/)).toBeTruthy();
+    });
+
+    it("加载失败且筛选 0 条时显示加载失败并保留清除筛选", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockRejectedValue(new Error("boom"));
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话列表加载失败"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "x" } });
+        expect(screen.getByText("会话列表加载失败")).toBeTruthy();
+        expect(screen.getByText(/清除筛选/)).toBeTruthy();
+    });
+
+    it("中途分页失败时展示已加载数据并显示加载中断提示", async () => {
+        const ub = usageboard();
+        const first = Array.from({ length: 500 }, (_, i) =>
+            sess(`p${String(i)}`, "claude_code"),
+        );
+        ub.tokenStats.getSessions
+            .mockResolvedValueOnce(first)
+            .mockRejectedValueOnce(new Error("boom"));
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 p0"));
+        expect(document.querySelectorAll(".lib-card").length).toBe(50);
+        expect(screen.getByText("会话列表加载中断，已显示部分数据")).toBeTruthy();
     });
 
     it("「包含消息内容」开关接线：正文命中并入结果（并集，f001）", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         // 会话 b 正文含「秘密词」，元信息不含。
-        ub.sessionHistory.query.mockImplementation((_source: string, _env: string, id: string) =>
-            Promise.resolve({
-                messages:
-                    id === "b"
-                        ? [msg("m1", "user", "这里提到 秘密词 了", 1)]
-                        : [msg("m1", "user", "无关内容", 1)],
-                next_cursor: null,
-            }),
+        ub.sessionHistory.searchContent.mockImplementation(
+            (_locs: unknown, keyword: string) => {
+                if (keyword === "秘密词") {
+                    return Promise.resolve(["opencode|win|b"]);
+                }
+                return Promise.resolve([]);
+            },
         );
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         fireEvent.click(screen.getByLabelText("包含消息内容"));
         fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密词" } });
@@ -288,15 +323,118 @@ describe("SessionLibrary (t227)", () => {
         });
     });
 
+    it("内容搜索防抖：快速输入两次只触发一次 searchContent（t239）", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        ub.sessionHistory.searchContent.mockResolvedValue([]);
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "密" } });
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密" } });
+
+        expect(ub.sessionHistory.searchContent).not.toHaveBeenCalled();
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(1);
+        expect(ub.sessionHistory.searchContent).toHaveBeenLastCalledWith(
+            expect.arrayContaining([
+                expect.objectContaining({ source: "claude_code", env: "win", session_id: "a" }),
+            ]),
+            "秘密",
+        );
+        vi.useRealTimers();
+    });
+
+    it("内容搜索切换关键词时丢弃旧查询结果（t239）", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        let resolve_first: (value: string[]) => void = () => undefined;
+        ub.sessionHistory.searchContent.mockImplementation(
+            (_locs: unknown, keyword: string) => {
+                if (keyword === "旧") {
+                    return new Promise<string[]>((resolve) => {
+                        resolve_first = resolve;
+                    });
+                }
+                if (keyword === "新") {
+                    return Promise.resolve(["opencode|win|b"]);
+                }
+                return Promise.resolve([]);
+            },
+        );
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "旧" } });
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+        // 旧查询仍在 pending
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(1);
+
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "新" } });
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(2);
+
+        // 旧查询现在才 resolve，应被丢弃（不覆盖新结果）。
+        resolve_first(["claude_code|win|a"]);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(screen.queryByText("会话 a")).toBeNull();
+        expect(screen.getByText("会话 b")).toBeTruthy();
+        vi.useRealTimers();
+    });
+
+    it("批量摘要：一次 summaries 更新全部可见卡片（t239）", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        ub.sessionHistory.summaries.mockResolvedValue({
+            "claude_code|win|a": "摘要 a",
+            "opencode|win|b": "摘要 b",
+            "grok|win|c": "摘要 c",
+        });
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        await waitFor(() => {
+            expect(ub.sessionHistory.summaries).toHaveBeenCalledTimes(1);
+        });
+        expect(ub.sessionHistory.summaries).toHaveBeenCalledWith(
+            expect.arrayContaining([
+                expect.objectContaining({ source: "claude_code", env: "win", session_id: "a" }),
+                expect.objectContaining({ source: "opencode", env: "win", session_id: "b" }),
+                expect.objectContaining({ source: "grok", env: "win", session_id: "c" }),
+            ]),
+        );
+        expect(ub.sessionHistory.query).not.toHaveBeenCalled();
+        await waitFor(() => {
+            expect(document.querySelector(".lib-card-summary")?.textContent).toContain("摘要 a");
+        });
+    });
+
     it("加载更多分页逐步加载", async () => {
         const ub = usageboard();
         const many = Array.from({ length: 60 }, (_, i) => sess(`s${String(i)}`, "claude_code"));
         ub.tokenStats.getSessions.mockResolvedValue(many);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 s0"));
         expect(document.querySelectorAll(".lib-card").length).toBe(50);
         fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
-        expect(document.querySelectorAll(".lib-card").length).toBe(60);
+        await waitFor(() => {
+            expect(document.querySelectorAll(".lib-card").length).toBe(60);
+        });
     });
 
     it("预览抽屉「单独打开」装入并切页签，Esc 关闭", async () => {
@@ -307,7 +445,7 @@ describe("SessionLibrary (t227)", () => {
             messages: [msg("m1", "user", "消息一", 1)],
             next_cursor: null,
         });
-        render(<SessionLibrary on_switch_workspace={switch_fn} />);
+        await renderLibrary({ on_switch_workspace: switch_fn });
         await waitFor(() => screen.getByText("会话 a"));
         const preview_btns = screen.getAllByRole("button", { name: "预览" });
         const preview_btn = preview_btns[0];
@@ -331,7 +469,7 @@ describe("SessionLibrary (t227)", () => {
             messages: [msg("m1", "user", "消息一", 1)],
             next_cursor: null,
         });
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         const preview_btns = screen.getAllByRole("button", { name: "预览" });
         const preview_btn = preview_btns[0];
@@ -345,5 +483,68 @@ describe("SessionLibrary (t227)", () => {
         expect(screen.getByText("1/8")).toBeTruthy();
         fireEvent.click(add_btn);
         expect(screen.queryByText("1/8")).toBeNull();
+    });
+
+    it("更新一张卡片摘要时，其余已渲染卡片不重渲染（t237）", () => {
+        const s1 = sess("a", "claude_code") as unknown as TokenStatsSession;
+        const s2 = sess("b", "opencode") as unknown as TokenStatsSession;
+        const counts = { a: 0, b: 0 };
+        const onRenderById: Record<string, () => void> = {
+            a: () => {
+                counts.a += 1;
+            },
+            b: () => {
+                counts.b += 1;
+            },
+        };
+        function getOnRender(id: string): () => void {
+            return onRenderById[id] ?? (() => undefined);
+        }
+        const noop_toggle = vi.fn();
+        const noop_preview = vi.fn();
+        const noop_open = vi.fn();
+
+        function Parent() {
+            const [summaries, set_summaries] = useState<Record<string, string>>({});
+            return (
+                <div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            set_summaries((cur) => ({
+                                ...cur,
+                                [key_of(s2)]: "新摘要",
+                            }));
+                        }}
+                    >
+                        update
+                    </button>
+                    <SessionCard
+                        s={s1}
+                        summary={summaries[key_of(s1)] ?? ""}
+                        selected={false}
+                        on_toggle={noop_toggle}
+                        on_preview={noop_preview}
+                        on_open={noop_open}
+                        onRender={getOnRender("a")}
+                    />
+                    <SessionCard
+                        s={s2}
+                        summary={summaries[key_of(s2)] ?? ""}
+                        selected={false}
+                        on_toggle={noop_toggle}
+                        on_preview={noop_preview}
+                        on_open={noop_open}
+                        onRender={getOnRender("b")}
+                    />
+                </div>
+            );
+        }
+
+        const { getByRole } = render(<Parent />);
+        expect(counts).toEqual({ a: 1, b: 1 });
+
+        fireEvent.click(getByRole("button", { name: "update" }));
+        expect(counts).toEqual({ a: 1, b: 2 });
     });
 });

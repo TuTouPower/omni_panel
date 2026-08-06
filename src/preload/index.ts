@@ -231,6 +231,15 @@ const session_history_full_methods = {
             env,
             limit,
         ),
+    searchContent: (locs: readonly SessionHistoryLoc[], keyword: string) =>
+        invoke<readonly string[]>(IPC_CHANNELS.SESSION_HISTORY_SEARCH_CONTENT, {
+            locs,
+            keyword,
+        }),
+    summaries: (locs: readonly SessionHistoryLoc[]) =>
+        invoke<Readonly<Record<string, string>>>(IPC_CHANNELS.SESSION_HISTORY_SUMMARIES, {
+            locs,
+        }),
     onMessagesUpdated: (callback: (payload: SessionHistoryMessagesUpdatedPayload) => void) =>
         subscribe<[SessionHistoryMessagesUpdatedPayload]>(
             IPC_CHANNELS.SESSION_HISTORY_MESSAGES_UPDATED,
@@ -247,6 +256,8 @@ const session_history_disabled_methods = {
     query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
         Promise.resolve({ messages: [], next_cursor: null }),
     recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
+    searchContent: (): Promise<readonly string[]> => Promise.resolve([]),
+    summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),
     onMessagesUpdated: () => () => {
         /* noop */
     },
@@ -265,6 +276,8 @@ const session_history_open_only_methods = {
     query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
         Promise.resolve({ messages: [], next_cursor: null }),
     recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
+    searchContent: (): Promise<readonly string[]> => Promise.resolve([]),
+    summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),
     onMessagesUpdated: () => () => {
         /* noop */
     },

@@ -1,0 +1,192 @@
+.session-rail {
+    width: 220px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-subtle);
+    background: var(--bg-canvas);
+    transition: width 0.18s ease;
+}
+
+.session-rail.collapsed {
+    width: 44px;
+}
+
+.rail-collapse {
+    height: 34px;
+    flex-shrink: 0;
+    border: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        color 0.12s;
+}
+
+.rail-collapse:hover {
+    background: var(--bg-raised);
+    color: var(--text-secondary);
+}
+
+.rail-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+}
+
+.rail-slot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 7px 8px 7px 0;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: var(--bg-panel);
+    cursor: grab;
+    text-align: left;
+    overflow: hidden;
+    transition:
+        border-color 0.14s,
+        background 0.14s;
+}
+
+.rail-slot:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-raised);
+}
+
+.rail-slot:active {
+    cursor: grabbing;
+}
+
+.rail-slot-empty {
+    border: 1px dashed var(--border-strong);
+    background: transparent;
+    color: var(--text-muted);
+    justify-content: center;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+}
+
+.rail-slot-empty:hover {
+    border-color: var(--accent-lime);
+    color: var(--accent-lime);
+    background: var(--accent-lime-dim);
+}
+
+.rail-accent {
+    width: 4px;
+    align-self: stretch;
+    border-radius: 0 3px 3px 0;
+    flex-shrink: 0;
+}
+
+.rail-badge {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--bg-canvas);
+}
+
+.rail-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.rail-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rail-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.rail-close {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border: 0;
+    background: transparent;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition:
+        opacity 0.12s,
+        background 0.12s,
+        color 0.12s;
+}
+
+.rail-slot:hover .rail-close {
+    opacity: 1;
+}
+
+.rail-close:hover {
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
+    color: var(--danger);
+}
+
+.rail-add {
+    margin: 6px 8px 8px;
+    padding: 8px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+        border-color 0.14s,
+        color 0.14s,
+        background 0.14s;
+}
+
+.rail-add:hover {
+    border-color: var(--accent-lime);
+    color: var(--accent-lime);
+    background: var(--accent-lime-dim);
+}
+
+.rail-add:disabled {
+    opacity: 0.45;
+    cursor: default;
+    border-color: var(--border-subtle);
+    color: var(--text-muted);
+    background: transparent;
+}

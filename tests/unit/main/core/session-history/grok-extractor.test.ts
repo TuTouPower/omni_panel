@@ -4,6 +4,7 @@ import { copyFileSync, mkdtempSync, appendFileSync, rmSync, writeFileSync } from
 import { tmpdir } from "node:os";
 import {
     extract_grok,
+    extract_grok_first_user,
     extract_grok_incremental,
 } from "../../../../../src/main/core/session-history/grok-extractor";
 
@@ -180,5 +181,44 @@ describe("grok extractor (t209)", () => {
         } finally {
             rmSync(tmp, { recursive: true, force: true });
         }
+    });
+
+    it("first_user：首条 user 在顶部时直接返回其文本", () => {
+        expect(extract_grok_first_user(fixture)).toBe("hello grok");
+    });
+
+    it("first_user：跳过 system/assistant 行后返回首条 user 文本", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "grok-first-"));
+        const tmp_file = join(tmp, "chat_history.jsonl");
+        try {
+            writeFileSync(
+                tmp_file,
+                '{"type":"system","content":"system prompt"}\n' +
+                    '{"type":"assistant","content":"hi"}\n' +
+                    '{"type":"user","content":"真正问题"}\n',
+            );
+            expect(extract_grok_first_user(tmp_file)).toBe("真正问题");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("first_user：无 user 消息时返回空串", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "grok-first-none-"));
+        const tmp_file = join(tmp, "chat_history.jsonl");
+        try {
+            writeFileSync(
+                tmp_file,
+                '{"type":"assistant","content":"只有助手"}\n',
+            );
+            expect(extract_grok_first_user(tmp_file)).toBe("");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("first_user：文件缺失时返回空串", () => {
+        const missing = join(tmpdir(), `grok-first-missing-${String(Date.now())}.jsonl`);
+        expect(extract_grok_first_user(missing)).toBe("");
     });
 });

@@ -5,6 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
     extract_opencode,
+    extract_opencode_first_user,
     extract_opencode_incremental,
 } from "../../../../../src/main/core/session-history/opencode-extractor";
 
@@ -275,5 +276,53 @@ CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_c
         const { messages } = extract_opencode(fixture.db_path, fixture.session_id);
         // msg_assistant_1 关联的所有 part 因 message.data 解析失败被跳过
         expect(messages.map((m) => m.id)).toEqual(["prt_u1"]);
+    });
+
+    it("first_user：返回首条 user text part 的文本", () => {
+        expect(extract_opencode_first_user(fixture.db_path, fixture.session_id)).toBe("你好");
+    });
+
+    it("first_user：跳过 assistant part 后返回首条 user 文本", () => {
+        const db = new_db(fixture.db_path);
+        // 在 user part 之前插入一条 assistant text part
+        db.prepare(
+            "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?,?)",
+        ).run(
+            "prt_a_first",
+            "msg_assistant_1",
+            fixture.session_id,
+            fixture.user_time - 1,
+            fixture.user_time - 1,
+            JSON.stringify({ type: "text", text: "先出现的助手" }),
+        );
+        db.close();
+        expect(extract_opencode_first_user(fixture.db_path, fixture.session_id)).toBe("你好");
+    });
+
+    it("first_user：无 user message 时返回空串", () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-first-none-"));
+        const db_path = path.join(dir, "opencode.db");
+        try {
+            const db = new_db(db_path);
+            db.exec(`
+CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT);
+CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT);
+`);
+            db.prepare(
+                "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?)",
+            ).run("msg_a", "sess_none", 1, 1, JSON.stringify({ role: "assistant" }));
+            db.prepare(
+                "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?,?)",
+            ).run("prt_a", "msg_a", "sess_none", 1, 1, JSON.stringify({ type: "text", text: "只有助手" }));
+            db.close();
+            expect(extract_opencode_first_user(db_path, "sess_none")).toBe("");
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("first_user：db 缺失时返回空串", () => {
+        const missing = path.join(tmp_dir, "nope_first_user.db");
+        expect(extract_opencode_first_user(missing, fixture.session_id)).toBe("");
     });
 });

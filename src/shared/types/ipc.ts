@@ -129,6 +129,10 @@ export const IPC_CHANNELS = {
     SESSION_HISTORY_UNSUBSCRIBE: "sessionHistory:unsubscribe",
     SESSION_HISTORY_QUERY: "sessionHistory:query",
     SESSION_HISTORY_RECENT: "sessionHistory:recent",
+    /** t239: 批量内容搜索，一次调用返回全部候选会话的命中键集合。 */
+    SESSION_HISTORY_SEARCH_CONTENT: "sessionHistory:searchContent",
+    /** t239: 批量首条用户消息摘要，返回 loc key → 摘要文本。 */
+    SESSION_HISTORY_SUMMARIES: "sessionHistory:summaries",
     /** 推送事件：watcher 检测到变化 → renderer。 */
     SESSION_HISTORY_MESSAGES_UPDATED: "sessionHistory:messagesUpdated",
     /** OPEN 聚焦已开窗口时，把目标会话定位发到 renderer。 */
@@ -375,6 +379,13 @@ export interface SessionHistoryApi {
         env: string,
         limit: number,
     ): Promise<readonly SessionHistoryRecentItem[]>;
+    /** t239: 批量内容搜索，返回命中会话的 loc key 数组。 */
+    searchContent(
+        locs: readonly SessionHistoryLoc[],
+        keyword: string,
+    ): Promise<readonly string[]>;
+    /** t239: 批量首条用户消息摘要，返回 loc key → 摘要文本。 */
+    summaries(locs: readonly SessionHistoryLoc[]): Promise<Readonly<Record<string, string>>>;
     onMessagesUpdated(
         callback: (payload: SessionHistoryMessagesUpdatedPayload) => void,
     ): () => void;
@@ -387,6 +398,27 @@ export interface HistoryMessageLike {
     readonly role: "user" | "assistant";
     readonly text: string;
     readonly timestamp: number | null;
+}
+
+/** t239: 批量内容搜索请求。 */
+export interface SessionHistorySearchContentRequest {
+    readonly locs: readonly SessionHistoryLoc[];
+    readonly keyword: string;
+}
+
+/** t239: 批量内容搜索响应：命中的 loc key 集合（source|env|session_id）。 */
+export interface SessionHistorySearchContentResponse {
+    readonly hits: readonly string[];
+}
+
+/** t239: 批量首条用户消息摘要请求。 */
+export interface SessionHistorySummariesRequest {
+    readonly locs: readonly SessionHistoryLoc[];
+}
+
+/** t239: 批量首条用户消息摘要响应：loc key → 首条 user 文本前 80 字符。 */
+export interface SessionHistorySummariesResponse {
+    readonly summaries: Readonly<Record<string, string>>;
 }
 
 export interface SessionHistoryRecentItem {

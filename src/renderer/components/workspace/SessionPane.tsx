@@ -1,5 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { HistoryMessageLike } from "../../../shared/types/ipc";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { format_time_short } from "../../lib/session-history/markdown";
 import type { SlotSession } from "../../lib/workspace/slots";
 import {
@@ -9,7 +8,9 @@ import {
     summarize,
     type PaneData,
 } from "../../lib/workspace/pane";
-import { MarkdownMessage } from "./MarkdownMessage";
+import { PaneMessageRow } from "./PaneMessageRow";
+import { VirtualMessageList } from "./VirtualMessageList";
+import "../../styles/pane.css";
 
 export interface PaneView {
     readonly show_time: boolean;
@@ -63,11 +64,9 @@ export function SessionPane({
     on_focus,
     on_toggle_outline,
 }: SessionPaneProps) {
-    const scroll_ref = useRef<HTMLDivElement | null>(null);
-    const prev_first_id_ref = useRef<string | null>(null);
-    const prev_height_ref = useRef<number | null>(null);
+    const [scroll_el, set_scroll_el] = useState<HTMLDivElement | null>(null);
     const [at_bottom, set_at_bottom] = useState(true);
-    const first_id = column.messages[0]?.id ?? null;
+    const [locate_target, set_locate_target] = useState<string | null>(null);
 
     const counts = useMemo(() => message_counts(column.messages), [column.messages]);
 
@@ -83,29 +82,16 @@ export function SessionPane({
         [column.messages],
     );
 
-    // 前置（load older）后补偿 scrollTop；新消息在底部时保持跟随。
+    // 新消息在底部时保持跟随。prepend 滚动补偿由 VirtualMessageList 内部处理。
     useLayoutEffect(() => {
-        const el = scroll_ref.current;
-        const prev_height = prev_height_ref.current;
-        const is_prepend =
-            first_id !== null &&
-            prev_first_id_ref.current !== null &&
-            first_id !== prev_first_id_ref.current;
-        prev_first_id_ref.current = first_id;
-        if (el) {
-            const was_at_bottom = at_bottom;
-            const prev_scroll_height = prev_height;
-            prev_height_ref.current = el.scrollHeight;
-            if (is_prepend && prev_scroll_height !== null && el.scrollHeight > prev_scroll_height) {
-                el.scrollTop += el.scrollHeight - prev_scroll_height;
-            } else if (was_at_bottom) {
-                el.scrollTop = el.scrollHeight;
-            }
+        const el = scroll_el;
+        if (el && at_bottom) {
+            el.scrollTop = el.scrollHeight;
         }
-    }, [column.messages, first_id, at_bottom]);
+    }, [column.messages, at_bottom, scroll_el]);
 
     function handle_scroll(): void {
-        const el = scroll_ref.current;
+        const el = scroll_el;
         if (!el) return;
         set_at_bottom(
             is_near_bottom(el.scrollTop, el.scrollHeight, el.clientHeight, BOTTOM_THRESHOLD_PX),
@@ -116,16 +102,13 @@ export function SessionPane({
     }
 
     function scroll_to_bottom(): void {
-        const el = scroll_ref.current;
+        const el = scroll_el;
         if (el) el.scrollTop = el.scrollHeight;
         set_at_bottom(true);
     }
 
     function locate_message(id: string): void {
-        const row = scroll_ref.current?.querySelector<HTMLElement>(
-            `[data-message-id="${CSS.escape(id)}"]`,
-        );
-        row?.scrollIntoView({ block: "nearest" });
+        set_locate_target(id);
     }
 
     return (
@@ -202,7 +185,7 @@ export function SessionPane({
                 {column.status === "missing" ? (
                     <div className="pane-empty">该会话的原始记录文件不存在或已删除</div>
                 ) : (
-                    <div className="pane-msgs" ref={scroll_ref} onScroll={handle_scroll}>
+                    <div className="pane-msgs" ref={set_scroll_el} onScroll={handle_scroll}>
                         {column.status === "loading" && column.messages.length === 0 && (
                             <div className="pane-skeleton">
                                 <div className="pane-skel-row" />
@@ -210,34 +193,41 @@ export function SessionPane({
                                 <div className="pane-skel-row" />
                             </div>
                         )}
-                        {column.messages.map((m, i) => {
-                            const prev = column.messages[i - 1] ?? null;
-                            const divider = should_insert_divider(
-                                prev?.timestamp ?? null,
-                                m.timestamp,
-                            );
-                            return (
-                                <div key={m.id}>
-                                    {divider && (
-                                        <div className="pane-divider">
-                                            <span>
-                                                {m.timestamp !== null
-                                                    ? format_time_short(m.timestamp)
-                                                    : ""}
-                                            </span>
-                                        </div>
-                                    )}
-                                    <PaneMessageRow
-                                        message={m}
-                                        selected={is_selected(m.id)}
-                                        show_time={view.show_time}
-                                        compact={view.compact}
-                                        on_toggle={on_toggle}
-                                        on_hover={on_hover}
-                                    />
-                                </div>
-                            );
-                        })}
+                        <VirtualMessageList
+                            messages={column.messages}
+                            scrollElement={scroll_el}
+                            estimateHeight={80}
+                            overscan={400}
+                            renderItem={(m, i) => {
+                                const prev = column.messages[i - 1] ?? null;
+                                const divider = should_insert_divider(
+                                    prev?.timestamp ?? null,
+                                    m.timestamp,
+                                );
+                                return (
+                                    <>
+                                        {divider && (
+                                            <div className="pane-divider">
+                                                <span>
+                                                    {m.timestamp !== null
+                                                        ? format_time_short(m.timestamp)
+                                                        : ""}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <PaneMessageRow
+                                            message={m}
+                                            selected={is_selected(m.id)}
+                                            show_time={view.show_time}
+                                            compact={view.compact}
+                                            on_toggle={on_toggle}
+                                            on_hover={on_hover}
+                                        />
+                                    </>
+                                );
+                            }}
+                            scrollToId={locate_target}
+                        />
                         {column.loading_older && <div className="pane-loading">加载更早…</div>}
                         {!column.next_cursor && column.messages.length > 0 && (
                             <div className="pane-end">— 已到最早消息 —</div>
@@ -286,61 +276,6 @@ export function SessionPane({
                 </span>
             </footer>
         </section>
-    );
-}
-
-interface PaneMessageRowProps {
-    readonly message: HistoryMessageLike;
-    readonly selected: boolean;
-    readonly show_time: boolean;
-    readonly compact: boolean;
-    readonly on_toggle: (id: string, shift: boolean) => void;
-    readonly on_hover: (id: string | null) => void;
-}
-
-function PaneMessageRow({
-    message,
-    selected,
-    show_time,
-    compact,
-    on_toggle,
-    on_hover,
-}: PaneMessageRowProps) {
-    return (
-        <div
-            className={"pane-msg-row" + (selected ? " selected" : "") + (compact ? " compact" : "")}
-            data-message-id={message.id}
-            onMouseEnter={() => {
-                on_hover(message.id);
-            }}
-            onMouseLeave={() => {
-                on_hover(null);
-            }}
-        >
-            <input
-                type="checkbox"
-                className="pane-msg-check"
-                aria-label={`选择消息 ${message.text.slice(0, 24) || "(空)"}`}
-                checked={selected}
-                readOnly
-                onClick={(e) => {
-                    on_toggle(message.id, e.shiftKey);
-                }}
-            />
-            <div className="pane-msg-body">
-                <div className="pane-msg-meta">
-                    <span className="pane-msg-role">
-                        {message.role === "user" ? "用户" : "Agent"}
-                    </span>
-                    {show_time && message.timestamp !== null && (
-                        <span className="pane-msg-time">
-                            {format_time_short(message.timestamp)}
-                        </span>
-                    )}
-                </div>
-                <MarkdownMessage text={message.text} />
-            </div>
-        </div>
     );
 }
 

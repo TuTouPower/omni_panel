@@ -54,3 +54,74 @@ export function is_near_bottom(
 ): boolean {
     return scroll_height - client_height - scroll_top <= threshold;
 }
+
+/** t237 虚拟列表：根据已测量高度与估计高度计算每条消息的顶部偏移。
+ *  返回数组长度 = messages.length + 1，末尾元素为总高度。 */
+export function compute_message_offsets(
+    messages: readonly { readonly id: string }[],
+    heights: ReadonlyMap<string, number>,
+    estimate_height: number,
+): number[] {
+    const offsets = new Array<number>(messages.length + 1);
+    offsets[0] = 0;
+    for (let i = 0; i < messages.length; i += 1) {
+        const m = messages[i];
+        if (!m) continue;
+        const h = heights.get(m.id) ?? estimate_height;
+        const prev = offsets[i] ?? 0;
+        offsets[i + 1] = prev + h;
+    }
+    return offsets;
+}
+
+export interface VisibleWindow {
+    readonly start: number;
+    readonly end: number;
+    readonly top_spacer: number;
+    readonly bottom_spacer: number;
+    readonly offsets: readonly number[];
+    readonly total_height: number;
+}
+
+/** t237 虚拟列表：计算当前可视窗口 + 上下缓冲区的索引与 spacer 高度。
+ *  clientHeight <= 0 时（jsdom 等无真实布局环境）返回完整范围，便于测试断言。 */
+export function compute_visible_window(
+    messages: readonly { readonly id: string }[],
+    scroll_top: number,
+    client_height: number,
+    heights: ReadonlyMap<string, number>,
+    estimate_height: number,
+    overscan: number,
+): VisibleWindow {
+    const offsets = compute_message_offsets(messages, heights, estimate_height);
+    const total_height = offsets[messages.length] ?? 0;
+    if (client_height <= 0 || messages.length === 0) {
+        return {
+            start: 0,
+            end: messages.length,
+            top_spacer: 0,
+            bottom_spacer: 0,
+            offsets,
+            total_height,
+        };
+    }
+    const viewport_start = scroll_top - overscan;
+    const viewport_end = scroll_top + client_height + overscan;
+
+    let start = 0;
+    while (start < messages.length && (offsets[start + 1] ?? 0) < viewport_start) {
+        start += 1;
+    }
+    let end = start;
+    while (end < messages.length && (offsets[end] ?? 0) < viewport_end) {
+        end += 1;
+    }
+    return {
+        start,
+        end,
+        top_spacer: offsets[start] ?? 0,
+        bottom_spacer: total_height - (offsets[end] ?? 0),
+        offsets,
+        total_height,
+    };
+}

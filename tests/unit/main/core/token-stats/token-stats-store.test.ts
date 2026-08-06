@@ -2095,5 +2095,59 @@ describe("token-stats-store", () => {
                 store2.close();
             });
         });
+
+        describe("query_dashboard model alias mapping (t230)", () => {
+            it("returns aliased model names in dashboard.models", () => {
+                store.upsert_records([
+                    record({
+                        message_id: "a1",
+                        timestamp: T0,
+                        model: "claude-3-5-sonnet-20241022",
+                    }),
+                    record({ message_id: "a2", timestamp: T0, model: "opus" }),
+                ]);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: T0 - 3600000,
+                    end: T0 + 3600000,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "day",
+                    model_aliases: [{ alias: "Sonnet", keys: ["claude-3-5-sonnet-20241022"] }],
+                };
+                const dto = store.query_dashboard(query, { running: false, last_updated: null });
+                expect(dto.models).toEqual(["Sonnet", "opus"]);
+            });
+
+            it("filters by original model name while metric buckets keep original names", () => {
+                store.upsert_records([
+                    record({
+                        message_id: "a1",
+                        timestamp: T0,
+                        model: "claude-3-5-sonnet-20241022",
+                    }),
+                    record({ message_id: "a2", timestamp: T0, model: "opus" }),
+                ]);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: T0 - 3600000,
+                    end: T0 + 3600000,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "day",
+                    model_aliases: [{ alias: "Sonnet", keys: ["claude-3-5-sonnet-20241022"] }],
+                };
+                const filtered = store.query_dashboard(
+                    { ...query, model: "claude-3-5-sonnet-20241022" },
+                    { running: false, last_updated: null },
+                );
+                expect(filtered.current.calls).toBe(1);
+                expect(filtered.chart_data.metric_buckets.map((b) => b.model)).toEqual([
+                    "claude-3-5-sonnet-20241022",
+                ]);
+            });
+        });
     });
 });

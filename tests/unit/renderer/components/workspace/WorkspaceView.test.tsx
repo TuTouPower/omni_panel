@@ -739,4 +739,32 @@ describe("WorkspaceView (t224)", () => {
         fireEvent.click(screen.getByLabelText("显示时间戳"));
         expect(document.querySelector(".pane-msg-time")).toBeNull();
     });
+
+    it("兜底轮询间隔降级：面板打开后 60s 内全量 query 不超过 2 次", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        render(<WorkspaceView />);
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => screen.getByText("1/8"));
+
+        // 初始 mount 已触发一次 query；过滤出 sess_a 的兜底全量 query 调用。
+        const sess_a_queries = () =>
+            ub.sessionHistory.query.mock.calls.filter(
+                (c) => c[0] === "claude_code" && c[1] === "win" && c[2] === "sess_a",
+            );
+        const initial = sess_a_queries().length;
+        expect(initial).toBeGreaterThanOrEqual(1);
+
+        await act(async () => {
+            vi.advanceTimersByTime(60_000);
+            await Promise.resolve();
+        });
+        // 30s 周期内 60s 触发 2 次兜底，累计 ≤ initial + 2。
+        expect(sess_a_queries().length).toBeLessThanOrEqual(initial + 2);
+
+        vi.useRealTimers();
+    });
 });

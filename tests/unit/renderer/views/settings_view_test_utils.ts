@@ -262,6 +262,8 @@ export function install_settings_usageboard(get_config: () => AppConfiguration):
             unsubscribe: vi.fn().mockResolvedValue({ unsubscribed: false }),
             query: vi.fn().mockResolvedValue({ messages: [], next_cursor: null }),
             recent: vi.fn().mockResolvedValue([]),
+            searchContent: vi.fn().mockResolvedValue([]),
+            summaries: vi.fn().mockResolvedValue({}),
             onMessagesUpdated: vi.fn(() => () => undefined),
             onFocus: vi.fn(() => () => undefined),
         },

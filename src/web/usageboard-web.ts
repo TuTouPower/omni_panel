@@ -10,6 +10,7 @@ import type {
     ConnectorSnapshotDTO,
     HistoryMessageLike,
     RendererLogPayload,
+    SessionHistoryLoc,
 } from "../shared/types/ipc";
 import type {
     TokenStatsHeatmapFilters,
@@ -362,11 +363,26 @@ export function create_web_usageboard(): UsageboardApi {
             },
             subscribe: () => Promise.resolve({ subscribed: false }),
             unsubscribe: () => Promise.resolve({ unsubscribed: false }),
-            // t228: web 端经 local-api mock 读会话消息（fixture 按 session_id 索引）。
-            query: async (_source: string, _env: string, session_id: string) =>
-                get_json<{ messages: HistoryMessageLike[]; next_cursor: string | null }>(
-                    `/v1/sessionHistory?id=${encodeURIComponent(session_id)}`,
-                ),
+            // t228/t237: web 端经 local-api mock 读会话消息（fixture 按 session_id 索引）。
+            query: async (
+                _source: string,
+                _env: string,
+                session_id: string,
+                options?: { limit?: number; before_cursor?: unknown } | null,
+            ) => {
+                const params = new URLSearchParams({ id: session_id });
+                if (options?.limit) params.set("limit", String(options.limit));
+                if (
+                    options?.before_cursor != null &&
+                    (typeof options.before_cursor === "string" ||
+                        typeof options.before_cursor === "number")
+                ) {
+                    params.set("before_cursor", String(options.before_cursor));
+                }
+                return get_json<{ messages: HistoryMessageLike[]; next_cursor: string | null }>(
+                    `/v1/sessionHistory?${params.toString()}`,
+                );
+            },
             recent: async () => {
                 const sessions = await get_json<TokenStatsSession[]>("/v1/sessions");
                 return sessions.slice(0, 20).map((s) => ({
@@ -376,6 +392,17 @@ export function create_web_usageboard(): UsageboardApi {
                     title: s.title ?? null,
                     agent: s.source.replace(/_/g, "-"),
                 }));
+            },
+            searchContent: (_locs: readonly SessionHistoryLoc[], _keyword: string) => {
+                // t239: web 端本地 API 暂未暴露批量内容搜索；返回空数组保持兼容。
+                void _locs;
+                void _keyword;
+                return Promise.resolve([]);
+            },
+            summaries: (_locs: readonly SessionHistoryLoc[]) => {
+                // t239: web 端本地 API 暂未暴露批量摘要；返回空映射保持兼容。
+                void _locs;
+                return Promise.resolve({});
             },
             onMessagesUpdated: () => () => {
                 /* web 端不暴露会话历史实时推送 */

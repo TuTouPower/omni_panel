@@ -15,10 +15,26 @@
  * 容错：watcher 抛错或文件被删时不向外抛，记日志，停止该订阅 watcher。
  */
 import { statSync, watch, type FSWatcher } from "node:fs";
-import { extract_claude_code, extract_claude_code_incremental } from "./claude-code-extractor";
-import { extract_grok, extract_grok_incremental } from "./grok-extractor";
-import { extract_kimi_code, extract_kimi_code_incremental } from "./kimi-extractor";
-import { extract_opencode, extract_opencode_incremental } from "./opencode-extractor";
+import {
+    extract_claude_code,
+    extract_claude_code_first_user,
+    extract_claude_code_incremental,
+} from "./claude-code-extractor";
+import {
+    extract_grok,
+    extract_grok_first_user,
+    extract_grok_incremental,
+} from "./grok-extractor";
+import {
+    extract_kimi_code,
+    extract_kimi_code_first_user,
+    extract_kimi_code_incremental,
+} from "./kimi-extractor";
+import {
+    extract_opencode,
+    extract_opencode_first_user,
+    extract_opencode_incremental,
+} from "./opencode-extractor";
 import type { ExtractCursor, ExtractResult, HistoryMessage } from "./types";
 import { createLogger } from "../../../shared/lib/logger";
 
@@ -37,10 +53,13 @@ export interface SessionLoc {
     readonly session_id: string;
 }
 
-export interface SubscribeParams extends SessionLoc {
+export interface ResolvedSessionLoc extends SessionLoc {
     /** 源文件 / db 路径（claude_code/kimi/grok 是 JSONL 文件，opencode 是 .db 文件）。 */
     readonly file_path: string;
     readonly extractor_kind: ExtractorKind;
+}
+
+export interface SubscribeParams extends ResolvedSessionLoc {
     /**
      * 订阅方身份（不透明字符串）。同一 loc 下每个订阅方独立收推送（t219 多窗口路由）；
      * 缺省为 legacy 单订阅，路由由调用方 on_update 决定（未绑定窗口的 fallback）。
@@ -110,6 +129,24 @@ interface Subscription {
     /** true 表示已收到过至少一次全量提取结果。 */
     initialized: boolean;
     watcher: Watcher | null;
+}
+
+interface ExtractCacheEntry {
+    file_path: string;
+    extractor_kind: ExtractorKind;
+    mtime_ms: number;
+    size: number;
+    messages: HistoryMessage[];
+    cursor: ExtractCursor | null;
+}
+
+function safe_stat(file_path: string): { mtime_ms: number; size: number } | null {
+    try {
+        const st = statSync(file_path);
+        return { mtime_ms: st.mtimeMs, size: st.size };
+    } catch {
+        return null;
+    }
 }
 
 /** 未指定 subscriber_id 的订阅统一使用此 id（legacy 单订阅，路由由调用方决定）。 */
@@ -187,46 +224,71 @@ export function create_watcher(
     };
 }
 
-/** 调对应提取器做全量提取。 */
-function extract_full(
-    extractor_kind: ExtractorKind,
-    file_path: string,
-    session_id: string,
-): ExtractResult {
-    switch (extractor_kind) {
-        case "claude_code":
-            return extract_claude_code(file_path);
-        case "opencode":
-            return extract_opencode(file_path, session_id);
-        case "kimi":
-            return extract_kimi_code(file_path);
-        case "grok":
-            return extract_grok(file_path);
-    }
-}
+/**
+ * 限制并发的任务调度器。同一时刻最多允许 `limit` 个 async 任务运行，
+ * 新任务在前面的任务 resolve/reject 后依次启动。 abortSignal 用于在启动前短路。
+ */
+function with_concurrency_limit<T>(
+    tasks: readonly (() => T | Promise<T>)[] ,
+    limit: number,
+    abortSignal?: AbortSignal,
+): Promise<T[]> {
+    return new Promise((resolve, reject) => {
+        const results: T[] = [];
+        let running = 0;
+        let index = 0;
+        let rejected = false;
 
-/** 调对应提取器做增量提取。 */
-function extract_incremental(
-    extractor_kind: ExtractorKind,
-    file_path: string,
-    session_id: string,
-    cursor: ExtractCursor | null,
-): ExtractResult {
-    switch (extractor_kind) {
-        case "claude_code":
-            // claude_code 增量签名要求 cursor 非空；cursor 为 null 时退全量。
-            return cursor
-                ? extract_claude_code_incremental(file_path, cursor)
-                : extract_claude_code(file_path);
-        case "opencode":
-            return extract_opencode_incremental(file_path, session_id, cursor);
-        case "kimi":
-            return cursor
-                ? extract_kimi_code_incremental(file_path, cursor)
-                : extract_kimi_code(file_path);
-        case "grok":
-            return cursor ? extract_grok_incremental(file_path, cursor) : extract_grok(file_path);
-    }
+        function start_next(): void {
+            if (rejected) return;
+            if (abortSignal?.aborted) {
+                // 已中断：不再启动新任务，等已运行任务自然结束。
+                if (running === 0) {
+                    resolve(results);
+                }
+                return;
+            }
+            if (index >= tasks.length) {
+                if (running === 0) {
+                    resolve(results);
+                }
+                return;
+            }
+            while (running < limit && index < tasks.length) {
+                if (abortSignal?.aborted) {
+                    if (running === 0) {
+                        resolve(results);
+                    }
+                    return;
+                }
+                const idx = index;
+                const task = tasks[idx];
+                if (!task) break;
+                index += 1;
+                running += 1;
+                Promise.resolve(task())
+                    .then((value) => {
+                        if (!rejected) {
+                            results[idx] = value;
+                        }
+                    })
+                    .catch((err: unknown) => {
+                        if (!rejected) {
+                            rejected = true;
+                            reject(err instanceof Error ? err : new Error(String(err)));
+                        }
+                    })
+                    .finally(() => {
+                        running -= 1;
+                        if (!rejected) {
+                            start_next();
+                        }
+                    });
+            }
+        }
+
+        start_next();
+    });
 }
 
 /**
@@ -236,10 +298,115 @@ function extract_incremental(
  */
 export class SessionHistorySubscriptionService {
     private readonly subscriptions = new Map<string, Subscription>();
+    private readonly extract_cache = new Map<string, ExtractCacheEntry>();
     private readonly poll_interval_ms: number;
 
     constructor(options: { poll_interval_ms?: number } = {}) {
         this.poll_interval_ms = options.poll_interval_ms ?? 2000;
+    }
+
+    /** 调对应提取器做全量提取。 */
+    protected extract_full(
+        extractor_kind: ExtractorKind,
+        file_path: string,
+        session_id: string,
+    ): ExtractResult {
+        switch (extractor_kind) {
+            case "claude_code":
+                return extract_claude_code(file_path);
+            case "opencode":
+                return extract_opencode(file_path, session_id);
+            case "kimi":
+                return extract_kimi_code(file_path);
+            case "grok":
+                return extract_grok(file_path);
+        }
+    }
+
+    /** 调对应提取器做增量提取。 */
+    protected extract_incremental(
+        extractor_kind: ExtractorKind,
+        file_path: string,
+        session_id: string,
+        cursor: ExtractCursor | null,
+    ): ExtractResult {
+        switch (extractor_kind) {
+            case "claude_code":
+                // claude_code 增量签名要求 cursor 非空；cursor 为 null 时退全量。
+                return cursor
+                    ? extract_claude_code_incremental(file_path, cursor)
+                    : extract_claude_code(file_path);
+            case "opencode":
+                return extract_opencode_incremental(file_path, session_id, cursor);
+            case "kimi":
+                return cursor
+                    ? extract_kimi_code_incremental(file_path, cursor)
+                    : extract_kimi_code(file_path);
+            case "grok":
+                return cursor
+                    ? extract_grok_incremental(file_path, cursor)
+                    : extract_grok(file_path);
+        }
+    }
+
+    /** 轻量取某 session 首条 user 消息文本。 */
+    protected extract_first_user(
+        extractor_kind: ExtractorKind,
+        file_path: string,
+        session_id: string,
+    ): string {
+        switch (extractor_kind) {
+            case "claude_code":
+                return extract_claude_code_first_user(file_path);
+            case "opencode":
+                return extract_opencode_first_user(file_path, session_id);
+            case "kimi":
+                return extract_kimi_code_first_user(file_path);
+            case "grok":
+                return extract_grok_first_user(file_path);
+        }
+    }
+
+    private get_extract_cache(key: string, file_path: string): ExtractCacheEntry | null {
+        const cached = this.extract_cache.get(key);
+        if (cached?.file_path !== file_path) return null;
+        const st = safe_stat(file_path);
+        if (st?.mtime_ms !== cached.mtime_ms || st.size !== cached.size) return null;
+        return cached;
+    }
+
+    private set_extract_cache(
+        key: string,
+        file_path: string,
+        extractor_kind: ExtractorKind,
+        result: { messages: readonly HistoryMessage[]; cursor: ExtractCursor | null },
+    ): void {
+        const st = safe_stat(file_path);
+        this.extract_cache.set(key, {
+            file_path,
+            extractor_kind,
+            mtime_ms: st?.mtime_ms ?? 0,
+            size: st?.size ?? 0,
+            messages: [...result.messages],
+            cursor: result.cursor,
+        });
+    }
+
+    private refresh_cache_after_change(sub: Subscription, new_messages: HistoryMessage[]): void {
+        const key = loc_key(sub.loc);
+        const cached = this.extract_cache.get(key);
+        const st = safe_stat(sub.file_path);
+        if (cached?.file_path === sub.file_path) {
+            cached.messages = [...cached.messages, ...new_messages];
+            cached.cursor = sub.cursor;
+            if (st) {
+                cached.mtime_ms = st.mtime_ms;
+                cached.size = st.size;
+            }
+        } else {
+            const full = this.extract_full(sub.extractor_kind, sub.file_path, sub.loc.session_id);
+            this.set_extract_cache(key, sub.file_path, sub.extractor_kind, full);
+        }
     }
 
     /**
@@ -260,7 +427,12 @@ export class SessionHistorySubscriptionService {
 
         // 订阅时立即做一次全量提取建立 cursor，但不向 on_update 推送——
         // 首次拉取由调用方走 query 通道；watcher 只在订阅之后的追加发生时推增量。
-        const initial = extract_full(params.extractor_kind, params.file_path, params.session_id);
+        // 优先复用同文件缓存，避免 subscribe 后立即 query 重复解析同一文件。
+        const cached = this.get_extract_cache(key, params.file_path);
+        const initial = cached ?? this.extract_full(params.extractor_kind, params.file_path, params.session_id);
+        if (!cached) {
+            this.set_extract_cache(key, params.file_path, params.extractor_kind, initial);
+        }
         const sub: Subscription = {
             loc: {
                 source: params.source,
@@ -297,7 +469,7 @@ export class SessionHistorySubscriptionService {
     private handle_change(sub: Subscription): void {
         let messages: readonly HistoryMessage[] = [];
         try {
-            const result = extract_incremental(
+            const result = this.extract_incremental(
                 sub.extractor_kind,
                 sub.file_path,
                 sub.loc.session_id,
@@ -310,6 +482,7 @@ export class SessionHistorySubscriptionService {
             return;
         }
         if (messages.length === 0) return;
+        this.refresh_cache_after_change(sub, [...messages]);
         // t219 多订阅方：逐订阅方隔离，单个 on_update 抛错不剥夺其余订阅方推送。
         for (const entry of sub.subscribers.values()) {
             try {
@@ -368,7 +541,12 @@ export class SessionHistorySubscriptionService {
         },
         options?: QueryOptions,
     ): QueryResult {
-        const full = extract_full(params.extractor_kind, params.file_path, params.session_id);
+        const key = loc_key(params);
+        const cached = this.get_extract_cache(key, params.file_path);
+        const full = cached ?? this.extract_full(params.extractor_kind, params.file_path, params.session_id);
+        if (!cached) {
+            this.set_extract_cache(key, params.file_path, params.extractor_kind, full);
+        }
         const all = full.messages;
         const limit = options?.limit;
 
@@ -419,5 +597,69 @@ export class SessionHistorySubscriptionService {
             title: row.title,
             agent: row.source.replace(/_/g, "-"),
         }));
+    }
+
+    /**
+     * 批量内容搜索：对候选会话集合做一次性关键词扫描，返回命中的 loc key 集合。
+     * 优先复用 extract_cache；未缓存时按 concurrency（默认 3）限制同时解析的源文件数。
+     * abortSignal 置位后不再启动新 loc，已运行任务继续到当前 loc 完成。
+     */
+    async searchContent(
+        locs: readonly ResolvedSessionLoc[],
+        keyword: string,
+        options?: { concurrency?: number; abortSignal?: AbortSignal },
+    ): Promise<Set<string>> {
+        const q = keyword.toLowerCase();
+        const hits = new Set<string>();
+        const concurrency = options?.concurrency ?? 3;
+
+        const tasks = locs.map((loc) => (): void => {
+            if (options?.abortSignal?.aborted) return;
+            const key = loc_key(loc);
+            const cached = this.get_extract_cache(key, loc.file_path);
+            let messages: readonly HistoryMessage[];
+            if (cached) {
+                messages = cached.messages;
+            } else {
+                const full = this.extract_full(loc.extractor_kind, loc.file_path, loc.session_id);
+                this.set_extract_cache(key, loc.file_path, loc.extractor_kind, full);
+                messages = full.messages;
+            }
+            if (messages.some((m) => m.text.toLowerCase().includes(q))) {
+                hits.add(key);
+            }
+        });
+
+        await with_concurrency_limit(tasks, concurrency, options?.abortSignal);
+        return hits;
+    }
+
+    /**
+     * 批量首条用户消息摘要：返回 loc key → 首条 user 文本前 80 字符。
+     * 优先复用 extract_cache；未缓存时调用各端轻量 first_user 扫描（不触发全量提取）。
+     * concurrency 默认 5。
+     */
+    async summaries(
+        locs: readonly ResolvedSessionLoc[],
+        options?: { concurrency?: number },
+    ): Promise<Record<string, string>> {
+        const result: Record<string, string> = {};
+        const concurrency = options?.concurrency ?? 5;
+
+        const tasks = locs.map((loc) => (): void => {
+            const key = loc_key(loc);
+            const cached = this.get_extract_cache(key, loc.file_path);
+            let text = "";
+            if (cached) {
+                const first = cached.messages.find((m) => m.role === "user");
+                text = first?.text ?? "";
+            } else {
+                text = this.extract_first_user(loc.extractor_kind, loc.file_path, loc.session_id);
+            }
+            result[key] = text.slice(0, 80);
+        });
+
+        await with_concurrency_limit(tasks, concurrency);
+        return result;
     }
 }

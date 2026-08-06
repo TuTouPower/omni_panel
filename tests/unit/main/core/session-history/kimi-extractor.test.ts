@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { join } from "node:path";
-import { copyFileSync, mkdtempSync, appendFileSync, rmSync } from "node:fs";
+import { copyFileSync, mkdtempSync, appendFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import {
     extract_kimi_code,
+    extract_kimi_code_first_user,
     extract_kimi_code_incremental,
 } from "../../../../../src/main/core/session-history/kimi-extractor";
 
@@ -122,5 +123,56 @@ describe("kimi_code extractor (t209)", () => {
         const { messages } = extract_kimi_code(fixture);
         // 仅 3 条 append_message 提取，干扰行不产生消息
         expect(messages).toHaveLength(3);
+    });
+
+    it("first_user：首条 user 在顶部时直接返回其文本", () => {
+        expect(extract_kimi_code_first_user(fixture)).toBe("hello kimi");
+    });
+
+    it("first_user：跳过非 append_message / 非 user 行后返回首条 user 文本", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "kimi-first-"));
+        const tmp_file = join(tmp, "wire.jsonl");
+        try {
+            const lines = [
+                JSON.stringify({ type: "metadata", message: { role: "user", content: "忽略" } }),
+                JSON.stringify({
+                    type: "context.append_message",
+                    time: 1,
+                    message: { role: "assistant", content: [{ type: "text", text: "hi" }] },
+                }),
+                JSON.stringify({
+                    type: "context.append_message",
+                    time: 2,
+                    message: { role: "user", content: [{ type: "text", text: "真正问题" }] },
+                }),
+            ];
+            writeFileSync(tmp_file, lines.join("\n") + "\n");
+            expect(extract_kimi_code_first_user(tmp_file)).toBe("真正问题");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("first_user：无 user 消息时返回空串", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "kimi-first-none-"));
+        const tmp_file = join(tmp, "wire.jsonl");
+        try {
+            writeFileSync(
+                tmp_file,
+                JSON.stringify({
+                    type: "context.append_message",
+                    time: 1,
+                    message: { role: "assistant", content: [{ type: "text", text: "只有助手" }] },
+                }) + "\n",
+            );
+            expect(extract_kimi_code_first_user(tmp_file)).toBe("");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("first_user：文件缺失时返回空串", () => {
+        const missing = join(tmpdir(), `kimi-first-missing-${String(Date.now())}.jsonl`);
+        expect(extract_kimi_code_first_user(missing)).toBe("");
     });
 });
