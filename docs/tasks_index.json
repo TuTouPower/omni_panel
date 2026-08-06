@@ -2,5 +2,36 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t229",
+            "slug": "fix_gran_preset_switch",
+            "title": "修复 7d/30d 预设下柱状图粒度切换失效",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t229_fix_gran_preset_switch"
+        },
+        {
+            "tid": "t230",
+            "slug": "fix_model_dropdown_alias",
+            "title": "代理面板模型下拉应用模型映射",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t230_fix_model_dropdown_alias"
+        }
+    ]
 }

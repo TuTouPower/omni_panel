@@ -52,6 +52,24 @@
 - 内容：`src/renderer/components/session-library/SessionLibrary.tsx` 645 行、`src/renderer/styles/session-library.css` 725 行，均超项目 400 行 minor 阈值（未达 800 important），round 1-3 持续净增。建议按功能拆（SessionCard/SessionRow/预览抽屉抽独立组件文件、CSS 按区块拆）。
 - 处理：未开
 
+### p060 柱状图小时/天粒度按钮在 7d/30d 预设下点击无效（回归）
+
+- 现象：代理面板柱状图时间轴的「小时/天」粒度按钮，在 7d/30d 预设下点击无响应（显示恒为「天」）；24h 预设下点「天」按钮样式也不随点击变化。期望：24h 强制小时粒度，7d/30d 可选择小时或天，自定义范围可自由切换。
+- 影响：粒度切换在常用 7d/30d 视图完全失效，用户无法按小时查看一周/一月的分布。
+- 根因：t191（commit 96cbf532）引入 `effective_granularity(preset, custom, gran)`（`src/renderer/views/TokenStatsView.tsx`），`preset` 非 24h 时恒返回 `"day"`、24h 恒返回 `"hour"`，且粒度 Segmented 的 `value={effective_gran}`、onChange 只 `setGran`。7d/30d 下 `effective_gran` 强制 `"day"`，`gran` state 的「小时」选择被覆盖，控件假死；24h 下点「天」仅改 `gran`，UI 仍显示 hour，点击无视觉反馈。t191 之前 `value={gran}` 原生生效，可自由切换。属于产品缺陷 + 回归。t183（24h preset 走 hour 桶聚合）依赖 24h 强制 hour；t184（24h 只走 rollup）不依赖 gran 覆盖，修复时须保持 24h 锁定小时，仅放开 7d/30d 的 `effective_gran` 约束。
+- 测试缺口：`tests/unit/renderer/views/token_stats_view.test.tsx` 无断言覆盖预设下粒度按钮的行为；`effective_granularity` 为视图内纯函数未导出未单测，7d/30d 下点「小时」后的 UI/查询 gran 行为无任何断言。补测：点击 7d/30d「小时」后断言 Segmented 高亮与 `getDashboard` 请求 `gran="hour"`；24h 下断言恒 hour；自定义范围断言可切换。
+- 线索：`.scratch/task-bug-gran-24h7d/`（回归定位笔记）；根因定位见 commit 96cbf532 引入 `effective_granularity`。
+- 处理：未开
+
+### p061 代理面板模型下拉未应用模型映射（alias）
+
+- 现象：代理面板右上角「模型筛选」下拉列出的是原始模型名（如 `claude-3-5-sonnet-20241022`），而柱状图、donut、会话表同窗口都显示映射后的别名（如 `Sonnet`）。期望：下拉选项显示文本应用同样的 modelAliases 映射。
+- 影响：用户在下拉里看不到与图表一致的模型名，筛选时难以对照；alias 用户日常操作体验不一致。
+- 根因：后端 `dashboard.models` 由 `token-stats-store.ts` 的 `SELECT DISTINCT model ... ORDER BY model`（`window_models` 临时表）直接取原始名，未过 `model_resolver`（alias 在 TopN 聚合前的 `model_token_totals`/`model_call_totals` 中已合并）。前端 `TokenStatsView.tsx` 的 `modelOptions` 直接用 `dashboard.models` 渲染下拉，未套 `modelAliases`。属产品缺陷。注意：后端 `build_dashboard_conditions` 的 model 筛选是原始名精确匹配（`model = @model`），所以下拉 value 必须保留原始名、只映射显示文本，否则筛选失效。
+- 测试缺口：`tests/unit/renderer/views/token_stats_view.test.tsx` 的模型筛选测试（t204/t206）只断言 option 文本等于原始名（`sonnet`），未覆盖配置了 modelAliases 时下拉显示映射名；`tests/unit/main/core/token-stats/token-stats-store.test.ts` 未断言 `dashboard.models` 的 alias 映射。补测：后端测试断言配置 model_aliases 后 `models` 返回映射名；前端测试断言带 modelAliases 时下拉显示别名且选中后查询仍发原始名。
+- 线索：`.scratch/task-bug-model-dropdown/`（映射链路分析）。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。
