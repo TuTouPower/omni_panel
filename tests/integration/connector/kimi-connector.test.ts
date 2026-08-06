@@ -275,34 +275,6 @@ describe("kimi connector", () => {
         expect(booster?.used).toBeCloseTo(5, 5);
     });
 
-    it("parses totalQuota as percent via limit - remaining", async () => {
-        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
-        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
-        const ctx = create_ctx({
-            http: {
-                get_json: vi.fn().mockResolvedValue({
-                    usage: {
-                        limit: "100",
-                        used: "10",
-                        remaining: "90",
-                        resetTime: "2099-01-01T00:00:00Z",
-                    },
-                    totalQuota: { limit: "1000", remaining: "200" },
-                }),
-                post_json: vi.fn(),
-                get_raw: vi.fn(),
-            },
-        });
-        const result = await run_connector(raw, script, ctx);
-        const total = result.observations.find((o) => o.metric_id === "kimi:total_quota");
-        expect(total).toBeDefined();
-        expect(total?.display_style).toBe("percent");
-        // used = max(0, 1000 - 200) = 800
-        expect(total?.used).toBe(800);
-        expect(total?.limit).toBe(1000);
-        expect(total?.normalized_label).toBe("总配额");
-    });
-
     it("status stays normal when limit is 0 (guarded against division by zero)", async () => {
         const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
         const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;

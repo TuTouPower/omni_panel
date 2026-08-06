@@ -20,11 +20,6 @@ interface BoosterWallet {
     readonly balance?: { readonly amountLeft?: string };
 }
 
-interface TotalQuota {
-    readonly limit?: string;
-    readonly remaining?: string;
-}
-
 interface UserInfo {
     readonly membership?: { readonly level?: string };
 }
@@ -33,7 +28,6 @@ interface KimiUsageResponse {
     readonly usage?: UsageDetail;
     readonly limits?: readonly RateLimitWindow[];
     readonly boosterWallet?: BoosterWallet;
-    readonly totalQuota?: TotalQuota;
     readonly user?: UserInfo;
 }
 
@@ -163,32 +157,6 @@ async function main(): Promise<ScriptObservation[]> {
             display_style: "ratio",
             reset_at: null,
             status: "normal",
-            observed_at: now,
-            source: "poll",
-            stale: false,
-            last_error: null,
-        });
-    }
-
-    // 总配额（totalQuota，无 used 字段，按 limit - remaining 推导）。
-    if (response?.totalQuota) {
-        const limit = to_number(response.totalQuota.limit);
-        const remaining = to_number(response.totalQuota.remaining);
-        const used = Math.max(0, limit - remaining);
-        results.push({
-            provider: "kimi",
-            account_id: "kimi",
-            account_label,
-            metric_id: "kimi:total_quota",
-            raw_label: "total_quota",
-            normalized_label: "总配额",
-            window: "month",
-            cycleDurationMs: MONTH_CYCLE_MS,
-            used,
-            limit,
-            display_style: "percent",
-            reset_at: null,
-            status: limit > 0 ? ctx.status.for_pct((used / limit) * 100) : "normal",
             observed_at: now,
             source: "poll",
             stale: false,
