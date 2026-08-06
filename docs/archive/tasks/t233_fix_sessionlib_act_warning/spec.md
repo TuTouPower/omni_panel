@@ -28,8 +28,8 @@ reviewer 判 AC 时只看本区。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] 运行 `SessionLibrary.test.tsx` 相关测试，无 "not wrapped in act(...)" 警告输出。
-- [ ] 全部用例通过，断言语义与现状一致。
+- [x] 运行 `SessionLibrary.test.tsx` 相关测试，无 "not wrapped in act(...)" 警告输出。
+- [x] 全部用例通过，断言语义与现状一致。
 
 ### 可测试性声明
 

@@ -2,11 +2,11 @@
 tid: "t233"
 slug: "fix_sessionlib_act_warning"
 title: "消除 SessionLibrary 测试 act 警告"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t233_fix_sessionlib_act_warning"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "7b98ee4578541333e88caa0028bb953e0fca1bdf"
 depends_on: ""
 conflicts_with: "t232,t234,t237,t239"
 schedule_status: "scheduled"
@@ -19,11 +19,10 @@ note: ""
 
 ## 实施笔记
 
-执行期边做边写：实际步骤、踩坑、中途决策、偏离 spec、关键验证、blocked 原因与用户放行的新轮次上限。
-
-创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
-
-无
+- 新增 `renderLibrary` 辅助函数，在 `render(<SessionLibrary ... />)` 后执行 `await act(async () => {})` 冲刷 `getSessions`/`query` resolve 的微任务，消除 act 警告。
+- 将测试文件中全部 14 处 `render(...)` 替换为 `await renderLibrary(...)`；`加载更多` 断言改为 `waitFor` 轮询。
+- 未改动 `SessionLibrary.tsx` 生产代码；未删除或弱化任何断言。
+- 验证：`pnpm test -- SessionLibrary.test.tsx` 14 用例通过且无 act 警告；`pnpm lint` 通过。
 
 ## Review 处置
 
@@ -39,20 +38,9 @@ note: ""
 
 reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符），处置为改 spec 上下文区，不计 FAIL。
 
-### Round 1 场景说明
+### Round 1 (2026-08-06 18:25 UTC+8)
 
-- **无 finding**：写「Round 1 零 finding，未进处置表。」
-- **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
-- **有 critical / important**：建表，逐条填 status（不得留空）。
-
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+Round 1 零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -61,24 +49,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC1 `pnpm test -- SessionLibrary.test.tsx` 无 "not wrapped in act(...)" 输出；AC2 14 用例全部通过，断言未改动语义。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+SessionLibrary 测试 act 警告已消除，测试与 lint 通过。

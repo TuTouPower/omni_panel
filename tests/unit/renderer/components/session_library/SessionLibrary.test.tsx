@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionLibrary } from "../../../../../src/renderer/components/session-library/SessionLibrary";
 import { install_history_usageboard } from "../../views/session_history_test_utils";
@@ -32,6 +32,16 @@ interface MockBoard {
 
 function usageboard(): MockBoard {
     return (globalThis as unknown as { usageboard: MockBoard }).usageboard;
+}
+
+async function renderLibrary(props: { on_switch_workspace?: () => void } = {}) {
+    const result = render(
+        <SessionLibrary on_switch_workspace={props.on_switch_workspace ?? (() => undefined)} />,
+    );
+    await act(async () => {
+        // 冲刷 getSessions/query resolve 等微任务，避免 act 警告。
+    });
+    return result;
 }
 
 const T0 = new Date("2026-07-10T08:00:00Z").getTime();
@@ -76,7 +86,7 @@ describe("SessionLibrary (t227)", () => {
     it("页头显示统计行：会话数/agent 数/总 tokens", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => {
             expect(screen.getByText(/3 个会话/)).toBeTruthy();
         });
@@ -87,7 +97,7 @@ describe("SessionLibrary (t227)", () => {
     it("搜索框默认只匹配元信息，卡片显示 agent 色条/徽标/标题/轮数/tokens/目录", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "proj/b" } });
         expect(screen.getByText("会话 b")).toBeTruthy();
@@ -113,7 +123,7 @@ describe("SessionLibrary (t227)", () => {
             ],
             next_cursor: null,
         });
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         await waitFor(() => {
             const card_summary = document.querySelector(".lib-card-summary")?.textContent;
@@ -130,7 +140,7 @@ describe("SessionLibrary (t227)", () => {
     it("agent 芯片多选过滤 + 排序 + 视图切换", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         fireEvent.click(screen.getByRole("button", { name: /^Claude/ }));
         expect(screen.getByText("会话 a")).toBeTruthy();
@@ -165,7 +175,7 @@ describe("SessionLibrary (t227)", () => {
             ended_at: start_day + day,
         });
         ub.tokenStats.getSessions.mockResolvedValue([older, newer]);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 new"));
         fireEvent.change(screen.getByLabelText("起始日期"), { target: { value: "2026-07-10" } });
         expect(screen.queryByText("会话 old")).toBeNull();
@@ -185,7 +195,7 @@ describe("SessionLibrary (t227)", () => {
             ended_at: start_day + day,
         });
         ub.tokenStats.getSessions.mockResolvedValue([older, newer]);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 new"));
         fireEvent.change(screen.getByLabelText("结束日期"), { target: { value: "2026-07-09" } });
         expect(screen.getByText("会话 old")).toBeTruthy();
@@ -196,7 +206,7 @@ describe("SessionLibrary (t227)", () => {
         const ub = usageboard();
         const many = Array.from({ length: 9 }, (_, i) => sess(`s${String(i)}`, "claude_code"));
         ub.tokenStats.getSessions.mockResolvedValue(many);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 s0"));
         const cards = screen.getAllByRole("button", { name: /会话 s\d/ });
         for (const c of cards) fireEvent.click(c);
@@ -217,7 +227,7 @@ describe("SessionLibrary (t227)", () => {
             ],
             next_cursor: null,
         });
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         const preview_btns = screen.getAllByRole("button", { name: "预览" });
         const preview_btn = preview_btns[0];
@@ -236,7 +246,7 @@ describe("SessionLibrary (t227)", () => {
         const ub = usageboard();
         const switch_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        render(<SessionLibrary on_switch_workspace={switch_fn} />);
+        await renderLibrary({ on_switch_workspace: switch_fn });
         await waitFor(() => screen.getByText("会话 a"));
         const cards = screen.getAllByRole("button", { name: /会话 [abc]/ });
         const card0 = cards[0];
@@ -253,7 +263,7 @@ describe("SessionLibrary (t227)", () => {
     it("无匹配结果显示清除筛选空态", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "不存在" } });
         expect(screen.getByText(/清除筛选/)).toBeTruthy();
@@ -272,7 +282,7 @@ describe("SessionLibrary (t227)", () => {
                 next_cursor: null,
             }),
         );
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         fireEvent.click(screen.getByLabelText("包含消息内容"));
         fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密词" } });
@@ -292,11 +302,13 @@ describe("SessionLibrary (t227)", () => {
         const ub = usageboard();
         const many = Array.from({ length: 60 }, (_, i) => sess(`s${String(i)}`, "claude_code"));
         ub.tokenStats.getSessions.mockResolvedValue(many);
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 s0"));
         expect(document.querySelectorAll(".lib-card").length).toBe(50);
         fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
-        expect(document.querySelectorAll(".lib-card").length).toBe(60);
+        await waitFor(() => {
+            expect(document.querySelectorAll(".lib-card").length).toBe(60);
+        });
     });
 
     it("预览抽屉「单独打开」装入并切页签，Esc 关闭", async () => {
@@ -307,7 +319,7 @@ describe("SessionLibrary (t227)", () => {
             messages: [msg("m1", "user", "消息一", 1)],
             next_cursor: null,
         });
-        render(<SessionLibrary on_switch_workspace={switch_fn} />);
+        await renderLibrary({ on_switch_workspace: switch_fn });
         await waitFor(() => screen.getByText("会话 a"));
         const preview_btns = screen.getAllByRole("button", { name: "预览" });
         const preview_btn = preview_btns[0];
@@ -331,7 +343,7 @@ describe("SessionLibrary (t227)", () => {
             messages: [msg("m1", "user", "消息一", 1)],
             next_cursor: null,
         });
-        render(<SessionLibrary on_switch_workspace={() => undefined} />);
+        await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         const preview_btns = screen.getAllByRole("button", { name: "预览" });
         const preview_btn = preview_btns[0];
