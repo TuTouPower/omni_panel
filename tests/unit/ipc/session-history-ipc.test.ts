@@ -49,6 +49,8 @@ interface MockService {
     unsubscribe: ReturnType<typeof vi.fn>;
     query: ReturnType<typeof vi.fn>;
     recent_sessions: ReturnType<typeof vi.fn>;
+    searchContent: ReturnType<typeof vi.fn>;
+    summaries: ReturnType<typeof vi.fn>;
 }
 
 describe("session-history-ipc (t210)", () => {
@@ -75,6 +77,8 @@ describe("session-history-ipc (t210)", () => {
                     agent: "claude-code",
                 },
             ]),
+            searchContent: vi.fn().mockResolvedValue(new Set(["claude_code|win|s1"])),
+            summaries: vi.fn().mockResolvedValue({ "claude_code|win|s1": "摘要" }),
         };
     });
 
@@ -109,7 +113,7 @@ describe("session-history-ipc (t210)", () => {
         return call[1] as (...args: unknown[]) => unknown;
     }
 
-    it("注册 SUBSCRIBE/UNSUBSCRIBE/QUERY/RECENT 通道", async () => {
+    it("注册 SUBSCRIBE/UNSUBSCRIBE/QUERY/RECENT/SEARCH_CONTENT/SUMMARIES 通道", async () => {
         await register();
 
         const channels = ipc_main_mock.handle.mock.calls.map((c: unknown[]) => c[0]);
@@ -117,6 +121,8 @@ describe("session-history-ipc (t210)", () => {
         expect(channels).toContain("sessionHistory:unsubscribe");
         expect(channels).toContain("sessionHistory:query");
         expect(channels).toContain("sessionHistory:recent");
+        expect(channels).toContain("sessionHistory:searchContent");
+        expect(channels).toContain("sessionHistory:summaries");
         // SESSION_HISTORY_OPEN 不在本模块注册（由 main/index.ts 单点注册）
         expect(channels).not.toContain("sessionHistory:open");
     });
@@ -352,5 +358,125 @@ describe("session-history-ipc (t210)", () => {
         expect(result.ok).toBe(true);
         expect(result.data).toHaveLength(1);
         expect(service.recent_sessions).toHaveBeenCalledTimes(1);
+    });
+
+    it("SEARCH_CONTENT resolve 后调 service.searchContent 并返回命中数组", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            locs: [{ source: "claude_code", env: "win", session_id: "s1" }],
+            keyword: "hello",
+        })) as { ok: boolean; data: { hits: string[] } };
+
+        expect(result.ok).toBe(true);
+        expect(result.data.hits).toEqual(["claude_code|win|s1"]);
+        expect(service.searchContent).toHaveBeenCalledTimes(1);
+        const args = service.searchContent.mock.calls[0];
+        expect(args?.[0]).toEqual([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "s1",
+                file_path: "/x/sess.jsonl",
+                extractor_kind: "claude_code",
+            },
+        ]);
+        expect(args?.[1]).toBe("hello");
+    });
+
+    it("SEARCH_CONTENT 跳过未 resolve 的 loc，不整批失败", async () => {
+        locator_mock.resolve_session_file.mockImplementation((_source: string, _env: string, session_id: string) => {
+            if (session_id === "s1") {
+                return { file_path: "/x/s1.jsonl", extractor_kind: "claude_code" };
+            }
+            return null;
+        });
+        service.searchContent.mockResolvedValue(new Set(["claude_code|win|s1"]));
+        await register();
+
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            locs: [
+                { source: "claude_code", env: "win", session_id: "s1" },
+                { source: "claude_code", env: "win", session_id: "missing" },
+            ],
+            keyword: "hello",
+        })) as { ok: boolean; data: { hits: string[] } };
+
+        expect(result.ok).toBe(true);
+        expect(result.data.hits).toEqual(["claude_code|win|s1"]);
+        expect(service.searchContent).toHaveBeenCalledWith(
+            [
+                {
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "s1",
+                    file_path: "/x/s1.jsonl",
+                    extractor_kind: "claude_code",
+                },
+            ],
+            "hello",
+        );
+    });
+
+    it("SUMMARIES resolve 后调 service.summaries 并返回摘要映射", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:summaries");
+        const result = (await handler(valid_sender, {
+            locs: [{ source: "claude_code", env: "win", session_id: "s1" }],
+        })) as { ok: boolean; data: { summaries: Record<string, string> } };
+
+        expect(result.ok).toBe(true);
+        expect(result.data.summaries).toEqual({ "claude_code|win|s1": "摘要" });
+        expect(service.summaries).toHaveBeenCalledTimes(1);
+        const args = service.summaries.mock.calls[0];
+        expect(args?.[0]).toEqual([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "s1",
+                file_path: "/x/sess.jsonl",
+                extractor_kind: "claude_code",
+            },
+        ]);
+    });
+
+    it("SUMMARIES 跳过未 resolve 的 loc", async () => {
+        locator_mock.resolve_session_file.mockImplementation((_source: string, _env: string, session_id: string) => {
+            if (session_id === "s1") {
+                return { file_path: "/x/s1.jsonl", extractor_kind: "claude_code" };
+            }
+            return null;
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:summaries");
+        const result = (await handler(valid_sender, {
+            locs: [
+                { source: "claude_code", env: "win", session_id: "s1" },
+                { source: "claude_code", env: "win", session_id: "missing" },
+            ],
+        })) as { ok: boolean; data: { summaries: Record<string, string> } };
+
+        expect(result.ok).toBe(true);
+        expect(service.summaries).toHaveBeenCalledWith([
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "s1",
+                file_path: "/x/s1.jsonl",
+                extractor_kind: "claude_code",
+            },
+        ]);
     });
 });

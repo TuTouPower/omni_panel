@@ -4,7 +4,6 @@ import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import {
     count_stats,
     filter_sessions,
-    match_content,
     sort_sessions,
     type LibrarySort,
 } from "../../lib/session-library/filter";
@@ -50,32 +49,11 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
         if (Object.keys(pending).length === 0) return;
         set_summaries((cur) => ({ ...cur, ...pending }));
     }, []);
-    const ensure_summary = useCallback(
-        (s: TokenStatsSession): void => {
-            const k = key_of(s);
-            if (summary_inflight.current.has(k)) return;
-            summary_inflight.current.add(k);
-            const schedule = (): void => {
-                if (flush_scheduled_ref.current) return;
-                flush_scheduled_ref.current = true;
-                window.setTimeout(flush_summaries, 0);
-            };
-            void window.usageboard.sessionHistory
-                .query(s.source, s.env, s.id, { limit: 5 })
-                .then((res) => {
-                    const first_user = res.messages.find((m) => m.role === "user");
-                    pending_summaries_ref.current[k] = first_user
-                        ? first_user.text.slice(0, 80)
-                        : "";
-                    schedule();
-                })
-                .catch(() => {
-                    pending_summaries_ref.current[k] = "";
-                    schedule();
-                });
-        },
-        [flush_summaries],
-    );
+    const schedule_summaries_merge = useCallback((): void => {
+        if (flush_scheduled_ref.current) return;
+        flush_scheduled_ref.current = true;
+        window.setTimeout(flush_summaries, 0);
+    }, [flush_summaries]);
 
     useEffect(() => {
         void (async () => {
@@ -145,55 +123,97 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     const content_filtered = useMemo(() => {
         if (!search || !search_content) return filtered;
         const hits = content_hits;
-        const extra = all.filter(
-            (s) => hits.has(key_of(s)) && !filtered.some((f) => key_of(f) === key_of(s)),
-        );
+        const filtered_keys = new Set(filtered.map((f) => key_of(f)));
+        const extra = all.filter((s) => hits.has(key_of(s)) && !filtered_keys.has(key_of(s)));
         return sort_sessions([...filtered, ...extra], sort);
     }, [filtered, all, search, search_content, sort, content_hits]);
 
-    // 内容搜索 effect：序号守卫防旧查询迟到覆盖（f004）；清空/取消搜索时复位状态（f011）。
-    const content_seq_ref = useRef(0);
+    // 内容搜索 effect：防抖 300ms + AbortController 作废旧查询（t239）。
+    const content_debounce_ref = useRef<number | null>(null);
+    const content_abort_ref = useRef<AbortController | null>(null);
 
     useEffect(() => {
-        const seq = ++content_seq_ref.current;
+        if (content_debounce_ref.current !== null) {
+            window.clearTimeout(content_debounce_ref.current);
+            content_debounce_ref.current = null;
+        }
         if (!search || !search_content) {
+            set_content_hits(new Set());
             set_content_searching(false);
             return;
         }
         set_content_searching(true);
-        void (async () => {
-            const hits = new Set<string>();
+        content_debounce_ref.current = window.setTimeout(() => {
+            content_debounce_ref.current = null;
+            content_abort_ref.current?.abort();
+            const controller = new AbortController();
+            content_abort_ref.current = controller;
             const cand_filters: { agents?: string[]; start_at?: number; end_at?: number } = {};
             if (agents.length > 0) cand_filters.agents = agents;
             if (start_at !== undefined) cand_filters.start_at = start_at;
             if (end_at !== undefined) cand_filters.end_at = end_at;
             const candidates = filter_sessions(all, cand_filters);
-            const q = search.toLowerCase();
-            for (const s of candidates) {
-                try {
-                    const res = await window.usageboard.sessionHistory.query(
-                        s.source,
-                        s.env,
-                        s.id,
-                        { limit: 200 },
-                    );
-                    if (res.messages.some((m) => match_content(m.text, q))) hits.add(key_of(s));
-                } catch {
-                    // 源文件缺失忽略。
-                }
+            const locs = candidates.map((s) => ({ source: s.source, env: s.env, session_id: s.id }));
+            window.usageboard.sessionHistory
+                .searchContent(locs, search)
+                .then((hits) => {
+                    if (controller.signal.aborted) return;
+                    set_content_hits(new Set(hits));
+                    set_content_searching(false);
+                })
+                .catch((err: unknown) => {
+                    if (controller.signal.aborted) return;
+                    if (err instanceof Error && err.name === "AbortError") return;
+                    set_content_searching(false);
+                });
+        }, 300);
+
+        return () => {
+            if (content_debounce_ref.current !== null) {
+                window.clearTimeout(content_debounce_ref.current);
+                content_debounce_ref.current = null;
             }
-            if (content_seq_ref.current !== seq) return; // 已有更新查询，丢弃旧结果。
-            set_content_hits(hits);
-            set_content_searching(false);
-        })();
+            content_abort_ref.current?.abort();
+        };
     }, [search, search_content, all, agents, start_at, end_at]);
 
     const visible_sessions = content_filtered.slice(0, visible);
 
-    // 懒加载可见会话的首条用户消息摘要（f002）。
+    // 批量加载可见会话的首条用户消息摘要（t239）。
     useEffect(() => {
-        for (const s of visible_sessions) ensure_summary(s);
-    }, [visible_sessions, ensure_summary]);
+        const needed: TokenStatsSession[] = [];
+        for (const s of visible_sessions) {
+            const k = key_of(s);
+            if (summaries[k] === undefined && !summary_inflight.current.has(k)) {
+                needed.push(s);
+                summary_inflight.current.add(k);
+            }
+        }
+        if (needed.length === 0) return;
+
+        const locs = needed.map((s) => ({ source: s.source, env: s.env, session_id: s.id }));
+        const keys = needed.map((s) => key_of(s));
+        void window.usageboard.sessionHistory
+            .summaries(locs)
+            .then((result) => {
+                for (const s of needed) {
+                    const k = key_of(s);
+                    pending_summaries_ref.current[k] = result[k] ?? "";
+                }
+                schedule_summaries_merge();
+            })
+            .catch(() => {
+                for (const s of needed) {
+                    pending_summaries_ref.current[key_of(s)] = "";
+                }
+                schedule_summaries_merge();
+            })
+            .finally(() => {
+                for (const k of keys) {
+                    summary_inflight.current.delete(k);
+                }
+            });
+    }, [visible_sessions, summaries, schedule_summaries_merge]);
 
     function toggle_select(s: TokenStatsSession): void {
         if (selected.some((x) => key_of(x) === key_of(s))) {

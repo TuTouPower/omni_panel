@@ -2,11 +2,11 @@
 tid: "t239"
 slug: "library_content_search_batch"
 title: "会话库查询通道优化（内容搜索批量化 + 摘要轻量通道）"
-status: "backlog"
-branch: ""
-worktree: ""
+status: "active"
+branch: "t239_library_content_search_batch"
+worktree: "../omni_usage_t239"
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "e6e0b6bb1fc7212d413f3a5d0af1ee38796a4c6b"
 depends_on: "t235"
 conflicts_with: "t232,t233,t234,t237"
 schedule_status: "scheduled"
@@ -23,7 +23,15 @@ note: "merged from t240"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 新增共享 IPC 类型与通道：`SESSION_HISTORY_SEARCH_CONTENT` / `SESSION_HISTORY_SUMMARIES` 及对应 request/response 类型，扩展 `SessionHistoryApi`。
+- 提取器新增轻量首条 user 扫描：`extract_*_first_user`，JSONL 源从头按行解析，opencode 走 `rowid` 升序、limit 50 的只读 SQL；均不调用全量提取。
+- `SessionHistorySubscriptionService` 新增 `searchContent`（默认并发 3、`AbortSignal`）与 `summaries`（默认并发 5），复用提取缓存；为便于单测插桩，将 `extract_full` / `extract_incremental` / `extract_first_user` 改为 `protected` 方法。
+- IPC handler 注册两个新通道，resolve 失败时跳过未命中 loc。
+- preload 三档（full / open-only / disabled）均暴露 `searchContent` / `summaries`；web bridge 提供兼容空实现。
+- `SessionLibrary` 改为 300ms 防抖批量内容搜索 + `AbortController` 取消旧查询；摘要改为按可见会话批量 `summaries` 并复用 t237 的 pending/flush 机制合批更新；`content_filtered` 用 `Set` 去重避免 O(n²)。
+- 测试覆盖：extractor 首条 user 各种场景、subscription-service 批量搜索/并发/中断/缓存、IPC handler 新通道、renderer 防抖/取消/批量摘要。
+- 发现并同步更新多处测试 mock（popup/settings/route_api）以匹配扩展后的 `SessionHistoryApi`。
+- 生成 `src/generated/build-info.ts` 用于 typecheck，不纳入 commit。
 
 ## Review 处置
 
@@ -61,8 +69,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+  - AC1/2/3：`SessionLibrary.test.tsx` 中「内容搜索防抖」与「内容搜索切换关键词时丢弃旧查询结果」通过 fake timers 断言 300ms 防抖与旧结果被丢弃。
+  - AC4：`SessionLibrary.test.tsx` 中「包含消息内容」并集测试保持通过，结果与改前一致。
+  - AC5：`subscription-service.test.ts` 中「并发上限不超过 3」插桩断言 `max_running <= 3`。
+  - AC6：`subscription-service.test.ts` 中「summaries 缓存命中时不调用轻量扫描」与 opencode 摘要测试插桩断言未走全量提取。
+  - AC7：extractor 首条 user 测试覆盖顶部 user、非 user 后 user、无 user、缺失文件/db 回空串；subscription-service summaries 测试断言 80 字符截断。
+  - AC8：`SessionLibrary.test.tsx` 中「批量摘要：一次 summaries 更新全部可见卡片」断言只调用一次 `summaries` 且 `query` 不被调用。
+  - AC9：全部现有 `SessionLibrary` 测试与新增测试通过，卡片选择/预览/打开交互未改动。
 
 ### Reviewer verdict
 
@@ -70,15 +85,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+实现并通过了批量内容搜索与轻量摘要 IPC、主进程批量接口、renderer 防抖/取消/批量摘要以及全部相关单测；lint/typecheck 通过。

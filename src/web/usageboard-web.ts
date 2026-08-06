@@ -10,6 +10,7 @@ import type {
     ConnectorSnapshotDTO,
     HistoryMessageLike,
     RendererLogPayload,
+    SessionHistoryLoc,
 } from "../shared/types/ipc";
 import type {
     TokenStatsHeatmapFilters,
@@ -391,6 +392,17 @@ export function create_web_usageboard(): UsageboardApi {
                     title: s.title ?? null,
                     agent: s.source.replace(/_/g, "-"),
                 }));
+            },
+            searchContent: (_locs: readonly SessionHistoryLoc[], _keyword: string) => {
+                // t239: web 端本地 API 暂未暴露批量内容搜索；返回空数组保持兼容。
+                void _locs;
+                void _keyword;
+                return Promise.resolve([]);
+            },
+            summaries: (_locs: readonly SessionHistoryLoc[]) => {
+                // t239: web 端本地 API 暂未暴露批量摘要；返回空映射保持兼容。
+                void _locs;
+                return Promise.resolve({});
             },
             onMessagesUpdated: () => () => {
                 /* web 端不暴露会话历史实时推送 */

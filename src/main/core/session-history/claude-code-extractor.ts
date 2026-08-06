@@ -47,6 +47,38 @@ function record_to_message(rec: Record<string, unknown>): HistoryMessage | null 
 }
 
 /**
+ * 轻量扫描：从文件头开始逐行解析，返回第一条 role === "user" 的消息文本。
+ * 读到 max_lines 行仍未命中 user 时返回空串；文件不存在也返回空串。
+ * 不调用 extract_full，不缓存，只读前部少量行。
+ */
+export function extract_claude_code_first_user(file: string, max_lines = 1000): string {
+    let content: string;
+    try {
+        content = readFileSync(file, "utf-8");
+    } catch {
+        return "";
+    }
+    const lines = content.split("\n");
+    for (let i = 0; i < Math.min(lines.length, max_lines); i += 1) {
+        const line = lines[i];
+        if (line === undefined) continue;
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let rec: Record<string, unknown>;
+        try {
+            rec = JSON.parse(trimmed) as Record<string, unknown>;
+        } catch {
+            continue;
+        }
+        const msg = record_to_message(rec);
+        if (msg?.role === "user") {
+            return msg.text;
+        }
+    }
+    return "";
+}
+
+/**
  * 全量提取 file 的消息。空文件返回空。
  * 非法/截断行跳过，不抛。
  */

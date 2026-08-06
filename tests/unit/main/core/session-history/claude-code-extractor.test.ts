@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { join } from "node:path";
-import { copyFileSync, mkdtempSync, appendFileSync, rmSync } from "node:fs";
+import { copyFileSync, mkdtempSync, appendFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import {
     extract_claude_code,
+    extract_claude_code_first_user,
     extract_claude_code_incremental,
 } from "../../../../../src/main/core/session-history/claude-code-extractor";
 
@@ -93,5 +94,50 @@ describe("claude_code extractor (t209)", () => {
         // 只有合法的 1 条 user
         expect(messages).toHaveLength(1);
         expect(messages[0]?.text).toBe("合法行");
+    });
+
+    it("first_user：首条 user 在顶部时直接返回其文本", () => {
+        const text = extract_claude_code_first_user(fixture);
+        expect(text).toBe("帮我看看这个文件");
+    });
+
+    it("first_user：跳过非 user 行后返回首条 user 文本", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "claude-first-"));
+        const tmp_file = join(tmp, "session.jsonl");
+        try {
+            const lines = [
+                JSON.stringify({ type: "summary", message: { content: "忽略" } }),
+                JSON.stringify({ type: "thinking", message: { content: "思考" } }),
+                JSON.stringify({
+                    type: "user",
+                    uuid: "u1",
+                    message: { role: "user", content: [{ type: "text", text: "真正问题" }] },
+                    timestamp: "2026-08-05T10:00:00.000Z",
+                }),
+            ];
+            writeFileSync(tmp_file, lines.join("\n") + "\n");
+            expect(extract_claude_code_first_user(tmp_file)).toBe("真正问题");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("first_user：无 user 消息时返回空串", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "claude-first-none-"));
+        const tmp_file = join(tmp, "session.jsonl");
+        try {
+            writeFileSync(
+                tmp_file,
+                JSON.stringify({ type: "assistant", message: { content: "只有助手" } }) + "\n",
+            );
+            expect(extract_claude_code_first_user(tmp_file)).toBe("");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("first_user：文件缺失时返回空串", () => {
+        const missing = join(tmpdir(), `claude-first-missing-${String(Date.now())}.jsonl`);
+        expect(extract_claude_code_first_user(missing)).toBe("");
     });
 });

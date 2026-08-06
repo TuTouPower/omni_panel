@@ -170,6 +170,7 @@ open_or_focus（重开）   → show_panel()
 - 主动查询 `SESSION_HISTORY_QUERY` 全量提取 + 内存切片分页（决策 17 后端部分）：分页游标编码「已返回页最早消息在追加型数组中的绝对下标」（append-only 前缀跨追加稳定，空/重复消息 id 不跳段）。
 - **提取缓存（t235）**：`SessionHistorySubscriptionService` 以 `(source, env, session_id)` 为 key 缓存全量提取结果，失效信号为源文件 `mtime_ms + size`；`subscribe` 初始提取、`query`、分页均优先命中缓存，避免同一文件被反复全量解析。`handle_change` 增量推送后把新消息合并入缓存。缓存随订阅生命周期存在，不跨会话串数据。
 - **定位缓存（t235）**：`session-locator` 以 `(source, env, session_id)` 缓存 `resolve_session_file` 结果，同样按源文件 `mtime_ms + size` 失效；重复定位不重复目录扫描，文件删除后失效并返回 not found。
+- **批量内容搜索与轻量摘要（t239）**：`SessionHistorySubscriptionService` 提供 `searchContent`（候选 loc 集合 + 关键词 → 命中 loc key 集合）与 `summaries`（候选 loc 集合 → loc key → 首条 user 消息前 80 字符）；`searchContent` 复用提取缓存、限制并发解析数（默认 3）并支持 `AbortSignal` 协作中断，`summaries` 未缓存时调用各端 `extract_*_first_user` 轻量扫描（JSONL 从头按行、opencode 按 rowid 取 text part）避免全量提取。对应 IPC 通道 `SESSION_HISTORY_SEARCH_CONTENT` / `SESSION_HISTORY_SUMMARIES` 由 IPC 层 resolve 后批量调用，未 resolve 的 loc 被跳过；renderer `SessionLibrary` 以 300ms 防抖 + `AbortController` 取消旧查询，摘要按可见会话批量获取并合批更新。
 - 工作台兜底轮询降级（t235）：renderer `WorkspaceView` 兜底全量 `query` 间隔从 5s 拉长至 30s，保留作为订阅推送丢失时的拉齐手段；活跃会话新消息仍由 watcher 2s 轮询 / `fs.watch` 推送在秒级上屏。
 - 全程只读（硬约束）：服务层与提取器不开写句柄；注销 / 窗口关闭按订阅方释放 watcher / 轮询句柄。
 - 历史窗口 singleton `HistoryWindowController`（对齐 `create_agent_window_controller`）：`SESSION_HISTORY_OPEN` 幂等——已开则 show+focus+定位，未开则创建并经 URL `route_query` 携带初始定位参数（renderer 启动读），`did-finish-load` 补发兜底创建窗口期丢失的定位。

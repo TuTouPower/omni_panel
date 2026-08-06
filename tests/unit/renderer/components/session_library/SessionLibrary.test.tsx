@@ -21,6 +21,8 @@ interface MockBoard {
         unsubscribe: MockFn;
         query: MockFn;
         recent: MockFn;
+        searchContent: MockFn;
+        summaries: MockFn;
         onMessagesUpdated: MockFn;
         onFocus: MockFn;
     };
@@ -120,19 +122,14 @@ describe("SessionLibrary (t227)", () => {
     it("卡片与行摘要取首条用户消息内容（f008）", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([sess("a", "claude_code")]);
-        ub.sessionHistory.query.mockResolvedValue({
-            messages: [
-                msg("m1", "assistant", "不应显示的回复", 1),
-                msg("m2", "user", "真正要显示的用户消息", 2),
-            ],
-            next_cursor: null,
+        ub.sessionHistory.summaries.mockResolvedValue({
+            "claude_code|win|a": "真正要显示的用户消息",
         });
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         await waitFor(() => {
             const card_summary = document.querySelector(".lib-card-summary")?.textContent;
             expect(card_summary).toContain("真正要显示的用户消息");
-            expect(card_summary).not.toContain("不应显示的回复");
         });
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
@@ -302,14 +299,13 @@ describe("SessionLibrary (t227)", () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         // 会话 b 正文含「秘密词」，元信息不含。
-        ub.sessionHistory.query.mockImplementation((_source: string, _env: string, id: string) =>
-            Promise.resolve({
-                messages:
-                    id === "b"
-                        ? [msg("m1", "user", "这里提到 秘密词 了", 1)]
-                        : [msg("m1", "user", "无关内容", 1)],
-                next_cursor: null,
-            }),
+        ub.sessionHistory.searchContent.mockImplementation(
+            (_locs: unknown, keyword: string) => {
+                if (keyword === "秘密词") {
+                    return Promise.resolve(["opencode|win|b"]);
+                }
+                return Promise.resolve([]);
+            },
         );
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
@@ -324,6 +320,107 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => {
             expect(screen.getByText("会话 a")).toBeTruthy();
             expect(screen.queryByText("会话 b")).toBeNull();
+        });
+    });
+
+    it("内容搜索防抖：快速输入两次只触发一次 searchContent（t239）", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        ub.sessionHistory.searchContent.mockResolvedValue([]);
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "密" } });
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密" } });
+
+        expect(ub.sessionHistory.searchContent).not.toHaveBeenCalled();
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(1);
+        expect(ub.sessionHistory.searchContent).toHaveBeenLastCalledWith(
+            expect.arrayContaining([
+                expect.objectContaining({ source: "claude_code", env: "win", session_id: "a" }),
+            ]),
+            "秘密",
+        );
+        vi.useRealTimers();
+    });
+
+    it("内容搜索切换关键词时丢弃旧查询结果（t239）", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        let resolve_first: (value: string[]) => void = () => undefined;
+        ub.sessionHistory.searchContent.mockImplementation(
+            (_locs: unknown, keyword: string) => {
+                if (keyword === "旧") {
+                    return new Promise<string[]>((resolve) => {
+                        resolve_first = resolve;
+                    });
+                }
+                if (keyword === "新") {
+                    return Promise.resolve(["opencode|win|b"]);
+                }
+                return Promise.resolve([]);
+            },
+        );
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "旧" } });
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+        // 旧查询仍在 pending
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(1);
+
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "新" } });
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(2);
+
+        // 旧查询现在才 resolve，应被丢弃（不覆盖新结果）。
+        resolve_first(["claude_code|win|a"]);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(screen.queryByText("会话 a")).toBeNull();
+        expect(screen.getByText("会话 b")).toBeTruthy();
+        vi.useRealTimers();
+    });
+
+    it("批量摘要：一次 summaries 更新全部可见卡片（t239）", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        ub.sessionHistory.summaries.mockResolvedValue({
+            "claude_code|win|a": "摘要 a",
+            "opencode|win|b": "摘要 b",
+            "grok|win|c": "摘要 c",
+        });
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        await waitFor(() => {
+            expect(ub.sessionHistory.summaries).toHaveBeenCalledTimes(1);
+        });
+        expect(ub.sessionHistory.summaries).toHaveBeenCalledWith(
+            expect.arrayContaining([
+                expect.objectContaining({ source: "claude_code", env: "win", session_id: "a" }),
+                expect.objectContaining({ source: "opencode", env: "win", session_id: "b" }),
+                expect.objectContaining({ source: "grok", env: "win", session_id: "c" }),
+            ]),
+        );
+        expect(ub.sessionHistory.query).not.toHaveBeenCalled();
+        await waitFor(() => {
+            expect(document.querySelector(".lib-card-summary")?.textContent).toContain("摘要 a");
         });
     });
 

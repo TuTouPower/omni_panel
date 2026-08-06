@@ -25,11 +25,18 @@ import type {
     QueryOptions,
     QueryResult,
     RecentSession,
+    ResolvedSessionLoc,
     SessionHistorySubscriptionService,
     SessionLoc,
     SessionsProvider,
 } from "../core/session-history/subscription-service";
 import type { HistoryMessage } from "../core/session-history/types";
+import type {
+    SessionHistorySearchContentRequest,
+    SessionHistorySearchContentResponse,
+    SessionHistorySummariesRequest,
+    SessionHistorySummariesResponse,
+} from "../../shared/types/ipc";
 
 export interface SessionHistoryIpcDeps {
     readonly service: SessionHistorySubscriptionService;
@@ -147,6 +154,64 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                 deps.sessions_provider,
             );
             return ok(recent);
+        },
+    );
+
+    ipc.handle(
+        IPC_CHANNELS.SESSION_HISTORY_SEARCH_CONTENT,
+        async (
+            event: IpcMainInvokeEvent,
+            request: SessionHistorySearchContentRequest,
+        ): Promise<IpcResult<SessionHistorySearchContentResponse>> => {
+            assert_valid_sender(event);
+            const resolved_locs: ResolvedSessionLoc[] = [];
+            for (const loc of request.locs) {
+                const resolved = resolve_session_file(
+                    loc.source as HistorySource,
+                    loc.env as Env,
+                    loc.session_id,
+                    deps.locator_paths,
+                );
+                if (!resolved) continue;
+                resolved_locs.push({
+                    source: loc.source,
+                    env: loc.env as Env,
+                    session_id: loc.session_id,
+                    file_path: resolved.file_path,
+                    extractor_kind: resolved.extractor_kind,
+                });
+            }
+            const hits = await deps.service.searchContent(resolved_locs, request.keyword);
+            return ok({ hits: [...hits] });
+        },
+    );
+
+    ipc.handle(
+        IPC_CHANNELS.SESSION_HISTORY_SUMMARIES,
+        async (
+            event: IpcMainInvokeEvent,
+            request: SessionHistorySummariesRequest,
+        ): Promise<IpcResult<SessionHistorySummariesResponse>> => {
+            assert_valid_sender(event);
+            const resolved_locs: ResolvedSessionLoc[] = [];
+            for (const loc of request.locs) {
+                const resolved = resolve_session_file(
+                    loc.source as HistorySource,
+                    loc.env as Env,
+                    loc.session_id,
+                    deps.locator_paths,
+                );
+                if (!resolved) continue;
+                resolved_locs.push({
+                    source: loc.source,
+                    env: loc.env as Env,
+                    session_id: loc.session_id,
+                    file_path: resolved.file_path,
+                    extractor_kind: resolved.extractor_kind,
+                });
+            }
+            const summaries = await deps.service.summaries(resolved_locs);
+            return ok({ summaries });
         },
     );
 }
