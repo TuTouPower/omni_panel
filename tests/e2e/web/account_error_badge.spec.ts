@@ -10,6 +10,10 @@ import { PopupPage } from "../pages/popup_page";
  */
 test.describe("account error badge (web)", () => {
     test("error account shows error badge on provider tab", async ({ webPage }) => {
+        test.skip(
+            process.env["MOCK_FIXTURE"] !== "synthetic",
+            "error badge fixture data only exists in synthetic fixture",
+        );
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 

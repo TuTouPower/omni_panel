@@ -29,9 +29,9 @@ reviewer 判 AC 时只看本区。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] 本地默认 fixture（real）下执行 daily web e2e 命令不再因 `account_error_badge.spec.ts` 失败。
-- [ ] `MOCK_FIXTURE=synthetic` 下 `account_error_badge.spec.ts` 仍执行并通过，error 徽标断言覆盖保持。
-- [ ] 两种 fixture 下的命令都能被文档化命令（`docs/guides/testing.md`）触发，且运行结果与 fixture 选择一致。
+- [x] 本地默认 fixture（real）下执行 daily web e2e 命令不再因 `account_error_badge.spec.ts` 失败。
+- [x] `MOCK_FIXTURE=synthetic` 下 `account_error_badge.spec.ts` 仍执行并通过，error 徽标断言覆盖保持。
+- [x] 两种 fixture 下的命令都能被文档化命令（`docs/guides/testing.md`）触发，且运行结果与 fixture 选择一致。
 
 ### 可测试性声明
 
