@@ -1,15 +1,16 @@
 ---
 tid: "t232"
 slug: "split_workspace_view_files"
-title: "拆分工作台超行数组件文件"
+title: "拆分会话历史窗口超行数文件（工作台+会话库）"
 status: "backlog"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t236,t237,t238"
-note: ""
+conflicts_with: "t237"
+schedule_status: "pending_clarification"
+note: "merged from t241"
 ---
 
 # Task 过程总账

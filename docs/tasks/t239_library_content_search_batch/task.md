@@ -1,15 +1,16 @@
 ---
 tid: "t239"
 slug: "library_content_search_batch"
-title: "会话库内容搜索批量接口与防抖"
+title: "会话库查询通道优化（内容搜索批量化 + 摘要轻量通道）"
 status: "backlog"
 branch: ""
 worktree: ""
 review_level: "full"
 diff_anchor: ""
 depends_on: "t235"
-conflicts_with: "t237,t240,t241"
-note: ""
+conflicts_with: "t237"
+schedule_status: "pending_clarification"
+note: "merged from t240"
 ---
 
 # Task 过程总账

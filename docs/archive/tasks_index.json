@@ -3422,6 +3422,36 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t228_session_alignment_finalize"
+        },
+        {
+            "tid": "t236",
+            "slug": "workspace_fallback_poll_relax",
+            "title": "工作台兜底轮询降级",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "dropped: merged into t235",
+            "dir": "docs/archive/tasks/t236_workspace_fallback_poll_relax"
+        },
+        {
+            "tid": "t238",
+            "slug": "session_pane_virtual_scroll",
+            "title": "会话面板消息列表虚拟化",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "dropped: merged into t237",
+            "dir": "docs/archive/tasks/t238_session_pane_virtual_scroll"
         }
     ]
 }

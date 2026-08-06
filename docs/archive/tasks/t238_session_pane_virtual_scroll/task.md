@@ -2,14 +2,14 @@
 tid: "t238"
 slug: "session_pane_virtual_scroll"
 title: "会话面板消息列表虚拟化"
-status: "backlog"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "full"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t232,t237"
-note: ""
+conflicts_with: ""
+note: "dropped: merged into t237"
 ---
 
 # Task 过程总账

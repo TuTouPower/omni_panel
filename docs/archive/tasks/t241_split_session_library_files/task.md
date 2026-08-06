@@ -2,14 +2,14 @@
 tid: "t241"
 slug: "split_session_library_files"
 title: "拆分会话库超行数组件文件"
-status: "backlog"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t237,t239,t240"
-note: ""
+conflicts_with: ""
+note: "dropped: merged into t232"
 ---
 
 # Task 过程总账

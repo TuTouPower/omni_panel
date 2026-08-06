@@ -1,15 +1,16 @@
 ---
 tid: "t235"
 slug: "session_history_query_cache"
-title: "会话历史查询缓存（提取结果+路径解析）"
+title: "会话历史查询负载优化（提取/定位缓存 + 兜底轮询降级）"
 status: "backlog"
 branch: ""
 worktree: ""
 review_level: "full"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t240"
-note: ""
+conflicts_with: ""
+schedule_status: "pending_clarification"
+note: "merged from t236"
 ---
 
 # Task 过程总账

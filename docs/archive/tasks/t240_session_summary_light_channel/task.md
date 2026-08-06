@@ -1,15 +1,15 @@
 ---
-tid: "t236"
-slug: "workspace_fallback_poll_relax"
-title: "工作台兜底轮询降级"
-status: "backlog"
+tid: "t240"
+slug: "session_summary_light_channel"
+title: "会话摘要轻量通道"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t232"
-note: ""
+conflicts_with: ""
+note: "dropped: merged into t239"
 ---
 
 # Task 过程总账

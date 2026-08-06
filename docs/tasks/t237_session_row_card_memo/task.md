@@ -1,15 +1,16 @@
 ---
 tid: "t237"
 slug: "session_row_card_memo"
-title: "会话消息行与库卡片渲染 memo 化"
+title: "会话历史渲染性能优化（memo 化 + 消息列表虚拟化）"
 status: "backlog"
 branch: ""
 worktree: ""
-review_level: "single"
+review_level: "full"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t232,t238,t239,t240,t241"
-note: ""
+conflicts_with: "t232,t239"
+schedule_status: "pending_clarification"
+note: "merged from t238"
 ---
 
 # Task 过程总账
