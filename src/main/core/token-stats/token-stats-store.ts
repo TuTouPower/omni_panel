@@ -1325,11 +1325,20 @@ export function create_token_stats_store(
                     SELECT DISTINCT model FROM token_stats_records
                     WHERE ${model_list.conditions.join(" AND ")}`,
             ).run(model_list.params);
-            const models = (
-                prepare("SELECT model FROM window_models ORDER BY model").all() as {
-                    model: string;
-                }[]
-            ).map((row) => row.model);
+            const model_resolver = dashboard_alias_resolver(query.model_aliases);
+            const seen_models = new Set<string>();
+            const models: string[] = [];
+            for (const { model } of prepare(
+                "SELECT model FROM window_models ORDER BY model",
+            ).all() as {
+                model: string;
+            }[]) {
+                const resolved = model_resolver(model);
+                if (!seen_models.has(resolved)) {
+                    seen_models.add(resolved);
+                    models.push(resolved);
+                }
+            }
             const heatmap = prepare(
                 `SELECT
                     CAST(strftime('%w', hour_start/1000, 'unixepoch', '+8 hours') AS INTEGER) AS weekday,

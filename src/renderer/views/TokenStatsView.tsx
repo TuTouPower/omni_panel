@@ -538,14 +538,38 @@ export function TokenStatsView() {
     const currentSummary = dashboard?.current;
     const previousSummary = dashboard?.previous;
     // Model filter options: the window's distinct models plus the currently
-    // selected value (kept when the window no longer contains it).
+    // selected value (kept when the window no longer contains it). Display text
+    // uses configured aliases so the dropdown matches chart/donut labels, while
+    // the option value stays the original model name for backend filtering.
+    const aliasToOriginal = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const { alias, models } of modelAliases) {
+            for (const m of models) {
+                if (!map.has(alias)) map.set(alias, m);
+            }
+        }
+        return map;
+    }, [modelAliases]);
+    const originalToAlias = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const { alias, models } of modelAliases) {
+            for (const m of models) {
+                if (!map.has(m)) map.set(m, alias);
+            }
+        }
+        return map;
+    }, [modelAliases]);
     const modelOptions = useMemo(() => {
-        const list: string[] = model === "all" ? [] : [model];
-        for (const m of dashboard?.models ?? []) {
-            if (!list.includes(m)) list.push(m);
+        const list: { value: string; label: string }[] =
+            model === "all" ? [] : [{ value: model, label: originalToAlias.get(model) ?? model }];
+        for (const alias of dashboard?.models ?? []) {
+            const value = aliasToOriginal.get(alias) ?? alias;
+            if (!list.some((o) => o.value === value)) {
+                list.push({ value, label: alias });
+            }
         }
         return list;
-    }, [model, dashboard?.models]);
+    }, [model, dashboard?.models, aliasToOriginal, originalToAlias]);
     const currentComp = currentSummary
         ? [
               {
@@ -676,9 +700,9 @@ export function TokenStatsView() {
                         }}
                     >
                         <option value="all">全部模型</option>
-                        {modelOptions.map((m) => (
-                            <option key={m} value={m}>
-                                {m}
+                        {modelOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                                {o.label}
                             </option>
                         ))}
                     </select>

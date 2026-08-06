@@ -538,6 +538,35 @@ describe("TokenStatsView dashboard query", () => {
         expect(options).toContain("opus");
     });
 
+    it("maps model dropdown display text through modelAliases while keeping query value as original model name (t230)", async () => {
+        get_config.mockResolvedValue({
+            config: {
+                modelAliases: [{ alias: "Sonnet", models: ["claude-3-5-sonnet-20241022"] }],
+            },
+            hasSecrets: {},
+        });
+        const multi = dashboard("multi");
+        multi.models = ["Sonnet"];
+        get_dashboard.mockResolvedValue(multi);
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        const select = screen.getByLabelText<HTMLSelectElement>("模型筛选");
+        const sonnetOption = [...select.options].find(
+            (option) => option.value === "claude-3-5-sonnet-20241022",
+        );
+        expect(sonnetOption).toBeDefined();
+        expect(sonnetOption?.textContent).toBe("Sonnet");
+
+        await user.selectOptions(select, "claude-3-5-sonnet-20241022");
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenLastCalledWith(
+                expect.objectContaining({ model: "claude-3-5-sonnet-20241022" }),
+            );
+        });
+    });
+
     it("loads aliases once and does not reread config when filters change", async () => {
         render(<TokenStatsView />);
         await screen.findByTestId("session-records");

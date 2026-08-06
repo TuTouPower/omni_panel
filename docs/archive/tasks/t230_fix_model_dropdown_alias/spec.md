@@ -30,10 +30,10 @@ reviewer 判 AC 时只看本区。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] 配置了 `modelAliases` 时，代理面板模型下拉的选项文本显示别名（如 `Sonnet`），不再显示原始名。
-- [ ] 在下拉选中某别名后，发往 `getDashboard`/`getDashboardSessions` 的 `model` 查询参数仍是该别名对应的原始模型名，筛选结果正确。
-- [ ] 未配置 `modelAliases` 或模型无匹配别名时，下拉显示原始名，行为与现状一致。
-- [ ] 后端 `dashboard.models` 返回已映射的显示名，同一窗口内柱状图/donut/下拉的模型命名一致。
+- [x] 配置了 `modelAliases` 时，代理面板模型下拉的选项文本显示别名（如 `Sonnet`），不再显示原始名。
+- [x] 在下拉选中某别名后，发往 `getDashboard`/`getDashboardSessions` 的 `model` 查询参数仍是该别名对应的原始模型名，筛选结果正确。
+- [x] 未配置 `modelAliases` 或模型无匹配别名时，下拉显示原始名，行为与现状一致。
+- [x] 后端 `dashboard.models` 返回已映射的显示名，同一窗口内柱状图/donut/下拉的模型命名一致。
 
 ### 可测试性声明
 
