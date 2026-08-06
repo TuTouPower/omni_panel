@@ -2,5 +2,21 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t242",
+            "slug": "draggable_provider_tabs",
+            "title": "用量面板厂商 tab 支持拖动排序",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t242_draggable_provider_tabs"
+        }
+    ]
 }
