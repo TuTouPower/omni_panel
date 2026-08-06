@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import {
     agent_abbrev,
@@ -10,19 +11,26 @@ interface RowProps {
     readonly s: TokenStatsSession;
     readonly summary: string;
     readonly selected: boolean;
-    readonly on_toggle: () => void;
-    readonly on_preview: () => void;
-    readonly on_open: () => void;
+    readonly on_toggle: (s: TokenStatsSession) => void;
+    readonly on_preview: (s: TokenStatsSession) => void;
+    readonly on_open: (s: TokenStatsSession) => void;
 }
 
-export function SessionRow({ s, summary, selected, on_toggle, on_preview, on_open }: RowProps) {
+export const SessionRow = memo(function SessionRow({
+    s,
+    summary,
+    selected,
+    on_toggle,
+    on_preview,
+    on_open,
+}: RowProps) {
     return (
         <div className={"lib-row" + (selected ? " selected" : "")}>
             <button
                 type="button"
                 className="lib-row-select"
                 aria-label={`会话 ${s.id}`}
-                onClick={on_toggle}
+                onClick={() => { on_toggle(s); }}
             >
                 {selected ? "✓" : ""}
             </button>
@@ -34,12 +42,12 @@ export function SessionRow({ s, summary, selected, on_toggle, on_preview, on_ope
                 {relative_date(s.ended_at)}
             </span>
             <span className="lib-row-dir">{s.directory ?? "—"}</span>
-            <button type="button" onClick={on_open}>
+            <button type="button" onClick={() => { on_open(s); }}>
                 单独打开
             </button>
-            <button type="button" aria-label="预览" onClick={on_preview}>
+            <button type="button" aria-label="预览" onClick={() => { on_preview(s); }}>
                 预览
             </button>
         </div>
     );
-}
+});

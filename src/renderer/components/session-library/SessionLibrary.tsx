@@ -41,23 +41,41 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     const [summaries, set_summaries] = useState<Record<string, string>>({});
     const [load_error, set_load_error] = useState(false);
     const summary_inflight = useRef(new Set<string>());
-    const ensure_summary = useCallback((s: TokenStatsSession): void => {
-        const k = key_of(s);
-        if (summary_inflight.current.has(k)) return;
-        summary_inflight.current.add(k);
-        void window.usageboard.sessionHistory
-            .query(s.source, s.env, s.id, { limit: 5 })
-            .then((res) => {
-                const first_user = res.messages.find((m) => m.role === "user");
-                set_summaries((cur) => ({
-                    ...cur,
-                    [k]: first_user ? first_user.text.slice(0, 80) : "",
-                }));
-            })
-            .catch(() => {
-                set_summaries((cur) => ({ ...cur, [k]: "" }));
-            });
+    const pending_summaries_ref = useRef<Record<string, string>>({});
+    const flush_scheduled_ref = useRef(false);
+    const flush_summaries = useCallback((): void => {
+        flush_scheduled_ref.current = false;
+        const pending = pending_summaries_ref.current;
+        pending_summaries_ref.current = {};
+        if (Object.keys(pending).length === 0) return;
+        set_summaries((cur) => ({ ...cur, ...pending }));
     }, []);
+    const ensure_summary = useCallback(
+        (s: TokenStatsSession): void => {
+            const k = key_of(s);
+            if (summary_inflight.current.has(k)) return;
+            summary_inflight.current.add(k);
+            const schedule = (): void => {
+                if (flush_scheduled_ref.current) return;
+                flush_scheduled_ref.current = true;
+                window.setTimeout(flush_summaries, 0);
+            };
+            void window.usageboard.sessionHistory
+                .query(s.source, s.env, s.id, { limit: 5 })
+                .then((res) => {
+                    const first_user = res.messages.find((m) => m.role === "user");
+                    pending_summaries_ref.current[k] = first_user
+                        ? first_user.text.slice(0, 80)
+                        : "";
+                    schedule();
+                })
+                .catch(() => {
+                    pending_summaries_ref.current[k] = "";
+                    schedule();
+                });
+        },
+        [flush_summaries],
+    );
 
     useEffect(() => {
         void (async () => {
@@ -222,7 +240,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
         };
     }, []);
 
-    const selected_ids = new Set(selected.map((s) => key_of(s)));
+    const selected_ids = useMemo(() => new Set(selected.map((s) => key_of(s))), [selected]);
     const has_filters =
         search || search_content || start_date || end_date || agents.length > 0;
     const show_clear = has_filters || all.length > 0;

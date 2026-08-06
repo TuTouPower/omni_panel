@@ -1,5 +1,63 @@
 import type { Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect, test } from "../fixtures/test_web";
+
+const SYNTHETIC = JSON.parse(
+    readFileSync(resolve("tests/e2e/fixtures/synthetic.json"), "utf8"),
+) as Record<string, unknown>;
+
+const LARGE_SESSION = {
+    id: "large",
+    source: "claude_code",
+    env: "win",
+    model: "model",
+    title: "大会话虚拟列表",
+    directory: "/proj/large",
+    input_tokens: 100,
+    output_tokens: 100,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+    calls: 600,
+    started_at: 0,
+    ended_at: 1,
+};
+
+function make_large_messages(total: number) {
+    return Array.from({ length: total }, (_, i) => ({
+        id: `large-m${String(i)}`,
+        role: i % 2 === 0 ? ("user" as const) : ("assistant" as const),
+        text: `消息 ${String(i)}`,
+        timestamp: 1000 + i * 1000,
+    }));
+}
+
+async function setup_large_session_routes(page: Page): Promise<void> {
+    await page.route("**/v1/sessions", async (route) => {
+        const sessions = [
+            ...((SYNTHETIC["GET /v1/sessions"] ?? []) as unknown[]),
+            LARGE_SESSION,
+        ];
+        await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify(sessions),
+        });
+    });
+    await page.route(/\/v1\/sessionHistory\?id=large/, async (route, request) => {
+        const url = new URL(request.url());
+        const before = url.searchParams.get("before_cursor");
+        const limit = Number(url.searchParams.get("limit") ?? "200");
+        const all = make_large_messages(600);
+        const before_idx = before ? Number(before) : all.length;
+        const start = Math.max(0, before_idx - limit);
+        const messages = all.slice(start, before_idx);
+        const next_cursor = start > 0 ? String(start) : null;
+        await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify({ messages, next_cursor }),
+        });
+    });
+}
 
 /**
  * Web e2e：会话面板（SessionShell 单壳双页签）关键路径（t228 AC1）。
@@ -145,5 +203,66 @@ test.describe("session panel (web, t228)", () => {
         await page.getByRole("button", { name: /并排打开/ }).click();
         await expect(page.locator(".slot-pane")).toHaveCount(2);
         await expect(page.locator(".pane-msg-row").first()).toBeVisible();
+    });
+});
+
+test.describe("session panel virtual list (web, t237)", () => {
+    test.beforeEach(async ({ webPage }) => {
+        await setup_large_session_routes(webPage);
+    });
+
+    test("加载多页后消息区 DOM 行数有固定上界", async ({ webPage }) => {
+        const page = webPage;
+        await open_history(page);
+        await page.getByRole("button", { name: "会话库", exact: true }).click();
+        await open_session_from_library(page, "大会话虚拟列表");
+        await expect(page.locator(".pane-msg-row").first()).toBeVisible();
+        // 等待虚拟列表根据容器高度收敛到可视窗口 + 缓冲区。
+        await expect
+            .poll(async () => page.locator(".pane-msg-row").count(), {
+                timeout: 5000,
+            })
+            .toBeLessThanOrEqual(40);
+    });
+
+    test("向上翻页 prepend 后首条可见消息锚点稳定", async ({ webPage }) => {
+        const page = webPage;
+        await open_history(page);
+        await page.getByRole("button", { name: "会话库", exact: true }).click();
+        await open_session_from_library(page, "大会话虚拟列表");
+        await expect(page.locator(".pane-msg-row").first()).toBeVisible();
+
+        // 翻到最顶部触发 load older（第一页最旧消息为「消息 400」）。
+        await page.evaluate(() => {
+            const el = document.querySelector<HTMLElement>(".pane-msgs");
+            if (el) el.scrollTop = 0;
+        });
+        await expect(page.locator(".pane-loading")).toHaveCount(0);
+
+        // 滚动补偿后「消息 400」仍应可见。
+        await expect(
+            page.locator(".pane-msg-row", { hasText: "消息 400" }).first(),
+        ).toBeVisible();
+    });
+
+    test("大纲点击可视区外的消息能跳转并渲染", async ({ webPage }) => {
+        const page = webPage;
+        await open_history(page);
+        await page.getByRole("button", { name: "会话库", exact: true }).click();
+        await open_session_from_library(page, "大会话虚拟列表");
+        await expect(page.locator(".pane-msg-row").first()).toBeVisible();
+
+        // 打开大纲。
+        await page.locator(".slot-pane .pane-hover-btn[title='大纲']").first().click();
+        await expect(page.locator(".pane-outline")).toBeVisible();
+
+        // 点击远离可视区的「消息 450」（首页为后 200 条 400–599，450 在可视区外但在首页内）。
+        await page
+            .locator(".pane-outline-row", { hasText: "消息 450" })
+            .first()
+            .click();
+        await expect(
+            page.locator(".pane-msg-row", { hasText: "消息 450" }).first(),
+        ).toBeVisible();
     });
 });

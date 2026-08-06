@@ -119,6 +119,14 @@
 - 落地：t192（migration v6 + `token_stats_hour_rollup` + `query_dashboard` 窗口拆分读取）。
 - 遗留：`query_dashboard` 聚合/records 双轨重复（p031）；AC2 多 session 未受影响行、AC3 失败回滚、AC4 竞态、AC5 查询计划、AC1 重启就绪等子句级补测（p032-p037）。
 
+## 013 会话历史消息区采用手动动态高度虚拟列表（2026-08-06）
+
+- 背景：SessionPane 消息区原全量 DOM 渲染，已加载消息数无界增长；单条消息含 react-markdown 解析，重渲染成本随消息数线性上升，多面板/长会话场景卡顿明显。
+- 选项：A) 引入第三方虚拟列表库（如 react-window、react-virtualized）；B) 自研轻量动态高度虚拟列表。
+- 结论：选 B。消息高度由 markdown 内容决定，定高假设不成立；自研方案用 ResizeObserver 测量已渲染行高、未测量行用估计高度 80px，索引计算抽成纯函数便于单测；prepend 时以旧首条消息为锚点做滚动补偿，测量完成后再校正估计误差；保留现有分页协议与加载 older 语义不变。
+- 替代：无
+- 落地：t237（`VirtualMessageList` + `compute_message_offsets` / `compute_visible_window` + `PaneMessageRow` / `MarkdownMessage` / `SessionCard` / `SessionRow` memo 化）。
+
 ## 012 TokenStats dashboard 查询隔离到 utilityProcess query worker（2026-08-03）
 
 - 背景：t192 把 dashboard 读取切到聚合层，但 `query_dashboard` 仍是主进程内 better-sqlite3 同步聚合，窗口大时 IPC/本地请求排队（t189 基线）。要把重读迁出主进程事件循环，须选隔离执行端并确认只读并发语义。

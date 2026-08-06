@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { SessionCard } from "./SessionCard";
 import { SessionRow } from "./SessionRow";
@@ -22,6 +23,25 @@ export function SessionList({
     on_preview,
     on_open,
 }: SessionListProps) {
+    const handleToggle = useCallback(
+        (s: TokenStatsSession) => {
+            on_toggle(s);
+        },
+        [on_toggle],
+    );
+    const handlePreview = useCallback(
+        (s: TokenStatsSession) => {
+            on_preview(s);
+        },
+        [on_preview],
+    );
+    const handleOpen = useCallback(
+        (s: TokenStatsSession) => {
+            on_open(s);
+        },
+        [on_open],
+    );
+
     if (view_mode === "grid") {
         return (
             <div className="lib-grid">
@@ -31,15 +51,9 @@ export function SessionList({
                         s={s}
                         summary={summaries[key_of(s)] ?? ""}
                         selected={selected_ids.has(key_of(s))}
-                        on_toggle={() => {
-                            on_toggle(s);
-                        }}
-                        on_preview={() => {
-                            on_preview(s);
-                        }}
-                        on_open={() => {
-                            on_open(s);
-                        }}
+                        on_toggle={handleToggle}
+                        on_preview={handlePreview}
+                        on_open={handleOpen}
                     />
                 ))}
             </div>
@@ -53,15 +67,9 @@ export function SessionList({
                     s={s}
                     summary={summaries[key_of(s)] ?? ""}
                     selected={selected_ids.has(key_of(s))}
-                    on_toggle={() => {
-                        on_toggle(s);
-                    }}
-                    on_preview={() => {
-                        on_preview(s);
-                    }}
-                    on_open={() => {
-                        on_open(s);
-                    }}
+                    on_toggle={handleToggle}
+                    on_preview={handlePreview}
+                    on_open={handleOpen}
                 />
             ))}
         </div>

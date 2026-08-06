@@ -362,11 +362,26 @@ export function create_web_usageboard(): UsageboardApi {
             },
             subscribe: () => Promise.resolve({ subscribed: false }),
             unsubscribe: () => Promise.resolve({ unsubscribed: false }),
-            // t228: web 端经 local-api mock 读会话消息（fixture 按 session_id 索引）。
-            query: async (_source: string, _env: string, session_id: string) =>
-                get_json<{ messages: HistoryMessageLike[]; next_cursor: string | null }>(
-                    `/v1/sessionHistory?id=${encodeURIComponent(session_id)}`,
-                ),
+            // t228/t237: web 端经 local-api mock 读会话消息（fixture 按 session_id 索引）。
+            query: async (
+                _source: string,
+                _env: string,
+                session_id: string,
+                options?: { limit?: number; before_cursor?: unknown } | null,
+            ) => {
+                const params = new URLSearchParams({ id: session_id });
+                if (options?.limit) params.set("limit", String(options.limit));
+                if (
+                    options?.before_cursor != null &&
+                    (typeof options.before_cursor === "string" ||
+                        typeof options.before_cursor === "number")
+                ) {
+                    params.set("before_cursor", String(options.before_cursor));
+                }
+                return get_json<{ messages: HistoryMessageLike[]; next_cursor: string | null }>(
+                    `/v1/sessionHistory?${params.toString()}`,
+                );
+            },
             recent: async () => {
                 const sessions = await get_json<TokenStatsSession[]>("/v1/sessions");
                 return sessions.slice(0, 20).map((s) => ({

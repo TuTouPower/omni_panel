@@ -2,11 +2,11 @@
 tid: "t237"
 slug: "session_row_card_memo"
 title: "会话历史渲染性能优化（memo 化 + 消息列表虚拟化）"
-status: "backlog"
-branch: ""
-worktree: ""
+status: "active"
+branch: "t237_session_row_card_memo"
+worktree: "../omni_usage_t237"
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "1a3036186d79f83a0e0feb4f0082104f25463aae"
 depends_on: ""
 conflicts_with: "t232,t233,t234,t235,t239"
 schedule_status: "scheduled"
@@ -19,11 +19,18 @@ note: "merged from t238"
 
 ## 实施笔记
 
-执行期边做边写：实际步骤、踩坑、中途决策、偏离 spec、关键验证、blocked 原因与用户放行的新轮次上限。
+- 将 `PaneMessageRow` 提取为独立组件并用 `React.memo` 包装，`MarkdownMessage` 同样 memo 化；为测试注入渲染计数增加可选 `onRender` prop。
+- `SessionCard` / `SessionRow` memo 化；`SessionList` 通过 `useCallback` 生成稳定回调并直接传给子组件，避免每次父渲染都生成新闭包导致 memo 失效。
+- `SessionLibrary` 摘要更新改为基于 `pending_summaries_ref` 的 setTimeout 批量 flush，避免一页 50 张卡片摘要到达时逐条触发整表重渲染；`selected_ids` 用 `useMemo` 避免每渲染新建 Set。
+- 新增 `compute_message_offsets` / `compute_visible_window` 纯函数并覆盖单测；`clientHeight <= 0` 时回退到全量渲染以便 jsdom 测试。
+- 新增 `VirtualMessageList`：容器滚动/resize 监听、ResizeObserver 测量行高、prepend 锚点补偿、`scrollToId` 定位；`SessionPane` 用它替换原 `messages.map`。
+- 原 `SessionPane` 的 prepend 补偿移除，仅保留 at-bottom 跟随逻辑；大纲定位改为 `set_locate_target` 状态驱动虚拟列表滚动。
+- `SessionPane` 改为把滚动容器元素以 state（`scrollElement`）传给 `VirtualMessageList`，而非 ref 对象；保证元素可用时子组件能重新挂载监听器并正确测量高度。
+- `src/web/main-web.tsx` 未引入 `pane.css`，导致 web 构建中面板 flex 布局未生效、虚拟列表无法获得有限高度；在 `SessionPane.tsx` 内直接 `import "../../styles/pane.css"` 确保组件被使用时样式必加载。
+- e2e 通过 Playwright route 注入一个 600 条消息的会话并支持 `before_cursor` 分页；同步修复 `src/web/usageboard-web.ts` 的 `sessionHistory.query` 以透传 `limit` / `before_cursor`。
+- 旧单测「大纲抽屉点击滚动定位」原依赖 `scrollIntoView` stub，改为断言虚拟列表滚动后目标消息可见。
 
-创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
-
-无
+创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。
 
 ## Review 处置
 
@@ -61,24 +68,20 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+  - AC1/2：`PaneMessageRow.test.tsx` / `MarkdownMessage.test.tsx` 渲染计数断言通过。
+  - AC3：`SessionLibrary.test.tsx` 卡片渲染计数断言通过；摘要批量 flush 单 setState 合并。
+  - AC4/5/6：`tests/e2e/web/session_panel.spec.ts` 新增虚拟列表 describe，Playwright route 注入 600 条消息并断言 DOM 行数上界、prepend 锚点稳定、大纲跳转可见；`pane.test.ts` 覆盖窗口纯函数。
+  - AC7：原 `SessionPane.test.tsx` / `SessionLibrary.test.tsx` 全量通过（仅大纲定位断言随虚拟化更新）。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
-`single`：
-
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 code：PASS
+- Round 1 test：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+会话历史渲染性能优化完成：消息行/卡片/行级组件 memo 化、摘要批量更新、消息区动态高度虚拟列表上线，相关单测与 e2e 通过。

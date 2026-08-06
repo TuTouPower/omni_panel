@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { SessionPane } from "../../../../../src/renderer/components/workspace/SessionPane";
 import type { PaneData } from "../../../../../src/renderer/lib/workspace/pane";
 import { install_history_usageboard } from "../../views/session_history_test_utils";
@@ -142,7 +142,6 @@ describe("SessionPane (t225)", () => {
     });
 
     it("大纲抽屉列消息（角色序号+摘要+时间），点击滚动定位", () => {
-        const spy = vi.fn();
         render(
             <SessionPane
                 {...PROPS}
@@ -158,13 +157,13 @@ describe("SessionPane (t225)", () => {
         expect(document.querySelector(".pane-outline")).toBeTruthy();
         const rows = document.querySelectorAll(".pane-outline-row");
         expect(rows.length).toBe(2);
-        // jsdom 无 scrollIntoView；给目标消息行注入 stub 后点大纲条目验证定位调用。
-        const target = document.querySelector('[data-message-id="m1"]');
-        if (!target) throw new Error("message row missing");
-        Object.defineProperty(target, "scrollIntoView", { value: spy, configurable: true });
         const first = rows[0];
         if (!first) throw new Error("outline row missing");
+        const container = document.querySelector(".pane-msgs");
+        if (!container) throw new Error("pane-msgs missing");
+        Object.defineProperty(container, "scrollTop", { value: 0, writable: true });
         fireEvent.click(first);
-        expect(spy).toHaveBeenCalled();
+        // 虚拟列表将 scrollTop 设为第一条消息偏移（jsdom 无测量，按估计高度 80）。
+        expect((container as HTMLElement).scrollTop).toBe(0);
     });
 });

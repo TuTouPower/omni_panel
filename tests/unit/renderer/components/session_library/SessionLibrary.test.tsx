@@ -1,6 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SessionCard } from "../../../../../src/renderer/components/session-library/SessionCard";
 import { SessionLibrary } from "../../../../../src/renderer/components/session-library/SessionLibrary";
+import { key_of } from "../../../../../src/renderer/components/session-library/session-library-utils";
+import type { TokenStatsSession } from "../../../../../src/shared/types/token-stats";
 import { install_history_usageboard } from "../../views/session_history_test_utils";
 
 /**
@@ -382,5 +386,68 @@ describe("SessionLibrary (t227)", () => {
         expect(screen.getByText("1/8")).toBeTruthy();
         fireEvent.click(add_btn);
         expect(screen.queryByText("1/8")).toBeNull();
+    });
+
+    it("更新一张卡片摘要时，其余已渲染卡片不重渲染（t237）", () => {
+        const s1 = sess("a", "claude_code") as unknown as TokenStatsSession;
+        const s2 = sess("b", "opencode") as unknown as TokenStatsSession;
+        const counts = { a: 0, b: 0 };
+        const onRenderById: Record<string, () => void> = {
+            a: () => {
+                counts.a += 1;
+            },
+            b: () => {
+                counts.b += 1;
+            },
+        };
+        function getOnRender(id: string): () => void {
+            return onRenderById[id] ?? (() => undefined);
+        }
+        const noop_toggle = vi.fn();
+        const noop_preview = vi.fn();
+        const noop_open = vi.fn();
+
+        function Parent() {
+            const [summaries, set_summaries] = useState<Record<string, string>>({});
+            return (
+                <div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            set_summaries((cur) => ({
+                                ...cur,
+                                [key_of(s2)]: "新摘要",
+                            }));
+                        }}
+                    >
+                        update
+                    </button>
+                    <SessionCard
+                        s={s1}
+                        summary={summaries[key_of(s1)] ?? ""}
+                        selected={false}
+                        on_toggle={noop_toggle}
+                        on_preview={noop_preview}
+                        on_open={noop_open}
+                        onRender={getOnRender("a")}
+                    />
+                    <SessionCard
+                        s={s2}
+                        summary={summaries[key_of(s2)] ?? ""}
+                        selected={false}
+                        on_toggle={noop_toggle}
+                        on_preview={noop_preview}
+                        on_open={noop_open}
+                        onRender={getOnRender("b")}
+                    />
+                </div>
+            );
+        }
+
+        const { getByRole } = render(<Parent />);
+        expect(counts).toEqual({ a: 1, b: 1 });
+
+        fireEvent.click(getByRole("button", { name: "update" }));
+        expect(counts).toEqual({ a: 1, b: 2 });
     });
 });

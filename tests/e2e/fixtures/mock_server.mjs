@@ -56,6 +56,16 @@ export function create_mock_handler(responses) {
         ) {
             return json(res, responses[`${req.method} ${path}`] ?? []);
         }
+        if (req.method === "GET" && path === "/v1/sessionHistory") {
+            const id = url.searchParams.get("id");
+            return json(
+                res,
+                (id && responses[`GET /v1/sessionHistory?id=${id}`]) ?? {
+                    messages: [],
+                    next_cursor: null,
+                },
+            );
+        }
         if (req.method === "POST") return json(res, empty_ipc());
         json(res, { error: `unmatched ${exact}` }, 404);
     };
