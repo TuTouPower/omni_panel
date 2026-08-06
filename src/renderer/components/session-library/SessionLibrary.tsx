@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
-import { agent_friendly, agent_slug, format_date } from "../../lib/session-history/markdown";
 import {
     count_stats,
     filter_sessions,
     match_content,
-    session_tokens,
     sort_sessions,
     type LibrarySort,
 } from "../../lib/session-library/filter";
-import { MarkdownMessage } from "../workspace/MarkdownMessage";
+import { AgentFilterChips } from "./AgentFilterChips";
+import { SelectionDock } from "./SelectionDock";
+import { SessionList } from "./SessionList";
+import { SessionPreview } from "./SessionPreview";
+import { format_tokens, key_of } from "./session-library-utils";
 import "../../styles/session-library.css";
 
 interface SessionLibraryProps {
@@ -21,29 +23,6 @@ const PAGE_SIZE = 50;
 const MAX_SELECT = 8;
 const PREVIEW_MESSAGES = 5;
 
-function relative_date(ts: number): string {
-    const now = Date.now();
-    const day_ms = 24 * 3600 * 1000;
-    const days = Math.floor((now - ts) / day_ms);
-    if (days < 1) return "今天";
-    if (days < 7) return `${String(days)} 天前`;
-    return format_date(ts);
-}
-
-function agent_abbrev(source: string): string {
-    if (source === "claude_code") return "C";
-    if (source === "opencode") return "OC";
-    if (source === "kimi_code") return "K";
-    if (source === "grok") return "G";
-    return source.slice(0, 2).toUpperCase();
-}
-
-/** 会话主键（f008：跨 source/env 同 id 须区分）。 */
-function key_of(s: TokenStatsSession): string {
-    return `${s.source}|${s.env}|${s.id}`;
-}
-
-/** t227 会话库：搜索/筛选/排序/卡片列表/预览抽屉/SelectionDock。 */
 export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     const [all, set_all] = useState<TokenStatsSession[]>([]);
     const [search, set_search] = useState("");
@@ -335,34 +314,13 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                 </div>
             </div>
 
-            <div className="lib-agents">
-                <button
-                    type="button"
-                    className={"lib-agent-chip" + (agents.length === 0 ? " on" : "")}
-                    onClick={() => {
-                        set_agents([]);
-                    }}
-                >
-                    全部
-                </button>
-                {agent_counts.map(([source, count]) => (
-                    <button
-                        type="button"
-                        key={source}
-                        className={"lib-agent-chip" + (agents.includes(source) ? " on" : "")}
-                        onClick={() => {
-                            set_agents((prev) =>
-                                prev.includes(source)
-                                    ? prev.filter((a) => a !== source)
-                                    : [...prev, source],
-                            );
-                        }}
-                    >
-                        <span className="lib-agent-dot" />
-                        {agent_friendly(source)} {String(count)}
-                    </button>
-                ))}
-            </div>
+            <AgentFilterChips
+                agents={agents}
+                counts={agent_counts}
+                on_change={(next) => {
+                    set_agents(next);
+                }}
+            />
 
             {content_searching && <div className="lib-content-searching">搜索消息内容中…</div>}
 
@@ -384,46 +342,16 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                         </button>
                     )}
                 </div>
-            ) : view_mode === "grid" ? (
-                <div className="lib-grid">
-                    {visible_sessions.map((s) => (
-                        <SessionCard
-                            key={`${s.source}|${s.env}|${s.id}`}
-                            s={s}
-                            summary={summaries[key_of(s)] ?? ""}
-                            selected={selected_ids.has(key_of(s))}
-                            on_toggle={() => {
-                                toggle_select(s);
-                            }}
-                            on_preview={() => {
-                                open_preview(s);
-                            }}
-                            on_open={() => {
-                                open_session(s);
-                            }}
-                        />
-                    ))}
-                </div>
             ) : (
-                <div className="lib-list">
-                    {visible_sessions.map((s) => (
-                        <SessionRow
-                            key={`${s.source}|${s.env}|${s.id}`}
-                            s={s}
-                            summary={summaries[key_of(s)] ?? ""}
-                            selected={selected_ids.has(key_of(s))}
-                            on_toggle={() => {
-                                toggle_select(s);
-                            }}
-                            on_preview={() => {
-                                open_preview(s);
-                            }}
-                            on_open={() => {
-                                open_session(s);
-                            }}
-                        />
-                    ))}
-                </div>
+                <SessionList
+                    view_mode={view_mode}
+                    sessions={visible_sessions}
+                    summaries={summaries}
+                    selected_ids={selected_ids}
+                    on_toggle={toggle_select}
+                    on_preview={open_preview}
+                    on_open={open_session}
+                />
             )}
 
             {visible < content_filtered.length && (
@@ -439,209 +367,32 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             )}
 
             {preview && (
-                <div
-                    className="lib-preview-scrim"
-                    onClick={() => {
+                <SessionPreview
+                    preview={preview}
+                    preview_msgs={preview_msgs}
+                    on_close={() => {
                         set_preview(null);
                     }}
-                >
-                    <div
-                        className="lib-preview"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                        }}
-                    >
-                        <div className="lib-preview-head">
-                            <span className="lib-preview-agent">
-                                {agent_abbrev(preview.source)}
-                            </span>
-                            <div className="lib-preview-text">
-                                <span className="lib-preview-title">
-                                    {preview.title ?? preview.id}
-                                </span>
-                                <span className="lib-preview-meta">
-                                    {agent_slug(preview.source)} · {String(preview.calls)} 轮 ·{" "}
-                                    {format_tokens(session_tokens(preview))} tokens ·{" "}
-                                    {relative_date(preview.ended_at)}
-                                </span>
-                            </div>
-                            <button
-                                type="button"
-                                className="lib-preview-close"
-                                aria-label="关闭预览"
-                                onClick={() => {
-                                    set_preview(null);
-                                }}
-                            >
-                                ×
-                            </button>
-                        </div>
-                        <div className="lib-preview-path">{preview.directory ?? "—"}</div>
-                        <div className="lib-preview-msgs">
-                            {preview_msgs.length === 0 ? (
-                                <div className="lib-preview-empty">无消息预览</div>
-                            ) : (
-                                preview_msgs.map((m) => (
-                                    <div className="lib-preview-msg" key={m.id}>
-                                        <span className="lib-preview-role">
-                                            {m.role === "user" ? "用户" : "Agent"}
-                                        </span>
-                                        <MarkdownMessage text={m.text} />
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                        <div className="lib-preview-foot">
-                            <button
-                                type="button"
-                                className="lib-preview-btn"
-                                onClick={() => {
-                                    open_session(preview);
-                                }}
-                            >
-                                单独打开
-                            </button>
-                            <button
-                                type="button"
-                                className="lib-preview-btn"
-                                onClick={() => {
-                                    toggle_select(preview);
-                                }}
-                            >
-                                加入选择
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                    on_open={open_session}
+                    on_toggle_select={toggle_select}
+                />
             )}
 
-            {selected.length > 0 && (
-                <div className="lib-dock">
-                    <div className="lib-dock-slots">
-                        {selected.map((s) => (
-                            <span className="lib-dock-slot" key={key_of(s)} title={s.title ?? s.id}>
-                                {agent_abbrev(s.source)} · {s.title ?? s.id}
-                                <button
-                                    type="button"
-                                    className="lib-dock-remove"
-                                    aria-label={`移除 ${key_of(s)}`}
-                                    onClick={() => {
-                                        toggle_select(s);
-                                    }}
-                                >
-                                    ×
-                                </button>
-                            </span>
-                        ))}
-                    </div>
-                    <span className="lib-dock-count">
-                        {String(selected.length)}/{String(MAX_SELECT)}
-                    </span>
-                    <button
-                        type="button"
-                        className="lib-dock-clear"
-                        onClick={() => {
-                            set_selected([]);
-                        }}
-                    >
-                        清空
-                    </button>
-                    <button
-                        type="button"
-                        className="lib-dock-open"
-                        onClick={() => {
-                            for (const s of selected) {
-                                void window.usageboard.sessionHistory.open(s.source, s.env, s.id);
-                            }
-                            on_switch_workspace();
-                        }}
-                    >
-                        并排打开 ({String(selected.length)})
-                    </button>
-                </div>
-            )}
-
+            <SelectionDock
+                selected={selected}
+                max_select={MAX_SELECT}
+                on_remove={toggle_select}
+                on_clear={() => {
+                    set_selected([]);
+                }}
+                on_open_all={(sessions) => {
+                    for (const s of sessions) {
+                        void window.usageboard.sessionHistory.open(s.source, s.env, s.id);
+                    }
+                    on_switch_workspace();
+                }}
+            />
             {toast !== null && <div className="lib-toast">{toast}</div>}
         </div>
     );
-}
-
-interface CardProps {
-    readonly s: TokenStatsSession;
-    readonly summary: string;
-    readonly selected: boolean;
-    readonly on_toggle: () => void;
-    readonly on_preview: () => void;
-    readonly on_open: () => void;
-}
-
-function SessionCard({ s, summary, selected, on_toggle, on_preview, on_open }: CardProps) {
-    return (
-        <div className={"lib-card" + (selected ? " selected" : "")}>
-            <div className="lib-card-accent" />
-            <div className="lib-card-body">
-                <div className="lib-card-head">
-                    <span className="lib-card-badge">{agent_abbrev(s.source)}</span>
-                    <span className="lib-card-title">{s.title ?? s.id}</span>
-                </div>
-                <div className="lib-card-summary">{summary}</div>
-                <div className="lib-card-meta mono">
-                    {String(s.calls)} 轮 · {format_tokens(session_tokens(s))} tokens ·{" "}
-                    {relative_date(s.ended_at)}
-                </div>
-                <div className="lib-card-dir">{s.directory ?? "—"}</div>
-            </div>
-            <div className="lib-card-actions">
-                <button type="button" onClick={on_open}>
-                    单独打开
-                </button>
-                <button type="button" aria-label="预览" onClick={on_preview}>
-                    预览
-                </button>
-            </div>
-            <button
-                type="button"
-                className="lib-card-select"
-                aria-label={`会话 ${s.id}`}
-                onClick={on_toggle}
-            >
-                {selected ? "✓" : ""}
-            </button>
-        </div>
-    );
-}
-
-function SessionRow({ s, summary, selected, on_toggle, on_preview, on_open }: CardProps) {
-    return (
-        <div className={"lib-row" + (selected ? " selected" : "")}>
-            <button
-                type="button"
-                className="lib-row-select"
-                aria-label={`会话 ${s.id}`}
-                onClick={on_toggle}
-            >
-                {selected ? "✓" : ""}
-            </button>
-            <span className="lib-row-badge">{agent_abbrev(s.source)}</span>
-            <span className="lib-row-title">{s.title ?? s.id}</span>
-            <span className="lib-row-summary">{summary}</span>
-            <span className="lib-row-meta mono">
-                {String(s.calls)} 轮 · {format_tokens(session_tokens(s))} tokens ·{" "}
-                {relative_date(s.ended_at)}
-            </span>
-            <span className="lib-row-dir">{s.directory ?? "—"}</span>
-            <button type="button" onClick={on_open}>
-                单独打开
-            </button>
-            <button type="button" aria-label="预览" onClick={on_preview}>
-                预览
-            </button>
-        </div>
-    );
-}
-
-function format_tokens(n: number): string {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 10_000) return `${String(Math.round(n / 1000))}k`;
-    return n.toLocaleString("en-US");
 }

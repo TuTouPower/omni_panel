@@ -1,0 +1,177 @@
+/* t227 会话库视图样式。token 继承自 .session-shell（demo 体系）。 */
+
+.session-library {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--bg-canvas);
+    overflow: hidden;
+}
+
+.lib-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 14px 18px 8px;
+    flex-shrink: 0;
+}
+
+.lib-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+.lib-stats {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.lib-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 18px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-wrap: wrap;
+}
+
+.lib-search {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 9px;
+    background: var(--bg-inset);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+.lib-search:focus {
+    border-color: var(--accent-lime);
+}
+
+.lib-search::placeholder {
+    color: var(--text-muted);
+}
+
+.lib-content-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.lib-content-search input {
+    accent-color: var(--accent-lime);
+}
+
+.lib-date-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lib-date-range input {
+    padding: 6px 8px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    background: var(--bg-inset);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.lib-date-range span {
+    color: var(--text-muted);
+}
+
+.lib-sort {
+    padding: 7px 9px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    background: var(--bg-inset);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12.5px;
+}
+
+.lib-view-switch {
+    display: flex;
+    gap: 2px;
+    background: var(--bg-raised);
+    border-radius: 8px;
+    padding: 2px;
+}
+
+.lib-view-switch button {
+    padding: 5px 10px;
+    border: 0;
+    background: transparent;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.lib-view-switch button.on {
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.lib-agents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 18px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.lib-agent-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 11px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 99px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+        border-color 0.14s,
+        color 0.14s,
+        background 0.14s;
+}
+
+.lib-agent-chip.on {
+    border-color: var(--accent-lime);
+    color: var(--accent-lime);
+    background: var(--accent-lime-dim);
+}
+
+.lib-agent-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-lime);
+}
+
+.lib-content-searching {
+    padding: 8px 18px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+}

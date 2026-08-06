@@ -30,9 +30,9 @@ reviewer 判 AC 时只看本区。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] 拆分后 `WorkspaceView.tsx`、`workspace.css`、`SessionLibrary.tsx`、`session-library.css`（含拆出的各文件）均在项目行数阈值内。
-- [ ] 工作台现有功能与视觉无回归（消息流、面板交互、摘选、弹窗样式一致）。
-- [ ] 会话库现有功能与视觉无回归（加载/分页/筛选/搜索/预览/摘选一致）。
+- [x] 拆分后 `WorkspaceView.tsx`、`workspace.css`、`SessionLibrary.tsx`、`session-library.css`（含拆出的各文件）均在项目行数阈值内。
+- [x] 工作台现有功能与视觉无回归（消息流、面板交互、摘选、弹窗样式一致）。
+- [x] 会话库现有功能与视觉无回归（加载/分页/筛选/搜索/预览/摘选一致）。
 
 ### 可测试性声明
 

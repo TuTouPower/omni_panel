@@ -2,11 +2,11 @@
 tid: "t232"
 slug: "split_workspace_view_files"
 title: "拆分会话历史窗口超行数文件（工作台+会话库）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t232_split_workspace_view_files"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "fa87837b03ec8f70e7d4dc72b662fefd755e6044"
 depends_on: ""
 conflicts_with: "t233,t234,t235,t237,t239"
 schedule_status: "scheduled"
@@ -19,11 +19,10 @@ note: "merged from t241"
 
 ## 实施笔记
 
-执行期边做边写：实际步骤、踩坑、中途决策、偏离 spec、关键验证、blocked 原因与用户放行的新轮次上限。
-
-创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
-
-无
+- 按功能拆分 `session-library.css` → 4 个子文件，`workspace.css` → 4 个子文件；修正 `session-library.css` 首行误输入的冒号与 `workspace-base.css` 结尾被截断的 `.session-rail` 块。
+- `SessionLibrary.tsx` 拆出 `SessionCard.tsx`、`SessionRow.tsx`、`SessionList.tsx`、`SessionPreview.tsx`、`SelectionDock.tsx`、`AgentFilterChips.tsx` 与 `session-library-utils.ts`，主文件降至 400 行。
+- `WorkspaceView.tsx` 拆出 `workspace-view-helpers.ts` 与 `use-workspace-columns.ts` 自定义 hook，主文件降至 398 行；保留选择/焦点/渲染逻辑在视图层。
+- 验证：`pnpm lint`、`pnpm typecheck`、`pnpm test` 全绿；`NO_PROXY=127.0.0.1,localhost HTTP_PROXY= HTTPS_PROXY= MOCK_FIXTURE=synthetic pnpm test:e2e:web` 53 用例通过。
 
 ## Review 处置
 
@@ -39,20 +38,9 @@ note: "merged from t241"
 
 reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符），处置为改 spec 上下文区，不计 FAIL。
 
-### Round 1 场景说明
+### Round 1 (2026-08-06 18:15 UTC+8)
 
-- **无 finding**：写「Round 1 零 finding，未进处置表。」
-- **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
-- **有 critical / important**：建表，逐条填 status（不得留空）。
-
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+Round 1 零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -61,24 +49,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC1 `wc -l` 全部 ≤ 400；AC2/AC3 由 `pnpm test`、`pnpm test:e2e:web`（53 passed）与人工抽查覆盖。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+拆分完成，测试与 e2e 全绿。
