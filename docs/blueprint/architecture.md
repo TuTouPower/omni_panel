@@ -168,6 +168,9 @@ open_or_focus（重开）   → show_panel()
 - 订阅即做一次全量提取建立增量游标；watcher 触发 → t209 增量提取 → `SESSION_HISTORY_MESSAGES_UPDATED` 推送增量（只含新增）。
 - **多订阅方路由（t219）**：订阅表每个 loc 持 `subscribers: Map<subscriber_id, on_update>`；同会话多窗口各自独立收推送。IPC SUBSCRIBE 以 `event.sender`（发起窗口 webContents id）为订阅方身份，推送只发回该窗口；订阅方窗口销毁（`webContents.destroyed`）即注销该订阅。未绑定窗口的订阅用缺省 id，路由由调用方 `on_update` 决定（fallback）。
 - 主动查询 `SESSION_HISTORY_QUERY` 全量提取 + 内存切片分页（决策 17 后端部分）：分页游标编码「已返回页最早消息在追加型数组中的绝对下标」（append-only 前缀跨追加稳定，空/重复消息 id 不跳段）。
+- **提取缓存（t235）**：`SessionHistorySubscriptionService` 以 `(source, env, session_id)` 为 key 缓存全量提取结果，失效信号为源文件 `mtime_ms + size`；`subscribe` 初始提取、`query`、分页均优先命中缓存，避免同一文件被反复全量解析。`handle_change` 增量推送后把新消息合并入缓存。缓存随订阅生命周期存在，不跨会话串数据。
+- **定位缓存（t235）**：`session-locator` 以 `(source, env, session_id)` 缓存 `resolve_session_file` 结果，同样按源文件 `mtime_ms + size` 失效；重复定位不重复目录扫描，文件删除后失效并返回 not found。
+- 工作台兜底轮询降级（t235）：renderer `WorkspaceView` 兜底全量 `query` 间隔从 5s 拉长至 30s，保留作为订阅推送丢失时的拉齐手段；活跃会话新消息仍由 watcher 2s 轮询 / `fs.watch` 推送在秒级上屏。
 - 全程只读（硬约束）：服务层与提取器不开写句柄；注销 / 窗口关闭按订阅方释放 watcher / 轮询句柄。
 - 历史窗口 singleton `HistoryWindowController`（对齐 `create_agent_window_controller`）：`SESSION_HISTORY_OPEN` 幂等——已开则 show+focus+定位，未开则创建并经 URL `route_query` 携带初始定位参数（renderer 启动读），`did-finish-load` 补发兜底创建窗口期丢失的定位。
 - 会话源文件定位 `session-locator`：`(source, env, session_id)` → 源文件 / db 路径；WSL 用户名优先取 `tokenStats.wslUser` 显式配置，空串自动探测 `\\wsl.localhost\<distro>\home` 第一目录（对齐 collector）。

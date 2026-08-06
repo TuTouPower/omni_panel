@@ -112,6 +112,24 @@ interface Subscription {
     watcher: Watcher | null;
 }
 
+interface ExtractCacheEntry {
+    file_path: string;
+    extractor_kind: ExtractorKind;
+    mtime_ms: number;
+    size: number;
+    messages: HistoryMessage[];
+    cursor: ExtractCursor | null;
+}
+
+function safe_stat(file_path: string): { mtime_ms: number; size: number } | null {
+    try {
+        const st = statSync(file_path);
+        return { mtime_ms: st.mtimeMs, size: st.size };
+    } catch {
+        return null;
+    }
+}
+
 /** 未指定 subscriber_id 的订阅统一使用此 id（legacy 单订阅，路由由调用方决定）。 */
 const LEGACY_SUBSCRIBER_ID = "__legacy__";
 
@@ -236,10 +254,53 @@ function extract_incremental(
  */
 export class SessionHistorySubscriptionService {
     private readonly subscriptions = new Map<string, Subscription>();
+    private readonly extract_cache = new Map<string, ExtractCacheEntry>();
     private readonly poll_interval_ms: number;
 
     constructor(options: { poll_interval_ms?: number } = {}) {
         this.poll_interval_ms = options.poll_interval_ms ?? 2000;
+    }
+
+    private get_extract_cache(key: string, file_path: string): ExtractCacheEntry | null {
+        const cached = this.extract_cache.get(key);
+        if (cached?.file_path !== file_path) return null;
+        const st = safe_stat(file_path);
+        if (st?.mtime_ms !== cached.mtime_ms || st.size !== cached.size) return null;
+        return cached;
+    }
+
+    private set_extract_cache(
+        key: string,
+        file_path: string,
+        extractor_kind: ExtractorKind,
+        result: { messages: readonly HistoryMessage[]; cursor: ExtractCursor | null },
+    ): void {
+        const st = safe_stat(file_path);
+        this.extract_cache.set(key, {
+            file_path,
+            extractor_kind,
+            mtime_ms: st?.mtime_ms ?? 0,
+            size: st?.size ?? 0,
+            messages: [...result.messages],
+            cursor: result.cursor,
+        });
+    }
+
+    private refresh_cache_after_change(sub: Subscription, new_messages: HistoryMessage[]): void {
+        const key = loc_key(sub.loc);
+        const cached = this.extract_cache.get(key);
+        const st = safe_stat(sub.file_path);
+        if (cached?.file_path === sub.file_path) {
+            cached.messages = [...cached.messages, ...new_messages];
+            cached.cursor = sub.cursor;
+            if (st) {
+                cached.mtime_ms = st.mtime_ms;
+                cached.size = st.size;
+            }
+        } else {
+            const full = extract_full(sub.extractor_kind, sub.file_path, sub.loc.session_id);
+            this.set_extract_cache(key, sub.file_path, sub.extractor_kind, full);
+        }
     }
 
     /**
@@ -260,7 +321,12 @@ export class SessionHistorySubscriptionService {
 
         // 订阅时立即做一次全量提取建立 cursor，但不向 on_update 推送——
         // 首次拉取由调用方走 query 通道；watcher 只在订阅之后的追加发生时推增量。
-        const initial = extract_full(params.extractor_kind, params.file_path, params.session_id);
+        // 优先复用同文件缓存，避免 subscribe 后立即 query 重复解析同一文件。
+        const cached = this.get_extract_cache(key, params.file_path);
+        const initial = cached ?? extract_full(params.extractor_kind, params.file_path, params.session_id);
+        if (!cached) {
+            this.set_extract_cache(key, params.file_path, params.extractor_kind, initial);
+        }
         const sub: Subscription = {
             loc: {
                 source: params.source,
@@ -310,6 +376,7 @@ export class SessionHistorySubscriptionService {
             return;
         }
         if (messages.length === 0) return;
+        this.refresh_cache_after_change(sub, [...messages]);
         // t219 多订阅方：逐订阅方隔离，单个 on_update 抛错不剥夺其余订阅方推送。
         for (const entry of sub.subscribers.values()) {
             try {
@@ -368,7 +435,12 @@ export class SessionHistorySubscriptionService {
         },
         options?: QueryOptions,
     ): QueryResult {
-        const full = extract_full(params.extractor_kind, params.file_path, params.session_id);
+        const key = loc_key(params);
+        const cached = this.get_extract_cache(key, params.file_path);
+        const full = cached ?? extract_full(params.extractor_kind, params.file_path, params.session_id);
+        if (!cached) {
+            this.set_extract_cache(key, params.file_path, params.extractor_kind, full);
+        }
         const all = full.messages;
         const limit = options?.limit;
 

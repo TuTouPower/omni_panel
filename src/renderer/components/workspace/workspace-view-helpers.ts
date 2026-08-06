@@ -2,7 +2,7 @@ import type { HistoryMessageLike, SessionHistoryLoc } from "../../../shared/type
 
 export type Loc = SessionHistoryLoc;
 
-export const FALLBACK_MS = 5000;
+export const FALLBACK_MS = 30000;
 
 export function loc_key(loc: Loc): string {
     return `${loc.source}|${loc.env}|${loc.session_id}`;

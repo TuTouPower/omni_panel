@@ -139,4 +139,21 @@ describe("session-locator (t210)", () => {
             expect(result).toBeNull();
         });
     });
+
+    it("重复 resolve 命中缓存；源文件删除后缓存失效并返回 null", () => {
+        const proj_dir = join(tmp_root, ".claude", "projects", "cache_proj");
+        mkdirSync(proj_dir, { recursive: true });
+        const file = join(proj_dir, "cache_sess.jsonl");
+        writeFileSync(file, JSON.stringify({ type: "user" }) + "\n");
+
+        const first = resolve_session_file("claude_code", "win", "cache_sess", paths);
+        expect(first?.file_path).toBe(file);
+
+        const second = resolve_session_file("claude_code", "win", "cache_sess", paths);
+        expect(second?.file_path).toBe(file);
+
+        rmSync(file);
+        const third = resolve_session_file("claude_code", "win", "cache_sess", paths);
+        expect(third).toBeNull();
+    });
 });

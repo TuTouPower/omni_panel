@@ -807,4 +807,67 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(result.map((r) => r.session_id)).toEqual(["a", "b"]);
         expect(result[0]?.agent).toBe("grok");
     });
+
+    it("query 对未变化文件使用缓存，追加后刷新缓存", () => {
+        const sid = "cache_sid";
+        const file = join(tmp_dir, `${sid}.jsonl`);
+        writeFileSync(
+            file,
+            make_jsonl_line("user", "first", "m1", "2026-07-10T08:00:00Z") + "\n",
+        );
+
+        const first = service.query(
+            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            { limit: 10 },
+        );
+        expect(first.messages).toHaveLength(1);
+
+        const cache = (service as unknown as { extract_cache: Map<string, { messages: HistoryMessage[] }> }).extract_cache;
+        const key = "claude_code|win|cache_sid";
+        expect(cache.get(key)?.messages).toHaveLength(1);
+
+        const second = service.query(
+            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            { limit: 10 },
+        );
+        expect(second.messages).toHaveLength(1);
+        expect(cache.get(key)?.messages).toHaveLength(1);
+
+        appendFileSync(file, make_jsonl_line("assistant", "second", "m2", "2026-07-10T08:00:01Z") + "\n");
+        const third = service.query(
+            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            { limit: 10 },
+        );
+        expect(third.messages).toHaveLength(2);
+        expect(cache.get(key)?.messages).toHaveLength(2);
+    });
+
+    it("subscribe 后首次 query 复用订阅缓存，不重复解析文件", () => {
+        const sid = "sub_cache_sid";
+        const file = join(tmp_dir, `${sid}.jsonl`);
+        writeFileSync(
+            file,
+            make_jsonl_line("user", "hello", "m1", "2026-07-10T08:00:00Z") + "\n",
+        );
+
+        service.subscribe({
+            source: "claude_code",
+            env: "win",
+            session_id: sid,
+            file_path: file,
+            extractor_kind: "claude_code",
+            on_update: () => undefined,
+        });
+
+        const cache = (service as unknown as { extract_cache: Map<string, { messages: HistoryMessage[] }> }).extract_cache;
+        const key = "claude_code|win|sub_cache_sid";
+        expect(cache.get(key)?.messages).toHaveLength(1);
+
+        const result = service.query(
+            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            { limit: 10 },
+        );
+        expect(result.messages).toHaveLength(1);
+        expect(cache.get(key)?.messages).toHaveLength(1);
+    });
 }, 30000);

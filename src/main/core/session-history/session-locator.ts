@@ -13,6 +13,34 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Env, ExtractorKind } from "./subscription-service";
 
+interface ResolutionCacheEntry {
+    readonly paths_key: string;
+    readonly file_path: string;
+    readonly extractor_kind: ExtractorKind;
+    readonly mtime_ms: number;
+    readonly size: number;
+}
+
+const resolution_cache = new Map<string, ResolutionCacheEntry>();
+
+function locator_paths_key(paths: LocatorPaths): string {
+    return `${paths.win_home}|${paths.wsl_distro}|${paths.wsl_user}`;
+}
+
+function safe_file_stat(file_path: string): { mtime_ms: number; size: number } | null {
+    try {
+        const st = statSync(file_path);
+        return { mtime_ms: st.mtimeMs, size: st.size };
+    } catch {
+        return null;
+    }
+}
+
+/** 清空定位缓存（测试用）。 */
+export function clear_resolution_cache(): void {
+    resolution_cache.clear();
+}
+
 /** locator 支持的 source 集合（与 token-stats 四端对齐，kimi 带下划线）。 */
 export type HistorySource = "claude_code" | "opencode" | "kimi_code" | "grok";
 
@@ -242,16 +270,42 @@ export function resolve_session_file(
     session_id: string,
     paths: LocatorPaths = DEFAULT_LOCATOR_PATHS,
 ): ResolvedSession | null {
-    switch (source) {
-        case "claude_code":
-            return resolve_claude_code(paths, env, session_id);
-        case "opencode":
-            return resolve_opencode(paths, env);
-        case "kimi_code":
-            return resolve_kimi_code(paths, env, session_id);
-        case "grok":
-            // grok 仅 WSL（d017）；env 仍接收以便未来扩展，但路径解析固定走 WSL。
-            void env;
-            return resolve_grok(paths, session_id);
+    const cache_key = `${source}|${env}|${session_id}`;
+    const paths_key = locator_paths_key(paths);
+    const cached = resolution_cache.get(cache_key);
+    if (cached?.paths_key === paths_key) {
+        const st = safe_file_stat(cached.file_path);
+        if (st?.mtime_ms === cached.mtime_ms && st.size === cached.size) {
+            return { file_path: cached.file_path, extractor_kind: cached.extractor_kind };
+        }
     }
+
+    const resolved = ((): ResolvedSession | null => {
+        switch (source) {
+            case "claude_code":
+                return resolve_claude_code(paths, env, session_id);
+            case "opencode":
+                return resolve_opencode(paths, env);
+            case "kimi_code":
+                return resolve_kimi_code(paths, env, session_id);
+            case "grok":
+                // grok 仅 WSL（d017）；env 仍接收以便未来扩展，但路径解析固定走 WSL。
+                void env;
+                return resolve_grok(paths, session_id);
+        }
+    })();
+
+    if (resolved) {
+        const st = safe_file_stat(resolved.file_path);
+        resolution_cache.set(cache_key, {
+            paths_key,
+            file_path: resolved.file_path,
+            extractor_kind: resolved.extractor_kind,
+            mtime_ms: st?.mtime_ms ?? 0,
+            size: st?.size ?? 0,
+        });
+    } else {
+        resolution_cache.delete(cache_key);
+    }
+    return resolved;
 }
