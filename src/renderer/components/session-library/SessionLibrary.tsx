@@ -40,8 +40,6 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     const [toast, set_toast] = useState<string | null>(null);
     const [summaries, set_summaries] = useState<Record<string, string>>({});
     const [load_error, set_load_error] = useState(false);
-
-    // 卡片/行首条用户消息摘要（f002）：懒加载，按 key 缓存；ref 防重复请求（f010，异步查询移出 updater）。
     const summary_inflight = useRef(new Set<string>());
     const ensure_summary = useCallback((s: TokenStatsSession): void => {
         const k = key_of(s);
@@ -126,8 +124,6 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     }, [all, library_filters, sort]);
 
     const [content_hits, set_content_hits] = useState<Set<string>>(new Set());
-
-    // 「包含消息内容」搜索：结果 = 元信息命中 ∪ 正文命中（f001 并集语义）。
     const content_filtered = useMemo(() => {
         if (!search || !search_content) return filtered;
         const hits = content_hits;
@@ -216,7 +212,6 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
         on_switch_workspace();
     }
 
-    // Esc 关闭预览。
     useEffect(() => {
         function on_key(e: KeyboardEvent): void {
             if (e.key === "Escape") set_preview(null);
@@ -228,7 +223,10 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     }, []);
 
     const selected_ids = new Set(selected.map((s) => key_of(s)));
-
+    const has_filters =
+        search || search_content || start_date || end_date || agents.length > 0;
+    const show_clear = has_filters || all.length > 0;
+    const empty_text = load_error ? "会话列表加载失败" : "没有匹配的会话";
     return (
         <div className="session-library">
             <header className="lib-head">
@@ -324,10 +322,14 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
 
             {content_searching && <div className="lib-content-searching">搜索消息内容中…</div>}
 
+            {load_error && visible_sessions.length > 0 && (
+                <div className="lib-load-interrupted">会话列表加载中断，已显示部分数据</div>
+            )}
+
             {visible_sessions.length === 0 ? (
                 <div className="lib-empty">
-                    <p>{load_error ? "会话列表加载失败" : "没有匹配的会话"}</p>
-                    {!load_error && (
+                    <p>{empty_text}</p>
+                    {show_clear && (
                         <button
                             type="button"
                             onClick={() => {

@@ -266,7 +266,32 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "不存在" } });
+        expect(screen.getByText("没有匹配的会话")).toBeTruthy();
         expect(screen.getByText(/清除筛选/)).toBeTruthy();
+    });
+
+    it("加载失败且筛选 0 条时显示加载失败并保留清除筛选", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockRejectedValue(new Error("boom"));
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话列表加载失败"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "x" } });
+        expect(screen.getByText("会话列表加载失败")).toBeTruthy();
+        expect(screen.getByText(/清除筛选/)).toBeTruthy();
+    });
+
+    it("中途分页失败时展示已加载数据并显示加载中断提示", async () => {
+        const ub = usageboard();
+        const first = Array.from({ length: 500 }, (_, i) =>
+            sess(`p${String(i)}`, "claude_code"),
+        );
+        ub.tokenStats.getSessions
+            .mockResolvedValueOnce(first)
+            .mockRejectedValueOnce(new Error("boom"));
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 p0"));
+        expect(document.querySelectorAll(".lib-card").length).toBe(50);
+        expect(screen.getByText("会话列表加载中断，已显示部分数据")).toBeTruthy();
     });
 
     it("「包含消息内容」开关接线：正文命中并入结果（并集，f001）", async () => {

@@ -2,11 +2,11 @@
 tid: "t234"
 slug: "fix_session_library_load_error_empty"
 title: "会话库 load_error 空态误报与中途分页失败提示"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t234_fix_session_library_load_error_empty"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "b27f08be3c3a3e476cae17c7994372e575f6bb76"
 depends_on: ""
 conflicts_with: "t232,t233,t237,t239"
 schedule_status: "scheduled"
@@ -19,11 +19,11 @@ note: ""
 
 ## 实施笔记
 
-执行期边做边写：实际步骤、踩坑、中途决策、偏离 spec、关键验证、blocked 原因与用户放行的新轮次上限。
-
-创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
-
-无
+- 在 `SessionLibrary.tsx` 中区分空态语义：`load_error` 时显示「会话列表加载失败」；否则显示「没有匹配的会话」。
+- 空态「清除筛选」按钮改为在存在筛选条件或 `all.length > 0` 时显示，避免加载失败 + 无匹配时误藏按钮。
+- 列表非空且 `load_error` 时新增 `.lib-load-interrupted` 提示「会话列表加载中断，已显示部分数据」。
+- 新增 3 个单元测试覆盖：加载失败 + 筛选 0 条、中途分页失败 + 部分数据、正常无匹配。
+- 验证：`pnpm lint`、`pnpm typecheck`、SessionLibrary 单元测试、`MOCK_FIXTURE=synthetic pnpm test:e2e:web -- session_panel.spec.ts` 均通过。
 
 ## Review 处置
 
@@ -39,20 +39,9 @@ note: ""
 
 reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符），处置为改 spec 上下文区，不计 FAIL。
 
-### Round 1 场景说明
+### Round 1 (2026-08-06 18:40 UTC+8)
 
-- **无 finding**：写「Round 1 零 finding，未进处置表。」
-- **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
-- **有 critical / important**：建表，逐条填 status（不得留空）。
-
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+Round 1 零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -61,24 +50,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC1/AC2/AC3 均由 `SessionLibrary.test.tsx` 新增用例覆盖；e2e `session_panel.spec.ts` 5 用例通过。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+空态语义与中途分页提示实现完成，测试通过。
