@@ -798,3 +798,123 @@ describe("TokenStatsView dashboard query", () => {
         expect(open_history).toHaveBeenCalledWith("claude_code", "win", "initial");
     });
 });
+
+describe("TokenStatsView granularity preset switch (t229)", () => {
+    const get_dashboard = vi.fn();
+    const get_dashboard_sessions = vi.fn();
+    const get_config = vi.fn();
+
+    function last_dashboard_gran(): string {
+        const call = get_dashboard.mock.calls.at(-1);
+        if (!call) return "";
+        return (call[0] as { gran?: string }).gran ?? "";
+    }
+
+    beforeEach(() => {
+        localStorage.clear();
+        get_dashboard.mockReset();
+        get_dashboard_sessions.mockReset();
+        get_config.mockReset();
+        get_dashboard.mockResolvedValue(dashboard("initial"));
+        get_config.mockResolvedValue({
+            config: { dirAliases: [], modelAliases: [] },
+            hasSecrets: {},
+        });
+        window.usageboard = {
+            tokenStats: {
+                open: vi.fn(),
+                getDashboard: get_dashboard,
+                getBuckets: vi.fn(),
+                getSessions: vi.fn(),
+                getRecords: vi.fn(),
+                getHeatmap: vi.fn(),
+                getHourBuckets: vi.fn(),
+                getRangeRollup: vi.fn(),
+                getDashboardSessions: get_dashboard_sessions,
+                getStatus: vi.fn(),
+                onUpdated: vi.fn(() => vi.fn()),
+            },
+            config: { get: get_config },
+            event: { onConfigChange: vi.fn(() => vi.fn()) },
+            log: vi.fn(),
+            sessionHistory: { open: vi.fn() },
+        } as unknown as typeof window.usageboard;
+    });
+
+    it("7d/30d preset allows switching granularity to hour/day", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        // Switching to 7d fires a day-granularity request (default for non-24h).
+        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+        expect(last_dashboard_gran()).toBe("day");
+
+        // Clicking hour switches the active granularity and fires an hour request.
+        await user.click(screen.getByRole("button", { name: "小时" }));
+        await waitFor(() => {
+            expect(last_dashboard_gran()).toBe("hour");
+        });
+        expect(screen.getByRole("button", { name: "小时" })).toHaveClass("on");
+        expect(screen.getByRole("button", { name: "天" })).not.toHaveClass("on");
+
+        // Clicking day restores the day button. The day query for this preset is
+        // cached, so no extra network request is required.
+        await user.click(screen.getByRole("button", { name: "天" }));
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: "天" })).toHaveClass("on");
+        });
+        expect(screen.getByRole("button", { name: "小时" })).not.toHaveClass("on");
+    });
+
+    it("24h preset forces hour granularity and ignores day click", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        await user.click(screen.getByRole("button", { name: "24 小时" }));
+        await waitFor(() => {
+            expect(last_dashboard_gran()).toBe("hour");
+        });
+        expect(screen.getByRole("button", { name: "小时" })).toHaveClass("on");
+
+        await user.click(screen.getByRole("button", { name: "天" }));
+        expect(screen.getByRole("button", { name: "小时" })).toHaveClass("on");
+        expect(screen.getByRole("button", { name: "天" })).not.toHaveClass("on");
+        // No additional dashboard request should be fired because the effective
+        // granularity does not change.
+        expect(last_dashboard_gran()).toBe("hour");
+        expect(get_dashboard.mock.calls.length).toBeLessThanOrEqual(2);
+    });
+
+    it("custom range allows free hour/day switching", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        // Apply a custom range; the initial request uses day granularity.
+        await user.click(screen.getByTestId("apply-custom-range"));
+        await waitFor(() => {
+            expect(get_dashboard.mock.calls.length).toBeGreaterThanOrEqual(2);
+        });
+        expect(last_dashboard_gran()).toBe("day");
+
+        // Switch to hour: a new request is fired because this key is not cached.
+        await user.click(screen.getByRole("button", { name: "小时" }));
+        await waitFor(() => {
+            expect(last_dashboard_gran()).toBe("hour");
+        });
+        expect(screen.getByRole("button", { name: "小时" })).toHaveClass("on");
+
+        // Switch back to day: the day key is cached, so the UI updates without an
+        // additional network request.
+        await user.click(screen.getByRole("button", { name: "天" }));
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: "天" })).toHaveClass("on");
+        });
+        expect(screen.getByRole("button", { name: "小时" })).not.toHaveClass("on");
+    });
+});

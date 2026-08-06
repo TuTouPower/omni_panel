@@ -2,11 +2,11 @@
 tid: "t229"
 slug: "fix_gran_preset_switch"
 title: "修复 7d/30d 预设下柱状图粒度切换失效"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t229_fix_gran_preset_switch"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "50134143c369a2b489f75cc041e45e9f4c8f4458"
 depends_on: ""
 conflicts_with: "t230"
 schedule_status: "scheduled"
@@ -19,11 +19,10 @@ note: ""
 
 ## 实施笔记
 
-执行期边做边写：实际步骤、踩坑、中途决策、偏离 spec、关键验证、blocked 原因与用户放行的新轮次上限。
-
-创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
-
-无
+- 根因：`effective_granularity` 在 t191 中把 7d/30d preset 恒返回 `"day"`，导致 Segmented 按钮状态被覆盖；24h preset 仍强制 `"hour"`。
+- 修复：将 `effective_granularity` 的非 custom 分支改为 `preset === "24h" ? "hour" : gran`，恢复 7d/30d 下 `gran` state 的真实生效，同时保持 24h 强制小时不变。
+- 测试：在 `token_stats_view.test.tsx` 新增 3 个用例覆盖 7d/30d 切换、24h 强制小时、自定义范围自由切换；断言按钮高亮与 `getDashboard` 请求 `gran` 一致。
+- 验证：`pnpm test tests/unit/renderer/views/token_stats_view.test.tsx` 全绿；`pnpm test` 全绿；`pnpm lint`/`pnpm typecheck` 通过。
 
 ## Review 处置
 
@@ -45,14 +44,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 2026-08-06 17:10 UTC+8
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+Round 1 零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -60,9 +54,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### 验收
 
-- spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- spec：[`spec.md`](spec.md) + [`docs/specs/ai-cli-token-stats-ui.md`](../../specs/ai-cli-token-stats-ui.md)
+- 结果：全部满足
+- 证据：
+    - AC1（7d/30d 切换小时/天）：测试 `7d/30d preset allows switching granularity to hour/day` 断言按钮高亮与请求 `gran` 同步变化。
+    - AC2（24h 强制小时）：测试 `24h preset forces hour granularity and ignores day click` 断言点击「天」后仍高亮「小时」且请求 `gran` 仍为 hour。
+    - AC3（自定义范围自由切换）：测试 `custom range allows free hour/day switching` 断言自定义范围下可切换 hour/day。
+    - AC4（请求 gran 与缓存键一致）：测试通过等待实际 `getDashboard` 请求并检查 `gran` 字段验证；代码中 `effective_gran` 用于 `display_ref`、query key 与请求参数，未改缓存语义。
 
 ### Reviewer verdict
 
@@ -75,10 +73,10 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+修复 `TokenStatsView` 粒度切换回归；全部 AC 覆盖并通过 lint/typecheck/test。

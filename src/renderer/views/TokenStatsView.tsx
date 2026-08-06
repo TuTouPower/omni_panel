@@ -140,7 +140,7 @@ function effective_granularity(
     gran: Granularity,
 ): Granularity {
     if (custom) return gran;
-    return preset === "24h" ? "hour" : "day";
+    return preset === "24h" ? "hour" : gran;
 }
 
 function dashboard_session_rows(items: readonly TokenStatsDashboardSessionSummary[]): SessionRow[] {

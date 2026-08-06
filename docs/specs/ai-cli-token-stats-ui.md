@@ -68,6 +68,7 @@
 - 类型切换：折线 / 柱状（本版不做日历方块）
 - 数据源：`token_stats_buckets` 表，按筛选条件 GROUP BY
 - **自然时间 bucket**（t103）：时间轴保留筛选窗口原始起止；day/hour 分别按本地午夜/整点切分，首末 bucket 可为 partial。标签和小时刻度使用各 bucket 的真实起点；Heatmap 与前一窗口等长对比不变。
+- **粒度切换**（t229）：时间轴提供「小时 / 天」Segmented 切换。7d/30d preset 下可真实切换，生效粒度与请求 `gran` 一致并进入查询缓存键；24h preset 强制为小时粒度；自定义范围可自由切换。
 
 ## 5. Session 列表
 
