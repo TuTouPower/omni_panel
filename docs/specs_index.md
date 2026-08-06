@@ -56,5 +56,6 @@
 | kimi_oauth_concurrency               | API           | t150                                                                                  | 2026-07-26   |
 | unify_account_auth_forms             | Web           | t157                                                                                  | 2026-07-27   |
 | session-history-window               | Desktop       | t211，t212，t213                                                                      | 2026-08-05   |
+| session-shell                        | Desktop       | t223                                                                                  | 2026-08-06   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

@@ -1,0 +1,322 @@
+/* t223 会话窗口单壳外壳：demo 设计系统落地方案。
+   作用域限定 .session-shell（会话窗口独有文档），不影响其它窗口。
+   暗色默认：.session-shell 直接给暗色 token；html[data-theme="light"] 覆盖为浅色。 */
+
+.session-shell {
+    /* ---- 暗色默认（demo dark tokens，design.md §2 原值） ---- */
+    --bg-canvas-rgb: 10 13 18;
+    --bg-canvas: rgb(var(--bg-canvas-rgb));
+    --bg-panel-rgb: 16 21 28;
+    --bg-panel: rgb(var(--bg-panel-rgb));
+    --bg-raised-rgb: 22 28 37;
+    --bg-raised: rgb(var(--bg-raised-rgb));
+    --bg-inset-rgb: 12 16 22;
+    --bg-inset: rgb(var(--bg-inset-rgb));
+    --border-subtle-rgb: 30 38 50;
+    --border-subtle: rgb(var(--border-subtle-rgb));
+    --border-strong-rgb: 44 55 70;
+    --border-strong: rgb(var(--border-strong-rgb));
+    --text-primary-rgb: 232 237 244;
+    --text-primary: rgb(var(--text-primary-rgb));
+    --text-secondary-rgb: 154 167 184;
+    --text-secondary: rgb(var(--text-secondary-rgb));
+    --text-muted-rgb: 91 107 126;
+    --text-muted: rgb(var(--text-muted-rgb));
+    --accent-lime-rgb: 198 246 61;
+    --accent-lime: rgb(var(--accent-lime-rgb));
+    --accent-lime-dim: rgb(var(--accent-lime-rgb) / 0.12);
+    --danger-rgb: 255 92 122;
+    --danger: rgb(var(--danger-rgb));
+    --diff-add-rgb: 46 166 107;
+    --diff-add: rgb(var(--diff-add-rgb));
+    --diff-del-rgb: 229 72 77;
+    --diff-del: rgb(var(--diff-del-rgb));
+    --scrollbar-thumb: #2c3746;
+    --scrollbar-thumb-hover: #3d4b5e;
+    --grid-dot: #1e2632;
+
+    /* ---- 旧 token 桥接：session-history 视图复用 demo 视觉 ---- */
+    --win-bg: var(--bg-panel);
+    --desktop: var(--bg-canvas);
+    --win-border: var(--border-subtle);
+    --border: var(--border-subtle);
+    --accent: var(--accent-lime);
+    --bg-hover: var(--bg-raised);
+    --card-bg: var(--bg-panel);
+    --card-border: var(--border-subtle);
+    --text: var(--text-primary);
+    --text-2: var(--text-secondary);
+    --text-3: var(--text-muted);
+    --hairline: var(--border-subtle);
+    --track: var(--bg-raised);
+    --bar-track: var(--bg-raised);
+    --tab-active: var(--accent-lime-dim);
+    --chip-bg: var(--bg-raised);
+    --chip-active: var(--bg-panel);
+    --iconbtn: var(--text-muted);
+    --iconbtn-hov: var(--bg-raised);
+    --menu-bg: rgb(16 21 28 / 0.92);
+    --menu-border: var(--border-subtle);
+    --menu-hover: var(--bg-raised);
+    --field-bg: var(--bg-inset);
+    --field-border: var(--border-subtle);
+    --grid-line: var(--border-subtle);
+    --blue: var(--accent-lime);
+    --red: var(--danger);
+    --green: var(--diff-add);
+    --amber: #f7b53c;
+    --radius: 0.625rem;
+
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-height: 100vh;
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+}
+
+html[data-theme="light"] .session-shell {
+    /* ---- 浅色：demo light tokens（design.md §2 原值） ---- */
+    --bg-canvas-rgb: 246 244 241;
+    --bg-canvas: rgb(var(--bg-canvas-rgb));
+    --bg-panel-rgb: 255 255 255;
+    --bg-panel: rgb(var(--bg-panel-rgb));
+    --bg-raised-rgb: 240 237 232;
+    --bg-raised: rgb(var(--bg-raised-rgb));
+    --bg-inset-rgb: 244 242 239;
+    --bg-inset: rgb(var(--bg-inset-rgb));
+    --border-subtle-rgb: 226 221 214;
+    --border-subtle: rgb(var(--border-subtle-rgb));
+    --border-strong-rgb: 201 194 184;
+    --border-strong: rgb(var(--border-strong-rgb));
+    --text-primary-rgb: 32 36 44;
+    --text-primary: rgb(var(--text-primary-rgb));
+    --text-secondary-rgb: 91 100 114;
+    --text-secondary: rgb(var(--text-secondary-rgb));
+    --text-muted-rgb: 152 160 172;
+    --text-muted: rgb(var(--text-muted-rgb));
+    --accent-lime-rgb: 77 124 15;
+    --accent-lime: rgb(var(--accent-lime-rgb));
+    --accent-lime-dim: rgb(var(--accent-lime-rgb) / 0.1);
+    --danger-rgb: 220 51 85;
+    --danger: rgb(var(--danger-rgb));
+    --diff-add-rgb: 30 122 76;
+    --diff-add: rgb(var(--diff-add-rgb));
+    --diff-del-rgb: 201 58 63;
+    --diff-del: rgb(var(--diff-del-rgb));
+    --scrollbar-thumb: #c9c2b8;
+    --scrollbar-thumb-hover: #a89f92;
+    --grid-dot: #e2ddd6;
+    --menu-bg: rgb(255 255 255 / 0.92);
+}
+
+/* ---- 顶栏 ---- */
+.shell-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 52px;
+    padding: 0 14px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-canvas);
+    user-select: none;
+}
+
+.shell-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.shell-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    display: block;
+}
+
+.shell-title {
+    font-family: "Space Grotesk", "Noto Sans SC", sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.shell-tabs {
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    gap: 2px;
+}
+
+.shell-tab {
+    position: relative;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    padding: 0 16px;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.shell-tab:hover {
+    color: var(--text-secondary);
+}
+
+.shell-tab.on {
+    color: var(--text-primary);
+}
+
+.shell-tab.on::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent-lime);
+}
+
+.shell-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.shell-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition:
+        background 0.14s,
+        color 0.14s,
+        border-color 0.14s;
+}
+
+.shell-action:hover {
+    background: var(--bg-panel);
+    border-color: var(--border-subtle);
+    color: var(--text-secondary);
+}
+
+/* ---- 内容区：两个页签面板常驻挂载，CSS 显隐切换 ---- */
+.shell-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.shell-pane {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+}
+
+.shell-pane[data-active="false"] {
+    display: none;
+}
+
+.shell-pane > .session-history {
+    width: 100%;
+    height: 100%;
+}
+
+/* ---- 会话库空态占位 ---- */
+.shell-library {
+    align-items: center;
+    justify-content: center;
+}
+
+.shell-library-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+}
+
+.shell-library-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-raised);
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.shell-library-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.shell-library-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* ---- demo 字体与滚动条 ---- */
+.session-shell code,
+.session-shell pre,
+.session-shell kbd,
+.session-shell samp {
+    font-family: "JetBrains Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+
+.session-shell ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.session-shell ::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.session-shell ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 3px;
+}
+
+.session-shell ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+}
+
+.session-shell ::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+.session-shell * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.session-shell ::selection {
+    background-color: var(--accent-lime-dim);
+    color: var(--accent-lime);
+}

@@ -73,7 +73,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- demo 依赖的动效/拖拽/字体等前端库在本项目是否已有等价依赖、新增依赖的体积与许可：`UNVERIFIED-SPIKE`，执行期读 `package.json` 与 demo 的依赖清单核实，新增依赖需报用户确认。
+- demo 依赖的前端库与本项目已有栈对照（验证方式：执行期 Step 1 读主仓与 demo `package.json` 逐项对照）：**无需新增 npm 依赖**。t223 范围（单壳页签、主题切换、跳转按钮、设计 token）全部可用主仓现有 react 19 + tailwind v4 + lucide-react + 既有 theme 机制实现；demo 的 radix 组件族、@dnd-kit（拖拽）、gsap/framer-motion/lenis（动效）、cmdk（命令面板）、react-markdown（消息渲染）、next-themes 均非本 task 所需（拖拽/命令面板/消息渲染为明确非范围）。
+- 字体方案（验证方式：用户 2026-08-06 确认）：采用系统等价回退，不新增字体资产。正文字体 Noto Sans SC → PingFang SC / 微软雅黑 / 系统 sans-serif；display Space Grotesk → 系统回退；等宽 JetBrains Mono → Consolas / Cascadia Code / 系统 monospace。
 
 ### 风险与回退
 

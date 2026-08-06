@@ -189,6 +189,13 @@ route `history` 单窗口分栏平铺（决策 3）：最多 6 栏，1~2 会话�
 - **降级与恢复**：renderer `useNowTick` 监听 `document.visibilityState`，隐藏期间前台计时器暂停推进，`visibilitychange` 回可见时立即刷新；不破坏后台仍需的订阅。隐藏窗口占用的渲染进程保留（Windows 实测 work set 内存保留、无 CPU 增量，见 s010）。
 - **边界**：`apply_config_change` 模式切换仍 `close_for_mode_switch` → 重建；配置变更、电源恢复、托盘打开等既有路径行为不变。
 
+### 4.6 会话窗口外壳（t223）
+
+route `history` 渲染根组件为 `SessionShell`（单壳双页签，见 `specs/session-shell.md`），`SessionHistoryView` 作为工作台页签内容整棵挂载。固定 52px 顶栏 = 品牌 + 居中「工作台/会话库」页签 + 用量/代理面板跳转 + 明暗主题切换；两页签常驻挂载，CSS `data-active` 显隐切换，状态不丢。
+
+- **设计系统**：demo 语义色 token（canvas/panel/raised/inset、subtle/strong 边框、primary/secondary/muted 文本、lime 强调、danger）作用域限定 `.session-shell`，暗色默认，`html[data-theme="light"] .session-shell` 覆盖浅色；内部桥接旧 token 名（`--win-bg/--text/--card-bg/--accent/--bg-hover/--border` 等）让既有会话历史样式直接继承 demo 视觉。字体走系统等价回退（Noto Sans SC → PingFang SC/微软雅黑，Space Grotesk → 系统回退，JetBrains Mono → Cascadia Code/Consolas），零新增资产。
+- **主题独立**：`useSessionShellTheme` 与全局 `theme.ts` 解耦——session 窗口默认暗色、持久化 `localStorage omni_session_theme`、切换设 `html[data-theme]`，不写全局 `config.theme`；`useLayoutEffect` 同步应用避免 preload 首帧（按系统 `ou_theme`）与持久化主题不一致的闪烁。
+
 ## 5. 跨模块契约
 
 - **观测契约**：脚本产出 `script_observation_schema`（snake_case，无 `source_instance_id`）；宿主 extend 出 `observation_schema`。字段语义见 `specs/observation-store.md`。
