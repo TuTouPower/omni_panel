@@ -172,11 +172,11 @@ open_or_focus（重开）   → show_panel()
 - 历史窗口 singleton `HistoryWindowController`（对齐 `create_agent_window_controller`）：`SESSION_HISTORY_OPEN` 幂等——已开则 show+focus+定位，未开则创建并经 URL `route_query` 携带初始定位参数（renderer 启动读），`did-finish-load` 补发兜底创建窗口期丢失的定位。
 - 会话源文件定位 `session-locator`：`(source, env, session_id)` → 源文件 / db 路径；WSL 用户名优先取 `tokenStats.wslUser` 显式配置，空串自动探测 `\\wsl.localhost\<distro>\home` 第一目录（对齐 collector）。
 
-### 4.5 会话历史窗口（t211）
+### 4.5 会话历史窗口（t211；t224 起为槽位模型）
 
-route `history` 单窗口分栏平铺（决策 3）：最多 6 栏，1~2 会话单列整行、3~6 两列网格，栏内容区独立滚动；栏头 = agent + 标题 + 关闭 ×，顶部工具栏 = 清空全部 + 全局复制（含总选中数）+ N/6 + 最近 6 条。
+route `history` 单窗口。t224 把工作台改为 8 槽位模型（`WorkspaceView`，见 `specs/workspace.md`），下述 t211 决策为被取代前 6 栏平铺的能力来源：消息渲染/推送/分页/选择/复制语义仍生效，宿主迁至 `WorkspaceView` 的 `HistoryColumn`。
 
-- **打开与定位**：明细表（t212）/ onFocus 事件经 `SESSION_HISTORY_OPEN` 打开窗口；renderer 读 URL `loc` query 或收 `SESSION_HISTORY_FOCUS` 定位。最近 6 条复用 `tokenStats.getSessions({ limit: 6 })`。
+- **打开与定位**：明细表（t212）/ onFocus 事件经 `SESSION_HISTORY_OPEN` 打开窗口；renderer 读 URL `loc` query 或收 `SESSION_HISTORY_FOCUS` 定位。t224 起定位装入工作台槽位（`open_session`：已开聚焦、槽满 toast 拒绝）。
 - **打开入口与面板间导航（t212）**：会话历史窗口可从明细表单击行 / 勾选批量「打开历史」、popup TitleBar「会话历史」、代理面板 header「到会话历史」打开；窗口内「用量面板」/「代理面板」返回跳转。纯跳转入口（无具体会话）调 `sessionHistory.open("", "", "")`，主进程 `open_or_focus(undefined)` 只开/聚焦空窗；明细表批量打开传 `identity_key`（`source|env|session_id`）。**批量冷启动补发**：创建窗口期连续 OPEN 的定位由 controller 的 `pending_locs` 缓冲（`webContents.send` 在 loadURL 途中被丢弃），`did-finish-load` 后按序统一补发并按 key 去重。
 - **超 6 处理（决策 4）**：打开第 7 个弹模态框列出现有 6 个会话（agent + 标题 + 打开时间），用户至少关 1 个才入栏，可取消。容量检查用同步 `opened_count_ref`（React 19 批处理下 render-fresh ref 在批量 open 循环内会 stale，超 6 直接挂载）。
 - **消息选择（决策 8）**：hover checkbox 跨栏选择，选中集按 `loc_key|message_id` 存 renderer、跨刷新保留；栏头「已选 N 条 / 全选本栏 / 清除本栏」。
@@ -189,12 +189,14 @@ route `history` 单窗口分栏平铺（决策 3）：最多 6 栏，1~2 会话�
 - **降级与恢复**：renderer `useNowTick` 监听 `document.visibilityState`，隐藏期间前台计时器暂停推进，`visibilitychange` 回可见时立即刷新；不破坏后台仍需的订阅。隐藏窗口占用的渲染进程保留（Windows 实测 work set 内存保留、无 CPU 增量，见 s010）。
 - **边界**：`apply_config_change` 模式切换仍 `close_for_mode_switch` → 重建；配置变更、电源恢复、托盘打开等既有路径行为不变。
 
-### 4.6 会话窗口外壳（t223）
+### 4.6 会话窗口外壳与工作台（t223/t224）
 
-route `history` 渲染根组件为 `SessionShell`（单壳双页签，见 `specs/session-shell.md`），`SessionHistoryView` 作为工作台页签内容整棵挂载。固定 52px 顶栏 = 品牌 + 居中「工作台/会话库」页签 + 用量/代理面板跳转 + 明暗主题切换；两页签常驻挂载，CSS `data-active` 显隐切换，状态不丢。
+route `history` 渲染根组件为 `SessionShell`（单壳双页签，见 `specs/session-shell.md`），工作台页签为 `WorkspaceView`（t224 槽位模型，见 `specs/workspace.md`）。固定 52px 顶栏 = 品牌 + 居中「工作台/会话库」页签 + 用量/代理面板跳转 + 明暗主题切换；两页签常驻挂载，CSS `data-active` 显隐切换，状态不丢。
 
-- **设计系统**：demo 语义色 token（canvas/panel/raised/inset、subtle/strong 边框、primary/secondary/muted 文本、lime 强调、danger）作用域限定 `.session-shell`，暗色默认，`html[data-theme="light"] .session-shell` 覆盖浅色；内部桥接旧 token 名（`--win-bg/--text/--card-bg/--accent/--bg-hover/--border` 等）让既有会话历史样式直接继承 demo 视觉。字体走系统等价回退（Noto Sans SC → PingFang SC/微软雅黑，Space Grotesk → 系统回退，JetBrains Mono → Cascadia Code/Consolas），零新增资产。
-- **主题独立**：`useSessionShellTheme` 与全局 `theme.ts` 解耦——session 窗口默认暗色、持久化 `localStorage omni_session_theme`、切换设 `html[data-theme]`，不写全局 `config.theme`；`useLayoutEffect` 同步应用避免 preload 首帧（按系统 `ou_theme`）与持久化主题不一致的闪烁。
+- **槽位模型**：8 槽纯函数 store（`src/renderer/lib/workspace/slots.ts`），组件内「state + 同步 ref」双维护（t211 同款批处理 stale 坑）。打开入口（onFocus/URL loc/picker/recent）统一走 `open_session` 装入；同 loc 查重防双槽、槽满 toast 拒绝、`confirm_recent` 替换前退订旧槽防 watcher 泄漏。
+- **布局**：`effective_columns(layout, width)` 按 `MIN_COLUMN_WIDTH=375` 降档，`cols = min(effective_columns, 占用数)` 写 `.slot-grid --cols`；工具条三区（左最近/清空，中布局切换器，右复制/计数）。
+- **设计系统**：demo 语义色 token（canvas/panel/raised/inset、subtle/strong 边框、primary/secondary/muted 文本、lime 强调、danger）作用域限定 `.session-shell`，暗色默认，`html[data-theme="light"] .session-shell` 覆盖浅色；内部桥接旧 token 名（`--win-bg/--text/--card-bg/--accent/--bg-hover/--border` 等）让会话历史样式直接继承 demo 视觉；agent 识别色 `--agent-{claude,grok,opencode,kimi,codex,cursor,aider}` 明暗两套。字体走系统等价回退，零新增资产。
+- **主题独立**：`useSessionShellTheme` 与全局 `theme.ts` 解耦——session 窗口默认暗色、持久化 `localStorage omni_session_theme`、切换设 `html[data-theme]`，不写全局 `config.theme`；`useLayoutEffect` 同步应用避免 preload 首帧闪烁。
 
 ## 5. 跨模块契约
 

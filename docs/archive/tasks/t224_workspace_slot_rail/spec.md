@@ -81,12 +81,13 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- `recent_sessions` 数据源（tokenStatsStore.query_sessions 桥接）返回的会话是否带标题/日期/轮数/token 等 picker 与 rail 所需字段：`UNVERIFIED-SPIKE`，执行期读 main 侧桥接代码与类型定义核实。
+- `recent_sessions` 数据源字段核实（验证方式：执行期 Step 1 读 main/index.ts sessions_provider、token-stats-ipc.ts 与 shared/types/token-stats.ts）：**字段齐全但两条取数路径不一致**。token-stats store `query_sessions` 返回 `TokenStatsSession`（id/source/env/model/title/nullable directory/input/output/cache_read/cache_write tokens/calls/started_at/ended_at），renderer `tokenStats.getSessions`（token-stats-ipc.ts:63）透传完整 DTO——picker 与 rail 所需「标题(title，可 null)、日期(started_at/ended_at)、轮数(calls)、token(四维和)」全可用。但 session-history 的 `sessions_provider`（main/index.ts:365）映射为 SessionRow 仅 id/source/env/title/model/started_at/ended_at，**缺 calls 与 token 字段**——若 rail/picker 经 session-history `recent_sessions` 取数须扩展映射，或改走 `tokenStats.getSessions`。
 
 ### 风险与回退
 
 - 风险：槽位模型替换影响订阅生命周期（槽位移除=退订、窗口销毁注销全部）；入口重接漏掉某个跳转路径导致打开落空。
 - 回退：单 commit revert；订阅服务单测（subscription-service、history-window-controller）作安全网。
+- 最近会话弹窗「全部会话」实为最近 100 条（`RECENT_LIMIT`）：`tokenStats.getSessions({ limit: 100 })` 只取最近结束的 100 条，超出不可选；为 pragmat 截断（t224 决策，f009）。
 
 ### 依赖与约束
 

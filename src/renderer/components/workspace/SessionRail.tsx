@@ -1,0 +1,127 @@
+import { useState, type DragEvent } from "react";
+import { agent_accent, format_tokens, type SlotsState } from "../../lib/workspace/slots";
+
+function agent_initial(source: string): string {
+    if (source === "claude_code") return "C";
+    if (source === "opencode") return "OC";
+    if (source === "kimi_code") return "K";
+    if (source === "grok") return "G";
+    return source.slice(0, 2).toUpperCase();
+}
+
+interface SessionRailProps {
+    readonly slots: SlotsState;
+    readonly collapsed: boolean;
+    readonly on_toggle_collapse: () => void;
+    readonly on_pick: (index: number) => void;
+    readonly on_close: (index: number) => void;
+    readonly on_move: (from: number, to: number) => void;
+}
+
+/** t224 左侧会话槽位 rail：占用槽位显示 agent 色左条 + 标题 + 轮数·tokens；空槽虚线占位。 */
+export function SessionRail({
+    slots,
+    collapsed,
+    on_toggle_collapse,
+    on_pick,
+    on_close,
+    on_move,
+}: SessionRailProps) {
+    const [drag_from, set_drag_from] = useState<number | null>(null);
+
+    function handle_drop(e: DragEvent, to: number): void {
+        e.preventDefault();
+        if (drag_from !== null) on_move(drag_from, to);
+        set_drag_from(null);
+    }
+
+    const first_empty = slots.findIndex((s) => s === null);
+
+    return (
+        <div className={"session-rail" + (collapsed ? " collapsed" : "")}>
+            <button
+                type="button"
+                className="rail-collapse"
+                title={collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                aria-label={collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                onClick={on_toggle_collapse}
+            >
+                {collapsed ? "»" : "«"}
+            </button>
+            <div className="rail-scroll">
+                {slots.map((slot, index) =>
+                    slot === null ? (
+                        <button
+                            type="button"
+                            key={`empty-${String(index)}`}
+                            className="rail-slot rail-slot-empty"
+                            aria-label={`槽位 ${String(index + 1)}（空）`}
+                            onClick={() => {
+                                on_pick(index);
+                            }}
+                        >
+                            + 添加会话
+                        </button>
+                    ) : (
+                        <div
+                            key={`${slot.loc.source}|${slot.loc.env}|${slot.loc.session_id}`}
+                            className="rail-slot"
+                            draggable
+                            data-index={String(index)}
+                            onDragStart={() => {
+                                set_drag_from(index);
+                            }}
+                            onDragOver={(e) => {
+                                e.preventDefault();
+                            }}
+                            onDrop={(e) => {
+                                handle_drop(e, index);
+                            }}
+                        >
+                            <span
+                                className="rail-accent"
+                                style={{ background: agent_accent(slot.loc.source) }}
+                            />
+                            <span
+                                className="rail-badge"
+                                style={{ background: agent_accent(slot.loc.source) }}
+                            >
+                                {agent_initial(slot.loc.source)}
+                            </span>
+                            <div className="rail-body">
+                                <div className="rail-title" title={slot.title}>
+                                    {slot.title}
+                                </div>
+                                <div className="rail-sub">
+                                    {String(slot.calls)} 轮 · {format_tokens(slot.tokens)} tokens
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                className="rail-close"
+                                aria-label="关闭会话"
+                                onClick={() => {
+                                    on_close(index);
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ),
+                )}
+            </div>
+            {!collapsed && (
+                <button
+                    type="button"
+                    className="rail-add"
+                    disabled={first_empty === -1}
+                    onClick={() => {
+                        on_pick(first_empty === -1 ? 0 : first_empty);
+                    }}
+                >
+                    + 添加会话
+                </button>
+            )}
+        </div>
+    );
+}

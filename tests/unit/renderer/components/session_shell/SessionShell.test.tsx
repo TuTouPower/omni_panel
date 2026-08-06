@@ -50,11 +50,11 @@ beforeEach(() => {
 });
 
 describe("SessionShell (t223)", () => {
-    it("默认落在工作台页签，渲染会话历史视图", () => {
+    it("默认落在工作台页签，渲染工作台视图", () => {
         render(<SessionShell />);
         expect(screen.getByRole("button", { name: "工作台" })).toBeTruthy();
         expect(screen.getByRole("button", { name: "会话库" })).toBeTruthy();
-        expect(screen.getByText(/未打开会话/)).toBeTruthy();
+        expect(screen.getByText("工作台为空")).toBeTruthy();
         expect(document.querySelector('[data-pane="workspace"]')?.getAttribute("data-active")).toBe(
             "true",
         );
@@ -74,7 +74,7 @@ describe("SessionShell (t223)", () => {
             "true",
         );
         // 工作台内容仍在 DOM（display 隐藏而非卸载）
-        expect(screen.getByText(/未打开会话/)).toBeTruthy();
+        expect(screen.getByText("工作台为空")).toBeTruthy();
     });
 
     it("切回工作台后已打开会话的栏状态保留", async () => {

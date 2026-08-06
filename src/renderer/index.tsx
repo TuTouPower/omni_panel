@@ -4,6 +4,7 @@ import { App } from "./App";
 import { register_renderer_log_transport } from "./lib/logger-transport";
 import "./styles/globals.css";
 import "./styles/session-shell.css";
+import "./styles/workspace.css";
 
 register_renderer_log_transport(window.usageboard);
 

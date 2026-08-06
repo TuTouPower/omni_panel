@@ -39,3 +39,9 @@
 - 内容：taskkill 改为按路径（PowerShell）
 - 暂搁：2026-08-01 复核——t065 已把误杀范围从「所有 electron.exe」收窄为只杀 `OmniPanel.exe`（package-and-run.ts:18 按镜像名），撞名面极小；按路径实现需 PowerShell + 遍历进程路径，Windows 特定重构，边际收益低。等下次动打包脚本再一并做
 - 处理：不办
+
+### p055 工作台 WorkspaceView.tsx / workspace.css 超行数阈值待拆分
+
+- 来源：t224 code reviewer（round 1/2 提示，未进 finding 表）
+- 内容：`src/renderer/components/workspace/WorkspaceView.tsx` 629 行、`src/renderer/styles/workspace.css` 780 行，均超项目 400 行 minor 阈值（未达 800 important）。工作台为 t224 新建且后续 t225（面板交互）/t226（摘选）还会继续演进，建议按功能拆（如消息状态逻辑抽 hook、弹窗样式独立）。
+- 处理：未开

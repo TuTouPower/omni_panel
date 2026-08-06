@@ -34,6 +34,13 @@
     --scrollbar-thumb: #2c3746;
     --scrollbar-thumb-hover: #3d4b5e;
     --grid-dot: #1e2632;
+    --agent-claude: #ff7a59;
+    --agent-grok: #5b8cff;
+    --agent-opencode: #3ecf8e;
+    --agent-codex: #f5a524;
+    --agent-cursor: #b18cff;
+    --agent-aider: #ff5c8a;
+    --agent-kimi: #7f9cff;
 
     /* ---- 旧 token 桥接：session-history 视图复用 demo 视觉 ---- */
     --win-bg: var(--bg-panel);
@@ -111,6 +118,13 @@ html[data-theme="light"] .session-shell {
     --scrollbar-thumb: #c9c2b8;
     --scrollbar-thumb-hover: #a89f92;
     --grid-dot: #e2ddd6;
+    --agent-claude: #e85d3d;
+    --agent-grok: #3b6fe0;
+    --agent-opencode: #1f9d66;
+    --agent-codex: #c87f0a;
+    --agent-cursor: #8b5cf6;
+    --agent-aider: #e0447a;
+    --agent-kimi: #4f6fe0;
     --menu-bg: rgb(255 255 255 / 0.92);
 }
 

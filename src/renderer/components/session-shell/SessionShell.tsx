@@ -2,7 +2,7 @@ import { useState } from "react";
 import logo_svg from "../../assets/logo.svg";
 import { Icon } from "../Icon";
 import { useSessionShellTheme } from "../../lib/session-shell/theme";
-import { SessionHistoryView } from "../../views/SessionHistoryView";
+import { WorkspaceView } from "../workspace/WorkspaceView";
 import "../../styles/session-shell.css";
 
 type ShellTab = "workspace" | "library";
@@ -85,7 +85,7 @@ export function SessionShell() {
                     data-active={tab === "workspace"}
                     aria-hidden={tab !== "workspace"}
                 >
-                    <SessionHistoryView />
+                    <WorkspaceView />
                 </section>
                 <section
                     className="shell-pane shell-library"

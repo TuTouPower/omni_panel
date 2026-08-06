@@ -1,19 +1,20 @@
 # 会话窗口外壳（SessionShell）
 
-需求：把会话历史窗口改为单壳双页签外壳，落地 frontend_demo（SessionGrid demo）设计系统基座，为后续工作台槽位模型、会话库、摘选托盘提供容器与视觉底座。窗口内工作台页签暂承载既有 6 栏会话视图。
+需求：把会话历史窗口改为单壳双页签外壳，落地 frontend_demo（SessionGrid demo）设计系统基座，为工作台槽位模型、会话库、摘选托盘提供容器与视觉底座。
 
 ## 窗口形态
 
-- route `history` 单窗口不变（window-manager 尺寸/生命周期不变），渲染根组件由 `SessionHistoryView` 换为 `SessionShell`（`App.tsx` `case "history"`）。
+- route `history` 单窗口不变（window-manager 尺寸/生命周期不变），渲染根组件为 `SessionShell`（`App.tsx` `case "history"`）。
 - 固定 52px 顶栏：左品牌（logo + OmniPanel）、中「工作台 / 会话库」居中页签、右「用量面板」「代理面板」跳转按钮 + 明/暗主题切换。
-- 两个页签面板**常驻挂载**，切换只改 `data-active` 的 CSS `display` 显隐（`.shell-pane[data-active="false"] { display: none }`），各页内部状态（已打开会话栏、滚动位置）切回不丢。
-- 工作台页签 = 既有 `SessionHistoryView` 整棵挂载；会话库页签本 task 只做空态占位（非报错、非空白）。
+- 两个页签面板**常驻挂载**，切换只改 `data-active` 的 CSS `display` 显隐（`.shell-pane[data-active="false"] { display: none }`），各页内部状态（已打开会话槽位、滚动位置）切回不丢。
+- 工作台页签 = `WorkspaceView`（t224 槽位模型，见 `workspace.md`）；会话库页签空态占位（非报错、非空白）。
 
 ## 设计系统（demo 落地）
 
 - 语义色 token 取 demo design.md §2 原值：canvas/panel/raised/inset 背景、subtle/strong 边框、primary/secondary/muted 文本、lime 强调、danger、diff add/del；作用域限定 `.session-shell`，不污染其它窗口。
 - **暗色为默认**；`html[data-theme="light"] .session-shell` 覆盖为浅色 token。
-- 旧 token 桥接：`.session-shell` 内部把 demo token 映射到旧变量名（`--win-bg/--text/--card-bg/--accent/--bg-hover/--border` 等），使 `SessionHistoryView` 既有样式直接继承 demo 视觉，无需改其内部 CSS。
+- 旧 token 桥接：`.session-shell` 内部把 demo token 映射到旧变量名（`--win-bg/--text/--card-bg/--accent/--bg-hover/--border` 等），使会话历史视图既有样式直接继承 demo 视觉。
+- agent 识别色 `--agent-{claude,grok,opencode,kimi,codex,cursor,aider}` 明暗两套。
 - 字体：Noto Sans SC → PingFang SC / 微软雅黑 / 系统 sans-serif；display Space Grotesk → 系统回退；等宽 JetBrains Mono → Cascadia Code / Consolas / 系统 monospace。不新增字体资产。
 - 6px 自定义滚动条、lime 选区色、0.625rem 圆角密度体系随 demo。
 
