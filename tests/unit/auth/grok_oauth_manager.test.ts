@@ -29,6 +29,11 @@ function create_vault(): VaultBackend & { values: Map<string, string> } {
                 [...values.keys()].filter((key) => (prefix ? key.startsWith(prefix) : true)),
             );
         },
+        replaceAll(entries: Record<string, string>) {
+            values.clear();
+            for (const [key, value] of Object.entries(entries)) values.set(key, value);
+            return Promise.resolve();
+        },
     };
 }
 
@@ -81,6 +86,11 @@ function create_blocking_token_vault(): VaultBackend & {
             return Promise.resolve(
                 [...values.keys()].filter((key) => (prefix ? key.startsWith(prefix) : true)),
             );
+        },
+        replaceAll(entries: Record<string, string>) {
+            values.clear();
+            for (const [key, value] of Object.entries(entries)) values.set(key, value);
+            return Promise.resolve();
         },
     };
 }

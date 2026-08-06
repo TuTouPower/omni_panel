@@ -118,6 +118,11 @@ function create_vault(): VaultBackend {
         list_keys: vi.fn((prefix?: string) =>
             Promise.resolve([...values.keys()].filter((key) => !prefix || key.startsWith(prefix))),
         ),
+        replaceAll: vi.fn((entries: Record<string, string>) => {
+            values.clear();
+            for (const [key, value] of Object.entries(entries)) values.set(key, value);
+            return Promise.resolve();
+        }),
     };
 }
 

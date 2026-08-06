@@ -212,6 +212,62 @@ describe("file-vault-backend", () => {
         );
     });
 
+    describe("replaceAll (t-bug 原子批量替换)", () => {
+        it("atomically replaces the entire vault contents", async () => {
+            await vault.set("old-1", "old-value-1");
+            await vault.set("old-2", "old-value-2");
+            await vault.replaceAll({
+                "new-1": "new-value-1",
+                "new-2": "new-value-2",
+                "new-3": "new-value-3",
+            });
+            // 旧 key 全消失。
+            expect(await vault.get("old-1")).toBeNull();
+            expect(await vault.get("old-2")).toBeNull();
+            // 新 key 全在、值正确。
+            expect(await vault.get("new-1")).toBe("new-value-1");
+            expect(await vault.get("new-2")).toBe("new-value-2");
+            expect(await vault.get("new-3")).toBe("new-value-3");
+        });
+
+        it("with empty entries clears the vault", async () => {
+            await vault.set("key", "value");
+            await vault.replaceAll({});
+            expect(await vault.list_keys()).toHaveLength(0);
+        });
+
+        it("write-through so a fresh instance reads the replaced contents", async () => {
+            await vault.replaceAll({ "a:1": "x", "b:2": "y" });
+            const fresh = await create_file_vault_backend(temp_dir);
+            expect(await fresh.get("a:1")).toBe("x");
+            expect(await fresh.get("b:2")).toBe("y");
+        });
+
+        it(".bak mirrors main vault after replaceAll", async () => {
+            const { readFile } = await import("node:fs/promises");
+            await vault.replaceAll({ "k:1": "v" });
+            const main = await readFile(join(temp_dir, "secrets.vault"), "utf8");
+            const bak = await readFile(join(temp_dir, "secrets.vault.bak"), "utf8");
+            expect(bak).toBe(main);
+        });
+
+        it("does not commit the mirror when the write fails (atomicity)", async () => {
+            const { mkdir } = await import("node:fs/promises");
+            await vault.set("keep-1", "value-k");
+            await mkdir(join(temp_dir, "secrets.vault.tmp"));
+            await expect(
+                vault.replaceAll({ "new-1": "value-n", "new-2": "value-n2" }),
+            ).rejects.toThrow();
+            // 镜像未提交：失败后旧数据保持可读、新数据不可读。
+            expect(await vault.get("keep-1")).toBe("value-k");
+            expect(await vault.get("new-1")).toBeNull();
+            // 冷镜像重读盘也保持旧状态。
+            const fresh = await create_file_vault_backend(temp_dir);
+            expect(await fresh.get("keep-1")).toBe("value-k");
+            expect(await fresh.get("new-1")).toBeNull();
+        });
+    });
+
     describe("in-memory mirror (t195)", () => {
         it("serves reads from the mirror without re-reading the file after first read", async () => {
             await vault.set("mirror-1", "value-1");

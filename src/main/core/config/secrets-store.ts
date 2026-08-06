@@ -41,33 +41,9 @@ export function createSecretsStore(vault: VaultBackend): SecretsStore {
             log.warn(
                 `importAll: replacing vault contents with ${String(Object.keys(decrypted).length)} keys`,
             );
-            // Snapshot existing values first so we can roll back. Without this,
-            // a failure after delete-all leaves the vault empty (data loss).
-            const existing_keys = await vault.list_keys();
-            const snapshot = new Map<string, string>();
-            for (const key of existing_keys) {
-                const value = await vault.get(key);
-                if (value !== null) snapshot.set(key, value);
-            }
-            try {
-                for (const key of existing_keys) {
-                    await vault.delete(key);
-                }
-                for (const [key, value] of Object.entries(decrypted)) {
-                    await vault.set(key, value);
-                }
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err);
-                log.error(`importAll failed, rolling back ${String(snapshot.size)} keys: ${msg}`);
-                const partial_keys = await vault.list_keys();
-                for (const key of partial_keys) {
-                    await vault.delete(key);
-                }
-                for (const [key, value] of snapshot) {
-                    await vault.set(key, value);
-                }
-                throw err;
-            }
+            // 原子整体替换：vault 单次加密全量、单次写盘，无「先删后写」中间态。
+            // 失败时 vault 保持旧态，天然回滚（无需快照）。
+            await vault.replaceAll(decrypted);
             log.info(`importAll: imported ${String(Object.keys(decrypted).length)} keys`);
         },
     };

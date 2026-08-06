@@ -106,15 +106,14 @@ describe("secrets-store", () => {
         expect(await store2.get("c:d")).toBe("secret-b");
     });
 
-    it("importAll rolls back to the original vault if a write fails mid-import", async () => {
+    it("importAll uses replaceAll: write failure keeps the original vault intact", async () => {
+        // 语义变化（f-tbug）：importAll 从「快照回滚」改为「原子 replaceAll」。
+        // 失败时 vault 未提交，旧数据整体保持，无需逐条恢复。
         const original = { a: "v1", b: "v2" };
         const store_map = new Map<string, string>(Object.entries(original));
         const fake_vault = {
             get: (k: string) => Promise.resolve(store_map.get(k) ?? null),
             set: (k: string, val: string) => {
-                // Fail on the import value, not on the key, so the rollback restore
-                // (which writes the original "v2" back) succeeds.
-                if (val === "brand-new") return Promise.reject(new Error("write boom"));
                 store_map.set(k, val);
                 return Promise.resolve();
             },
@@ -124,10 +123,18 @@ describe("secrets-store", () => {
             },
             has: (k: string) => Promise.resolve(store_map.has(k)),
             list_keys: () => Promise.resolve([...store_map.keys()]),
+            replaceAll: (entries: Record<string, string>) => {
+                if (Object.values(entries).includes("brand-new")) {
+                    return Promise.reject(new Error("write boom"));
+                }
+                store_map.clear();
+                for (const [k, v] of Object.entries(entries)) store_map.set(k, v);
+                return Promise.resolve();
+            },
         };
         const store = createSecretsStore(fake_vault);
         await expect(store.importAll({ a: "new", b: "brand-new" })).rejects.toThrow("write boom");
-        // Rollback restored the original keys; the partial "new" did not survive.
+        // 原子失败：旧数据整体保持，无部分写入残留。
         const exported = await store.exportAll();
         expect(exported).toEqual(original);
     });

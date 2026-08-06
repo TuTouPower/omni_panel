@@ -204,6 +204,19 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
             });
         },
 
+        async replaceAll(entries: Record<string, string>): Promise<void> {
+            await with_lock(async () => {
+                // 单次构造全量密文 + 单次写盘：无「先删后写」的破坏性中间态，
+                // 失败时磁盘未动、镜像未提交，天然回滚到旧全量（f-tbug）。
+                const next: Record<string, VaultEntry> = {};
+                for (const [key, value] of Object.entries(entries)) {
+                    next[key] = encrypt_value(master_key, value);
+                }
+                await write_vault(next);
+                mirror = next;
+            });
+        },
+
         async has(key: string): Promise<boolean> {
             return with_lock(async () => {
                 const data = await ensure_mirror();
