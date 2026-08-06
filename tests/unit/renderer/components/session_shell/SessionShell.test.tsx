@@ -63,10 +63,11 @@ describe("SessionShell (t223)", () => {
         );
     });
 
-    it("切换到会话库显示空态占位，工作台隐藏但保持挂载", () => {
+    it("切换到会话库显示会话库视图，工作台隐藏但保持挂载", () => {
         render(<SessionShell />);
         fireEvent.click(screen.getByRole("button", { name: "会话库" }));
-        expect(screen.getByText(/会话库为空|尚未有会话|即将上线/)).toBeTruthy();
+        // t227 会话库为真实视图（.session-library），非空态占位。
+        expect(document.querySelector(".session-library")).toBeTruthy();
         expect(document.querySelector('[data-pane="workspace"]')?.getAttribute("data-active")).toBe(
             "false",
         );

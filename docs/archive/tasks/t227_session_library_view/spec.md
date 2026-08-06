@@ -80,8 +80,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 会话索引数据源（tokenStatsStore.query_sessions 桥接）能否支撑全量会话列表、分页、按时间范围/排序的查询，以及统计行所需字段：`UNVERIFIED-SPIKE`，执行期读 main 侧 store 与桥接代码核实；能力不足时需设计查询扩展方案并报用户确认。
-- 「包含消息内容」搜索在真实数据量下的耗时量级：`UNVERIFIED-SPIKE`，执行期用真实或仿真的会话文件做小规模实验核实，决定是否需加进度提示/并发上限。
+- 会话索引数据源核实（验证方式：执行期 Step 1 读 main 侧 token-stats-store `query_sessions` 与 `query_records`）：**需扩展 `query_sessions`**。现状支持 source/search/limit/offset + `ORDER BY ended_at DESC`，能满足全量列表与分页（limit/offset），但缺：多 agent 过滤（仅单 source）、时间范围过滤（无 started_at/end_at 条件）、排序切换（仅 ended_at 一种）。`query_records` 有 agent/start/end 但**无 text 列**（消息正文只存源文件，由 session-history 提取器读取）。统计行字段（title/directory/四维 token/calls/started_at/ended_at）`tokenStatsSession` 齐全。**方案**：扩展 `query_sessions` 加 `sources?: string[]`（source IN）、`start_at`/`end_at`（活动时间交集 = `ended_at >= start_at AND started_at <= end_at`）、`order_by`（ended_at/tokens/calls/started_at）+ `direction`；统计行对全量无筛选结果前端聚合。「首条用户消息摘要」与「包含消息内容」搜索经 `sessionHistory.query` 读消息正文。
+- 「包含消息内容」搜索耗时核实（验证方式：执行期 Step 1 读 session-history query 链路）：搜索对筛选后的候选会话逐个 `sessionHistory.query({ limit: 200 })` 读消息做包含匹配，耗时随候选数与文件大小线性。真实数据量下数量级不可估，实现加**并发上限（串行或小并发）+ 搜索中提示**；spec 风险节保留「性能不达标降级为仅元信息搜索」回退。
 
 ### 风险与回退
 

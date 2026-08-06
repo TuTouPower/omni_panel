@@ -53,8 +53,13 @@ export function registerTokenStatsIpc(
             event: IpcMainInvokeEvent,
             filters?: {
                 source?: string;
+                sources?: string[];
                 env?: string;
                 search?: string;
+                start_at?: number;
+                end_at?: number;
+                order_by?: "ended_at" | "tokens" | "calls" | "started_at";
+                direction?: "asc" | "desc";
                 limit?: number;
                 offset?: number;
             },

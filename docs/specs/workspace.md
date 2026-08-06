@@ -51,3 +51,15 @@
 - 对会话源文件全程只读；槽位操作只作用于前端状态与主进程订阅/watcher 状态。
 - 不落地拖文件导入与 ⌘K 命令面板入口；无 6 栏超位弹窗（`HistoryOverflowModal` 已删）。
 - Markdown 渲染安全硬约束：会话文本不可信，禁止 `dangerouslySetInnerHTML` 直渲、不安装 rehype-raw（react-markdown 默认丢弃原始 HTML）。
+
+## 会话库视图（SessionLibrary，t227）
+
+- 会话库页签（`SessionShell` 第二页签）为真实视图：页头统计行（会话数 · agent 数 · 总 tokens），sticky 筛选工具栏（搜索框 + 包含消息内容开关 + 时间范围 + 排序 + 网格/列表切换），agent 多选芯片。
+- 搜索：默认只匹配元信息（title/directory/id）；「包含消息内容」开启后结果 = 元信息命中 ∪ 正文命中（并集），正文命中逐候选 `sessionHistory.query` 读消息做包含匹配（串行 + 搜索中提示 + 序号守卫）。
+- 时间范围：只纳入活动时间（[started_at, ended_at]）与范围有交集的会话。
+- 排序：最近活跃 / Token 最多 / 轮次最多 / 最早创建（数据层 `filter.ts` sort_sessions）。
+- 结果区：网格卡片（agent 色条/徽标/标题/首条用户消息摘要懒加载/meta 轮数·tokens·相对日期/目录）或列表行；hover 浮现「单独打开/预览」；点卡片/行勾选（上限 8）。
+- 分页：「加载更多」逐步加载（PAGE_SIZE=50）；空态含「清除筛选」。
+- 预览抽屉：右侧滑出，徽标/标题/meta/文件路径/前 5 条消息（只读 Markdown），「单独打开」（装入工作台并切页签）「加入选择」；Esc 关闭；序号守卫防切卡串消息。
+- SelectionDock：底部 sticky，已选微缩槽位（可移除，按 (id,source,env) 主键）、n/8 计数、清空、「并排打开 (n)」→ `sessionHistory.open` 逐个打开 + 切工作台页签。
+- 数据源：`tokenStats.getSessions`（main 侧 `query_sessions` 扩展：`sources[]`/`start_at`/`end_at`/`order_by`/`direction`，order_by 白名单防 SQL 注入），分页循环拉全量。

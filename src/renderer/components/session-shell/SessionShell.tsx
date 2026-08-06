@@ -3,8 +3,10 @@ import logo_svg from "../../assets/logo.svg";
 import { Icon } from "../Icon";
 import { useSessionShellTheme } from "../../lib/session-shell/theme";
 import { WorkspaceView } from "../workspace/WorkspaceView";
+import { SessionLibrary } from "../session-library/SessionLibrary";
 import { selection_store } from "../../lib/workspace/selection-store";
 import "../../styles/session-shell.css";
+import "../../styles/session-library.css";
 
 type ShellTab = "workspace" | "library";
 
@@ -108,13 +110,11 @@ export function SessionShell() {
                     data-active={tab === "library"}
                     aria-hidden={tab !== "library"}
                 >
-                    <div className="shell-library-empty">
-                        <span className="shell-library-icon">
-                            <Icon name="layers" size={40} />
-                        </span>
-                        <p className="shell-library-title">会话库</p>
-                        <p className="shell-library-sub">搜索、筛选与浏览历史会话，即将上线</p>
-                    </div>
+                    <SessionLibrary
+                        on_switch_workspace={() => {
+                            set_tab("workspace");
+                        }}
+                    />
                 </section>
             </main>
         </div>

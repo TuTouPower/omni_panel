@@ -316,6 +316,58 @@ describe("token-stats-store", () => {
         });
     });
 
+    describe("query_sessions extension (t227)", () => {
+        beforeEach(() => {
+            store.upsert_sessions(
+                [
+                    delta({
+                        id: "a",
+                        source: "claude_code",
+                        calls: 5,
+                        input_tokens: 1000,
+                        started_at: 100,
+                        ended_at: 200,
+                    }),
+                    delta({
+                        id: "b",
+                        source: "opencode",
+                        calls: 2,
+                        input_tokens: 300,
+                        started_at: 300,
+                        ended_at: 500,
+                    }),
+                    delta({
+                        id: "c",
+                        source: "grok",
+                        calls: 9,
+                        input_tokens: 700,
+                        started_at: 600,
+                        ended_at: 900,
+                    }),
+                ],
+                [],
+            );
+        });
+
+        it("filters by multiple sources (IN)", () => {
+            const rows = store.query_sessions({ sources: ["claude_code", "opencode"] });
+            expect(rows).toHaveLength(2);
+        });
+
+        it("filters by activity-time intersection", () => {
+            // [start_at, end_at] = [250, 550]：交集 = b（300-500）与 a（100-200 无交集）。
+            const rows = store.query_sessions({ start_at: 250, end_at: 550 });
+            expect(rows.map((r) => r.id).sort()).toEqual(["b"]);
+        });
+
+        it("orders by tokens and calls", () => {
+            const by_tokens = store.query_sessions({ order_by: "tokens", direction: "desc" });
+            expect(by_tokens[0]!.id).toBe("a");
+            const by_calls = store.query_sessions({ order_by: "calls", direction: "asc" });
+            expect(by_calls[0]!.id).toBe("b");
+        });
+    });
+
     describe("last_updated", () => {
         it("is null when empty, set after upsert", () => {
             expect(store.last_updated()).toBeNull();
