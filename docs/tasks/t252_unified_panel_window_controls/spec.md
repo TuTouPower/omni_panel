@@ -4,7 +4,7 @@
 
 ## 背景
 
-来源：p069 + p070（用户提出，2026-08-07 用户确认合并为一个 task）。2026-08-07 核实：四面板右上角三套方案——用量（popup，`frame:false`）有自绘 icon 组但无最小化/最大化；设置有自绘 min/max/close（走 `settings:minimize/maximize/close` IPC）；会话与代理为 `frame:true` 原生边框，依赖原生标题栏与菜单栏，主进程无任何全局 `Menu` 调用。代理面板右上角还有独立主题切换 Segmented（`usage-theme` localStorage），用户确认移除、主题跟随全局（与 t245 会话窗口处置同款）。
+来源：p069 + p070（用户提出，2026-08-07 用户确认合并为一个 task）与 p071 剩余部分（统一品牌标题栏；p071 的会话面板换 logo 已由 t246 闭环）。2026-08-07 核实：四面板右上角三套方案——用量（popup，`frame:false`）有自绘 icon 组但无最小化/最大化；设置有自绘 min/max/close（走 `settings:minimize/maximize/close` IPC）；会话与代理为 `frame:true` 原生边框，依赖原生标题栏与菜单栏，主进程无任何全局 `Menu` 调用。左上角同样碎片化——用量为 app logo + `OmniPanel`（无面板名）、设置仅文字「设置」、代理为圆点 + 「代理面板」、会话为 logo + `OmniPanel`（无面板名）。代理面板右上角还有独立主题切换 Segmented（`usage-theme` localStorage），用户确认移除、主题跟随全局（与 t245 会话窗口处置同款）。
 
 ## 契约区
 
@@ -16,13 +16,15 @@ reviewer 判 AC 时只看本区。
 - 刷新只刷新当前面板数据；当前所在面板对应的切换图标隐藏。
 - 各面板移除自身原有的独立右上角 icon（含代理面板的主题切换 Segmented、跳转按钮等被统一控制区吸收的控件）。
 - 会话与代理面板窗口改为无边框自绘（移除原生标题栏与原生菜单栏），窗口控制由统一控制区接管；按 Alt 唤出菜单等原生菜单行为一并不再存在。
+- 四个面板左上角统一显示：软件 icon、`Omni Panel` 品牌名、当前面板名称，标题格式为 `Omni Panel - Usage` / `Omni Panel - Agent` / `Omni Panel - Session` / `Omni Panel - Settings`；窗口系统标题（任务栏/切换器显示）与面板内标题一致。
 - 代理面板主题改为跟随全局（弃用独立 `usage-theme` 存储），与 t245 对会话窗口的处置语义一致。
 - 设置面板已有的 min/max/close IPC 泛化供四个窗口复用，而非各窗口各建一套。
 
 ### 非范围
 
 - 不改变各面板关闭按钮的语义现状：用量面板关闭仍为隐藏到托盘，其余面板为关闭窗口。
-- 不改各面板内容区与左上角品牌区（左上角统一品牌属另一 task）。
+- 不改各面板内容区。
+- 不动会话面板徽标（SessionPane/SessionRail 首字母改厂商 logo 已由 t246 闭环）。
 - 不做窗口拖拽区域的额外定制（无边框窗口所需的标题栏拖拽随控制区一并实现，不额外扩展）。
 
 ### 验收标准
@@ -38,14 +40,16 @@ reviewer 判 AC 时只看本区。
 - [ ] AC5：无边框窗口可通过控制区/标题栏区域拖拽移动，双击标题栏最大化/还原（与系统惯例一致）。
 - [ ] AC6：代理面板不再渲染主题切换控件，主题随全局设置变化；`usage-theme` 独立存储不再生效。
 - [ ] AC7：会话/代理面板内文本输入的复制/粘贴等编辑快捷键在去原生菜单栏后仍可用。
-- [ ] AC8：现有测试与 e2e 全部通过，无回归。
+- [ ] AC8：四个面板左上角均显示软件 icon + `Omni Panel - <面板名>`，面板名分别为 Usage / Agent / Session / Settings。
+- [ ] AC9：各窗口的系统标题（任务栏/Alt-Tab 显示）与对应面板标题一致。
+- [ ] AC10：现有测试与 e2e 全部通过，无回归。
 
 ### 可测试性声明
 
 逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
 
 - AC5 的拖拽与双击最大化：electron e2e 可断言双击行为；鼠标拖拽移动窗口在 Playwright 下不可真实模拟，以「拖拽区域已设置 `-webkit-app-region: drag`」的 DOM 断言 + 人工抽查替代。
-- 其余 AC 可自动测试（electron e2e 断言窗口 `menuBarVisible`/`frame` 属性、控制区渲染与 IPC 调用）。
+- 其余 AC 可自动测试（electron e2e 断言窗口 `menuBarVisible`/`frame` 属性、控制区渲染与 IPC 调用、窗口 title；组件测试断言标题栏与品牌文案）。
 
 ## 上下文区
 
@@ -62,8 +66,8 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
 - 通用窗口控制 IPC（minimize/maximize/close）主进程侧单测：按窗口 id 路由到正确窗口。
-- renderer 组件测试：控制区按当前 route 隐藏对应图标、刷新只调当前面板刷新。
-- electron e2e：四窗口控制区渲染、`menuBarVisible` 为 false、双击最大化、编辑快捷键（在输入框执行 copy/paste）。
+- renderer 组件测试：控制区按当前 route 隐藏对应图标、刷新只调当前面板刷新；四面板标题栏渲染断言（icon 存在 + 品牌文案精确匹配）。
+- electron e2e：四窗口控制区渲染、`menuBarVisible` 为 false、双击最大化、编辑快捷键（在输入框执行 copy/paste）、各窗口 title 断言。
 
 ### 未知契约清单
 
@@ -84,8 +88,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 ### 依赖与约束
 
-- t245（会话窗移除主题按钮、主题跟随全局）已 done 合入 main，本 task 在其成果上实施，无冲突待项。
-- 与另一 backlog task「统一面板标题栏品牌与面板名称」（左上角品牌区）同改四面板 header，属 conflicts 关系，不得同批实施。
+- t245（会话窗移除主题按钮、主题跟随全局）与 t246（会话面板厂商 logo）已 done 合入 main，本 task 在其成果上实施，无冲突待项。
+- 与 backlog task「网页版面板与桌面版同步」（t259）同改面板互跳控件，属 conflicts 关系，不得同批实施。
 - 与 t249（bundle 代码分割）无文件重叠（本 task 改各视图 header 内部与主进程窗口配置，t249 只改入口 import 方式）。
 
 ### Finalization 时更新的 blueprint

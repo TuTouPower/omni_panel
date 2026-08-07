@@ -1,15 +1,16 @@
 ---
 tid: "t257"
 slug: "session_pane_meta_display"
-title: "会话面板元信息与标题展示调整"
+title: "会话面板展示调整：元信息、侧边栏与会话库、消息单行折叠"
 status: "backlog"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t258,t260"
-note: ""
+conflicts_with: ""
+schedule_status: "pending_clarification"
+note: "merged from t258,t260"
 ---
 
 # Task 过程总账

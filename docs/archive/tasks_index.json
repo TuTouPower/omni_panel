@@ -3722,6 +3722,21 @@
             "schedule_status": "",
             "note": "blocked: review",
             "dir": "docs/archive/tasks/t248_session_library_lazy_load"
+        },
+        {
+            "tid": "t253",
+            "slug": "unified_titlebar_branding",
+            "title": "统一面板标题栏品牌与面板名称",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "dropped: merged into t252",
+            "dir": "docs/archive/tasks/t253_unified_titlebar_branding"
         }
     ]
 }

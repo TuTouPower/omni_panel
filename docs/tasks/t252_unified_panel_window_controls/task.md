@@ -1,15 +1,16 @@
 ---
 tid: "t252"
 slug: "unified_panel_window_controls"
-title: "四面板统一自绘控制区并移除会话代理原生菜单栏"
+title: "四面板统一标题栏：品牌区、自绘控制区与去原生菜单栏"
 status: "backlog"
 branch: ""
 worktree: ""
 review_level: "full"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t253,t259"
-note: ""
+conflicts_with: "t259"
+schedule_status: "pending_clarification"
+note: "merged from t253"
 ---
 
 # Task 过程总账

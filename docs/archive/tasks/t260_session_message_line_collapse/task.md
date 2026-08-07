@@ -2,14 +2,14 @@
 tid: "t260"
 slug: "session_message_line_collapse"
 title: "会话面板消息默认单行折叠与展开"
-status: "backlog"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t257,t258"
-note: ""
+conflicts_with: ""
+note: "dropped: merged into t257"
 ---
 
 # Task 过程总账

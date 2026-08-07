@@ -1,15 +1,15 @@
 ---
-tid: "t258"
-slug: "session_rail_library_display"
-title: "会话侧边栏与会话库展示调整"
-status: "backlog"
+tid: "t253"
+slug: "unified_titlebar_branding"
+title: "统一面板标题栏品牌与面板名称"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t257,t260"
-note: ""
+conflicts_with: ""
+note: "dropped: merged into t252"
 ---
 
 # Task 过程总账
