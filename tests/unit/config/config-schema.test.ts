@@ -155,4 +155,36 @@ describe("appConfigurationSchema", () => {
             }),
         ).toThrow();
     });
+    it("t250: accepts providerL2Open and activeUsageTab", () => {
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            providerL2Open: { claude: true, deepseek: false },
+            activeUsageTab: "claude",
+        });
+        expect(parsed.providerL2Open).toEqual({ claude: true, deepseek: false });
+        expect(parsed.activeUsageTab).toBe("claude");
+    });
+    it("t250: rejects providerL2Open non-boolean and activeUsageTab non-string", () => {
+        expect(() =>
+            appConfigurationSchema.parse({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [],
+                providerL2Open: { claude: "yes" },
+            }),
+        ).toThrow();
+        expect(() =>
+            appConfigurationSchema.parse({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                launchAtLogin: false,
+                plugins: [],
+                activeUsageTab: 123,
+            }),
+        ).toThrow();
+    });
 });

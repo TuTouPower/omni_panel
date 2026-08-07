@@ -47,40 +47,49 @@ describe("ProviderCard - overview", () => {
         expect(screen.queryByText("Account 1")).not.toBeInTheDocument();
     });
 
-    it("resets account detail to overview after the card is collapsed", () => {
+    it("受控 l2Open 控制概览/明细切换（t250），折叠复位逻辑在父级", () => {
         const group = makeGroup({ accountCount: 2 });
-        const on_toggle_expand = vi.fn();
+        const on_toggle_l2 = vi.fn();
         const { rerender } = render(
             <ProviderCard
                 provider="deepseek"
                 group={group}
                 expanded
-                onToggleExpand={on_toggle_expand}
+                onToggleExpand={vi.fn()}
+                l2Open={false}
+                onToggleL2Open={on_toggle_l2}
             />,
         );
-
+        // 点「账号明细」触发父级回调（父级 set l2Open=true 后重渲染）。
         fireEvent.click(screen.getByTitle("账号明细"));
-        expect(screen.getByText("Account 1")).toBeInTheDocument();
+        expect(on_toggle_l2).toHaveBeenCalledWith("deepseek");
 
-        rerender(
-            <ProviderCard
-                provider="deepseek"
-                group={group}
-                expanded={false}
-                onToggleExpand={on_toggle_expand}
-            />,
-        );
         rerender(
             <ProviderCard
                 provider="deepseek"
                 group={group}
                 expanded
-                onToggleExpand={on_toggle_expand}
+                onToggleExpand={vi.fn()}
+                l2Open={true}
+                onToggleL2Open={on_toggle_l2}
             />,
         );
+        expect(screen.getByText("Account 1")).toBeInTheDocument();
 
+        // 折叠（expanded=false）由父级负责复位 l2Open；此处验证折叠态不显示明细与 l2seg。
+        rerender(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded={false}
+                onToggleExpand={vi.fn()}
+                l2Open={false}
+                onToggleL2Open={on_toggle_l2}
+            />,
+        );
         expect(screen.queryByText("Account 1")).not.toBeInTheDocument();
-        expect(screen.getByTitle("概览")).toHaveClass("on");
+        expect(screen.queryByTitle("概览")).not.toBeInTheDocument();
+        expect(screen.getByText("2账号")).toBeInTheDocument();
     });
 
     it("renders short usage period labels", () => {

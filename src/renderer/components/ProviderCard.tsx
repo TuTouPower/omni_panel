@@ -1,4 +1,4 @@
-import { memo, useState, useMemo, useCallback, useEffect } from "react";
+import { memo, useMemo, useCallback } from "react";
 import type { ProviderUsageAccount, ProviderUsageGroup } from "../lib/provider-usage";
 import {
     PROVIDER_LABELS,
@@ -28,6 +28,9 @@ interface ProviderCardProps {
     onRefresh?: ((provider: string) => void) | undefined;
     expanded?: boolean | undefined;
     onToggleExpand?: ((provider: string) => void) | undefined;
+    /** t250: 「概览 / N账号」分段开关（受控，由父级持久化）。 */
+    l2Open?: boolean | undefined;
+    onToggleL2Open?: ((provider: string) => void) | undefined;
     dragging?: boolean | undefined;
     dragOver?: boolean | undefined;
     onDragStart?: ((provider: string, rect?: DOMRect) => void) | undefined;
@@ -68,6 +71,8 @@ export const ProviderCard = memo(function ProviderCard({
     onRefresh,
     expanded,
     onToggleExpand,
+    l2Open = false,
+    onToggleL2Open,
     dragging,
     dragOver,
     onDragStart,
@@ -104,11 +109,8 @@ export const ProviderCard = memo(function ProviderCard({
             : "empty";
     const card_class = (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "");
 
-    const [l2open, set_l2open] = useState(false);
-
-    useEffect(() => {
-        if (expanded === false) set_l2open(false);
-    }, [expanded]);
+    // t250: l2open 由父级受控（l2Open props + onToggleL2Open 回调）持久化。
+    // 展开状态变化时父级负责把 collapsed 卡片强制回概览。
 
     const is_multi = accountCount > 1;
     const label_map_for_connector = useCallback(
@@ -165,21 +167,21 @@ export const ProviderCard = memo(function ProviderCard({
             {accountCount > 1 && expanded !== false && (
                 <span className="l2seg" role="tablist">
                     <button
-                        className={l2open ? "" : "on"}
+                        className={l2Open ? "" : "on"}
                         title="概览"
                         type="button"
                         onClick={() => {
-                            if (l2open) set_l2open(false);
+                            if (l2Open) onToggleL2Open?.(provider);
                         }}
                     >
                         概览
                     </button>
                     <button
-                        className={l2open ? "on" : ""}
+                        className={l2Open ? "on" : ""}
                         title="账号明细"
                         type="button"
                         onClick={() => {
-                            if (!l2open) set_l2open(true);
+                            if (!l2Open) onToggleL2Open?.(provider);
                         }}
                     >
                         {String(accountCount)}账号
@@ -245,7 +247,7 @@ export const ProviderCard = memo(function ProviderCard({
     // the (stale) usage so failures surface on the main panel instead of only
     // in account settings.
     const usage_content =
-        is_multi && l2open && group ? (
+        is_multi && l2Open && group ? (
             <ProviderCardAccountDetail
                 provider={provider}
                 group={group}
@@ -257,7 +259,7 @@ export const ProviderCard = memo(function ProviderCard({
                 watchedMetrics={watchedMetrics}
                 onToggleWatched={on_toggle_watched}
             />
-        ) : is_multi && !l2open ? (
+        ) : is_multi && !l2Open ? (
             <ProviderCardOverview
                 isRefreshing={is_refreshing}
                 overviewPeriods={overview_periods}

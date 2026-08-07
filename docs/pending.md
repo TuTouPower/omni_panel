@@ -43,6 +43,18 @@
 - 线索：失败仅出现在完整套件（多 spec 串行）下，单独 spec 恒过；重启相关测试（secrets_persistence 等）前置。
 - 处理：未开
 
+## p078 t222 sparkline 偏好门控疑似同款死锁（核查）
+
+- 来源：t250 review Round 2 系统性 follow-up
+- 内容：t250 f001 发现 activeUsageTab 的 `has_active_tab_pref_ref` 门控死锁（config 无键时永不写盘）；该模式抄自 t222 sparkline 的 `has_sparkline_pref_ref`（PopupView.tsx）。sparkline 同款逻辑疑似同样死锁：config 无 `sparklineWindowDays` 时 ref 永不置位，用户切换 1/7/30 天永不写盘。t250 已改 prev ref 模式修复 activeUsageTab，sparkline 未核查。
+- 处理：未开
+
+## p079 t250 popup_view_t250 测试 act 警告（真实 timers + wait_debounce）
+
+- 来源：t250 review Round 2 f008（minor）
+- 内容：popup_view_t250.test.tsx 用真实 timers + `wait_debounce`（600ms）等待防抖，测试运行产生 8 条 React act 警告（既有基线 0）。断言无假通过风险。可改 fake timers + advanceTimersByTime 消除（注意 RTL waitFor 与 fake timers 兼容需 shouldAdvanceTime）。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

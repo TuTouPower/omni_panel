@@ -29,6 +29,9 @@ interface ProviderOverviewProps {
     onRefreshProvider: (provider: string) => void;
     expandedProviders?: Record<string, boolean> | undefined;
     onToggleExpandProvider?: ((provider: string) => void) | undefined;
+    /** t250: 每 provider「概览 / N账号」受控开关（父级持久化）。 */
+    l2OpenProviders?: Record<string, boolean> | undefined;
+    onToggleL2Open?: ((provider: string) => void) | undefined;
     /**
      * t158: re-login callback now takes BOTH provider AND a specific instanceId
      * so multi-instance setups (e.g. two GroK accounts) can target the actual
@@ -69,6 +72,8 @@ export function ProviderOverview({
     onRefreshProvider,
     expandedProviders,
     onToggleExpandProvider,
+    l2OpenProviders,
+    onToggleL2Open,
     onReLogin,
     draggingProvider,
     overProvider,
@@ -110,6 +115,10 @@ export function ProviderOverview({
                                     : undefined
                             }
                             onToggleExpand={onToggleExpandProvider}
+                            l2Open={
+                                l2OpenProviders ? (l2OpenProviders[provider] ?? false) : undefined
+                            }
+                            onToggleL2Open={onToggleL2Open}
                             onReLogin={onReLogin}
                             dragging={draggingProvider === provider}
                             dragOver={overProvider === provider && draggingProvider !== provider}

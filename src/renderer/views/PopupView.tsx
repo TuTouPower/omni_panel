@@ -52,6 +52,12 @@ export function PopupView() {
     const [refreshing, setRefreshing] = useState(false);
     const [refreshing_providers, set_refreshing_providers] = useState<Set<string>>(new Set());
     const [activeTab, setActiveTab] = useState<string>("overview");
+    // t250: activeUsageTab 回显抑制（t153 prev ref：值相等保留，回显不触发写回；
+    // 用户切换才写，天然支持 config 无键时首次写盘）。
+    const prev_active_tab_ref = useRef<string>("overview");
+    // t250: 每 provider「概览 / N账号」受控开关（持久化恢复）。
+    const [l2open_providers, set_l2open_providers] = useState<Record<string, boolean>>({});
+    const prev_l2open_ref = useRef<Record<string, boolean>>({});
     const [collapsed_accounts, set_collapsed_accounts] = useState<Record<string, boolean>>({});
     const [expanded_providers, set_expanded_providers] = useState<Record<string, boolean>>({});
     const [provider_order, set_provider_order] = useState<string[]>([]);
@@ -163,6 +169,17 @@ export function PopupView() {
                 set_expanded_providers((current) =>
                     record_bool_equal(current, next_expanded) ? current : next_expanded,
                 );
+            }
+            const next_l2open = config.providerL2Open;
+            if (next_l2open) {
+                prev_l2open_ref.current = next_l2open;
+                set_l2open_providers((current) =>
+                    record_bool_equal(current, next_l2open) ? current : next_l2open,
+                );
+            }
+            if (typeof config.activeUsageTab === "string") {
+                prev_active_tab_ref.current = config.activeUsageTab;
+                setActiveTab(config.activeUsageTab);
             }
         },
         [
@@ -279,6 +296,26 @@ export function PopupView() {
         });
     }, [collapsed_accounts, expanded_providers, patchConfig]);
 
+    // t250: 「概览 / N账号」开关写回 config（t153 回显抑制由 apply_config 值相等保留 state 保证）。
+    useEffect(() => {
+        const prev = prev_l2open_ref.current;
+        if (record_bool_equal(prev, l2open_providers)) {
+            return;
+        }
+        prev_l2open_ref.current = l2open_providers;
+        patchConfig({ providerL2Open: l2open_providers });
+    }, [l2open_providers, patchConfig]);
+
+    // t250: popup 顶部页签选择写回 config（t153 prev ref：回显值相等保留 state 不触发写回，
+    // 用户切换才写；config 无键时首次切换正常写盘）。
+    useEffect(() => {
+        if (prev_active_tab_ref.current === activeTab) {
+            return;
+        }
+        prev_active_tab_ref.current = activeTab;
+        patchConfig({ activeUsageTab: activeTab });
+    }, [activeTab, patchConfig]);
+
     const tabsRef = useRef<HTMLDivElement>(null);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
     // t196 AC3: cached all-collapsed minimum height, re-measured on structural
@@ -365,6 +402,13 @@ export function PopupView() {
         set_expanded_providers((prev_e) => {
             const next: Record<string, boolean> = {};
             for (const [p, v] of Object.entries(prev_e)) {
+                if (live_providers.has(p)) next[p] = v;
+            }
+            return next;
+        });
+        set_l2open_providers((prev_l) => {
+            const next: Record<string, boolean> = {};
+            for (const [p, v] of Object.entries(prev_l)) {
                 if (live_providers.has(p)) next[p] = v;
             }
             return next;
@@ -537,7 +581,18 @@ export function PopupView() {
     };
 
     const toggle_expand_provider = (provider: string) => {
-        set_expanded_providers((prev) => ({ ...prev, [provider]: !(prev[provider] ?? false) }));
+        const next_expanded = !(expanded_providers[provider] ?? false);
+        set_expanded_providers((prev) => ({ ...prev, [provider]: next_expanded }));
+        // 折叠卡片强制回概览（原 ProviderCard 内部 effect 语义，t250 上提）。
+        // 在 updater 外调用，避免 setState 副作用入纯函数（t250 f006）。
+        if (!next_expanded) {
+            set_l2open_providers((l2) => ({ ...l2, [provider]: false }));
+        }
+    };
+
+    // t250: 「概览 / N账号」切换。
+    const toggle_l2open = (provider: string) => {
+        set_l2open_providers((prev) => ({ ...prev, [provider]: !(prev[provider] ?? false) }));
     };
 
     // t158: re-login handler takes a specific instanceId so multi-instance 401
@@ -740,6 +795,8 @@ export function PopupView() {
                                 onToggleExpandProvider={
                                     is_live ? toggle_expand_provider : undefined
                                 }
+                                l2OpenProviders={is_live ? l2open_providers : undefined}
+                                onToggleL2Open={is_live ? toggle_l2open : undefined}
                                 onReLogin={
                                     is_live
                                         ? (p, instanceId) => {

@@ -71,6 +71,7 @@ describe("ProviderCard - label map", () => {
                 provider="opencode_go"
                 group={group}
                 expanded
+                l2Open
                 onToggleExpand={vi.fn()}
                 labelMap={{ rolling: "滚动" }}
                 accountLabelMaps={{
@@ -144,6 +145,7 @@ describe("ProviderCard - label map", () => {
                 provider="opencode_go"
                 group={group}
                 expanded
+                l2Open
                 onToggleExpand={vi.fn()}
                 labelMap={{ rolling: "滚动" }}
                 accountLabelMaps={{

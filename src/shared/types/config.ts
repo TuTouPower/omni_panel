@@ -67,6 +67,10 @@ export interface AppConfiguration {
     readonly accountLabels?: AccountLabels;
     readonly collapsedAccounts?: Readonly<Record<string, boolean>>;
     readonly expandedProviders?: Readonly<Record<string, boolean>>;
+    /** t250: 每 provider 卡片「概览 / N账号」分段开关（持久化恢复）。 */
+    readonly providerL2Open?: Readonly<Record<string, boolean>>;
+    /** t250: popup 顶部 provider 页签（overview / 各 provider）持久化。 */
+    readonly activeUsageTab?: string;
     readonly convergentTimeMinutes?: number;
     /** Directories grouped under one project label in the agent panel. */
     readonly dirAliases?: readonly {

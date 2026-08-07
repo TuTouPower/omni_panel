@@ -103,6 +103,8 @@ export const appConfigurationSchema = z.object({
     accountLabels: z.record(z.record(z.string())).optional(),
     collapsedAccounts: z.record(z.boolean()).optional(),
     expandedProviders: z.record(z.boolean()).optional(),
+    providerL2Open: z.record(z.boolean()).optional(),
+    activeUsageTab: z.string().optional(),
     convergentTimeMinutes: z.number().int().min(1).max(1440).optional(),
     dirAliases: z
         .array(z.object({ alias: z.string().min(1), dirs: z.array(z.string()) }))
