@@ -20,11 +20,7 @@ import {
     extract_claude_code_first_user,
     extract_claude_code_incremental,
 } from "./claude-code-extractor";
-import {
-    extract_grok,
-    extract_grok_first_user,
-    extract_grok_incremental,
-} from "./grok-extractor";
+import { extract_grok, extract_grok_first_user, extract_grok_incremental } from "./grok-extractor";
 import {
     extract_kimi_code,
     extract_kimi_code_first_user,
@@ -36,6 +32,7 @@ import {
     extract_opencode_incremental,
 } from "./opencode-extractor";
 import type { ExtractCursor, ExtractResult, HistoryMessage } from "./types";
+import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { createLogger } from "../../../shared/lib/logger";
 
 const log = createLogger("session-history-subscription");
@@ -86,7 +83,23 @@ export interface QueryResult {
  * 由 IPC 层注入的会话查询回调。返回值由 IPC 层从 token-stats store 取后映射。
  * 服务层不直接依赖 token-stats store。
  */
-export type SessionsProvider = (source: string, env: Env) => readonly SessionRow[];
+export interface SessionQueryFilters {
+    readonly source?: string;
+    readonly sources?: readonly string[];
+    readonly env?: string;
+    readonly search?: string;
+    readonly start_at?: number;
+    readonly end_at?: number;
+    readonly order_by?: "ended_at" | "tokens" | "calls" | "started_at";
+    readonly direction?: "asc" | "desc";
+    readonly limit?: number;
+    readonly offset?: number;
+}
+
+export type SessionsProvider = (
+    filters_or_source: SessionQueryFilters | string,
+    env?: Env,
+) => readonly SessionRow[];
 
 /** sessions_provider 返回的单行；服务层只关心定位所需字段。 */
 export interface SessionRow {
@@ -98,6 +111,8 @@ export interface SessionRow {
     readonly model: string | null;
     readonly started_at: number;
     readonly ended_at: number;
+    /** Full token-stats row when content-search results need renderer metadata. */
+    readonly session?: TokenStatsSession;
 }
 
 /** 最近会话查询返回项。 */
@@ -229,7 +244,7 @@ export function create_watcher(
  * 新任务在前面的任务 resolve/reject 后依次启动。 abortSignal 用于在启动前短路。
  */
 function with_concurrency_limit<T>(
-    tasks: readonly (() => T | Promise<T>)[] ,
+    tasks: readonly (() => T | Promise<T>)[],
     limit: number,
     abortSignal?: AbortSignal,
 ): Promise<T[]> {
@@ -429,7 +444,8 @@ export class SessionHistorySubscriptionService {
         // 首次拉取由调用方走 query 通道；watcher 只在订阅之后的追加发生时推增量。
         // 优先复用同文件缓存，避免 subscribe 后立即 query 重复解析同一文件。
         const cached = this.get_extract_cache(key, params.file_path);
-        const initial = cached ?? this.extract_full(params.extractor_kind, params.file_path, params.session_id);
+        const initial =
+            cached ?? this.extract_full(params.extractor_kind, params.file_path, params.session_id);
         if (!cached) {
             this.set_extract_cache(key, params.file_path, params.extractor_kind, initial);
         }
@@ -543,7 +559,8 @@ export class SessionHistorySubscriptionService {
     ): QueryResult {
         const key = loc_key(params);
         const cached = this.get_extract_cache(key, params.file_path);
-        const full = cached ?? this.extract_full(params.extractor_kind, params.file_path, params.session_id);
+        const full =
+            cached ?? this.extract_full(params.extractor_kind, params.file_path, params.session_id);
         if (!cached) {
             this.set_extract_cache(key, params.file_path, params.extractor_kind, full);
         }
@@ -632,6 +649,15 @@ export class SessionHistorySubscriptionService {
 
         await with_concurrency_limit(tasks, concurrency, options?.abortSignal);
         return hits;
+    }
+
+    /** IPC-facing variant that preserves the service's AbortSignal contract. */
+    searchContentWithAbort(
+        locs: readonly ResolvedSessionLoc[],
+        keyword: string,
+        abortSignal: AbortSignal,
+    ): Promise<Set<string>> {
+        return this.searchContent(locs, keyword, { abortSignal });
     }
 
     /**

@@ -1,6 +1,6 @@
 # 会话工作台（WorkspaceView）
 
-需求：把会话窗口工作台页签从 6 栏平铺模型替换为 demo 对齐的 8 槽位模型——左侧槽位 rail、布局 1/2/3/4/6/8 切换、会话选择/最近会话弹窗、超位 toast 拒绝。单个会话面板（消息渲染/实时推送/分页/选择/复制）能力沿用 `HistoryColumn`（t211 决策 8/11/13/17），不回归。
+需求：把会话窗口工作台页签从 6 栏平铺模型替换为 demo 对齐的 8 槽位模型——左侧槽位 rail、视图菜单中的排布选择、会话选择/最近会话弹窗、超位 toast 拒绝。单个会话面板（消息渲染/实时推送/分页/选择/复制）能力沿用 `HistoryColumn`（t211 决策 8/11/13/17），不回归。
 
 ## 槽位模型
 
@@ -11,13 +11,13 @@
 
 ## 布局
 
-- 工具条三区：左「最近会话」「清空」+「视图」下拉（显示时间戳/紧凑模式，全局下发所有 pane），中布局切换器（1/2/3/4/6/8），右「复制 N 条」+ 计数。
-- `effective_columns(layout, width)`：受布局档位上限约束，容器宽度不足（`MIN_COLUMN_WIDTH=375`）降档到能容纳的列数；组件层 `cols = min(effective_columns, 占用数)` 写入 `.slot-grid` 的 `--cols`，CSS `repeat(var(--cols), minmax(0,1fr))` 排列。实际降档效果由真实窗口宽度决定（`[deploy]`）。
+- 工具条保留左侧「最近会话」「清空」与「视图」下拉；视图下拉包含显示时间戳、紧凑模式和会话排布选择，不再显示独立的列数数字按钮条或工作台会话计数。
+- 「视图」下拉菜单按当前已装入会话数提供代表性列×行候选：6 个会话为 3×2 / 2×3，3 个会话为 3×1 / 2×2，8 个会话为 4×2 / 2×4；选择后沿用同一 `layout` 状态驱动网格列数，当前布局在菜单中有选中态。
 - 全空空态：无占用槽位时显示引导（去会话库 / 打开最近会话入口）。
 
 ## 会话面板（SessionPane，t225）
 
-- 头部：agent 识别色条 + 徽标（agent 首字母，title 含 model）+ 标题 + meta 行（source · model · cwd · 轮数 · tokens · 日期）；hover 浮现大纲/全选可见/清空选择/聚焦/关闭操作。
+- 头部：agent 识别色条 + provider logo 徽标（`claude_code`→`claude`、`kimi_code`→`kimi`、`grok`→`grok`、`opencode`→`opencode_go`；未知 source 使用 `overview` 兜底，复用 `VendorMark` 主题资源）+ 标题 + meta 行（source · model · cwd · 轮数 · tokens · 日期）；hover 浮现大纲/全选可见/清空选择/聚焦/关闭操作。
 - 消息区：Markdown 渲染（react-markdown@10 + remark-gfm@4，**无 rehype-raw**，会话 HTML 不当 HTML 执行）；相邻消息时间差超 10 分钟插分隔线；滚离底部超 120px 显示「回到底部」（点击回底，新消息在底部自动跟随）；加载骨架屏。
 - 大纲抽屉：pane 右侧滑出，每条消息一行（角色序号 U/A + 摘要 + 时间），点击滚动定位。
 - 聚焦模式：单面板铺满工作区（`.slot-grid.focused`），再次点击或 Esc 退出恢复原布局；关闭聚焦槽位/清空/替换时清聚焦索引。
@@ -28,7 +28,7 @@
 
 - 入口重接：renderer 侧 `onFocus(loc)` 事件与 URL `loc` query 均走 `open_session` 装入槽位；已开则滚动聚焦该槽，槽满 toast「槽位已满（最多 8 个）」拒绝，不替换任何已有槽位。
 - 会话选择弹窗（picker）：点空槽位或「添加会话」打开；按标题/路径/ID 搜索、agent 筛选页签（带计数）、已打开会话标「已打开」；点行装入目标槽位。同 loc 已在槽内时 toast 拒绝（防双槽共享订阅导致关闭互毁）。
-- 最近会话弹窗：按 `ended_at` 倒序多选，上限 8（顺序角标），快捷「最近 2/4/8」；确认后清空全部槽位（先退订旧槽位防 watcher 泄漏）并替换。数据为最近 100 条（`RECENT_LIMIT` pragmat 截断）。
+- 最近会话弹窗：按 `ended_at` 倒序多选，上限 8（顺序角标），快捷「最近 2/4/6/8」；确认后清空全部槽位（先退订旧槽位防 watcher 泄漏）并替换。数据为最近 100 条（`RECENT_LIMIT` pragmat 截断）。
 - rail 满槽时「添加会话」disabled；rail 可折叠/展开。
 
 ## 摘选系统（SelectionTray，t226）
@@ -52,17 +52,17 @@
 - 不落地拖文件导入与 ⌘K 命令面板入口；无 6 栏超位弹窗（`HistoryOverflowModal` 已删）。
 - Markdown 渲染安全硬约束：会话文本不可信，禁止 `dangerouslySetInnerHTML` 直渲、不安装 rehype-raw（react-markdown 默认丢弃原始 HTML）。
 
-## 会话库视图（SessionLibrary，t227）
+## 会话库视图（SessionLibrary，t227，t248）
 
 - 会话库页签（`SessionShell` 第二页签）为真实视图：页头统计行（会话数 · agent 数 · 总 tokens），sticky 筛选工具栏（搜索框 + 包含消息内容开关 + 时间范围 + 排序 + 网格/列表切换），agent 多选芯片。
-- 搜索：默认只匹配元信息（title/directory/id）；「包含消息内容」开启后结果 = 元信息命中 ∪ 正文命中（并集），正文命中逐候选 `sessionHistory.query` 读消息做包含匹配（串行 + 搜索中提示 + 序号守卫）。
+- 搜索：默认只匹配元信息（title/directory/id）；「包含消息内容」开启后结果 = 元信息命中 ∪ 正文命中（并集），正文候选由后端按当前 Agent/日期筛选分页确定，扫描支持取消；搜索结果按当前排序展示，失败时清空过期结果并提示。
 - 时间范围：只纳入活动时间（[started_at, ended_at]）与范围有交集的会话。
 - 排序：最近活跃 / Token 最多 / 轮次最多 / 最早创建（数据层 `filter.ts` sort_sessions）。
 - 结果区：网格卡片（agent 色条/徽标/标题/首条用户消息摘要懒加载/meta 轮数·tokens·相对日期/目录）或列表行；hover 浮现「单独打开/预览」；点卡片/行勾选（上限 8）。
-- 分页：「加载更多」逐步加载（PAGE_SIZE=50）；空态含「清除筛选」。
+- 分页：「加载更多」逐步加载（PAGE_SIZE=50）；筛选或排序变化重新从首屏请求，过期请求不得覆盖当前结果；空态含「清除筛选」。
 - 预览抽屉：右侧滑出，徽标/标题/meta/文件路径/前 5 条消息（只读 Markdown），「单独打开」（装入工作台并切页签）「加入选择」；Esc 关闭；序号守卫防切卡串消息。
 - SelectionDock：底部 sticky，已选微缩槽位（可移除，按 (id,source,env) 主键）、n/8 计数、清空、「并排打开 (n)」→ `sessionHistory.open` 逐个打开 + 切工作台页签。
-- 数据源：`tokenStats.getSessions`（main 侧 `query_sessions` 扩展：`sources[]`/`start_at`/`end_at`/`order_by`/`direction`，order_by 白名单防 SQL 注入），分页循环拉全量。
+- 数据源：`tokenStats.getSessionStats` 独立提供全量会话数、Agent 数、tokens 和 source 计数；`tokenStats.getSessions` 经 main 侧 `query_sessions` 按 `sources[]`/`search`/`start_at`/`end_at`/`order_by`/`direction` 分页查询，order_by 白名单防 SQL 注入；摘要只请求当前已加载且可见的会话。
 
 ## 会话面板对齐收尾（t228）
 

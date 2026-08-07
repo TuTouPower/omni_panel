@@ -120,6 +120,33 @@ export function effective_columns(layout: LayoutCount, container_width: number):
     return Math.min(layout, by_width);
 }
 
+export interface LayoutChoice {
+    readonly columns: LayoutCount;
+    readonly rows: number;
+}
+
+/** 按当前会话数提供少量代表性排布，列数决定工作台网格的实际方向。 */
+export function layout_choices_for_count(count: number): readonly LayoutChoice[] {
+    const normalized = Math.max(0, Math.min(MAX_SLOTS, Math.floor(count)));
+    if (normalized === 0) return [];
+
+    const columns =
+        normalized === 1
+            ? [1]
+            : normalized === 2
+              ? [2, 1]
+              : normalized === 3
+                ? [3, 2]
+                : normalized <= 6
+                  ? [3, 2]
+                  : [4, 2];
+
+    return columns.map((column_count) => ({
+        columns: column_count as LayoutCount,
+        rows: Math.ceil(normalized / column_count),
+    }));
+}
+
 /** rail 内的 token 缩写（1.2M / 34k / 823）。 */
 export function format_tokens(n: number): string {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -129,6 +156,14 @@ export function format_tokens(n: number): string {
 
 /** source → rail agent 色左条的 CSS 变量名。agent_id 归一到 demo 变量名
  *  （claude_code→claude、kimi_code→kimi），与 markdown.agent_slug 展示口径一致。 */
+export function vendor_id_for_source(source: string): string {
+    if (source === "claude_code") return "claude";
+    if (source === "kimi_code") return "kimi";
+    if (source === "grok") return "grok";
+    if (source === "opencode") return "opencode_go";
+    return "overview";
+}
+
 const AGENT_COLOR_VAR: Record<string, string> = {
     claude_code: "--agent-claude",
     opencode: "--agent-opencode",

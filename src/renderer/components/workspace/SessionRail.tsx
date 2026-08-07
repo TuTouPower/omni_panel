@@ -1,13 +1,11 @@
 import { useState, type DragEvent } from "react";
-import { agent_accent, format_tokens, type SlotsState } from "../../lib/workspace/slots";
-
-function agent_initial(source: string): string {
-    if (source === "claude_code") return "C";
-    if (source === "opencode") return "OC";
-    if (source === "kimi_code") return "K";
-    if (source === "grok") return "G";
-    return source.slice(0, 2).toUpperCase();
-}
+import { VendorMark } from "../Icon";
+import {
+    agent_accent,
+    format_tokens,
+    vendor_id_for_source,
+    type SlotsState,
+} from "../../lib/workspace/slots";
 
 interface SessionRailProps {
     readonly slots: SlotsState;
@@ -82,11 +80,8 @@ export function SessionRail({
                                 className="rail-accent"
                                 style={{ background: agent_accent(slot.loc.source) }}
                             />
-                            <span
-                                className="rail-badge"
-                                style={{ background: agent_accent(slot.loc.source) }}
-                            >
-                                {agent_initial(slot.loc.source)}
+                            <span className="rail-badge">
+                                <VendorMark id={vendor_id_for_source(slot.loc.source)} size={20} />
                             </span>
                             <div className="rail-body">
                                 <div className="rail-title" title={slot.title}>

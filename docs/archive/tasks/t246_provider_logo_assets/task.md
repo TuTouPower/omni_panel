@@ -1,12 +1,12 @@
 ---
-tid: "t244"
-slug: "workspace_layout_selector"
-title: "工作台视图：会话排布方式选择（按当前会话数给可选排布）"
-status: "backlog"
-branch: ""
+tid: "t246"
+slug: "provider_logo_assets"
+title: "会话历史面板：provider logo 改用用量面板已有资源"
+status: "done"
+branch: "t246_provider_logo_assets"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "5cdbd41354c43871145c76009c86d245434623ed"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,9 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 已核实 `opencode` 对应用量面板 `opencode_go`，并在 `docs/spikes/s017_opencode_vendor_logo_id/report.md` 记录证据；共享 `vendor_id_for_source` 统一四个已知 source 与未知 fallback。
+- `SessionPane` 与 `SessionRail` 已复用 `VendorMark` 及既有 light/dark 资源，保持原徽标尺寸；补充纯函数、组件资源输出与未知 fallback 测试。
+- 全量测试首次受 local-api 健康端点随机 bad port 影响，独立复跑通过；未发现本 task 相关问题。
 
 ## Review 处置
 
@@ -44,14 +46,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-07 15:01 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
+| finding_id    | severity | status | rationale                                                               | fix_ref                                                                                                                      |
+| ------------- | -------- | ------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| t246_gen_f001 | minor    | 已修   | 两个组件测试已按 source 校验对应的 provider logo 资源与 overview 兜底。 | tests/unit/renderer/components/workspace/SessionPane.test.tsx; tests/unit/renderer/components/workspace/SessionRail.test.tsx |
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+### Round 2 (2026-08-07 15:06 UTC+8)
+
+Round 2 零新 finding；Round 1 的 `t246_gen_f001` 已关闭。
 
 ## 收尾报告
 
@@ -60,8 +63,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：`pnpm test` 237 个测试文件、2552 passed、1 skipped；定向 logo 测试 26 passed；`pnpm typecheck`、`pnpm lint`、Prettier、`git diff --check` 与 `pnpm build` 通过。
 
 ### Reviewer verdict
 
@@ -74,10 +77,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 工作台会话面板与左侧 rail 已统一复用用量面板 provider logo，未知 source 保留 overview 兜底。

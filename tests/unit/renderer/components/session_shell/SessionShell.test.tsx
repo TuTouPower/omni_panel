@@ -2,16 +2,15 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it } from "vitest";
 import type { vi } from "vitest";
 import { SessionShell } from "../../../../../src/renderer/components/session-shell/SessionShell";
-import { SESSION_THEME_KEY } from "../../../../../src/renderer/lib/session-shell/theme";
 import { install_history_usageboard } from "../../views/session_history_test_utils";
 
 /**
  * t223 会话窗口单壳双页签外壳测试。
- * 覆盖 AC：页签切换与内部状态保留、主题切换与持久化、跳转按钮 IPC、
+ * 覆盖 AC：页签切换与内部状态保留、全局主题跟随与事件同步、跳转按钮 IPC、
  * 会话库空态占位、无命令面板/拖文件导入入口。
  */
 
-const THEME_KEY = SESSION_THEME_KEY;
+const THEME_KEY = "omni_session_theme";
 
 type MockFn = ReturnType<typeof vi.fn>;
 interface MockBoard {
@@ -103,23 +102,38 @@ describe("SessionShell (t223)", () => {
         expect(ub.sessionHistory.unsubscribe).not.toHaveBeenCalled();
     });
 
-    it("全新默认暗色：html data-theme=dark", () => {
+    it("顶栏移除主题切换按钮与未生效的摘选托盘按钮", () => {
         render(<SessionShell />);
-        expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+        expect(screen.queryByRole("button", { name: /切换到浅色模式|切换到暗色模式/ })).toBeNull();
+        expect(screen.queryByRole("button", { name: "摘选托盘" })).toBeNull();
     });
 
-    it("预存 light 时初始浅色主题", () => {
-        localStorage.setItem(THEME_KEY, "light");
+    it("会话窗口跟随全局主题且不读取独立主题存储", async () => {
+        localStorage.setItem(THEME_KEY, "dark");
+        const ub = install_history_usageboard(() => ({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            plugins: [],
+            launchAtLogin: false,
+            theme: "light",
+        }));
         render(<SessionShell />);
-        expect(document.documentElement.getAttribute("data-theme")).toBe("light");
-    });
 
-    it("主题切换按钮更新 data-theme 并持久化", () => {
-        render(<SessionShell />);
-        fireEvent.click(screen.getByTitle("切换到浅色模式"));
-        expect(document.documentElement.getAttribute("data-theme")).toBe("light");
-        expect(localStorage.getItem(THEME_KEY)).toBe("light");
-        fireEvent.click(screen.getByTitle("切换到暗色模式"));
+        await waitFor(() => {
+            expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+        });
+        expect(localStorage.getItem(THEME_KEY)).toBe("dark");
+        expect(ub.config.get).toHaveBeenCalled();
+        expect(ub.event.onThemeChange).toHaveBeenCalled();
+
+        const theme_event_mock = ub.event.onThemeChange as unknown as MockFn;
+        const on_theme_change = theme_event_mock.mock.calls[0]?.[0] as
+            | ((is_dark: boolean) => void)
+            | undefined;
+        if (!on_theme_change) throw new Error("theme callback not registered");
+        act(() => {
+            on_theme_change(true);
+        });
         expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
         expect(localStorage.getItem(THEME_KEY)).toBe("dark");
     });

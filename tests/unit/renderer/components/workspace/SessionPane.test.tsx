@@ -83,6 +83,40 @@ describe("SessionPane (t225)", () => {
         expect(document.querySelector(".pane-accent")).toBeTruthy();
     });
 
+    it("按 source 渲染对应 provider logo，未知 source 使用 overview 兜底", () => {
+        const { rerender } = render(<SessionPane {...PROPS} />);
+        const expected = [
+            ["claude_code", ["claude"]],
+            ["kimi_code", ["kimi"]],
+            ["grok", ["grok_light", "grok_dark"]],
+            ["opencode", ["opencode_go_light", "opencode_go_dark"]],
+            ["unknown", []],
+        ] as const;
+
+        for (const [source, assets] of expected) {
+            rerender(
+                <SessionPane
+                    {...PROPS}
+                    column={column({
+                        loc: { source, env: "win", session_id: source },
+                    })}
+                />,
+            );
+            const badge = document.querySelector(".pane-agent-badge");
+            expect(badge?.querySelector(".vicon")).toBeTruthy();
+            if (assets.length === 0) {
+                expect(badge?.querySelector("svg")).toBeTruthy();
+            } else {
+                const sources = Array.from(badge?.querySelectorAll("img") ?? []).map(
+                    (img) => img.getAttribute("src") ?? "",
+                );
+                for (const asset of assets) {
+                    expect(sources.some((src) => src.includes(asset))).toBe(true);
+                }
+            }
+        }
+    });
+
     it("Markdown 消息按 markdown 渲染而非纯文本", () => {
         render(
             <SessionPane

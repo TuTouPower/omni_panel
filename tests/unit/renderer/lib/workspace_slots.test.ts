@@ -6,6 +6,7 @@ import {
     empty_slots,
     effective_columns,
     find_slot_by_loc,
+    layout_choices_for_count,
     move_slot,
     occupied_count,
     remove_slot,
@@ -13,6 +14,7 @@ import {
     slot_at,
     try_add_slot,
     try_assign_slot,
+    vendor_id_for_source,
 } from "../../../../src/renderer/lib/workspace/slots";
 
 /**
@@ -47,6 +49,16 @@ function sess(
         ...opts,
     };
 }
+
+describe("source → provider logo 映射", () => {
+    it("映射四个已知 source，未知 source 使用 overview 兜底", () => {
+        expect(vendor_id_for_source("claude_code")).toBe("claude");
+        expect(vendor_id_for_source("kimi_code")).toBe("kimi");
+        expect(vendor_id_for_source("grok")).toBe("grok");
+        expect(vendor_id_for_source("opencode")).toBe("opencode_go");
+        expect(vendor_id_for_source("unknown")).toBe("overview");
+    });
+});
 
 describe("slots 初始化与计数", () => {
     it("empty_slots 返回 8 个空槽", () => {
@@ -160,6 +172,32 @@ describe("session_meta 元数据派生", () => {
     it("title 为 null 时回退 session_id", () => {
         const m = session_meta(sess("b", "opencode", { title: null }), 1);
         expect(m.title).toBe("b");
+    });
+});
+
+describe("会话数对应的排布选项", () => {
+    it("按会话数生成代表性行列排布", () => {
+        expect(layout_choices_for_count(3)).toEqual([
+            { columns: 3, rows: 1 },
+            { columns: 2, rows: 2 },
+        ]);
+        expect(layout_choices_for_count(6)).toEqual([
+            { columns: 3, rows: 2 },
+            { columns: 2, rows: 3 },
+        ]);
+        expect(layout_choices_for_count(8)).toEqual([
+            { columns: 4, rows: 2 },
+            { columns: 2, rows: 4 },
+        ]);
+    });
+
+    it("边界会话数给出不重复的合理选项", () => {
+        expect(layout_choices_for_count(0)).toEqual([]);
+        expect(layout_choices_for_count(1)).toEqual([{ columns: 1, rows: 1 }]);
+        expect(layout_choices_for_count(2)).toEqual([
+            { columns: 2, rows: 1 },
+            { columns: 1, rows: 2 },
+        ]);
     });
 });
 

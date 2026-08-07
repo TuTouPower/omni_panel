@@ -65,7 +65,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- `opencode` 会话在用量面板对应的确切 vendor id（`opencode_go` 或其他）：UNVERIFIED-SPIKE，执行期核对用量面板实际使用的 id 后确定。
+- 已验证：`opencode` 会话映射到用量面板的 `opencode_go` vendor id。证据为 `connectors/opencode_go/manifest.json`、`src/renderer/lib/provider-usage.ts`、`src/renderer/components/Icon.tsx` 与既有 `icon.test.tsx` 均使用 `opencode_go`。
 
 ### 风险与回退
 

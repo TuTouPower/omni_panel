@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LAYOUT_OPTIONS, type LayoutCount } from "../../lib/workspace/slots";
+import { layout_choices_for_count, type LayoutCount } from "../../lib/workspace/slots";
 import type { PaneView } from "./SessionPane";
 
 interface WorkspaceToolbarProps {
@@ -12,7 +12,7 @@ interface WorkspaceToolbarProps {
     readonly on_clear: () => void;
 }
 
-/** t224 工作台工具条：最近会话 / 清空 / 视图下拉 / 居中布局切换器 / 计数。 */
+/** t224 工作台工具条：最近会话 / 清空 / 视图下拉。 */
 export function WorkspaceToolbar({
     layout,
     count,
@@ -23,6 +23,17 @@ export function WorkspaceToolbar({
     on_clear,
 }: WorkspaceToolbarProps) {
     const [view_open, set_view_open] = useState(false);
+    const base_layout_choices = layout_choices_for_count(count);
+    const layout_choices =
+        count === 0 || base_layout_choices.some((choice) => choice.columns === layout)
+            ? base_layout_choices
+            : [
+                  ...base_layout_choices,
+                  {
+                      columns: layout,
+                      rows: Math.ceil(count / layout),
+                  },
+              ];
 
     function toggle_view(patch: Partial<PaneView>): void {
         on_view_change({ ...view, ...patch });
@@ -78,30 +89,33 @@ export function WorkspaceToolbar({
                                     />
                                     紧凑模式
                                 </label>
+                                {layout_choices.length > 0 && (
+                                    <div
+                                        className="ws-layout-choices"
+                                        role="group"
+                                        aria-label="会话排布"
+                                    >
+                                        <div className="ws-layout-choices-title">会话排布</div>
+                                        {layout_choices.map((choice) => (
+                                            <button
+                                                type="button"
+                                                key={`${String(choice.columns)}x${String(choice.rows)}`}
+                                                className="ws-layout-choice"
+                                                aria-pressed={layout === choice.columns}
+                                                onClick={() => {
+                                                    on_layout_change(choice.columns);
+                                                }}
+                                            >
+                                                {String(choice.columns)} 列 × {String(choice.rows)}{" "}
+                                                行
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}
                 </div>
-            </div>
-            <div className="ws-layout-switch">
-                {LAYOUT_OPTIONS.map((n) => (
-                    <button
-                        type="button"
-                        key={String(n)}
-                        className={"ws-layout-btn" + (layout === n ? " on" : "")}
-                        aria-label={`布局 ${String(n)}`}
-                        onClick={() => {
-                            on_layout_change(n);
-                        }}
-                    >
-                        {String(n)}
-                    </button>
-                ))}
-            </div>
-            <div className="ws-toolbar-right">
-                <span className="ws-count">
-                    {String(count)}/{String(8)}
-                </span>
             </div>
         </header>
     );

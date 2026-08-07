@@ -1,13 +1,13 @@
 ---
-tid: "t246"
-slug: "provider_logo_assets"
-title: "会话历史面板：provider logo 改用用量面板已有资源"
-status: "backlog"
-branch: ""
+tid: "t247"
+slug: "remove_session_counter"
+title: "工作台：取消会话上方数字条与右侧计数"
+status: "done"
+branch: "t247_remove_session_counter"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
-depends_on: ""
+diff_anchor: "22e3f5553d0c5ed5b810bbe8da0de594def2a71d"
+depends_on: "t244"
 conflicts_with: ""
 note: ""
 ---
@@ -22,7 +22,10 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 移除 `WorkspaceToolbar` 中间的 `LAYOUT_OPTIONS` 数字按钮组及右侧 `count/8`，同步删除对应 CSS；保留最近会话、清空、视图和视图菜单排布选择。
+- 将工作台组件测试中的旧计数等待改为 rail/网格可观察断言，并新增工具条元素不存在的回归测试。
+- 更新 `docs/specs/workspace.md`、`docs/specs_index.md` 与 `docs/blueprint/architecture.md`，明确排布选择统一位于视图菜单。
+- 定向测试 32/32、全量测试 237 个文件 2556 passed/1 skipped、typecheck、lint、构建及变更文件格式检查通过。
 
 ## Review 处置
 
@@ -44,14 +47,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-07 17:47 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+Round 1 零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -60,24 +58,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：WorkspaceView 定向测试 32/32；全量测试 237 个文件、2556 passed、1 skipped；typecheck、lint、构建、变更文件格式检查与 `git diff --check` 通过。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
-`single`：
-
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending.md`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 工作台工具条已移除独立数字布局按钮与 `count/8`，排布选择统一通过视图菜单提供。

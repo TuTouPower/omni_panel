@@ -5,7 +5,7 @@
 ## 窗口形态
 
 - route `history` 单窗口不变（window-manager 尺寸/生命周期不变），渲染根组件为 `SessionShell`（`App.tsx` `case "history"`）。
-- 固定 52px 顶栏：左品牌（logo + OmniPanel）、中「工作台 / 会话库」居中页签、右「用量面板」「代理面板」跳转按钮 + 明/暗主题切换。
+- 固定 52px 顶栏：左品牌（logo + OmniPanel）、中「工作台 / 会话库」居中页签、右「用量面板」「代理面板」跳转按钮。
 - 两个页签面板**常驻挂载**，切换只改 `data-active` 的 CSS `display` 显隐（`.shell-pane[data-active="false"] { display: none }`），各页内部状态（已打开会话槽位、滚动位置）切回不丢。
 - 工作台页签 = `WorkspaceView`（t224 槽位模型，见 `workspace.md`）；会话库页签空态占位（非报错、非空白）。
 
@@ -20,9 +20,9 @@
 
 ## 主题
 
-- `useSessionShellTheme`（`src/renderer/lib/session-shell/theme.ts`）独立于全局 `theme.ts`：默认暗色、持久化到 `localStorage omni_session_theme`、切换设 `html[data-theme]`，**不写全局 `config.theme`**（不与其它窗口全局主题互相干扰）。
-- 持久化主题在 `useLayoutEffect` 同步应用（浏览器绘制前覆盖 preload 首帧按系统 `ou_theme` 写入的 `data-theme`），避免首帧闪烁。
-- 重启后保持上次选择；全新安装默认暗色。
+- 会话窗口调用共享 `useTheme()`（`src/renderer/lib/theme.ts`），通过 `window.usageboard.config.get()` 读取全局 `config.theme`，并订阅 `event.onThemeChange` 同步已打开窗口；不读取或写入会话窗口独立主题键。
+- 首帧主题由 preload 根据 renderer URL 的 `ou_theme` 参数设置；挂载后的全局 hook 负责配置读取、`system` 模式解析和运行时变更。
+- 会话窗口不提供独立主题切换入口，主题跟随软件全局设置。
 
 ## 入口与导航
 
@@ -32,4 +32,4 @@
 ## 硬约束
 
 - 设计系统只作用于会话窗口（`.session-shell` 作用域）；不改用量面板/代理面板/设置面板/托盘视觉与结构。
-- 主题切换、页签状态仅存 renderer 侧（localStorage / 组件状态），不新增主进程状态。
+- 会话窗口主题跟随全局 `config.theme` 与主题事件；页签状态仅存 renderer 组件状态，不新增会话窗口独立主题存储或主进程状态。

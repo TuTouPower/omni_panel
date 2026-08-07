@@ -10,7 +10,7 @@ interface RecentSessionsModalProps {
 const RECENT_LIMIT = 100;
 const MAX_PICK = 8;
 
-/** t224 最近会话弹窗：按日期倒序多选（上限 8，选择顺序角标），快捷「最近 2/4/8」。 */
+/** t224 最近会话弹窗：按日期倒序多选（上限 8，选择顺序角标），快捷「最近 2/4/6/8」。 */
 export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModalProps) {
     const [sessions, set_sessions] = useState<TokenStatsSession[]>([]);
     const [picked, set_picked] = useState<TokenStatsSession[]>([]);
@@ -73,7 +73,7 @@ export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModa
                 <div className="ws-recent-body">
                     <div className="ws-recent-quick">
                         <span className="ws-recent-quick-label">快捷选择：</span>
-                        {[2, 4, 8].map((n) => (
+                        {[2, 4, 6, 8].map((n) => (
                             <button
                                 type="button"
                                 key={String(n)}

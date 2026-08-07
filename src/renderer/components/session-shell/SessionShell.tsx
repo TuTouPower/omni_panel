@@ -1,23 +1,19 @@
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import logo_svg from "../../assets/logo.svg";
 import { Icon } from "../Icon";
-import { useSessionShellTheme } from "../../lib/session-shell/theme";
+import { useTheme } from "../../lib/theme";
 import { WorkspaceView } from "../workspace/WorkspaceView";
 import { SessionLibrary } from "../session-library/SessionLibrary";
-import { selection_store } from "../../lib/workspace/selection-store";
 import "../../styles/session-shell.css";
 import "../../styles/session-library.css";
 
 type ShellTab = "workspace" | "library";
 
-/** 会话窗口单壳双页签外壳（t223）：顶栏承载页签/主题切换/面板跳转。
+/** 会话窗口单壳双页签外壳（t223）：顶栏承载页签/面板跳转。
  *  两个页签面板均保持挂载，切换只改 CSS 显隐，不丢各页内部状态。 */
 export function SessionShell() {
     const [tab, set_tab] = useState<ShellTab>("workspace");
-    const { theme, toggle_theme } = useSessionShellTheme();
-    const selected_count = useSyncExternalStore(selection_store.subscribe, () =>
-        selection_store.count(),
-    );
+    useTheme();
 
     return (
         <div className="session-shell">
@@ -72,26 +68,6 @@ export function SessionShell() {
                         }}
                     >
                         <Icon name="chart" size={15} />
-                    </button>
-                    <button
-                        type="button"
-                        className="shell-action"
-                        title="摘选托盘"
-                        aria-label="摘选托盘"
-                    >
-                        <Icon name="layers" size={15} />
-                        {selected_count > 0 && (
-                            <span className="shell-selection-count">{String(selected_count)}</span>
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        className="shell-action"
-                        title={theme === "dark" ? "切换到浅色模式" : "切换到暗色模式"}
-                        aria-label={theme === "dark" ? "切换到浅色模式" : "切换到暗色模式"}
-                        onClick={toggle_theme}
-                    >
-                        <Icon name={theme === "dark" ? "sun" : "moon"} size={15} />
                     </button>
                 </div>
             </header>
