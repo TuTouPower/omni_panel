@@ -672,7 +672,9 @@ export class SessionHistorySubscriptionService {
         const result: Record<string, string> = {};
         const concurrency = options?.concurrency ?? 5;
 
-        const tasks = locs.map((loc) => (): void => {
+        const tasks = locs.map((loc) => async (): Promise<void> => {
+            // 让出事件循环，避免首屏批量摘要同步 fs 阻塞主进程（t256）。
+            await new Promise<void>((resolve) => setImmediate(resolve));
             const key = loc_key(loc);
             const cached = this.get_extract_cache(key, loc.file_path);
             let text = "";

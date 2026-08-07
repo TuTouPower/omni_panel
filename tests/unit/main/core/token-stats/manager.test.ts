@@ -2,6 +2,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EventEmitter } from "node:events";
 
+/** flush 一个宏任务（setImmediate）。 */
+function flush_one_macrotask(): Promise<void> {
+    return new Promise((resolve) => setImmediate(resolve));
+}
+
+/** flush 直到所有已排队的 setImmediate 都执行（循环 flush 上限 50 次防死循环）。 */
+async function flush_macrotasks(): Promise<void> {
+    for (let i = 0; i < 50; i++) {
+        await flush_one_macrotask();
+    }
+}
+
 // --- Mock electron (utilityProcess) ---
 
 class MockUtilityProcess extends EventEmitter {
@@ -82,7 +94,7 @@ describe("token-stats manager", () => {
         manager.stop();
     });
 
-    it("stores session deltas + daily rows on update message and fires on_update", () => {
+    it("stores session deltas + daily rows on update message and fires on_update", async () => {
         const store = create_mock_store();
         const on_update = vi.fn();
         const manager = create_token_stats_manager({ store, on_update });
@@ -94,10 +106,64 @@ describe("token-stats manager", () => {
             daily: [{ id: "s1", date: "2026-07-17" }],
         });
 
+        // 分批让路：upsert 经 setImmediate 异步执行，等待宏任务 flush。
+        await flush_macrotasks();
         expect(store.upsert_sessions).toHaveBeenCalledWith(
             [{ id: "s1" }],
             [{ id: "s1", date: "2026-07-17" }],
         );
+        expect(on_update).toHaveBeenCalledTimes(1);
+        manager.stop();
+    });
+
+    it("大批 update 分批让路：每批间 setImmediate 让出事件循环（t256）", async () => {
+        const store = create_mock_store();
+        const on_update = vi.fn();
+        const manager = create_token_stats_manager({ store, on_update });
+
+        manager.start(base_config);
+        const sessions = Array.from({ length: 5000 }, (_, i) => ({ id: `s${String(i)}` }));
+        last_child!.emit("message", {
+            type: "token_stats_update",
+            sessions,
+            daily: [],
+            records: [],
+        });
+
+        // flush 一个宏任务：第一批同步执行，随后 setImmediate 排第二批；flush 后处理 2 批（4000），证明分批让出。
+        await flush_one_macrotask();
+        expect(store.upsert_sessions).toHaveBeenCalledTimes(2);
+        expect(store.upsert_sessions).toHaveBeenNthCalledWith(1, sessions.slice(0, 2000), []);
+        expect(on_update).not.toHaveBeenCalled();
+
+        // flush 剩余批次：第 3 批（1000）处理完并触发 on_update。
+        await flush_macrotasks();
+        expect(store.upsert_sessions).toHaveBeenCalledTimes(3);
+        expect(on_update).toHaveBeenCalledTimes(1);
+        manager.stop();
+    });
+
+    it("records 多于 sessions 时不丢数据，循环边界取最大长度（t256 f001）", async () => {
+        const store = create_mock_store();
+        const on_update = vi.fn();
+        const manager = create_token_stats_manager({ store, on_update });
+
+        manager.start(base_config);
+        const sessions = [{ id: "s1" }];
+        const records = Array.from({ length: 5000 }, (_, i) => ({ id: `r${String(i)}` }));
+        last_child!.emit("message", {
+            type: "token_stats_update",
+            sessions,
+            daily: [],
+            records,
+        });
+
+        await flush_macrotasks();
+        // records 5000 → 3 批；upsert_records 每次收到 ≤2000。
+        expect(store.upsert_records).toHaveBeenCalledTimes(3);
+        expect(store.upsert_records).toHaveBeenNthCalledWith(1, records.slice(0, 2000));
+        expect(store.upsert_records).toHaveBeenNthCalledWith(3, records.slice(4000, 5000));
+        expect(store.upsert_sessions).toHaveBeenCalledTimes(3);
         expect(on_update).toHaveBeenCalledTimes(1);
         manager.stop();
     });

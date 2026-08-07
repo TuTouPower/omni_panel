@@ -70,8 +70,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 摘要/定位链路改异步后 watcher、提取缓存（mtime+size 失效）与订阅游标的并发交互是否安全：`UNVERIFIED-SPIKE`，执行期读 subscription-service 与 watch 实现核实竞态窗口；存在竞态时以串行化或缓存键粒度调整消除。
-- better-sqlite3 同步写入在 Electron 主进程的让路方式（分批 setImmediate / 移 utilityProcess）对现有事务语义的兼容性：`UNVERIFIED-SPIKE`，执行期以集成实验确认哪种方式保持数据一致且查询不被长阻塞。
+- 摘要/定位链路改异步后 watcher、提取缓存（mtime+size 失效）与订阅游标的并发交互是否安全：已由 spike s021 读 `subscription-service.ts` 核实。`extract_cache` 是模块内 Map，读写均同步原子（Node 单线程无 await 间隙被中断）；watcher 回调同步更新缓存。任务内 `await setImmediate` 只发生在缓存读后写回前，缓存一致性不受影响。异步化安全。
+- better-sqlite3 同步写入在 Electron 主进程的让路方式（分批 setImmediate / 移 utilityProcess）对现有事务语义的兼容性：已由 spike s021 实验核实。分批 setImmediate（每批独立 tx + 全量重建 buckets）保持事务语义且让出事件循环：2000 行同步全量 3340ms 长阻塞 vs 200/批 × 10 批 18ms。采用分批 setImmediate 让路。
 
 ### 风险与回退
 

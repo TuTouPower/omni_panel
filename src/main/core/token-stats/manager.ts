@@ -56,6 +56,44 @@ export function create_token_stats_manager(deps: {
     const RAPID_EXIT_THRESHOLD_MS = 5 * 60 * 1000;
     const MAX_RAPID_FAILURES = 5;
 
+    /** 每批记录数上限：批次间 setImmediate 让出事件循环（t256）。 */
+    const UPDATE_BATCH_SIZE = 2000;
+
+    /** 分批应用 collector update，每批间 setImmediate 让出，避免长阻塞主进程。
+     * 循环边界取三数组最大长度（collector 的 records/daily 可数倍于 sessions），
+     * 每数组独立切片，越界 slice 自然返回剩余，保证不丢数据（t256 f001）。 */
+    function apply_batches(
+        sessions: TokenStatsUpdate["sessions"],
+        daily: TokenStatsUpdate["daily"],
+        records: TokenStatsUpdate["records"],
+    ): void {
+        const total = Math.max(sessions.length, daily.length, records.length);
+        let offset = 0;
+        const step = (): void => {
+            const chunk_sessions = sessions.slice(offset, offset + UPDATE_BATCH_SIZE);
+            const chunk_daily = daily.slice(offset, offset + UPDATE_BATCH_SIZE);
+            const chunk_records = records.slice(offset, offset + UPDATE_BATCH_SIZE);
+            try {
+                deps.store.upsert_sessions(chunk_sessions, chunk_daily);
+                deps.store.upsert_records(chunk_records);
+                offset += UPDATE_BATCH_SIZE;
+                log.debug(
+                    `Stored ${String(chunk_sessions.length)} session deltas, ${String(chunk_daily.length)} daily rows, ${String(chunk_records.length)} records (batch ${String(Math.min(offset, total))}/${String(total)})`,
+                );
+            } catch (err: unknown) {
+                const msg_str = err instanceof Error ? err.message : String(err);
+                log.error(`Failed to store token stats: ${msg_str}`);
+                return;
+            }
+            if (offset < total) {
+                setImmediate(step);
+            } else {
+                deps.on_update?.();
+            }
+        };
+        step();
+    }
+
     function start(config: TokenStatsConfig): void {
         if (child) {
             log.warn("Manager already running, stopping first");
@@ -102,20 +140,13 @@ export function create_token_stats_manager(deps: {
                     return;
                 }
                 if (msg.type !== "token_stats_update") return;
-                try {
-                    deps.store.upsert_sessions(
-                        (msg.sessions ?? []) as TokenStatsUpdate["sessions"],
-                        (msg.daily ?? []) as TokenStatsUpdate["daily"],
-                    );
-                    deps.store.upsert_records((msg.records ?? []) as TokenStatsUpdate["records"]);
-                    log.debug(
-                        `Stored ${String(msg.sessions?.length ?? 0)} session deltas, ${String(msg.daily?.length ?? 0)} daily rows, ${String(msg.records?.length ?? 0)} records`,
-                    );
-                    deps.on_update?.();
-                } catch (err: unknown) {
-                    const msg_str = err instanceof Error ? err.message : String(err);
-                    log.error(`Failed to store token stats: ${msg_str}`);
-                }
+                // 分批让路：collector 每轮发一条含全部数据的 update，主进程一次
+                // upsert 含全量 buckets 重建会长时间阻塞事件循环。按批拆分处理，
+                // 每批间 setImmediate 让出，供面板查询即时响应（t256 / spike s021）。
+                const sessions = (msg.sessions ?? []) as TokenStatsUpdate["sessions"];
+                const daily = (msg.daily ?? []) as TokenStatsUpdate["daily"];
+                const records = (msg.records ?? []) as TokenStatsUpdate["records"];
+                apply_batches(sessions, daily, records);
             },
         );
 

@@ -811,31 +811,51 @@ describe("SessionHistorySubscriptionService (t210)", () => {
     it("query 对未变化文件使用缓存，追加后刷新缓存", () => {
         const sid = "cache_sid";
         const file = join(tmp_dir, `${sid}.jsonl`);
-        writeFileSync(
-            file,
-            make_jsonl_line("user", "first", "m1", "2026-07-10T08:00:00Z") + "\n",
-        );
+        writeFileSync(file, make_jsonl_line("user", "first", "m1", "2026-07-10T08:00:00Z") + "\n");
 
         const first = service.query(
-            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: sid,
+                file_path: file,
+                extractor_kind: "claude_code",
+            },
             { limit: 10 },
         );
         expect(first.messages).toHaveLength(1);
 
-        const cache = (service as unknown as { extract_cache: Map<string, { messages: HistoryMessage[] }> }).extract_cache;
+        const cache = (
+            service as unknown as { extract_cache: Map<string, { messages: HistoryMessage[] }> }
+        ).extract_cache;
         const key = "claude_code|win|cache_sid";
         expect(cache.get(key)?.messages).toHaveLength(1);
 
         const second = service.query(
-            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: sid,
+                file_path: file,
+                extractor_kind: "claude_code",
+            },
             { limit: 10 },
         );
         expect(second.messages).toHaveLength(1);
         expect(cache.get(key)?.messages).toHaveLength(1);
 
-        appendFileSync(file, make_jsonl_line("assistant", "second", "m2", "2026-07-10T08:00:01Z") + "\n");
+        appendFileSync(
+            file,
+            make_jsonl_line("assistant", "second", "m2", "2026-07-10T08:00:01Z") + "\n",
+        );
         const third = service.query(
-            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: sid,
+                file_path: file,
+                extractor_kind: "claude_code",
+            },
             { limit: 10 },
         );
         expect(third.messages).toHaveLength(2);
@@ -845,10 +865,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
     it("subscribe 后首次 query 复用订阅缓存，不重复解析文件", () => {
         const sid = "sub_cache_sid";
         const file = join(tmp_dir, `${sid}.jsonl`);
-        writeFileSync(
-            file,
-            make_jsonl_line("user", "hello", "m1", "2026-07-10T08:00:00Z") + "\n",
-        );
+        writeFileSync(file, make_jsonl_line("user", "hello", "m1", "2026-07-10T08:00:00Z") + "\n");
 
         service.subscribe({
             source: "claude_code",
@@ -859,12 +876,20 @@ describe("SessionHistorySubscriptionService (t210)", () => {
             on_update: () => undefined,
         });
 
-        const cache = (service as unknown as { extract_cache: Map<string, { messages: HistoryMessage[] }> }).extract_cache;
+        const cache = (
+            service as unknown as { extract_cache: Map<string, { messages: HistoryMessage[] }> }
+        ).extract_cache;
         const key = "claude_code|win|sub_cache_sid";
         expect(cache.get(key)?.messages).toHaveLength(1);
 
         const result = service.query(
-            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: sid,
+                file_path: file,
+                extractor_kind: "claude_code",
+            },
             { limit: 10 },
         );
         expect(result.messages).toHaveLength(1);
@@ -878,15 +903,24 @@ describe("SessionHistorySubscriptionService (t210)", () => {
             s1,
             make_jsonl_line("user", "hello world", "u1", "2026-08-05T10:00:00Z") + "\n",
         );
-        writeFileSync(
-            s2,
-            make_jsonl_line("user", "goodbye", "u2", "2026-08-05T10:00:01Z") + "\n",
-        );
+        writeFileSync(s2, make_jsonl_line("user", "goodbye", "u2", "2026-08-05T10:00:01Z") + "\n");
 
         const hits = await service.searchContent(
             [
-                { source: "claude_code", env: "win", session_id: "a", file_path: s1, extractor_kind: "claude_code" },
-                { source: "claude_code", env: "win", session_id: "b", file_path: s2, extractor_kind: "claude_code" },
+                {
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "a",
+                    file_path: s1,
+                    extractor_kind: "claude_code",
+                },
+                {
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "b",
+                    file_path: s2,
+                    extractor_kind: "claude_code",
+                },
             ],
             "world",
         );
@@ -911,14 +945,31 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         }
 
         const counting_service = new CountingService();
-        const locs: { source: "claude_code"; env: "win"; session_id: string; file_path: string; extractor_kind: "claude_code" }[] = [];
+        const locs: {
+            source: "claude_code";
+            env: "win";
+            session_id: string;
+            file_path: string;
+            extractor_kind: "claude_code";
+        }[] = [];
         for (let i = 0; i < 6; i += 1) {
             const file = join(tmp_dir, `conc_${String(i)}.jsonl`);
             writeFileSync(
                 file,
-                make_jsonl_line("user", `msg ${String(i)}`, `u${String(i)}`, "2026-08-05T10:00:00Z") + "\n",
+                make_jsonl_line(
+                    "user",
+                    `msg ${String(i)}`,
+                    `u${String(i)}`,
+                    "2026-08-05T10:00:00Z",
+                ) + "\n",
             );
-            locs.push({ source: "claude_code", env: "win", session_id: `s${String(i)}`, file_path: file, extractor_kind: "claude_code" });
+            locs.push({
+                source: "claude_code",
+                env: "win",
+                session_id: `s${String(i)}`,
+                file_path: file,
+                extractor_kind: "claude_code",
+            });
         }
 
         await counting_service.searchContent(locs, "msg");
@@ -929,14 +980,29 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const file = join(tmp_dir, "abort.jsonl");
         const lines: string[] = [];
         for (let i = 0; i < 100; i += 1) {
-            lines.push(make_jsonl_line("user", `line ${String(i)}`, `u${String(i)}`, "2026-08-05T10:00:00Z"));
+            lines.push(
+                make_jsonl_line(
+                    "user",
+                    `line ${String(i)}`,
+                    `u${String(i)}`,
+                    "2026-08-05T10:00:00Z",
+                ),
+            );
         }
         writeFileSync(file, lines.join("\n") + "\n");
 
         const controller = new AbortController();
         controller.abort();
         const hits = await service.searchContent(
-            [{ source: "claude_code", env: "win", session_id: "abort", file_path: file, extractor_kind: "claude_code" }],
+            [
+                {
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "abort",
+                    file_path: file,
+                    extractor_kind: "claude_code",
+                },
+            ],
             "line",
             { abortSignal: controller.signal },
         );
@@ -966,13 +1032,27 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const counting_service = new CountingService();
         // 先在新实例上建立缓存
         counting_service.query(
-            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: sid,
+                file_path: file,
+                extractor_kind: "claude_code",
+            },
             { limit: 10 },
         );
         expect(counting_service.extract_count).toBe(1);
 
         const hits = await counting_service.searchContent(
-            [{ source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" }],
+            [
+                {
+                    source: "claude_code",
+                    env: "win",
+                    session_id: sid,
+                    file_path: file,
+                    extractor_kind: "claude_code",
+                },
+            ],
             "cached",
         );
         expect([...hits]).toEqual([`claude_code|win|${sid}`]);
@@ -990,7 +1070,13 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         );
 
         const result = await service.summaries([
-            { source: "claude_code", env: "win", session_id: "sum", file_path: file, extractor_kind: "claude_code" },
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "sum",
+                file_path: file,
+                extractor_kind: "claude_code",
+            },
         ]);
         expect(result["claude_code|win|sum"]).toBe("u".repeat(80));
     });
@@ -1003,7 +1089,13 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         );
 
         const result = await service.summaries([
-            { source: "claude_code", env: "win", session_id: "none", file_path: file, extractor_kind: "claude_code" },
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: "none",
+                file_path: file,
+                extractor_kind: "claude_code",
+            },
         ]);
         expect(result["claude_code|win|none"]).toBe("");
     });
@@ -1031,14 +1123,80 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const counting_service = new CountingService();
         // 先在新实例上建立缓存
         counting_service.query(
-            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: sid,
+                file_path: file,
+                extractor_kind: "claude_code",
+            },
             { limit: 10 },
         );
 
         const result = await counting_service.summaries([
-            { source: "claude_code", env: "win", session_id: sid, file_path: file, extractor_kind: "claude_code" },
+            {
+                source: "claude_code",
+                env: "win",
+                session_id: sid,
+                file_path: file,
+                extractor_kind: "claude_code",
+            },
         ]);
         expect(result[`claude_code|win|${sid}`]).toBe("cached summary");
         expect(counting_service.first_user_count).toBe(0);
+    });
+});
+
+describe("summaries 异步让出 (t256)", () => {
+    it("摘要任务经 setImmediate 让出事件循环（非同步串行）", async () => {
+        // summaries 启动后、任何微任务之前检查 extract 调用次数：
+        // 同步实现（无 await setImmediate）在 with_concurrency_limit 启动时即同步
+        // 跑完任务 → counter=并发数；异步让出后任务暂停在 setImmediate → counter=0。
+        const tmp_dir = mkdtempSync(join(tmpdir(), "t256-sum-"));
+        const files: string[] = [];
+        try {
+            for (let i = 0; i < 3; i++) {
+                const f = join(tmp_dir, `s${String(i)}.jsonl`);
+                writeFileSync(
+                    f,
+                    JSON.stringify({ type: "user", content: `msg${String(i)}` }) + "\n",
+                );
+                files.push(f);
+            }
+            const service = new SessionHistorySubscriptionService({ poll_interval_ms: 30 });
+            let extract_count = 0;
+            const spy = vi
+                .spyOn(
+                    service as unknown as { extract_first_user: () => string },
+                    "extract_first_user",
+                )
+                .mockImplementation(function (this: unknown) {
+                    extract_count += 1;
+                    return "mocked";
+                });
+
+            const locs = files.map((f, i) => ({
+                source: "grok" as const,
+                env: "wsl" as const,
+                session_id: `g${String(i)}`,
+                file_path: f,
+                extractor_kind: "grok" as const,
+            }));
+            const pending = service.summaries(locs);
+            // 尚未 await：若同步实现 extract 已全部执行；异步让出则 counter=0。
+            expect(extract_count).toBe(0);
+            // drain 微任务后仍为 0：证明是宏任务（setImmediate）让出而非微任务让出
+            // （微任务让出不释放事件循环，会回归 AC1，t256 test f004）。
+            await Promise.resolve();
+            expect(extract_count).toBe(0);
+            const result = await pending;
+            // await 后全部 extract 完成。
+            expect(extract_count).toBe(3);
+            expect(result["grok|wsl|g0"]).toBe("mocked");
+            spy.mockRestore();
+            service.unsubscribe_all();
+        } finally {
+            rmSync(tmp_dir, { recursive: true, force: true });
+        }
     });
 }, 30000);
