@@ -86,6 +86,19 @@ export function migrate_observation_schema(db: Database.Database, log: Logger): 
         db.exec("ALTER TABLE observations ADD COLUMN last_error TEXT;");
         log.info("Observation store migrated: added last_error column");
     }
+
+    // 清理已下线的 Kimi 总配额观测。connector 在 a03e38d4 已停止产出
+    // kimi:total_quota；本地库中的 stale 行会导致用量面板继续显示"总配额 0"。
+    const removed = db
+        .prepare(
+            "DELETE FROM observations WHERE provider = 'kimi' AND metric_id = 'kimi:total_quota'",
+        )
+        .run();
+    if (removed.changes > 0) {
+        log.info(
+            `Observation store migrated: removed ${String(removed.changes)} stale kimi:total_quota rows`,
+        );
+    }
 }
 
 function row_to_observation(row: Record<string, unknown>): Observation {

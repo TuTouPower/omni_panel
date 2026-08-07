@@ -127,3 +127,131 @@ describe("observation-store migration (last_error column)", () => {
         db.close();
     });
 });
+
+describe("observation-store migration (stale metric cleanup)", () => {
+    it("removes stale kimi:total_quota observations", () => {
+        const db = new Database(":memory:");
+        db.exec(`
+            CREATE TABLE observations (
+                id INTEGER PRIMARY KEY, provider TEXT NOT NULL,
+                source_instance_id TEXT NOT NULL, account_id TEXT NOT NULL,
+                account_label TEXT NOT NULL, metric_id TEXT NOT NULL,
+                raw_label TEXT NOT NULL, normalized_label TEXT NOT NULL,
+                display_label TEXT, name TEXT, window TEXT,
+                display_style TEXT NOT NULL, status TEXT NOT NULL,
+                observed_at INTEGER NOT NULL, source TEXT NOT NULL,
+                stale INTEGER NOT NULL DEFAULT 0, last_error TEXT,
+                used REAL, "limit" REAL, reset_at INTEGER
+            );
+            CREATE INDEX idx_lookup ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
+        `);
+
+        const insert = db.prepare(`
+            INSERT INTO observations (
+                provider, source_instance_id, account_id, account_label,
+                metric_id, raw_label, normalized_label, display_style, status,
+                observed_at, source, stale
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        insert.run(
+            "kimi",
+            "inst1",
+            "kimi",
+            "Kimi",
+            "kimi:total_quota",
+            "total_quota",
+            "总配额",
+            "percent",
+            "normal",
+            1,
+            "poll",
+            0,
+        );
+        insert.run(
+            "kimi",
+            "inst1",
+            "kimi",
+            "Kimi",
+            "kimi:weekly",
+            "weekly",
+            "一周",
+            "percent",
+            "normal",
+            2,
+            "poll",
+            0,
+        );
+        insert.run(
+            "claude",
+            "inst2",
+            "acc1",
+            "Claude",
+            "claude:daily",
+            "daily",
+            "今日",
+            "percent",
+            "normal",
+            3,
+            "poll",
+            0,
+        );
+
+        migrate_observation_schema(db, log);
+
+        const remaining = db.prepare("SELECT metric_id FROM observations ORDER BY id").all() as {
+            metric_id: string;
+        }[];
+        expect(remaining.map((r) => r.metric_id)).toEqual(["kimi:weekly", "claude:daily"]);
+        db.close();
+    });
+
+    it("is idempotent when no kimi:total_quota rows exist", () => {
+        const db = new Database(":memory:");
+        db.exec(`
+            CREATE TABLE observations (
+                id INTEGER PRIMARY KEY, provider TEXT NOT NULL,
+                source_instance_id TEXT NOT NULL, account_id TEXT NOT NULL,
+                account_label TEXT NOT NULL, metric_id TEXT NOT NULL,
+                raw_label TEXT NOT NULL, normalized_label TEXT NOT NULL,
+                display_label TEXT, name TEXT, window TEXT,
+                display_style TEXT NOT NULL, status TEXT NOT NULL,
+                observed_at INTEGER NOT NULL, source TEXT NOT NULL,
+                stale INTEGER NOT NULL DEFAULT 0, last_error TEXT,
+                used REAL, "limit" REAL, reset_at INTEGER
+            );
+            CREATE INDEX idx_lookup ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
+        `);
+
+        db.prepare(
+            `
+            INSERT INTO observations (
+                provider, source_instance_id, account_id, account_label,
+                metric_id, raw_label, normalized_label, display_style, status,
+                observed_at, source, stale
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        ).run(
+            "kimi",
+            "inst1",
+            "kimi",
+            "Kimi",
+            "kimi:weekly",
+            "weekly",
+            "一周",
+            "percent",
+            "normal",
+            1,
+            "poll",
+            0,
+        );
+
+        migrate_observation_schema(db, log);
+        migrate_observation_schema(db, log);
+
+        const remaining = db.prepare("SELECT metric_id FROM observations").all() as {
+            metric_id: string;
+        }[];
+        expect(remaining.map((r) => r.metric_id)).toEqual(["kimi:weekly"]);
+        db.close();
+    });
+});
