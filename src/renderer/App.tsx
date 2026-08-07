@@ -1,22 +1,53 @@
+import { Suspense, lazy } from "react";
 import { use_route } from "./hooks/use-route";
-import { SessionShell } from "./components/session-shell/SessionShell";
-import { PopupView } from "./views/PopupView";
-import { SettingsView } from "./views/SettingsView";
-import { TrayMenu } from "./views/TrayMenu";
-import { TokenStatsView } from "./views/TokenStatsView";
+
+const SessionShell = lazy(() =>
+    import("./components/session-shell/SessionShell").then((m) => ({ default: m.SessionShell })),
+);
+const PopupView = lazy(() => import("./views/PopupView").then((m) => ({ default: m.PopupView })));
+const SettingsView = lazy(() =>
+    import("./views/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
+const TrayMenu = lazy(() => import("./views/TrayMenu").then((m) => ({ default: m.TrayMenu })));
+const TokenStatsView = lazy(() =>
+    import("./views/TokenStatsView").then((m) => ({ default: m.TokenStatsView })),
+);
 
 export function App() {
     const route = use_route();
+    let view;
     switch (route) {
         case "setting":
-            return <SettingsView />;
+            view = <SettingsView />;
+            break;
         case "tray":
-            return <TrayMenu />;
+            view = <TrayMenu />;
+            break;
         case "agent":
-            return <TokenStatsView />;
+            view = <TokenStatsView />;
+            break;
         case "history":
-            return <SessionShell />;
+            view = <SessionShell />;
+            break;
         default:
-            return <PopupView />;
+            view = <PopupView />;
     }
+    return <Suspense fallback={<RouteLoading />}>{view}</Suspense>;
+}
+
+function RouteLoading() {
+    return (
+        <div
+            role="status"
+            aria-label="页面加载中"
+            style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100%",
+            }}
+        >
+            <span style={{ color: "var(--text-dim, #888)", fontSize: "13px" }}>加载中…</span>
+        </div>
+    );
 }

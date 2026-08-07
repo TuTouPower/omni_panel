@@ -4,7 +4,7 @@
 
 ## 背景
 
-`src/renderer/App.tsx` 静态引入全部 route 页面（PopupView、SettingsView、TrayMenu、TokenStatsView、SessionShell），且 `src/renderer/hooks/use-echarts.ts` 顶层静态引入 echarts（其余图表组件均为 type-only 引入，构建期擦除）。web 与 Electron renderer 两个入口都挂载同一个 `App`，导致首屏 bundle 拖入 ECharts、会话库、Markdown 渲染等全部依赖：web 构建单 chunk 约 1.76 MB（gzip 约 577 KB，触发 chunk size 警告），Electron renderer 入口约 4.2 MB。需要按路由做代码分割，并让 ECharts 随图表页面按需加载。
+`src/renderer/App.tsx` 静态引入全部 route 页面（PopupView、SettingsView、TrayMenu、TokenStatsView、SessionShell），且 `src/renderer/hooks/use-echarts.ts` 顶层静态引入 echarts（其余图表组件均为 type-only 引入，构建期擦除）。web 与 Electron renderer 两个入口都挂载同一个 `App`，导致首屏 bundle 拖入 ECharts、会话库、Markdown 渲染等全部依赖：web 构建单 chunk 约 1.76 MB（gzip 约 577 KB，触发 chunk size 警告），Electron renderer 入口约 4.2 MB。需要按路由做代码分割，并让 ECharts 随图表页面按需加载。echarts 整包按需加载后独立 chunk 仍超默认阈值，故采用 `echarts/core` 按需注册裁剪运行时（见 spike s018）。
 
 ## 契约区
 
@@ -21,7 +21,6 @@ reviewer 判 AC 时只看本区。
 - 不调整 `chunkSizeWarningLimit` 或任何警告阈值。
 - 不配置 Rollup `manualChunks` vendor 分包（动态 import 已满足拆分；缓存策略若需要另行立项）。
 - 不改变任何页面的视觉布局、交互与数据加载逻辑。
-- 不做 ECharts 模块级裁剪（echarts/core 按需注册）；整包动态加载已满足当前拆分目标。
 
 ### 验收标准
 
@@ -73,7 +72,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- electron-vite renderer 构建对动态 import 的代码分割行为（含打包后 file:// 协议下 chunk 加载）：`UNVERIFIED-SPIKE`，执行期 Step 1 用最小实验 + `pnpm build` / `pnpm test:packaged` 核实。
+- electron-vite renderer 构建对动态 import 的代码分割行为（含打包后 file:// 协议下 chunk 加载）：已由 spike s018 用最小实验 + `pnpm build` 核实。`React.lazy` 在 web 与 Electron renderer 两个入口均触发分割，各 route 页面与 echarts 成为独立 chunk 且不在入口 chunk 内；echarts 改用 `echarts/core` 按需注册（仅注册 Bar/Heatmap/Pie + Grid/Tooltip/DataZoom/VisualMap + CanvasRenderer）后，web 端所有 chunk < 500 kB；renderer 端 echarts 按子模块拆分为独立 chunk（最大约 655 kB），electron-vite 构建不输出 chunk size 警告。file:// 下 chunk 加载留待 Step 4 `pnpm test:packaged` 黑盒验证。
 
 ### 风险与回退
 

@@ -60,9 +60,12 @@ async function openSettings(app: ElectronApplication, page: Page): Promise<Page>
                 await appWindow
                     .waitForLoadState("domcontentloaded", { timeout: 5_000 })
                     .catch(() => undefined);
+                // isVisible() 不接受 timeout（立即检查）。路由懒加载后窗口事件触发
+                // 瞬间 SettingsView chunk 可能尚未加载完，须真正等待 sidebar 可见。
                 return appWindow
                     .locator('[data-testid="settings-sidebar"]')
-                    .isVisible({ timeout: 5_000 })
+                    .waitFor({ state: "visible", timeout: 5_000 })
+                    .then(() => true)
                     .catch(() => false);
             },
             timeout: 10_000,
