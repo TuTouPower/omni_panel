@@ -65,7 +65,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 会话窗口读取全局主题的通道（全局 config.theme 如何到达会话窗口 renderer）：UNVERIFIED-SPIKE，执行期查主面板 `src/renderer/lib/theme.ts` 与设置持久化路径后确定复用方式。
+- 会话窗口读取全局主题的通道：已验证复用 `src/renderer/lib/theme.ts` 的 `useTheme()`；该 hook 通过 `window.usageboard.config.get()` 读取全局 `config.theme`，订阅 `event.onThemeChange`，首帧由 preload 的 `ou_theme` 参数设置。验证方式：检查 `App.tsx` 的 history 路由、`SessionShell` 现有主题实现、window manager URL 参数和会话测试 mock。
 
 ### 风险与回退
 
