@@ -259,6 +259,38 @@ describe("WorkspaceView (t224)", () => {
         });
     });
 
+    it("最近会话：快捷选择最近 6 个并按结束时间取前六", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        ub.tokenStats.getSessions.mockResolvedValue([
+            ts_sess("s7", "grok", { ended_at: 1000 }),
+            ts_sess("s2", "opencode", { ended_at: 6000 }),
+            ts_sess("s5", "claude_code", { ended_at: 3000 }),
+            ts_sess("s1", "claude_code", { ended_at: 7000 }),
+            ts_sess("s6", "grok", { ended_at: 2000 }),
+            ts_sess("s4", "opencode", { ended_at: 4000 }),
+            ts_sess("s3", "claude_code", { ended_at: 5000 }),
+        ]);
+        render(<WorkspaceView />);
+        fireEvent.click(screen.getByRole("button", { name: "最近会话" }));
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: "最近 6 个" })).toBeTruthy();
+        });
+        expect(screen.getByRole("button", { name: "最近 2 个" })).toBeTruthy();
+        expect(screen.getByRole("button", { name: "最近 4 个" })).toBeTruthy();
+        expect(screen.getByRole("button", { name: "最近 8 个" })).toBeTruthy();
+
+        fireEvent.click(screen.getByRole("button", { name: "最近 6 个" }));
+
+        expect(
+            [...document.querySelectorAll(".ws-recent-check")].map((el) => el.textContent),
+        ).toEqual(["1", "2", "3", "4", "5", "6", ""]);
+        expect(
+            [...document.querySelectorAll(".ws-recent-title")].map((el) => el.textContent),
+        ).toEqual(["会话 s1", "会话 s2", "会话 s3", "会话 s4", "会话 s5", "会话 s6", "会话 s7"]);
+        expect(screen.getByText("最近会话（选 6/8）")).toBeTruthy();
+    });
+
     it("会话选择弹窗：点空槽打开、点会话装入目标槽位", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
