@@ -3617,6 +3617,21 @@
             "schedule_status": "",
             "note": "dropped: merged into t232",
             "dir": "docs/archive/tasks/t241_split_session_library_files"
+        },
+        {
+            "tid": "t242",
+            "slug": "draggable_provider_tabs",
+            "title": "用量面板厂商 tab 支持拖动排序",
+            "status": "done",
+            "branch": "t242_draggable_provider_tabs",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "780c544deb5fc13ff6ab33096a21186438c52143",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t242_draggable_provider_tabs"
         }
     ]
 }
